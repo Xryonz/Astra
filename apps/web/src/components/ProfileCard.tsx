@@ -14,7 +14,7 @@
  * Animação: banner settle (scale 1.05→1), avatar pop-in spring,
  * cascata stagger das seções, hover micro nos mutuais.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { MessageCircle, Pencil, Calendar, Users as UsersIcon, Crown, Shield, Sparkles, Quote } from 'lucide-react'
@@ -102,6 +102,8 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
   const navigate    = useNavigate()
   const [bannerError, setBannerError] = useState(false)
   const [avatarError, setAvatarError] = useState(false)
+  /** Cor dominante extraída do banner. Usada pra glow ambient no banner + avatar. */
+  const [extractedColor, setExtractedColor] = useState<string | null>(null)
 
   const isSelf = userId === currentUser?.id
 
@@ -136,6 +138,62 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
     ? undefined
     : (profile?.bannerColor ?? fallbackTheme)
 
+  /**
+   * Color extraction → ambient glow.
+   *
+   * Tenta na ordem:
+   *   1) Canvas pixel sampling do bannerUrl (mais preciso, mas falha em CORS)
+   *   2) Parse do primeiro hex do bannerColor gradient string (sempre funciona)
+   *   3) accentColor (último recurso)
+   *
+   * Roda quando bannerUrl/bannerColor mudam OU quando bannerError vira true
+   * (img falhou → cai pra parse do gradient).
+   */
+  useEffect(() => {
+    const fallbackFromGradient = () => {
+      const hex = profile?.bannerColor?.match(/#[0-9a-fA-F]{6}/)?.[0]
+      setExtractedColor(hex ?? accentColor)
+    }
+
+    if (!profile?.bannerUrl || bannerError) {
+      fallbackFromGradient()
+      return
+    }
+
+    let cancelled = false
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+
+    img.onload = () => {
+      if (cancelled) return
+      try {
+        const canvas = document.createElement('canvas')
+        const SIZE = 16
+        canvas.width = SIZE; canvas.height = SIZE
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('no ctx')
+        ctx.drawImage(img, 0, 0, SIZE, SIZE)
+        const { data } = ctx.getImageData(0, 0, SIZE, SIZE)
+        let r = 0, g = 0, b = 0
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i]; g += data[i + 1]; b += data[i + 2]
+        }
+        const px = data.length / 4
+        // Boost saturação um pouco — médias tendem a ficar cinza-pardo
+        const avg = (r + g + b) / 3 / px
+        const boost = (v: number) => Math.min(255, Math.round((v / px - avg) * 1.4 + avg + 30))
+        setExtractedColor(`rgb(${boost(r)},${boost(g)},${boost(b)})`)
+      } catch {
+        // CORS taint → canvas readback bloqueado. Fallback gradient.
+        fallbackFromGradient()
+      }
+    }
+    img.onerror = fallbackFromGradient
+    img.src = profile.bannerUrl
+
+    return () => { cancelled = true }
+  }, [profile?.bannerUrl, profile?.bannerColor, bannerError, accentColor])
+
   return (
     <Sheet open onOpenChange={(o: boolean) => !o && onClose()}>
       <SheetContent
@@ -159,7 +217,14 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
               className="relative h-60 overflow-hidden shrink-0 rounded-bl-2xl rounded-br-2xl"
-              style={{ background: bannerBg }}
+              style={{
+                background: bannerBg,
+                // Glow ambient com cor extraída: inner shadow no rodapé do banner
+                // (parece luz reflexa) + outer drop-shadow tingida.
+                boxShadow: extractedColor
+                  ? `inset 0 -60px 80px -20px ${extractedColor}55, 0 12px 36px -10px ${extractedColor}66`
+                  : undefined,
+              }}
             >
               {profile.bannerUrl && !bannerError && (
                 <img
@@ -183,6 +248,11 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               className="flex-1 px-6 sm:px-7 pb-8 pt-0 relative -mt-6 rounded-tl-2xl rounded-tr-2xl"
               style={{ background: themeBg }}
             >
+              {/* Partículas atmosféricas SOBRE o gradient mas ABAIXO do overlay
+                  → backdrop-blur-md do overlay borra elas → vira "poeira flutuante"
+                  difusa em vez de pontinhos rígidos. */}
+              <ParticleField />
+
               {/* Overlay pra legibilidade — mantém vibe do gradient mas legível */}
               <div className="absolute inset-0 bg-(--popover)/88 backdrop-blur-md rounded-tl-2xl rounded-tr-2xl pointer-events-none" />
 
@@ -196,8 +266,16 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     className="relative shrink-0"
                   >
                     <Avatar
-                      className="size-28 rounded-full border-[5px] shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)]"
-                      style={{ borderColor: 'var(--popover)', background: profile.isBot ? 'var(--accent-dim)' : accentColor + '22' }}
+                      className="size-28 rounded-full border-[5px] transition-shadow duration-700 ease-(--ease-spring)"
+                      style={{
+                        borderColor: 'var(--popover)',
+                        background:  profile.isBot ? 'var(--accent-dim)' : accentColor + '22',
+                        // Avatar absorve a mesma cor do banner → halo coeso, sem
+                        // dois mundos visuais. Fallback: sombra preta tradicional.
+                        boxShadow: extractedColor
+                          ? `0 14px 38px -10px ${extractedColor}cc, 0 0 0 1px ${extractedColor}44`
+                          : '0 8px 32px -8px rgba(0,0,0,0.6)',
+                      }}
                     >
                       {profile.avatarUrl && !avatarError && (
                         <AvatarImage
@@ -223,13 +301,28 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
 
                   <motion.div variants={sectionVariants} className="mb-2">
                     {!isSelf && !profile.isBot && (
-                      <Button
-                        onClick={handleSendDM}
-                        className="rounded-full h-10 px-5 gap-2 bg-(--accent) text-(--text-inv) font-medium tracking-wider uppercase text-[11px] hover:scale-105 hover:shadow-[0_8px_24px_var(--accent-glow)] transition-all duration-300 ease-(--ease-spring)"
+                      // Outer motion.div: whileTap pra feedback tátil (spring 500/25).
+                      // Button (shadcn) interno carrega sheen overlay via group-hover.
+                      <motion.div
+                        whileTap={{ scale: 0.94 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                        className="inline-block"
                       >
-                        <MessageCircle className="size-3.5" />
-                        Mensagem
-                      </Button>
+                        <Button
+                          onClick={handleSendDM}
+                          className="group relative overflow-hidden rounded-full h-10 px-5 gap-2 bg-(--accent) text-(--text-inv) font-medium tracking-wider uppercase text-[11px] hover:scale-105 hover:shadow-[0_8px_24px_var(--accent-glow)] transition-all duration-300 ease-(--ease-spring)"
+                        >
+                          {/* Sheen: faixa diagonal branca translúcida que atravessa o
+                              botão no hover. translate-x sai de -150% (off-screen left)
+                              até 250% (off-screen right) em 700ms. */}
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-0 left-0 w-1/2 -translate-x-[150%] group-hover:translate-x-[250%] transition-transform duration-700 ease-out pointer-events-none bg-linear-to-r from-transparent via-white/35 to-transparent skew-x-12"
+                          />
+                          <MessageCircle className="size-3.5 relative" />
+                          <span className="relative">Mensagem</span>
+                        </Button>
+                      </motion.div>
                     )}
                     {isSelf && (
                       <span className="ed-marg flex items-center gap-1.5">
@@ -337,9 +430,21 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                       <span className="ed-label">— Em comum</span>
                       <span className="text-[10px] font-mono text-(--text-3)">{mutuals.length}</span>
                     </div>
+                    {/* Slide cascade from right: cada tile entra deslizando 24px da direita
+                        com delay incremental. Stagger começa após o body já estar montado
+                        (delay base 0.5s = bodyVariants delayChildren + stagger total). */}
                     <ul className="flex flex-wrap gap-2">
-                      {mutuals.slice(0, 12).map((s) => (
-                        <li key={s.id}>
+                      {mutuals.slice(0, 12).map((s, i) => (
+                        <motion.li
+                          key={s.id}
+                          initial={{ opacity: 0, x: 24 }}
+                          animate={{ opacity: 1, x:  0 }}
+                          transition={{
+                            duration: 0.42,
+                            delay:    0.5 + i * 0.055,
+                            ease:     [0.16, 1, 0.3, 1],
+                          }}
+                        >
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
@@ -360,7 +465,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                             </TooltipTrigger>
                             <TooltipContent side="top">{s.name}</TooltipContent>
                           </Tooltip>
-                        </li>
+                        </motion.li>
                       ))}
                     </ul>
                   </motion.div>
@@ -397,5 +502,71 @@ function Chip({ icon, label, tone }: { icon: React.ReactNode; label: string; ton
     >
       {icon} {label}
     </span>
+  )
+}
+
+/**
+ * ParticleField — campo atmosférico de pontos brancos flutuantes sobre theme bg.
+ *
+ * Vibe "dust motes in sunlight" — cada partícula tem fase própria (delay
+ * aleatório) pra evitar sincronia. Renderizado ABAIXO do overlay com
+ * backdrop-blur-md → as partículas viram halos difusos em vez de pontinhos
+ * cravados.
+ *
+ * Perf:
+ * - 22 partículas é o sweet spot (mexem GPU compositor, custo trivial)
+ * - useMemo evita rebagunçar posições a cada re-render do parent
+ * - Respeita prefers-reduced-motion: opacidade fixa, sem float
+ */
+function ParticleField({ count = 22 }: { count?: number }) {
+  const particles = useMemo(
+    () => Array.from({ length: count }).map((_, i) => ({
+      id:        i,
+      left:      Math.random() * 100,
+      top:       Math.random() * 100,
+      size:      0.8 + Math.random() * 1.6,
+      orbitX:    -6 + Math.random() * 12,
+      orbitY:    -8 + Math.random() * 16,
+      duration:  14 + Math.random() * 16,
+      delay:     Math.random() * 6,
+      opacityHi: 0.35 + Math.random() * 0.45,
+    })),
+    [count],
+  )
+
+  const reduceMotion = typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-tl-2xl rounded-tr-2xl">
+      {particles.map((p) => (
+        <motion.span
+          key={p.id}
+          aria-hidden
+          className="absolute rounded-full bg-white"
+          style={{
+            left:   `${p.left}%`,
+            top:    `${p.top}%`,
+            width:  `${p.size}px`,
+            height: `${p.size}px`,
+          }}
+          initial={{ opacity: 0 }}
+          animate={reduceMotion
+            ? { opacity: p.opacityHi * 0.4 }
+            : {
+                opacity: [0.1, p.opacityHi, 0.1],
+                x:       [0, p.orbitX, 0],
+                y:       [0, p.orbitY, 0],
+              }
+          }
+          transition={{
+            duration: p.duration,
+            delay:    p.delay,
+            repeat:   Infinity,
+            ease:     'easeInOut',
+          }}
+        />
+      ))}
+    </div>
   )
 }

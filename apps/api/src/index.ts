@@ -50,6 +50,16 @@ import { HttpError }                     from './lib/errors'
 import { logger }                        from './lib/logger'
 
 const app        = express()
+// Atrás de proxy reverso (Render/Railway/Fly/nginx): confia no header
+// X-Forwarded-* pra que:
+//  - req.ip retorne IP real do user (não do proxy) → rate-limit funciona por user
+//  - req.protocol retorne 'https' quando o user acessou via HTTPS → OAuth callback
+//    URL é construída com scheme certo, secure-cookies enviam, redirects funcionam
+//
+// '1' = confia em EXATAMENTE 1 hop (o proxy do hosting). Confiar em 'true' aceitaria
+// qualquer X-Forwarded-For falsificado pelo cliente → IP spoofing trivial.
+app.set('trust proxy', 1)
+
 const httpServer = http.createServer(app)
 
 const io = new SocketServer(httpServer, {

@@ -34,10 +34,16 @@ const userSafeColumns = {
   profileTheme: users.profileTheme,
 }
 
+// sameSite/secure depende do contexto:
+//  - prod (HTTPS, web em domínio diferente da API): 'none' obriga secure=true.
+//    'strict' falharia cross-site → browser nunca envia o cookie em XHR do
+//    frontend → refresh token nunca chega → user é deslogado a cada reload.
+//  - dev (HTTP, mesma localhost): 'lax' (não pode 'none' sem secure).
+const isProd = process.env.NODE_ENV === 'production'
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure:   process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  secure:   isProd,
+  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
   maxAge:   7 * 24 * 60 * 60 * 1000,
   path:     '/api/auth',
 }

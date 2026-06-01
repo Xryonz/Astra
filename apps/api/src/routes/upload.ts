@@ -9,6 +9,28 @@ import { asyncHandler } from '../lib/asyncHandler'
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads')
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 
+/**
+ * ⚠️ AVISO DE PRODUÇÃO ⚠️
+ *
+ * Esta implementação grava arquivos no filesystem local. Em hosts com disco
+ * EFÊMERO (Render free, Railway, Fly volumes não-attached, Vercel), TODO upload
+ * é DESTRUÍDO em cada redeploy/restart do container.
+ *
+ * Em produção real (não-dev/portfolio), migrar pra:
+ *   - Cloudflare R2 (S3-compatible, 10GB grátis, ZERO egress fee — recomendado)
+ *   - AWS S3 + presigned uploads
+ *   - Disco persistente Render ($1/GB/mês)
+ *
+ * Aviso emitido uma vez no startup pra ficar grudado nos logs de deploy.
+ */
+if (process.env.NODE_ENV === 'production' && !process.env.UPLOAD_PERSISTENT) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[uploads] ⚠ Storage em filesystem local. Arquivos serão perdidos em cada redeploy.\n' +
+    '          Migre pra storage cloud (R2/S3) ou seta UPLOAD_PERSISTENT=1 se tem volume montado.',
+  )
+}
+
 // SVG removido propositalmente: pode conter <script> e dispara XSS quando
 // servido com Content-Type image/svg+xml e renderizado inline. Pra suportar
 // SVG no futuro: sanitizar via dompurify server-side OU servir com

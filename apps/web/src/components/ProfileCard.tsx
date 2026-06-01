@@ -33,13 +33,14 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import StatusDot, { STATUS_META, type UserStatus } from '@/components/StatusDot'
 
 // Cascata interna — chega depois do slide do Sheet.
+// Tuned p/ "leve e clean": menos delay, menos amplitude, duração curta.
 const bodyVariants: Variants = {
   hidden:  { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.22 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04, delayChildren: 0.12 } },
 }
 const sectionVariants: Variants = {
-  hidden:  { opacity: 0, y: 14 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] } },
+  hidden:  { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] } },
 }
 
 interface PublicUser {
@@ -213,16 +214,16 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
 
             {/* ── Banner ─────────────────────────────────── */}
             <motion.div
-              initial={{ opacity: 0, scale: 1.06 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="relative h-60 overflow-hidden shrink-0 rounded-bl-2xl rounded-br-2xl"
               style={{
                 background: bannerBg,
-                // Glow ambient com cor extraída: inner shadow no rodapé do banner
-                // (parece luz reflexa) + outer drop-shadow tingida.
+                // Glow ambient leve com cor extraída (intensidades reduzidas
+                // p/ vibe clean — antes era forte demais).
                 boxShadow: extractedColor
-                  ? `inset 0 -60px 80px -20px ${extractedColor}55, 0 12px 36px -10px ${extractedColor}66`
+                  ? `inset 0 -50px 70px -24px ${extractedColor}33, 0 8px 24px -12px ${extractedColor}44`
                   : undefined,
               }}
             >
@@ -260,9 +261,9 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                 {/* ── Avatar row ───────────────────────────── */}
                 <div className="flex items-end justify-between -mt-14 mb-4">
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 0.55, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
                     className="relative shrink-0"
                   >
                     <Avatar
@@ -270,11 +271,11 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                       style={{
                         borderColor: 'var(--popover)',
                         background:  profile.isBot ? 'var(--accent-dim)' : accentColor + '22',
-                        // Avatar absorve a mesma cor do banner → halo coeso, sem
-                        // dois mundos visuais. Fallback: sombra preta tradicional.
+                        // Avatar absorve a mesma cor do banner → halo coeso.
+                        // Intensidade reduzida p/ vibe clean.
                         boxShadow: extractedColor
-                          ? `0 14px 38px -10px ${extractedColor}cc, 0 0 0 1px ${extractedColor}44`
-                          : '0 8px 32px -8px rgba(0,0,0,0.6)',
+                          ? `0 10px 28px -12px ${extractedColor}88, 0 0 0 1px ${extractedColor}22`
+                          : '0 8px 24px -10px rgba(0,0,0,0.5)',
                       }}
                     >
                       {profile.avatarUrl && !avatarError && (
@@ -304,8 +305,8 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                       // Outer motion.div: whileTap pra feedback tátil (spring 500/25).
                       // Button (shadcn) interno carrega sheen overlay via group-hover.
                       <motion.div
-                        whileTap={{ scale: 0.94 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 600, damping: 28 }}
                         className="inline-block"
                       >
                         <Button
@@ -317,7 +318,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                               até 250% (off-screen right) em 700ms. */}
                           <span
                             aria-hidden
-                            className="absolute inset-y-0 left-0 w-1/2 -translate-x-[150%] group-hover:translate-x-[250%] transition-transform duration-700 ease-out pointer-events-none bg-linear-to-r from-transparent via-white/35 to-transparent skew-x-12"
+                            className="absolute inset-y-0 left-0 w-1/2 translate-x-[-150%] group-hover:translate-x-[250%] transition-transform duration-900 ease-out pointer-events-none bg-linear-to-r from-transparent via-white/22 to-transparent skew-x-12"
                           />
                           <MessageCircle className="size-3.5 relative" />
                           <span className="relative">Mensagem</span>
@@ -430,18 +431,17 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                       <span className="ed-label">— Em comum</span>
                       <span className="text-[10px] font-mono text-(--text-3)">{mutuals.length}</span>
                     </div>
-                    {/* Slide cascade from right: cada tile entra deslizando 24px da direita
-                        com delay incremental. Stagger começa após o body já estar montado
-                        (delay base 0.5s = bodyVariants delayChildren + stagger total). */}
+                    {/* Slide cascade leve: cada tile entra deslizando 8px da direita,
+                        stagger curto e delay base reduzido p/ não esperar tanto. */}
                     <ul className="flex flex-wrap gap-2">
                       {mutuals.slice(0, 12).map((s, i) => (
                         <motion.li
                           key={s.id}
-                          initial={{ opacity: 0, x: 24 }}
-                          animate={{ opacity: 1, x:  0 }}
+                          initial={{ opacity: 0, x: 8 }}
+                          animate={{ opacity: 1, x: 0 }}
                           transition={{
-                            duration: 0.42,
-                            delay:    0.5 + i * 0.055,
+                            duration: 0.28,
+                            delay:    0.28 + i * 0.025,
                             ease:     [0.16, 1, 0.3, 1],
                           }}
                         >
@@ -509,27 +509,24 @@ function Chip({ icon, label, tone }: { icon: React.ReactNode; label: string; ton
  * ParticleField — campo atmosférico de pontos brancos flutuantes sobre theme bg.
  *
  * Vibe "dust motes in sunlight" — cada partícula tem fase própria (delay
- * aleatório) pra evitar sincronia. Renderizado ABAIXO do overlay com
- * backdrop-blur-md → as partículas viram halos difusos em vez de pontinhos
- * cravados.
+ * aleatório). Renderizado ABAIXO do overlay backdrop-blur-md → partículas
+ * viram halos difusos em vez de pontinhos cravados.
  *
- * Perf:
- * - 22 partículas é o sweet spot (mexem GPU compositor, custo trivial)
- * - useMemo evita rebagunçar posições a cada re-render do parent
- * - Respeita prefers-reduced-motion: opacidade fixa, sem float
+ * Tuned p/ "leve e clean": 12 partículas, opacidade baixa, órbitas curtas,
+ * duração longa (movimento quase imperceptível, só dá vida ao bg).
  */
-function ParticleField({ count = 22 }: { count?: number }) {
+function ParticleField({ count = 12 }: { count?: number }) {
   const particles = useMemo(
     () => Array.from({ length: count }).map((_, i) => ({
       id:        i,
       left:      Math.random() * 100,
       top:       Math.random() * 100,
-      size:      0.8 + Math.random() * 1.6,
-      orbitX:    -6 + Math.random() * 12,
-      orbitY:    -8 + Math.random() * 16,
-      duration:  14 + Math.random() * 16,
-      delay:     Math.random() * 6,
-      opacityHi: 0.35 + Math.random() * 0.45,
+      size:      0.7 + Math.random() * 1.1,
+      orbitX:    -3 + Math.random() * 6,
+      orbitY:    -4 + Math.random() * 8,
+      duration:  22 + Math.random() * 18,
+      delay:     Math.random() * 8,
+      opacityHi: 0.18 + Math.random() * 0.22,
     })),
     [count],
   )
@@ -554,7 +551,7 @@ function ParticleField({ count = 22 }: { count?: number }) {
           animate={reduceMotion
             ? { opacity: p.opacityHi * 0.4 }
             : {
-                opacity: [0.1, p.opacityHi, 0.1],
+                opacity: [0.05, p.opacityHi, 0.05],
                 x:       [0, p.orbitX, 0],
                 y:       [0, p.orbitY, 0],
               }

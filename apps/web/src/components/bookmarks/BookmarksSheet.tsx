@@ -5,6 +5,7 @@
  * Lazy-loaded pelo caller (rare interaction).
  */
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
@@ -61,11 +62,19 @@ export default function BookmarksSheet({ open, onClose }: Props) {
               </EmptyDescription>
             </Empty>
           ) : (
-            <ul className="divide-y divide-(--border)">
-              {items.map((b) => (
-                <Row key={b.id} b={b} onRemove={() => remove(b.id)} onSaveNote={(n) => saveNote(b.id, n)} />
+            <div className="divide-y divide-(--border)" role="list">
+              {items.map((b, i) => (
+                <motion.div
+                  key={b.id}
+                  role="listitem"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.32, delay: Math.min(i * 0.03, 0.4), ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <Row b={b} onRemove={() => remove(b.id)} onSaveNote={(n) => saveNote(b.id, n)} />
+                </motion.div>
               ))}
-            </ul>
+            </div>
           )}
 
           {list.hasNextPage && (
@@ -97,7 +106,7 @@ function Row({ b, onRemove, onSaveNote }: {
   const avatar = snap?.authorAvatar ? resolveApiUrl(snap.authorAvatar) : null
 
   return (
-    <li className="p-4 hover:bg-(--raised)/40 transition-colors group">
+    <div className="p-4 hover:bg-(--raised)/40 transition-colors group">
       <div className="flex gap-3">
         {avatar ? (
           <img src={avatar} alt={author} loading="lazy" decoding="async" className="size-8 rounded-full object-cover shrink-0" />
@@ -162,6 +171,6 @@ function Row({ b, onRemove, onSaveNote }: {
           )}
         </div>
       </div>
-    </li>
+    </div>
   )
 }

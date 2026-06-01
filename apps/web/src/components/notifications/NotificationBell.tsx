@@ -5,6 +5,7 @@
  * com lista scrollable + filtros + mark-all-read.
  */
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
 import { Sparkles } from 'lucide-react'
@@ -144,19 +145,26 @@ function NotificationCenter({ onClose }: { onClose: () => void }) {
             <EmptyDescription>Notificações chegarão aqui em tempo real.</EmptyDescription>
           </Empty>
         ) : (
-          <ul className="divide-y divide-border">
-            {items.map((n) => (
-              <NotificationRow
+          <div className="divide-y divide-border" role="list">
+            {items.map((n, i) => (
+              <motion.div
                 key={n.id}
-                n={n}
-                onActivate={(item) => {
-                  if (!item.readAt) markRead.mutate(item.id)
-                  navigateTo(item)
-                  onClose()
-                }}
-              />
+                role="listitem"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.28, delay: Math.min(i * 0.022, 0.3), ease: [0.16, 1, 0.3, 1] }}
+              >
+                <NotificationRow
+                  n={n}
+                  onActivate={(item) => {
+                    if (!item.readAt) markRead.mutate(item.id)
+                    navigateTo(item)
+                    onClose()
+                  }}
+                />
+              </motion.div>
             ))}
-          </ul>
+          </div>
         )}
 
         {feed.hasNextPage && (
@@ -195,7 +203,7 @@ function NotificationRow({
   }
 
   return (
-    <li
+    <div
       role="button"
       tabIndex={0}
       onClick={() => onActivate(n)}
@@ -228,7 +236,7 @@ function NotificationRow({
       {!n.readAt && (
         <span className="shrink-0 mt-1.5 size-1.5 rounded-full bg-(--accent)" aria-label="Não lida" />
       )}
-    </li>
+    </div>
   )
 }
 

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, Clock, Tag, Plus, Pencil, Check, Ban, ScrollText, Hash, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, Clock, Tag, Plus, Pencil, Check, Ban, ScrollText, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { useMyPerms } from '@/hooks/useMyPerms'
@@ -20,6 +21,7 @@ import { useConfirm, usePrompt } from '@/hooks/useConfirm'
 import { toast } from '@/components/ui/sonner'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ServerWithChannels } from '@umbra/types'
@@ -139,6 +141,35 @@ export default function ServerSettingsPage() {
   })
 
   const [showDelete, setShowDelete] = useState(false)
+  const [showInviteFriends, setShowInviteFriends] = useState(false)
+  const confirm = useConfirm()
+
+  // Regenera inviteCode: invalida link antigo, atualiza cache de servers
+  const regenerateInvite = useMutation({
+    mutationFn: async () => (await api.post(`/api/servers/${serverId}/regenerate-invite`)).data.data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servers'] })
+      toast.success('Link de convite regenerado. Links antigos não funcionam mais.')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error ?? 'Erro ao regenerar convite'),
+  })
+
+  const handleRegenerateInvite = async () => {
+    const ok = await confirm({
+      title: 'Regenerar link de convite?',
+      description: 'Qualquer pessoa com o link antigo NÃO conseguirá mais entrar. Use isso se o link vazou ou você quer revogá-lo.',
+      confirmLabel: 'Sim, regenerar',
+      destructive: true,
+    })
+    if (ok) regenerateInvite.mutate()
+  }
+
+  const copyInvite = () => {
+    if (!server) return
+    navigator.clipboard.writeText(`${window.location.origin}/invite/${server.inviteCode}`)
+      .then(() => toast.success('Link copiado'))
+      .catch(() => toast.error('Falha ao copiar — copie manualmente'))
+  }
 
   const handleIconFile = (file: File) => {
     if (file.size > MAX_ICON_BYTES) { setError('Ícone maior que 5MB'); return }
@@ -257,14 +288,50 @@ export default function ServerSettingsPage() {
               <>
                 <Separator className="my-5" />
                 <section className="space-y-3">
-                  <span className="ed-label">— III. Convite</span>
-                  <div className="flex items-center gap-2 max-w-md">
-                    <Input readOnly value={`${window.location.origin}/invite/${server.inviteCode}`} />
-                    <Button
-                      variant="secondary"
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/invite/${server.inviteCode}`)}
-                    >Copiar</Button>
+                  <div className="flex items-center gap-2">
+                    <LinkIcon className="size-3.5 text-(--text-3)" />
+                    <span className="ed-label">— III. Convite</span>
                   </div>
+                  <p className="text-sm text-(--text-2) m-0 max-w-prose">
+                    Qualquer pessoa com este link pode entrar. Pra revogar acesso, regenere o código.
+                  </p>
+                  <div className="flex items-center gap-2 max-w-xl flex-wrap">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/invite/${server.inviteCode}`}
+                      className="font-mono text-[12px] flex-1 min-w-64"
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="secondary" onClick={copyInvite} className="gap-1.5">
+                          <Copy className="size-3.5" /> Copiar
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Copia link pra área de transferência</TooltipContent>
+                    </Tooltip>
+                    {isAdmin && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            onClick={handleRegenerateInvite}
+                            disabled={regenerateInvite.isPending}
+                            className="gap-1.5"
+                          >
+                            <RefreshCw className={`size-3.5 ${regenerateInvite.isPending ? 'animate-spin' : ''}`} />
+                            {regenerateInvite.isPending ? 'Gerando…' : 'Regenerar'}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Gera novo código — invalida o atual</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  {!isAdmin && (
+                    <p className="text-[11px] text-(--text-3) italic m-0">
+                      Só admins podem regenerar o código.
+                    </p>
+                  )}
                 </section>
               </>
             )}
@@ -338,39 +405,54 @@ export default function ServerSettingsPage() {
 
           {/* ── MEMBERS ─────────────────────── */}
           <TabsContent value="members" className="space-y-2">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <span className="ed-label">— Membros</span>
               <div className="flex-1 h-px bg-(--border)" />
               <span className="ed-marg">{members.length}</span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowInviteFriends(true)}
+                className="gap-1.5 h-7"
+              >
+                <UserPlus className="size-3.5" /> Convidar amigo
+              </Button>
             </div>
-            <ul className="flex flex-col gap-1.5">
-              {members.map((m) => (
-                <MemberRow
+            <div className="flex flex-col gap-1.5" role="list">
+              {members.map((m, i) => (
+                <motion.div
                   key={m.id}
-                  member={m}
-                  serverId={serverId!}
-                  currentUserId={currentUser?.id}
-                  isOwnerSelf={isOwner}
-                  isAdminSelf={isAdmin}
-                  canBan={perms.has('BAN_MEMBERS')}
-                  onSetRole={(role) => setMemberRole.mutate({ memberId: m.id, role })}
-                  onKick={() => setKickTarget(m)}
-                  onBan={async () => {
-                    const reason = await prompt({
-                      title: `Banir ${m.user.displayName}?`,
-                      description: 'Banimento é permanente até desbanido. Motivo aparece no audit log.',
-                      label: 'Motivo (opcional)',
-                      placeholder: 'ex: spam, comportamento abusivo…',
-                      confirmLabel: 'Banir',
-                    })
-                    if (reason === null) return
-                    banMember.mutate({ userId: m.userId, reason: reason || null }, {
-                      onSuccess: () => toast.success(`${m.user.displayName} foi banido`),
-                    })
-                  }}
-                />
+                  role="listitem"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: Math.min(i * 0.025, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <MemberRow
+                    member={m}
+                    serverId={serverId!}
+                    currentUserId={currentUser?.id}
+                    isOwnerSelf={isOwner}
+                    isAdminSelf={isAdmin}
+                    canBan={perms.has('BAN_MEMBERS')}
+                    onSetRole={(role) => setMemberRole.mutate({ memberId: m.id, role })}
+                    onKick={() => setKickTarget(m)}
+                    onBan={async () => {
+                      const reason = await prompt({
+                        title: `Banir ${m.user.displayName}?`,
+                        description: 'Banimento é permanente até desbanido. Motivo aparece no audit log.',
+                        label: 'Motivo (opcional)',
+                        placeholder: 'ex: spam, comportamento abusivo…',
+                        confirmLabel: 'Banir',
+                      })
+                      if (reason === null) return
+                      banMember.mutate({ userId: m.userId, reason: reason || null }, {
+                        onSuccess: () => toast.success(`${m.user.displayName} foi banido`),
+                      })
+                    }}
+                  />
+                </motion.div>
               ))}
-            </ul>
+            </div>
           </TabsContent>
 
           {/* ── ROLES ─────────────────────── */}
@@ -420,6 +502,15 @@ export default function ServerSettingsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Convite por amigo — dialog com lista filtrada */}
+      <InviteFriendsDialog
+        open={showInviteFriends}
+        onClose={() => setShowInviteFriends(false)}
+        serverId={serverId!}
+        serverName={server.name}
+        currentMemberUserIds={new Set(members.map((m) => m.userId))}
+      />
+
       {/* Confirm delete server */}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="max-w-95! text-center">
@@ -462,7 +553,7 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
   const canKick = isAdminSelf && !isOwner && !isSelf && !(member.role === 'ADMIN' && !isOwnerSelf)
 
   return (
-    <li className="flex items-center gap-3 px-3 py-2 border border-transparent hover:border-(--border) hover:bg-(--raised)/40 transition-colors">
+    <div className="flex items-center gap-3 px-3 py-2 border border-transparent hover:border-(--border) hover:bg-(--raised)/40 transition-colors">
       <Avatar className="size-9 shrink-0">
         {member.user.avatarUrl && <AvatarImage src={member.user.avatarUrl} referrerPolicy="no-referrer" />}
         <AvatarFallback className="text-xs">{member.user.displayName.slice(0,1).toUpperCase()}</AvatarFallback>
@@ -542,7 +633,7 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
           onClose={() => setRolesOpen(false)}
         />
       )}
-    </li>
+    </div>
   )
 }
 
@@ -1196,5 +1287,146 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// InviteFriendsDialog — picker editorial com search + lista de amigos.
+//
+// Filtra amigos que JÁ são membros (não dá pra convidar quem já está).
+// Mutation otimista: ao clicar adiciona, mostra "✓ Convidado" no item,
+// invalida ['members', serverId] pra refletir.
+// ──────────────────────────────────────────────────────────────
+interface Friend {
+  friendshipId: string
+  user: { id: string; username: string; displayName: string; avatarUrl: string|null }
+  presence: { status: string }
+}
+
+function InviteFriendsDialog({
+  open, onClose, serverId, serverName, currentMemberUserIds,
+}: {
+  open: boolean
+  onClose: () => void
+  serverId: string
+  serverName: string
+  currentMemberUserIds: Set<string>
+}) {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [invitedNow, setInvitedNow] = useState<Set<string>>(new Set())
+
+  const { data: friends = [], isLoading } = useQuery<Friend[]>({
+    queryKey: ['friends'],
+    queryFn:  async () => (await api.get('/api/friends')).data.data,
+    enabled:  open,
+    staleTime: 30_000,
+  })
+
+  const addFriend = useMutation({
+    mutationFn: async (friendUserId: string) =>
+      (await api.post(`/api/servers/${serverId}/add-friend`, { friendUserId })).data.data,
+    onSuccess: (_data, friendUserId) => {
+      setInvitedNow((prev) => new Set(prev).add(friendUserId))
+      queryClient.invalidateQueries({ queryKey: ['members', serverId] })
+      toast.success('Amigo adicionado ao servidor')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error ?? 'Erro ao adicionar amigo'),
+  })
+
+  const eligible = friends.filter((f) => {
+    if (currentMemberUserIds.has(f.user.id)) return false
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return f.user.displayName.toLowerCase().includes(q) || f.user.username.toLowerCase().includes(q)
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-95! sm:max-w-md! p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-3">
+          <div className="size-10 bg-(--accent-dim) border border-(--accent)/40 rounded-xl flex items-center justify-center mb-2">
+            <UserPlus className="size-5 text-(--accent)" />
+          </div>
+          <DialogTitle>Convidar amigo</DialogTitle>
+          <DialogDescription className="text-(--text-3)">
+            Adicione um amigo direto a <span className="text-foreground">{serverName}</span> — sem precisar de link.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-6 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-(--text-3) pointer-events-none" />
+            <Input
+              placeholder="Buscar por nome ou @username…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-(--border) max-h-80 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-(--text-3)">
+              <Spinner size={14} /> Carregando amigos…
+            </div>
+          ) : eligible.length === 0 ? (
+            <div className="py-10 px-6 text-center">
+              <p className="text-sm text-(--text-2) m-0">
+                {friends.length === 0
+                  ? 'Você ainda não tem amigos no Umbra.'
+                  : currentMemberUserIds.size > 0 && friends.length === currentMemberUserIds.size
+                    ? 'Todos os seus amigos já são membros.'
+                    : 'Nenhum amigo encontrado pra esse filtro.'}
+              </p>
+            </div>
+          ) : (
+            <AnimatePresence initial={false}>
+              {eligible.map((f, i) => {
+                const isInvited = invitedNow.has(f.user.id)
+                return (
+                  <motion.div
+                    key={f.user.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{    opacity: 0, x: -8 }}
+                    transition={{ duration: 0.25, delay: Math.min(i * 0.025, 0.2), ease: [0.16, 1, 0.3, 1] }}
+                    className="flex items-center gap-3 px-6 py-2.5 border-b border-(--border) last:border-b-0 hover:bg-(--raised)/40 transition-colors"
+                  >
+                    <Avatar className="size-8 shrink-0 border border-(--border-mid)">
+                      {f.user.avatarUrl && <AvatarImage src={f.user.avatarUrl} referrerPolicy="no-referrer" />}
+                      <AvatarFallback className="text-[10px] font-(family-name:--font-display)">
+                        {f.user.displayName.slice(0, 1).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm m-0 truncate text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+                        {f.user.displayName}
+                      </p>
+                      <p className="text-[10px] font-mono text-(--text-3) m-0 truncate">@{f.user.username}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={isInvited ? 'secondary' : 'default'}
+                      disabled={isInvited || addFriend.isPending}
+                      onClick={() => addFriend.mutate(f.user.id)}
+                      className="gap-1.5 shrink-0"
+                    >
+                      {isInvited ? <><Check className="size-3.5" /> Convidado</> : <><Plus className="size-3.5" /> Adicionar</>}
+                    </Button>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+          )}
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-(--border)">
+          <Button variant="secondary" onClick={onClose} className="ml-auto">Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

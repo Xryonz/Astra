@@ -2,13 +2,14 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { servers, serverMembers, channels, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages } from '../db/schema'
+import { servers, serverMembers, channels, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { CreateServerSchema, CreateChannelSchema } from '@umbra/types'
 import { PERMS, getMemberPerms, filterVisibleChannels } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
+import { createId } from '../db/cuid'
 
 export const serversRouter = Router()
 
@@ -169,6 +170,104 @@ serversRouter.patch(
     })
     const updated = await serverWithChannelsAndCount(serverId)
     res.json({ data: updated })
+  })
+)
+
+// ── POST /api/servers/:serverId/regenerate-invite ─────────────
+// Rotaciona o inviteCode: links antigos param de funcionar imediatamente.
+// Usado quando o convite vazou ou simplesmente o owner quer trocar.
+serversRouter.post(
+  '/:serverId/regenerate-invite',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serverId } = req.params
+
+    const m = await getMemberPerms(req.userId!, serverId)
+    if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_SERVER)) {
+      return res.status(403).json({ error: 'Sem permissão pra regenerar o convite' })
+    }
+
+    const newCode = createId()
+    await db.update(servers).set({ inviteCode: newCode }).where(eq(servers.id, serverId))
+    void audit({
+      serverId, actorId: req.userId!, action: AUDIT.SERVER_UPDATE,
+      targetId: serverId, metadata: { fields: ['inviteCode'] },
+    })
+
+    res.json({ data: { inviteCode: newCode } })
+  })
+)
+
+// ── POST /api/servers/:serverId/add-friend ────────────────────
+// Adiciona um amigo (friendship accepted) direto ao servidor — sem precisar
+// passar pelo invite link. Notifica o amigo via Notification + invalida queries.
+// Requer apenas que o caller seja membro (qualquer um pode convidar amigos).
+const AddFriendSchema = z.object({
+  friendUserId: z.string().min(1, 'friendUserId obrigatório'),
+})
+
+serversRouter.post(
+  '/:serverId/add-friend',
+  requireAuth,
+  validate(AddFriendSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serverId } = req.params
+    const { friendUserId } = req.body as { friendUserId: string }
+    const callerId = req.userId!
+
+    // 1) Caller é membro do server?
+    const [callerMember] = await db.select({ id: serverMembers.id })
+      .from(serverMembers)
+      .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, callerId)))
+      .limit(1)
+    if (!callerMember) return res.status(403).json({ error: 'Você não é membro deste servidor' })
+
+    // 2) São amigos aceitos? (par sempre normalizado userA < userB no schema)
+    const [a, b] = callerId < friendUserId ? [callerId, friendUserId] : [friendUserId, callerId]
+    const [friendship] = await db.select({ id: friendships.id, status: friendships.status })
+      .from(friendships)
+      .where(and(eq(friendships.userAId, a), eq(friendships.userBId, b)))
+      .limit(1)
+    if (!friendship || friendship.status !== 'accepted') {
+      return res.status(403).json({ error: 'Você só pode adicionar amigos aceitos' })
+    }
+
+    // 3) Friend está banido do server?
+    const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
+      .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, friendUserId)))
+      .limit(1)
+    if (banned) return res.status(403).json({ error: 'Esse amigo está banido do servidor' })
+
+    // 4) Já é membro?
+    const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
+      .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, friendUserId)))
+      .limit(1)
+    if (already) return res.status(409).json({ error: 'Esse amigo já é membro' })
+
+    // 5) Server existe?
+    const [server] = await db.select({ id: servers.id, name: servers.name, isGroup: servers.isGroup })
+      .from(servers).where(eq(servers.id, serverId)).limit(1)
+    if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
+
+    // 6) Insert + notification
+    await db.insert(serverMembers).values({ userId: friendUserId, serverId })
+    await db.insert(notifications).values({
+      userId: friendUserId,
+      type:   'server_invite',
+      payload: JSON.stringify({
+        serverId,
+        serverName: server.name,
+        isGroup:    server.isGroup,
+        addedBy:    callerId,
+      }),
+    })
+    void audit({
+      serverId, actorId: callerId, action: AUDIT.SERVER_UPDATE,
+      targetId: friendUserId, metadata: { kind: 'add_friend' },
+    })
+
+    res.json({ data: { ok: true, friendUserId } })
   })
 )
 

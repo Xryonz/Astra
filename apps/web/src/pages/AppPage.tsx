@@ -1,0 +1,341 @@
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import Sidebar from '@/components/layout/Sidebar'
+import UmbraLogo from '@/components/UmbraLogo'
+import { Reveal } from '@/components/anim/Reveal'
+import { PageTransition } from '@/components/anim/PageTransition'
+import { AnimatePresence } from 'motion/react'
+import { Menu, Pin, Search, Users as UsersIcon, Bookmark, MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { useUIStore } from '@/store/uiStore'
+import { usePresenceListener } from '@/hooks/usePresence'
+import { useInAppNotifications } from '@/hooks/useInAppNotifications'
+import MessageList from '@/components/chat/MessageList'
+import MessageInput from '@/components/chat/MessageInput'
+import TypingIndicator from '@/components/chat/TypingIndicator'
+import MentionBanner from '@/components/chat/MentionBanner'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
+import type { MessageWithAuthor } from '@umbra/types'
+
+// Lazy: páginas pesadas + componentes raros (settings, command palette, painéis com sheets)
+// Carregam só quando o user de fato navega/abre.
+// VoiceCallPanel/IncomingCallModal: carregam só quando voice tá configurado
+// — economia de ~30KB no bundle inicial.
+const VoiceCallPanel    = lazy(() => import('@/components/voice/VoiceCallPanel').then((m) => ({ default: m.VoiceCallPanel })))
+const IncomingCallModal = lazy(() => import('@/components/voice/IncomingCallModal').then((m) => ({ default: m.IncomingCallModal })))
+const DMPage              = lazy(() => import('@/pages/DMPage'))
+const ProfilePage         = lazy(() => import('@/pages/ProfilePage'))
+const SettingsPage        = lazy(() => import('@/pages/SettingsPage'))
+const ServerSettingsPage  = lazy(() => import('@/pages/ServerSettingsPage'))
+const CommandPalette      = lazy(() => import('@/components/CommandPalette'))
+const PinnedMessagesSheet = lazy(() => import('@/components/chat/PinnedMessagesSheet'))
+const RightPanel          = lazy(() => import('@/components/chat/RightPanel'))
+const BookmarksSheet      = lazy(() => import('@/components/bookmarks/BookmarksSheet'))
+const FriendsPage         = lazy(() => import('@/pages/FriendsPage'))
+
+type OptimisticMessage = MessageWithAuthor & { optimisticId?: string; isPending?: boolean }
+interface ActiveChannel { id: string; name: string; serverId: string }
+
+function ChannelView() {
+  const location     = useLocation()
+  const locationState = location.state as ActiveChannel | null
+  const [activeChannel, setActiveChannel] = useState<ActiveChannel | null>(locationState ?? null)
+  const openMobile         = useUIStore((s) => s.openMobileSidebar)
+  const openCommandPalette = useUIStore((s) => s.openCommandPalette)
+  const openRightPanel     = useUIStore((s) => s.openRightPanel)
+  const [pinnedOpen, setPinnedOpen]     = useState(false)
+  const [bookmarksOpen, setBookmarksOpen] = useState(false)
+  const [replyingTo, setReplyingTo]     = useState<MessageWithAuthor | null>(null)
+
+  // Reset reply target ao trocar de canal
+  useEffect(() => { setReplyingTo(null) }, [activeChannel?.id])
+
+  // Sync state quando location.state muda (Sidebar hoisted navega via state)
+  useEffect(() => {
+    if (locationState && locationState.id !== activeChannel?.id) {
+      setActiveChannel(locationState)
+    }
+  }, [locationState, activeChannel?.id])
+
+  const addOptimisticRef    = useRef<((msg: OptimisticMessage) => void) | null>(null)
+  const removeOptimisticRef = useRef<((id: string) => void) | null>(null)
+
+  const handleRegisterOptimistic = useCallback(
+    (add: (m: OptimisticMessage) => void, remove: (id: string) => void) => {
+      addOptimisticRef.current    = add
+      removeOptimisticRef.current = remove
+    }, []
+  )
+  const handleOptimisticMessage = useCallback((m: OptimisticMessage) => addOptimisticRef.current?.(m), [])
+  const handleOptimisticFailed  = useCallback((id: string) => removeOptimisticRef.current?.(id), [])
+
+  // When a mention notification is clicked, navigate to the mentioned channel
+  const handleMentionNavigate = useCallback((channelId: string, channelName: string, serverId: string) => {
+    setActiveChannel({ id: channelId, name: channelName, serverId })
+  }, [])
+
+  return (
+    <div className="flex-1 flex min-w-0 h-screen-safe overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
+        {activeChannel ? (
+          <>
+            {/* Chat header — minimal, hairline bottom border */}
+            <header
+              key={activeChannel.id + '-hdr'}
+              className="shrink-0 h-12 px-3 sm:px-5 flex items-center gap-2 border-b border-(--border) bg-(--base)"
+            >
+              {/* Burger mobile-only */}
+              <button
+                onClick={openMobile}
+                className="md:hidden size-10 -ml-1 flex items-center justify-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0"
+                aria-label="Abrir menu"
+              >
+                <Menu className="size-5" />
+              </button>
+
+              <span className="text-(--text-3) text-sm font-mono">#</span>
+              <h2
+                className="text-sm sm:text-base m-0 font-medium tracking-tight text-foreground truncate"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                {activeChannel.name}
+              </h2>
+
+              {/* Right cluster: search · members · pinned */}
+              <div className="ml-auto flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={openCommandPalette}
+                  className="size-9 sm:size-8 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                  aria-label="Buscar (Ctrl+K)"
+                  title="Buscar (Ctrl+K)"
+                >
+                  <Search className="size-4" />
+                </button>
+                {/* Desktop: 3 botões expostos */}
+                <button
+                  onClick={() => openRightPanel('members')}
+                  className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                  aria-label="Membros e threads"
+                  title="Membros e threads"
+                >
+                  <UsersIcon className="size-4" />
+                </button>
+                <button
+                  onClick={() => setPinnedOpen(true)}
+                  className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                  aria-label="Mensagens fixadas"
+                  title="Mensagens fixadas"
+                >
+                  <Pin className="size-4" />
+                </button>
+                <button
+                  onClick={() => setBookmarksOpen(true)}
+                  className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                  aria-label="Mensagens salvas"
+                  title="Mensagens salvas"
+                >
+                  <Bookmark className="size-4" />
+                </button>
+
+                {/* Mobile: dropdown com Pin / Bookmark / Members */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="size-9 md:hidden flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                      aria-label="Mais ações"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => openRightPanel('members')}>
+                      <UsersIcon className="size-3.5" /> Membros e threads
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setPinnedOpen(true)}>
+                      <Pin className="size-3.5" /> Mensagens fixadas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setBookmarksOpen(true)}>
+                      <Bookmark className="size-3.5" /> Mensagens salvas
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <NotificationBell />
+              </div>
+            </header>
+
+            {pinnedOpen && (
+              <Suspense fallback={null}>
+                <PinnedMessagesSheet
+                  channelId={activeChannel.id}
+                  channelName={activeChannel.name}
+                  open={pinnedOpen}
+                  onClose={() => setPinnedOpen(false)}
+                />
+              </Suspense>
+            )}
+
+            {bookmarksOpen && (
+              <Suspense fallback={null}>
+                <BookmarksSheet open={bookmarksOpen} onClose={() => setBookmarksOpen(false)} />
+              </Suspense>
+            )}
+
+            <MessageList
+              key={activeChannel.id}
+              channelId={activeChannel.id}
+              channelName={activeChannel.name}
+              serverId={activeChannel.serverId}
+              onRegisterOptimistic={handleRegisterOptimistic}
+              onReply={setReplyingTo}
+            />
+            <TypingIndicator channelId={activeChannel.id} />
+            <MessageInput
+              channelId={activeChannel.id}
+              channelName={activeChannel.name}
+              serverId={activeChannel.serverId}
+              replyingTo={replyingTo}
+              onCancelReply={() => setReplyingTo(null)}
+              onOptimisticMessage={handleOptimisticMessage}
+              onOptimisticFailed={handleOptimisticFailed}
+            />
+          </>
+        ) : (
+          /* Asymmetric editorial layout: pavlivka — left margin reservado pra
+             rótulo vertical / numeração; conteúdo ocupa coluna direita. */
+          <div className="flex-1 relative overflow-hidden">
+            <button
+              onClick={openMobile}
+              className="md:hidden absolute top-4 left-4 z-10 size-9 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-all duration-300 ease-(--ease-spring) cursor-pointer"
+              aria-label="Abrir menu"
+            >
+              <Menu className="size-4" />
+            </button>
+
+            {/* Vignette sutil */}
+            <div className="ed-vignette" />
+
+            <div className="absolute inset-0 grid grid-cols-12 gap-6 px-6 sm:px-12 py-16">
+              <div className="col-span-12 md:col-span-7 md:col-start-4 flex flex-col justify-center max-w-[44ch]">
+                <Reveal delay={0.05}>
+                  <div className="anim-float mb-7">
+                    <UmbraLogo size={88} />
+                  </div>
+                </Reveal>
+
+                <Reveal delay={0.18}>
+                  <span className="ed-marg block mb-3">— Edição vazia</span>
+                </Reveal>
+
+                <Reveal delay={0.30}>
+                  <h2 className="ed-h text-4xl sm:text-5xl m-0 mb-2 leading-[1.05]">
+                    O silêncio
+                  </h2>
+                </Reveal>
+
+                <Reveal delay={0.40}>
+                  <h2 className="ed-h text-4xl sm:text-5xl m-0 italic text-(--accent) leading-[1.05]">
+                    antes da conversa.
+                  </h2>
+                </Reveal>
+
+                <Reveal delay={0.55}>
+                  <div className="ed-hr-accent w-20 my-7" />
+                </Reveal>
+
+                <Reveal delay={0.65}>
+                  <p className="ed-lede max-w-[34ch] m-0 text-(--text-2)">
+                    Selecione um canal na lateral para entrar numa conversa, ou clique na lua para abrir suas mensagens diretas.
+                  </p>
+                </Reveal>
+
+                <Reveal delay={0.85}>
+                  <p className="ed-marg mt-8">Atalho ⌘K · busca global</p>
+                </Reveal>
+              </div>
+
+              {/* Margem direita — aside / margin note (negative space + serif renaissance) */}
+              <div className="hidden lg:flex col-span-2 col-start-11 items-end pb-12">
+                <Reveal delay={1.0}>
+                  <p className="ed-aside max-w-[20ch]">
+                    "Toda conversa começa com uma pausa — esta é a sua."
+                  </p>
+                </Reveal>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Global mention notification banner */}
+      <MentionBanner onNavigate={handleMentionNavigate} />
+
+      {/* Right panel (members + threads) — só faz sentido com canal ativo */}
+      {activeChannel && (
+        <Suspense fallback={null}>
+          <RightPanel serverId={activeChannel.serverId} channelId={activeChannel.id} />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+
+export default function AppPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const activeId = (location.state as ActiveChannel | null)?.id ?? null
+  const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette)
+
+  // Global presence socket listener + in-app sound/desktop notif
+  usePresenceListener()
+  useInAppNotifications()
+
+  // Cmd+K / Ctrl+K abre command palette globalmente
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        toggleCommandPalette()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleCommandPalette])
+
+  return (
+    <div className="flex h-screen bg-(--void) overflow-hidden font-(family-name:--font-body)">
+      {/* Sidebar mounted once — sobrevive entre rotas, sem re-mount/animation bug */}
+      <Sidebar
+        activeChannelId={activeId}
+        onSelectChannel={(id, name, serverId) =>
+          navigate('/app', { state: { id, name, serverId } })
+        }
+      />
+
+      <Suspense fallback={<div className="flex-1 min-w-0 h-screen bg-(--base)" />}>
+        <AnimatePresence mode="wait" initial={false}>
+          <Routes location={location} key={location.pathname.split('/').slice(0, 3).join('/')}>
+            <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-screen"><DMPage /></PageTransition>} />
+            <Route path="friends" element={<PageTransition><FriendsPage /></PageTransition>} />
+            <Route path="profile" element={<PageTransition><ProfilePage /></PageTransition>} />
+            <Route path="settings" element={<PageTransition><SettingsPage /></PageTransition>} />
+            <Route path="servers/:serverId/settings" element={<PageTransition><ServerSettingsPage /></PageTransition>} />
+            <Route path="*"       element={<PageTransition><ChannelView /></PageTransition>} />
+          </Routes>
+        </AnimatePresence>
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <CommandPalette />
+      </Suspense>
+
+      {/* Voice call panel + incoming modal — lazy (-30kb no bundle inicial) */}
+      <Suspense fallback={null}>
+        <VoiceCallPanel />
+        <IncomingCallModal />
+      </Suspense>
+    </div>
+  )
+}

@@ -1,0 +1,62 @@
+# ── Dependencies ────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Build outputs ───────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+.next/
+out/
+
+# ── Coverage / cache ────────────────────────────────────────
+coverage/
+.vite/
+.cache/
+.nyc_output/
+
+# ── Env / secrets (NUNCA commitar) ─────────────────────────
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+# Allow examples (sanitized, no secrets)
+!.env.example
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── User-uploaded files (runtime data, não pertence ao repo) ─
+apps/api/uploads/
+
+# ── Bundle analyzer output ──────────────────────────────────
+stats.html
+dist/stats.html
+
+# ── IDE / editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Claude Code local settings (preferências pessoais) ──────
+.claude/settings.local.json
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# ── Lock files alternativos (manter só package-lock.json) ────
+yarn.lock
+pnpm-lock.yaml

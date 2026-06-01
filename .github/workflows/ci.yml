@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint · Type-check · Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm install --legacy-peer-deps
+
+      - name: Build types package
+        run: npm run build --workspace=@umbra/types
+
+      - name: Type-check API
+        run: npm exec --workspace=@umbra/api -- tsc --noEmit
+
+      - name: Type-check Web
+        run: npm exec --workspace=@umbra/web -- tsc --noEmit
+
+      - name: Test API
+        run: npm test --workspace=@umbra/api

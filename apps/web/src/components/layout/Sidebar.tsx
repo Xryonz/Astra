@@ -189,6 +189,22 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     setCtxMenu({ x: e.clientX, y: e.clientY, server, isOwner: server.ownerId === user?.id })
   }, [user?.id])
 
+  /**
+   * Tap em server icon (mobile + desktop): troca o server ativo.
+   * No mobile, se já tem channel selecionada nesse server, navega pra ela e
+   * fecha o drawer; senão (server sem canais OU recém-trocado) auto-pick
+   * do primeiro canal disponível pra não deixar o user "no escuro".
+   */
+  const handleServerIconTap = useCallback((s: ServerWithChannels) => {
+    setActiveServerId(s.id)
+    // Mobile only: auto-navigate + close drawer
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      const firstCh = s.channels?.find((c) => c.type === 'TEXT') ?? s.channels?.[0]
+      if (firstCh) onSelectChannel(firstCh.id, firstCh.name, s.id)
+      closeMobile()
+    }
+  }, [onSelectChannel, closeMobile])
+
   const buildMenuItems = (menu: CtxMenu): ContextMenuItem[] => {
     const items: ContextMenuItem[] = []
     if (!menu.server.isGroup) {
@@ -290,7 +306,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               server={s}
               isActive={s.id === activeServerId}
               index={i}
-              onClick={() => setActiveServerId(s.id)}
+              onClick={() => handleServerIconTap(s)}
               onContextMenu={(e) => handleContextMenu(e, s)}
             />
           ))}
@@ -305,7 +321,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                   isActive={s.id === activeServerId}
                   index={regularServers.length + i}
                   isGroup
-                  onClick={() => setActiveServerId(s.id)}
+                  onClick={() => handleServerIconTap(s)}
                   onContextMenu={(e) => handleContextMenu(e, s)}
                 />
               ))}
@@ -447,7 +463,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             <FooterBtn title="Configurações" onClick={() => { navigate('/app/settings'); closeMobile() }}>
               <SettingsIcon className="size-3.5" />
             </FooterBtn>
-            <FooterBtn title="Sair" onClick={logout} danger>
+            <FooterBtn title="Sair" onClick={() => { closeMobile(); logout() }} danger>
               <LogOut className="size-3.5" />
             </FooterBtn>
           </div>

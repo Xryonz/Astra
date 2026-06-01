@@ -184,6 +184,82 @@
 .t-dot:nth-child(3) { animation-delay: 0.32s;  }
 
 /* ═══════════════════════════════════════════════════════════
+   BANNER BORDERS — frames animadas pro banner do profile.
+   Aplicado via class no wrapper do banner. ::after pinta o
+   efeito por cima do banner sem clipar o conteúdo (mask trick
+   na aurora isola apenas o ring).
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes banner-aurora-spin { to { transform: rotate(360deg); } }
+@keyframes banner-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px var(--accent), 0 0 10px -2px var(--accent-glow); }
+  50%      { box-shadow: inset 0 0 0 2px var(--accent), 0 0 26px  4px var(--accent-glow); }
+}
+@keyframes banner-ink {
+  0%   { box-shadow: inset 0 0 32px  8px rgba(0,0,0,0.55); }
+  100% { box-shadow: inset 0 0 56px 18px rgba(0,0,0,0.85); }
+}
+
+/* Aurora — ring de conic-gradient que gira. Usa padding-box mask pra
+   pintar SÓ a borda (2px). Funciona em Chrome/Firefox/Safari 15+. */
+.banner-border-aurora { position: relative; }
+.banner-border-aurora::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from 0deg,
+    #ff6b9d, #ffaf7b, #ffd6a5, #4fc3f7, #6e57e0, #ff6b9d
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+          mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: banner-aurora-spin 8s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Pulse — borda accent pulsando intensidade. */
+.banner-border-pulse { position: relative; }
+.banner-border-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: banner-pulse 2.6s ease-in-out infinite;
+  z-index: 2;
+}
+
+/* Ink — vinheta de tinta que "respira" nas bordas. */
+.banner-border-ink { position: relative; }
+.banner-border-ink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: banner-ink 5.4s ease-in-out infinite alternate;
+  z-index: 2;
+}
+
+/* prefers-reduced-motion: pausa giro/pulse/respiração */
+@media (prefers-reduced-motion: reduce) {
+  .banner-border-aurora::after,
+  .banner-border-pulse::after,
+  .banner-border-ink::after {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    BASE
    ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; }

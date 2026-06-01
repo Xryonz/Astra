@@ -32,6 +32,9 @@ const userSafeColumns = {
   bannerUrl:   users.bannerUrl,
   bannerColor: users.bannerColor,
   profileTheme: users.profileTheme,
+  bannerPositionY: users.bannerPositionY,
+  bannerScale:     users.bannerScale,
+  bannerBorder:    users.bannerBorder,
 }
 
 // sameSite/secure depende do contexto:

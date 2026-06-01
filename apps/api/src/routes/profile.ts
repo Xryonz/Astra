@@ -67,7 +67,10 @@ router.patch(
   requireAuth,
   validate(UpdateProfileSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme } = req.body
+    const {
+      displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme,
+      bannerPositionY, bannerScale, bannerBorder,
+    } = req.body
 
     if (bannerUrl && !isAllowedImageUrl(bannerUrl)) {
       return res.status(422).json({
@@ -97,6 +100,9 @@ router.patch(
     if (bannerUrl   !== undefined) update.bannerUrl   = bannerUrl
     if (bannerColor  !== undefined) update.bannerColor  = bannerColor
     if (profileTheme !== undefined) update.profileTheme = profileTheme
+    if (bannerPositionY !== undefined) update.bannerPositionY = bannerPositionY
+    if (bannerScale     !== undefined) update.bannerScale     = bannerScale
+    if (bannerBorder    !== undefined) update.bannerBorder    = bannerBorder
 
     const [user] = await db.update(users).set(update)
       .where(eq(users.id, req.userId!))
@@ -105,6 +111,9 @@ router.patch(
         displayName: users.displayName, avatarUrl: users.avatarUrl,
         bio: users.bio, bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
         profileTheme: users.profileTheme,
+        bannerPositionY: users.bannerPositionY,
+        bannerScale:     users.bannerScale,
+        bannerBorder:    users.bannerBorder,
       })
 
     res.json({ data: { user } })
@@ -157,6 +166,9 @@ router.get(
       avatarUrl: users.avatarUrl, bio: users.bio,
       bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
       profileTheme: users.profileTheme,
+      bannerPositionY: users.bannerPositionY,
+      bannerScale:     users.bannerScale,
+      bannerBorder:    users.bannerBorder,
       isBot: users.isBot,
       status: users.status,
       createdAt: users.createdAt,

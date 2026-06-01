@@ -15,6 +15,13 @@
       "when": 1780000000000,
       "tag": "0001_perf_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780500000000,
+      "tag": "0002_banner_personalization",
+      "breakpoints": true
     }
   ]
 }

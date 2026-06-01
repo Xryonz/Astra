@@ -177,6 +177,11 @@ ALTER TABLE "DirectMessage" ADD COLUMN IF NOT EXISTS "replyToId" text;
 ALTER TABLE "DirectMessage" ADD COLUMN IF NOT EXISTS "expiresAt" timestamp (3);
 CREATE INDEX IF NOT EXISTS "DirectMessage_replyToId_idx" ON "DirectMessage" USING btree ("replyToId");
 CREATE INDEX IF NOT EXISTS "DirectMessage_expiresAt_idx" ON "DirectMessage" USING btree ("expiresAt");
+
+-- Banner personalization round 11
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL DEFAULT 50;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL DEFAULT 100;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerBorder"    text    NOT NULL DEFAULT 'none';
 `
 
 async function main() {

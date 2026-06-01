@@ -30,6 +30,9 @@ export const LoginSchema = z.object({
 
 const BANNER_COLOR_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(\s*-?\d{1,3}deg\s*,\s*#[0-9a-fA-F]{6}(?:\s*,\s*#[0-9a-fA-F]{6}){1,3}\s*\))$/
 
+export const BANNER_BORDER_STYLES = ['none', 'aurora', 'pulse', 'ink'] as const
+export type BannerBorderStyle = (typeof BANNER_BORDER_STYLES)[number]
+
 export const UpdateProfileSchema = z.object({
   displayName: z.string().min(1, 'Nome obrigatório').max(64).optional(),
   username: z
@@ -42,6 +45,9 @@ export const UpdateProfileSchema = z.object({
   bannerUrl:  z.string().optional().nullable(),
   bannerColor:  z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
   profileTheme: z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
+  bannerPositionY: z.number().int().min(0).max(100).optional(),
+  bannerScale:     z.number().int().min(100).max(200).optional(),
+  bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>
@@ -161,6 +167,9 @@ export interface UserPublic {
   bannerUrl?:  string | null
   bannerColor?: string | null
   profileTheme?: string | null
+  bannerPositionY?: number
+  bannerScale?:     number
+  bannerBorder?:    BannerBorderStyle
   isBot?:      boolean
 }
 

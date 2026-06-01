@@ -22,6 +22,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, type Variants } from 'motion/react'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import {
   Sheet, SheetContent, SheetTitle, SheetDescription,
@@ -43,6 +44,8 @@ const sectionVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] } },
 }
 
+type BannerBorder = 'none' | 'aurora' | 'pulse' | 'ink'
+
 interface PublicUser {
   id:          string
   username:    string
@@ -52,6 +55,9 @@ interface PublicUser {
   bannerUrl:   string | null
   bannerColor: string | null
   profileTheme?: string | null
+  bannerPositionY?: number
+  bannerScale?:     number
+  bannerBorder?:    BannerBorder
   customStatus?: string | null
   isBot?:      boolean
   createdAt?:  string
@@ -217,7 +223,10 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="relative h-60 overflow-hidden shrink-0 rounded-bl-2xl rounded-br-2xl"
+              className={cn(
+                'relative h-60 overflow-hidden shrink-0 rounded-bl-2xl rounded-br-2xl',
+                profile.bannerBorder && profile.bannerBorder !== 'none' && `banner-border-${profile.bannerBorder}`,
+              )}
               style={{
                 background: bannerBg,
                 // Glow ambient leve com cor extraída (intensidades reduzidas
@@ -234,7 +243,14 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                   referrerPolicy="no-referrer"
                   onError={() => setBannerError(true)}
                   className="absolute inset-0 w-full h-full object-cover block"
-                  style={{ willChange: isGif(profile.bannerUrl) ? 'contents' : 'auto' }}
+                  style={{
+                    objectPosition: `center ${profile.bannerPositionY ?? 50}%`,
+                    transform: profile.bannerScale && profile.bannerScale !== 100
+                      ? `scale(${profile.bannerScale / 100})`
+                      : undefined,
+                    transformOrigin: 'center center',
+                    willChange: isGif(profile.bannerUrl) ? 'contents' : 'auto',
+                  }}
                 />
               )}
               {/* Gradient overlay pra contraste do texto sobre imagem */}

@@ -1,6 +1,6 @@
-import { useRef, useState, useMemo, useEffect } from 'react'
+import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Check } from 'lucide-react'
+import { Upload, Check, Sparkles, Zap, Droplet, Minus, RotateCcw } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
@@ -9,38 +9,85 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { GradientBuilder } from '@/components/settings/GradientBuilder'
 import { cn } from '@/lib/utils'
-import { UpdateProfileSchema } from '@umbra/types'
+import { UpdateProfileSchema, type BannerBorderStyle } from '@umbra/types'
 import { SectionHeader, Row, SaveStatus } from './_shared'
 
-// Presets inspirados nos banners do Discord Nitro — vibrantes, com 2-3 stops.
-// Cada um já vem com ângulo configurado pra servir de ponto-de-partida no GradientBuilder.
-// Clica num preset → abre Custom → ajusta cor/ângulo a partir dali.
-const BANNER_GRADIENTS = [
-  { id: 'sunrise',   label: 'Amanhecer',  value: 'linear-gradient(135deg,#ff6b9d,#ff9874,#ffd6a5)' },
-  { id: 'cyber',     label: 'Cyber',      value: 'linear-gradient(135deg,#6e57e0,#4fc3f7,#00d4ff)' },
-  { id: 'ember',     label: 'Brasa',      value: 'linear-gradient(135deg,#ff5722,#ff9800,#ffc107)' },
-  { id: 'aurora',    label: 'Aurora',     value: 'linear-gradient(135deg,#3a1c71,#d76d77,#ffaf7b)' },
-  { id: 'plasma',    label: 'Plasma',     value: 'linear-gradient(135deg,#8e2de2,#4a00e0,#f12711)' },
-  { id: 'sunset',    label: 'Pôr-do-sol', value: 'linear-gradient(135deg,#fc4a1a,#f7b733)' },
-  { id: 'ocean',     label: 'Oceano',     value: 'linear-gradient(135deg,#2193b0,#6dd5ed)' },
-  { id: 'galaxy',    label: 'Galáxia',    value: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)' },
-  { id: 'mint',      label: 'Menta',      value: 'linear-gradient(135deg,#11998e,#38ef7d)' },
-  { id: 'lavender',  label: 'Lavanda',    value: 'linear-gradient(135deg,#8e44ad,#c39bd3)' },
-  { id: 'magma',     label: 'Magma',      value: 'linear-gradient(135deg,#f12711,#f5af19)' },
+// 30 presets editoriais agrupados — varia de quentes solares até escuras moody.
+// Cada gradient já vem com ângulo 135° = ponto de partida do GradientBuilder.
+type GradientPreset = { id: string; label: string; value: string }
+type GradientGroup  = { id: string; label: string; presets: GradientPreset[] }
+
+const BANNER_GRADIENT_GROUPS: GradientGroup[] = [
+  {
+    id: 'warm', label: 'Quentes',
+    presets: [
+      { id: 'sunrise',  label: 'Amanhecer',  value: 'linear-gradient(135deg,#ff6b9d,#ff9874,#ffd6a5)' },
+      { id: 'sunset',   label: 'Pôr-do-sol', value: 'linear-gradient(135deg,#fc4a1a,#f7b733)' },
+      { id: 'ember',    label: 'Brasa',      value: 'linear-gradient(135deg,#ff5722,#ff9800,#ffc107)' },
+      { id: 'magma',    label: 'Magma',      value: 'linear-gradient(135deg,#f12711,#f5af19)' },
+      { id: 'coral',    label: 'Coral',      value: 'linear-gradient(135deg,#ff7e5f,#feb47b)' },
+      { id: 'amber',    label: 'Âmbar',      value: 'linear-gradient(135deg,#d97706,#facc15)' },
+      { id: 'saffron',  label: 'Açafrão',    value: 'linear-gradient(135deg,#ee9b00,#ca6702)' },
+    ],
+  },
+  {
+    id: 'cool', label: 'Frias',
+    presets: [
+      { id: 'ocean',    label: 'Oceano',     value: 'linear-gradient(135deg,#2193b0,#6dd5ed)' },
+      { id: 'mist',     label: 'Bruma',      value: 'linear-gradient(135deg,#bdc3c7,#2c3e50)' },
+      { id: 'lagoon',   label: 'Lagoa',      value: 'linear-gradient(135deg,#43cea2,#185a9d)' },
+      { id: 'twilight', label: 'Crepúsculo', value: 'linear-gradient(135deg,#3a1c71,#4a00e0)' },
+      { id: 'aurora',   label: 'Aurora',     value: 'linear-gradient(135deg,#3a1c71,#d76d77,#ffaf7b)' },
+      { id: 'arctic',   label: 'Ártico',     value: 'linear-gradient(135deg,#a1c4fd,#c2e9fb)' },
+    ],
+  },
+  {
+    id: 'dark', label: 'Escuras',
+    presets: [
+      { id: 'galaxy',   label: 'Galáxia',    value: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)' },
+      { id: 'velvet',   label: 'Veludo',     value: 'linear-gradient(135deg,#41295a,#2f0743)' },
+      { id: 'ink',      label: 'Tinta',      value: 'linear-gradient(135deg,#000000,#0f3460)' },
+      { id: 'charcoal', label: 'Carvão',     value: 'linear-gradient(135deg,#232526,#414345)' },
+      { id: 'obsidian', label: 'Obsidiana',  value: 'linear-gradient(135deg,#000000,#1a4d2e)' },
+      { id: 'onyx',     label: 'Ônix',       value: 'linear-gradient(135deg,#0c0c0c,#3c3c3c)' },
+    ],
+  },
+  {
+    id: 'nature', label: 'Natureza',
+    presets: [
+      { id: 'forest',   label: 'Floresta',   value: 'linear-gradient(135deg,#134e5e,#71b280)' },
+      { id: 'moss',     label: 'Musgo',      value: 'linear-gradient(135deg,#5a7140,#a1aa6d)' },
+      { id: 'mint',     label: 'Menta',      value: 'linear-gradient(135deg,#11998e,#38ef7d)' },
+      { id: 'willow',   label: 'Salgueiro',  value: 'linear-gradient(135deg,#7a9e7e,#c8d5b9)' },
+    ],
+  },
+  {
+    id: 'vivid', label: 'Vívidas',
+    presets: [
+      { id: 'cyber',    label: 'Cyber',      value: 'linear-gradient(135deg,#6e57e0,#4fc3f7,#00d4ff)' },
+      { id: 'plasma',   label: 'Plasma',     value: 'linear-gradient(135deg,#8e2de2,#4a00e0,#f12711)' },
+      { id: 'neon',     label: 'Néon',       value: 'linear-gradient(135deg,#ff00cc,#333399)' },
+      { id: 'wine',     label: 'Vinho',      value: 'linear-gradient(135deg,#6e0d25,#bd5734)' },
+      { id: 'burgundy', label: 'Borgonha',   value: 'linear-gradient(135deg,#600000,#9c1f1f)' },
+    ],
+  },
+  {
+    id: 'soft', label: 'Suaves',
+    presets: [
+      { id: 'lavender', label: 'Lavanda',    value: 'linear-gradient(135deg,#8e44ad,#c39bd3)' },
+      { id: 'petal',    label: 'Pétala',     value: 'linear-gradient(135deg,#ffafbd,#ffc3a0)' },
+    ],
+  },
 ]
 
-const PROFILE_THEMES = [
-  { id: 'sunrise',   label: 'Amanhecer',  value: 'linear-gradient(135deg,#ff6b9d,#ff9874,#ffd6a5)' },
-  { id: 'cyber',     label: 'Cyber',      value: 'linear-gradient(135deg,#6e57e0,#4fc3f7,#00d4ff)' },
-  { id: 'ember',     label: 'Brasa',      value: 'linear-gradient(135deg,#ff5722,#ff9800,#ffc107)' },
-  { id: 'aurora',    label: 'Aurora',     value: 'linear-gradient(135deg,#3a1c71,#d76d77,#ffaf7b)' },
-  { id: 'plasma',    label: 'Plasma',     value: 'linear-gradient(135deg,#8e2de2,#4a00e0,#f12711)' },
-  { id: 'velvet',    label: 'Veludo',     value: 'linear-gradient(135deg,#41295a,#2f0743)' },
-  { id: 'ocean',     label: 'Oceano',     value: 'linear-gradient(135deg,#2193b0,#6dd5ed)' },
-  { id: 'galaxy',    label: 'Galáxia',    value: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)' },
-  { id: 'mint',      label: 'Menta',      value: 'linear-gradient(135deg,#11998e,#38ef7d)' },
-  { id: 'lavender',  label: 'Lavanda',    value: 'linear-gradient(135deg,#8e44ad,#c39bd3)' },
-  { id: 'magma',     label: 'Magma',      value: 'linear-gradient(135deg,#f12711,#f5af19)' },
+const BANNER_GRADIENTS = BANNER_GRADIENT_GROUPS.flatMap((g) => g.presets)
+const PROFILE_THEMES   = BANNER_GRADIENTS
+
+const BANNER_BORDER_OPTIONS: { id: BannerBorderStyle; label: string; description: string; icon: React.ReactNode }[] = [
+  { id: 'none',   label: 'Sem borda', description: 'Limpo, sem efeitos.',     icon: <Minus className="size-3.5" /> },
+  { id: 'aurora', label: 'Aurora',    description: 'Anel rotativo policromo.', icon: <Sparkles className="size-3.5" /> },
+  { id: 'pulse',  label: 'Pulso',     description: 'Borda pulsando accent.',   icon: <Zap className="size-3.5" /> },
+  { id: 'ink',    label: 'Tinta',     description: 'Vinheta que respira.',     icon: <Droplet className="size-3.5" /> },
 ]
 
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -62,6 +109,9 @@ export default function ProfileSection() {
   const [bannerUrl,   setBannerUrl]   = useState((user as any)?.bannerUrl ?? '')
   const [bannerColor, setBannerColor] = useState((user as any)?.bannerColor ?? BANNER_GRADIENTS[0].value)
   const [profileTheme, setProfileTheme] = useState((user as any)?.profileTheme ?? PROFILE_THEMES[0].value)
+  const [bannerPositionY, setBannerPositionY] = useState<number>((user as any)?.bannerPositionY ?? 50)
+  const [bannerScale,     setBannerScale]     = useState<number>((user as any)?.bannerScale     ?? 100)
+  const [bannerBorder,    setBannerBorder]    = useState<BannerBorderStyle>(((user as any)?.bannerBorder ?? 'none') as BannerBorderStyle)
   const [fileError,   setFileError]   = useState('')
   const [avatarImgErr, setAvatarImgErr] = useState(false)
   const [bannerImgErr, setBannerImgErr] = useState(false)
@@ -109,13 +159,16 @@ export default function ProfileSection() {
       bannerUrl:    bannerUrl   || null,
       bannerColor:  bannerColor || null,
       profileTheme: profileTheme || null,
+      bannerPositionY,
+      bannerScale,
+      bannerBorder,
     }
     const result = UpdateProfileSchema.safeParse(candidate)
     if (result.success) return {} as Record<string, string>
     const map: Record<string, string> = {}
     for (const issue of result.error.issues) map[issue.path.join('.')] = issue.message
     return map
-  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme])
+  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder])
 
   const updateProfile = useMutation({
     mutationFn: async () => {
@@ -127,6 +180,9 @@ export default function ProfileSection() {
         bannerUrl:    (user as any)?.bannerUrl    ?? '',
         bannerColor:  (user as any)?.bannerColor  ?? '',
         profileTheme: (user as any)?.profileTheme ?? '',
+        bannerPositionY: (user as any)?.bannerPositionY ?? 50,
+        bannerScale:     (user as any)?.bannerScale     ?? 100,
+        bannerBorder:    (user as any)?.bannerBorder    ?? 'none',
       }
       const payload: Record<string, unknown> = {}
       if (displayName  !== initial.displayName)  payload.displayName  = displayName || undefined
@@ -136,6 +192,9 @@ export default function ProfileSection() {
       if (bannerUrl    !== initial.bannerUrl)    payload.bannerUrl    = bannerUrl   || null
       if (bannerColor  !== initial.bannerColor)  payload.bannerColor  = bannerColor || null
       if (profileTheme !== initial.profileTheme) payload.profileTheme = profileTheme || null
+      if (bannerPositionY !== initial.bannerPositionY) payload.bannerPositionY = bannerPositionY
+      if (bannerScale     !== initial.bannerScale)     payload.bannerScale     = bannerScale
+      if (bannerBorder    !== initial.bannerBorder)    payload.bannerBorder    = bannerBorder
       if (Object.keys(payload).length === 0) return null
 
       const res = await api.patch('/api/profile', payload)
@@ -165,7 +224,7 @@ export default function ProfileSection() {
     }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme])
+  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder])
 
   return (
     <div>
@@ -231,14 +290,15 @@ export default function ProfileSection() {
       {/* Banner */}
       <Row label="Banner" hint="Imagem grande no topo do perfil. Opcional.">
         <div className="flex flex-col gap-4">
-          <div
-            className="w-full h-36 rounded-xl border border-(--border-mid) bg-cover bg-center overflow-hidden"
-            style={{ background: bannerUrl && !bannerImgErr ? `url(${bannerUrl}) center/cover` : bannerColor }}
-          >
-            {bannerUrl && (
-              <img src={bannerUrl} alt="" className="hidden" onError={() => setBannerImgErr(true)} />
-            )}
-          </div>
+          {/* Preview vivo: aplica position/zoom/border em tempo real */}
+          <BannerPreview
+            bannerUrl={bannerUrl && !bannerImgErr ? bannerUrl : undefined}
+            fallbackBg={bannerColor}
+            positionY={bannerPositionY}
+            scale={bannerScale}
+            border={bannerBorder}
+            onImgError={() => setBannerImgErr(true)}
+          />
           <div className="flex items-center gap-2 flex-wrap">
             <Button type="button" variant="outline" onClick={() => bannerFileRef.current?.click()} className="gap-2">
               <Upload className="size-4" /> Enviar banner
@@ -258,34 +318,81 @@ export default function ProfileSection() {
         </div>
       </Row>
 
-      <Row label="Cor de fundo do banner" hint="Gradient editorial — escolha presets ou customize totalmente.">
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {BANNER_GRADIENTS.map((g) => (
+      {/* Position + zoom — só faz sentido quando tem imagem */}
+      {bannerUrl && !bannerImgErr && (
+        <Row label="Posição & zoom" hint="Arraste o banner verticalmente. Ajuste o zoom com o slider.">
+          <BannerPositioner
+            bannerUrl={bannerUrl}
+            positionY={bannerPositionY}
+            scale={bannerScale}
+            onChange={(y, s) => { setBannerPositionY(y); setBannerScale(s) }}
+            onReset={() => { setBannerPositionY(50); setBannerScale(100) }}
+          />
+        </Row>
+      )}
+
+      {/* Animated border */}
+      <Row label="Borda animada" hint="Efeito visual ao redor do banner no perfil de quem te vê.">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {BANNER_BORDER_OPTIONS.map((opt) => (
             <button
-              key={g.id}
+              key={opt.id}
               type="button"
-              onClick={() => { setBannerColor(g.value); setShowBannerBuilder(false) }}
+              onClick={() => setBannerBorder(opt.id)}
               className={cn(
-                'h-14 rounded-xl border cursor-pointer transition-all hover:scale-105',
-                bannerColor === g.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                'group relative flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all hover:scale-[1.02] cursor-pointer',
+                bannerBorder === opt.id
+                  ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
+                  : 'border-(--border-mid) hover:border-(--accent)/60',
               )}
-              style={{ background: g.value }}
-              title={g.label}
             >
-              {bannerColor === g.value && <Check className="size-4 text-white mx-auto drop-shadow-md" />}
+              <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-(--text-2)">
+                {opt.icon} {opt.label}
+              </span>
+              <span className="text-[10px] text-(--text-3) leading-tight">{opt.description}</span>
+              {bannerBorder === opt.id && (
+                <Check className="absolute top-2 right-2 size-3.5 text-(--accent)" />
+              )}
             </button>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="Cor de fundo do banner" hint="30 presets editoriais organizados por temperatura. Ou customize.">
+        <div className="flex flex-col gap-5">
+          {BANNER_GRADIENT_GROUPS.map((group) => (
+            <div key={group.id}>
+              <span className="ed-marg block mb-2">— {group.label}</span>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {group.presets.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => { setBannerColor(g.value); setShowBannerBuilder(false) }}
+                    className={cn(
+                      'h-12 rounded-lg border cursor-pointer transition-all hover:scale-105 relative grid place-items-center',
+                      bannerColor === g.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                    )}
+                    style={{ background: g.value }}
+                    title={g.label}
+                  >
+                    {bannerColor === g.value && <Check className="size-3.5 text-white drop-shadow-md" />}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
           <button
             type="button"
             onClick={() => setShowBannerBuilder((v) => !v)}
             className={cn(
-              'h-14 rounded-xl border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-105',
+              'h-10 rounded-lg border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.01]',
               showBannerBuilder
                 ? 'border-(--accent) text-(--accent) bg-(--accent)/10'
                 : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
             )}
           >
-            {showBannerBuilder ? 'Fechar' : 'Custom'}
+            {showBannerBuilder ? 'Fechar custom' : 'Custom gradient'}
           </button>
         </div>
         {showBannerBuilder && (
@@ -297,33 +404,40 @@ export default function ProfileSection() {
 
       {/* Profile theme */}
       <Row label="Tema do card de perfil" hint="Fundo do card que aparece quando alguém abre seu perfil.">
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {PROFILE_THEMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { setProfileTheme(t.value); setShowThemeBuilder(false) }}
-              className={cn(
-                'h-14 rounded-xl border cursor-pointer transition-all hover:scale-105',
-                profileTheme === t.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
-              )}
-              style={{ background: t.value }}
-              title={t.label}
-            >
-              {profileTheme === t.value && <Check className="size-4 text-white mx-auto drop-shadow-md" />}
-            </button>
+        <div className="flex flex-col gap-5">
+          {BANNER_GRADIENT_GROUPS.map((group) => (
+            <div key={group.id}>
+              <span className="ed-marg block mb-2">— {group.label}</span>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {group.presets.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { setProfileTheme(t.value); setShowThemeBuilder(false) }}
+                    className={cn(
+                      'h-12 rounded-lg border cursor-pointer transition-all hover:scale-105 relative grid place-items-center',
+                      profileTheme === t.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                    )}
+                    style={{ background: t.value }}
+                    title={t.label}
+                  >
+                    {profileTheme === t.value && <Check className="size-3.5 text-white drop-shadow-md" />}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
           <button
             type="button"
             onClick={() => setShowThemeBuilder((v) => !v)}
             className={cn(
-              'h-14 rounded-xl border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-105',
+              'h-10 rounded-lg border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.01]',
               showThemeBuilder
                 ? 'border-(--accent) text-(--accent) bg-(--accent)/10'
                 : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
             )}
           >
-            {showThemeBuilder ? 'Fechar' : 'Custom'}
+            {showThemeBuilder ? 'Fechar custom' : 'Custom gradient'}
           </button>
         </div>
         {showThemeBuilder && (
@@ -335,6 +449,136 @@ export default function ProfileSection() {
 
       <div className="pt-4">
         <SaveStatus status={saveStatus} error={saveError} />
+      </div>
+    </div>
+  )
+}
+
+// ─── BannerPreview ──────────────────────────────────────────
+// Estática. Mostra o resultado final aplicando todas as 3 propriedades.
+// Útil pra user ver o "como vai aparecer no perfil" enquanto edita.
+function BannerPreview({
+  bannerUrl, fallbackBg, positionY, scale, border, onImgError,
+}: {
+  bannerUrl?:  string
+  fallbackBg:  string
+  positionY:   number
+  scale:       number
+  border:      BannerBorderStyle
+  onImgError:  () => void
+}) {
+  return (
+    <div
+      className={cn(
+        'w-full h-36 rounded-xl border border-(--border-mid) overflow-hidden relative',
+        border !== 'none' && `banner-border-${border}`,
+      )}
+      style={!bannerUrl ? { background: fallbackBg } : undefined}
+    >
+      {bannerUrl && (
+        <img
+          src={bannerUrl}
+          alt=""
+          onError={onImgError}
+          className="w-full h-full object-cover block"
+          style={{
+            objectPosition: `center ${positionY}%`,
+            transform: `scale(${scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── BannerPositioner ───────────────────────────────────────
+// Interativo. Drag vertical no banner = ajusta objectPositionY.
+// Slider abaixo controla zoom (100-200%). Botão reseta.
+//
+// Sensibilidade: 1px drag = (1 / wrapHeight * 100)% de positionY.
+// Como wrap tem ~144px, 1px ≈ 0.7%. 100px de drag → cobre o range todo.
+function BannerPositioner({
+  bannerUrl, positionY, scale, onChange, onReset,
+}: {
+  bannerUrl: string
+  positionY: number
+  scale:     number
+  onChange:  (positionY: number, scale: number) => void
+  onReset:   () => void
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ startY: number; startPosY: number } | null>(null)
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startY: e.clientY, startPosY: positionY }
+  }, [positionY])
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const dy = e.clientY - dragRef.current.startY
+    // Drag pra baixo deve revelar a parte de CIMA da imagem → positionY ↓.
+    const deltaPct = -dy / wrap.clientHeight * 100
+    const newY = Math.max(0, Math.min(100, dragRef.current.startPosY + deltaPct))
+    onChange(Math.round(newY), scale)
+  }, [onChange, scale])
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    dragRef.current = null
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        ref={wrapRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className="w-full h-36 rounded-xl border border-(--border-mid) overflow-hidden relative cursor-grab active:cursor-grabbing touch-none select-none"
+      >
+        <img
+          src={bannerUrl}
+          alt=""
+          draggable={false}
+          className="w-full h-full object-cover pointer-events-none"
+          style={{
+            objectPosition: `center ${positionY}%`,
+            transform: `scale(${scale / 100})`,
+            transformOrigin: 'center center',
+          }}
+        />
+        <span className="ed-marg absolute top-2 left-2 text-white bg-black/45 px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+          Arraste verticalmente
+        </span>
+        <span className="ed-marg absolute top-2 right-2 text-white bg-black/45 px-2 py-1 rounded backdrop-blur-sm pointer-events-none font-mono">
+          Y {positionY}%
+        </span>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-1 min-w-50">
+          <span className="ed-marg shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={100}
+            max={200}
+            step={5}
+            value={scale}
+            onChange={(e) => onChange(positionY, Number(e.target.value))}
+            className="flex-1 accent-(--accent)"
+          />
+          <span className="text-[11px] font-mono text-(--text-3) w-10 text-right">{scale}%</span>
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={onReset} className="gap-1.5">
+          <RotateCcw className="size-3.5" /> Resetar
+        </Button>
       </div>
     </div>
   )

@@ -23,6 +23,12 @@ export const users = pgTable('User', {
   bannerUrl:    text('bannerUrl'),
   bannerColor:  text('bannerColor'),
   profileTheme: text('profileTheme'),
+  /** Posição vertical do banner em %. 0=topo, 100=base. Default 50 (centro). */
+  bannerPositionY: integer('bannerPositionY').notNull().default(50),
+  /** Zoom do banner em %. 100=nativo, 200=2x. Limite seguro [100,200]. */
+  bannerScale:     integer('bannerScale').notNull().default(100),
+  /** Estilo de borda animada: 'none' | 'aurora' | 'pulse' | 'ink'. */
+  bannerBorder:    text('bannerBorder').notNull().default('none'),
   status:       userStatusEnum('status').notNull().default('ONLINE'),
   /** Frase curta tipo "Compilando…" / "Fora hoje". Limite 100 chars no app. */
   customStatus: text('customStatus'),

@@ -37,6 +37,15 @@ export function NotificationBell() {
   const { data: count } = useNotificationCount()
   const unread = count?.count ?? 0
 
+  // Shake + badge pop quando unread sobe.
+  // shakeKey re-trigger animation reset via key change.
+  const [shakeKey, setShakeKey] = useState(0)
+  const prevUnreadRef = useRef(unread)
+  useEffect(() => {
+    if (unread > prevUnreadRef.current) setShakeKey((k) => k + 1)
+    prevUnreadRef.current = unread
+  }, [unread])
+
   // Click-outside fecha
   useEffect(() => {
     if (!open) return
@@ -60,10 +69,25 @@ export function NotificationBell() {
         className="relative grid size-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-(--accent)/5 transition-colors"
         aria-label={`Notificações${unread > 0 ? ` (${unread} não lidas)` : ''}`}
       >
-        <BellIcon />
+        <span
+          key={shakeKey}
+          style={{
+            display: 'inline-flex',
+            transformOrigin: '50% 10%',
+            animation: shakeKey > 0 ? 'bellShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both' : undefined,
+            willChange: 'transform',
+          }}
+        >
+          <BellIcon />
+        </span>
         {unread > 0 && (
           <span
+            key={'badge-' + shakeKey}
             className="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-(--accent) text-[10px] font-semibold text-(--accent-foreground) flex items-center justify-center"
+            style={{
+              animation: shakeKey > 0 ? 'badgePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both' : undefined,
+              willChange: 'transform',
+            }}
             aria-hidden
           >
             {unread > 99 ? '99+' : unread}

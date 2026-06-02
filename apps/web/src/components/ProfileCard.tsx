@@ -256,7 +256,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
       <SheetContent
         side="right"
         className={cn(
-          'p-0 overflow-hidden gap-0 flex flex-col w-full sm:max-w-md bg-(--popover)',
+          'p-0 overflow-hidden gap-0 flex flex-col w-full sm:max-w-md bg-(--overlay)',
           'data-[state=open]:[animation-duration:480ms] data-[state=closed]:[animation-duration:260ms]',
           'data-[state=open]:[animation-timing-function:cubic-bezier(0.16,1,0.3,1)]',
           'data-[state=closed]:[animation-timing-function:cubic-bezier(0.4,0,0.2,1)]',
@@ -328,7 +328,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               <ParticleField />
 
               {/* Overlay pra legibilidade — mantém vibe do gradient mas legível */}
-              <div className="absolute inset-0 bg-(--popover)/88 backdrop-blur-md rounded-tl-2xl rounded-tr-2xl pointer-events-none" />
+              <div className="absolute inset-0 bg-(--overlay)/88 backdrop-blur-md rounded-tl-2xl rounded-tr-2xl pointer-events-none" />
 
               <motion.div className="relative" variants={bodyVariants} initial="hidden" animate="visible">
                 {/* ── Avatar row ───────────────────────────── */}
@@ -342,7 +342,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     <Avatar
                       className="size-28 rounded-full border-[5px] transition-shadow duration-700 ease-(--ease-spring)"
                       style={{
-                        borderColor: 'var(--popover)',
+                        borderColor: 'var(--overlay)',
                         background:  profile.isBot ? 'var(--accent-dim)' : accentColor + '22',
                         // Avatar absorve a mesma cor do banner → halo coeso.
                         // Intensidade reduzida p/ vibe clean.
@@ -368,7 +368,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     </Avatar>
                     {!profile.isBot && profile.effectiveStatus && (
                       <span className="absolute bottom-1.5 right-1.5">
-                        <StatusDot status={profile.effectiveStatus} size={22} bordered borderColor="var(--popover)" />
+                        <StatusDot status={profile.effectiveStatus} size={22} bordered borderColor="var(--overlay)" />
                       </span>
                     )}
                   </motion.div>
@@ -540,7 +540,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                                   ? <img src={s.iconUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                                   : <span style={{ fontFamily: 'var(--font-display)' }}>{s.name.slice(0,2).toUpperCase()}</span>}
                                 {(s.role === 'OWNER' || s.role === 'ADMIN' || s.isGroup) && (
-                                  <span className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full bg-(--popover) border border-(--border) grid place-items-center">
+                                  <span className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full bg-(--overlay) border border-(--border) grid place-items-center">
                                     {s.role === 'OWNER' && <Crown className="size-2.5 text-(--accent)" />}
                                     {s.role === 'ADMIN' && <Shield className="size-2.5 text-(--text-2)" />}
                                     {s.isGroup && s.role !== 'OWNER' && s.role !== 'ADMIN' && <UsersIcon className="size-2.5 text-(--text-3)" />}

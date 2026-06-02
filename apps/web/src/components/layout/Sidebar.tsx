@@ -247,22 +247,26 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
 
   return (
     <>
-      {/* Backdrop mobile — atrás do drawer */}
+      {/* Backdrop mobile — atrás do drawer.
+          Stagger: backdrop 80ms atrás do drawer pra criar "drawer leads" feel. */}
       {mobileOpen && (
         <div
           onClick={closeMobile}
-          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm anim-fade-in"
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          style={{ animation: 'fadeIn 0.36s ease-out 0.08s both' }}
         />
       )}
 
       <div
         className={cn(
-          'flex h-full shrink-0 z-50 transition-transform duration-300 ease-(--ease-spring)',
+          'flex h-full shrink-0 z-50',
           // Desktop: estático na grid normal
-          'md:relative md:translate-x-0',
-          // Mobile: fixed off-screen, slide-in
-          'fixed top-0 left-0 bottom-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          'md:relative md:translate-x-0 md:transition-none',
+          // Mobile: fixed off-screen, slide-in com overshoot elastic
+          'fixed top-0 left-0 bottom-0 transition-transform',
+          mobileOpen
+            ? 'translate-x-0 duration-[460ms] [transition-timing-function:cubic-bezier(0.34,1.32,0.55,1)]'
+            : '-translate-x-full md:translate-x-0 duration-[280ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]',
         )}
       >
 

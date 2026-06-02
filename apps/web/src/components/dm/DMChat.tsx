@@ -308,10 +308,12 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
         flexDirection: isMine ? 'row-reverse' : 'row',
         gap: 8,
         marginTop: grouped ? 2 : 10,
-        animation: `msgIn 0.22s var(--ease-spring) ${delay}s both`,
+        ['--dm-slide-from' as string]: isMine ? '14px' : '-14px',
+        animation: `dmMsgIn 0.38s cubic-bezier(0.34, 1.32, 0.55, 1) ${delay}s both`,
         opacity: isPending ? 0.65 : 1,
         transition: 'opacity 0.3s',
         position: 'relative',
+        willChange: 'transform, opacity',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -29,6 +29,13 @@
       "when": 1781000000000,
       "tag": "0003_profile_personalization",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781500000000,
+      "tag": "0004_profile_cleanup",
+      "breakpoints": true
     }
   ]
 }

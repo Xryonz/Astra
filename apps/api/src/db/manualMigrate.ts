@@ -187,10 +187,13 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerBorder"    text    NOT NULL D
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pronouns"            text;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "statusEmoji"         text;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "displayFont"         text NOT NULL DEFAULT 'serif';
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarDecoration"    text NOT NULL DEFAULT 'none';
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "profileBg"           text NOT NULL DEFAULT 'none';
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "spotifyRefreshToken" text;
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "spotifyConnectedAt"  timestamp (3);
+
+-- Profile cleanup round 13: derruba features sem aderência + adiciona bannerTextColor
+ALTER TABLE "User" DROP COLUMN IF EXISTS "avatarDecoration";
+ALTER TABLE "User" DROP COLUMN IF EXISTS "profileBg";
+ALTER TABLE "User" DROP COLUMN IF EXISTS "spotifyRefreshToken";
+ALTER TABLE "User" DROP COLUMN IF EXISTS "spotifyConnectedAt";
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerTextColor"     text;
 
 CREATE TABLE IF NOT EXISTS "ProfileNote" (
   "id"            text PRIMARY KEY NOT NULL,

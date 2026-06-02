@@ -30,17 +30,16 @@ export const LoginSchema = z.object({
 
 const BANNER_COLOR_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(\s*-?\d{1,3}deg\s*,\s*#[0-9a-fA-F]{6}(?:\s*,\s*#[0-9a-fA-F]{6}){1,3}\s*\))$/
 
-export const BANNER_BORDER_STYLES = ['none', 'aurora', 'pulse', 'ink'] as const
+export const BANNER_BORDER_STYLES = [
+  'none', 'aurora', 'pulse', 'ink',
+  'marquee', 'glow', 'noise', 'shimmer',
+] as const
 export type BannerBorderStyle = (typeof BANNER_BORDER_STYLES)[number]
 
 export const DISPLAY_FONTS = ['serif', 'sans', 'mono', 'rounded', 'condensed', 'handwriting', 'gothic', 'modern'] as const
 export type DisplayFont = (typeof DISPLAY_FONTS)[number]
 
-export const AVATAR_DECORATIONS = ['none', 'halo', 'ring', 'thorns', 'orbit', 'pulse', 'mosaic', 'sigil'] as const
-export type AvatarDecoration = (typeof AVATAR_DECORATIONS)[number]
-
-export const PROFILE_BACKGROUNDS = ['none', 'aurora', 'nebula', 'mesh', 'rain'] as const
-export type ProfileBackground = (typeof PROFILE_BACKGROUNDS)[number]
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
 
 export const UpdateProfileSchema = z.object({
   displayName: z.string().min(1, 'Nome obrigatório').max(64).optional(),
@@ -57,11 +56,10 @@ export const UpdateProfileSchema = z.object({
   bannerPositionY: z.number().int().min(0).max(100).optional(),
   bannerScale:     z.number().int().min(100).max(200).optional(),
   bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),
+  bannerTextColor: z.string().regex(HEX_COLOR_RE, 'Use hex #RRGGBB').optional().nullable(),
   pronouns:        z.string().max(32, 'Máx 32 caracteres').optional().nullable(),
   statusEmoji:     z.string().max(8, 'Apenas 1 emoji').optional().nullable(),
   displayFont:     z.enum(DISPLAY_FONTS).optional(),
-  avatarDecoration: z.enum(AVATAR_DECORATIONS).optional(),
-  profileBg:       z.enum(PROFILE_BACKGROUNDS).optional(),
 })
 
 // Guestbook (perfil-notes) schemas
@@ -190,12 +188,10 @@ export interface UserPublic {
   bannerPositionY?: number
   bannerScale?:     number
   bannerBorder?:    BannerBorderStyle
+  bannerTextColor?: string | null
   pronouns?:        string | null
   statusEmoji?:     string | null
   displayFont?:     DisplayFont
-  avatarDecoration?: AvatarDecoration
-  profileBg?:       ProfileBackground
-  spotifyConnectedAt?: string | null
   isBot?:      boolean
 }
 

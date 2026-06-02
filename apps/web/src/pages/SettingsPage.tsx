@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database,
+  ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database, Brush,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSection      from '@/components/settings/sections/AccountSection'
 import ProfileSection      from '@/components/settings/sections/ProfileSection'
+import CustomizationSection from '@/components/settings/sections/CustomizationSection'
 import AppearanceSection   from '@/components/settings/sections/AppearanceSection'
 import NameColorsSection   from '@/components/settings/sections/NameColorsSection'
 import NotificationsSection from '@/components/settings/sections/NotificationsSection'
@@ -24,6 +25,7 @@ import {
 type SectionId =
   | 'account'
   | 'profile'
+  | 'customization'
   | 'appearance'
   | 'name-colors'
   | 'notifications'
@@ -33,13 +35,14 @@ type SectionId =
 interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'pessoal' | 'app' | 'privacidade' }
 
 const NAV: NavItem[] = [
-  { id: 'account',       label: 'Conta',                  icon: <User className="size-3.5" />,      group: 'pessoal' },
-  { id: 'profile',       label: 'Perfil',                 icon: <ImageIcon className="size-3.5" />, group: 'pessoal' },
-  { id: 'appearance',    label: 'Aparência',              icon: <Palette className="size-3.5" />,   group: 'app' },
-  { id: 'name-colors',   label: 'Cores nos servidores',   icon: <UsersIcon className="size-3.5" />, group: 'app' },
-  { id: 'notifications', label: 'Notificações',           icon: <Bell className="size-3.5" />,      group: 'app' },
-  { id: 'sessions',      label: 'Sessões',                icon: <Shield className="size-3.5" />,    group: 'privacidade' },
-  { id: 'data',          label: 'Dados',                  icon: <Database className="size-3.5" />,  group: 'privacidade' },
+  { id: 'account',       label: 'Conta',                icon: <User className="size-3.5" />,      group: 'pessoal' },
+  { id: 'profile',       label: 'Perfil',               icon: <ImageIcon className="size-3.5" />, group: 'pessoal' },
+  { id: 'customization', label: 'Personalização',       icon: <Brush className="size-3.5" />,     group: 'pessoal' },
+  { id: 'appearance',    label: 'Aparência',            icon: <Palette className="size-3.5" />,   group: 'app' },
+  { id: 'name-colors',   label: 'Cores nos servidores', icon: <UsersIcon className="size-3.5" />, group: 'app' },
+  { id: 'notifications', label: 'Notificações',         icon: <Bell className="size-3.5" />,      group: 'app' },
+  { id: 'sessions',      label: 'Sessões',              icon: <Shield className="size-3.5" />,    group: 'privacidade' },
+  { id: 'data',          label: 'Dados',                icon: <Database className="size-3.5" />,  group: 'privacidade' },
 ]
 
 const GROUP_LABEL: Record<NavItem['group'], string> = {
@@ -206,6 +209,7 @@ export default function SettingsPage() {
             >
               {section === 'account'       && <AccountSection />}
               {section === 'profile'       && <ProfileSection />}
+              {section === 'customization' && <CustomizationSection />}
               {section === 'appearance'    && <AppearanceSection />}
               {section === 'name-colors'   && <NameColorsSection />}
               {section === 'notifications' && <NotificationsSection />}

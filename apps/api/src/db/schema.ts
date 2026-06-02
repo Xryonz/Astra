@@ -35,13 +35,8 @@ export const users = pgTable('User', {
   statusEmoji:  text('statusEmoji'),
   /** Family p/ displayName + bio. Enum: serif|sans|mono|... */
   displayFont:  text('displayFont').notNull().default('serif'),
-  /** Decoração em volta do avatar. Enum: none|halo|ring|... */
-  avatarDecoration: text('avatarDecoration').notNull().default('none'),
-  /** Background animado do card. Enum: none|aurora|nebula|... */
-  profileBg:        text('profileBg').notNull().default('none'),
-  /** OAuth Spotify (refresh token criptografado). Stub p/ futuro. */
-  spotifyRefreshToken: text('spotifyRefreshToken'),
-  spotifyConnectedAt:  timestamp('spotifyConnectedAt', { precision: 3 }),
+  /** Cor de texto no banner (label "Profil · No."). Hex. null = auto contrast. */
+  bannerTextColor: text('bannerTextColor'),
   status:       userStatusEnum('status').notNull().default('ONLINE'),
   /** Frase curta tipo "Compilando…" / "Fora hoje". Limite 100 chars no app. */
   customStatus: text('customStatus'),

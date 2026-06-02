@@ -69,8 +69,8 @@ router.patch(
   asyncHandler(async (req: Request, res: Response) => {
     const {
       displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme,
-      bannerPositionY, bannerScale, bannerBorder,
-      pronouns, statusEmoji, displayFont, avatarDecoration, profileBg,
+      bannerPositionY, bannerScale, bannerBorder, bannerTextColor,
+      pronouns, statusEmoji, displayFont,
     } = req.body
 
     if (bannerUrl && !isAllowedImageUrl(bannerUrl)) {
@@ -104,11 +104,10 @@ router.patch(
     if (bannerPositionY !== undefined) update.bannerPositionY = bannerPositionY
     if (bannerScale     !== undefined) update.bannerScale     = bannerScale
     if (bannerBorder    !== undefined) update.bannerBorder    = bannerBorder
+    if (bannerTextColor !== undefined) update.bannerTextColor = bannerTextColor
     if (pronouns         !== undefined) update.pronouns         = pronouns
     if (statusEmoji      !== undefined) update.statusEmoji      = statusEmoji
     if (displayFont      !== undefined) update.displayFont      = displayFont
-    if (avatarDecoration !== undefined) update.avatarDecoration = avatarDecoration
-    if (profileBg        !== undefined) update.profileBg        = profileBg
 
     const [user] = await db.update(users).set(update)
       .where(eq(users.id, req.userId!))
@@ -120,10 +119,9 @@ router.patch(
         bannerPositionY: users.bannerPositionY,
         bannerScale:     users.bannerScale,
         bannerBorder:    users.bannerBorder,
+        bannerTextColor: users.bannerTextColor,
         pronouns: users.pronouns, statusEmoji: users.statusEmoji,
-        displayFont: users.displayFont, avatarDecoration: users.avatarDecoration,
-        profileBg: users.profileBg,
-        spotifyConnectedAt: users.spotifyConnectedAt,
+        displayFont: users.displayFont,
       })
 
     res.json({ data: { user } })
@@ -179,9 +177,9 @@ router.get(
       bannerPositionY: users.bannerPositionY,
       bannerScale:     users.bannerScale,
       bannerBorder:    users.bannerBorder,
+      bannerTextColor: users.bannerTextColor,
       pronouns: users.pronouns, statusEmoji: users.statusEmoji,
-      displayFont: users.displayFont, avatarDecoration: users.avatarDecoration,
-      profileBg: users.profileBg, spotifyConnectedAt: users.spotifyConnectedAt,
+      displayFont: users.displayFont,
       isBot: users.isBot,
       status: users.status,
       createdAt: users.createdAt,
@@ -370,38 +368,6 @@ router.patch(
     await db.update(profileNotes).set({ pinned: !note.pinned })
       .where(eq(profileNotes.id, noteId))
     res.json({ data: { pinned: !note.pinned } })
-  })
-)
-
-// ════════════════════════════════════════════════════════
-// SPOTIFY (stub — ativa quando SPOTIFY_CLIENT_ID estiver setado)
-// ════════════════════════════════════════════════════════
-
-// GET /api/profile/spotify/status — frontend pergunta "habilitado?"
-router.get(
-  '/spotify/status',
-  asyncHandler(async (_req: Request, res: Response) => {
-    res.json({ data: { enabled: !!process.env.SPOTIFY_CLIENT_ID } })
-  })
-)
-
-// GET /api/profile/:userId/spotify/now-playing — placeholder.
-// Quando OAuth estiver ligado, busca via spotifyRefreshToken do user.
-router.get(
-  '/:userId/spotify/now-playing',
-  requireAuth,
-  asyncHandler(async (req: Request, res: Response) => {
-    if (!process.env.SPOTIFY_CLIENT_ID) {
-      return res.json({ data: null })
-    }
-    const targetId = req.params.userId
-    const [u] = await db.select({ token: users.spotifyRefreshToken })
-      .from(users).where(eq(users.id, targetId)).limit(1)
-    if (!u?.token) return res.json({ data: null })
-    // TODO: trocar refresh token por access token + chamar
-    // https://api.spotify.com/v1/me/player/currently-playing
-    // Cache 30s em Redis pra não estourar rate limit.
-    return res.json({ data: null })
   })
 )
 

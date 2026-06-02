@@ -24,8 +24,8 @@ import { motion, type Variants } from 'motion/react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BioMarkdown } from '@/lib/bioMarkdown'
+import { getContrast } from '@/lib/colorContrast'
 import { GuestbookSection } from '@/components/profile/GuestbookSection'
-import { SpotifyNowPlaying } from '@/components/profile/SpotifyNowPlaying'
 import { useAuthStore } from '@/store/authStore'
 import {
   Sheet, SheetContent, SheetTitle, SheetDescription,
@@ -47,10 +47,8 @@ const sectionVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] } },
 }
 
-type BannerBorder = 'none' | 'aurora' | 'pulse' | 'ink'
+type BannerBorder = 'none' | 'aurora' | 'pulse' | 'ink' | 'marquee' | 'glow' | 'noise' | 'shimmer'
 type DisplayFontLocal       = 'serif' | 'sans' | 'mono' | 'rounded' | 'condensed' | 'handwriting' | 'gothic' | 'modern'
-type AvatarDecorationLocal  = 'none' | 'halo' | 'ring' | 'thorns' | 'orbit' | 'pulse' | 'mosaic' | 'sigil'
-type ProfileBgLocal         = 'none' | 'aurora' | 'nebula' | 'mesh' | 'rain'
 
 const FONT_FAMILY: Record<DisplayFontLocal, string> = {
   serif:       'var(--font-display)',
@@ -75,12 +73,10 @@ interface PublicUser {
   bannerPositionY?: number
   bannerScale?:     number
   bannerBorder?:    BannerBorder
+  bannerTextColor?: string | null
   pronouns?:        string | null
   statusEmoji?:     string | null
   displayFont?:     DisplayFontLocal
-  avatarDecoration?: AvatarDecorationLocal
-  profileBg?:       ProfileBgLocal
-  spotifyConnectedAt?: string | null
   customStatus?: string | null
   isBot?:      boolean
   createdAt?:  string
@@ -167,6 +163,23 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
   const bannerBg      = profile?.bannerUrl && !bannerError
     ? undefined
     : (profile?.bannerColor ?? fallbackTheme)
+
+  // Cor de texto no banner: manual override > auto-contrast da bg do banner.
+  // Source pra contraste: bannerColor (gradient/hex) ou cor extraída (do banner image).
+  const bannerContrastBg = profile?.bannerColor ?? extractedColor ?? fallbackTheme
+  const bannerTextColor  = profile?.bannerTextColor ?? getContrast(bannerContrastBg).text
+
+  // Cor de texto do BODY: auto-contrast baseado em themeBg.
+  // (Body tem backdrop-blur overlay --popover/88, então a luminância efetiva é
+  // popover mixada com themeBg. Aproximamos amostrando themeBg direto.)
+  const bodyContrast      = getContrast(themeBg)
+  const bodyTextInverted  = bodyContrast.isLightBg
+  // Vars CSS overrides aplicados via inline style no body wrapper
+  const bodyTextOverrides: React.CSSProperties = bodyTextInverted ? {
+    ['--text-1' as string]: '#0d0d10',
+    ['--text-2' as string]: '#33343a',
+    ['--text-3' as string]: '#6b6c74',
+  } : {}
 
   /**
    * Color extraction → ambient glow.
@@ -278,7 +291,10 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               )}
               {/* Gradient overlay pra contraste do texto sobre imagem */}
               <div className="absolute bottom-0 left-0 right-0 h-24 bg-linear-to-t from-black/55 to-transparent pointer-events-none" />
-              <span className="ed-marg absolute top-4 left-6 text-white/80 z-10 drop-shadow-sm">
+              <span
+                className="ed-marg absolute top-4 left-6 z-10 drop-shadow-sm"
+                style={{ color: bannerTextColor }}
+              >
                 Profil · No. {(profile.id ?? '').slice(-3).toUpperCase()}
               </span>
             </motion.div>
@@ -286,12 +302,8 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
             {/* ── Body (sobe sobre banner, com gradient + overlay) ── */}
             <div
               className="flex-1 px-6 sm:px-7 pb-8 pt-0 relative -mt-6 rounded-tl-2xl rounded-tr-2xl"
-              style={{ background: themeBg }}
+              style={{ background: themeBg, ...bodyTextOverrides }}
             >
-              {/* Profile background animado (camada GPU-only sob overlay) */}
-              {profile.profileBg && profile.profileBg !== 'none' && (
-                <div className={cn('profile-bg', `profile-bg-${profile.profileBg}`)} />
-              )}
               {/* Partículas atmosféricas SOBRE o gradient mas ABAIXO do overlay
                   → backdrop-blur-md do overlay borra elas → vira "poeira flutuante"
                   difusa em vez de pontinhos rígidos. */}
@@ -307,16 +319,10 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     initial={{ opacity: 0, scale: 0.92 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.4, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className={cn(
-                      'relative shrink-0 avatar-deco-wrap',
-                      profile.avatarDecoration && profile.avatarDecoration !== 'none' && `avatar-deco-${profile.avatarDecoration}`,
-                    )}
+                    className="relative shrink-0"
                   >
                     <Avatar
-                      className={cn(
-                        'size-28 rounded-full border-[5px] transition-shadow duration-700 ease-(--ease-spring)',
-                        profile.avatarDecoration === 'pulse' && 'avatar-deco-pulse',
-                      )}
+                      className="size-28 rounded-full border-[5px] transition-shadow duration-700 ease-(--ease-spring)"
                       style={{
                         borderColor: 'var(--popover)',
                         background:  profile.isBot ? 'var(--accent-dim)' : accentColor + '22',
@@ -500,16 +506,15 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     </div>
                     {/* Slide cascade leve: cada tile entra deslizando 8px da direita,
                         stagger curto e delay base reduzido p/ não esperar tanto. */}
+                    {/* CSS animation no <li> em vez de motion.li → 12 instâncias
+                        motion economizadas em cada abertura de ProfileCard. */}
                     <ul className="flex flex-wrap gap-2">
                       {mutuals.slice(0, 12).map((s, i) => (
-                        <motion.li
+                        <li
                           key={s.id}
-                          initial={{ opacity: 0, x: 8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{
-                            duration: 0.28,
-                            delay:    0.28 + i * 0.025,
-                            ease:     [0.16, 1, 0.3, 1],
+                          style={{
+                            animation: `reveal-rise 0.28s cubic-bezier(0.16,1,0.3,1) ${0.28 + i * 0.025}s both`,
+                            ['--reveal-distance' as string]: '6px',
                           }}
                         >
                           <Tooltip>
@@ -532,20 +537,11 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                             </TooltipTrigger>
                             <TooltipContent side="top">{s.name}</TooltipContent>
                           </Tooltip>
-                        </motion.li>
+                        </li>
                       ))}
                     </ul>
                   </motion.div>
                 )}
-
-                {/* ── Spotify (renders null if not connected or env disabled) ── */}
-                <motion.section variants={sectionVariants} className="mb-5">
-                  <SpotifyNowPlaying
-                    userId={profile.id}
-                    accentColor={accentColor}
-                    enabled={!!profile.spotifyConnectedAt}
-                  />
-                </motion.section>
 
                 {/* ── Guestbook ─────────────────────────────── */}
                 <motion.section variants={sectionVariants} className="mb-5">

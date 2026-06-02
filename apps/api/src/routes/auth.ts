@@ -35,6 +35,12 @@ const userSafeColumns = {
   bannerPositionY: users.bannerPositionY,
   bannerScale:     users.bannerScale,
   bannerBorder:    users.bannerBorder,
+  pronouns:        users.pronouns,
+  statusEmoji:     users.statusEmoji,
+  displayFont:     users.displayFont,
+  avatarDecoration: users.avatarDecoration,
+  profileBg:       users.profileBg,
+  spotifyConnectedAt: users.spotifyConnectedAt,
 }
 
 // sameSite/secure depende do contexto:

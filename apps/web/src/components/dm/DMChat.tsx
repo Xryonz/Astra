@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CornerDownRight, File as FileIcon, Reply } from 'lucide-react'
 import { api, resolveApiUrl } from '@/lib/api'
 import { getSocket } from '@/lib/socket'
@@ -70,6 +70,18 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
   useEffect(() => {
     onRegisterOptimistic(addOptimistic, removeOptimistic)
   }, [onRegisterOptimistic, addOptimistic, removeOptimistic])
+
+  // Fetch profile theme do parceiro (cache compartilhado com ProfileCard).
+  // Usado pra tingir o welcome header com a estética dele.
+  // staleTime alto — theme muda raramente, vale fazer cache agressivo.
+  const partnerProfile = useQuery<{ user: { profileTheme?: string | null; bannerColor?: string | null } }>({
+    queryKey: ['profile', otherUser.id],
+    queryFn:  async () => (await api.get(`/api/profile/${otherUser.id}`)).data.data,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const partnerTheme = partnerProfile.data?.user?.profileTheme
+                   ?? partnerProfile.data?.user?.bannerColor
 
   const {
     data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading,
@@ -177,13 +189,29 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
         </div>
       )}
 
-      {/* Welcome header */}
+      {/* Welcome header — tingido com profileTheme do parceiro (se houver) */}
       {!hasNextPage && (
         <div style={{
           padding: '2.5rem 20px 1.5rem', textAlign: 'center',
           animation: 'fadeUp 0.35s var(--ease-spring) both',
+          position: 'relative', overflow: 'hidden',
         }}>
+          {/* Wash de tema dele atrás do conteúdo. Mask top-only fade */}
+          {partnerTheme && (
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute', inset: 0,
+                background: partnerTheme,
+                opacity: 0.18,
+                pointerEvents: 'none',
+                WebkitMaskImage: 'linear-gradient(180deg, #000 0%, transparent 85%)',
+                        maskImage: 'linear-gradient(180deg, #000 0%, transparent 85%)',
+              }}
+            />
+          )}
           <div style={{
+            position: 'relative',
             width: 72, height: 72, borderRadius: '50%', margin: '0 auto 1rem',
             background: avatarColor(otherUser.id) + '22',
             border: `3px solid ${avatarColor(otherUser.id)}44`,

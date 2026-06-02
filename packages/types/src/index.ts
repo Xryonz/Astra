@@ -33,6 +33,15 @@ const BANNER_COLOR_RE = /^(#[0-9a-fA-F]{6}|linear-gradient\(\s*-?\d{1,3}deg\s*,\
 export const BANNER_BORDER_STYLES = ['none', 'aurora', 'pulse', 'ink'] as const
 export type BannerBorderStyle = (typeof BANNER_BORDER_STYLES)[number]
 
+export const DISPLAY_FONTS = ['serif', 'sans', 'mono', 'rounded', 'condensed', 'handwriting', 'gothic', 'modern'] as const
+export type DisplayFont = (typeof DISPLAY_FONTS)[number]
+
+export const AVATAR_DECORATIONS = ['none', 'halo', 'ring', 'thorns', 'orbit', 'pulse', 'mosaic', 'sigil'] as const
+export type AvatarDecoration = (typeof AVATAR_DECORATIONS)[number]
+
+export const PROFILE_BACKGROUNDS = ['none', 'aurora', 'nebula', 'mesh', 'rain'] as const
+export type ProfileBackground = (typeof PROFILE_BACKGROUNDS)[number]
+
 export const UpdateProfileSchema = z.object({
   displayName: z.string().min(1, 'Nome obrigatório').max(64).optional(),
   username: z
@@ -40,7 +49,7 @@ export const UpdateProfileSchema = z.object({
     .min(3).max(32)
     .regex(/^[a-z0-9_]+$/, 'Apenas letras minúsculas, números e underscore')
     .optional(),
-  bio:        z.string().max(160, 'Bio deve ter no máximo 160 caracteres').optional().nullable(),
+  bio:        z.string().max(300, 'Bio deve ter no máximo 300 caracteres').optional().nullable(),
   avatarUrl:  z.string().optional().nullable(), // URL ou data URI (validação extra na API)
   bannerUrl:  z.string().optional().nullable(),
   bannerColor:  z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
@@ -48,7 +57,18 @@ export const UpdateProfileSchema = z.object({
   bannerPositionY: z.number().int().min(0).max(100).optional(),
   bannerScale:     z.number().int().min(100).max(200).optional(),
   bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),
+  pronouns:        z.string().max(32, 'Máx 32 caracteres').optional().nullable(),
+  statusEmoji:     z.string().max(8, 'Apenas 1 emoji').optional().nullable(),
+  displayFont:     z.enum(DISPLAY_FONTS).optional(),
+  avatarDecoration: z.enum(AVATAR_DECORATIONS).optional(),
+  profileBg:       z.enum(PROFILE_BACKGROUNDS).optional(),
 })
+
+// Guestbook (perfil-notes) schemas
+export const ProfileNoteSchema = z.object({
+  content: z.string().min(1, 'Nota vazia').max(120, 'Máx 120 caracteres'),
+})
+export type ProfileNoteInput = z.infer<typeof ProfileNoteSchema>
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>
 
@@ -170,7 +190,21 @@ export interface UserPublic {
   bannerPositionY?: number
   bannerScale?:     number
   bannerBorder?:    BannerBorderStyle
+  pronouns?:        string | null
+  statusEmoji?:     string | null
+  displayFont?:     DisplayFont
+  avatarDecoration?: AvatarDecoration
+  profileBg?:       ProfileBackground
+  spotifyConnectedAt?: string | null
   isBot?:      boolean
+}
+
+export interface ProfileNote {
+  id:        string
+  content:   string
+  pinned:    boolean
+  createdAt: string
+  author:    Pick<UserPublic, 'id' | 'username' | 'displayName' | 'avatarUrl'>
 }
 
 export interface Reaction {

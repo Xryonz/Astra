@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express'
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
-import { users, servers, serverMembers } from '../db/schema'
+import { users, servers, serverMembers, profileNotes, friendships } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { UpdateProfileSchema } from '@umbra/types'
+import { UpdateProfileSchema, ProfileNoteSchema } from '@umbra/types'
 import { getUserStatus, setUserOnline } from '../lib/redis'
 
 const router = Router()
@@ -70,6 +70,7 @@ router.patch(
     const {
       displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme,
       bannerPositionY, bannerScale, bannerBorder,
+      pronouns, statusEmoji, displayFont, avatarDecoration, profileBg,
     } = req.body
 
     if (bannerUrl && !isAllowedImageUrl(bannerUrl)) {
@@ -103,6 +104,11 @@ router.patch(
     if (bannerPositionY !== undefined) update.bannerPositionY = bannerPositionY
     if (bannerScale     !== undefined) update.bannerScale     = bannerScale
     if (bannerBorder    !== undefined) update.bannerBorder    = bannerBorder
+    if (pronouns         !== undefined) update.pronouns         = pronouns
+    if (statusEmoji      !== undefined) update.statusEmoji      = statusEmoji
+    if (displayFont      !== undefined) update.displayFont      = displayFont
+    if (avatarDecoration !== undefined) update.avatarDecoration = avatarDecoration
+    if (profileBg        !== undefined) update.profileBg        = profileBg
 
     const [user] = await db.update(users).set(update)
       .where(eq(users.id, req.userId!))
@@ -114,6 +120,10 @@ router.patch(
         bannerPositionY: users.bannerPositionY,
         bannerScale:     users.bannerScale,
         bannerBorder:    users.bannerBorder,
+        pronouns: users.pronouns, statusEmoji: users.statusEmoji,
+        displayFont: users.displayFont, avatarDecoration: users.avatarDecoration,
+        profileBg: users.profileBg,
+        spotifyConnectedAt: users.spotifyConnectedAt,
       })
 
     res.json({ data: { user } })
@@ -169,6 +179,9 @@ router.get(
       bannerPositionY: users.bannerPositionY,
       bannerScale:     users.bannerScale,
       bannerBorder:    users.bannerBorder,
+      pronouns: users.pronouns, statusEmoji: users.statusEmoji,
+      displayFont: users.displayFont, avatarDecoration: users.avatarDecoration,
+      profileBg: users.profileBg, spotifyConnectedAt: users.spotifyConnectedAt,
       isBot: users.isBot,
       status: users.status,
       createdAt: users.createdAt,
@@ -226,6 +239,169 @@ router.get(
       : liveStatus === 'INVISIBLE' && u.id !== req.userId ? 'OFFLINE'
       : liveStatus
     res.json({ data: { ...u, effectiveStatus } })
+  })
+)
+
+// ════════════════════════════════════════════════════════
+// GUESTBOOK (ProfileNote)
+// ════════════════════════════════════════════════════════
+
+// GET /api/profile/:userId/notes — listing público (pinned primeiro, depois recente)
+router.get(
+  '/:userId/notes',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const targetId = req.params.userId
+    const rows = await db.select({
+      id:        profileNotes.id,
+      content:   profileNotes.content,
+      pinned:    profileNotes.pinned,
+      createdAt: profileNotes.createdAt,
+      authorId:        users.id,
+      authorUsername:  users.username,
+      authorDisplay:   users.displayName,
+      authorAvatar:    users.avatarUrl,
+    })
+      .from(profileNotes)
+      .innerJoin(users, eq(users.id, profileNotes.authorId))
+      .where(eq(profileNotes.profileUserId, targetId))
+      .orderBy(desc(profileNotes.pinned), desc(profileNotes.createdAt))
+      .limit(40)
+
+    const items = rows.map((r) => ({
+      id:        r.id,
+      content:   r.content,
+      pinned:    r.pinned,
+      createdAt: r.createdAt.toISOString(),
+      author: {
+        id: r.authorId, username: r.authorUsername,
+        displayName: r.authorDisplay, avatarUrl: r.authorAvatar,
+      },
+    }))
+    res.json({ data: items })
+  })
+)
+
+// POST /api/profile/:userId/notes — criar/atualizar (upsert por author)
+// Regras: não pode escrever no próprio perfil; só amigos podem.
+router.post(
+  '/:userId/notes',
+  requireAuth,
+  validate(ProfileNoteSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const targetId = req.params.userId
+    const me       = req.userId!
+    if (targetId === me) return res.status(400).json({ error: 'Não dá pra escrever no próprio mural' })
+
+    // Só amigos podem deixar nota (par sempre normalizado)
+    const [a, b] = me < targetId ? [me, targetId] : [targetId, me]
+    const [friendRow] = await db.select({ id: friendships.id })
+      .from(friendships)
+      .where(and(
+        eq(friendships.userAId, a), eq(friendships.userBId, b),
+        eq(friendships.status, 'accepted'),
+      )).limit(1)
+    if (!friendRow) return res.status(403).json({ error: 'Apenas amigos podem deixar nota' })
+
+    const { content } = req.body as { content: string }
+    const trimmed = content.trim()
+    if (!trimmed) return res.status(400).json({ error: 'Nota vazia' })
+
+    // Upsert: 1 nota por (perfil, author). Update se existe.
+    const [existing] = await db.select({ id: profileNotes.id })
+      .from(profileNotes)
+      .where(and(eq(profileNotes.profileUserId, targetId), eq(profileNotes.authorId, me)))
+      .limit(1)
+
+    if (existing) {
+      await db.update(profileNotes)
+        .set({ content: trimmed, createdAt: new Date() })
+        .where(eq(profileNotes.id, existing.id))
+      return res.json({ data: { id: existing.id, content: trimmed, updated: true } })
+    }
+
+    const [inserted] = await db.insert(profileNotes).values({
+      profileUserId: targetId,
+      authorId:      me,
+      content:       trimmed,
+    }).returning({ id: profileNotes.id })
+    res.json({ data: { id: inserted.id, content: trimmed, updated: false } })
+  })
+)
+
+// DELETE /api/profile/notes/:noteId — autor pode remover sua nota;
+// dono do perfil também pode remover qualquer nota do próprio mural.
+router.delete(
+  '/notes/:noteId',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const noteId = req.params.noteId
+    const me     = req.userId!
+    const [note] = await db.select({
+      id: profileNotes.id, authorId: profileNotes.authorId, profileUserId: profileNotes.profileUserId,
+    }).from(profileNotes).where(eq(profileNotes.id, noteId)).limit(1)
+    if (!note) return res.status(404).json({ error: 'Nota não encontrada' })
+    if (note.authorId !== me && note.profileUserId !== me) {
+      return res.status(403).json({ error: 'Sem permissão' })
+    }
+    await db.delete(profileNotes).where(eq(profileNotes.id, noteId))
+    res.json({ data: { ok: true } })
+  })
+)
+
+// PATCH /api/profile/notes/:noteId/pin — dono do perfil pin/unpin
+router.patch(
+  '/notes/:noteId/pin',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const noteId = req.params.noteId
+    const me     = req.userId!
+    const [note] = await db.select({
+      id: profileNotes.id, pinned: profileNotes.pinned, profileUserId: profileNotes.profileUserId,
+    }).from(profileNotes).where(eq(profileNotes.id, noteId)).limit(1)
+    if (!note) return res.status(404).json({ error: 'Nota não encontrada' })
+    if (note.profileUserId !== me) return res.status(403).json({ error: 'Apenas o dono do mural' })
+
+    // Single-pin: ao pinar, despina os outros
+    if (!note.pinned) {
+      await db.update(profileNotes).set({ pinned: false })
+        .where(eq(profileNotes.profileUserId, me))
+    }
+    await db.update(profileNotes).set({ pinned: !note.pinned })
+      .where(eq(profileNotes.id, noteId))
+    res.json({ data: { pinned: !note.pinned } })
+  })
+)
+
+// ════════════════════════════════════════════════════════
+// SPOTIFY (stub — ativa quando SPOTIFY_CLIENT_ID estiver setado)
+// ════════════════════════════════════════════════════════
+
+// GET /api/profile/spotify/status — frontend pergunta "habilitado?"
+router.get(
+  '/spotify/status',
+  asyncHandler(async (_req: Request, res: Response) => {
+    res.json({ data: { enabled: !!process.env.SPOTIFY_CLIENT_ID } })
+  })
+)
+
+// GET /api/profile/:userId/spotify/now-playing — placeholder.
+// Quando OAuth estiver ligado, busca via spotifyRefreshToken do user.
+router.get(
+  '/:userId/spotify/now-playing',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!process.env.SPOTIFY_CLIENT_ID) {
+      return res.json({ data: null })
+    }
+    const targetId = req.params.userId
+    const [u] = await db.select({ token: users.spotifyRefreshToken })
+      .from(users).where(eq(users.id, targetId)).limit(1)
+    if (!u?.token) return res.json({ data: null })
+    // TODO: trocar refresh token por access token + chamar
+    // https://api.spotify.com/v1/me/player/currently-playing
+    // Cache 30s em Redis pra não estourar rate limit.
+    return res.json({ data: null })
   })
 )
 

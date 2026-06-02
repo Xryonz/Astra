@@ -29,6 +29,19 @@ export const users = pgTable('User', {
   bannerScale:     integer('bannerScale').notNull().default(100),
   /** Estilo de borda animada: 'none' | 'aurora' | 'pulse' | 'ink'. */
   bannerBorder:    text('bannerBorder').notNull().default('none'),
+  /** Pronouns (livre, max 32). Ex: "ela/dela", "they/them". */
+  pronouns:     text('pronouns'),
+  /** Emoji opcional antes do custom status. 1 codepoint (até 8 bytes UTF). */
+  statusEmoji:  text('statusEmoji'),
+  /** Family p/ displayName + bio. Enum: serif|sans|mono|... */
+  displayFont:  text('displayFont').notNull().default('serif'),
+  /** Decoração em volta do avatar. Enum: none|halo|ring|... */
+  avatarDecoration: text('avatarDecoration').notNull().default('none'),
+  /** Background animado do card. Enum: none|aurora|nebula|... */
+  profileBg:        text('profileBg').notNull().default('none'),
+  /** OAuth Spotify (refresh token criptografado). Stub p/ futuro. */
+  spotifyRefreshToken: text('spotifyRefreshToken'),
+  spotifyConnectedAt:  timestamp('spotifyConnectedAt', { precision: 3 }),
   status:       userStatusEnum('status').notNull().default('ONLINE'),
   /** Frase curta tipo "Compilando…" / "Fora hoje". Limite 100 chars no app. */
   customStatus: text('customStatus'),
@@ -37,6 +50,21 @@ export const users = pgTable('User', {
   createdAt:    timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt:    timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 })
+
+// ─── ProfileNote ──────────────────────────────────────────────
+// Guestbook: outras pessoas deixam 1 nota curta no perfil de alguém.
+// Unique(profileUserId, authorId) — cada user pode deixar 1 nota só por perfil.
+export const profileNotes = pgTable('ProfileNote', {
+  id:            text('id').primaryKey().$defaultFn(createId),
+  profileUserId: text('profileUserId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  authorId:      text('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content:       text('content').notNull(),
+  pinned:        boolean('pinned').notNull().default(false),
+  createdAt:     timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  byProfileTime: index('ProfileNote_profileUserId_createdAt_idx').on(t.profileUserId, t.createdAt),
+  uniqAuthor:    uniqueIndex('ProfileNote_profileUserId_authorId_key').on(t.profileUserId, t.authorId),
+}))
 
 // ─── MutedMember ──────────────────────────────────────────────
 export const mutedMembers = pgTable('MutedMember', {

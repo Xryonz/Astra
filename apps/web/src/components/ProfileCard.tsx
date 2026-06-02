@@ -23,6 +23,9 @@ import { ptBR } from 'date-fns/locale'
 import { motion, type Variants } from 'motion/react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { BioMarkdown } from '@/lib/bioMarkdown'
+import { GuestbookSection } from '@/components/profile/GuestbookSection'
+import { SpotifyNowPlaying } from '@/components/profile/SpotifyNowPlaying'
 import { useAuthStore } from '@/store/authStore'
 import {
   Sheet, SheetContent, SheetTitle, SheetDescription,
@@ -45,6 +48,20 @@ const sectionVariants: Variants = {
 }
 
 type BannerBorder = 'none' | 'aurora' | 'pulse' | 'ink'
+type DisplayFontLocal       = 'serif' | 'sans' | 'mono' | 'rounded' | 'condensed' | 'handwriting' | 'gothic' | 'modern'
+type AvatarDecorationLocal  = 'none' | 'halo' | 'ring' | 'thorns' | 'orbit' | 'pulse' | 'mosaic' | 'sigil'
+type ProfileBgLocal         = 'none' | 'aurora' | 'nebula' | 'mesh' | 'rain'
+
+const FONT_FAMILY: Record<DisplayFontLocal, string> = {
+  serif:       'var(--font-display)',
+  sans:        '-apple-system, ui-sans-serif, system-ui',
+  mono:        'var(--font-mono)',
+  rounded:     'ui-rounded, "SF Pro Rounded", system-ui',
+  condensed:   '"Helvetica Neue Condensed", Impact, Arial Narrow, sans-serif',
+  handwriting: '"Brush Script MT", cursive',
+  gothic:      'UnifrakturCook, "Times New Roman", serif',
+  modern:      'Futura, "Avenir Next", "Trebuchet MS", sans-serif',
+}
 
 interface PublicUser {
   id:          string
@@ -58,6 +75,12 @@ interface PublicUser {
   bannerPositionY?: number
   bannerScale?:     number
   bannerBorder?:    BannerBorder
+  pronouns?:        string | null
+  statusEmoji?:     string | null
+  displayFont?:     DisplayFontLocal
+  avatarDecoration?: AvatarDecorationLocal
+  profileBg?:       ProfileBgLocal
+  spotifyConnectedAt?: string | null
   customStatus?: string | null
   isBot?:      boolean
   createdAt?:  string
@@ -265,6 +288,10 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               className="flex-1 px-6 sm:px-7 pb-8 pt-0 relative -mt-6 rounded-tl-2xl rounded-tr-2xl"
               style={{ background: themeBg }}
             >
+              {/* Profile background animado (camada GPU-only sob overlay) */}
+              {profile.profileBg && profile.profileBg !== 'none' && (
+                <div className={cn('profile-bg', `profile-bg-${profile.profileBg}`)} />
+              )}
               {/* Partículas atmosféricas SOBRE o gradient mas ABAIXO do overlay
                   → backdrop-blur-md do overlay borra elas → vira "poeira flutuante"
                   difusa em vez de pontinhos rígidos. */}
@@ -280,10 +307,16 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     initial={{ opacity: 0, scale: 0.92 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.4, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="relative shrink-0"
+                    className={cn(
+                      'relative shrink-0 avatar-deco-wrap',
+                      profile.avatarDecoration && profile.avatarDecoration !== 'none' && `avatar-deco-${profile.avatarDecoration}`,
+                    )}
                   >
                     <Avatar
-                      className="size-28 rounded-full border-[5px] transition-shadow duration-700 ease-(--ease-spring)"
+                      className={cn(
+                        'size-28 rounded-full border-[5px] transition-shadow duration-700 ease-(--ease-spring)',
+                        profile.avatarDecoration === 'pulse' && 'avatar-deco-pulse',
+                      )}
                       style={{
                         borderColor: 'var(--popover)',
                         background:  profile.isBot ? 'var(--accent-dim)' : accentColor + '22',
@@ -354,7 +387,10 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                   <div className="flex items-baseline flex-wrap gap-2 mb-1">
                     <h2
                       className="text-[2rem] font-normal tracking-tight m-0 leading-tight wrap-break-word"
-                      style={{ fontFamily: 'var(--font-display)', color: accentColor }}
+                      style={{
+                        fontFamily: FONT_FAMILY[profile.displayFont ?? 'serif'],
+                        color: accentColor,
+                      }}
                     >
                       {profile.displayName}
                     </h2>
@@ -364,6 +400,18 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                         style={{ background: 'var(--accent)', color: 'var(--text-inv)' }}
                       >
                         BOT
+                      </span>
+                    )}
+                    {profile.pronouns && (
+                      <span
+                        className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full border self-center"
+                        style={{
+                          borderColor: 'color-mix(in srgb, ' + accentColor + ' 40%, transparent)',
+                          color: accentColor,
+                          background: 'color-mix(in srgb, ' + accentColor + ' 10%, transparent)',
+                        }}
+                      >
+                        {profile.pronouns}
                       </span>
                     )}
                   </div>
@@ -385,16 +433,19 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                 {profile.customStatus && (
                   <motion.div variants={sectionVariants} className="mb-5">
                     <div
-                      className="relative rounded-xl px-4 py-3 border-l-2"
+                      className="relative rounded-xl px-4 py-3 border-l-2 flex items-start gap-2.5"
                       style={{
                         borderLeftColor: accentColor,
                         background: 'color-mix(in srgb, var(--raised) 60%, transparent)',
                       }}
                     >
+                      {profile.statusEmoji && (
+                        <span className="text-xl leading-none shrink-0 mt-0.5">{profile.statusEmoji}</span>
+                      )}
                       <Quote className="absolute top-2 right-3 size-3 text-(--text-3) opacity-40" />
                       <p
                         className="m-0 text-sm italic leading-relaxed text-(--text-1)"
-                        style={{ fontFamily: 'var(--font-display)' }}
+                        style={{ fontFamily: FONT_FAMILY[profile.displayFont ?? 'serif'] }}
                       >
                         {profile.customStatus}
                       </p>
@@ -418,9 +469,9 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                   {profile.bio ? (
                     <p
                       className="text-(--text-2) text-[14px] leading-[1.7] m-0 wrap-break-word"
-                      style={{ fontFamily: 'var(--font-body)' }}
+                      style={{ fontFamily: FONT_FAMILY[profile.displayFont ?? 'serif'] }}
                     >
-                      {profile.bio}
+                      <BioMarkdown text={profile.bio} />
                     </p>
                   ) : (
                     <p className="text-(--text-3) text-sm italic m-0">
@@ -486,6 +537,24 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     </ul>
                   </motion.div>
                 )}
+
+                {/* ── Spotify (renders null if not connected or env disabled) ── */}
+                <motion.section variants={sectionVariants} className="mb-5">
+                  <SpotifyNowPlaying
+                    userId={profile.id}
+                    accentColor={accentColor}
+                    enabled={!!profile.spotifyConnectedAt}
+                  />
+                </motion.section>
+
+                {/* ── Guestbook ─────────────────────────────── */}
+                <motion.section variants={sectionVariants} className="mb-5">
+                  <GuestbookSection
+                    userId={profile.id}
+                    accentColor={accentColor}
+                    isSelf={isSelf}
+                  />
+                </motion.section>
 
                 {isSelf && (
                   <motion.p variants={sectionVariants} className="ed-marg text-center mt-2">

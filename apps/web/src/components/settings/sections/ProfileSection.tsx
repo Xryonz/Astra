@@ -10,7 +10,10 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GradientBuilder } from '@/components/settings/GradientBuilder'
 import { cn } from '@/lib/utils'
-import { UpdateProfileSchema, type BannerBorderStyle } from '@umbra/types'
+import {
+  UpdateProfileSchema, type BannerBorderStyle,
+  type DisplayFont, type AvatarDecoration, type ProfileBackground,
+} from '@umbra/types'
 import { SectionHeader, Row, SaveStatus } from './_shared'
 
 // 30 presets editoriais agrupados — varia de quentes solares até escuras moody.
@@ -91,6 +94,38 @@ const BANNER_BORDER_OPTIONS: { id: BannerBorderStyle; label: string; description
   { id: 'ink',    label: 'Tinta',     description: 'Vinheta que respira.',     icon: <Droplet className="size-3.5" /> },
 ]
 
+// 8 fontes editoriais curadas. CSS family vem direto do --font-display alternativo.
+// Não importa fontes externas — usa apenas system fonts ou aliases já em CSS vars.
+const DISPLAY_FONT_OPTIONS: { id: DisplayFont; label: string; family: string; preview: string }[] = [
+  { id: 'serif',       label: 'Serif Display',  family: 'var(--font-display)',                    preview: 'Editorial clássico' },
+  { id: 'sans',        label: 'Sans Limpa',      family: '-apple-system, ui-sans-serif, system-ui', preview: 'Limpo & moderno' },
+  { id: 'mono',        label: 'Mono Técnica',    family: 'var(--font-mono)',                       preview: 'Identidade hacker' },
+  { id: 'rounded',     label: 'Sans Arredondada', family: 'ui-rounded, "SF Pro Rounded", system-ui', preview: 'Amigável & soft' },
+  { id: 'condensed',   label: 'Condensada',      family: '"Helvetica Neue Condensed", Impact, Arial Narrow, sans-serif', preview: 'Apertada & forte' },
+  { id: 'handwriting', label: 'Manuscrita',      family: '"Brush Script MT", cursive',             preview: 'Pessoal & solto' },
+  { id: 'gothic',      label: 'Gótica',          family: 'UnifrakturCook, "Times New Roman", serif', preview: 'Antiga & ritual' },
+  { id: 'modern',      label: 'Geométrica',      family: 'Futura, "Avenir Next", "Trebuchet MS", sans-serif', preview: 'Geométrica & limpa' },
+]
+
+const AVATAR_DECORATION_OPTIONS: { id: AvatarDecoration; label: string; description: string }[] = [
+  { id: 'none',    label: 'Nenhuma',   description: 'Avatar limpo, sem moldura.' },
+  { id: 'halo',    label: 'Halo',      description: 'Coroa de luz estática suave.' },
+  { id: 'ring',    label: 'Anel',      description: 'Conic gradient girando 10s.' },
+  { id: 'thorns',  label: 'Espinhos',  description: '8 raios pontilhados em rotação.' },
+  { id: 'orbit',   label: 'Órbita',    description: '2 pontos de luz orbitando.' },
+  { id: 'pulse',   label: 'Pulso',     description: 'Anel sólido pulsando accent.' },
+  { id: 'mosaic',  label: 'Mosaico',   description: 'Borda pixelada estática.' },
+  { id: 'sigil',   label: 'Sigilo',    description: 'Marcas cardinais com glow.' },
+]
+
+const PROFILE_BG_OPTIONS: { id: ProfileBackground; label: string; description: string }[] = [
+  { id: 'none',   label: 'Nenhum',   description: 'Apenas o tema do card.' },
+  { id: 'aurora', label: 'Aurora',   description: 'Manchas que respiram 14s.' },
+  { id: 'nebula', label: 'Nebulosa', description: 'Gradients se cruzando 30s.' },
+  { id: 'mesh',   label: 'Malha',    description: 'Grade tracejada na diagonal.' },
+  { id: 'rain',   label: 'Chuva',    description: 'Listras finas caindo 4.5s.' },
+]
+
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 /**
@@ -113,6 +148,11 @@ export default function ProfileSection() {
   const [bannerPositionY, setBannerPositionY] = useState<number>((user as any)?.bannerPositionY ?? 50)
   const [bannerScale,     setBannerScale]     = useState<number>((user as any)?.bannerScale     ?? 100)
   const [bannerBorder,    setBannerBorder]    = useState<BannerBorderStyle>(((user as any)?.bannerBorder ?? 'none') as BannerBorderStyle)
+  const [pronouns,        setPronouns]        = useState<string>((user as any)?.pronouns ?? '')
+  const [statusEmoji,     setStatusEmoji]     = useState<string>((user as any)?.statusEmoji ?? '')
+  const [displayFont,     setDisplayFont]     = useState<DisplayFont>(((user as any)?.displayFont ?? 'serif') as DisplayFont)
+  const [avatarDecoration, setAvatarDecoration] = useState<AvatarDecoration>(((user as any)?.avatarDecoration ?? 'none') as AvatarDecoration)
+  const [profileBg,        setProfileBg]        = useState<ProfileBackground>(((user as any)?.profileBg ?? 'none') as ProfileBackground)
   const [fileError,   setFileError]   = useState('')
   const [avatarImgErr, setAvatarImgErr] = useState(false)
   const [bannerImgErr, setBannerImgErr] = useState(false)
@@ -163,13 +203,18 @@ export default function ProfileSection() {
       bannerPositionY,
       bannerScale,
       bannerBorder,
+      pronouns:        pronouns || null,
+      statusEmoji:     statusEmoji || null,
+      displayFont,
+      avatarDecoration,
+      profileBg,
     }
     const result = UpdateProfileSchema.safeParse(candidate)
     if (result.success) return {} as Record<string, string>
     const map: Record<string, string> = {}
     for (const issue of result.error.issues) map[issue.path.join('.')] = issue.message
     return map
-  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder])
+  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder, pronouns, statusEmoji, displayFont, avatarDecoration, profileBg])
 
   const updateProfile = useMutation({
     mutationFn: async () => {
@@ -184,6 +229,11 @@ export default function ProfileSection() {
         bannerPositionY: (user as any)?.bannerPositionY ?? 50,
         bannerScale:     (user as any)?.bannerScale     ?? 100,
         bannerBorder:    (user as any)?.bannerBorder    ?? 'none',
+        pronouns:         (user as any)?.pronouns ?? '',
+        statusEmoji:      (user as any)?.statusEmoji ?? '',
+        displayFont:      (user as any)?.displayFont ?? 'serif',
+        avatarDecoration: (user as any)?.avatarDecoration ?? 'none',
+        profileBg:        (user as any)?.profileBg ?? 'none',
       }
       const payload: Record<string, unknown> = {}
       if (displayName  !== initial.displayName)  payload.displayName  = displayName || undefined
@@ -196,6 +246,11 @@ export default function ProfileSection() {
       if (bannerPositionY !== initial.bannerPositionY) payload.bannerPositionY = bannerPositionY
       if (bannerScale     !== initial.bannerScale)     payload.bannerScale     = bannerScale
       if (bannerBorder    !== initial.bannerBorder)    payload.bannerBorder    = bannerBorder
+      if (pronouns         !== initial.pronouns)         payload.pronouns         = pronouns || null
+      if (statusEmoji      !== initial.statusEmoji)      payload.statusEmoji      = statusEmoji || null
+      if (displayFont      !== initial.displayFont)      payload.displayFont      = displayFont
+      if (avatarDecoration !== initial.avatarDecoration) payload.avatarDecoration = avatarDecoration
+      if (profileBg        !== initial.profileBg)        payload.profileBg        = profileBg
       if (Object.keys(payload).length === 0) return null
 
       const res = await api.patch('/api/profile', payload)
@@ -225,7 +280,7 @@ export default function ProfileSection() {
     }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder])
+  }, [displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder, pronouns, statusEmoji, displayFont, avatarDecoration, profileBg])
 
   return (
     <div>
@@ -272,20 +327,121 @@ export default function ProfileSection() {
         {errors.username && <p className="text-xs text-(--danger) mt-1 m-0">{errors.username}</p>}
       </Row>
 
-      <Row label="Status atual" hint="Frase curta que aparece pros amigos. Some quando você troca ou apaga.">
-        <CustomStatusEditor />
+      <Row label="Pronomes" hint="Ex: ela/dela, ele/dele, elu/delu, they/them. Aparece como chip no card.">
+        <Input
+          value={pronouns}
+          onChange={(e) => setPronouns(e.target.value.slice(0, 32))}
+          maxLength={32}
+          placeholder="ela/dela"
+        />
+        {errors.pronouns && <p className="text-xs text-(--danger) mt-1 m-0">{errors.pronouns}</p>}
       </Row>
 
-      <Row label="Bio" hint="Linha curta sobre você. Até 200 caracteres.">
+      <Row label="Status atual" hint="Emoji + frase curta que aparece pros amigos. Some quando você troca ou apaga.">
+        <div className="flex items-stretch gap-2">
+          <Input
+            value={statusEmoji}
+            onChange={(e) => setStatusEmoji(e.target.value.slice(0, 8))}
+            maxLength={8}
+            placeholder="🎮"
+            className="w-16 text-center text-lg shrink-0"
+            aria-label="Emoji do status"
+          />
+          <div className="flex-1">
+            <CustomStatusEditor />
+          </div>
+        </div>
+        {errors.statusEmoji && <p className="text-xs text-(--danger) mt-1 m-0">{errors.statusEmoji}</p>}
+      </Row>
+
+      <Row label="Bio" hint="Até 300 caracteres. Markdown: **negrito** · *itálico* · `código` · [texto](url) · quebra de linha.">
         <Textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          maxLength={200}
-          rows={3}
-          placeholder="Algo sobre você…"
+          maxLength={300}
+          rows={4}
+          placeholder="Algo sobre você… use **negrito**, *itálico*, ou [link](https://...)"
         />
-        <p className="text-[11px] text-(--text-3) mt-1 m-0 text-right">{bio.length}/200</p>
+        <p className="text-[11px] text-(--text-3) mt-1 m-0 text-right">{bio.length}/300</p>
         {errors.bio && <p className="text-xs text-(--danger) m-0">{errors.bio}</p>}
+      </Row>
+
+      <Row label="Fonte do nome" hint="Tipografia do displayName e bio no card. 8 famílias curadas.">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {DISPLAY_FONT_OPTIONS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setDisplayFont(f.id)}
+              className={cn(
+                'group relative flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all hover:scale-[1.02] cursor-pointer',
+                displayFont === f.id
+                  ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
+                  : 'border-(--border-mid) hover:border-(--accent)/60',
+              )}
+            >
+              <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-mono">{f.label}</span>
+              <span className="text-base leading-tight text-(--text-1)" style={{ fontFamily: f.family }}>
+                {f.preview}
+              </span>
+              {displayFont === f.id && <Check className="absolute top-2 right-2 size-3.5 text-(--accent)" />}
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="Decoração do avatar" hint="Moldura animada em volta da foto. 8 opções, todas GPU-leves.">
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5">
+          {AVATAR_DECORATION_OPTIONS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setAvatarDecoration(d.id)}
+              title={d.description}
+              className={cn(
+                'flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all hover:scale-105 cursor-pointer',
+                avatarDecoration === d.id
+                  ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
+                  : 'border-(--border-mid) hover:border-(--accent)/60',
+              )}
+            >
+              <div className={cn('avatar-deco-wrap', d.id !== 'none' && `avatar-deco-${d.id}`)}>
+                <div className="size-9 rounded-full bg-(--raised) border border-(--border-mid) grid place-items-center text-[10px] font-mono text-(--text-3)">
+                  AV
+                </div>
+              </div>
+              <span className="text-[10px] text-(--text-3) text-center leading-tight">{d.label}</span>
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="Fundo animado do card" hint="Camada CSS-only sobre o tema. Animação leve, GPU-direct.">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+          {PROFILE_BG_OPTIONS.map((bg) => (
+            <button
+              key={bg.id}
+              type="button"
+              onClick={() => setProfileBg(bg.id)}
+              title={bg.description}
+              className={cn(
+                'flex flex-col gap-2 p-2 rounded-lg border transition-all hover:scale-[1.03] cursor-pointer',
+                profileBg === bg.id
+                  ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
+                  : 'border-(--border-mid) hover:border-(--accent)/60',
+              )}
+            >
+              <div className="relative h-12 rounded-md overflow-hidden bg-(--popover)">
+                {bg.id !== 'none' && <div className={cn('profile-bg', `profile-bg-${bg.id}`)} />}
+              </div>
+              <span className="text-[10px] text-(--text-3) text-center leading-tight">{bg.label}</span>
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      <Row label="Spotify" hint="Mostra a música que você tá ouvindo no seu perfil. Requer OAuth.">
+        <SpotifyConnectStub />
       </Row>
 
       {/* ═══ Banner — bloco unificado com tabs pra dar respiro ═══ */}
@@ -333,20 +489,20 @@ export default function ProfileSection() {
                   {BANNER_GRADIENT_GROUPS.map((group) => (
                     <div key={group.id}>
                       <span className="ed-marg block mb-2.5">— {group.label}</span>
-                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+                      <div className="grid grid-cols-7 sm:grid-cols-10 gap-1.5">
                         {group.presets.map((g) => (
                           <button
                             key={g.id}
                             type="button"
                             onClick={() => { setBannerColor(g.value); setShowBannerBuilder(false) }}
                             className={cn(
-                              'h-14 rounded-lg border cursor-pointer transition-all hover:scale-105 relative grid place-items-center',
-                              bannerColor === g.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                              'h-8 rounded-md border cursor-pointer transition-all hover:scale-110 relative grid place-items-center',
+                              bannerColor === g.value ? 'border-(--accent) ring-1 ring-(--accent)/40' : 'border-(--border-mid) hover:border-(--accent)',
                             )}
                             style={{ background: g.value }}
                             title={g.label}
                           >
-                            {bannerColor === g.value && <Check className="size-3.5 text-white drop-shadow-md" />}
+                            {bannerColor === g.value && <Check className="size-2.5 text-white drop-shadow-md" />}
                           </button>
                         ))}
                       </div>
@@ -430,24 +586,24 @@ export default function ProfileSection() {
 
       {/* Profile theme */}
       <Row label="Tema do card de perfil" hint="Fundo do card que aparece quando alguém abre seu perfil.">
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {BANNER_GRADIENT_GROUPS.map((group) => (
             <div key={group.id}>
               <span className="ed-marg block mb-2">— {group.label}</span>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-7 sm:grid-cols-10 gap-1.5">
                 {group.presets.map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => { setProfileTheme(t.value); setShowThemeBuilder(false) }}
                     className={cn(
-                      'h-12 rounded-lg border cursor-pointer transition-all hover:scale-105 relative grid place-items-center',
-                      profileTheme === t.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                      'h-8 rounded-md border cursor-pointer transition-all hover:scale-110 relative grid place-items-center',
+                      profileTheme === t.value ? 'border-(--accent) ring-1 ring-(--accent)/40' : 'border-(--border-mid) hover:border-(--accent)',
                     )}
                     style={{ background: t.value }}
                     title={t.label}
                   >
-                    {profileTheme === t.value && <Check className="size-3.5 text-white drop-shadow-md" />}
+                    {profileTheme === t.value && <Check className="size-2.5 text-white drop-shadow-md" />}
                   </button>
                 ))}
               </div>
@@ -476,6 +632,52 @@ export default function ProfileSection() {
       <div className="pt-4">
         <SaveStatus status={saveStatus} error={saveError} />
       </div>
+    </div>
+  )
+}
+
+// ─── SpotifyConnectStub ─────────────────────────────────────
+// Conectar Spotify via OAuth. Backend hoje retorna enabled=false sem
+// SPOTIFY_CLIENT_ID setado → UI mostra estado "indisponível".
+//
+// Quando você ligar (env var + OAuth flow no backend), o botão abre
+// /api/auth/spotify (redirect Spotify → callback salva refresh token).
+function SpotifyConnectStub() {
+  const [statusEnabled, setStatusEnabled] = useState<boolean | null>(null)
+  const user      = useAuthStore((s) => s.user)
+  const connected = !!(user as any)?.spotifyConnectedAt
+
+  useEffect(() => {
+    api.get('/api/profile/spotify/status')
+      .then((r) => setStatusEnabled(!!r.data?.data?.enabled))
+      .catch(() => setStatusEnabled(false))
+  }, [])
+
+  if (statusEnabled === null) {
+    return <p className="text-xs text-(--text-3) italic m-0">Verificando…</p>
+  }
+  if (!statusEnabled) {
+    return (
+      <div className="rounded-lg border border-dashed border-(--border-mid) p-3 bg-(--raised)/30">
+        <p className="text-xs text-(--text-3) m-0 leading-relaxed">
+          Integração indisponível. Para ativar, o servidor precisa de <code className="font-mono text-(--text-2)">SPOTIFY_CLIENT_ID</code> e callback OAuth configurados.
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant={connected ? 'outline' : 'default'}
+        onClick={() => { window.location.href = '/api/auth/spotify' }}
+        className="gap-2"
+      >
+        {connected ? 'Reconectar Spotify' : 'Conectar Spotify'}
+      </Button>
+      {connected && (
+        <span className="text-xs text-(--text-3) font-mono">✓ conectado</span>
+      )}
     </div>
   )
 }

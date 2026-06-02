@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, Pencil, Calendar, Users as UsersIcon, Crown, Shield, Sparkles, Quote } from 'lucide-react'
+import { MessageCircle, Calendar, Users as UsersIcon, Crown, Shield, Sparkles, Quote } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, type Variants } from 'motion/react'
@@ -380,11 +380,6 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                         </Button>
                       </motion.div>
                     )}
-                    {isSelf && (
-                      <span className="ed-marg flex items-center gap-1.5">
-                        <Pencil className="size-3" /> Seu perfil
-                      </span>
-                    )}
                   </motion.div>
                 </div>
 
@@ -552,11 +547,6 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                   />
                 </motion.section>
 
-                {isSelf && (
-                  <motion.p variants={sectionVariants} className="ed-marg text-center mt-2">
-                    Use o botão <Pencil className="size-3 inline align-middle" /> no rodapé pra editar perfil
-                  </motion.p>
-                )}
               </motion.div>
             </div>
           </>

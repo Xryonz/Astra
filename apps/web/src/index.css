@@ -90,6 +90,12 @@
   from { opacity: 0; transform: translateY(18px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
+/* Reveal — keyframe parametrizado via --reveal-distance.
+   Usado pelo componente Reveal (CSS-only, sem custo de motion lib). */
+@keyframes reveal-rise {
+  from { opacity: 0; transform: translate3d(0, var(--reveal-distance, 12px), 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
 @keyframes fadeLeft {
   from { opacity: 0; transform: translateX(-12px); }
   to   { opacity: 1; transform: translateX(0);     }

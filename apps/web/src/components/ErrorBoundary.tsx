@@ -48,13 +48,13 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="flex gap-2">
             <button
               onClick={this.reset}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Tentar de novo
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 rounded-md border border-border text-sm font-medium hover:bg-card transition-colors"
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-card transition-colors"
             >
               Recarregar página
             </button>

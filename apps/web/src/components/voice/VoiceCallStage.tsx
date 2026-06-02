@@ -365,7 +365,7 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
       className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-(--accent) shadow-[0_8px_32px_-8px_var(--accent-glow)] bg-black"
     >
       <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain" />
-      <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md border border-(--accent)/40 flex items-center gap-1.5">
+      <div className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-(--accent)/40 flex items-center gap-1.5">
         <ScreenShare className="size-3 text-(--accent)" />
         <span className="text-[10px] font-mono text-white uppercase tracking-wider">
           {displayName} · compartilhando

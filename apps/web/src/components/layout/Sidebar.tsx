@@ -377,7 +377,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => { setShowAddMember(true); setInviteError(''); setInviteSuccess('') }}
-                      className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary p-1 rounded-md flex items-center transition-colors"
+                      className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary p-1 rounded-lg flex items-center transition-colors"
                     >
                       <UserPlus className="size-4" />
                     </button>
@@ -986,7 +986,7 @@ function FooterBtn({ title, onClick, danger, children }: {
         <button
           onClick={onClick}
           className={cn(
-            'bg-transparent border-none cursor-pointer p-1 rounded-md flex items-center transition-colors',
+            'bg-transparent border-none cursor-pointer p-1 rounded-lg flex items-center transition-colors',
             danger ? 'text-muted-foreground hover:text-destructive' : 'text-muted-foreground hover:text-primary'
           )}
         >

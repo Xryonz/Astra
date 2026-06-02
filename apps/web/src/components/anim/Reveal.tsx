@@ -1,44 +1,45 @@
 /**
- * Reveal — wrapper que faz fade + rise quando o elemento entra na tela.
+ * Reveal — wrapper que faz fade + rise quando o elemento monta.
  *
- * Usa motion-one (lightweight, ~5kb gzipped, melhor que framer-motion
- * pra animações simples). Inspirado em "Serif Renaissance" / "Editorial web":
- * elementos chegam de baixo com curva spring suave, opcionalmente em stagger.
+ * CSS-only: usa animation keyframe `reveal-rise` (definido em index.css)
+ * com --reveal-distance custom property. Sem custo de motion lib runtime —
+ * o browser compositor cuida sozinho. GPU-direct, zero JS observers.
  *
- * Default settings tunados pra negative-space layouts: delay pequeno,
- * curva orgânica (não Material).
+ * Trade-off vs motion: não tem viewport-detection (anima no mount, não
+ * quando entra no viewport). 99% dos usos no Umbra são mount-time
+ * (página abrindo), então CSS é estritamente melhor aqui.
  */
-import { motion, type HTMLMotionProps } from 'motion/react'
+import * as React from 'react'
+import { cn } from '@/lib/utils'
 
-interface RevealProps extends HTMLMotionProps<'div'> {
+interface RevealProps extends React.HTMLAttributes<HTMLDivElement> {
   delay?:    number
   distance?: number
   duration?: number
 }
 
 export function Reveal({
-  delay = 0, distance = 12, duration = 0.6, children, ...rest
+  delay = 0, distance = 12, duration = 0.6,
+  children, style, className, ...rest
 }: RevealProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: distance }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration,
-        delay,
-        // curva orgânica — variant de cubic-bezier(0.16, 1, 0.3, 1)
-        ease: [0.16, 1, 0.3, 1],
+    <div
+      className={className}
+      style={{
+        animation: `reveal-rise ${duration}s cubic-bezier(0.16,1,0.3,1) ${delay}s both`,
+        ['--reveal-distance' as string]: `${distance}px`,
+        ...style,
       }}
       {...rest}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
 /**
- * Stagger — pai que escalona filhos. Cada child renderiza como Reveal
- * automaticamente com delay incremental.
+ * Stagger — pai que escalona filhos. Cada child entra em Reveal
+ * com delay incremental.
  */
 interface StaggerProps {
   initialDelay?: number
@@ -50,7 +51,7 @@ interface StaggerProps {
 export function Stagger({ initialDelay = 0, step = 0.08, children, className }: StaggerProps) {
   const arr = Array.isArray(children) ? children : [children]
   return (
-    <div className={className}>
+    <div className={cn(className)}>
       {arr.map((c, i) => (
         <Reveal key={i} delay={initialDelay + i * step}>
           {c}

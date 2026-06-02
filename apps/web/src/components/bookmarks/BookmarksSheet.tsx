@@ -5,7 +5,6 @@
  * Lazy-loaded pelo caller (rare interaction).
  */
 import { useState } from 'react'
-import { motion } from 'motion/react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
@@ -64,15 +63,16 @@ export default function BookmarksSheet({ open, onClose }: Props) {
           ) : (
             <div className="divide-y divide-(--border)" role="list">
               {items.map((b, i) => (
-                <motion.div
+                <div
                   key={b.id}
                   role="listitem"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.32, delay: Math.min(i * 0.03, 0.4), ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    animation: `reveal-rise 0.32s cubic-bezier(0.16,1,0.3,1) ${Math.min(i * 0.03, 0.4)}s both`,
+                    ['--reveal-distance' as string]: '8px',
+                  }}
                 >
                   <Row b={b} onRemove={() => remove(b.id)} onSaveNote={(n) => saveNote(b.id, n)} />
-                </motion.div>
+                </div>
               ))}
             </div>
           )}

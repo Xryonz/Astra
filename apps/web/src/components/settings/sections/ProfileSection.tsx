@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GradientBuilder } from '@/components/settings/GradientBuilder'
 import { cn } from '@/lib/utils'
 import { UpdateProfileSchema, type BannerBorderStyle } from '@umbra/types'
@@ -287,10 +288,10 @@ export default function ProfileSection() {
         {errors.bio && <p className="text-xs text-(--danger) m-0">{errors.bio}</p>}
       </Row>
 
-      {/* Banner */}
-      <Row label="Banner" hint="Imagem grande no topo do perfil. Opcional.">
-        <div className="flex flex-col gap-4">
-          {/* Preview vivo: aplica position/zoom/border em tempo real */}
+      {/* ═══ Banner — bloco unificado com tabs pra dar respiro ═══ */}
+      <Row label="Banner" hint="Imagem grande no topo do perfil. Customize fundo, posição e borda em abas separadas.">
+        <div className="flex flex-col gap-5">
+          {/* Preview SEMPRE visível — vai refletindo qualquer mudança nas tabs */}
           <BannerPreview
             bannerUrl={bannerUrl && !bannerImgErr ? bannerUrl : undefined}
             fallbackBg={bannerColor}
@@ -299,107 +300,132 @@ export default function ProfileSection() {
             border={bannerBorder}
             onImgError={() => setBannerImgErr(true)}
           />
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button type="button" variant="outline" onClick={() => bannerFileRef.current?.click()} className="gap-2">
-              <Upload className="size-4" /> Enviar banner
-            </Button>
-            {bannerUrl && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setBannerUrl('')}>
-                Remover banner
-              </Button>
-            )}
-          </div>
-          <input
-            ref={bannerFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={(e) => readImageAsDataUri(e, setBannerUrl, () => setBannerImgErr(false))}
-          />
-          {fileError && <p className="text-xs text-(--danger) m-0">{fileError}</p>}
-        </div>
-      </Row>
 
-      {/* Position + zoom — só faz sentido quando tem imagem */}
-      {bannerUrl && !bannerImgErr && (
-        <Row label="Posição & zoom" hint="Arraste o banner verticalmente. Ajuste o zoom com o slider.">
-          <BannerPositioner
-            bannerUrl={bannerUrl}
-            positionY={bannerPositionY}
-            scale={bannerScale}
-            onChange={(y, s) => { setBannerPositionY(y); setBannerScale(s) }}
-            onReset={() => { setBannerPositionY(50); setBannerScale(100) }}
-          />
-        </Row>
-      )}
+          <Tabs defaultValue="fundo" className="w-full">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto sm:inline-flex">
+              <TabsTrigger value="fundo">Fundo</TabsTrigger>
+              <TabsTrigger value="ajuste" disabled={!bannerUrl || bannerImgErr}>Ajuste</TabsTrigger>
+              <TabsTrigger value="borda">Borda</TabsTrigger>
+            </TabsList>
 
-      {/* Animated border */}
-      <Row label="Borda animada" hint="Efeito visual ao redor do banner no perfil de quem te vê.">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {BANNER_BORDER_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setBannerBorder(opt.id)}
-              className={cn(
-                'group relative flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all hover:scale-[1.02] cursor-pointer',
-                bannerBorder === opt.id
-                  ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
-                  : 'border-(--border-mid) hover:border-(--accent)/60',
-              )}
-            >
-              <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-(--text-2)">
-                {opt.icon} {opt.label}
-              </span>
-              <span className="text-[10px] text-(--text-3) leading-tight">{opt.description}</span>
-              {bannerBorder === opt.id && (
-                <Check className="absolute top-2 right-2 size-3.5 text-(--accent)" />
-              )}
-            </button>
-          ))}
-        </div>
-      </Row>
+            {/* ── FUNDO: upload + 30 presets + custom builder ───────── */}
+            <TabsContent value="fundo" className="mt-6 flex flex-col gap-6">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button type="button" variant="outline" onClick={() => bannerFileRef.current?.click()} className="gap-2">
+                  <Upload className="size-4" /> Enviar imagem
+                </Button>
+                {bannerUrl && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setBannerUrl('')}>
+                    Remover imagem
+                  </Button>
+                )}
+                <input
+                  ref={bannerFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => readImageAsDataUri(e, setBannerUrl, () => setBannerImgErr(false))}
+                />
+              </div>
+              {fileError && <p className="text-xs text-(--danger) m-0">{fileError}</p>}
 
-      <Row label="Cor de fundo do banner" hint="30 presets editoriais organizados por temperatura. Ou customize.">
-        <div className="flex flex-col gap-5">
-          {BANNER_GRADIENT_GROUPS.map((group) => (
-            <div key={group.id}>
-              <span className="ed-marg block mb-2">— {group.label}</span>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                {group.presets.map((g) => (
+              <div>
+                <span className="ed-label block mb-3">— Gradient de fundo</span>
+                <div className="flex flex-col gap-5">
+                  {BANNER_GRADIENT_GROUPS.map((group) => (
+                    <div key={group.id}>
+                      <span className="ed-marg block mb-2.5">— {group.label}</span>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+                        {group.presets.map((g) => (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => { setBannerColor(g.value); setShowBannerBuilder(false) }}
+                            className={cn(
+                              'h-14 rounded-lg border cursor-pointer transition-all hover:scale-105 relative grid place-items-center',
+                              bannerColor === g.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                            )}
+                            style={{ background: g.value }}
+                            title={g.label}
+                          >
+                            {bannerColor === g.value && <Check className="size-3.5 text-white drop-shadow-md" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                   <button
-                    key={g.id}
                     type="button"
-                    onClick={() => { setBannerColor(g.value); setShowBannerBuilder(false) }}
+                    onClick={() => setShowBannerBuilder((v) => !v)}
                     className={cn(
-                      'h-12 rounded-lg border cursor-pointer transition-all hover:scale-105 relative grid place-items-center',
-                      bannerColor === g.value ? 'border-(--accent) ring-2 ring-(--accent)/30' : 'border-(--border-mid) hover:border-(--accent)',
+                      'h-11 rounded-lg border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.01]',
+                      showBannerBuilder
+                        ? 'border-(--accent) text-(--accent) bg-(--accent)/10'
+                        : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
                     )}
-                    style={{ background: g.value }}
-                    title={g.label}
                   >
-                    {bannerColor === g.value && <Check className="size-3.5 text-white drop-shadow-md" />}
+                    {showBannerBuilder ? 'Fechar custom' : 'Custom gradient'}
+                  </button>
+                </div>
+                {showBannerBuilder && (
+                  <div className="mt-4 p-5 rounded-2xl border border-(--border-mid) bg-(--raised)/30">
+                    <GradientBuilder value={bannerColor} onChange={setBannerColor} previewH={72} />
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* ── AJUSTE: position + zoom (só com imagem) ───────────── */}
+            <TabsContent value="ajuste" className="mt-6">
+              {bannerUrl && !bannerImgErr ? (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs text-(--text-3) m-0 leading-relaxed max-w-prose">
+                    Arraste a imagem verticalmente pra escolher qual parte aparece. Use o slider de zoom pra dar close.
+                  </p>
+                  <BannerPositioner
+                    bannerUrl={bannerUrl}
+                    positionY={bannerPositionY}
+                    scale={bannerScale}
+                    onChange={(y, s) => { setBannerPositionY(y); setBannerScale(s) }}
+                    onReset={() => { setBannerPositionY(50); setBannerScale(100) }}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-(--text-3) italic m-0 py-8 text-center border border-dashed border-(--border-mid) rounded-xl">
+                  Envie uma imagem na aba Fundo pra desbloquear ajuste de posição e zoom.
+                </p>
+              )}
+            </TabsContent>
+
+            {/* ── BORDA: 4 estilos animados ─────────────────────────── */}
+            <TabsContent value="borda" className="mt-6">
+              <p className="text-xs text-(--text-3) m-0 mb-4 leading-relaxed max-w-prose">
+                Efeito visual ao redor do banner que aparece pra quem visita seu perfil. Aplicado em tempo real no preview acima.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {BANNER_BORDER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setBannerBorder(opt.id)}
+                    className={cn(
+                      'group relative flex flex-col items-start gap-1.5 p-4 rounded-xl border text-left transition-all hover:scale-[1.02] cursor-pointer min-h-20',
+                      bannerBorder === opt.id
+                        ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
+                        : 'border-(--border-mid) hover:border-(--accent)/60',
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-(--text-2)">
+                      {opt.icon} {opt.label}
+                    </span>
+                    <span className="text-[10px] text-(--text-3) leading-tight">{opt.description}</span>
+                    {bannerBorder === opt.id && (
+                      <Check className="absolute top-2.5 right-2.5 size-3.5 text-(--accent)" />
+                    )}
                   </button>
                 ))}
               </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setShowBannerBuilder((v) => !v)}
-            className={cn(
-              'h-10 rounded-lg border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.01]',
-              showBannerBuilder
-                ? 'border-(--accent) text-(--accent) bg-(--accent)/10'
-                : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
-            )}
-          >
-            {showBannerBuilder ? 'Fechar custom' : 'Custom gradient'}
-          </button>
+            </TabsContent>
+          </Tabs>
         </div>
-        {showBannerBuilder && (
-          <div className="mt-4 p-5 rounded-2xl border border-(--border-mid) bg-(--raised)/30">
-            <GradientBuilder value={bannerColor} onChange={setBannerColor} previewH={72} />
-          </div>
-        )}
       </Row>
 
       {/* Profile theme */}
@@ -470,7 +496,7 @@ function BannerPreview({
   return (
     <div
       className={cn(
-        'w-full h-36 rounded-xl border border-(--border-mid) overflow-hidden relative',
+        'w-full h-44 sm:h-48 rounded-xl border border-(--border-mid) overflow-hidden relative',
         border !== 'none' && `banner-border-${border}`,
       )}
       style={!bannerUrl ? { background: fallbackBg } : undefined}
@@ -542,7 +568,7 @@ function BannerPositioner({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="w-full h-36 rounded-xl border border-(--border-mid) overflow-hidden relative cursor-grab active:cursor-grabbing touch-none select-none"
+        className="w-full h-44 rounded-xl border border-(--border-mid) overflow-hidden relative cursor-grab active:cursor-grabbing touch-none select-none"
       >
         <img
           src={bannerUrl}

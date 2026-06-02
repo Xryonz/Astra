@@ -81,8 +81,9 @@ function formatTime(d: string) {
 }
 
 // ─── Clickable Avatar ─────────────────────────────────────────
-// motion.div + whileTap/whileHover: tactile feedback antes da ProfileCard abrir.
-// scale 0.94 no tap dá "pressionado" sem ser brusco; 1.05 no hover só se for clicável.
+// CSS-only tactile feedback: hover:scale-105 + active:scale-95.
+// Antes era motion.div com spring → caro pra renderizar em listas longas
+// (cada msg paga overhead de motion). CSS transition é GPU compositor direto.
 function Avatar({ src, name, color, size = 36, isBot, onClick }: {
   src?: string | null; name: string; color: string
   size?: number; isBot?: boolean
@@ -90,21 +91,22 @@ function Avatar({ src, name, color, size = 36, isBot, onClick }: {
 }) {
   const [imgError, setImgError] = useState(false)
   const ringColor = isBot ? 'var(--accent)' : color
+  const clickable = !!onClick
   return (
-    <motion.div
+    <div
       onClick={onClick}
-      whileHover={onClick ? { scale: 1.05 } : undefined}
-      whileTap={onClick ? { scale: 0.94 } : undefined}
-      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-      className="rounded-full shrink-0 overflow-hidden flex items-center justify-center transition-colors border-2"
+      className={cn(
+        'rounded-full shrink-0 overflow-hidden flex items-center justify-center border-2',
+        'transition-[transform,border-color,background-color] duration-150 ease-(--ease-spring)',
+        clickable && 'cursor-pointer hover:scale-105 active:scale-95',
+      )}
       style={{
         width: size, height: size,
         background: isBot ? 'var(--accent-dim)' : color + '22',
         borderColor: ringColor + '44',
-        cursor: onClick ? 'pointer' : 'default',
       }}
-      onMouseEnter={(e) => { if (onClick) e.currentTarget.style.borderColor = ringColor }}
-      onMouseLeave={(e) => { if (onClick) e.currentTarget.style.borderColor = ringColor + '44' }}
+      onMouseEnter={(e) => { if (clickable) e.currentTarget.style.borderColor = ringColor }}
+      onMouseLeave={(e) => { if (clickable) e.currentTarget.style.borderColor = ringColor + '44' }}
     >
       {src && !imgError
         ? <img src={src} alt={name} referrerPolicy="no-referrer"
@@ -115,7 +117,7 @@ function Avatar({ src, name, color, size = 36, isBot, onClick }: {
             {isBot ? '🤖' : name.slice(0, 1).toUpperCase()}
           </span>
       }
-    </motion.div>
+    </div>
   )
 }
 

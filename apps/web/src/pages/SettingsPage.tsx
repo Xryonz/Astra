@@ -115,7 +115,7 @@ export default function SettingsPage() {
                         <button
                           onClick={() => setSection(n.id)}
                           className={cn(
-                            'group w-full flex items-center gap-3 px-5 py-2 text-left text-sm cursor-pointer transition-colors border-l-2 rounded-r-md',
+                            'group w-full flex items-center gap-3 px-5 py-2 text-left text-sm cursor-pointer transition-colors border-l-2 rounded-r-lg',
                             active
                               ? 'bg-(--accent-dim) text-(--accent) border-(--accent)'
                               : 'text-(--text-2) hover:bg-(--raised)/60 hover:text-foreground border-transparent',

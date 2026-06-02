@@ -5,7 +5,6 @@
  * com lista scrollable + filtros + mark-all-read.
  */
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
 import { Sparkles } from 'lucide-react'
@@ -64,7 +63,7 @@ export function NotificationBell() {
         <BellIcon />
         {unread > 0 && (
           <span
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-(--accent) text-[10px] font-semibold text-(--accent-foreground) flex items-center justify-center"
+            className="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-(--accent) text-[10px] font-semibold text-(--accent-foreground) flex items-center justify-center"
             aria-hidden
           >
             {unread > 99 ? '99+' : unread}
@@ -96,7 +95,7 @@ function NotificationCenter({ onClose }: { onClose: () => void }) {
   const items = filter === 'all' ? all : all.filter((n) => n.type === filter)
 
   return (
-    <div className="absolute right-0 mt-2 w-[380px] max-h-[520px] rounded-xl border border-border bg-background shadow-2xl flex flex-col z-50 overflow-hidden">
+    <div className="absolute right-0 mt-2 w-95 max-h-130 rounded-xl border border-border bg-background shadow-2xl flex flex-col z-50 overflow-hidden">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div>
           <h3 className="text-sm font-medium text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
@@ -119,7 +118,7 @@ function NotificationCenter({ onClose }: { onClose: () => void }) {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-2.5 py-1 text-xs rounded-md whitespace-nowrap transition-colors ${
+            className={`px-2.5 py-1 text-xs rounded-lg whitespace-nowrap transition-colors ${
               filter === f
                 ? 'bg-(--accent)/10 text-(--accent)'
                 : 'text-muted-foreground hover:text-foreground'
@@ -147,12 +146,12 @@ function NotificationCenter({ onClose }: { onClose: () => void }) {
         ) : (
           <div className="divide-y divide-border" role="list">
             {items.map((n, i) => (
-              <motion.div
+              <div
                 key={n.id}
                 role="listitem"
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.28, delay: Math.min(i * 0.022, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  animation: `fadeLeft 0.28s cubic-bezier(0.16,1,0.3,1) ${Math.min(i * 0.022, 0.3)}s both`,
+                }}
               >
                 <NotificationRow
                   n={n}
@@ -162,7 +161,7 @@ function NotificationCenter({ onClose }: { onClose: () => void }) {
                     onClose()
                   }}
                 />
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
@@ -209,7 +208,7 @@ function NotificationRow({
       onClick={() => onActivate(n)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(n) } }}
       className={`flex gap-3 px-4 py-3 cursor-pointer hover:bg-card transition-colors ${
-        n.readAt ? '' : 'bg-(--accent)/[0.03]'
+        n.readAt ? '' : 'bg-(--accent)/3'
       }`}
     >
       <div className="shrink-0">

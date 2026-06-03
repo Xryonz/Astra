@@ -776,7 +776,6 @@ function MessageItemImpl({
   const [lightboxIdx,       setLightboxIdx]        = useState<number | null>(null)
   // ProfileCard state
   const [profileUserId,     setProfileUserId]      = useState<string | null>(null)
-  const [profileAnchor,     setProfileAnchor]      = useState<HTMLElement | null>(null)
 
   const longPress = useLongPress(() => {
     if (!isPending && !isBot) setShowMobileActions(true)
@@ -789,10 +788,9 @@ function MessageItemImpl({
   const parsedColor = parseColor((message as any).authorColor, fallback)
   const reactions   = (message as any).reactions as Reaction[] ?? []
 
-  // Opens the profile card anchored to the clicked avatar
+  // Opens the profile card
   const handleAvatarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
-    setProfileAnchor(e.currentTarget)
     setProfileUserId(author.id)
   }
 
@@ -1043,7 +1041,7 @@ function MessageItemImpl({
           {!grouped && (
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <span
-                onClick={(e) => { setProfileAnchor(e.currentTarget as HTMLElement); setProfileUserId(author.id) }}
+                onClick={() => setProfileUserId(author.id)}
                 className="cursor-pointer"
               >
                 <AuthorName name={author.displayName} color={parsedColor} msgId={message.id} isBot={isBot} />
@@ -1214,8 +1212,7 @@ function MessageItemImpl({
       {profileUserId && (
         <ProfileCard
           userId={profileUserId}
-          anchorEl={profileAnchor}
-          onClose={() => { setProfileUserId(null); setProfileAnchor(null) }}
+          onClose={() => setProfileUserId(null)}
         />
       )}
 

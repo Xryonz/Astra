@@ -80,7 +80,6 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   const [deleteServerId,  setDeleteServerId]  = useState<string | null>(null)
   const [deleteError,     setDeleteError]     = useState('')
   const [showOwnProfile,    setShowOwnProfile]    = useState(false)
-  const [ownProfileAnchor,  setOwnProfileAnchor]  = useState<HTMLElement | null>(null)
   const [channelAreaCtx,    setChannelAreaCtx]    = useState<{ x: number; y: number } | null>(null)
   const [showCreateChannel, setShowCreateChannel] = useState(false)
   const [newChanName,       setNewChanName]       = useState('')
@@ -437,7 +436,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           {/* User footer */}
           <div className="h-14 px-2 bg-background border-t border-border flex items-center gap-1.5 shrink-0">
             <button
-              onClick={(e) => { setOwnProfileAnchor(e.currentTarget); setShowOwnProfile(true) }}
+              onClick={() => { setShowOwnProfile(true) }}
               className="relative size-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center cursor-pointer p-0 border-2 transition-colors"
               style={{ background: accentColor + '33', borderColor: accentColor + '66' }}
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = accentColor)}
@@ -497,7 +496,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
       )}
 
       {showOwnProfile && user && (
-        <ProfileCard userId={user.id} anchorEl={ownProfileAnchor} onClose={() => { setShowOwnProfile(false); setOwnProfileAnchor(null) }} />
+        <ProfileCard userId={user.id} onClose={() => setShowOwnProfile(false)} />
       )}
 
       {/* ── Create server/group ─────────────────────────────── */}

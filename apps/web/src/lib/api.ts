@@ -21,24 +21,36 @@ api.interceptors.request.use((config) => {
 })
 
 // ── Interceptor de response: renova token automaticamente ────
+//
+// Refresh-loop guard (anti-hang):
+//   - Refresh tem timeout de 8s. Se backend trava, o promise rejeita
+//     e libera todas as requests pendentes em vez de pendurar para sempre.
+//   - Pending requests guardam {resolve, reject}. Falha do refresh propaga
+//     o erro pra TODAS — caso contrário, queries do React Query ficariam
+//     em isLoading: true eterno (cenário do bug do ProfileCard).
+//   - _retried flag impede uma request retentar refresh mais de 1x.
 let isRefreshing = false
-let pendingRequests: Array<(token: string) => void> = []
+let pendingRequests: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
+
+const REFRESH_TIMEOUT_MS = 8000
 
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
 
-    // Se 401 e ainda não tentou renovar
     if (error.response?.status === 401 && !originalRequest._retried) {
       originalRequest._retried = true
 
       if (isRefreshing) {
-        // Aguarda o refresh em andamento e re-executa a request
-        return new Promise((resolve) => {
-          pendingRequests.push((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
-            resolve(api(originalRequest))
+        // Aguarda o refresh em andamento. Reject propaga se refresh falhar.
+        return new Promise((resolve, reject) => {
+          pendingRequests.push({
+            resolve: (token) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`
+              resolve(api(originalRequest))
+            },
+            reject,
           })
         })
       }
@@ -49,22 +61,25 @@ api.interceptors.response.use(
         const { data } = await axios.post(
           `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true, timeout: REFRESH_TIMEOUT_MS }
         )
         const newToken = data.data.accessToken
         useAuthStore.getState().setAccessToken(newToken)
 
-        // Executa todas as requests que ficaram aguardando
-        pendingRequests.forEach((cb) => cb(newToken))
+        pendingRequests.forEach((p) => p.resolve(newToken))
         pendingRequests = []
 
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         return api(originalRequest)
-      } catch {
-        // Refresh falhou: faz logout
+      } catch (refreshError) {
+        // Refresh hang/falhou: libera todas pendentes COM erro pra evitar
+        // que React Query / consumidores fiquem presos em loading infinito.
+        pendingRequests.forEach((p) => p.reject(refreshError))
+        pendingRequests = []
+
         useAuthStore.getState().logout()
         window.location.href = '/login'
-        return Promise.reject(error)
+        return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
       }

@@ -47,8 +47,9 @@ dist/stats.html
 *.swo
 *~
 
-# ── Claude Code local settings (preferências pessoais) ──────
+# ── Claude Code local settings + memória pessoal ──────────
 .claude/settings.local.json
+CLAUDE.md
 
 # ── OS ──────────────────────────────────────────────────────
 .DS_Store

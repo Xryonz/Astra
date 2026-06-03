@@ -37,10 +37,12 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import StatusDot, { STATUS_META, type UserStatus } from '@/components/StatusDot'
 
 // Cascata interna — chega depois do slide do Sheet.
-// Tuned p/ "leve e clean": menos delay, menos amplitude, duração curta.
+// Parent SEM opacity animada — só orchestration. Senão o parent fica
+// preso em opacity:0 escondendo o body inteiro (bug ProfileCard vazio).
+// Children fazem o fade via sectionVariants individualmente.
 const bodyVariants: Variants = {
-  hidden:  { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.04, delayChildren: 0.12 } },
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.04, delayChildren: 0.12 } },
 }
 const sectionVariants: Variants = {
   hidden:  { opacity: 0, y: 6 },
@@ -327,7 +329,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               {/* Overlay pra legibilidade — mantém vibe do gradient mas legível */}
               <div className="absolute inset-0 bg-(--overlay)/88 backdrop-blur-md rounded-tl-2xl rounded-tr-2xl pointer-events-none" />
 
-              <motion.div className="relative" variants={bodyVariants} initial="hidden" animate="visible">
+              <motion.div className="relative" variants={bodyVariants} initial="hidden" animate="visible" style={{ opacity: 1 }}>
                 {/* ── Avatar row ───────────────────────────── */}
                 <div className="flex items-end justify-between -mt-14 mb-4">
                   <motion.div

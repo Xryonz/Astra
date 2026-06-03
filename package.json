@@ -3,7 +3,9 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "predev": "node scripts/predev.mjs",
     "dev": "npm run build -w packages/types && concurrently \"npm run dev -w apps/web\" \"npm run dev -w apps/api\"",
+    "dev:fast": "concurrently \"npm run dev -w apps/web\" \"npm run dev -w apps/api\"",
     "build": "npm run build -w packages/types && npm run build -w apps/api && npm run build -w apps/web",
     "build:api": "npm run build -w packages/types && npm run build -w apps/api",
     "build:web": "npm run build -w packages/types && npm run build -w apps/web",

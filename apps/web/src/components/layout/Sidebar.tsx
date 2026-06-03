@@ -15,14 +15,13 @@ import { useMyPerms } from '@/hooks/useMyPerms'
 import ProfileCard from '@/components/ProfileCard'
 import UmbraLogo from '@/components/UmbraLogo'
 import { UserFooter } from './UserFooter'
+import { CreateServerDialog } from './dialogs/CreateServerDialog'
+import { EditServerDialog } from './dialogs/EditServerDialog'
+import { DeleteServerDialog } from './dialogs/DeleteServerDialog'
+import { CreateChannelDialog } from './dialogs/CreateChannelDialog'
+import { AddMemberDialog } from './dialogs/AddMemberDialog'
 import ServerContextMenu, { type ContextMenuItem } from '@/components/ServerContextMenu'
 import { SidebarSkeleton } from '@/components/skeletons/SidebarSkeleton'
-import {
-  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { cn } from '@/lib/utils'
@@ -50,30 +49,21 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   })
   const mobileOpen    = useUIStore((s) => s.mobileSidebarOpen)
   const closeMobile   = useUIStore((s) => s.closeMobileSidebar)
+  // Dialogs: parent controla apenas open + target. Cada dialog componente
+  // gerencia próprio form state + mutation.
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createMode,      setCreateMode]      = useState<'server' | 'group'>('server')
-  const [serverName,      setServerName]      = useState('')
-  const [createError,     setCreateError]     = useState('')
   /** Posição do clique no botão "Criar…" — modal usa pra animar saindo dele. */
   const [popOrigin, setPopOrigin] = useState<{ x: number; y: number } | null>(null)
   const [ctxMenu,         setCtxMenu]         = useState<CtxMenu | null>(null)
   const [showAddMember,   setShowAddMember]   = useState(false)
-  const [inviteUsername,  setInviteUsername]  = useState('')
-  const [inviteError,     setInviteError]     = useState('')
-  const [inviteSuccess,   setInviteSuccess]   = useState('')
   const [showEditModal,   setShowEditModal]   = useState(false)
   const [editServerId,    setEditServerId]    = useState<string | null>(null)
-  const [editName,        setEditName]        = useState('')
-  const [editError,       setEditError]       = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteServerId,  setDeleteServerId]  = useState<string | null>(null)
-  const [deleteError,     setDeleteError]     = useState('')
   const [showOwnProfile,    setShowOwnProfile]    = useState(false)
   const [channelAreaCtx,    setChannelAreaCtx]    = useState<{ x: number; y: number } | null>(null)
   const [showCreateChannel, setShowCreateChannel] = useState(false)
-  const [newChanName,       setNewChanName]       = useState('')
-  const [newChanType,       setNewChanType]       = useState<'TEXT' | 'VOICE'>('TEXT')
-  const [newChanErr,        setNewChanErr]        = useState('')
 
   const { data: servers = [], isLoading: serversLoading } = useQuery<ServerWithChannels[]>({
     queryKey: ['servers'],
@@ -87,65 +77,15 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     if (servers.length && !activeServerId) setActiveServerId(servers[0].id)
   }, [servers, activeServerId])
 
-  const createServer = useMutation({
-    mutationFn: async ({ name, isGroup }: { name: string; isGroup: boolean }) =>
-      (await api.post('/api/servers', { name, isGroup })).data.data,
-    onSuccess: (s) => {
-      queryClient.invalidateQueries({ queryKey: ['servers'] })
-      setActiveServerId(s.id)
-      setShowCreateModal(false); setServerName(''); setCreateError('')
-    },
-    onError: (e: any) => setCreateError(e.response?.data?.error ?? 'Erro ao criar'),
-  })
-
-  const inviteMember = useMutation({
-    mutationFn: async ({ serverId, username }: { serverId: string; username: string }) =>
-      (await api.post(`/api/servers/${serverId}/invite/${username}`)).data,
-    onSuccess: (data) => {
-      setInviteSuccess(data.message ?? 'Membro adicionado!')
-      setInviteUsername(''); setInviteError('')
-      queryClient.invalidateQueries({ queryKey: ['servers'] })
-      setTimeout(() => setInviteSuccess(''), 3000)
-    },
-    onError: (e: any) => setInviteError(e.response?.data?.error ?? 'Erro'),
-  })
-
-  const renameServer = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) =>
-      (await api.patch(`/api/servers/${id}`, { name })).data.data,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['servers'] })
-      setShowEditModal(false); setEditName(''); setEditError('')
-    },
-    onError: (e: any) => setEditError(e.response?.data?.error ?? 'Erro'),
-  })
-
-  const deleteServer = useMutation({
-    mutationFn: async (id: string) => api.delete(`/api/servers/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['servers'] })
-      setShowDeleteModal(false); setDeleteServerId(null); setDeleteError('')
-      if (deleteServerId === activeServerId) setActiveServerId(null)
-    },
-    onError: (e: any) => setDeleteError(e.response?.data?.error ?? 'Erro'),
-  })
-
+  // Mutations: create/edit/delete server + invite + create channel
+  // foram movidos pros respectivos dialog components. Sobram aqui só as
+  // ações que NÃO têm dialog próprio (leave, rename/delete channel inline).
   const leaveServer = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/servers/${id}/leave`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       if (ctxMenu?.server.id === activeServerId) setActiveServerId(null)
     },
-  })
-
-  const createChannel = useMutation({
-    mutationFn: async ({ name, type }: { name: string; type: 'TEXT' | 'VOICE' }) =>
-      (await api.post(`/api/servers/${activeServerId}/channels`, { name, type })).data.data,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['servers'] })
-      setShowCreateChannel(false); setNewChanName(''); setNewChanType('TEXT'); setNewChanErr('')
-    },
-    onError: (e: any) => setNewChanErr(e?.response?.data?.error ?? 'Erro ao criar'),
   })
 
   const renameChannel = useMutation({
@@ -208,12 +148,12 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     if (menu.isOwner) {
       items.push({
         icon: '✏️', label: `Renomear ${menu.server.isGroup ? 'grupo' : 'servidor'}`,
-        onClick: () => { setEditServerId(menu.server.id); setEditName(menu.server.name); setEditError(''); setShowEditModal(true) },
+        onClick: () => { setEditServerId(menu.server.id); setShowEditModal(true) },
       })
       if (menu.server.isGroup) {
-        items.push({ icon: '👥', label: 'Adicionar membro', onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true); setInviteError(''); setInviteSuccess('') } })
+        items.push({ icon: '👥', label: 'Adicionar membro', onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true) } })
       }
-      items.push({ icon: '🗑️', label: `Excluir ${menu.server.isGroup ? 'grupo' : 'servidor'}`, danger: true, onClick: () => { setDeleteServerId(menu.server.id); setDeleteError(''); setShowDeleteModal(true) } })
+      items.push({ icon: '🗑️', label: `Excluir ${menu.server.isGroup ? 'grupo' : 'servidor'}`, danger: true, onClick: () => { setDeleteServerId(menu.server.id); setShowDeleteModal(true) } })
     } else {
       items.push({ icon: '🚪', label: `Sair do ${menu.server.isGroup ? 'grupo' : 'servidor'}`, danger: true, onClick: () => leaveServer.mutate(menu.server.id) })
     }
@@ -366,7 +306,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={() => { setShowAddMember(true); setInviteError(''); setInviteSuccess('') }}
+                      onClick={() => setShowAddMember(true)}
                       className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary p-1 rounded-lg flex items-center transition-colors"
                     >
                       <UserPlus className="size-4" />
@@ -436,7 +376,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           items={[
             {
               icon: '＋', label: 'Criar canal',
-              onClick: () => { setShowCreateChannel(true); setNewChanErr('') },
+              onClick: () => setShowCreateChannel(true),
             },
             {
               icon: '⚙', label: 'Configurações do servidor',
@@ -450,228 +390,35 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         <ProfileCard userId={user.id} onClose={() => setShowOwnProfile(false)} />
       )}
 
-      {/* ── Create server/group ─────────────────────────────── */}
-      <Dialog
+      {/* ── Dialogs ────────────────────────────────────── */}
+      <CreateServerDialog
         open={showCreateModal}
-        onOpenChange={(o: boolean) => { if (!o) { setShowCreateModal(false); setServerName(''); setCreateError(''); setPopOrigin(null) } }}
-      >
-        <DialogContent
-          className="max-w-95! data-[state=open]:animate-none! anim-pop-open"
-          style={popOrigin ? {
-            // tx/ty = vetor do centro da viewport até o botão (negativo se botão à esquerda/acima)
-            // O keyframe começa nesse offset com scale 0.18 → "sai" do botão e cresce até o centro
-            ['--pop-tx' as any]: `${popOrigin.x - window.innerWidth  / 2}px`,
-            ['--pop-ty' as any]: `${popOrigin.y - window.innerHeight / 2}px`,
-          } : undefined}
-        >
-          <DialogHeader className="gap-1.5">
-            <div className="size-10 bg-primary/10 border border-border rounded-xl flex items-center justify-center mb-2">
-              {createMode === 'group' ? <Users className="size-5 text-primary" /> : <Plus className="size-5 text-primary" />}
-            </div>
-            <DialogTitle>{createMode === 'group' ? 'Novo grupo' : 'Novo servidor'}</DialogTitle>
-            <DialogDescription>
-              {createMode === 'group'
-                ? 'Grupos são privados — adicione membros manualmente.'
-                : 'Servidores podem ser acessados por link de convite.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="serverName">Nome</Label>
-            <Input
-              id="serverName"
-              autoFocus
-              value={serverName}
-              onChange={(e) => { setServerName(e.target.value); setCreateError('') }}
-              onKeyDown={(e) => e.key === 'Enter' && serverName.trim() && createServer.mutate({ name: serverName.trim(), isGroup: createMode === 'group' })}
-              placeholder={createMode === 'group' ? 'Ex: Amigos da faculdade' : 'Ex: Meu Servidor'}
-            />
-            {createError && <p className="text-xs text-destructive">{createError}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => { setShowCreateModal(false); setServerName(''); setCreateError('') }}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => serverName.trim() && createServer.mutate({ name: serverName.trim(), isGroup: createMode === 'group' })}
-              disabled={createServer.isPending || !serverName.trim()}
-            >
-              {createServer.isPending ? 'Criando…' : createMode === 'group' ? 'Criar grupo' : 'Criar servidor'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Add member ─────────────────────────────── */}
-      <Dialog
-        open={showAddMember && !!activeServer}
-        onOpenChange={(o: boolean) => { if (!o) { setShowAddMember(false); setInviteUsername(''); setInviteError(''); setInviteSuccess('') } }}
-      >
-        <DialogContent className="max-w-95!">
-          <DialogHeader>
-            <DialogTitle>Adicionar membro</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="inviteUsername">Username</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">@</span>
-              <Input
-                id="inviteUsername"
-                autoFocus
-                value={inviteUsername}
-                onChange={(e) => { setInviteUsername(e.target.value.toLowerCase()); setInviteError('') }}
-                onKeyDown={(e) => e.key === 'Enter' && inviteUsername.trim() && activeServer && inviteMember.mutate({ serverId: activeServer.id, username: inviteUsername.trim() })}
-                placeholder="nome_do_usuario"
-                className="pl-7"
-              />
-            </div>
-            {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
-            {inviteSuccess && <p className="text-xs" style={{ color: 'var(--success)' }}>✓ {inviteSuccess}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => { setShowAddMember(false); setInviteUsername(''); setInviteError(''); setInviteSuccess('') }}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => activeServer && inviteUsername.trim() && inviteMember.mutate({ serverId: activeServer.id, username: inviteUsername.trim() })}
-              disabled={inviteMember.isPending || !inviteUsername.trim()}
-            >
-              {inviteMember.isPending ? 'Adicionando…' : 'Adicionar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Rename ─────────────────────────────── */}
-      <Dialog
-        open={showEditModal && !!editTarget}
-        onOpenChange={(o: boolean) => { if (!o) setShowEditModal(false) }}
-      >
-        <DialogContent className="max-w-95!">
-          <DialogHeader>
-            <DialogTitle>Renomear</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="editName">Novo nome</Label>
-            <Input
-              id="editName"
-              autoFocus
-              value={editName}
-              onChange={(e) => { setEditName(e.target.value); setEditError('') }}
-              onKeyDown={(e) => e.key === 'Enter' && editTarget && editName.trim() && renameServer.mutate({ id: editTarget.id, name: editName.trim() })}
-              placeholder={editTarget?.name}
-              maxLength={100}
-            />
-            {editError && <p className="text-xs text-destructive">{editError}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancelar</Button>
-            <Button
-              onClick={() => editTarget && editName.trim() && renameServer.mutate({ id: editTarget.id, name: editName.trim() })}
-              disabled={renameServer.isPending || !editName.trim()}
-            >
-              {renameServer.isPending ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Create channel ─────────────────────────────── */}
-      <Dialog
-        open={showCreateChannel && !!activeServerId}
-        onOpenChange={(o: boolean) => { if (!o) { setShowCreateChannel(false); setNewChanName(''); setNewChanErr('') } }}
-      >
-        <DialogContent className="max-w-95!">
-          <DialogHeader>
-            <DialogTitle>Novo canal</DialogTitle>
-            <DialogDescription>Escolha nome e tipo. Texto pra chat, voz pra chamadas.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="sbNewChanName">Nome</Label>
-              <Input
-                id="sbNewChanName"
-                autoFocus
-                value={newChanName}
-                onChange={(e) => { setNewChanName(e.target.value); setNewChanErr('') }}
-                onKeyDown={(e) => e.key === 'Enter' && newChanName.trim() && createChannel.mutate({ name: newChanName.trim(), type: newChanType })}
-                placeholder="Ex: geral"
-                maxLength={50}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Tipo</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNewChanType('TEXT')}
-                  className={cn(
-                    'p-3 border text-left transition-colors cursor-pointer',
-                    newChanType === 'TEXT'
-                      ? 'border-(--accent) bg-(--accent-dim) text-(--accent)'
-                      : 'border-(--border) hover:border-(--accent)',
-                  )}
-                >
-                  <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}># Texto</p>
-                  <p className="m-0 mt-0.5 text-[11px] text-(--text-3)">Chat, anexos, threads</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewChanType('VOICE')}
-                  className={cn(
-                    'p-3 border text-left transition-colors cursor-pointer',
-                    newChanType === 'VOICE'
-                      ? 'border-(--accent) bg-(--accent-dim) text-(--accent)'
-                      : 'border-(--border) hover:border-(--accent)',
-                  )}
-                >
-                  <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>Voz</p>
-                  <p className="m-0 mt-0.5 text-[11px] text-(--text-3)">Chamada e tela</p>
-                </button>
-              </div>
-            </div>
-            {newChanErr && <p className="text-xs text-destructive">{newChanErr}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => { setShowCreateChannel(false); setNewChanName(''); setNewChanErr('') }}>Cancelar</Button>
-            <Button
-              onClick={() => newChanName.trim() && createChannel.mutate({ name: newChanName.trim(), type: newChanType })}
-              disabled={createChannel.isPending || !newChanName.trim()}
-            >
-              {createChannel.isPending ? 'Criando…' : 'Criar canal'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Delete confirm ─────────────────────────────── */}
-      <Dialog
-        open={showDeleteModal && !!deleteTarget}
-        onOpenChange={(o: boolean) => { if (!o) setShowDeleteModal(false) }}
-      >
-        <DialogContent className="max-w-95! text-center">
-          <div className="flex justify-center mb-1">
-            <div className="size-12 rounded-full bg-destructive/10 flex items-center justify-center">
-              <Trash2 className="size-6 text-destructive" />
-            </div>
-          </div>
-          <DialogHeader className="text-center! items-center!">
-            <DialogTitle>Excluir {deleteTarget?.name}?</DialogTitle>
-            <DialogDescription>Esta ação é permanente e não pode ser desfeita.</DialogDescription>
-          </DialogHeader>
-          {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
-          <DialogFooter className="sm:justify-center">
-            <Button variant="secondary" onClick={() => setShowDeleteModal(false)} className="flex-1">Cancelar</Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteTarget && deleteServer.mutate(deleteTarget.id)}
-              disabled={deleteServer.isPending}
-              className="flex-1"
-            >
-              {deleteServer.isPending ? 'Excluindo…' : 'Sim, excluir'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onClose={() => { setShowCreateModal(false); setPopOrigin(null) }}
+        mode={createMode}
+        popOrigin={popOrigin}
+        onCreated={(s) => setActiveServerId(s.id)}
+      />
+      <AddMemberDialog
+        open={showAddMember}
+        onClose={() => setShowAddMember(false)}
+        serverId={activeServerId}
+      />
+      <EditServerDialog
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        target={editTarget ?? null}
+      />
+      <CreateChannelDialog
+        open={showCreateChannel}
+        onClose={() => setShowCreateChannel(false)}
+        serverId={activeServerId}
+      />
+      <DeleteServerDialog
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        target={deleteTarget ?? null}
+        onDeleted={(id) => { if (id === activeServerId) setActiveServerId(null) }}
+      />
     </>
   )
 }

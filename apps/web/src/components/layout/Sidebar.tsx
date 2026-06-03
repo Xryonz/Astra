@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, UserPlus, Settings as SettingsIcon, Pencil, LogOut, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye } from 'lucide-react'
+import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { useLongPress } from '@/hooks/useLongPress'
 import { useConfirm, usePrompt } from '@/hooks/useConfirm'
@@ -10,13 +10,11 @@ import { useVoiceCall, useVoiceConfig, parseRoomName } from '@/hooks/useVoiceCal
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
-import { usePresenceStore } from '@/store/presenceStore'
-import { useAuth } from '@/hooks/useAuth'
 import { useUnread } from '@/hooks/useUnread'
 import { useMyPerms } from '@/hooks/useMyPerms'
 import ProfileCard from '@/components/ProfileCard'
-import StatusDot, { STATUS_META } from '@/components/StatusDot'
 import UmbraLogo from '@/components/UmbraLogo'
+import { UserFooter } from './UserFooter'
 import ServerContextMenu, { type ContextMenuItem } from '@/components/ServerContextMenu'
 import { SidebarSkeleton } from '@/components/skeletons/SidebarSkeleton'
 import {
@@ -35,18 +33,10 @@ interface SidebarProps {
   onSelectChannel: (channelId: string, channelName: string, serverId: string) => void
 }
 
-const PALETTE = ['#c9a96e','#7c6fc4','#6fa8c9','#c97c6e','#6ec98a']
-function userColor(id: string) {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
-  return PALETTE[h % PALETTE.length]
-}
-
 interface CtxMenu { x: number; y: number; server: ServerWithChannels; isOwner: boolean }
 
 export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarProps) {
   const user        = useAuthStore((s) => s.user)
-  const { logout }  = useAuth()
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
   const unread      = useUnread()
@@ -60,7 +50,6 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   })
   const mobileOpen    = useUIStore((s) => s.mobileSidebarOpen)
   const closeMobile   = useUIStore((s) => s.closeMobileSidebar)
-  const myStatus      = usePresenceStore((s) => s.myStatus)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createMode,      setCreateMode]      = useState<'server' | 'group'>('server')
   const [serverName,      setServerName]      = useState('')
@@ -239,8 +228,6 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   const groups         = servers.filter((s) => s.isGroup)
   const editTarget     = servers.find((s) => s.id === editServerId)
   const deleteTarget   = servers.find((s) => s.id === deleteServerId)
-
-  const accentColor = user?.id ? userColor(user.id) : 'var(--accent)'
 
   if (serversLoading) return <SidebarSkeleton />
 
@@ -433,43 +420,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             ) : null}
           </div>
 
-          {/* User footer */}
-          <div className="h-14 px-2 bg-background border-t border-border flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => { setShowOwnProfile(true) }}
-              className="relative size-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center cursor-pointer p-0 border-2 transition-colors"
-              style={{ background: accentColor + '33', borderColor: accentColor + '66' }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = accentColor)}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = accentColor + '66')}
-              title="Ver meu perfil"
-            >
-              {user?.avatarUrl
-                ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                : <span className="text-xs font-bold" style={{ color: accentColor }}>{user?.displayName?.slice(0,1).toUpperCase()}</span>
-              }
-              <span className="absolute -bottom-0.5 -right-0.5">
-                <StatusDot status={myStatus} size={11} bordered borderColor="var(--background)" />
-              </span>
-            </button>
-
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold m-0 truncate text-foreground">{user?.displayName}</p>
-              <p className="text-[10px] m-0 truncate text-muted-foreground flex items-center gap-1">
-                <StatusDot status={myStatus} size={7} />
-                <span className="truncate">{STATUS_META[myStatus].label}</span>
-              </p>
-            </div>
-
-            <FooterBtn title="Editar perfil" onClick={() => { navigate('/app/profile'); closeMobile() }}>
-              <Pencil className="size-3.5" />
-            </FooterBtn>
-            <FooterBtn title="Configurações" onClick={() => { navigate('/app/settings'); closeMobile() }}>
-              <SettingsIcon className="size-3.5" />
-            </FooterBtn>
-            <FooterBtn title="Sair" onClick={() => { closeMobile(); logout() }} danger>
-              <LogOut className="size-3.5" />
-            </FooterBtn>
-          </div>
+          <UserFooter onProfileClick={() => setShowOwnProfile(true)} />
         </div>
       </div>
 
@@ -977,26 +928,3 @@ function ChannelButton({
   )
 }
 
-function FooterBtn({ title, onClick, danger, children }: {
-  title: string
-  onClick: () => void
-  danger?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={onClick}
-          className={cn(
-            'bg-transparent border-none cursor-pointer p-1 rounded-lg flex items-center transition-colors',
-            danger ? 'text-muted-foreground hover:text-destructive' : 'text-muted-foreground hover:text-primary'
-          )}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{title}</TooltipContent>
-    </Tooltip>
-  )
-}

@@ -307,17 +307,24 @@ export function createMessagesRouter(io: SocketServer) {
         }
       }
 
-      // Cor do nome do autor neste servidor (gradient ou hex)
-      const [membership] = await db.select({ nameColor: serverMembers.nameColor }).from(serverMembers)
-        .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, channel.serverId)))
-        .limit(1)
-      const authorColor   = membership?.nameColor ?? null
-      const mentionedIds  = await parseMentions(content, channel.serverId)
-      const mentionsStr   = mentionedIds.join(',')
-
       const attachmentsJson = JSON.stringify(Array.isArray(attachments) ? attachments.slice(0, 10) : [])
-
       const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null
+
+      // ── PARALELIZAR queries independentes pré-INSERT ─────────
+      // Antes: sequencial (mem→mentions = 2 RTTs). Agora: 1 RTT.
+      const [membership, mentionedIds, author] = await Promise.all([
+        db.select({ nameColor: serverMembers.nameColor }).from(serverMembers)
+          .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, channel.serverId)))
+          .limit(1).then((rows) => rows[0]),
+        parseMentions(content, channel.serverId),
+        db.select({
+          id: users.id, username: users.username,
+          displayName: users.displayName, avatarUrl: users.avatarUrl,
+        }).from(users).where(eq(users.id, req.userId!)).limit(1).then((rows) => rows[0]),
+      ])
+
+      const authorColor = membership?.nameColor ?? null
+      const mentionsStr = mentionedIds.join(',')
 
       const [inserted] = await db.insert(messages).values({
         content, channelId, authorId: req.userId!, authorColor, mentions: mentionsStr,
@@ -326,94 +333,103 @@ export function createMessagesRouter(io: SocketServer) {
         expiresAt,
       }).returning()
 
-      const [author] = await db.select({
-        id: users.id, username: users.username,
-        displayName: users.displayName, avatarUrl: users.avatarUrl,
-      }).from(users).where(eq(users.id, req.userId!)).limit(1)
-
       const msgWithReactions = {
         ...inserted, author, reactions: [], mentions: mentionedIds,
         attachments: safeParseAttachments(inserted.attachments),
         replyTo: replyParent,
       }
 
-      // Inclui clientNonce no socket payload pra dedup exato no remetente.
-      // O autor é o único que conhece o nonce, outros clientes ignoram.
+      // ── EMIT ASAP ────────────────────────────────────────────
+      // Antes desse emit, só INSERT + 1 Promise.all (3 SELECTs em paralelo).
+      // Receptores recebem msg em ~50ms ao invés de ~200ms+.
       io.to(`channel:${channelId}`).emit('new_message', { ...msgWithReactions, clientNonce: clientNonce ?? null })
       messagesSentTotal.inc({ kind: 'channel' })
 
-      // Notifica todos membros do servidor (rooms user:*) que esse canal teve
-      // atividade — Sidebar atualiza unread indicator sem precisar estar dentro do canal
-      const allMembers = await db.select({ userId: serverMembers.userId }).from(serverMembers)
-        .where(eq(serverMembers.serverId, channel.serverId))
-      const now = inserted.createdAt.toISOString()
-      for (const m of allMembers) {
-        if (m.userId === req.userId) continue
-        io.to(`user:${m.userId}`).emit('channel_activity', { channelId, lastMessageAt: now })
-      }
-
-      // Mentions: legacy event (mantém pra compat) + notify() (feed + push gated por prefs)
-      for (const userId of mentionedIds) {
-        if (userId === req.userId) continue
-        io.to(`user:${userId}`).emit('mention', {
-          messageId:   inserted.id,
-          channelId,
-          serverId:    channel.serverId,
-          serverName:  channel.serverName,
-          channelName: channel.channelName,
-          authorName:  author.displayName,
-          preview:     content.slice(0, 80),
-        })
-        notify({
-          io, userId, actorId: req.userId!, type: 'mention',
-          payload: {
-            messageId:   inserted.id,
-            channelId,
-            serverId:    channel.serverId,
-            serverName:  channel.serverName,
-            channelName: channel.channelName,
-            authorId:    author.id,
-            authorName:  author.displayName,
-            authorAvatar: author.avatarUrl,
-            preview:     content.slice(0, 140),
-          },
-          push: {
-            title: `${author.displayName} mencionou você em #${channel.channelName}`,
-            body:  content.slice(0, 140),
-            url:   '/app',
-            tag:   `mention-${channelId}`,
-            icon:  author.avatarUrl ?? undefined,
-          },
-        }).catch(() => {})
-      }
-
-      // Reply notif: avisa autor da mensagem original (se diferente do autor da reply)
-      if (validReplyToId && replyParent && replyParent.authorId !== req.userId) {
-        notify({
-          io, userId: replyParent.authorId, actorId: req.userId!, type: 'reply',
-          payload: {
-            messageId:   inserted.id,
-            channelId,
-            serverId:    channel.serverId,
-            serverName:  channel.serverName,
-            channelName: channel.channelName,
-            authorId:    author.id,
-            authorName:  author.displayName,
-            authorAvatar: author.avatarUrl,
-            preview:     content.slice(0, 140),
-            replyToContent: replyParent.content?.slice(0, 80) ?? '',
-          },
-          push: {
-            title: `${author.displayName} respondeu você em #${channel.channelName}`,
-            body:  content.slice(0, 140),
-            url:   '/app',
-            tag:   `reply-${inserted.id}`,
-            icon:  author.avatarUrl ?? undefined,
-          },
-        }).catch(() => {})
-      }
-
+      // ── Resposta REST imediata (autor pode confirmar UI) ─────
       res.status(201).json({ data: msgWithReactions })
+
+      // ── BACKGROUND: trabalho não-crítico após response ───────
+      // setImmediate libera o event loop pra Express finalizar a response
+      // antes desse trabalho rodar. Errors logados, não afetam o client.
+      setImmediate(() => {
+        void (async () => {
+          try {
+            // 1. Notifica sidebar de membros do server
+            const allMembers = await db.select({ userId: serverMembers.userId }).from(serverMembers)
+              .where(eq(serverMembers.serverId, channel.serverId))
+            const now = inserted.createdAt.toISOString()
+            for (const m of allMembers) {
+              if (m.userId === req.userId) continue
+              io.to(`user:${m.userId}`).emit('channel_activity', { channelId, lastMessageAt: now })
+            }
+
+            // 2. Mentions: legacy event + notify (feed + push)
+            for (const userId of mentionedIds) {
+              if (userId === req.userId) continue
+              io.to(`user:${userId}`).emit('mention', {
+                messageId:   inserted.id,
+                channelId,
+                serverId:    channel.serverId,
+                serverName:  channel.serverName,
+                channelName: channel.channelName,
+                authorName:  author.displayName,
+                preview:     content.slice(0, 80),
+              })
+              void notify({
+                io, userId, actorId: req.userId!, type: 'mention',
+                payload: {
+                  messageId:   inserted.id,
+                  channelId,
+                  serverId:    channel.serverId,
+                  serverName:  channel.serverName,
+                  channelName: channel.channelName,
+                  authorId:    author.id,
+                  authorName:  author.displayName,
+                  authorAvatar: author.avatarUrl,
+                  preview:     content.slice(0, 140),
+                },
+                push: {
+                  title: `${author.displayName} mencionou você em #${channel.channelName}`,
+                  body:  content.slice(0, 140),
+                  url:   '/app',
+                  tag:   `mention-${channelId}`,
+                  icon:  author.avatarUrl ?? undefined,
+                },
+              }).catch(() => {})
+            }
+
+            // 3. Reply notif
+            if (validReplyToId && replyParent && replyParent.authorId !== req.userId) {
+              void notify({
+                io, userId: replyParent.authorId, actorId: req.userId!, type: 'reply',
+                payload: {
+                  messageId:   inserted.id,
+                  channelId,
+                  serverId:    channel.serverId,
+                  serverName:  channel.serverName,
+                  channelName: channel.channelName,
+                  authorId:    author.id,
+                  authorName:  author.displayName,
+                  authorAvatar: author.avatarUrl,
+                  preview:     content.slice(0, 140),
+                  replyToContent: replyParent.content?.slice(0, 80) ?? '',
+                },
+                push: {
+                  title: `${author.displayName} respondeu você em #${channel.channelName}`,
+                  body:  content.slice(0, 140),
+                  url:   '/app',
+                  tag:   `reply-${inserted.id}`,
+                  icon:  author.avatarUrl ?? undefined,
+                },
+              }).catch(() => {})
+            }
+          } catch (err) {
+            // Background work falhou — não afeta o client, mas registra.
+            // eslint-disable-next-line no-console
+            console.error('[messages POST] background work failed:', err)
+          }
+        })()
+      })
     })
   )
 

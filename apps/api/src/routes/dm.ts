@@ -261,52 +261,65 @@ export function createDMRouter(io: SocketServer) {
 
       const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null
 
-      const [inserted] = await db.insert(directMessages).values({
-        content, senderId: req.userId!, receiverId, conversationId,
-        attachments: JSON.stringify(attachments),
-        replyToId:   validReplyToId,
-        expiresAt:   expiresAt as any,
-      }).returning()
+      // ── PARALELIZAR INSERT + SELECT author (independentes) ───
+      const [insertedRows, authorRows] = await Promise.all([
+        db.insert(directMessages).values({
+          content, senderId: req.userId!, receiverId, conversationId,
+          attachments: JSON.stringify(attachments),
+          replyToId:   validReplyToId,
+          expiresAt:   expiresAt as any,
+        }).returning(),
+        db.select({
+          id: users.id, username: users.username,
+          displayName: users.displayName, avatarUrl: users.avatarUrl,
+        }).from(users).where(eq(users.id, req.userId!)).limit(1),
+      ])
+      const inserted = insertedRows[0]
+      const author   = authorRows[0]
 
-      const [author] = await db.select({
-        id: users.id, username: users.username,
-        displayName: users.displayName, avatarUrl: users.avatarUrl,
-      }).from(users).where(eq(users.id, req.userId!)).limit(1)
-
-      // Bump updatedAt — faz a conv subir na lista
-      await db.update(dmConversations).set({ updatedAt: new Date() })
-        .where(eq(dmConversations.id, conversationId))
-
-      // shape consistente com MessageWithAuthor (frontend espera `author`)
       const message = {
         ...inserted,
         attachments,
         replyTo: replySnapshot,
         author,
       }
+
+      // ── EMIT ASAP + responde REST imediato ───────────────────
       io.to(`dm:${conversationId}`).emit('new_dm', message)
       messagesSentTotal.inc({ kind: 'dm' })
-
-      // DM notif: feed in-app + push (gated por prefs do receiver)
-      notify({
-        io, userId: receiverId, actorId: req.userId!, type: 'dm',
-        payload: {
-          messageId:      inserted.id,
-          conversationId,
-          authorId:       author?.id,
-          authorName:     author?.displayName ?? 'Alguém',
-          authorAvatar:   author?.avatarUrl ?? null,
-          preview:        content.slice(0, 140),
-        },
-        push: {
-          title: `Nova DM de ${author?.displayName ?? 'Alguém'}`,
-          body:  content.slice(0, 140),
-          url:   '/app/dm',
-          tag:   `dm-${conversationId}`,
-          icon:  author?.avatarUrl ?? undefined,
-        },
-      }).catch(() => {})
       res.status(201).json({ data: message })
+
+      // ── BACKGROUND: bump conv + notify ───────────────────────
+      setImmediate(() => {
+        void (async () => {
+          try {
+            await db.update(dmConversations).set({ updatedAt: new Date() })
+              .where(eq(dmConversations.id, conversationId))
+
+            await notify({
+              io, userId: receiverId, actorId: req.userId!, type: 'dm',
+              payload: {
+                messageId:      inserted.id,
+                conversationId,
+                authorId:       author?.id,
+                authorName:     author?.displayName ?? 'Alguém',
+                authorAvatar:   author?.avatarUrl ?? null,
+                preview:        content.slice(0, 140),
+              },
+              push: {
+                title: `Nova DM de ${author?.displayName ?? 'Alguém'}`,
+                body:  content.slice(0, 140),
+                url:   '/app/dm',
+                tag:   `dm-${conversationId}`,
+                icon:  author?.avatarUrl ?? undefined,
+              },
+            }).catch(() => {})
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('[dm POST] background work failed:', err)
+          }
+        })()
+      })
     })
   )
 

@@ -30,6 +30,10 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@umbra/types'],
   },
+  // Strip console.* + debugger em build de prod. dev mantém pra debug.
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+  },
   build: {
     // Chunks grandes não-essenciais devem ficar fora do main bundle.
     // manualChunks identifica vendors gordos e isola — main fica magro pro initial load.

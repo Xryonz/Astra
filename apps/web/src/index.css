@@ -82,6 +82,25 @@
   --color-border:               var(--border-mid);
   --color-input:                var(--border-mid);
   --color-ring:                 var(--accent);
+
+  /* Type scale — semântico editorial (não conflita com text-xs/sm defaults).
+     Gera utilities text-marg, text-caption, text-body, text-lead, text-h3, text-h2, text-h1, text-display.
+     Escala ~1.250 (perfect fourth) — proporção tipográfica editorial. */
+  --text-marg:    0.6875rem;  /* 11px — marginalia, kbd, footnote */
+  --text-caption: 0.8125rem;  /* 13px — captions, secondary text */
+  --text-body:    0.9375rem;  /* 15px — paragraph base */
+  --text-lead:    1.0625rem;  /* 17px — lede, intro paragraph */
+  --text-h3:      1.5rem;     /* 24px — subseção */
+  --text-h2:      1.875rem;   /* 30px — seção */
+  --text-h1:      2.5rem;     /* 40px — título de tela */
+  --text-display: clamp(4rem, 10vw, 8rem);  /* hero serif/script */
+
+  /* Elevation — editorial restraint (sombras suaves, sem material glow).
+     Gera shadow-1, shadow-2, shadow-3, shadow-accent. */
+  --shadow-1:      0 1px 2px  rgba(0, 0, 0, 0.35);
+  --shadow-2:      0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-3:      0 12px 36px rgba(0, 0, 0, 0.55);
+  --shadow-accent: 0 8px 24px var(--accent-glow);
 }
 
 /* ═══════════════════════════════════════════════════════════

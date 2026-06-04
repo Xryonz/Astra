@@ -55,10 +55,8 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col items-start justify-center w-full pl-32 pr-12 py-24">
           <Reveal delay={0.2}>
             <h1
-              className="m-0 leading-[0.85] text-(--text-1) tracking-wider mb-10"
+              className="m-0 leading-[0.85] text-(--text-1) tracking-wider mb-10 text-display font-(family-name:--font-script)"
               style={{
-                fontFamily: 'var(--font-script)',
-                fontSize:   'clamp(7rem, 14vw, 12rem)',
                 textShadow: '0 8px 80px var(--accent-glow), 0 2px 20px rgba(0,0,0,0.5)',
                 fontWeight: 400,
               }}
@@ -114,7 +112,7 @@ export default function LoginPage() {
                 <span className="ed-roman text-2xl">I.</span>
                 <span className="ed-marg">Sign in</span>
               </div>
-              <h2 className="ed-h text-3xl mb-3">Bem-vindo de volta.</h2>
+              <h2 className="ed-h text-h2 mb-3">Bem-vindo de volta.</h2>
               <p className="text-(--text-2) text-sm leading-relaxed max-w-[34ch]">
                 Continue de onde parou — sua biblioteca de conversas aguarda.
               </p>

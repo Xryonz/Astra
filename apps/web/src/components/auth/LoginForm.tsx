@@ -88,7 +88,7 @@ export default function LoginForm() {
             mt-2 h-12 w-full rounded-lg
             bg-(--accent) text-(--text-inv)
             font-medium tracking-wider uppercase text-xs
-            hover:bg-(--accent-h) hover:shadow-[0_8px_24px_var(--accent-glow)]
+            hover:bg-(--accent-h) hover:shadow-accent
             transition-all duration-300 ease-(--ease-spring)
           "
         >

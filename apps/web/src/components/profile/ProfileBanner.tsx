@@ -13,8 +13,10 @@ interface Props {
 
 export function ProfileBanner({ bannerUrl, bannerColor, fallbackGradient }: Props) {
   const [imgError, setImgError] = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
   const showImage = bannerUrl && !imgError
-  const bg = showImage ? undefined : (bannerColor ?? fallbackGradient)
+  // Mostra fallback até a img estar carregada (evita flash de "transparente" quando cor é só img).
+  const bg = (!showImage || !imgLoaded) ? (bannerColor ?? fallbackGradient) : undefined
 
   return (
     <div className="relative h-48 overflow-hidden shrink-0" style={{ background: bg }}>
@@ -24,7 +26,9 @@ export function ProfileBanner({ bannerUrl, bannerColor, fallbackGradient }: Prop
           alt=""
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
-          className="absolute inset-0 w-full h-full object-cover"
+          onLoad={() => setImgLoaded(true)}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ease-(--ease-out-soft)"
+          style={{ opacity: imgLoaded ? 1 : 0 }}
         />
       )}
       {/* Overlay pra contraste de texto/avatar acima */}

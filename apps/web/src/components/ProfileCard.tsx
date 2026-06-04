@@ -25,10 +25,10 @@ import { api }            from '@/lib/api'
 import { useAuthStore }   from '@/store/authStore'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button }         from '@/components/ui/button'
-import { Spinner }        from '@/components/ui/spinner'
-import { ProfileBanner }  from '@/components/profile/ProfileBanner'
-import { ProfileHero }    from '@/components/profile/ProfileHero'
-import { ProfileBio }     from '@/components/profile/ProfileBio'
+import { ProfileBanner }       from '@/components/profile/ProfileBanner'
+import { ProfileHero }         from '@/components/profile/ProfileHero'
+import { ProfileBio }          from '@/components/profile/ProfileBio'
+import { ProfileCardSkeleton } from '@/components/profile/ProfileCardSkeleton'
 import { FONT_FAMILY, type DisplayFont } from '@/components/profile/profileFonts'
 import { type UserStatus } from '@/components/StatusDot'
 
@@ -110,11 +110,11 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
       >
         <div className="flex-1 overflow-y-auto flex flex-col">
           {isLoading ? (
-            <div className="flex-1 flex items-center justify-center gap-2 p-10 text-sm text-(--text-3)">
-              <Spinner size={16} /> Carregando perfil…
+            <>
               <SheetTitle className="sr-only">Carregando perfil</SheetTitle>
               <SheetDescription className="sr-only">Aguarde</SheetDescription>
-            </div>
+              <ProfileCardSkeleton />
+            </>
           ) : profile ? (
             <>
               <SheetTitle className="sr-only">Perfil de {profile.displayName}</SheetTitle>
@@ -174,7 +174,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                 {!isSelf && !profile.isBot && (
                   <Button
                     onClick={handleSendDM}
-                    className="w-full gap-2 rounded-full h-10 bg-(--accent) text-(--text-inv) font-medium tracking-wider uppercase text-[11px] hover:bg-(--accent-h) hover:shadow-[0_8px_24px_var(--accent-glow)] transition-all duration-300 ease-(--ease-spring)"
+                    className="w-full gap-2 rounded-full h-10 bg-(--accent) text-(--text-inv) font-medium tracking-wider uppercase text-marg hover:bg-(--accent-h) hover:shadow-accent transition-all duration-300 ease-(--ease-spring)"
                   >
                     <MessageCircle className="size-3.5" />
                     Mensagem
@@ -183,9 +183,12 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
               </motion.div>
             </>
           ) : (
-            <div className="p-10 text-center">
-              <SheetTitle className="sr-only">Perfil não encontrado</SheetTitle>
-              <SheetDescription>Esse usuário pode ter sido removido.</SheetDescription>
+            <div className="p-10 text-center flex flex-col items-center justify-center gap-3 min-h-60">
+              <span className="ed-roman text-h2">—</span>
+              <SheetTitle className="ed-h text-h3 m-0">Página não encontrada.</SheetTitle>
+              <SheetDescription className="text-(--text-3) text-caption italic max-w-[28ch]">
+                Este perfil já não existe — ou nunca existiu.
+              </SheetDescription>
             </div>
           )}
         </div>

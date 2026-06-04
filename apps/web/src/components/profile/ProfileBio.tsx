@@ -22,7 +22,7 @@ export function ProfileBio({ bio, isSelf, fontFamily }: Props) {
         </p>
       ) : (
         <p className="text-(--text-3) text-sm italic m-0">
-          {isSelf ? 'Você ainda não escreveu uma bio.' : 'Sem bio ainda.'}
+          {isSelf ? 'Você ainda não deixou suas palavras.' : 'Sem palavras ainda.'}
         </p>
       )}
     </section>

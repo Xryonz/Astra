@@ -2,12 +2,11 @@ import { useState, useRef, useEffect, memo, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSquarePlus, File as FileIcon, Download, Bookmark, BookmarkCheck, Languages, Copy } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
+import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSquarePlus, Bookmark, BookmarkCheck, Languages, Copy } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { ProfileHoverCard } from '@/components/ProfileHoverCard'
 import { toast } from '@/components/ui/sonner'
-import { api, resolveApiUrl } from '@/lib/api'
+import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { useLongPress } from '@/hooks/useLongPress'
 import ProfileCard from '@/components/ProfileCard'
@@ -19,20 +18,15 @@ import PollCard from '@/components/chat/PollCard'
 import EditHistoryPopover from '@/components/chat/EditHistoryPopover'
 import { useIsBookmarked, useToggleBookmark } from '@/hooks/useBookmarks'
 import { TRANSLATE_LANGS, useTranslateMessage, type TranslateLang } from '@/hooks/useTranslate'
-import { VoiceMessage } from '@/components/chat/VoiceRecorder'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Dialog, DialogContent, DialogHeader, DialogFooter,
-  DialogTitle, DialogDescription,
-} from '@/components/ui/dialog'
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { MessageWithAuthor } from '@umbra/types'
 
-// ─── Types ───────────────────────────────────────────────────
-interface Reaction { emoji: string; count: number; users: string[] }
+import { MessageReactions, type Reaction } from './Message/MessageReactions'
+import { MessageAttachments } from './Message/MessageAttachments'
+import { MessageToolbar } from './Message/MessageToolbar'
+import {
+  CreateThreadDialog, DeleteConfirm, EditModal,
+} from './Message/MessageDialogs'
 type ParsedColor =
   | { type: 'solid';    value: string }
   | { type: 'gradient'; angle: number; from: string; to: string }
@@ -346,356 +340,6 @@ function renderBlocks(text: string): React.ReactNode {
   })
 }
 
-const ReactionChips = memo(function ReactionChips({ reactions, onReact }: {
-  reactions: Reaction[]; onReact: (emoji: string) => void
-}) {
-  const currentUserId = useAuthStore((s) => s.user?.id)
-  const [punchKey, setPunchKey] = useState<string | null>(null)
-  if (!reactions?.length) return null
-
-  // Punch: pulse 1 → 1.22 → 1 + ring glow expandindo + opacity fade.
-  // Reset via timeout pra permitir re-trigger no mesmo emoji.
-  const handleClick = (emoji: string) => {
-    setPunchKey(emoji + ':' + Date.now())
-    onReact(emoji)
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-2">
-      <AnimatePresence initial={false} mode="popLayout">
-        {reactions.map((r) => {
-          const reacted = r.users.includes(currentUserId ?? '')
-          const isPunching = punchKey?.startsWith(r.emoji + ':')
-          return (
-            <motion.button
-              key={r.emoji}
-              layout
-              initial={{ opacity: 0, scale: 0.4, y: 6 }}
-              animate={isPunching
-                ? { opacity: 1, scale: [1, 1.22, 1], y: 0 }
-                : { opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.4, y: -6 }}
-              transition={isPunching
-                ? { duration: 0.42, times: [0, 0.35, 1], ease: [0.16, 1, 0.3, 1] }
-                : { type: 'spring', stiffness: 520, damping: 24 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => handleClick(r.emoji)}
-              onAnimationComplete={() => {
-                if (isPunching) setPunchKey(null)
-              }}
-              className={cn(
-                'relative flex items-center gap-1.5 px-2.5 py-0.5 rounded-full cursor-pointer text-sm border isolate',
-                'transition-[background-color,border-color,color] duration-150',
-                reacted
-                  ? 'bg-(--accent-dim) border-(--accent) text-(--accent)'
-                  : 'bg-(--raised)/40 border-(--border) text-(--text-3) hover:border-(--accent) hover:text-(--text-2)',
-              )}
-            >
-              {/* Ring glow expandindo durante punch */}
-              {isPunching && (
-                <motion.span
-                  aria-hidden
-                  className="absolute inset-0 rounded-full pointer-events-none"
-                  initial={{ opacity: 0.6, scale: 1, boxShadow: '0 0 0 0 var(--accent)' }}
-                  animate={{ opacity: 0, scale: 1.4, boxShadow: '0 0 0 8px transparent' }}
-                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  style={{ border: '1.5px solid var(--accent)' }}
-                />
-              )}
-              <span className="relative">{r.emoji}</span>
-              <motion.span
-                key={r.count}
-                initial={{ scale: 1.3, opacity: 0.6 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 600, damping: 26 }}
-                className="font-mono text-[10px] font-medium tracking-wide relative"
-              >
-                {r.count}
-              </motion.span>
-            </motion.button>
-          )
-        })}
-      </AnimatePresence>
-    </div>
-  )
-})
-
-function ActionToolbar({ isMine, isPinned, isBookmarked, onPickEmoji, onReply, onCreateThread, onEdit, onDelete, onTogglePin, onToggleBookmark, onTranslate }: {
-  isMine: boolean
-  isPinned: boolean
-  isBookmarked?: boolean
-  onPickEmoji: () => void
-  onReply?: () => void
-  onCreateThread?: () => void
-  onEdit?: () => void
-  onDelete?: () => void
-  onTogglePin?: () => void
-  onToggleBookmark?: () => void
-  onTranslate?: () => void
-}) {
-  return (
-    <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150">
-      <ToolBtn title="Reagir" onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
-      {onReply && <ToolBtn title="Responder" onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
-      {onTranslate && <ToolBtn title="Traduzir" onClick={onTranslate}><Languages className="size-3.5" /></ToolBtn>}
-      {onCreateThread && (
-        <ToolBtn title="Criar thread" onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
-      )}
-      {onToggleBookmark && (
-        <ToolBtn title={isBookmarked ? 'Remover dos salvos' : 'Salvar'} onClick={onToggleBookmark}>
-          {isBookmarked ? <BookmarkCheck className="size-3.5 text-(--accent)" /> : <Bookmark className="size-3.5" />}
-        </ToolBtn>
-      )}
-      {onTogglePin && (
-        <ToolBtn title={isPinned ? 'Desafixar' : 'Fixar'} onClick={onTogglePin}>
-          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-        </ToolBtn>
-      )}
-      {isMine && onEdit   && <ToolBtn title="Editar"  onClick={onEdit}><Pencil className="size-3.5" /></ToolBtn>}
-      {isMine && onDelete && <ToolBtn title="Apagar"  onClick={onDelete} danger><Trash2 className="size-3.5" /></ToolBtn>}
-    </div>
-  )
-}
-
-function CreateThreadDialog({ open, onClose, onCreate }: {
-  open: boolean
-  onClose: () => void
-  onCreate: (name: string) => Promise<void> | void
-}) {
-  const [name, setName] = useState('')
-  const [saving, setSaving] = useState(false)
-  useEffect(() => { if (!open) setName('') }, [open])
-
-  const submit = async () => {
-    if (!name.trim()) return
-    setSaving(true)
-    try { await onCreate(name.trim()); onClose() } finally { setSaving(false) }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
-      <DialogContent className="max-w-95!">
-        <DialogHeader>
-          <DialogTitle>Criar thread</DialogTitle>
-          <DialogDescription>Conversa derivada desta mensagem.</DialogDescription>
-        </DialogHeader>
-        <Input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit() } if (e.key === 'Escape') onClose() }}
-          placeholder="Nome da thread"
-          maxLength={80}
-        />
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button onClick={submit} disabled={!name.trim() || saving}>{saving ? 'Criando…' : 'Criar'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ToolBtn({ title, onClick, danger, children }: {
-  title: string; onClick: () => void; danger?: boolean; children: React.ReactNode
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={(e) => { e.stopPropagation(); onClick() }}
-          className={cn(
-            'px-2.5 py-2 cursor-pointer transition-colors border-0 bg-transparent flex items-center justify-center border-r border-(--border) last:border-r-0',
-            danger
-              ? 'text-(--text-3) hover:bg-(--danger)/15 hover:text-(--danger)'
-              : 'text-(--text-3) hover:bg-(--accent-dim) hover:text-(--accent)'
-          )}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{title}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function DeleteConfirm({ open, onConfirm, onCancel }: {
-  open: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(o: boolean) => !o && onCancel()}>
-      <DialogContent className="max-w-90 text-center">
-        <div className="text-4xl mb-2">🗑️</div>
-        <DialogHeader>
-          <DialogTitle className="text-center">Apagar mensagem?</DialogTitle>
-          <DialogDescription className="text-center">
-            Esta ação não pode ser desfeita.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="sm:justify-center">
-          <Button variant="secondary" className="flex-1" onClick={onCancel}>Cancelar</Button>
-          <Button variant="destructive" className="flex-1" onClick={onConfirm}>Sim, apagar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function EditModal({ open, content, onSave, onClose }: {
-  open: boolean
-  content: string
-  onSave: (c: string) => Promise<void> | void
-  onClose: () => void
-}) {
-  const [value, setValue] = useState(content)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => { setValue(content) }, [content])
-
-  const handleSave = async () => {
-    if (!value.trim() || value === content) { onClose(); return }
-    setSaving(true)
-    await onSave(value.trim())
-    setSaving(false)
-  }
-
-  const disabled = saving || !value.trim() || value === content
-
-  return (
-    <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
-      <DialogContent className="max-w-115">
-        <DialogHeader>
-          <DialogTitle>Editar mensagem</DialogTitle>
-        </DialogHeader>
-        <Textarea
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSave() }
-            if (e.key === 'Escape') onClose()
-          }}
-          rows={3}
-          className="min-h-18 resize-y leading-relaxed"
-        />
-        <p className="text-[11px] text-muted-foreground">Enter para salvar · Esc para cancelar</p>
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={disabled}>
-            {saving ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ImageTile({ att, onOpen }: {
-  att: { url: string; type: string; name: string; size: number }
-  onOpen: () => void
-}) {
-  const [errored, setErrored] = useState(false)
-  const src = resolveApiUrl(att.url)
-  if (errored) {
-    return (
-      <a
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex flex-col items-start gap-1 p-3 border border-(--danger)/40 bg-(--raised)"
-        title="Imagem não carregou"
-      >
-        <span className="text-xs text-(--danger)">⚠ Imagem não carregou</span>
-        <span className="text-[10px] font-mono text-(--text-3) break-all">{att.name}</span>
-        <span className="text-[10px] text-(--accent) underline">Abrir em nova aba</span>
-      </a>
-    )
-  }
-  return (
-    <button
-      onClick={onOpen}
-      className="group relative border border-(--border) overflow-hidden bg-(--raised) max-h-72 cursor-zoom-in"
-    >
-      <img
-        src={src}
-        alt={att.name}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        decoding="async"
-        onError={() => setErrored(true)}
-        className="block w-full h-full object-cover max-h-72 transition-transform duration-500 ease-(--ease-spring) group-hover:scale-[1.02]"
-      />
-    </button>
-  )
-}
-
-function fmtBytes(b: number) {
-  return b < 1024 ? `${b}B` : b < 1024*1024 ? `${(b/1024).toFixed(0)}KB` : `${(b/1024/1024).toFixed(1)}MB`
-}
-
-function isImageAttachment(a: { type?: string; name?: string; url?: string }) {
-  if (a.type?.startsWith('image/')) return true
-  // Fallback: detecta por extensão se mime veio vazio/errado
-  const target = a.url || a.name || ''
-  return /\.(png|jpe?g|gif|webp|avif|svg|bmp|heic|heif)(\?|#|$)/i.test(target)
-}
-
-const AttachmentsBlock = memo(function AttachmentsBlock({ attachments, onOpenImage }: {
-  attachments: Array<{ url: string; type: string; name: string; size: number; duration?: number }>
-  onOpenImage: (imageIdx: number) => void
-}) {
-  if (!attachments?.length) return null
-  const images  = attachments.filter(isImageAttachment)
-  const audios  = attachments.filter((a) => a.type?.startsWith('audio/'))
-  const others  = attachments.filter((a) => !isImageAttachment(a) && !a.type?.startsWith('audio/'))
-  const imageGlobalIdx = (att: { url: string }) => images.findIndex((im) => im.url === att.url)
-
-  return (
-    <div className="flex flex-col gap-2 mt-2">
-      {images.length > 0 && (
-        <div className={cn(
-          'grid gap-1.5 max-w-md',
-          images.length === 1 && 'grid-cols-1',
-          images.length === 2 && 'grid-cols-2',
-          images.length >= 3 && 'grid-cols-2 sm:grid-cols-3',
-        )}>
-          {images.map((a) => <ImageTile key={a.url} att={a} onOpen={() => onOpenImage(imageGlobalIdx(a))} />)}
-        </div>
-      )}
-
-      {audios.map((a) => (
-        <VoiceMessage key={a.url} url={a.url} duration={(a as any).duration} />
-      ))}
-
-      {others.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {others.map((a) => (
-            <li key={a.url}>
-              <a
-                href={resolveApiUrl(a.url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={a.name}
-                className="flex items-center gap-3 px-3 py-2 border border-(--border) bg-(--raised)/60 hover:border-(--accent) hover:bg-(--raised) transition-colors"
-              >
-                <div className="size-9 shrink-0 border border-(--border) bg-(--base) flex items-center justify-center">
-                  <FileIcon className="size-4 text-(--text-3)" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-(--text-1) m-0 truncate" style={{ fontFamily: 'var(--font-display)' }}>{a.name}</p>
-                  <p className="text-[11px] font-mono text-(--text-3) m-0">{a.type} · {fmtBytes(a.size)}</p>
-                </div>
-                <Download className="size-4 text-(--text-3) shrink-0" />
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-})
 
 function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -986,7 +630,7 @@ function MessageItemImpl({
         onContextMenu={(e) => { if (longPress.didFire()) e.preventDefault() }}
       >
         {hovered && !isPending && !isBot && (
-          <ActionToolbar
+          <MessageToolbar
             isMine={isMine}
             isPinned={!!(message as any).pinned}
             isBookmarked={isBookmarked}
@@ -1161,12 +805,12 @@ function MessageItemImpl({
             />
           )}
 
-          <AttachmentsBlock
+          <MessageAttachments
             attachments={(message as any).attachments ?? []}
             onOpenImage={(idx) => setLightboxIdx(idx)}
           />
 
-          <ReactionChips reactions={reactions} onReact={handleReact} />
+          <MessageReactions reactions={reactions} onReact={handleReact} />
         </div>
       </div>
       </EditorialContextMenu>

@@ -203,7 +203,7 @@ export default function ProfileSection() {
           rows={4}
           placeholder="Algo sobre você… use **negrito**, *itálico*, ou [link](https://...)"
         />
-        <p className="text-[11px] text-(--text-3) mt-1 m-0 text-right">{bio.length}/300</p>
+        <p className="text-marg text-(--text-3) mt-1 m-0 text-right">{bio.length}/300</p>
         {errors.bio && <p className="text-xs text-(--danger) m-0">{errors.bio}</p>}
       </Row>
 
@@ -248,7 +248,7 @@ function CustomStatusEditor() {
         maxLength={100}
         placeholder="Ex: Lendo um livro · Compilando · BRB"
       />
-      <p className="text-[11px] text-(--text-3) mt-1 m-0 text-right">{text.length}/100</p>
+      <p className="text-marg text-(--text-3) mt-1 m-0 text-right">{text.length}/100</p>
       <SaveStatus status={status} />
     </div>
   )

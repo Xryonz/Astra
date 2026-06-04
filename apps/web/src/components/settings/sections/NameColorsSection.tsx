@@ -78,7 +78,7 @@ export default function NameColorsSection() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-foreground text-sm font-medium m-0 truncate">{server.name}</p>
-                  <p className="text-(--text-3) text-[11px] m-0">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
+                  <p className="text-(--text-3) text-marg m-0">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
                 </div>
                 {currentColor && (
                   <div className="size-4 rounded-full border-2 border-(--border-mid)" style={{ background: currentColor }} />

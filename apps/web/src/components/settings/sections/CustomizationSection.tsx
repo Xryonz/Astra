@@ -240,7 +240,7 @@ export default function CustomizationSection() {
                   type="button"
                   onClick={() => setShowBannerBuilder((v) => !v)}
                   className={cn(
-                    'mt-3 w-full h-9 rounded-lg border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.005]',
+                    'mt-3 w-full h-9 rounded-lg border text-marg font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.005]',
                     showBannerBuilder
                       ? 'border-(--accent) text-(--accent) bg-(--accent)/10'
                       : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
@@ -309,7 +309,7 @@ export default function CustomizationSection() {
             type="button"
             onClick={() => setShowThemeBuilder((v) => !v)}
             className={cn(
-              'w-full h-9 rounded-lg border text-[11px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.005]',
+              'w-full h-9 rounded-lg border text-marg font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-[1.005]',
               showThemeBuilder
                 ? 'border-(--accent) text-(--accent) bg-(--accent)/10'
                 : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
@@ -465,7 +465,7 @@ function BannerPositioner({
             onChange={(e) => onChange(positionY, Number(e.target.value))}
             className="flex-1 accent-(--accent)"
           />
-          <span className="text-[11px] font-mono text-(--text-3) w-10 text-right">{scale}%</span>
+          <span className="text-marg font-mono text-(--text-3) w-10 text-right">{scale}%</span>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onReset} className="gap-1.5">
           <RotateCcw className="size-3.5" /> Resetar

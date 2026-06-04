@@ -25,7 +25,7 @@ export default function SessionsSection() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm m-0 font-medium text-foreground">Sessão ativa</p>
-            <p className="text-[11px] text-(--text-3) m-0 mt-0.5 leading-relaxed">Token válido por até 7 dias (rotacionado a cada uso).</p>
+            <p className="text-marg text-(--text-3) m-0 mt-0.5 leading-relaxed">Token válido por até 7 dias (rotacionado a cada uso).</p>
           </div>
         </div>
       </Row>

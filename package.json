@@ -10,7 +10,8 @@
     "build:api": "npm run build -w packages/types && npm run build -w apps/api",
     "build:web": "npm run build -w packages/types && npm run build -w apps/web",
     "start:api": "node apps/api/dist/index.js",
-    "db:migrate": "npm run db:migrate -w apps/api"
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "test:e2e": "npm run test:e2e -w apps/web"
   },
   "engines": {
     "node": ">=20"

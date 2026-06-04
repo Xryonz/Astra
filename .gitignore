@@ -40,6 +40,12 @@ apps/api/uploads/
 stats.html
 dist/stats.html
 
+# ── Playwright output ───────────────────────────────────────
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # ── IDE / editor ────────────────────────────────────────────
 .vscode/
 .idea/

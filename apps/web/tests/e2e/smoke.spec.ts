@@ -54,3 +54,49 @@ test.describe('smoke', () => {
     expect(checked.base).not.toBe('')
   })
 })
+
+/**
+ * Mobile smoke — viewport 375x667 (iPhone SE).
+ *
+ * Caça bugs de responsividade comum:
+ *  - Horizontal overflow (scroll lateral inesperado)
+ *  - Editorial aside (split layout lg+) escondido sub-lg
+ *  - Touch targets pequenos em CTAs primárias
+ */
+test.describe('mobile (iPhone SE 375x667)', () => {
+  test.use({ viewport: { width: 375, height: 667 } })
+
+  test('login sem horizontal overflow + aside editorial escondido', async ({ page }) => {
+    await page.goto('/login')
+
+    // Sem scroll horizontal — bug clássico em layouts não-responsive
+    const hasHorizontalScroll = await page.evaluate(() => {
+      return document.documentElement.scrollWidth > document.documentElement.clientWidth
+    })
+    expect(hasHorizontalScroll).toBe(false)
+
+    // Aside editorial (hidden lg:flex) NÃO deve estar visível em 375px
+    const asideText = page.getByText('Onde palavras encontram silêncio')
+    await expect(asideText).toHaveCount(0)
+  })
+
+  test('register sem horizontal overflow', async ({ page }) => {
+    await page.goto('/register')
+    const hasOverflow = await page.evaluate(() => {
+      return document.documentElement.scrollWidth > document.documentElement.clientWidth
+    })
+    expect(hasOverflow).toBe(false)
+  })
+
+  test('botão CTA primário tem touch target >= 44px (a11y mobile)', async ({ page }) => {
+    await page.goto('/login')
+
+    // Login form submit button (CTA primária)
+    const submit = page.getByRole('button', { name: /entrar|sign in/i }).first()
+    await expect(submit).toBeVisible()
+
+    const box = await submit.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+  })
+})

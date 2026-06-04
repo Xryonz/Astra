@@ -7,6 +7,20 @@
 -- IF NOT EXISTS em tudo → idempotente, reroda seguro.
 -- ─────────────────────────────────────────────────────────────
 
+-- Friendship: criada aqui porque o schema inicial (0000) foi gerado
+-- antes dessa tabela existir; em dev sincronizou via db:push.
+CREATE TABLE IF NOT EXISTS "Friendship" (
+  "id"          text PRIMARY KEY NOT NULL,
+  "userAId"     text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "userBId"     text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "requesterId" text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "status"      text NOT NULL DEFAULT 'pending',
+  "acceptedAt"  timestamp (3),
+  "createdAt"   timestamp (3) NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Friendship_userAId_userBId_key"
+  ON "Friendship" ("userAId", "userBId");
+
 -- DM list ordenado por updatedAt: composite cobre WHERE userAId/userBId + ORDER BY.
 -- Antes: 2 index scans + sort. Depois: index-only scan, sem sort.
 CREATE INDEX IF NOT EXISTS "DMConversation_userAId_updatedAt_idx"

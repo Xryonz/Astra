@@ -36,6 +36,13 @@
       "when": 1781500000000,
       "tag": "0004_profile_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0005_schema_sync",
+      "breakpoints": true
     }
   ]
 }

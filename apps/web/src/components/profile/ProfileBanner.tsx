@@ -9,9 +9,15 @@ interface Props {
   bannerUrl?:        string | null
   bannerColor?:      string | null  // hex ou gradient string
   fallbackGradient:  string         // gradient determinístico do user.id
+  /** Posição vertical da img (0-100). Default 50 (centro). */
+  positionY?:        number
+  /** Zoom da img (100-200). Default 100. */
+  scale?:            number
 }
 
-export function ProfileBanner({ bannerUrl, bannerColor, fallbackGradient }: Props) {
+export function ProfileBanner({
+  bannerUrl, bannerColor, fallbackGradient, positionY = 50, scale = 100,
+}: Props) {
   const [imgError, setImgError] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const showImage = bannerUrl && !imgError
@@ -28,7 +34,12 @@ export function ProfileBanner({ bannerUrl, bannerColor, fallbackGradient }: Prop
           onError={() => setImgError(true)}
           onLoad={() => setImgLoaded(true)}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ease-(--ease-out-soft)"
-          style={{ opacity: imgLoaded ? 1 : 0 }}
+          style={{
+            opacity:        imgLoaded ? 1 : 0,
+            objectPosition: `center ${positionY}%`,
+            transform:      `scale(${scale / 100})`,
+            transformOrigin: 'center center',
+          }}
         />
       )}
       {/* Overlay pra contraste de texto/avatar acima */}

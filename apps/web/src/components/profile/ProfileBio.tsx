@@ -12,7 +12,14 @@ interface Props {
 export function ProfileBio({ bio, isSelf, fontFamily }: Props) {
   return (
     <section className="mb-5">
-      <span className="ed-label block mb-2">— Sobre</span>
+      {/* Label "Sobre" em Great Vibes — fonte cursive editorial pra dar
+          peso decorativo. Substitui o ed-label mono uppercase. */}
+      <span
+        className="block leading-none mb-1 text-(--accent)"
+        style={{ fontFamily: 'var(--font-script)', fontSize: '1.6rem' }}
+      >
+        Sobre
+      </span>
       {bio ? (
         <p
           className="text-(--text-2) text-sm leading-relaxed m-0 wrap-break-word whitespace-pre-wrap"

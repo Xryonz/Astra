@@ -32,6 +32,9 @@ interface ProfileMini {
   bio:              string | null
   bannerUrl:        string | null
   bannerColor:      string | null
+  profileTheme?:    string | null
+  bannerPositionY?: number
+  bannerScale?:     number
   pronouns?:        string | null
   statusEmoji?:     string | null
   displayFont?:     DisplayFont
@@ -104,19 +107,23 @@ export function ProfileHoverCard({ username, userId, children, side = 'top', ali
         side={side}
         align={align}
         sideOffset={8}
-        className="w-80 p-0 overflow-hidden rounded-xl bg-(--overlay) backdrop-blur-md z-9999 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.85)] border-(--border-bright)"
+        className="w-96 p-0 overflow-hidden rounded-2xl backdrop-blur-md z-9999 shadow-3 border-(--border-bright)"
+        style={{ background: data?.profileTheme || 'var(--overlay)' }}
       >
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Banner — h-16 compacto pra hover (vs h-48 do card cheio) */}
-          <div className="relative h-16 overflow-hidden">
+          {/* Banner — h-28 (vs h-48 do card cheio). Mais alto que h-16 antigo
+              pra avatar -mt-12 não cortar contra topo do HoverCardContent. */}
+          <div className="relative h-28 overflow-hidden">
             <ProfileBanner
               bannerUrl={data?.bannerUrl}
               bannerColor={data?.bannerColor}
               fallbackGradient={FALLBACK}
+              positionY={data?.bannerPositionY}
+              scale={data?.bannerScale}
             />
           </div>
 

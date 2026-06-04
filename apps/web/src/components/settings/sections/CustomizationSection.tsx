@@ -9,20 +9,14 @@
  */
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Upload, Check, Sparkles, Zap, Droplet, Minus, RotateCcw,
-  MoreHorizontal, GlassWater, Sparkle, Snowflake,
-} from 'lucide-react'
+import { Upload, Check, RotateCcw } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GradientBuilder } from '@/components/settings/GradientBuilder'
 import { cn } from '@/lib/utils'
-import {
-  UpdateProfileSchema, type BannerBorderStyle, type DisplayFont,
-} from '@umbra/types'
+import { UpdateProfileSchema, type DisplayFont } from '@umbra/types'
 import { SectionHeader, Row, SaveStatus } from './_shared'
 
 // ─── DATA ────────────────────────────────────────────────────
@@ -61,17 +55,6 @@ const BANNER_GRADIENTS: GradientPreset[] = [
   { id: 'onyx',     label: 'Ônix',       value: 'linear-gradient(135deg,#0c0c0c,#3c3c3c)' },
 ]
 
-const BANNER_BORDER_OPTIONS: { id: BannerBorderStyle; label: string; description: string; icon: React.ReactNode }[] = [
-  { id: 'none',    label: 'Sem borda', description: 'Limpo, sem efeitos.',                icon: <Minus          className="size-3.5" /> },
-  { id: 'aurora',  label: 'Aurora',    description: 'Anel rotativo policromo.',           icon: <Sparkles       className="size-3.5" /> },
-  { id: 'pulse',   label: 'Pulso',     description: 'Borda pulsando accent.',             icon: <Zap            className="size-3.5" /> },
-  { id: 'ink',     label: 'Tinta',     description: 'Vinheta que respira.',               icon: <Droplet        className="size-3.5" /> },
-  { id: 'marquee', label: 'Marquee',   description: 'Tracejado deslizando, vibe ticker.', icon: <MoreHorizontal className="size-3.5" /> },
-  { id: 'glow',    label: 'Glow',      description: 'Halo accent pulsante difuso.',       icon: <Sparkle        className="size-3.5" /> },
-  { id: 'noise',   label: 'Ruído',     description: 'Grão analógico vibrando.',           icon: <Snowflake      className="size-3.5" /> },
-  { id: 'shimmer', label: 'Brilho',    description: 'Faixa de luz atravessa lenta.',      icon: <GlassWater     className="size-3.5" /> },
-]
-
 const DISPLAY_FONT_OPTIONS: { id: DisplayFont; label: string; family: string; preview: string }[] = [
   { id: 'serif',       label: 'Serif Display',    family: 'var(--font-display)',                                              preview: 'Editorial clássico' },
   { id: 'sans',        label: 'Sans Limpa',       family: '-apple-system, ui-sans-serif, system-ui',                          preview: 'Limpo & moderno' },
@@ -96,8 +79,6 @@ export default function CustomizationSection() {
   const [profileTheme, setProfileTheme] = useState((user as any)?.profileTheme ?? BANNER_GRADIENTS[0].value)
   const [bannerPositionY, setBannerPositionY] = useState<number>((user as any)?.bannerPositionY ?? 50)
   const [bannerScale,     setBannerScale]     = useState<number>((user as any)?.bannerScale     ?? 100)
-  const [bannerBorder,    setBannerBorder]    = useState<BannerBorderStyle>(((user as any)?.bannerBorder ?? 'none') as BannerBorderStyle)
-  const [bannerTextColor, setBannerTextColor] = useState<string>((user as any)?.bannerTextColor ?? '')
   const [displayFont,     setDisplayFont]     = useState<DisplayFont>(((user as any)?.displayFont ?? 'serif') as DisplayFont)
 
   const [fileError,    setFileError]    = useState('')
@@ -134,8 +115,7 @@ export default function CustomizationSection() {
       bannerUrl:       bannerUrl    || null,
       bannerColor:     bannerColor  || null,
       profileTheme:    profileTheme || null,
-      bannerPositionY, bannerScale, bannerBorder,
-      bannerTextColor: bannerTextColor || null,
+      bannerPositionY, bannerScale,
       displayFont,
     }
     const result = UpdateProfileSchema.safeParse(candidate)
@@ -143,7 +123,7 @@ export default function CustomizationSection() {
     const map: Record<string, string> = {}
     for (const issue of result.error.issues) map[issue.path.join('.')] = issue.message
     return map
-  }, [bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder, bannerTextColor, displayFont])
+  }, [bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, displayFont])
 
   const updateProfile = useMutation({
     mutationFn: async () => {
@@ -153,8 +133,6 @@ export default function CustomizationSection() {
         profileTheme:    (user as any)?.profileTheme ?? '',
         bannerPositionY: (user as any)?.bannerPositionY ?? 50,
         bannerScale:     (user as any)?.bannerScale     ?? 100,
-        bannerBorder:    (user as any)?.bannerBorder    ?? 'none',
-        bannerTextColor: (user as any)?.bannerTextColor ?? '',
         displayFont:     (user as any)?.displayFont ?? 'serif',
       }
       const payload: Record<string, unknown> = {}
@@ -163,8 +141,6 @@ export default function CustomizationSection() {
       if (profileTheme    !== initial.profileTheme)    payload.profileTheme    = profileTheme || null
       if (bannerPositionY !== initial.bannerPositionY) payload.bannerPositionY = bannerPositionY
       if (bannerScale     !== initial.bannerScale)     payload.bannerScale     = bannerScale
-      if (bannerBorder    !== initial.bannerBorder)    payload.bannerBorder    = bannerBorder
-      if (bannerTextColor !== initial.bannerTextColor) payload.bannerTextColor = bannerTextColor || null
       if (displayFont     !== initial.displayFont)     payload.displayFont     = displayFont
       if (Object.keys(payload).length === 0) return null
 
@@ -194,7 +170,7 @@ export default function CustomizationSection() {
     }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, bannerBorder, bannerTextColor, displayFont])
+  }, [bannerUrl, bannerColor, profileTheme, bannerPositionY, bannerScale, displayFont])
 
   return (
     <div>
@@ -211,15 +187,13 @@ export default function CustomizationSection() {
             fallbackBg={bannerColor}
             positionY={bannerPositionY}
             scale={bannerScale}
-            border={bannerBorder}
             onImgError={() => setBannerImgErr(true)}
           />
 
           <Tabs defaultValue="fundo" className="w-full">
-            <TabsList className="grid grid-cols-3 w-full sm:w-auto sm:inline-flex">
+            <TabsList className="grid grid-cols-2 w-full sm:w-auto sm:inline-flex">
               <TabsTrigger value="fundo">Fundo</TabsTrigger>
               <TabsTrigger value="ajuste" disabled={!bannerUrl || bannerImgErr}>Ajuste</TabsTrigger>
-              <TabsTrigger value="borda">Borda</TabsTrigger>
             </TabsList>
 
             {/* FUNDO */}
@@ -281,34 +255,6 @@ export default function CustomizationSection() {
                 )}
               </div>
 
-              <div>
-                <span className="ed-label block mb-2">— Cor de texto no banner</span>
-                <p className="text-[11px] text-(--text-3) m-0 mb-3 leading-relaxed">
-                  Vazio = automático (claro/escuro pelo brilho do fundo). Defina manualmente se quiser.
-                </p>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={bannerTextColor || '#ffffff'}
-                    onChange={(e) => setBannerTextColor(e.target.value)}
-                    className="size-10 rounded-md border border-(--border-mid) cursor-pointer bg-transparent"
-                    aria-label="Cor do texto no banner"
-                  />
-                  <Input
-                    value={bannerTextColor}
-                    onChange={(e) => setBannerTextColor(e.target.value)}
-                    placeholder="#ffffff"
-                    maxLength={7}
-                    className="font-mono text-xs flex-1"
-                  />
-                  {bannerTextColor && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setBannerTextColor('')}>
-                      Auto
-                    </Button>
-                  )}
-                </div>
-                {errors.bannerTextColor && <p className="text-xs text-(--danger) mt-1 m-0">{errors.bannerTextColor}</p>}
-              </div>
             </TabsContent>
 
             {/* AJUSTE */}
@@ -333,35 +279,6 @@ export default function CustomizationSection() {
               )}
             </TabsContent>
 
-            {/* BORDA */}
-            <TabsContent value="borda" className="mt-6">
-              <p className="text-xs text-(--text-3) m-0 mb-4 leading-relaxed max-w-prose">
-                Animação ao redor do CARD inteiro (não só do banner). 8 estilos GPU-leves. Respeitam reduced-motion.
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {BANNER_BORDER_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setBannerBorder(opt.id)}
-                    className={cn(
-                      'group relative flex flex-col items-start gap-1.5 p-4 rounded-xl border text-left transition-all hover:scale-[1.02] cursor-pointer min-h-20',
-                      bannerBorder === opt.id
-                        ? 'border-(--accent) bg-(--accent)/8 ring-1 ring-(--accent)/40'
-                        : 'border-(--border-mid) hover:border-(--accent)/60',
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-(--text-2)">
-                      {opt.icon} {opt.label}
-                    </span>
-                    <span className="text-[10px] text-(--text-3) leading-tight">{opt.description}</span>
-                    {bannerBorder === opt.id && (
-                      <Check className="absolute top-2.5 right-2.5 size-3.5 text-(--accent)" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </TabsContent>
           </Tabs>
         </div>
       </Row>
@@ -442,21 +359,17 @@ export default function CustomizationSection() {
 
 // ─── BannerPreview ──────────────────────────────────────────
 function BannerPreview({
-  bannerUrl, fallbackBg, positionY, scale, border, onImgError,
+  bannerUrl, fallbackBg, positionY, scale, onImgError,
 }: {
   bannerUrl?:  string
   fallbackBg:  string
   positionY:   number
   scale:       number
-  border:      BannerBorderStyle
   onImgError:  () => void
 }) {
   return (
     <div
-      className={cn(
-        'w-full h-44 sm:h-48 rounded-xl border border-(--border-mid) overflow-hidden relative',
-        border !== 'none' && `card-border-${border}`,
-      )}
+      className="w-full h-44 sm:h-48 rounded-xl border border-(--border-mid) overflow-hidden relative"
       style={!bannerUrl ? { background: fallbackBg } : undefined}
     >
       {bannerUrl && (

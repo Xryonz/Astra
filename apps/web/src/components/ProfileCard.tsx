@@ -45,6 +45,9 @@ interface PublicUser {
   bio:               string | null
   bannerUrl:         string | null
   bannerColor:       string | null
+  profileTheme?:     string | null
+  bannerPositionY?:  number
+  bannerScale?:      number
   pronouns?:         string | null
   statusEmoji?:      string | null
   displayFont?:      DisplayFont
@@ -106,7 +109,8 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
     <Sheet open onOpenChange={(o: boolean) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="p-0 overflow-hidden gap-0 flex flex-col w-full sm:max-w-md bg-(--overlay)"
+        className="p-0 overflow-hidden gap-0 flex flex-col w-full sm:max-w-md rounded-l-3xl"
+        style={{ background: profile?.profileTheme || 'var(--overlay)' }}
       >
         <div className="flex-1 overflow-y-auto flex flex-col">
           {isLoading ? (
@@ -124,6 +128,8 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                 bannerUrl={profile.bannerUrl}
                 bannerColor={profile.bannerColor}
                 fallbackGradient={gradient}
+                positionY={profile.bannerPositionY}
+                scale={profile.bannerScale}
               />
 
               <motion.div

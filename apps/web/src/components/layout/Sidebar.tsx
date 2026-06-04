@@ -468,7 +468,7 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
               'relative size-10 shrink-0 p-0 cursor-pointer overflow-hidden flex items-center justify-center font-(family-name:--font-display) transition-all duration-300 ease-(--ease-spring)',
               'border outline-none rounded-2xl',
               isActive
-                ? 'bg-(--accent) text-(--text-inv) border-(--accent) shadow-[0_4px_16px_var(--accent-glow)] scale-105'
+                ? 'bg-(--accent) text-(--text-inv) border-(--accent) shadow-accent scale-105'
                 : 'bg-(--raised) text-(--text-2) border-(--border) hover:border-(--accent) hover:text-(--accent) hover:scale-105 hover:-translate-y-0.5',
               isGroup ? 'text-base' : 'text-sm'
             )}
@@ -646,7 +646,7 @@ function ChannelButton({
       ) : (
         <span
           className={cn(
-            'font-mono text-[11px] shrink-0 transition-colors',
+            'font-mono text-marg shrink-0 transition-colors',
             isActive ? 'text-(--accent)'
               : hasUnread ? 'text-foreground'
               : 'text-(--text-3) group-hover:text-(--text-2)',

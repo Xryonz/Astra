@@ -13,16 +13,29 @@ import { env } from '../lib/env'
  * Endpoints com Authorization: Bearer já estão imunes a CSRF (atacante
  * não consegue ler o token de outro origin).
  */
+// Aceita exato (prod) OU localhost:* em dev (Vite port juggling).
+const LOCALHOST_RE = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return false
+  if (origin === env.CLIENT_URL) return true
+  if (env.NODE_ENV === 'development' && LOCALHOST_RE.test(origin)) return true
+  return false
+}
+
 export function requireSameOrigin(req: Request, res: Response, next: NextFunction) {
   const origin  = req.headers.origin
   const referer = req.headers.referer
   const expected = env.CLIENT_URL
 
-  // Aceita se Origin bate
-  if (origin && origin === expected) return next()
+  if (isAllowedOrigin(origin)) return next()
 
-  // Fallback: Referer começando com a URL do client
-  if (!origin && referer && referer.startsWith(expected)) return next()
+  // Fallback: Referer começando com a URL do client (ou localhost em dev)
+  if (!origin && referer) {
+    if (referer.startsWith(expected)) return next()
+    if (env.NODE_ENV === 'development' && LOCALHOST_RE.test(referer.split('/').slice(0, 3).join('/'))) {
+      return next()
+    }
+  }
 
   return res.status(403).json({ error: 'Origin inválido', code: 'CSRF_BLOCKED' })
 }

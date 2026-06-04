@@ -62,8 +62,18 @@ app.set('trust proxy', 1)
 
 const httpServer = http.createServer(app)
 
+// Socket.IO CORS: mesmo padrão do HTTP CORS — aceita CLIENT_URL exato
+// + localhost:* em dev (Vite port juggling).
+const socketAllowedOrigin = (origin: string | undefined, cb: (err: Error | null, ok?: boolean) => void) => {
+  if (!origin) return cb(null, true)
+  if (origin === env.CLIENT_URL) return cb(null, true)
+  if (env.NODE_ENV === 'development' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {
+    return cb(null, true)
+  }
+  cb(new Error('CORS blocked'))
+}
 const io = new SocketServer(httpServer, {
-  cors:              { origin: env.CLIENT_URL, credentials: true },
+  cors:              { origin: socketAllowedOrigin, credentials: true },
   perMessageDeflate: false,
   pingTimeout:       20_000,
   pingInterval:      25_000,
@@ -73,12 +83,34 @@ setupSocket(io)
 // ── Security ──────────────────────────────────────────────────
 app.use(hidePoweredBy)
 app.use(secureHeaders)
-app.use(cors({ origin: env.CLIENT_URL, credentials: true, methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization','X-Request-Id'], maxAge: 600 }))
+
+// CORS: aceita CLIENT_URL exato. Em dev, também aceita qualquer
+// localhost:PORT pra cobrir quando Vite pula porta (5173→5174→5175)
+// quando a anterior tá ocupada — esse cenário pegou a gente no bug
+// silencioso do ProfileCard. Sem isso, request hangs em refresh loop.
+const ALLOW_LOCALHOST_DEV = env.NODE_ENV === 'development'
+const LOCALHOST_RE = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true)  // server-to-server, curl, etc.
+    if (origin === env.CLIENT_URL) return cb(null, true)
+    if (ALLOW_LOCALHOST_DEV && LOCALHOST_RE.test(origin)) return cb(null, true)
+    cb(new Error('CORS blocked'))
+  },
+  credentials:     true,
+  methods:         ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
+  allowedHeaders:  ['Content-Type','Authorization','X-Request-Id'],
+  maxAge:          600,
+}))
+
 app.use(cookieParser())
 // reqContext ANTES dos parsers pra que logs de body-parse já tenham reqId
 app.use(reqContext)
 app.use(httpMetrics)
-app.use('/api/profile', express.json({ limit: '8mb' }))
+// /api/profile: limit 4MB pra acomodar avatar/banner em base64
+// (data:image/webp;base64 de ~3MB = imagem ~2.2MB). Reduzido de 8MB.
+// Maior que isso: usar upload multipart em /api/upload.
+app.use('/api/profile', express.json({ limit: '4mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)

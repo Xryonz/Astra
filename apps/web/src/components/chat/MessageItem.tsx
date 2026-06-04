@@ -363,7 +363,7 @@ function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose
   return (
     <div
       ref={ref}
-      className="absolute -top-13 right-3 z-20 flex gap-1 px-2 py-2 bg-(--overlay) border border-(--border-mid) shadow-2xl animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
+      className="absolute -top-13 right-3 z-20 flex gap-1 px-2 py-2 bg-(--overlay) border border-(--border-mid) shadow-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
     >
       {QUICK_EMOJIS.map((emoji) => (
         <button
@@ -691,20 +691,20 @@ function MessageItemImpl({
                 <AuthorName name={author.displayName} color={parsedColor} msgId={message.id} isBot={isBot} />
               </span>
               {!isPending && (
-                <span className="text-[11px] text-muted-foreground" style={{ fontFamily: 'var(--font-mono)' }}>
+                <span className="text-marg text-muted-foreground" style={{ fontFamily: 'var(--font-mono)' }}>
                   {formatTime(createdAt)}
                 </span>
               )}
               {isPending && (
                 <span className="inline-flex items-center gap-1">
                   <Spinner />
-                  <span className="text-[11px] text-muted-foreground">enviando…</span>
+                  <span className="text-marg text-muted-foreground">enviando…</span>
                 </span>
               )}
             </div>
           )}
 
-          <div className="text-[15px] leading-[1.65] text-foreground wrap-break-word m-0">
+          <div className="text-body leading-[1.65] text-foreground wrap-break-word m-0">
             {(message as any).pinned && (
               <span className="ed-marg inline-flex items-center gap-1 mb-1 text-(--accent)!">
                 <Pin className="size-2.5" /> Mensagem fixada

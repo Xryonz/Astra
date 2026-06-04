@@ -32,7 +32,7 @@ export function MessageToolbar({
   onEdit, onDelete, onTogglePin, onToggleBookmark, onTranslate,
 }: Props) {
   return (
-    <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150">
+    <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-3 animate-in fade-in-0 zoom-in-95 duration-150">
       <ToolBtn title="Reagir" onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
       {onReply && <ToolBtn title="Responder" onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
       {onTranslate && <ToolBtn title="Traduzir" onClick={onTranslate}><Languages className="size-3.5" /></ToolBtn>}

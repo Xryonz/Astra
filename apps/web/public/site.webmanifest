@@ -1,6 +1,7 @@
 {
   "name": "Umbra",
   "short_name": "Umbra",
+  "description": "Plataforma de mensagens em tempo real — editorial-dark.",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -15,7 +16,10 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  "theme_color": "#06060e",
+  "background_color": "#06060e",
+  "display": "standalone",
+  "start_url": "/app",
+  "lang": "pt-BR",
+  "scope": "/"
 }

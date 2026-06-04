@@ -25,7 +25,7 @@ export function connectSocket(): Socket {
   })
 
   socket.on('connect', () => {
-    console.log('[Socket] Conectado:', socket?.id)
+    if (import.meta.env.DEV) console.log('[Socket] Conectado:', socket?.id)
 
     // Heartbeat: mantém a presença no Redis (TTL de 60s, renova a cada 30s)
     heartbeatInterval = setInterval(() => {
@@ -34,7 +34,7 @@ export function connectSocket(): Socket {
   })
 
   socket.on('disconnect', (reason) => {
-    console.log('[Socket] Desconectado:', reason)
+    if (import.meta.env.DEV) console.log('[Socket] Desconectado:', reason)
     if (heartbeatInterval) clearInterval(heartbeatInterval)
   })
 

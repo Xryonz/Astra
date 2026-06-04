@@ -5,18 +5,20 @@ interface UmbraLogoProps {
 }
 
 /**
- * Logo do Umbra — usa /favicon.svg (asset gerado pelo RealFaviconGenerator).
+ * Logo do Umbra — usa /logo-transparent.svg.
  *
- * Truque pra tirar o fundo branco do SVG no app:
- * `mix-blend-mode: lighten` sobre BG dark — pixels brancos do logo viram
- * "noop" (já são brancos) E o fundo branco "desaparece" porque é overridden
- * pelos pixels mais claros do logo (lighten = max).
+ * Esse arquivo é uma cópia de /favicon.svg com o <path fill="#FFFFFF">
+ * wrapper REMOVIDO. Mas o PNG embedded ainda tem fundo PRETO próprio.
  *
- * Não é 100% perfeito se o logo tiver pixels muito escuros (eles também
- * tendem a sumir). Se ficar ruim, melhor pedir SVG sem rect background.
+ * Hack pra fundo preto sumir: `mix-blend-mode: lighten` sobre BG dark.
+ * Pixel preto (#000) ∨ BG dark (#06060e) = #06060e = "transparente" visualmente.
+ * Pixels claros do planeta sobrevivem (max retém eles).
  *
- * No favicon (tab do browser) o SVG é usado raw — com fundo, como o user
- * pediu.
+ * Drop-shadow REMOVIDO porque seguia o bounding box quadrado da img
+ * (alpha channel completamente opaco). Sem PNG com alpha real, não dá
+ * pra ter aura só ao redor do conteúdo. Logo fica limpo, sem aura.
+ *
+ * Favicon (tab) continua usando /favicon.svg raw — com fundo, como pedido.
  */
 export default function UmbraLogo({ size = 40, style, animated = true }: UmbraLogoProps) {
   const inner = Math.round(size * 0.95)
@@ -30,20 +32,19 @@ export default function UmbraLogo({ size = 40, style, animated = true }: UmbraLo
         width:          size,
         height:         size,
         flexShrink:     0,
-        filter:         `drop-shadow(0 0 ${Math.max(4, size * 0.15)}px var(--accent-glow))`,
         ...style,
       }}
       aria-label="Umbra"
     >
       <img
-        src="/favicon.svg"
+        src="/logo-transparent.svg"
         alt=""
         width={inner}
         height={inner}
         style={{
-          display:        'block',
-          mixBlendMode:   'lighten',
-          pointerEvents:  'none',
+          display:       'block',
+          mixBlendMode:  'lighten',
+          pointerEvents: 'none',
         }}
       />
       {animated && (

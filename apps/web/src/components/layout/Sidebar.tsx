@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye } from 'lucide-react'
+import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { useLongPress } from '@/hooks/useLongPress'
 import { useConfirm, usePrompt } from '@/hooks/useConfirm'
@@ -13,7 +13,6 @@ import { useUIStore } from '@/store/uiStore'
 import { useUnread } from '@/hooks/useUnread'
 import { useMyPerms } from '@/hooks/useMyPerms'
 import ProfileCard from '@/components/ProfileCard'
-import UmbraLogo from '@/components/UmbraLogo'
 import { UserFooter } from './UserFooter'
 import { CreateServerDialog } from './dialogs/CreateServerDialog'
 import { EditServerDialog } from './dialogs/EditServerDialog'
@@ -203,9 +202,10 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               <button
                 onClick={() => { navigate('/app/dm'); closeMobile() }}
                 aria-label="Mensagens diretas"
-                className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center hover:scale-110 hover:brightness-110 transition-all cursor-pointer"
+                className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-all cursor-pointer"
+                style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }}
               >
-                <UmbraLogo size={44} />
+                <Sparkles className="size-6" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">Mensagens diretas</TooltipContent>

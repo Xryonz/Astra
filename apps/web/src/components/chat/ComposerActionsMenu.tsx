@@ -1,14 +1,14 @@
 /**
  * Menu de "extras" do composer: GIF, Emoji, Enquete, Mensagem efêmera.
  *
- * Trigger: Sparkles (editorial). Click → painel desliza de baixo pra cima
+ * Trigger: Sparkle (editorial, 1 ponta). Click → painel desliza de baixo pra cima
  * com lista vertical de ações. Click fora ou Esc fecha.
  *
  * Pra TTL (mensagem efêmera), o painel troca pra um sub-menu inline com as
  * durações — escolher um valor fecha o painel e seta ttlSeconds.
  */
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Smile, BarChart3, Timer, ChevronLeft, X, Check } from 'lucide-react'
+import { Sparkle, Smile, BarChart3, Timer, ChevronLeft, X, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface ComposerActionsMenuProps {
@@ -84,7 +84,7 @@ export function ComposerActionsMenu({
               : 'text-(--text-3) hover:text-(--accent)',
         )}
       >
-        {open ? <X className="size-4" /> : <Sparkles className="size-4" />}
+        {open ? <X className="size-4" /> : <Sparkle className="size-4" />}
       </button>
 
       {open && (

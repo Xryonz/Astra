@@ -18,10 +18,11 @@
   --hover:         #1c1c38;
   --active:        #22223f;
 
-  /* Borders */
-  --border:        #1d1d3a;
-  --border-mid:    #2a2a4e;
-  --border-bright: #3d3d6a;
+  /* Borders — derivam de --accent via color-mix com cinza neutro escuro.
+     Acompanham a cor escolhida em Settings (antes eram hex fixos azulados). */
+  --border:        color-mix(in srgb, var(--accent) 15%, #1a1a25);
+  --border-mid:    color-mix(in srgb, var(--accent) 25%, #1a1a25);
+  --border-bright: color-mix(in srgb, var(--accent) 40%, #1a1a25);
 
   /* Accent — warm amber/gold (the anti-Discord) */
   --accent:        #c9a96e;

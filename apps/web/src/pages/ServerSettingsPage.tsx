@@ -180,14 +180,14 @@ export default function ServerSettingsPage() {
 
   if (!server) {
     return (
-      <div className="flex-1 flex items-center justify-center gap-2 h-screen text-sm text-(--text-3)">
+      <div className="flex-1 flex items-center justify-center gap-2 h-screen-safe text-sm text-(--text-3)">
         <Spinner size={14} /> Carregando…
       </div>
     )
   }
 
   return (
-    <div className="flex-1 min-w-0 h-screen overflow-y-auto bg-(--base)">
+    <div className="flex-1 min-w-0 h-screen-safe overflow-y-auto bg-(--base)">
       {/* Header */}
       <header className="sticky top-0 z-10 h-16 px-4 sm:px-6 flex items-center gap-3 border-b border-(--border) bg-(--base)/95 backdrop-blur">
         <button

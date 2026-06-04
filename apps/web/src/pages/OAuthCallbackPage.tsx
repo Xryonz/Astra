@@ -27,10 +27,10 @@ export default function OAuthCallbackPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+    <div className="min-h-screen bg-(--void) flex items-center justify-center font-(family-name:--font-body)">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-zinc-400 text-sm">Autenticando...</p>
+        <div className="size-8 border-2 border-(--border-mid) border-t-(--accent) rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-(--text-3) text-sm">Autenticando…</p>
       </div>
     </div>
   )

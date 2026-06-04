@@ -14,7 +14,7 @@ import { MessageListSkeleton } from './MessageListSkeleton'
 
 export function AppShellSkeleton() {
   return (
-    <div className="flex h-screen bg-(--void) overflow-hidden font-(family-name:--font-body)">
+    <div className="flex h-screen-safe bg-(--void) overflow-hidden font-(family-name:--font-body)">
       <SidebarSkeleton />
 
       <div className="flex-1 flex flex-col min-w-0">

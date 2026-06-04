@@ -43,7 +43,7 @@ export default function FriendsPage() {
   const pendingCount = (requests.data ?? []).length
 
   return (
-    <div className="flex-1 min-w-0 h-screen overflow-y-auto bg-(--base) relative">
+    <div className="flex-1 min-w-0 h-screen-safe overflow-y-auto bg-(--base) relative">
       <div className="ed-vignette" />
 
       {/* Coluna central — sem rótulos verticais nem capítulo (modo minimalista) */}

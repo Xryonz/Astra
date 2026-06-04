@@ -305,7 +305,7 @@ export default function AppPage() {
   }, [toggleCommandPalette])
 
   return (
-    <div className="flex h-screen bg-(--void) overflow-hidden font-(family-name:--font-body)">
+    <div className="flex h-screen-safe bg-(--void) overflow-hidden font-(family-name:--font-body)">
       {/* Sidebar mounted once — sobrevive entre rotas, sem re-mount/animation bug */}
       <Sidebar
         activeChannelId={activeId}
@@ -314,10 +314,10 @@ export default function AppPage() {
         }
       />
 
-      <Suspense fallback={<div className="flex-1 min-w-0 h-screen bg-(--base)" />}>
+      <Suspense fallback={<div className="flex-1 min-w-0 h-screen-safe bg-(--base)" />}>
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname.split('/').slice(0, 3).join('/')}>
-            <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-screen"><DMPage /></PageTransition>} />
+            <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-screen-safe"><DMPage /></PageTransition>} />
             <Route path="friends" element={<PageTransition><FriendsPage /></PageTransition>} />
             <Route path="profile" element={<PageTransition><ProfilePage /></PageTransition>} />
             <Route path="settings" element={<PageTransition><SettingsPage /></PageTransition>} />

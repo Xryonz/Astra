@@ -227,10 +227,20 @@ export default function MessageList({
   }, [channelId, confirmedMessages.length, markRead])
 
   // Merge confirmed + optimistic — useMemo evita re-spread caro em renders
-  // não-relacionados (scroll, hover, etc).
+  // não-relacionados (scroll, hover, etc). Também aplica roleColor aqui
+  // (era feito inline no .map → spread {...msg} novo a cada render quebrava
+  // memo do MessageItem). Agora reuso a MESMA referência em re-renders
+  // não-relacionados → MessageItem memo realmente bate.
   const allMessages = useMemo(
-    () => [...confirmedMessages, ...optimisticMsgs],
-    [confirmedMessages, optimisticMsgs],
+    () => {
+      const merged = [...confirmedMessages, ...optimisticMsgs]
+      return merged.map((msg) => {
+        const roleColor = colorByUser.get(msg.author.id)
+        if (!roleColor || roleColor === (msg as any).authorColor) return msg
+        return { ...msg, authorColor: roleColor } as MessageWithAuthor
+      })
+    },
+    [confirmedMessages, optimisticMsgs, colorByUser],
   )
 
   // ── Virtualização ─────────────────────────────────────────
@@ -334,12 +344,6 @@ export default function MessageList({
             prev?.author.id === msg.author.id &&
             new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000
 
-          const roleColor = colorByUser.get(msg.author.id)
-          const msgWithRoleColor =
-            roleColor && roleColor !== (msg as any).authorColor
-              ? ({ ...msg, authorColor: roleColor } as MessageWithAuthor)
-              : msg
-
           return (
             <div
               key={row.key}
@@ -354,7 +358,7 @@ export default function MessageList({
               }}
             >
               <MessageItem
-                message={msgWithRoleColor}
+                message={msg}
                 grouped={grouped}
                 delay={0}
                 isPending={(msg as OptimisticMessage).isPending}

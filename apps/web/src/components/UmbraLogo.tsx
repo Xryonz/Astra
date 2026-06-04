@@ -5,12 +5,10 @@ interface UmbraLogoProps {
 }
 
 /**
- * Logo do Umbra — crescente hairline editorial.
+ * Logo do Umbra — disco accent (lua cheia minimal).
  *
- * SVG custom (substitui Moon do Lucide que era gross/cheia demais).
- * Forma: arc externo R=14 + arc interno R=11 fechando o crescente.
- * Espessura na "barriga": 3px no canvas 32x32 (~9% do diâmetro).
- * Pontas afinam organicamente via geometria dos dois arcs.
+ * Trivial: 1 elemento <circle>. Bulletproof — não tem geometria
+ * complexa que possa renderizar errado.
  *
  * `fill="currentColor"` herda --accent via `color` no wrapper.
  * Glow via drop-shadow do --accent-glow.
@@ -40,7 +38,7 @@ export default function UmbraLogo({ size = 40, style, animated = true }: UmbraLo
         fill="currentColor"
         aria-hidden="true"
       >
-        <path d="M 22 4 A 14 14 0 1 1 22 28 A 11 11 0 1 0 22 4 Z" />
+        <circle cx="16" cy="16" r="12" />
       </svg>
       {animated && (
         <style>{`@keyframes umbraFlk{0%,100%{opacity:1}45%{opacity:.82}70%{opacity:.91}}.umbra-br{animation:umbraFlk 2.4s ease-in-out infinite}`}</style>

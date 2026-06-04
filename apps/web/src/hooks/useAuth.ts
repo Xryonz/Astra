@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '@/lib/api'
+import { api, setStoredRefreshToken, clearStoredRefreshToken, getStoredRefreshToken } from '@/lib/api'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 import { useAuthStore } from '@/store/authStore'
 import type { LoginInput, RegisterInput } from '@umbra/types'
@@ -11,7 +11,8 @@ export function useAuth() {
 
   const login = useCallback(async (data: LoginInput) => {
     const res = await api.post('/api/auth/login', data)
-    const { user, accessToken } = res.data.data
+    const { user, accessToken, refreshToken } = res.data.data
+    setStoredRefreshToken(refreshToken)
     setAuth(user, accessToken)
     connectSocket()
     navigate('/app')
@@ -19,33 +20,41 @@ export function useAuth() {
 
   const register = useCallback(async (data: RegisterInput) => {
     const res = await api.post('/api/auth/register', data)
-    const { user, accessToken } = res.data.data
+    const { user, accessToken, refreshToken } = res.data.data
+    setStoredRefreshToken(refreshToken)
     setAuth(user, accessToken)
     connectSocket()
     navigate('/app')
   }, [setAuth, navigate])
 
   const logout = useCallback(async () => {
+    const refreshToken = getStoredRefreshToken()
     try {
-      await api.post('/api/auth/logout')
+      await api.post('/api/auth/logout', { refreshToken })
     } catch {
-      // Mesmo com erro, limpa o estado local
+      // Mesmo com erro, limpa estado local
     } finally {
+      clearStoredRefreshToken()
       disconnectSocket()
       clearAuth()
       navigate('/login')
     }
   }, [clearAuth, navigate])
 
-  // Após callback OAuth o backend já gravou o refresh cookie.
-  // Trocamos por accessToken e buscamos o usuário.
-  const handleOAuthCallback = useCallback(async () => {
-    const refreshRes = await api.post('/api/auth/refresh')
-    const accessToken = refreshRes.data.data.accessToken
-    useAuthStore.getState().setAccessToken(accessToken)
+  // Após callback OAuth, o backend redirecionou com #refresh=<token> na hash.
+  // Extraímos, salvamos em localStorage e fazemos refresh pra access token.
+  const handleOAuthCallback = useCallback(async (refreshToken: string) => {
+    setStoredRefreshToken(refreshToken)
+    const refreshRes = await api.post('/api/auth/refresh', {}, {
+      headers: { Authorization: `Bearer ${refreshToken}` },
+    })
+    const newAccess  = refreshRes.data.data.accessToken
+    const newRefresh = refreshRes.data.data.refreshToken
+    setStoredRefreshToken(newRefresh)
+    useAuthStore.getState().setAccessToken(newAccess)
 
     const meRes = await api.get('/api/auth/me')
-    setAuth(meRes.data.data.user, accessToken)
+    setAuth(meRes.data.data.user, newAccess)
     connectSocket()
   }, [setAuth])
 

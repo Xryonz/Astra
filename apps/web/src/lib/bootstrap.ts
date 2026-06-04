@@ -1,22 +1,16 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import { connectSocket } from '@/lib/socket'
+import { getStoredRefreshToken, setStoredRefreshToken, clearStoredRefreshToken } from '@/lib/api'
 
 /**
- * Em cold load, tenta restaurar o accessToken via refresh cookie.
+ * Em cold load, tenta restaurar accessToken usando refreshToken de localStorage.
  *
- * Resultado:
- *  - Se há refresh cookie válido → seta accessToken, conecta socket, retorna true
- *  - Caso contrário → limpa o auth state, retorna false
+ *  - Se há refresh em localStorage válido → seta accessToken, conecta socket, retorna true
+ *  - Caso contrário → limpa auth state, retorna false
  *
- * Usamos axios cru (não `lib/api.ts`) para evitar o interceptor de refresh
- * iniciar um ciclo durante o próprio bootstrap.
- *
- * Dedup em nível de módulo: refresh tokens são rotacionados a cada uso,
- * então chamar /api/auth/refresh 2x em paralelo (ex: React StrictMode
- * em dev disparando o useEffect duas vezes) quebraria a segunda chamada
- * e logaria o usuário para fora. Aqui retornamos a mesma Promise se já
- * tem uma em voo.
+ * Dedup em nível de módulo: refresh é rotacionado a cada uso, então
+ * chamar 2x em paralelo (StrictMode) quebraria a segunda chamada.
  */
 let inFlight: Promise<boolean> | null = null
 
@@ -32,16 +26,24 @@ async function doBootstrap(): Promise<boolean> {
   if (accessToken) return true
   if (!isAuthenticated) return false
 
+  const storedRefresh = getStoredRefreshToken()
+  if (!storedRefresh) {
+    logout()
+    return false
+  }
+
   try {
     const { data } = await axios.post(
       `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
       {},
-      { withCredentials: true }
+      { headers: { Authorization: `Bearer ${storedRefresh}` } }
     )
     setAccessToken(data.data.accessToken)
+    setStoredRefreshToken(data.data.refreshToken)
     try { connectSocket() } catch { /* ignore */ }
     return true
   } catch {
+    clearStoredRefreshToken()
     logout()
     return false
   }

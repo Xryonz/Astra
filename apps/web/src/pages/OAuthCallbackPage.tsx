@@ -6,9 +6,7 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { handleOAuthCallback } = useAuth()
-  // Em React StrictMode (dev) este useEffect roda 2x. Sem este guard
-  // a segunda chamada tenta usar o refresh token já rotacionado pela
-  // primeira, levando o usuário de volta para /login com erro.
+  // StrictMode roda useEffect 2x em dev. Guard previne double-call.
   const ranRef = useRef(false)
 
   useEffect(() => {
@@ -21,7 +19,21 @@ export default function OAuthCallbackPage() {
       return
     }
 
-    handleOAuthCallback()
+    // Backend redireciona com #refresh=<token> (hash fragment).
+    // Hash fragment não vai pro server e não fica em access logs.
+    const hash = window.location.hash.replace(/^#/, '')
+    const params = new URLSearchParams(hash)
+    const refreshToken = params.get('refresh')
+
+    if (!refreshToken) {
+      navigate('/login?error=oauth_failed', { replace: true })
+      return
+    }
+
+    // Limpa hash da URL imediatamente após extrair (não fica no histórico)
+    window.history.replaceState(null, '', window.location.pathname)
+
+    handleOAuthCallback(refreshToken)
       .then(() => navigate('/app', { replace: true }))
       .catch(() => navigate('/login?error=oauth_failed', { replace: true }))
   }, [])

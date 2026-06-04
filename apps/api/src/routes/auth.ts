@@ -14,14 +14,11 @@ import {
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
-import { requireSameOrigin } from '../middleware/csrf'
 import { asyncHandler } from '../lib/asyncHandler'
 import { RegisterSchema, LoginSchema } from '@umbra/types'
 
 const router = Router()
 
-// Subset de colunas seguras de User pra retornar em endpoints de auth.
-// (Drizzle não tem `.select(USER_SELECT)` — usamos object map abaixo).
 const userSafeColumns = {
   id:          users.id,
   email:       users.email,
@@ -41,18 +38,16 @@ const userSafeColumns = {
   displayFont:     users.displayFont,
 }
 
-// sameSite/secure depende do contexto:
-//  - prod (HTTPS, web em domínio diferente da API): 'none' obriga secure=true.
-//    'strict' falharia cross-site → browser nunca envia o cookie em XHR do
-//    frontend → refresh token nunca chega → user é deslogado a cada reload.
-//  - dev (HTTP, mesma localhost): 'lax' (não pode 'none' sem secure).
-const isProd = process.env.NODE_ENV === 'production'
-const REFRESH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure:   isProd,
-  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
-  maxAge:   7 * 24 * 60 * 60 * 1000,
-  path:     '/',
+// Refresh token: localStorage no front + Authorization: Bearer no /refresh.
+// Trade-off: vulnerável a XSS, MAS desbloqueia deploy cross-domain
+// (vercel.app ↔ railway.app) onde cookies Set-Cookie cross-site são
+// rejeitados pelo browser (Public Suffix List + 3rd-party cookie policy).
+// Mitigação: React 19 escapa HTML por default, CSP em secureHeaders.ts.
+
+function extractRefreshToken(req: Request): string | undefined {
+  const auth = req.header('authorization')
+  if (!auth?.startsWith('Bearer ')) return undefined
+  return auth.slice(7).trim() || undefined
 }
 
 // ── POST /api/auth/register ───────────────────────────────────
@@ -81,8 +76,7 @@ router.post(
     const { token: accessToken } = generateAccessToken(user.id)
     const { refreshToken }       = await createRefreshToken(user.id)
 
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS)
-    res.status(201).json({ data: { user, accessToken } })
+    res.status(201).json({ data: { user, accessToken, refreshToken } })
   })
 )
 
@@ -113,32 +107,28 @@ router.post(
     const { refreshToken }       = await createRefreshToken(user.id)
     const { passwordHash: _, ...userSafe } = user
 
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS)
-    res.json({ data: { user: userSafe, accessToken } })
+    res.json({ data: { user: userSafe, accessToken, refreshToken } })
   })
 )
 
 // ── POST /api/auth/refresh ────────────────────────────────────
 router.post(
   '/refresh',
-  requireSameOrigin,
   asyncHandler(async (req: Request, res: Response) => {
-    const token = req.cookies?.refreshToken
+    const token = extractRefreshToken(req)
     if (!token) return res.status(401).json({ error: 'Refresh token não encontrado' })
 
     let payload: ReturnType<typeof verifyRefreshToken>
     try {
       payload = verifyRefreshToken(token)
     } catch {
-      res.clearCookie('refreshToken', { path: '/' })
       return res.status(401).json({ error: 'Refresh token inválido' })
     }
 
     const tokenHash = hashToken(token)
 
     // Claim atômico: UPDATE...RETURNING garante que só 1 refresh ganha em
-    // chamadas paralelas (o segundo recebe array vazio → 401). Previne
-    // tokens órfãos no DB e replay attack se o cliente repetir o mesmo token.
+    // chamadas paralelas. Previne replay attack se cliente repetir o token.
     const claimed = await db.update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(and(
@@ -149,33 +139,30 @@ router.post(
       .returning({ id: refreshTokens.id, userId: refreshTokens.userId })
 
     if (claimed.length === 0) {
-      res.clearCookie('refreshToken', { path: '/' })
       return res.status(401).json({ error: 'Refresh token inválido ou expirado' })
     }
 
     const { token: newAccessToken } = generateAccessToken(payload.userId)
     const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId)
 
-    res.cookie('refreshToken', newRefreshToken, REFRESH_COOKIE_OPTIONS)
-    res.json({ data: { accessToken: newAccessToken } })
+    res.json({ data: { accessToken: newAccessToken, refreshToken: newRefreshToken } })
   })
 )
 
 // ── POST /api/auth/logout ─────────────────────────────────────
 router.post(
   '/logout',
-  requireSameOrigin,
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const token = req.cookies?.refreshToken
-    if (token) {
-      const tokenHash = hashToken(token)
+    // refreshToken vem no body (header Authorization carrega o access).
+    const refreshTokenRaw = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : ''
+    if (refreshTokenRaw) {
+      const tokenHash = hashToken(refreshTokenRaw)
       await db.update(refreshTokens)
         .set({ revokedAt: new Date() })
         .where(eq(refreshTokens.token, tokenHash))
     }
     if (req.jti) await blacklistToken(req.jti, 15 * 60)
-    res.clearCookie('refreshToken', { path: '/' })
     res.json({ message: 'Logout realizado' })
   })
 )
@@ -205,8 +192,9 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const user = req.user as { id: string }
     const { refreshToken } = await createRefreshToken(user.id)
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS)
-    res.redirect(`${process.env.CLIENT_URL}/auth/callback`)
+    // Hash fragment: não aparece em access logs, server nunca vê.
+    // Front extrai com window.location.hash.
+    res.redirect(`${process.env.CLIENT_URL}/auth/callback#refresh=${encodeURIComponent(refreshToken)}`)
   })
 )
 

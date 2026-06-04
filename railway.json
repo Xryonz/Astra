@@ -6,6 +6,8 @@
   },
   "deploy": {
     "startCommand": "npm run db:migrate && npm run start:api",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }

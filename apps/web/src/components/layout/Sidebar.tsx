@@ -172,11 +172,32 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   )
   const voicePresence = useVoiceChannelPresence(voiceChannelIds)
 
+  // Source-of-truth LOCAL pro canal que VOCÊ está conectado.
+  // Polling do server demora ~10s e LiveKit tem cache server-side — sem isso,
+  // você se conecta e some das avatar-rows por 5-15s. Aqui pegamos do client
+  // LiveKit imediatamente; o polling completa pra outros canais.
+  const voice = useVoiceCall()
+  const localActive = useMemo(() => {
+    const parsed = parseRoomName(voice.roomName)
+    if (parsed?.kind !== 'channel') return null
+    return { channelId: parsed.id, identities: voice.participants.map((p) => p.identity) }
+  }, [voice.roomName, voice.participants])
+
+  const presenceByChannel = useMemo(() => {
+    const base: Record<string, string[]> = { ...(voicePresence.data ?? {}) }
+    if (localActive) {
+      const remote = new Set(base[localActive.channelId] ?? [])
+      for (const id of localActive.identities) remote.add(id)
+      base[localActive.channelId] = Array.from(remote)
+    }
+    return base
+  }, [voicePresence.data, localActive])
+
   // Avatar lookup batch — uma query única pra todas as identities visíveis
-  const allVoiceIdentities = useMemo(() => {
-    if (!voicePresence.data) return [] as string[]
-    return Object.values(voicePresence.data).flat()
-  }, [voicePresence.data])
+  const allVoiceIdentities = useMemo(
+    () => Object.values(presenceByChannel).flat(),
+    [presenceByChannel],
+  )
   const voiceUsers = useUsersMini(allVoiceIdentities)
   const voiceUserMap = useMemo(
     () => new Map((voiceUsers.data ?? []).map((u) => [u.id, u])),
@@ -361,7 +382,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                     onRename={(newName) => renameChannel.mutate({ channelId: ch.id, name: newName })}
                     onDelete={() => deleteChannel.mutate(ch.id)}
                     onMarkRead={() => unread.markRead(ch.id)}
-                    participantIds={ch.type === 'VOICE' ? (voicePresence.data?.[ch.id] ?? []) : []}
+                    participantIds={ch.type === 'VOICE' ? (presenceByChannel[ch.id] ?? []) : []}
                     userMap={voiceUserMap}
                   />
                 ))}

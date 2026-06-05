@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io'
+import { randomUUID } from 'node:crypto'
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '../db'
 import { users, dmConversations } from '../db/schema'
@@ -9,6 +10,21 @@ import { getBotId, askBot, handleBotCommand } from '../lib/bot'
 import { socketConnections, socketEventsTotal } from '../lib/metrics'
 
 const userSockets = new Map<string, Set<string>>()
+
+// Throttle DB writes do status: user zapando IDLE/ONLINE não deve escrever a cada tick.
+// Redis (setUserOnline) é hot path e sempre roda; DB persiste só a cada 5s OU em mudança final.
+const STATUS_DB_TTL_MS = 5_000
+const lastStatusDbWrite = new Map<string, { at: number; status: string }>()
+function shouldPersistStatus(userId: string, status: string): boolean {
+  const prev = lastStatusDbWrite.get(userId)
+  const now  = Date.now()
+  // Se mudou pra um status diferente, sempre persiste; senão throttle 5s.
+  if (!prev || prev.status !== status || now - prev.at > STATUS_DB_TTL_MS) {
+    lastStatusDbWrite.set(userId, { at: now, status })
+    return true
+  }
+  return false
+}
 
 // Reutiliza helper central (respeita canais privados por role)
 import { userCanSeeChannel } from '../lib/permissions'
@@ -73,7 +89,11 @@ export function setupSocket(io: Server) {
       if (!['ONLINE','IDLE','DND','INVISIBLE'].includes(newStatus)) return
       socket.data.status = newStatus
       await setUserOnline(userId, newStatus)
-      try { await db.update(users).set({ status: newStatus }).where(eq(users.id, userId)) } catch {}
+      // Persistir DB só quando muda OU passou 5s — IDLE→ONLINE espontâneo
+      // do client (heartbeat-driven) não justifica write em cada tick.
+      if (shouldPersistStatus(userId, newStatus)) {
+        try { await db.update(users).set({ status: newStatus }).where(eq(users.id, userId)) } catch {}
+      }
       const out = newStatus === 'INVISIBLE' ? 'OFFLINE' : newStatus
       socket.broadcast.emit('presence_update', { userId, status: out })
       socket.emit('presence_update', { userId, status: newStatus }) // self vê o real
@@ -181,7 +201,7 @@ export function setupSocket(io: Server) {
         if (botId) {
           await muteUser(userId, serverId, botId)
           const botMsg = {
-            id: `bot-mute-${Date.now()}`,
+            id: `bot-mute-${randomUUID()}`,
             content: `🔇 **@${socket.data.username}** foi silenciado por **5 minutos** por spam.`,
             channelId, edited: false, createdAt: new Date().toISOString(),
             authorColor: null, reactions: [], mentions: [],
@@ -239,7 +259,7 @@ export function setupSocket(io: Server) {
       }
 
       const botMsg = {
-        id: `bot-${Date.now()}`,
+        id: `bot-${randomUUID()}`,
         content: reply, channelId,
         edited: false, createdAt: new Date().toISOString(),
         authorColor: null, reactions: [], mentions: [],

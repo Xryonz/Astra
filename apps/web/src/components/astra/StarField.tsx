@@ -22,11 +22,13 @@ function seededRand(seed: number) {
 }
 
 interface TwinkleStar {
-  x:     number
-  y:     number
-  size:  number
-  delay: number
-  dur:   number
+  x:        number
+  y:        number
+  size:     number
+  delay:    number
+  dur:      number
+  driftDur: number
+  driftDir: number    // 1 ou -1 (horário/anti-horário)
 }
 
 function buildBackground(): string {
@@ -43,12 +45,14 @@ function buildBackground(): string {
 
 function buildTwinkleStars(): TwinkleStar[] {
   const rand = seededRand(99883)
-  return Array.from({ length: 12 }, () => ({
-    x:     rand() * 100,
-    y:     rand() * 100,
-    size:  1 + Math.floor(rand() * 2),                // 1 ou 2px
-    delay: rand() * 6,                                // 0–6s spread
-    dur:   2.6 + rand() * 2.4,                        // 2.6–5s
+  return Array.from({ length: 14 }, () => ({
+    x:        rand() * 100,
+    y:        rand() * 100,
+    size:     1 + Math.floor(rand() * 2),
+    delay:    rand() * 6,
+    dur:      2.6 + rand() * 2.4,
+    driftDur: 28 + rand() * 24,                 // 28-52s drift loop
+    driftDir: rand() > 0.5 ? 1 : -1,
   }))
 }
 
@@ -56,6 +60,19 @@ function buildTwinkleStars(): TwinkleStar[] {
 const STARS_BG       = buildBackground()
 const TWINKLE_STARS  = buildTwinkleStars()
 
+/**
+ * StarField — fundo atmosférico.
+ *
+ * Estrutura:
+ *  <stars container> (mix-blend-mode: screen)
+ *    bg-image: 70 estrelas estáticas via radial-gradient (1 elem, 0 cost)
+ *    14 twinkles: outer (drift translate) + inner (twinkle scale/opacity)
+ *
+ * Performance:
+ *  - mix-blend-mode no parent — paint once
+ *  - cada twinkle = 2 elements GPU (translate/scale = compositor-only)
+ *  - drift = 28-52s loop deslocando ±6-10px → quase imperceptível mas vivo
+ */
 export default function StarField() {
   return (
     <div
@@ -76,19 +93,30 @@ export default function StarField() {
         <span
           key={i}
           aria-hidden
-          className="astra-twinkle"
+          className="astra-drift"
           style={{
-            position:        'absolute',
-            left:            `${s.x}%`,
-            top:             `${s.y}%`,
-            width:           `${s.size}px`,
-            height:          `${s.size}px`,
-            borderRadius:    '50%',
-            background:      'currentColor',
-            animationDelay:  `${s.delay}s`,
-            animationDuration: `${s.dur}s`,
+            position:          'absolute',
+            left:              `${s.x}%`,
+            top:               `${s.y}%`,
+            width:             `${s.size}px`,
+            height:            `${s.size}px`,
+            animationDuration: `${s.driftDur}s`,
+            animationDirection: s.driftDir > 0 ? 'normal' : 'reverse',
           }}
-        />
+        >
+          <span
+            className="astra-twinkle"
+            style={{
+              display:           'block',
+              width:             '100%',
+              height:            '100%',
+              borderRadius:      '50%',
+              background:        'currentColor',
+              animationDelay:    `${s.delay}s`,
+              animationDuration: `${s.dur}s`,
+            }}
+          />
+        </span>
       ))}
     </div>
   )

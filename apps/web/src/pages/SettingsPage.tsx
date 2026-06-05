@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database, Brush,
+  ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database, Brush, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSection      from '@/components/settings/sections/AccountSection'
@@ -12,6 +12,7 @@ import NameColorsSection   from '@/components/settings/sections/NameColorsSectio
 import NotificationsSection from '@/components/settings/sections/NotificationsSection'
 import SessionsSection     from '@/components/settings/sections/SessionsSection'
 import DataSection         from '@/components/settings/sections/DataSection'
+import WishingStarSection  from '@/components/settings/sections/WishingStarSection'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Reveal } from '@/components/anim/Reveal'
 import {
@@ -31,8 +32,9 @@ type SectionId =
   | 'notifications'
   | 'sessions'
   | 'data'
+  | 'wishing'
 
-interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'pessoal' | 'app' | 'privacidade' }
+interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'pessoal' | 'app' | 'privacidade' | 'comunidade' }
 
 const NAV: NavItem[] = [
   { id: 'account',       label: 'Conta',                icon: <User className="size-3.5" />,      group: 'pessoal' },
@@ -41,6 +43,7 @@ const NAV: NavItem[] = [
   { id: 'appearance',    label: 'Aparência',            icon: <Palette className="size-3.5" />,   group: 'app' },
   { id: 'name-colors',   label: 'Cores nos servidores', icon: <UsersIcon className="size-3.5" />, group: 'app' },
   { id: 'notifications', label: 'Notificações',         icon: <Bell className="size-3.5" />,      group: 'app' },
+  { id: 'wishing',       label: 'Wishing Star',         icon: <Sparkles className="size-3.5" />,  group: 'comunidade' },
   { id: 'sessions',      label: 'Sessões',              icon: <Shield className="size-3.5" />,    group: 'privacidade' },
   { id: 'data',          label: 'Dados',                icon: <Database className="size-3.5" />,  group: 'privacidade' },
 ]
@@ -48,6 +51,7 @@ const NAV: NavItem[] = [
 const GROUP_LABEL: Record<NavItem['group'], string> = {
   pessoal:      'Pessoal',
   app:          'Aplicativo',
+  comunidade:   'Comunidade',
   privacidade:  'Privacidade',
 }
 
@@ -100,7 +104,7 @@ export default function SettingsPage() {
 
         <ScrollArea className="flex-1">
           <nav className="py-4">
-            {(['pessoal', 'app', 'privacidade'] as const).map((grp, gi) => (
+            {(['pessoal', 'app', 'comunidade', 'privacidade'] as const).map((grp, gi) => (
               <div key={grp} className="mb-5">
                 <Reveal delay={gi * 0.06}>
                   <p className="px-5 mb-2 text-[10px] uppercase tracking-wider text-(--text-3) font-mono m-0">
@@ -159,7 +163,7 @@ export default function SettingsPage() {
                 <SelectValue>{currentLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(['pessoal', 'app', 'privacidade'] as const).map((grp) => (
+                {(['pessoal', 'app', 'comunidade', 'privacidade'] as const).map((grp) => (
                   <SelectGroup key={grp}>
                     <SelectLabel>{GROUP_LABEL[grp]}</SelectLabel>
                     {NAV.filter((n) => n.group === grp).map((n) => (
@@ -213,6 +217,7 @@ export default function SettingsPage() {
               {section === 'appearance'    && <AppearanceSection />}
               {section === 'name-colors'   && <NameColorsSection />}
               {section === 'notifications' && <NotificationsSection />}
+              {section === 'wishing'       && <WishingStarSection />}
               {section === 'sessions'      && <SessionsSection />}
               {section === 'data'          && <DataSection />}
             </motion.div>

@@ -175,8 +175,25 @@
   animation-timing-function: ease-in-out;
   will-change:               opacity, transform;
 }
+/* Drift: deslocamento sutil em loop longo (28-52s), trajetória elíptica.
+   Direção (normal/reverse) controlada por inline style. Outer translate +
+   inner scale/opacity = transform stack desacoplado → ambos GPU-friendly. */
+@keyframes astraDrift {
+  0%   { transform: translate(0px,   0px); }
+  25%  { transform: translate(6px,  -4px); }
+  50%  { transform: translate(0px,  -8px); }
+  75%  { transform: translate(-6px, -4px); }
+  100% { transform: translate(0px,   0px); }
+}
+.astra-drift {
+  animation-name:            astraDrift;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  will-change:               transform;
+}
 @media (prefers-reduced-motion: reduce) {
   .astra-twinkle { animation: none; opacity: 0.6; }
+  .astra-drift   { animation: none; }
 }
 /* Astra: orbit ring no avatar próprio. SVG circle dashed girando devagar.
    Signature visual exclusiva — só renderizado quando isSelf (ProfileHero

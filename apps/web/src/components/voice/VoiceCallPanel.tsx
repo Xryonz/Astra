@@ -10,25 +10,18 @@
  * mono pra status, serif display pro room name.
  */
 import { useEffect, useMemo, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, PhoneOff, Maximize2, ScreenShare, GripHorizontal,
 } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
-import { api, resolveApiUrl } from '@/lib/api'
+import { resolveApiUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useVoiceCall, parseRoomName } from '@/hooks/useVoiceCall'
 import { useUIStore } from '@/store/uiStore'
+import { useUsersMini } from '@/hooks/useUsersMini'
 import { VoiceCallStage } from './VoiceCallStage'
-
-interface UserMini {
-  id: string
-  username: string
-  displayName: string
-  avatarUrl: string | null
-}
 
 const PIP_POS_KEY = 'umbra-voice-pip-pos'
 function loadPos(): { x: number; y: number } {
@@ -54,19 +47,7 @@ export function VoiceCallPanel() {
   const y = useMotionValue(initialPos.y)
 
   const identities = participants.map((p) => p.identity)
-  const { data: users = [] } = useQuery<UserMini[]>({
-    queryKey: ['voice', 'users', identities.sort().join(',')],
-    queryFn: async () => {
-      try {
-        const res = await api.get(`/api/profile/lookup?ids=${encodeURIComponent(identities.join(','))}`)
-        return res.data.data as UserMini[]
-      } catch {
-        return identities.map((id) => ({ id, username: id.slice(0, 6), displayName: id.slice(0, 6), avatarUrl: null }))
-      }
-    },
-    enabled: identities.length > 0,
-    staleTime: 60_000,
-  })
+  const { data: users = [] } = useUsersMini(identities)
 
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
   const parsed  = parseRoomName(roomName)

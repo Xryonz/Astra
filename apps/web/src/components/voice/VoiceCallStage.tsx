@@ -18,7 +18,6 @@
  * mono pra tech info, serif display pros nomes, tokens consistentes.
  */
 import { useEffect, useMemo, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
@@ -28,17 +27,10 @@ import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Slider } from '@/components/ui/slider'
-import { api, resolveApiUrl } from '@/lib/api'
+import { resolveApiUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useVoiceCall, parseRoomName, type CallParticipantInfo } from '@/hooks/useVoiceCall'
-
-interface UserMini {
-  id: string
-  username: string
-  displayName: string
-  avatarUrl: string | null
-  bannerColor: string | null
-}
+import { useUsersMini, type UserMini } from '@/hooks/useUsersMini'
 
 interface Props {
   onMinimize: () => void
@@ -48,19 +40,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
   const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleDeafen, setVolume } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
-  const { data: users = [] } = useQuery<UserMini[]>({
-    queryKey: ['voice', 'users', identities.sort().join(',')],
-    queryFn: async () => {
-      try {
-        const res = await api.get(`/api/profile/lookup?ids=${encodeURIComponent(identities.join(','))}`)
-        return res.data.data as UserMini[]
-      } catch {
-        return identities.map((id) => ({ id, username: id.slice(0, 6), displayName: id.slice(0, 6), avatarUrl: null, bannerColor: null }))
-      }
-    },
-    enabled: identities.length > 0,
-    staleTime: 60_000,
-  })
+  const { data: users = [] } = useUsersMini(identities)
 
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
   const parsed  = parseRoomName(roomName)

@@ -411,5 +411,18 @@ export const notifications = pgTable('Notification', {
   byUserUnread:  index('Notification_userId_readAt_idx').on(t.userId, t.readAt),
 }))
 
+// ─── WishingStar ──────────────────────────────────────────────
+// Sugestões públicas globais do que mudar/melhorar no site.
+// Sem soft-delete: user que apaga conta perde wishes via FK cascade.
+export const wishingStars = pgTable('WishingStar', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content:   text('content').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  byCreated: index('WishingStar_createdAt_idx').on(t.createdAt.desc()),
+  byUser:    index('WishingStar_userId_idx').on(t.userId),
+}))
+
 // Marker so TS doesn't tree-shake `sql` if unused above:
 export const _sqlMarker = sql`1`

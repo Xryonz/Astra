@@ -43,7 +43,7 @@ export default function FriendsPage() {
   const pendingCount = (requests.data ?? []).length
 
   return (
-    <div className="flex-1 min-w-0 h-screen-safe overflow-y-auto bg-(--base) relative">
+    <div className="flex-1 min-w-0 h-screen-safe overflow-y-auto relative">
       <div className="ed-vignette" />
 
       {/* Coluna central — sem rótulos verticais nem capítulo (modo minimalista) */}
@@ -52,12 +52,12 @@ export default function FriendsPage() {
           <header className="mb-10">
             <Reveal delay={0.18}>
               <h1 className="ed-h text-4xl sm:text-5xl m-0 leading-[1.05]">
-                Pessoas
+                Estrelas
               </h1>
             </Reveal>
             <Reveal delay={0.28}>
               <h1 className="ed-h text-4xl sm:text-5xl m-0 italic text-(--accent) leading-[1.05]">
-                com quem você fala.
+                no seu céu.
               </h1>
             </Reveal>
             <Reveal delay={0.42}>
@@ -65,7 +65,7 @@ export default function FriendsPage() {
             </Reveal>
             <Reveal delay={0.50}>
               <p className="ed-lede max-w-[44ch] text-(--text-2) m-0">
-                Amigos aceitos, pedidos pendentes, e o ponto de partida para novas conversas.
+                Cada amizade aqui é uma estrela alinhada. Aceite pedidos, envie outros, ou alinhe novas pela coordenada.
               </p>
             </Reveal>
           </header>
@@ -74,9 +74,9 @@ export default function FriendsPage() {
           <Reveal delay={0.65}>
             <nav className="flex gap-1 mb-8 border-b border-(--border)">
               {[
-                { id: 'friends', label: `Amigos`, count: friends.data?.length ?? 0 },
+                { id: 'friends', label: `Alinhadas`, count: friends.data?.length ?? 0 },
                 { id: 'pending', label: `Pendentes`, count: pendingCount },
-                { id: 'add',     label: 'Adicionar', count: null as number | null },
+                { id: 'add',     label: 'Alinhar nova', count: null as number | null },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -106,7 +106,7 @@ export default function FriendsPage() {
         <div className="hidden lg:flex col-span-1 col-start-12 items-end pb-12">
           <Reveal delay={1.0}>
             <p className="ed-aside max-w-[16ch]">
-              "Toda amizade começa com um pedido."
+              "Toda constelação começa com duas estrelas."
             </p>
           </Reveal>
         </div>
@@ -164,7 +164,7 @@ function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; on
     <>
       {onlineCount > 0 && (
         <Reveal delay={0.05}>
-          <p className="ed-marg mb-3">— {onlineCount} {onlineCount === 1 ? 'pessoa online' : 'pessoas online'}</p>
+          <p className="ed-marg mb-3">— {onlineCount} {onlineCount === 1 ? 'estrela acesa' : 'estrelas acesas'}</p>
         </Reveal>
       )}
       <ScrollArea className="max-h-[60vh]">

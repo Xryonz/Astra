@@ -271,12 +271,15 @@
    ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; }
 
-html { height: 100%; }
+html {
+  height: 100%;
+  background: var(--void);
+}
 
 body {
   margin: 0; padding: 0;
   height: 100%;
-  background: var(--void);
+  background: transparent;
   color: var(--text-1);
   font-family: var(--font-body);
   font-size: 14px;

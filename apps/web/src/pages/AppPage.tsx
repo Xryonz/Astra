@@ -314,7 +314,7 @@ export default function AppPage() {
         }
       />
 
-      <Suspense fallback={<div className="flex-1 min-w-0 h-screen-safe bg-(--base)" />}>
+      <Suspense fallback={<div className="flex-1 min-w-0 h-screen-safe" />}>
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname.split('/').slice(0, 3).join('/')}>
             <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-screen-safe"><DMPage /></PageTransition>} />

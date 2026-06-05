@@ -39,7 +39,7 @@ export default function OAuthCallbackPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-(--void) flex items-center justify-center font-(family-name:--font-body)">
+    <div className="min-h-screen flex items-center justify-center font-(family-name:--font-body)">
       <div className="text-center">
         <div className="size-8 border-2 border-(--border-mid) border-t-(--accent) rounded-full animate-spin mx-auto mb-4" />
         <p className="text-(--text-3) text-sm">Autenticando…</p>

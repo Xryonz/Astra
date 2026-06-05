@@ -6,7 +6,7 @@
  *  - Quick controls: mute, deafen, sair, expandir
  *  - Expandir → renderiza VoiceCallStage (fullscreen tile grid)
  *
- * Vibe Umbra: hairline border, --accent subtle pulse no speaking,
+ * Vibe Astra: hairline border, --accent subtle pulse no speaking,
  * mono pra status, serif display pro room name.
  */
 import { useEffect, useMemo, useRef } from 'react'

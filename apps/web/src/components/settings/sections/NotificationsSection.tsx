@@ -46,7 +46,7 @@ export default function NotificationsSection() {
         return
       }
     }
-    new Notification('Umbra · Teste local', {
+    new Notification('Astra · Teste local', {
       body: 'Se você vê isso, notificações do browser funcionam.',
       icon: '/umbra-logo.png',
     })
@@ -60,7 +60,7 @@ export default function NotificationsSection() {
       />
 
       {/* ── Push (device) ─────────────────────────────────── */}
-      <Row label="Notificações push" hint="Receba alertas mesmo com o Umbra fechado — depende do navegador permitir.">
+      <Row label="Notificações push" hint="Receba alertas mesmo com a Astra fechada — depende do navegador permitir.">
         {state === 'unsupported' && (
           <div className="border border-(--border) bg-(--raised)/40 p-3 text-sm text-(--text-3)">
             Navegador sem suporte a push ou backend sem chaves VAPID configuradas.

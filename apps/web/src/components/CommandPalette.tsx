@@ -184,7 +184,7 @@ export default function CommandPalette() {
         <span><CommandShortcut className="ml-0">↑↓</CommandShortcut> navegar</span>
         <span><CommandShortcut className="ml-0">↵</CommandShortcut> abrir</span>
         <span><CommandShortcut className="ml-0">esc</CommandShortcut> fechar</span>
-        <span className="ml-auto opacity-60">Umbra · Busca global</span>
+        <span className="ml-auto opacity-60">Astra · Busca global</span>
       </div>
     </CommandDialog>
   )

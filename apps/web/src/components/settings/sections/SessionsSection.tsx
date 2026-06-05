@@ -15,7 +15,7 @@ export default function SessionsSection() {
     <div>
       <SectionHeader
         title="Sessões"
-        description="Dispositivos onde você está logado no Umbra."
+        description="Dispositivos onde você está logada na Astra."
       />
 
       <Row label="Sessão atual" hint="Este navegador / dispositivo.">

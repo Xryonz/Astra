@@ -185,7 +185,7 @@ export function setupSocket(io: Server) {
             content: `🔇 **@${socket.data.username}** foi silenciado por **5 minutos** por spam.`,
             channelId, edited: false, createdAt: new Date().toISOString(),
             authorColor: null, reactions: [], mentions: [],
-            author: { id: botId, username: 'umbra_bot', displayName: 'Umbra', avatarUrl: null },
+            author: { id: botId, username: 'astra_bot', displayName: 'Astra', avatarUrl: null },
           }
           io.to(`channel:${channelId}`).emit('new_message', botMsg)
         }
@@ -201,7 +201,7 @@ export function setupSocket(io: Server) {
     socket.on('bot_command', async (payload: { channelId: string; serverId: string; content: string }) => {
       const { channelId, serverId, content } = payload ?? {}
       if (typeof channelId !== 'string' || typeof serverId !== 'string' || typeof content !== 'string') return
-      if (!content.toLowerCase().startsWith('/umbra')) return
+      if (!content.toLowerCase().startsWith('/astra')) return
       // Confirma membership pra impedir injeção de mensagem do bot em canal alheio
       const canAccess = await userCanAccessChannel(userId, channelId)
       if (!canAccess) return
@@ -224,9 +224,9 @@ export function setupSocket(io: Server) {
       if (commandResponse) {
         reply = commandResponse
       } else {
-        const userMessage = content.replace(/^\/umbra\s*/i, '').trim()
+        const userMessage = content.replace(/^\/astra\s*/i, '').trim()
         if (!userMessage) {
-          reply = 'Como posso ajudar? Tente `/umbra help` pra ver comandos.'
+          reply = 'Como posso ajudar? Tente `/astra help` pra ver comandos.'
         } else {
           const result = await askBot({
             userMessage,
@@ -243,7 +243,7 @@ export function setupSocket(io: Server) {
         content: reply, channelId,
         edited: false, createdAt: new Date().toISOString(),
         authorColor: null, reactions: [], mentions: [],
-        author: { id: botId, username: 'umbra_bot', displayName: 'Umbra', avatarUrl: null },
+        author: { id: botId, username: 'astra_bot', displayName: 'Astra', avatarUrl: null },
       }
       io.to(`channel:${channelId}`).emit('new_message', botMsg)
     })

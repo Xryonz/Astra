@@ -305,7 +305,7 @@ export default function AppPage() {
   }, [toggleCommandPalette])
 
   return (
-    <div className="flex h-screen-safe bg-(--void) overflow-hidden font-(family-name:--font-body)">
+    <div className="flex h-screen-safe overflow-hidden font-(family-name:--font-body)">
       {/* Sidebar mounted once — sobrevive entre rotas, sem re-mount/animation bug */}
       <Sidebar
         activeChannelId={activeId}

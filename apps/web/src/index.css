@@ -57,11 +57,11 @@
   --radius: 0.625rem;
 }
 
-/* Light mode dropped — Umbra é dark-only por design (editorial-dark é a brand) */
+/* Light mode dropped — Astra é dark-only por design (editorial-dark é a brand) */
 
 /* ═══════════════════════════════════════════════════════════
    TAILWIND v4 @theme — gera utilities (bg-background, text-primary etc)
-   que componentes ShadcnUI esperam, apontando para os tokens Umbra.
+   que componentes ShadcnUI esperam, apontando para os tokens Astra.
    ═══════════════════════════════════════════════════════════ */
 @theme {
   --color-background:           var(--void);

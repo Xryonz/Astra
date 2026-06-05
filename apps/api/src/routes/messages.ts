@@ -296,7 +296,7 @@ export function createMessagesRouter(io: SocketServer) {
             authorColor: null,
             reactions: [],
             mentions: [],
-            author: { id: botId, username: 'umbra_bot', displayName: 'Umbra', avatarUrl: null },
+            author: { id: botId, username: 'astra_bot', displayName: 'Astra', avatarUrl: null },
           }
           io.to(`channel:${channelId}`).emit('new_message', botMsg)
           return res.status(429).json({

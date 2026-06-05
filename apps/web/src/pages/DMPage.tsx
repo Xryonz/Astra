@@ -58,7 +58,7 @@ export default function DMPage() {
   }, [])
 
   return (
-    <div className="flex h-full w-full bg-(--void) font-(family-name:--font-body) anim-fade-in">
+    <div className="flex h-full w-full font-(family-name:--font-body) anim-fade-in">
 
       {/* ── Conversation list ─────────────────────────────
           Desktop: sempre visível. Mobile: visível só quando nenhuma DM ativa. */}

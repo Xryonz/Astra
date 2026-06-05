@@ -61,7 +61,7 @@ export default function InvitePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-(--void) px-6 py-12 font-(family-name:--font-body) relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center px-6 py-12 font-(family-name:--font-body) relative overflow-hidden">
       <div className="ed-grain" aria-hidden />
 
       {/* Ambient glow */}

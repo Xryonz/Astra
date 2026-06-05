@@ -200,7 +200,7 @@ process.on('uncaughtException', (e) => {
 })
 
 httpServer.listen(env.PORT, async () => {
-  logger.info('Umbra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
+  logger.info('Astra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
   await initBot()
   logger.info('Bot', 'Pronto.')
   startRetentionWorker()

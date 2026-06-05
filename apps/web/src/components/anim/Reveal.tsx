@@ -6,7 +6,7 @@
  * o browser compositor cuida sozinho. GPU-direct, zero JS observers.
  *
  * Trade-off vs motion: não tem viewport-detection (anima no mount, não
- * quando entra no viewport). 99% dos usos no Umbra são mount-time
+ * quando entra no viewport). 99% dos usos na Astra são mount-time
  * (página abrindo), então CSS é estritamente melhor aqui.
  */
 import * as React from 'react'

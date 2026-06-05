@@ -75,10 +75,10 @@ router.post(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     await sendPush(req.userId!, {
-      title: 'Umbra · Teste',
+      title: 'Astra · Teste',
       body:  'Notificações estão funcionando!',
       url:   '/app',
-      tag:   'umbra-test',
+      tag:   'astra-test',
     })
     res.json({ data: { ok: true } })
   })

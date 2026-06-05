@@ -12,7 +12,7 @@ export default function AccountSection() {
     <div>
       <SectionHeader
         title="Conta"
-        description="Suas credenciais de acesso ao Umbra."
+        description="Suas credenciais de acesso à Astra."
       />
 
       <Row label="E-mail" hint="Usado pra login. Não é exibido publicamente.">

@@ -11,7 +11,7 @@ export default function LoginPage() {
   const oauthError = searchParams.get('error')
 
   return (
-    <div className="relative min-h-screen flex font-(family-name:--font-body) bg-(--void) overflow-hidden">
+    <div className="relative min-h-screen flex font-(family-name:--font-body) overflow-hidden">
 
       {/* Grain — paper feel */}
       <div className="ed-grain" aria-hidden="true" />
@@ -61,7 +61,7 @@ export default function LoginPage() {
                 fontWeight: 400,
               }}
             >
-              Umbra
+              Astra
             </h1>
           </Reveal>
 
@@ -79,7 +79,7 @@ export default function LoginPage() {
       </aside>
 
       {/* ── RIGHT — sign-in chamber ────────────────────────── */}
-      <main className="relative w-full lg:max-w-130 flex items-center justify-center px-8 lg:px-16 py-12 bg-(--void)">
+      <main className="relative w-full lg:max-w-130 flex items-center justify-center px-8 lg:px-16 py-12">
 
         {/* Soft accent glow behind form */}
         <div
@@ -102,7 +102,7 @@ export default function LoginPage() {
           <Reveal delay={0.05}>
             <div className="flex items-center gap-3 mb-16">
               <AstraLogo size={32} />
-              <span className="font-(family-name:--font-display) text-lg text-(--text-1) tracking-tight">Umbra</span>
+              <span className="font-(family-name:--font-display) text-lg text-(--text-1) tracking-tight">Astra</span>
             </div>
           </Reveal>
 

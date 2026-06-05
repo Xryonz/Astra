@@ -14,7 +14,7 @@
  *   │  [Mic][Deafen][Screen][Minimizar][Sair] │
  *   └─────────────────────────────────────────┘
  *
- * Vibe Umbra: hairline borders, --accent subtle pulse no speaking,
+ * Vibe Astra: hairline borders, --accent subtle pulse no speaking,
  * mono pra tech info, serif display pros nomes, tokens consistentes.
  */
 import { useEffect, useMemo, useRef } from 'react'

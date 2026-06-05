@@ -1376,7 +1376,7 @@ function InviteFriendsDialog({
             <div className="py-10 px-6 text-center">
               <p className="text-sm text-(--text-2) m-0">
                 {friends.length === 0
-                  ? 'Você ainda não tem amigos no Umbra.'
+                  ? 'Você ainda não tem amigos na Astra.'
                   : currentMemberUserIds.size > 0 && friends.length === currentMemberUserIds.size
                     ? 'Todos os seus amigos já são membros.'
                     : 'Nenhum amigo encontrado pra esse filtro.'}

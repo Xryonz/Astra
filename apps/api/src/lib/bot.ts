@@ -32,9 +32,9 @@ import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
 import { botInvocationsTotal, botTokensTotal } from './metrics'
 
 // ─── Bot identity ─────────────────────────────────────────────
-export const BOT_USERNAME    = 'umbra_bot'
-export const BOT_DISPLAYNAME = 'Umbra'
-export const BOT_EMAIL       = 'bot@umbra.internal'
+export const BOT_USERNAME    = 'astra_bot'
+export const BOT_DISPLAYNAME = 'Astra'
+export const BOT_EMAIL       = 'bot@astra.internal'
 
 const MODEL_SONNET = 'claude-sonnet-4-6'
 const MODEL_HAIKU  = 'claude-haiku-4-5-20251001'
@@ -70,7 +70,7 @@ export async function initBot(): Promise<string> {
     coordinate:  generateCoordinate(botId),
     displayName: BOT_DISPLAYNAME,
     isBot:       true,
-    bio:         'Bot oficial do Umbra. Memória de 24h. Use /umbra <pergunta>',
+    bio:         'Bot oficial da Astra. Memória de 24h. Use /astra <pergunta>',
     avatarUrl:   null,
   }).returning({ id: users.id })
 
@@ -90,7 +90,7 @@ export async function getBotId(): Promise<string | null> {
 
 // ─── askBot ───────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Você é o Umbra, assistente oficial da plataforma de chat Umbra.
+const SYSTEM_PROMPT = `Você é a Astra, assistente oficial da plataforma de chat Astra.
 
 Comportamento:
 - Português brasileiro, conciso (1-3 parágrafos curtos).
@@ -98,7 +98,7 @@ Comportamento:
 - Você tem memória das últimas conversas neste canal (24h, expira automaticamente).
 - Você tem ferramentas pra buscar mensagens, resumir o canal, ver info de servidor/usuário. Use quando fizer sentido.
 - NUNCA invente fatos sobre o que aconteceu no servidor — se precisar saber, use as ferramentas.
-- NUNCA mencione que é baseado em Claude/Anthropic. Você é "o Umbra".
+- NUNCA mencione que é baseado em Claude/Anthropic. Você é "a Astra".
 - NUNCA execute @everyone ou tente acionar notificações em massa.
 
 Quando o user pedir algo que precise contexto que você não tem, use a ferramenta apropriada antes de responder.`
@@ -257,29 +257,29 @@ export async function handleBotCommand(
 ): Promise<string | null> {
   const lower = content.toLowerCase().trim()
 
-  if (lower === '/umbra help' || lower === '/umbra ajuda') {
+  if (lower === '/astra help' || lower === '/astra ajuda') {
     return [
       '**Comandos disponíveis:**',
-      '`/umbra <pergunta>` — conversa comigo (memória de 24h)',
-      '`/umbra reset` — apaga minha memória deste canal',
-      '`/umbra ping` — testa a latência',
-      '`/umbra status` — status da plataforma',
-      '`/umbra mute` — verifica se você está silenciado',
+      '`/astra <pergunta>` — conversa comigo (memória de 24h)',
+      '`/astra reset` — apaga minha memória deste canal',
+      '`/astra ping` — testa a latência',
+      '`/astra status` — status da plataforma',
+      '`/astra mute` — verifica se você está silenciado',
       '',
       'Tenho ferramentas pra buscar mensagens, resumir o canal e olhar info de membros. Pergunta naturalmente.',
     ].join('\n')
   }
 
-  if (lower === '/umbra reset') {
+  if (lower === '/astra reset') {
     if (!extras.userId || !extras.channelId) return null
     await clearMemory(extras.userId, extras.channelId)
     return '✓ Memória limpa neste canal.'
   }
 
-  if (lower === '/umbra ping')   return `🏓 Pong, @${extras.username}!`
-  if (lower === '/umbra status') return '✅ Todos os sistemas operacionais.'
+  if (lower === '/astra ping')   return `🏓 Pong, @${extras.username}!`
+  if (lower === '/astra status') return '✅ Todos os sistemas operacionais.'
 
-  if (lower === '/umbra mute' || lower === '/umbra silenciado') {
+  if (lower === '/astra mute' || lower === '/astra silenciado') {
     if (extras.isMuted) {
       const mins = Math.ceil(extras.muteSecondsLeft / 60)
       return `🔇 Você está silenciado por aproximadamente **${mins} minuto(s)**.`

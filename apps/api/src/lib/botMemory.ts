@@ -86,7 +86,7 @@ export async function setSummary(
 }
 
 /**
- * Limpa toda memória do user num canal — comando `/umbra reset`.
+ * Limpa toda memória do user num canal — comando `/astra reset`.
  */
 export async function clearMemory(userId: string, channelId: string): Promise<void> {
   await redis.del(memKey(userId, channelId), summaryKey(userId, channelId))

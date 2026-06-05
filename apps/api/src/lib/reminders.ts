@@ -89,7 +89,7 @@ export function startReminderWorker(io: SocketServer) {
           payload: {
             isReminder: true,
             authorId:   r.creatorId,
-            authorName: creator?.displayName ?? 'Umbra',
+            authorName: creator?.displayName ?? 'Astra',
             authorAvatar: creator?.avatarUrl ?? null,
             preview:    r.content,
             channelId:  r.channelId ?? undefined,

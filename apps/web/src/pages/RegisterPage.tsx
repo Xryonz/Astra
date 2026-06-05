@@ -8,7 +8,7 @@ import { Kbd } from '@/components/ui/kbd'
 
 export default function RegisterPage() {
   return (
-    <div className="relative min-h-screen flex font-(family-name:--font-body) bg-(--void) overflow-hidden">
+    <div className="relative min-h-screen flex font-(family-name:--font-body) overflow-hidden">
 
       <div className="ed-grain" aria-hidden="true" />
 
@@ -87,7 +87,7 @@ export default function RegisterPage() {
                 Um lugar que é genuinamente nosso.
               </p>
               <p className="text-(--text-3) text-xs m-0 mt-3 font-mono uppercase tracking-wider">
-                — Comunidade Umbra Beta
+                — Comunidade Astra Beta
               </p>
             </div>
           </Reveal>
@@ -95,7 +95,7 @@ export default function RegisterPage() {
       </aside>
 
       {/* ── RIGHT — form chamber ────────────────────────────── */}
-      <main className="relative w-full lg:max-w-130 flex items-center justify-center px-8 lg:px-16 py-12 bg-(--void) overflow-y-auto">
+      <main className="relative w-full lg:max-w-130 flex items-center justify-center px-8 lg:px-16 py-12 overflow-y-auto">
 
         <div
           className="absolute pointer-events-none"
@@ -116,7 +116,7 @@ export default function RegisterPage() {
           <Reveal delay={0.05}>
             <div className="flex items-center gap-3 mb-12">
               <AstraLogo size={32} />
-              <span className="font-(family-name:--font-display) text-lg text-(--text-1) tracking-tight">Umbra</span>
+              <span className="font-(family-name:--font-display) text-lg text-(--text-1) tracking-tight">Astra</span>
             </div>
           </Reveal>
 

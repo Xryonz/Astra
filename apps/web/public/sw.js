@@ -1,4 +1,4 @@
-// Service worker do Umbra — push notifications + click-to-focus.
+// Service worker do Astra — push notifications + click-to-focus.
 // Versão simples: sem cache de assets, só recebe push e abre janela.
 
 self.addEventListener('install', (event) => {
@@ -11,9 +11,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   let payload = {}
-  try { payload = event.data ? event.data.json() : {} } catch { payload = { title: 'Umbra', body: event.data ? event.data.text() : '' } }
+  try { payload = event.data ? event.data.json() : {} } catch { payload = { title: 'Astra', body: event.data ? event.data.text() : '' } }
 
-  const title   = payload.title || 'Umbra'
+  const title   = payload.title || 'Astra'
   const options = {
     body:        payload.body  || '',
     icon:        payload.icon  || '/umbra-logo.png',

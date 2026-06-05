@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
+import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import { Spinner } from '@/components/ui/spinner'
 import { Input } from '@/components/ui/input'
 import { Bookmark, Trash2, NotebookPen, Check, X } from 'lucide-react'
@@ -52,14 +52,10 @@ export default function BookmarksSheet({ open, onClose }: Props) {
               <Spinner size={14} /> Carregando…
             </div>
           ) : items.length === 0 ? (
-            <Empty>
-              <EmptyIcon><Bookmark className="size-6 text-(--accent)" /></EmptyIcon>
-              <EmptyLabel>— Estante vazia</EmptyLabel>
-              <EmptyTitle>Nada salvo ainda</EmptyTitle>
-              <EmptyDescription>
-                Passe o mouse numa mensagem e clique no marcador pra guardar aqui.
-              </EmptyDescription>
-            </Empty>
+            <ConstellationEmpty
+              title="Sem estrelas guardadas"
+              description="Passe o mouse numa mensagem e clique no marcador pra guardar aqui."
+            />
           ) : (
             <div className="divide-y divide-(--border)" role="list">
               {items.map((b, i) => (

@@ -7,17 +7,17 @@
  */
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { UserPlus, Check, X, Inbox, Send, UserMinus, MessageCircle, AtSign, Copy, Users } from 'lucide-react'
+import { UserPlus, Check, X, Inbox, Send, UserMinus, MessageCircle, AtSign, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from '@/components/ui/sonner'
 import { Reveal } from '@/components/anim/Reveal'
 import { useConfirm } from '@/hooks/useConfirm'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
+import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import {
   useFriends, useFriendRequests, useFriendOutgoing,
   useSendFriendRequest, useAcceptFriend, useRemoveFriend,
@@ -151,14 +151,11 @@ function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; on
   if (items.length === 0) {
     return (
       <Reveal delay={0.05}>
-        <Empty className="border border-dashed border-(--border)">
-          <EmptyIcon><Users className="size-6" /></EmptyIcon>
-          <EmptyLabel>— Cap. ∅ · Sozinho</EmptyLabel>
-          <EmptyTitle>Nenhum amigo ainda</EmptyTitle>
-          <EmptyDescription>
-            Vá em <em className="text-(--accent) not-italic">Adicionar</em> pra mandar um pedido pra alguém.
-          </EmptyDescription>
-        </Empty>
+        <ConstellationEmpty
+          title="Sozinho no céu"
+          description="Adicione estrelas por username ou coordenada."
+          className="border border-dashed border-(--border)"
+        />
       </Reveal>
     )
   }

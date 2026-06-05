@@ -19,7 +19,7 @@ import { format, isToday, isYesterday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
+import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { DMListSkeleton } from '@/components/skeletons/DMListSkeleton'
 import { cn } from '@/lib/utils'
@@ -86,14 +86,11 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
 
   if (conversations.length === 0) {
     return (
-      <Empty className="flex-1">
-        <EmptyIcon><MessageCircle className="size-6" /></EmptyIcon>
-        <EmptyLabel>— Cap. ∅ · Silêncio</EmptyLabel>
-        <EmptyTitle>Nenhuma conversa</EmptyTitle>
-        <EmptyDescription>
-          Abra o perfil de alguém ou aceite um pedido de amizade pra começar.
-        </EmptyDescription>
-      </Empty>
+      <ConstellationEmpty
+        title="Nenhuma estrela à vista"
+        description="Abra o perfil de alguém ou aceite um pedido pra começar."
+        className="flex-1"
+      />
     )
   }
 

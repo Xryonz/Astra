@@ -22,7 +22,7 @@ import { AddMemberDialog } from './dialogs/AddMemberDialog'
 import ServerContextMenu, { type ContextMenuItem } from '@/components/ServerContextMenu'
 import { SidebarSkeleton } from '@/components/skeletons/SidebarSkeleton'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
-import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
+import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import { cn } from '@/lib/utils'
 import type { ServerWithChannels, ChannelInfo } from '@umbra/types'
 
@@ -346,18 +346,13 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                 ))}
               </>
             ) : !activeServer ? (
-              <Empty className="h-full py-8">
-                <EmptyIcon><Plus className="size-5 text-(--accent)" /></EmptyIcon>
-                <EmptyLabel>— {servers.length === 0 ? 'Cap. ∅' : '— · —'}</EmptyLabel>
-                <EmptyTitle className="text-base">
-                  {servers.length === 0 ? 'Nenhum servidor' : 'Selecione um'}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {servers.length === 0
-                    ? 'Use o + na barra esquerda pra criar seu primeiro espaço.'
-                    : 'Clique num ícone à esquerda pra abrir os canais.'}
-                </EmptyDescription>
-              </Empty>
+              <ConstellationEmpty
+                title={servers.length === 0 ? 'Seu céu ainda está vazio' : 'Escolha uma constelação'}
+                description={servers.length === 0
+                  ? 'Use o + na barra esquerda pra acender sua primeira.'
+                  : 'Clique num ícone à esquerda pra abrir os canais.'}
+                className="h-full py-8"
+              />
             ) : null}
           </div>
 

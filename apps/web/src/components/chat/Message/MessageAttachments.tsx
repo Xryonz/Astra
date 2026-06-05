@@ -36,7 +36,7 @@ function isImageAttachment(a: { type?: string; name?: string; url?: string }) {
   return /\.(png|jpe?g|gif|webp|avif|svg|bmp|heic|heif)(\?|#|$)/i.test(target)
 }
 
-function ImageTile({ att, onOpen }: { att: Attachment; onOpen: () => void }) {
+function ImageTile({ att, onOpen, fullWidth }: { att: Attachment; onOpen: () => void; fullWidth: boolean }) {
   const [errored, setErrored] = useState(false)
   const src = resolveApiUrl(att.url)
   if (errored) {
@@ -45,7 +45,7 @@ function ImageTile({ att, onOpen }: { att: Attachment; onOpen: () => void }) {
         href={src}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex flex-col items-start gap-1 p-3 border border-(--danger)/40 bg-(--raised)"
+        className="flex flex-col items-start gap-1 p-3 border border-(--danger)/40 bg-(--raised) rounded-xl"
         title="Imagem não carregou"
       >
         <span className="text-xs text-(--danger)">⚠ Imagem não carregou</span>
@@ -54,10 +54,16 @@ function ImageTile({ att, onOpen }: { att: Attachment; onOpen: () => void }) {
       </a>
     )
   }
+  // fullWidth=true (1 imagem só): mostra na proporção real, completa, com altura
+  // generosa. fullWidth=false (>=2): grid items cropam pra alinhar visualmente.
   return (
     <button
       onClick={onOpen}
-      className="group relative border border-(--border) overflow-hidden bg-(--raised) max-h-72 cursor-zoom-in"
+      className={cn(
+        'group relative overflow-hidden bg-(--raised) cursor-zoom-in',
+        'rounded-xl border border-(--border)',
+        fullWidth ? 'block' : 'aspect-square',
+      )}
     >
       <img
         src={src}
@@ -66,7 +72,12 @@ function ImageTile({ att, onOpen }: { att: Attachment; onOpen: () => void }) {
         loading="lazy"
         decoding="async"
         onError={() => setErrored(true)}
-        className="block w-full h-full object-cover max-h-72 transition-transform duration-500 ease-(--ease-spring) group-hover:scale-[1.02]"
+        className={cn(
+          'block transition-transform duration-500 ease-(--ease-spring) group-hover:scale-[1.02]',
+          fullWidth
+            ? 'w-full h-auto max-h-120 object-contain'
+            : 'w-full h-full object-cover',
+        )}
       />
     </button>
   )
@@ -94,7 +105,14 @@ export const MessageAttachments = memo(function MessageAttachments({ attachments
           images.length === 2 && 'grid-cols-2',
           images.length >= 3 && 'grid-cols-2 sm:grid-cols-3',
         )}>
-          {images.map((a) => <ImageTile key={a.url} att={a} onOpen={() => onOpenImage(imageGlobalIdx(a))} />)}
+          {images.map((a) => (
+            <ImageTile
+              key={a.url}
+              att={a}
+              onOpen={() => onOpenImage(imageGlobalIdx(a))}
+              fullWidth={images.length === 1}
+            />
+          ))}
         </div>
       )}
 
@@ -111,9 +129,9 @@ export const MessageAttachments = memo(function MessageAttachments({ attachments
                 target="_blank"
                 rel="noopener noreferrer"
                 download={a.name}
-                className="flex items-center gap-3 px-3 py-2 border border-(--border) bg-(--raised)/60 hover:border-(--accent) hover:bg-(--raised) transition-colors"
+                className="flex items-center gap-3 px-3 py-2 rounded-xl border border-(--border) bg-(--raised)/60 hover:border-(--accent) hover:bg-(--raised) transition-colors"
               >
-                <div className="size-9 shrink-0 border border-(--border) bg-(--base) flex items-center justify-center">
+                <div className="size-9 shrink-0 rounded-lg border border-(--border) bg-(--base) flex items-center justify-center">
                   <FileIcon className="size-4 text-(--text-3)" />
                 </div>
                 <div className="flex-1 min-w-0">

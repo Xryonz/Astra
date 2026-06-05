@@ -16,7 +16,7 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
-import { AccessToken } from 'livekit-server-sdk'
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk'
 import { db } from '../db'
 import { dmConversations, channels } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -27,6 +27,17 @@ import { userCanSeeChannel } from '../lib/permissions'
 import { forbidden, badRequest } from '../lib/errors'
 
 const router = Router()
+
+// Cache curto pra presence — listRooms/listParticipants pesam,
+// e polling do client é a cada ~10s. 5s de TTL = no pior caso
+// um participante atrasa 5s pra aparecer/sumir. Aceitável.
+const PRESENCE_TTL_MS = 5_000
+const presenceCache = new Map<string, { at: number; ids: string[] }>()
+
+function getRoomService(): RoomServiceClient | null {
+  if (!env.LIVEKIT_URL || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) return null
+  return new RoomServiceClient(env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET)
+}
 
 const TokenSchema = z.object({
   roomKind: z.enum(['channel', 'dm']),
@@ -95,6 +106,60 @@ router.post('/token', requireAuth, validate(TokenSchema), asyncHandler(async (re
       identity,
     },
   })
+}))
+
+/**
+ * GET /api/voice/presence?channelIds=a,b,c
+ *  → { [channelId]: string[]/* user identities */ }
+ *
+ * Usado pela Sidebar pra renderizar "quem está em cada canal voice".
+ * Polling client a cada ~10s. Cache server 5s.
+ *
+ * Só retorna canais que o user pode ver — bloqueio por userCanSeeChannel.
+ */
+const PresenceSchema = z.object({
+  channelIds: z.string().min(1).max(2000),
+})
+router.get('/presence', requireAuth, asyncHandler(async (req: Request, res: Response) => {
+  const parsed = PresenceSchema.safeParse(req.query)
+  if (!parsed.success) {
+    return res.json({ data: {} })
+  }
+  const svc = getRoomService()
+  if (!svc) return res.json({ data: {} })
+
+  const ids = parsed.data.channelIds.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 64)
+  if (ids.length === 0) return res.json({ data: {} })
+
+  const out: Record<string, string[]> = {}
+  const now = Date.now()
+
+  await Promise.all(ids.map(async (channelId) => {
+    const roomName = `channel:${channelId}`
+    const cached = presenceCache.get(roomName)
+    if (cached && now - cached.at < PRESENCE_TTL_MS) {
+      // Cache hit — pula perm-check porque o conteúdo é só identities (públicas)
+      // PORÉM ainda precisamos validar que esse user pode ver o canal pra evitar
+      // disclosure de quem-tá-onde em canal privado.
+      const ok = await userCanSeeChannel(req.userId!, channelId)
+      if (ok) out[channelId] = cached.ids
+      return
+    }
+    const ok = await userCanSeeChannel(req.userId!, channelId)
+    if (!ok) return
+    try {
+      const participants = await svc.listParticipants(roomName)
+      const identities = participants.map((p) => p.identity)
+      presenceCache.set(roomName, { at: now, ids: identities })
+      out[channelId] = identities
+    } catch {
+      // Room não existe (ninguém entrou ainda) → array vazio. Cacheia também.
+      presenceCache.set(roomName, { at: now, ids: [] })
+      out[channelId] = []
+    }
+  }))
+
+  res.json({ data: out })
 }))
 
 export default router

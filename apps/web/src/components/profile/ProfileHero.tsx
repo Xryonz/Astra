@@ -29,10 +29,12 @@ export function ProfileHero({
 
   return (
     <>
-      {/* Avatar — sobrepõe o banner */}
+      {/* Avatar — sobrepõe o banner.
+          Quando coordinate presente (isSelf) → renderiza orbit ring assinatura. */}
       <div className="relative inline-block -mt-12 mb-3">
+        {coordinate && <OrbitRing color={accentColor} />}
         <Avatar
-          className="size-24 rounded-full border-4"
+          className="size-24 rounded-full border-4 relative"
           style={{ borderColor: 'var(--overlay)', background: accentColor + '22' }}
         >
           {avatarUrl && (
@@ -46,7 +48,7 @@ export function ProfileHero({
           </AvatarFallback>
         </Avatar>
         {effectiveStatus && !isBot && (
-          <span className="absolute bottom-0.5 right-0.5">
+          <span className="absolute bottom-0.5 right-0.5 z-10">
             <StatusDot status={effectiveStatus} size={18} bordered borderColor="var(--overlay)" />
           </span>
         )}
@@ -100,6 +102,38 @@ export function ProfileHero({
       {/* Coordenada — só renderiza pra própria pessoa */}
       {coordinate && <CoordinateChip coord={coordinate} accentColor={accentColor} />}
     </>
+  )
+}
+
+/**
+ * OrbitRing — círculo tracejado girando ao redor do avatar.
+ * Signature visual reservada só pro avatar próprio (isSelf).
+ * SVG, GPU-only animation (transform), reduced-motion respeitado via CSS class.
+ */
+function OrbitRing({ color }: { color: string }) {
+  // Diâmetro 116 = avatar 96 (size-24) + margem de 10 cada lado
+  const size = 116
+  const r    = (size - 4) / 2
+  return (
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="absolute inset-0 m-auto astra-orbit pointer-events-none"
+      style={{ left: -10, top: -10 }}
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={1}
+        strokeDasharray="2 6"
+        opacity={0.55}
+      />
+    </svg>
   )
 }
 

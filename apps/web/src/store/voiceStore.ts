@@ -169,20 +169,19 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       if (sharing) {
         await lp.setScreenShareEnabled(false)
       } else {
-        // ── 60fps adaptativo ─────────────────────────────────
-        // Preset custom: 1280×720 @ 60fps, 2.5Mbps. Por que essas escolhas?
-        //  - 720p (não 1080p): ainda nítido pra leitura de código/UI; libera
-        //    encoding budget pro framerate maior (animações fluidas, jogos, scroll).
-        //  - 60fps: alvo pedido. Tela "fluida" como app nativo, vs 30fps "filme".
-        //  - 2.5Mbps: 720p60 razoável; dynacast (já ligado no Room init) corta
-        //    automático se nenhum subscriber precisa de full res, então pico é
-        //    soft. Em rede ruim, LK degrada framerate antes de res.
+        // ── Full HD @ 60fps adaptativo ───────────────────────
+        // 1920×1080 @ 60fps, 5Mbps. Por que essas escolhas?
+        //  - 1080p: nitidez de tela cheia, leitura de fonte pequena, código.
+        //  - 60fps: fluidez de app/jogo nativo (vs 30fps que parece filme).
+        //  - 5Mbps: razoável pra 1080p60; dynacast (Room init) baixa quando
+        //    nenhum subscriber precisa de full res — pico é soft.
+        //  - Rede ruim: LK degrada framerate antes da resolução.
         const { VideoPreset } = lkNs
-        const screen60 = new VideoPreset(1280, 720, 2_500_000, 60)
+        const screenHD = new VideoPreset(1920, 1080, 5_000_000, 60)
         await lp.setScreenShareEnabled(
           true,
-          { resolution: screen60.resolution },
-          { screenShareEncoding: screen60.encoding },
+          { resolution: screenHD.resolution },
+          { screenShareEncoding: screenHD.encoding },
         )
       }
       refresh()
@@ -191,14 +190,19 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     toggleDeafen: () => {
       const next = !get().deafened
       set({ deafened: next })
-      document.querySelectorAll<HTMLAudioElement>('audio').forEach((a) => { a.muted = next })
+      // Aplica APENAS em audio[data-umbra-voice] — não polui VoiceMessage / outros
+      document.querySelectorAll<HTMLAudioElement>('audio[data-umbra-voice]').forEach((a) => {
+        a.muted = next
+      })
     },
 
     setVolume: (v) => {
       const clamped = Math.max(0, Math.min(1, v))
       set({ volume: clamped })
+      const deafened = get().deafened
       document.querySelectorAll<HTMLAudioElement>('audio[data-umbra-voice]').forEach((a) => {
         a.volume = clamped
+        a.muted  = deafened
       })
       try { localStorage.setItem(VOLUME_STORAGE_KEY, String(clamped)) } catch {}
     },

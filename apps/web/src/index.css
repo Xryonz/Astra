@@ -162,6 +162,36 @@
   from { transform: scaleY(0); opacity: 0; }
   to   { transform: scaleY(1); opacity: 1; }
 }
+/* Astra: estrela individual que pisca. opacity vai e volta com leve scale.
+   Cada star tem delay/duration próprios (set via inline style) pra não
+   sincronizar. Pure CSS — GPU-friendly, zero JS. */
+@keyframes astraTwinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.2);  }
+}
+.astra-twinkle {
+  animation-name:            astraTwinkle;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  will-change:               opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .astra-twinkle { animation: none; opacity: 0.6; }
+}
+/* Astra: orbit ring no avatar próprio. SVG circle dashed girando devagar.
+   Signature visual exclusiva — só renderizado quando isSelf (ProfileHero
+   só passa coordinate pro próprio user). */
+@keyframes astraOrbit {
+  to { transform: rotate(360deg); }
+}
+.astra-orbit {
+  animation: astraOrbit 18s linear infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .astra-orbit { animation: none; }
+}
 /* ═══════════════════════════════════════════════════════════
    SHEET (Radix Dialog) — animações nativas v4.
    Substituem tailwindcss-animate v3 que não funciona em v4

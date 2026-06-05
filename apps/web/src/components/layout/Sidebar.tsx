@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles } from 'lucide-react'
@@ -6,8 +6,9 @@ import { EditorialContextMenu, type EditorialMenuItem } from '@/components/Edito
 import { useLongPress } from '@/hooks/useLongPress'
 import { useConfirm, usePrompt } from '@/hooks/useConfirm'
 import { toast } from '@/components/ui/sonner'
-import { useVoiceCall, useVoiceConfig, parseRoomName } from '@/hooks/useVoiceCall'
-import { api } from '@/lib/api'
+import { useVoiceCall, useVoiceConfig, useVoiceChannelPresence, parseRoomName } from '@/hooks/useVoiceCall'
+import { useUsersMini } from '@/hooks/useUsersMini'
+import { api, resolveApiUrl } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { useUnread } from '@/hooks/useUnread'
@@ -163,6 +164,24 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   // Mostra TEXT + VOICE (ChannelButton já trata ícone por tipo)
   const channels       = activeServer?.channels ?? []
   const isGroup        = activeServer?.isGroup ?? false
+
+  // Voice presence: polling de quem está em cada canal voice do server ativo
+  const voiceChannelIds = useMemo(
+    () => channels.filter((c) => c.type === 'VOICE').map((c) => c.id),
+    [channels],
+  )
+  const voicePresence = useVoiceChannelPresence(voiceChannelIds)
+
+  // Avatar lookup batch — uma query única pra todas as identities visíveis
+  const allVoiceIdentities = useMemo(() => {
+    if (!voicePresence.data) return [] as string[]
+    return Object.values(voicePresence.data).flat()
+  }, [voicePresence.data])
+  const voiceUsers = useUsersMini(allVoiceIdentities)
+  const voiceUserMap = useMemo(
+    () => new Map((voiceUsers.data ?? []).map((u) => [u.id, u])),
+    [voiceUsers.data],
+  )
   const regularServers = servers.filter((s) => !s.isGroup)
   const groups         = servers.filter((s) => s.isGroup)
   const editTarget     = servers.find((s) => s.id === editServerId)
@@ -342,6 +361,8 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                     onRename={(newName) => renameChannel.mutate({ channelId: ch.id, name: newName })}
                     onDelete={() => deleteChannel.mutate(ch.id)}
                     onMarkRead={() => unread.markRead(ch.id)}
+                    participantIds={ch.type === 'VOICE' ? (voicePresence.data?.[ch.id] ?? []) : []}
+                    userMap={voiceUserMap}
                   />
                 ))}
               </>
@@ -528,17 +549,19 @@ function StripButton({ title, icon, onClick }: {
 
 function ChannelButton({
   channel, isActive, hasUnread, onClick, index,
-  canManage, onRename, onDelete, onMarkRead,
+  canManage, onRename, onDelete, onMarkRead, participantIds, userMap,
 }: {
-  channel:    ChannelInfo
-  isActive:   boolean
-  hasUnread:  boolean
-  onClick:    () => void
-  index:      number
-  canManage?: boolean
-  onRename?:  (newName: string) => void
-  onDelete?:  () => void
-  onMarkRead?: () => void
+  channel:        ChannelInfo
+  isActive:       boolean
+  hasUnread:      boolean
+  onClick:        () => void
+  index:          number
+  canManage?:     boolean
+  onRename?:      (newName: string) => void
+  onDelete?:      () => void
+  onMarkRead?:    () => void
+  participantIds?: string[]
+  userMap?:       Map<string, { id: string; displayName: string; avatarUrl: string | null }>
 }) {
   const isVoice  = channel.type === 'VOICE'
   const voice    = useVoiceCall()
@@ -621,8 +644,11 @@ function ChannelButton({
     })
   }
 
+  const showVoiceList = isVoice && (participantIds?.length ?? 0) > 0
+
   return (
     <EditorialContextMenu items={menuItems}>
+    <div className="flex flex-col">
     <button
       onClick={handleClick}
       disabled={isVoice && !cfg.data?.enabled}
@@ -669,7 +695,56 @@ function ChannelButton({
         <span className="size-1.5 rounded-full bg-(--accent) shrink-0" aria-label="Não lido" />
       )}
     </button>
+    {showVoiceList && (
+      <VoiceParticipantsRow
+        identities={participantIds ?? []}
+        userMap={userMap}
+      />
+    )}
+    </div>
     </EditorialContextMenu>
+  )
+}
+
+/**
+ * VoiceParticipantsRow — chip mini com avatares de quem está num canal voice.
+ * Sub-row indented sob o ChannelButton. Lookup batch vem de cima (userMap).
+ */
+function VoiceParticipantsRow({
+  identities, userMap,
+}: {
+  identities: string[]
+  userMap?:   Map<string, { id: string; displayName: string; avatarUrl: string | null }>
+}) {
+  const MAX_VISIBLE = 5
+  const visible = identities.slice(0, MAX_VISIBLE)
+  const extra   = identities.length - visible.length
+  return (
+    <ul className="flex items-center gap-1 pl-9 pr-3 pb-1 pt-0.5 flex-wrap" aria-label="Estrelas neste canal">
+      {visible.map((id) => {
+        const u    = userMap?.get(id)
+        const init = (u?.displayName ?? id).slice(0, 1).toUpperCase()
+        return (
+          <li key={id}>
+            <span
+              title={u?.displayName ?? id}
+              className="size-5 rounded-full border border-(--border-mid) bg-(--raised) text-[9px] font-mono text-(--text-2) overflow-hidden grid place-items-center"
+            >
+              {u?.avatarUrl
+                ? <img src={resolveApiUrl(u.avatarUrl)} alt="" className="w-full h-full object-cover" />
+                : init}
+            </span>
+          </li>
+        )
+      })}
+      {extra > 0 && (
+        <li>
+          <span className="size-5 rounded-full bg-(--raised) text-[9px] font-mono text-(--text-3) grid place-items-center border border-(--border-mid)">
+            +{extra}
+          </span>
+        </li>
+      )}
+    </ul>
   )
 }
 

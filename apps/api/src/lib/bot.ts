@@ -19,6 +19,8 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
+import { createId } from '../db/cuid'
+import { generateCoordinate } from './coordinate'
 import { redis } from './redis'
 import { env } from './env'
 import { logger } from './logger'
@@ -60,9 +62,12 @@ export async function initBot(): Promise<string> {
     .where(eq(users.username, BOT_USERNAME)).limit(1)
   if (existing) return existing.id
 
+  const botId = createId()
   const [bot] = await db.insert(users).values({
+    id:          botId,
     email:       BOT_EMAIL,
     username:    BOT_USERNAME,
+    coordinate:  generateCoordinate(botId),
     displayName: BOT_DISPLAYNAME,
     isBot:       true,
     bio:         'Bot oficial do Umbra. Memória de 24h. Use /umbra <pergunta>',

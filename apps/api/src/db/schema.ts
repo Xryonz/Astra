@@ -14,6 +14,9 @@ export const users = pgTable('User', {
   id:           text('id').primaryKey().$defaultFn(createId),
   email:        text('email').notNull().unique(),
   username:     text('username').notNull().unique(),
+  /** Coordenada Astra: 'AAAA-BB' (6 hex + hífen). Identificador público
+   *  pra adicionar amigos via convite. Derivado deterministicamente de md5(id). */
+  coordinate:   text('coordinate').notNull().unique(),
   displayName:  text('displayName').notNull(),
   avatarUrl:    text('avatarUrl'),
   bio:          text('bio'),

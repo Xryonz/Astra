@@ -21,6 +21,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { badRequest, notFound } from '../lib/errors'
 import { redis } from '../lib/redis'
 import { getOrCreateConversation } from '../lib/dmCore'
+import { isValidCoordinate, normalizeCoordinate } from '../lib/coordinate'
 
 const router = Router()
 
@@ -117,12 +118,23 @@ router.get('/outgoing', requireAuth, asyncHandler(async (req: Request, res: Resp
 }))
 
 // ── Request ──────────────────────────────────────────────────
-const RequestSchema = z.object({ username: z.string().min(1).max(64) })
+// Aceita identificação via username OU coordenada (Astra ID, ex: A7F2-9B).
+const RequestSchema = z
+  .object({
+    username:   z.string().min(1).max(64).optional(),
+    coordinate: z.string().refine(isValidCoordinate, 'Coordenada inválida').optional(),
+  })
+  .refine((d) => !!d.username || !!d.coordinate, {
+    message: 'Informe username ou coordenada',
+  })
 
 router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async (req: Request, res: Response) => {
-  const { username } = req.body as z.infer<typeof RequestSchema>
+  const { username, coordinate } = req.body as z.infer<typeof RequestSchema>
   const [target] = await db.select({ id: users.id }).from(users)
-    .where(eq(users.username, username)).limit(1)
+    .where(coordinate
+      ? eq(users.coordinate, normalizeCoordinate(coordinate))
+      : eq(users.username, username!))
+    .limit(1)
   if (!target) throw notFound('Usuário não encontrado')
   if (target.id === req.userId) throw badRequest('Não pode adicionar você mesmo')
 

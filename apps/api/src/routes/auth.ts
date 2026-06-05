@@ -16,6 +16,8 @@ import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
 import { RegisterSchema, LoginSchema } from '@umbra/types'
+import { createId } from '../db/cuid'
+import { generateCoordinate } from '../lib/coordinate'
 
 const router = Router()
 
@@ -23,6 +25,7 @@ const userSafeColumns = {
   id:          users.id,
   email:       users.email,
   username:    users.username,
+  coordinate:  users.coordinate,
   displayName: users.displayName,
   avatarUrl:   users.avatarUrl,
   bio:         users.bio,
@@ -69,8 +72,13 @@ router.post(
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
+    const newUserId = createId()
     const [user] = await db.insert(users)
-      .values({ email, username, displayName, passwordHash })
+      .values({
+        id: newUserId,
+        email, username, displayName, passwordHash,
+        coordinate: generateCoordinate(newUserId),
+      })
       .returning(userSafeColumns)
 
     const { token: accessToken } = generateAccessToken(user.id)

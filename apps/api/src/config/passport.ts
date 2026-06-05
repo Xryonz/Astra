@@ -3,6 +3,8 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
+import { createId } from '../db/cuid'
+import { generateCoordinate } from '../lib/coordinate'
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
@@ -49,10 +51,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             .replace(/[^a-z0-9]/g, '_')
             .slice(0, 27)
 
+          const newUserId = createId()
           const [created] = await db.insert(users).values({
+            id:          newUserId,
             googleId:    profile.id,
             email,
             username:    `${localPart}_${profile.id.slice(0, 4)}`,
+            coordinate:  generateCoordinate(newUserId),
             displayName: profile.displayName,
             avatarUrl:   profile.photos?.[0].value ?? null,
           }).returning()

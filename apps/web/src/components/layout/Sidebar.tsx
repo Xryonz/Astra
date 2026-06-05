@@ -201,14 +201,14 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             <TooltipTrigger asChild>
               <button
                 onClick={() => { navigate('/app/dm'); closeMobile() }}
-                aria-label="Mensagens diretas"
+                aria-label="Estrelas"
                 className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-all cursor-pointer"
                 style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }}
               >
                 <Sparkles className="size-6" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Mensagens diretas</TooltipContent>
+            <TooltipContent side="right">Estrelas — mensagens diretas</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -261,12 +261,12 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
 
           <div className="w-7 h-px bg-border my-0.5" />
           <StripButton
-            title="Criar servidor"
+            title="Criar constelação"
             icon={<Plus className="size-5" />}
             onClick={(origin) => { setCreateMode('server'); setPopOrigin(origin); setShowCreateModal(true) }}
           />
           <StripButton
-            title="Criar grupo"
+            title="Criar aglomerado"
             icon={<Users className="size-4" />}
             onClick={(origin) => { setCreateMode('group'); setPopOrigin(origin); setShowCreateModal(true) }}
           />

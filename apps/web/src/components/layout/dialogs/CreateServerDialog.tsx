@@ -59,11 +59,13 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
           <div className="size-10 bg-primary/10 border border-border rounded-xl flex items-center justify-center mb-2">
             {mode === 'group' ? <Users className="size-5 text-primary" /> : <Plus className="size-5 text-primary" />}
           </div>
-          <DialogTitle>{mode === 'group' ? 'Novo grupo' : 'Novo servidor'}</DialogTitle>
+          <DialogTitle>
+            {mode === 'group' ? 'Crie um aglomerado' : 'Crie uma constelação'}
+          </DialogTitle>
           <DialogDescription>
             {mode === 'group'
-              ? 'Grupos são privados — adicione membros manualmente.'
-              : 'Servidores podem ser acessados por link de convite.'}
+              ? 'Aglomerados são privados — adicione estrelas manualmente.'
+              : 'Constelações podem ser acessadas por link de convite.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -75,7 +77,7 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
             value={name}
             onChange={(e) => { setName(e.target.value); setError('') }}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder={mode === 'group' ? 'Ex: Amigos da faculdade' : 'Ex: Meu Servidor'}
+            placeholder={mode === 'group' ? 'Ex: Amigos da faculdade' : 'Ex: Órion'}
           />
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
@@ -83,7 +85,9 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button onClick={submit} disabled={createServer.isPending || !name.trim()}>
-            {createServer.isPending ? 'Criando…' : mode === 'group' ? 'Criar grupo' : 'Criar servidor'}
+            {createServer.isPending
+              ? (mode === 'group' ? 'Formando…' : 'Acendendo…')
+              : (mode === 'group' ? 'Criar aglomerado' : 'Criar constelação')}
           </Button>
         </DialogFooter>
       </DialogContent>

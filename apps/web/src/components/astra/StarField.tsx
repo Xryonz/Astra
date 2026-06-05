@@ -11,7 +11,7 @@
  * - Determinístico (seed fixa) → mesma constelação em todos os clients
  */
 
-const TWO_TONES = ['1px', '2px']
+const TWO_TONES = ['2px', '3px']
 
 function seededRand(seed: number) {
   let s = seed
@@ -48,10 +48,10 @@ function buildTwinkleStars(): TwinkleStar[] {
   return Array.from({ length: 14 }, () => ({
     x:        rand() * 100,
     y:        rand() * 100,
-    size:     1 + Math.floor(rand() * 2),
+    size:     2 + Math.floor(rand() * 2),       // 2 ou 3px (era 1-2)
     delay:    rand() * 6,
     dur:      2.6 + rand() * 2.4,
-    driftDur: 28 + rand() * 24,                 // 28-52s drift loop
+    driftDur: 22 + rand() * 16,                 // 22-38s (mais rápido pra perceber)
     driftDir: rand() > 0.5 ? 1 : -1,
   }))
 }
@@ -83,9 +83,9 @@ export default function StarField() {
         inset:          0,
         zIndex:         -1,
         pointerEvents:  'none',
-        color:          'var(--text-1)',
+        color:          'var(--accent)',      // ← cor de destaque do user
         backgroundImage: STARS_BG,
-        opacity:        0.14,
+        opacity:        0.32,                  // mais visível (era 0.14)
         mixBlendMode:   'screen',
       }}
     >

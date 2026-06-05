@@ -195,24 +195,32 @@
   .astra-twinkle { animation: none; opacity: 0.6; }
   .astra-drift   { animation: none; }
 }
-/* Astra: chuva sutil de estrelas caindo. Diagonal pra esquerda-baixo,
-   atravessa a viewport saindo embaixo. Fade-in/out evita cortar a borda.
-   Versão CW (horário) e CCW (anti-horário) — varia rotação por estrela. */
-@keyframes astraFallCW {
-  0%   { transform: translate(0,    -10vh) rotate(0deg);    opacity: 0; }
-  8%   { opacity: 0.55; }
-  92%  { opacity: 0.55; }
-  100% { transform: translate(-40vw, 110vh) rotate(360deg); opacity: 0; }
+/* Astra: drift GLOBAL da bg-layer. Todo o "céu" se desloca em loop
+   elíptico. 1 animação só, GPU compositor — custo trivial mesmo
+   em low-end mobile. */
+@keyframes astraGlobalDrift {
+  0%   { transform: translate(0,    0); }
+  25%  { transform: translate(14px, -8px); }
+  50%  { transform: translate(0,  -18px); }
+  75%  { transform: translate(-14px,-8px); }
+  100% { transform: translate(0,    0); }
 }
-@keyframes astraFallCCW {
-  0%   { transform: translate(0,    -10vh) rotate(0deg);     opacity: 0; }
-  8%   { opacity: 0.55; }
-  92%  { opacity: 0.55; }
-  100% { transform: translate(-40vw, 110vh) rotate(-360deg); opacity: 0; }
+/* Astra: meteoros (raros). Duração 28-34s mas visível só 4-14% do ciclo
+   (4 segundos visíveis, ~25s offscreen). Sai diagonal esquerda-baixo,
+   rotação 720° pra parecer "girando enquanto cai". CW e CCW pra variar. */
+@keyframes astraMeteorCW {
+  0%   { transform: translate(0,   -20vh) rotate(0deg);   opacity: 0; }
+  4%   { opacity: 0.85; }
+  12%  { opacity: 0.85; }
+  14%  { transform: translate(-55vw, 115vh) rotate(720deg); opacity: 0; }
+  100% { transform: translate(-55vw, 115vh) rotate(720deg); opacity: 0; }
 }
-/* Decorativo: respeita reduce-motion globalmente pra esse container. */
-@media (prefers-reduced-motion: reduce) {
-  .astra-falling { display: none; }
+@keyframes astraMeteorCCW {
+  0%   { transform: translate(0,   -20vh) rotate(0deg);    opacity: 0; }
+  4%   { opacity: 0.85; }
+  12%  { opacity: 0.85; }
+  14%  { transform: translate(-55vw, 115vh) rotate(-720deg); opacity: 0; }
+  100% { transform: translate(-55vw, 115vh) rotate(-720deg); opacity: 0; }
 }
 /* Astra: orbit ring no avatar próprio. SVG circle dashed girando devagar.
    Signature visual exclusiva — só renderizado quando isSelf (ProfileHero

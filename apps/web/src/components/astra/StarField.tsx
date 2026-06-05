@@ -1,15 +1,21 @@
 /**
- * Campo de estrelas — fundo atmosférico da Astra.
+ * StarField — atmosfera completa em 3 camadas, 1 componente.
  *
- * - Fixed inset-0, z-index -1, pointer-events none
- * - 70 dots estáticos via radial-gradient (zero overhead — 1 elemento, 1 bg)
- * - 12 estrelas com twinkle individual (DOM span + CSS animation, delays
- *   determinísticos pra não sincronizar visualmente)
- * - mix-blend-mode: 'screen' → estrelas adaptam: em fundo escuro ficam
- *   claras, em --raised/--base mais visíveis sem precisar de query JS
- * - Opacidade 14% pra ler com o conteúdo sem dominar
- * - Determinístico (seed fixa) → mesma constelação em todos os clients
+ *  Layer 1 (BG)         — 70 mini-estrelas estáticas via radial-gradient,
+ *                          inteiro contêiner faz drift slow (1 GPU layer).
+ *                          "Todas se deslocam" sem custo por estrela.
+ *  Layer 2 (TWINKLES)   — 14 estrelas individuais com twinkle + micro-drift
+ *                          local pra variação além do drift global.
+ *  Layer 3 (METEORS)    — 3 estrelas grandes (lucide Star) caindo na
+ *                          diagonal esquerda-baixo, RARAS (1 a cada ~10s).
+ *                          Animation com pausa longa (visible 12% do ciclo).
+ *
+ * Cor: var(--accent) — segue Aparência do user.
+ * mix-blend-mode: screen — pega contraste em qualquer fundo.
+ * Performance: zero will-change exceto na 1 layer global; transforms only.
+ * prefers-reduced-motion: tudo respeitado via classes nas keyframes.
  */
+import { Star } from 'lucide-react'
 
 const TWO_TONES = ['2px', '3px']
 
@@ -28,7 +34,15 @@ interface TwinkleStar {
   delay:    number
   dur:      number
   driftDur: number
-  driftDir: number    // 1 ou -1 (horário/anti-horário)
+  driftDir: number
+}
+
+interface Meteor {
+  startX:   number
+  delay:    number   // negativo pra stagger
+  duration: number
+  size:     number
+  cw:       boolean
 }
 
 function buildBackground(): string {
@@ -48,67 +62,72 @@ function buildTwinkleStars(): TwinkleStar[] {
   return Array.from({ length: 14 }, () => ({
     x:        rand() * 100,
     y:        rand() * 100,
-    size:     2 + Math.floor(rand() * 2),       // 2 ou 3px (era 1-2)
+    size:     2 + Math.floor(rand() * 2),
     delay:    rand() * 6,
     dur:      2.6 + rand() * 2.4,
-    driftDur: 22 + rand() * 16,                 // 22-38s (mais rápido pra perceber)
+    driftDur: 22 + rand() * 16,
     driftDir: rand() > 0.5 ? 1 : -1,
   }))
 }
 
-// Computed once on module load — não recalcula a cada render
-const STARS_BG       = buildBackground()
-const TWINKLE_STARS  = buildTwinkleStars()
+function buildMeteors(): Meteor[] {
+  const rand = seededRand(31415)
+  // 3 meteoros com ciclo 30s; visível só 12% (3.6s). Stagger -10s entre
+  // cada → aparece 1 a cada ~10s. Sensação de "de vez em quando".
+  return Array.from({ length: 3 }, (_, i) => ({
+    startX:   25 + rand() * 55,        // 25-80% (margem pra cair pra esquerda)
+    delay:    -(i * 10) + rand() * 2,  // 0, -10, -20 com jitter
+    duration: 28 + rand() * 6,         // 28-34s
+    size:     20 + Math.floor(rand() * 10),  // 20-29px
+    cw:       rand() > 0.5,
+  }))
+}
 
-/**
- * StarField — fundo atmosférico.
- *
- * Estrutura:
- *  <stars container> (mix-blend-mode: screen)
- *    bg-image: 70 estrelas estáticas via radial-gradient (1 elem, 0 cost)
- *    14 twinkles: outer (drift translate) + inner (twinkle scale/opacity)
- *
- * Performance:
- *  - mix-blend-mode no parent — paint once
- *  - cada twinkle = 2 elements GPU (translate/scale = compositor-only)
- *  - drift = 28-52s loop deslocando ±6-10px → quase imperceptível mas vivo
- */
+const STARS_BG  = buildBackground()
+const TWINKLES  = buildTwinkleStars()
+const METEORS   = buildMeteors()
+
 export default function StarField() {
   return (
     <div
       aria-hidden
-      className="astra-stars"
       style={{
-        position:       'fixed',
-        inset:          0,
-        zIndex:         -1,
-        pointerEvents:  'none',
-        color:          'var(--accent)',      // ← cor de destaque do user
-        backgroundImage: STARS_BG,
-        opacity:        0.32,                  // mais visível (era 0.14)
-        mixBlendMode:   'screen',
+        position:      'fixed',
+        inset:         0,
+        zIndex:        -1,
+        pointerEvents: 'none',
+        overflow:      'hidden',
+        color:         'var(--accent)',
+        mixBlendMode:  'screen',
       }}
     >
-      {TWINKLE_STARS.map((s, i) => (
+      {/* ── Layer 1: 70 mini-stars com drift GLOBAL (1 anim, todas se mexem) */}
+      <div
+        style={{
+          position:        'absolute',
+          inset:           0,
+          backgroundImage: STARS_BG,
+          opacity:         0.34,
+          animation:       'astraGlobalDrift 90s linear infinite',
+          willChange:      'transform',
+        }}
+      />
+
+      {/* ── Layer 2: 14 twinkles individuais (twinkle + micro-drift) */}
+      {TWINKLES.map((s, i) => (
         <span
-          key={i}
-          aria-hidden
+          key={`t${i}`}
           style={{
-            position:    'absolute',
-            display:     'block',
-            left:        `${s.x}%`,
-            top:         `${s.y}%`,
-            width:       `${s.size}px`,
-            height:      `${s.size}px`,
-            // animation shorthand inline → vence cascata sem ambiguidade
-            // de class vs longhands. Direção alternada por índice (sem chance
-            // de prop ignorada). 1 anim só: translate sutil em loop.
-            animation:   `astraDrift ${s.driftDur}s linear infinite ${s.driftDir > 0 ? 'normal' : 'reverse'} ${(s.delay * -1.5).toFixed(2)}s`,
-            willChange:  'transform',
+            position:  'absolute',
+            display:   'block',
+            left:      `${s.x}%`,
+            top:       `${s.y}%`,
+            width:     `${s.size}px`,
+            height:    `${s.size}px`,
+            animation: `astraDrift ${s.driftDur}s linear infinite ${s.driftDir > 0 ? 'normal' : 'reverse'} ${(s.delay * -1.5).toFixed(2)}s`,
           }}
         >
           <span
-            aria-hidden
             style={{
               display:      'block',
               width:        '100%',
@@ -116,8 +135,27 @@ export default function StarField() {
               borderRadius: '50%',
               background:   'currentColor',
               animation:    `astraTwinkle ${s.dur}s ease-in-out infinite ${s.delay.toFixed(2)}s`,
-              willChange:   'transform, opacity',
             }}
+          />
+        </span>
+      ))}
+
+      {/* ── Layer 3: 3 meteoros (lucide Star, raros, big) */}
+      {METEORS.map((m, i) => (
+        <span
+          key={`m${i}`}
+          style={{
+            position:  'absolute',
+            top:       0,
+            left:      `${m.startX}%`,
+            animation: `${m.cw ? 'astraMeteorCW' : 'astraMeteorCCW'} ${m.duration}s linear infinite ${m.delay.toFixed(2)}s`,
+          }}
+        >
+          <Star
+            size={m.size}
+            strokeWidth={1.25}
+            fill="currentColor"
+            style={{ display: 'block' }}
           />
         </span>
       ))}

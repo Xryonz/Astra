@@ -6,7 +6,6 @@ import { AppShellSkeleton } from '@/components/skeletons/AppShellSkeleton'
 import { Toaster } from '@/components/ui/sonner'
 import { ConfirmProvider } from '@/hooks/useConfirm'
 import StarField from '@/components/astra/StarField'
-import FallingStars from '@/components/astra/FallingStars'
 import SplashScreen from '@/components/astra/SplashScreen'
 
 // Rotas grandes vão lazy — usuário não-logado nunca carrega AppPage, e vice-versa.
@@ -39,7 +38,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <StarField />
-      <FallingStars />
       <ConfirmProvider>
         <Suspense fallback={<AppShellSkeleton />}>
           <Routes>

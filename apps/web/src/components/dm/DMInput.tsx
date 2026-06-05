@@ -7,14 +7,15 @@
  * Layout: shadcn-style hairline border, focus accent.
  */
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
-import { ArrowRight, X, CornerDownRight, Paperclip, File as FileIcon } from 'lucide-react'
+import { ArrowRight, X, CornerDownRight, Paperclip, File as FileIcon, Mic, Square, Play } from 'lucide-react'
 import { motion } from 'motion/react'
 import { api, resolveApiUrl } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import type { MessageWithAuthor, Attachment } from '@umbra/types'
 import { ComposerActionsMenu } from '@/components/chat/ComposerActionsMenu'
-import { VoiceRecorder } from '@/components/chat/VoiceRecorder'
+import { useAudioRecorder } from '@/hooks/useAudioRecorder'
+import { RecordingDisplay } from '@/components/chat/RecordingDisplay'
 
 const GifPicker       = lazy(() => import('@/components/chat/GifPicker'))
 const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
@@ -67,6 +68,27 @@ export default function DMInput({
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef  = useRef<HTMLInputElement>(null)
+
+  // ─── Audio recorder (mesmo padrão do MessageInput) ───────────
+  const recorder = useAudioRecorder(async (att) => {
+    const optimisticId = nextId()
+    const optimisticMsg: OptimisticMessage = {
+      id: optimisticId, content: '', edited: false,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      optimisticId, isPending: true,
+      author: { id: user!.id, username: user!.username, displayName: user!.displayName, avatarUrl: user!.avatarUrl ?? null },
+      attachments: [att],
+      replyTo: null,
+    } as any
+    onOptimisticMessage(optimisticMsg)
+    try {
+      await api.post(`/api/dm/${conversationId}/messages`, {
+        content: '', attachments: [att], clientNonce: optimisticId,
+      })
+    } catch {
+      onOptimisticFailed(optimisticId)
+    }
+  })
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     setUploadErr(null)
@@ -330,28 +352,18 @@ export default function DMInput({
           hidePoll
         />
 
-        {/* Voz */}
-        <VoiceRecorder
-          onRecorded={async (att) => {
-            const optimisticId = nextId()
-            const optimisticMsg: OptimisticMessage = {
-              id: optimisticId, content: '', edited: false,
-              createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-              optimisticId, isPending: true,
-              author: { id: user!.id, username: user!.username, displayName: user!.displayName, avatarUrl: user!.avatarUrl ?? null },
-              attachments: [att],
-              replyTo: null,
-            } as any
-            onOptimisticMessage(optimisticMsg)
-            try {
-              await api.post(`/api/dm/${conversationId}/messages`, {
-                content: '', attachments: [att], clientNonce: optimisticId,
-              })
-            } catch {
-              onOptimisticFailed(optimisticId)
-            }
-          }}
-        />
+        {/* Mic trigger — só visível idle. Recording UI assume a row. */}
+        {recorder.state === 'idle' && (
+          <button
+            type="button"
+            onClick={() => recorder.start()}
+            aria-label="Gravar áudio"
+            title="Gravar áudio"
+            className="shrink-0 size-10 sm:size-9 grid place-items-center cursor-pointer text-(--text-3) hover:text-(--accent) transition-colors"
+          >
+            <Mic className="size-4" />
+          </button>
+        )}
 
         {/* TTL indicator chip */}
         {ttlSeconds > 0 && (
@@ -367,38 +379,77 @@ export default function DMInput({
 
         <span className="h-5 w-px bg-(--border) shrink-0" aria-hidden />
 
-        <textarea
-          ref={inputRef}
-          value={content}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder={attachments.length > 0 ? 'Mensagem opcional…' : `Mensagem para ${otherUser.displayName}`}
-          rows={1}
-          className="
-            flex-1 bg-transparent text-foreground text-sm leading-5
-            border-0 outline-none resize-none max-h-32 px-1 py-1
-            placeholder:text-(--text-3) placeholder:font-normal
-            font-(family-name:--font-body)
-          "
-        />
+        {recorder.isActive ? (
+          <RecordingDisplay
+            state={recorder.state}
+            bars={recorder.bars}
+            elapsedMs={recorder.elapsed}
+            error={recorder.error}
+          />
+        ) : (
+          <textarea
+            ref={inputRef}
+            value={content}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={attachments.length > 0 ? 'Mensagem opcional…' : `Mensagem para ${otherUser.displayName}`}
+            rows={1}
+            className="
+              flex-1 bg-transparent text-foreground text-sm leading-5
+              border-0 outline-none resize-none max-h-32 px-1 py-1
+              placeholder:text-(--text-3) placeholder:font-normal
+              font-(family-name:--font-body)
+            "
+          />
+        )}
+
+        {/* Cancel + Pause/Resume ao lado da seta durante gravação */}
+        {recorder.isActive && recorder.state !== 'uploading' && (
+          <>
+            <button
+              type="button"
+              onClick={() => recorder.cancel()}
+              aria-label="Cancelar gravação"
+              title="Cancelar"
+              className="shrink-0 size-10 sm:size-9 grid place-items-center text-(--text-3) hover:text-(--danger) transition-colors cursor-pointer"
+            >
+              <X className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => recorder.state === 'paused' ? recorder.resume() : recorder.pause()}
+              aria-label={recorder.state === 'paused' ? 'Retomar gravação' : 'Pausar gravação'}
+              title={recorder.state === 'paused' ? 'Retomar' : 'Pausar'}
+              className="shrink-0 size-10 sm:size-9 grid place-items-center text-(--accent) hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              {recorder.state === 'paused' ? <Play className="size-4" /> : <Square className="size-4" fill="currentColor" />}
+            </button>
+          </>
+        )}
 
         <motion.button
-          onClick={send}
-          disabled={!canSend}
+          onClick={() => {
+            if (recorder.isActive && recorder.state !== 'uploading') {
+              recorder.finalize()
+            } else {
+              send()
+            }
+          }}
+          disabled={recorder.state === 'uploading' ? true : (!recorder.isActive && !canSend)}
           aria-label="Enviar"
           title="Enviar (Enter)"
-          whileTap={canSend ? { scale: 0.85, rotate: -8 } : undefined}
-          whileHover={canSend ? { scale: 1.08 } : undefined}
+          whileTap={(canSend || recorder.isActive) ? { scale: 0.85, rotate: -8 } : undefined}
+          whileHover={(canSend || recorder.isActive) ? { scale: 1.08 } : undefined}
           transition={{ type: 'spring', stiffness: 600, damping: 22 }}
           className={cn(
-            'shrink-0 size-8 rounded-full flex items-center justify-center transition-[background-color,box-shadow] duration-200',
-            canSend
+            'shrink-0 size-10 sm:size-8 rounded-full flex items-center justify-center transition-[background-color,box-shadow] duration-200',
+            (canSend || (recorder.isActive && recorder.state !== 'uploading'))
               ? 'bg-(--accent) text-(--text-inv) hover:shadow-[0_4px_16px_var(--accent-glow)] cursor-pointer'
               : 'bg-(--raised) text-(--text-3) cursor-default',
           )}
         >
-          <ArrowRight className="size-3.5" strokeWidth={2} />
+          <ArrowRight className="size-4 sm:size-3.5" strokeWidth={2} />
         </motion.button>
       </div>
     </div>

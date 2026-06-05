@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, VolumeX, X, CornerDownRight, Paperclip, File as FileIcon } from 'lucide-react'
+import { ArrowRight, VolumeX, X, CornerDownRight, Paperclip, File as FileIcon, Mic, Square, Play } from 'lucide-react'
 import { motion } from 'motion/react'
 import { api, resolveApiUrl } from '@/lib/api'
 import { getSocket } from '@/lib/socket'
@@ -17,7 +17,8 @@ import type { MessageWithAuthor, Attachment } from '@umbra/types'
 const GifPicker       = lazy(() => import('@/components/chat/GifPicker'))
 const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
 const PollComposer    = lazy(() => import('@/components/chat/PollComposer'))
-import { VoiceRecorder } from '@/components/chat/VoiceRecorder'
+import { useAudioRecorder } from '@/hooks/useAudioRecorder'
+import { RecordingDisplay } from '@/components/chat/RecordingDisplay'
 import { ComposerActionsMenu } from '@/components/chat/ComposerActionsMenu'
 
 const MAX_ATTACHMENTS = 10
@@ -77,6 +78,32 @@ export default function MessageInput({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef  = useRef<HTMLInputElement>(null)
   const { startTyping, stopTyping } = useTyping(channelId)
+
+  // ─── Audio recorder ──────────────────────────────────────────
+  // Estado mora aqui (sobe da UI antiga). Send arrow finaliza, Square
+  // pausa/retoma, X cancela. Bug do botão de áudio "não funcionar"
+  // era UX: tinha 2 ações (square=enviar, X=cancelar) dentro do
+  // recorder, e a seta principal não atuava no áudio. Agora a seta é
+  // a única ação de "enviar" — texto OU áudio, conforme estado.
+  const recorder = useAudioRecorder(async (att) => {
+    const optimisticId = nextOptimisticId()
+    const optimisticMsg: OptimisticMessage = {
+      id: optimisticId, content: '', edited: false,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      optimisticId, isPending: true,
+      author: { id: user!.id, username: user!.username, displayName: user!.displayName, avatarUrl: user!.avatarUrl ?? null },
+      attachments: [att],
+      replyTo: null,
+    } as any
+    onOptimisticMessage(optimisticMsg)
+    try {
+      await api.post(`/api/channels/${channelId}/messages`, {
+        content: '', attachments: [att], clientNonce: optimisticId,
+      })
+    } catch {
+      onOptimisticFailed(optimisticId)
+    }
+  })
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     setUploadErr(null)
@@ -531,30 +558,22 @@ export default function MessageInput({
           onTtlChange={(s) => setTtlSeconds(s)}
         />
 
-        {/* Mensagem de voz */}
-        <VoiceRecorder
-          disabled={muted}
-          onRecorded={async (att) => {
-            // Envia direto (não vira draft) — flow simples
-            const optimisticId = nextOptimisticId()
-            const optimisticMsg: OptimisticMessage = {
-              id: optimisticId, content: '', edited: false,
-              createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-              optimisticId, isPending: true,
-              author: { id: user!.id, username: user!.username, displayName: user!.displayName, avatarUrl: user!.avatarUrl ?? null },
-              attachments: [att],
-              replyTo: null,
-            } as any
-            onOptimisticMessage(optimisticMsg)
-            try {
-              await api.post(`/api/channels/${channelId}/messages`, {
-                content: '', attachments: [att], clientNonce: optimisticId,
-              })
-            } catch {
-              onOptimisticFailed(optimisticId)
-            }
-          }}
-        />
+        {/* Mic trigger — só visível quando idle. Recording UI assume a row. */}
+        {recorder.state === 'idle' && (
+          <button
+            type="button"
+            onClick={() => recorder.start()}
+            disabled={muted}
+            aria-label="Gravar áudio"
+            title="Gravar áudio"
+            className={cn(
+              'shrink-0 size-10 sm:size-9 grid place-items-center cursor-pointer transition-colors',
+              muted ? 'text-(--text-3) opacity-50 cursor-default' : 'text-(--text-3) hover:text-(--accent)',
+            )}
+          >
+            <Mic className="size-4" />
+          </button>
+        )}
 
         {/* TTL indicator chip — clicável só pra status visual */}
         {ttlSeconds > 0 && (
@@ -571,42 +590,84 @@ export default function MessageInput({
         {/* Vertical hairline separator */}
         <span className="h-5 w-px bg-(--border) shrink-0" aria-hidden />
 
-        <textarea
-          ref={inputRef}
-          value={content}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          disabled={muted}
-          placeholder={muted ? 'Silenciado…' : attachments.length > 0 ? 'Mensagem opcional…' : `Mensagem em #${channelName}`}
-          rows={1}
-          className="
-            flex-1 bg-transparent text-foreground text-sm leading-5
-            border-0 outline-none resize-none max-h-32 px-1 py-1
-            placeholder:text-(--text-3) placeholder:font-normal
-            font-(family-name:--font-body)
-          "
-        />
+        {/* Center: textarea OU UI de gravação (bars + timer) */}
+        {recorder.isActive ? (
+          <RecordingDisplay
+            state={recorder.state}
+            bars={recorder.bars}
+            elapsedMs={recorder.elapsed}
+            error={recorder.error}
+          />
+        ) : (
+          <textarea
+            ref={inputRef}
+            value={content}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            disabled={muted}
+            placeholder={muted ? 'Silenciado…' : attachments.length > 0 ? 'Mensagem opcional…' : `Mensagem em #${channelName}`}
+            rows={1}
+            className="
+              flex-1 bg-transparent text-foreground text-sm leading-5
+              border-0 outline-none resize-none max-h-32 px-1 py-1
+              placeholder:text-(--text-3) placeholder:font-normal
+              font-(family-name:--font-body)
+            "
+          />
+        )}
 
-        {/* Send */}
+        {/* Durante gravação: Cancel + Pause/Resume ao lado da seta */}
+        {recorder.isActive && recorder.state !== 'uploading' && (
+          <>
+            <button
+              type="button"
+              onClick={() => recorder.cancel()}
+              aria-label="Cancelar gravação"
+              title="Cancelar"
+              className="shrink-0 size-10 sm:size-9 grid place-items-center text-(--text-3) hover:text-(--danger) transition-colors cursor-pointer"
+            >
+              <X className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => recorder.state === 'paused' ? recorder.resume() : recorder.pause()}
+              aria-label={recorder.state === 'paused' ? 'Retomar gravação' : 'Pausar gravação'}
+              title={recorder.state === 'paused' ? 'Retomar' : 'Pausar'}
+              className="shrink-0 size-10 sm:size-9 grid place-items-center text-(--accent) hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              {recorder.state === 'paused' ? <Play className="size-4" /> : <Square className="size-4" fill="currentColor" />}
+            </button>
+          </>
+        )}
+
+        {/* Send — única ação de "enviar" (texto OU áudio).
+            Durante gravação, manda recorder.finalize() (stop + upload). */}
         <motion.button
-          onClick={send}
-          disabled={!canSend}
+          onClick={() => {
+            if (recorder.isActive && recorder.state !== 'uploading') {
+              recorder.finalize()
+            } else {
+              send()
+            }
+          }}
+          disabled={recorder.state === 'uploading' ? true : (!recorder.isActive && !canSend)}
           aria-label="Enviar"
           title="Enviar (Enter)"
-          whileTap={canSend ? { scale: 0.85, rotate: -8 } : undefined}
-          whileHover={canSend ? { scale: 1.08 } : undefined}
+          whileTap={(canSend || recorder.isActive) ? { scale: 0.85, rotate: -8 } : undefined}
+          whileHover={(canSend || recorder.isActive) ? { scale: 1.08 } : undefined}
           transition={{ type: 'spring', stiffness: 600, damping: 22 }}
           className={cn(
-            'shrink-0 size-8 rounded-full flex items-center justify-center transition-[background-color,box-shadow] duration-200',
-            canSend
+            'shrink-0 size-10 sm:size-8 rounded-full flex items-center justify-center transition-[background-color,box-shadow] duration-200',
+            (canSend || (recorder.isActive && recorder.state !== 'uploading'))
               ? 'bg-(--accent) text-(--text-inv) hover:shadow-[0_4px_16px_var(--accent-glow)] cursor-pointer'
               : 'bg-(--raised) text-(--text-3) cursor-default',
           )}
         >
-          <ArrowRight className="size-3.5" strokeWidth={2} />
+          <ArrowRight className="size-4 sm:size-3.5" strokeWidth={2} />
         </motion.button>
       </div>
     </div>
   )
 }
+

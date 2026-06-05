@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import GoogleButton from '@/components/auth/GoogleButton'
 import LoginForm from '@/components/auth/LoginForm'
-import UmbraLogo from '@/components/UmbraLogo'
+import AstraLogo from '@/components/AstraLogo'
 import { Reveal } from '@/components/anim/Reveal'
 import { Separator } from '@/components/ui/separator'
 import { Kbd } from '@/components/ui/kbd'
@@ -101,7 +101,7 @@ export default function LoginPage() {
 
           <Reveal delay={0.05}>
             <div className="flex items-center gap-3 mb-16">
-              <UmbraLogo size={32} />
+              <AstraLogo size={32} />
               <span className="font-(family-name:--font-display) text-lg text-(--text-1) tracking-tight">Umbra</span>
             </div>
           </Reveal>

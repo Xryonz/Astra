@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '@/components/layout/Sidebar'
-import UmbraLogo from '@/components/UmbraLogo'
+import AstraLogo from '@/components/AstraLogo'
 import { Reveal } from '@/components/anim/Reveal'
 import { PageTransition } from '@/components/anim/PageTransition'
 import { AnimatePresence } from 'motion/react'
@@ -221,7 +221,7 @@ function ChannelView() {
               <div className="col-span-12 md:col-span-7 md:col-start-4 flex flex-col justify-center max-w-[44ch]">
                 <Reveal delay={0.05}>
                   <div className="anim-float mb-7">
-                    <UmbraLogo size={88} />
+                    <AstraLogo size={88} />
                   </div>
                 </Reveal>
 

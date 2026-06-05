@@ -1,7 +1,7 @@
 {
-  "name": "Umbra",
-  "short_name": "Umbra",
-  "description": "Plataforma de mensagens em tempo real — editorial-dark.",
+  "name": "Astra",
+  "short_name": "Astra",
+  "description": "Mensagens em tempo real, em forma de constelações.",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

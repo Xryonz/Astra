@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import GoogleButton from '@/components/auth/GoogleButton'
 import RegisterForm from '@/components/auth/RegisterForm'
-import UmbraLogo from '@/components/UmbraLogo'
+import AstraLogo from '@/components/AstraLogo'
 import { Reveal } from '@/components/anim/Reveal'
 import { Separator } from '@/components/ui/separator'
 import { Kbd } from '@/components/ui/kbd'
@@ -57,7 +57,7 @@ export default function RegisterPage() {
         <div className="relative z-10 flex flex-col justify-center w-full pl-32 pr-12 py-24 max-w-2xl">
           <Reveal delay={0.15}>
             <div className="mb-8">
-              <UmbraLogo size={80} />
+              <AstraLogo size={80} />
             </div>
           </Reveal>
 
@@ -115,7 +115,7 @@ export default function RegisterPage() {
 
           <Reveal delay={0.05}>
             <div className="flex items-center gap-3 mb-12">
-              <UmbraLogo size={32} />
+              <AstraLogo size={32} />
               <span className="font-(family-name:--font-display) text-lg text-(--text-1) tracking-tight">Umbra</span>
             </div>
           </Reveal>

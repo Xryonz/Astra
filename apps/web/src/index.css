@@ -195,6 +195,25 @@
   .astra-twinkle { animation: none; opacity: 0.6; }
   .astra-drift   { animation: none; }
 }
+/* Astra: chuva sutil de estrelas caindo. Diagonal pra esquerda-baixo,
+   atravessa a viewport saindo embaixo. Fade-in/out evita cortar a borda.
+   Versão CW (horário) e CCW (anti-horário) — varia rotação por estrela. */
+@keyframes astraFallCW {
+  0%   { transform: translate(0,    -10vh) rotate(0deg);    opacity: 0; }
+  8%   { opacity: 0.55; }
+  92%  { opacity: 0.55; }
+  100% { transform: translate(-40vw, 110vh) rotate(360deg); opacity: 0; }
+}
+@keyframes astraFallCCW {
+  0%   { transform: translate(0,    -10vh) rotate(0deg);     opacity: 0; }
+  8%   { opacity: 0.55; }
+  92%  { opacity: 0.55; }
+  100% { transform: translate(-40vw, 110vh) rotate(-360deg); opacity: 0; }
+}
+/* Decorativo: respeita reduce-motion globalmente pra esse container. */
+@media (prefers-reduced-motion: reduce) {
+  .astra-falling { display: none; }
+}
 /* Astra: orbit ring no avatar próprio. SVG circle dashed girando devagar.
    Signature visual exclusiva — só renderizado quando isSelf (ProfileHero
    só passa coordinate pro próprio user). */

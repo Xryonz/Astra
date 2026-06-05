@@ -40,6 +40,8 @@ interface ProfileCardProps {
 interface PublicUser {
   id:                string
   username:          string
+  /** Coordenada Astra (AAAA-BB) — só presente no /me próprio. */
+  coordinate?:       string
   displayName:       string
   avatarUrl:         string | null
   bio:               string | null
@@ -142,6 +144,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                   avatarUrl={profile.avatarUrl}
                   displayName={profile.displayName}
                   username={profile.username}
+                  coordinate={isSelf ? profile.coordinate : undefined}
                   pronouns={profile.pronouns}
                   statusEmoji={profile.statusEmoji}
                   displayFont={profile.displayFont}

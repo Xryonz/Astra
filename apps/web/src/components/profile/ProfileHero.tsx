@@ -11,6 +11,8 @@ interface Props {
   avatarUrl?:        string | null
   displayName:       string
   username:          string
+  /** Quando passada, renderiza a coord abaixo do handle. ProfileCard só passa pro próprio user. */
+  coordinate?:       string
   pronouns?:         string | null
   statusEmoji?:      string | null
   displayFont?:      DisplayFont
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export function ProfileHero({
-  avatarUrl, displayName, username, pronouns, statusEmoji,
+  avatarUrl, displayName, username, coordinate, pronouns, statusEmoji,
   displayFont = 'serif', effectiveStatus, isBot, accentColor,
 }: Props) {
   const fontFamily = FONT_FAMILY[displayFont]
@@ -94,6 +96,37 @@ export function ProfileHero({
           </>
         )}
       </div>
+
+      {/* Coordenada — só renderiza pra própria pessoa */}
+      {coordinate && <CoordinateChip coord={coordinate} accentColor={accentColor} />}
     </>
+  )
+}
+
+/**
+ * Chip da coordenada Astra. Clica → copia pra clipboard + toast.
+ */
+function CoordinateChip({ coord, accentColor }: { coord: string; accentColor: string }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(coord)
+      const { toast } = await import('@/components/ui/sonner')
+      toast.success('Coordenada copiada.')
+    } catch { /* ignora — clipboard pode estar bloqueado em iframe */ }
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-marg font-mono tracking-wider cursor-pointer hover:bg-(--raised)/40 transition-colors"
+      style={{
+        borderColor: `color-mix(in srgb, ${accentColor} 30%, transparent)`,
+        color:        accentColor,
+      }}
+      title="Clica pra copiar"
+    >
+      <span aria-hidden>✦</span>
+      <span>{coord}</span>
+    </button>
   )
 }

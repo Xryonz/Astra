@@ -179,6 +179,8 @@ export interface UserPublic {
   id:          string
   email?:      string
   username:    string
+  /** Coordenada Astra (AAAA-BB). Identificador público pra adicionar amigos. */
+  coordinate?: string
   displayName: string
   avatarUrl:   string | null
   bio?:        string | null

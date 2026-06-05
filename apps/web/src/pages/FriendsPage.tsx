@@ -380,19 +380,41 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
 }
 
 function AddFriendForm() {
-  const [username, setUsername] = useState('')
-  const [msg,      setMsg]      = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [mode, setMode]         = useState<'username' | 'coordinate'>('username')
+  const [value, setValue]       = useState('')
+  const [msg,   setMsg]         = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const send = useSendFriendRequest()
+
+  // Normaliza coordenada pra UPPERCASE em tempo real (formato AAAA-BB)
+  const onChange = (raw: string) => {
+    setMsg(null)
+    if (mode === 'coordinate') {
+      setValue(raw.toUpperCase().replace(/[^A-F0-9-]/g, '').slice(0, 7))
+    } else {
+      setValue(raw)
+    }
+  }
+
+  const switchMode = (next: 'username' | 'coordinate') => {
+    if (next === mode) return
+    setMode(next); setValue(''); setMsg(null)
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username.trim()) return
+    const trimmed = value.trim()
+    if (!trimmed) return
+    if (mode === 'coordinate' && !/^[A-F0-9]{4}-[A-F0-9]{2}$/.test(trimmed)) {
+      setMsg({ kind: 'err', text: 'Formato inválido. Use AAAA-BB (ex: A7F2-9B).' })
+      return
+    }
     setMsg(null)
     try {
-      const r = await send.mutateAsync(username.trim())
-      if (r.status === 'accepted') setMsg({ kind: 'ok', text: 'Adicionado direto — já era amigo de volta.' })
-      else                          setMsg({ kind: 'ok', text: 'Pedido enviado. Aguardando aceitação.' })
-      setUsername('')
+      const payload = mode === 'username' ? { username: trimmed } : { coordinate: trimmed }
+      const r = await send.mutateAsync(payload)
+      if (r.status === 'accepted') setMsg({ kind: 'ok', text: 'Estrela alinhada — já eram amigos.' })
+      else                         setMsg({ kind: 'ok', text: 'Pedido enviado. Aguardando aceitação.' })
+      setValue('')
     } catch (e: any) {
       setMsg({ kind: 'err', text: e?.response?.data?.error ?? 'Erro ao enviar pedido.' })
     }
@@ -401,16 +423,47 @@ function AddFriendForm() {
   return (
     <Reveal delay={0.05}>
       <form onSubmit={submit} className="space-y-3 max-w-[44ch]">
+        {/* Tabs username/coord */}
+        <div className="flex gap-1 border-b border-(--border) -mb-px">
+          <button
+            type="button"
+            onClick={() => switchMode('username')}
+            className={cn(
+              'px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors',
+              mode === 'username'
+                ? 'text-(--accent) border-b border-(--accent) -mb-px'
+                : 'text-(--text-3) hover:text-(--text-1)',
+            )}
+          >
+            Username
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode('coordinate')}
+            className={cn(
+              'px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors',
+              mode === 'coordinate'
+                ? 'text-(--accent) border-b border-(--accent) -mb-px'
+                : 'text-(--text-3) hover:text-(--text-1)',
+            )}
+          >
+            Coordenada
+          </button>
+        </div>
+
         <label className="block">
-          <span className="ed-label block mb-2">— Username</span>
+          <span className="ed-label block mb-2">
+            {mode === 'username' ? '— @username' : '— Coordenada Astra'}
+          </span>
           <div className="flex gap-2">
             <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ex: maria"
-              className="flex-1"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={mode === 'username' ? 'Ex: maria' : 'Ex: A7F2-9B'}
+              className={cn('flex-1', mode === 'coordinate' && 'font-mono tracking-wider')}
+              maxLength={mode === 'coordinate' ? 7 : 64}
             />
-            <Button type="submit" disabled={!username.trim() || send.isPending} className="gap-2">
+            <Button type="submit" disabled={!value.trim() || send.isPending} className="gap-2">
               <UserPlus className="size-3.5" /> Enviar
             </Button>
           </div>
@@ -421,7 +474,9 @@ function AddFriendForm() {
           </p>
         )}
         <p className="ed-aside max-w-[40ch]">
-          Pra adicionar, peça o @username da pessoa.
+          {mode === 'username'
+            ? 'Peça o @username da pessoa.'
+            : 'Peça a coordenada Astra (aparece no perfil — 6 chars hex com hífen).'}
         </p>
       </form>
     </Reveal>

@@ -49,11 +49,15 @@ export function useFriendOutgoing() {
   })
 }
 
+export type FriendRequestInput =
+  | { username: string }
+  | { coordinate: string }
+
 export function useSendFriendRequest() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (username: string) => {
-      const res = await api.post('/api/friends/request', { username })
+    mutationFn: async (input: FriendRequestInput) => {
+      const res = await api.post('/api/friends/request', input)
       return res.data.data
     },
     onSuccess: () => {

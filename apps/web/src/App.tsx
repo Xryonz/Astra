@@ -5,6 +5,8 @@ import { bootstrapAuth } from '@/lib/bootstrap'
 import { AppShellSkeleton } from '@/components/skeletons/AppShellSkeleton'
 import { Toaster } from '@/components/ui/sonner'
 import { ConfirmProvider } from '@/hooks/useConfirm'
+import StarField from '@/components/astra/StarField'
+import SplashScreen from '@/components/astra/SplashScreen'
 
 // Rotas grandes vão lazy — usuário não-logado nunca carrega AppPage, e vice-versa.
 // Splitting por rota é a otimização de maior impacto pro bundle inicial.
@@ -31,10 +33,11 @@ export default function App() {
     bootstrapAuth().finally(() => setBooted(true))
   }, [])
 
-  if (!booted) return <AppShellSkeleton />
+  if (!booted) return <SplashScreen />
 
   return (
     <BrowserRouter>
+      <StarField />
       <ConfirmProvider>
         <Suspense fallback={<AppShellSkeleton />}>
           <Routes>

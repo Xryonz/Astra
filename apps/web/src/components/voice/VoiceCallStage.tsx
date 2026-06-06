@@ -259,8 +259,11 @@ function ParticipantTile({ participant, user, index }: {
   const videoRef    = useRef<HTMLVideoElement>(null)
   const lkParticipant = participant.participant
 
+  // Video element fica SEMPRE montado (display:hidden quando câmera off).
+  // useEffect só depende de lkParticipant — sync interno detecta on/off
+  // via track events e attach/detach incrementalmente. Antes a dep
+  // [cameraOn] re-rodava o effect a cada toggle → rebinda listeners.
   useEffect(() => {
-    if (!cameraOn) return
     const video = videoRef.current
     if (!video) return
     let currentTrack: any = null
@@ -292,7 +295,7 @@ function ParticipantTile({ participant, user, index }: {
       lkParticipant.off('localTrackUnpublished' as any, sync)
       if (currentTrack) { try { currentTrack.detach(video) } catch {} }
     }
-  }, [lkParticipant, cameraOn])
+  }, [lkParticipant])
 
   return (
     <motion.div
@@ -327,16 +330,21 @@ function ParticipantTile({ participant, user, index }: {
         />
       )}
 
-      {/* Câmera ligada: vídeo cobre o tile. Senão: avatar centralizado. */}
-      {cameraOn ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={participant.isLocal}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      ) : (
+      {/* Câmera ligada: vídeo cobre o tile. Senão: avatar centralizado.
+          videoRef SEMPRE montado (com display none quando off) — evita
+          attach race condition entre mount/unmount do <video>. */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={participant.isLocal}
+        disablePictureInPicture
+        className={cn(
+          'absolute inset-0 w-full h-full object-cover',
+          cameraOn ? 'block' : 'hidden',
+        )}
+      />
+      {!cameraOn && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Avatar
             className={cn(
@@ -429,21 +437,27 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
   const displayName = user?.displayName ?? participant.identity.slice(0, 8)
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-(--accent) shadow-[0_8px_32px_-8px_var(--accent-glow)] bg-black"
+    // Sem motion.layout aqui — quando outros tiles entravam/saíam, o
+    // layout animation re-medida disparava reflow no video element →
+    // flicker visível. Fade-in só na 1ª render é suficiente.
+    <div
+      className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-(--accent) shadow-[0_8px_32px_-8px_var(--accent-glow)] bg-black anim-fade-in"
     >
-      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain" />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        disablePictureInPicture
+        className="w-full h-full object-contain"
+      />
       <div className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-(--accent)/40 flex items-center gap-1.5">
         <ScreenShare className="size-3 text-(--accent)" />
         <span className="text-[10px] font-mono text-white uppercase tracking-wider">
           {displayName} · compartilhando
         </span>
       </div>
-    </motion.div>
+    </div>
   )
 }
 

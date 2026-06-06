@@ -155,7 +155,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         const tokenRes = await api.post('/api/voice/token', { roomKind: kind, roomId: id })
         const { token, url } = tokenRes.data.data
 
-        const room = new Room({ adaptiveStream: true, dynacast: true })
+        // adaptiveStream OFF: pra screen share, ele pausava/retomava a
+        // layer alta baseado em visibilidade do <video> remoto → flicker
+        // visível em tile pequeno ou troca de aba. Em calls pequenas a
+        // economia de banda não compensa.
+        // dynacast continua ON — publisher-side, escala simulcast layers
+        // pela demanda agregada dos subscribers.
+        const room = new Room({ adaptiveStream: false, dynacast: true })
         bindRoomEvents(RoomEvent, room, refresh, handleDisc)
         await room.connect(url, token)
 
@@ -219,18 +225,29 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
           return
         }
         try {
-          // ── Full HD @ 60fps adaptativo ───────────────────────
-          //  - 1080p: nitidez de tela cheia, leitura de fonte pequena, código.
-          //  - 60fps: fluidez de app nativo (vs 30fps cinematográfico).
-          //  - 5Mbps: razoável pra 1080p60; dynacast escala pra baixo
-          //    quando nenhum subscriber pede full res.
-          const { VideoPreset } = lkNs
-          const screenHD = new VideoPreset(1920, 1080, 5_000_000, 60)
-          await lp.setScreenShareEnabled(
+          // ── 1080p60 estável ──────────────────────────────────
+          //  - resolution.frameRate: 60 vai no getDisplayMedia (browser
+          //    pede 60fps ao OS). Sem isso, default = 30fps.
+          //  - publishOptions.videoEncoding.maxFramerate: 60 informa o
+          //    encoder. Sem ambos sincronizados, o encoder pode capear em 30.
+          //  - simulcast OFF pra screen: 1 camada full bitrate em vez de
+          //    3 camadas, evita layers switching → flicker visual.
+          //  - audio: false (compartilhar áudio do sistema é separado).
+          //  - contentHint: ainda não tipado em options.d.ts; aplicado direto
+          //    na MediaStreamTrack após publish (vê hook abaixo).
+          const pub = await lp.setScreenShareEnabled(
             true,
-            { resolution: screenHD.resolution },
-            { screenShareEncoding: screenHD.encoding },
+            { resolution: { width: 1920, height: 1080, frameRate: 60 }, audio: false },
+            { videoEncoding: { maxBitrate: 5_000_000, maxFramerate: 60 }, simulcast: false },
           )
+          // contentHint = 'motion' diz ao encoder pra priorizar fluidez
+          // (smearing aceitável) em vez de nitidez por frame — crítico
+          // pra screen com vídeo/jogo. Pra "detail" (código, slides), o
+          // browser já tende a usar text por padrão do getDisplayMedia.
+          const track = pub?.track?.mediaStreamTrack
+          if (track && 'contentHint' in track) {
+            try { (track as any).contentHint = 'motion' } catch {}
+          }
           set({ error: null })
         } catch (e: any) {
           set({ error: humanizeMediaError(e) ?? 'Falha ao compartilhar tela' })

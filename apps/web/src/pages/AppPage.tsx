@@ -20,7 +20,7 @@ import MessageInput from '@/components/chat/MessageInput'
 import TypingIndicator from '@/components/chat/TypingIndicator'
 import MentionBanner from '@/components/chat/MentionBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
-import type { MessageWithAuthor } from '@umbra/types'
+import type { MessageWithAuthor } from '@astra/types'
 
 // Lazy: páginas pesadas + componentes raros (settings, command palette, painéis com sheets)
 // Carregam só quando o user de fato navega/abre.
@@ -79,7 +79,7 @@ function ChannelView() {
   }, [])
 
   return (
-    <div className="flex-1 flex min-w-0 h-screen-safe overflow-hidden">
+    <div className="flex-1 flex min-w-0 h-full min-h-0 overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0">
         {activeChannel ? (
           <>
@@ -304,10 +304,10 @@ export default function AppPage() {
         }
       />
 
-      <Suspense fallback={<div className="flex-1 min-w-0 h-screen-safe" />}>
+      <Suspense fallback={<div className="flex-1 min-w-0 h-full" />}>
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname.split('/').slice(0, 3).join('/')}>
-            <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-screen-safe"><DMPage /></PageTransition>} />
+            <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-full"><DMPage /></PageTransition>} />
             <Route path="friends" element={<PageTransition><FriendsPage /></PageTransition>} />
             <Route path="profile" element={<PageTransition><ProfilePage /></PageTransition>} />
             <Route path="settings" element={<PageTransition><SettingsPage /></PageTransition>} />

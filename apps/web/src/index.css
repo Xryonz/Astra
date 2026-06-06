@@ -205,22 +205,22 @@
   75%  { transform: translate(-14px,-8px); }
   100% { transform: translate(0,    0); }
 }
-/* Astra: meteoros (raros). Duração 28-34s mas visível só 4-14% do ciclo
-   (4 segundos visíveis, ~25s offscreen). Sai diagonal esquerda-baixo,
-   rotação 720° pra parecer "girando enquanto cai". CW e CCW pra variar. */
+/* Astra: meteoros (raros). Duração 24-36s mas visível só 4-14% do ciclo.
+   Vetor de queda parametrizado via --mx (deslocamento horizontal em vw)
+   pra cada meteoro ter trajetória própria — randomizado em JS por sessão. */
 @keyframes astraMeteorCW {
-  0%   { transform: translate(0,   -20vh) rotate(0deg);   opacity: 0; }
+  0%   { transform: translate(0, -20vh) rotate(0deg);   opacity: 0; }
   4%   { opacity: 0.85; }
   12%  { opacity: 0.85; }
-  14%  { transform: translate(-55vw, 115vh) rotate(720deg); opacity: 0; }
-  100% { transform: translate(-55vw, 115vh) rotate(720deg); opacity: 0; }
+  14%  { transform: translate(var(--mx, -55vw), 115vh) rotate(720deg); opacity: 0; }
+  100% { transform: translate(var(--mx, -55vw), 115vh) rotate(720deg); opacity: 0; }
 }
 @keyframes astraMeteorCCW {
-  0%   { transform: translate(0,   -20vh) rotate(0deg);    opacity: 0; }
+  0%   { transform: translate(0, -20vh) rotate(0deg);    opacity: 0; }
   4%   { opacity: 0.85; }
   12%  { opacity: 0.85; }
-  14%  { transform: translate(-55vw, 115vh) rotate(-720deg); opacity: 0; }
-  100% { transform: translate(-55vw, 115vh) rotate(-720deg); opacity: 0; }
+  14%  { transform: translate(var(--mx, -55vw), 115vh) rotate(-720deg); opacity: 0; }
+  100% { transform: translate(var(--mx, -55vw), 115vh) rotate(-720deg); opacity: 0; }
 }
 /* Astra: orbit ring no avatar próprio. SVG circle dashed girando devagar.
    Signature visual exclusiva — só renderizado quando isSelf (ProfileHero

@@ -43,6 +43,7 @@ interface Meteor {
   duration: number
   size:     number
   cw:       boolean
+  mx:       number   // deslocamento horizontal em vw (destino da queda)
 }
 
 function buildBackground(): string {
@@ -71,16 +72,25 @@ function buildTwinkleStars(): TwinkleStar[] {
 }
 
 function buildMeteors(): Meteor[] {
-  const rand = seededRand(31415)
+  // Seed por sessão (Date.now()): cada reload muda startX/delay/duration,
+  // mas mantém estável dentro do mesmo render. Evita "sempre mesmo lugar".
+  const rand = seededRand(Date.now() & 0x7fffffff)
   // 3 meteoros com ciclo 30s; visível só 12% (3.6s). Stagger -10s entre
   // cada → aparece 1 a cada ~10s. Sensação de "de vez em quando".
-  return Array.from({ length: 3 }, (_, i) => ({
-    startX:   25 + rand() * 55,        // 25-80% (margem pra cair pra esquerda)
-    delay:    -(i * 10) + rand() * 2,  // 0, -10, -20 com jitter
-    duration: 28 + rand() * 6,         // 28-34s
-    size:     20 + Math.floor(rand() * 10),  // 20-29px
-    cw:       rand() > 0.5,
-  }))
+  return Array.from({ length: 3 }, (_, i) => {
+    // mx: deslocamento horizontal randômico (-70 a -25 ou +25 a +70 vw),
+    // sinal alinhado com startX pra meteoro não sair pra fora do lado oposto.
+    const mag = 25 + rand() * 45  // 25-70vw
+    const sign = rand() > 0.5 ? -1 : 1
+    return {
+      startX:   5 + rand() * 90,         // 5-95% (ampla cobertura horizontal)
+      delay:    -(i * 10) + rand() * 8,  // jitter maior entre meteoros
+      duration: 24 + rand() * 12,        // 24-36s (mais variação)
+      size:     18 + Math.floor(rand() * 14),  // 18-31px
+      cw:       rand() > 0.5,
+      mx:       sign * mag,
+    }
+  })
 }
 
 const STARS_BG  = buildBackground()
@@ -148,6 +158,7 @@ export default function StarField() {
             position:  'absolute',
             top:       0,
             left:      `${m.startX}%`,
+            ['--mx' as any]: `${m.mx}vw`,
             animation: `${m.cw ? 'astraMeteorCW' : 'astraMeteorCCW'} ${m.duration}s linear infinite ${m.delay.toFixed(2)}s`,
           }}
         >

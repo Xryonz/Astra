@@ -209,13 +209,17 @@ export function VoiceCallStage({ onMinimize }: Props) {
           {localCam ? <VideoOff className="size-5" /> : <Video className="size-5" />}
         </ControlButton>
 
-        <ControlButton
-          label={localShare ? 'Parar compartilhamento' : 'Compartilhar tela'}
-          onClick={toggleScreen}
-          active={localShare}
-        >
-          {localShare ? <ScreenShareOff className="size-5" /> : <ScreenShare className="size-5" />}
-        </ControlButton>
+        {/* Screen share só faz sentido em desktop (mobile não suporta
+            getDisplayMedia na maioria dos browsers) — esconde no md:flex. */}
+        <div className="hidden md:contents">
+          <ControlButton
+            label={localShare ? 'Parar compartilhamento' : 'Compartilhar tela'}
+            onClick={toggleScreen}
+            active={localShare}
+          >
+            {localShare ? <ScreenShareOff className="size-5" /> : <ScreenShare className="size-5" />}
+          </ControlButton>
+        </div>
 
         <div className="w-px h-8 bg-(--border) mx-1" aria-hidden />
 

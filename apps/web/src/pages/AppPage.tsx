@@ -3,11 +3,12 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '@/components/layout/Sidebar'
 import MobileBottomNav from '@/components/layout/MobileBottomNav'
 import MobileMoreSheet from '@/components/layout/MobileMoreSheet'
+import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
 import AstraLogo from '@/components/AstraLogo'
 import { Reveal } from '@/components/anim/Reveal'
 import { PageTransition } from '@/components/anim/PageTransition'
 import { AnimatePresence } from 'motion/react'
-import { Menu, Pin, Search, Users as UsersIcon, Bookmark, MoreHorizontal } from 'lucide-react'
+import { Pin, Search, Users as UsersIcon, Bookmark, MoreHorizontal } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
@@ -44,7 +45,6 @@ function ChannelView() {
   const location     = useLocation()
   const locationState = location.state as ActiveChannel | null
   const [activeChannel, setActiveChannel] = useState<ActiveChannel | null>(locationState ?? null)
-  const openMobile         = useUIStore((s) => s.openMobileSidebar)
   const openCommandPalette = useUIStore((s) => s.openCommandPalette)
   const openRightPanel     = useUIStore((s) => s.openRightPanel)
   const [pinnedOpen, setPinnedOpen]     = useState(false)
@@ -88,14 +88,8 @@ function ChannelView() {
               key={activeChannel.id + '-hdr'}
               className="shrink-0 h-14 px-3 sm:px-5 flex items-center gap-2 border-b border-(--border) bg-(--base)"
             >
-              {/* Burger mobile-only */}
-              <button
-                onClick={openMobile}
-                className="md:hidden size-10 -ml-1 flex items-center justify-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0"
-                aria-label="Abrir menu"
-              >
-                <Menu className="size-5" />
-              </button>
+              {/* Mobile trigger: avatar abre sidebar */}
+              <MobileAvatarTrigger className="-ml-1" />
 
               <span className="text-(--text-3) text-sm font-mono">#</span>
               <h2
@@ -208,13 +202,7 @@ function ChannelView() {
           /* Asymmetric editorial layout: pavlivka — left margin reservado pra
              rótulo vertical / numeração; conteúdo ocupa coluna direita. */
           <div className="flex-1 relative overflow-hidden">
-            <button
-              onClick={openMobile}
-              className="md:hidden absolute top-4 left-4 z-10 size-9 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-all duration-300 ease-(--ease-spring) cursor-pointer"
-              aria-label="Abrir menu"
-            >
-              <Menu className="size-4" />
-            </button>
+            <MobileAvatarTrigger className="absolute top-3 left-3 z-10" />
 
             {/* Vignette sutil */}
             <div className="ed-vignette" />

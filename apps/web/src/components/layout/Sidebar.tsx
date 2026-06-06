@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles } from 'lucide-react'
+import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X } from 'lucide-react'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { useLongPress } from '@/hooks/useLongPress'
 import { useConfirm, usePrompt } from '@/hooks/useConfirm'
@@ -225,52 +226,56 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
       <div
         className={cn(
           'flex shrink-0 z-50',
-          // Desktop: estático na grid normal, ocupa altura cheia
-          'md:relative md:translate-y-0 md:transition-none md:h-full',
-          // Mobile: bottom sheet — slide de baixo pra cima, 85vh, deixa um
-          // gap de ~15vh em cima pra "peek" do conteúdo + safe-area inferior
-          'fixed left-0 right-0 bottom-0 h-[85vh] transition-transform',
+          // Desktop: estático na grid normal, ocupa altura cheia, largura natural
+          'md:relative md:translate-x-0 md:transition-none md:h-full md:w-auto',
+          // Mobile: drawer slide-in da esquerda. 85vw garante que o flex row
+          // (strip 64px + canais ~) preenche a largura sem cortar/sobra.
+          'fixed top-0 left-0 bottom-0 w-[85vw] max-w-105 transition-transform',
           mobileOpen
-            ? 'translate-y-0 duration-320 [transition-timing-function:cubic-bezier(0.34,1.32,0.55,1)]'
-            : 'translate-y-full md:translate-y-0 duration-260 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]',
+            ? 'translate-x-0 duration-320 [transition-timing-function:cubic-bezier(0.34,1.32,0.55,1)]'
+            : '-translate-x-full md:translate-x-0 duration-260 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]',
         )}
       >
 
         {/* ── Server strip ─────────────────────────────────── */}
         <div className="w-16 h-full bg-background border-r border-border flex flex-col items-center py-3 gap-1.5 overflow-y-auto shrink-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => { navigate('/app/dm'); closeMobile() }}
-                aria-label="Estrelas"
-                className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-all cursor-pointer"
-                style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }}
-              >
-                <Sparkles className="size-6" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Estrelas — mensagens diretas</TooltipContent>
-          </Tooltip>
+          {/* Mobile: DM + Friends shortcuts já estão na bottom nav. Escondemos
+              aqui pra evitar duplicação. Desktop mantém. */}
+          <div className="hidden md:contents">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => { navigate('/app/dm'); closeMobile() }}
+                  aria-label="Estrelas"
+                  className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-all cursor-pointer"
+                  style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }}
+                >
+                  <Sparkles className="size-6" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Estrelas — mensagens diretas</TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => { navigate('/app/friends'); closeMobile() }}
-                className="size-9 shrink-0 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                aria-label="Amigos"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Amigos</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => { navigate('/app/friends'); closeMobile() }}
+                  className="size-9 shrink-0 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                  aria-label="Amigos"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Amigos</TooltipContent>
+            </Tooltip>
 
-          <div className="w-7 h-px bg-border my-0.5" />
+            <div className="w-7 h-px bg-border my-0.5" />
+          </div>
 
           {regularServers.map((s, i) => (
             <ServerIcon
@@ -332,11 +337,16 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         <div
           className={cn(
             'h-full bg-muted border-r border-border flex flex-col overflow-hidden transition-[width] duration-300 ease-(--ease-spring)',
-            collapsed ? 'w-0' : 'w-55'
+            // Mobile: ocupa o resto da largura (após strip 64px). Desktop: w-55 ou colapsa.
+            'flex-1 md:flex-none',
+            collapsed ? 'md:w-0' : 'md:w-55'
           )}
         >
+          {/* Mobile-only header: avatar (abre Mais) + título + X (fecha sidebar) */}
+          <MobileSidebarHeader onClose={closeMobile} />
+
           {activeServer && (
-            <div className="h-16 px-4 flex items-center gap-2.5 border-b border-(--border) shrink-0">
+            <div className="h-14 md:h-16 px-4 flex items-center gap-2.5 border-b border-(--border) shrink-0">
               {isGroup && <Users className="size-3.5 text-(--text-3)" />}
               <h2
                 className="text-lg m-0 flex-1 truncate text-foreground font-normal tracking-tight"
@@ -399,7 +409,11 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             ) : null}
           </div>
 
-          <UserFooter onProfileClick={() => setShowOwnProfile(true)} />
+          {/* UserFooter: mobile inteiro vive na sheet "Mais" (bottom nav).
+              Em mobile escondemos pra não duplicar. Desktop mantém. */}
+          <div className="hidden md:contents">
+            <UserFooter onProfileClick={() => setShowOwnProfile(true)} />
+          </div>
         </div>
       </div>
 
@@ -767,6 +781,53 @@ function VoiceParticipantsRow({
         </li>
       )}
     </ul>
+  )
+}
+
+/**
+ * MobileSidebarHeader — header mobile-only do channel panel.
+ *
+ * Esquerda: avatar do user → abre sheet "Mais" (perfil/settings/sair)
+ * Centro:   título "Constelações" (serif)
+ * Direita:  X → fecha a sidebar (returna o user pra app)
+ *
+ * Substitui o burger Menu em headers — agora o trigger pra abrir/fechar e
+ * o acesso ao perfil moram aqui dentro, alinhado com a bottom nav.
+ */
+function MobileSidebarHeader({ onClose }: { onClose: () => void }) {
+  const user        = useAuthStore((s) => s.user)
+  const setMoreOpen = useUIStore((s) => s.setMobileMoreOpen)
+  return (
+    <header className="md:hidden h-14 px-3 flex items-center gap-2 border-b border-(--border) bg-(--base) shrink-0">
+      <button
+        type="button"
+        onClick={() => setMoreOpen(true)}
+        aria-label="Abrir menu Mais"
+        className="size-10 grid place-items-center rounded-full cursor-pointer transition-transform active:scale-95"
+      >
+        <Avatar className="size-9 border border-(--border-mid)">
+          {user?.avatarUrl
+            ? <AvatarImage src={resolveApiUrl(user.avatarUrl)} alt={user.displayName} />
+            : <AvatarFallback className="bg-(--raised) text-(--text-2) text-sm font-(family-name:--font-display)">
+                {(user?.displayName ?? 'A').slice(0, 1).toUpperCase()}
+              </AvatarFallback>}
+        </Avatar>
+      </button>
+      <h2
+        className="flex-1 text-base m-0 font-normal tracking-tight text-foreground text-center truncate"
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
+        Constelações
+      </h2>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Fechar"
+        className="size-10 grid place-items-center text-(--text-3) hover:text-(--text-1) cursor-pointer transition-colors"
+      >
+        <X className="size-5" />
+      </button>
+    </header>
   )
 }
 

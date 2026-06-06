@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Menu, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import DMList from '@/components/dm/DMList'
+import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
 import DMChat from '@/components/dm/DMChat'
 import DMInput from '@/components/dm/DMInput'
 import { DMCallButton } from '@/components/voice/DMCallButton'
 import { Reveal } from '@/components/anim/Reveal'
-import { useUIStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils'
 import type { MessageWithAuthor } from '@umbra/types'
 
@@ -27,7 +27,6 @@ export default function DMPage() {
   const navState   = location.state as ActiveDM | null
   const [activeDM, setActiveDM] = useState<ActiveDM | null>(navState ?? null)
   const [replyingTo, setReplyingTo] = useState<MessageWithAuthor | null>(null)
-  const openMobile = useUIStore((s) => s.openMobileSidebar)
 
   // Quando navegamos para /app/dm com state (ex: vindo de FriendsPage)
   // sincroniza activeDM. Re-sync se conversationId muda.
@@ -71,13 +70,8 @@ export default function DMPage() {
         {/* Header */}
         <div className="h-14 px-4 flex items-center gap-3 border-b border-(--border) shrink-0">
           {/* Burger mobile-only */}
-          <button
-            onClick={openMobile}
-            className="md:hidden size-9 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-all duration-300 ease-(--ease-spring) cursor-pointer shrink-0"
-            aria-label="Abrir menu"
-          >
-            <Menu className="size-4" />
-          </button>
+          <MobileAvatarTrigger />
+
           <h2
             className="text-lg m-0 font-normal tracking-tight text-foreground truncate"
             style={{ fontFamily: 'var(--font-display)' }}

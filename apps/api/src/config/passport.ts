@@ -4,6 +4,19 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
 
+// Subset estável de colunas — evita "column X does not exist" quando
+// novas colunas chegam no schema TS antes da migration rodar em prod.
+// (Foi exatamente isso que quebrou Google login quando preferences foi
+// adicionada e a migration não estava no journal do Drizzle.)
+const userMinCols = {
+  id:           users.id,
+  email:        users.email,
+  username:     users.username,
+  googleId:     users.googleId,
+  displayName:  users.displayName,
+  avatarUrl:    users.avatarUrl,
+}
+
 // Tipos compartilhados pro callback — não exportar via passport.user
 // (sessões desligadas) então a info viaja via `info` (3º arg do done()).
 export interface GoogleAuthFailureInfo {
@@ -25,26 +38,26 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           if (!email) return done(new Error('E-mail não disponível no perfil Google'))
 
           // 1. Busca por googleId
-          const [byGoogleId] = await db.select().from(users)
+          const [byGoogleId] = await db.select(userMinCols).from(users)
             .where(eq(users.googleId, profile.id)).limit(1)
 
           if (byGoogleId) {
             const [updated] = await db.update(users).set({
               avatarUrl:   profile.photos?.[0].value ?? null,
               displayName: profile.displayName,
-            }).where(eq(users.id, byGoogleId.id)).returning()
+            }).where(eq(users.id, byGoogleId.id)).returning(userMinCols)
             return done(null, updated)
           }
 
           // 2. Busca por email — pode ter conta manual antes
-          const [byEmail] = await db.select().from(users)
+          const [byEmail] = await db.select(userMinCols).from(users)
             .where(eq(users.email, email)).limit(1)
 
           if (byEmail) {
             const [linked] = await db.update(users).set({
               googleId:  profile.id,
               avatarUrl: profile.photos?.[0].value ?? null,
-            }).where(eq(users.id, byEmail.id)).returning()
+            }).where(eq(users.id, byEmail.id)).returning(userMinCols)
             return done(null, linked)
           }
 

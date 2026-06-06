@@ -3,8 +3,13 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
-import { createId } from '../db/cuid'
-import { generateCoordinate } from '../lib/coordinate'
+
+// Tipos compartilhados pro callback — não exportar via passport.user
+// (sessões desligadas) então a info viaja via `info` (3º arg do done()).
+export interface GoogleAuthFailureInfo {
+  code:  'email_not_registered'
+  email: string
+}
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
@@ -43,26 +48,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             return done(null, linked)
           }
 
-          // 3. Cria novo. Username = local-part (max 27 chars) + 4 chars do googleId
-          //    pra total ≤ 32 (limite do schema Zod).
-          const localPart = email
-            .split('@')[0]
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, '_')
-            .slice(0, 27)
-
-          const newUserId = createId()
-          const [created] = await db.insert(users).values({
-            id:          newUserId,
-            googleId:    profile.id,
+          // 3. Email não registrado → BLOQUEIA. Não cria conta automaticamente.
+          //    Política de segurança: usuário precisa registrar manualmente,
+          //    impedindo que qualquer Google login ocupe usernames livres.
+          //    `info` passado pra callback do auth.ts redirecionar com email.
+          const failureInfo: GoogleAuthFailureInfo = {
+            code:  'email_not_registered',
             email,
-            username:    `${localPart}_${profile.id.slice(0, 4)}`,
-            coordinate:  generateCoordinate(newUserId),
-            displayName: profile.displayName,
-            avatarUrl:   profile.photos?.[0].value ?? null,
-          }).returning()
-
-          return done(null, created)
+          }
+          return done(null, false, failureInfo)
         } catch (error: any) {
           const cause = error?.cause ?? error
           console.error('[Passport/Google] insert/update failed:', {

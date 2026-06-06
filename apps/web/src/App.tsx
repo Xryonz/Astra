@@ -2,6 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { bootstrapAuth } from '@/lib/bootstrap'
+import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
 import { AppShellSkeleton } from '@/components/skeletons/AppShellSkeleton'
 import { Toaster } from '@/components/ui/sonner'
 import { ConfirmProvider } from '@/hooks/useConfirm'
@@ -32,6 +33,9 @@ export default function App() {
   useEffect(() => {
     bootstrapAuth().finally(() => setBooted(true))
   }, [])
+
+  // Refresh proativo quando a aba volta após >5min — evita 401 na 1ª request
+  useVisibilityRefresh()
 
   if (!booted) return <SplashScreen />
 

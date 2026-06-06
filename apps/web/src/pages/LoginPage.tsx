@@ -120,13 +120,35 @@ export default function LoginPage() {
             </div>
           </Reveal>
 
-          {oauthError && (
+          {oauthError === 'google_email_unregistered' ? (
+            <Reveal delay={0.2}>
+              <div
+                className="mb-6 p-4 rounded-xl border border-(--accent)/40 bg-(--accent)/8"
+                role="alert"
+              >
+                <p className="text-sm m-0 mb-1 font-(family-name:--font-display) text-(--accent)">
+                  Email não registrado
+                </p>
+                <p className="text-xs text-(--text-2) m-0 mb-3 leading-relaxed">
+                  Nenhuma conta Astra está vinculada a{' '}
+                  <span className="font-mono text-(--text-1)">{searchParams.get('email') ?? 'esse email'}</span>.
+                  Crie uma conta antes de entrar com Google.
+                </p>
+                <Link
+                  to={`/register?email=${encodeURIComponent(searchParams.get('email') ?? '')}&from=google`}
+                  className="inline-block text-sm font-(family-name:--font-display) text-(--accent) italic hover:text-(--accent-h) transition-colors"
+                >
+                  Criar conta com este email —&gt;
+                </Link>
+              </div>
+            </Reveal>
+          ) : oauthError ? (
             <Reveal delay={0.2}>
               <div className="u-error mb-6" role="alert">
                 Falha no login com Google. Tente novamente.
               </div>
             </Reveal>
-          )}
+          ) : null}
 
           <div className="flex flex-col gap-7">
             <Reveal delay={0.30}>

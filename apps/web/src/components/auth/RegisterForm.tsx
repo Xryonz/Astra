@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -11,10 +12,15 @@ import { RegisterSchema, type RegisterInput } from '@umbra/types'
 export default function RegisterForm() {
   const { register: registerUser } = useAuth()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+
+  // Pré-preencher email + lock se veio do flow "Google → email não registrado"
+  const prefilledEmail = searchParams.get('email') ?? ''
+  const fromGoogle     = searchParams.get('from') === 'google'
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(RegisterSchema),
-    defaultValues: { displayName: '', username: '', email: '', password: '' },
+    defaultValues: { displayName: '', username: '', email: prefilledEmail, password: '' },
   })
 
   const onSubmit = async (data: RegisterInput) => {
@@ -62,10 +68,29 @@ export default function RegisterForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>E-mail</FormLabel>
+              <FormLabel>
+                E-mail
+                {fromGoogle && (
+                  <span className="ml-2 text-[10px] font-mono uppercase tracking-wider text-(--accent)">
+                    · vindo do Google
+                  </span>
+                )}
+              </FormLabel>
               <FormControl>
-                <Input type="email" placeholder="voce@exemplo.com" autoComplete="email" {...field} />
+                <Input
+                  type="email"
+                  placeholder="voce@exemplo.com"
+                  autoComplete="email"
+                  readOnly={fromGoogle}
+                  className={fromGoogle ? 'opacity-80 cursor-not-allowed' : undefined}
+                  {...field}
+                />
               </FormControl>
+              {fromGoogle && (
+                <p className="text-marg text-(--text-3) m-0 mt-1 italic">
+                  Email preenchido pelo Google. Vai poder logar com Google após criar a conta.
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}

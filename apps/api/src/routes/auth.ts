@@ -193,22 +193,42 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 
 router.get(
   '/google/callback',
-  passport.authenticate('google', {
-    session: false,
-    failureRedirect: `${process.env.CLIENT_URL}/login?error=oauth`,
-  }),
-  asyncHandler(async (req: Request, res: Response) => {
-    const user = req.user as { id: string }
-    const { refreshToken } = await createRefreshToken(user.id)
-    // Hash fragment: não aparece em access logs, server nunca vê.
-    // Front extrai com window.location.hash.
-    res.redirect(`${process.env.CLIENT_URL}/auth/callback#refresh=${encodeURIComponent(refreshToken)}`)
-  })
+  (req: Request, res: Response, next) => {
+    // Callback custom pra capturar `info` (3º arg do done()) com email
+    // não-registrado e redirecionar pra /login com query param amigável.
+    passport.authenticate('google', { session: false }, async (err: Error | null, user: { id: string } | false, info: { code?: string; email?: string } | undefined) => {
+      if (err) {
+        return res.redirect(`${process.env.CLIENT_URL}/login?error=oauth`)
+      }
+      if (!user) {
+        if (info?.code === 'email_not_registered' && info.email) {
+          const q = new URLSearchParams({
+            error: 'google_email_unregistered',
+            email: info.email,
+          })
+          return res.redirect(`${process.env.CLIENT_URL}/login?${q.toString()}`)
+        }
+        return res.redirect(`${process.env.CLIENT_URL}/login?error=oauth`)
+      }
+      try {
+        const { refreshToken } = await createRefreshToken(user.id)
+        // Hash fragment: não aparece em access logs, server nunca vê.
+        res.redirect(`${process.env.CLIENT_URL}/auth/callback#refresh=${encodeURIComponent(refreshToken)}`)
+      } catch (e) {
+        next(e)
+      }
+    })(req, res, next)
+  }
 )
 
 // ── Helper ────────────────────────────────────────────────────
+// Refresh TTL: 30 dias. Como /refresh emite NOVO token e revoga o velho
+// via UPDATE atômico, isso é sliding window de fato — cada uso renova
+// outros 30d. Cobertura típica: user que abre o app ao menos 1x/mês
+// fica logado pra sempre. Discord/WhatsApp Web usam padrão similar.
+const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000
 async function createRefreshToken(userId: string) {
-  const expiresAt    = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const expiresAt    = new Date(Date.now() + REFRESH_TTL_MS)
   const refreshToken = generateRefreshToken(userId)
   const tokenHash    = hashToken(refreshToken)
   await db.insert(refreshTokens).values({ token: tokenHash, userId, expiresAt })

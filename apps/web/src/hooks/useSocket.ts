@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { getSocket } from '@/lib/socket'
+import { getSocket, trackJoin, trackLeave } from '@/lib/socket'
 import type { MessageWithAuthor } from '@astra/types'
 
 interface ChannelHandlers {
@@ -30,6 +30,7 @@ export function useChannel(
     let socket: ReturnType<typeof getSocket>
     try { socket = getSocket() } catch { return }
 
+    trackJoin(channelId)
     socket.emit('join_channel', channelId)
 
     const onNew  = (msg: MessageWithAuthor) => ref.current.onNewMessage(msg)
@@ -47,6 +48,7 @@ export function useChannel(
     socket.on('poll_updated',     onPoll)
 
     return () => {
+      trackLeave(channelId)
       socket.emit('leave_channel', channelId)
       socket.off('new_message',      onNew)
       socket.off('message_edited',   onEdit)

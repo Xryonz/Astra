@@ -5,6 +5,15 @@ let socket: Socket | null = null
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null
 let unsubAuth: (() => void) | null = null
 
+// Lista de canais que o client se juntou. Reemitida em todo 'connect'
+// pra reconciliar com o server depois de reconnect (server perde state
+// quando socket cai → user parava de receber new_message até trocar
+// de canal manualmente).
+const joinedChannels = new Set<string>()
+
+export function trackJoin(channelId: string) { joinedChannels.add(channelId) }
+export function trackLeave(channelId: string) { joinedChannels.delete(channelId) }
+
 function stopHeartbeat() {
   if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null }
 }
@@ -34,6 +43,12 @@ export function connectSocket(): Socket {
     // N intervals (memory leak crescente em rede instável).
     stopHeartbeat()
     heartbeatInterval = setInterval(() => socket?.emit('heartbeat'), 30_000)
+    // Re-join canais conhecidos. Server perde join state em disconnect →
+    // sem isso, user ficava num "canal fantasma" sem receber new_message
+    // até trocar de canal manualmente.
+    for (const channelId of joinedChannels) {
+      socket?.emit('join_channel', channelId)
+    }
   })
 
   socket.on('disconnect', (reason) => {

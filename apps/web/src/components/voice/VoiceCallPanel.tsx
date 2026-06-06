@@ -96,16 +96,31 @@ export function VoiceCallPanel() {
                 className="size-2 rounded-full bg-(--success) shrink-0"
               />
               <div className="flex-1 min-w-0 leading-tight">
-                <p className="text-xs font-(family-name:--font-display) text-foreground m-0 truncate">
-                  {state === 'connecting' ? 'Conectando…'
-                    : state === 'connected' ? (parsed?.kind === 'channel' ? 'Em canal de voz' : 'Em chamada DM')
-                    : state === 'disconnecting' ? 'Desconectando…'
-                    : 'Erro'}
-                </p>
-                <p className="text-[10px] font-mono text-(--text-3) m-0 truncate uppercase tracking-wider">
-                  {participants.length} · ao vivo
-                  {hasShare && ' · tela'}
-                </p>
+                {/* Active speaker: quando alguém remoto fala, prioriza nome dele
+                    no header. Antes só status genérico — user não sabia quem
+                    falou sem expandir. */}
+                {(() => {
+                  const activeSpeaker = participants.find((p) => p.isSpeaking && !p.isLocal)
+                  const speakerName = activeSpeaker
+                    ? userMap.get(activeSpeaker.identity)?.displayName ?? activeSpeaker.identity.slice(0, 8)
+                    : null
+                  return (
+                    <>
+                      <p className="text-xs font-(family-name:--font-display) text-foreground m-0 truncate">
+                        {state === 'connecting' ? 'Conectando…'
+                          : state === 'disconnecting' ? 'Desconectando…'
+                          : state === 'error' ? 'Erro'
+                          : speakerName
+                            ? <><span className="text-(--accent)">{speakerName}</span> está falando…</>
+                            : (parsed?.kind === 'channel' ? 'Em canal de voz' : 'Em chamada DM')}
+                      </p>
+                      <p className="text-[10px] font-mono text-(--text-3) m-0 truncate uppercase tracking-wider">
+                        {participants.length} · ao vivo
+                        {hasShare && ' · tela'}
+                      </p>
+                    </>
+                  )
+                })()}
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>

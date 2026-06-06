@@ -59,12 +59,13 @@ export function useVoiceCall() {
   const leave        = useVoiceStore((s) => s.leave)
   const toggleMic    = useVoiceStore((s) => s.toggleMic)
   const toggleScreen = useVoiceStore((s) => s.toggleScreen)
+  const toggleCamera = useVoiceStore((s) => s.toggleCamera)
   const toggleDeafen = useVoiceStore((s) => s.toggleDeafen)
   const setVolume    = useVoiceStore((s) => s.setVolume)
 
   return {
     state, roomName, participants, error, deafened, volume,
-    join, leave, toggleMic, toggleScreen, toggleDeafen, setVolume,
+    join, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume,
   }
 }
 

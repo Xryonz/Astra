@@ -20,6 +20,7 @@ export interface CallParticipantInfo {
   isSpeaking:      boolean
   isMicEnabled:    boolean
   isScreenSharing: boolean
+  isCameraEnabled: boolean
   participant:     Participant
 }
 
@@ -36,11 +37,12 @@ interface VoiceState {
   leave:        () => Promise<void>
   toggleMic:    () => Promise<void>
   toggleScreen: () => Promise<void>
+  toggleCamera: () => Promise<void>
   toggleDeafen: () => void
   setVolume:    (v: number) => void
 }
 
-const VOLUME_STORAGE_KEY = 'umbra-voice-volume'
+const VOLUME_STORAGE_KEY = 'astra-voice-volume'
 function loadInitialVolume(): number {
   try {
     const v = localStorage.getItem(VOLUME_STORAGE_KEY)
@@ -70,6 +72,9 @@ function snapshot(room: Room, TrackC: typeof TrackT): CallParticipantInfo[] {
     isMicEnabled:    p.isMicrophoneEnabled,
     isScreenSharing: p.getTrackPublications().some(
       (t) => t.source === TrackC.Source.ScreenShare && !!t.track && !t.isMuted,
+    ),
+    isCameraEnabled: p.getTrackPublications().some(
+      (t) => t.source === TrackC.Source.Camera && !!t.track && !t.isMuted,
     ),
     participant:     p,
   }))
@@ -187,11 +192,28 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       refresh()
     },
 
+    toggleCamera: async () => {
+      if (!activeRoom || !lkNs) return
+      const lp = activeRoom.localParticipant as LocalParticipant
+      const on = lp.getTrackPublications().some(
+        (t) => t.source === lkNs!.Track.Source.Camera && !!t.track && !t.isMuted,
+      )
+      if (on) {
+        await lp.setCameraEnabled(false)
+      } else {
+        // 720p @ 30fps padrão LiveKit — suficiente pra webcam, baixo CPU.
+        // dynacast (Room init) escala pra baixo automaticamente quando subscriber
+        // tá em tile pequeno → preserva banda.
+        await lp.setCameraEnabled(true)
+      }
+      refresh()
+    },
+
     toggleDeafen: () => {
       const next = !get().deafened
       set({ deafened: next })
-      // Aplica APENAS em audio[data-umbra-voice] — não polui VoiceMessage / outros
-      document.querySelectorAll<HTMLAudioElement>('audio[data-umbra-voice]').forEach((a) => {
+      // Aplica APENAS em audio[data-astra-voice] — não polui VoiceMessage / outros
+      document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
         a.muted = next
       })
     },
@@ -200,7 +222,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       const clamped = Math.max(0, Math.min(1, v))
       set({ volume: clamped })
       const deafened = get().deafened
-      document.querySelectorAll<HTMLAudioElement>('audio[data-umbra-voice]').forEach((a) => {
+      document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
         a.volume = clamped
         a.muted  = deafened
       })

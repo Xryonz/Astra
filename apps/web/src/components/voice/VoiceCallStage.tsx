@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
-  ScreenShare, ScreenShareOff, PhoneOff, Minimize2,
+  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2,
 } from 'lucide-react'
 import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -37,7 +37,7 @@ interface Props {
 }
 
 export function VoiceCallStage({ onMinimize }: Props) {
-  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleDeafen, setVolume } = useVoiceCall()
+  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
   const { data: users = [] } = useUsersMini(identities)
@@ -45,8 +45,9 @@ export function VoiceCallStage({ onMinimize }: Props) {
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
   const parsed  = parseRoomName(roomName)
   const screenSharer = participants.find((p) => p.isScreenSharing)
-  const localMic = participants.find((p) => p.isLocal)?.isMicEnabled ?? true
+  const localMic   = participants.find((p) => p.isLocal)?.isMicEnabled    ?? true
   const localShare = participants.find((p) => p.isLocal)?.isScreenSharing ?? false
+  const localCam   = participants.find((p) => p.isLocal)?.isCameraEnabled ?? false
 
   // Grid responsivo baseado em quantos participantes
   // (excluindo o screen sharer da grid principal quando há screen ativo)
@@ -201,6 +202,14 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </ControlButton>
 
         <ControlButton
+          label={localCam ? 'Desligar câmera' : 'Ligar câmera'}
+          onClick={toggleCamera}
+          active={localCam}
+        >
+          {localCam ? <VideoOff className="size-5" /> : <Video className="size-5" />}
+        </ControlButton>
+
+        <ControlButton
           label={localShare ? 'Parar compartilhamento' : 'Compartilhar tela'}
           onClick={toggleScreen}
           active={localShare}
@@ -242,6 +251,44 @@ function ParticipantTile({ participant, user, index }: {
   const speaking    = participant.isSpeaking
   const muted       = !participant.isMicEnabled
   const ringColor   = ringColorFrom(user?.bannerColor)
+  const cameraOn    = participant.isCameraEnabled
+  const videoRef    = useRef<HTMLVideoElement>(null)
+  const lkParticipant = participant.participant
+
+  useEffect(() => {
+    if (!cameraOn) return
+    const video = videoRef.current
+    if (!video) return
+    let currentTrack: any = null
+
+    const sync = () => {
+      const pub = lkParticipant.getTrackPublications().find(
+        (t: any) => t.source === Track.Source.Camera,
+      )
+      const next = pub?.track ?? null
+      if (next === currentTrack) return
+      if (currentTrack) { try { currentTrack.detach(video) } catch {} }
+      currentTrack = next
+      if (next) { try { next.attach(video) } catch {} }
+    }
+    sync()
+    lkParticipant.on('trackSubscribed' as any,   sync)
+    lkParticipant.on('trackUnsubscribed' as any, sync)
+    lkParticipant.on('trackMuted' as any,        sync)
+    lkParticipant.on('trackUnmuted' as any,      sync)
+    lkParticipant.on('localTrackPublished' as any,   sync)
+    lkParticipant.on('localTrackUnpublished' as any, sync)
+
+    return () => {
+      lkParticipant.off('trackSubscribed' as any,   sync)
+      lkParticipant.off('trackUnsubscribed' as any, sync)
+      lkParticipant.off('trackMuted' as any,        sync)
+      lkParticipant.off('trackUnmuted' as any,      sync)
+      lkParticipant.off('localTrackPublished' as any,   sync)
+      lkParticipant.off('localTrackUnpublished' as any, sync)
+      if (currentTrack) { try { currentTrack.detach(video) } catch {} }
+    }
+  }, [lkParticipant, cameraOn])
 
   return (
     <motion.div
@@ -276,26 +323,36 @@ function ParticipantTile({ participant, user, index }: {
         />
       )}
 
-      {/* Avatar centered — ring usa bannerColor do user */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Avatar
-          className={cn(
-            'transition-transform duration-300',
-            speaking ? 'scale-105' : 'scale-100',
-            'size-14 sm:size-16 lg:size-20 rounded-full border-[3px] shadow-xl',
-          )}
-          style={{ borderColor: ringColor }}
-        >
-          {user?.avatarUrl
-            ? <AvatarImage src={resolveApiUrl(user.avatarUrl)} alt={displayName} />
-            : <AvatarFallback
-                className="text-lg font-(family-name:--font-display)"
-                style={{ background: ringColor + '22', color: ringColor }}
-              >
-                {initials}
-              </AvatarFallback>}
-        </Avatar>
-      </div>
+      {/* Câmera ligada: vídeo cobre o tile. Senão: avatar centralizado. */}
+      {cameraOn ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={participant.isLocal}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Avatar
+            className={cn(
+              'transition-transform duration-300',
+              speaking ? 'scale-105' : 'scale-100',
+              'size-14 sm:size-16 lg:size-20 rounded-full border-[3px] shadow-xl',
+            )}
+            style={{ borderColor: ringColor }}
+          >
+            {user?.avatarUrl
+              ? <AvatarImage src={resolveApiUrl(user.avatarUrl)} alt={displayName} />
+              : <AvatarFallback
+                  className="text-lg font-(family-name:--font-display)"
+                  style={{ background: ringColor + '22', color: ringColor }}
+                >
+                  {initials}
+                </AvatarFallback>}
+          </Avatar>
+        </div>
+      )}
 
       {/* Top-right: mic indicator */}
       {muted && (
@@ -325,14 +382,45 @@ function ParticipantTile({ participant, user, index }: {
 
 function ScreenShareTile({ participant, user }: { participant: CallParticipantInfo; user?: UserMini }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  // Ref do LK Participant é estável entre snapshots (snapshot reusa o mesmo
+  // objeto p). Antes a dep [participant] (CallParticipantInfo recriado a cada
+  // ActiveSpeakersChanged) disparava detach+attach a cada fala → flicker.
+  const lkParticipant = participant.participant
 
   useEffect(() => {
-    const pub = participant.participant.getTrackPublications().find((t: any) => t.source === Track.Source.ScreenShare)
-    const track = pub?.track
-    if (!track || !videoRef.current) return
-    try { track.attach(videoRef.current) } catch {}
-    return () => { try { track.detach(videoRef.current!) } catch {} }
-  }, [participant])
+    const video = videoRef.current
+    if (!video) return
+    let currentTrack: any = null
+
+    const sync = () => {
+      const pub = lkParticipant.getTrackPublications().find(
+        (t: any) => t.source === Track.Source.ScreenShare,
+      )
+      const next = pub?.track ?? null
+      if (next === currentTrack) return
+      if (currentTrack) { try { currentTrack.detach(video) } catch {} }
+      currentTrack = next
+      if (next) { try { next.attach(video) } catch {} }
+    }
+
+    sync()
+    lkParticipant.on('trackSubscribed' as any,   sync)
+    lkParticipant.on('trackUnsubscribed' as any, sync)
+    lkParticipant.on('trackMuted' as any,        sync)
+    lkParticipant.on('trackUnmuted' as any,      sync)
+    lkParticipant.on('localTrackPublished' as any,   sync)
+    lkParticipant.on('localTrackUnpublished' as any, sync)
+
+    return () => {
+      lkParticipant.off('trackSubscribed' as any,   sync)
+      lkParticipant.off('trackUnsubscribed' as any, sync)
+      lkParticipant.off('trackMuted' as any,        sync)
+      lkParticipant.off('trackUnmuted' as any,      sync)
+      lkParticipant.off('localTrackPublished' as any,   sync)
+      lkParticipant.off('localTrackUnpublished' as any, sync)
+      if (currentTrack) { try { currentTrack.detach(video) } catch {} }
+    }
+  }, [lkParticipant])
 
   const displayName = user?.displayName ?? participant.identity.slice(0, 8)
 

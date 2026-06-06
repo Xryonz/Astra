@@ -6,7 +6,7 @@ import { users, servers, serverMembers, profileNotes, friendships } from '../db/
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { UpdateProfileSchema, ProfileNoteSchema } from '@umbra/types'
+import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline } from '../lib/redis'
 
 const router = Router()
@@ -145,6 +145,45 @@ router.get(
       else out[id] = s
     })
     res.json({ data: out })
+  })
+)
+
+// ── Preferências (tema/aparência) ─────────────────────────────
+// Schema livre — server só passa por como JSON. Limita 4KB pra não inflar.
+const PreferencesSchema = z.object({
+  preferences: z.record(z.unknown()),
+})
+
+// GET /api/profile/preferences — usado no bootstrap pra restaurar tema
+router.get(
+  '/preferences',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const [row] = await db.select({ preferences: users.preferences })
+      .from(users).where(eq(users.id, req.userId!)).limit(1)
+    if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
+    let parsed: Record<string, unknown> = {}
+    if (row.preferences) {
+      try { parsed = JSON.parse(row.preferences) } catch {}
+    }
+    res.json({ data: { preferences: parsed } })
+  })
+)
+
+// PATCH /api/profile/preferences — sync de tema/aparência cross-device
+router.patch(
+  '/preferences',
+  requireAuth,
+  validate(PreferencesSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const payload = (req.body as { preferences: Record<string, unknown> }).preferences
+    const serialized = JSON.stringify(payload)
+    if (serialized.length > 4096) {
+      return res.status(413).json({ error: 'Preferências excedem 4KB' })
+    }
+    await db.update(users).set({ preferences: serialized })
+      .where(eq(users.id, req.userId!))
+    res.json({ data: { preferences: payload } })
   })
 )
 

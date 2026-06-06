@@ -1,19 +1,40 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { ACCENT_OPTIONS, BG_OPTIONS, applyTheme } from '@/lib/theme'
+import { api } from '@/lib/api'
+import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import { SectionHeader, Row } from './_shared'
 
 /**
  * Aparência: cor de destaque + fundo. Aplica direto no DOM via applyTheme,
  * persiste no localStorage. Sem botão "Salvar" — feedback é instantâneo.
+ *
+ * Sync server: PATCH /api/profile/preferences debounced (600ms). Erro silencioso
+ * — local já está aplicado, sync server eventualmente refaz.
  */
 export default function AppearanceSection() {
-  const [accentId, setAccentId] = useState(() => localStorage.getItem('umbra-accent') ?? 'gold')
-  const [bgId,     setBgId]     = useState(() => localStorage.getItem('umbra-bg')     ?? 'void')
+  const [accentId, setAccentId] = useState(() =>
+    localStorage.getItem('astra-accent') ?? localStorage.getItem('umbra-accent') ?? 'gold',
+  )
+  const [bgId,     setBgId]     = useState(() =>
+    localStorage.getItem('astra-bg')     ?? localStorage.getItem('umbra-bg')     ?? 'void',
+  )
 
-  // Aplica imediatamente ao mudar
-  useEffect(() => { applyTheme(accentId, bgId) }, [accentId, bgId])
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const debounceRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    applyTheme(accentId, bgId)
+    if (!isAuthenticated) return
+    if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    debounceRef.current = window.setTimeout(() => {
+      api.patch('/api/profile/preferences', {
+        preferences: { accent: accentId, bg: bgId },
+      }).catch(() => {})
+    }, 600)
+    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current) }
+  }, [accentId, bgId, isAuthenticated])
 
   return (
     <div>

@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import { connectSocket } from '@/lib/socket'
-import { getStoredRefreshToken, setStoredRefreshToken, clearStoredRefreshToken } from '@/lib/api'
+import { getStoredRefreshToken, setStoredRefreshToken, clearStoredRefreshToken, api } from '@/lib/api'
+import { applyTheme } from '@/lib/theme'
 
 /**
  * Em cold load, tenta restaurar accessToken usando refreshToken de localStorage.
@@ -41,10 +42,40 @@ async function doBootstrap(): Promise<boolean> {
     setAccessToken(data.data.accessToken)
     setStoredRefreshToken(data.data.refreshToken)
     try { connectSocket() } catch { /* ignore */ }
+    // Sync de preferências (tema) com server. Não bloqueia o boot — roda em paralelo.
+    void syncPreferencesFromServer()
     return true
   } catch {
     clearStoredRefreshToken()
     logout()
     return false
   }
+}
+
+// ── Preferências cross-device ─────────────────────────────────
+// Fluxo: GET /preferences. Se server tem accent/bg → aplica (vence localStorage).
+// Se server vazio → push localStorage como 1ª sync. Idempotente.
+async function syncPreferencesFromServer() {
+  try {
+    const { data } = await api.get('/api/profile/preferences')
+    const prefs = data?.data?.preferences ?? {}
+    const accent = typeof prefs.accent === 'string' ? prefs.accent : null
+    const bg     = typeof prefs.bg     === 'string' ? prefs.bg     : null
+
+    if (accent || bg) {
+      applyTheme(
+        accent ?? localStorage.getItem('astra-accent') ?? localStorage.getItem('umbra-accent') ?? 'gold',
+        bg     ?? localStorage.getItem('astra-bg')     ?? localStorage.getItem('umbra-bg')     ?? 'void',
+      )
+    } else {
+      // 1º login: server vazio, empurra o que está local.
+      const localAccent = localStorage.getItem('astra-accent') ?? localStorage.getItem('umbra-accent')
+      const localBg     = localStorage.getItem('astra-bg')     ?? localStorage.getItem('umbra-bg')
+      if (localAccent || localBg) {
+        await api.patch('/api/profile/preferences', {
+          preferences: { accent: localAccent ?? 'gold', bg: localBg ?? 'void' },
+        })
+      }
+    }
+  } catch { /* sem internet / endpoint 404 — fica com local mesmo */ }
 }

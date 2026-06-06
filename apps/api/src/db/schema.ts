@@ -45,6 +45,9 @@ export const users = pgTable('User', {
   customStatus: text('customStatus'),
   /** JSON: { mentions, dms, reactions, replies, sounds, quietStart, quietEnd }. null = defaults */
   notificationPrefs: text('notificationPrefs'),
+  /** JSON: { accent, bg, ...future }. Tema/aparência sincronizado entre devices.
+   *  Salvo no PATCH /profile/preferences; lido em /auth/me e aplicado no bootstrap. */
+  preferences:  text('preferences'),
   createdAt:    timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt:    timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 })

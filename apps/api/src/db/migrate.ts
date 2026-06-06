@@ -3,6 +3,7 @@ import { Pool } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { resolve } from 'node:path'
+import { verifyMigrationsJournal } from './verifyMigrations'
 
 async function main() {
   const url = process.env.DATABASE_URL
@@ -31,6 +32,7 @@ async function main() {
   console.log(`[MIGRATE] Lendo migrations de: ${migrationsFolder}`)
 
   try {
+    verifyMigrationsJournal(migrationsFolder)
     await migrate(db, { migrationsFolder })
     console.log('[MIGRATE] Concluído com sucesso.')
   } catch (err) {

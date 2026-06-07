@@ -41,9 +41,12 @@ const toolsKey   = (userId: string) => `bot:tools:${userId}`
  */
 export async function pushTurn(userId: string, channelId: string, turn: MemoryTurn): Promise<void> {
   const k = memKey(userId, channelId)
-  await redis.zadd(k, turn.ts, JSON.stringify(turn))
-  // EXPIRE com NX só seta se ainda não tem TTL — garante "reset diário fixo"
-  await redis.expire(k, MEMORY_TTL_SECONDS, 'NX')
+  // Pipeline: 1 round-trip em vez de 2. EXPIRE NX só seta se ainda não
+  // tem TTL → preserva "reset diário fixo" da 1ª escrita.
+  await redis.multi()
+    .zadd(k, turn.ts, JSON.stringify(turn))
+    .expire(k, MEMORY_TTL_SECONDS, 'NX')
+    .exec()
 }
 
 /**
@@ -80,9 +83,11 @@ export async function setSummary(
   userId: string, channelId: string, summary: Summary, removeBeforeTs: number,
 ): Promise<void> {
   const k = summaryKey(userId, channelId)
-  await redis.set(k, JSON.stringify(summary), 'EX', MEMORY_TTL_SECONDS)
-  // Remove turns antigos (score < removeBeforeTs)
-  await redis.zremrangebyscore(memKey(userId, channelId), 0, removeBeforeTs - 1)
+  // Pipeline: SET summary + remove turns antigos em 1 round-trip.
+  await redis.multi()
+    .set(k, JSON.stringify(summary), 'EX', MEMORY_TTL_SECONDS)
+    .zremrangebyscore(memKey(userId, channelId), 0, removeBeforeTs - 1)
+    .exec()
 }
 
 /**
@@ -99,8 +104,11 @@ export async function clearMemory(userId: string, channelId: string): Promise<vo
  */
 export async function consumeTokens(userId: string, n: number): Promise<{ allowed: boolean; remaining: number }> {
   const k = tokensKey(userId)
-  const newVal = await redis.incrby(k, n)
-  await redis.expire(k, MEMORY_TTL_SECONDS, 'NX')
+  const res = await redis.multi()
+    .incrby(k, n)
+    .expire(k, MEMORY_TTL_SECONDS, 'NX')
+    .exec()
+  const newVal = Number(res?.[0]?.[1] ?? 0)
   const remaining = Math.max(0, DAILY_TOKEN_LIMIT - newVal)
   return { allowed: newVal <= DAILY_TOKEN_LIMIT, remaining }
 }
@@ -110,8 +118,11 @@ export async function consumeTokens(userId: string, n: number): Promise<{ allowe
  */
 export async function consumeToolCall(userId: string): Promise<{ allowed: boolean; remaining: number }> {
   const k = toolsKey(userId)
-  const newVal = await redis.incr(k)
-  await redis.expire(k, MEMORY_TTL_SECONDS, 'NX')
+  const res = await redis.multi()
+    .incr(k)
+    .expire(k, MEMORY_TTL_SECONDS, 'NX')
+    .exec()
+  const newVal = Number(res?.[0]?.[1] ?? 0)
   const remaining = Math.max(0, DAILY_TOOL_LIMIT - newVal)
   return { allowed: newVal <= DAILY_TOOL_LIMIT, remaining }
 }

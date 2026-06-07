@@ -19,25 +19,77 @@ const SOUND_BY_TYPE: Record<NotificationType, string> = {
   reply:    '/notification-soft.mp3',
 }
 
-const FREQ_BY_TYPE: Record<NotificationType, number> = {
-  mention:  880,   // mais alto = mais urgente
-  dm:       660,
-  reaction: 520,
-  reply:    580,
+/**
+ * Sons distintos por tipo via WebAudio (sem deps externas, sem assets).
+ * Cada tipo tem timbre + envelope próprio pra ser reconhecível sem olhar.
+ *   mention  — 2 notas (A5 → E5), urgente
+ *   dm       — sino metálico (tri + sub) C5
+ *   reply    — clique soft (square envelope curto) G4
+ *   reaction — pluck (triangle decay rápido) E5
+ */
+type Synth = (ctx: AudioContext) => void
+
+const SYNTH_BY_TYPE: Record<NotificationType, Synth> = {
+  mention: (ctx) => {
+    // Dois beeps rápidos descendentes
+    const playNote = (freq: number, start: number, dur: number) => {
+      const osc  = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0,    ctx.currentTime + start)
+      gain.gain.linearRampToValueAtTime(0.10, ctx.currentTime + start + 0.005)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur)
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + dur + 0.02)
+    }
+    playNote(880, 0,    0.12)
+    playNote(660, 0.10, 0.14)
+  },
+  dm: (ctx) => {
+    // Sino: triangle fundamental + sub oitava abaixo, decay lento
+    const osc1 = ctx.createOscillator()
+    const osc2 = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc1.type = 'triangle'; osc1.frequency.value = 523
+    osc2.type = 'sine';     osc2.frequency.value = 261
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.45)
+    osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination)
+    osc1.start(); osc2.start()
+    osc1.stop(ctx.currentTime + 0.5); osc2.stop(ctx.currentTime + 0.5)
+  },
+  reply: (ctx) => {
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.value = 392
+    gain.gain.setValueAtTime(0.04, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08)
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.start(); osc.stop(ctx.currentTime + 0.1)
+  },
+  reaction: (ctx) => {
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'triangle'
+    // Pluck: pitch starts ligeiro acima e cai
+    osc.frequency.setValueAtTime(720, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(659, ctx.currentTime + 0.18)
+    gain.gain.setValueAtTime(0.07, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2)
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.start(); osc.stop(ctx.currentTime + 0.22)
+  },
 }
 
-function playFallbackBeep(freq: number) {
+function playFallbackSynth(type: NotificationType) {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'sine'
-    osc.frequency.value = freq
-    gain.gain.value = 0.05
-    osc.connect(gain); gain.connect(ctx.destination)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.12)
-    setTimeout(() => ctx.close().catch(() => {}), 250)
+    SYNTH_BY_TYPE[type](ctx)
+    // Fecha context após o som — evita leak de AudioContext (browser limita ~6).
+    setTimeout(() => ctx.close().catch(() => {}), 700)
   } catch {}
 }
 
@@ -54,10 +106,10 @@ function playPing(type: NotificationType) {
     }
     const p = a.play()
     if (p && typeof p.catch === 'function') {
-      p.catch(() => playFallbackBeep(FREQ_BY_TYPE[type]))
+      p.catch(() => playFallbackSynth(type))
     }
   } catch {
-    playFallbackBeep(FREQ_BY_TYPE[type])
+    playFallbackSynth(type)
   }
 }
 

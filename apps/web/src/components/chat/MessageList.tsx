@@ -6,7 +6,6 @@ import { api } from '@/lib/api'
 import { useChannel } from '@/hooks/useSocket'
 import { useUnread } from '@/hooks/useUnread'
 import MessageItem from './MessageItem'
-import { ServerEmojiProvider } from '@/hooks/useServerEmojis'
 import { MessageListSkeleton } from '@/components/skeletons/MessageListSkeleton'
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import type { MessageWithAuthor, PaginatedResponse } from '@astra/types'
@@ -299,9 +298,11 @@ export default function MessageList({
 
   const items = virtualizer.getVirtualItems()
 
+  // astra-smooth-scroll: behavior smooth + overscroll contain.
+  // astra-feed-scroll: declara scroll-timeline --astra-feed pro
+  // parallax do StarField consumir (em SPA, body não scrolla).
   return (
-    <ServerEmojiProvider serverId={serverId}>
-    <div ref={scrollRef} className="flex-1 overflow-y-auto">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto astra-smooth-scroll astra-feed-scroll">
       {/* Sentinel topo: dispara fetchNextPage qd visível */}
       <div ref={topRef} className="h-1" />
 
@@ -364,6 +365,5 @@ export default function MessageList({
         })}
       </div>
     </div>
-    </ServerEmojiProvider>
   )
 }

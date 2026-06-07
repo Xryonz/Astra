@@ -336,10 +336,13 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         {/* ── Channel panel ─────────────────────────────────── */}
         <div
           className={cn(
-            'h-full bg-muted border-r border-border flex flex-col overflow-hidden transition-[width] duration-300 ease-(--ease-spring)',
+            // min-w-0 força flex item a respeitar w-0 (sem ele, conteúdo interno
+            // empurra o painel e estoura scrollbar horizontal no viewport durante
+            // a transição de collapse). overflow-hidden já corta visualmente.
+            'h-full bg-muted border-r border-border flex flex-col overflow-hidden transition-[width] duration-300 ease-(--ease-spring) min-w-0',
             // Mobile: ocupa o resto da largura (após strip 64px). Desktop: w-55 ou colapsa.
             'flex-1 md:flex-none',
-            collapsed ? 'md:w-0' : 'md:w-55'
+            collapsed ? 'md:w-0 md:border-r-0' : 'md:w-55'
           )}
         >
           {/* Mobile-only header: avatar (abre Mais) + título + X (fecha sidebar) */}

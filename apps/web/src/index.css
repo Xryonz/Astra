@@ -154,20 +154,35 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SCROLL-DRIVEN ANIMATIONS — Chromium 115+, Safari 17.4+.
-   Usam animation-timeline: view() (elemento) ou scroll() (container)
-   nativamente, sem JS observers. Custo: zero (compositor).
-   Browsers sem suporte: utility é no-op (queda silenciosa).
+   SCROLL — comportamento + scroll-driven animations
    ═══════════════════════════════════════════════════════════ */
 
-/* Reveal-on-view: elemento aparece com fade+lift quando entra no
-   viewport durante o scroll. Drop-in: <div className="astra-reveal-on-view">.
-   Sem JS, sem IntersectionObserver, sem custom hook. */
+/* Smooth scroll global: scroll programático (anchor links, scrollTo,
+   focus()) ganha easing nativo. Custo: zero — só afeta scrolls iniciados
+   por código. Não afeta wheel scroll (que já é suave por padrão). */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Utility pra containers internos (MessageList, sidebar listas, etc).
+   Aplicar com className="astra-smooth-scroll" pra ganhar:
+    - scroll-behavior: smooth (transições programáticas)
+    - overscroll-behavior: contain (impede chain pro pai/body)
+    - scroll-padding pra sticky headers (~12px folga) */
+.astra-smooth-scroll {
+  scroll-behavior:     smooth;
+  overscroll-behavior: contain;
+  scroll-padding-top:  12px;
+}
+
+/* Reveal-on-view (Chromium 115+, Safari 17.4+): elemento ganha fade+lift
+   quando entra no viewport durante o scroll. Drop-in:
+   <div className="astra-reveal-on-view">. Sem JS, sem IntersectionObserver. */
 @supports (animation-timeline: view()) {
   .astra-reveal-on-view {
-    animation:        astraRevealOnView linear both;
+    animation:          astraRevealOnView linear both;
     animation-timeline: view();
-    animation-range:  entry 0% entry 60%;
+    animation-range:    entry 0% entry 60%;
   }
 }
 @keyframes astraRevealOnView {
@@ -175,13 +190,19 @@
   to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
 }
 
-/* StarField parallax: layer global do StarField translada leve com
-   o scroll do root. Adiciona profundidade sem peso de Reveal/IO.
-   Aplicado via classe astra-starfield-parallax na Layer 1 do StarField. */
+/* StarField parallax usando scroll-timeline NAMED — o container que
+   scrolla declara `scroll-timeline-name: --astra-feed` (ex: MessageList),
+   StarField consome esse timeline (mesmo sendo position:fixed, basta
+   estar no mesmo document tree). Antes usava scroll(root), que em SPA
+   nunca dispara porque o body é overflow:hidden. */
 @supports (animation-timeline: scroll()) {
   .astra-starfield-parallax {
     animation:          astraStarfieldParallax linear both;
-    animation-timeline: scroll(root block);
+    animation-timeline: --astra-feed;
+  }
+  .astra-feed-scroll {
+    scroll-timeline:    --astra-feed block;
+    scroll-timeline-name: --astra-feed;
   }
 }
 @keyframes astraStarfieldParallax {
@@ -190,6 +211,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .astra-smooth-scroll      { scroll-behavior: auto; }
   .astra-reveal-on-view,
   .astra-starfield-parallax { animation: none !important; }
 }

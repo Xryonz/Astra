@@ -19,6 +19,7 @@ import { useInAppNotifications } from '@/hooks/useInAppNotifications'
 import MessageList from '@/components/chat/MessageList'
 import MessageInput from '@/components/chat/MessageInput'
 import TypingIndicator from '@/components/chat/TypingIndicator'
+import { ServerEmojiProvider } from '@/hooks/useServerEmojis'
 import MentionBanner from '@/components/chat/MentionBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import type { MessageWithAuthor } from '@astra/types'
@@ -181,24 +182,26 @@ function ChannelView() {
               </Suspense>
             )}
 
-            <MessageList
-              key={activeChannel.id}
-              channelId={activeChannel.id}
-              channelName={activeChannel.name}
-              serverId={activeChannel.serverId}
-              onRegisterOptimistic={handleRegisterOptimistic}
-              onReply={setReplyingTo}
-            />
-            <TypingIndicator channelId={activeChannel.id} />
-            <MessageInput
-              channelId={activeChannel.id}
-              channelName={activeChannel.name}
-              serverId={activeChannel.serverId}
-              replyingTo={replyingTo}
-              onCancelReply={() => setReplyingTo(null)}
-              onOptimisticMessage={handleOptimisticMessage}
-              onOptimisticFailed={handleOptimisticFailed}
-            />
+            <ServerEmojiProvider serverId={activeChannel.serverId}>
+              <MessageList
+                key={activeChannel.id}
+                channelId={activeChannel.id}
+                channelName={activeChannel.name}
+                serverId={activeChannel.serverId}
+                onRegisterOptimistic={handleRegisterOptimistic}
+                onReply={setReplyingTo}
+              />
+              <TypingIndicator channelId={activeChannel.id} />
+              <MessageInput
+                channelId={activeChannel.id}
+                channelName={activeChannel.name}
+                serverId={activeChannel.serverId}
+                replyingTo={replyingTo}
+                onCancelReply={() => setReplyingTo(null)}
+                onOptimisticMessage={handleOptimisticMessage}
+                onOptimisticFailed={handleOptimisticFailed}
+              />
+            </ServerEmojiProvider>
           </>
         ) : (
           /* Asymmetric editorial layout: pavlivka — left margin reservado pra

@@ -110,17 +110,21 @@ export default function StarField() {
         mixBlendMode:  'screen',
       }}
     >
-      {/* ── Layer 1: 70 mini-stars com drift GLOBAL (1 anim, todas se mexem) */}
-      <div
-        style={{
-          position:        'absolute',
-          inset:           0,
-          backgroundImage: STARS_BG,
-          opacity:         0.34,
-          animation:       'astraGlobalDrift 90s linear infinite',
-          willChange:      'transform',
-        }}
-      />
+      {/* ── Layer 1: 70 mini-stars com drift GLOBAL (inner) + parallax
+            scroll-driven (outer). 2 elementos = 2 animation-timelines
+            independentes (drift contínuo + scroll-linked translate). */}
+      <div className="astra-starfield-parallax" style={{ position: 'absolute', inset: 0 }}>
+        <div
+          style={{
+            position:        'absolute',
+            inset:           0,
+            backgroundImage: STARS_BG,
+            opacity:         0.34,
+            animation:       'astraGlobalDrift 90s linear infinite',
+            willChange:      'transform',
+          }}
+        />
+      </div>
 
       {/* ── Layer 2: 14 twinkles individuais (twinkle + micro-drift) */}
       {TWINKLES.map((s, i) => (

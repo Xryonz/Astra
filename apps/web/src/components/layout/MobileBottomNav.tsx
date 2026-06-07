@@ -10,7 +10,8 @@
  * Posição: fixed bottom + safe-area-inset. Conteúdo das pages tem pb-16.
  * z-index 30 — abaixo de modais/sheets (40+) mas acima de conteúdo normal.
  */
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
+import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { Sparkles, Users, MoreHorizontal, Bell } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils'
@@ -49,7 +50,7 @@ interface Tab {
 }
 
 export default function MobileBottomNav() {
-  const navigate         = useNavigate()
+  const navigate         = useViewTransitionNavigate()
   const location         = useLocation()
   const openSidebar      = useUIStore((s) => s.openMobileSidebar)
   const setMoreOpen      = useUIStore((s) => s.setMobileMoreOpen)

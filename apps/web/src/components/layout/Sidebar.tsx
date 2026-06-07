@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -37,7 +37,7 @@ interface CtxMenu { x: number; y: number; server: ServerWithChannels; isOwner: b
 
 export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarProps) {
   const user        = useAuthStore((s) => s.user)
-  const navigate    = useNavigate()
+  const navigate    = useViewTransitionNavigate()
   const queryClient = useQueryClient()
   const unread      = useUnread()
 

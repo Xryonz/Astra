@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import Sidebar from '@/components/layout/Sidebar'
 import MobileBottomNav from '@/components/layout/MobileBottomNav'
 import MobileMoreSheet from '@/components/layout/MobileMoreSheet'
@@ -274,7 +275,7 @@ function ChannelView() {
 }
 
 export default function AppPage() {
-  const navigate = useNavigate()
+  const navigate = useViewTransitionNavigate()
   const location = useLocation()
   const activeId = (location.state as ActiveChannel | null)?.id ?? null
   const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette)

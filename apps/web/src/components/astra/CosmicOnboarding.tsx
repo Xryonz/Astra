@@ -10,6 +10,7 @@
  * Mantém visual editorial-dark: glassmorphism + serif display + accent prata.
  */
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Sparkles, Stars, MessageSquareQuote } from 'lucide-react'
@@ -80,7 +81,12 @@ export function CosmicOnboarding() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) dismiss() }}>
       <DialogContent className="max-w-[460px]! gap-0 p-0 overflow-hidden">
         <div className="px-7 pt-8 pb-6">
-          <div
+          {/* layoutId no container do ícone: Motion morfa posição/tamanho
+              entre slides (spring). Icon interno usa AnimatePresence pra
+              fade cross-content sem layout-shift. */}
+          <motion.div
+            layoutId="cosmic-onboarding-icon"
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
             className="size-12 rounded-xl flex items-center justify-center mb-5 text-(--accent)"
             style={{
               background:  'var(--accent-dim)',
@@ -88,15 +94,35 @@ export function CosmicOnboarding() {
               boxShadow:   '0 4px 24px var(--accent-glow)',
             }}
           >
-            {slide.icon}
-          </div>
-          <h2
-            className="text-2xl m-0 mb-3 tracking-tight"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            {slide.title}
-          </h2>
-          <p className="m-0 text-(--text-2) leading-relaxed">{slide.body}</p>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={idx}
+                initial={{ opacity: 0, scale: 0.6, rotate: -12 }}
+                animate={{ opacity: 1, scale: 1,   rotate: 0   }}
+                exit={{    opacity: 0, scale: 0.6, rotate: 12  }}
+                transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {slide.icon}
+              </motion.span>
+            </AnimatePresence>
+          </motion.div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={`text-${idx}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{    opacity: 0, y: -6 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <h2
+                className="text-2xl m-0 mb-3 tracking-tight"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                {slide.title}
+              </h2>
+              <p className="m-0 text-(--text-2) leading-relaxed">{slide.body}</p>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Footer: progresso (3 dots) + ações */}

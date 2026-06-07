@@ -129,6 +129,14 @@
   from { opacity: 0; transform: translateX(-8px); }
   to   { opacity: 1; transform: translateX(0);     }
 }
+/* Starlight pulse — varredura prata sutil sobre msg recém-chegada.
+   Combina com anim-msg-in: pulso roda 1x via pseudo-element após o
+   slide-in. GPU-only (transform), 0.8s, sem repaint do conteúdo. */
+@keyframes msgStarlightSweep {
+  0%   { opacity: 0; transform: translateX(-30%); }
+  20%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: translateX(130%); }
+}
 /* DM message directional slide — bubble entra do lado do autor
    com elastic overshoot final. --dm-slide-from = +14px (mine) ou -14px (theirs). */
 @keyframes dmMsgIn {
@@ -143,6 +151,77 @@
 @keyframes float {
   0%, 100% { transform: translateY(0px);   }
   50%       { transform: translateY(-8px); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL-DRIVEN ANIMATIONS — Chromium 115+, Safari 17.4+.
+   Usam animation-timeline: view() (elemento) ou scroll() (container)
+   nativamente, sem JS observers. Custo: zero (compositor).
+   Browsers sem suporte: utility é no-op (queda silenciosa).
+   ═══════════════════════════════════════════════════════════ */
+
+/* Reveal-on-view: elemento aparece com fade+lift quando entra no
+   viewport durante o scroll. Drop-in: <div className="astra-reveal-on-view">.
+   Sem JS, sem IntersectionObserver, sem custom hook. */
+@supports (animation-timeline: view()) {
+  .astra-reveal-on-view {
+    animation:        astraRevealOnView linear both;
+    animation-timeline: view();
+    animation-range:  entry 0% entry 60%;
+  }
+}
+@keyframes astraRevealOnView {
+  from { opacity: 0; transform: translateY(14px); filter: blur(2px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
+}
+
+/* StarField parallax: layer global do StarField translada leve com
+   o scroll do root. Adiciona profundidade sem peso de Reveal/IO.
+   Aplicado via classe astra-starfield-parallax na Layer 1 do StarField. */
+@supports (animation-timeline: scroll()) {
+  .astra-starfield-parallax {
+    animation:          astraStarfieldParallax linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes astraStarfieldParallax {
+  from { transform: translateY(0);     }
+  to   { transform: translateY(-42px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .astra-reveal-on-view,
+  .astra-starfield-parallax { animation: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEW TRANSITIONS API — morph nativo entre rotas (Chromium 111+).
+   Hook useViewTransitionNavigate envolve react-router em
+   document.startViewTransition() — compositor cuida do crossfade.
+   Browsers sem suporte (Firefox): nenhum efeito, navega normal.
+   ═══════════════════════════════════════════════════════════ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration:        0.34s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+::view-transition-old(root) {
+  animation-name: vt-fade-out;
+  animation-duration: 0.22s;
+}
+::view-transition-new(root) {
+  animation-name: vt-fade-in;
+}
+@keyframes vt-fade-out {
+  to { opacity: 0; filter: blur(4px); }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; transform: translateX(12px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateX(0);    filter: blur(0);   }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none !important; }
 }
 @keyframes shimmer {
   0%   { background-position: -200% center; }
@@ -314,7 +393,23 @@
 .anim-fade-up    { animation: fadeUp    0.45s var(--ease-spring) both; }
 .anim-fade-left  { animation: fadeLeft  0.35s var(--ease-spring) both; }
 .anim-fade-in    { animation: fadeIn    0.3s  var(--ease-out)    both; }
-.anim-msg-in     { animation: msgIn     0.25s var(--ease-spring) both; }
+.anim-msg-in     { animation: msgIn     0.25s var(--ease-spring) both; position: relative; }
+/* Starlight overlay: gradient prata varre msg ao mount. Sem repaint
+   do conteúdo — pseudo absolute, blend-mode screen, GPU translate. */
+.anim-msg-in::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-glow) 50%, transparent 100%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: msgStarlightSweep 0.9s ease-out 0.2s both;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-msg-in::after { animation: none; }
+}
 .anim-scale      { animation: scaleReveal 0.3s var(--ease-spring) both; }
 .anim-float      { animation: float     3.5s  ease-in-out infinite; }
 

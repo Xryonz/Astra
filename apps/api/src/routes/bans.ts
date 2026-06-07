@@ -13,6 +13,7 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
+import { invalidateMembersCache } from '../lib/membersCache'
 
 export const bansRouter = Router()
 
@@ -96,6 +97,7 @@ bansRouter.post(
         eq(serverMembers.serverId, serverId),
       ))
     })
+    void invalidateMembersCache(serverId)
 
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_BAN,

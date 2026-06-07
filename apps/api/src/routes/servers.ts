@@ -10,6 +10,7 @@ import { CreateServerSchema, CreateChannelSchema } from '@astra/types'
 import { PERMS, getMemberPerms, filterVisibleChannels } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { createId } from '../db/cuid'
+import { invalidateMembersCache } from '../lib/membersCache'
 
 export const serversRouter = Router()
 
@@ -252,6 +253,7 @@ serversRouter.post(
 
     // 6) Insert + notification
     await db.insert(serverMembers).values({ userId: friendUserId, serverId })
+    void invalidateMembersCache(serverId)
     await db.insert(notifications).values({
       userId: friendUserId,
       type:   'server_invite',
@@ -326,6 +328,7 @@ serversRouter.delete(
     }
 
     await db.delete(serverMembers).where(eq(serverMembers.id, memberId))
+    void invalidateMembersCache(serverId)
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
       targetId: target.userId,
@@ -378,6 +381,7 @@ serversRouter.delete(
     if (!membership) return res.status(404).json({ error: 'Você não é membro deste servidor' })
 
     await db.delete(serverMembers).where(eq(serverMembers.id, membership.id))
+    void invalidateMembersCache(serverId)
     res.json({ message: 'Você saiu do servidor' })
   })
 )
@@ -402,6 +406,7 @@ serversRouter.post(
     if (already) return res.status(409).json({ error: 'Você já é membro deste servidor' })
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id })
+    void invalidateMembersCache(server.id)
     res.json({ data: server })
   })
 )
@@ -504,6 +509,7 @@ serversRouter.post(
     if (already) return res.status(409).json({ error: 'Usuário já é membro' })
 
     await db.insert(serverMembers).values({ userId: target.id, serverId, role: 'MEMBER' })
+    void invalidateMembersCache(serverId)
     res.json({ message: `${target.displayName} adicionado com sucesso` })
   })
 )

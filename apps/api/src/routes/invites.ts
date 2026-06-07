@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { authLimiter } from '../middleware/rateLimiter'
 import { PERMS, getMemberPerms } from '../lib/permissions'
+import { invalidateMembersCache } from '../lib/membersCache'
 
 const router = Router()
 
@@ -59,6 +60,7 @@ router.post(
     if (already) return res.status(409).json({ error: 'Você já é membro deste servidor' })
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id, role: 'MEMBER' })
+    void invalidateMembersCache(server.id)
 
     // Retorna shape com channels + _count.members (como Prisma include fazia)
     const [chRows, [countRow]] = await Promise.all([

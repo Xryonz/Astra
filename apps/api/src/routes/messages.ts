@@ -6,7 +6,7 @@ import { alias } from 'drizzle-orm/pg-core'
 import {
   channels, servers, serverMembers, messages, users, messageReactions, messageEdits,
 } from '../db/schema'
-import { redis } from '../lib/redis'
+import { getCachedMembers } from '../lib/membersCache'
 import { insertChannelMessage, selectAuthorById, selectMemberColor } from '../db/prepared'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
@@ -46,40 +46,17 @@ function parseCursor(cursor?: string): CursorPayload | null {
   }
 }
 
-// ── Cache de membros pra parseMentions ────────────────────────
-// parseMentions é chamado em todo envio de mensagem. Sem cache,
-// cada envio hita DB pra resolver @username → userId. Cache por
-// serverId com TTL 60s: pós-warmup, parseMentions vira CPU-only.
-//
-// Cache invalida só por TTL — overhead aceitável: alguém entrando
-// num servidor pode demorar até 60s pra ser mencionável. Trade-off
-// pra evitar invalidação manual em 5+ rotas (invite, leave, kick, etc).
-const MEMBERS_CACHE_TTL = 60
-const membersCacheKey = (serverId: string) => `members:list:${serverId}`
-
-async function getServerMembersList(serverId: string): Promise<Array<{ userId: string; username: string }>> {
-  const cached = await redis.get(membersCacheKey(serverId))
-  if (cached) {
-    try { return JSON.parse(cached) } catch {}
-  }
-  const rows = await db.select({ userId: serverMembers.userId, username: users.username })
-    .from(serverMembers)
-    .innerJoin(users, eq(users.id, serverMembers.userId))
-    .where(eq(serverMembers.serverId, serverId))
-  await redis.setex(membersCacheKey(serverId), MEMBERS_CACHE_TTL, JSON.stringify(rows))
-  return rows
-}
-
 /**
  * Parse @mentions: retorna userIds dos mencionados que de fato
  * são membros do servidor (não vaza o ato de mencionar fora dele).
+ * Usa cache Redis compartilhado (lib/membersCache).
  */
 async function parseMentions(content: string, serverId: string): Promise<string[]> {
   const matches = content.match(/@([a-z0-9_]+)/gi)
   if (!matches || matches.length === 0) return []
 
   const wanted = new Set(matches.map((m) => m.slice(1).toLowerCase()))
-  const members = await getServerMembersList(serverId)
+  const members = await getCachedMembers(serverId)
   return members
     .filter((m) => wanted.has(m.username.toLowerCase()))
     .map((m) => m.userId)

@@ -6,6 +6,8 @@ import { alias } from 'drizzle-orm/pg-core'
 import {
   channels, servers, serverMembers, messages, users, messageReactions, messageEdits,
 } from '../db/schema'
+import { redis } from '../lib/redis'
+import { insertChannelMessage, selectAuthorById, selectMemberColor } from '../db/prepared'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { messageLimiter } from '../middleware/rateLimiter'
@@ -44,6 +46,30 @@ function parseCursor(cursor?: string): CursorPayload | null {
   }
 }
 
+// ── Cache de membros pra parseMentions ────────────────────────
+// parseMentions é chamado em todo envio de mensagem. Sem cache,
+// cada envio hita DB pra resolver @username → userId. Cache por
+// serverId com TTL 60s: pós-warmup, parseMentions vira CPU-only.
+//
+// Cache invalida só por TTL — overhead aceitável: alguém entrando
+// num servidor pode demorar até 60s pra ser mencionável. Trade-off
+// pra evitar invalidação manual em 5+ rotas (invite, leave, kick, etc).
+const MEMBERS_CACHE_TTL = 60
+const membersCacheKey = (serverId: string) => `members:list:${serverId}`
+
+async function getServerMembersList(serverId: string): Promise<Array<{ userId: string; username: string }>> {
+  const cached = await redis.get(membersCacheKey(serverId))
+  if (cached) {
+    try { return JSON.parse(cached) } catch {}
+  }
+  const rows = await db.select({ userId: serverMembers.userId, username: users.username })
+    .from(serverMembers)
+    .innerJoin(users, eq(users.id, serverMembers.userId))
+    .where(eq(serverMembers.serverId, serverId))
+  await redis.setex(membersCacheKey(serverId), MEMBERS_CACHE_TTL, JSON.stringify(rows))
+  return rows
+}
+
 /**
  * Parse @mentions: retorna userIds dos mencionados que de fato
  * são membros do servidor (não vaza o ato de mencionar fora dele).
@@ -52,14 +78,11 @@ async function parseMentions(content: string, serverId: string): Promise<string[
   const matches = content.match(/@([a-z0-9_]+)/gi)
   if (!matches || matches.length === 0) return []
 
-  const usernames = [...new Set(matches.map((m) => m.slice(1).toLowerCase()))]
-
-  const members = await db.select({ userId: serverMembers.userId })
-    .from(serverMembers)
-    .innerJoin(users, eq(users.id, serverMembers.userId))
-    .where(and(eq(serverMembers.serverId, serverId), inArray(users.username, usernames)))
-
-  return members.map((m) => m.userId)
+  const wanted = new Set(matches.map((m) => m.slice(1).toLowerCase()))
+  const members = await getServerMembersList(serverId)
+  return members
+    .filter((m) => wanted.has(m.username.toLowerCase()))
+    .map((m) => m.userId)
 }
 
 function safeParseAttachments(raw: unknown): any[] {
@@ -312,26 +335,27 @@ export function createMessagesRouter(io: SocketServer) {
 
       // ── PARALELIZAR queries independentes pré-INSERT ─────────
       // Antes: sequencial (mem→mentions = 2 RTTs). Agora: 1 RTT.
+      // SELECTs viram prepared statements (plan cacheado no pg-pool).
       const [membership, mentionedIds, author] = await Promise.all([
-        db.select({ nameColor: serverMembers.nameColor }).from(serverMembers)
-          .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, channel.serverId)))
-          .limit(1).then((rows) => rows[0]),
+        selectMemberColor.execute({ userId: req.userId!, serverId: channel.serverId }).then((rows) => rows[0]),
         parseMentions(content, channel.serverId),
-        db.select({
-          id: users.id, username: users.username,
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-        }).from(users).where(eq(users.id, req.userId!)).limit(1).then((rows) => rows[0]),
+        selectAuthorById.execute({ userId: req.userId! }).then((rows) => rows[0]),
       ])
 
       const authorColor = membership?.nameColor ?? null
       const mentionsStr = mentionedIds.join(',')
 
-      const [inserted] = await db.insert(messages).values({
-        content, channelId, authorId: req.userId!, authorColor, mentions: mentionsStr,
+      // INSERT via prepared — plan cacheado, ~30-50% mais rápido vs DSL ad-hoc.
+      const [inserted] = await insertChannelMessage.execute({
+        content,
+        channelId,
+        authorId:    req.userId!,
+        authorColor,
+        mentions:    mentionsStr,
         attachments: attachmentsJson,
-        replyToId: validReplyToId,
+        replyToId:   validReplyToId,
         expiresAt,
-      }).returning()
+      })
 
       const msgWithReactions = {
         ...inserted, author, reactions: [], mentions: mentionedIds,

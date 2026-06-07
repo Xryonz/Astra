@@ -32,8 +32,8 @@ export function CreateThreadDialog({ open, onClose, onCreate }: {
     <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
       <DialogContent className="max-w-95!">
         <DialogHeader>
-          <DialogTitle>Criar thread</DialogTitle>
-          <DialogDescription>Conversa derivada desta mensagem.</DialogDescription>
+          <DialogTitle>Soltar cometa</DialogTitle>
+          <DialogDescription>Conversa derivada desta mensagem (thread).</DialogDescription>
         </DialogHeader>
         <Input
           autoFocus
@@ -43,7 +43,7 @@ export function CreateThreadDialog({ open, onClose, onCreate }: {
             if (e.key === 'Enter')  { e.preventDefault(); submit() }
             if (e.key === 'Escape') onClose()
           }}
-          placeholder="Nome da thread"
+          placeholder="Nome do cometa"
           maxLength={80}
         />
         <DialogFooter>

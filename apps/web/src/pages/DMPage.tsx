@@ -76,8 +76,9 @@ export default function DMPage() {
           <h2
             className="text-lg m-0 font-normal tracking-tight text-foreground truncate"
             style={{ fontFamily: 'var(--font-display)' }}
+            title="Mensagens diretas"
           >
-            Mensagens diretas
+            Sussurros
           </h2>
         </div>
 
@@ -195,7 +196,7 @@ export default function DMPage() {
               <div className="hidden lg:flex col-span-2 col-start-11 items-end pb-12">
                 <Reveal delay={1.0}>
                   <p className="ed-aside max-w-[20ch]">
-                    Mensagens diretas só você e ele leem.
+                    Sussurros — só você e ele leem.
                   </p>
                 </Reveal>
               </div>

@@ -57,8 +57,8 @@ export function CreateChannelDialog({ open, onClose, serverId }: Props) {
     <Dialog open={open && !!serverId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-95!">
         <DialogHeader>
-          <DialogTitle>Novo canal</DialogTitle>
-          <DialogDescription>Escolha nome e tipo na sua constelação. Texto pra chat, voz pra chamadas.</DialogDescription>
+          <DialogTitle>Abrir órbita</DialogTitle>
+          <DialogDescription>Canal da sua constelação. Texto pra chat, voz pra chamadas.</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
@@ -104,7 +104,7 @@ export function CreateChannelDialog({ open, onClose, serverId }: Props) {
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button onClick={submit} disabled={createChannel.isPending || !name.trim()}>
-            {createChannel.isPending ? 'Abrindo…' : 'Criar canal'}
+            {createChannel.isPending ? 'Abrindo…' : 'Abrir órbita'}
           </Button>
         </DialogFooter>
       </DialogContent>

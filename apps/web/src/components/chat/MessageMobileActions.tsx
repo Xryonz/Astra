@@ -60,7 +60,7 @@ export default function MessageMobileActions({
           <ActionRow icon={<Smile className="size-4" />}  label="Mais emojis"   onClick={wrap(onPickEmoji)} />
           <ActionRow icon={<Reply className="size-4" />}  label="Responder"     onClick={wrap(onReply)} />
           {onCreateThread && (
-            <ActionRow icon={<MessageSquarePlus className="size-4" />} label="Criar thread" onClick={wrap(onCreateThread)} />
+            <ActionRow icon={<MessageSquarePlus className="size-4" />} label="Soltar cometa" onClick={wrap(onCreateThread)} />
           )}
           <ActionRow
             icon={isPinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}

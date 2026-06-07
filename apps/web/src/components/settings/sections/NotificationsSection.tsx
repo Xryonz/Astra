@@ -120,7 +120,7 @@ export default function NotificationsSection() {
         ) : (
           <div className="grid sm:grid-cols-2 gap-2">
             <PrefToggle label="Menções"  hint="Quando alguém usa @você"          active={prefs.mentions}  onClick={togglePref('mentions')} />
-            <PrefToggle label="DMs"      hint="Mensagens diretas"                 active={prefs.dms}       onClick={togglePref('dms')} />
+            <PrefToggle label="Sussurros" hint="Mensagens diretas"                active={prefs.dms}       onClick={togglePref('dms')} />
             <PrefToggle label="Respostas" hint="Quando respondem sua msg"         active={prefs.replies}   onClick={togglePref('replies')} />
             <PrefToggle label="Reações"  hint="Quando reagem à sua msg"           active={prefs.reactions} onClick={togglePref('reactions')} />
           </div>

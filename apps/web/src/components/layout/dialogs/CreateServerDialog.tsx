@@ -60,12 +60,12 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
             {mode === 'group' ? <Users className="size-5 text-(--accent)" /> : <Plus className="size-5 text-(--accent)" />}
           </div>
           <DialogTitle>
-            {mode === 'group' ? 'Crie um aglomerado' : 'Crie uma constelação'}
+            {mode === 'group' ? 'Forjar aglomerado' : 'Forjar constelação'}
           </DialogTitle>
           <DialogDescription>
             {mode === 'group'
-              ? 'Aglomerados são privados — adicione estrelas manualmente.'
-              : 'Constelações podem ser acessadas por link de convite.'}
+              ? 'Grupo privado — adicione estrelas manualmente, sem link público.'
+              : 'Servidor da sua comunidade — entrada via link de convite.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -87,7 +87,7 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
           <Button onClick={submit} disabled={createServer.isPending || !name.trim()}>
             {createServer.isPending
               ? (mode === 'group' ? 'Formando…' : 'Acendendo…')
-              : (mode === 'group' ? 'Criar aglomerado' : 'Criar constelação')}
+              : (mode === 'group' ? 'Forjar aglomerado' : 'Forjar constelação')}
           </Button>
         </DialogFooter>
       </DialogContent>

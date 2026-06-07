@@ -37,7 +37,7 @@ export function MessageToolbar({
       {onReply && <ToolBtn title="Responder" onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
       {onTranslate && <ToolBtn title="Traduzir" onClick={onTranslate}><Languages className="size-3.5" /></ToolBtn>}
       {onCreateThread && (
-        <ToolBtn title="Criar thread" onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
+        <ToolBtn title="Soltar cometa (thread)" onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
       )}
       {onToggleBookmark && (
         <ToolBtn title={isBookmarked ? 'Remover dos salvos' : 'Salvar'} onClick={onToggleBookmark}>

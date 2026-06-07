@@ -24,11 +24,11 @@
   --border-mid:    color-mix(in srgb, var(--accent) 25%, #1a1a25);
   --border-bright: color-mix(in srgb, var(--accent) 40%, #1a1a25);
 
-  /* Accent — warm amber/gold (the anti-Discord) */
-  --accent:        #c9a96e;
-  --accent-h:      #ddbf88;
-  --accent-dim:    rgba(201, 169, 110, 0.10);
-  --accent-glow:   rgba(201, 169, 110, 0.20);
+  /* Accent — cold silver/starlight (Astra cosmic theme) */
+  --accent:        #d4d8e0;
+  --accent-h:      #e8ebf0;
+  --accent-dim:    rgba(212, 216, 224, 0.10);
+  --accent-glow:   rgba(212, 216, 224, 0.20);
 
   /* Text */
   --text-1:   #f0edff;

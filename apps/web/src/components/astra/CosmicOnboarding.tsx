@@ -1,0 +1,131 @@
+/**
+ * CosmicOnboarding — tour-relâmpago de 3 slides apresentando o léxico
+ * Astra (constelação, órbita, cometa, sussurro) na primeira visita.
+ *
+ * Comportamento:
+ *  - Lê localStorage 'astra:onboarded' — se true, não renderiza nada.
+ *  - Fecha (skip ou finalizar) seta a flag e dispensa pra sempre.
+ *  - Não bloqueia funcionalidade: user pode pular com Esc ou X.
+ *
+ * Mantém visual editorial-dark: glassmorphism + serif display + accent prata.
+ */
+import { useState, useEffect } from 'react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Sparkles, Stars, MessageSquareQuote } from 'lucide-react'
+
+const STORAGE_KEY = 'astra:onboarded'
+
+interface Slide {
+  icon:  React.ReactNode
+  title: string
+  body:  React.ReactNode
+}
+
+const SLIDES: Slide[] = [
+  {
+    icon:  <Stars className="size-7" />,
+    title: 'Bem-vindo a Astra',
+    body: (
+      <>
+        Aqui suas comunidades são <strong className="text-(--accent)">constelações</strong> (servidores).
+        Cada uma tem várias <strong className="text-(--accent)">órbitas</strong> (canais de texto e voz)
+        onde a conversa acontece.
+      </>
+    ),
+  },
+  {
+    icon:  <MessageSquareQuote className="size-7" />,
+    title: 'Estrelas conversam',
+    body: (
+      <>
+        Você é uma <strong className="text-(--accent)">estrela</strong>. Outras estrelas trocam{' '}
+        <strong className="text-(--accent)">sussurros</strong> (mensagens privadas) e respondem em{' '}
+        <strong className="text-(--accent)">cometas</strong> (threads — conversas derivadas de uma mensagem).
+      </>
+    ),
+  },
+  {
+    icon:  <Sparkles className="size-7" />,
+    title: 'Pronto pra começar?',
+    body: (
+      <>
+        <strong className="text-(--accent)">Forje</strong> sua primeira constelação ou{' '}
+        <strong className="text-(--accent)">orbite</strong> uma já existente com um convite.
+        Os termos cósmicos aparecem com explicação ao lado sempre que precisar.
+      </>
+    ),
+  },
+]
+
+export function CosmicOnboarding() {
+  const [open, setOpen] = useState(false)
+  const [idx,  setIdx]  = useState(0)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const done = window.localStorage.getItem(STORAGE_KEY)
+    if (!done) setOpen(true)
+  }, [])
+
+  const dismiss = () => {
+    try { window.localStorage.setItem(STORAGE_KEY, '1') } catch {}
+    setOpen(false)
+  }
+
+  const slide = SLIDES[idx]
+  const isLast = idx === SLIDES.length - 1
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) dismiss() }}>
+      <DialogContent className="max-w-[460px]! gap-0 p-0 overflow-hidden">
+        <div className="px-7 pt-8 pb-6">
+          <div
+            className="size-12 rounded-xl flex items-center justify-center mb-5 text-(--accent)"
+            style={{
+              background:  'var(--accent-dim)',
+              border:      '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+              boxShadow:   '0 4px 24px var(--accent-glow)',
+            }}
+          >
+            {slide.icon}
+          </div>
+          <h2
+            className="text-2xl m-0 mb-3 tracking-tight"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {slide.title}
+          </h2>
+          <p className="m-0 text-(--text-2) leading-relaxed">{slide.body}</p>
+        </div>
+
+        {/* Footer: progresso (3 dots) + ações */}
+        <div className="flex items-center justify-between px-7 py-4 border-t border-(--border) bg-(--raised)/40">
+          <div className="flex items-center gap-1.5">
+            {SLIDES.map((_, i) => (
+              <span
+                key={i}
+                className="size-1.5 rounded-full transition-all"
+                style={{
+                  background: i === idx ? 'var(--accent)' : 'var(--text-3)',
+                  opacity:    i === idx ? 1 : 0.4,
+                  width:      i === idx ? '14px' : '6px',
+                }}
+              />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {!isLast && (
+              <Button variant="ghost" size="sm" onClick={dismiss}>
+                Pular
+              </Button>
+            )}
+            <Button size="sm" onClick={() => isLast ? dismiss() : setIdx((i) => i + 1)}>
+              {isLast ? 'Começar' : 'Próximo'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

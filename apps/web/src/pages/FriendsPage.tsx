@@ -203,7 +203,7 @@ function FriendRow({
 }) {
   const items: EditorialMenuItem[] = useMemo(() => [
     { kind: 'label', label: friend.user.displayName },
-    { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: 'Enviar mensagem direta', onSelect: onDM },
+    { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: 'Enviar sussurro', onSelect: onDM },
     { kind: 'item', icon: <AtSign        className="size-3.5" />, label: 'Copiar @username',
       onSelect: () => { void navigator.clipboard.writeText(`@${friend.user.username}`) },
     },

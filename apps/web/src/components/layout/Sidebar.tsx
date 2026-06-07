@@ -253,7 +253,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                   <Sparkles className="size-6" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Estrelas — mensagens diretas</TooltipContent>
+              <TooltipContent side="right">Sussurros — mensagens diretas</TooltipContent>
             </Tooltip>
 
             <Tooltip>

@@ -36,6 +36,10 @@ pnpm-debug.log*
 # ── User-uploaded files (runtime data, não pertence ao repo) ─
 apps/api/uploads/
 
+# ── Capacitor native projects (gerados por `npx cap add`) ────
+apps/web/android/
+apps/web/ios/
+
 # ── Bundle analyzer output ──────────────────────────────────
 stats.html
 dist/stats.html

@@ -37,6 +37,7 @@ const PinnedMessagesSheet = lazy(() => import('@/components/chat/PinnedMessagesS
 const RightPanel          = lazy(() => import('@/components/chat/RightPanel'))
 const BookmarksSheet      = lazy(() => import('@/components/bookmarks/BookmarksSheet'))
 const FriendsPage         = lazy(() => import('@/pages/FriendsPage'))
+const CosmicOnboarding    = lazy(() => import('@/components/astra/CosmicOnboarding').then((m) => ({ default: m.CosmicOnboarding })))
 
 type OptimisticMessage = MessageWithAuthor & { optimisticId?: string; isPending?: boolean }
 interface ActiveChannel { id: string; name: string; serverId: string }
@@ -237,7 +238,7 @@ function ChannelView() {
 
                 <Reveal delay={0.65}>
                   <p className="ed-lede max-w-[34ch] m-0 text-(--text-2)">
-                    Selecione um canal na lateral para entrar numa conversa, ou clique na lua para abrir suas mensagens diretas.
+                    Selecione uma órbita na lateral para entrar numa conversa, ou clique na lua para abrir seus sussurros.
                   </p>
                 </Reveal>
 
@@ -330,6 +331,11 @@ export default function AppPage() {
       {/* Mobile-only: tab bar permanente no bottom + sheet "Mais" */}
       <MobileBottomNav />
       <MobileMoreSheet />
+
+      {/* Tour 1x: léxico cósmico de Astra (skip permanente após dispensar) */}
+      <Suspense fallback={null}>
+        <CosmicOnboarding />
+      </Suspense>
     </div>
   )
 }

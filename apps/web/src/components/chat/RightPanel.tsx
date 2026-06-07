@@ -65,7 +65,7 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
             className="text-sm m-0 font-medium tracking-tight text-foreground truncate flex-1"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {tab === 'members' ? 'Membros' : 'Threads'}
+            {tab === 'members' ? 'Membros' : 'Cometas'}
           </h3>
           <button
             onClick={close}
@@ -80,7 +80,7 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'members'|'threads')} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-4 mt-3 w-auto self-start">
             <TabsTrigger value="members">Membros</TabsTrigger>
-            <TabsTrigger value="threads">Threads</TabsTrigger>
+            <TabsTrigger value="threads" title="Threads — conversas derivadas de uma mensagem">Cometas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="flex-1 overflow-y-auto px-2 mt-3">
@@ -248,7 +248,7 @@ function ThreadsList({ channelId }: { channelId: string }) {
   return (
     <div className="flex flex-col gap-2 pb-4">
       <div className="px-3 pt-1 pb-2 flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium">Threads ativas</span>
+        <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium" title="Threads ativas">Cometas ativos</span>
         <span className="text-[10px] font-mono text-(--text-3) ml-auto">{threads.length}</span>
       </div>
 
@@ -262,9 +262,9 @@ function ThreadsList({ channelId }: { channelId: string }) {
         <Empty className="py-8">
           <EmptyIcon><MessagesSquare className="size-6" /></EmptyIcon>
           <EmptyLabel>— Margem em branco</EmptyLabel>
-          <EmptyTitle>Sem threads ainda</EmptyTitle>
+          <EmptyTitle>Sem cometas por aqui</EmptyTitle>
           <EmptyDescription>
-            Passe o mouse em uma mensagem e clique no <Hash className="size-3 inline align-middle" /> pra começar uma.
+            Passe o mouse em uma mensagem e clique no <Hash className="size-3 inline align-middle" /> pra soltar um (thread).
           </EmptyDescription>
         </Empty>
       )}

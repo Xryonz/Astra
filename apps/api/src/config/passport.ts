@@ -37,27 +37,28 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           const email = profile.emails?.[0].value
           if (!email) return done(new Error('E-mail não disponível no perfil Google'))
 
-          // 1. Busca por googleId
+          // 1. Busca por googleId — já linkado antes.
+          //    NÃO sobrescrever avatarUrl/displayName: user pode ter
+          //    customizado depois (foto custom em /api/profile, nome editado).
+          //    Antes esse update jogava fora a foto custom toda vez que
+          //    fazia login Google. Login = só autenticar, não re-sincronizar.
           const [byGoogleId] = await db.select(userMinCols).from(users)
             .where(eq(users.googleId, profile.id)).limit(1)
 
-          if (byGoogleId) {
-            const [updated] = await db.update(users).set({
-              avatarUrl:   profile.photos?.[0].value ?? null,
-              displayName: profile.displayName,
-            }).where(eq(users.id, byGoogleId.id)).returning(userMinCols)
-            return done(null, updated)
-          }
+          if (byGoogleId) return done(null, byGoogleId)
 
-          // 2. Busca por email — pode ter conta manual antes
+          // 2. Busca por email — pode ter conta manual antes. Liga ao Google
+          //    e preenche avatar/nome SÓ se estão vazios — preserva o que
+          //    o user já tiver customizado na conta manual.
           const [byEmail] = await db.select(userMinCols).from(users)
             .where(eq(users.email, email)).limit(1)
 
           if (byEmail) {
-            const [linked] = await db.update(users).set({
-              googleId:  profile.id,
-              avatarUrl: profile.photos?.[0].value ?? null,
-            }).where(eq(users.id, byEmail.id)).returning(userMinCols)
+            const patch: Partial<typeof users.$inferInsert> = { googleId: profile.id }
+            if (!byEmail.avatarUrl   && profile.photos?.[0]?.value) patch.avatarUrl   = profile.photos[0].value
+            if (!byEmail.displayName && profile.displayName)        patch.displayName = profile.displayName
+            const [linked] = await db.update(users).set(patch)
+              .where(eq(users.id, byEmail.id)).returning(userMinCols)
             return done(null, linked)
           }
 

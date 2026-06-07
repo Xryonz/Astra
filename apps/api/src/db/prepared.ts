@@ -15,22 +15,13 @@
  */
 import { sql } from 'drizzle-orm'
 import { db } from '.'
-import { messages, users, serverMembers } from './schema'
+import { users, serverMembers } from './schema'
 import { eq, and } from 'drizzle-orm'
 
-// ── INSERT mensagem (canal) ────────────────────────────────────
-// Hot path: cada send_message bate aqui. Placeholders pros campos
-// que mudam por request; campos fixos (createdAt default) ficam.
-export const insertChannelMessage = db.insert(messages).values({
-  content:     sql.placeholder('content'),
-  channelId:   sql.placeholder('channelId'),
-  authorId:    sql.placeholder('authorId'),
-  authorColor: sql.placeholder('authorColor'),
-  mentions:    sql.placeholder('mentions'),
-  attachments: sql.placeholder('attachments'),
-  replyToId:   sql.placeholder('replyToId'),
-  expiresAt:   sql.placeholder('expiresAt'),
-}).returning().prepare('insert_channel_message')
+// NOTA: INSERT prepared com placeholders nullable (replyToId, expiresAt)
+// causou regressão — Drizzle 0.45 + pg gera SQL inválido em casos edge.
+// Mantemos só SELECTs prepared (read-only, sem nullable) que são seguros
+// e ainda dão ganho considerável (lookup de autor + membership = 2x p/ msg).
 
 // ── SELECT autor pelo userId ───────────────────────────────────
 // Bate em cada send_message pra montar payload do socket emit.

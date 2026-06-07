@@ -7,7 +7,7 @@ import {
   channels, servers, serverMembers, messages, users, messageReactions, messageEdits,
 } from '../db/schema'
 import { getCachedMembers } from '../lib/membersCache'
-import { insertChannelMessage, selectAuthorById, selectMemberColor } from '../db/prepared'
+import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { messageLimiter } from '../middleware/rateLimiter'
@@ -322,17 +322,14 @@ export function createMessagesRouter(io: SocketServer) {
       const authorColor = membership?.nameColor ?? null
       const mentionsStr = mentionedIds.join(',')
 
-      // INSERT via prepared — plan cacheado, ~30-50% mais rápido vs DSL ad-hoc.
-      const [inserted] = await insertChannelMessage.execute({
-        content,
-        channelId,
-        authorId:    req.userId!,
-        authorColor,
-        mentions:    mentionsStr,
+      // INSERT em DSL ad-hoc — prepared statement com nullable placeholders
+      // (replyToId/expiresAt) deu instabilidade; mantemos só SELECTs prepared.
+      const [inserted] = await db.insert(messages).values({
+        content, channelId, authorId: req.userId!, authorColor, mentions: mentionsStr,
         attachments: attachmentsJson,
-        replyToId:   validReplyToId,
+        replyToId: validReplyToId,
         expiresAt,
-      })
+      }).returning()
 
       const msgWithReactions = {
         ...inserted, author, reactions: [], mentions: mentionedIds,

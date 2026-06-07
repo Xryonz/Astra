@@ -6,7 +6,8 @@ import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSqua
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { ProfileHoverCard } from '@/components/ProfileHoverCard'
 import { toast } from '@/components/ui/sonner'
-import { api } from '@/lib/api'
+import { api, resolveApiUrl } from '@/lib/api'
+import { useEmojiMap, type ServerEmoji } from '@/hooks/useServerEmojis'
 import { useAuthStore } from '@/store/authStore'
 import { useLongPress } from '@/hooks/useLongPress'
 import ProfileCard from '@/components/ProfileCard'
@@ -177,8 +178,42 @@ function BotBadge() {
   )
 }
 
+/** Aplica custom emojis :nome: num node de texto (substitui por <img>).
+ *  Se o map é vazio, retorna o texto original num único span. */
+function applyCustomEmojis(text: string, emojiMap: Map<string, ServerEmoji>, keyPrefix: string): React.ReactNode {
+  if (emojiMap.size === 0) return text
+  const re = /:([a-z0-9_]{2,32}):/gi
+  const out: React.ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  let k = 0
+  while ((m = re.exec(text)) !== null) {
+    const [whole, name] = m
+    const e = emojiMap.get(name.toLowerCase())
+    if (!e) continue
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(
+      <img
+        key={`${keyPrefix}-ce${k++}`}
+        src={resolveApiUrl(e.url)}
+        alt={`:${e.name}:`}
+        title={`:${e.name}:`}
+        width={22}
+        height={22}
+        style={{ display: 'inline-block', verticalAlign: '-0.25em', margin: '0 1px' }}
+        loading="lazy"
+        decoding="async"
+      />,
+    )
+    last = m.index + whole.length
+  }
+  if (last === 0) return text
+  if (last < text.length) out.push(text.slice(last))
+  return <>{out}</>
+}
+
 /** Inline-level markdown: bold, italic, strike, spoiler, code, link, mention. */
-function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
+function renderInline(text: string, keyPrefix: string, emojiMap: Map<string, ServerEmoji>): React.ReactNode[] {
   // Ordem importa — regex de delimitadores não-conflitantes
   const re = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|\|\|[^|\n]+\|\||`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+\)|@[a-z0-9_]+)/gi
   return text.split(re).map((part, i) => {
@@ -241,7 +276,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       )
     }
 
-    return <span key={key}>{part}</span>
+    return <span key={key}>{applyCustomEmojis(part, emojiMap, key)}</span>
   }).filter(Boolean)
 }
 
@@ -265,7 +300,7 @@ function SpoilerSpan({ children }: { children: React.ReactNode }) {
 
 /** Extrai blocos triple-backtick (```lang\ncode\n```) e renderiza com CodeBlock.
  *  Resto vai pra block-level renderer. */
-function renderContent(text: string): React.ReactNode {
+function renderContent(text: string, emojiMap: Map<string, ServerEmoji>): React.ReactNode {
   // Split por code fence preservando os blocos
   const parts = text.split(/(```[a-z0-9]*\n[\s\S]*?\n?```)/gi)
   return parts.map((part, i) => {
@@ -274,12 +309,12 @@ function renderContent(text: string): React.ReactNode {
       const [, lang, code] = fence
       return <CodeBlock key={`cb-${i}`} code={code} lang={lang || 'text'} />
     }
-    return <span key={`b-${i}`}>{renderBlocks(part)}</span>
+    return <span key={`b-${i}`}>{renderBlocks(part, emojiMap)}</span>
   })
 }
 
 /** Block-level: headings, quotes, lists. Recursivo via renderInline. */
-function renderBlocks(text: string): React.ReactNode {
+function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.ReactNode {
   const lines = text.split('\n')
   return lines.map((line, idx) => {
     const key = `l-${idx}`
@@ -295,7 +330,7 @@ function renderBlocks(text: string): React.ReactNode {
           className={`${size} font-normal text-foreground mt-2 mb-1`}
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          {renderInline(h[2], key)}
+          {renderInline(h[2], key, emojiMap)}
         </div>
       )
     }
@@ -307,7 +342,7 @@ function renderBlocks(text: string): React.ReactNode {
           key={key}
           className="border-l-2 border-(--accent) pl-3 py-0.5 my-1 text-(--text-2) italic"
         >
-          {renderInline(line.slice(2), key)}
+          {renderInline(line.slice(2), key, emojiMap)}
         </div>
       )
     }
@@ -318,7 +353,7 @@ function renderBlocks(text: string): React.ReactNode {
       return (
         <div key={key} className="flex gap-2 my-0.5">
           <span className="text-(--accent) shrink-0 select-none">·</span>
-          <span>{renderInline(li[1], key)}</span>
+          <span>{renderInline(li[1], key, emojiMap)}</span>
         </div>
       )
     }
@@ -329,7 +364,7 @@ function renderBlocks(text: string): React.ReactNode {
       return (
         <div key={key} className="flex gap-2 my-0.5">
           <span className="text-(--text-3) shrink-0 select-none font-mono text-[12px]">{oli[1]}.</span>
-          <span>{renderInline(oli[2], key)}</span>
+          <span>{renderInline(oli[2], key, emojiMap)}</span>
         </div>
       )
     }
@@ -337,7 +372,7 @@ function renderBlocks(text: string): React.ReactNode {
     // Linha vazia = quebra visual
     if (line.trim() === '') return <br key={key} />
 
-    return <div key={key}>{renderInline(line, key)}</div>
+    return <div key={key}>{renderInline(line, key, emojiMap)}</div>
   })
 }
 
@@ -391,6 +426,7 @@ function MessageItemImpl({
   const qc           = useQueryClient()
   const isBookmarked  = useIsBookmarked(message.id, 'message')
   const toggleBookmark = useToggleBookmark()
+  const emojiMap       = useEmojiMap()
   const translate      = useTranslateMessage()
   const [translatePicker, setTranslatePicker] = useState(false)
   const [translation,     setTranslation]     = useState<{ lang: TranslateLang; text: string } | null>(null)
@@ -733,7 +769,7 @@ function MessageItemImpl({
               </div>
             )}
 
-            {content && renderContent(content)}
+            {content && renderContent(content, emojiMap)}
 
             {/* Picker de idioma (toggle abaixo do toolbar) */}
             {translatePicker && (

@@ -47,6 +47,7 @@ import friendsRouter                      from './routes/friends'
 import voiceRouter                        from './routes/voice'
 import wishesRouter                       from './routes/wishes'
 import sessionsRouter                     from './routes/sessions'
+import emojisRouter                       from './routes/emojis'
 import { startReminderWorker }            from './lib/reminders'
 import { HttpError }                     from './lib/errors'
 import { logger }                        from './lib/logger'
@@ -146,6 +147,7 @@ app.use('/api/friends',   friendsRouter)
 app.use('/api/voice',     voiceRouter)
 app.use('/api/wishes',    wishesRouter)
 app.use('/api/sessions',  sessionsRouter)
+app.use('/api/servers',   emojisRouter)
 // Static files: serve uploads. Cache 1d (immutable nomes únicos)
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1d', immutable: true, fallthrough: true }))
 

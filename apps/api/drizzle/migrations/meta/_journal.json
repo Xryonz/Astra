@@ -85,6 +85,13 @@
       "when": 1785000000000,
       "tag": "0011_search_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785500000000,
+      "tag": "0012_custom_emojis",
+      "breakpoints": true
     }
   ]
 }

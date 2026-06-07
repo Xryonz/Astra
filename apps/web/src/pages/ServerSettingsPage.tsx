@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, Clock, Tag, Plus, Pencil, Check, Ban, ScrollText, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy } from 'lucide-react'
+import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, Clock, Tag, Plus, Pencil, Check, Ban, ScrollText, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy, Smile, X, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -25,6 +25,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ServerWithChannels } from '@astra/types'
+import { useServerEmojis, useUploadEmoji, useDeleteEmoji } from '@/hooks/useServerEmojis'
+import { resolveApiUrl } from '@/lib/api'
 
 interface RoleSummary { id: string; name: string; color: string|null; position: number; hoist: boolean }
 interface Member {
@@ -218,6 +220,9 @@ export default function ServerSettingsPage() {
             )}
             {perms.has('MANAGE_CHANNELS') && (
               <TabsTrigger value="channels" className="gap-2"><Hash className="size-3.5" /> Canais</TabsTrigger>
+            )}
+            {perms.has('MANAGE_CHANNELS') && (
+              <TabsTrigger value="emojis" className="gap-2"><Smile className="size-3.5" /> Emojis</TabsTrigger>
             )}
             {perms.has('BAN_MEMBERS') && (
               <TabsTrigger value="bans" className="gap-2"><Ban className="size-3.5" /> Banidos</TabsTrigger>
@@ -466,6 +471,13 @@ export default function ServerSettingsPage() {
           {perms.has('MANAGE_CHANNELS') && (
             <TabsContent value="channels" className="space-y-2">
               <ChannelsVisibilitySection serverId={serverId!} channels={server.channels ?? []} />
+            </TabsContent>
+          )}
+
+          {/* ── EMOJIS ─────────────────────── */}
+          {perms.has('MANAGE_CHANNELS') && (
+            <TabsContent value="emojis" className="space-y-2">
+              <EmojisSection serverId={serverId!} />
             </TabsContent>
           )}
 
@@ -918,6 +930,106 @@ function MemberRolesPopover({ serverId, memberId, currentRoleIds, onClose }: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── EmojisSection ────────────────────────────────────────────
+function EmojisSection({ serverId }: { serverId: string }) {
+  const { data: emojis = [], isLoading } = useServerEmojis(serverId)
+  const upload  = useUploadEmoji(serverId)
+  const remove  = useDeleteEmoji(serverId)
+  const [name, setName] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [err,  setErr]  = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const submit = async () => {
+    setErr(null)
+    if (!file) { setErr('Selecione um arquivo'); return }
+    if (!/^[a-z0-9_]{2,32}$/i.test(name)) { setErr('Nome 2-32 chars, alfanum + underscore'); return }
+    try {
+      await upload.mutateAsync({ file, name })
+      setName(''); setFile(null)
+      if (inputRef.current) inputRef.current.value = ''
+    } catch (e: any) {
+      setErr(e?.response?.data?.error ?? 'Falha no upload')
+    }
+  }
+
+  return (
+    <section>
+      <h3 className="text-sm font-medium text-foreground mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+        Emojis customizados
+      </h3>
+      <p className="text-marg text-(--text-3) m-0 mb-4">
+        Até 50 por servidor. PNG/JPG/WebP/GIF até 512KB — recompressados em WebP 128×128. Use no chat como <code>:nome:</code>.
+      </p>
+
+      <div className="border border-(--border) bg-(--raised)/30 p-4 mb-4">
+        <p className="text-xs text-(--text-2) mb-3">Adicionar emoji</p>
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+          <div className="flex-1 flex flex-col gap-1">
+            <Label htmlFor="emoji-name" className="text-[10px] uppercase tracking-wider text-(--text-3)">Nome</Label>
+            <Input
+              id="emoji-name"
+              value={name}
+              onChange={(e) => setName(e.target.value.replace(/[^a-z0-9_]/gi, '').toLowerCase())}
+              placeholder="party_parrot"
+              maxLength={32}
+            />
+          </div>
+          <div className="flex-1 flex flex-col gap-1">
+            <Label htmlFor="emoji-file" className="text-[10px] uppercase tracking-wider text-(--text-3)">Arquivo</Label>
+            <input
+              ref={inputRef}
+              id="emoji-file"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="text-xs text-(--text-2)"
+            />
+          </div>
+          <Button onClick={submit} disabled={upload.isPending || !file || !name} className="gap-2">
+            {upload.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+            Adicionar
+          </Button>
+        </div>
+        {err && <p className="text-xs text-(--danger) mt-2 m-0">{err}</p>}
+        <p className="text-[10px] text-(--text-3) mt-2 m-0">{emojis.length}/50 usados</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-(--text-3)">
+          <Loader2 className="size-3.5 animate-spin" /> Carregando…
+        </div>
+      ) : emojis.length === 0 ? (
+        <p className="text-sm text-(--text-3) italic m-0">Nenhum emoji ainda.</p>
+      ) : (
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2">
+          {emojis.map((e) => (
+            <li key={e.id} className="border border-(--border) bg-(--raised)/30 p-3 flex flex-col items-center gap-2 group relative">
+              <img
+                src={resolveApiUrl(e.url)}
+                alt={`:${e.name}:`}
+                width={48}
+                height={48}
+                className="size-12 object-contain"
+              />
+              <p className="text-xs text-(--text-2) m-0 truncate w-full text-center">:{e.name}:</p>
+              <button
+                onClick={() => {
+                  if (confirm(`Excluir :${e.name}:?`)) remove.mutate(e.id)
+                }}
+                className="absolute top-1 right-1 size-6 grid place-items-center text-(--text-3) hover:text-(--danger) opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                aria-label="Excluir"
+              >
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

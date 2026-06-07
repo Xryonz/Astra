@@ -128,6 +128,21 @@ export const serverMembers = pgTable('ServerMember', {
   byUser:         index('ServerMember_userId_idx').on(t.userId),
 }))
 
+// ─── ServerEmoji ──────────────────────────────────────────────
+// Emojis custom (estilo Discord). Cada server tem até MAX_EMOJIS.
+// Uso: msg.content vira ":nome:" — frontend resolve via servidor ativo.
+export const serverEmojis = pgTable('ServerEmoji', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  name:      text('name').notNull(),
+  url:       text('url').notNull(),
+  createdBy: text('createdBy').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  uniqName: uniqueIndex('ServerEmoji_serverId_name_key').on(t.serverId, t.name),
+  byServer: index('ServerEmoji_serverId_idx').on(t.serverId),
+}))
+
 // ─── Role ─────────────────────────────────────────────────────
 // Cargo customizado por servidor (estilo Discord).
 // permissions é um JSON array de strings tipo ["MANAGE_CHANNELS","KICK_MEMBERS",...]

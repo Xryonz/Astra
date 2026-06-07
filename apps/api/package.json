@@ -14,7 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "vapid:gen": "web-push generate-vapid-keys --json"
   },
   "dependencies": {
     "@sentry/node": "^10.55.0",

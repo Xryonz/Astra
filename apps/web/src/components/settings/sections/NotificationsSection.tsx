@@ -63,7 +63,15 @@ export default function NotificationsSection() {
       <Row label="Notificações push" hint="Receba alertas mesmo com a Astra fechada — depende do navegador permitir.">
         {state === 'unsupported' && (
           <div className="border border-(--border) bg-(--raised)/40 p-3 text-sm text-(--text-3)">
-            Navegador sem suporte a push ou backend sem chaves VAPID configuradas.
+            Navegador sem suporte a push (iOS Safari requer adicionar à tela inicial).
+          </div>
+        )}
+        {state === 'server-disabled' && (
+          <div className="border border-(--accent)/30 bg-(--raised)/40 p-3 text-sm">
+            <p className="m-0 text-(--text-2)">
+              Push está temporariamente indisponível no servidor.
+              Notificações in-app continuam funcionando.
+            </p>
           </div>
         )}
         {state === 'denied' && (

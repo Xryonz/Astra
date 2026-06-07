@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 
-type PushState = 'unsupported' | 'denied' | 'unsubscribed' | 'subscribed' | 'loading'
+type PushState = 'unsupported' | 'denied' | 'unsubscribed' | 'subscribed' | 'loading' | 'server-disabled'
 
 function urlBase64ToUint8Array(base64: string) {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
@@ -29,13 +29,26 @@ export function usePushNotifications() {
   const [state, setState] = useState<PushState>('loading')
   const navigate = useNavigate()
 
-  // Verifica suporte + state inicial
+  // Verifica suporte + state inicial. Checa também enabled server-side
+  // (VAPID configurado) antes de mostrar "Ativar" — sem isso o user clica,
+  // recebe erro de subscribe e fica frustrado.
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       setState('unsupported'); return
     }
     if (Notification.permission === 'denied') { setState('denied'); return }
     (async () => {
+      try {
+        // Server tem VAPID configurado?
+        const r = await api.get('/api/push/vapid-public-key')
+        if (!r.data?.data?.enabled || !r.data?.data?.publicKey) {
+          setState('server-disabled')
+          return
+        }
+      } catch {
+        setState('server-disabled')
+        return
+      }
       const reg = await getRegistration()
       if (!reg) { setState('unsupported'); return }
       const sub = await reg.pushManager.getSubscription()

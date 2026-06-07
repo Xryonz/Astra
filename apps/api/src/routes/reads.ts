@@ -11,9 +11,9 @@
  */
 import { Router, Request, Response } from 'express'
 import { Server as SocketServer } from 'socket.io'
-import { and, eq, or } from 'drizzle-orm'
+import { and, eq, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { channels, serverMembers, channelReads, dmConversations } from '../db/schema'
+import { channels, serverMembers, channelReads, dmConversations, notifications } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 
@@ -47,7 +47,28 @@ export function createReadsRouter(io: SocketServer) {
           set:    { lastReadAt: now },
         })
 
-      res.json({ data: { channelId, lastReadAt: now.toISOString() } })
+      // Marca notifs do sino (mention/reply/reaction) deste canal como lidas.
+      // Antes só marcava ao clicar no item do sino — user que via a msg
+      // direto no canal continuava com badge não-lido pra sempre.
+      // payload é text JSON, então cast pra jsonb pra usar ->>.
+      const marked = await db.update(notifications)
+        .set({ readAt: now })
+        .where(and(
+          eq(notifications.userId, req.userId!),
+          isNull(notifications.readAt),
+          sql`(${notifications.payload}::jsonb ->> 'channelId') = ${channelId}`,
+        ))
+        .returning({ id: notifications.id })
+
+      // Emite socket pra fechar badge no mesmo device (e outros do user)
+      if (marked.length > 0) {
+        io.to(`user:${req.userId}`).emit('notifications_read', {
+          ids:   marked.map((m) => m.id),
+          scope: { channelId },
+        })
+      }
+
+      res.json({ data: { channelId, lastReadAt: now.toISOString(), notifsMarked: marked.length } })
     })
   )
 
@@ -99,7 +120,24 @@ export function createReadsRouter(io: SocketServer) {
         lastReadAt: now.toISOString(),
       })
 
-      res.json({ data: { conversationId, lastReadAt: now.toISOString() } })
+      // Marca notifs DM deste user/conversa como lidas
+      const marked = await db.update(notifications)
+        .set({ readAt: now })
+        .where(and(
+          eq(notifications.userId, req.userId!),
+          isNull(notifications.readAt),
+          sql`(${notifications.payload}::jsonb ->> 'conversationId') = ${conversationId}`,
+        ))
+        .returning({ id: notifications.id })
+
+      if (marked.length > 0) {
+        io.to(`user:${req.userId}`).emit('notifications_read', {
+          ids:   marked.map((m) => m.id),
+          scope: { conversationId },
+        })
+      }
+
+      res.json({ data: { conversationId, lastReadAt: now.toISOString(), notifsMarked: marked.length } })
     })
   )
 

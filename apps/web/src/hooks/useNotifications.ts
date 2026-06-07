@@ -41,10 +41,10 @@ export interface NotificationPrefs {
 }
 
 // ── Feed (paginated) ────────────────────────────────────────────
+// Socket sync foi movido pra useNotificationCount (que monta com o sino,
+// sempre vivo). Antes só atualizava feed quando popover estava aberto.
 export function useNotificationFeed() {
-  const queryClient = useQueryClient()
-
-  const q = useInfiniteQuery<FeedPage>({
+  return useInfiniteQuery<FeedPage>({
     queryKey: ['notifications', 'feed'],
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({ limit: '30' })
@@ -56,8 +56,15 @@ export function useNotificationFeed() {
     initialPageParam: undefined as string | undefined,
     staleTime: 30_000,
   })
+}
 
-  // Sync via socket: prepend novos na primeira página
+// ── Badge count ─────────────────────────────────────────────────
+export function useNotificationCount() {
+  const queryClient = useQueryClient()
+
+  // Sync via socket: feed listener antes ficava em useNotificationFeed (só
+  // monta quando popover abre). Aqui o badge fica vivo enquanto o sino tá
+  // na tela — evento 'notifications_read' sempre fecha o badge no momento.
   useEffect(() => {
     let sock: ReturnType<typeof getSocket>
     try { sock = getSocket() } catch { return }
@@ -66,28 +73,45 @@ export function useNotificationFeed() {
       queryClient.setQueryData(['notifications', 'feed'], (old: any) => {
         if (!old) return old
         const [first, ...rest] = old.pages
-        // Dedup por id
         if (first.items.some((n: NotificationItem) => n.id === p.id)) return old
         const newItem: NotificationItem = {
           id: p.id, type: p.type, payload: p.payload, readAt: null, createdAt: p.createdAt,
         }
         return { ...old, pages: [{ ...first, items: [newItem, ...first.items] }, ...rest] }
       })
-      // Bump count
       queryClient.setQueryData(['notifications', 'unread'], (old: any) =>
         old ? { count: old.count + 1 } : { count: 1 }
       )
     }
 
-    sock.on('notification', onNotif)
-    return () => { sock.off('notification', onNotif) }
+    const onRead = (p: { ids: string[] }) => {
+      const ids = new Set(p.ids)
+      queryClient.setQueryData(['notifications', 'feed'], (old: any) => {
+        if (!old) return old
+        const now = new Date().toISOString()
+        return {
+          ...old,
+          pages: old.pages.map((page: FeedPage) => ({
+            ...page,
+            items: page.items.map((n) =>
+              ids.has(n.id) && !n.readAt ? { ...n, readAt: now } : n
+            ),
+          })),
+        }
+      })
+      queryClient.setQueryData(['notifications', 'unread'], (old: any) =>
+        old ? { count: Math.max(0, old.count - ids.size) } : { count: 0 }
+      )
+    }
+
+    sock.on('notification',       onNotif)
+    sock.on('notifications_read', onRead)
+    return () => {
+      sock.off('notification',       onNotif)
+      sock.off('notifications_read', onRead)
+    }
   }, [queryClient])
 
-  return q
-}
-
-// ── Badge count ─────────────────────────────────────────────────
-export function useNotificationCount() {
   return useQuery<{ count: number }>({
     queryKey: ['notifications', 'unread'],
     queryFn:  async () => (await api.get('/api/notifications/unread')).data.data,

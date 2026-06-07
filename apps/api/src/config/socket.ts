@@ -183,6 +183,20 @@ export function setupSocket(io: Server) {
       socket.to(room).emit('user_stopped_typing', { userId, channelId })
     })
 
+    // DM typing — mesma lógica mas com room `dm:${convId}`.
+    socket.on('dm_typing_start', (conversationId: string) => {
+      if (typeof conversationId !== 'string' || !conversationId) return
+      const room = `dm:${conversationId}`
+      if (!socket.rooms.has(room)) return
+      socket.to(room).emit('dm_user_typing', { userId, username: socket.data.username, conversationId })
+    })
+    socket.on('dm_typing_stop', (conversationId: string) => {
+      if (typeof conversationId !== 'string' || !conversationId) return
+      const room = `dm:${conversationId}`
+      if (!socket.rooms.has(room)) return
+      socket.to(room).emit('dm_user_stopped_typing', { userId, conversationId })
+    })
+
     // ── Spam check ────────────────────────────────────────────
     socket.on('check_message', async (payload: { channelId: string; serverId: string }) => {
       const { channelId, serverId } = payload

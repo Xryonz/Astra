@@ -4,32 +4,43 @@ import { useAuthStore } from '@/store/authStore'
 
 interface TypingUser { userId: string; username: string }
 
-export default function TypingIndicator({ channelId }: { channelId: string }) {
+interface Props {
+  channelId?:      string
+  conversationId?: string  // DM scope: ouve dm_user_typing/dm_user_stopped_typing
+}
+
+export default function TypingIndicator({ channelId, conversationId }: Props) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
+  const isDM = !!conversationId
+  const scopeId = (channelId ?? conversationId) as string
 
   useEffect(() => {
     let socket: ReturnType<typeof getSocket>
     try { socket = getSocket() } catch { return }
 
-    const handleStart = (p: { userId: string; username: string; channelId: string }) => {
-      if (p.channelId !== channelId || p.userId === currentUserId) return
+    const startEv = isDM ? 'dm_user_typing'         : 'user_typing'
+    const stopEv  = isDM ? 'dm_user_stopped_typing' : 'user_stopped_typing'
+    const idKey   = isDM ? 'conversationId'         : 'channelId'
+
+    const handleStart = (p: any) => {
+      if (p[idKey] !== scopeId || p.userId === currentUserId) return
       setTypingUsers((prev) =>
         prev.some((u) => u.userId === p.userId) ? prev : [...prev, { userId: p.userId, username: p.username }]
       )
     }
-    const handleStop = (p: { userId: string; channelId: string }) => {
-      if (p.channelId !== channelId) return
+    const handleStop = (p: any) => {
+      if (p[idKey] !== scopeId) return
       setTypingUsers((prev) => prev.filter((u) => u.userId !== p.userId))
     }
 
-    socket.on('user_typing', handleStart)
-    socket.on('user_stopped_typing', handleStop)
+    socket.on(startEv, handleStart)
+    socket.on(stopEv,  handleStop)
     return () => {
-      socket.off('user_typing', handleStart)
-      socket.off('user_stopped_typing', handleStop)
+      socket.off(startEv, handleStart)
+      socket.off(stopEv,  handleStop)
     }
-  }, [channelId, currentUserId])
+  }, [scopeId, isDM, currentUserId])
 
   if (typingUsers.length === 0) return <div style={{ height: 20 }} />
 

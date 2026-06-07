@@ -61,36 +61,44 @@ export function useChannel(
 }
 
 export function useTyping(channelId: string | null) {
+  return useTypingFor('channel', channelId)
+}
+
+export function useDMTyping(conversationId: string | null) {
+  return useTypingFor('dm', conversationId)
+}
+
+function useTypingFor(scope: 'channel' | 'dm', id: string | null) {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Throttle: emite no máx 1x por 1.5s. Sem isso, cada keystroke dispara
   // socket emit → backpressure e CPU desperdiçada server-side.
   const lastEmitRef = useRef<number>(0)
+  const startEv = scope === 'channel' ? 'typing_start' : 'dm_typing_start'
+  const stopEv  = scope === 'channel' ? 'typing_stop'  : 'dm_typing_stop'
 
   const startTyping = () => {
-    if (!channelId) return
+    if (!id) return
     try {
       const socket = getSocket()
       const now = Date.now()
       if (now - lastEmitRef.current >= 1500) {
-        socket.emit('typing_start', channelId)
+        socket.emit(startEv, id)
         lastEmitRef.current = now
       }
 
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
       typingTimeoutRef.current = setTimeout(() => {
-        socket.emit('typing_stop', channelId)
+        socket.emit(stopEv, id)
         lastEmitRef.current = 0
       }, 3000)
     } catch {/* socket não conectado */}
   }
 
   const stopTyping = () => {
-    if (!channelId) return
+    if (!id) return
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     lastEmitRef.current = 0
-    try {
-      getSocket().emit('typing_stop', channelId)
-    } catch {/* socket não conectado */}
+    try { getSocket().emit(stopEv, id) } catch {/* socket não conectado */}
   }
 
   return { startTyping, stopTyping }

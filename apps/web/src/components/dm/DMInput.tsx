@@ -16,6 +16,7 @@ import type { MessageWithAuthor, Attachment } from '@astra/types'
 import { ComposerActionsMenu } from '@/components/chat/ComposerActionsMenu'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
 import { RecordingDisplay } from '@/components/chat/RecordingDisplay'
+import { useDMTyping } from '@/hooks/useSocket'
 
 const GifPicker       = lazy(() => import('@/components/chat/GifPicker'))
 const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
@@ -57,6 +58,7 @@ export default function DMInput({
   onOptimisticMessage, onOptimisticFailed,
 }: DMInputProps) {
   const user = useAuthStore((s) => s.user)
+  const { startTyping, stopTyping } = useDMTyping(conversationId)
   const [content,     setContent]     = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [uploading,   setUploading]   = useState(false)
@@ -135,6 +137,7 @@ export default function DMInput({
     } : null
 
     setContent('')
+    stopTyping()
     setAttachments([])
     inputRef.current?.focus()
 
@@ -183,6 +186,8 @@ export default function DMInput({
     setContent(e.target.value)
     e.target.style.height = 'auto'
     e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`
+    if (e.target.value.length > 0) startTyping()
+    else stopTyping()
   }
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {

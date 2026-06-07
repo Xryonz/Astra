@@ -5,6 +5,7 @@ import DMList from '@/components/dm/DMList'
 import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
 import DMChat from '@/components/dm/DMChat'
 import DMInput from '@/components/dm/DMInput'
+import TypingIndicator from '@/components/chat/TypingIndicator'
 import { DMCallButton } from '@/components/voice/DMCallButton'
 import { Reveal } from '@/components/anim/Reveal'
 import { cn } from '@/lib/utils'
@@ -141,6 +142,8 @@ export default function DMPage() {
               onRegisterOptimistic={handleRegisterOptimistic}
               onReply={setReplyingTo}
             />
+
+            <TypingIndicator conversationId={activeDM.conversationId} />
 
             <DMInput
               conversationId={activeDM.conversationId}

@@ -374,7 +374,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           )}
 
           <div
-            className="flex-1 overflow-y-auto px-2 py-2.5"
+            className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2.5"
             onContextMenu={handleChannelAreaContextMenu}
           >
             {channels.length > 0 ? (

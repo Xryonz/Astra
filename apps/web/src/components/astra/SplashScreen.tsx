@@ -38,6 +38,30 @@ export default function SplashScreen({ visible = true }: { visible?: boolean }) 
         }}>
           <AstraLogo size={64} animated />
         </div>
+
+        {/* Triângulo conectando os 3 dots — gira na mesma velocidade.
+            Vértices no círculo de raio 50 centrado em (60,60):
+              dot 0: (110, 60)    — 3 o'clock
+              dot 1: (35, 103.3)  — 7 o'clock
+              dot 2: (35, 16.7)   — 11 o'clock */}
+        <motion.svg
+          width={120}
+          height={120}
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
+        >
+          <polygon
+            points="110,60 35,103.3 35,16.7"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth={1}
+            strokeOpacity={0.35}
+            strokeLinejoin="round"
+            style={{ filter: 'drop-shadow(0 0 3px var(--accent-glow))' }}
+          />
+        </motion.svg>
+
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}

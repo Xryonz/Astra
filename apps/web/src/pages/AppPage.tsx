@@ -40,6 +40,7 @@ const RightPanel          = lazy(() => import('@/components/chat/RightPanel'))
 const BookmarksSheet      = lazy(() => import('@/components/bookmarks/BookmarksSheet'))
 const FriendsPage         = lazy(() => import('@/pages/FriendsPage'))
 const CosmicOnboarding    = lazy(() => import('@/components/astra/CosmicOnboarding').then((m) => ({ default: m.CosmicOnboarding })))
+const LatencyOverlay      = lazy(() => import('@/components/dev/LatencyOverlay').then((m) => ({ default: m.LatencyOverlay })))
 
 type OptimisticMessage = MessageWithAuthor & { optimisticId?: string; isPending?: boolean }
 interface ActiveChannel { id: string; name: string; serverId: string }
@@ -339,6 +340,11 @@ export default function AppPage() {
       {/* Tour 1x: léxico cósmico de Astra (skip permanente após dispensar) */}
       <Suspense fallback={null}>
         <CosmicOnboarding />
+      </Suspense>
+
+      {/* Dev overlay: p50/p95 de round-trip de envio. Toggle Ctrl+Shift+L. */}
+      <Suspense fallback={null}>
+        <LatencyOverlay />
       </Suspense>
     </div>
   )

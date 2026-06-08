@@ -13,12 +13,19 @@
  * pra debug ad-hoc.
  */
 const STARTS = new Map<string, number>()
+const STARTS_CAP = 100  // teto pra impedir vazamento se probeEnd nunca for chamado (msg falhou)
 const RING_SIZE = 200
 const samples: number[] = []
 let ringIdx = 0
 
 export function probeStart(nonce: string): void {
   if (!nonce) return
+  // Evita vazamento: ao estourar o teto, descarta a entry mais antiga
+  // (Map mantém ordem de inserção, então iterator.next() = oldest).
+  if (STARTS.size >= STARTS_CAP) {
+    const oldest = STARTS.keys().next().value
+    if (oldest !== undefined) STARTS.delete(oldest)
+  }
   STARTS.set(nonce, performance.now())
 }
 

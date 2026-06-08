@@ -4,17 +4,21 @@ import AstraLogo from '@/components/AstraLogo'
 /**
  * Splash mostrado durante bootstrapAuth() — antes do app montar.
  *
- * Sistema "Kepler orbital": logo Astra central + 3 estrelas em órbitas
- * de raios e velocidades distintas (referência à 3ª lei de Kepler:
- * órbitas internas são mais rápidas). Cada estrela leva uma trilha
- * gradient atrás (cauda de cometa).
+ * Sistema "Anéis de Saturno": logo Astra central + 3 anéis elípticos
+ * em planos 3D distintos, com iluminação assimétrica (border-top
+ * brilhante, border-bottom apagado) que simula luz solar lateral —
+ * dá ilusão de profundidade sem rasterizar nada.
  *
  * Performance:
- *   - 100% CSS keyframes — antes era Motion.dev animando x/y via JS
- *     em 13 keyframes × 3 estrelas (39 props animadas).
- *   - Agora: 1 propriedade animada por órbita (rotate). Container faz
- *     o trabalho, estrela é stub fixo no raio. GPU/compositor only.
- *   - Trilha via ::before pseudo-element (zero nós DOM extras).
+ *   - 100% CSS keyframes — 1 propriedade animada por anel (transform).
+ *   - 3 anéis = 3 elementos no compositor. Zero JS no loop.
+ *   - perspective no container ativa 3D layer, deixando GPU cuidar.
+ *
+ * Cada anel:
+ *   - rotateX 68-74deg: incline grande pra mostrar a "elipse"
+ *   - rotateY ±8-12deg: inclina o plano (não exatamente paralelo)
+ *   - rotateZ 0→360 infinito: o spin propriamente dito
+ *   - direção alternada (interna→externa) pra evitar movimento monótono
  *
  * Fade out controlado pelo parent via prop `visible`.
  */
@@ -37,22 +41,14 @@ export default function SplashScreen({ visible = true }: { visible?: boolean }) 
         pointerEvents:  visible ? 'auto' : 'none',
       }}
     >
-      <div className="astra-system">
-        <div className="astra-system-core">
+      <div className="astra-saturn">
+        <div className="astra-saturn-core">
           <AstraLogo size={64} animated />
         </div>
 
-        {/* Cada .astra-orbit-* é um wrapper invisível centrado.
-            O conjunto inteiro rotaciona; a estrela fica em raio fixo. */}
-        <div className="astra-orbit astra-orbit-a">
-          <span className="astra-star astra-star-a" />
-        </div>
-        <div className="astra-orbit astra-orbit-b">
-          <span className="astra-star astra-star-b" />
-        </div>
-        <div className="astra-orbit astra-orbit-c">
-          <span className="astra-star astra-star-c" />
-        </div>
+        <div className="astra-ring astra-ring-a" />
+        <div className="astra-ring astra-ring-b" />
+        <div className="astra-ring astra-ring-c" />
       </div>
 
       <p style={{
@@ -66,80 +62,79 @@ export default function SplashScreen({ visible = true }: { visible?: boolean }) 
       </p>
 
       <style>{`
-        .astra-system {
-          position: relative;
-          width:    180px;
-          height:   180px;
+        .astra-saturn {
+          position:        relative;
+          width:           200px;
+          height:          200px;
+          perspective:     900px;
+          transform-style: preserve-3d;
         }
-        .astra-system-core {
+        .astra-saturn-core {
           position:  absolute;
           top:       50%;
           left:      50%;
           transform: translate(-50%, -50%);
-          z-index:   2;
+          z-index:   5;
         }
 
-        /* Wrappers de órbita: 0×0 no centro, rotam em torno deles mesmos.
-           --tilt: inclinação fixa (faz órbitas parecerem em planos diferentes).
-           A keyframe combina tilt + rotação infinita.  */
-        .astra-orbit {
-          position:        absolute;
-          top:             50%;
-          left:            50%;
-          width:           0;
-          height:          0;
-          transform-origin: center;
-          will-change:     transform;
-        }
-        @keyframes astraSpinTilt {
-          from { transform: rotateZ(var(--tilt, 0deg)) rotateZ(0deg);   }
-          to   { transform: rotateZ(var(--tilt, 0deg)) rotateZ(360deg); }
-        }
-
-        /* 3ª lei de Kepler aproximada: órbita interna mais rápida.
-           Raios: 50, 68, 88px (estrela fica em left: raio). */
-        .astra-orbit-a { --tilt: 0deg;   animation: astraSpinTilt 3.8s linear infinite; }
-        .astra-orbit-b { --tilt: 32deg;  animation: astraSpinTilt 6.4s linear infinite; }
-        .astra-orbit-c { --tilt: -22deg; animation: astraSpinTilt 9.5s linear infinite; }
-
-        .astra-star {
-          position:     absolute;
-          top:          -3px;
-          width:        6px;
-          height:       6px;
+        /* Anéis: posicionados via top/left 50% + translate dentro do
+           keyframe (o translate vive no transform, então tem que estar
+           na keyframe junto com rotateX/Y/Z). */
+        .astra-ring {
+          position:      absolute;
+          top:           50%;
+          left:          50%;
           border-radius: 50%;
-          background:    var(--accent);
-          box-shadow:    0 0 6px var(--accent), 0 0 14px var(--accent-glow);
+          pointer-events: none;
+          /* Iluminação assimétrica: top brilhante = lado iluminado.
+             Bottom apagado = sombra. Cria sensação de luz lateral. */
+          border-top:    2px   solid var(--accent);
+          border-bottom: 1px   solid color-mix(in srgb, var(--accent) 25%, transparent);
+          border-left:   1.5px solid color-mix(in srgb, var(--accent) 65%, transparent);
+          border-right:  1.5px solid color-mix(in srgb, var(--accent) 65%, transparent);
+          box-shadow:    0 0 10px color-mix(in srgb, var(--accent) 18%, transparent);
+          animation:     saturnSpin var(--dur, 8s) linear infinite var(--dir, normal);
           will-change:   transform;
         }
-        .astra-star-a { left:  50px; }
-        .astra-star-b { left:  68px; width: 5px; height: 5px; top: -2.5px; }
-        .astra-star-c { left:  88px; width: 4px; height: 4px; top: -2px;
-                        background: var(--accent-h); }
 
-        /* Trilha de cometa: gradient antes da estrela na direção
-           contrária ao movimento de rotação. Direção positiva da rotZ
-           = perceptualmente "puxa" pra esquerda do centro da estrela. */
-        .astra-star::before {
-          content:    '';
-          position:   absolute;
-          top:        50%;
-          right:      100%;
-          width:      26px;
-          height:     1.5px;
-          transform:  translateY(-50%);
-          background: linear-gradient(
-            to right,
-            transparent 0%,
-            color-mix(in srgb, var(--accent) 20%, transparent) 40%,
-            color-mix(in srgb, var(--accent) 60%, transparent) 100%
-          );
-          border-radius: 1px;
-          pointer-events: none;
+        /* 3 anéis em raios crescentes + planos 3D distintos.
+           Direções alternam (a normal, b reverse, c normal). */
+        .astra-ring-a {
+          width:  115px;
+          height: 115px;
+          margin: -57.5px 0 0 -57.5px;
+          --tx:   72deg;
+          --ty:   -8deg;
+          --dur:  5.5s;
+        }
+        .astra-ring-b {
+          width:  150px;
+          height: 150px;
+          margin: -75px 0 0 -75px;
+          --tx:   68deg;
+          --ty:   12deg;
+          --dur:  8.5s;
+          --dir:  reverse;
+          border-top-width: 1.5px;
+        }
+        .astra-ring-c {
+          width:  185px;
+          height: 185px;
+          margin: -92.5px 0 0 -92.5px;
+          --tx:   74deg;
+          --ty:   -4deg;
+          --dur:  13s;
+          border-top-width: 1px;
+          opacity: 0.7;
+        }
+
+        @keyframes saturnSpin {
+          from { transform: rotateX(var(--tx)) rotateY(var(--ty)) rotateZ(0deg);   }
+          to   { transform: rotateX(var(--tx)) rotateY(var(--ty)) rotateZ(360deg); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .astra-orbit { animation: none; }
+          .astra-ring { animation: none !important; }
         }
       `}</style>
     </motion.div>

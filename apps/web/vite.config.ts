@@ -35,6 +35,14 @@ export default defineConfig({
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
   build: {
+    // Sourcemaps "hidden": geram .map mas browser não carrega automaticamente.
+    // Sentry sobe os maps via release pra symbolicar stack traces; user não
+    // baixa o JS map (~30% economia transfer no production user).
+    sourcemap: 'hidden',
+    // Minificação default do Vite é esbuild — já strippa console em prod
+    // via esbuild.drop acima.
+    // Target: navegadores modernos (top 80% global) — sem polyfills pesados.
+    target: 'es2022',
     // Chunks grandes não-essenciais devem ficar fora do main bundle.
     // manualChunks identifica vendors gordos e isola — main fica magro pro initial load.
     rollupOptions: {

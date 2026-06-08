@@ -13,6 +13,20 @@ migrateLocalStorage()  // rebrand umbra-* → astra-*
 initSentry()
 restoreTheme()
 
+// Preconnect pra API/WS — abre conexão TCP+TLS o quanto antes (~150ms
+// de economia na 1ª chamada). API URL só existe via env, então injeta
+// runtime em vez de hardcode no HTML.
+const apiUrl = (import.meta as any).env?.VITE_API_URL as string | undefined
+if (apiUrl && /^https?:/.test(apiUrl)) {
+  try {
+    const link = document.createElement('link')
+    link.rel = 'preconnect'
+    link.href = apiUrl
+    link.crossOrigin = ''
+    document.head.appendChild(link)
+  } catch {}
+}
+
 // Registra SW pra cache de assets + offline fallback. Em dev pulamos
 // (Vite serve direto, SW atrapalha HMR). Em prod, SW também escuta push
 // — registro idempotente compartilhado com usePushNotifications.

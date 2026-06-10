@@ -474,7 +474,7 @@ export default function MessageInput({
               onClick={() => insertMention(m)}
               onMouseEnter={() => setMentionSelected(i)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 border-none cursor-pointer text-left transition-all duration-200',
+                'w-full flex items-center gap-3 px-3 py-2 border-none cursor-pointer text-left transition-[color,background-color,border-color] duration-150',
                 i === mentionSelected
                   ? 'bg-(--accent-dim) border-l-2 border-(--accent)'
                   : 'bg-transparent border-l-2 border-transparent'

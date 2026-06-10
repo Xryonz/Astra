@@ -235,19 +235,12 @@ html {
     animation-range:    entry 0% entry 60%;
   }
 }
+/* Sem blur: reveal é scroll-driven — durante scroll rápido, vários itens
+   animando filter ao mesmo tempo = paint storm em qualquer GPU. Opacity +
+   transform ficam no compositor. */
 @keyframes astraRevealOnView {
-  from { opacity: 0; transform: translateY(14px); filter: blur(2px); }
-  to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
-}
-/* Touch devices: blur animado repinta a tela inteira por frame (GPU mobile
-   não aguenta a 120fps). Versão lite = só compositor (opacity+transform).
-   Desktop (pointer fine) mantém o blur editorial. */
-@keyframes astraRevealOnViewLite {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0);    }
-}
-@media (pointer: coarse) {
-  .astra-reveal-on-view { animation-name: astraRevealOnViewLite; }
 }
 
 /* StarField parallax usando scroll-timeline NAMED — o container que
@@ -277,47 +270,9 @@ html {
   .astra-starfield-parallax { animation: none !important; }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   VIEW TRANSITIONS API — morph nativo entre rotas (Chromium 111+).
-   Hook useViewTransitionNavigate envolve react-router em
-   document.startViewTransition() — compositor cuida do crossfade.
-   Browsers sem suporte (Firefox): nenhum efeito, navega normal.
-   ═══════════════════════════════════════════════════════════ */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration:        0.34s;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-::view-transition-old(root) {
-  animation-name: vt-fade-out;
-  animation-duration: 0.22s;
-}
-::view-transition-new(root) {
-  animation-name: vt-fade-in;
-}
-@keyframes vt-fade-out {
-  to { opacity: 0; filter: blur(4px); }
-}
-@keyframes vt-fade-in {
-  from { opacity: 0; transform: translateX(12px); filter: blur(4px); }
-  to   { opacity: 1; transform: translateX(0);    filter: blur(0);   }
-}
-/* Touch: view transitions sem blur (mesma razão do astraRevealOnViewLite) */
-@keyframes vt-fade-out-lite {
-  to { opacity: 0; }
-}
-@keyframes vt-fade-in-lite {
-  from { opacity: 0; transform: translateX(12px); }
-  to   { opacity: 1; transform: translateX(0);    }
-}
-@media (pointer: coarse) {
-  ::view-transition-old(root) { animation-name: vt-fade-out-lite; }
-  ::view-transition-new(root) { animation-name: vt-fade-in-lite; }
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) { animation: none !important; }
-}
+/* View Transitions API: removida — empilhava com o PageTransition (motion)
+   em cada navegação (snapshot freeze + crossfade + exit/enter do motion =
+   3 animações). useViewTransitionNavigate hoje é alias de useNavigate. */
 @keyframes shimmer {
   0%   { background-position: -200% center; }
   100% { background-position:  200% center; }

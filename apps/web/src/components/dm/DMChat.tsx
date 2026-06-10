@@ -446,7 +446,7 @@ function DMAttachment({ att }: { att: Attachment }) {
           alt={att.name}
           loading="lazy"
           decoding="async"
-          className="max-h-72 max-w-full object-cover border border-(--border-mid) hover:brightness-110 transition-all"
+          className="max-h-72 max-w-full object-cover border border-(--border-mid) hover:brightness-110 transition-[filter] duration-150"
         />
       </a>
     )

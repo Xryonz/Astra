@@ -652,7 +652,7 @@ function MessageItemImpl({
       <EditorialContextMenu items={ctxItems} mobileBridge={false}>
       <div
         className={cn(
-          'flex gap-4 relative transition-all duration-300 ease-(--ease-spring) border-l-2 select-none md:select-auto',
+          'flex gap-4 relative transition-[border-color,background-color,opacity] duration-150 border-l-2 select-none md:select-auto',
           // py-(--msg-density-py) respeita data-density do <html>
           // (compact 0.2rem / comfortable 0.5rem / spacious 0.85rem).
           grouped ? 'pl-4 pr-3' : 'pl-4 pr-3 pt-3 pb-1 mt-2',

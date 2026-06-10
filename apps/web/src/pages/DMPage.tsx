@@ -106,7 +106,7 @@ export default function DMPage() {
               {/* Back-to-list mobile-only */}
               <button
                 onClick={() => setActiveDM(null)}
-                className="md:hidden size-9 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-all duration-300 ease-(--ease-spring) cursor-pointer shrink-0"
+                className="md:hidden size-9 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-[color,border-color,transform] duration-150 active:scale-95 cursor-pointer shrink-0"
                 aria-label="Voltar à lista"
               >
                 <ArrowLeft className="size-4" />

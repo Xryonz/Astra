@@ -250,7 +250,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                 <button
                   onClick={() => { navigate('/app/dm'); closeMobile() }}
                   aria-label="Estrelas"
-                  className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-all cursor-pointer"
+                  className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-[transform,filter] duration-150 cursor-pointer"
                   style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }}
                 >
                   <Sparkles className="size-6" />
@@ -510,7 +510,7 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
           <span
             aria-hidden
             className={cn(
-              'absolute -left-3 top-1/2 -translate-y-1/2 w-0.5 bg-(--accent) transition-all duration-300 ease-(--ease-spring)',
+              'absolute -left-3 top-1/2 -translate-y-1/2 w-0.5 bg-(--accent) transition-[height,opacity] duration-200 ease-(--ease-spring)',
               isActive
                 ? 'h-7 opacity-100'
                 : 'h-1 opacity-0 group-hover/server:opacity-100 group-hover/server:h-4',
@@ -525,14 +525,14 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
             onTouchCancel={longPress.onTouchCancel}
             aria-label={`${isGroup ? 'Grupo' : 'Servidor'} ${server.name}`}
             className={cn(
-              'relative size-10 shrink-0 p-0 cursor-pointer overflow-hidden flex items-center justify-center font-(family-name:--font-display) transition-all duration-300 ease-(--ease-spring)',
+              'relative size-10 shrink-0 p-0 cursor-pointer overflow-hidden flex items-center justify-center font-(family-name:--font-display) transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-(--ease-spring) active:scale-95 active:duration-100',
               'border outline-none rounded-2xl',
               isActive
                 ? 'bg-(--accent) text-(--text-inv) border-(--accent) shadow-accent scale-105'
                 : 'bg-(--raised) text-(--text-2) border-(--border) hover:border-(--accent) hover:text-(--accent) hover:scale-105 hover:-translate-y-0.5',
               isGroup ? 'text-base' : 'text-sm'
             )}
-            style={{ animation: `fadeUp 0.35s var(--ease-spring) ${index * 0.055}s both` }}
+            style={{ animation: `fadeUp 0.35s var(--ease-spring) ${Math.min(index * 0.055, 0.3)}s both` }}
           >
             {server.iconUrl
               ? <img src={server.iconUrl} alt={server.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
@@ -571,7 +571,7 @@ function StripButton({ title, icon, onClick }: {
         <button
           onClick={handle}
           aria-label={title}
-          className="size-10 shrink-0 rounded-2xl border border-dashed border-(--border) bg-transparent text-(--text-3) cursor-pointer flex items-center justify-center transition-all duration-300 ease-(--ease-spring) hover:bg-(--accent-dim) hover:border-(--accent) hover:text-(--accent) hover:scale-105 active:scale-90 relative overflow-visible"
+          className="size-10 shrink-0 rounded-2xl border border-dashed border-(--border) bg-transparent text-(--text-3) cursor-pointer flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-(--ease-spring) hover:bg-(--accent-dim) hover:border-(--accent) hover:text-(--accent) hover:scale-105 active:scale-90 active:duration-100 relative overflow-visible"
         >
           {icon}
           {/* Burst ring(s) — múltiplos cliques rápidos sobrepoem ondas */}

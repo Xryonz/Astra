@@ -18,23 +18,18 @@ import { motion } from 'motion/react'
 // desktop mantém o blur. pointer não muda em runtime → check 1x no módulo.
 const COARSE = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
-// Mobile: troca de rota quase instantânea (norma de apps nativos — WhatsApp/
-// Telegram não têm transição perceptível). Exit de 50ms porque o
-// AnimatePresence mode=wait do AppPage espera a saída terminar antes de
-// montar a rota nova: exit longo = atraso percebido em CADA navegação.
-const VARIANTS = COARSE
-  ? {
-      initial: { opacity: 0, x: 10 },
-      animate: { opacity: 1, x: 0 },
-      exit:    { opacity: 0, transition: { duration: 0.05 } },
-    }
-  : {
-      initial: { opacity: 0, x: 18, filter: 'blur(2px)' },
-      animate: { opacity: 1, x: 0,  filter: 'blur(0px)' },
-      exit:    { opacity: 0, x: -10, filter: 'blur(2px)' },
-    }
+// Troca de rota rápida em TODA plataforma (norma messenger: transição
+// perceptível mas nunca no caminho do user). Sem blur — blur animado
+// repinta a página inteira por frame, em qualquer GPU. Exit curto porque
+// o AnimatePresence mode=wait do AppPage espera a saída terminar antes
+// de montar a rota nova: exit longo = atraso em CADA navegação.
+const VARIANTS = {
+  initial: { opacity: 0, x: COARSE ? 10 : 14 },
+  animate: { opacity: 1, x: 0 },
+  exit:    { opacity: 0, transition: { duration: 0.07 } },
+}
 
-const DURATION = COARSE ? 0.15 : 0.34
+const DURATION = COARSE ? 0.15 : 0.2
 
 export function PageTransition({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -44,7 +39,7 @@ export function PageTransition({ children, className }: { children: React.ReactN
       exit={VARIANTS.exit}
       transition={{ duration: DURATION, ease: [0.16, 1, 0.3, 1] }}
       className={className}
-      style={{ width: '100%', height: '100%', willChange: COARSE ? 'transform, opacity' : 'transform, opacity, filter' }}
+      style={{ width: '100%', height: '100%', willChange: 'transform, opacity' }}
     >
       {children}
     </motion.div>

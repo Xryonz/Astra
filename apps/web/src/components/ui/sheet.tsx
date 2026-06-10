@@ -48,7 +48,7 @@ const SheetContent = React.forwardRef<
     >
       {children}
       <DialogPrimitive.Close
-        className="absolute right-4 top-4 size-8 flex items-center justify-center border border-(--border) hover:border-(--accent) hover:text-(--accent) transition-all duration-300 ease-(--ease-spring) text-(--text-2) cursor-pointer"
+        className="absolute right-4 top-4 size-8 flex items-center justify-center border border-(--border) hover:border-(--accent) hover:text-(--accent) transition-[color,border-color] duration-150 text-(--text-2) cursor-pointer"
         aria-label="Fechar"
       >
         <X className="size-4" />

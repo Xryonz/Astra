@@ -381,6 +381,21 @@ export const pushSubscriptions = pgTable('PushSubscription', {
   byUser:       index('PushSubscription_userId_idx').on(t.userId),
 }))
 
+// ─── FcmToken ─────────────────────────────────────────────────
+// Push nativo (app Android/iOS via Firebase Cloud Messaging). Paralelo
+// ao PushSubscription (web push/VAPID) — sendPush() despacha pros dois.
+export const fcmTokens = pgTable('FcmToken', {
+  id:         text('id').primaryKey().$defaultFn(createId),
+  userId:     text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token:      text('token').notNull(),
+  platform:   text('platform').notNull().default('android'),
+  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  lastSeenAt: timestamp('lastSeenAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  uniqToken: uniqueIndex('FcmToken_token_key').on(t.token),
+  byUser:    index('FcmToken_userId_idx').on(t.userId),
+}))
+
 // ─── Friendship ───────────────────────────────────────────────
 // Par sempre normalizado (id menor primeiro) pra evitar duplicatas (A,B)+(B,A).
 // requesterId guarda quem mandou — quem RECEBE pode aceitar.

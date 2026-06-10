@@ -99,6 +99,13 @@
       "when": 1786000000000,
       "tag": "0013_channel_notif_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786100000000,
+      "tag": "0014_fcm_tokens",
+      "breakpoints": true
     }
   ]
 }

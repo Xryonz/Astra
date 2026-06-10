@@ -37,6 +37,10 @@ const EnvSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT:     z.string().default('mailto:dev@astra.local'),
 
+  // FCM — push nativo do app (opcional). JSON da service account inteiro
+  // na env var (Firebase Console → Service accounts → Generate new key).
+  FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
+
   // Giphy GIF API (opcional — picker de GIF fica desligado sem key)
   // Grátis em developers.giphy.com → Create an App → tipo API
   GIPHY_API_KEY: z.string().optional(),

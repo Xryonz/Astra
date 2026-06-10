@@ -46,6 +46,22 @@ export async function initNativeApp(): Promise<void> {
     void Keyboard.addListener('keyboardDidHide', unfreeze)
   } catch { /* plugin ausente */ }
 
+  // App Shortcuts: long-press no ícone do Astra → atalhos diretos.
+  // Estáticos por enquanto (dinâmicos com DMs recentes exigem deep route).
+  try {
+    const { AppShortcuts } = await import('@capawesome/capacitor-app-shortcuts')
+    await AppShortcuts.set({
+      shortcuts: [
+        { id: 'dms',     title: 'Sussurros', description: 'Mensagens diretas' },
+        { id: 'friends', title: 'Amigos',    description: 'Sua constelação de amigos' },
+      ],
+    })
+    await AppShortcuts.addListener('click', ({ shortcutId }) => {
+      if (shortcutId === 'dms')     window.location.href = '/app/dm'
+      if (shortcutId === 'friends') window.location.href = '/app/friends'
+    })
+  } catch { /* plugin ausente */ }
+
   // Status bar na cor do void (era branca/default). Style.Dark = fundo
   // escuro com ícones claros. overlay:false reserva o espaço da status bar
   // — sem isso o WebView desenha POR BAIXO dela e os botões do topo do app
@@ -118,6 +134,24 @@ export async function openGoogleLogin(): Promise<void> {
   }
   const { Browser } = await import('@capacitor/browser')
   await Browser.open({ url: `${base}?platform=mobile` })
+}
+
+/**
+ * PiP (Picture-in-Picture): liga/desliga a flag que o MainActivity lê em
+ * onUserLeaveHint — quando o user sai do app com vídeo rolando na call,
+ * o app encolhe pra um quadro flutuante em vez de sumir. Plugin inline
+ * (PipPlugin.java); falha silenciosa em builds sem ele.
+ */
+let lastPip = false
+export function setPipEnabled(enabled: boolean): void {
+  if (!isNative || enabled === lastPip) return
+  lastPip = enabled
+  void import('@capacitor/core')
+    .then(({ registerPlugin }) => {
+      const AstraPip = registerPlugin<{ setEnabled(o: { enabled: boolean }): Promise<void> }>('AstraPip')
+      return AstraPip.setEnabled({ enabled })
+    })
+    .catch(() => { lastPip = false })
 }
 
 /**

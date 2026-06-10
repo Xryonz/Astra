@@ -36,8 +36,9 @@ pnpm-debug.log*
 # ── User-uploaded files (runtime data, não pertence ao repo) ─
 apps/api/uploads/
 
-# ── Capacitor native projects (gerados por `npx cap add`) ────
-apps/web/android/
+# ── Capacitor: android/ É versionado (recomendação oficial) ──
+# Mudanças nativas (deep link, permissões, PiP, quick reply) vivem lá;
+# o .gitignore interno do android/ já exclui build/, local.properties etc.
 apps/web/ios/
 
 # ── Bundle analyzer output ──────────────────────────────────

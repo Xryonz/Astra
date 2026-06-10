@@ -158,8 +158,43 @@ Em Xcode: `Product → Archive`, depois `Distribute App` no Organizer.
 
 ---
 
+## Push nativo (FCM) — ativar
+
+Todo o código já existe (backend `lib/fcm.ts` + front `lib/pushNative.ts`).
+Falta só a conta Firebase (grátis):
+
+1. https://console.firebase.google.com → **Add project** (ex: "astra")
+2. No projeto: **Add app → Android** → package name `app.astra.client`
+3. Baixar **google-services.json** → colocar em `apps/web/android/app/`
+4. **Project Settings → Service accounts → Generate new private key**
+   → abre o JSON baixado, copia o CONTEÚDO inteiro e cola na env var
+   `FIREBASE_SERVICE_ACCOUNT` no Railway (1 linha, JSON completo)
+5. Rebuild do APK (`gradlew assembleDebug`) + redeploy da API
+6. Testar: logar no app → Configurações → o device registra sozinho;
+   POST /api/push/test dispara um push
+
+> Sem google-services.json o build CONTINUA passando (try/catch no
+> build.gradle) — push só não funciona até configurar.
+
+### Pendentes pós-FCM
+- **Quick reply na notificação**: exige token de auth acessível do lado
+  nativo (BroadcastReceiver + RemoteInput). Fazer depois do FCM validado.
+- **Shortcuts dinâmicos** (DMs recentes no long-press do ícone): exige
+  rota deep pra conversa (`/app/dm/:id`); hoje DM abre via location.state.
+
+## Live updates (Capgo) — atualizar o app sem Play Store
+
+O bundle web do app pode ser atualizado remotamente (você pusha, todos os
+apps instalados baixam em minutos — sem reenviar pra loja):
+
+1. Conta em https://capgo.app (free tier: 1 app)
+2. `npm i @capgo/capacitor-updater -w @astra/web && npx cap sync`
+3. Seguir o onboarding do dashboard (`npx @capgo/cli init`)
+4. A cada release: `npx @capgo/cli bundle upload`
+
 ## Referência
 
 - Capacitor docs: https://capacitorjs.com/docs
 - Android setup: https://capacitorjs.com/docs/getting-started/environment-setup
 - iOS setup:     https://capacitorjs.com/docs/ios
+- FCM:           https://capacitorjs.com/docs/apis/push-notifications

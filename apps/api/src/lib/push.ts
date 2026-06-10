@@ -39,10 +39,15 @@ export interface PushPayload {
 }
 
 /**
- * Envia push pra todas as subscriptions de um user. Sub gone (410/404)
- * é removida automaticamente — best-effort, não bloqueia o caller.
+ * Envia push pra todas as subscriptions de um user — web push (VAPID) E
+ * devices nativos (FCM). Sub gone (410/404) é removida automaticamente —
+ * best-effort, não bloqueia o caller.
  */
 export async function sendPush(userId: string, payload: PushPayload) {
+  // FCM em paralelo, fire-and-forget — import dinâmico evita ciclo
+  // (fcm.ts importa PushPayload daqui).
+  void import('./fcm').then(({ sendFcmToUser }) => sendFcmToUser(userId, payload)).catch(() => {})
+
   if (!isConfigured) return
 
   const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))

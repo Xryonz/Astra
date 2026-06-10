@@ -15,6 +15,7 @@ import {
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
 import { resolveApiUrl } from '@/lib/api'
+import { setAppBadge } from '@/lib/badge'
 
 const TYPE_LABEL: Record<NotificationType, string> = {
   mention:  'Menção',
@@ -52,6 +53,9 @@ export function NotificationBell() {
     if (unread > prevUnreadRef.current) setShakeKey((k) => k + 1)
     prevUnreadRef.current = unread
   }, [unread])
+
+  // Badge no ícone do app (nativo) / PWA (web) — espelha o sino.
+  useEffect(() => { setAppBadge(unread) }, [unread])
 
   // Click-outside fecha
   useEffect(() => {

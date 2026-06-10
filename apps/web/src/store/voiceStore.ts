@@ -11,6 +11,7 @@ import type {
   LocalParticipant, Participant,
 } from 'livekit-client'
 import { api } from '@/lib/api'
+import { setPipEnabled } from '@/lib/native'
 
 export type CallState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error'
 
@@ -124,10 +125,17 @@ function bindRoomEvents(
 
 export const useVoiceStore = create<VoiceState>((set, get) => {
   const refresh = () => {
-    if (activeRoom && lkNs) set({ participants: snapshot(activeRoom, lkNs.Track) })
+    if (activeRoom && lkNs) {
+      const participants = snapshot(activeRoom, lkNs.Track)
+      set({ participants })
+      // PiP só vale a pena com vídeo na call (câmera/screen share) —
+      // sair do app com vídeo rolando encolhe pro quadro flutuante.
+      setPipEnabled(participants.some((p) => p.isCameraEnabled || p.isScreenSharing))
+    }
   }
   const handleDisc = () => {
     activeRoom = null
+    setPipEnabled(false)
     set({ state: 'idle', roomName: null, participants: [], error: null })
   }
 
@@ -210,6 +218,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       set({ state: 'disconnecting' })
       try { await activeRoom.disconnect() } catch {}
       activeRoom = null
+      setPipEnabled(false)
       set({ state: 'idle', roomName: null, participants: [] })
     },
 

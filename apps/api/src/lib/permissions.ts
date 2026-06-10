@@ -212,6 +212,33 @@ export async function filterVisibleChannels(
 }
 
 /**
+ * Lógica pura da visibilidade de canal — mesmas regras que userCanSeeChannel,
+ * mas isolada de DB pra ser testável e reutilizável em batch checks.
+ *
+ *  - Server inexistente → false
+ *  - Owner → true
+ *  - Não-membro → false
+ *  - Canal público → true
+ *  - Canal privado: precisa de pelo menos 1 role do user dentro das allowedRoles
+ */
+export function computeChannelVisibility(input: {
+  ownerId:      string | null
+  userId:       string
+  isMember:     boolean
+  isPrivate:    boolean
+  userRoleIds:  string[]
+  allowedRoles: string[] | Set<string>
+}): boolean {
+  const { ownerId, userId, isMember, isPrivate, userRoleIds, allowedRoles } = input
+  if (ownerId === userId && !!ownerId) return true
+  if (!isMember) return false
+  if (!isPrivate) return true
+  const allowedSet = allowedRoles instanceof Set ? allowedRoles : new Set(allowedRoles)
+  if (allowedSet.size === 0) return false
+  return userRoleIds.some((id) => allowedSet.has(id))
+}
+
+/**
  * Lógica pura da cascata Owner → Admin legacy → Cargos. Testável sem DB.
  *
  * @param ownerId   id do user dono do server

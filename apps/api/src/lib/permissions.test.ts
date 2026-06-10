@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { PERMS, computeMemberPerms, parsePermissionsJson } from './permissions'
+import {
+  PERMS, computeMemberPerms, parsePermissionsJson, computeChannelVisibility,
+} from './permissions'
 
 describe('parsePermissionsJson', () => {
   it('aceita JSON array válido', () => {
@@ -122,5 +124,125 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
   it('ownerId null (server fantasma) → isOwner false', () => {
     const m = computeMemberPerms(null, 'u1', { id: 'm1', role: 'MEMBER' }, [])
     expect(m.isOwner).toBe(false)
+  })
+
+  it('role enum "OWNER" (sem ownerId match) NÃO ganha admin perms', () => {
+    // Guard: convenção é que dono usa servers.ownerId, não member.role.
+    // Se algum day role=OWNER aparecer em member sem ownerId match, set fica vazio.
+    const m = computeMemberPerms('outro-user', 'u1', { id: 'm1', role: 'OWNER' }, [])
+    expect(m.isOwner).toBe(false)
+    expect(m.isAdmin).toBe(false)
+    expect(m.permissions.size).toBe(0)
+  })
+
+  it('ownerId vazio string NÃO faz match', () => {
+    // Defesa: ownerId '' não bate com qualquer userId truthy.
+    const m = computeMemberPerms('', 'u1', null, [])
+    expect(m.isOwner).toBe(false)
+  })
+
+  it('MENTION_EVERYONE só vem de cargo customizado', () => {
+    // Legacy ADMIN não inclui MENTION_EVERYONE; tem que ser dado por cargo.
+    const m = computeMemberPerms('owner', 'u1', { id: 'm1', role: 'ADMIN' }, [])
+    expect(m.permissions.has(PERMS.MENTION_EVERYONE)).toBe(false)
+
+    const m2 = computeMemberPerms('owner', 'u1',
+      { id: 'm1', role: 'MEMBER' },
+      ['["MENTION_EVERYONE"]'],
+    )
+    expect(m2.permissions.has(PERMS.MENTION_EVERYONE)).toBe(true)
+  })
+})
+
+describe('parsePermissionsJson — extras', () => {
+  it('array misto: só strings válidas passam', () => {
+    expect(parsePermissionsJson('["MANAGE_ROLES",123,null,true,"BAN_MEMBERS"]'))
+      .toEqual(['MANAGE_ROLES', 'BAN_MEMBERS'])
+  })
+
+  it('array só de não-strings → vazio', () => {
+    expect(parsePermissionsJson('[1,2,3]')).toEqual([])
+    expect(parsePermissionsJson('[null,null]')).toEqual([])
+  })
+
+  it('case-sensitive: "manage_roles" lowercase é descartado', () => {
+    expect(parsePermissionsJson('["manage_roles"]')).toEqual([])
+  })
+
+  it('whitespace dentro do JSON ok', () => {
+    expect(parsePermissionsJson('[  "MANAGE_ROLES"  ,  "KICK_MEMBERS"  ]'))
+      .toEqual(['MANAGE_ROLES', 'KICK_MEMBERS'])
+  })
+})
+
+describe('computeChannelVisibility', () => {
+  const base = {
+    ownerId:      'owner-1',
+    userId:       'u1',
+    isMember:     true,
+    isPrivate:    false,
+    userRoleIds:  [] as string[],
+    allowedRoles: [] as string[],
+  }
+
+  it('owner sempre vê — público ou privado, member ou não', () => {
+    expect(computeChannelVisibility({ ...base, userId: 'owner-1' })).toBe(true)
+    expect(computeChannelVisibility({
+      ...base, userId: 'owner-1', isPrivate: true, isMember: false,
+    })).toBe(true)
+  })
+
+  it('ownerId null com userId null não dá match (guard)', () => {
+    // Edge case: server sem owner + user anônimo NÃO deve passar.
+    expect(computeChannelVisibility({
+      ...base, ownerId: null, userId: '', isMember: false,
+    })).toBe(false)
+  })
+
+  it('não-membro nunca vê', () => {
+    expect(computeChannelVisibility({ ...base, isMember: false })).toBe(false)
+    expect(computeChannelVisibility({
+      ...base, isMember: false, isPrivate: true,
+      userRoleIds: ['r1'], allowedRoles: ['r1'],
+    })).toBe(false)
+  })
+
+  it('canal público + membro → vê', () => {
+    expect(computeChannelVisibility({ ...base, isPrivate: false })).toBe(true)
+  })
+
+  it('privado: precisa role intersection', () => {
+    expect(computeChannelVisibility({
+      ...base, isPrivate: true,
+      userRoleIds: ['r1', 'r2'], allowedRoles: ['r3', 'r2'],
+    })).toBe(true)
+  })
+
+  it('privado sem allowedRoles configurados → ninguém (exceto owner) vê', () => {
+    expect(computeChannelVisibility({
+      ...base, isPrivate: true,
+      userRoleIds: ['r1'], allowedRoles: [],
+    })).toBe(false)
+  })
+
+  it('privado: user sem roles → não vê', () => {
+    expect(computeChannelVisibility({
+      ...base, isPrivate: true,
+      userRoleIds: [], allowedRoles: ['r1'],
+    })).toBe(false)
+  })
+
+  it('privado: roles do user disjuntas → não vê', () => {
+    expect(computeChannelVisibility({
+      ...base, isPrivate: true,
+      userRoleIds: ['r-x', 'r-y'], allowedRoles: ['r-a', 'r-b'],
+    })).toBe(false)
+  })
+
+  it('aceita Set como allowedRoles (uso interno)', () => {
+    expect(computeChannelVisibility({
+      ...base, isPrivate: true,
+      userRoleIds: ['r1'], allowedRoles: new Set(['r1', 'r2']),
+    })).toBe(true)
   })
 })

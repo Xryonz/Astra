@@ -74,14 +74,27 @@ describe('TTL — fixo, não reseta com novo turn', () => {
   })
 
   it('código usa EXPIRE NX no segundo turn (não tenta resetar)', async () => {
-    // Validamos o comportamento via spy ao invés de TTL real, porque
-    // ioredis-mock pode não implementar a flag NX corretamente.
+    // pushTurn faz redis.multi().zadd().expire(NX) — o spy em redis.expire
+    // não pega (multi() retorna pipeline com .expire próprio). Aqui
+    // interceptamos o multi() pra capturar as calls do pipeline.
     await pushTurn(U, C, { role: 'user', content: 'a', ts: 1 })
-    const spy = vi.spyOn(redis, 'expire')
+
+    const expireCalls: unknown[][] = []
+    const originalMulti = redis.multi.bind(redis)
+    const multiSpy = vi.spyOn(redis, 'multi').mockImplementation((...args: any[]) => {
+      const pipe = originalMulti(...(args as []))
+      const origExpire = pipe.expire.bind(pipe)
+      pipe.expire = ((...exArgs: any[]) => {
+        expireCalls.push(exArgs)
+        return origExpire(...(exArgs as Parameters<typeof origExpire>))
+      }) as typeof pipe.expire
+      return pipe
+    })
+
     await pushTurn(U, C, { role: 'user', content: 'b', ts: 2 })
-    // pushTurn sempre chama expire(key, TTL, 'NX')
-    expect(spy).toHaveBeenCalledWith(`bot:mem:${U}:${C}`, MEMORY_TTL_SECONDS, 'NX')
-    spy.mockRestore()
+
+    expect(expireCalls).toContainEqual([`bot:mem:${U}:${C}`, MEMORY_TTL_SECONDS, 'NX'])
+    multiSpy.mockRestore()
   })
 })
 

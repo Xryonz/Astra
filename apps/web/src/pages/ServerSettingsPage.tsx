@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, Clock, Tag, Plus, Pencil, Check, Ban, ScrollText, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy, Smile, X, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { api } from '@/lib/api'
+import { shareInvite } from '@/lib/native'
 import { useAuthStore } from '@/store/authStore'
 import { useMyPerms } from '@/hooks/useMyPerms'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -168,8 +169,9 @@ export default function ServerSettingsPage() {
 
   const copyInvite = () => {
     if (!server) return
-    navigator.clipboard.writeText(`${window.location.origin}/invite/${server.inviteCode}`)
-      .then(() => toast.success('Link copiado'))
+    // App nativo: share sheet do OS. Web: clipboard como antes.
+    shareInvite(server.inviteCode)
+      .then((mode) => { if (mode === 'copied') toast.success('Link copiado') })
       .catch(() => toast.error('Falha ao copiar — copie manualmente'))
   }
 

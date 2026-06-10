@@ -10,6 +10,7 @@
 import { memo, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuthStore } from '@/store/authStore'
+import { hapticLight } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
 
 export interface Reaction {
@@ -29,6 +30,7 @@ export const MessageReactions = memo(function MessageReactions({ reactions, onRe
   if (!reactions?.length) return null
 
   const handleClick = (emoji: string) => {
+    hapticLight()  // tátil no app nativo; no-op no web
     setPunchKey(emoji + ':' + Date.now())
     onReact(emoji)
   }

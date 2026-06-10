@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/sonner'
 import { useVoiceCall, useVoiceConfig, useVoiceChannelPresence, parseRoomName } from '@/hooks/useVoiceCall'
 import { useUsersMini } from '@/hooks/useUsersMini'
 import { api, resolveApiUrl } from '@/lib/api'
+import { isNative, shareInvite } from '@/lib/native'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { useUnread } from '@/hooks/useUnread'
@@ -138,8 +139,9 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     const items: ContextMenuItem[] = []
     if (!menu.server.isGroup) {
       items.push({
-        icon: '🔗', label: 'Copiar link de convite',
-        onClick: () => navigator.clipboard.writeText(`${window.location.origin}/invite/${menu.server.inviteCode}`),
+        // No app nativo abre o share sheet do OS; no web copia (lib/native).
+        icon: '🔗', label: isNative ? 'Compartilhar convite' : 'Copiar link de convite',
+        onClick: () => { void shareInvite(menu.server.inviteCode) },
       })
     }
     items.push({

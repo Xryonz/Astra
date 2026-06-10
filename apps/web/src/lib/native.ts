@@ -19,6 +19,14 @@ export const isNative = Capacitor.isNativePlatform()
 export async function initNativeApp(): Promise<void> {
   if (!isNative) return
 
+  // Status bar na cor do void (era branca/default). Style.Dark = fundo
+  // escuro com ícones claros. Falha silenciosa se plugin faltar no build.
+  try {
+    const { StatusBar, Style } = await import('@capacitor/status-bar')
+    await StatusBar.setBackgroundColor({ color: '#06060e' })
+    await StatusBar.setStyle({ style: Style.Dark })
+  } catch { /* plugin ausente — segue sem status bar custom */ }
+
   const { App } = await import('@capacitor/app')
 
   App.addListener('appUrlOpen', async ({ url }) => {
@@ -80,4 +88,30 @@ export async function openGoogleLogin(): Promise<void> {
   }
   const { Browser } = await import('@capacitor/browser')
   await Browser.open({ url: `${base}?platform=mobile` })
+}
+
+/**
+ * URL pública do site — pra links que saem do app (convites). No app
+ * nativo, window.location.origin é https://localhost (WebView local),
+ * que não serve pra ninguém. VITE_SITE_URL definida em .env.production.
+ */
+const SITE_URL: string =
+  (import.meta.env.VITE_SITE_URL as string | undefined) ?? window.location.origin
+
+/**
+ * Compartilha um convite de constelação. Nativo: share sheet do OS
+ * (WhatsApp, Telegram, etc.). Web: copia pro clipboard (comportamento
+ * de sempre). Retorna o modo usado pro caller ajustar o feedback.
+ */
+export async function shareInvite(code: string): Promise<'shared' | 'copied'> {
+  const url = `${SITE_URL}/invite/${code}`
+  if (isNative) {
+    try {
+      const { Share } = await import('@capacitor/share')
+      await Share.share({ title: 'Convite pra constelação no Astra', url })
+      return 'shared'
+    } catch { /* user cancelou o sheet ou plugin ausente — cai pro clipboard */ }
+  }
+  await navigator.clipboard.writeText(url)
+  return 'copied'
 }

@@ -43,6 +43,12 @@ const config: CapacitorConfig = {
       androidScaleType:   'CENTER_CROP',
       showSpinner:        false,
     },
+    // Teclado nativo: 'native' = adjustResize do Android — o input de
+    // mensagem sobe junto com o teclado em vez de sumir atrás dele.
+    Keyboard: {
+      resize: 'native',
+      resizeOnFullScreen: true,
+    },
   },
 }
 

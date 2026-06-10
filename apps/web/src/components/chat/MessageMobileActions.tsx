@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Smile, Reply, Pencil, Pin, PinOff, Trash2, Copy, MessageSquarePlus, Bookmark, BookmarkCheck } from 'lucide-react'
+import { hapticLight, hapticMedium } from '@/lib/haptics'
 
 interface MessageMobileActionsProps {
   open:        boolean
@@ -29,6 +31,9 @@ export default function MessageMobileActions({
 }: MessageMobileActionsProps) {
   const QUICK = ['👍','❤️','😂','😮','😢','🔥']
 
+  // Feedback tátil no long-press que abriu o sheet (no-op no web)
+  useEffect(() => { if (open) hapticMedium() }, [open])
+
   const wrap = (fn?: () => void) => () => { fn?.(); onClose() }
 
   return (
@@ -48,7 +53,7 @@ export default function MessageMobileActions({
           {QUICK.map((e) => (
             <button
               key={e}
-              onClick={() => { onPickEmoji(); /* picker já é separado, mas atalho de reação simples viria aqui */ onClose() }}
+              onClick={() => { hapticLight(); onPickEmoji(); onClose() }}
               className="flex-1 text-2xl py-2 transition-transform active:scale-90"
               aria-label={`Reagir ${e}`}
             >{e}</button>

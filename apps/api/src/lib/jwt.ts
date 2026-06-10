@@ -20,10 +20,13 @@ export function generateAccessToken(userId: string): { token: string; jti: strin
 }
 
 export function generateRefreshToken(userId: string): string {
-  // jti garante que cada token é único mesmo se gerado no mesmo segundo
+  // jti garante token único mesmo gerado no mesmo segundo.
+  // TTL 30d alinhado com o row no DB (REFRESH_TTL_MS em auth.ts) —
+  // mismatch antigo (7d JWT vs 30d row) deslogava user que ficava >7d
+  // entre uses, mesmo com row vivo.
   const jti = crypto.randomUUID()
   return jwt.sign({ userId, jti }, env.JWT_REFRESH_SECRET, {
-    expiresIn: '7d',
+    expiresIn: '30d',
   })
 }
 

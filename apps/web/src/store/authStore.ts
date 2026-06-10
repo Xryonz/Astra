@@ -16,12 +16,10 @@ interface AuthState {
   logout:         () => void
 }
 
-// O accessToken NUNCA é persistido em storage (vulnerável a XSS).
-// Ele vive só em memória; em cold load chamamos /api/auth/refresh
-// (que usa o cookie httpOnly) para obter um novo.
-//
-// Só `user` e `isAuthenticated` são persistidos — para evitar uma
-// flicker de login durante o bootstrap.
+// accessToken nunca persiste (XSS-safe; revive via refresh em cold load).
+// user + isAuthenticated persistem em localStorage — sobrevivem a tab discard
+// que o Chrome faz pra liberar RAM durante jogos fullscreen. Sem isso o
+// usuário voltava deslogado mesmo com refresh válido em mão.
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -46,11 +44,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name:    'astra-auth',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         user:            s.user,
         isAuthenticated: s.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.user?.id) sentry.setUser(state.user.id)
+      },
     }
   )
 )

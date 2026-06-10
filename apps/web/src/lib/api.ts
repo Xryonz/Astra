@@ -22,12 +22,41 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// ── Interceptor de response: renova token automaticamente ────
-let isRefreshing = false
-let pendingRequests: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
-
+// ── Singleton refresh ────────────────────────────────────────
+// Single-flight promise compartilhada entre o interceptor de axios E
+// useVisibilityRefresh. Antes cada um tinha seu próprio lock — quando
+// visibilitychange e refetchOnWindowFocus disparavam ao mesmo tempo (voltando
+// do jogo), os dois caminhos POSTavam /refresh com o MESMO refresh-token,
+// o servidor (atomic claim) só aceita o primeiro, o segundo recebia 401 →
+// logout cascata. Centralizando aqui, o segundo caller espera o primeiro.
 const REFRESH_TIMEOUT_MS = 8000
 
+interface RefreshResult { accessToken: string; refreshToken: string }
+let refreshInFlight: Promise<RefreshResult> | null = null
+
+export function refreshSession(): Promise<RefreshResult> {
+  if (refreshInFlight) return refreshInFlight
+
+  refreshInFlight = (async () => {
+    const stored = getStoredRefreshToken()
+    if (!stored) throw Object.assign(new Error('NO_REFRESH'), { response: { status: 401 } })
+
+    const { data } = await axios.post(
+      `${API_URL}/api/auth/refresh`,
+      {},
+      { headers: { Authorization: `Bearer ${stored}` }, timeout: REFRESH_TIMEOUT_MS },
+    )
+    const newAccess: string  = data.data.accessToken
+    const newRefresh: string = data.data.refreshToken
+    useAuthStore.getState().setAccessToken(newAccess)
+    setStoredRefreshToken(newRefresh)
+    return { accessToken: newAccess, refreshToken: newRefresh }
+  })().finally(() => { refreshInFlight = null })
+
+  return refreshInFlight
+}
+
+// ── Interceptor de response: renova token automaticamente ────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -36,55 +65,20 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retried) {
       originalRequest._retried = true
 
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          pendingRequests.push({
-            resolve: (token) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`
-              resolve(api(originalRequest))
-            },
-            reject,
-          })
-        })
-      }
-
-      const storedRefresh = getStoredRefreshToken()
-      if (!storedRefresh) {
-        useAuthStore.getState().logout()
-        return Promise.reject(error)
-      }
-
-      isRefreshing = true
-
       try {
-        const { data } = await axios.post(
-          `${API_URL}/api/auth/refresh`,
-          {},
-          {
-            headers: { Authorization: `Bearer ${storedRefresh}` },
-            timeout: REFRESH_TIMEOUT_MS,
-          }
-        )
-        const newAccess  = data.data.accessToken
-        const newRefresh = data.data.refreshToken
-        useAuthStore.getState().setAccessToken(newAccess)
-        setStoredRefreshToken(newRefresh)
-
-        pendingRequests.forEach((p) => p.resolve(newAccess))
-        pendingRequests = []
-
-        originalRequest.headers.Authorization = `Bearer ${newAccess}`
+        const { accessToken } = await refreshSession()
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        pendingRequests.forEach((p) => p.reject(refreshError))
-        pendingRequests = []
-
-        clearStoredRefreshToken()
-        useAuthStore.getState().logout()
-        window.location.href = '/login'
+        // Só desloga se servidor respondeu 401 (refresh inválido/expirado).
+        // Network error, timeout, 5xx → mantém sessão; user tenta de novo.
+        const refreshStatus = (refreshError as { response?: { status?: number } })?.response?.status
+        if (refreshStatus === 401) {
+          clearStoredRefreshToken()
+          useAuthStore.getState().logout()
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
       }
     }
 

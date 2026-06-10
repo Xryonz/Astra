@@ -15,15 +15,13 @@
  * Padrão usado por Slack/Discord web.
  */
 import { useEffect, useRef } from 'react'
-import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
-import { getStoredRefreshToken, setStoredRefreshToken, clearStoredRefreshToken } from '@/lib/api'
+import { getStoredRefreshToken, clearStoredRefreshToken, refreshSession } from '@/lib/api'
 
 const STALE_THRESHOLD_MS = 5 * 60_000  // 5 minutos
 
 export function useVisibilityRefresh() {
   const lastActiveAtRef = useRef<number>(Date.now())
-  const inFlightRef     = useRef<boolean>(false)
 
   useEffect(() => {
     const onVisible = async () => {
@@ -35,31 +33,26 @@ export function useVisibilityRefresh() {
       lastActiveAtRef.current = Date.now()
 
       if (elapsed < STALE_THRESHOLD_MS) return
-      if (inFlightRef.current) return
 
       // Só refresha se estamos autenticados — login page não precisa
       const { isAuthenticated } = useAuthStore.getState()
       if (!isAuthenticated) return
+      if (!getStoredRefreshToken()) return
 
-      const stored = getStoredRefreshToken()
-      if (!stored) return
-
-      inFlightRef.current = true
       try {
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
-          {},
-          { headers: { Authorization: `Bearer ${stored}` }, timeout: 8000 }
-        )
-        useAuthStore.getState().setAccessToken(data.data.accessToken)
-        setStoredRefreshToken(data.data.refreshToken)
-      } catch {
-        // Refresh inválido — derruba pra login. Interceptor seguiria mesmo
-        // caminho mas seria após uma request falhar; aqui fazemos preventivo.
-        clearStoredRefreshToken()
-        useAuthStore.getState().logout()
-      } finally {
-        inFlightRef.current = false
+        // refreshSession() é singleton (apps/web/src/lib/api.ts). Se o axios
+        // interceptor disparar em paralelo, ambos esperam o MESMO request.
+        // Antes eram dois POSTs concorrentes com o mesmo token → atomic claim
+        // do server rejeitava o segundo → logout durante voltada de jogo/call.
+        await refreshSession()
+      } catch (e) {
+        // Só desloga em 401 (refresh realmente inválido). Network/timeout/5xx
+        // → silencia; interceptor de axios resolve quando o user agir.
+        const status = (e as { response?: { status?: number } })?.response?.status
+        if (status === 401) {
+          clearStoredRefreshToken()
+          useAuthStore.getState().logout()
+        }
       }
     }
 

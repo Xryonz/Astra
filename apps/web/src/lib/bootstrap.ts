@@ -59,9 +59,14 @@ async function doBootstrap(): Promise<boolean> {
     try { connectSocket() } catch { /* ignore */ }
     void syncPreferencesFromServer()
     return true
-  } catch {
-    clearStoredRefreshToken()
-    useAuthStore.getState().logout()
+  } catch (e) {
+    // Só limpa sessão em 401. Network/timeout/5xx mantém user logado
+    // e o app rodando — interceptor refaz refresh quando voltar online.
+    const status = (e as { response?: { status?: number } })?.response?.status
+    if (status === 401) {
+      clearStoredRefreshToken()
+      useAuthStore.getState().logout()
+    }
     return false
   }
 }

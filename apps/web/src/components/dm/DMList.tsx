@@ -102,7 +102,7 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
             key={conv.id}
             conv={conv}
             isActive={conv.id === activeDMId}
-            delay={i * 0.025}
+            delay={Math.min(i * 0.025, 0.25)}
             onSelect={() => onSelectDM({ conversationId: conv.id, otherUser: conv.otherUser })}
             onMarkRead={() => markRead.mutate(conv.id)}
           />

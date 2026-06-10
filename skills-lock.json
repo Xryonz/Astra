@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "Mobile App Design Standards": {
+      "source": "awesome-skills/mobile-app-design",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "9a64a0cc40f18a385b7200addd1357d6ab3fcf6ea10cbf25f9e327c3b633335a"
+    },
+    "framer-motion": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "framer-motion/SKILL.md",
+      "computedHash": "4bbfec771a1a13e3462cdd30c442fd09513c50d13a2652a275a8e09ad4532189"
+    }
+  }
+}

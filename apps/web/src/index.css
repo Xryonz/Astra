@@ -829,3 +829,14 @@ body {
   .h-screen-safe { height: 100svh; }
   .min-h-screen-safe { min-height: 100svh; }
 }
+
+/* ── App nativo (Capacitor seta .astra-native no <html>) ──────
+   Respiro extra no topo: mesmo com a status bar reservada, o conteúdo
+   colava na divisa — botões do header difíceis de tocar. 10px empurram
+   tudo "para dentro" da área confortável do polegar. border-box: o
+   padding entra na altura, sem overflow. */
+.astra-native .h-screen-safe {
+  padding-top: 10px;
+  box-sizing: border-box;
+  background: var(--void);
+}

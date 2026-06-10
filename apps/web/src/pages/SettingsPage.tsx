@@ -117,7 +117,7 @@ export default function SettingsPage() {
                     return (
                       <li
                         key={n.id}
-                        style={{ animation: `fadeLeft 0.25s var(--ease-spring) ${0.08 + gi * 0.06 + i * 0.04}s both` }}
+                        style={{ animation: `fadeLeft 0.25s var(--ease-spring) ${Math.min(0.08 + gi * 0.06 + i * 0.04, 0.4)}s both` }}
                       >
                         <button
                           onClick={() => setSection(n.id)}

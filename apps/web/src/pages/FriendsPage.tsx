@@ -293,7 +293,7 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
               <li
                 key={p.friendshipId}
                 className="px-4 py-3 flex items-center gap-3 hover:bg-(--raised)/40 transition-colors"
-                style={{ animation: `fadeLeft 0.3s var(--ease-spring) ${0.1 + i * 0.04}s both` }}
+                style={{ animation: `fadeLeft 0.3s var(--ease-spring) ${Math.min(0.1 + i * 0.04, 0.35)}s both` }}
               >
                 <Avatar className="size-9 border border-(--border-mid) shrink-0">
                   {p.user.avatarUrl
@@ -346,7 +346,7 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
               <li
                 key={p.friendshipId}
                 className="px-4 py-3 flex items-center gap-3"
-                style={{ animation: `fadeLeft 0.3s var(--ease-spring) ${0.3 + i * 0.04}s both` }}
+                style={{ animation: `fadeLeft 0.3s var(--ease-spring) ${Math.min(0.3 + i * 0.04, 0.5)}s both` }}
               >
                 <Avatar className="size-9 border border-(--border-mid) shrink-0">
                   {p.user.avatarUrl

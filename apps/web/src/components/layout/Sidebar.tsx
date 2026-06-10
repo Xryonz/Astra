@@ -705,12 +705,16 @@ function ChannelButton({
       disabled={isVoice && !cfg.data?.enabled}
       title={isVoice && !cfg.data?.enabled ? 'Chamadas não configuradas no servidor' : undefined}
       className={cn(
-        'group w-full flex items-center gap-2.5 px-3 py-1.5 border-l-2 rounded-r-lg cursor-pointer text-left relative transition-all duration-300 ease-(--ease-spring) disabled:opacity-50 disabled:cursor-not-allowed',
+        // Transição explícita de cores em 150ms (era transition-all 300ms —
+        // seleção de canal parecia lenta) + press tátil rápido.
+        'group w-full flex items-center gap-2.5 px-3 py-1.5 border-l-2 rounded-r-lg cursor-pointer text-left relative transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98] active:duration-100 disabled:opacity-50 disabled:cursor-not-allowed',
         isActive || inThis
           ? 'border-(--accent) bg-(--accent-dim)'
           : 'border-transparent bg-transparent hover:border-(--border-bright) hover:bg-(--raised)/40'
       )}
-      style={{ animation: `fadeLeft 0.25s var(--ease-spring) ${index * 0.04}s both` }}
+      // Stagger com teto de 0.25s: lista grande não fica "pingando" item
+      // por item (20 canais levavam 0.8s até o último aparecer).
+      style={{ animation: `fadeLeft 0.25s var(--ease-spring) ${Math.min(index * 0.03, 0.25)}s both` }}
     >
       {isVoice ? (
         <Mic className={cn(

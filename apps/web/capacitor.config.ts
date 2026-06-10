@@ -37,7 +37,11 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1200,
+      // autoHide off: o splash nativo fica até o SplashScreen web montar e
+      // chamar hide() — handoff sem corte (o web abre com o mesmo logo e
+      // anima a partir dele, estilo Discord). Fallback de segurança em
+      // lib/native.ts esconde após 4s se o web não assumir.
+      launchAutoHide:     false,
       backgroundColor:    '#06060e',
       androidSplashResourceName: 'splash',
       androidScaleType:   'CENTER_CROP',

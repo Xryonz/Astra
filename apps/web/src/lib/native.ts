@@ -19,6 +19,18 @@ export const isNative = Capacitor.isNativePlatform()
 export async function initNativeApp(): Promise<void> {
   if (!isNative) return
 
+  // Marca o <html> pra CSS nativo-only (ex: respiro extra no topo do shell)
+  document.documentElement.classList.add('astra-native')
+
+  // Fallback do splash nativo (launchAutoHide: false): se o SplashScreen
+  // web não montar em 4s (erro de JS, ErrorBoundary), esconde mesmo assim
+  // — splash preso é pior que flash de transição. hide() é idempotente.
+  setTimeout(() => {
+    void import('@capacitor/splash-screen')
+      .then(({ SplashScreen }) => SplashScreen.hide({ fadeOutDuration: 200 }))
+      .catch(() => {})
+  }, 4000)
+
   // Status bar na cor do void (era branca/default). Style.Dark = fundo
   // escuro com ícones claros. overlay:false reserva o espaço da status bar
   // — sem isso o WebView desenha POR BAIXO dela e os botões do topo do app

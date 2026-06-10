@@ -96,6 +96,12 @@ const STARS_BG  = buildBackground()
 const TWINKLES  = buildTwinkleStars()
 const METEORS   = buildMeteors()
 
+// Touch device → versão LITE: só a layer 1 (1 GPU layer, drift barato).
+// mix-blend-mode em camada fixed fullscreen força compositing contínuo, e
+// 17 animações infinitas (twinkles+meteoros) gastam GPU/bateria mesmo
+// atrás do chat. Em mobile a atmosfera fica por conta do drift global.
+const LITE = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+
 export default function StarField() {
   return (
     <div
@@ -107,7 +113,7 @@ export default function StarField() {
         pointerEvents: 'none',
         overflow:      'hidden',
         color:         'var(--accent)',
-        mixBlendMode:  'screen',
+        ...(LITE ? {} : { mixBlendMode: 'screen' as const }),
       }}
     >
       {/* ── Layer 1: 70 mini-stars com drift GLOBAL (inner) + parallax
@@ -127,7 +133,7 @@ export default function StarField() {
       </div>
 
       {/* ── Layer 2: 14 twinkles individuais (twinkle + micro-drift) */}
-      {TWINKLES.map((s, i) => (
+      {!LITE && TWINKLES.map((s, i) => (
         <span
           key={`t${i}`}
           style={{
@@ -154,7 +160,7 @@ export default function StarField() {
       ))}
 
       {/* ── Layer 3: 3 meteoros (lucide Star, raros, big) */}
-      {METEORS.map((m, i) => (
+      {!LITE && METEORS.map((m, i) => (
         <span
           key={`m${i}`}
           style={{

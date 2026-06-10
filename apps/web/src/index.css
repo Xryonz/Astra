@@ -231,6 +231,16 @@ html {
   from { opacity: 0; transform: translateY(14px); filter: blur(2px); }
   to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
 }
+/* Touch devices: blur animado repinta a tela inteira por frame (GPU mobile
+   não aguenta a 120fps). Versão lite = só compositor (opacity+transform).
+   Desktop (pointer fine) mantém o blur editorial. */
+@keyframes astraRevealOnViewLite {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@media (pointer: coarse) {
+  .astra-reveal-on-view { animation-name: astraRevealOnViewLite; }
+}
 
 /* StarField parallax usando scroll-timeline NAMED — o container que
    scrolla declara `scroll-timeline-name: --astra-feed` (ex: MessageList),
@@ -283,6 +293,18 @@ html {
 @keyframes vt-fade-in {
   from { opacity: 0; transform: translateX(12px); filter: blur(4px); }
   to   { opacity: 1; transform: translateX(0);    filter: blur(0);   }
+}
+/* Touch: view transitions sem blur (mesma razão do astraRevealOnViewLite) */
+@keyframes vt-fade-out-lite {
+  to { opacity: 0; }
+}
+@keyframes vt-fade-in-lite {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+@media (pointer: coarse) {
+  ::view-transition-old(root) { animation-name: vt-fade-out-lite; }
+  ::view-transition-new(root) { animation-name: vt-fade-in-lite; }
 }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),

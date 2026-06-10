@@ -103,7 +103,10 @@ export default function MobileBottomNav() {
       aria-label="Navegação mobile"
       className={cn(
         'md:hidden fixed bottom-0 left-0 right-0 z-30',
-        'border-t border-(--border) bg-(--base)/95 backdrop-blur-md',
+        // Sem backdrop-blur: elemento PERMANENTE repintava o blur a cada
+        // frame de scroll por baixo. bg /98 é visualmente idêntico ao
+        // /95+blur e custa zero. Sheets/modais (efêmeros) mantêm blur.
+        'border-t border-(--border) bg-(--base)/98',
         'pb-safe',
       )}
     >

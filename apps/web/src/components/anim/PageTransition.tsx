@@ -13,15 +13,32 @@
  */
 import { motion } from 'motion/react'
 
+// Touch device: blur animado repinta a página inteira por frame — jank
+// garantido em GPU mobile. Lá animamos só opacity+x (compositor-only);
+// desktop mantém o blur. pointer não muda em runtime → check 1x no módulo.
+const COARSE = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+
+const VARIANTS = COARSE
+  ? {
+      initial: { opacity: 0, x: 18 },
+      animate: { opacity: 1, x: 0 },
+      exit:    { opacity: 0, x: -10 },
+    }
+  : {
+      initial: { opacity: 0, x: 18, filter: 'blur(2px)' },
+      animate: { opacity: 1, x: 0,  filter: 'blur(0px)' },
+      exit:    { opacity: 0, x: -10, filter: 'blur(2px)' },
+    }
+
 export function PageTransition({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 18, filter: 'blur(2px)' }}
-      animate={{ opacity: 1, x: 0,  filter: 'blur(0px)' }}
-      exit={{    opacity: 0, x: -10, filter: 'blur(2px)' }}
+      initial={VARIANTS.initial}
+      animate={VARIANTS.animate}
+      exit={VARIANTS.exit}
       transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
       className={className}
-      style={{ width: '100%', height: '100%', willChange: 'transform, opacity, filter' }}
+      style={{ width: '100%', height: '100%', willChange: COARSE ? 'transform, opacity' : 'transform, opacity, filter' }}
     >
       {children}
     </motion.div>

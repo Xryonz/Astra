@@ -22,6 +22,7 @@ import { useConfirm, usePrompt } from '@/hooks/useConfirm'
 import { toast } from '@/components/ui/sonner'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { ConstellationBanner } from '@/components/astra/Constellation'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -50,7 +51,8 @@ const PERM_OPTIONS: Array<{ key: string; label: string; desc: string }> = [
   { key: 'MENTION_EVERYONE',label: 'Mencionar @everyone',  desc: 'Notifica todo mundo' },
 ]
 
-const MAX_ICON_BYTES = 5 * 1024 * 1024
+const MAX_ICON_BYTES   = 5 * 1024 * 1024
+const MAX_BANNER_BYTES = 8 * 1024 * 1024
 
 export default function ServerSettingsPage() {
   const { serverId } = useParams<{ serverId: string }>()
@@ -60,6 +62,7 @@ export default function ServerSettingsPage() {
 
   const [name,         setName]         = useState('')
   const [iconUrl,      setIconUrl]      = useState<string | null>(null)
+  const [bannerUrl,    setBannerUrl]    = useState<string | null>(null)
   const [retentionDays, setRetentionDays] = useState<number>(0)
   const [error,        setError]        = useState('')
   const [kickTarget,   setKickTarget]   = useState<Member | null>(null)
@@ -76,6 +79,7 @@ export default function ServerSettingsPage() {
     if (server) {
       setName(server.name)
       setIconUrl(server.iconUrl ?? null)
+      setBannerUrl(server.bannerUrl ?? null)
       setRetentionDays(server.messageRetentionDays ?? 0)
     }
   }, [server?.id])
@@ -92,7 +96,7 @@ export default function ServerSettingsPage() {
   const isAdmin = perms.isAdmin || isOwner
 
   const updateServer = useMutation({
-    mutationFn: async (patch: { name?: string; iconUrl?: string | null; messageRetentionDays?: number | null }) =>
+    mutationFn: async (patch: { name?: string; iconUrl?: string | null; bannerUrl?: string | null; messageRetentionDays?: number | null }) =>
       (await api.patch(`/api/servers/${serverId}`, patch)).data.data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
@@ -173,6 +177,13 @@ export default function ServerSettingsPage() {
     shareInvite(server.inviteCode)
       .then((mode) => { if (mode === 'copied') toast.success('Link copiado') })
       .catch(() => toast.error('Falha ao copiar — copie manualmente'))
+  }
+
+  const handleBannerFile = (file: File) => {
+    if (file.size > MAX_BANNER_BYTES) { setError('Banner maior que 8MB'); return }
+    const fr = new FileReader()
+    fr.onload = () => { const url = String(fr.result); setBannerUrl(url); updateServer.mutate({ bannerUrl: url }) }
+    fr.readAsDataURL(file)
   }
 
   const handleIconFile = (file: File) => {
@@ -268,7 +279,7 @@ export default function ServerSettingsPage() {
                       className="text-xs text-(--text-3) hover:text-(--danger) text-left transition-colors cursor-pointer"
                     >Remover ícone</button>
                   )}
-                  <p className="text-[11px] text-(--text-3) m-0">PNG, JPG, GIF ou WebP · max 5MB</p>
+                  <p className="text-[11px] text-(--text-3) m-0">PNG, JPG, GIF ou WebP · max 5MB · GIF anima no hover/ativo</p>
                 </div>
               </div>
             </section>
@@ -276,7 +287,47 @@ export default function ServerSettingsPage() {
             <Separator className="my-5" />
 
             <section className="space-y-3">
-              <span className="ed-label">— II. Nome</span>
+              <span className="ed-label">— II. Banner</span>
+              <p className="text-xs text-(--text-3) m-0 max-w-md">
+                Aparece no topo da lista de canais e na página de convite.
+                Sem banner, a constelação-assinatura do nome assume.
+              </p>
+              <div className="flex flex-col gap-3 max-w-md">
+                <div className="relative w-full h-28 border border-(--border) overflow-hidden">
+                  {bannerUrl
+                    ? <img src={bannerUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    : <ConstellationBanner name={server.name} className="w-full h-full" />}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    id="bannerUpload"
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleBannerFile(f) }}
+                    disabled={!isAdmin}
+                  />
+                  <label
+                    htmlFor="bannerUpload"
+                    className={`inline-flex items-center gap-2 px-4 h-10 border border-(--border) text-sm cursor-pointer transition-colors self-start ${isAdmin ? 'hover:border-(--accent) hover:text-(--accent)' : 'opacity-50 cursor-not-allowed'}`}
+                  >
+                    <ImageIcon className="size-3.5" /> Carregar banner
+                  </label>
+                  {bannerUrl && isAdmin && (
+                    <button
+                      onClick={() => { setBannerUrl(null); updateServer.mutate({ bannerUrl: null }) }}
+                      className="text-xs text-(--text-3) hover:text-(--danger) text-left transition-colors cursor-pointer"
+                    >Remover banner (volta pra constelação)</button>
+                  )}
+                  <p className="text-[11px] text-(--text-3) m-0">PNG, JPG, GIF ou WebP (animado ok) · max 8MB · ideal 600×200+</p>
+                </div>
+              </div>
+            </section>
+
+            <Separator className="my-5" />
+
+            <section className="space-y-3">
+              <span className="ed-label">— III. Nome</span>
               <div className="flex flex-col gap-2 max-w-md">
                 <Label htmlFor="srvName">Nome do {server.isGroup ? 'grupo' : 'servidor'}</Label>
                 <Input
@@ -297,7 +348,7 @@ export default function ServerSettingsPage() {
                 <section className="space-y-3">
                   <div className="flex items-center gap-2">
                     <LinkIcon className="size-3.5 text-(--text-3)" />
-                    <span className="ed-label">— III. Convite</span>
+                    <span className="ed-label">— IV. Convite</span>
                   </div>
                   <p className="text-sm text-(--text-2) m-0 max-w-prose">
                     Qualquer pessoa com este link pode entrar. Pra revogar acesso, regenere o código.

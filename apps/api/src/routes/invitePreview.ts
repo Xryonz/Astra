@@ -29,9 +29,10 @@ router.get(
     const target = `${env.CLIENT_URL}/invite/${encodeURIComponent(req.params.code)}`
 
     const [server] = await db.select({
-      id:      servers.id,
-      name:    servers.name,
-      iconUrl: servers.iconUrl,
+      id:        servers.id,
+      name:      servers.name,
+      iconUrl:   servers.iconUrl,
+      bannerUrl: servers.bannerUrl,
     }).from(servers).where(eq(servers.inviteCode, req.params.code)).limit(1)
 
     // Convite inválido: manda pro site mesmo assim — lá tem a tela de erro
@@ -40,10 +41,17 @@ router.get(
     const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
       .from(serverMembers).where(eq(serverMembers.serverId, server.id))
 
+    // og:image precisa ser URL pública — data: URIs (como os ícones em
+    // base64) não funcionam em crawler. Preferência: banner > ícone > logo.
     const apiBase = `${req.protocol}://${req.get('host')}`
-    const image   = server.iconUrl
-      ? `${apiBase}${server.iconUrl}`
-      : `${env.CLIENT_URL}/web-app-manifest-512x512.png`
+    const toPublicUrl = (u: string | null): string | null => {
+      if (!u || u.startsWith('data:')) return null
+      return u.startsWith('/') ? `${apiBase}${u}` : u
+    }
+    const image =
+      toPublicUrl(server.bannerUrl) ??
+      toPublicUrl(server.iconUrl) ??
+      `${env.CLIENT_URL}/web-app-manifest-512x512.png`
     const title = esc(`Junte-se à constelação ${server.name} no Astra`)
     const desc  = esc(`${count} ${count === 1 ? 'estrela brilha' : 'estrelas brilham'} por aqui. Toque para entrar.`)
 

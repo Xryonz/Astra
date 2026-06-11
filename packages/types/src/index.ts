@@ -255,6 +255,8 @@ export interface ServerWithChannels {
   id: string
   name: string
   iconUrl: string | null
+  /** Banner do servidor (null = constelação procedural gerada do nome) */
+  bannerUrl: string | null
   inviteCode: string
   ownerId: string
   isGroup: boolean

@@ -131,10 +131,16 @@ function isIconTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   return url.length * 0.75 > 5 * 1024 * 1024
 }
+// Banner: maior que ícone (imagem larga, GIF animado pesa) — teto 8MB
+function isBannerTooBig(url: string | null | undefined): boolean {
+  if (!url || !url.startsWith('data:')) return false
+  return url.length * 0.75 > 8 * 1024 * 1024
+}
 
 const UpdateServerSchema = z.object({
-  name:    z.string().min(1).max(100).optional(),
-  iconUrl: z.string().optional().nullable(),
+  name:      z.string().min(1).max(100).optional(),
+  iconUrl:   z.string().optional().nullable(),
+  bannerUrl: z.string().optional().nullable(),
   messageRetentionDays: z.number().int().min(0).max(365).optional().nullable(),
 })
 
@@ -144,8 +150,9 @@ serversRouter.patch(
   validate(UpdateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const { name, iconUrl, messageRetentionDays } = req.body as {
-      name?: string; iconUrl?: string | null; messageRetentionDays?: number | null
+    const { name, iconUrl, bannerUrl, messageRetentionDays } = req.body as {
+      name?: string; iconUrl?: string | null; bannerUrl?: string | null
+      messageRetentionDays?: number | null
     }
 
     const m = await getMemberPerms(req.userId!, serverId)
@@ -156,10 +163,13 @@ serversRouter.patch(
 
     if (iconUrl && !isAllowedIcon(iconUrl)) return res.status(422).json({ error: 'URL de ícone não permitida' })
     if (isIconTooBig(iconUrl)) return res.status(413).json({ error: 'Ícone muito grande (max 5MB)' })
+    if (bannerUrl && !isAllowedIcon(bannerUrl)) return res.status(422).json({ error: 'URL de banner não permitida' })
+    if (isBannerTooBig(bannerUrl)) return res.status(413).json({ error: 'Banner muito grande (max 8MB)' })
 
     const patch: Record<string, unknown> = {}
-    if (name    !== undefined) patch.name    = name
-    if (iconUrl !== undefined) patch.iconUrl = iconUrl
+    if (name      !== undefined) patch.name      = name
+    if (iconUrl   !== undefined) patch.iconUrl   = iconUrl
+    if (bannerUrl !== undefined) patch.bannerUrl = bannerUrl
     if (messageRetentionDays !== undefined)
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })

@@ -105,6 +105,9 @@ export const servers = pgTable('Server', {
   id:         text('id').primaryKey().$defaultFn(createId),
   name:       text('name').notNull(),
   iconUrl:    text('iconUrl'),
+  /** Banner do topo da lista de canais (data: URI ou URL; GIF/WebP ok).
+      null = constelação procedural default (front gera do nome). */
+  bannerUrl:  text('bannerUrl'),
   inviteCode: text('inviteCode').notNull().unique().$defaultFn(createId),
   ownerId:    text('ownerId').notNull().references(() => users.id),
   isGroup:    boolean('isGroup').notNull().default(false),

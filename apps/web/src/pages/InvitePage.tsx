@@ -10,12 +10,14 @@ import { Spinner } from '@/components/ui/spinner'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Reveal } from '@/components/anim/Reveal'
+import { ConstellationBanner } from '@/components/astra/Constellation'
 import { toast } from '@/components/ui/sonner'
 
 interface ServerPreview {
   id: string
   name: string
   iconUrl: string | null
+  bannerUrl: string | null
   isGroup: boolean
   inviteCode: string
   _count: { members: number }
@@ -82,7 +84,17 @@ export default function InvitePage() {
           </Reveal>
         </div>
 
-        <div className="border border-(--border-mid) bg-(--overlay) shadow-2xl px-8 py-10 text-center">
+        <div className="border border-(--border-mid) bg-(--overlay) shadow-2xl overflow-hidden text-center">
+          {/* Banner do servidor — custom ou constelação-assinatura do nome */}
+          {server && !loading && (
+            <Reveal delay={0.02}>
+              {server.bannerUrl
+                ? <img src={server.bannerUrl} alt="" referrerPolicy="no-referrer" className="w-full h-28 object-cover" />
+                : <ConstellationBanner name={server.name} className="w-full h-28" />}
+            </Reveal>
+          )}
+
+          <div className="px-8 py-10">
           {loading && (
             <div className="flex justify-center py-8">
               <Spinner size={28} />
@@ -165,6 +177,7 @@ export default function InvitePage() {
               </Reveal>
             </>
           )}
+          </div>
         </div>
       </div>
     </div>

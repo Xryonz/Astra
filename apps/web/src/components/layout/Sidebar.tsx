@@ -27,6 +27,8 @@ import ServerContextMenu, { type ContextMenuItem } from '@/components/ServerCont
 import { SidebarSkeleton } from '@/components/skeletons/SidebarSkeleton'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
+import { Constellation, ConstellationBanner } from '@/components/astra/Constellation'
+import { FreezeFrame } from '@/components/astra/FreezeFrame'
 import { cn } from '@/lib/utils'
 import type { ServerWithChannels, ChannelInfo } from '@astra/types'
 
@@ -359,27 +361,50 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           <MobileSidebarHeader onClose={closeMobile} />
 
           {activeServer && (
-            <div className="h-14 md:h-16 px-4 flex items-center gap-2.5 border-b border-(--border) shrink-0">
-              {isGroup && <Users className="size-3.5 text-(--text-3)" />}
-              <h2
-                className="text-lg m-0 flex-1 truncate text-foreground font-normal tracking-tight"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                {activeServer.name}
-              </h2>
-              {isGroup && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setShowAddMember(true)}
-                      className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary p-1 rounded-lg flex items-center transition-colors"
-                    >
-                      <UserPlus className="size-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Adicionar membro</TooltipContent>
-                </Tooltip>
+            <div className="relative shrink-0 border-b border-(--border) overflow-hidden">
+              {/* Banner: custom (anima sempre — é 1 só) ou a constelação-
+                  assinatura gerada do nome. Custom ganha a constelação
+                  discreta no canto — a assinatura nunca some. */}
+              {activeServer.bannerUrl ? (
+                <>
+                  <img
+                    src={activeServer.bannerUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-full h-24 object-cover"
+                  />
+                  <Constellation
+                    name={activeServer.name}
+                    className="absolute top-1 right-1 size-14 text-white/35 pointer-events-none"
+                  />
+                </>
+              ) : (
+                <ConstellationBanner name={activeServer.name} className="w-full h-24" />
               )}
+
+              {/* Scrim + nome sobre a base do banner */}
+              <div className="absolute inset-x-0 bottom-0 px-4 pt-6 pb-2 flex items-center gap-2.5 bg-gradient-to-t from-black/75 to-transparent">
+                {isGroup && <Users className="size-3.5 text-(--text-2) shrink-0" />}
+                <h2
+                  className="text-lg m-0 flex-1 truncate text-white font-normal tracking-tight"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  {activeServer.name}
+                </h2>
+                {isGroup && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setShowAddMember(true)}
+                        className="bg-transparent border-none cursor-pointer text-(--text-2) hover:text-(--accent) p-1 rounded-lg flex items-center transition-colors"
+                      >
+                        <UserPlus className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Adicionar membro</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
           )}
 
@@ -499,6 +524,10 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
   onClick: () => void
   onContextMenu: (e: React.MouseEvent) => void
 }) {
+  // Ícone animado (GIF/WebP) só anima no hover/ativo — 15 GIFs simultâneos
+  // na strip derretem bateria (norma Discord). FreezeFrame congela o resto.
+  const [hovered, setHovered] = useState(false)
+
   // Long-press abre o menu (mobile). Sintetiza coords da posição do toque
   // pra ServerContextMenu (posicionada manualmente em x,y) cair certo.
   const longPress = useLongPress((e) => {
@@ -526,6 +555,8 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
           <button
             onClick={(e) => { if (longPress.didFire()) { e.preventDefault(); return } onClick() }}
             onContextMenu={onContextMenu}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
             onTouchStart={longPress.onTouchStart}
             onTouchMove={longPress.onTouchMove}
             onTouchEnd={longPress.onTouchEnd}
@@ -541,11 +572,25 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
             )}
             style={{ animation: `fadeUp 0.35s var(--ease-spring) ${Math.min(index * 0.055, 0.3)}s both` }}
           >
-            {server.iconUrl
-              ? <img src={server.iconUrl} alt={server.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-              : isGroup
-                ? <Users className="size-4" />
-                : server.name.slice(0, 2).toUpperCase()}
+            {server.iconUrl ? (
+              <FreezeFrame
+                src={server.iconUrl}
+                alt={server.name}
+                live={isActive || hovered}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <>
+                {/* Constelação-assinatura atrás das iniciais no default */}
+                <Constellation
+                  name={server.name}
+                  className="absolute inset-0 w-full h-full opacity-40 pointer-events-none"
+                />
+                <span className="relative">
+                  {isGroup ? <Users className="size-4" /> : server.name.slice(0, 2).toUpperCase()}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </TooltipTrigger>

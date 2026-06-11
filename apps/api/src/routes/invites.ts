@@ -19,6 +19,7 @@ router.get(
       id:         servers.id,
       name:       servers.name,
       iconUrl:    servers.iconUrl,
+      bannerUrl:  servers.bannerUrl,
       isGroup:    servers.isGroup,
       inviteCode: servers.inviteCode,
     }).from(servers).where(eq(servers.inviteCode, req.params.code)).limit(1)

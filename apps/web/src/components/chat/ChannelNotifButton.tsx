@@ -34,7 +34,7 @@ export default function ChannelNotifButton({ channelId }: Props) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="size-10 sm:size-8 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+          className="size-11 sm:size-8 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
           aria-label={title}
           title={title}
         >

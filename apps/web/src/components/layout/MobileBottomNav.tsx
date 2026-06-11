@@ -14,6 +14,7 @@ import { useLocation } from 'react-router-dom'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { Sparkles, Users, MoreHorizontal, Bell } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
+import { useNotificationCount } from '@/hooks/useNotifications'
 import { cn } from '@/lib/utils'
 
 /** Glyph custom: 3 pontos conectados — "constelação". Lucide não tem. */
@@ -47,6 +48,7 @@ interface Tab {
   icon:    React.ReactNode
   onClick: () => void
   active:  boolean
+  badge?:  number
 }
 
 export default function MobileBottomNav() {
@@ -54,6 +56,11 @@ export default function MobileBottomNav() {
   const location         = useLocation()
   const openSidebar      = useUIStore((s) => s.openMobileSidebar)
   const setMoreOpen      = useUIStore((s) => s.setMobileMoreOpen)
+
+  // Unread no sino — o header mobile não tem mais o NotificationBell,
+  // então o contador vive aqui (React Query: mesma subscription cacheada).
+  const { data: count } = useNotificationCount()
+  const unread = count?.count ?? 0
 
   const path = location.pathname
 
@@ -84,10 +91,11 @@ export default function MobileBottomNav() {
       label: 'Avisos',
       icon: <Bell className="size-5" />,
       onClick: () => {
-        // Reaproveita NotificationBell — disparar via custom event que o Bell escuta
+        // Abre o MobileNotificationsSheet (montado no AppPage) via custom event
         window.dispatchEvent(new Event('astra:open-notifications'))
       },
       active: false,
+      badge: unread,
     },
     {
       id: 'more',
@@ -126,11 +134,19 @@ export default function MobileBottomNav() {
             >
               <span
                 className={cn(
-                  'transition-transform group-active:scale-90',
+                  'relative transition-transform group-active:scale-90',
                   t.active && 'drop-shadow-[0_0_6px_var(--accent-glow)]',
                 )}
               >
                 {t.icon}
+                {(t.badge ?? 0) > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-(--accent) text-[9px] font-semibold text-(--accent-foreground) flex items-center justify-center"
+                    aria-hidden
+                  >
+                    {t.badge! > 99 ? '99+' : t.badge}
+                  </span>
+                )}
               </span>
               <span className="text-[10px] font-(family-name:--font-display) leading-none">
                 {t.label}

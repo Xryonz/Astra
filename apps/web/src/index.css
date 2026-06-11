@@ -79,6 +79,13 @@ html {
 [data-density="comfortable"]  { --msg-density-py: 0.5rem; }
 [data-density="spacious"]     { --msg-density-py: 0.85rem; }
 
+/* Norma de apps de mensagem mobile (WhatsApp/Telegram/Discord): corpo de
+   mensagem em 16px. Os 15px do desktop ficam pequenos na densidade de
+   pixels do celular. rem-based → continua escalando com data-font-size. */
+@media (max-width: 48rem) {
+  :root { --text-body: 1rem; }
+}
+
 /* User-opt-in reduced motion (independente do prefers OS). */
 [data-reduced-motion] *,
 [data-reduced-motion] *::before,

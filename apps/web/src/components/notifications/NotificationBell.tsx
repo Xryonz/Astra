@@ -15,7 +15,6 @@ import {
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
 import { resolveApiUrl } from '@/lib/api'
-import { setAppBadge } from '@/lib/badge'
 
 const TYPE_LABEL: Record<NotificationType, string> = {
   mention:  'Menção',
@@ -35,13 +34,6 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // Mobile bottom nav abre via custom event (sino fica só no desktop header)
-  useEffect(() => {
-    const onOpen = () => setOpen(true)
-    window.addEventListener('astra:open-notifications', onOpen)
-    return () => window.removeEventListener('astra:open-notifications', onOpen)
-  }, [])
-
   const { data: count } = useNotificationCount()
   const unread = count?.count ?? 0
 
@@ -53,9 +45,6 @@ export function NotificationBell() {
     if (unread > prevUnreadRef.current) setShakeKey((k) => k + 1)
     prevUnreadRef.current = unread
   }, [unread])
-
-  // Badge no ícone do app (nativo) / PWA (web) — espelha o sino.
-  useEffect(() => { setAppBadge(unread) }, [unread])
 
   // Click-outside fecha
   useEffect(() => {
@@ -73,7 +62,9 @@ export function NotificationBell() {
   }, [open])
 
   return (
-    <div ref={wrapRef} className="relative">
+    // Mobile NÃO tem este sino — lá as notificações abrem pela tab "Avisos"
+    // do bottom nav (MobileNotificationsSheet). Dois sinos era redundante.
+    <div ref={wrapRef} className="relative hidden md:block">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -120,7 +111,15 @@ function BellIcon() {
   )
 }
 
-function NotificationCenter({ onClose }: { onClose: () => void }) {
+export function NotificationCenter({
+  onClose,
+  // Default = popover ancorado no sino (desktop). Mobile passa classes de
+  // preenchimento do bottom sheet (MobileNotificationsSheet).
+  className = 'absolute right-0 mt-2 w-95 max-h-130 rounded-xl border border-border bg-background shadow-2xl z-50',
+}: {
+  onClose: () => void
+  className?: string
+}) {
   const [filter, setFilter] = useState<'all' | NotificationType>('all')
   const feed = useNotificationFeed()
   const markRead    = useMarkRead()
@@ -130,7 +129,7 @@ function NotificationCenter({ onClose }: { onClose: () => void }) {
   const items = filter === 'all' ? all : all.filter((n) => n.type === filter)
 
   return (
-    <div className="absolute right-0 mt-2 w-95 max-h-130 rounded-xl border border-border bg-background shadow-2xl flex flex-col z-50 overflow-hidden">
+    <div className={`flex flex-col overflow-hidden ${className}`}>
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div>
           <h3 className="text-sm font-medium text-foreground" style={{ fontFamily: 'var(--font-display)' }}>

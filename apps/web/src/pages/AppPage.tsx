@@ -4,6 +4,7 @@ import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import Sidebar from '@/components/layout/Sidebar'
 import MobileBottomNav from '@/components/layout/MobileBottomNav'
 import MobileMoreSheet from '@/components/layout/MobileMoreSheet'
+import MobileNotificationsSheet from '@/components/notifications/MobileNotificationsSheet'
 import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
 import AstraLogo from '@/components/AstraLogo'
 import { Reveal } from '@/components/anim/Reveal'
@@ -108,7 +109,7 @@ function ChannelView() {
               <div className="ml-auto flex items-center gap-0.5 shrink-0">
                 <button
                   onClick={openCommandPalette}
-                  className="size-10 sm:size-8 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
+                  className="size-11 sm:size-8 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
                   aria-label="Buscar (Ctrl+K)"
                   title="Buscar (Ctrl+K)"
                 >
@@ -348,9 +349,10 @@ export default function AppPage() {
         <IncomingCallModal />
       </Suspense>
 
-      {/* Mobile-only: tab bar permanente no bottom + sheet "Mais" */}
+      {/* Mobile-only: tab bar permanente no bottom + sheets "Mais"/notificações */}
       <MobileBottomNav />
       <MobileMoreSheet />
+      <MobileNotificationsSheet />
 
       {/* Tour 1x: léxico cósmico de Astra (skip permanente após dispensar) */}
       <Suspense fallback={null}>

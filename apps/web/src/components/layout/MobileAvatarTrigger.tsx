@@ -23,7 +23,7 @@ export default function MobileAvatarTrigger({ className }: Props) {
       onClick={openSidebar}
       aria-label="Abrir constelações"
       className={cn(
-        'md:hidden shrink-0 size-10 grid place-items-center cursor-pointer rounded-full',
+        'md:hidden shrink-0 size-11 grid place-items-center cursor-pointer rounded-full',
         'transition-transform active:scale-95',
         className,
       )}

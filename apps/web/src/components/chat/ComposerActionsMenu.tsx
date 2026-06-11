@@ -76,7 +76,7 @@ export function ComposerActionsMenu({
         aria-label="Mais opções"
         title="Mais opções"
         className={cn(
-          'size-7 flex items-center justify-center cursor-pointer transition-[color,transform] duration-150',
+          'size-10 sm:size-7 flex items-center justify-center cursor-pointer transition-[color,transform] duration-150',
           disabled
             ? 'opacity-40 cursor-default text-(--text-3)'
             : open

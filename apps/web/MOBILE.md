@@ -179,11 +179,19 @@ Falta só a conta Firebase (grátis):
 > Sem ele o build CONTINUA passando (try/catch no build.gradle) — push
 > só não funciona até configurar.
 
-### Pendentes pós-FCM
+### Fila (pendentes)
 - **Quick reply na notificação**: exige token de auth acessível do lado
   nativo (BroadcastReceiver + RemoteInput). Fazer depois do FCM validado.
 - **Shortcuts dinâmicos** (DMs recentes no long-press do ícone): exige
   rota deep pra conversa (`/app/dm/:id`); hoje DM abre via location.state.
+- **Composer: consolidar anexo+extras num "+" só no mobile** (Discord-style)
+  — libera ~40px de largura pro campo de texto em telas de 360px.
+- **Swipe-to-reply nas mensagens** (norma WhatsApp/Telegram) — hoje reply
+  só via long-press → menu.
+- **Swipe da borda esquerda abre o drawer** de constelações (Discord faz);
+  hoje só pelo avatar do header / tab do bottom nav.
+- **Sino do canal (ChannelNotifButton) pro menu "Mais ações" no mobile**
+  — header de canal com 2 ações em vez de 3.
 
 ## Live updates (Capgo) — atualizar o app sem Play Store
 

@@ -163,18 +163,21 @@ Em Xcode: `Product → Archive`, depois `Distribute App` no Organizer.
 Todo o código já existe (backend `lib/fcm.ts` + front `lib/pushNative.ts`).
 Falta só a conta Firebase (grátis):
 
-1. https://console.firebase.google.com → **Add project** (ex: "astra")
-2. No projeto: **Add app → Android** → package name `app.astra.client`
-3. Baixar **google-services.json** → colocar em `apps/web/android/app/`
+1. https://console.firebase.google.com → **Add project** (ex: "astra") ✅
+2. No projeto: **Add app → Android** → package name `app.astra.client` ✅
+3. Baixar **google-services.json** → colocar em `apps/web/android/app/` ✅
 4. **Project Settings → Service accounts → Generate new private key**
    → abre o JSON baixado, copia o CONTEÚDO inteiro e cola na env var
-   `FIREBASE_SERVICE_ACCOUNT` no Railway (1 linha, JSON completo)
+   `FIREBASE_SERVICE_ACCOUNT` no Railway (JSON completo)
 5. Rebuild do APK (`gradlew assembleDebug`) + redeploy da API
-6. Testar: logar no app → Configurações → o device registra sozinho;
+6. Testar: logar no app → o device registra o token FCM sozinho;
    POST /api/push/test dispara um push
 
-> Sem google-services.json o build CONTINUA passando (try/catch no
-> build.gradle) — push só não funciona até configurar.
+> **Repo é PÚBLICO** → `google-services.json` e a service account key
+> (`*firebase-adminsdk*.json`) são gitignored. Clone novo: baixar o
+> google-services.json de novo no console Firebase (projeto `astra-c1ea5`).
+> Sem ele o build CONTINUA passando (try/catch no build.gradle) — push
+> só não funciona até configurar.
 
 ### Pendentes pós-FCM
 - **Quick reply na notificação**: exige token de auth acessível do lado

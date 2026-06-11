@@ -69,7 +69,12 @@ export async function initNativeApp(): Promise<void> {
     // astra-kb-open: tab bar some + respiro zera enquanto digita (CSS) —
     // sem isso sobrava uma faixa morta entre o composer e o teclado.
     void Keyboard.addListener('keyboardWillShow', () => { freeze(); root.classList.add('astra-kb-open') })
-    void Keyboard.addListener('keyboardDidShow', unfreeze)
+    void Keyboard.addListener('keyboardDidShow', () => {
+      unfreeze()
+      // MessageList escuta: se estava perto do fim, gruda no fim de novo
+      // (sem isso a última mensagem some atrás do composer).
+      window.dispatchEvent(new Event('astra:kb-shown'))
+    })
     void Keyboard.addListener('keyboardWillHide', () => { freeze(); root.classList.remove('astra-kb-open') })
     void Keyboard.addListener('keyboardDidHide', unfreeze)
   } catch { /* plugin ausente */ }
@@ -180,6 +185,23 @@ export function setPipEnabled(enabled: boolean): void {
 }
 
 /**
+ * Call em background: liga/desliga o CallService (foreground service +
+ * notificação "Em chamada"). Sem ele o Android congela o WebView ao sair
+ * do app e a call de áudio cai. voiceStore chama ao entrar/sair de call.
+ */
+let lastCallActive = false
+export function setCallActive(active: boolean): void {
+  if (!isNative || active === lastCallActive) return
+  lastCallActive = active
+  void import('@capacitor/core')
+    .then(({ registerPlugin }) => {
+      const Svc = registerPlugin<{ setActive(o: { active: boolean }): Promise<void> }>('AstraCallService')
+      return Svc.setActive({ active })
+    })
+    .catch(() => { lastCallActive = false })
+}
+
+/**
  * URL pública do site — pra links que saem do app (convites). No app
  * nativo, window.location.origin é https://localhost (WebView local),
  * que não serve pra ninguém. VITE_SITE_URL definida em .env.production.
@@ -191,9 +213,14 @@ const SITE_URL: string =
  * Compartilha um convite de constelação. Nativo: share sheet do OS
  * (WhatsApp, Telegram, etc.). Web: copia pro clipboard (comportamento
  * de sempre). Retorna o modo usado pro caller ajustar o feedback.
+ *
+ * O link é o /i/:code da API (não o /invite do site): só ele serve as
+ * OG tags por convite — o card bonito no WhatsApp. Ele redireciona
+ * humanos pro site na hora.
  */
 export async function shareInvite(code: string): Promise<'shared' | 'copied'> {
-  const url = `${SITE_URL}/invite/${code}`
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined
+  const url = apiUrl ? `${apiUrl}/i/${code}` : `${SITE_URL}/invite/${code}`
   if (isNative) {
     try {
       const { Share } = await import('@capacitor/share')

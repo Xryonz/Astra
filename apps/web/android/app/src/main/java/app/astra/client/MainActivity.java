@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(PipPlugin.class);
+        registerPlugin(CallServicePlugin.class);
         super.onCreate(savedInstanceState);
     }
 

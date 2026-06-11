@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, setStoredRefreshToken, clearStoredRefreshToken, getStoredRefreshToken } from '@/lib/api'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 import { clearOfflineCache } from '@/lib/offlineCache'
+import { clearMessageCache } from '@/lib/messageCache'
 import { completeOAuthLogin } from '@/lib/oauth'
 import { useAuthStore } from '@/store/authStore'
 import type { LoginInput, RegisterInput } from '@astra/types'
@@ -38,6 +39,7 @@ export function useAuth() {
     } finally {
       clearStoredRefreshToken()
       clearOfflineCache()
+      void clearMessageCache()
       disconnectSocket()
       clearAuth()
       navigate('/login')

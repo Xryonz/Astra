@@ -421,6 +421,7 @@ export default function DMInput({
             onPaste={handlePaste}
             placeholder={attachments.length > 0 ? 'Mensagem opcional…' : `Mensagem para ${otherUser.displayName}`}
             rows={1}
+            enterKeyHint="send"
             className="
               flex-1 bg-transparent text-foreground text-base sm:text-sm leading-6 sm:leading-5
               border-0 outline-none resize-none max-h-32 px-1 py-1

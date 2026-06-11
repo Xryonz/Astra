@@ -9,6 +9,7 @@ import { initSentry } from '@/lib/sentry'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { migrateLocalStorage } from '@/lib/migrateLocalStorage'
 import { setupOfflineCache } from '@/lib/offlineCache'
+import { setupMessageCache } from '@/lib/messageCache'
 import { initNativeApp } from '@/lib/native'
 
 migrateLocalStorage()  // rebrand umbra-* → astra-*
@@ -56,8 +57,10 @@ const queryClient = new QueryClient({
 })
 
 // Offline-first leve: servers + DMs hidratam do localStorage no boot
-// (shell instantâneo sem rede) e revalidam por trás.
+// (shell instantâneo sem rede) e revalidam por trás. Mensagens: 1ª página
+// de cada canal persiste no IndexedDB (volume maior).
 setupOfflineCache(queryClient)
+setupMessageCache(queryClient)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

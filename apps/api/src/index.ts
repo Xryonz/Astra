@@ -24,6 +24,7 @@ import './config/passport'
 import authRouter            from './routes/auth'
 import profileRouter         from './routes/profile'
 import inviteRouter          from './routes/invites'
+import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
 import { createMessagesRouter }          from './routes/messages'
 import { createReactionsRouter }         from './routes/reactions'
@@ -122,6 +123,8 @@ app.use(healthRouter)
 app.use('/api/auth',     authRouter)
 app.use('/api/profile',  profileRouter)
 app.use('/api/invites',  inviteRouter)
+// /i/:code — HTML com OG tags (preview no WhatsApp/Telegram) + redirect pro site
+app.use('/i',            invitePreviewRouter)
 app.use('/api/servers',  serversRouter)
 app.use('/api/servers',  channelsRouter)
 app.use('/api/channels/:channelId/messages', createMessagesRouter(io))

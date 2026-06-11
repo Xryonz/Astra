@@ -11,7 +11,7 @@ import type {
   LocalParticipant, Participant,
 } from 'livekit-client'
 import { api } from '@/lib/api'
-import { setPipEnabled } from '@/lib/native'
+import { setPipEnabled, setCallActive } from '@/lib/native'
 
 export type CallState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error'
 
@@ -136,6 +136,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
   const handleDisc = () => {
     activeRoom = null
     setPipEnabled(false)
+    setCallActive(false)
     set({ state: 'idle', roomName: null, participants: [], error: null })
   }
 
@@ -201,6 +202,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         }
 
         activeRoom = room
+        // Foreground service: call de áudio sobrevive com o app em background
+        setCallActive(true)
         set({
           state:        'connected',
           roomName:     room.name,
@@ -219,6 +222,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       try { await activeRoom.disconnect() } catch {}
       activeRoom = null
       setPipEnabled(false)
+      setCallActive(false)
       set({ state: 'idle', roomName: null, participants: [] })
     },
 

@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Hash, Feather } from 'lucide-react'
 import { api } from '@/lib/api'
 import { fetchMessagesPage } from '@/lib/prefetch'
+import { hydrateChannelFromCache } from '@/lib/messageCache'
 import { useChannel } from '@/hooks/useSocket'
 import { useUnread } from '@/hooks/useUnread'
 import MessageItem from './MessageItem'
@@ -65,6 +66,12 @@ export default function MessageList({
     getNextPageParam: (p) => p.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
   })
+
+  // Offline: sem nada em memória, hidrata a 1ª página do IndexedDB
+  // (entra stale → revalida por trás se houver rede).
+  useEffect(() => {
+    void hydrateChannelFromCache(queryClient, channelId)
+  }, [queryClient, channelId])
 
   // Members + topColor pra colorir nome do autor pelo role mais alto
   const { data: membersData = [] } = useQuery<Array<{ userId: string; topColor: string|null }>>({
@@ -251,6 +258,19 @@ export default function MessageList({
     if (!shouldScrollToBottom || allMessages.length === 0) return
     virtualizer.scrollToIndex(allMessages.length - 1, { align: 'end' })
   }, [allMessages.length, shouldScrollToBottom, virtualizer])
+
+  // Teclado nativo abriu: se estava perto do fim, gruda no fim de novo —
+  // o resize do WebView deixava a última mensagem atrás do composer.
+  useEffect(() => {
+    const onKb = () => {
+      const el = scrollRef.current
+      if (!el || allMessages.length === 0) return
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight
+      if (dist < 200) virtualizer.scrollToIndex(allMessages.length - 1, { align: 'end' })
+    }
+    window.addEventListener('astra:kb-shown', onKb)
+    return () => window.removeEventListener('astra:kb-shown', onKb)
+  }, [virtualizer, allMessages.length])
 
   // Infinite scroll — IntersectionObserver no sentinel topo
   useEffect(() => {

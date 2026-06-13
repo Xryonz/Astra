@@ -27,8 +27,9 @@ function blip(freqs: number[], gap = 0.09, dur = 0.12, vol = 0.06) {
   } catch { /* WebAudio indisponível — silencioso */ }
 }
 
-/** Entrou na call: dó→sol ascendente. */
-export function playCallJoin() { blip([523.25, 783.99]) }
+/** Entrou na call: dó→sol ascendente. Volume alto (entrar é o evento
+ *  que o user quer ouvir claramente, mesmo com o app em outra coisa). */
+export function playCallJoin() { blip([523.25, 783.99], 0.1, 0.16, 0.22) }
 
-/** Saiu da call: sol→dó descendente. */
-export function playCallLeave() { blip([783.99, 523.25]) }
+/** Saiu da call: sol→dó descendente, mais discreto. */
+export function playCallLeave() { blip([783.99, 523.25], 0.09, 0.12, 0.1) }

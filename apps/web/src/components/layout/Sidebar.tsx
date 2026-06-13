@@ -290,6 +290,12 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             <div className="w-7 h-px bg-border my-0.5" />
           </div>
 
+          {/* Empurra os ícones de servidor pra baixo no mobile — zona do
+              polegar, mais fácil de tocar. shrink-0 mantém o offset; com
+              muitos servidores a strip rola normalmente. Some no desktop.
+              Ajuste fino: mudar o vh (maior = mais pra baixo). */}
+          <div className="md:hidden shrink-0 h-[14vh]" aria-hidden />
+
           {regularServers.map((s, i) => (
             <ServerIcon
               key={s.id}

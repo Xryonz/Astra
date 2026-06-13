@@ -70,6 +70,17 @@ export type ProfileNoteInput = z.infer<typeof ProfileNoteSchema>
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>
 
+// Troca de senha (logado): confere a senha atual antes de gravar a nova.
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Senha atual obrigatória'),
+  newPassword: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
+    .regex(/[0-9]/, 'Deve conter ao menos um número'),
+})
+export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>
+
 // ─────────────────────────────────────────────
 // SERVER SCHEMAS
 // ─────────────────────────────────────────────
@@ -194,6 +205,8 @@ export interface UserPublic {
   pronouns?:        string | null
   statusEmoji?:     string | null
   displayFont?:     DisplayFont
+  /** true se a conta tem senha (false = só login Google). Só vem em /me. */
+  hasPassword?: boolean
   isBot?:      boolean
 }
 

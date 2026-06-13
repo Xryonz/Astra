@@ -1,8 +1,8 @@
 /**
  * ProfileSection — Identidade do perfil (Discord-style split).
  *
- * Só campos de IDENTIDADE: avatar, displayName, username, pronouns,
- * status (emoji + texto), bio (com markdown).
+ * Só campos de PERFIL: avatar, pronomes, status (emoji + texto),
+ * bio (com markdown). Nome e username ficam em Conta (AccountSection).
  *
  * Personalização visual (banner, tema, fonte, cor) mora em
  * CustomizationSection.tsx — outra entrada do nav.
@@ -28,8 +28,6 @@ export default function ProfileSection() {
   const updateUser  = useAuthStore((s) => s.updateUser)
   const queryClient = useQueryClient()
 
-  const [displayName,  setDisplayName]  = useState(user?.displayName ?? '')
-  const [username,     setUsername]     = useState(user?.username ?? '')
   const [bio,          setBio]          = useState(user?.bio ?? '')
   const [avatarUrl,    setAvatarUrl]    = useState(user?.avatarUrl ?? '')
   const [pronouns,     setPronouns]     = useState<string>((user as any)?.pronouns ?? '')
@@ -62,8 +60,6 @@ export default function ProfileSection() {
 
   const errors = useMemo(() => {
     const candidate = {
-      displayName: displayName || undefined,
-      username:    username    || undefined,
       bio:         bio !== '' ? bio : null,
       avatarUrl:   avatarUrl || null,
       pronouns:    pronouns || null,
@@ -74,21 +70,17 @@ export default function ProfileSection() {
     const map: Record<string, string> = {}
     for (const issue of result.error.issues) map[issue.path.join('.')] = issue.message
     return map
-  }, [displayName, username, bio, avatarUrl, pronouns, statusEmoji])
+  }, [bio, avatarUrl, pronouns, statusEmoji])
 
   const updateProfile = useMutation({
     mutationFn: async () => {
       const initial = {
-        displayName: user?.displayName ?? '',
-        username:    user?.username    ?? '',
         bio:         user?.bio         ?? '',
         avatarUrl:   user?.avatarUrl   ?? '',
         pronouns:    (user as any)?.pronouns ?? '',
         statusEmoji: (user as any)?.statusEmoji ?? '',
       }
       const payload: Record<string, unknown> = {}
-      if (displayName !== initial.displayName) payload.displayName = displayName || undefined
-      if (username    !== initial.username)    payload.username    = username    || undefined
       if (bio         !== initial.bio)         payload.bio         = bio !== '' ? bio : null
       if (avatarUrl   !== initial.avatarUrl)   payload.avatarUrl   = avatarUrl   || null
       if (pronouns    !== initial.pronouns)    payload.pronouns    = pronouns    || null
@@ -121,7 +113,7 @@ export default function ProfileSection() {
     }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayName, username, bio, avatarUrl, pronouns, statusEmoji])
+  }, [bio, avatarUrl, pronouns, statusEmoji])
 
   return (
     <div>
@@ -135,7 +127,7 @@ export default function ProfileSection() {
           <Avatar className="size-24 rounded-full border-2 border-(--border-mid)">
             {avatarUrl && !avatarImgErr && <AvatarImage src={avatarUrl} onError={() => setAvatarImgErr(true)} />}
             <AvatarFallback className="text-2xl font-(family-name:--font-display)">
-              {(displayName || username || '?').slice(0, 1).toUpperCase()}
+              {(user?.displayName || user?.username || '?').slice(0, 1).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col gap-2">
@@ -156,16 +148,6 @@ export default function ProfileSection() {
         </div>
         {fileError && <p className="text-xs text-(--danger) mt-2 m-0">{fileError}</p>}
         {errors.avatarUrl && <p className="text-xs text-(--danger) mt-2 m-0">{errors.avatarUrl}</p>}
-      </Row>
-
-      <Row label="Nome de exibição">
-        <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={50} placeholder="Como quer ser chamado" />
-        {errors.displayName && <p className="text-xs text-(--danger) mt-1 m-0">{errors.displayName}</p>}
-      </Row>
-
-      <Row label="Username" hint="Único. @mention usa isso.">
-        <Input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} maxLength={30} placeholder="seu_username" />
-        {errors.username && <p className="text-xs text-(--danger) mt-1 m-0">{errors.username}</p>}
       </Row>
 
       <Row label="Pronomes" hint="Ex: ela/dela, ele/dele, elu/delu, they/them. Aparece como chip no card.">

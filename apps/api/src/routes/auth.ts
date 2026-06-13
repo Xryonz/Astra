@@ -15,7 +15,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
-import { RegisterSchema, LoginSchema } from '@astra/types'
+import { RegisterSchema, LoginSchema, ChangePasswordSchema } from '@astra/types'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from '../lib/coordinate'
 
@@ -189,11 +189,43 @@ router.get(
   '/me',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [user] = await db.select(userSafeColumns).from(users)
+    const [row] = await db.select({ ...userSafeColumns, passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
+    if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
+    const { passwordHash, ...user } = row
+    res.json({ data: { user: { ...user, hasPassword: !!passwordHash } } })
+  })
+)
+
+// ── POST /api/auth/password ───────────────────────────────────
+// Troca de senha (logado): confere a senha atual antes de gravar a nova.
+// Conta só-Google (sem passwordHash) não troca por aqui — precisa do
+// fluxo de "definir senha" via email (Resend).
+router.post(
+  '/password',
+  requireAuth,
+  authLimiter,
+  validate(ChangePasswordSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { currentPassword, newPassword } = req.body
+    const [user] = await db.select({ passwordHash: users.passwordHash })
+      .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
-    res.json({ data: { user } })
+    if (!user.passwordHash) {
+      return res.status(400).json({ error: 'Sua conta usa login Google e não tem senha.' })
+    }
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash)
+    if (!ok) return res.status(401).json({ error: 'Senha atual incorreta' })
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+      return res.status(400).json({ error: 'A nova senha precisa ser diferente da atual' })
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12)
+    await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
+    res.json({ message: 'Senha alterada' })
   })
 )
 

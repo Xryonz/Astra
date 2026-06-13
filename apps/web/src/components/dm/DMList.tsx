@@ -152,7 +152,7 @@ const ConversationItem = memo(function ConversationItem({
 
   return (
     <EditorialContextMenu items={items}>
-      <li>
+      <li className="cv-row">
         <button
           onClick={onSelect}
           style={{ animation: `fadeLeft 0.28s var(--ease-spring) ${delay}s both` }}

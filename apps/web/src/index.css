@@ -782,6 +782,12 @@ body {
     border-radius: 20px;
   }
 
+  /* content-visibility: o navegador pula layout/paint de linhas fora da
+     tela em listas longas NÃO-virtualizadas (DMs, amigos). intrinsic-size
+     reserva a altura estimada (auto = lembra a real após 1º render) pra o
+     scrollbar não pular. No-op em listas curtas (tudo visível). */
+  .cv-row { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+
   /* ── Safe area insets (iOS notch / home indicator) ────────── */
   /* Uso: <div class="pb-safe"> mantém botão acima da barra inferior do iOS. */
   .pb-safe   { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }

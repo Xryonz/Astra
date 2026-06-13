@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Crown, Shield, Hash, X, Users as UsersIcon, MessagesSquare } from 'lucide-react'
 import { api } from '@/lib/api'
 import { getSocket } from '@/lib/socket'
@@ -85,7 +86,7 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
             <TabsTrigger value="threads" title="Threads — conversas derivadas de uma mensagem">Cometas</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="members" className="flex-1 overflow-y-auto px-2 mt-3">
+          <TabsContent value="members" className="flex-1 min-h-0 mt-3">
             <MembersList serverId={serverId} onPickUser={(id) => setProfileId(id)} />
           </TabsContent>
 
@@ -172,52 +173,86 @@ function MembersList({ serverId, onPickUser }: { serverId: string; onPickUser: (
     ['Offline', offline,        null],
   ]
 
+  // Achata as seções numa lista linear (header + members intercalados) pra
+  // virtualizar: servidor com 500 membros monta só ~25 linhas no DOM em vez
+  // de 500. Cada linha vira um item do virtualizer.
+  type Row =
+    | { kind: 'header'; title: string; count: number; icon: React.ReactNode }
+    | { kind: 'member'; m: Member; status: UserStatus }
+  const rows: Row[] = []
+  for (const [title, arr, icon] of sections) {
+    if (arr.length === 0) continue
+    rows.push({ kind: 'header', title, count: arr.length, icon })
+    for (const m of arr) rows.push({ kind: 'member', m, status: getStatus(m.userId) })
+  }
+
+  return <VirtualMembers rows={rows} onPickUser={onPickUser} />
+}
+
+function VirtualMembers({
+  rows, onPickUser,
+}: {
+  rows: Array<
+    | { kind: 'header'; title: string; count: number; icon: React.ReactNode }
+    | { kind: 'member'; m: Member; status: UserStatus }
+  >
+  onPickUser: (id: string) => void
+}) {
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    // headers ~30px, members ~40px — measureElement corrige o real depois
+    estimateSize: (i) => (rows[i].kind === 'header' ? 30 : 40),
+    overscan: 8,
+  })
+
   return (
-    <div className="flex flex-col gap-3 pb-4">
-      {sections.map(([title, arr, icon]) => arr.length > 0 && (
-        <section key={title}>
-          <div className="px-3 py-1.5 flex items-center gap-2">
-            {icon}
-            <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium">{title}</span>
-            <span className="text-[10px] font-mono text-(--text-3) ml-auto">{arr.length}</span>
-          </div>
-          <ul className="flex flex-col">
-            {arr.map((m) => {
-              const status = getStatus(m.userId)
-              const dim = status === 'OFFLINE'
-              return (
-                <li key={m.id}>
-                  <ProfileHoverCard userId={m.userId} side="left" align="start">
-                    <button
-                      onClick={() => onPickUser(m.userId)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left border-l-2 border-transparent hover:border-(--accent) hover:bg-(--raised)/40 transition-colors cursor-pointer ${dim ? 'opacity-55' : ''}`}
-                    >
-                      <div className="relative shrink-0">
-                        <Avatar className="size-7">
-                          {m.user.avatarUrl && <AvatarImage src={m.user.avatarUrl} referrerPolicy="no-referrer" />}
-                          <AvatarFallback className="text-[10px]">{m.user.displayName.slice(0,1).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="absolute -bottom-0.5 -right-0.5">
-                          <StatusDot status={status} size={9} bordered borderColor="var(--overlay)" />
-                        </span>
-                      </div>
-                      <span
-                        className="text-sm truncate flex-1"
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          color: m.topColor ?? 'var(--text-2)',
-                        }}
-                      >
-                        {m.user.displayName}
+    <div ref={parentRef} className="h-full overflow-y-auto px-2 pb-4">
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+        {virtualizer.getVirtualItems().map((vi) => {
+          const row = rows[vi.index]
+          return (
+            <div
+              key={vi.key}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vi.start}px)` }}
+            >
+              {row.kind === 'header' ? (
+                <div className="px-3 py-1.5 flex items-center gap-2">
+                  {row.icon}
+                  <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium">{row.title}</span>
+                  <span className="text-[10px] font-mono text-(--text-3) ml-auto">{row.count}</span>
+                </div>
+              ) : (
+                <ProfileHoverCard userId={row.m.userId} side="left" align="start">
+                  <button
+                    onClick={() => onPickUser(row.m.userId)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left border-l-2 border-transparent hover:border-(--accent) hover:bg-(--raised)/40 transition-colors cursor-pointer ${row.status === 'OFFLINE' ? 'opacity-55' : ''}`}
+                  >
+                    <div className="relative shrink-0">
+                      <Avatar className="size-7">
+                        {row.m.user.avatarUrl && <AvatarImage src={row.m.user.avatarUrl} referrerPolicy="no-referrer" />}
+                        <AvatarFallback className="text-[10px]">{row.m.user.displayName.slice(0,1).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="absolute -bottom-0.5 -right-0.5">
+                        <StatusDot status={row.status} size={9} bordered borderColor="var(--overlay)" />
                       </span>
-                    </button>
-                  </ProfileHoverCard>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ))}
+                    </div>
+                    <span
+                      className="text-sm truncate flex-1"
+                      style={{ fontFamily: 'var(--font-display)', color: row.m.topColor ?? 'var(--text-2)' }}
+                    >
+                      {row.m.user.displayName}
+                    </span>
+                  </button>
+                </ProfileHoverCard>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

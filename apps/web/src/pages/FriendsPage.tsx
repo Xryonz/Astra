@@ -224,7 +224,7 @@ function FriendRow({
   return (
     <EditorialContextMenu items={items}>
       <li
-        className="group flex items-center gap-3 px-4 py-3 hover:bg-(--raised)/40 transition-colors"
+        className="cv-row group flex items-center gap-3 px-4 py-3 hover:bg-(--raised)/40 transition-colors"
         style={{ animation: `fadeLeft 0.3s var(--ease-spring) ${delay}s both` }}
       >
         <div className="relative shrink-0">

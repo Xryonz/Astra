@@ -10,6 +10,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { ConfirmProvider } from '@/hooks/useConfirm'
 import StarField from '@/components/astra/StarField'
 import SplashScreen from '@/components/astra/SplashScreen'
+import { OfflineBanner } from '@/components/OfflineBanner'
 
 // Rotas grandes vão lazy — usuário não-logado nunca carrega AppPage, e vice-versa.
 // Splitting por rota é a otimização de maior impacto pro bundle inicial.
@@ -49,6 +50,25 @@ export default function App() {
     if (locked) void verifyAppLock().then((ok) => { if (ok) setLocked(false) })
   }, [locked])
 
+  // Re-trancar ao voltar do background: o lock no boot frio não bastava —
+  // minimizar e voltar 1h depois (app vivo) abria destrancado. Só re-tranca
+  // se passou da carência (30s): alternar app rápido pra copiar um código
+  // não deve pedir digital toda hora.
+  useEffect(() => {
+    if (!isAppLockEnabled()) return
+    const GRACE_MS = 30_000
+    let bgAt = 0
+    let remove: (() => void) | undefined
+    void import('@capacitor/app').then(async ({ App }) => {
+      const handle = await App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) { bgAt = Date.now(); return }
+        if (bgAt && Date.now() - bgAt > GRACE_MS) setLocked(true)
+      })
+      remove = () => handle.remove()
+    }).catch(() => {})
+    return () => remove?.()
+  }, [])
+
   // Refresh proativo quando a aba volta após >5min — evita 401 na 1ª request
   useVisibilityRefresh()
 
@@ -72,6 +92,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <StarField />
+      <OfflineBanner />
       <ConfirmProvider>
         <Suspense fallback={<AppShellSkeleton />}>
           <Routes>

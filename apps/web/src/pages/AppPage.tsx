@@ -366,6 +366,18 @@ export default function AppPage() {
     return () => { if (cancel) cancel(id); else clearTimeout(id) }
   }, [])
 
+  // Scroll-to-top: tocar na aba já ativa (bottom nav) rola a lista visível
+  // pro topo. Um listener só — apenas a lista montada na rota atual existe
+  // no DOM, então rolar todos os containers casados é inofensivo.
+  useEffect(() => {
+    const onTop = () => {
+      document.querySelectorAll('[data-radix-scroll-area-viewport], .astra-scrollable')
+        .forEach((el) => (el as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' }))
+    }
+    window.addEventListener('astra:scroll-top', onTop)
+    return () => window.removeEventListener('astra:scroll-top', onTop)
+  }, [])
+
   // Mobile: swipe pra ESQUERDA abre o drawer de constelações.
   // Direita ficou pro swipe-to-reply das mensagens — sem briga de gesto.
   // Listeners passivos + leitura via getState(): zero re-render por toque.

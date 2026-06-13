@@ -13,6 +13,7 @@ import { api, resolveApiUrl } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import { compressImages } from '@/lib/imageCompress'
+import { hapticLight } from '@/lib/haptics'
 import type { MessageWithAuthor, Attachment } from '@astra/types'
 import { ComposerActionsMenu } from '@/components/chat/ComposerActionsMenu'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
@@ -169,6 +170,7 @@ export default function DMInput({
       replyTo:     replyToSnapshot,
     } as any
     onOptimisticMessage(optimisticMsg)
+    hapticLight()  // toque seco no "enviou" — no-op no web
     onCancelReply?.()
 
     try {

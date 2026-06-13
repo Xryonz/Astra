@@ -114,6 +114,16 @@ export function connectSocket(): Socket {
   return socket
 }
 
+/**
+ * Cutuca o socket pra reconectar JÁ. O socket.io reconecta sozinho, mas
+ * depois do Android congelar o WebView em background ele pode levar o
+ * delay inteiro (até 5s) pra perceber. Chamado quando a rede volta —
+ * encurta a janela "voltei mas ainda sem realtime". No-op se já conectado.
+ */
+export function reconnectSocketNow(): void {
+  if (socket && !socket.connected) socket.connect()
+}
+
 export function disconnectSocket(): void {
   stopHeartbeat()
   unsubAuth?.(); unsubAuth = null

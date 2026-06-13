@@ -24,6 +24,8 @@ import {
   type FriendEntry, type PendingEntry,
 } from '@/hooks/useFriends'
 import { resolveApiUrl, api } from '@/lib/api'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator'
 import { cn } from '@/lib/utils'
 
 const PRESENCE_LABEL: Record<string, string> = {
@@ -42,8 +44,13 @@ export default function FriendsPage() {
   const onlineCount  = (friends.data ?? []).filter((f) => f.presence === 'ONLINE').length
   const pendingCount = (requests.data ?? []).length
 
+  const { ref: ptrRef, pull, refreshing } = usePullToRefresh<HTMLDivElement>(
+    () => Promise.all([friends.refetch(), requests.refetch(), outgoing.refetch()]),
+  )
+
   return (
-    <div className="flex-1 min-w-0 h-full overflow-y-auto relative">
+    <div ref={ptrRef} className="flex-1 min-w-0 h-full overflow-y-auto relative astra-scrollable">
+      <PullToRefreshIndicator pull={pull} refreshing={refreshing} />
       <div className="ed-vignette" />
 
       {/* Coluna central — sem rótulos verticais nem capítulo (modo minimalista) */}

@@ -15,6 +15,7 @@ import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { Sparkles, Users, MoreHorizontal, Bell } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { useNotificationCount } from '@/hooks/useNotifications'
+import { hapticLight } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
 
 /** Glyph custom: 3 pontos conectados — "constelação". Lucide não tem. */
@@ -81,14 +82,21 @@ export default function MobileBottomNav() {
       id: 'stars',
       label: 'Estrelas',
       icon: <Sparkles className="size-5" />,
-      onClick: () => { closeSidebar(); navigate('/app/dm') },
+      // Tocar na aba já ativa rola a lista pro topo (norma iOS/Discord).
+      onClick: () => {
+        if (!sidebarOpen && path.startsWith('/app/dm')) { window.dispatchEvent(new Event('astra:scroll-top')); return }
+        closeSidebar(); navigate('/app/dm')
+      },
       active: !sidebarOpen && path.startsWith('/app/dm'),
     },
     {
       id: 'friends',
       label: 'Amigos',
       icon: <Users className="size-5" />,
-      onClick: () => { closeSidebar(); navigate('/app/friends') },
+      onClick: () => {
+        if (!sidebarOpen && path.startsWith('/app/friends')) { window.dispatchEvent(new Event('astra:scroll-top')); return }
+        closeSidebar(); navigate('/app/friends')
+      },
       active: !sidebarOpen && path.startsWith('/app/friends'),
     },
     {
@@ -130,7 +138,7 @@ export default function MobileBottomNav() {
           <li key={t.id} className="flex-1">
             <button
               type="button"
-              onClick={t.onClick}
+              onClick={() => { hapticLight(); t.onClick() }}
               aria-label={t.label}
               className={cn(
                 'group w-full h-full flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors',

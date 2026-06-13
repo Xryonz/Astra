@@ -7,6 +7,7 @@ import { getSocket, fastSendText } from '@/lib/socket'
 import { useTyping } from '@/hooks/useSocket'
 import { applySlashCommand } from '@/lib/slashCommands'
 import { compressImages } from '@/lib/imageCompress'
+import { hapticLight } from '@/lib/haptics'
 import { parseReminderCommand } from '@/lib/reminderCommand'
 import { useAuthStore } from '@/store/authStore'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -286,6 +287,7 @@ export default function MessageInput({
       replyTo: replyToSnapshot,
     } as any
     onOptimisticMessage(optimisticMsg)
+    hapticLight()  // toque seco no "enviou" — no-op no web
     onCancelReply?.()
     probeStart(optimisticId)
 

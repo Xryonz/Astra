@@ -19,7 +19,8 @@ import { memo } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator'
 import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { DMListSkeleton } from '@/components/skeletons/DMListSkeleton'
@@ -62,11 +63,13 @@ const PRESENCE_DOT: Record<string, string> = {
 export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
   const queryClient = useQueryClient()
 
-  const { data: conversations = [], isLoading } = useQuery<DMConversation[]>({
+  const { data: conversations = [], isLoading, refetch } = useQuery<DMConversation[]>({
     queryKey: ['dm-list'],
     queryFn:  async () => (await api.get('/api/dm')).data.data,
     staleTime: 20_000,
   })
+
+  const { ref: ptrRef, pull, refreshing } = usePullToRefresh<HTMLDivElement>(() => refetch())
 
   // App nativo: long-press no ícone mostra as 3 DMs mais recentes
   useEffect(() => {
@@ -103,7 +106,8 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <div ref={ptrRef} className="flex-1 overflow-y-auto overflow-x-hidden relative astra-scrollable">
+      <PullToRefreshIndicator pull={pull} refreshing={refreshing} />
       <ul className="flex flex-col">
         {conversations.map((conv, i) => (
           <ConversationItem
@@ -116,7 +120,7 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
           />
         ))}
       </ul>
-    </ScrollArea>
+    </div>
   )
 }
 

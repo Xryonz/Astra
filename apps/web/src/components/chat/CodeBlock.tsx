@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getHighlighter, isSupportedLang } from '@/lib/highlighter'
+import { highlightCode, isSupportedLang } from '@/lib/highlighterClient'
 
 interface Props {
   code: string
@@ -19,18 +19,10 @@ export default function CodeBlock({ code, lang }: Props) {
 
     if (!normLang) { setHtml(null); return }
 
-    getHighlighter(normLang).then((h) => {
-      if (cancelled) return
-      try {
-        const out = h.codeToHtml(code, {
-          lang:  normLang,
-          theme: 'min-dark',
-        })
-        setHtml(out)
-      } catch {
-        setHtml(null)
-      }
-    }).catch(() => setHtml(null))
+    // Highlight roda no Web Worker (não trava o scroll); fallback p/ plain.
+    highlightCode(code, normLang)
+      .then((out) => { if (!cancelled) setHtml(out) })
+      .catch(() => { if (!cancelled) setHtml(null) })
 
     return () => { cancelled = true }
   }, [code, lang])

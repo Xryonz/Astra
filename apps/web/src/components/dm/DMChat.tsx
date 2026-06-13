@@ -8,6 +8,7 @@ import { useDMReads } from '@/hooks/useUnread'
 import { format, isToday, isYesterday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { FONT_FAMILY } from '@/components/profile/profileFonts'
+import { getOutboxFor } from '@/lib/outbox'
 import type { MessageWithAuthor, PaginatedResponse, Attachment } from '@astra/types'
 
 function isImage(a: { type?: string; name?: string; url?: string }) {
@@ -178,6 +179,23 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
     setOptimisticMsgs([])
     bottomRef.current?.scrollIntoView()
   }, [conversationId])
+
+  // Hidrata mensagens compostas offline (outbox) como pendentes — sobrevivem
+  // a reload; o flush as envia e o eco reconcilia pelo clientNonce.
+  useEffect(() => {
+    let cancelled = false
+    void getOutboxFor('dm', conversationId).then((items) => {
+      if (cancelled) return
+      for (const it of items) {
+        addOptimistic({
+          id: it.id, optimisticId: it.id, content: it.content, edited: false,
+          createdAt: new Date(it.createdAt).toISOString(), updatedAt: new Date(it.createdAt).toISOString(),
+          isPending: true, author: it.author as any, attachments: [], replyTo: null,
+        } as OptimisticMessage)
+      }
+    })
+    return () => { cancelled = true }
+  }, [conversationId, addOptimistic])
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {

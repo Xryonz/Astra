@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react'
 import { isNative } from '@/lib/native'
 import { reconnectSocketNow } from '@/lib/socket'
+import { flushOutbox } from '@/lib/outbox'
 
 export function useOnlineStatus(): boolean {
   const [online, setOnline] = useState(true)
@@ -18,8 +19,16 @@ export function useOnlineStatus(): boolean {
 
     const apply = (isOnline: boolean) => {
       setOnline(isOnline)
-      if (isOnline) reconnectSocketNow()
+      if (isOnline) {
+        reconnectSocketNow()
+        // Drena as mensagens compostas offline. Um tiquinho depois pro socket
+        // reconectar primeiro — aí o eco de cada envio reconcilia a otimista.
+        setTimeout(() => void flushOutbox(), 600)
+      }
     }
+
+    // Flush no mount: pode haver mensagens de uma sessão offline anterior.
+    if (navigator.onLine) void flushOutbox()
 
     if (isNative) {
       let remove: (() => void) | undefined

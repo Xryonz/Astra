@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import { compressImages } from '@/lib/imageCompress'
 import { hapticLight } from '@/lib/haptics'
+import { enqueueOutbox } from '@/lib/outbox'
 import type { MessageWithAuthor, Attachment } from '@astra/types'
 import { ComposerActionsMenu } from '@/components/chat/ComposerActionsMenu'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
@@ -173,6 +174,18 @@ export default function DMInput({
     hapticLight()  // toque seco no "enviou" — no-op no web
     onCancelReply?.()
 
+    // Texto puro (sem anexo/reply/ttl) pode ir pra outbox se offline.
+    const canQueue =
+      attachmentsToSend.length === 0 && !replyToSnapshot && (!ttlSeconds || ttlSeconds <= 0)
+
+    if (canQueue && !navigator.onLine) {
+      void enqueueOutbox({
+        id: optimisticId, kind: 'dm', targetId: conversationId, content: trimmed, createdAt: Date.now(),
+        author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl ?? null, displayFont: (user as any)?.displayFont },
+      })
+      return
+    }
+
     try {
       const res = await api.post(`/api/dm/${conversationId}/messages`, {
         content:     trimmed,
@@ -183,7 +196,14 @@ export default function DMInput({
       })
       const real = res.data?.data
       if (real?.id) onOptimisticConfirmed?.(optimisticId, real)
-    } catch {
+    } catch (err: any) {
+      if (!err?.response && canQueue) {
+        void enqueueOutbox({
+          id: optimisticId, kind: 'dm', targetId: conversationId, content: trimmed, createdAt: Date.now(),
+          author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl ?? null, displayFont: (user as any)?.displayFont },
+        })
+        return
+      }
       onOptimisticFailed(optimisticId)
       setContent(trimmed)
       setAttachments(attachmentsToSend)

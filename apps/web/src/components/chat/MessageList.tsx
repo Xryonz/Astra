@@ -5,6 +5,7 @@ import { Hash, Feather } from 'lucide-react'
 import { api } from '@/lib/api'
 import { fetchMessagesPage } from '@/lib/prefetch'
 import { hydrateChannelFromCache } from '@/lib/messageCache'
+import { getOutboxFor } from '@/lib/outbox'
 import { useChannel } from '@/hooks/useSocket'
 import { useUnread } from '@/hooks/useUnread'
 import MessageItem from './MessageItem'
@@ -55,6 +56,23 @@ export default function MessageList({
     setOptimisticMsgs([])
     setShouldScrollToBottom(true)
   }, [channelId])
+
+  // Hidrata mensagens compostas offline (outbox) como pendentes — sobrevivem
+  // a reload. O flush as envia; o eco reconcilia pelo clientNonce.
+  useEffect(() => {
+    let cancelled = false
+    void getOutboxFor('channel', channelId).then((items) => {
+      if (cancelled) return
+      for (const it of items) {
+        addOptimistic({
+          id: it.id, optimisticId: it.id, content: it.content, edited: false,
+          createdAt: new Date(it.createdAt).toISOString(), updatedAt: new Date(it.createdAt).toISOString(),
+          isPending: true, author: it.author as any, attachments: [], replyTo: null,
+        } as OptimisticMessage)
+      }
+    })
+    return () => { cancelled = true }
+  }, [channelId, addOptimistic])
 
   const {
     data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading,

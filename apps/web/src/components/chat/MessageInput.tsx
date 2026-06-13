@@ -8,6 +8,7 @@ import { useTyping } from '@/hooks/useSocket'
 import { applySlashCommand } from '@/lib/slashCommands'
 import { compressImages } from '@/lib/imageCompress'
 import { hapticLight } from '@/lib/haptics'
+import { enqueueOutbox } from '@/lib/outbox'
 import { parseReminderCommand } from '@/lib/reminderCommand'
 import { useAuthStore } from '@/store/authStore'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -298,6 +299,16 @@ export default function MessageInput({
       !replyToSnapshot &&
       (!ttlSeconds || ttlSeconds <= 0)
 
+    // Offline + texto puro: enfileira já (sem esperar timeout de rede) e
+    // mantém a otimista como pendente. Dispara no próximo 'online'.
+    if (canFastSend && !navigator.onLine) {
+      void enqueueOutbox({
+        id: optimisticId, kind: 'channel', targetId: channelId, content: trimmed, createdAt: Date.now(),
+        author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl ?? null, displayFont: (user as any)?.displayFont },
+      })
+      return
+    }
+
     if (canFastSend) {
       const r = await fastSendText(channelId, trimmed, optimisticId)
       if (r.ok) {
@@ -321,6 +332,15 @@ export default function MessageInput({
       const real = res.data?.data
       if (real?.id) onOptimisticConfirmed?.(optimisticId, real)
     } catch (err: any) {
+      // Sem resposta = falha de rede (caiu no meio do envio). Texto puro vai
+      // pra outbox e fica pendente — dispara quando a rede voltar.
+      if (!err?.response && canFastSend) {
+        void enqueueOutbox({
+          id: optimisticId, kind: 'channel', targetId: channelId, content: trimmed, createdAt: Date.now(),
+          author: { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl ?? null, displayFont: (user as any)?.displayFont },
+        })
+        return
+      }
       if (err?.response?.status !== 403) {
         onOptimisticFailed(optimisticId)
         setContent(trimmed)

@@ -12,6 +12,7 @@ import type {
 } from 'livekit-client'
 import { api } from '@/lib/api'
 import { setPipEnabled, setCallActive } from '@/lib/native'
+import { playCallJoin, playCallLeave } from '@/lib/callSounds'
 
 export type CallState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error'
 
@@ -204,6 +205,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         activeRoom = room
         // Foreground service: call de áudio sobrevive com o app em background
         setCallActive(true)
+        playCallJoin()  // "blip" de conectado — entrou na call
         set({
           state:        'connected',
           roomName:     room.name,
@@ -218,6 +220,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
     leave: async () => {
       if (!activeRoom) { set({ state: 'idle' }); return }
+      playCallLeave()  // "blip" descendente — saiu da call
       set({ state: 'disconnecting' })
       try { await activeRoom.disconnect() } catch {}
       activeRoom = null

@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
-import { X, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { X, ChevronLeft, ChevronRight, Download, Check } from 'lucide-react'
 import { resolveApiUrl } from '@/lib/api'
+import { saveImageToGallery } from '@/lib/saveImage'
+import { toast } from '@/components/ui/sonner'
 
 interface LightboxProps {
   images:    Array<{ url: string; name: string }>
@@ -15,6 +17,19 @@ interface LightboxProps {
  */
 export default function Lightbox({ images, index, onClose, onNavigate }: LightboxProps) {
   const current = images[index]
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved]   = useState(false)
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (saving || !current) return
+    setSaving(true)
+    const r = await saveImageToGallery(resolveApiUrl(current.url), current.name)
+    setSaving(false)
+    if (r === 'saved')            { setSaved(true); toast.success('Salvo na galeria'); setTimeout(() => setSaved(false), 2000) }
+    else if (r === 'downloaded')  { setSaved(true); toast.success('Imagem baixada');   setTimeout(() => setSaved(false), 2000) }
+    else                          toast.error('Não foi possível salvar')
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -47,17 +62,15 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={src}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="size-9 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer"
-            aria-label="Abrir em nova aba"
-            title="Abrir em nova aba"
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="size-9 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            aria-label="Salvar imagem"
+            title="Salvar na galeria"
           >
-            <ExternalLink className="size-4" />
-          </a>
+            {saved ? <Check className="size-4 text-(--success)" /> : <Download className="size-4" />}
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onClose() }}
             className="size-9 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer"

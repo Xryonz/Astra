@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@astra/types": "*",
+    "@capacitor-community/media": "^8.0.1",
     "@capacitor/android": "^7.6.6",
     "@capacitor/app": "^7.1.2",
     "@capacitor/browser": "^7.0.5",

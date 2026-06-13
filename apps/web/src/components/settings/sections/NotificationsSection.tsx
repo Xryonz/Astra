@@ -11,7 +11,7 @@ import { SectionHeader, Row } from './_shared'
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 export default function NotificationsSection() {
-  const { state, subscribe, unsubscribe, sendTest } = usePushNotifications()
+  const { state, subscribe, unsubscribe, sendTest, native } = usePushNotifications()
   const { data: prefsData } = useNotificationPrefs()
   const updatePrefs = useUpdatePrefs()
 
@@ -78,14 +78,16 @@ export default function NotificationsSection() {
           <div className="border border-(--danger)/40 bg-(--danger)/5 p-3 text-sm">
             <p className="m-0 text-(--danger) flex items-center gap-2"><BellOff className="size-3.5" /> Permissão bloqueada</p>
             <p className="m-0 mt-1 text-(--text-3) text-xs">
-              Libere notificações nas configurações do site no navegador e recarregue.
+              {native
+                ? 'Libere notificações pra Astra nas configurações do Android (Apps → Astra → Notificações).'
+                : 'Libere notificações nas configurações do site no navegador e recarregue.'}
             </p>
           </div>
         )}
         {state === 'unsubscribed' && (
           <div className="flex gap-2 flex-wrap">
             <Button onClick={subscribe} className="gap-2"><Bell className="size-4" /> Ativar push</Button>
-            <Button variant="outline" onClick={localTest} className="gap-2"><BellRing className="size-3.5" /> Testar local</Button>
+            {!native && <Button variant="outline" onClick={localTest} className="gap-2"><BellRing className="size-3.5" /> Testar local</Button>}
           </div>
         )}
         {state === 'subscribed' && (
@@ -97,11 +99,18 @@ export default function NotificationsSection() {
             </div>
             <div className="flex gap-2 flex-wrap">
               <Button variant="secondary" size="sm" onClick={sendTest}>Testar push</Button>
-              <Button variant="outline" size="sm" onClick={localTest}>Testar local</Button>
-              <Button variant="outline" size="sm" onClick={unsubscribe} className="gap-2">
-                <BellOff className="size-3.5" /> Desativar
-              </Button>
+              {!native && <Button variant="outline" size="sm" onClick={localTest}>Testar local</Button>}
+              {!native && (
+                <Button variant="outline" size="sm" onClick={unsubscribe} className="gap-2">
+                  <BellOff className="size-3.5" /> Desativar
+                </Button>
+              )}
             </div>
+            {native && (
+              <p className="m-0 text-xs text-(--text-3)">
+                Pra desativar, use as configurações de notificação do Android (por canal: menções, sussurros, atividade).
+              </p>
+            )}
           </div>
         )}
         {state === 'loading' && (

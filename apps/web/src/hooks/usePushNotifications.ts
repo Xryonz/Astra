@@ -1,8 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
+import { isNative } from '@/lib/native'
+import { registerNativePush } from '@/lib/pushNative'
 
 type PushState = 'unsupported' | 'denied' | 'unsubscribed' | 'subscribed' | 'loading' | 'server-disabled'
+
+/** Lê a permissão FCM no app nativo e mapeia pro PushState. */
+async function nativePermState(): Promise<PushState> {
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications')
+    const perm = await PushNotifications.checkPermissions()
+    return perm.receive === 'granted' ? 'subscribed'
+         : perm.receive === 'denied'  ? 'denied'
+         : 'unsubscribed'
+  } catch {
+    return 'unsupported'
+  }
+}
 
 function urlBase64ToUint8Array(base64: string) {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
@@ -33,6 +48,12 @@ export function usePushNotifications() {
   // (VAPID configurado) antes de mostrar "Ativar" — sem isso o user clica,
   // recebe erro de subscribe e fica frustrado.
   useEffect(() => {
+    // App nativo: push é FCM (não Web Push). Lê a permissão do device.
+    // O token já é registrado no login (registerNativePush em App.tsx).
+    if (isNative) {
+      void nativePermState().then(setState)
+      return
+    }
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       setState('unsupported'); return
     }
@@ -83,6 +104,13 @@ export function usePushNotifications() {
 
   const subscribe = useCallback(async () => {
     setState('loading')
+    // App nativo: pede permissão + registra o token FCM.
+    if (isNative) {
+      await registerNativePush()
+      const s = await nativePermState()
+      setState(s)
+      return s === 'subscribed'
+    }
     try {
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') { setState(perm === 'denied' ? 'denied' : 'unsubscribed'); return false }
@@ -116,6 +144,9 @@ export function usePushNotifications() {
   }, [])
 
   const unsubscribe = useCallback(async () => {
+    // App nativo: a permissão é gerida pelo Android (não dá pra revogar por
+    // código). O usuário desativa por canal nas configs de notificação do SO.
+    if (isNative) return
     setState('loading')
     try {
       const reg = await getRegistration()
@@ -136,5 +167,5 @@ export function usePushNotifications() {
     try { await api.post('/api/push/test') } catch {}
   }, [])
 
-  return { state, subscribe, unsubscribe, sendTest }
+  return { state, subscribe, unsubscribe, sendTest, native: isNative }
 }

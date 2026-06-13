@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X } from 'lucide-react'
+import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X, Compass } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -289,6 +289,21 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
 
             <div className="w-7 h-px bg-border my-0.5" />
           </div>
+
+          {/* Descobrir — diretório de constelações públicas. Visível em todos
+              os tamanhos (no mobile, ajuda a preencher o topo do rail). */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => { navigate('/app/discover'); closeMobile() }}
+                aria-label="Descobrir constelações"
+                className="size-9 shrink-0 grid place-items-center rounded-2xl border border-dashed border-(--border) text-(--text-3) hover:border-(--accent) hover:text-(--accent) transition-colors cursor-pointer"
+              >
+                <Compass className="size-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Descobrir constelações</TooltipContent>
+          </Tooltip>
 
           {/* Empurra os ícones de servidor pra baixo no mobile — zona do
               polegar, mais fácil de tocar. shrink-0 mantém o offset; com

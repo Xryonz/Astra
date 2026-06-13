@@ -34,6 +34,7 @@ import { createReadsRouter }             from './routes/reads'
 import { createDMRouter }                from './routes/dm'
 import { createThreadsRouter }           from './routes/threads'
 import searchRouter                      from './routes/search'
+import discoverRouter                    from './routes/discover'
 import uploadRouter, { UPLOAD_DIR }      from './routes/upload'
 import { startRetentionWorker }          from './lib/retentionWorker'
 import pushRouter                        from './routes/push'
@@ -138,6 +139,7 @@ app.use('/api',                              createReadsRouter(io))
 app.use('/api/dm', createDMRouter(io))
 app.use('/api', createThreadsRouter(io))
 app.use('/api/search', searchRouter)
+app.use('/api/discover', discoverRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/gif',  gifRouter)

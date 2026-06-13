@@ -111,6 +111,10 @@ export const servers = pgTable('Server', {
   inviteCode: text('inviteCode').notNull().unique().$defaultFn(createId),
   ownerId:    text('ownerId').notNull().references(() => users.id),
   isGroup:    boolean('isGroup').notNull().default(false),
+  /** Listado na Descoberta (diretório público) — dono/admin liga nas configs. */
+  isPublic:   boolean('isPublic').notNull().default(false),
+  /** Descrição curta exibida no card da Descoberta (máx ~200 chars). */
+  description: text('description'),
   /** dias de retenção das mensagens (null = guarda pra sempre) */
   messageRetentionDays: integer('messageRetentionDays'),
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),

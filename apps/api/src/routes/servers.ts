@@ -142,6 +142,8 @@ const UpdateServerSchema = z.object({
   iconUrl:   z.string().optional().nullable(),
   bannerUrl: z.string().optional().nullable(),
   messageRetentionDays: z.number().int().min(0).max(365).optional().nullable(),
+  isPublic:    z.boolean().optional(),
+  description: z.string().max(200).optional().nullable(),
 })
 
 serversRouter.patch(
@@ -150,9 +152,9 @@ serversRouter.patch(
   validate(UpdateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const { name, iconUrl, bannerUrl, messageRetentionDays } = req.body as {
+    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description } = req.body as {
       name?: string; iconUrl?: string | null; bannerUrl?: string | null
-      messageRetentionDays?: number | null
+      messageRetentionDays?: number | null; isPublic?: boolean; description?: string | null
     }
 
     const m = await getMemberPerms(req.userId!, serverId)
@@ -172,6 +174,8 @@ serversRouter.patch(
     if (bannerUrl !== undefined) patch.bannerUrl = bannerUrl
     if (messageRetentionDays !== undefined)
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
+    if (isPublic    !== undefined) patch.isPublic    = isPublic
+    if (description !== undefined) patch.description = description?.trim() || null
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
     await db.update(servers).set(patch).where(eq(servers.id, serverId))

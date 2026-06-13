@@ -64,6 +64,8 @@ export default function ServerSettingsPage() {
   const [iconUrl,      setIconUrl]      = useState<string | null>(null)
   const [bannerUrl,    setBannerUrl]    = useState<string | null>(null)
   const [retentionDays, setRetentionDays] = useState<number>(0)
+  const [isPublic,     setIsPublic]     = useState(false)
+  const [description,  setDescription]  = useState('')
   const [error,        setError]        = useState('')
   const [kickTarget,   setKickTarget]   = useState<Member | null>(null)
   const prompt = usePrompt()
@@ -81,6 +83,8 @@ export default function ServerSettingsPage() {
       setIconUrl(server.iconUrl ?? null)
       setBannerUrl(server.bannerUrl ?? null)
       setRetentionDays(server.messageRetentionDays ?? 0)
+      setIsPublic(server.isPublic ?? false)
+      setDescription(server.description ?? '')
     }
   }, [server?.id])
 
@@ -96,7 +100,7 @@ export default function ServerSettingsPage() {
   const isAdmin = perms.isAdmin || isOwner
 
   const updateServer = useMutation({
-    mutationFn: async (patch: { name?: string; iconUrl?: string | null; bannerUrl?: string | null; messageRetentionDays?: number | null }) =>
+    mutationFn: async (patch: { name?: string; iconUrl?: string | null; bannerUrl?: string | null; messageRetentionDays?: number | null; isPublic?: boolean; description?: string | null }) =>
       (await api.patch(`/api/servers/${serverId}`, patch)).data.data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
@@ -327,10 +331,47 @@ export default function ServerSettingsPage() {
               </div>
             </section>
 
+            {!server.isGroup && (
+              <>
+                <Separator className="my-5" />
+                <section className="space-y-3">
+                  <span className="ed-label">— III. Descoberta</span>
+                  <p className="text-xs text-(--text-3) m-0 max-w-md">
+                    Liste sua constelação no diretório público — qualquer um pode achar e entrar sem convite.
+                  </p>
+                  <button
+                    onClick={() => { if (!isAdmin) return; const next = !isPublic; setIsPublic(next); updateServer.mutate({ isPublic: next }) }}
+                    disabled={!isAdmin}
+                    className={`self-start inline-flex items-center gap-2.5 px-4 h-10 border text-sm transition-colors ${isAdmin ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'} ${isPublic ? 'border-(--accent) bg-(--accent-dim) text-(--accent)' : 'border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent)'}`}
+                  >
+                    <span className={`size-3.5 rounded-full border shrink-0 transition-colors ${isPublic ? 'bg-(--accent) border-(--accent)' : 'border-(--border-mid)'}`} />
+                    {isPublic ? 'Listada na Descoberta' : 'Listar na Descoberta'}
+                  </button>
+                  {isPublic && (
+                    <div className="flex flex-col gap-2 max-w-md">
+                      <Label htmlFor="srvDesc">Descrição no diretório</Label>
+                      <textarea
+                        id="srvDesc"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        onBlur={() => { if (isAdmin && description !== (server.description ?? '')) updateServer.mutate({ description: description.trim() || null }) }}
+                        disabled={!isAdmin}
+                        maxLength={200}
+                        rows={2}
+                        placeholder="Sobre o que é essa constelação?"
+                        className="w-full px-3 py-2 border border-(--border) bg-(--raised) text-sm text-foreground resize-none focus:border-(--accent) outline-none"
+                      />
+                      <p className="text-[11px] text-(--text-3) m-0">{description.length}/200 · salva ao sair do campo.</p>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+
             <Separator className="my-5" />
 
             <section className="space-y-3">
-              <span className="ed-label">— III. Nome</span>
+              <span className="ed-label">— IV. Nome</span>
               <div className="flex flex-col gap-2 max-w-md">
                 <Label htmlFor="srvName">Nome do {server.isGroup ? 'grupo' : 'servidor'}</Label>
                 <Input
@@ -351,7 +392,7 @@ export default function ServerSettingsPage() {
                 <section className="space-y-3">
                   <div className="flex items-center gap-2">
                     <LinkIcon className="size-3.5 text-(--text-3)" />
-                    <span className="ed-label">— IV. Convite</span>
+                    <span className="ed-label">— V. Convite</span>
                   </div>
                   <p className="text-sm text-(--text-2) m-0 max-w-prose">
                     Qualquer pessoa com este link pode entrar. Pra revogar acesso, regenere o código.

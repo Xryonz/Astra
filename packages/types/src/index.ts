@@ -262,9 +262,23 @@ export interface ServerWithChannels {
   inviteCode: string
   ownerId: string
   isGroup: boolean
+  /** Listado na Descoberta (diretório público). */
+  isPublic?: boolean
+  /** Descrição curta exibida no card da Descoberta. */
+  description?: string | null
   messageRetentionDays: number | null
   channels: ChannelInfo[]
   _count: { members: number }
+}
+
+/** Card de servidor público no diretório de Descoberta. */
+export interface DiscoverServer {
+  id: string
+  name: string
+  iconUrl: string | null
+  bannerUrl: string | null
+  description: string | null
+  members: number
 }
 
 // ─────────────────────────────────────────────

@@ -46,6 +46,7 @@ const PinnedMessagesSheet = lazy(() => import('@/components/chat/PinnedMessagesS
 const RightPanel          = lazy(() => import('@/components/chat/RightPanel'))
 const BookmarksSheet      = lazy(() => import('@/components/bookmarks/BookmarksSheet'))
 const FriendsPage         = lazy(() => import('@/pages/FriendsPage'))
+const DiscoverPage        = lazy(() => import('@/pages/DiscoverPage'))
 const CosmicOnboarding    = lazy(() => import('@/components/astra/CosmicOnboarding').then((m) => ({ default: m.CosmicOnboarding })))
 const LatencyOverlay      = lazy(() => import('@/components/dev/LatencyOverlay').then((m) => ({ default: m.LatencyOverlay })))
 
@@ -440,6 +441,7 @@ export default function AppPage() {
             <Routes location={location} key={location.pathname.split('/').slice(0, 3).join('/')}>
               <Route path="dm/*"    element={<PageTransition className="flex-1 min-w-0 h-full"><DMPage /></PageTransition>} />
               <Route path="friends" element={<PageTransition><FriendsPage /></PageTransition>} />
+              <Route path="discover" element={<PageTransition><DiscoverPage /></PageTransition>} />
               <Route path="profile" element={<PageTransition><ProfilePage /></PageTransition>} />
               <Route path="settings" element={<PageTransition><SettingsPage /></PageTransition>} />
               <Route path="servers/:serverId/settings" element={<PageTransition><ServerSettingsPage /></PageTransition>} />

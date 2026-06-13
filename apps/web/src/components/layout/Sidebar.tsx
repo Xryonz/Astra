@@ -243,7 +243,10 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           // above-mobile-nav: termina acima da tab bar (norma Discord).
           // bg opaco no container: garante que NADA atrás vaza, mesmo se um
           // filho não pintar a área toda durante a transição.
-          'fixed top-0 left-0 above-mobile-nav w-[85vw] max-w-105 transition-transform border-r border-(--border) bg-(--base)',
+          // pt: faixa preta no topo (status bar / edge-to-edge Android) — empurra
+          // rail + header "Constelações" juntos pra baixo, simétrico, longe da
+          // quina. Knob: aumentar o 3rem desce mais (zona do polegar). md zera.
+          'fixed top-0 left-0 above-mobile-nav w-[85vw] max-w-105 transition-transform border-r border-(--border) bg-(--void) md:bg-(--base) pt-[max(3rem,calc(env(safe-area-inset-top)+0.5rem))] md:pt-0',
           mobileOpen
             ? 'translate-x-0 duration-320 [transition-timing-function:cubic-bezier(0.34,1.32,0.55,1)]'
             : '-translate-x-full md:translate-x-0 duration-260 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]',

@@ -296,6 +296,41 @@ export interface DiscoverServer {
   members: number
 }
 
+// ── Badges (insígnias) ────────────────────────────────────────
+/** Definição de badge de servidor (o dono cria e concede). */
+export interface ServerBadge {
+  id: string
+  serverId: string
+  name: string
+  icon: string
+  color: string | null
+  description: string | null
+  createdAt: string
+}
+/** Badge global derivada (Pioneiro, Bot) — sempre tem cor. */
+export interface GlobalBadge {
+  id: string
+  name: string
+  icon: string
+  color: string
+  description: string
+}
+/** Badge de servidor já concedida a um usuário (com nome do servidor). */
+export interface GrantedBadge {
+  badgeId: string
+  name: string
+  icon: string
+  color: string | null
+  description: string | null
+  serverId: string
+  serverName: string
+}
+/** Resposta de GET /api/users/:id/badges. */
+export interface UserBadges {
+  global: GlobalBadge[]
+  server: GrantedBadge[]
+}
+
 // ─────────────────────────────────────────────
 // SOCKET EVENT TYPES
 // ─────────────────────────────────────────────

@@ -43,6 +43,7 @@ import { initFcm }                       from './lib/fcm'
 import gifRouter                         from './routes/gif'
 import { rolesRouter }                   from './routes/roles'
 import { bansRouter }                    from './routes/bans'
+import { serverBadgesRouter, userBadgesRouter } from './routes/badges'
 import { healthRouter }                  from './routes/health'
 import notificationsRouter               from './routes/notifications'
 import bookmarksRouter                    from './routes/bookmarks'
@@ -145,6 +146,8 @@ app.use('/api/push', pushRouter)
 app.use('/api/gif',  gifRouter)
 app.use('/api/servers', rolesRouter)
 app.use('/api/servers', bansRouter)
+app.use('/api/servers', serverBadgesRouter)
+app.use('/api/users',   userBadgesRouter)
 app.use('/api',         notificationsRouter)
 app.use('/api/bookmarks', bookmarksRouter)
 app.use('/api/reminders', remindersRouter)

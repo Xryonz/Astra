@@ -488,5 +488,32 @@ export const wishingStars = pgTable('WishingStar', {
   byUser:    index('WishingStar_userId_idx').on(t.userId),
 }))
 
+// ─── Badges ───────────────────────────────────────────────────
+// Insígnias customizadas: o dono do servidor cria e concede a membros.
+// Aparecem no perfil. Badges GLOBAIS (Pioneiro, Bot) são derivadas em
+// runtime — não vivem aqui.
+export const badges = pgTable('Badge', {
+  id:          text('id').primaryKey().$defaultFn(createId),
+  serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  name:        text('name').notNull(),
+  icon:        text('icon').notNull(),   // emoji
+  color:       text('color'),            // hex opcional
+  description: text('description'),
+  createdAt:   timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  byServer: index('Badge_serverId_idx').on(t.serverId),
+}))
+
+export const badgeGrants = pgTable('BadgeGrant', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  badgeId:   text('badgeId').notNull().references(() => badges.id, { onDelete: 'cascade' }),
+  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  grantedBy: text('grantedBy'),
+  grantedAt: timestamp('grantedAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  uniq:   uniqueIndex('BadgeGrant_badge_user_uq').on(t.badgeId, t.userId),
+  byUser: index('BadgeGrant_userId_idx').on(t.userId),
+}))
+
 // Marker so TS doesn't tree-shake `sql` if unused above:
 export const _sqlMarker = sql`1`

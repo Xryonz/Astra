@@ -27,6 +27,11 @@ interface UIState {
   /** Sheet "Mais" da bottom nav mobile (profile/settings/logout) */
   mobileMoreOpen: boolean
   setMobileMoreOpen: (open: boolean) => void
+
+  /** Sheet de navegacao mobile (Constelacoes/Estrelas/Amigos/Avisos) — aberto
+      pelo botao constelacao da barra de perfil que substituiu a bottom nav */
+  mobileNavOpen: boolean
+  setMobileNavOpen: (open: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -51,4 +56,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   mobileMoreOpen: false,
   setMobileMoreOpen: (open) => set({ mobileMoreOpen: open }),
+
+  mobileNavOpen: false,
+  setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
 }))

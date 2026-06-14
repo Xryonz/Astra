@@ -44,6 +44,13 @@
     "wishingHint": "Suggest what to change in Astra",
     "logout": "Log out"
   },
+  "navSheet": {
+    "title": "Navigate",
+    "constellationsHint": "Your servers and channels",
+    "starsHint": "Direct messages",
+    "friendsHint": "Friends and requests",
+    "alertsHint": "Notifications"
+  },
   "settings": {
     "title": "Settings",
     "groups": {

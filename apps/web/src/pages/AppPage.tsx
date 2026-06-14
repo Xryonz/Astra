@@ -2,7 +2,8 @@ import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import Sidebar from '@/components/layout/Sidebar'
-import MobileBottomNav from '@/components/layout/MobileBottomNav'
+import MobileProfileBar from '@/components/layout/MobileProfileBar'
+import MobileNavSheet from '@/components/layout/MobileNavSheet'
 import MobileMoreSheet from '@/components/layout/MobileMoreSheet'
 import MobileNotificationsSheet from '@/components/notifications/MobileNotificationsSheet'
 import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
@@ -415,7 +416,7 @@ export default function AppPage() {
   }, [])
 
   return (
-    <div className="astra-shell flex h-screen-safe overflow-hidden font-(family-name:--font-body) pb-14 md:pb-0">
+    <div className="astra-shell flex h-screen-safe overflow-hidden font-(family-name:--font-body) pb-16 md:pb-0">
       {/* A11y skip-link: invisível até receber foco (Tab). Pula sidebar/header
           pra usuários de teclado/screen reader irem direto pro conteúdo. */}
       <a
@@ -461,8 +462,9 @@ export default function AppPage() {
         <IncomingCallModal />
       </Suspense>
 
-      {/* Mobile-only: tab bar permanente no bottom + sheets "Mais"/notificações */}
-      <MobileBottomNav />
+      {/* Mobile-only: barra de perfil no bottom + sheets navegação/Mais/notificações */}
+      <MobileProfileBar />
+      <MobileNavSheet />
       <MobileMoreSheet />
       <MobileNotificationsSheet />
 

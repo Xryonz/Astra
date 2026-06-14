@@ -5,8 +5,9 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { User, Settings, LogOut, X, Sparkles } from 'lucide-react'
+import { User, Settings, LogOut, X, Sparkles, ChevronRight } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { useAuth } from '@/hooks/useAuth'
@@ -121,33 +122,33 @@ export default function MobileMoreSheet() {
               </button>
             </header>
 
-            <ul className="border-t border-(--border)">
-              {actions.map((a, i) => (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={a.onClick}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-(--raised)/40 transition-colors border-b border-(--border) last:border-b-0"
-                  >
-                    <span
-                      className={
-                        a.danger
-                          ? 'size-9 grid place-items-center rounded-lg border border-(--danger)/40 text-(--danger)'
-                          : 'size-9 grid place-items-center rounded-lg border border-(--border) text-(--text-2)'
-                      }
+            <div className="px-4 pt-1 pb-2">
+              <ul className="rounded-2xl border border-(--border) bg-(--raised)/30 overflow-hidden divide-y divide-(--border)">
+                {actions.map((a, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={a.onClick}
+                      className="w-full flex items-center gap-3 px-3.5 py-3.5 cursor-pointer active:bg-(--raised)/60 transition-colors"
                     >
-                      {a.icon}
-                    </span>
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className={`text-sm m-0 font-(family-name:--font-display) ${a.danger ? 'text-(--danger)' : 'text-foreground'}`}>
-                        {a.label}
-                      </p>
-                      {a.hint && <p className="text-[11px] text-(--text-3) m-0 truncate">{a.hint}</p>}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                      <span className={cn(
+                        'size-9 grid place-items-center rounded-xl shrink-0',
+                        a.danger ? 'bg-(--danger)/10 text-(--danger)' : 'bg-(--accent-dim) text-(--accent)',
+                      )}>
+                        {a.icon}
+                      </span>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className={cn('text-sm m-0', a.danger ? 'text-(--danger)' : 'text-foreground')}>
+                          {a.label}
+                        </p>
+                        {a.hint && <p className="text-[11px] text-(--text-3) m-0 truncate">{a.hint}</p>}
+                      </div>
+                      {!a.danger && <ChevronRight className="size-4 text-(--text-3) shrink-0" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </motion.aside>
         </>
       )}

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, memo, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSquarePlus, Bookmark, BookmarkCheck, Languages, Copy } from 'lucide-react'
+import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSquarePlus, Bookmark, BookmarkCheck, Copy } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { ProfileHoverCard } from '@/components/ProfileHoverCard'
 import { toast } from '@/components/ui/sonner'
@@ -19,7 +19,6 @@ const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
 import PollCard from '@/components/chat/PollCard'
 import EditHistoryPopover from '@/components/chat/EditHistoryPopover'
 import { useIsBookmarked, useToggleBookmark } from '@/hooks/useBookmarks'
-import { TRANSLATE_LANGS, useTranslateMessage, type TranslateLang } from '@/hooks/useTranslate'
 import { cn } from '@/lib/utils'
 import { FONT_FAMILY, type DisplayFont } from '@/components/profile/profileFonts'
 import type { MessageWithAuthor } from '@astra/types'
@@ -430,9 +429,6 @@ function MessageItemImpl({
   const isBookmarked  = useIsBookmarked(message.id, 'message')
   const toggleBookmark = useToggleBookmark()
   const emojiMap       = useEmojiMap()
-  const translate      = useTranslateMessage()
-  const [translatePicker, setTranslatePicker] = useState(false)
-  const [translation,     setTranslation]     = useState<{ lang: TranslateLang; text: string } | null>(null)
 
   // Auto-hide quando msg efêmera expira (server limpa via worker; aqui só visual)
   const expiresAt = (message as any).expiresAt as string | null | undefined
@@ -627,10 +623,6 @@ function MessageItemImpl({
         toast.success('ID copiado')
       },
     })
-    ctxItems.push({
-      kind: 'item', icon: <Languages className="size-3.5" />, label: 'Traduzir',
-      onSelect: () => setTranslatePicker(true),
-    })
     ctxItems.push({ kind: 'separator' })
     ctxItems.push({
       kind: 'item',
@@ -692,7 +684,6 @@ function MessageItemImpl({
             onDelete={isMine ? () => setShowDeleteConfirm(true) : undefined}
             onTogglePin={() => handleTogglePin(!(message as any).pinned)}
             onToggleBookmark={() => toggleBookmark.mutate({ targetId: message.id, kind: 'message', action: isBookmarked ? 'delete' : 'create' })}
-            onTranslate={() => setTranslatePicker((v) => !v)}
           />
         )}
 
@@ -784,45 +775,6 @@ function MessageItemImpl({
             )}
 
             {content && renderContent(content, emojiMap)}
-
-            {/* Picker de idioma (toggle abaixo do toolbar) */}
-            {translatePicker && (
-              <div className="mt-1.5 flex flex-wrap gap-1 p-1.5 border border-(--border) bg-(--overlay) w-fit max-w-full">
-                {TRANSLATE_LANGS.map((l) => (
-                  <button
-                    key={l.code}
-                    onClick={async () => {
-                      try {
-                        const out = await translate.mutateAsync({ messageId: message.id, text: content, targetLang: l.code })
-                        setTranslation({ lang: l.code, text: out })
-                        setTranslatePicker(false)
-                      } catch (e: any) {
-                        console.error('[translate]', e?.response?.data ?? e?.message)
-                        toast.error(e?.response?.data?.error ?? 'Tradução falhou')
-                      }
-                    }}
-                    className="px-2 py-1 text-xs text-(--text-2) hover:text-(--accent) hover:bg-(--raised)/40 transition-colors"
-                  >{l.name}</button>
-                ))}
-              </div>
-            )}
-
-            {/* Inline translation */}
-            {translation && (
-              <div className="mt-1.5 border-l-2 border-(--accent)/50 pl-2.5 py-0.5">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Languages className="size-3 text-(--accent)" />
-                  <span className="ed-marg text-(--accent)">
-                    Traduzido · {TRANSLATE_LANGS.find((l) => l.code === translation.lang)?.name}
-                  </span>
-                  <button
-                    onClick={() => setTranslation(null)}
-                    className="ml-auto text-[10px] text-(--text-3) hover:text-foreground transition-colors"
-                  >ocultar</button>
-                </div>
-                <p className="text-[14px] text-foreground m-0 leading-relaxed">{translation.text}</p>
-              </div>
-            )}
 
             {message.edited && !isPending && (
               <span className="relative inline-block">

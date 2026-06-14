@@ -1,13 +1,13 @@
 /**
  * MessageToolbar — toolbar de hover sobre a mensagem.
  *
- * Botões: reagir, responder, traduzir, criar thread, salvar/bookmark,
+ * Botões: reagir, responder, criar thread, salvar/bookmark,
  * fixar/pin, editar (mine), apagar (mine, danger).
  *
  * Extraído de MessageItem (overhaul Fase 4d).
  */
 import {
-  Smile, Reply, Languages, MessageSquarePlus, Bookmark, BookmarkCheck,
+  Smile, Reply, MessageSquarePlus, Bookmark, BookmarkCheck,
   Pin, PinOff, Pencil, Trash2,
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
@@ -24,18 +24,16 @@ interface Props {
   onDelete?:         () => void
   onTogglePin?:      () => void
   onToggleBookmark?: () => void
-  onTranslate?:      () => void
 }
 
 export function MessageToolbar({
   isMine, isPinned, isBookmarked, onPickEmoji, onReply, onCreateThread,
-  onEdit, onDelete, onTogglePin, onToggleBookmark, onTranslate,
+  onEdit, onDelete, onTogglePin, onToggleBookmark,
 }: Props) {
   return (
     <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-3 animate-in fade-in-0 zoom-in-95 duration-150">
       <ToolBtn title="Reagir" onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
       {onReply && <ToolBtn title="Responder" onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
-      {onTranslate && <ToolBtn title="Traduzir" onClick={onTranslate}><Languages className="size-3.5" /></ToolBtn>}
       {onCreateThread && (
         <ToolBtn title="Soltar cometa (thread)" onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
       )}

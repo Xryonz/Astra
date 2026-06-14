@@ -86,7 +86,20 @@ serverBadgesRouter.get(
     const rows = await db.select().from(badges)
       .where(eq(badges.serverId, serverId))
       .orderBy(desc(badges.createdAt))
-    res.json({ data: rows })
+
+    // Quem tem cada badge — pro gerenciador marcar membros já agraciados.
+    // 1 query agrupada em JS (evita endpoint extra por badge).
+    const grants = await db.select({ badgeId: badgeGrants.badgeId, userId: badgeGrants.userId })
+      .from(badgeGrants)
+      .innerJoin(badges, eq(badges.id, badgeGrants.badgeId))
+      .where(eq(badges.serverId, serverId))
+    const byBadge = new Map<string, string[]>()
+    for (const g of grants) {
+      const arr = byBadge.get(g.badgeId)
+      if (arr) arr.push(g.userId)
+      else byBadge.set(g.badgeId, [g.userId])
+    }
+    res.json({ data: rows.map((b) => ({ ...b, grantedUserIds: byBadge.get(b.id) ?? [] })) })
   })
 )
 

@@ -1,13 +1,15 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, Clock, Tag, Plus, Pencil, Check, Ban, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy, Smile, X, Loader2 } from 'lucide-react'
+import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, ChevronRight, Clock, Tag, Plus, Pencil, Check, Ban, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy, Smile, X, Loader2, Award } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { api } from '@/lib/api'
 import { shareInvite } from '@/lib/native'
 import { useAuthStore } from '@/store/authStore'
 import { useMyPerms } from '@/hooks/useMyPerms'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
+import { registerBackHandler } from '@/lib/backHandler'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,6 +42,13 @@ interface Member {
 interface Role {
   id: string; serverId: string; name: string; color: string|null; position: number; permissions: string[]; hoist: boolean
 }
+interface ServerBadge {
+  id: string; serverId: string; name: string; icon: string; color: string|null; description: string|null
+  createdAt: string; grantedUserIds: string[]
+}
+
+type SectionId = 'overview' | 'channels' | 'emojis' | 'members' | 'roles' | 'badges' | 'bans'
+interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'geral' | 'comunidade'; show: boolean }
 
 const PERM_OPTIONS: Array<{ key: string; label: string; desc: string }> = [
   { key: 'MANAGE_SERVER',   label: 'Gerenciar servidor',   desc: 'Editar nome, ícone, retenção' },
@@ -69,6 +78,19 @@ export default function ServerSettingsPage() {
   const [error,        setError]        = useState('')
   const [kickTarget,   setKickTarget]   = useState<Member | null>(null)
   const prompt = usePrompt()
+
+  // Navegação por seção (espelha o SettingsPage): desktop = sidebar à
+  // esquerda; mobile = drill-down de cards. mobileOpen null = home de cards.
+  const [section,    setSection]    = useState<SectionId>('overview')
+  const [mobileOpen, setMobileOpen] = useState<SectionId | null>(null)
+  const pickSection = (id: SectionId) => { setSection(id); setMobileOpen(id) }
+
+  // Back nativo (Android): seção aberta no mobile recua pros cards em vez
+  // de sair do server settings inteiro. Consistente com o SettingsPage.
+  useEffect(() => {
+    if (mobileOpen === null) return
+    return registerBackHandler(() => { setMobileOpen(null); return true })
+  }, [mobileOpen])
 
   // Server data
   const { data: servers = [] } = useQuery<ServerWithChannels[]>({
@@ -205,52 +227,142 @@ export default function ServerSettingsPage() {
     )
   }
 
+  const allNav: NavItem[] = [
+    { id: 'overview', label: 'Visão geral', icon: <ImageIcon className="size-3.5" />, group: 'geral',      show: true },
+    { id: 'channels', label: 'Canais',      icon: <Hash className="size-3.5" />,      group: 'geral',      show: perms.has('MANAGE_CHANNELS') },
+    { id: 'emojis',   label: 'Emojis',      icon: <Smile className="size-3.5" />,     group: 'geral',      show: perms.has('MANAGE_CHANNELS') },
+    { id: 'members',  label: 'Membros',     icon: <UsersIcon className="size-3.5" />, group: 'comunidade', show: true },
+    { id: 'roles',    label: 'Cargos',      icon: <Tag className="size-3.5" />,       group: 'comunidade', show: perms.has('MANAGE_ROLES') },
+    { id: 'badges',   label: 'Insígnias',   icon: <Award className="size-3.5" />,     group: 'comunidade', show: perms.has('MANAGE_SERVER') || isOwner },
+    { id: 'bans',     label: 'Banidos',     icon: <Ban className="size-3.5" />,       group: 'comunidade', show: perms.has('BAN_MEMBERS') },
+  ]
+  const navItems = allNav.filter((n) => n.show)
+  const currentLabel = navItems.find((n) => n.id === section)?.label ?? ''
+  const groupLabel = { geral: 'Geral', comunidade: 'Comunidade' } as const
+
   return (
-    // h-full (NÃO h-screen-safe): a página vive DENTRO do shell do AppPage,
-    // que já desconta tab bar + notch — 100svh aqui estourava por baixo e
-    // cortava o conteúdo no app.
-    <div className="flex-1 min-w-0 h-full overflow-y-auto">
-      {/* Header */}
-      <header className="sticky top-0 z-10 h-16 px-4 sm:px-6 flex items-center gap-3 border-b border-(--border) bg-(--base)/95 backdrop-blur">
-        <button
-          onClick={() => navigate(-1)}
-          className="size-9 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-all cursor-pointer"
-          aria-label="Voltar"
-        >
-          <ArrowLeft className="size-4" />
-        </button>
-        <span className="ed-roman text-lg hidden sm:inline">§§</span>
-        <span className="ed-marg hidden sm:inline">{server.isGroup ? 'Grupo' : 'Servidor'}</span>
-        <span className="h-4 w-px bg-(--border-mid) hidden sm:inline-block" />
-        <h1
-          className="text-lg sm:text-xl m-0 font-normal tracking-tight text-foreground truncate"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          {server.name}
-        </h1>
-      </header>
+    // h-full: vive DENTRO do shell do AppPage (tab bar + notch já descontados).
+    // Espelha o SettingsPage: sidebar no desktop, drill-down de cards no mobile.
+    <main className="flex-1 min-w-0 flex h-full font-(family-name:--font-body) overflow-hidden">
+      {/* ─── Sidebar (md+) ─── */}
+      <aside className="hidden md:flex w-60 lg:w-64 shrink-0 border-r border-(--border) bg-(--raised)/30 flex-col overflow-hidden">
+        <header className="h-16 px-4 flex items-center gap-2.5 border-b border-(--border) shrink-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="size-8 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer rounded-lg shrink-0"
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="size-4" />
+          </button>
+          <div className="min-w-0">
+            <p className="ed-marg m-0 leading-none">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
+            <h1 className="text-base m-0 font-normal tracking-tight text-foreground truncate leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
+              {server.name}
+            </h1>
+          </div>
+        </header>
+        <ScrollArea className="flex-1">
+          <nav className="py-4">
+            {(['geral', 'comunidade'] as const).map((grp) => {
+              const items = navItems.filter((n) => n.group === grp)
+              if (items.length === 0) return null
+              return (
+                <div key={grp} className="mb-5">
+                  <p className="px-5 mb-2 text-[10px] uppercase tracking-wider text-(--text-3) font-mono m-0">— {groupLabel[grp]}</p>
+                  <ul className="flex flex-col gap-0.5">
+                    {items.map((n) => {
+                      const active = section === n.id
+                      return (
+                        <li key={n.id}>
+                          <button
+                            onClick={() => setSection(n.id)}
+                            className={cn(
+                              'group w-full flex items-center gap-3 px-5 py-2 text-left text-sm cursor-pointer transition-colors border-l-2 rounded-r-lg',
+                              active
+                                ? 'bg-(--accent-dim) text-(--accent) border-(--accent)'
+                                : 'text-(--text-2) hover:bg-(--raised)/60 hover:text-foreground border-transparent',
+                            )}
+                          >
+                            <span className={active ? 'text-(--accent)' : 'text-(--text-3) group-hover:text-(--text-2)'}>{n.icon}</span>
+                            <span>{n.label}{n.id === 'members' ? ` (${members.length})` : ''}</span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )
+            })}
+          </nav>
+        </ScrollArea>
+      </aside>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="mb-6 flex flex-wrap gap-1">
-            <TabsTrigger value="overview" className="gap-2"><ImageIcon className="size-3.5" /> Visão geral</TabsTrigger>
-            <TabsTrigger value="members"  className="gap-2"><UsersIcon className="size-3.5" /> Membros ({members.length})</TabsTrigger>
-            {perms.has('MANAGE_ROLES') && (
-              <TabsTrigger value="roles" className="gap-2"><Tag className="size-3.5" /> Cargos</TabsTrigger>
+      {/* ─── Conteúdo ─── */}
+      <section className="flex-1 overflow-y-auto relative">
+        <div className="sticky top-0 z-10 backdrop-blur bg-(--base)/90 border-b border-(--border)">
+          {/* Mobile header: home (back ao servidor) ou seção (back aos cards) */}
+          <div className="md:hidden flex items-center gap-2 px-4 py-3">
+            {mobileOpen === null ? (
+              <>
+                <button onClick={() => navigate(-1)} className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0" aria-label="Voltar">
+                  <ArrowLeft className="size-5" />
+                </button>
+                <div className="min-w-0">
+                  <p className="ed-marg m-0 leading-none">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
+                  <h1 className="text-lg m-0 font-normal tracking-tight text-foreground truncate leading-tight" style={{ fontFamily: 'var(--font-display)' }}>{server.name}</h1>
+                </div>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setMobileOpen(null)} className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0" aria-label="Voltar">
+                  <ArrowLeft className="size-5" />
+                </button>
+                <h1 className="flex-1 text-lg m-0 font-normal tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-display)' }}>{currentLabel}</h1>
+              </>
             )}
-            {perms.has('MANAGE_CHANNELS') && (
-              <TabsTrigger value="channels" className="gap-2"><Hash className="size-3.5" /> Canais</TabsTrigger>
-            )}
-            {perms.has('MANAGE_CHANNELS') && (
-              <TabsTrigger value="emojis" className="gap-2"><Smile className="size-3.5" /> Emojis</TabsTrigger>
-            )}
-            {perms.has('BAN_MEMBERS') && (
-              <TabsTrigger value="bans" className="gap-2"><Ban className="size-3.5" /> Banidos</TabsTrigger>
-            )}
-          </TabsList>
+          </div>
+          <div className="hidden md:block max-w-3xl mx-auto px-6 sm:px-8 py-3.5">
+            <h2 className="text-base m-0 font-normal text-foreground" style={{ fontFamily: 'var(--font-display)' }}>{currentLabel}</h2>
+          </div>
+        </div>
 
-          {/* ── OVERVIEW ─────────────────────── */}
-          <TabsContent value="overview" className="space-y-8">
+        {/* Mobile: home de cards agrupados */}
+        {mobileOpen === null && (
+          <div className="md:hidden max-w-xl mx-auto px-4 py-5 pb-safe space-y-6">
+            {(['geral', 'comunidade'] as const).map((grp) => {
+              const items = navItems.filter((n) => n.group === grp)
+              if (items.length === 0) return null
+              return (
+                <div key={grp}>
+                  <p className="px-1 mb-2 text-[10px] uppercase tracking-wider text-(--text-3) font-mono m-0">— {groupLabel[grp]}</p>
+                  <div className="rounded-2xl border border-(--border) bg-(--raised)/30 overflow-hidden divide-y divide-(--border)">
+                    {items.map((n) => (
+                      <button key={n.id} onClick={() => pickSection(n.id)} className="w-full flex items-center gap-3 px-3.5 py-3.5 text-left transition-colors active:bg-(--raised)/60 cursor-pointer">
+                        <span className="size-9 rounded-xl bg-(--accent-dim) text-(--accent) grid place-items-center shrink-0">{n.icon}</span>
+                        <span className="flex-1 text-sm text-foreground">{n.label}{n.id === 'members' ? ` (${members.length})` : ''}</span>
+                        <ChevronRight className="size-4 text-(--text-3) shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Conteúdo da seção — desktop sempre; mobile só com seção aberta */}
+        <div className={cn('max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10 pb-safe', mobileOpen === null ? 'hidden md:block' : 'block')}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={section}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            >
+
+              {section === 'overview' && (
+                <div className="space-y-8">
             <section className="space-y-3">
               <span className="ed-label">— I. Ícone</span>
               <div className="flex items-center gap-5 flex-wrap">
@@ -500,10 +612,11 @@ export default function ServerSettingsPage() {
                 </section>
               </>
             )}
-          </TabsContent>
+                </div>
+              )}
 
-          {/* ── MEMBERS ─────────────────────── */}
-          <TabsContent value="members" className="space-y-2">
+              {section === 'members' && (
+                <div className="space-y-2">
             <div className="flex items-center gap-2 mb-3">
               <span className="ed-label">— Membros</span>
               <div className="flex-1 h-px bg-(--border)" />
@@ -552,38 +665,18 @@ export default function ServerSettingsPage() {
                 </motion.div>
               ))}
             </div>
-          </TabsContent>
+                </div>
+              )}
 
-          {/* ── ROLES ─────────────────────── */}
-          {perms.has('MANAGE_ROLES') && (
-            <TabsContent value="roles" className="space-y-2">
-              <RolesSection serverId={serverId!} />
-            </TabsContent>
-          )}
-
-          {/* ── CHANNELS visibility ─────────────────────── */}
-          {perms.has('MANAGE_CHANNELS') && (
-            <TabsContent value="channels" className="space-y-2">
-              <ChannelsVisibilitySection serverId={serverId!} channels={server.channels ?? []} />
-            </TabsContent>
-          )}
-
-          {/* ── EMOJIS ─────────────────────── */}
-          {perms.has('MANAGE_CHANNELS') && (
-            <TabsContent value="emojis" className="space-y-2">
-              <EmojisSection serverId={serverId!} />
-            </TabsContent>
-          )}
-
-          {/* ── BANS ─────────────────────── */}
-          {perms.has('BAN_MEMBERS') && (
-            <TabsContent value="bans" className="space-y-2">
-              <BansSection serverId={serverId!} />
-            </TabsContent>
-          )}
-
-        </Tabs>
-      </div>
+              {section === 'roles'    && <RolesSection serverId={serverId!} />}
+              {section === 'channels' && <ChannelsVisibilitySection serverId={serverId!} channels={server.channels ?? []} />}
+              {section === 'emojis'   && <EmojisSection serverId={serverId!} />}
+              {section === 'badges'   && <BadgesSection serverId={serverId!} members={members} />}
+              {section === 'bans'     && <BansSection serverId={serverId!} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </section>
 
       {/* Confirm kick */}
       <Dialog open={!!kickTarget} onOpenChange={(o: boolean) => !o && setKickTarget(null)}>
@@ -630,7 +723,7 @@ export default function ServerSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   )
 }
 
@@ -1412,6 +1505,197 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── BadgesSection ────────────────────────────────────────────
+// Gerenciador de insígnias: dono cria badge (emoji+nome+cor+desc) e
+// concede a membros. As concessões aparecem no perfil de cada um.
+function BadgesSection({ serverId, members }: { serverId: string; members: Member[] }) {
+  const qc = useQueryClient()
+  const confirm = useConfirm()
+  const { data: badges = [], isLoading } = useQuery<ServerBadge[]>({
+    queryKey: ['server-badges', serverId],
+    queryFn:  async () => (await api.get(`/api/servers/${serverId}/badges`)).data.data,
+  })
+
+  const [icon,  setIcon]  = useState('✦')
+  const [name,  setName]  = useState('')
+  const [color, setColor] = useState('#c9a96e')
+  const [desc,  setDesc]  = useState('')
+  const [err,   setErr]   = useState('')
+
+  const create = useMutation({
+    mutationFn: async () => (await api.post(`/api/servers/${serverId}/badges`, {
+      name: name.trim(), icon: icon.trim() || '✦', color, description: desc.trim() || null,
+    })).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['server-badges', serverId] })
+      setName(''); setDesc(''); setIcon('✦'); setErr('')
+      toast.success('Insígnia criada')
+    },
+    onError: (e: any) => setErr(e.response?.data?.error ?? 'Erro ao criar'),
+  })
+  const remove = useMutation({
+    mutationFn: async (id: string) => api.delete(`/api/servers/${serverId}/badges/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['server-badges', serverId] }),
+  })
+
+  const [granting, setGranting] = useState<ServerBadge | null>(null)
+  const chip = (c: string | null) => ({
+    borderColor: `color-mix(in srgb, ${c ?? 'var(--accent)'} 45%, transparent)`,
+    background:  `color-mix(in srgb, ${c ?? 'var(--accent)'} 12%, transparent)`,
+    color:        c ?? 'var(--accent)',
+  })
+
+  return (
+    <section className="space-y-6">
+      {/* Criar */}
+      <div className="border border-(--border) bg-(--raised)/30 rounded-2xl p-4 space-y-3">
+        <p className="ed-label">— Criar insígnia</p>
+        <div className="flex gap-2 items-center flex-wrap">
+          <input
+            value={icon}
+            onChange={(e) => setIcon(e.target.value.slice(0, 4))}
+            className="w-14 h-10 text-center text-lg border border-(--border) bg-(--base) rounded-lg focus:border-(--accent) outline-none"
+            aria-label="Emoji da insígnia"
+          />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome (ex: Fundador)" maxLength={40} className="flex-1 min-w-40" />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="size-10 cursor-pointer bg-transparent border border-(--border-mid) rounded-lg shrink-0" aria-label="Cor" />
+        </div>
+        <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrição curta (opcional)" maxLength={120} />
+        {name.trim() && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs" style={chip(color)}>
+            <span className="text-sm leading-none">{icon || '✦'}</span>
+            <span className="font-medium" style={{ fontFamily: 'var(--font-display)' }}>{name}</span>
+          </span>
+        )}
+        {err && <p className="text-xs text-(--danger) m-0">{err}</p>}
+        <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending} className="gap-2">
+          <Plus className="size-3.5" /> {create.isPending ? 'Criando…' : 'Criar insígnia'}
+        </Button>
+      </div>
+
+      {/* Existentes */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="ed-label">— Insígnias do servidor</span>
+          <div className="flex-1 h-px bg-(--border)" />
+          <span className="ed-marg">{badges.length}</span>
+        </div>
+        {isLoading && <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> Carregando…</div>}
+        {!isLoading && badges.length === 0 && <p className="text-sm text-(--text-3) italic m-0">Nenhuma insígnia ainda. Cria a primeira acima.</p>}
+        <ul className="flex flex-col gap-1.5">
+          {badges.map((b) => (
+            <li key={b.id} className="flex items-center gap-2.5 px-3 py-2.5 border border-(--border) rounded-lg bg-(--raised)/20">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs shrink-0" style={chip(b.color)}>
+                <span className="text-sm leading-none">{b.icon}</span>
+                <span className="font-medium" style={{ fontFamily: 'var(--font-display)' }}>{b.name}</span>
+              </span>
+              <span className="flex-1 min-w-0 text-[11px] text-(--text-3) truncate">
+                {b.grantedUserIds.length} {b.grantedUserIds.length === 1 ? 'membro' : 'membros'}{b.description ? ` · ${b.description}` : ''}
+              </span>
+              <Button size="sm" variant="secondary" className="gap-1.5 h-8 shrink-0" onClick={() => setGranting(b)}>
+                <UserPlus className="size-3.5" /> Conceder
+              </Button>
+              <button
+                onClick={async () => {
+                  const ok = await confirm({ title: `Excluir "${b.name}"?`, description: 'Remove a insígnia de todos que a têm. Não-reversível.', confirmLabel: 'Excluir', destructive: true })
+                  if (ok) remove.mutate(b.id, { onSuccess: () => toast.success('Insígnia excluída') })
+                }}
+                className="size-8 grid place-items-center border border-(--border) rounded-lg text-(--text-3) hover:border-(--danger) hover:text-(--danger) transition-colors cursor-pointer shrink-0"
+                title="Excluir"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {granting && (
+        <GrantBadgeDialog serverId={serverId} badge={granting} members={members} onClose={() => setGranting(null)} />
+      )}
+    </section>
+  )
+}
+
+// Dialog de concessão: lista de membros com toggle (concede/revoga na hora).
+function GrantBadgeDialog({ serverId, badge, members, onClose }: {
+  serverId: string; badge: ServerBadge; members: Member[]; onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [granted, setGranted] = useState<Set<string>>(new Set(badge.grantedUserIds))
+
+  const grant = useMutation({
+    mutationFn: async (userId: string) => api.post(`/api/servers/${serverId}/badges/${badge.id}/grants`, { userId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['server-badges', serverId] }),
+  })
+  const revoke = useMutation({
+    mutationFn: async (userId: string) => api.delete(`/api/servers/${serverId}/badges/${badge.id}/grants/${userId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['server-badges', serverId] }),
+  })
+
+  const toggle = (userId: string) => {
+    setGranted((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) { next.delete(userId); revoke.mutate(userId) }
+      else { next.add(userId); grant.mutate(userId) }
+      return next
+    })
+  }
+
+  const q = search.trim().toLowerCase()
+  const list = members.filter((m) => !q || m.user.displayName.toLowerCase().includes(q) || m.user.username.toLowerCase().includes(q))
+
+  return (
+    <Dialog open onOpenChange={(o: boolean) => !o && onClose()}>
+      <DialogContent className="max-w-95! sm:max-w-md! p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-3">
+          <DialogTitle className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs" style={{
+              borderColor: `color-mix(in srgb, ${badge.color ?? 'var(--accent)'} 45%, transparent)`,
+              background:  `color-mix(in srgb, ${badge.color ?? 'var(--accent)'} 12%, transparent)`,
+              color:        badge.color ?? 'var(--accent)',
+            }}>
+              <span className="text-sm leading-none">{badge.icon}</span>
+              <span className="font-medium" style={{ fontFamily: 'var(--font-display)' }}>{badge.name}</span>
+            </span>
+          </DialogTitle>
+          <DialogDescription className="text-(--text-3)">Marque quem recebe esta insígnia.</DialogDescription>
+        </DialogHeader>
+        <div className="px-6 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-(--text-3) pointer-events-none" />
+            <Input placeholder="Buscar membro…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" autoFocus />
+          </div>
+        </div>
+        <div className="border-t border-(--border) max-h-80 overflow-y-auto">
+          {list.map((m) => {
+            const on = granted.has(m.userId)
+            return (
+              <button key={m.id} onClick={() => toggle(m.userId)} className="w-full flex items-center gap-3 px-6 py-2.5 border-b border-(--border) last:border-b-0 hover:bg-(--raised)/40 transition-colors text-left">
+                <Avatar className="size-8 shrink-0">
+                  {m.user.avatarUrl && <AvatarImage src={m.user.avatarUrl} referrerPolicy="no-referrer" />}
+                  <AvatarFallback className="text-[10px]">{m.user.displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm m-0 truncate text-foreground" style={{ fontFamily: 'var(--font-display)' }}>{m.user.displayName}</p>
+                  <p className="text-[10px] font-mono text-(--text-3) m-0 truncate">@{m.user.username}</p>
+                </div>
+                <span className={cn('size-5 rounded-full border grid place-items-center shrink-0 transition-colors', on ? 'bg-(--accent) border-(--accent) text-(--text-inv)' : 'border-(--border-mid)')}>
+                  {on && <Check className="size-3" />}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <DialogFooter className="px-6 py-4 border-t border-(--border)">
+          <Button variant="secondary" onClick={onClose} className="ml-auto">Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

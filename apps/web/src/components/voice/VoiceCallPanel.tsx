@@ -79,8 +79,8 @@ export function VoiceCallPanel() {
             exit={{    opacity: 0, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 360, damping: 28 }}
             // bottom-right anchor + z-60 (acima do Sidebar z-50)
-            // Mobile: mais estreito (w-60), safe-area-aware. Desktop: w-72.
-            className="fixed bottom-safe right-safe z-60 w-60 sm:w-72 rounded-2xl bg-(--overlay) border border-(--border-mid) shadow-[0_18px_56px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md overflow-hidden select-none touch-none"
+            // Mobile: compacto (w-48), safe-area-aware. Desktop: w-60.
+            className="fixed bottom-safe right-safe z-60 w-48 sm:w-60 rounded-2xl bg-(--overlay) border border-(--border-mid) shadow-[0_18px_56px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md overflow-hidden select-none touch-none"
           >
             {/* Drag handle bar (visualmente óbvio onde grabar) */}
             <div className="absolute top-1 left-1/2 -translate-x-1/2 text-(--text-3)/40 pointer-events-none">
@@ -88,7 +88,7 @@ export function VoiceCallPanel() {
             </div>
 
             {/* Header */}
-            <header className="px-3.5 pt-3 pb-2.5 border-b border-(--border) flex items-center gap-2.5 cursor-grab active:cursor-grabbing">
+            <header className="px-3 pt-2.5 pb-2 border-b border-(--border) flex items-center gap-2 cursor-grab active:cursor-grabbing">
               <motion.span
                 aria-hidden
                 animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
@@ -148,7 +148,7 @@ export function VoiceCallPanel() {
             )}
 
             {/* Stacked avatars */}
-            <div className="px-3.5 py-3 flex items-center gap-2">
+            <div className="px-3 py-2 flex items-center gap-2">
               <div className="flex -space-x-2">
                 {participants.slice(0, 6).map((p) => {
                   const u = userMap.get(p.identity)
@@ -158,7 +158,7 @@ export function VoiceCallPanel() {
                         <div className="relative">
                           <Avatar
                             className={cn(
-                              'size-9 rounded-full border-2 border-(--overlay) transition-transform',
+                              'size-8 rounded-full border-2 border-(--overlay) transition-transform',
                               p.isSpeaking && 'scale-110',
                             )}
                           >
@@ -196,7 +196,7 @@ export function VoiceCallPanel() {
                   )
                 })}
                 {participants.length > 6 && (
-                  <span className="size-9 rounded-full border-2 border-(--overlay) bg-(--raised) grid place-items-center text-[10px] font-mono text-(--text-2)">
+                  <span className="size-8 rounded-full border-2 border-(--overlay) bg-(--raised) grid place-items-center text-[10px] font-mono text-(--text-2)">
                     +{participants.length - 6}
                   </span>
                 )}
@@ -204,7 +204,7 @@ export function VoiceCallPanel() {
             </div>
 
             {/* Volume bar mini */}
-            <div className="px-3.5 pb-2 flex items-center gap-2">
+            <div className="px-3 pb-1.5 flex items-center gap-2">
               <div className="flex-1 h-1 rounded-full bg-(--raised) overflow-hidden">
                 <motion.div
                   className="h-full bg-(--accent) origin-left"
@@ -220,7 +220,7 @@ export function VoiceCallPanel() {
 
             {/* Quick controls */}
             <footer
-              className="px-2.5 py-2 border-t border-(--border) flex items-center justify-center gap-1.5"
+              className="px-2 py-1.5 border-t border-(--border) flex items-center justify-center gap-1.5"
               onPointerDown={(e) => e.stopPropagation()}
             >
               <QuickBtn

@@ -540,10 +540,15 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
         disablePictureInPicture
         className="w-full h-full object-contain"
       />
-      <div className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-(--accent)/40 flex items-center gap-1.5">
-        <ScreenShare className="size-3 text-(--accent)" />
-        <span className="text-[10px] font-mono text-white uppercase tracking-wider">
-          {displayName} · compartilhando
+      <div className="absolute top-2 left-2 flex items-center gap-1.5">
+        {/* Pill AO VIVO (estilo Discord LIVE) — vermelha, dot pulsando. */}
+        <span className="px-2 py-0.5 rounded-md bg-(--danger) text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+          <span className="size-1.5 rounded-full bg-white animate-pulse" />
+          Ao vivo
+        </span>
+        <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-white flex items-center gap-1">
+          <ScreenShare className="size-3 text-(--accent)" />
+          {displayName}
         </span>
       </div>
     </div>

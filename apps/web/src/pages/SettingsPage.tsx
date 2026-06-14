@@ -5,6 +5,7 @@ import {
   ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database, Brush, Sparkles, Languages, X, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { registerBackHandler } from '@/lib/backHandler'
 import AccountSection      from '@/components/settings/sections/AccountSection'
 import ProfileSection      from '@/components/settings/sections/ProfileSection'
 import CustomizationSection from '@/components/settings/sections/CustomizationSection'
@@ -77,6 +78,14 @@ export default function SettingsPage() {
       window.history.replaceState(null, '', `${location.pathname}#${section}`)
     }
   }, [section, location.pathname])
+
+  // Back nativo (Android): com uma seção aberta no mobile, recua pros cards
+  // em vez de sair das configurações inteiras. Home aberta / desktop não
+  // registra → o back cai no history normal e deixa a tela.
+  useEffect(() => {
+    if (mobileOpen === null) return
+    return registerBackHandler(() => { setMobileOpen(null); return true })
+  }, [mobileOpen])
 
   const currentLabelKey = NAV.find((n) => n.id === section)?.label
   const currentLabel = currentLabelKey ? t(currentLabelKey) : t('settings.title')

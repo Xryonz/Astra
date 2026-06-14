@@ -149,7 +149,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     }
     items.push({
       icon: '⚙️', label: 'Configurações',
-      onClick: () => navigate(`/app/servers/${menu.server.id}/settings`),
+      onClick: () => { navigate(`/app/servers/${menu.server.id}/settings`); closeMobile() },
     })
     if (menu.isOwner) {
       items.push({
@@ -502,7 +502,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             },
             {
               icon: '⚙', label: 'Configurações do servidor',
-              onClick: () => activeServerId && navigate(`/app/servers/${activeServerId}/settings`),
+              onClick: () => { if (activeServerId) navigate(`/app/servers/${activeServerId}/settings`); closeMobile() },
             },
           ]}
         />

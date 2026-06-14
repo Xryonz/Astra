@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { completeOAuthLogin } from '@/lib/oauth'
+import { runBackHandlers } from '@/lib/backHandler'
 
 /** true quando rodando dentro do app Capacitor (Android/iOS). */
 export const isNative = Capacitor.isNativePlatform()
@@ -150,6 +151,9 @@ export async function initNativeApp(): Promise<void> {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       return
     }
+    // Telas com navegação interna (ex: drill-down das configurações) recuam
+    // UM nível antes de deixar a tela. Consome o back se houver handler ativo.
+    if (runBackHandlers()) return
     if (canGoBack) {
       window.history.back()
     } else {

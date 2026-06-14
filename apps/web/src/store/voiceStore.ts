@@ -45,6 +45,9 @@ interface VoiceState {
   /** Volume por pessoa (identity → 0..1). Multiplica o volume master. */
   participantVolumes: Record<string, number>
   setParticipantVolume: (identity: string, v: number) => void
+  /** Krisp (supressão de ruído por IA). Aplicado na track do mic. */
+  noiseFilter: boolean
+  toggleNoiseFilter: () => void
 }
 
 const VOLUME_STORAGE_KEY = 'astra-voice-volume'
@@ -64,6 +67,11 @@ function loadParticipantVolumes(): Record<string, number> {
     const obj = raw ? JSON.parse(raw) : null
     return obj && typeof obj === 'object' ? (obj as Record<string, number>) : {}
   } catch { return {} }
+}
+
+const NOISE_FILTER_KEY = 'astra-noise-filter'
+function loadNoiseFilter(): boolean {
+  try { return localStorage.getItem(NOISE_FILTER_KEY) !== '0' } catch { return true } // default ON
 }
 
 // Mensagens humanas pros erros mais comuns de getUserMedia / LiveKit. Sem
@@ -98,6 +106,27 @@ let lkNs: LKNs | null = null
 async function loadLK(): Promise<LKNs> {
   if (!lkNs) lkNs = await import('livekit-client')
   return lkNs
+}
+
+// Krisp: supressão de ruído por IA (só LiveKit Cloud). Liga/desliga o
+// processor na track do microfone local. Dynamic import pra não pesar o
+// bundle. Silencioso se o browser/WebView não suportar.
+async function applyMicNoiseFilter(enabled: boolean): Promise<void> {
+  if (!activeRoom || !lkNs) return
+  const pub = activeRoom.localParticipant.getTrackPublication(lkNs.Track.Source.Microphone)
+  const track: any = (pub as any)?.audioTrack ?? pub?.track
+  if (!track || typeof track.setProcessor !== 'function') return
+  try {
+    if (enabled) {
+      const krisp = await import('@livekit/krisp-noise-filter')
+      if (!krisp.isKrispNoiseFilterSupported()) return
+      await track.setProcessor(krisp.KrispNoiseFilter())
+    } else if (typeof track.stopProcessor === 'function') {
+      await track.stopProcessor()
+    }
+  } catch (e: any) {
+    console.warn('[voice] filtro de ruído:', e?.message)
+  }
 }
 
 function snapshot(room: Room, TrackC: typeof TrackT): CallParticipantInfo[] {
@@ -172,6 +201,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     deafened:     false,
     volume:       loadInitialVolume(),
     participantVolumes: loadParticipantVolumes(),
+    noiseFilter:        loadNoiseFilter(),
 
     join: async (kind, id) => {
       const targetName = `${kind}:${id}`
@@ -234,6 +264,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         }
 
         activeRoom = room
+        void applyMicNoiseFilter(get().noiseFilter)
         // Foreground service: call de áudio sobrevive com o app em background
         setCallActive(true)
         playCallJoin()  // "blip" de conectado — entrou na call
@@ -265,6 +296,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       const lp = activeRoom.localParticipant as LocalParticipant
       try {
         await lp.setMicrophoneEnabled(!lp.isMicrophoneEnabled)
+        if (lp.isMicrophoneEnabled) void applyMicNoiseFilter(get().noiseFilter)
         set({ error: null })
       } catch (e: any) {
         set({ error: humanizeMediaError(e) ?? 'Falha ao acessar microfone' })
@@ -364,6 +396,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       set((s) => ({ participantVolumes: { ...s.participantVolumes, [identity]: clamped } }))
       applyAudioVolumes()
       try { localStorage.setItem(PVOL_STORAGE_KEY, JSON.stringify(get().participantVolumes)) } catch {}
+    },
+
+    toggleNoiseFilter: () => {
+      const next = !get().noiseFilter
+      set({ noiseFilter: next })
+      try { localStorage.setItem(NOISE_FILTER_KEY, next ? '1' : '0') } catch {}
+      void applyMicNoiseFilter(next)
     },
   }
 })

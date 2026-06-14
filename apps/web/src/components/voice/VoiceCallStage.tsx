@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
-  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2,
+  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Wand2,
 } from 'lucide-react'
 import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -38,7 +38,7 @@ interface Props {
 }
 
 export function VoiceCallStage({ onMinimize }: Props) {
-  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume } = useVoiceCall()
+  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
   const { data: users = [] } = useUsersMini(identities)
@@ -211,6 +211,14 @@ export function VoiceCallStage({ onMinimize }: Props) {
           danger={deafened}
         >
           {deafened ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
+        </ControlButton>
+
+        <ControlButton
+          label={noiseFilter ? 'Filtro de ruído: ligado (Krisp)' : 'Filtro de ruído: desligado'}
+          onClick={toggleNoiseFilter}
+          active={noiseFilter}
+        >
+          <Wand2 className="size-5" />
         </ControlButton>
 
         <ControlButton

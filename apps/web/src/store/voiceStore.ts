@@ -184,10 +184,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
           // Voz a 48kbps (preset music) em vez dos ~32k default — mais
           // corpo na voz. dtx (silêncio não transmite) + red (pacotes
           // redundantes) explícitos pra resiliência em wifi/4G oscilando.
+          //
+          // videoCodec vp9: ~30% melhor compressão que o default (vp8) — tela
+          // e câmera mais nítidas no mesmo bitrate. backupCodec: publica também
+          // h264 pra subscribers que não decodificam vp9 (Safari antigo etc).
+          // AV1 ficaria ~50% melhor mas o encode derruba frame em device fraco.
           publishDefaults: {
             audioPreset: lk.AudioPresets.music,
             dtx: true,
             red: true,
+            videoCodec: 'vp9',
+            backupCodec: true,
           },
         })
         bindRoomEvents(RoomEvent, room, refresh, handleDisc)
@@ -266,12 +273,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
           //    encoder. Sem ambos sincronizados, o encoder pode capear em 30.
           //  - simulcast OFF pra screen: 1 camada full bitrate em vez de
           //    3 camadas, evita layers switching → flicker visual.
-          //  - audio: false (compartilhar áudio do sistema é separado).
+          //  - audio: true → o picker do browser mostra "compartilhar áudio"
+          //    (aba/sistema). LiveKit publica o áudio da tela como track
+          //    separada (ScreenShareAudio) e os outros ouvem — watch party.
           //  - contentHint: ainda não tipado em options.d.ts; aplicado direto
           //    na MediaStreamTrack após publish (vê hook abaixo).
           const pub = await lp.setScreenShareEnabled(
             true,
-            { resolution: { width: 1920, height: 1080, frameRate: 60 }, audio: false },
+            { resolution: { width: 1920, height: 1080, frameRate: 60 }, audio: true },
             // 8Mbps: a 5Mbps, 1080p60 com muito movimento (jogo) mostrava
             // macroblocking. Browser entrega no máx 60fps de captura —
             // 120fps não existe em getDisplayMedia, o teto é do Chrome.

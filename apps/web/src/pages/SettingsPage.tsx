@@ -73,6 +73,20 @@ export default function SettingsPage() {
   const [mobileOpen, setMobileOpen] = useState<SectionId | null>(validHash)
   const pickSection = (id: SectionId) => { setSection(id); setMobileOpen(id) }
 
+  // Navegação externa por hash troca a seção mesmo com a página JÁ montada.
+  // Ex: estar em /app/settings e tocar "Perfil" (→ redirect /app/settings#profile)
+  // ou "Wishing Star" (#wishing): a rota /app/settings não remonta, então o
+  // initializer do useState não roda de novo — sem isso a seção ficava presa.
+  // Só dispara em location.hash (replaceState abaixo NÃO mexe no useLocation),
+  // então cliques internos não caem aqui e não há ping-pong.
+  useEffect(() => {
+    const h = location.hash.slice(1)
+    if (h && NAV.some((n) => n.id === h)) {
+      setSection(h as SectionId)
+      setMobileOpen(h as SectionId)
+    }
+  }, [location.hash])
+
   useEffect(() => {
     if (location.hash.slice(1) !== section) {
       window.history.replaceState(null, '', `${location.pathname}#${section}`)

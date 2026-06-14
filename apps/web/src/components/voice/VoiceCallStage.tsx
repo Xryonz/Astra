@@ -109,7 +109,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
               <Minimize2 className="size-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Minimizar</TooltipContent>
+          <TooltipContent side="bottom" className="z-80">Minimizar</TooltipContent>
         </Tooltip>
       </motion.header>
 
@@ -461,7 +461,7 @@ function TileVolume({ value, onChange }: { value: number; onChange: (v: number) 
           {pct === 0 ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="w-48 p-3">
+      <PopoverContent side="top" align="end" className="z-80 w-48 p-3">
         <p className="text-[10px] font-mono text-(--text-3) uppercase tracking-wider m-0 mb-2">Volume da pessoa</p>
         <div className="flex items-center gap-2">
           <VolumeX className="size-3.5 text-(--text-3) shrink-0" />
@@ -586,7 +586,7 @@ function CallSettings() {
           <Settings2 className="size-5" />
         </motion.button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="center" className="w-72 p-4 space-y-4">
+      <PopoverContent side="top" align="center" className="z-80 w-72 p-4 space-y-4">
         <div>
           <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Microfone</label>
           <select value={audioInputId ?? ''} onChange={(e) => void setAudioInput(e.target.value)} className={selectCls}>
@@ -656,16 +656,16 @@ function ControlButton({ label, onClick, children, danger, active, primary }: {
             primary && danger
               ? 'border-(--danger) bg-(--danger) text-white hover:shadow-[0_8px_24px_-4px_rgba(239,68,68,0.5)]'
               : danger && active
-                ? 'border-(--danger)/60 bg-(--danger)/15 text-(--danger)'
+                ? 'border-(--danger) bg-(--danger) text-white shadow-[0_4px_16px_-4px_rgba(239,68,68,0.5)]'
                 : active
-                  ? 'border-(--accent) bg-(--accent)/15 text-(--accent)'
+                  ? 'border-(--accent) bg-(--accent) text-(--void) shadow-[0_4px_16px_-4px_var(--accent-glow)]'
                   : 'border-(--border-mid) bg-(--raised)/60 text-(--text-1) hover:border-(--accent) hover:text-(--accent)',
           )}
         >
           {children}
         </motion.button>
       </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
+      <TooltipContent side="top" className="z-80">{label}</TooltipContent>
     </Tooltip>
   )
 }

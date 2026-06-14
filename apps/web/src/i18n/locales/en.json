@@ -1,4 +1,49 @@
 {
+  "common": {
+    "server": "server",
+    "group": "group"
+  },
+  "nav": {
+    "constellations": "Constellations",
+    "stars": "Stars",
+    "friends": "Friends",
+    "alerts": "Alerts",
+    "more": "More"
+  },
+  "sidebar": {
+    "createServer": "Create constellation",
+    "createGroup": "Create cluster",
+    "discover": "Discover constellations",
+    "channels": "Channels",
+    "groupChannels": "Group channels",
+    "expandPanel": "Expand panel",
+    "collapsePanel": "Hide panel",
+    "settings": "Settings",
+    "serverSettings": "Server settings",
+    "shareInvite": "Share invite",
+    "copyInvite": "Copy invite link",
+    "rename": "Rename {{kind}}",
+    "addMember": "Add member",
+    "delete": "Delete {{kind}}",
+    "leave": "Leave {{kind}}",
+    "createChannel": "Create channel",
+    "whispers": "Whispers — direct messages",
+    "emptyTitleNew": "Your sky is still empty",
+    "emptyTitleChoose": "Pick a constellation",
+    "emptyDescNew": "Use the + on the left bar to light your first one.",
+    "emptyDescChoose": "Tap an icon on the left to open its channels."
+  },
+  "more": {
+    "title": "More options",
+    "close": "Close",
+    "profile": "Profile",
+    "profileHint": "Edit avatar, banner, status",
+    "settings": "Settings",
+    "settingsHint": "Account, appearance, notifications",
+    "wishing": "Wishing Star",
+    "wishingHint": "Suggest what to change in Astra",
+    "logout": "Log out"
+  },
   "settings": {
     "title": "Settings",
     "groups": {

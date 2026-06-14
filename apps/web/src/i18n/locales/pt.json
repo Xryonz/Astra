@@ -1,4 +1,49 @@
 {
+  "common": {
+    "server": "servidor",
+    "group": "grupo"
+  },
+  "nav": {
+    "constellations": "Constelações",
+    "stars": "Estrelas",
+    "friends": "Amigos",
+    "alerts": "Avisos",
+    "more": "Mais"
+  },
+  "sidebar": {
+    "createServer": "Criar constelação",
+    "createGroup": "Criar aglomerado",
+    "discover": "Descobrir constelações",
+    "channels": "Canais",
+    "groupChannels": "Canais do grupo",
+    "expandPanel": "Expandir painel",
+    "collapsePanel": "Esconder painel",
+    "settings": "Configurações",
+    "serverSettings": "Configurações do servidor",
+    "shareInvite": "Compartilhar convite",
+    "copyInvite": "Copiar link de convite",
+    "rename": "Renomear {{kind}}",
+    "addMember": "Adicionar membro",
+    "delete": "Excluir {{kind}}",
+    "leave": "Sair do {{kind}}",
+    "createChannel": "Criar canal",
+    "whispers": "Sussurros — mensagens diretas",
+    "emptyTitleNew": "Seu céu ainda está vazio",
+    "emptyTitleChoose": "Escolha uma constelação",
+    "emptyDescNew": "Use o + na barra esquerda pra acender sua primeira.",
+    "emptyDescChoose": "Clique num ícone à esquerda pra abrir os canais."
+  },
+  "more": {
+    "title": "Mais opções",
+    "close": "Fechar",
+    "profile": "Perfil",
+    "profileHint": "Editar avatar, banner, status",
+    "settings": "Configurações",
+    "settingsHint": "Conta, aparência, notificações",
+    "wishing": "Wishing Star",
+    "wishingHint": "Sugerir o que mudar na Astra",
+    "logout": "Sair"
+  },
   "settings": {
     "title": "Configurações",
     "groups": {

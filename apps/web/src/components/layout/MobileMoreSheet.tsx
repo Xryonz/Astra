@@ -3,6 +3,7 @@
  * Atalhos rápidos: perfil, configurações, sair. Estilo editorial-dark.
  */
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { User, Settings, LogOut, X, Sparkles, ChevronRight } from 'lucide-react'
@@ -27,6 +28,7 @@ export default function MobileMoreSheet() {
   const user      = useAuthStore((s) => s.user)
   const navigate  = useNavigate()
   const { logout } = useAuth()
+  const { t }     = useTranslation()
 
   const close = () => setOpen(false)
 
@@ -42,25 +44,25 @@ export default function MobileMoreSheet() {
   const actions: Action[] = [
     {
       icon: <User className="size-4" />,
-      label: 'Perfil',
-      hint:  'Editar avatar, banner, status',
+      label: t('more.profile'),
+      hint:  t('more.profileHint'),
       onClick: () => { navigate('/app/profile'); close() },
     },
     {
       icon: <Settings className="size-4" />,
-      label: 'Configurações',
-      hint:  'Conta, aparência, notificações',
+      label: t('more.settings'),
+      hint:  t('more.settingsHint'),
       onClick: () => { navigate('/app/settings'); close() },
     },
     {
       icon: <Sparkles className="size-4" />,
-      label: 'Wishing Star',
-      hint:  'Sugerir o que mudar na Astra',
+      label: t('more.wishing'),
+      hint:  t('more.wishingHint'),
       onClick: () => { navigate('/app/settings#wishing'); close() },
     },
     {
       icon: <LogOut className="size-4" />,
-      label: 'Sair',
+      label: t('more.logout'),
       onClick: () => { logout(); close() },
       danger: true,
     },
@@ -84,7 +86,7 @@ export default function MobileMoreSheet() {
           <motion.aside
             role="dialog"
             data-state="open"
-            aria-label="Mais opções"
+            aria-label={t('more.title')}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{    y: '100%' }}
@@ -115,7 +117,7 @@ export default function MobileMoreSheet() {
               <button
                 type="button"
                 onClick={close}
-                aria-label="Fechar"
+                aria-label={t('more.close')}
                 className="size-10 grid place-items-center text-(--text-3) hover:text-(--text-1) cursor-pointer"
               >
                 <X className="size-4" />

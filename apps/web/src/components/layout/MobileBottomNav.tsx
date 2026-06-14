@@ -11,6 +11,7 @@
  * z-index 30 — abaixo de modais/sheets (40+) mas acima de conteúdo normal.
  */
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { Sparkles, Users, MoreHorizontal, Bell } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
@@ -55,6 +56,7 @@ interface Tab {
 export default function MobileBottomNav() {
   const navigate         = useViewTransitionNavigate()
   const location         = useLocation()
+  const { t }            = useTranslation()
   const sidebarOpen      = useUIStore((s) => s.mobileSidebarOpen)
   const toggleSidebar    = useUIStore((s) => s.toggleMobileSidebar)
   const closeSidebar     = useUIStore((s) => s.closeMobileSidebar)
@@ -73,14 +75,14 @@ export default function MobileBottomNav() {
   const tabs: Tab[] = [
     {
       id: 'constellations',
-      label: 'Constelações',
+      label: t('nav.constellations'),
       icon: <ConstellationIcon className="size-5" />,
       onClick: () => toggleSidebar(),
       active: sidebarOpen,
     },
     {
       id: 'stars',
-      label: 'Estrelas',
+      label: t('nav.stars'),
       icon: <Sparkles className="size-5" />,
       // Tocar na aba já ativa rola a lista pro topo (norma iOS/Discord).
       onClick: () => {
@@ -91,7 +93,7 @@ export default function MobileBottomNav() {
     },
     {
       id: 'friends',
-      label: 'Amigos',
+      label: t('nav.friends'),
       icon: <Users className="size-5" />,
       onClick: () => {
         if (!sidebarOpen && path.startsWith('/app/friends')) { window.dispatchEvent(new Event('astra:scroll-top')); return }
@@ -101,7 +103,7 @@ export default function MobileBottomNav() {
     },
     {
       id: 'notif',
-      label: 'Avisos',
+      label: t('nav.alerts'),
       icon: <Bell className="size-5" />,
       onClick: () => {
         // Abre o MobileNotificationsSheet (montado no AppPage) via custom event
@@ -113,7 +115,7 @@ export default function MobileBottomNav() {
     },
     {
       id: 'more',
-      label: 'Mais',
+      label: t('nav.more'),
       icon: <MoreHorizontal className="size-5" />,
       onClick: () => { closeSidebar(); setMoreOpen(true) },
       active: false,

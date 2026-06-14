@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X, Compass } from 'lucide-react'
@@ -41,6 +42,7 @@ interface CtxMenu { x: number; y: number; server: ServerWithChannels; isOwner: b
 
 export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarProps) {
   const user        = useAuthStore((s) => s.user)
+  const { t }       = useTranslation()
   const navigate    = useViewTransitionNavigate()
   const queryClient = useQueryClient()
   const unread      = useUnread()
@@ -139,29 +141,30 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   }, [onSelectChannel, closeMobile])
 
   const buildMenuItems = (menu: CtxMenu): ContextMenuItem[] => {
+    const kind = menu.server.isGroup ? t('common.group') : t('common.server')
     const items: ContextMenuItem[] = []
     if (!menu.server.isGroup) {
       items.push({
         // No app nativo abre o share sheet do OS; no web copia (lib/native).
-        icon: '🔗', label: isNative ? 'Compartilhar convite' : 'Copiar link de convite',
+        icon: '🔗', label: isNative ? t('sidebar.shareInvite') : t('sidebar.copyInvite'),
         onClick: () => { void shareInvite(menu.server.inviteCode) },
       })
     }
     items.push({
-      icon: '⚙️', label: 'Configurações',
+      icon: '⚙️', label: t('sidebar.settings'),
       onClick: () => { navigate(`/app/servers/${menu.server.id}/settings`); closeMobile() },
     })
     if (menu.isOwner) {
       items.push({
-        icon: '✏️', label: `Renomear ${menu.server.isGroup ? 'grupo' : 'servidor'}`,
+        icon: '✏️', label: t('sidebar.rename', { kind }),
         onClick: () => { setEditServerId(menu.server.id); setShowEditModal(true) },
       })
       if (menu.server.isGroup) {
-        items.push({ icon: '👥', label: 'Adicionar membro', onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true) } })
+        items.push({ icon: '👥', label: t('sidebar.addMember'), onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true) } })
       }
-      items.push({ icon: '🗑️', label: `Excluir ${menu.server.isGroup ? 'grupo' : 'servidor'}`, danger: true, onClick: () => { setDeleteServerId(menu.server.id); setShowDeleteModal(true) } })
+      items.push({ icon: '🗑️', label: t('sidebar.delete', { kind }), danger: true, onClick: () => { setDeleteServerId(menu.server.id); setShowDeleteModal(true) } })
     } else {
-      items.push({ icon: '🚪', label: `Sair do ${menu.server.isGroup ? 'grupo' : 'servidor'}`, danger: true, onClick: () => leaveServer.mutate(menu.server.id) })
+      items.push({ icon: '🚪', label: t('sidebar.leave', { kind }), danger: true, onClick: () => leaveServer.mutate(menu.server.id) })
     }
     return items
   }
@@ -262,14 +265,14 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               <TooltipTrigger asChild>
                 <button
                   onClick={() => { navigate('/app/dm'); closeMobile() }}
-                  aria-label="Estrelas"
+                  aria-label={t('nav.stars')}
                   className="size-11 mb-1 shrink-0 p-0 bg-transparent border-none rounded-xl flex items-center justify-center text-(--accent) hover:scale-110 hover:brightness-110 transition-[transform,filter] duration-150 cursor-pointer"
                   style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }}
                 >
                   <Sparkles className="size-6" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Sussurros — mensagens diretas</TooltipContent>
+              <TooltipContent side="right">{t('sidebar.whispers')}</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -277,7 +280,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                 <button
                   onClick={() => { navigate('/app/friends'); closeMobile() }}
                   className="size-9 shrink-0 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label="Amigos"
+                  aria-label={t('nav.friends')}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -297,12 +300,12 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               descobrir. Ficam ACIMA dos servidores: preenchem o rail e dão
               alvos fáceis de tocar no mobile. ── */}
           <StripButton
-            title="Criar constelação"
+            title={t('sidebar.createServer')}
             icon={<Plus className="size-5" />}
             onClick={(origin) => { setCreateMode('server'); setPopOrigin(origin); setShowCreateModal(true) }}
           />
           <StripButton
-            title="Criar aglomerado"
+            title={t('sidebar.createGroup')}
             icon={<Users className="size-4" />}
             onClick={(origin) => { setCreateMode('group'); setPopOrigin(origin); setShowCreateModal(true) }}
           />
@@ -310,13 +313,13 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             <TooltipTrigger asChild>
               <button
                 onClick={() => { navigate('/app/discover'); closeMobile() }}
-                aria-label="Descobrir constelações"
+                aria-label={t('sidebar.discover')}
                 className="size-10 shrink-0 grid place-items-center rounded-2xl border border-dashed border-(--border) text-(--text-3) hover:bg-(--accent-dim) hover:border-(--accent) hover:text-(--accent) transition-colors cursor-pointer"
               >
                 <Compass className="size-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Descobrir constelações</TooltipContent>
+            <TooltipContent side="right">{t('sidebar.discover')}</TooltipContent>
           </Tooltip>
 
           <div className="w-7 h-px bg-border my-0.5" />
@@ -356,7 +359,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               inteiro fecha, então o botão só confundia. */}
           <div className="hidden md:contents">
             <StripButton
-              title={collapsed ? 'Expandir painel' : 'Esconder painel'}
+              title={collapsed ? t('sidebar.expandPanel') : t('sidebar.collapsePanel')}
               icon={collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
               onClick={() => {
                 setCollapsed((c) => {
@@ -447,7 +450,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               <div>
                 <div className="px-3 mb-1.5">
                   <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-mono">
-                    — {isGroup ? 'Canais do grupo' : 'Canais'}
+                    — {isGroup ? t('sidebar.groupChannels') : t('sidebar.channels')}
                   </span>
                 </div>
                 {channels.map((ch, i) => (
@@ -469,10 +472,10 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
               </div>
             ) : !activeServer ? (
               <ConstellationEmpty
-                title={servers.length === 0 ? 'Seu céu ainda está vazio' : 'Escolha uma constelação'}
+                title={servers.length === 0 ? t('sidebar.emptyTitleNew') : t('sidebar.emptyTitleChoose')}
                 description={servers.length === 0
-                  ? 'Use o + na barra esquerda pra acender sua primeira.'
-                  : 'Clique num ícone à esquerda pra abrir os canais.'}
+                  ? t('sidebar.emptyDescNew')
+                  : t('sidebar.emptyDescChoose')}
                 className="h-full py-8"
               />
             ) : null}
@@ -497,11 +500,11 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           onClose={() => setChannelAreaCtx(null)}
           items={[
             {
-              icon: '＋', label: 'Criar canal',
+              icon: '＋', label: t('sidebar.createChannel'),
               onClick: () => setShowCreateChannel(true),
             },
             {
-              icon: '⚙', label: 'Configurações do servidor',
+              icon: '⚙', label: t('sidebar.serverSettings'),
               onClick: () => { if (activeServerId) navigate(`/app/servers/${activeServerId}/settings`); closeMobile() },
             },
           ]}

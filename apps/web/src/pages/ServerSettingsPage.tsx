@@ -350,16 +350,11 @@ export default function ServerSettingsPage() {
           </div>
         )}
 
-        {/* Conteúdo da seção — desktop sempre; mobile só com seção aberta */}
-        <div className={cn('max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10 pb-safe', mobileOpen === null ? 'hidden md:block' : 'block')}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={section}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
+        {/* Conteúdo: mobile = seção desliza ao abrir (cards somem, sem flash da
+            seção anterior); desktop = seção fixa que troca com slide. */}
+        {(() => {
+          const sectionContent = (
+            <>
 
               {section === 'overview' && (
                 <div className="space-y-8">
@@ -673,9 +668,45 @@ export default function ServerSettingsPage() {
               {section === 'emojis'   && <EmojisSection serverId={serverId!} />}
               {section === 'badges'   && <BadgesSection serverId={serverId!} members={members} />}
               {section === 'bans'     && <BansSection serverId={serverId!} />}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+            </>
+          )
+          return (
+            <>
+              {/* Mobile: seção entra deslizando quando aberta; cards (acima)
+                  somem ao abrir, então não há flash da seção anterior. */}
+              <div className="md:hidden">
+                <AnimatePresence mode="wait">
+                  {mobileOpen !== null && (
+                    <motion.div
+                      key={mobileOpen}
+                      initial={{ opacity: 0, x: 26 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{    opacity: 0, x: 26 }}
+                      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                      className="max-w-3xl mx-auto px-4 sm:px-8 py-6 pb-safe"
+                    >
+                      {sectionContent}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {/* Desktop: seção fixa, troca com slide horizontal. */}
+              <div className="hidden md:block max-w-3xl mx-auto px-8 py-10 pb-safe">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={section}
+                    initial={{ opacity: 0, x: 26 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{    opacity: 0, x: -18 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    {sectionContent}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </>
+          )
+        })()}
       </section>
 
       {/* Confirm kick */}

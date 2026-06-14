@@ -84,6 +84,11 @@ export default function SettingsPage() {
     if (h && NAV.some((n) => n.id === h)) {
       setSection(h as SectionId)
       setMobileOpen(h as SectionId)
+    } else {
+      // Navegou pra /app/settings SEM hash estando numa secao (ex: tocar
+      // "Configuracoes" vindo do perfil): volta pra home de cards no mobile,
+      // senao a secao anterior (perfil) ficava por cima.
+      setMobileOpen(null)
     }
   }, [location.hash])
 
@@ -103,6 +108,21 @@ export default function SettingsPage() {
 
   const currentLabelKey = NAV.find((n) => n.id === section)?.label
   const currentLabel = currentLabelKey ? t(currentLabelKey) : t('settings.title')
+
+  const renderSection = (id: SectionId) => {
+    switch (id) {
+      case 'account':       return <AccountSection />
+      case 'profile':       return <ProfileSection />
+      case 'customization': return <CustomizationSection />
+      case 'appearance':    return <AppearanceSection />
+      case 'name-colors':   return <NameColorsSection />
+      case 'notifications': return <NotificationsSection />
+      case 'language':      return <LanguageSection />
+      case 'wishing':       return <WishingStarSection />
+      case 'sessions':      return <SessionsSection />
+      case 'data':          return <DataSection />
+    }
+  }
 
   return (
     <main className="flex-1 flex h-full font-(family-name:--font-body) overflow-hidden">
@@ -225,32 +245,46 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Mobile: home com cards agrupados (quando nenhuma seção aberta) */}
-        {mobileOpen === null && <MobileSettingsList onPick={pickSection} />}
+        {/* Mobile: push entre home-cards (esquerda) e seção (direita) — um
+            AnimatePresence só, sem flash da seção anterior. */}
+        <div className="md:hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            {mobileOpen === null ? (
+              <motion.div
+                key="home"
+                initial={{ opacity: 0, x: -18 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{    opacity: 0, x: -18 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <MobileSettingsList onPick={pickSection} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={mobileOpen}
+                initial={{ opacity: 0, x: 26 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{    opacity: 0, x: 26 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="max-w-3xl mx-auto px-5 py-6 pb-safe"
+              >
+                {renderSection(mobileOpen)}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-        {/* Conteúdo da seção — desktop sempre; mobile só com uma seção aberta */}
-        <div className={cn(
-          'max-w-3xl mx-auto px-5 sm:px-8 lg:px-12 py-8 sm:py-12 lg:py-16 pb-safe relative',
-          mobileOpen === null ? 'hidden md:block' : 'block',
-        )}>
+        {/* Desktop: seção sempre visível, troca com slide horizontal. */}
+        <div className="hidden md:block max-w-3xl mx-auto px-8 lg:px-12 py-12 lg:py-16 pb-safe relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={section}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{    opacity: 0, y: -8 }}
-              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, x: 26 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{    opacity: 0, x: -18 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             >
-              {section === 'account'       && <AccountSection />}
-              {section === 'profile'       && <ProfileSection />}
-              {section === 'customization' && <CustomizationSection />}
-              {section === 'appearance'    && <AppearanceSection />}
-              {section === 'name-colors'   && <NameColorsSection />}
-              {section === 'notifications' && <NotificationsSection />}
-              {section === 'language'      && <LanguageSection />}
-              {section === 'wishing'       && <WishingStarSection />}
-              {section === 'sessions'      && <SessionsSection />}
-              {section === 'data'          && <DataSection />}
+              {renderSection(section)}
             </motion.div>
           </AnimatePresence>
         </div>

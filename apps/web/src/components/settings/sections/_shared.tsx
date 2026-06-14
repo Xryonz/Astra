@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * SectionHeader — título grande + descrição cinza + hairline.
@@ -42,6 +43,7 @@ export function Row({ label, hint, children }: { label: string; hint?: string; c
  * SaveStatus — indicador '✓ Salvo' / 'Salvando…' / erro.
  */
 export function SaveStatus({ status, error }: { status: 'idle' | 'saving' | 'saved' | 'error'; error?: string }) {
+  const { t } = useTranslation()
   if (status === 'idle') return null
   return (
     <p className={
@@ -49,9 +51,9 @@ export function SaveStatus({ status, error }: { status: 'idle' | 'saving' | 'sav
       status === 'saving' ? 'text-xs text-(--text-3) m-0' :
                             'text-xs text-(--success) m-0'
     }>
-      {status === 'saving' && 'Salvando…'}
-      {status === 'saved'  && '✓ Salvo'}
-      {status === 'error'  && (error ?? 'Erro ao salvar')}
+      {status === 'saving' && t('settings.save.saving')}
+      {status === 'saved'  && t('settings.save.saved')}
+      {status === 'error'  && (error ?? t('settings.save.error'))}
     </p>
   )
 }

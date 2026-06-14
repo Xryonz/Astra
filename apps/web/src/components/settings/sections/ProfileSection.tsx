@@ -10,6 +10,7 @@
  * Auto-save 800ms debounced.
  */
 import { useRef, useState, useMemo, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -24,6 +25,7 @@ import { SectionHeader, Row, SaveStatus } from './_shared'
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export default function ProfileSection() {
+  const { t }       = useTranslation()
   const user        = useAuthStore((s) => s.user)
   const updateUser  = useAuthStore((s) => s.updateUser)
   const queryClient = useQueryClient()
@@ -44,11 +46,11 @@ export default function ProfileSection() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!ALLOWED_MIMES.includes(file.type)) {
-      setFileError('Formato não suportado. Use JPEG, PNG, WebP ou GIF.')
+      setFileError(t('settings.profile.formatError'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      setFileError('Arquivo muito grande. Máximo 5MB.')
+      setFileError(t('settings.profile.sizeError'))
       return
     }
     setFileError('')
@@ -100,7 +102,7 @@ export default function ProfileSection() {
       setTimeout(() => setSaveStatus('idle'), 2200)
     },
     onError: (e: any) => {
-      setSaveError(e.response?.data?.error ?? e.message ?? 'Erro ao salvar')
+      setSaveError(e.response?.data?.error ?? e.message ?? t('settings.save.error'))
       setSaveStatus('error')
     },
   })
@@ -118,11 +120,11 @@ export default function ProfileSection() {
   return (
     <div>
       <SectionHeader
-        title="Perfil"
-        description="Identidade que aparece pros outros membros. Aparência visual é em Personalização."
+        title={t('settings.profile.title')}
+        description={t('settings.profile.description')}
       />
 
-      <Row label="Avatar" hint="Recomendado 256×256 ou maior. Quadrado.">
+      <Row label={t('settings.profile.avatar')} hint={t('settings.profile.avatarHint')}>
         <div className="flex items-center gap-5 flex-wrap">
           <Avatar className="size-24 rounded-full border-2 border-(--border-mid)">
             {avatarUrl && !avatarImgErr && <AvatarImage src={avatarUrl} onError={() => setAvatarImgErr(true)} />}
@@ -132,11 +134,11 @@ export default function ProfileSection() {
           </Avatar>
           <div className="flex flex-col gap-2">
             <Button type="button" variant="outline" onClick={() => avatarFileRef.current?.click()} className="gap-2">
-              <Upload className="size-4" /> Enviar foto
+              <Upload className="size-4" /> {t('settings.profile.uploadPhoto')}
             </Button>
             {avatarUrl && (
               <Button type="button" variant="ghost" size="sm" onClick={() => setAvatarUrl('')}>
-                Remover
+                {t('settings.profile.remove')}
               </Button>
             )}
           </div>
@@ -150,17 +152,17 @@ export default function ProfileSection() {
         {errors.avatarUrl && <p className="text-xs text-(--danger) mt-2 m-0">{errors.avatarUrl}</p>}
       </Row>
 
-      <Row label="Pronomes" hint="Ex: ela/dela, ele/dele, elu/delu, they/them. Aparece como chip no card.">
+      <Row label={t('settings.profile.pronouns')} hint={t('settings.profile.pronounsHint')}>
         <Input
           value={pronouns}
           onChange={(e) => setPronouns(e.target.value.slice(0, 32))}
           maxLength={32}
-          placeholder="ela/dela"
+          placeholder={t('settings.profile.pronounsPlaceholder')}
         />
         {errors.pronouns && <p className="text-xs text-(--danger) mt-1 m-0">{errors.pronouns}</p>}
       </Row>
 
-      <Row label="Status atual" hint="Emoji + frase curta que aparece pros amigos. Some quando você troca ou apaga.">
+      <Row label={t('settings.profile.status')} hint={t('settings.profile.statusHint')}>
         <div className="flex items-stretch gap-2">
           <Input
             value={statusEmoji}
@@ -168,7 +170,7 @@ export default function ProfileSection() {
             maxLength={8}
             placeholder="🎮"
             className="w-16 text-center text-lg shrink-0"
-            aria-label="Emoji do status"
+            aria-label={t('settings.profile.statusEmojiLabel')}
           />
           <div className="flex-1">
             <CustomStatusEditor />
@@ -177,13 +179,13 @@ export default function ProfileSection() {
         {errors.statusEmoji && <p className="text-xs text-(--danger) mt-1 m-0">{errors.statusEmoji}</p>}
       </Row>
 
-      <Row label="Bio" hint="Até 300 caracteres. Markdown: **negrito** · *itálico* · `código` · [texto](url) · quebra de linha.">
+      <Row label={t('settings.profile.bio')} hint={t('settings.profile.bioHint')}>
         <Textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           maxLength={300}
           rows={4}
-          placeholder="Algo sobre você… use **negrito**, *itálico*, ou [link](https://...)"
+          placeholder={t('settings.profile.bioPlaceholder')}
         />
         <p className="text-marg text-(--text-3) mt-1 m-0 text-right">{bio.length}/300</p>
         {errors.bio && <p className="text-xs text-(--danger) m-0">{errors.bio}</p>}
@@ -198,6 +200,7 @@ export default function ProfileSection() {
 
 // ─── CustomStatusEditor (server-synced) ─────────────────────
 function CustomStatusEditor() {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const updateUser = useAuthStore((s) => s.updateUser)
   const [text, setText]    = useState((user as any)?.customStatus ?? '')
@@ -228,7 +231,7 @@ function CustomStatusEditor() {
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, 100))}
         maxLength={100}
-        placeholder="Ex: Lendo um livro · Compilando · BRB"
+        placeholder={t('settings.profile.customStatusPlaceholder')}
       />
       <p className="text-marg text-(--text-3) mt-1 m-0 text-right">{text.length}/100</p>
       <SaveStatus status={status} />

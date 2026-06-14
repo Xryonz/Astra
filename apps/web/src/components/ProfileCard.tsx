@@ -28,6 +28,7 @@ import { Button }         from '@/components/ui/button'
 import { ProfileBanner }       from '@/components/profile/ProfileBanner'
 import { ProfileHero }         from '@/components/profile/ProfileHero'
 import { ProfileBio }          from '@/components/profile/ProfileBio'
+import { ProfileBadges }       from '@/components/profile/ProfileBadges'
 import { ProfileCardSkeleton } from '@/components/profile/ProfileCardSkeleton'
 import { FONT_FAMILY, type DisplayFont } from '@/components/profile/profileFonts'
 import { type UserStatus } from '@/components/StatusDot'
@@ -170,6 +171,8 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                 )}
 
                 <ProfileBio bio={profile.bio} isSelf={isSelf} fontFamily={fontFamily} />
+
+                <ProfileBadges userId={profile.id} />
 
                 {profile.createdAt && (
                   <div className="mb-6">

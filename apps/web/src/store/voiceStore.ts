@@ -23,6 +23,8 @@ export interface CallParticipantInfo {
   isMicEnabled:    boolean
   isScreenSharing: boolean
   isCameraEnabled: boolean
+  /** Qualidade de conexão LiveKit: excellent | good | poor | lost | unknown */
+  connectionQuality: string
   participant:     Participant
 }
 
@@ -48,6 +50,9 @@ interface VoiceState {
   /** Krisp (supressão de ruído por IA). Aplicado na track do mic. */
   noiseFilter: boolean
   toggleNoiseFilter: () => void
+  /** Overlay de stats (qualidade/resolução) por tile. */
+  showStats: boolean
+  toggleStats: () => void
 }
 
 const VOLUME_STORAGE_KEY = 'astra-voice-volume'
@@ -142,6 +147,7 @@ function snapshot(room: Room, TrackC: typeof TrackT): CallParticipantInfo[] {
     isCameraEnabled: p.getTrackPublications().some(
       (t) => t.source === TrackC.Source.Camera && !!t.track && !t.isMuted,
     ),
+    connectionQuality: String(p.connectionQuality ?? 'unknown'),
     participant:     p,
   }))
 }
@@ -162,6 +168,7 @@ function bindRoomEvents(
   room.on(RoomEventC.LocalTrackPublished,     onUpdate)
   room.on(RoomEventC.LocalTrackUnpublished,   onUpdate)
   room.on(RoomEventC.ActiveSpeakersChanged,   onUpdate)
+  room.on(RoomEventC.ConnectionQualityChanged, onUpdate)
   room.on(RoomEventC.Disconnected,            onDisc)
 }
 
@@ -202,6 +209,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     volume:       loadInitialVolume(),
     participantVolumes: loadParticipantVolumes(),
     noiseFilter:        loadNoiseFilter(),
+    showStats:          false,
 
     join: async (kind, id) => {
       const targetName = `${kind}:${id}`
@@ -404,6 +412,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       try { localStorage.setItem(NOISE_FILTER_KEY, next ? '1' : '0') } catch {}
       void applyMicNoiseFilter(next)
     },
+
+    toggleStats: () => set((s) => ({ showStats: !s.showStats })),
   }
 })
 

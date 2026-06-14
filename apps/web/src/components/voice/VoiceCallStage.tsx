@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
-  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Wand2,
+  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Wand2, Activity,
 } from 'lucide-react'
 import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -38,7 +38,7 @@ interface Props {
 }
 
 export function VoiceCallStage({ onMinimize }: Props) {
-  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter } = useVoiceCall()
+  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter, showStats, toggleStats } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
   const { data: users = [] } = useUsersMini(identities)
@@ -142,6 +142,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
                 user={userMap.get(p.identity)}
                 volume={participantVolumes[p.identity] ?? 1}
                 onVolume={(v) => setParticipantVolume(p.identity, v)}
+                showStats={showStats}
               />
             ))}
           </AnimatePresence>
@@ -241,6 +242,14 @@ export function VoiceCallStage({ onMinimize }: Props) {
           </ControlButton>
         </div>
 
+        <ControlButton
+          label={showStats ? 'Esconder estatísticas' : 'Mostrar estatísticas (conexão/resolução)'}
+          onClick={toggleStats}
+          active={showStats}
+        >
+          <Activity className="size-5" />
+        </ControlButton>
+
         <div className="w-px h-8 bg-(--border) mx-1" aria-hidden />
 
         <ControlButton label="Sair da chamada" onClick={leave} danger primary>
@@ -265,12 +274,13 @@ function ringColorFrom(bannerColor: string | null | undefined): string {
   return 'var(--accent)'
 }
 
-function ParticipantTile({ participant, user, index, volume, onVolume }: {
+function ParticipantTile({ participant, user, index, volume, onVolume, showStats }: {
   participant: CallParticipantInfo
   user?: UserMini
   index: number
   volume?: number
   onVolume?: (v: number) => void
+  showStats?: boolean
 }) {
   const displayName = user?.displayName ?? participant.identity.slice(0, 8)
   const initials    = displayName.slice(0, 2).toUpperCase()
@@ -387,6 +397,23 @@ function ParticipantTile({ participant, user, index, volume, onVolume }: {
           </Avatar>
         </div>
       )}
+
+      {/* Top-left: qualidade de conexão (sempre) + stats quando ligado */}
+      <div className="absolute top-1.5 left-1.5 z-10">
+        {showStats ? (
+          <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm flex items-center gap-1.5 text-[9px] font-mono text-white">
+            <span className="size-2 rounded-full" style={{ background: qualityColor(participant.connectionQuality) }} />
+            {participant.connectionQuality}
+            {cameraOn && videoRef.current?.videoWidth ? ` · ${videoRef.current.videoWidth}×${videoRef.current.videoHeight}` : ''}
+          </span>
+        ) : (
+          <span
+            className="block size-2.5 rounded-full ring-2 ring-black/40"
+            style={{ background: qualityColor(participant.connectionQuality) }}
+            aria-label={`Conexão: ${participant.connectionQuality}`}
+          />
+        )}
+      </div>
 
       {/* Top-right: mic indicator */}
       {muted && (
@@ -559,6 +586,14 @@ function ControlButton({ label, onClick, children, danger, active, primary }: {
 }
 
 // ─── Helper: gradient backdrop deterministic per identity ─────
+
+function qualityColor(q: string): string {
+  return q === 'excellent' ? 'var(--success)'
+    : q === 'good'         ? 'var(--accent)'
+    : q === 'poor'         ? '#f59e0b'
+    : q === 'lost'         ? 'var(--danger)'
+    :                        'var(--text-3)'
+}
 
 function userGradient(id: string): string {
   const presets = [

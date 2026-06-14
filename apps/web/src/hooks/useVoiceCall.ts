@@ -66,11 +66,14 @@ export function useVoiceCall() {
   const setParticipantVolume = useVoiceStore((s) => s.setParticipantVolume)
   const noiseFilter          = useVoiceStore((s) => s.noiseFilter)
   const toggleNoiseFilter    = useVoiceStore((s) => s.toggleNoiseFilter)
+  const showStats            = useVoiceStore((s) => s.showStats)
+  const toggleStats          = useVoiceStore((s) => s.toggleStats)
 
   return {
     state, roomName, participants, error, deafened, volume,
     join, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume,
     participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter,
+    showStats, toggleStats,
   }
 }
 

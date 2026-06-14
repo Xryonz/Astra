@@ -53,6 +53,14 @@ interface VoiceState {
   /** Overlay de stats (qualidade/resolução) por tile. */
   showStats: boolean
   toggleStats: () => void
+  /** Dispositivos de áudio escolhidos (deviceId) — null = padrão do sistema. */
+  audioInputId:  string | null
+  audioOutputId: string | null
+  setAudioInput:  (id: string) => Promise<void>
+  setAudioOutput: (id: string) => Promise<void>
+  /** Modo de transmissão: 'motion' (fluidez/jogo) | 'detail' (nitidez/texto). */
+  screenQuality: 'motion' | 'detail'
+  setScreenQuality: (q: 'motion' | 'detail') => void
 }
 
 const VOLUME_STORAGE_KEY = 'astra-voice-volume'
@@ -77,6 +85,16 @@ function loadParticipantVolumes(): Record<string, number> {
 const NOISE_FILTER_KEY = 'astra-noise-filter'
 function loadNoiseFilter(): boolean {
   try { return localStorage.getItem(NOISE_FILTER_KEY) !== '0' } catch { return true } // default ON
+}
+
+const DEV_IN_KEY = 'astra-voice-in'
+const DEV_OUT_KEY = 'astra-voice-out'
+const SCREEN_Q_KEY = 'astra-screen-quality'
+function loadDev(key: string): string | null {
+  try { return localStorage.getItem(key) || null } catch { return null }
+}
+function loadScreenQuality(): 'motion' | 'detail' {
+  try { return localStorage.getItem(SCREEN_Q_KEY) === 'detail' ? 'detail' : 'motion' } catch { return 'motion' }
 }
 
 // Mensagens humanas pros erros mais comuns de getUserMedia / LiveKit. Sem
@@ -210,6 +228,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     participantVolumes: loadParticipantVolumes(),
     noiseFilter:        loadNoiseFilter(),
     showStats:          false,
+    audioInputId:       loadDev(DEV_IN_KEY),
+    audioOutputId:      loadDev(DEV_OUT_KEY),
+    screenQuality:      loadScreenQuality(),
 
     join: async (kind, id) => {
       const targetName = `${kind}:${id}`
@@ -270,6 +291,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         } catch (micErr: any) {
           console.warn('[voice] mic permission denied/error — entrando mudo:', micErr?.message)
         }
+
+        // Dispositivos salvos (mic/alto-falante) — aplica antes do Krisp pra
+        // o filtro pegar a track certa.
+        const savedIn  = get().audioInputId
+        const savedOut = get().audioOutputId
+        if (savedIn)  { try { await room.switchActiveDevice('audioinput',  savedIn)  } catch {} }
+        if (savedOut) { try { await room.switchActiveDevice('audiooutput', savedOut) } catch {} }
 
         activeRoom = room
         void applyMicNoiseFilter(get().noiseFilter)
@@ -342,21 +370,19 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
           //    separada (ScreenShareAudio) e os outros ouvem — watch party.
           //  - contentHint: ainda não tipado em options.d.ts; aplicado direto
           //    na MediaStreamTrack após publish (vê hook abaixo).
+          // Modo qualidade: motion (fluidez/jogo, 60fps 8Mbps) vs detail
+          // (nitidez/texto, 30fps 5Mbps). contentHint diz ao encoder o que
+          // priorizar — fluidez (smearing ok) ou nitidez por frame.
+          const detail = get().screenQuality === 'detail'
+          const fps    = detail ? 30 : 60
           const pub = await lp.setScreenShareEnabled(
             true,
-            { resolution: { width: 1920, height: 1080, frameRate: 60 }, audio: true },
-            // 8Mbps: a 5Mbps, 1080p60 com muito movimento (jogo) mostrava
-            // macroblocking. Browser entrega no máx 60fps de captura —
-            // 120fps não existe em getDisplayMedia, o teto é do Chrome.
-            { videoEncoding: { maxBitrate: 8_000_000, maxFramerate: 60 }, simulcast: false },
+            { resolution: { width: 1920, height: 1080, frameRate: fps }, audio: true },
+            { videoEncoding: { maxBitrate: detail ? 5_000_000 : 8_000_000, maxFramerate: fps }, simulcast: false },
           )
-          // contentHint = 'motion' diz ao encoder pra priorizar fluidez
-          // (smearing aceitável) em vez de nitidez por frame — crítico
-          // pra screen com vídeo/jogo. Pra "detail" (código, slides), o
-          // browser já tende a usar text por padrão do getDisplayMedia.
           const track = pub?.track?.mediaStreamTrack
           if (track && 'contentHint' in track) {
-            try { (track as any).contentHint = 'motion' } catch {}
+            try { (track as any).contentHint = detail ? 'detail' : 'motion' } catch {}
           }
           set({ error: null })
         } catch (e: any) {
@@ -414,6 +440,29 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     },
 
     toggleStats: () => set((s) => ({ showStats: !s.showStats })),
+
+    setAudioInput: async (id) => {
+      set({ audioInputId: id })
+      try { localStorage.setItem(DEV_IN_KEY, id) } catch {}
+      if (activeRoom) {
+        try { await activeRoom.switchActiveDevice('audioinput', id) } catch (e: any) { console.warn('[voice] troca de mic:', e?.message) }
+        void applyMicNoiseFilter(get().noiseFilter) // a track foi recriada
+      }
+    },
+
+    setAudioOutput: async (id) => {
+      set({ audioOutputId: id })
+      try { localStorage.setItem(DEV_OUT_KEY, id) } catch {}
+      if (activeRoom) { try { await activeRoom.switchActiveDevice('audiooutput', id) } catch {} }
+      document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
+        if ('setSinkId' in a) { try { void (a as any).setSinkId(id) } catch {} }
+      })
+    },
+
+    setScreenQuality: (q) => {
+      set({ screenQuality: q })
+      try { localStorage.setItem(SCREEN_Q_KEY, q) } catch {}
+    },
   }
 })
 

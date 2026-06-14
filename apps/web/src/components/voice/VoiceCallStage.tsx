@@ -17,11 +17,11 @@
  * Vibe Astra: hairline borders, --accent subtle pulse no speaking,
  * mono pra tech info, serif display pros nomes, tokens consistentes.
  */
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
-  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Wand2, Activity,
+  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Wand2, Activity, Settings2,
 } from 'lucide-react'
 import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -194,7 +194,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0,  opacity: 1 }}
         transition={{ duration: 0.45, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        className="border-t border-(--border) bg-(--base) px-3 sm:px-4 py-3 sm:py-4 max-[640px]:landscape:py-1.5 pb-safe flex items-center justify-center gap-1.5 sm:gap-2 shrink-0"
+        className="border-t border-(--border) bg-(--base) px-3 sm:px-4 py-3 sm:py-4 max-[640px]:landscape:py-1.5 pb-safe flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 shrink-0"
       >
         <ControlButton
           label={localMic ? 'Mutar microfone' : 'Desmutar microfone'}
@@ -241,6 +241,8 @@ export function VoiceCallStage({ onMinimize }: Props) {
             {localShare ? <ScreenShareOff className="size-5" /> : <ScreenShare className="size-5" />}
           </ControlButton>
         </div>
+
+        <CallSettings />
 
         <ControlButton
           label={showStats ? 'Esconder estatísticas' : 'Mostrar estatísticas (conexão/resolução)'}
@@ -545,6 +547,84 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
         </span>
       </div>
     </div>
+  )
+}
+
+// ─── Configurações da call (dispositivos + modo qualidade) ────
+
+function CallSettings() {
+  const { audioInputId, audioOutputId, setAudioInput, setAudioOutput, screenQuality, setScreenQuality } = useVoiceCall()
+  const [mics, setMics]         = useState<MediaDeviceInfo[]>([])
+  const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([])
+  const canSetSink = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype
+
+  const loadDevices = async () => {
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices()
+      setMics(devs.filter((d) => d.kind === 'audioinput'))
+      setSpeakers(devs.filter((d) => d.kind === 'audiooutput'))
+    } catch { /* sem permissão / não suportado */ }
+  }
+
+  const selectCls = 'w-full mt-1 px-2 py-1.5 text-xs bg-(--raised) border border-(--border-mid) rounded-lg text-(--text-1) outline-none focus:border-(--accent) cursor-pointer'
+
+  return (
+    <Popover onOpenChange={(o) => { if (o) void loadDevices() }}>
+      <PopoverTrigger asChild>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.06 }}
+          transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+          aria-label="Configurações da chamada"
+          className="size-11 sm:size-12 max-[640px]:landscape:size-9 rounded-full grid place-items-center border-2 border-(--border-mid) bg-(--raised)/60 text-(--text-1) hover:border-(--accent) hover:text-(--accent) transition-[background-color,border-color,color] duration-200 cursor-pointer"
+        >
+          <Settings2 className="size-5" />
+        </motion.button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="center" className="w-72 p-4 space-y-4">
+        <div>
+          <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Microfone</label>
+          <select value={audioInputId ?? ''} onChange={(e) => void setAudioInput(e.target.value)} className={selectCls}>
+            <option value="">Padrão do sistema</option>
+            {mics.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microfone'}</option>)}
+          </select>
+        </div>
+
+        {canSetSink && (
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Alto-falante</label>
+            <select value={audioOutputId ?? ''} onChange={(e) => void setAudioOutput(e.target.value)} className={selectCls}>
+              <option value="">Padrão do sistema</option>
+              {speakers.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Alto-falante'}</option>)}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Qualidade da transmissão</span>
+          <div className="flex gap-2 mt-1.5">
+            <QualityChip active={screenQuality === 'motion'} onClick={() => setScreenQuality('motion')} title="Fluidez" sub="Jogo / vídeo" />
+            <QualityChip active={screenQuality === 'detail'} onClick={() => setScreenQuality('detail')} title="Nitidez" sub="Texto / código" />
+          </div>
+          <p className="text-[10px] text-(--text-3) m-0 mt-1.5">Vale na próxima vez que você compartilhar a tela.</p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function QualityChip({ active, onClick, title, sub }: { active: boolean; onClick: () => void; title: string; sub: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex-1 px-2 py-2 rounded-lg border text-left transition-colors cursor-pointer',
+        active ? 'border-(--accent) bg-(--accent-dim)' : 'border-(--border-mid) hover:border-(--border-bright)',
+      )}
+    >
+      <span className={cn('block text-xs font-medium', active ? 'text-(--accent)' : 'text-(--text-1)')}>{title}</span>
+      <span className="block text-[10px] text-(--text-3)">{sub}</span>
+    </button>
   )
 }
 

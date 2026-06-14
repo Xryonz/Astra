@@ -303,8 +303,17 @@ function QuickBtn({ label, onClick, children, danger, active, primary }: {
 // ─── Remote audio element manager ────────────────────────────
 
 function RemoteAudioElements() {
-  const { participants, volume, deafened, participantVolumes } = useVoiceCall()
+  const { participants, volume, deafened, participantVolumes, audioOutputId } = useVoiceCall()
   const refs = useRef<Map<string, HTMLAudioElement>>(new Map())
+
+  // Alto-falante escolhido → setSinkId em cada <audio> (só onde suportado;
+  // WebView Android normalmente ignora e usa a saída padrão).
+  useEffect(() => {
+    if (!audioOutputId) return
+    for (const el of refs.current.values()) {
+      if ('setSinkId' in el) { try { void (el as any).setSinkId(audioOutputId) } catch {} }
+    }
+  }, [audioOutputId, participants])
 
   useEffect(() => {
     for (const p of participants) {

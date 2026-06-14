@@ -68,12 +68,19 @@ export function useVoiceCall() {
   const toggleNoiseFilter    = useVoiceStore((s) => s.toggleNoiseFilter)
   const showStats            = useVoiceStore((s) => s.showStats)
   const toggleStats          = useVoiceStore((s) => s.toggleStats)
+  const audioInputId         = useVoiceStore((s) => s.audioInputId)
+  const audioOutputId        = useVoiceStore((s) => s.audioOutputId)
+  const setAudioInput        = useVoiceStore((s) => s.setAudioInput)
+  const setAudioOutput       = useVoiceStore((s) => s.setAudioOutput)
+  const screenQuality        = useVoiceStore((s) => s.screenQuality)
+  const setScreenQuality     = useVoiceStore((s) => s.setScreenQuality)
 
   return {
     state, roomName, participants, error, deafened, volume,
     join, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume,
     participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter,
     showStats, toggleStats,
+    audioInputId, audioOutputId, setAudioInput, setAudioOutput, screenQuality, setScreenQuality,
   }
 }
 

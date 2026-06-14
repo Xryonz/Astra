@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -20,6 +21,7 @@ const HEX_RE = /^#[0-9a-fA-F]{6}$/
  * Esta cor é só o "fallback pessoal" quando você não tem cargo colorido.
  */
 export default function NameColorsSection() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [serverColors,  setServerColors]  = useState<Record<string, string>>({})
   const [colorServerId, setColorServerId] = useState<string | null>(null)
@@ -39,18 +41,18 @@ export default function NameColorsSection() {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       queryClient.invalidateQueries({ queryKey: ['members'] })
     },
-    onError: (e: any) => setColorError(e.response?.data?.error ?? 'Erro'),
+    onError: (e: any) => setColorError(e.response?.data?.error ?? t('settings.nameColors.error')),
   })
 
   return (
     <div>
       <SectionHeader
-        title="Cores nos servidores"
-        description="Personalize a cor do seu nome em cada servidor. Cargos do servidor sobrescrevem esta escolha."
+        title={t('settings.nameColors.title')}
+        description={t('settings.nameColors.description')}
       />
 
       {servers.length === 0 && (
-        <p className="text-sm text-(--text-3) italic">Você não é membro de nenhum servidor.</p>
+        <p className="text-sm text-(--text-3) italic">{t('settings.nameColors.noServers')}</p>
       )}
 
       <div className="flex flex-col gap-2">
@@ -78,7 +80,7 @@ export default function NameColorsSection() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-foreground text-sm font-medium m-0 truncate">{server.name}</p>
-                  <p className="text-(--text-3) text-marg m-0">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
+                  <p className="text-(--text-3) text-marg m-0">{server.isGroup ? t('settings.nameColors.group') : t('settings.nameColors.server')}</p>
                 </div>
                 {currentColor && (
                   <div className="size-4 rounded-full border-2 border-(--border-mid)" style={{ background: currentColor }} />
@@ -88,7 +90,7 @@ export default function NameColorsSection() {
 
               {isSelected && (
                 <div className="px-3 pb-3 pt-2 border-t border-(--border)">
-                  <p className="text-[10px] uppercase tracking-wider text-(--text-3) mb-2 font-medium">Predefinidas</p>
+                  <p className="text-[10px] uppercase tracking-wider text-(--text-3) mb-2 font-medium">{t('settings.nameColors.presets')}</p>
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {NAME_COLOR_PRESETS.map((c) => {
                       const isActive = serverColors[server.id] === c && !customHex
@@ -123,16 +125,16 @@ export default function NameColorsSection() {
                   <div className="flex gap-2">
                     <Button variant="secondary" size="sm" className="flex-1"
                       onClick={() => updateColor.mutate({ serverId: server.id, nameColor: null })}>
-                      Resetar
+                      {t('settings.nameColors.reset')}
                     </Button>
                     <Button size="sm" className="flex-1"
                       disabled={updateColor.isPending}
                       onClick={() => {
                         const c = customHex || serverColors[server.id]
-                        if (c && !HEX_RE.test(c)) { setColorError('Formato inválido (use #RRGGBB)'); return }
+                        if (c && !HEX_RE.test(c)) { setColorError(t('settings.nameColors.invalidFormat')); return }
                         updateColor.mutate({ serverId: server.id, nameColor: c || null })
                       }}>
-                      {updateColor.isPending ? 'Salvando…' : 'Aplicar'}
+                      {updateColor.isPending ? t('settings.nameColors.saving') : t('settings.nameColors.apply')}
                     </Button>
                   </div>
                 </div>

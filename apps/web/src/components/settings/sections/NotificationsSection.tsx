@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bell, BellOff, BellRing } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -11,6 +12,7 @@ import { SectionHeader, Row } from './_shared'
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 export default function NotificationsSection() {
+  const { t } = useTranslation()
   const { state, subscribe, unsubscribe, sendTest, native } = usePushNotifications()
   const { data: prefsData } = useNotificationPrefs()
   const updatePrefs = useUpdatePrefs()
@@ -36,18 +38,18 @@ export default function NotificationsSection() {
 
   const localTest = async () => {
     if (!('Notification' in window)) {
-      toast.error('Browser sem suporte a notificações.')
+      toast.error(t('settings.notifications.toastNoSupport'))
       return
     }
     if (Notification.permission !== 'granted') {
       const p = await Notification.requestPermission()
       if (p !== 'granted') {
-        toast.info('Permissão negada — libere nas configs do navegador.')
+        toast.info(t('settings.notifications.toastPermDenied'))
         return
       }
     }
-    new Notification('Astra · Teste local', {
-      body: 'Se você vê isso, notificações do browser funcionam.',
+    new Notification(t('settings.notifications.testTitle'), {
+      body: t('settings.notifications.testBody'),
       icon: '/astra-logo.png',
     })
   }
@@ -55,89 +57,88 @@ export default function NotificationsSection() {
   return (
     <div>
       <SectionHeader
-        title="Notificações"
-        description="Decida o que te interrompe — e quando."
+        title={t('settings.notifications.title')}
+        description={t('settings.notifications.description')}
       />
 
       {/* ── Push (device) ─────────────────────────────────── */}
-      <Row label="Notificações push" hint="Receba alertas mesmo com a Astra fechada — depende do navegador permitir.">
+      <Row label={t('settings.notifications.push')} hint={t('settings.notifications.pushHint')}>
         {state === 'unsupported' && (
           <div className="border border-(--border) bg-(--raised)/40 p-3 text-sm text-(--text-3)">
-            Navegador sem suporte a push (iOS Safari requer adicionar à tela inicial).
+            {t('settings.notifications.unsupported')}
           </div>
         )}
         {state === 'server-disabled' && (
           <div className="border border-(--accent)/30 bg-(--raised)/40 p-3 text-sm">
             <p className="m-0 text-(--text-2)">
-              Push está temporariamente indisponível no servidor.
-              Notificações in-app continuam funcionando.
+              {t('settings.notifications.serverDisabled')}
             </p>
           </div>
         )}
         {state === 'denied' && (
           <div className="border border-(--danger)/40 bg-(--danger)/5 p-3 text-sm">
-            <p className="m-0 text-(--danger) flex items-center gap-2"><BellOff className="size-3.5" /> Permissão bloqueada</p>
+            <p className="m-0 text-(--danger) flex items-center gap-2"><BellOff className="size-3.5" /> {t('settings.notifications.deniedTitle')}</p>
             <p className="m-0 mt-1 text-(--text-3) text-xs">
               {native
-                ? 'Libere notificações pra Astra nas configurações do Android (Apps → Astra → Notificações).'
-                : 'Libere notificações nas configurações do site no navegador e recarregue.'}
+                ? t('settings.notifications.deniedNative')
+                : t('settings.notifications.deniedWeb')}
             </p>
           </div>
         )}
         {state === 'unsubscribed' && (
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={subscribe} className="gap-2"><Bell className="size-4" /> Ativar push</Button>
-            {!native && <Button variant="outline" onClick={localTest} className="gap-2"><BellRing className="size-3.5" /> Testar local</Button>}
+            <Button onClick={subscribe} className="gap-2"><Bell className="size-4" /> {t('settings.notifications.enablePush')}</Button>
+            {!native && <Button variant="outline" onClick={localTest} className="gap-2"><BellRing className="size-3.5" /> {t('settings.notifications.testLocal')}</Button>}
           </div>
         )}
         {state === 'subscribed' && (
           <div className="flex flex-col gap-2">
             <div className="border border-(--accent)/40 bg-(--accent-dim) px-3 py-2 text-sm flex items-center gap-2">
               <BellRing className="size-4 text-(--accent)" />
-              <span className="text-(--accent) font-medium">Ativadas</span>
-              <span className="text-(--text-3) text-xs">· neste dispositivo</span>
+              <span className="text-(--accent) font-medium">{t('settings.notifications.enabled')}</span>
+              <span className="text-(--text-3) text-xs">{t('settings.notifications.onThisDevice')}</span>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button variant="secondary" size="sm" onClick={sendTest}>Testar push</Button>
-              {!native && <Button variant="outline" size="sm" onClick={localTest}>Testar local</Button>}
+              <Button variant="secondary" size="sm" onClick={sendTest}>{t('settings.notifications.testPush')}</Button>
+              {!native && <Button variant="outline" size="sm" onClick={localTest}>{t('settings.notifications.testLocal')}</Button>}
               {!native && (
                 <Button variant="outline" size="sm" onClick={unsubscribe} className="gap-2">
-                  <BellOff className="size-3.5" /> Desativar
+                  <BellOff className="size-3.5" /> {t('settings.notifications.disable')}
                 </Button>
               )}
             </div>
             {native && (
               <p className="m-0 text-xs text-(--text-3)">
-                Pra desativar, use as configurações de notificação do Android (por canal: menções, sussurros, atividade).
+                {t('settings.notifications.nativeManage')}
               </p>
             )}
           </div>
         )}
         {state === 'loading' && (
           <div className="flex items-center gap-2 text-sm text-(--text-3)">
-            <Spinner size={12} /> Carregando…
+            <Spinner size={12} /> {t('settings.notifications.loading')}
           </div>
         )}
       </Row>
 
       {/* ── Tipos ────────────────────────────────────────── */}
-      <Row label="O que quero receber" hint="Cada tipo pode ser ligado/desligado independente.">
+      <Row label={t('settings.notifications.types')} hint={t('settings.notifications.typesHint')}>
         {!prefs ? (
           <div className="flex items-center gap-2 text-xs text-(--text-3)">
-            <Spinner size={12} /> Carregando preferências…
+            <Spinner size={12} /> {t('settings.notifications.loadingPrefs')}
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-2">
-            <PrefToggle label="Menções"  hint="Quando alguém usa @você"          active={prefs.mentions}  onClick={togglePref('mentions')} />
-            <PrefToggle label="Sussurros" hint="Mensagens diretas"                active={prefs.dms}       onClick={togglePref('dms')} />
-            <PrefToggle label="Respostas" hint="Quando respondem sua msg"         active={prefs.replies}   onClick={togglePref('replies')} />
-            <PrefToggle label="Reações"  hint="Quando reagem à sua msg"           active={prefs.reactions} onClick={togglePref('reactions')} />
+            <PrefToggle label={t('settings.notifications.mentions')} hint={t('settings.notifications.mentionsHint')} active={prefs.mentions}  onClick={togglePref('mentions')} />
+            <PrefToggle label={t('settings.notifications.dms')}      hint={t('settings.notifications.dmsHint')}      active={prefs.dms}       onClick={togglePref('dms')} />
+            <PrefToggle label={t('settings.notifications.replies')}  hint={t('settings.notifications.repliesHint')}  active={prefs.replies}   onClick={togglePref('replies')} />
+            <PrefToggle label={t('settings.notifications.reactions')} hint={t('settings.notifications.reactionsHint')} active={prefs.reactions} onClick={togglePref('reactions')} />
           </div>
         )}
       </Row>
 
       {/* ── Som ──────────────────────────────────────────── */}
-      <Row label="Som ao receber" hint="Toca som curto por tipo (mais agudo pra menção, mais grave pra DM).">
+      <Row label={t('settings.notifications.sound')} hint={t('settings.notifications.soundHint')}>
         {prefs && (
           <div className="flex gap-2 flex-wrap">
             <button
@@ -150,13 +151,13 @@ export default function NotificationsSection() {
               )}
             >
               {prefs.sounds ? <BellRing className="size-3.5" /> : <BellOff className="size-3.5" />}
-              {prefs.sounds ? 'Som habilitado' : 'Som desabilitado'}
+              {prefs.sounds ? t('settings.notifications.soundOn') : t('settings.notifications.soundOff')}
             </button>
             <button
               onClick={toggleLocalMute}
               className="self-start px-3 h-9 border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) text-sm transition-colors cursor-pointer flex items-center gap-2"
             >
-              {localMute ? 'Som global mutado neste dispositivo' : 'Mutar só neste dispositivo'}
+              {localMute ? t('settings.notifications.mutedThisDevice') : t('settings.notifications.muteThisDevice')}
             </button>
           </div>
         )}
@@ -164,19 +165,19 @@ export default function NotificationsSection() {
 
       {/* ── Quiet hours ──────────────────────────────────── */}
       <Row
-        label="Horas silenciosas"
-        hint="Durante essa janela, notificações ainda aparecem no sino — só não tocam som nem mostram pop-up."
+        label={t('settings.notifications.quiet')}
+        hint={t('settings.notifications.quietHint')}
       >
         {prefs && (
           <div className="flex items-end gap-3 flex-wrap">
-            <HourPicker label="Início"  value={prefs.quietStart} onChange={updateQuiet('quietStart')} />
-            <HourPicker label="Término" value={prefs.quietEnd}   onChange={updateQuiet('quietEnd')} />
+            <HourPicker label={t('settings.notifications.start')} value={prefs.quietStart} onChange={updateQuiet('quietStart')} />
+            <HourPicker label={t('settings.notifications.end')}   value={prefs.quietEnd}   onChange={updateQuiet('quietEnd')} />
             {prefs.quietStart != null && prefs.quietEnd != null && (
               <button
                 onClick={() => updatePrefs.mutate({ quietStart: null, quietEnd: null })}
                 className="h-9 px-3 text-xs text-(--text-3) hover:text-(--text-2) transition-colors"
               >
-                Limpar
+                {t('settings.notifications.clear')}
               </button>
             )}
           </div>

@@ -126,6 +126,80 @@
       "bio": "Bio",
       "bioHint": "Até 300 caracteres. Markdown: **negrito** · *itálico* · `código` · [texto](url) · quebra de linha.",
       "bioPlaceholder": "Algo sobre você… use **negrito**, *itálico*, ou [link](https://...)"
+    },
+    "customization": {
+      "title": "Personalização",
+      "description": "Aparência visual do seu perfil — banner, tema, fonte, cor de texto. Tudo com auto-save.",
+      "banner": "Banner",
+      "bannerHint": "Imagem grande no topo do perfil. Customize fundo, posição e borda em abas separadas.",
+      "tabBackground": "Fundo",
+      "tabAdjust": "Ajuste",
+      "uploadImage": "Enviar imagem",
+      "removeImage": "Remover imagem",
+      "gradientBackground": "— Gradient de fundo",
+      "closeCustom": "Fechar custom",
+      "customGradient": "Custom gradient",
+      "adjustHelp": "Arraste a imagem verticalmente pra escolher qual parte aparece. Slider de zoom: 50% mostra banner inteiro (bg preenche em volta) · 200% dá close máximo.",
+      "adjustLocked": "Envie uma imagem na aba Fundo pra desbloquear ajuste de posição e zoom.",
+      "theme": "Tema do card de perfil",
+      "themeHint": "Gradient de fundo do card que aparece quando alguém abre seu perfil.",
+      "font": "Fonte do nome",
+      "fontHint": "Tipografia do seu nome no card de perfil e nas mensagens do chat. 8 famílias curadas.",
+      "dragVertically": "Arraste verticalmente",
+      "zoom": "Zoom",
+      "reset": "Resetar",
+      "fonts": {
+        "serif":       { "label": "Serif Display",    "preview": "Editorial clássico" },
+        "sans":        { "label": "Sans Limpa",       "preview": "Limpo & moderno" },
+        "mono":        { "label": "Mono Técnica",     "preview": "Identidade hacker" },
+        "rounded":     { "label": "Sans Arredondada", "preview": "Amigável & soft" },
+        "condensed":   { "label": "Condensada",       "preview": "Apertada & forte" },
+        "handwriting": { "label": "Manuscrita",       "preview": "Pessoal & solto" },
+        "gothic":      { "label": "Gótica",           "preview": "Antiga & ritual" },
+        "modern":      { "label": "Geométrica",       "preview": "Geométrica & limpa" }
+      }
+    },
+    "appearance": {
+      "title": "Aparência",
+      "description": "Personalize as cores da interface. Mudanças aparecem na hora.",
+      "quickTheme": "Tema rápido",
+      "quickThemeHint": "Combinações pré-pensadas de cor + fundo. Você ainda pode ajustar individualmente abaixo.",
+      "accent": "Cor de destaque",
+      "accentHint": "Usada em botões, links, hover e elementos ativos.",
+      "current": "Atual:",
+      "background": "Fundo da interface",
+      "backgroundHint": "Tom base do app. Afeta todas as telas.",
+      "fontSize": "Tamanho da fonte",
+      "fontSizeHint": "Escala TODA a UI (rem-based). Útil pra telas grandes/pequenas.",
+      "messageSpacing": "Espaçamento das mensagens",
+      "messageSpacingHint": "Compacta = mais mensagens visíveis; Espaçosa = mais respiro.",
+      "reduceMotion": "Reduzir animações",
+      "reduceMotionHint": "Diminui ou elimina movimentos da UI. Útil em máquinas modestas ou sensibilidade vestibular.",
+      "motionReduced": "Animações reduzidas",
+      "motionActive": "Animações ativas",
+      "presets": {
+        "obsidian": { "label": "Obsidiana", "hint": "Prata fria + void" },
+        "solar":    { "label": "Solar",     "hint": "Âmbar editorial" },
+        "nebula":   { "label": "Nebulosa",  "hint": "Violeta cósmica" },
+        "aurora":   { "label": "Aurora",    "hint": "Ciano + floresta" },
+        "eclipse":  { "label": "Eclipse",   "hint": "Carmim sobre vinho" },
+        "meridian": { "label": "Meridiano", "hint": "Esmeralda + carvão" },
+        "amoled":   { "label": "AMOLED",    "hint": "Branco em preto puro" }
+      },
+      "accents": {
+        "gold": "Âmbar", "violet": "Violeta", "teal": "Ciano", "rose": "Rosa",
+        "emerald": "Esmeralda", "orange": "Laranja", "crimson": "Carmim", "indigo": "Índigo",
+        "sage": "Salva", "copper": "Cobre", "slate": "Ardósia", "lilac": "Lilás",
+        "red": "Vermelho", "yellow": "Amarelo", "blue": "Azul", "green": "Verde",
+        "white": "Branco", "black": "Preto"
+      },
+      "backgrounds": {
+        "void": "Obsidiana", "dark": "Carvão", "navy": "Marinho", "forest": "Floresta",
+        "wine": "Vinho", "pure-black": "Preto AMOLED", "pure-red": "Vermelho",
+        "pure-yellow": "Amarelo", "pure-blue": "Azul", "pure-green": "Verde"
+      },
+      "fontSizes": { "sm": "Pequena", "md": "Padrão", "lg": "Grande", "xl": "Maior" },
+      "densities": { "compact": "Compacta", "comfortable": "Confortável", "spacious": "Espaçosa" }
     }
   },
   "language": {

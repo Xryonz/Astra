@@ -126,6 +126,80 @@
       "bio": "Bio",
       "bioHint": "Up to 300 characters. Markdown: **bold** · *italic* · `code` · [text](url) · line break.",
       "bioPlaceholder": "Something about you… use **bold**, *italic*, or [link](https://...)"
+    },
+    "customization": {
+      "title": "Customization",
+      "description": "Your profile's visual look — banner, theme, font, text color. All auto-saved.",
+      "banner": "Banner",
+      "bannerHint": "Large image at the top of your profile. Tune background, position and border in separate tabs.",
+      "tabBackground": "Background",
+      "tabAdjust": "Adjust",
+      "uploadImage": "Upload image",
+      "removeImage": "Remove image",
+      "gradientBackground": "— Background gradient",
+      "closeCustom": "Close custom",
+      "customGradient": "Custom gradient",
+      "adjustHelp": "Drag the image vertically to choose which part shows. Zoom slider: 50% shows the whole banner (bg fills around it) · 200% is max close-up.",
+      "adjustLocked": "Upload an image in the Background tab to unlock position and zoom adjustment.",
+      "theme": "Profile card theme",
+      "themeHint": "Background gradient of the card shown when someone opens your profile.",
+      "font": "Name font",
+      "fontHint": "Typeface for your name on the profile card and in chat messages. 8 curated families.",
+      "dragVertically": "Drag vertically",
+      "zoom": "Zoom",
+      "reset": "Reset",
+      "fonts": {
+        "serif":       { "label": "Serif Display",   "preview": "Classic editorial" },
+        "sans":        { "label": "Clean Sans",      "preview": "Clean & modern" },
+        "mono":        { "label": "Technical Mono",  "preview": "Hacker identity" },
+        "rounded":     { "label": "Rounded Sans",    "preview": "Friendly & soft" },
+        "condensed":   { "label": "Condensed",       "preview": "Tight & strong" },
+        "handwriting": { "label": "Handwriting",     "preview": "Personal & loose" },
+        "gothic":      { "label": "Gothic",          "preview": "Old & ritual" },
+        "modern":      { "label": "Geometric",       "preview": "Geometric & clean" }
+      }
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Customize the interface colors. Changes show up instantly.",
+      "quickTheme": "Quick theme",
+      "quickThemeHint": "Pre-thought color + background combos. You can still adjust each individually below.",
+      "accent": "Accent color",
+      "accentHint": "Used on buttons, links, hover and active elements.",
+      "current": "Current:",
+      "background": "Interface background",
+      "backgroundHint": "Base tone of the app. Affects every screen.",
+      "fontSize": "Font size",
+      "fontSizeHint": "Scales the WHOLE UI (rem-based). Handy for large/small screens.",
+      "messageSpacing": "Message spacing",
+      "messageSpacingHint": "Compact = more messages visible; Spacious = more breathing room.",
+      "reduceMotion": "Reduce animations",
+      "reduceMotionHint": "Lessens or removes UI motion. Handy on modest machines or for vestibular sensitivity.",
+      "motionReduced": "Animations reduced",
+      "motionActive": "Animations active",
+      "presets": {
+        "obsidian": { "label": "Obsidian",  "hint": "Cold silver + void" },
+        "solar":    { "label": "Solar",     "hint": "Editorial amber" },
+        "nebula":   { "label": "Nebula",    "hint": "Cosmic violet" },
+        "aurora":   { "label": "Aurora",    "hint": "Cyan + forest" },
+        "eclipse":  { "label": "Eclipse",   "hint": "Crimson over wine" },
+        "meridian": { "label": "Meridian",  "hint": "Emerald + charcoal" },
+        "amoled":   { "label": "AMOLED",    "hint": "White on pure black" }
+      },
+      "accents": {
+        "gold": "Amber", "violet": "Violet", "teal": "Cyan", "rose": "Rose",
+        "emerald": "Emerald", "orange": "Orange", "crimson": "Crimson", "indigo": "Indigo",
+        "sage": "Sage", "copper": "Copper", "slate": "Slate", "lilac": "Lilac",
+        "red": "Red", "yellow": "Yellow", "blue": "Blue", "green": "Green",
+        "white": "White", "black": "Black"
+      },
+      "backgrounds": {
+        "void": "Obsidian", "dark": "Charcoal", "navy": "Navy", "forest": "Forest",
+        "wine": "Wine", "pure-black": "AMOLED Black", "pure-red": "Red",
+        "pure-yellow": "Yellow", "pure-blue": "Blue", "pure-green": "Green"
+      },
+      "fontSizes": { "sm": "Small", "md": "Default", "lg": "Large", "xl": "Larger" },
+      "densities": { "compact": "Compact", "comfortable": "Comfortable", "spacious": "Spacious" }
     }
   },
   "language": {

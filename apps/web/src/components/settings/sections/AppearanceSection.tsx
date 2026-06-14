@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import {
   ACCENT_OPTIONS, BG_OPTIONS, applyTheme,
@@ -20,6 +21,7 @@ import { SectionHeader, Row } from './_shared'
  * — local já está aplicado, sync server eventualmente refaz.
  */
 export default function AppearanceSection() {
+  const { t } = useTranslation()
   const [accentId, setAccentId] = useState(() =>
     localStorage.getItem('astra-accent') ?? localStorage.getItem('umbra-accent') ?? 'white',
   )
@@ -54,11 +56,11 @@ export default function AppearanceSection() {
   return (
     <div>
       <SectionHeader
-        title="Aparência"
-        description="Personalize as cores da interface. Mudanças aparecem na hora."
+        title={t('settings.appearance.title')}
+        description={t('settings.appearance.description')}
       />
 
-      <Row label="Tema rápido" hint="Combinações pré-pensadas de cor + fundo. Você ainda pode ajustar individualmente abaixo.">
+      <Row label={t('settings.appearance.quickTheme')} hint={t('settings.appearance.quickThemeHint')}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {THEME_PRESETS.map((p) => {
             const active = accentId === p.accent && bgId === p.bg
@@ -84,8 +86,8 @@ export default function AppearanceSection() {
                   <span className="absolute right-1 top-1 size-3 rounded-full" style={{ background: accent?.value }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{p.label}</div>
-                  <div className="text-marg text-(--text-3) truncate">{p.hint}</div>
+                  <div className="text-sm font-medium truncate">{t(`settings.appearance.presets.${p.id}.label`)}</div>
+                  <div className="text-marg text-(--text-3) truncate">{t(`settings.appearance.presets.${p.id}.hint`)}</div>
                 </div>
                 {active && <Check className="size-4 text-(--accent) shrink-0" />}
               </button>
@@ -94,7 +96,7 @@ export default function AppearanceSection() {
         </div>
       </Row>
 
-      <Row label="Cor de destaque" hint="Usada em botões, links, hover e elementos ativos.">
+      <Row label={t('settings.appearance.accent')} hint={t('settings.appearance.accentHint')}>
         <div className="flex flex-wrap gap-2">
           {ACCENT_OPTIONS.map((a) => {
             const active = accentId === a.id
@@ -102,7 +104,7 @@ export default function AppearanceSection() {
               <button
                 key={a.id}
                 type="button"
-                title={a.label}
+                title={t(`settings.appearance.accents.${a.id}`)}
                 onClick={() => setAccentId(a.id)}
                 className={cn(
                   'size-9 cursor-pointer transition-all border-2',
@@ -116,11 +118,11 @@ export default function AppearanceSection() {
           })}
         </div>
         <p className="text-xs text-(--text-3) mt-2 m-0">
-          Atual: <span className="text-foreground">{ACCENT_OPTIONS.find((a) => a.id === accentId)?.label}</span>
+          {t('settings.appearance.current')} <span className="text-foreground">{t(`settings.appearance.accents.${accentId}`)}</span>
         </p>
       </Row>
 
-      <Row label="Fundo da interface" hint="Tom base do app. Afeta todas as telas.">
+      <Row label={t('settings.appearance.background')} hint={t('settings.appearance.backgroundHint')}>
         <div className="flex flex-col gap-1.5">
           {BG_OPTIONS.map((b) => {
             const active = bgId === b.id
@@ -137,7 +139,7 @@ export default function AppearanceSection() {
                 )}
               >
                 <div className="w-9 h-6 border border-white/10 shrink-0" style={{ background: b.base }} />
-                <span className="text-sm font-medium flex-1">{b.label}</span>
+                <span className="text-sm font-medium flex-1">{t(`settings.appearance.backgrounds.${b.id}`)}</span>
                 {active && <Check className="size-4" />}
               </button>
             )
@@ -145,7 +147,7 @@ export default function AppearanceSection() {
         </div>
       </Row>
 
-      <Row label="Tamanho da fonte" hint="Escala TODA a UI (rem-based). Útil pra telas grandes/pequenas.">
+      <Row label={t('settings.appearance.fontSize')} hint={t('settings.appearance.fontSizeHint')}>
         <div className="grid grid-cols-4 gap-2">
           {FONT_SIZE_OPTIONS.map((f) => {
             const active = fontSize === f.id
@@ -161,14 +163,14 @@ export default function AppearanceSection() {
                     : 'border-(--border) text-(--text-2) hover:border-(--accent)',
                 )}
               >
-                <span className="text-sm font-medium">{f.label}</span>
+                <span className="text-sm font-medium">{t(`settings.appearance.fontSizes.${f.id}`)}</span>
               </button>
             )
           })}
         </div>
       </Row>
 
-      <Row label="Espaçamento das mensagens" hint="Compacta = mais mensagens visíveis; Espaçosa = mais respiro.">
+      <Row label={t('settings.appearance.messageSpacing')} hint={t('settings.appearance.messageSpacingHint')}>
         <div className="grid grid-cols-3 gap-2">
           {DENSITY_OPTIONS.map((d) => {
             const active = density === d.id
@@ -184,14 +186,14 @@ export default function AppearanceSection() {
                     : 'border-(--border) text-(--text-2) hover:border-(--accent)',
                 )}
               >
-                <span className="text-sm font-medium">{d.label}</span>
+                <span className="text-sm font-medium">{t(`settings.appearance.densities.${d.id}`)}</span>
               </button>
             )
           })}
         </div>
       </Row>
 
-      <Row label="Reduzir animações" hint="Diminui ou elimina movimentos da UI. Útil em máquinas modestas ou sensibilidade vestibular.">
+      <Row label={t('settings.appearance.reduceMotion')} hint={t('settings.appearance.reduceMotionHint')}>
         <button
           type="button"
           onClick={() => { const next = !reducedMotion; applyMotion(next); setReducedMotion(next) }}
@@ -203,7 +205,7 @@ export default function AppearanceSection() {
           )}
         >
           <span className="text-sm font-medium flex-1">
-            {reducedMotion ? 'Animações reduzidas' : 'Animações ativas'}
+            {reducedMotion ? t('settings.appearance.motionReduced') : t('settings.appearance.motionActive')}
           </span>
           {reducedMotion && <Check className="size-4" />}
         </button>

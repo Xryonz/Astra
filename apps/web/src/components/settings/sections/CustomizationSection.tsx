@@ -8,6 +8,7 @@
  * Auto-save 800ms só pros campos próprios.
  */
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Upload, Check, RotateCcw } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -70,6 +71,7 @@ const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 // ─── COMPONENT ───────────────────────────────────────────────
 export default function CustomizationSection() {
+  const { t }       = useTranslation()
   const user        = useAuthStore((s) => s.user)
   const updateUser  = useAuthStore((s) => s.updateUser)
   const queryClient = useQueryClient()
@@ -95,11 +97,11 @@ export default function CustomizationSection() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!ALLOWED_MIMES.includes(file.type)) {
-      setFileError('Formato não suportado. Use JPEG, PNG, WebP ou GIF.')
+      setFileError(t('settings.profile.formatError'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      setFileError('Arquivo muito grande. Máximo 5MB.')
+      setFileError(t('settings.profile.sizeError'))
       return
     }
     setFileError('')
@@ -157,7 +159,7 @@ export default function CustomizationSection() {
       setTimeout(() => setSaveStatus('idle'), 2200)
     },
     onError: (e: any) => {
-      setSaveError(e.response?.data?.error ?? e.message ?? 'Erro ao salvar')
+      setSaveError(e.response?.data?.error ?? e.message ?? t('settings.save.error'))
       setSaveStatus('error')
     },
   })
@@ -175,12 +177,12 @@ export default function CustomizationSection() {
   return (
     <div>
       <SectionHeader
-        title="Personalização"
-        description="Aparência visual do seu perfil — banner, tema, fonte, cor de texto. Tudo com auto-save."
+        title={t('settings.customization.title')}
+        description={t('settings.customization.description')}
       />
 
       {/* ═══ Banner ═══ */}
-      <Row label="Banner" hint="Imagem grande no topo do perfil. Customize fundo, posição e borda em abas separadas.">
+      <Row label={t('settings.customization.banner')} hint={t('settings.customization.bannerHint')}>
         <div className="flex flex-col gap-5">
           <BannerPreview
             bannerUrl={bannerUrl && !bannerImgErr ? bannerUrl : undefined}
@@ -192,19 +194,19 @@ export default function CustomizationSection() {
 
           <Tabs defaultValue="fundo" className="w-full">
             <TabsList className="grid grid-cols-2 w-full sm:w-auto sm:inline-flex">
-              <TabsTrigger value="fundo">Fundo</TabsTrigger>
-              <TabsTrigger value="ajuste" disabled={!bannerUrl || bannerImgErr}>Ajuste</TabsTrigger>
+              <TabsTrigger value="fundo">{t('settings.customization.tabBackground')}</TabsTrigger>
+              <TabsTrigger value="ajuste" disabled={!bannerUrl || bannerImgErr}>{t('settings.customization.tabAdjust')}</TabsTrigger>
             </TabsList>
 
             {/* FUNDO */}
             <TabsContent value="fundo" className="mt-6 flex flex-col gap-6">
               <div className="flex items-center gap-2 flex-wrap">
                 <Button type="button" variant="outline" onClick={() => bannerFileRef.current?.click()} className="gap-2">
-                  <Upload className="size-4" /> Enviar imagem
+                  <Upload className="size-4" /> {t('settings.customization.uploadImage')}
                 </Button>
                 {bannerUrl && (
                   <Button type="button" variant="ghost" size="sm" onClick={() => setBannerUrl('')}>
-                    Remover imagem
+                    {t('settings.customization.removeImage')}
                   </Button>
                 )}
                 <input
@@ -216,7 +218,7 @@ export default function CustomizationSection() {
               {fileError && <p className="text-xs text-(--danger) m-0">{fileError}</p>}
 
               <div>
-                <span className="ed-label block mb-3">— Gradient de fundo</span>
+                <span className="ed-label block mb-3">{t('settings.customization.gradientBackground')}</span>
                 <div className="grid grid-cols-6 sm:grid-cols-10 gap-1">
                   {BANNER_GRADIENTS.map((g) => (
                     <button
@@ -246,7 +248,7 @@ export default function CustomizationSection() {
                       : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
                   )}
                 >
-                  {showBannerBuilder ? 'Fechar custom' : 'Custom gradient'}
+                  {showBannerBuilder ? t('settings.customization.closeCustom') : t('settings.customization.customGradient')}
                 </button>
                 {showBannerBuilder && (
                   <div className="mt-3 p-5 rounded-2xl border border-(--border-mid) bg-(--raised)/30">
@@ -262,7 +264,7 @@ export default function CustomizationSection() {
               {bannerUrl && !bannerImgErr ? (
                 <div className="flex flex-col gap-3">
                   <p className="text-xs text-(--text-3) m-0 leading-relaxed max-w-prose">
-                    Arraste a imagem verticalmente pra escolher qual parte aparece. Slider de zoom: 50% mostra banner inteiro (bg preenche em volta) · 200% dá close máximo.
+                    {t('settings.customization.adjustHelp')}
                   </p>
                   <BannerPositioner
                     bannerUrl={bannerUrl}
@@ -274,7 +276,7 @@ export default function CustomizationSection() {
                 </div>
               ) : (
                 <p className="text-sm text-(--text-3) italic m-0 py-8 text-center border border-dashed border-(--border-mid) rounded-xl">
-                  Envie uma imagem na aba Fundo pra desbloquear ajuste de posição e zoom.
+                  {t('settings.customization.adjustLocked')}
                 </p>
               )}
             </TabsContent>
@@ -284,7 +286,7 @@ export default function CustomizationSection() {
       </Row>
 
       {/* ═══ Profile theme ═══ */}
-      <Row label="Tema do card de perfil" hint="Gradient de fundo do card que aparece quando alguém abre seu perfil.">
+      <Row label={t('settings.customization.theme')} hint={t('settings.customization.themeHint')}>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-6 sm:grid-cols-10 gap-1">
             {BANNER_GRADIENTS.map((t) => (
@@ -315,7 +317,7 @@ export default function CustomizationSection() {
                 : 'border-dashed border-(--border-mid) text-(--text-3) hover:border-(--accent) hover:text-(--accent)',
             )}
           >
-            {showThemeBuilder ? 'Fechar custom' : 'Custom gradient'}
+            {showThemeBuilder ? t('settings.customization.closeCustom') : t('settings.customization.customGradient')}
           </button>
         </div>
         {showThemeBuilder && (
@@ -326,7 +328,7 @@ export default function CustomizationSection() {
       </Row>
 
       {/* ═══ Display font ═══ */}
-      <Row label="Fonte do nome" hint="Tipografia do seu nome no card de perfil e nas mensagens do chat. 8 famílias curadas.">
+      <Row label={t('settings.customization.font')} hint={t('settings.customization.fontHint')}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {DISPLAY_FONT_OPTIONS.map((f) => (
             <button
@@ -340,9 +342,9 @@ export default function CustomizationSection() {
                   : 'border-(--border-mid) hover:border-(--accent)/60',
               )}
             >
-              <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-mono">{f.label}</span>
+              <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-mono">{t(`settings.customization.fonts.${f.id}.label`)}</span>
               <span className="text-base leading-tight text-(--text-1)" style={{ fontFamily: f.family }}>
-                {f.preview}
+                {t(`settings.customization.fonts.${f.id}.preview`)}
               </span>
               {displayFont === f.id && <Check className="absolute top-2 right-2 size-3.5 text-(--accent)" />}
             </button>
@@ -399,6 +401,7 @@ function BannerPositioner({
   onChange:  (positionY: number, scale: number) => void
   onReset:   () => void
 }) {
+  const { t } = useTranslation()
   const wrapRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startY: number; startPosY: number } | null>(null)
 
@@ -447,7 +450,7 @@ function BannerPositioner({
           }}
         />
         <span className="ed-marg absolute top-2 left-2 text-white bg-black/45 px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
-          Arraste verticalmente
+          {t('settings.customization.dragVertically')}
         </span>
         <span className="ed-marg absolute top-2 right-2 text-white bg-black/45 px-2 py-1 rounded backdrop-blur-sm pointer-events-none font-mono">
           Y {positionY}%
@@ -455,7 +458,7 @@ function BannerPositioner({
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-1 min-w-50">
-          <span className="ed-marg shrink-0">Zoom</span>
+          <span className="ed-marg shrink-0">{t('settings.customization.zoom')}</span>
           <input
             type="range"
             min={50}
@@ -468,7 +471,7 @@ function BannerPositioner({
           <span className="text-marg font-mono text-(--text-3) w-10 text-right">{scale}%</span>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onReset} className="gap-1.5">
-          <RotateCcw className="size-3.5" /> Resetar
+          <RotateCcw className="size-3.5" /> {t('settings.customization.reset')}
         </Button>
       </div>
     </div>

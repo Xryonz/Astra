@@ -27,6 +27,7 @@ import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Slider } from '@/components/ui/slider'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { resolveApiUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useVoiceCall, parseRoomName, type CallParticipantInfo } from '@/hooks/useVoiceCall'
@@ -37,7 +38,7 @@ interface Props {
 }
 
 export function VoiceCallStage({ onMinimize }: Props) {
-  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume } = useVoiceCall()
+  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
   const { data: users = [] } = useUsersMini(identities)
@@ -139,6 +140,8 @@ export function VoiceCallStage({ onMinimize }: Props) {
                 index={i}
                 participant={p}
                 user={userMap.get(p.identity)}
+                volume={participantVolumes[p.identity] ?? 1}
+                onVolume={(v) => setParticipantVolume(p.identity, v)}
               />
             ))}
           </AnimatePresence>
@@ -254,10 +257,12 @@ function ringColorFrom(bannerColor: string | null | undefined): string {
   return 'var(--accent)'
 }
 
-function ParticipantTile({ participant, user, index }: {
+function ParticipantTile({ participant, user, index, volume, onVolume }: {
   participant: CallParticipantInfo
   user?: UserMini
   index: number
+  volume?: number
+  onVolume?: (v: number) => void
 }) {
   const displayName = user?.displayName ?? participant.identity.slice(0, 8)
   const initials    = displayName.slice(0, 2).toUpperCase()
@@ -389,13 +394,51 @@ function ParticipantTile({ participant, user, index }: {
         >
           {displayName}
         </span>
-        {participant.isLocal && (
+        {participant.isLocal ? (
           <span className="text-[9px] font-mono text-white/70 uppercase tracking-wider shrink-0">
             você
           </span>
-        )}
+        ) : onVolume ? (
+          <TileVolume value={volume ?? 1} onChange={onVolume} />
+        ) : null}
       </div>
     </motion.div>
+  )
+}
+
+// ─── Per-person volume (popover slider no tile remoto) ────────
+
+function TileVolume({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const pct = Math.round(value * 100)
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Volume desta pessoa: ${pct}%`}
+          className={cn(
+            'shrink-0 size-6 grid place-items-center rounded-md text-white/80 hover:text-white hover:bg-white/15 transition-colors',
+            pct === 0 && 'text-(--danger)',
+          )}
+        >
+          {pct === 0 ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="w-48 p-3">
+        <p className="text-[10px] font-mono text-(--text-3) uppercase tracking-wider m-0 mb-2">Volume da pessoa</p>
+        <div className="flex items-center gap-2">
+          <VolumeX className="size-3.5 text-(--text-3) shrink-0" />
+          <Slider
+            value={[pct]}
+            onValueChange={(v) => onChange((v[0] ?? 0) / 100)}
+            min={0} max={100} step={1}
+            aria-label="Volume da pessoa"
+            className="flex-1"
+          />
+          <span className="text-[10px] font-mono text-(--text-2) tabular-nums w-8 text-right shrink-0">{pct}%</span>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 

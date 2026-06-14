@@ -42,6 +42,9 @@ interface VoiceState {
   toggleCamera: () => Promise<void>
   toggleDeafen: () => void
   setVolume:    (v: number) => void
+  /** Volume por pessoa (identity → 0..1). Multiplica o volume master. */
+  participantVolumes: Record<string, number>
+  setParticipantVolume: (identity: string, v: number) => void
 }
 
 const VOLUME_STORAGE_KEY = 'astra-voice-volume'
@@ -52,6 +55,15 @@ function loadInitialVolume(): number {
     const n = Number(v)
     return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1
   } catch { return 1 }
+}
+
+const PVOL_STORAGE_KEY = 'astra-voice-pvol'
+function loadParticipantVolumes(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(PVOL_STORAGE_KEY)
+    const obj = raw ? JSON.parse(raw) : null
+    return obj && typeof obj === 'object' ? (obj as Record<string, number>) : {}
+  } catch { return {} }
 }
 
 // Mensagens humanas pros erros mais comuns de getUserMedia / LiveKit. Sem
@@ -140,6 +152,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     setCallActive(false)
     set({ state: 'idle', roomName: null, participants: [], error: null })
   }
+  // Aplica master × volume-por-pessoa em cada <audio> remoto (tagueado com a
+  // identidade). Fonte única de verdade — chamado de setVolume/Deafen/PerPerson.
+  const applyAudioVolumes = () => {
+    const { volume, deafened, participantVolumes } = get()
+    document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
+      const id = a.getAttribute('data-voice-identity') ?? ''
+      const pv = participantVolumes[id] ?? 1
+      a.volume = Math.max(0, Math.min(1, volume * pv))
+      a.muted  = deafened
+    })
+  }
 
   return {
     state:        'idle',
@@ -148,6 +171,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     error:        null,
     deafened:     false,
     volume:       loadInitialVolume(),
+    participantVolumes: loadParticipantVolumes(),
 
     join: async (kind, id) => {
       const targetName = `${kind}:${id}`
@@ -324,23 +348,22 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     },
 
     toggleDeafen: () => {
-      const next = !get().deafened
-      set({ deafened: next })
-      // Aplica APENAS em audio[data-astra-voice] — não polui VoiceMessage / outros
-      document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
-        a.muted = next
-      })
+      set({ deafened: !get().deafened })
+      applyAudioVolumes()
     },
 
     setVolume: (v) => {
       const clamped = Math.max(0, Math.min(1, v))
       set({ volume: clamped })
-      const deafened = get().deafened
-      document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
-        a.volume = clamped
-        a.muted  = deafened
-      })
+      applyAudioVolumes()
       try { localStorage.setItem(VOLUME_STORAGE_KEY, String(clamped)) } catch {}
+    },
+
+    setParticipantVolume: (identity, v) => {
+      const clamped = Math.max(0, Math.min(1, v))
+      set((s) => ({ participantVolumes: { ...s.participantVolumes, [identity]: clamped } }))
+      applyAudioVolumes()
+      try { localStorage.setItem(PVOL_STORAGE_KEY, JSON.stringify(get().participantVolumes)) } catch {}
     },
   }
 })

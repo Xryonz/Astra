@@ -303,13 +303,14 @@ function QuickBtn({ label, onClick, children, danger, active, primary }: {
 // ─── Remote audio element manager ────────────────────────────
 
 function RemoteAudioElements() {
-  const { participants, volume, deafened } = useVoiceCall()
+  const { participants, volume, deafened, participantVolumes } = useVoiceCall()
   const refs = useRef<Map<string, HTMLAudioElement>>(new Map())
 
   useEffect(() => {
     for (const p of participants) {
       if (p.isLocal) continue
       const pubs = p.participant.audioTrackPublications
+      const pvol = volume * (participantVolumes[p.identity] ?? 1)
       for (const pub of pubs.values()) {
         const track = pub.track
         if (!track) continue
@@ -320,25 +321,29 @@ function RemoteAudioElements() {
           el.autoplay = true
           ;(el as any).playsInline = true
           el.setAttribute('data-astra-voice', '1')
+          // identidade no elemento → applyAudioVolumes() (store) sabe a quem
+          // aplicar o volume-por-pessoa sem depender do React.
+          el.setAttribute('data-voice-identity', p.identity)
           document.body.appendChild(el)
           refs.current.set(key, el)
         }
         // Re-aplica volume + deafened TODA hora — track.attach pode disparar reset
         // do muted/volume internamente; sincronizamos sempre. Antes só atribuíamos
         // no primeiro append, e o deafen revertia em ~1s no próximo ActiveSpeakersChanged.
-        el.volume = volume
+        el.volume = Math.max(0, Math.min(1, pvol))
         el.muted  = deafened
         try { track.attach(el) } catch {}
       }
     }
-  }, [participants, volume, deafened])
+  }, [participants, volume, deafened, participantVolumes])
 
   useEffect(() => {
     for (const el of refs.current.values()) {
-      el.volume = volume
+      const id = el.getAttribute('data-voice-identity') ?? ''
+      el.volume = Math.max(0, Math.min(1, volume * (participantVolumes[id] ?? 1)))
       el.muted  = deafened
     }
-  }, [volume, deafened])
+  }, [volume, deafened, participantVolumes])
 
   useEffect(() => {
     const active = new Set<string>()

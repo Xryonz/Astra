@@ -446,8 +446,8 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                  sem vão flutuante — lista curta ou longa, mesmo layout. */
               <div>
                 <div className="px-3 mb-1.5">
-                  <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium">
-                    {isGroup ? 'Canais do grupo' : 'Canais'}
+                  <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-mono">
+                    — {isGroup ? 'Canais do grupo' : 'Canais'}
                   </span>
                 </div>
                 {channels.map((ch, i) => (

@@ -10,6 +10,7 @@
  * Mantém visual editorial-dark: glassmorphism + serif display + accent prata.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -23,45 +24,30 @@ interface Slide {
   body:  React.ReactNode
 }
 
-const SLIDES: Slide[] = [
-  {
-    icon:  <Stars className="size-7" />,
-    title: 'Bem-vindo a Astra',
-    body: (
-      <>
-        Aqui suas comunidades são <strong className="text-(--accent)">constelações</strong> (servidores).
-        Cada uma tem várias <strong className="text-(--accent)">órbitas</strong> (canais de texto e voz)
-        onde a conversa acontece.
-      </>
-    ),
-  },
-  {
-    icon:  <MessageSquareQuote className="size-7" />,
-    title: 'Estrelas conversam',
-    body: (
-      <>
-        Você é uma <strong className="text-(--accent)">estrela</strong>. Outras estrelas trocam{' '}
-        <strong className="text-(--accent)">sussurros</strong> (mensagens privadas) e respondem em{' '}
-        <strong className="text-(--accent)">cometas</strong> (threads — conversas derivadas de uma mensagem).
-      </>
-    ),
-  },
-  {
-    icon:  <Sparkles className="size-7" />,
-    title: 'Pronto pra começar?',
-    body: (
-      <>
-        <strong className="text-(--accent)">Forje</strong> sua primeira constelação ou{' '}
-        <strong className="text-(--accent)">orbite</strong> uma já existente com um convite.
-        Os termos cósmicos aparecem com explicação ao lado sempre que precisar.
-      </>
-    ),
-  },
-]
+const accent = { a: <strong className="text-(--accent)" /> }
 
 export function CosmicOnboarding() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [idx,  setIdx]  = useState(0)
+
+  const SLIDES: Slide[] = [
+    {
+      icon:  <Stars className="size-7" />,
+      title: t('onboarding.slide1Title'),
+      body:  <Trans i18nKey="onboarding.slide1Body" components={accent} />,
+    },
+    {
+      icon:  <MessageSquareQuote className="size-7" />,
+      title: t('onboarding.slide2Title'),
+      body:  <Trans i18nKey="onboarding.slide2Body" components={accent} />,
+    },
+    {
+      icon:  <Sparkles className="size-7" />,
+      title: t('onboarding.slide3Title'),
+      body:  <Trans i18nKey="onboarding.slide3Body" components={accent} />,
+    },
+  ]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -143,11 +129,11 @@ export function CosmicOnboarding() {
           <div className="flex gap-2">
             {!isLast && (
               <Button variant="ghost" size="sm" onClick={dismiss}>
-                Pular
+                {t('onboarding.skip')}
               </Button>
             )}
             <Button size="sm" onClick={() => isLast ? dismiss() : setIdx((i) => i + 1)}>
-              {isLast ? 'Começar' : 'Próximo'}
+              {isLast ? t('onboarding.start') : t('onboarding.next')}
             </Button>
           </div>
         </div>

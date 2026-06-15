@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { Users, Link2Off } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -24,6 +25,7 @@ interface ServerPreview {
 }
 
 export default function InvitePage() {
+  const { t }        = useTranslation()
   const { code }     = useParams<{ code: string }>()
   const navigate     = useNavigate()
   const queryClient  = useQueryClient()
@@ -41,7 +43,7 @@ export default function InvitePage() {
       .then((r) => setServer(r.data.data))
       .catch((e) => {
         if (e.response?.status === 404) setNotFound(true)
-        else setError('Erro ao carregar convite')
+        else setError(t('invite.loadError'))
       })
       .finally(() => setLoading(false))
   }, [code])
@@ -53,10 +55,10 @@ export default function InvitePage() {
     try {
       await api.post(`/api/invites/${code}/join`)
       queryClient.invalidateQueries({ queryKey: ['servers'] })
-      toast.success(`Bem-vindo a ${server?.name}!`)
+      toast.success(t('invite.welcomeToast', { name: server?.name }))
       navigate('/app')
     } catch (e: any) {
-      setError(e.response?.data?.error ?? 'Erro ao entrar no servidor')
+      setError(e.response?.data?.error ?? t('invite.joinError'))
     } finally {
       setJoining(false)
     }
@@ -105,12 +107,12 @@ export default function InvitePage() {
             <Reveal delay={0.05}>
               <div className="flex flex-col items-center gap-3">
                 <Link2Off className="size-12 text-(--text-3) mb-2" />
-                <span className="ed-marg">— Convite inválido</span>
-                <h2 className="ed-h text-2xl m-0">Link expirado</h2>
+                <span className="ed-marg">{t('invite.label')}</span>
+                <h2 className="ed-h text-2xl m-0">{t('invite.linkExpired')}</h2>
                 <p className="text-sm text-(--text-2) max-w-[28ch] m-0 mb-4">
-                  Este link de convite não existe ou foi revogado.
+                  {t('invite.linkInvalidBody')}
                 </p>
-                <Button onClick={() => navigate('/app')} className="w-full">Voltar ao início</Button>
+                <Button onClick={() => navigate('/app')} className="w-full">{t('invite.backHome')}</Button>
               </div>
             </Reveal>
           )}
@@ -128,7 +130,7 @@ export default function InvitePage() {
 
               <Reveal delay={0.12}>
                 <Badge variant={server.isGroup ? 'secondary' : 'default'} className="mx-auto">
-                  {server.isGroup ? 'Grupo privado' : 'Servidor'}
+                  {server.isGroup ? t('invite.privateGroup') : t('invite.server')}
                 </Badge>
               </Reveal>
 
@@ -138,7 +140,7 @@ export default function InvitePage() {
 
               <Reveal delay={0.28}>
                 <p className="text-sm text-(--text-3) m-0 mt-1 mb-5 font-mono uppercase tracking-wider">
-                  {server._count.members} membro{server._count.members !== 1 ? 's' : ''}
+                  {t('invite.member', { count: server._count.members })}
                 </p>
               </Reveal>
 
@@ -149,7 +151,7 @@ export default function InvitePage() {
               {server.isGroup ? (
                 <Reveal delay={0.42}>
                   <div className="u-error mb-3">
-                    Este grupo é privado. Apenas o administrador pode adicionar membros.
+                    {t('invite.groupPrivateNote')}
                   </div>
                 </Reveal>
               ) : (
@@ -161,7 +163,7 @@ export default function InvitePage() {
                   )}
                   <Reveal delay={0.45}>
                     <Button onClick={handleJoin} disabled={joining} className="w-full">
-                      {joining ? 'Entrando…' : isAuth ? `Entrar em ${server.name}` : 'Entrar / Login'}
+                      {joining ? t('invite.entering') : isAuth ? t('invite.joinNamed', { name: server.name }) : t('invite.joinOrLogin')}
                     </Button>
                   </Reveal>
                 </>
@@ -172,7 +174,7 @@ export default function InvitePage() {
                   onClick={() => navigate('/app')}
                   className="block w-full mt-3 bg-transparent border-none cursor-pointer text-(--text-3) text-sm font-(family-name:--font-body) py-2 hover:text-(--accent) transition-colors"
                 >
-                  Talvez mais tarde
+                  {t('invite.maybeLater')}
                 </button>
               </Reveal>
             </>

@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import GoogleButton from '@/components/auth/GoogleButton'
 import LoginForm from '@/components/auth/LoginForm'
 import AstraLogo from '@/components/AstraLogo'
@@ -7,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { Kbd } from '@/components/ui/kbd'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const oauthError = searchParams.get('error')
 
@@ -67,7 +69,7 @@ export default function LoginPage() {
 
           <Reveal delay={0.5}>
             <p className="ed-dropcap max-w-[30ch] text-(--text-2) leading-[1.75] text-[15px] tracking-wide text-left">
-              Onde palavras encontram silêncio, e silêncio se torna conversa — uma plataforma editorial para comunidades que respiram.
+              {t('auth.loginTagline')}
             </p>
           </Reveal>
 
@@ -112,9 +114,9 @@ export default function LoginPage() {
                 <span className="ed-roman text-2xl">I.</span>
                 <span className="ed-marg">Sign in</span>
               </div>
-              <h2 className="ed-h text-h2 mb-3">Bem-vindo de volta.</h2>
+              <h2 className="ed-h text-h2 mb-3">{t('auth.loginTitle')}</h2>
               <p className="text-(--text-2) text-sm leading-relaxed max-w-[34ch]">
-                Continue de onde parou — sua biblioteca de conversas aguarda.
+                {t('auth.loginSub')}
               </p>
               <Separator className="mt-6" />
             </div>
@@ -127,25 +129,24 @@ export default function LoginPage() {
                 role="alert"
               >
                 <p className="text-sm m-0 mb-1 font-(family-name:--font-display) text-(--accent)">
-                  Email não registrado
+                  {t('auth.googleEmailUnregistered')}
                 </p>
                 <p className="text-xs text-(--text-2) m-0 mb-3 leading-relaxed">
-                  Nenhuma conta Astra está vinculada a{' '}
-                  <span className="font-mono text-(--text-1)">{searchParams.get('email') ?? 'esse email'}</span>.
-                  Crie uma conta antes de entrar com Google.
+                  {t('auth.noAccountLinked')}{' '}
+                  <span className="font-mono text-(--text-1)">{searchParams.get('email') ?? t('auth.thatEmail')}</span>{t('auth.afterEmail')}
                 </p>
                 <Link
                   to={`/register?email=${encodeURIComponent(searchParams.get('email') ?? '')}&from=google`}
                   className="inline-block text-sm font-(family-name:--font-display) text-(--accent) italic hover:text-(--accent-h) transition-colors"
                 >
-                  Criar conta com este email —&gt;
+                  {t('auth.createWithThisEmail')}
                 </Link>
               </div>
             </Reveal>
           ) : oauthError ? (
             <Reveal delay={0.2}>
               <div className="u-error mb-6" role="alert">
-                Falha no login com Google. Tente novamente.
+                {t('auth.googleLoginFailed')}
               </div>
             </Reveal>
           ) : null}
@@ -169,7 +170,7 @@ export default function LoginPage() {
 
             <Reveal delay={0.60}>
               <p className="text-[11px] text-(--text-3) text-center flex items-center justify-center gap-1.5">
-                <Kbd>Enter</Kbd> envia · <Kbd>Tab</Kbd> navega
+                <Kbd>Enter</Kbd> {t('auth.kbdSubmit')} · <Kbd>Tab</Kbd> {t('auth.kbdNavigate')}
               </p>
             </Reveal>
           </div>
@@ -177,12 +178,12 @@ export default function LoginPage() {
           <Reveal delay={0.75}>
             <div className="mt-12 pt-6 border-t border-(--border)">
               <p className="text-center text-(--text-3) text-sm">
-                <span className="ed-marg block mb-2">Novo aqui?</span>
+                <span className="ed-marg block mb-2">{t('auth.newHere')}</span>
                 <Link
                   to="/register"
                   className="font-(family-name:--font-display) text-(--accent) italic text-base hover:text-(--accent-h) transition-colors duration-300"
                 >
-                  Criar conta —&gt;
+                  {t('auth.goCreate')}
                 </Link>
               </p>
             </div>

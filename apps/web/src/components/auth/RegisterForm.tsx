@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { RegisterSchema, type RegisterInput } from '@astra/types'
 
 export default function RegisterForm() {
+  const { t } = useTranslation()
   const { register: registerUser } = useAuth()
   const [serverError, setServerError] = useState<string | null>(null)
   const [searchParams] = useSearchParams()
@@ -28,7 +30,7 @@ export default function RegisterForm() {
     try {
       await registerUser(data)
     } catch (err: any) {
-      setServerError(err.response?.data?.error ?? 'Erro ao criar conta')
+      setServerError(err.response?.data?.error ?? t('auth.registerError'))
     }
   }
 
@@ -40,9 +42,9 @@ export default function RegisterForm() {
           name="displayName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome de exibição</FormLabel>
+              <FormLabel>{t('auth.displayName')}</FormLabel>
               <FormControl>
-                <Input placeholder="Como você quer ser chamado" autoComplete="name" {...field} />
+                <Input placeholder={t('auth.displayNamePh')} autoComplete="name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -54,9 +56,9 @@ export default function RegisterForm() {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>{t('auth.username')}</FormLabel>
               <FormControl>
-                <Input placeholder="meu_usuario" autoComplete="username" {...field} />
+                <Input placeholder={t('auth.usernamePh')} autoComplete="username" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -69,17 +71,17 @@ export default function RegisterForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                E-mail
+                {t('auth.email')}
                 {fromGoogle && (
                   <span className="ml-2 text-[10px] font-mono uppercase tracking-wider text-(--accent)">
-                    · vindo do Google
+                    {t('auth.fromGoogle')}
                   </span>
                 )}
               </FormLabel>
               <FormControl>
                 <Input
                   type="email"
-                  placeholder="voce@exemplo.com"
+                  placeholder={t('auth.emailPh')}
                   autoComplete="email"
                   readOnly={fromGoogle}
                   className={fromGoogle ? 'opacity-80 cursor-not-allowed' : undefined}
@@ -88,7 +90,7 @@ export default function RegisterForm() {
               </FormControl>
               {fromGoogle && (
                 <p className="text-marg text-(--text-3) m-0 mt-1 italic">
-                  Email preenchido pelo Google. Vai poder logar com Google após criar a conta.
+                  {t('auth.googleEmailNote')}
                 </p>
               )}
               <FormMessage />
@@ -101,9 +103,9 @@ export default function RegisterForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Senha</FormLabel>
+              <FormLabel>{t('auth.password')}</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="Mínimo 8 caracteres" autoComplete="new-password" {...field} />
+                <Input type="password" placeholder={t('auth.passwordPh')} autoComplete="new-password" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -116,9 +118,9 @@ export default function RegisterForm() {
           {form.formState.isSubmitting ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Criando conta...
+              {t('auth.creating')}
             </>
-          ) : 'Criar conta'}
+          ) : t('auth.createAccount')}
         </Button>
       </form>
     </Form>

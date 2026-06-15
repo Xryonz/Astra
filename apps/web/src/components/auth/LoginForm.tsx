@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ const editorialInputClass =
 const editorialLabelClass = 'ed-label mb-1'
 
 export default function LoginForm() {
+  const { t } = useTranslation()
   const { login } = useAuth()
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -30,7 +32,7 @@ export default function LoginForm() {
     try {
       await login(data)
     } catch (err: any) {
-      setServerError(err.response?.data?.error ?? 'Erro ao fazer login')
+      setServerError(err.response?.data?.error ?? t('auth.loginError'))
     }
   }
 
@@ -42,11 +44,11 @@ export default function LoginForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className={editorialLabelClass}>E-mail</FormLabel>
+              <FormLabel className={editorialLabelClass}>{t('auth.email')}</FormLabel>
               <FormControl>
                 <Input
                   type="email"
-                  placeholder="voce@exemplo.com"
+                  placeholder={t('auth.emailPh')}
                   autoComplete="email"
                   className={editorialInputClass}
                   {...field}
@@ -62,7 +64,7 @@ export default function LoginForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className={editorialLabelClass}>Senha</FormLabel>
+              <FormLabel className={editorialLabelClass}>{t('auth.password')}</FormLabel>
               <FormControl>
                 <Input
                   type="password"
@@ -95,9 +97,9 @@ export default function LoginForm() {
           {form.formState.isSubmitting ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Entrando...
+              {t('auth.signingIn')}
             </>
-          ) : 'Entrar'}
+          ) : t('auth.signIn')}
         </Button>
       </form>
     </Form>

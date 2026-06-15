@@ -6,6 +6,7 @@
  */
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
 import { Upload, Sparkles, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -18,6 +19,7 @@ import { Constellation } from '@/components/astra/Constellation'
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export default function OnboardingPage() {
+  const { t }      = useTranslation()
   const user       = useAuthStore((s) => s.user)
   const updateUser = useAuthStore((s) => s.updateUser)
   const navigate   = useNavigate()
@@ -31,8 +33,8 @@ export default function OnboardingPage() {
   const readImg = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!ALLOWED.includes(file.type)) { setFileError('Use JPEG, PNG, WebP ou GIF.'); return }
-    if (file.size > 5 * 1024 * 1024) { setFileError('Máximo 5MB.'); return }
+    if (!ALLOWED.includes(file.type)) { setFileError(t('onboarding.fileTypeError')); return }
+    if (file.size > 5 * 1024 * 1024) { setFileError(t('onboarding.fileSizeError')); return }
     setFileError('')
     const reader = new FileReader()
     reader.onload = (ev) => setAvatarUrl(ev.target?.result as string)
@@ -76,11 +78,11 @@ export default function OnboardingPage() {
       <div className="relative w-full max-w-md">
         <div className="flex items-center gap-2 mb-1 text-(--accent)">
           <Sparkles className="size-5" />
-          <span className="text-xs uppercase tracking-[0.2em] font-mono">Bem-vindo à Astra</span>
+          <span className="text-xs uppercase tracking-[0.2em] font-mono">{t('onboarding.welcome')}</span>
         </div>
-        <h1 className="ed-h text-3xl m-0 mb-2">Acenda sua estrela</h1>
+        <h1 className="ed-h text-3xl m-0 mb-2">{t('onboarding.title')}</h1>
         <p className="text-sm text-(--text-2) m-0 mb-8">
-          Um toque rápido no seu perfil antes de entrar. Dá pra mudar tudo depois nas configurações.
+          {t('onboarding.subtitle')}
         </p>
 
         <div className="flex items-center gap-5 mb-2">
@@ -92,10 +94,10 @@ export default function OnboardingPage() {
           </Avatar>
           <div className="flex flex-col gap-2">
             <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
-              <Upload className="size-4" /> Enviar foto
+              <Upload className="size-4" /> {t('onboarding.uploadPhoto')}
             </Button>
             {avatarUrl && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setAvatarUrl('')}>Remover</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAvatarUrl('')}>{t('onboarding.remove')}</Button>
             )}
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={readImg} />
@@ -103,23 +105,23 @@ export default function OnboardingPage() {
         {fileError && <p className="text-xs text-(--danger) mb-4 m-0">{fileError}</p>}
 
         <label className="block mb-4 mt-4">
-          <span className="text-xs uppercase tracking-wider text-(--text-3) font-medium">Nome de exibição</span>
-          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={50} placeholder="Como quer ser chamado" className="mt-1.5" />
+          <span className="text-xs uppercase tracking-wider text-(--text-3) font-medium">{t('onboarding.displayName')}</span>
+          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={50} placeholder={t('onboarding.displayNamePh')} className="mt-1.5" />
         </label>
 
         <label className="block mb-8">
           <span className="text-xs uppercase tracking-wider text-(--text-3) font-medium">
-            Pronomes <span className="text-(--text-3) normal-case">(opcional)</span>
+            {t('onboarding.pronouns')} <span className="text-(--text-3) normal-case">{t('onboarding.optional')}</span>
           </span>
-          <Input value={pronouns} onChange={(e) => setPronouns(e.target.value.slice(0, 32))} maxLength={32} placeholder="ela/dela · ele/dele · they/them" className="mt-1.5" />
+          <Input value={pronouns} onChange={(e) => setPronouns(e.target.value.slice(0, 32))} maxLength={32} placeholder={t('onboarding.pronounsPh')} className="mt-1.5" />
         </label>
 
         <div className="flex items-center gap-3">
           <Button onClick={() => finish.mutate()} disabled={busy} className="gap-2 flex-1">
-            {finish.isPending ? 'Entrando…' : <>Entrar na Astra <ArrowRight className="size-4" /></>}
+            {finish.isPending ? t('onboarding.entering') : <>{t('onboarding.enterAstra')} <ArrowRight className="size-4" /></>}
           </Button>
           <Button variant="ghost" onClick={() => skip.mutate()} disabled={busy}>
-            Pular
+            {t('onboarding.skip')}
           </Button>
         </div>
       </div>

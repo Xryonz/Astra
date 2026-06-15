@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import GoogleButton from '@/components/auth/GoogleButton'
 import RegisterForm from '@/components/auth/RegisterForm'
 import AstraLogo from '@/components/AstraLogo'
@@ -7,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { Kbd } from '@/components/ui/kbd'
 
 export default function RegisterPage() {
+  const { t } = useTranslation()
   return (
     <div className="relative min-h-screen flex font-(family-name:--font-body) overflow-hidden">
 
@@ -62,18 +64,18 @@ export default function RegisterPage() {
           </Reveal>
 
           <Reveal delay={0.25}>
-            <h1 className="ed-h text-5xl leading-[1.05] m-0 mb-2">Sua comunidade</h1>
+            <h1 className="ed-h text-5xl leading-[1.05] m-0 mb-2">{t('auth.heroLine1')}</h1>
           </Reveal>
           <Reveal delay={0.35}>
-            <h1 className="ed-h text-5xl leading-[1.05] m-0 mb-2">começa</h1>
+            <h1 className="ed-h text-5xl leading-[1.05] m-0 mb-2">{t('auth.heroLine2')}</h1>
           </Reveal>
           <Reveal delay={0.45}>
-            <h1 className="ed-h italic text-5xl leading-[1.05] m-0 text-(--accent) mb-6">aqui.</h1>
+            <h1 className="ed-h italic text-5xl leading-[1.05] m-0 text-(--accent) mb-6">{t('auth.heroLine3')}</h1>
           </Reveal>
 
           <Reveal delay={0.6}>
             <p className="text-(--text-2) text-base leading-[1.7] max-w-[40ch]">
-              Crie servidores, convide pessoas e comece a conversar em segundos — sem custo algum.
+              {t('auth.heroBody')}
             </p>
           </Reveal>
 
@@ -84,10 +86,10 @@ export default function RegisterPage() {
           <Reveal delay={0.9}>
             <div className="mt-10 border border-(--border-mid) bg-(--raised)/40 px-6 py-5 max-w-md">
               <p className="ed-quote text-lg m-0 leading-tight">
-                Um lugar que é genuinamente nosso.
+                {t('auth.heroQuote')}
               </p>
               <p className="text-(--text-3) text-xs m-0 mt-3 font-mono uppercase tracking-wider">
-                — Comunidade Astra Beta
+                {t('auth.heroQuoteAuthor')}
               </p>
             </div>
           </Reveal>
@@ -126,9 +128,9 @@ export default function RegisterPage() {
                 <span className="ed-roman text-2xl">II.</span>
                 <span className="ed-marg">Sign up</span>
               </div>
-              <h2 className="ed-h text-3xl mb-3">Criar sua conta.</h2>
+              <h2 className="ed-h text-3xl mb-3">{t('auth.registerTitle')}</h2>
               <p className="text-(--text-2) text-sm leading-relaxed max-w-[34ch]">
-                Gratuito para sempre. Sem cartão de crédito.
+                {t('auth.registerSub')}
               </p>
               <Separator className="mt-6" />
             </div>
@@ -153,7 +155,7 @@ export default function RegisterPage() {
 
             <Reveal delay={0.55}>
               <p className="text-[11px] text-(--text-3) text-center flex items-center justify-center gap-1.5">
-                <Kbd>Enter</Kbd> envia · <Kbd>Tab</Kbd> navega
+                <Kbd>Enter</Kbd> {t('auth.kbdSubmit')} · <Kbd>Tab</Kbd> {t('auth.kbdNavigate')}
               </p>
             </Reveal>
           </div>
@@ -161,12 +163,12 @@ export default function RegisterPage() {
           <Reveal delay={0.7}>
             <div className="mt-10 pt-6 border-t border-(--border)">
               <p className="text-center text-(--text-3) text-sm">
-                <span className="ed-marg block mb-2">Já tem conta?</span>
+                <span className="ed-marg block mb-2">{t('auth.haveAccount')}</span>
                 <Link
                   to="/login"
                   className="font-(family-name:--font-display) text-(--accent) italic text-base hover:text-(--accent-h) transition-colors duration-300"
                 >
-                  Entrar —&gt;
+                  {t('auth.goSignIn')}
                 </Link>
               </p>
             </div>

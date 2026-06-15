@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, memo, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { ptBR, enUS } from 'date-fns/locale'
 import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSquarePlus, Bookmark, BookmarkCheck, Copy } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { ProfileHoverCard } from '@/components/ProfileHoverCard'
@@ -70,11 +72,11 @@ function parseColor(raw: string | null | undefined, fallback: string): ParsedCol
   return { type: 'solid', value: raw }
 }
 
-function formatTime(d: string) {
+function formatTime(d: string, t: TFunction, lang: string) {
   const date = new Date(d)
-  if (isToday(date))     return `hoje às ${format(date, 'HH:mm')}`
-  if (isYesterday(date)) return `ontem às ${format(date, 'HH:mm')}`
-  return format(date, "d 'de' MMM 'às' HH:mm", { locale: ptBR })
+  if (isToday(date))     return t('chat.message.timeToday', { time: format(date, 'HH:mm') })
+  if (isYesterday(date)) return t('chat.message.timeYesterday', { time: format(date, 'HH:mm') })
+  return format(date, t('chat.message.dateFormat'), { locale: lang === 'pt' ? ptBR : enUS })
 }
 
 // ─── Clickable Avatar ─────────────────────────────────────────
@@ -424,6 +426,7 @@ function MessageItemImpl({
   message, grouped, delay = 0, isPending = false, roleColor = null,
   onEdit, onDelete, onReact, onReply,
 }: MessageItemProps) {
+  const { t, i18n }  = useTranslation()
   const currentUser = useAuthStore((s) => s.user)
   const qc           = useQueryClient()
   const isBookmarked  = useIsBookmarked(message.id, 'message')
@@ -563,10 +566,10 @@ function MessageItemImpl({
     })
     try {
       await api.delete(`/api/channels/${chId}/messages/${message.id}`)
-      toast.success('Mensagem excluída')
+      toast.success(t('chat.message.toastDeleted'))
     } catch {
       qc.invalidateQueries({ queryKey: ['messages', chId] })
-      toast.error('Erro ao excluir mensagem')
+      toast.error(t('chat.message.toastDeleteFail'))
     }
     onDelete?.(message.id)
   }
@@ -612,7 +615,7 @@ function MessageItemImpl({
       kind: 'item', icon: <Copy className="size-3.5" />, label: 'Copiar texto',
       onSelect: () => {
         void navigator.clipboard.writeText(content)
-        toast.success('Texto copiado')
+        toast.success(t('chat.message.toastTextCopied'))
       },
     })
     ctxItems.push({
@@ -620,7 +623,7 @@ function MessageItemImpl({
       shortcut: '⌘C',
       onSelect: () => {
         void navigator.clipboard.writeText(message.id)
-        toast.success('ID copiado')
+        toast.success(t('chat.message.toastIdCopied'))
       },
     })
     ctxItems.push({ kind: 'separator' })
@@ -734,7 +737,7 @@ function MessageItemImpl({
               </span>
               {!isPending && (
                 <span className="text-marg text-muted-foreground" style={{ fontFamily: 'var(--font-mono)' }}>
-                  {formatTime(createdAt)}
+                  {formatTime(createdAt, t, i18n.language)}
                 </span>
               )}
               {isPending && (
@@ -749,12 +752,12 @@ function MessageItemImpl({
           <div className="text-body leading-[1.65] text-foreground wrap-break-word m-0">
             {(message as any).pinned && (
               <span className="ed-marg inline-flex items-center gap-1 mb-1 text-(--accent)!">
-                <Pin className="size-2.5" /> Mensagem fixada
+                <Pin className="size-2.5" /> {t('chat.message.pinned')}
               </span>
             )}
             {expiresAt && !(message as any).pinned && (
-              <span className="ed-marg inline-flex items-center gap-1 mb-1 text-(--accent)" title={`Some em ${new Date(expiresAt).toLocaleString('pt-BR')}`}>
-                ⏱ some {formatDistanceToNow(new Date(expiresAt), { locale: ptBR, addSuffix: true })}
+              <span className="ed-marg inline-flex items-center gap-1 mb-1 text-(--accent)" title={t('chat.message.expiresTitle', { date: new Date(expiresAt).toLocaleString(i18n.language === 'pt' ? 'pt-BR' : 'en-US') })}>
+                ⏱ {t('chat.message.ephemeral', { when: formatDistanceToNow(new Date(expiresAt), { locale: i18n.language === 'pt' ? ptBR : enUS, addSuffix: true }) })}
               </span>
             )}
 
@@ -782,9 +785,9 @@ function MessageItemImpl({
                   type="button"
                   onClick={() => setShowEditHistory(true)}
                   className="ed-marg ml-2 cursor-pointer hover:text-(--accent) transition-colors"
-                  title="Ver histórico de edições"
+                  title={t('chat.editHistory.viewHistory')}
                 >
-                  (editada)
+                  {t('chat.editHistory.marker')}
                 </button>
                 {showEditHistory && (
                   <EditHistoryPopover

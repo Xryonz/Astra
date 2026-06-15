@@ -6,12 +6,13 @@
  * o ProfileCard (parent controla esse state pra evitar duplicação).
  */
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Pencil, Settings as SettingsIcon, LogOut } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usePresenceStore } from '@/store/presenceStore'
 import { useUIStore } from '@/store/uiStore'
 import { useAuth } from '@/hooks/useAuth'
-import StatusDot, { STATUS_META } from '@/components/StatusDot'
+import StatusDot, { STATUS_LABEL_KEY } from '@/components/StatusDot'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function UserFooter({ onProfileClick }: Props) {
+  const { t }       = useTranslation()
   const user        = useAuthStore((s) => s.user)
   const myStatus    = usePresenceStore((s) => s.myStatus)
   const closeMobile = useUIStore((s) => s.closeMobileSidebar)
@@ -43,8 +45,8 @@ export function UserFooter({ onProfileClick }: Props) {
         style={{ background: accentColor + '33', borderColor: accentColor + '66' }}
         onMouseEnter={(e) => (e.currentTarget.style.borderColor = accentColor)}
         onMouseLeave={(e) => (e.currentTarget.style.borderColor = accentColor + '66')}
-        title="Ver meu perfil"
-        aria-label="Ver meu perfil"
+        title={t('userFooter.viewProfile')}
+        aria-label={t('userFooter.viewProfile')}
       >
         {user?.avatarUrl
           ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
@@ -59,17 +61,17 @@ export function UserFooter({ onProfileClick }: Props) {
         <p className="text-xs font-semibold m-0 truncate text-foreground">{user?.displayName}</p>
         <p className="text-[10px] m-0 truncate text-muted-foreground flex items-center gap-1">
           <StatusDot status={myStatus} size={7} />
-          <span className="truncate">{STATUS_META[myStatus].label}</span>
+          <span className="truncate">{t(STATUS_LABEL_KEY[myStatus])}</span>
         </p>
       </div>
 
-      <FooterBtn title="Editar perfil" onClick={() => { navigate('/app/profile'); closeMobile() }}>
+      <FooterBtn title={t('userFooter.editProfile')} onClick={() => { navigate('/app/profile'); closeMobile() }}>
         <Pencil className="size-3.5" />
       </FooterBtn>
-      <FooterBtn title="Configurações" onClick={() => { navigate('/app/settings'); closeMobile() }}>
+      <FooterBtn title={t('userFooter.settings')} onClick={() => { navigate('/app/settings'); closeMobile() }}>
         <SettingsIcon className="size-3.5" />
       </FooterBtn>
-      <FooterBtn title="Sair" onClick={() => { closeMobile(); logout() }} danger>
+      <FooterBtn title={t('userFooter.logout')} onClick={() => { closeMobile(); logout() }} danger>
         <LogOut className="size-3.5" />
       </FooterBtn>
     </div>

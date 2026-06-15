@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, ChevronLeft, ChevronRight, Download, Check } from 'lucide-react'
 import { resolveApiUrl } from '@/lib/api'
 import { saveImageToGallery } from '@/lib/saveImage'
@@ -16,6 +17,7 @@ interface LightboxProps {
  * clique fora fecha. Sem overlay pesado — editorial.
  */
 export default function Lightbox({ images, index, onClose, onNavigate }: LightboxProps) {
+  const { t } = useTranslation()
   const current = images[index]
   const [saving, setSaving] = useState(false)
   const [saved, setSaved]   = useState(false)
@@ -26,9 +28,9 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
     setSaving(true)
     const r = await saveImageToGallery(resolveApiUrl(current.url), current.name)
     setSaving(false)
-    if (r === 'saved')            { setSaved(true); toast.success('Salvo na galeria'); setTimeout(() => setSaved(false), 2000) }
-    else if (r === 'downloaded')  { setSaved(true); toast.success('Imagem baixada');   setTimeout(() => setSaved(false), 2000) }
-    else                          toast.error('Não foi possível salvar')
+    if (r === 'saved')            { setSaved(true); toast.success(t('lightbox.savedToast')); setTimeout(() => setSaved(false), 2000) }
+    else if (r === 'downloaded')  { setSaved(true); toast.success(t('lightbox.downloadedToast'));   setTimeout(() => setSaved(false), 2000) }
+    else                          toast.error(t('lightbox.saveFailToast'))
   }
 
   useEffect(() => {
@@ -66,15 +68,15 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
             onClick={handleSave}
             disabled={saving}
             className="size-9 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer disabled:opacity-50"
-            aria-label="Salvar imagem"
-            title="Salvar na galeria"
+            aria-label={t('lightbox.save')}
+            title={t('lightbox.saveTitle')}
           >
             {saved ? <Check className="size-4 text-(--success)" /> : <Download className="size-4" />}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onClose() }}
             className="size-9 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer"
-            aria-label="Fechar"
+            aria-label={t('lightbox.close')}
           >
             <X className="size-4" />
           </button>
@@ -86,7 +88,7 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate?.(index - 1) }}
           className="absolute left-4 sm:left-8 size-12 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer z-10"
-          aria-label="Anterior"
+          aria-label={t('lightbox.prev')}
         >
           <ChevronLeft className="size-5" />
         </button>
@@ -106,7 +108,7 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate?.(index + 1) }}
           className="absolute right-4 sm:right-8 size-12 flex items-center justify-center border border-white/30 text-white/80 hover:border-white hover:text-white transition-colors cursor-pointer z-10"
-          aria-label="Próxima"
+          aria-label={t('lightbox.next')}
         >
           <ChevronRight className="size-5" />
         </button>

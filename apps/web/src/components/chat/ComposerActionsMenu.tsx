@@ -8,6 +8,8 @@
  * durações — escolher um valor fecha o painel e seta ttlSeconds.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Sparkle, Smile, BarChart3, Timer, ChevronLeft, X, Check, Paperclip, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,12 +29,12 @@ export interface ComposerActionsMenuProps {
   onCamera?:    () => void
 }
 
-const TTL_OPTIONS = [
-  { label: 'Permanente', secs: 0 },
-  { label: '1 hora',     secs: 3600 },
-  { label: '6 horas',    secs: 6 * 3600 },
-  { label: '24 horas',   secs: 24 * 3600 },
-  { label: '7 dias',     secs: 7 * 86400 },
+const buildTtlOptions = (t: TFunction) => [
+  { label: t('chat.composer.ttlPermanent'), secs: 0 },
+  { label: t('chat.composer.ttl1h'),        secs: 3600 },
+  { label: t('chat.composer.ttl6h'),        secs: 6 * 3600 },
+  { label: t('chat.composer.ttl24h'),       secs: 24 * 3600 },
+  { label: t('chat.composer.ttl7d'),        secs: 7 * 86400 },
 ]
 
 function formatTtl(secs: number) {
@@ -46,9 +48,11 @@ export function ComposerActionsMenu({
   disabled, ttlSeconds, onGif, onEmoji, onPoll, onTtlChange, hidePoll,
   onAttach, attachDisabled, onCamera,
 }: ComposerActionsMenuProps) {
+  const { t } = useTranslation()
   const [open,     setOpen]     = useState(false)
   const [subMenu,  setSubMenu]  = useState<'ttl' | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const TTL_OPTIONS = buildTtlOptions(t)
 
   // Click fora + Esc fecham
   useEffect(() => {
@@ -79,8 +83,8 @@ export function ComposerActionsMenu({
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
-        aria-label="Mais opções"
-        title="Mais opções"
+        aria-label={t('chat.composer.moreOptions')}
+        title={t('chat.composer.moreOptions')}
         className={cn(
           'size-10 sm:size-7 flex items-center justify-center cursor-pointer transition-[color,transform] duration-150',
           disabled
@@ -108,11 +112,11 @@ export function ComposerActionsMenu({
                 <button
                   onClick={() => setSubMenu(null)}
                   className="size-6 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors"
-                  aria-label="Voltar"
+                  aria-label={t('chat.composer.back')}
                 >
                   <ChevronLeft className="size-3.5" />
                 </button>
-                <span className="ed-marg">— Mensagem efêmera</span>
+                <span className="ed-marg">{t('chat.composer.ephemeralMargin')}</span>
               </header>
               <div className="flex flex-col">
                 {TTL_OPTIONS.map((o) => {
@@ -138,7 +142,7 @@ export function ComposerActionsMenu({
           ) : (
             <>
               <header className="px-3 py-1.5 border-b border-(--border)">
-                <span className="ed-marg">— Extras</span>
+                <span className="ed-marg">{t('chat.composer.extras')}</span>
               </header>
               <div className="flex flex-col">
                 {/* Mobile-only (sm:hidden): no desktop o clipe fica exposto
@@ -148,7 +152,7 @@ export function ComposerActionsMenu({
                   <MenuItem
                     className="sm:hidden"
                     icon={<Camera className="size-4" />}
-                    label="Câmera"
+                    label={t('chat.composer.camera')}
                     onClick={() => { onCamera(); close() }}
                   />
                 )}
@@ -156,31 +160,31 @@ export function ComposerActionsMenu({
                   <MenuItem
                     className="sm:hidden"
                     icon={<Paperclip className="size-4" />}
-                    label="Anexar arquivo"
+                    label={t('chat.composer.attach')}
                     onClick={() => { onAttach(); close() }}
                   />
                 )}
                 <MenuItem
                   icon={<span className="font-mono text-[10px] font-bold tracking-wider">GIF</span>}
-                  label="Procurar GIF"
+                  label={t('chat.composer.searchGif')}
                   onClick={() => { onGif(); close() }}
                 />
                 <MenuItem
                   icon={<Smile className="size-4" />}
-                  label="Emoji"
+                  label={t('chat.composer.emoji')}
                   onClick={() => { onEmoji(); close() }}
                 />
                 {!hidePoll && (
                   <MenuItem
                     icon={<BarChart3 className="size-4" />}
-                    label="Enquete"
+                    label={t('chat.composer.poll')}
                     onClick={() => { onPoll(); close() }}
                   />
                 )}
                 <MenuItem
                   icon={<Timer className="size-4" />}
-                  label="Mensagem efêmera"
-                  hint={ttlSeconds > 0 ? formatTtl(ttlSeconds) : 'off'}
+                  label={t('chat.composer.ephemeral')}
+                  hint={ttlSeconds > 0 ? formatTtl(ttlSeconds) : t('chat.composer.ttlOff')}
                   active={ttlSeconds > 0}
                   onClick={() => setSubMenu('ttl')}
                   hasChevron

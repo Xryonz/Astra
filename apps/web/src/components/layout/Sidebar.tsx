@@ -692,6 +692,7 @@ function ChannelButton({
   participantIds?: string[]
   userMap?:       Map<string, { id: string; displayName: string; avatarUrl: string | null }>
 }) {
+  const { t }    = useTranslation()
   const isVoice  = channel.type === 'VOICE'
   const voice    = useVoiceCall()
   const cfg      = useVoiceConfig()
@@ -833,10 +834,10 @@ function ChannelButton({
         {channel.name}
       </span>
       {inThis && (
-        <span className="text-[10px] text-(--accent) shrink-0">conectado</span>
+        <span className="text-[10px] text-(--accent) shrink-0">{t('sidebar.connected')}</span>
       )}
       {!isVoice && hasUnread && !isActive && (
-        <span className="size-1.5 rounded-full bg-(--accent) shrink-0" aria-label="Não lido" />
+        <span className="size-1.5 rounded-full bg-(--accent) shrink-0" aria-label={t('sidebar.unread')} />
       )}
     </button>
     {showVoiceList && (

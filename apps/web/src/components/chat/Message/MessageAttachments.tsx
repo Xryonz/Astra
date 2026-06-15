@@ -8,6 +8,7 @@
  * Extraído de MessageItem (overhaul Fase 4d).
  */
 import { memo, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { File as FileIcon, Download } from 'lucide-react'
 import { resolveApiUrl } from '@/lib/api'
 import { blurhashToDataURL } from '@/lib/blurhash'
@@ -41,6 +42,7 @@ function isImageAttachment(a: { type?: string; name?: string; url?: string }) {
 }
 
 function ImageTile({ att, onOpen, fullWidth }: { att: Attachment; onOpen: () => void; fullWidth: boolean }) {
+  const { t } = useTranslation()
   const [errored, setErrored] = useState(false)
   const [loaded, setLoaded]   = useState(false)
   const src = resolveApiUrl(att.url)
@@ -59,11 +61,11 @@ function ImageTile({ att, onOpen, fullWidth }: { att: Attachment; onOpen: () => 
         target="_blank"
         rel="noopener noreferrer"
         className="flex flex-col items-start gap-1 p-3 border border-(--danger)/40 bg-(--raised) rounded-xl"
-        title="Imagem não carregou"
+        title={t('attach.imgFailed')}
       >
-        <span className="text-xs text-(--danger)">⚠ Imagem não carregou</span>
+        <span className="text-xs text-(--danger)">{t('attach.imgFailedWarn')}</span>
         <span className="text-[10px] font-mono text-(--text-3) break-all">{att.name}</span>
-        <span className="text-[10px] text-(--accent) underline">Abrir em nova aba</span>
+        <span className="text-[10px] text-(--accent) underline">{t('attach.openNewTab')}</span>
       </a>
     )
   }

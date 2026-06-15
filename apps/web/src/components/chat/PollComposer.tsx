@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Plus, X, BarChart3 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -14,13 +16,13 @@ interface PollComposerProps {
   channelId:  string
 }
 
-const DURATION_OPTIONS = [
-  { label: 'Sem expiração', value: null  },
-  { label: '1 hora',        value: 1    },
-  { label: '6 horas',       value: 6    },
-  { label: '24 horas',      value: 24   },
-  { label: '3 dias',        value: 72   },
-  { label: '7 dias',        value: 168  },
+const buildDurationOptions = (t: TFunction): { label: string; value: number | null }[] => [
+  { label: t('poll.durNone'), value: null },
+  { label: t('poll.dur1h'),   value: 1   },
+  { label: t('poll.dur6h'),   value: 6   },
+  { label: t('poll.dur24h'),  value: 24  },
+  { label: t('poll.dur3d'),   value: 72  },
+  { label: t('poll.dur7d'),   value: 168 },
 ]
 
 /**
@@ -28,6 +30,8 @@ const DURATION_OPTIONS = [
  * socket entrega ao MessageList via new_message normal.
  */
 export default function PollComposer({ open, onClose, channelId }: PollComposerProps) {
+  const { t } = useTranslation()
+  const DURATION_OPTIONS = buildDurationOptions(t)
   const [question, setQuestion]   = useState('')
   const [options, setOptions]     = useState<string[]>(['', ''])
   const [allowMultiple, setAllow] = useState(false)
@@ -63,7 +67,7 @@ export default function PollComposer({ open, onClose, channelId }: PollComposerP
       reset()
       onClose()
     } catch (e: any) {
-      setError(e.response?.data?.error ?? 'Erro ao criar enquete')
+      setError(e.response?.data?.error ?? t('poll.createError'))
     } finally {
       setSubmitting(false)
     }
@@ -75,30 +79,30 @@ export default function PollComposer({ open, onClose, channelId }: PollComposerP
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3 className="size-4 text-(--accent)" />
-            Nova enquete
+            {t('poll.title')}
           </DialogTitle>
           <DialogDescription>
-            Crie uma pergunta com até 8 opções. Membros do canal podem votar.
+            {t('poll.desc')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div>
             <label className="text-xs uppercase tracking-wider text-(--text-3) font-medium block mb-1.5">
-              Pergunta
+              {t('poll.question')}
             </label>
             <Input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               maxLength={300}
-              placeholder="O que você quer perguntar?"
+              placeholder={t('poll.questionPh')}
               autoFocus
             />
           </div>
 
           <div>
             <label className="text-xs uppercase tracking-wider text-(--text-3) font-medium block mb-1.5">
-              Opções
+              {t('poll.options')}
             </label>
             <div className="flex flex-col gap-1.5">
               {options.map((opt, i) => (
@@ -108,14 +112,14 @@ export default function PollComposer({ open, onClose, channelId }: PollComposerP
                     value={opt}
                     onChange={(e) => setOption(i, e.target.value)}
                     maxLength={80}
-                    placeholder={`Opção ${i + 1}`}
+                    placeholder={t('poll.optionPh', { n: i + 1 })}
                     className="flex-1"
                   />
                   {options.length > 2 && (
                     <button
                       onClick={() => removeOption(i)}
                       className="size-7 flex items-center justify-center text-(--text-3) hover:text-(--danger) cursor-pointer"
-                      aria-label="Remover opção"
+                      aria-label={t('poll.removeOption')}
                     >
                       <X className="size-3.5" />
                     </button>
@@ -127,7 +131,7 @@ export default function PollComposer({ open, onClose, channelId }: PollComposerP
                   onClick={addOption}
                   className="self-start text-xs text-(--text-3) hover:text-(--accent) flex items-center gap-1 mt-1 cursor-pointer"
                 >
-                  <Plus className="size-3" /> Adicionar opção
+                  <Plus className="size-3" /> {t('poll.addOption')}
                 </button>
               )}
             </div>
@@ -135,7 +139,7 @@ export default function PollComposer({ open, onClose, channelId }: PollComposerP
 
           <div>
             <label className="text-xs uppercase tracking-wider text-(--text-3) font-medium block mb-1.5">
-              Duração
+              {t('poll.duration')}
             </label>
             <select
               value={duration === null ? 'null' : String(duration)}
@@ -152,16 +156,16 @@ export default function PollComposer({ open, onClose, channelId }: PollComposerP
 
           <label className="flex items-center gap-2 text-sm text-(--text-2) cursor-pointer">
             <Checkbox checked={allowMultiple} onCheckedChange={(v) => setAllow(!!v)} />
-            Permitir múltipla escolha
+            {t('poll.allowMultiple')}
           </label>
 
           {error && <p className="text-xs text-(--danger) m-0">{error}</p>}
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={submit} disabled={!canSubmit}>
-            {submitting ? 'Criando…' : 'Criar enquete'}
+            {submitting ? t('poll.creating') : t('poll.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

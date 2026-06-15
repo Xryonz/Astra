@@ -3,6 +3,7 @@
  * derivadas) + de servidor (concedidas pelo dono). Tooltip com descrição.
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import type { UserBadges } from '@astra/types'
@@ -17,6 +18,7 @@ interface Chip {
 }
 
 export function ProfileBadges({ userId }: { userId: string }) {
+  const { t } = useTranslation()
   const { data } = useQuery<UserBadges>({
     queryKey:  ['badges', userId],
     queryFn:   async () => (await api.get(`/api/users/${userId}/badges`)).data.data,
@@ -37,7 +39,7 @@ export function ProfileBadges({ userId }: { userId: string }) {
 
   return (
     <div className="mb-6">
-      <span className="ed-label block mb-1.5">— Insígnias</span>
+      <span className="ed-label block mb-1.5">{t('profile.badges')}</span>
       <div className="flex flex-wrap gap-2">
         {chips.map((b) => (
           <Tooltip key={b.key}>

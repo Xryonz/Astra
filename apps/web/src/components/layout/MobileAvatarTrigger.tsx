@@ -3,6 +3,7 @@
  * Tap = abre a sidebar (drawer com servers + canais). Mostra avatar do user.
  * Visível só em mobile (md:hidden).
  */
+import { useTranslation } from 'react-i18next'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function MobileAvatarTrigger({ className }: Props) {
+  const { t }      = useTranslation()
   const user       = useAuthStore((s) => s.user)
   const openSidebar = useUIStore((s) => s.openMobileSidebar)
   const initial    = (user?.displayName ?? 'A').slice(0, 1).toUpperCase()
@@ -21,7 +23,7 @@ export default function MobileAvatarTrigger({ className }: Props) {
     <button
       type="button"
       onClick={openSidebar}
-      aria-label="Abrir constelações"
+      aria-label={t('sidebar.openConstellations')}
       className={cn(
         'md:hidden shrink-0 size-11 grid place-items-center cursor-pointer rounded-full',
         'transition-transform active:scale-95',

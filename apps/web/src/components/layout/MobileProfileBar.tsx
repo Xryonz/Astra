@@ -33,7 +33,7 @@ export default function MobileProfileBar() {
 
   return (
     <nav
-      aria-label="Navegação mobile"
+      aria-label={t('nav.mobileBarAria')}
       className={cn(
         // astra-bottom-nav: escondida via CSS quando o teclado abre (.astra-kb-open)
         'astra-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-30',

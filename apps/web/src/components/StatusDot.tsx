@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 export type UserStatus = 'ONLINE' | 'IDLE' | 'DND' | 'INVISIBLE' | 'OFFLINE'
@@ -8,6 +9,15 @@ export const STATUS_META: Record<UserStatus, { label: string; color: string; des
   DND:       { label: 'Não perturbe', color: '#ef4444', description: 'Não mostra notificações' },
   INVISIBLE: { label: 'Invisível',    color: '#6b7280', description: 'Aparece offline pros outros' },
   OFFLINE:   { label: 'Offline',      color: '#6b7280', description: 'Sem conexão' },
+}
+
+/** i18n key por status — label traduzido (STATUS_META mantém só a cor canônica). */
+export const STATUS_LABEL_KEY: Record<UserStatus, string> = {
+  ONLINE:    'status.online',
+  IDLE:      'status.idle',
+  DND:       'status.dnd',
+  INVISIBLE: 'status.invisible',
+  OFFLINE:   'status.offline',
 }
 
 interface StatusDotProps {
@@ -34,7 +44,9 @@ export default function StatusDot({
   borderColor = '#0a0a0a',
   className,
 }: StatusDotProps) {
+  const { t } = useTranslation()
   const meta = STATUS_META[status]
+  const label = t(STATUS_LABEL_KEY[status])
   const cutout = cutoutColor ?? (bordered ? borderColor : '#0a0a0a')
   const ringPx = Math.max(1.5, size * 0.22)
 
@@ -45,7 +57,7 @@ export default function StatusDot({
       viewBox="0 0 16 16"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label={meta.label}
+      aria-label={label}
       className={cn('inline-block shrink-0 align-middle', className)}
       style={{
         display: 'inline-block',
@@ -53,7 +65,7 @@ export default function StatusDot({
         borderRadius: '50%',
       }}
     >
-      <title>{meta.label}</title>
+      <title>{label}</title>
 
       {status === 'ONLINE' && (
         <circle cx="8" cy="8" r="8" fill={meta.color} />

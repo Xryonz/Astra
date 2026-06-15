@@ -5,14 +5,18 @@
     "cancel": "Cancelar",
     "error": "Erro",
     "name": "Nome",
-    "type": "Tipo"
+    "type": "Tipo",
+    "close": "Fechar",
+    "loading": "Carregando…",
+    "send": "Enviar"
   },
   "nav": {
     "constellations": "Constelações",
     "stars": "Estrelas",
     "friends": "Amigos",
     "alerts": "Avisos",
-    "more": "Mais"
+    "more": "Mais",
+    "mobileBarAria": "Navegação mobile"
   },
   "sidebar": {
     "createServer": "Criar constelação",
@@ -35,7 +39,10 @@
     "emptyTitleNew": "Seu céu ainda está vazio",
     "emptyTitleChoose": "Escolha uma constelação",
     "emptyDescNew": "Use o + na barra esquerda pra acender sua primeira.",
-    "emptyDescChoose": "Clique num ícone à esquerda pra abrir os canais."
+    "emptyDescChoose": "Clique num ícone à esquerda pra abrir os canais.",
+    "unread": "Não lido",
+    "openConstellations": "Abrir constelações",
+    "connected": "conectado"
   },
   "more": {
     "title": "Mais opções",
@@ -104,8 +111,128 @@
       "maxAttachments": "Máximo {{n}} anexos por mensagem",
       "fileTooLarge": "{{name}} maior que 25MB",
       "uploadFail": "Falha no upload",
-      "placeholderDm": "Mensagem para {{name}}"
+      "placeholderDm": "Mensagem para {{name}}",
+      "moreOptions": "Mais opções",
+      "back": "Voltar",
+      "ephemeralMargin": "— Mensagem efêmera",
+      "extras": "— Extras",
+      "camera": "Câmera",
+      "searchGif": "Procurar GIF",
+      "emoji": "Emoji",
+      "poll": "Enquete",
+      "ephemeral": "Mensagem efêmera",
+      "ttlPermanent": "Permanente",
+      "ttl1h": "1 hora",
+      "ttl6h": "6 horas",
+      "ttl24h": "24 horas",
+      "ttl7d": "7 dias",
+      "ttlOff": "off"
+    },
+    "editHistory": {
+      "aria": "Histórico de edições",
+      "title": "Histórico de edições",
+      "current": "Atual",
+      "empty": "Sem versões anteriores registradas.",
+      "marker": "(editada)",
+      "viewHistory": "Ver histórico de edições"
+    },
+    "message": {
+      "timeToday": "hoje às {{time}}",
+      "timeYesterday": "ontem às {{time}}",
+      "dateFormat": "d 'de' MMM 'às' HH:mm",
+      "pinned": "Mensagem fixada",
+      "expiresTitle": "Some em {{date}}",
+      "ephemeral": "some {{when}}",
+      "toastDeleted": "Mensagem excluída",
+      "toastDeleteFail": "Erro ao excluir mensagem",
+      "toastTextCopied": "Texto copiado",
+      "toastIdCopied": "ID copiado"
     }
+  },
+  "rightPanel": {
+    "members": "Membros",
+    "comets": "Cometas",
+    "cometsTitle": "Threads — conversas derivadas de uma mensagem",
+    "closePanel": "Fechar painel",
+    "loadingMembers": "Carregando membros…",
+    "errorLabel": "— Erro",
+    "loadFail": "Não foi possível carregar",
+    "unknownFail": "Falha desconhecida.",
+    "retry": "Tentar de novo",
+    "emptyMembersLabel": "— Sem habitantes",
+    "emptyMembersTitle": "Servidor vazio",
+    "emptyMembersDesc": "Nenhum membro nesse servidor ainda.",
+    "owners": "Donos",
+    "admins": "Admins",
+    "online": "Online",
+    "offline": "Offline",
+    "activeCometsTitle": "Threads ativas",
+    "activeComets": "Cometas ativos",
+    "emptyThreadsLabel": "— Margem em branco",
+    "emptyThreadsTitle": "Sem cometas por aqui",
+    "emptyThreadsDescPre": "Passe o mouse em uma mensagem e clique no",
+    "emptyThreadsDescPost": "pra soltar um (thread).",
+    "byAuthor": "por {{name}}",
+    "back": "← voltar",
+    "startThread": "Inicie a conversa na thread.",
+    "threadPlaceholder": "Mensagem na thread…"
+  },
+  "profile": {
+    "badges": "— Insígnias",
+    "notFound": "Página não encontrada.",
+    "notFoundDesc": "Este perfil já não existe — ou nunca existiu.",
+    "memberSince": "— Membro desde",
+    "dateFormat": "d 'de' MMMM 'de' yyyy",
+    "message": "Mensagem"
+  },
+  "poll": {
+    "title": "Nova enquete",
+    "desc": "Crie uma pergunta com até 8 opções. Membros do canal podem votar.",
+    "question": "Pergunta",
+    "questionPh": "O que você quer perguntar?",
+    "options": "Opções",
+    "optionPh": "Opção {{n}}",
+    "removeOption": "Remover opção",
+    "addOption": "Adicionar opção",
+    "duration": "Duração",
+    "durNone": "Sem expiração",
+    "dur1h": "1 hora",
+    "dur6h": "6 horas",
+    "dur24h": "24 horas",
+    "dur3d": "3 dias",
+    "dur7d": "7 dias",
+    "allowMultiple": "Permitir múltipla escolha",
+    "createError": "Erro ao criar enquete",
+    "creating": "Criando…",
+    "create": "Criar enquete"
+  },
+  "attach": {
+    "imgFailed": "Imagem não carregou",
+    "imgFailedWarn": "⚠ Imagem não carregou",
+    "openNewTab": "Abrir em nova aba"
+  },
+  "status": {
+    "online": "Online",
+    "idle": "Ausente",
+    "dnd": "Não perturbe",
+    "invisible": "Invisível",
+    "offline": "Offline"
+  },
+  "lightbox": {
+    "save": "Salvar imagem",
+    "saveTitle": "Salvar na galeria",
+    "close": "Fechar",
+    "prev": "Anterior",
+    "next": "Próxima",
+    "savedToast": "Salvo na galeria",
+    "downloadedToast": "Imagem baixada",
+    "saveFailToast": "Não foi possível salvar"
+  },
+  "userFooter": {
+    "viewProfile": "Ver meu perfil",
+    "editProfile": "Editar perfil",
+    "settings": "Configurações",
+    "logout": "Sair"
   },
   "discover": {
     "title": "Descobrir",
@@ -500,6 +627,7 @@
   },
   "settings": {
     "title": "Configurações",
+    "closeAria": "Fechar configurações",
     "groups": {
       "pessoal": "Pessoal",
       "app": "Aplicativo",

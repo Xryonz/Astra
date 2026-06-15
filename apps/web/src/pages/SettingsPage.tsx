@@ -199,7 +199,7 @@ export default function SettingsPage() {
                 <button
                   onClick={() => navigate(-1)}
                   className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0"
-                  aria-label="Fechar configurações"
+                  aria-label={t('settings.closeAria')}
                 >
                   <X className="size-5" />
                 </button>

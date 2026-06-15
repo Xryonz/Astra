@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import StatusDot, { STATUS_META, type UserStatus } from '@/components/StatusDot'
+import StatusDot, { STATUS_LABEL_KEY, type UserStatus } from '@/components/StatusDot'
 import { FONT_FAMILY, type DisplayFont } from './profileFonts'
 
 /**
@@ -25,6 +26,7 @@ export function ProfileHero({
   avatarUrl, displayName, username, coordinate, pronouns, statusEmoji,
   displayFont = 'serif', effectiveStatus, isBot, accentColor,
 }: Props) {
+  const { t } = useTranslation()
   const fontFamily = FONT_FAMILY[displayFont]
 
   return (
@@ -93,7 +95,7 @@ export function ProfileHero({
             <span className="text-(--text-3)">·</span>
             <span className="inline-flex items-center gap-1.5 text-(--text-2)">
               <StatusDot status={effectiveStatus} size={7} />
-              {STATUS_META[effectiveStatus].label}
+              {t(STATUS_LABEL_KEY[effectiveStatus])}
             </span>
           </>
         )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Crown, Shield, Hash, X, Users as UsersIcon, MessagesSquare } from 'lucide-react'
@@ -34,6 +35,7 @@ interface RightPanelProps {
 }
 
 export default function RightPanel({ serverId, channelId }: RightPanelProps) {
+  const { t }   = useTranslation()
   const open    = useUIStore((s) => s.rightPanelOpen)
   const close   = useUIStore((s) => s.closeRightPanel)
   const tab     = useUIStore((s) => s.rightPanelTab)
@@ -68,13 +70,13 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
             className="text-sm m-0 font-medium tracking-tight text-foreground truncate flex-1"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {tab === 'members' ? 'Membros' : 'Cometas'}
+            {tab === 'members' ? t('rightPanel.members') : t('rightPanel.comets')}
           </h3>
           <button
             onClick={close}
             className="size-7 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-            aria-label="Fechar painel"
-            title="Fechar"
+            aria-label={t('rightPanel.closePanel')}
+            title={t('common.close')}
           >
             <X className="size-4" />
           </button>
@@ -82,8 +84,8 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'members'|'threads')} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-4 mt-3 w-auto self-start">
-            <TabsTrigger value="members">Membros</TabsTrigger>
-            <TabsTrigger value="threads" title="Threads — conversas derivadas de uma mensagem">Cometas</TabsTrigger>
+            <TabsTrigger value="members">{t('rightPanel.members')}</TabsTrigger>
+            <TabsTrigger value="threads" title={t('rightPanel.cometsTitle')}>{t('rightPanel.comets')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="flex-1 min-h-0 mt-3">
@@ -104,6 +106,7 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
 const STATUS_ORDER: Record<UserStatus, number> = { ONLINE: 0, IDLE: 1, DND: 2, INVISIBLE: 3, OFFLINE: 4 }
 
 function MembersList({ serverId, onPickUser }: { serverId: string; onPickUser: (id: string) => void }) {
+  const { t }    = useTranslation()
   const presence = usePresenceStore((s) => s.others)
   const bulkSet  = usePresenceStore((s) => s.bulkSet)
 
@@ -124,27 +127,27 @@ function MembersList({ serverId, onPickUser }: { serverId: string; onPickUser: (
 
   if (isLoading) return (
     <div className="flex items-center justify-center gap-2 py-8 text-sm text-(--text-3)">
-      <Spinner size={14} /> Carregando membros…
+      <Spinner size={14} /> {t('rightPanel.loadingMembers')}
     </div>
   )
   if (isError) return (
     <Empty>
-      <EmptyLabel className="text-(--danger)">— Erro</EmptyLabel>
-      <EmptyTitle>Não foi possível carregar</EmptyTitle>
+      <EmptyLabel className="text-(--danger)">{t('rightPanel.errorLabel')}</EmptyLabel>
+      <EmptyTitle>{t('rightPanel.loadFail')}</EmptyTitle>
       <EmptyDescription>
-        {(error as any)?.response?.data?.error ?? (error as any)?.message ?? 'Falha desconhecida.'}
+        {(error as any)?.response?.data?.error ?? (error as any)?.message ?? t('rightPanel.unknownFail')}
       </EmptyDescription>
       <button onClick={() => refetch()} className="mt-3 text-sm text-(--accent) underline cursor-pointer">
-        Tentar de novo
+        {t('rightPanel.retry')}
       </button>
     </Empty>
   )
   if (members.length === 0) return (
     <Empty>
       <EmptyIcon><UsersIcon className="size-6" /></EmptyIcon>
-      <EmptyLabel>— Sem habitantes</EmptyLabel>
-      <EmptyTitle>Servidor vazio</EmptyTitle>
-      <EmptyDescription>Nenhum membro nesse servidor ainda.</EmptyDescription>
+      <EmptyLabel>{t('rightPanel.emptyMembersLabel')}</EmptyLabel>
+      <EmptyTitle>{t('rightPanel.emptyMembersTitle')}</EmptyTitle>
+      <EmptyDescription>{t('rightPanel.emptyMembersDesc')}</EmptyDescription>
     </Empty>
   )
 
@@ -167,10 +170,10 @@ function MembersList({ serverId, onPickUser }: { serverId: string; onPickUser: (
   }
 
   const sections: Array<[string, Member[], React.ReactNode]> = [
-    ['Donos',   grouped.OWNER,  <Crown className="size-3" />],
-    ['Admins',  grouped.ADMIN,  <Shield className="size-3" />],
-    ['Online',  grouped.MEMBER, null],
-    ['Offline', offline,        null],
+    [t('rightPanel.owners'),  grouped.OWNER,  <Crown className="size-3" />],
+    [t('rightPanel.admins'),  grouped.ADMIN,  <Shield className="size-3" />],
+    [t('rightPanel.online'),  grouped.MEMBER, null],
+    [t('rightPanel.offline'), offline,        null],
   ]
 
   // Achata as seções numa lista linear (header + members intercalados) pra
@@ -258,6 +261,7 @@ function VirtualMembers({
 }
 
 function ThreadsList({ channelId }: { channelId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [activeThread, setActiveThread] = useState<Thread | null>(null)
 
@@ -285,38 +289,38 @@ function ThreadsList({ channelId }: { channelId: string }) {
   return (
     <div className="flex flex-col gap-2 pb-4">
       <div className="px-3 pt-1 pb-2 flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium" title="Threads ativas">Cometas ativos</span>
+        <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium" title={t('rightPanel.activeCometsTitle')}>{t('rightPanel.activeComets')}</span>
         <span className="text-[10px] font-mono text-(--text-3) ml-auto">{threads.length}</span>
       </div>
 
       {isLoading && (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-(--text-3)">
-          <Spinner size={14} /> Carregando…
+          <Spinner size={14} /> {t('common.loading')}
         </div>
       )}
 
       {!isLoading && threads.length === 0 && (
         <Empty className="py-8">
           <EmptyIcon><MessagesSquare className="size-6" /></EmptyIcon>
-          <EmptyLabel>— Margem em branco</EmptyLabel>
-          <EmptyTitle>Sem cometas por aqui</EmptyTitle>
+          <EmptyLabel>{t('rightPanel.emptyThreadsLabel')}</EmptyLabel>
+          <EmptyTitle>{t('rightPanel.emptyThreadsTitle')}</EmptyTitle>
           <EmptyDescription>
-            Passe o mouse em uma mensagem e clique no <Hash className="size-3 inline align-middle" /> pra soltar um (thread).
+            {t('rightPanel.emptyThreadsDescPre')} <Hash className="size-3 inline align-middle" /> {t('rightPanel.emptyThreadsDescPost')}
           </EmptyDescription>
         </Empty>
       )}
 
       <ul className="flex flex-col">
-        {threads.map((t) => (
-          <li key={t.id}>
+        {threads.map((th) => (
+          <li key={th.id}>
             <button
-              onClick={() => setActiveThread(t)}
+              onClick={() => setActiveThread(th)}
               className="w-full flex items-start gap-2.5 px-3 py-2 text-left border-l-2 border-transparent hover:border-(--accent) hover:bg-(--raised)/40 transition-colors cursor-pointer"
             >
               <Hash className="size-3.5 text-(--text-3) mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-(--text-1) m-0 truncate" style={{ fontFamily: 'var(--font-display)' }}>{t.name}</p>
-                <p className="text-[11px] text-(--text-3) m-0 truncate font-mono">por {t.createdBy.displayName}</p>
+                <p className="text-sm text-(--text-1) m-0 truncate" style={{ fontFamily: 'var(--font-display)' }}>{th.name}</p>
+                <p className="text-[11px] text-(--text-3) m-0 truncate font-mono">{t('rightPanel.byAuthor', { name: th.createdBy.displayName })}</p>
               </div>
             </button>
           </li>
@@ -327,6 +331,7 @@ function ThreadsList({ channelId }: { channelId: string }) {
 }
 
 function ThreadView({ thread, onBack }: { thread: Thread; onBack: () => void }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
 
@@ -343,18 +348,18 @@ function ThreadView({ thread, onBack }: { thread: Thread; onBack: () => void }) 
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 py-2 border-b border-(--border) flex items-center gap-2">
-        <button onClick={onBack} className="text-xs text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer">← voltar</button>
+        <button onClick={onBack} className="text-xs text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer">{t('rightPanel.back')}</button>
         <span className="text-sm flex-1 truncate" style={{ fontFamily: 'var(--font-display)' }}>{thread.name}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-2">
         {isLoading && (
           <div className="flex items-center gap-2 py-2 text-sm text-(--text-3)">
-            <Spinner size={12} /> Carregando…
+            <Spinner size={12} /> {t('common.loading')}
           </div>
         )}
         {data?.items.length === 0 && (
-          <p className="text-sm text-(--text-3) italic">Inicie a conversa na thread.</p>
+          <p className="text-sm text-(--text-3) italic">{t('rightPanel.startThread')}</p>
         )}
         {data?.items.map((m: any) => (
           <div key={m.id} className="border-l-2 border-(--border) pl-2.5 py-0.5">
@@ -369,10 +374,10 @@ function ThreadView({ thread, onBack }: { thread: Thread; onBack: () => void }) 
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && draft.trim()) { e.preventDefault(); send.mutate() } }}
-          placeholder="Mensagem na thread…"
+          placeholder={t('rightPanel.threadPlaceholder')}
         />
         <Button onClick={() => draft.trim() && send.mutate()} disabled={!draft.trim() || send.isPending} size="sm">
-          {send.isPending ? '…' : 'Enviar'}
+          {send.isPending ? '…' : t('common.send')}
         </Button>
       </div>
     </div>

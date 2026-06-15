@@ -16,9 +16,10 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Calendar, MessageCircle, Quote } from 'lucide-react'
 import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { ptBR, enUS } from 'date-fns/locale'
 import { motion } from 'motion/react'
 
 import { api }            from '@/lib/api'
@@ -82,6 +83,7 @@ function fallbackGradient(id: string) {
 }
 
 export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
+  const { t, i18n }  = useTranslation()
   const currentUser = useAuthStore((s) => s.user)
   const navigate    = useNavigate()
   const isSelf      = userId === currentUser?.id
@@ -176,10 +178,10 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
 
                 {profile.createdAt && (
                   <div className="mb-6">
-                    <span className="ed-label block mb-1.5">— Membro desde</span>
+                    <span className="ed-label block mb-1.5">{t('profile.memberSince')}</span>
                     <p className="text-(--text-2) text-sm m-0 flex items-center gap-2">
                       <Calendar className="size-3.5 text-(--text-3)" />
-                      {format(new Date(profile.createdAt), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      {format(new Date(profile.createdAt), t('profile.dateFormat'), { locale: i18n.language === 'pt' ? ptBR : enUS })}
                     </p>
                   </div>
                 )}
@@ -190,7 +192,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
                     className="w-full gap-2 rounded-full h-10 bg-(--accent) text-(--text-inv) font-medium tracking-wider uppercase text-marg hover:bg-(--accent-h) hover:shadow-accent transition-all duration-300 ease-(--ease-spring)"
                   >
                     <MessageCircle className="size-3.5" />
-                    Mensagem
+                    {t('profile.message')}
                   </Button>
                 )}
               </motion.div>
@@ -198,9 +200,9 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
           ) : (
             <div className="p-10 text-center flex flex-col items-center justify-center gap-3 min-h-60">
               <span className="ed-roman text-h2">—</span>
-              <SheetTitle className="ed-h text-h3 m-0">Página não encontrada.</SheetTitle>
+              <SheetTitle className="ed-h text-h3 m-0">{t('profile.notFound')}</SheetTitle>
               <SheetDescription className="text-(--text-3) text-caption italic max-w-[28ch]">
-                Este perfil já não existe — ou nunca existiu.
+                {t('profile.notFoundDesc')}
               </SheetDescription>
             </div>
           )}

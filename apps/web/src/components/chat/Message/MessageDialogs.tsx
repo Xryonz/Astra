@@ -5,6 +5,7 @@
  * controlado por open + callbacks do parent.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -18,6 +19,7 @@ export function CreateThreadDialog({ open, onClose, onCreate }: {
   onClose: () => void
   onCreate: (name: string) => Promise<void> | void
 }) {
+  const { t } = useTranslation()
   const [name,   setName]   = useState('')
   const [saving, setSaving] = useState(false)
   useEffect(() => { if (!open) setName('') }, [open])
@@ -32,8 +34,8 @@ export function CreateThreadDialog({ open, onClose, onCreate }: {
     <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
       <DialogContent className="max-w-95!">
         <DialogHeader>
-          <DialogTitle>Soltar cometa</DialogTitle>
-          <DialogDescription>Conversa derivada desta mensagem (thread).</DialogDescription>
+          <DialogTitle>{t('msgDialog.threadTitle')}</DialogTitle>
+          <DialogDescription>{t('msgDialog.threadDesc')}</DialogDescription>
         </DialogHeader>
         <Input
           autoFocus
@@ -43,13 +45,13 @@ export function CreateThreadDialog({ open, onClose, onCreate }: {
             if (e.key === 'Enter')  { e.preventDefault(); submit() }
             if (e.key === 'Escape') onClose()
           }}
-          placeholder="Nome do cometa"
+          placeholder={t('msgDialog.threadPlaceholder')}
           maxLength={80}
         />
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={submit} disabled={!name.trim() || saving}>
-            {saving ? 'Criando…' : 'Criar'}
+            {saving ? t('msgDialog.creating') : t('msgDialog.create')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -63,19 +65,20 @@ export function DeleteConfirm({ open, onConfirm, onCancel }: {
   onConfirm: () => void
   onCancel:  () => void
 }) {
+  const { t } = useTranslation()
   return (
     <Dialog open={open} onOpenChange={(o: boolean) => !o && onCancel()}>
       <DialogContent className="max-w-90 text-center">
         <div className="text-4xl mb-2">🗑️</div>
         <DialogHeader>
-          <DialogTitle className="text-center">Apagar mensagem?</DialogTitle>
+          <DialogTitle className="text-center">{t('msgDialog.deleteTitle')}</DialogTitle>
           <DialogDescription className="text-center">
-            Esta ação não pode ser desfeita.
+            {t('msgDialog.deleteDesc')}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-center">
-          <Button variant="secondary"   className="flex-1" onClick={onCancel}>Cancelar</Button>
-          <Button variant="destructive" className="flex-1" onClick={onConfirm}>Sim, apagar</Button>
+          <Button variant="secondary"   className="flex-1" onClick={onCancel}>{t('common.cancel')}</Button>
+          <Button variant="destructive" className="flex-1" onClick={onConfirm}>{t('msgDialog.deleteConfirm')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -89,6 +92,7 @@ export function EditModal({ open, content, onSave, onClose }: {
   onSave:  (c: string) => Promise<void> | void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [value,  setValue]  = useState(content)
   const [saving, setSaving] = useState(false)
 
@@ -107,7 +111,7 @@ export function EditModal({ open, content, onSave, onClose }: {
     <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
       <DialogContent className="max-w-115">
         <DialogHeader>
-          <DialogTitle>Editar mensagem</DialogTitle>
+          <DialogTitle>{t('msgDialog.editTitle')}</DialogTitle>
         </DialogHeader>
         <Textarea
           autoFocus
@@ -120,11 +124,11 @@ export function EditModal({ open, content, onSave, onClose }: {
           rows={3}
           className="min-h-18 resize-y leading-relaxed"
         />
-        <p className="text-[11px] text-muted-foreground">Enter para salvar · Esc para cancelar</p>
+        <p className="text-[11px] text-muted-foreground">{t('msgDialog.editHint')}</p>
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={handleSave} disabled={disabled}>
-            {saving ? 'Salvando…' : 'Salvar'}
+            {saving ? t('msgDialog.saving') : t('msgDialog.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

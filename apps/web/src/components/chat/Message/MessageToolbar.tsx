@@ -6,6 +6,7 @@
  *
  * Extraído de MessageItem (overhaul Fase 4d).
  */
+import { useTranslation } from 'react-i18next'
 import {
   Smile, Reply, MessageSquarePlus, Bookmark, BookmarkCheck,
   Pin, PinOff, Pencil, Trash2,
@@ -30,25 +31,26 @@ export function MessageToolbar({
   isMine, isPinned, isBookmarked, onPickEmoji, onReply, onCreateThread,
   onEdit, onDelete, onTogglePin, onToggleBookmark,
 }: Props) {
+  const { t } = useTranslation()
   return (
     <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-3 animate-in fade-in-0 zoom-in-95 duration-150">
-      <ToolBtn title="Reagir" onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
-      {onReply && <ToolBtn title="Responder" onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
+      <ToolBtn title={t('msgActions.react')} onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
+      {onReply && <ToolBtn title={t('msgActions.reply')} onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
       {onCreateThread && (
-        <ToolBtn title="Soltar cometa (thread)" onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
+        <ToolBtn title={t('msgActions.thread')} onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
       )}
       {onToggleBookmark && (
-        <ToolBtn title={isBookmarked ? 'Remover dos salvos' : 'Salvar'} onClick={onToggleBookmark}>
+        <ToolBtn title={isBookmarked ? t('msgActions.removeSaved') : t('msgActions.save')} onClick={onToggleBookmark}>
           {isBookmarked ? <BookmarkCheck className="size-3.5 text-(--accent)" /> : <Bookmark className="size-3.5" />}
         </ToolBtn>
       )}
       {onTogglePin && (
-        <ToolBtn title={isPinned ? 'Desafixar' : 'Fixar'} onClick={onTogglePin}>
+        <ToolBtn title={isPinned ? t('msgActions.unpin') : t('msgActions.pin')} onClick={onTogglePin}>
           {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
         </ToolBtn>
       )}
-      {isMine && onEdit   && <ToolBtn title="Editar"  onClick={onEdit}><Pencil className="size-3.5" /></ToolBtn>}
-      {isMine && onDelete && <ToolBtn title="Apagar"  onClick={onDelete} danger><Trash2 className="size-3.5" /></ToolBtn>}
+      {isMine && onEdit   && <ToolBtn title={t('msgActions.edit')}  onClick={onEdit}><Pencil className="size-3.5" /></ToolBtn>}
+      {isMine && onDelete && <ToolBtn title={t('msgActions.delete')}  onClick={onDelete} danger><Trash2 className="size-3.5" /></ToolBtn>}
     </div>
   )
 }

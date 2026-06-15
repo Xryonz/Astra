@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Smile, Reply, Pencil, Pin, PinOff, Trash2, Copy, MessageSquarePlus, Bookmark, BookmarkCheck } from 'lucide-react'
 import { hapticLight, hapticMedium } from '@/lib/haptics'
@@ -29,6 +30,7 @@ export default function MessageMobileActions({
   open, onClose, isMine, isPinned, isBookmarked, authorName, contentPreview,
   onPickEmoji, onReply, onEdit, onTogglePin, onToggleBookmark, onDelete, onCopy, onCreateThread,
 }: MessageMobileActionsProps) {
+  const { t } = useTranslation()
   const QUICK = ['👍','❤️','😂','😮','😢','🔥']
 
   // Feedback tátil no long-press que abriu o sheet (no-op no web)
@@ -55,33 +57,33 @@ export default function MessageMobileActions({
               key={e}
               onClick={() => { hapticLight(); onPickEmoji(); onClose() }}
               className="flex-1 text-2xl py-2 transition-transform active:scale-90"
-              aria-label={`Reagir ${e}`}
+              aria-label={t('msgActions.reactEmoji', { emoji: e })}
             >{e}</button>
           ))}
         </div>
 
         {/* Lista de ações */}
         <ul className="flex flex-col py-2">
-          <ActionRow icon={<Smile className="size-4" />}  label="Mais emojis"   onClick={wrap(onPickEmoji)} />
-          <ActionRow icon={<Reply className="size-4" />}  label="Responder"     onClick={wrap(onReply)} />
+          <ActionRow icon={<Smile className="size-4" />}  label={t('msgActions.moreEmojis')}   onClick={wrap(onPickEmoji)} />
+          <ActionRow icon={<Reply className="size-4" />}  label={t('msgActions.reply')}     onClick={wrap(onReply)} />
           {onCreateThread && (
-            <ActionRow icon={<MessageSquarePlus className="size-4" />} label="Soltar cometa" onClick={wrap(onCreateThread)} />
+            <ActionRow icon={<MessageSquarePlus className="size-4" />} label={t('msgActions.threadShort')} onClick={wrap(onCreateThread)} />
           )}
           <ActionRow
             icon={isPinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
-            label={isPinned ? 'Desafixar' : 'Fixar'}
+            label={isPinned ? t('msgActions.unpin') : t('msgActions.pin')}
             onClick={wrap(onTogglePin)}
           />
           {onToggleBookmark && (
             <ActionRow
               icon={isBookmarked ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
-              label={isBookmarked ? 'Remover dos salvos' : 'Salvar'}
+              label={isBookmarked ? t('msgActions.removeSaved') : t('msgActions.save')}
               onClick={wrap(onToggleBookmark)}
             />
           )}
-          {onCopy && <ActionRow icon={<Copy className="size-4" />} label="Copiar texto" onClick={wrap(onCopy)} />}
-          {isMine && onEdit   && <ActionRow icon={<Pencil className="size-4" />} label="Editar" onClick={wrap(onEdit)} />}
-          {isMine && onDelete && <ActionRow icon={<Trash2 className="size-4" />} label="Apagar" onClick={wrap(onDelete)} danger />}
+          {onCopy && <ActionRow icon={<Copy className="size-4" />} label={t('msgActions.copyText')} onClick={wrap(onCopy)} />}
+          {isMine && onEdit   && <ActionRow icon={<Pencil className="size-4" />} label={t('msgActions.edit')} onClick={wrap(onEdit)} />}
+          {isMine && onDelete && <ActionRow icon={<Trash2 className="size-4" />} label={t('msgActions.delete')} onClick={wrap(onDelete)} danger />}
         </ul>
       </SheetContent>
     </Sheet>

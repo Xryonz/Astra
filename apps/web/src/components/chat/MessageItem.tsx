@@ -382,12 +382,13 @@ function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.R
 
 
 function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
+  const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   const [showFull, setShowFull] = useState(false)
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
-    const t = setTimeout(() => document.addEventListener('mousedown', handler), 50)
-    return () => { clearTimeout(t); document.removeEventListener('mousedown', handler) }
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 50)
+    return () => { clearTimeout(timer); document.removeEventListener('mousedown', handler) }
   }, [onClose])
 
   if (showFull) {
@@ -415,7 +416,7 @@ function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose
       <button
         onClick={() => setShowFull(true)}
         className="ml-1 px-1.5 text-xs font-mono tracking-wider text-(--text-3) hover:text-(--accent) border-l border-(--border) cursor-pointer"
-        title="Mais emojis"
+        title={t('msgActions.moreEmojis')}
       >+</button>
     </div>
   )
@@ -607,19 +608,19 @@ function MessageItemImpl({
   // Itens do right-click — coerentes com o toolbar mas mais completos
   const ctxItems: EditorialMenuItem[] = []
   if (!isPending && !isBot) {
-    ctxItems.push({ kind: 'item', icon: <Smile className="size-3.5" />, label: 'Reagir',     onSelect: () => setShowEmoji(true) })
-    ctxItems.push({ kind: 'item', icon: <Reply className="size-3.5" />, label: 'Responder', onSelect: () => onReply?.(message) })
-    ctxItems.push({ kind: 'item', icon: <MessageSquarePlus className="size-3.5" />, label: 'Criar thread', onSelect: () => setShowCreateThread(true) })
+    ctxItems.push({ kind: 'item', icon: <Smile className="size-3.5" />, label: t('msgActions.react'),     onSelect: () => setShowEmoji(true) })
+    ctxItems.push({ kind: 'item', icon: <Reply className="size-3.5" />, label: t('msgActions.reply'), onSelect: () => onReply?.(message) })
+    ctxItems.push({ kind: 'item', icon: <MessageSquarePlus className="size-3.5" />, label: t('msgActions.createThread'), onSelect: () => setShowCreateThread(true) })
     ctxItems.push({ kind: 'separator' })
     if (content) ctxItems.push({
-      kind: 'item', icon: <Copy className="size-3.5" />, label: 'Copiar texto',
+      kind: 'item', icon: <Copy className="size-3.5" />, label: t('msgActions.copyText'),
       onSelect: () => {
         void navigator.clipboard.writeText(content)
         toast.success(t('chat.message.toastTextCopied'))
       },
     })
     ctxItems.push({
-      kind: 'item', icon: <Copy className="size-3.5" />, label: 'Copiar ID',
+      kind: 'item', icon: <Copy className="size-3.5" />, label: t('msgActions.copyId'),
       shortcut: '⌘C',
       onSelect: () => {
         void navigator.clipboard.writeText(message.id)
@@ -630,20 +631,20 @@ function MessageItemImpl({
     ctxItems.push({
       kind: 'item',
       icon: (message as any).pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />,
-      label: (message as any).pinned ? 'Desfixar' : 'Fixar mensagem',
+      label: (message as any).pinned ? t('msgActions.unpinMsg') : t('msgActions.pinMsg'),
       onSelect: () => handleTogglePin(!(message as any).pinned),
     })
     ctxItems.push({
       kind: 'item',
       icon: isBookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />,
-      label: isBookmarked ? 'Remover bookmark' : 'Salvar bookmark',
+      label: isBookmarked ? t('msgActions.removeBookmark') : t('msgActions.saveBookmark'),
       onSelect: () => toggleBookmark.mutate({ targetId: message.id, kind: 'message', action: isBookmarked ? 'delete' : 'create' }),
     })
     if (isMine) {
       ctxItems.push({ kind: 'separator' })
-      ctxItems.push({ kind: 'item', icon: <Pencil className="size-3.5" />, label: 'Editar', onSelect: () => setShowEdit(true) })
+      ctxItems.push({ kind: 'item', icon: <Pencil className="size-3.5" />, label: t('msgActions.edit'), onSelect: () => setShowEdit(true) })
       ctxItems.push({
-        kind: 'item', icon: <Trash2 className="size-3.5" />, label: 'Excluir',
+        kind: 'item', icon: <Trash2 className="size-3.5" />, label: t('msgActions.deleteCtx'),
         destructive: true,
         onSelect: () => setShowDeleteConfirm(true),
       })

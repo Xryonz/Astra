@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getSocket } from '@/lib/socket'
 import { useAuthStore } from '@/store/authStore'
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function TypingIndicator({ channelId, conversationId }: Props) {
+  const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
   const isDM = !!conversationId
@@ -46,10 +48,10 @@ export default function TypingIndicator({ channelId, conversationId }: Props) {
 
   const label =
     typingUsers.length === 1
-      ? `${typingUsers[0].username} está digitando`
+      ? t('typing.one', { user: typingUsers[0].username })
       : typingUsers.length === 2
-        ? `${typingUsers[0].username} e ${typingUsers[1].username} estão digitando`
-        : `${typingUsers.length} pessoas estão digitando`
+        ? t('typing.two', { a: typingUsers[0].username, b: typingUsers[1].username })
+        : t('typing.many', { count: typingUsers.length })
 
   return (
     <div style={{

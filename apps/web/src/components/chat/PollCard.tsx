@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Check, Lock, Clock } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -28,6 +30,7 @@ interface PollCardProps {
  * Atualiza optimisticamente; socket vai confirmar via `poll_updated`.
  */
 export default function PollCard({ channelId, messageId, poll, canClose }: PollCardProps) {
+  const { t } = useTranslation()
   const me = useAuthStore((s) => s.user)
   const confirm = useConfirm()
   const [local, setLocal] = useState<PollData>(poll)
@@ -84,17 +87,17 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
   const close = async () => {
     if (!canClose || closed) return
     const ok = await confirm({
-      title: 'Encerrar enquete?',
-      description: 'Votos atuais ficam, mas ninguém pode votar mais. Ação não-reversível.',
-      confirmLabel: 'Encerrar',
+      title: t('poll.closeTitle'),
+      description: t('poll.closeDesc'),
+      confirmLabel: t('poll.close'),
       destructive: true,
     })
     if (!ok) return
     try {
       await api.post(`/api/channels/${channelId}/polls/${messageId}/close`)
-      toast.success('Enquete encerrada')
+      toast.success(t('poll.closedToast'))
     } catch {
-      toast.error('Erro ao encerrar enquete')
+      toast.error(t('poll.closeError'))
     }
   }
 
@@ -109,7 +112,7 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
         </p>
         {closed && (
           <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-(--text-3) px-1.5 py-0.5 border border-(--border)">
-            <Lock className="size-2.5" /> Encerrada
+            <Lock className="size-2.5" /> {t('poll.closed')}
           </span>
         )}
       </div>
@@ -153,14 +156,14 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
 
       <div className="flex items-center justify-between text-[10px] font-mono text-(--text-3)">
         <span>
-          {totalVotes} voto{totalVotes === 1 ? '' : 's'}
-          {local.allowMultiple && ' · múltipla escolha'}
+          {t('poll.votes', { count: totalVotes })}
+          {local.allowMultiple && t('poll.multipleChoice')}
         </span>
         <div className="flex items-center gap-2">
           {local.expiresAt && (
             <span className="inline-flex items-center gap-1">
               <Clock className="size-2.5" />
-              {formatExpiry(local.expiresAt, expired)}
+              {formatExpiry(local.expiresAt, expired, t)}
             </span>
           )}
           {canClose && !closed && (
@@ -168,7 +171,7 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
               onClick={close}
               className="text-(--text-3) hover:text-(--danger) cursor-pointer uppercase tracking-wider"
             >
-              Encerrar
+              {t('poll.close')}
             </button>
           )}
         </div>
@@ -177,8 +180,8 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
   )
 }
 
-function formatExpiry(iso: string, expired: boolean): string {
-  if (expired) return 'expirou'
+function formatExpiry(iso: string, expired: boolean, t: TFunction): string {
+  if (expired) return t('poll.expired')
   const diffMs = new Date(iso).getTime() - Date.now()
   const hours  = Math.floor(diffMs / 3600_000)
   const mins   = Math.floor((diffMs % 3600_000) / 60_000)

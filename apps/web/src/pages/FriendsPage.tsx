@@ -6,6 +6,7 @@
  * Acesso via /app/friends.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { UserPlus, Check, X, Inbox, Send, UserMinus, MessageCircle, AtSign, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -28,14 +29,16 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator'
 import { cn } from '@/lib/utils'
 
-const PRESENCE_LABEL: Record<string, string> = {
-  ONLINE: 'Online', IDLE: 'Ausente', DND: 'Ocupado', OFFLINE: 'Offline', INVISIBLE: 'Offline',
+// presence enum → chave i18n (friends.presence.*)
+const PRESENCE_KEY: Record<string, string> = {
+  ONLINE: 'online', IDLE: 'idle', DND: 'dnd', OFFLINE: 'offline', INVISIBLE: 'offline',
 }
 const PRESENCE_DOT: Record<string, string> = {
   ONLINE: 'bg-(--success)', IDLE: 'bg-yellow-500', DND: 'bg-(--danger)', OFFLINE: 'bg-(--text-3)', INVISIBLE: 'bg-(--text-3)',
 }
 
 export default function FriendsPage() {
+  const { t }        = useTranslation()
   const [tab, setTab] = useState<'friends' | 'pending' | 'add'>('friends')
   const friends      = useFriends()
   const requests     = useFriendRequests()
@@ -59,12 +62,12 @@ export default function FriendsPage() {
           <header className="mb-10">
             <Reveal delay={0.18}>
               <h1 className="ed-h text-4xl sm:text-5xl m-0 leading-[1.05]">
-                Estrelas
+                {t('friends.title1')}
               </h1>
             </Reveal>
             <Reveal delay={0.28}>
               <h1 className="ed-h text-4xl sm:text-5xl m-0 italic text-(--accent) leading-[1.05]">
-                no seu céu.
+                {t('friends.title2')}
               </h1>
             </Reveal>
             <Reveal delay={0.42}>
@@ -72,7 +75,7 @@ export default function FriendsPage() {
             </Reveal>
             <Reveal delay={0.50}>
               <p className="ed-lede max-w-[44ch] text-(--text-2) m-0">
-                Cada amizade aqui é uma estrela alinhada. Aceite pedidos, envie outros, ou alinhe novas pela coordenada.
+                {t('friends.lede')}
               </p>
             </Reveal>
           </header>
@@ -81,23 +84,23 @@ export default function FriendsPage() {
           <Reveal delay={0.65}>
             <nav className="flex gap-1 mb-8 border-b border-(--border)">
               {[
-                { id: 'friends', label: `Alinhadas`, count: friends.data?.length ?? 0 },
-                { id: 'pending', label: `Pendentes`, count: pendingCount },
-                { id: 'add',     label: 'Alinhar nova', count: null as number | null },
-              ].map((t) => (
+                { id: 'friends', label: t('friends.tabFriends'), count: friends.data?.length ?? 0 },
+                { id: 'pending', label: t('friends.tabPending'), count: pendingCount },
+                { id: 'add',     label: t('friends.tabAdd'), count: null as number | null },
+              ].map((item) => (
                 <button
-                  key={t.id}
-                  onClick={() => setTab(t.id as any)}
+                  key={item.id}
+                  onClick={() => setTab(item.id as any)}
                   className={cn(
                     'group relative px-3.5 py-2.5 text-sm -mb-px border-b-2 transition-colors font-(family-name:--font-display)',
-                    tab === t.id
+                    tab === item.id
                       ? 'border-(--accent) text-foreground'
                       : 'border-transparent text-(--text-3) hover:text-foreground',
                   )}
                 >
-                  <span>{t.label}</span>
-                  {t.count !== null && t.count > 0 && (
-                    <span className="ml-1.5 text-[10px] font-mono text-(--text-3)">· {t.count}</span>
+                  <span>{item.label}</span>
+                  {item.count !== null && item.count > 0 && (
+                    <span className="ml-1.5 text-[10px] font-mono text-(--text-3)">· {item.count}</span>
                   )}
                 </button>
               ))}
@@ -113,7 +116,7 @@ export default function FriendsPage() {
         <div className="hidden lg:flex col-span-1 col-start-12 items-end pb-12">
           <Reveal delay={1.0}>
             <p className="ed-aside max-w-[16ch]">
-              "Toda constelação começa com duas estrelas."
+              {t('friends.aside')}
             </p>
           </Reveal>
         </div>
@@ -123,6 +126,7 @@ export default function FriendsPage() {
 }
 
 function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; onlineCount: number; loading: boolean }) {
+  const { t }    = useTranslation()
   const navigate = useNavigate()
   const remove   = useRemoveFriend()
   const confirm  = useConfirm()
@@ -144,14 +148,14 @@ function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; on
       })
     } catch (e: any) {
       console.error('[dm]', e?.response?.data ?? e?.message)
-      toast.error(e?.response?.data?.error ?? 'Não consegui abrir DM')
+      toast.error(e?.response?.data?.error ?? t('friends.dmError'))
     }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-8 text-sm text-(--text-3)">
-        <Spinner size={14} /> Carregando…
+        <Spinner size={14} /> {t('friends.loading')}
       </div>
     )
   }
@@ -159,8 +163,8 @@ function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; on
     return (
       <Reveal delay={0.05}>
         <ConstellationEmpty
-          title="Sozinho no céu"
-          description="Adicione estrelas por username ou coordenada."
+          title={t('friends.emptyTitle')}
+          description={t('friends.emptyDesc')}
           className="border border-dashed border-(--border)"
         />
       </Reveal>
@@ -171,7 +175,7 @@ function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; on
     <>
       {onlineCount > 0 && (
         <Reveal delay={0.05}>
-          <p className="ed-marg mb-3">— {onlineCount} {onlineCount === 1 ? 'estrela acesa' : 'estrelas acesas'}</p>
+          <p className="ed-marg mb-3">{t('friends.lit', { count: onlineCount })}</p>
         </Reveal>
       )}
       <ScrollArea className="max-h-[60vh]">
@@ -184,14 +188,14 @@ function FriendsList({ items, onlineCount, loading }: { items: FriendEntry[]; on
               onDM={() => startDM(f.user)}
               onRemove={async () => {
                 const ok = await confirm({
-                  title: `Remover ${f.user.displayName}?`,
-                  description: 'Vocês deixarão de ser amigos. Pode adicionar de novo depois.',
-                  confirmLabel: 'Remover',
+                  title: t('friends.removeTitle', { name: f.user.displayName }),
+                  description: t('friends.removeDesc'),
+                  confirmLabel: t('friends.remove'),
                   destructive: true,
                 })
                 if (ok) {
                   remove.mutate(f.friendshipId, {
-                    onSuccess: () => toast.success(`${f.user.displayName} removido`),
+                    onSuccess: () => toast.success(t('friends.removed', { name: f.user.displayName })),
                   })
                 }
               }}
@@ -208,18 +212,19 @@ function FriendRow({
 }: {
   friend: FriendEntry; delay: number; onDM: () => void; onRemove: () => void
 }) {
+  const { t } = useTranslation()
   const items: EditorialMenuItem[] = useMemo(() => [
     { kind: 'label', label: friend.user.displayName },
-    { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: 'Enviar sussurro', onSelect: onDM },
-    { kind: 'item', icon: <AtSign        className="size-3.5" />, label: 'Copiar @username',
+    { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: t('friends.menuDM'), onSelect: onDM },
+    { kind: 'item', icon: <AtSign        className="size-3.5" />, label: t('friends.menuCopyUsername'),
       onSelect: () => { void navigator.clipboard.writeText(`@${friend.user.username}`) },
     },
-    { kind: 'item', icon: <Copy          className="size-3.5" />, label: 'Copiar ID',
+    { kind: 'item', icon: <Copy          className="size-3.5" />, label: t('friends.menuCopyId'),
       onSelect: () => { void navigator.clipboard.writeText(friend.user.id) },
     },
     { kind: 'separator' },
-    { kind: 'item', icon: <UserMinus className="size-3.5" />, label: 'Remover amizade', destructive: true, onSelect: onRemove },
-  ], [friend, onDM, onRemove])
+    { kind: 'item', icon: <UserMinus className="size-3.5" />, label: t('friends.menuRemove'), destructive: true, onSelect: onRemove },
+  ], [friend, onDM, onRemove, t])
 
   return (
     <EditorialContextMenu items={items}>
@@ -251,7 +256,7 @@ function FriendRow({
             <span className="text-[11px] font-mono text-(--text-3) truncate">@{friend.user.username}</span>
           </div>
           <p className="text-xs text-(--text-3) m-0 truncate">
-            <span className="text-(--text-2)">{PRESENCE_LABEL[friend.presence]}</span>
+            <span className="text-(--text-2)">{t(`friends.presence.${PRESENCE_KEY[friend.presence] ?? 'offline'}`)}</span>
             {friend.user.customStatus && <> · <span className="italic">{friend.user.customStatus}</span></>}
           </p>
         </div>
@@ -259,14 +264,14 @@ function FriendRow({
           <button
             onClick={onDM}
             className="size-8 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors"
-            title="Enviar DM"
+            title={t('friends.titleDM')}
           >
             <MessageCircle className="size-3.5" />
           </button>
           <button
             onClick={onRemove}
             className="size-8 grid place-items-center text-(--text-3) hover:text-(--danger) transition-colors"
-            title="Remover amizade"
+            title={t('friends.menuRemove')}
           >
             <UserMinus className="size-3.5" />
           </button>
@@ -277,6 +282,7 @@ function FriendRow({
 }
 
 function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoing: PendingEntry[] }) {
+  const { t }  = useTranslation()
   const accept = useAcceptFriend()
   const remove = useRemoveFriend()
 
@@ -286,13 +292,13 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
         <Reveal delay={0.05}>
           <header className="mb-3 flex items-center gap-2">
             <Inbox className="size-3.5 text-(--accent)" />
-            <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">Recebidos</h3>
+            <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">{t('friends.incoming')}</h3>
             <span className="ed-marg">· {incoming.length}</span>
           </header>
         </Reveal>
         {incoming.length === 0 ? (
           <Reveal delay={0.12}>
-            <p className="text-xs text-(--text-3) italic">Sem pedidos pendentes.</p>
+            <p className="text-xs text-(--text-3) italic">{t('friends.noIncoming')}</p>
           </Reveal>
         ) : (
           <ul className="border border-(--border) divide-y divide-(--border)">
@@ -318,14 +324,14 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
                 <button
                   onClick={() => accept.mutate(p.friendshipId)}
                   className="size-9 grid place-items-center border border-(--accent)/30 text-(--accent) hover:bg-(--accent)/10 transition-colors"
-                  title="Aceitar"
+                  title={t('friends.accept')}
                 >
                   <Check className="size-4" />
                 </button>
                 <button
                   onClick={() => remove.mutate(p.friendshipId)}
                   className="size-9 grid place-items-center border border-(--border) text-(--text-3) hover:text-(--danger) transition-colors"
-                  title="Recusar"
+                  title={t('friends.decline')}
                 >
                   <X className="size-4" />
                 </button>
@@ -339,13 +345,13 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
         <Reveal delay={0.2}>
           <header className="mb-3 flex items-center gap-2">
             <Send className="size-3.5 text-(--text-3)" />
-            <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">Enviados</h3>
+            <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">{t('friends.outgoing')}</h3>
             <span className="ed-marg">· {outgoing.length}</span>
           </header>
         </Reveal>
         {outgoing.length === 0 ? (
           <Reveal delay={0.25}>
-            <p className="text-xs text-(--text-3) italic">Nenhum pedido enviado.</p>
+            <p className="text-xs text-(--text-3) italic">{t('friends.noOutgoing')}</p>
           </Reveal>
         ) : (
           <ul className="border border-(--border) divide-y divide-(--border)">
@@ -366,13 +372,13 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
                   <p className="text-sm font-medium text-foreground m-0" style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }}>
                     {p.user.displayName}
                   </p>
-                  <p className="text-xs text-(--text-3) m-0 truncate">@{p.user.username} · aguardando resposta</p>
+                  <p className="text-xs text-(--text-3) m-0 truncate">@{p.user.username} · {t('friends.waiting')}</p>
                 </div>
                 <button
                   onClick={() => remove.mutate(p.friendshipId)}
                   className="text-xs text-(--text-3) hover:text-(--danger) transition-colors px-2"
                 >
-                  cancelar
+                  {t('friends.cancel')}
                 </button>
               </li>
             ))}
@@ -384,6 +390,7 @@ function PendingList({ incoming, outgoing }: { incoming: PendingEntry[]; outgoin
 }
 
 function AddFriendForm() {
+  const { t } = useTranslation()
   const [mode, setMode]         = useState<'username' | 'coordinate'>('username')
   const [value, setValue]       = useState('')
   const [msg,   setMsg]         = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
@@ -409,18 +416,18 @@ function AddFriendForm() {
     const trimmed = value.trim()
     if (!trimmed) return
     if (mode === 'coordinate' && !/^[A-F0-9]{4}-[A-F0-9]{2}$/.test(trimmed)) {
-      setMsg({ kind: 'err', text: 'Formato inválido. Use AAAA-BB (ex: A7F2-9B).' })
+      setMsg({ kind: 'err', text: t('friends.invalidCoord') })
       return
     }
     setMsg(null)
     try {
       const payload = mode === 'username' ? { username: trimmed } : { coordinate: trimmed }
       const r = await send.mutateAsync(payload)
-      if (r.status === 'accepted') setMsg({ kind: 'ok', text: 'Estrela alinhada — já eram amigos.' })
-      else                         setMsg({ kind: 'ok', text: 'Pedido enviado. Aguardando aceitação.' })
+      if (r.status === 'accepted') setMsg({ kind: 'ok', text: t('friends.alreadyFriends') })
+      else                         setMsg({ kind: 'ok', text: t('friends.requestSent') })
       setValue('')
     } catch (e: any) {
-      setMsg({ kind: 'err', text: e?.response?.data?.error ?? 'Erro ao enviar pedido.' })
+      setMsg({ kind: 'err', text: e?.response?.data?.error ?? t('friends.requestError') })
     }
   }
 
@@ -439,7 +446,7 @@ function AddFriendForm() {
                 : 'text-(--text-3) hover:text-(--text-1)',
             )}
           >
-            Username
+            {t('friends.username')}
           </button>
           <button
             type="button"
@@ -451,24 +458,24 @@ function AddFriendForm() {
                 : 'text-(--text-3) hover:text-(--text-1)',
             )}
           >
-            Coordenada
+            {t('friends.coordinate')}
           </button>
         </div>
 
         <label className="block">
           <span className="ed-label block mb-2">
-            {mode === 'username' ? '— @username' : '— Coordenada Astra'}
+            {mode === 'username' ? t('friends.usernameLabel') : t('friends.coordinateLabel')}
           </span>
           <div className="flex gap-2">
             <Input
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              placeholder={mode === 'username' ? 'Ex: maria' : 'Ex: A7F2-9B'}
+              placeholder={mode === 'username' ? t('friends.usernamePlaceholder') : t('friends.coordinatePlaceholder')}
               className={cn('flex-1', mode === 'coordinate' && 'font-mono tracking-wider')}
               maxLength={mode === 'coordinate' ? 7 : 64}
             />
             <Button type="submit" disabled={!value.trim() || send.isPending} className="gap-2">
-              <UserPlus className="size-3.5" /> Enviar
+              <UserPlus className="size-3.5" /> {t('friends.send')}
             </Button>
           </div>
         </label>
@@ -479,8 +486,8 @@ function AddFriendForm() {
         )}
         <p className="ed-aside max-w-[40ch]">
           {mode === 'username'
-            ? 'Peça o @username da pessoa.'
-            : 'Peça a coordenada Astra (aparece no perfil — 6 chars hex com hífen).'}
+            ? t('friends.usernameHint')
+            : t('friends.coordinateHint')}
         </p>
       </form>
     </Reveal>

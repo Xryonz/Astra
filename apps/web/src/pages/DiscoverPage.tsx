@@ -3,6 +3,7 @@
  * por nº de membros, entra direto (sem convite). Acesso via /app/discover.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Compass, Search, Users } from 'lucide-react'
@@ -17,6 +18,7 @@ import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import type { DiscoverServer } from '@astra/types'
 
 export default function DiscoverPage() {
+  const { t }       = useTranslation()
   const [q, setQ] = useState('')
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
@@ -32,11 +34,11 @@ export default function DiscoverPage() {
     onSuccess: (_d, serverId) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       const srv = servers.find((s) => s.id === serverId)
-      toast.success(`Bem-vindo a ${srv?.name ?? 'constelação'}!`)
+      toast.success(t('discover.welcome', { name: srv?.name ?? t('discover.fallbackName') }))
       navigate('/app')
     },
     onError: (e: any) => {
-      toast.error(e?.response?.data?.error ?? 'Não foi possível entrar')
+      toast.error(e?.response?.data?.error ?? t('discover.joinError'))
     },
   })
 
@@ -47,10 +49,10 @@ export default function DiscoverPage() {
         <Reveal>
           <div className="flex items-center gap-3 mb-1">
             <Compass className="size-6 text-(--accent)" />
-            <h1 className="ed-h text-3xl m-0">Descobrir</h1>
+            <h1 className="ed-h text-3xl m-0">{t('discover.title')}</h1>
           </div>
           <p className="text-sm text-(--text-2) m-0 mt-1 mb-6">
-            Constelações públicas — encontre uma comunidade e entre na hora.
+            {t('discover.subtitle')}
           </p>
         </Reveal>
 
@@ -60,7 +62,7 @@ export default function DiscoverPage() {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nome…"
+              placeholder={t('discover.searchPlaceholder')}
               className="pl-9"
             />
           </div>
@@ -68,12 +70,12 @@ export default function DiscoverPage() {
 
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-(--text-3) py-12">
-            <Spinner size={14} /> Carregando constelações…
+            <Spinner size={14} /> {t('discover.loading')}
           </div>
         ) : servers.length === 0 ? (
           <ConstellationEmpty
-            title={q ? 'Nenhuma constelação encontrada' : 'Céu ainda silencioso'}
-            description={q ? 'Tente outro nome.' : 'Seja o primeiro: liste a sua nas configurações do servidor.'}
+            title={q ? t('discover.emptyFoundTitle') : t('discover.emptyTitle')}
+            description={q ? t('discover.emptyFoundDesc') : t('discover.emptyDesc')}
             className="py-12"
           />
         ) : (
@@ -93,14 +95,14 @@ export default function DiscoverPage() {
                   </div>
                   <div className="p-3 flex flex-col gap-3 flex-1">
                     <p className="text-xs text-(--text-2) m-0 line-clamp-2 min-h-8 flex-1">
-                      {s.description || 'Sem descrição.'}
+                      {s.description || t('discover.noDescription')}
                     </p>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] font-mono text-(--text-3) flex items-center gap-1">
                         <Users className="size-3" /> {s.members}
                       </span>
                       <Button size="sm" onClick={() => join.mutate(s.id)} disabled={join.isPending}>
-                        Entrar
+                        {t('discover.join')}
                       </Button>
                     </div>
                   </div>

@@ -7,6 +7,7 @@
  * Layout: shadcn-style hairline border, focus accent.
  */
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowRight, X, CornerDownRight, Paperclip, File as FileIcon, Mic, Square, Play } from 'lucide-react'
 import { motion } from 'motion/react'
 import { api, resolveApiUrl } from '@/lib/api'
@@ -63,6 +64,7 @@ export default function DMInput({
   conversationId, otherUser, replyingTo, onCancelReply,
   onOptimisticMessage, onOptimisticFailed, onOptimisticConfirmed,
 }: DMInputProps) {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const { startTyping, stopTyping } = useDMTyping(conversationId)
   const [content,     setContent]     = useState('')
@@ -106,11 +108,11 @@ export default function DMInput({
     const arr = Array.from(files)
     if (arr.length === 0) return
     if (attachments.length + arr.length > MAX_ATTACHMENTS) {
-      setUploadErr(`Máximo ${MAX_ATTACHMENTS} anexos por mensagem`)
+      setUploadErr(t('chat.composer.maxAttachments', { n: MAX_ATTACHMENTS }))
       return
     }
     for (const f of arr) {
-      if (f.size > MAX_FILE_SIZE) { setUploadErr(`${f.name} maior que 25MB`); return }
+      if (f.size > MAX_FILE_SIZE) { setUploadErr(t('chat.composer.fileTooLarge', { name: f.name })); return }
     }
     setUploading(true)
     try {
@@ -123,12 +125,12 @@ export default function DMInput({
       const newAtt = res.data?.data?.attachments as Attachment[] | undefined
       if (newAtt) setAttachments((prev) => [...prev, ...newAtt])
     } catch (err: any) {
-      setUploadErr(err?.response?.data?.error ?? 'Falha no upload')
+      setUploadErr(err?.response?.data?.error ?? t('chat.composer.uploadFail'))
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
     }
-  }, [attachments.length])
+  }, [attachments.length, t])
 
   const removeAttachment = (idx: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== idx))
@@ -262,8 +264,8 @@ export default function DMInput({
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-(--accent-dim)/90 border-2 border-dashed border-(--accent) pointer-events-none">
           <div className="text-center">
             <Paperclip className="size-8 mx-auto mb-2 text-(--accent)" />
-            <p className="text-(--accent) m-0 font-(family-name:--font-display) text-lg">Solte para anexar</p>
-            <p className="ed-marg mt-1">até 25MB · 10 arquivos</p>
+            <p className="text-(--accent) m-0 font-(family-name:--font-display) text-lg">{t('chat.composer.dropToAttach')}</p>
+            <p className="ed-marg mt-1">{t('chat.composer.dropHint')}</p>
           </div>
         </div>
       )}
@@ -304,7 +306,7 @@ export default function DMInput({
               <button
                 onClick={() => removeAttachment(i)}
                 className="absolute top-1 right-1 size-5 flex items-center justify-center text-(--text-3) hover:text-(--danger) transition-colors cursor-pointer"
-                aria-label="Remover anexo"
+                aria-label={t('chat.composer.removeAttachment')}
               >
                 <X className="size-3" />
               </button>
@@ -313,7 +315,7 @@ export default function DMInput({
           {uploading && (
             <div className="flex items-center gap-2 border border-(--border) bg-(--raised)/60 px-3 py-1.5">
               <div className="size-3 border border-(--border-mid) border-t-(--accent) rounded-full animate-spin" />
-              <span className="text-xs text-(--text-3)">Enviando…</span>
+              <span className="text-xs text-(--text-3)">{t('chat.composer.uploading')}</span>
             </div>
           )}
         </div>
@@ -355,7 +357,7 @@ export default function DMInput({
       {replyingTo && (
         <div className="flex items-center gap-3 mb-2 px-3 py-2 border border-(--border-mid) bg-(--raised)/50 anim-fade-up">
           <CornerDownRight className="size-3.5 text-(--accent) shrink-0" />
-          <span className="ed-marg shrink-0">Respondendo a</span>
+          <span className="ed-marg shrink-0">{t('chat.composer.replyingTo')}</span>
           <span className="text-sm shrink-0" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)' }}>
             {replyingTo.author.displayName}
           </span>
@@ -365,7 +367,7 @@ export default function DMInput({
           <button
             onClick={onCancelReply}
             className="size-6 flex items-center justify-center text-(--text-3) hover:text-(--danger) transition-colors cursor-pointer shrink-0"
-            aria-label="Cancelar reply"
+            aria-label={t('chat.composer.cancelReply')}
           >
             <X className="size-3.5" />
           </button>
@@ -384,8 +386,8 @@ export default function DMInput({
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
-          aria-label="Anexar arquivo"
-          title="Anexar arquivo"
+          aria-label={t('chat.composer.attach')}
+          title={t('chat.composer.attach')}
           className={cn(
             'shrink-0 size-8 hidden sm:flex items-center justify-center cursor-pointer transition-colors duration-200',
             uploading || attachments.length >= MAX_ATTACHMENTS
@@ -414,8 +416,8 @@ export default function DMInput({
           <button
             type="button"
             onClick={() => recorder.start()}
-            aria-label="Gravar áudio"
-            title="Gravar áudio"
+            aria-label={t('chat.composer.recordAudio')}
+            title={t('chat.composer.recordAudio')}
             className="shrink-0 size-9 hidden sm:grid place-items-center cursor-pointer text-(--text-3) hover:text-(--accent) transition-colors"
           >
             <Mic className="size-4" />
@@ -426,7 +428,7 @@ export default function DMInput({
         {ttlSeconds > 0 && (
           <button
             onClick={() => setTtlSeconds(0)}
-            title={`Some em ${formatTtl(ttlSeconds)} · clique pra desativar`}
+            title={t('chat.composer.ttlTitle', { ttl: formatTtl(ttlSeconds) })}
             className="shrink-0 h-6 px-1.5 flex items-center gap-1 border border-(--accent)/40 bg-(--accent)/5 text-(--accent) text-[10px] font-mono cursor-pointer hover:bg-(--accent)/10 transition-colors"
           >
             {formatTtl(ttlSeconds)}
@@ -450,7 +452,7 @@ export default function DMInput({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={attachments.length > 0 ? 'Mensagem opcional…' : `Mensagem para ${otherUser.displayName}`}
+            placeholder={attachments.length > 0 ? t('chat.composer.placeholderOptional') : t('chat.composer.placeholderDm', { name: otherUser.displayName })}
             rows={1}
             enterKeyHint="send"
             className="
@@ -469,8 +471,8 @@ export default function DMInput({
             <button
               type="button"
               onClick={() => recorder.cancel()}
-              aria-label="Cancelar gravação"
-              title="Cancelar"
+              aria-label={t('chat.composer.cancelRecording')}
+              title={t('chat.composer.cancel')}
               className="shrink-0 size-11 sm:size-9 grid place-items-center text-(--text-3) hover:text-(--danger) transition-colors cursor-pointer"
             >
               <X className="size-4" />
@@ -478,8 +480,8 @@ export default function DMInput({
             <button
               type="button"
               onClick={() => recorder.state === 'paused' ? recorder.resume() : recorder.pause()}
-              aria-label={recorder.state === 'paused' ? 'Retomar gravação' : 'Pausar gravação'}
-              title={recorder.state === 'paused' ? 'Retomar' : 'Pausar'}
+              aria-label={recorder.state === 'paused' ? t('chat.composer.resumeRecording') : t('chat.composer.pauseRecording')}
+              title={recorder.state === 'paused' ? t('chat.composer.resume') : t('chat.composer.pause')}
               className="shrink-0 size-11 sm:size-9 grid place-items-center text-(--accent) hover:opacity-80 transition-opacity cursor-pointer"
             >
               {recorder.state === 'paused' ? <Play className="size-4" /> : <Square className="size-4" fill="currentColor" />}
@@ -501,8 +503,8 @@ export default function DMInput({
           onTouchEnd={micMode ? holdMic.onTouchEnd : undefined}
           onTouchCancel={micMode ? holdMic.onTouchCancel : undefined}
           disabled={recorder.state === 'uploading'}
-          aria-label={micMode ? 'Segure para gravar áudio' : 'Enviar'}
-          title={micMode ? 'Segure para gravar' : 'Enviar (Enter)'}
+          aria-label={micMode ? t('chat.composer.holdToRecordAria') : t('chat.composer.send')}
+          title={micMode ? t('chat.composer.holdToRecord') : t('chat.composer.sendEnter')}
           animate={{ scale: holdMic.isHolding ? 1.18 : 1 }}
           whileTap={!micMode && (canSend || recorder.isActive) ? { scale: 0.85, rotate: -8 } : undefined}
           whileHover={!micMode && (canSend || recorder.isActive) ? { scale: 1.08 } : undefined}

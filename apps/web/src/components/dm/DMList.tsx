@@ -9,6 +9,7 @@
  * italic accent quando vazia, context menu (right-click) por item.
  */
 import { useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, MailOpen, BellOff, MessageCircle } from 'lucide-react'
 import { api, resolveApiUrl } from '@/lib/api'
@@ -17,7 +18,8 @@ import { setDmShortcuts } from '@/lib/native'
 import { usePresenceStore } from '@/store/presenceStore'
 import { memo } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { ptBR, enUS } from 'date-fns/locale'
+import type { Locale } from 'date-fns'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator'
@@ -45,11 +47,11 @@ interface DMListProps {
   onSelectDM: (dm: { conversationId: string; otherUser: OtherUser }) => void
 }
 
-function formatPreviewTime(d: string) {
+function formatPreviewTime(d: string, yesterdayLabel: string, dateLocale: Locale) {
   const date = new Date(d)
   if (isToday(date))     return format(date, 'HH:mm')
-  if (isYesterday(date)) return 'ontem'
-  return format(date, "d MMM", { locale: ptBR })
+  if (isYesterday(date)) return yesterdayLabel
+  return format(date, "d MMM", { locale: dateLocale })
 }
 
 const PRESENCE_DOT: Record<string, string> = {
@@ -61,6 +63,7 @@ const PRESENCE_DOT: Record<string, string> = {
 }
 
 export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
+  const { t }       = useTranslation()
   const queryClient = useQueryClient()
 
   const { data: conversations = [], isLoading, refetch } = useQuery<DMConversation[]>({
@@ -98,8 +101,8 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
   if (conversations.length === 0) {
     return (
       <ConstellationEmpty
-        title="Nenhuma estrela à vista"
-        description="Abra o perfil de alguém ou aceite um pedido pra começar."
+        title={t('dm.listEmptyTitle')}
+        description={t('dm.listEmptyDesc')}
         className="flex-1"
       />
     )
@@ -138,17 +141,19 @@ const ConversationItem = memo(function ConversationItem({
   onSelect:   () => void
   onMarkRead: () => void
 }) {
+  const { t, i18n } = useTranslation()
+  const dateLocale  = i18n.language === 'pt' ? ptBR : enUS
   // Selector fino — Zustand só notifica este item quando a presence DESTE user mudar
   const presence = usePresenceStore((s) => s.others[conv.otherUser.id] ?? 'OFFLINE')
   // Context menu por item — Editorial
   const items: EditorialMenuItem[] = useMemo(() => [
     { kind: 'label', label: conv.otherUser.displayName },
-    { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: 'Abrir conversa', onSelect },
-    { kind: 'item', icon: <MailOpen     className="size-3.5" />, label: 'Marcar como lida', onSelect: onMarkRead },
+    { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: t('dm.menuOpen'), onSelect },
+    { kind: 'item', icon: <MailOpen     className="size-3.5" />, label: t('dm.menuMarkRead'), onSelect: onMarkRead },
     { kind: 'separator' },
-    { kind: 'item', icon: <BellOff      className="size-3.5" />, label: 'Silenciar (em breve)', disabled: true, onSelect: () => {} },
-    { kind: 'item', icon: <Trash2       className="size-3.5" />, label: 'Ocultar (em breve)',   disabled: true, destructive: true, onSelect: () => {} },
-  ], [conv.otherUser.displayName, onSelect, onMarkRead])
+    { kind: 'item', icon: <BellOff      className="size-3.5" />, label: t('dm.menuMute'), disabled: true, onSelect: () => {} },
+    { kind: 'item', icon: <Trash2       className="size-3.5" />, label: t('dm.menuHide'),   disabled: true, destructive: true, onSelect: () => {} },
+  ], [conv.otherUser.displayName, onSelect, onMarkRead, t])
 
   return (
     <EditorialContextMenu items={items}>
@@ -197,7 +202,7 @@ const ConversationItem = memo(function ConversationItem({
               </span>
               {conv.lastMessage && (
                 <span className="text-[10px] font-mono text-(--text-3) shrink-0">
-                  {formatPreviewTime(conv.lastMessage.createdAt)}
+                  {formatPreviewTime(conv.lastMessage.createdAt, t('dm.yesterday'), dateLocale)}
                 </span>
               )}
             </div>
@@ -207,7 +212,7 @@ const ConversationItem = memo(function ConversationItem({
                 conv.lastMessage ? 'text-(--text-3)' : 'text-(--accent) italic',
               )}
             >
-              {conv.lastMessage?.content ?? '— Diga olá!'}
+              {conv.lastMessage?.content ?? t('dm.sayHi')}
             </p>
           </div>
         </button>

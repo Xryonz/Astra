@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
@@ -26,6 +27,7 @@ interface ActiveDM {
 }
 
 export default function DMPage() {
+  const { t }      = useTranslation()
   const location   = useLocation()
   const navigate   = useNavigate()
   const navState   = location.state as ActiveDM | null
@@ -109,9 +111,9 @@ export default function DMPage() {
           <h2
             className="text-lg m-0 font-normal tracking-tight text-foreground truncate"
             style={{ fontFamily: 'var(--font-display)' }}
-            title="Mensagens diretas"
+            title={t('dm.titleAttr')}
           >
-            Sussurros
+            {t('dm.title')}
           </h2>
         </div>
 
@@ -144,7 +146,7 @@ export default function DMPage() {
               <button
                 onClick={() => { setActiveDM(null); navigate('/app/dm') }}
                 className="md:hidden size-11 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-[color,border-color,transform] duration-150 active:scale-95 cursor-pointer shrink-0"
-                aria-label="Voltar à lista"
+                aria-label={t('dm.back')}
               >
                 <ArrowLeft className="size-4" />
               </button>
@@ -205,18 +207,18 @@ export default function DMPage() {
                 </Reveal>
 
                 <Reveal delay={0.20}>
-                  <span className="ed-marg block mb-3">— Conversas íntimas</span>
+                  <span className="ed-marg block mb-3">{t('dm.emptyMargin')}</span>
                 </Reveal>
 
                 <Reveal delay={0.32}>
                   <h2 className="ed-h text-4xl sm:text-5xl m-0 leading-[1.05]">
-                    Onde a voz
+                    {t('dm.emptyTitle1')}
                   </h2>
                 </Reveal>
 
                 <Reveal delay={0.42}>
                   <h2 className="ed-h text-4xl sm:text-5xl m-0 italic text-(--accent) leading-[1.05]">
-                    encontra escuta.
+                    {t('dm.emptyTitle2')}
                   </h2>
                 </Reveal>
 
@@ -226,7 +228,7 @@ export default function DMPage() {
 
                 <Reveal delay={0.68}>
                   <p className="ed-lede max-w-[34ch] m-0 text-(--text-2)">
-                    Selecione uma conversa à esquerda, ou abra o perfil de alguém para começar um diálogo.
+                    {t('dm.emptyLede')}
                   </p>
                 </Reveal>
               </div>
@@ -234,7 +236,7 @@ export default function DMPage() {
               <div className="hidden lg:flex col-span-2 col-start-11 items-end pb-12">
                 <Reveal delay={1.0}>
                   <p className="ed-aside max-w-[20ch]">
-                    Sussurros — só você e ele leem.
+                    {t('dm.emptyAside')}
                   </p>
                 </Reveal>
               </div>

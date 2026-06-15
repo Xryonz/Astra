@@ -7,6 +7,7 @@
  *  - Toca tudo via socket 'notification' (caminho novo); legacy 'mention'/'new_dm' continuam só pro caso de payload sem prefs
  */
 import { useEffect, useRef } from 'react'
+import i18n from '@/i18n'
 import { getSocket } from '@/lib/socket'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationPrefs, type NotificationType } from '@/hooks/useNotifications'
@@ -178,19 +179,19 @@ export function useInAppNotifications() {
         let body  = preview ?? ''
         switch (p.type) {
           case 'mention':
-            title = `${authorName ?? 'Alguém'} mencionou você`
+            title = i18n.t('bell.titleMention', { name: authorName ?? i18n.t('bell.someone') })
             body  = `#${channelName ?? '?'} · ${serverName ?? '?'}\n${preview ?? ''}`
             break
           case 'dm':
-            title = `${authorName ?? 'Nova DM'}`
+            title = authorName ?? i18n.t('bell.dmFallback')
             body  = preview ?? ''
             break
           case 'reply':
-            title = `${authorName ?? 'Alguém'} respondeu você`
+            title = i18n.t('bell.titleReply', { name: authorName ?? i18n.t('bell.someone') })
             body  = preview ?? ''
             break
           case 'reaction':
-            title = `${authorName ?? 'Alguém'} reagiu ${p.payload.emoji ?? ''}`
+            title = i18n.t('bell.titleReaction', { name: authorName ?? i18n.t('bell.someone'), emoji: p.payload.emoji ?? '' })
             body  = preview ?? ''
             break
         }

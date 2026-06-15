@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Pin, X } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function PinnedMessagesSheet({ channelId, channelName, open, onClose }: Props) {
+  const { t, i18n } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
 
   // Fecha ao clicar fora
@@ -31,12 +33,12 @@ export default function PinnedMessagesSheet({ channelId, channelName, open, onCl
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       document.addEventListener('mousedown', handler)
       document.addEventListener('keydown', onEsc)
     }, 50)
     return () => {
-      clearTimeout(t)
+      clearTimeout(timer)
       document.removeEventListener('mousedown', handler)
       document.removeEventListener('keydown', onEsc)
     }
@@ -56,7 +58,7 @@ export default function PinnedMessagesSheet({ channelId, channelName, open, onCl
       ref={ref}
       className="fixed right-2 sm:right-6 top-16 mt-2 z-40 w-[calc(100vw-1rem)] sm:w-96 max-h-[70vh] flex flex-col bg-(--overlay) border border-(--border-mid) shadow-2xl animate-in fade-in-0 slide-in-from-top-2 duration-200"
       role="dialog"
-      aria-label="Mensagens fixadas"
+      aria-label={t('chat.header.pinned')}
     >
       <header className="shrink-0 px-4 py-3 border-b border-(--border) bg-(--base)/95 backdrop-blur flex items-center gap-2">
         <Pin className="size-4 text-(--accent)" />
@@ -64,11 +66,11 @@ export default function PinnedMessagesSheet({ channelId, channelName, open, onCl
           <p className="m-0 text-sm font-medium truncate" style={{ fontFamily: 'var(--font-display)' }}>
             #{channelName}
           </p>
-          <p className="m-0 text-[11px] text-(--text-3)">{pinned.length} fixada{pinned.length === 1 ? '' : 's'}</p>
+          <p className="m-0 text-[11px] text-(--text-3)">{t('pinned.count', { count: pinned.length })}</p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Fechar"
+          aria-label={t('common.close')}
           className="size-7 flex items-center justify-center border border-(--border) text-(--text-3) hover:border-(--accent) hover:text-(--accent) transition-colors cursor-pointer"
         >
           <X className="size-3.5" />
@@ -85,9 +87,9 @@ export default function PinnedMessagesSheet({ channelId, channelName, open, onCl
         {!isLoading && pinned.length === 0 && (
           <div className="text-center py-10">
             <Pin className="size-7 text-(--text-3) mx-auto mb-3" />
-            <p className="ed-marg m-0">Nenhuma mensagem fixada</p>
+            <p className="ed-marg m-0">{t('pinned.empty')}</p>
             <p className="text-(--text-3) text-xs mt-2 leading-relaxed">
-              Hover numa mensagem → <Pin className="size-3 inline align-middle" /> pra fixar.
+              {t('pinned.emptyHintPre')} <Pin className="size-3 inline align-middle" /> {t('pinned.emptyHintPost')}
             </p>
           </div>
         )}
@@ -108,7 +110,7 @@ export default function PinnedMessagesSheet({ channelId, channelName, open, onCl
                 {msg.author.displayName}
               </span>
               <span className="font-mono text-[10px] text-(--text-3) ml-auto">
-                {new Date(msg.createdAt).toLocaleDateString('pt-BR', {
+                {new Date(msg.createdAt).toLocaleDateString(i18n.language === 'pt' ? 'pt-BR' : 'en-US', {
                   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                 })}
               </span>

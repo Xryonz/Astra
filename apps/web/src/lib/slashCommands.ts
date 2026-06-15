@@ -2,6 +2,7 @@
  * Slash commands — transformações client-side aplicadas no `content` antes de mandar.
  * Retorna o content transformado ou null se não for command/sem match.
  */
+import i18n from '@/i18n'
 
 interface SlashCommand {
   name: string
@@ -9,43 +10,20 @@ interface SlashCommand {
   transform: (args: string) => string
 }
 
-const COMMANDS: SlashCommand[] = [
-  {
-    name:        'me',
-    description: '/me ação — narração em terceira pessoa',
-    transform:   (args) => args.trim() ? `*${args.trim()}*` : '',
-  },
-  {
-    name:        'shrug',
-    description: '/shrug — ¯\\_(ツ)_/¯',
-    transform:   (args) => `¯\\_(ツ)_/¯${args ? ' ' + args.trim() : ''}`,
-  },
-  {
-    name:        'tableflip',
-    description: '/tableflip — (╯°□°)╯︵ ┻━┻',
-    transform:   (args) => `(╯°□°)╯︵ ┻━┻${args ? ' ' + args.trim() : ''}`,
-  },
-  {
-    name:        'unflip',
-    description: '/unflip — ┬─┬ ノ( ゜-゜ノ)',
-    transform:   (args) => `┬─┬ ノ( ゜-゜ノ)${args ? ' ' + args.trim() : ''}`,
-  },
-  {
-    name:        'flip',
-    description: '/flip — (ノಠ益ಠ)ノ彡┻━┻',
-    transform:   (args) => `(ノಠ益ಠ)ノ彡┻━┻${args ? ' ' + args.trim() : ''}`,
-  },
-  {
-    name:        'spoiler',
-    description: '/spoiler texto — esconde o texto',
-    transform:   (args) => args.trim() ? `||${args.trim()}||` : '',
-  },
+// description vem do i18n (slash.<name>) — resolvida em listSlashCommands().
+const COMMANDS: { name: string; transform: (args: string) => string }[] = [
+  { name: 'me',        transform: (args) => args.trim() ? `*${args.trim()}*` : '' },
+  { name: 'shrug',     transform: (args) => `¯\\_(ツ)_/¯${args ? ' ' + args.trim() : ''}` },
+  { name: 'tableflip', transform: (args) => `(╯°□°)╯︵ ┻━┻${args ? ' ' + args.trim() : ''}` },
+  { name: 'unflip',    transform: (args) => `┬─┬ ノ( ゜-゜ノ)${args ? ' ' + args.trim() : ''}` },
+  { name: 'flip',      transform: (args) => `(ノಠ益ಠ)ノ彡┻━┻${args ? ' ' + args.trim() : ''}` },
+  { name: 'spoiler',   transform: (args) => args.trim() ? `||${args.trim()}||` : '' },
 ]
 
 const COMMANDS_MAP = new Map(COMMANDS.map((c) => [c.name, c]))
 
 export function listSlashCommands(): ReadonlyArray<SlashCommand> {
-  return COMMANDS
+  return COMMANDS.map((c) => ({ ...c, description: i18n.t(`slash.${c.name}`) }))
 }
 
 /**

@@ -6,6 +6,7 @@
  * Isso tira ~120KB gzip do main bundle pra um path que talvez nunca ocorra.
  */
 import { create } from 'zustand'
+import i18n from '@/i18n'
 import type {
   Room, RoomEvent as RoomEventT, Track as TrackT, ConnectionState as ConnectionStateT,
   LocalParticipant, Participant,
@@ -103,19 +104,19 @@ function humanizeMediaError(err: any): string | null {
   const name = err?.name ?? err?.error?.name
   const msg  = String(err?.message ?? '').toLowerCase()
   if (name === 'NotAllowedError' || msg.includes('permission denied')) {
-    return 'Permissão negada. Libere mic/câmera nas configs do navegador (cadeado na barra de endereço).'
+    return i18n.t('voice.errPermission')
   }
   if (name === 'NotFoundError' || msg.includes('not found') || msg.includes('no device')) {
-    return 'Nenhum microfone/câmera encontrado neste dispositivo.'
+    return i18n.t('voice.errNotFound')
   }
   if (name === 'NotReadableError' || msg.includes('in use')) {
-    return 'Dispositivo em uso por outro app. Feche zoom/meet/discord e tente de novo.'
+    return i18n.t('voice.errInUse')
   }
   if (name === 'NotSupportedError' || msg.includes('not supported')) {
-    return 'Recurso não suportado neste navegador. Atualize ou tente outro browser.'
+    return i18n.t('voice.errNotSupported')
   }
   if (msg.includes('secure context') || msg.includes('https')) {
-    return 'Voz/vídeo exige HTTPS. Acesse a versão segura do site.'
+    return i18n.t('voice.errHttps')
   }
   return null
 }

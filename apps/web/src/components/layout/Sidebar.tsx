@@ -720,20 +720,20 @@ function ChannelButton({
 
   // Itens do context menu (right-click) — varia por perm + tipo
   const menuItems: EditorialMenuItem[] = [
-    { kind: 'label', label: `${isVoice ? 'Voz' : '#'} ${channel.name}` },
+    { kind: 'label', label: `${isVoice ? t('sidebar.voiceLabel') : '#'} ${channel.name}` },
   ]
   if (!isVoice && onMarkRead) {
     menuItems.push({
       kind: 'item',
       icon: <Eye className="size-3.5" />,
-      label: 'Marcar como lido',
+      label: t('sidebar.markRead'),
       onSelect: onMarkRead,
     })
   }
   menuItems.push({
     kind: 'item',
     icon: <Copy className="size-3.5" />,
-    label: 'Copiar ID',
+    label: t('sidebar.copyId'),
     shortcut: '⌘C',
     onSelect: () => { void navigator.clipboard.writeText(channel.id) },
   })
@@ -742,20 +742,20 @@ function ChannelButton({
     menuItems.push({
       kind: 'item',
       icon: <Pencil className="size-3.5" />,
-      label: 'Renomear',
+      label: t('sidebar.renamePlain'),
       onSelect: async () => {
         const newName = await prompt({
-          title: `Renomear canal`,
-          description: `Nome atual: #${channel.name}`,
-          label: 'Novo nome',
-          placeholder: 'ex: geral',
+          title: t('sidebar.renameChannelTitle'),
+          description: t('sidebar.currentName', { name: channel.name }),
+          label: t('sidebar.newName'),
+          placeholder: t('sidebar.renamePlaceholder'),
           defaultValue: channel.name,
-          confirmLabel: 'Renomear',
+          confirmLabel: t('sidebar.renamePlain'),
           maxLength: 50,
         })
         if (newName && newName !== channel.name) {
           onRename(newName)
-          toast.success(`Canal renomeado para #${newName}`)
+          toast.success(t('sidebar.renamedToast', { name: newName }))
         }
       },
     })
@@ -764,18 +764,18 @@ function ChannelButton({
     menuItems.push({
       kind: 'item',
       icon: <Trash2 className="size-3.5" />,
-      label: 'Excluir canal',
+      label: t('sidebar.deleteChannel'),
       destructive: true,
       onSelect: async () => {
         const ok = await confirm({
-          title: `Excluir #${channel.name}?`,
-          description: 'Todas as mensagens deste canal serão perdidas. Ação permanente.',
-          confirmLabel: 'Excluir',
+          title: t('sidebar.deleteChannelTitle', { name: channel.name }),
+          description: t('sidebar.deleteChannelDesc'),
+          confirmLabel: t('sidebar.deleteConfirm'),
           destructive: true,
         })
         if (ok) {
           onDelete()
-          toast.success(`Canal #${channel.name} excluído`)
+          toast.success(t('sidebar.deletedToast', { name: channel.name }))
         }
       },
     })
@@ -791,7 +791,7 @@ function ChannelButton({
       onTouchStart={handlePrefetch}
       onMouseEnter={handlePrefetch}
       disabled={isVoice && !cfg.data?.enabled}
-      title={isVoice && !cfg.data?.enabled ? 'Chamadas não configuradas no servidor' : undefined}
+      title={isVoice && !cfg.data?.enabled ? t('sidebar.callsNotConfigured') : undefined}
       className={cn(
         // Transição explícita de cores em 150ms (era transition-all 300ms —
         // seleção de canal parecia lenta) + press tátil rápido.

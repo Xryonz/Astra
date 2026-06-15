@@ -9,6 +9,7 @@
  *   general  — atividade de canal, silenciosa na barra
  * O user controla cada canal nas configs de notificação do Android.
  */
+import i18n from '@/i18n'
 import { api } from '@/lib/api'
 import { isNative } from '@/lib/native'
 
@@ -27,15 +28,15 @@ export async function registerNativePush(): Promise<void> {
 
     // Canais Android (no-op no iOS)
     await PushNotifications.createChannel({
-      id: 'mentions', name: 'Menções', description: 'Quando te mencionam',
+      id: 'mentions', name: i18n.t('push.mentions'), description: i18n.t('push.mentionsDesc'),
       importance: 5, visibility: 1, vibration: true,
     }).catch(() => {})
     await PushNotifications.createChannel({
-      id: 'dms', name: 'Sussurros (DMs)', description: 'Mensagens diretas',
+      id: 'dms', name: i18n.t('push.dms'), description: i18n.t('push.dmsDesc'),
       importance: 4, visibility: 0, vibration: true,
     }).catch(() => {})
     await PushNotifications.createChannel({
-      id: 'general', name: 'Atividade', description: 'Atividade nas constelações',
+      id: 'general', name: i18n.t('push.general'), description: i18n.t('push.generalDesc'),
       importance: 3, visibility: 0, vibration: false,
     }).catch(() => {})
 

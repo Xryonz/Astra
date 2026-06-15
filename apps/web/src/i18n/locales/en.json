@@ -44,7 +44,22 @@
     "emptyDescChoose": "Tap an icon on the left to open its channels.",
     "unread": "Unread",
     "openConstellations": "Open constellations",
-    "connected": "connected"
+    "connected": "connected",
+    "markRead": "Mark as read",
+    "copyId": "Copy ID",
+    "renamePlain": "Rename",
+    "renameChannelTitle": "Rename channel",
+    "currentName": "Current name: #{{name}}",
+    "newName": "New name",
+    "renamePlaceholder": "e.g. general",
+    "renamedToast": "Channel renamed to #{{name}}",
+    "deleteChannel": "Delete channel",
+    "deleteChannelTitle": "Delete #{{name}}?",
+    "deleteChannelDesc": "All messages in this channel will be lost. This is permanent.",
+    "deletedToast": "Channel #{{name}} deleted",
+    "deleteConfirm": "Delete",
+    "voiceLabel": "Voice",
+    "callsNotConfigured": "Calls not configured on this server"
   },
   "more": {
     "title": "More options",
@@ -274,6 +289,22 @@
     "invisible": "Invisible",
     "offline": "Offline"
   },
+  "native": {
+    "dmsTitle": "Whispers",
+    "dmsDesc": "Direct messages",
+    "friendsTitle": "Friends",
+    "friendsDesc": "Your constellation of friends",
+    "recentConvo": "Recent conversation",
+    "shareInvite": "Constellation invite on Astra"
+  },
+  "push": {
+    "mentions": "Mentions",
+    "mentionsDesc": "When you're mentioned",
+    "dms": "Whispers (DMs)",
+    "dmsDesc": "Direct messages",
+    "general": "Activity",
+    "generalDesc": "Activity in constellations"
+  },
   "lightbox": {
     "save": "Save image",
     "saveTitle": "Save to gallery",
@@ -316,6 +347,21 @@
     "noResults": "Nothing for \"{{q}}\"",
     "noFeatured": "No featured GIFs right now.",
     "escClose": "Esc close"
+  },
+  "pinned": {
+    "count_one": "{{count}} pinned",
+    "count_other": "{{count}} pinned",
+    "empty": "No pinned messages",
+    "emptyHintPre": "Hover a message →",
+    "emptyHintPost": "to pin it."
+  },
+  "slash": {
+    "me": "/me action — third-person narration",
+    "shrug": "/shrug — ¯\\_(ツ)_/¯",
+    "tableflip": "/tableflip — (╯°□°)╯︵ ┻━┻",
+    "unflip": "/unflip — ┬─┬ ノ( ゜-゜ノ)",
+    "flip": "/flip — (ノಠ益ಠ)ノ彡┻━┻",
+    "spoiler": "/spoiler text — hides the text"
   },
   "bookmarks": {
     "title": "Saved",
@@ -577,7 +623,12 @@
     "callsNotConfigured": "Calls not configured", "alreadyInCall": "You're already in another call",
     "callUser": "Call {{name}}", "call": "Call",
     "incomingCall": "Incoming call", "isCallingYou": "is calling you…",
-    "accept": "Answer", "decline": "Decline"
+    "accept": "Answer", "decline": "Decline",
+    "errPermission": "Permission denied. Allow mic/camera in your browser settings (lock icon in the address bar).",
+    "errNotFound": "No microphone/camera found on this device.",
+    "errInUse": "Device in use by another app. Close zoom/meet/discord and try again.",
+    "errNotSupported": "Feature not supported in this browser. Update or try another browser.",
+    "errHttps": "Voice/video requires HTTPS. Use the secure version of the site."
   },
   "auth": {
     "displayName": "Display name",
@@ -737,7 +788,11 @@
     "sumMention": "mentioned you in #{{channel}}",
     "sumDm": "sent a DM",
     "sumReply": "replied to you in #{{channel}}",
-    "sumReaction": "reacted {{emoji}} to your message"
+    "sumReaction": "reacted {{emoji}} to your message",
+    "titleMention": "{{name}} mentioned you",
+    "titleReply": "{{name}} replied to you",
+    "titleReaction": "{{name}} reacted {{emoji}}",
+    "dmFallback": "New DM"
   },
   "settings": {
     "title": "Settings",

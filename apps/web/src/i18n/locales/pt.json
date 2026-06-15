@@ -44,7 +44,22 @@
     "emptyDescChoose": "Clique num ícone à esquerda pra abrir os canais.",
     "unread": "Não lido",
     "openConstellations": "Abrir constelações",
-    "connected": "conectado"
+    "connected": "conectado",
+    "markRead": "Marcar como lido",
+    "copyId": "Copiar ID",
+    "renamePlain": "Renomear",
+    "renameChannelTitle": "Renomear canal",
+    "currentName": "Nome atual: #{{name}}",
+    "newName": "Novo nome",
+    "renamePlaceholder": "ex: geral",
+    "renamedToast": "Canal renomeado para #{{name}}",
+    "deleteChannel": "Excluir canal",
+    "deleteChannelTitle": "Excluir #{{name}}?",
+    "deleteChannelDesc": "Todas as mensagens deste canal serão perdidas. Ação permanente.",
+    "deletedToast": "Canal #{{name}} excluído",
+    "deleteConfirm": "Excluir",
+    "voiceLabel": "Voz",
+    "callsNotConfigured": "Chamadas não configuradas no servidor"
   },
   "more": {
     "title": "Mais opções",
@@ -274,6 +289,22 @@
     "invisible": "Invisível",
     "offline": "Offline"
   },
+  "native": {
+    "dmsTitle": "Sussurros",
+    "dmsDesc": "Mensagens diretas",
+    "friendsTitle": "Amigos",
+    "friendsDesc": "Sua constelação de amigos",
+    "recentConvo": "Conversa recente",
+    "shareInvite": "Convite pra constelação no Astra"
+  },
+  "push": {
+    "mentions": "Menções",
+    "mentionsDesc": "Quando te mencionam",
+    "dms": "Sussurros (DMs)",
+    "dmsDesc": "Mensagens diretas",
+    "general": "Atividade",
+    "generalDesc": "Atividade nas constelações"
+  },
   "lightbox": {
     "save": "Salvar imagem",
     "saveTitle": "Salvar na galeria",
@@ -316,6 +347,21 @@
     "noResults": "Nada pra \"{{q}}\"",
     "noFeatured": "Sem GIFs em destaque agora.",
     "escClose": "Esc fechar"
+  },
+  "pinned": {
+    "count_one": "{{count}} fixada",
+    "count_other": "{{count}} fixadas",
+    "empty": "Nenhuma mensagem fixada",
+    "emptyHintPre": "Hover numa mensagem →",
+    "emptyHintPost": "pra fixar."
+  },
+  "slash": {
+    "me": "/me ação — narração em terceira pessoa",
+    "shrug": "/shrug — ¯\\_(ツ)_/¯",
+    "tableflip": "/tableflip — (╯°□°)╯︵ ┻━┻",
+    "unflip": "/unflip — ┬─┬ ノ( ゜-゜ノ)",
+    "flip": "/flip — (ノಠ益ಠ)ノ彡┻━┻",
+    "spoiler": "/spoiler texto — esconde o texto"
   },
   "bookmarks": {
     "title": "Salvos",
@@ -577,7 +623,12 @@
     "callsNotConfigured": "Chamadas não configuradas", "alreadyInCall": "Você já está em outra chamada",
     "callUser": "Ligar para {{name}}", "call": "Ligar",
     "incomingCall": "Chamada recebida", "isCallingYou": "te está ligando…",
-    "accept": "Atender", "decline": "Recusar"
+    "accept": "Atender", "decline": "Recusar",
+    "errPermission": "Permissão negada. Libere mic/câmera nas configs do navegador (cadeado na barra de endereço).",
+    "errNotFound": "Nenhum microfone/câmera encontrado neste dispositivo.",
+    "errInUse": "Dispositivo em uso por outro app. Feche zoom/meet/discord e tente de novo.",
+    "errNotSupported": "Recurso não suportado neste navegador. Atualize ou tente outro browser.",
+    "errHttps": "Voz/vídeo exige HTTPS. Acesse a versão segura do site."
   },
   "auth": {
     "displayName": "Nome de exibição",
@@ -737,7 +788,11 @@
     "sumMention": "mencionou você em #{{channel}}",
     "sumDm": "enviou uma DM",
     "sumReply": "respondeu você em #{{channel}}",
-    "sumReaction": "reagiu {{emoji}} à sua mensagem"
+    "sumReaction": "reagiu {{emoji}} à sua mensagem",
+    "titleMention": "{{name}} mencionou você",
+    "titleReply": "{{name}} respondeu você",
+    "titleReaction": "{{name}} reagiu {{emoji}}",
+    "dmFallback": "Nova DM"
   },
   "settings": {
     "title": "Configurações",

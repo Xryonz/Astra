@@ -1,13 +1,14 @@
 import { Capacitor } from '@capacitor/core'
+import i18n from '@/i18n'
 import { completeOAuthLogin } from '@/lib/oauth'
 import { runBackHandlers } from '@/lib/backHandler'
 
 /** true quando rodando dentro do app Capacitor (Android/iOS). */
 export const isNative = Capacitor.isNativePlatform()
 
-const STATIC_SHORTCUTS = [
-  { id: 'dms',     title: 'Sussurros', description: 'Mensagens diretas' },
-  { id: 'friends', title: 'Amigos',    description: 'Sua constelação de amigos' },
+const staticShortcuts = () => [
+  { id: 'dms',     title: i18n.t('native.dmsTitle'),     description: i18n.t('native.dmsDesc') },
+  { id: 'friends', title: i18n.t('native.friendsTitle'), description: i18n.t('native.friendsDesc') },
 ]
 
 /**
@@ -23,9 +24,9 @@ export function setDmShortcuts(dms: { id: string; title: string }[]): void {
         ...dms.slice(0, 3).map((d) => ({
           id: `dm-${d.id}`,
           title: d.title,
-          description: 'Conversa recente',
+          description: i18n.t('native.recentConvo'),
         })),
-        ...STATIC_SHORTCUTS,
+        ...staticShortcuts(),
       ],
     }))
     .catch(() => {})
@@ -92,7 +93,7 @@ export async function initNativeApp(): Promise<void> {
   // lista carrega (ids dm-<convId> → rota deep /app/dm/:id).
   try {
     const { AppShortcuts } = await import('@capawesome/capacitor-app-shortcuts')
-    await AppShortcuts.set({ shortcuts: STATIC_SHORTCUTS })
+    await AppShortcuts.set({ shortcuts: staticShortcuts() })
     await AppShortcuts.addListener('click', ({ shortcutId }) => {
       if (shortcutId === 'dms')     window.location.href = '/app/dm'
       if (shortcutId === 'friends') window.location.href = '/app/friends'
@@ -235,7 +236,7 @@ export async function shareInvite(code: string): Promise<'shared' | 'copied'> {
   if (isNative) {
     try {
       const { Share } = await import('@capacitor/share')
-      await Share.share({ title: 'Convite pra constelação no Astra', url })
+      await Share.share({ title: i18n.t('native.shareInvite'), url })
       return 'shared'
     } catch { /* user cancelou o sheet ou plugin ausente — cai pro clipboard */ }
   }

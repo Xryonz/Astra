@@ -8,7 +8,9 @@
     "type": "Tipo",
     "close": "Fechar",
     "loading": "Carregando…",
-    "send": "Enviar"
+    "send": "Enviar",
+    "save": "Salvar",
+    "seeMore": "Ver mais"
   },
   "nav": {
     "constellations": "Constelações",
@@ -287,6 +289,44 @@
     "editProfile": "Editar perfil",
     "settings": "Configurações",
     "logout": "Sair"
+  },
+  "cmd": {
+    "title": "Buscar",
+    "desc": "Procure mensagens, canais, pessoas e servidores",
+    "placeholder": "Procurar mensagens, canais, pessoas, servidores…",
+    "minCharsPre": "Digite ao menos",
+    "minCharsStrong": "2 caracteres",
+    "minCharsHint": "Busca mensagens, canais e pessoas dos seus servidores",
+    "searching": "Buscando…",
+    "noResults": "Nada encontrado pra",
+    "servers": "Servidores",
+    "channels": "Canais",
+    "people": "Pessoas",
+    "messages": "Mensagens",
+    "navigate": "navegar",
+    "open": "abrir",
+    "close": "fechar",
+    "globalSearch": "Astra · Busca global"
+  },
+  "gif": {
+    "placeholder": "Procurar GIFs no Giphy…",
+    "disabled": "GIF picker desabilitado.",
+    "disabledHintPre": "O backend precisa da variável",
+    "error": "Erro ao carregar GIFs. Tenta de novo.",
+    "noResults": "Nada pra \"{{q}}\"",
+    "noFeatured": "Sem GIFs em destaque agora.",
+    "escClose": "Esc fechar"
+  },
+  "bookmarks": {
+    "title": "Salvos",
+    "desc": "Mensagens marcadas pra reler depois.",
+    "emptyTitle": "Sem estrelas guardadas",
+    "emptyDesc": "Passe o mouse numa mensagem e clique no marcador pra guardar aqui.",
+    "unavailable": "Mensagem indisponível",
+    "removed": "(removida)",
+    "notePlaceholder": "Sua nota…",
+    "addNote": "adicionar nota",
+    "remove": "Remover"
   },
   "discover": {
     "title": "Descobrir",

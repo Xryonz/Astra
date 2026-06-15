@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Hash, Users as UsersIcon, MessageSquare } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -36,6 +37,7 @@ function useDebounce<T>(v: T, ms = 200) {
 }
 
 export default function CommandPalette() {
+  const { t }     = useTranslation()
   const open      = useUIStore((s) => s.commandPaletteOpen)
   const close     = useUIStore((s) => s.closeCommandPalette)
   const navigate  = useNavigate()
@@ -66,38 +68,38 @@ export default function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={(o) => !o && close()}
-      title="Buscar"
-      description="Procure mensagens, canais, pessoas e servidores"
+      title={t('cmd.title')}
+      description={t('cmd.desc')}
     >
       {/* cmdk filtering off (delegado ao backend). Arrow-keys nav segue funcionando */}
       <CommandInput
         value={q}
         onValueChange={setQ}
-        placeholder="Procurar mensagens, canais, pessoas, servidores…"
+        placeholder={t('cmd.placeholder')}
       />
       <CommandList>
         {/* Hints quando ainda não digitou o suficiente */}
         {q.length < 2 && (
           <div className="px-5 py-10 text-center text-(--text-3) text-sm">
-            <p className="m-0 mb-1">Digite ao menos <strong className="text-(--text-2)">2 caracteres</strong></p>
-            <p className="m-0 text-xs">Busca mensagens, canais e pessoas dos seus servidores</p>
+            <p className="m-0 mb-1">{t('cmd.minCharsPre')} <strong className="text-(--text-2)">{t('cmd.minCharsStrong')}</strong></p>
+            <p className="m-0 text-xs">{t('cmd.minCharsHint')}</p>
           </div>
         )}
 
         {q.length >= 2 && isFetching && (
           <div className="px-5 py-10 flex items-center justify-center gap-2 text-sm text-(--text-3)">
-            <Spinner size={14} /> Buscando…
+            <Spinner size={14} /> {t('cmd.searching')}
           </div>
         )}
 
         {q.length >= 2 && !isFetching && isEmpty && (
           <CommandEmpty>
-            Nada encontrado pra <em className="text-(--text-2) not-italic">"{q}"</em>
+            {t('cmd.noResults')} <em className="text-(--text-2) not-italic">"{q}"</em>
           </CommandEmpty>
         )}
 
         {data && data.servers.length > 0 && (
-          <CommandGroup heading="Servidores">
+          <CommandGroup heading={t('cmd.servers')}>
             {data.servers.map((s) => (
               <CommandItem key={s.id} value={`server-${s.id}-${s.name}`} onSelect={() => go('/app')}>
                 <div className="size-6 border border-(--border) bg-(--raised) flex items-center justify-center overflow-hidden text-[10px] font-bold shrink-0">
@@ -113,7 +115,7 @@ export default function CommandPalette() {
         )}
 
         {data && data.channels.length > 0 && (
-          <CommandGroup heading="Canais">
+          <CommandGroup heading={t('cmd.channels')}>
             {data.channels.map((c) => (
               <CommandItem
                 key={c.id}
@@ -129,7 +131,7 @@ export default function CommandPalette() {
         )}
 
         {data && data.users.length > 0 && (
-          <CommandGroup heading="Pessoas">
+          <CommandGroup heading={t('cmd.people')}>
             {data.users.map((u) => (
               <CommandItem
                 key={u.id}
@@ -157,7 +159,7 @@ export default function CommandPalette() {
         )}
 
         {data && data.messages.length > 0 && (
-          <CommandGroup heading="Mensagens">
+          <CommandGroup heading={t('cmd.messages')}>
             {data.messages.map((m) => (
               <CommandItem
                 key={m.id}
@@ -181,10 +183,10 @@ export default function CommandPalette() {
 
       {/* Footer com atalhos */}
       <div className="border-t border-(--border) px-4 py-2 flex items-center gap-3 text-marg text-(--text-3) font-mono">
-        <span><CommandShortcut className="ml-0">↑↓</CommandShortcut> navegar</span>
-        <span><CommandShortcut className="ml-0">↵</CommandShortcut> abrir</span>
-        <span><CommandShortcut className="ml-0">esc</CommandShortcut> fechar</span>
-        <span className="ml-auto opacity-60">Astra · Busca global</span>
+        <span><CommandShortcut className="ml-0">↑↓</CommandShortcut> {t('cmd.navigate')}</span>
+        <span><CommandShortcut className="ml-0">↵</CommandShortcut> {t('cmd.open')}</span>
+        <span><CommandShortcut className="ml-0">esc</CommandShortcut> {t('cmd.close')}</span>
+        <span className="ml-auto opacity-60">{t('cmd.globalSearch')}</span>
       </div>
     </CommandDialog>
   )

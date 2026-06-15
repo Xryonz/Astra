@@ -5,6 +5,7 @@
  * Lazy-loaded pelo caller (rare interaction).
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import ConstellationEmpty from '@/components/astra/ConstellationEmpty'
 import { Spinner } from '@/components/ui/spinner'
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Bookmark, Trash2, NotebookPen, Check, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
+import { enUS } from 'date-fns/locale/en-US'
 import { useBookmarkList, type BookmarkItem } from '@/hooks/useBookmarks'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, resolveApiUrl } from '@/lib/api'
@@ -19,6 +21,7 @@ import { api, resolveApiUrl } from '@/lib/api'
 interface Props { open: boolean; onClose: () => void }
 
 export default function BookmarksSheet({ open, onClose }: Props) {
+  const { t } = useTranslation()
   const list = useBookmarkList()
   const qc   = useQueryClient()
   const items = list.data?.pages.flatMap((p) => p.items) ?? []
@@ -39,22 +42,22 @@ export default function BookmarksSheet({ open, onClose }: Props) {
         <div className="px-5 py-4 border-b border-(--border)">
           <SheetTitle className="flex items-center gap-2 text-base m-0 font-(family-name:--font-display)">
             <Bookmark className="size-4 text-(--accent)" />
-            Salvos
+            {t('bookmarks.title')}
           </SheetTitle>
           <SheetDescription className="text-xs text-(--text-3) m-0">
-            Mensagens marcadas pra reler depois.
+            {t('bookmarks.desc')}
           </SheetDescription>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {list.isLoading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-(--text-3)">
-              <Spinner size={14} /> Carregando…
+              <Spinner size={14} /> {t('common.loading')}
             </div>
           ) : items.length === 0 ? (
             <ConstellationEmpty
-              title="Sem estrelas guardadas"
-              description="Passe o mouse numa mensagem e clique no marcador pra guardar aqui."
+              title={t('bookmarks.emptyTitle')}
+              description={t('bookmarks.emptyDesc')}
             />
           ) : (
             <div className="divide-y divide-(--border)" role="list">
@@ -80,7 +83,7 @@ export default function BookmarksSheet({ open, onClose }: Props) {
                 disabled={list.isFetchingNextPage}
                 className="text-xs text-(--text-3) hover:text-foreground transition-colors"
               >
-                {list.isFetchingNextPage ? 'Carregando…' : 'Ver mais'}
+                {list.isFetchingNextPage ? t('common.loading') : t('common.seeMore')}
               </button>
             </div>
           )}
@@ -95,10 +98,11 @@ function Row({ b, onRemove, onSaveNote }: {
   onRemove: () => void
   onSaveNote: (n: string) => void
 }) {
+  const { t, i18n } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft,   setDraft]   = useState(b.note ?? '')
   const snap = b.snapshot
-  const author = snap?.authorName ?? 'Mensagem indisponível'
+  const author = snap?.authorName ?? t('bookmarks.unavailable')
   const avatar = snap?.authorAvatar ? resolveApiUrl(snap.authorAvatar) : null
 
   return (
@@ -115,19 +119,19 @@ function Row({ b, onRemove, onSaveNote }: {
             <span className="text-xs font-medium text-foreground truncate">{author}</span>
             <span className="text-[11px] text-(--text-3)">·</span>
             <span className="text-[11px] text-(--text-3)">
-              {formatDistanceToNow(new Date(b.createdAt), { addSuffix: true, locale: ptBR })}
+              {formatDistanceToNow(new Date(b.createdAt), { addSuffix: true, locale: i18n.language === 'pt' ? ptBR : enUS })}
             </span>
             <button
               onClick={onRemove}
               className="ml-auto opacity-0 group-hover:opacity-100 text-(--text-3) hover:text-(--danger) transition-opacity"
-              title="Remover"
+              title={t('bookmarks.remove')}
             >
               <Trash2 className="size-3.5" />
             </button>
           </div>
 
           <p className="text-sm text-(--text-2) m-0 line-clamp-3 leading-relaxed">
-            {snap?.content ?? <span className="italic text-(--text-3)">(removida)</span>}
+            {snap?.content ?? <span className="italic text-(--text-3)">{t('bookmarks.removed')}</span>}
           </p>
 
           {editing ? (
@@ -140,13 +144,13 @@ function Row({ b, onRemove, onSaveNote }: {
                   if (e.key === 'Enter') { onSaveNote(draft); setEditing(false) }
                   if (e.key === 'Escape') { setDraft(b.note ?? ''); setEditing(false) }
                 }}
-                placeholder="Sua nota…"
+                placeholder={t('bookmarks.notePlaceholder')}
                 className="flex-1 h-7 text-xs"
               />
-              <button onClick={() => { onSaveNote(draft); setEditing(false) }} className="size-7 grid place-items-center text-(--accent)" title="Salvar">
+              <button onClick={() => { onSaveNote(draft); setEditing(false) }} className="size-7 grid place-items-center text-(--accent)" title={t('common.save')}>
                 <Check className="size-3.5" />
               </button>
-              <button onClick={() => { setDraft(b.note ?? ''); setEditing(false) }} className="size-7 grid place-items-center text-(--text-3)" title="Cancelar">
+              <button onClick={() => { setDraft(b.note ?? ''); setEditing(false) }} className="size-7 grid place-items-center text-(--text-3)" title={t('common.cancel')}>
                 <X className="size-3.5" />
               </button>
             </div>
@@ -162,7 +166,7 @@ function Row({ b, onRemove, onSaveNote }: {
               onClick={() => setEditing(true)}
               className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-(--text-3) hover:text-(--accent) transition-colors"
             >
-              <NotebookPen className="size-3" /> adicionar nota
+              <NotebookPen className="size-3" /> {t('bookmarks.addNote')}
             </button>
           )}
         </div>

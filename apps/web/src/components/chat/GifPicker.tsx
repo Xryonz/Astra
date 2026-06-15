@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -31,6 +32,7 @@ function useDebounce<T>(v: T, ms = 350) {
  * Trending por default, busca conforme digita.
  */
 export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
+  const { t } = useTranslation()
   const [q, setQ] = useState('')
   const debounced = useDebounce(q, 350)
   const inputRef  = useRef<HTMLInputElement>(null)
@@ -93,7 +95,7 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
           ref={inputRef}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Procurar GIFs no Giphy…"
+          placeholder={t('gif.placeholder')}
           className="flex-1 bg-transparent outline-none border-none text-(--text-1) placeholder:text-(--text-3) text-sm"
           style={{ fontFamily: 'var(--font-body)' }}
         />
@@ -101,7 +103,7 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
         <button
           onClick={onClose}
           className="size-7 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-          aria-label="Fechar"
+          aria-label={t('common.close')}
         >
           <X className="size-4" />
         </button>
@@ -109,16 +111,16 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
 
       {enabled === false && (
         <div className="px-5 py-10 text-center">
-          <p className="text-sm text-(--text-2) m-0 mb-2">GIF picker desabilitado.</p>
+          <p className="text-sm text-(--text-2) m-0 mb-2">{t('gif.disabled')}</p>
           <p className="text-xs text-(--text-3) m-0">
-            O backend precisa da variável <code className="px-1 bg-(--raised) border border-(--border)">GIPHY_API_KEY</code>.
+            {t('gif.disabledHintPre')} <code className="px-1 bg-(--raised) border border-(--border)">GIPHY_API_KEY</code>.
           </p>
         </div>
       )}
 
       {isError && (
         <div className="px-5 py-8 text-center text-sm text-(--danger)">
-          Erro ao carregar GIFs. Tenta de novo.
+          {t('gif.error')}
         </div>
       )}
 
@@ -126,7 +128,7 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
         <div className="flex-1 overflow-y-auto p-2">
           {results.length === 0 && !isFetching && (
             <p className="text-center text-sm text-(--text-3) italic py-6">
-              {isSearch ? `Nada pra "${debounced}"` : 'Sem GIFs em destaque agora.'}
+              {isSearch ? t('gif.noResults', { q: debounced }) : t('gif.noFeatured')}
             </p>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -162,7 +164,7 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
 
       <div className="px-4 py-1.5 text-[10px] font-mono text-(--text-3) border-t border-(--border) flex items-center justify-between">
         <span>via Giphy</span>
-        <span>Esc fechar</span>
+        <span>{t('gif.escClose')}</span>
       </div>
     </div>
   )

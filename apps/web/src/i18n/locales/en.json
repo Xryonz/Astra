@@ -8,7 +8,9 @@
     "type": "Type",
     "close": "Close",
     "loading": "Loading…",
-    "send": "Send"
+    "send": "Send",
+    "save": "Save",
+    "seeMore": "See more"
   },
   "nav": {
     "constellations": "Constellations",
@@ -287,6 +289,44 @@
     "editProfile": "Edit profile",
     "settings": "Settings",
     "logout": "Log out"
+  },
+  "cmd": {
+    "title": "Search",
+    "desc": "Search messages, channels, people and servers",
+    "placeholder": "Search messages, channels, people, servers…",
+    "minCharsPre": "Type at least",
+    "minCharsStrong": "2 characters",
+    "minCharsHint": "Searches messages, channels and people in your servers",
+    "searching": "Searching…",
+    "noResults": "Nothing found for",
+    "servers": "Servers",
+    "channels": "Channels",
+    "people": "People",
+    "messages": "Messages",
+    "navigate": "navigate",
+    "open": "open",
+    "close": "close",
+    "globalSearch": "Astra · Global search"
+  },
+  "gif": {
+    "placeholder": "Search GIFs on Giphy…",
+    "disabled": "GIF picker disabled.",
+    "disabledHintPre": "The backend needs the variable",
+    "error": "Couldn't load GIFs. Try again.",
+    "noResults": "Nothing for \"{{q}}\"",
+    "noFeatured": "No featured GIFs right now.",
+    "escClose": "Esc close"
+  },
+  "bookmarks": {
+    "title": "Saved",
+    "desc": "Messages flagged to reread later.",
+    "emptyTitle": "No stars saved",
+    "emptyDesc": "Hover a message and click the bookmark to keep it here.",
+    "unavailable": "Message unavailable",
+    "removed": "(removed)",
+    "notePlaceholder": "Your note…",
+    "addNote": "add note",
+    "remove": "Remove"
   },
   "discover": {
     "title": "Discover",

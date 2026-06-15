@@ -164,6 +164,16 @@
       "toastDeleteFail": "Couldn't delete message",
       "toastTextCopied": "Text copied",
       "toastIdCopied": "ID copied"
+    },
+    "feedEmpty": {
+      "label": "— Blank page",
+      "welcome": "Welcome to",
+      "desc": "This is the beginning of this conversation. No one has written here yet.",
+      "beFirst": "Be the first to leave a line."
+    },
+    "feedStart": {
+      "title": "Start of",
+      "desc": "This is the beginning of this conversation."
     }
   },
   "rightPanel": {

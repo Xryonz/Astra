@@ -164,6 +164,16 @@
       "toastDeleteFail": "Erro ao excluir mensagem",
       "toastTextCopied": "Texto copiado",
       "toastIdCopied": "ID copiado"
+    },
+    "feedEmpty": {
+      "label": "— Página em branco",
+      "welcome": "Bem-vindo a",
+      "desc": "Este é o começo desta conversa. Ninguém escreveu aqui ainda.",
+      "beFirst": "Seja o primeiro a deixar uma linha."
+    },
+    "feedStart": {
+      "title": "Início de",
+      "desc": "Este é o começo desta conversa."
     }
   },
   "rightPanel": {

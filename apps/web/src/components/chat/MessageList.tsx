@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Hash, Feather } from 'lucide-react'
@@ -32,6 +33,7 @@ interface MessageListProps {
 export default function MessageList({
   channelId, channelName, serverId, onRegisterOptimistic, onReply,
 }: MessageListProps) {
+  const { t }       = useTranslation()
   const queryClient = useQueryClient()
   const scrollRef   = useRef<HTMLDivElement>(null)
   const topRef      = useRef<HTMLDivElement>(null)
@@ -326,15 +328,15 @@ export default function MessageList({
           <EmptyIcon className="size-16 border border-(--border) bg-(--raised)/40 grid place-items-center">
             <Hash className="size-7 text-(--accent)" />
           </EmptyIcon>
-          <EmptyLabel>— Página em branco</EmptyLabel>
+          <EmptyLabel>{t('chat.feedEmpty.label')}</EmptyLabel>
           <EmptyTitle className="text-2xl">
-            Bem-vindo a <span className="italic text-(--accent)">#{channelName}</span>
+            {t('chat.feedEmpty.welcome')} <span className="italic text-(--accent)">#{channelName}</span>
           </EmptyTitle>
           <EmptyDescription>
-            Este é o começo desta conversa. Ninguém escreveu aqui ainda.
+            {t('chat.feedEmpty.desc')}
           </EmptyDescription>
           <div className="mt-4 flex items-center gap-2 text-xs text-(--text-3) font-mono">
-            <Feather className="size-3" /> Seja o primeiro a deixar uma linha.
+            <Feather className="size-3" /> {t('chat.feedEmpty.beFirst')}
           </div>
         </Empty>
       </div>
@@ -366,9 +368,9 @@ export default function MessageList({
             <span className="text-xl font-bold text-primary">#</span>
           </div>
           <h3 className="text-xl font-normal text-foreground mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-            Início de <em className="text-primary">#{channelName}</em>
+            {t('chat.feedStart.title')} <em className="text-primary">#{channelName}</em>
           </h3>
-          <p className="text-sm text-muted-foreground m-0">Este é o começo desta conversa.</p>
+          <p className="text-sm text-muted-foreground m-0">{t('chat.feedStart.desc')}</p>
         </div>
       )}
 

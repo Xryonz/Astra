@@ -51,6 +51,57 @@
     "friendsHint": "Friends and requests",
     "alertsHint": "Notifications"
   },
+  "chat": {
+    "header": {
+      "search": "Search (Ctrl+K)",
+      "membersThreads": "Members and threads",
+      "pinned": "Pinned messages",
+      "saved": "Saved messages",
+      "moreActions": "More actions"
+    },
+    "empty": {
+      "margin": "— Empty edition",
+      "title1": "The silence",
+      "title2": "before the conversation.",
+      "lede": "Pick an orbit on the side to enter a conversation, or tap the moon to open your whispers.",
+      "shortcut": "Shortcut ⌘K · global search",
+      "aside": "\"Every conversation starts with a pause — this is yours.\""
+    },
+    "composer": {
+      "dropToAttach": "Drop to attach",
+      "dropHint": "up to 25MB · 10 files",
+      "uploading": "Uploading…",
+      "removeAttachment": "Remove attachment",
+      "members": "— Members",
+      "mentionHint": "Tab/Enter to select · Esc to close",
+      "mutedTitle": "Muted for spam",
+      "mutedWaitMin": "Wait {{n}} min to write again.",
+      "mutedWaitSec": "Wait {{n}}s to write again.",
+      "replyingTo": "Replying to",
+      "cancelReply": "Cancel reply",
+      "attach": "Attach file",
+      "recordAudio": "Record audio",
+      "ttlTitle": "Disappears in {{ttl}} · click to disable",
+      "placeholderMuted": "Muted…",
+      "placeholderOptional": "Optional message…",
+      "placeholderChannel": "Message in #{{channel}}",
+      "cancelRecording": "Cancel recording",
+      "cancel": "Cancel",
+      "resumeRecording": "Resume recording",
+      "pauseRecording": "Pause recording",
+      "resume": "Resume",
+      "pause": "Pause",
+      "holdToRecordAria": "Hold to record audio",
+      "holdToRecord": "Hold to record",
+      "send": "Send",
+      "sendEnter": "Send (Enter)",
+      "reminderSet": "Reminder set: \"{{content}}\"",
+      "reminderFail": "Failed to create reminder",
+      "maxAttachments": "Max {{n}} attachments per message",
+      "fileTooLarge": "{{name}} larger than 25MB",
+      "uploadFail": "Upload failed"
+    }
+  },
   "settings": {
     "title": "Settings",
     "groups": {

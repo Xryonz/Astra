@@ -51,6 +51,57 @@
     "friendsHint": "Amigos e pedidos",
     "alertsHint": "Notificações"
   },
+  "chat": {
+    "header": {
+      "search": "Buscar (Ctrl+K)",
+      "membersThreads": "Membros e threads",
+      "pinned": "Mensagens fixadas",
+      "saved": "Mensagens salvas",
+      "moreActions": "Mais ações"
+    },
+    "empty": {
+      "margin": "— Edição vazia",
+      "title1": "O silêncio",
+      "title2": "antes da conversa.",
+      "lede": "Selecione uma órbita na lateral para entrar numa conversa, ou clique na lua para abrir seus sussurros.",
+      "shortcut": "Atalho ⌘K · busca global",
+      "aside": "\"Toda conversa começa com uma pausa — esta é a sua.\""
+    },
+    "composer": {
+      "dropToAttach": "Solte para anexar",
+      "dropHint": "até 25MB · 10 arquivos",
+      "uploading": "Enviando…",
+      "removeAttachment": "Remover anexo",
+      "members": "— Membros",
+      "mentionHint": "Tab/Enter selecionar · Esc fechar",
+      "mutedTitle": "Silenciado por spam",
+      "mutedWaitMin": "Aguarde {{n}} min para voltar a escrever.",
+      "mutedWaitSec": "Aguarde {{n}}s para voltar a escrever.",
+      "replyingTo": "Respondendo a",
+      "cancelReply": "Cancelar reply",
+      "attach": "Anexar arquivo",
+      "recordAudio": "Gravar áudio",
+      "ttlTitle": "Some em {{ttl}} · clique pra desativar",
+      "placeholderMuted": "Silenciado…",
+      "placeholderOptional": "Mensagem opcional…",
+      "placeholderChannel": "Mensagem em #{{channel}}",
+      "cancelRecording": "Cancelar gravação",
+      "cancel": "Cancelar",
+      "resumeRecording": "Retomar gravação",
+      "pauseRecording": "Pausar gravação",
+      "resume": "Retomar",
+      "pause": "Pausar",
+      "holdToRecordAria": "Segure para gravar áudio",
+      "holdToRecord": "Segure para gravar",
+      "send": "Enviar",
+      "sendEnter": "Enviar (Enter)",
+      "reminderSet": "Lembrete agendado: \"{{content}}\"",
+      "reminderFail": "Falha ao criar lembrete",
+      "maxAttachments": "Máximo {{n}} anexos por mensagem",
+      "fileTooLarge": "{{name}} maior que 25MB",
+      "uploadFail": "Falha no upload"
+    }
+  },
   "settings": {
     "title": "Configurações",
     "groups": {

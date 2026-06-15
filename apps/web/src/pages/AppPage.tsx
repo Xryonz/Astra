@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import Sidebar from '@/components/layout/Sidebar'
@@ -55,6 +56,7 @@ type OptimisticMessage = MessageWithAuthor & { optimisticId?: string; isPending?
 interface ActiveChannel { id: string; name: string; serverId: string }
 
 function ChannelView() {
+  const { t }        = useTranslation()
   const location     = useLocation()
   const locationState = location.state as ActiveChannel | null
   const [activeChannel, setActiveChannel] = useState<ActiveChannel | null>(locationState ?? null)
@@ -157,8 +159,8 @@ function ChannelView() {
                 <button
                   onClick={openCommandPalette}
                   className="size-11 sm:size-8 flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label="Buscar (Ctrl+K)"
-                  title="Buscar (Ctrl+K)"
+                  aria-label={t('chat.header.search')}
+                  title={t('chat.header.search')}
                 >
                   <Search className="size-4" />
                 </button>
@@ -166,24 +168,24 @@ function ChannelView() {
                 <button
                   onClick={() => openRightPanel('members')}
                   className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label="Membros e threads"
-                  title="Membros e threads"
+                  aria-label={t('chat.header.membersThreads')}
+                  title={t('chat.header.membersThreads')}
                 >
                   <UsersIcon className="size-4" />
                 </button>
                 <button
                   onClick={() => setPinnedOpen(true)}
                   className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label="Mensagens fixadas"
-                  title="Mensagens fixadas"
+                  aria-label={t('chat.header.pinned')}
+                  title={t('chat.header.pinned')}
                 >
                   <Pin className="size-4" />
                 </button>
                 <button
                   onClick={() => setBookmarksOpen(true)}
                   className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label="Mensagens salvas"
-                  title="Mensagens salvas"
+                  aria-label={t('chat.header.saved')}
+                  title={t('chat.header.saved')}
                 >
                   <Bookmark className="size-4" />
                 </button>
@@ -194,20 +196,20 @@ function ChannelView() {
                   <DropdownMenuTrigger asChild>
                     <button
                       className="size-11 md:hidden flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                      aria-label="Mais ações"
+                      aria-label={t('chat.header.moreActions')}
                     >
                       <MoreHorizontal className="size-5" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => openRightPanel('members')}>
-                      <UsersIcon className="size-3.5" /> Membros e threads
+                      <UsersIcon className="size-3.5" /> {t('chat.header.membersThreads')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setPinnedOpen(true)}>
-                      <Pin className="size-3.5" /> Mensagens fixadas
+                      <Pin className="size-3.5" /> {t('chat.header.pinned')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setBookmarksOpen(true)}>
-                      <Bookmark className="size-3.5" /> Mensagens salvas
+                      <Bookmark className="size-3.5" /> {t('chat.header.saved')}
                     </DropdownMenuItem>
                     {/* Notificações do canal — no desktop é o sino próprio */}
                     <ChannelNotifMenuItems channelId={activeChannel.id} />
@@ -275,18 +277,18 @@ function ChannelView() {
                 </Reveal>
 
                 <Reveal delay={0.18}>
-                  <span className="ed-marg block mb-3">— Edição vazia</span>
+                  <span className="ed-marg block mb-3">{t('chat.empty.margin')}</span>
                 </Reveal>
 
                 <Reveal delay={0.30}>
                   <h2 className="ed-h text-4xl sm:text-5xl m-0 mb-2 leading-[1.05]">
-                    O silêncio
+                    {t('chat.empty.title1')}
                   </h2>
                 </Reveal>
 
                 <Reveal delay={0.40}>
                   <h2 className="ed-h text-4xl sm:text-5xl m-0 italic text-(--accent) leading-[1.05]">
-                    antes da conversa.
+                    {t('chat.empty.title2')}
                   </h2>
                 </Reveal>
 
@@ -296,12 +298,12 @@ function ChannelView() {
 
                 <Reveal delay={0.65}>
                   <p className="ed-lede max-w-[34ch] m-0 text-(--text-2)">
-                    Selecione uma órbita na lateral para entrar numa conversa, ou clique na lua para abrir seus sussurros.
+                    {t('chat.empty.lede')}
                   </p>
                 </Reveal>
 
                 <Reveal delay={0.85}>
-                  <p className="ed-marg mt-8">Atalho ⌘K · busca global</p>
+                  <p className="ed-marg mt-8">{t('chat.empty.shortcut')}</p>
                 </Reveal>
               </div>
 
@@ -309,7 +311,7 @@ function ChannelView() {
               <div className="hidden lg:flex col-span-2 col-start-11 items-end pb-12">
                 <Reveal delay={1.0}>
                   <p className="ed-aside max-w-[20ch]">
-                    "Toda conversa começa com uma pausa — esta é a sua."
+                    {t('chat.empty.aside')}
                   </p>
                 </Reveal>
               </div>

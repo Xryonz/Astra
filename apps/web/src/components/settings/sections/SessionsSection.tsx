@@ -1,10 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { api, getStoredRefreshToken } from '@/lib/api'
 import { LogOut, Shield, Smartphone, Monitor, Loader2, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { ptBR, enUS } from 'date-fns/locale'
 import { toast } from '@/components/ui/sonner'
 import { useConfirm } from '@/hooks/useConfirm'
 import { SectionHeader, Row } from './_shared'
@@ -22,8 +23,8 @@ interface Session {
  * Parser leve de User-Agent — não precisamos da biblioteca completa.
  * Identifica família OS + browser pra ícone + label legível.
  */
-function parseUA(ua: string | null): { label: string; isMobile: boolean } {
-  if (!ua) return { label: 'Dispositivo desconhecido', isMobile: false }
+function parseUA(ua: string | null, unknownLabel: string): { label: string; isMobile: boolean } {
+  if (!ua) return { label: unknownLabel, isMobile: false }
   const isMobile = /Mobile|Android|iPhone|iPad/i.test(ua)
   let os = 'Outro'
   if (/Windows/i.test(ua))      os = 'Windows'
@@ -43,6 +44,8 @@ function parseUA(ua: string | null): { label: string; isMobile: boolean } {
 }
 
 export default function SessionsSection() {
+  const { t, i18n } = useTranslation()
+  const dateLocale = i18n.language === 'pt' ? ptBR : enUS
   const { logout } = useAuth()
   const confirm    = useConfirm()
   const qc         = useQueryClient()
@@ -58,18 +61,18 @@ export default function SessionsSection() {
     mutationFn: (id: string) => api.delete(`/api/sessions/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sessions'] })
-      toast.success('Sessão revogada')
+      toast.success(t('settings.sessions.revoked'))
     },
-    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Falha ao revogar'),
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? t('settings.sessions.revokeFail')),
   })
 
   const revokeOthers = useMutation({
     mutationFn: () => api.post('/api/sessions/revoke-others', { refreshToken: currentRefresh }),
     onSuccess: (r: any) => {
       qc.invalidateQueries({ queryKey: ['sessions'] })
-      toast.success(`${r.data.data.revokedCount} sessão(ões) encerradas`)
+      toast.success(t('settings.sessions.endedCount', { count: r.data.data.revokedCount }))
     },
-    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Falha ao revogar'),
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? t('settings.sessions.revokeFail')),
   })
 
   const others = sessions.length > 1
@@ -87,21 +90,21 @@ export default function SessionsSection() {
   return (
     <div>
       <SectionHeader
-        title="Sessões"
-        description="Dispositivos onde você está logada na Astra. Revogue qualquer um se suspeitar de acesso indevido."
+        title={t('settings.sessions.title')}
+        description={t('settings.sessions.description')}
       />
 
-      <Row label="Sessões ativas" hint="Renovação automática a cada uso. Inativa por 30 dias → expira.">
+      <Row label={t('settings.sessions.active')} hint={t('settings.sessions.activeHint')}>
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-(--text-3)">
-            <Loader2 className="size-3.5 animate-spin" /> Carregando…
+            <Loader2 className="size-3.5 animate-spin" /> {t('settings.sessions.loading')}
           </div>
         ) : sessions.length === 0 ? (
-          <p className="text-sm text-(--text-3) italic m-0">Nenhuma sessão encontrada.</p>
+          <p className="text-sm text-(--text-3) italic m-0">{t('settings.sessions.none')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {sessions.map((s, i) => {
-              const parsed = parseUA(s.userAgent)
+              const parsed = parseUA(s.userAgent, t('settings.sessions.unknownDevice'))
               const lastUsed = s.lastUsedAt ?? s.createdAt
               const isCurrent = i === 0  // assumindo ordenado por lastUsedAt desc
               return (
@@ -119,12 +122,12 @@ export default function SessionsSection() {
                       {parsed.label}
                       {isCurrent && (
                         <span className="text-[10px] font-mono uppercase tracking-wider text-(--accent) px-1.5 py-0.5 rounded bg-(--accent-dim) border border-(--accent)/30">
-                          Atual
+                          {t('settings.sessions.current')}
                         </span>
                       )}
                     </p>
                     <p className="text-marg text-(--text-3) m-0 mt-0.5 leading-relaxed">
-                      {s.ip ?? 'IP desconhecido'} · ativa {formatDistanceToNow(new Date(lastUsed), { addSuffix: true, locale: ptBR })}
+                      {s.ip ?? t('settings.sessions.unknownIp')} · {t('settings.sessions.activeSince', { rel: formatDistanceToNow(new Date(lastUsed), { addSuffix: true, locale: dateLocale }) })}
                     </p>
                   </div>
                   {!isCurrent && (
@@ -133,16 +136,16 @@ export default function SessionsSection() {
                       variant="ghost"
                       onClick={async () => {
                         const ok = await confirm({
-                          title: 'Revogar sessão?',
-                          description: `${parsed.label} será desconectado imediatamente.`,
-                          confirmLabel: 'Revogar',
+                          title: t('settings.sessions.revokeTitle'),
+                          description: t('settings.sessions.revokeDesc', { device: parsed.label }),
+                          confirmLabel: t('settings.sessions.revoke'),
                           destructive: true,
                         })
                         if (ok) revokeOne.mutate(s.id)
                       }}
                       className="text-(--danger) hover:text-(--danger)"
                     >
-                      <X className="size-3.5" /> Revogar
+                      <X className="size-3.5" /> {t('settings.sessions.revoke')}
                     </Button>
                   )}
                 </li>
@@ -154,16 +157,16 @@ export default function SessionsSection() {
 
       {others.length > 0 && (
         <Row
-          label="Encerrar outros dispositivos"
-          hint="Revoga todas as sessões exceto a atual. Use se mudou de senha ou suspeita de acesso indevido."
+          label={t('settings.sessions.endOthers')}
+          hint={t('settings.sessions.endOthersHint')}
         >
           <Button
             variant="outline"
             onClick={async () => {
               const ok = await confirm({
-                title: 'Encerrar todas as outras sessões?',
-                description: `${others.length} dispositivo(s) serão desconectados.`,
-                confirmLabel: 'Encerrar todas',
+                title: t('settings.sessions.endAllTitle'),
+                description: t('settings.sessions.endAllDesc', { count: others.length }),
+                confirmLabel: t('settings.sessions.endAll'),
                 destructive: true,
               })
               if (ok) revokeOthers.mutate()
@@ -171,14 +174,14 @@ export default function SessionsSection() {
             disabled={revokeOthers.isPending}
             className="gap-2 self-start text-(--danger)"
           >
-            <Shield className="size-3.5" /> Encerrar {others.length} outra{others.length > 1 ? 's' : ''}
+            <Shield className="size-3.5" /> {t('settings.sessions.endNOthers', { count: others.length })}
           </Button>
         </Row>
       )}
 
-      <Row label="Sair desta sessão" hint="Só este token. As outras continuam.">
+      <Row label={t('settings.sessions.logoutSession')} hint={t('settings.sessions.logoutSessionHint')}>
         <Button variant="outline" onClick={() => logout()} className="gap-2 self-start">
-          <LogOut className="size-3.5" /> Sair
+          <LogOut className="size-3.5" /> {t('settings.sessions.logout')}
         </Button>
       </Row>
     </div>

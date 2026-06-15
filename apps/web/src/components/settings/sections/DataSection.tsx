@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Download, Trash2 } from 'lucide-react'
 import { SectionHeader, Row } from './_shared'
@@ -7,22 +8,23 @@ import { SectionHeader, Row } from './_shared'
  * Placeholder enquanto endpoints não existem (LGPD/GDPR — fase M).
  */
 export default function DataSection() {
+  const { t } = useTranslation()
   return (
     <div>
       <SectionHeader
-        title="Dados"
-        description="Controle dos seus dados pessoais — exportar, importar, excluir."
+        title={t('settings.data.title')}
+        description={t('settings.data.description')}
       />
 
-      <Row label="Exportar meus dados" hint="Baixa um arquivo .json com mensagens, perfil e configurações.">
-        <Button variant="outline" disabled className="gap-2 self-start" title="Em breve">
-          <Download className="size-3.5" /> Exportar (em breve)
+      <Row label={t('settings.data.export')} hint={t('settings.data.exportHint')}>
+        <Button variant="outline" disabled className="gap-2 self-start" title={t('settings.data.soon')}>
+          <Download className="size-3.5" /> {t('settings.data.exportBtn')}
         </Button>
       </Row>
 
-      <Row label="Excluir conta" hint="Apaga permanentemente sua conta e todas mensagens enviadas. Esta ação não pode ser desfeita.">
-        <Button variant="outline" disabled className="gap-2 self-start text-(--danger) border-(--danger)/40 hover:bg-(--danger)/10" title="Em breve">
-          <Trash2 className="size-3.5" /> Excluir conta (em breve)
+      <Row label={t('settings.data.deleteAccount')} hint={t('settings.data.deleteAccountHint')}>
+        <Button variant="outline" disabled className="gap-2 self-start text-(--danger) border-(--danger)/40 hover:bg-(--danger)/10" title={t('settings.data.soon')}>
+          <Trash2 className="size-3.5" /> {t('settings.data.deleteAccountBtn')}
         </Button>
       </Row>
     </div>

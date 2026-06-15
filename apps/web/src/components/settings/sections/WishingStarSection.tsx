@@ -7,6 +7,7 @@
  *  - Estética: chip ✦ no header, hairline rows estilo editorial
  */
 import { useState, useRef, FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, Send } from 'lucide-react'
 import { api, resolveApiUrl } from '@/lib/api'
@@ -32,17 +33,19 @@ interface WishPage { items: WishItem[]; nextCursor: string | null }
 const MIN = 4
 const MAX = 500
 
-function relTime(iso: string): string {
+function relTime(iso: string, nowLabel: string, dateLocale: string): string {
   const dt   = new Date(iso).getTime()
   const diff = Date.now() - dt
-  if (diff < 60_000)       return 'agora'
+  if (diff < 60_000)       return nowLabel
   if (diff < 3_600_000)    return `${Math.floor(diff / 60_000)}m`
   if (diff < 86_400_000)   return `${Math.floor(diff / 3_600_000)}h`
   if (diff < 2_592_000_000) return `${Math.floor(diff / 86_400_000)}d`
-  return new Date(iso).toLocaleDateString('pt-BR')
+  return new Date(iso).toLocaleDateString(dateLocale)
 }
 
 export default function WishingStarSection() {
+  const { t, i18n } = useTranslation()
+  const dateLocale  = i18n.language === 'pt' ? 'pt-BR' : 'en-US'
   const [content, setContent] = useState('')
   const [error,   setError]   = useState<string | null>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -68,11 +71,11 @@ export default function WishingStarSection() {
     onSuccess: () => {
       setContent('')
       setError(null)
-      toast.success('✦ Sua estrela foi pendurada no céu.')
+      toast.success(t('settings.wishing.sent'))
       qc.invalidateQueries({ queryKey: ['wishes'] })
     },
     onError: (e: any) => {
-      const msg = e?.response?.data?.error ?? 'Erro ao enviar sugestão'
+      const msg = e?.response?.data?.error ?? t('settings.wishing.sendError')
       setError(msg)
       toast.error(msg)
     },
@@ -81,8 +84,8 @@ export default function WishingStarSection() {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const trimmed = content.trim()
-    if (trimmed.length < MIN) { setError(`Mínimo ${MIN} caracteres.`); return }
-    if (trimmed.length > MAX) { setError(`Máximo ${MAX} caracteres.`); return }
+    if (trimmed.length < MIN) { setError(t('settings.wishing.minChars', { n: MIN })); return }
+    if (trimmed.length > MAX) { setError(t('settings.wishing.maxChars', { n: MAX })); return }
     create.mutate(trimmed)
   }
 
@@ -92,8 +95,8 @@ export default function WishingStarSection() {
   return (
     <div>
       <SectionHeader
-        title="Wishing Star"
-        description="Sugira o que mudar na Astra. Cada pedido é uma estrela visível pra todo mundo — leia os outros, comente os seus."
+        title={t('settings.wishing.title')}
+        description={t('settings.wishing.description')}
       />
 
       {/* ───── Form ───── */}
@@ -103,7 +106,7 @@ export default function WishingStarSection() {
             ref={taRef}
             value={content}
             onChange={(e) => { setContent(e.target.value); setError(null) }}
-            placeholder="Penso que seria legal se…"
+            placeholder={t('settings.wishing.placeholder')}
             maxLength={MAX}
             rows={3}
             className="w-full resize-y min-h-24 px-4 py-3 bg-(--raised)/60 border border-(--border) rounded-xl text-sm text-(--text-1) placeholder:text-(--text-3) focus:outline-none focus:border-(--accent) focus:bg-(--raised) transition-colors font-(family-name:--font-body)"
@@ -122,7 +125,7 @@ export default function WishingStarSection() {
 
         <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
           <p className="text-[11px] text-(--text-3) m-0 italic max-w-[44ch]">
-            Só texto. Markdown vira texto puro. Lista pública — escolha bem as palavras.
+            {t('settings.wishing.rules')}
           </p>
           <Button
             type="submit"
@@ -130,7 +133,7 @@ export default function WishingStarSection() {
             className="gap-2"
           >
             <Send className="size-3.5" />
-            {create.isPending ? 'Pendurando…' : 'Pendurar estrela'}
+            {create.isPending ? t('settings.wishing.hanging') : t('settings.wishing.hang')}
           </Button>
         </div>
       </form>
@@ -138,14 +141,14 @@ export default function WishingStarSection() {
       {/* ───── Lista global ───── */}
       <header className="mb-4 flex items-baseline gap-2">
         <Sparkles className="size-3.5 text-(--accent)" />
-        <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">No céu agora</h3>
-        <span className="text-[10px] font-mono text-(--text-3)">— globais</span>
+        <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">{t('settings.wishing.skyNow')}</h3>
+        <span className="text-[10px] font-mono text-(--text-3)">{t('settings.wishing.global')}</span>
       </header>
 
       {isLoading ? (
-        <p className="text-xs text-(--text-3) italic m-0">Lendo o céu…</p>
+        <p className="text-xs text-(--text-3) italic m-0">{t('settings.wishing.reading')}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-(--text-3) italic m-0">Nenhuma estrela ainda. Seja a primeira.</p>
+        <p className="text-xs text-(--text-3) italic m-0">{t('settings.wishing.empty')}</p>
       ) : (
         <ul className="border border-(--border) divide-y divide-(--border) rounded-xl overflow-hidden">
           {items.map((w, i) => (
@@ -165,7 +168,7 @@ export default function WishingStarSection() {
                         {w.author.displayName}
                       </span>
                       <span className="text-[10px] font-mono text-(--text-3) truncate">@{w.author.username}</span>
-                      <span className="text-[10px] font-mono text-(--text-3) ml-auto shrink-0">{relTime(w.createdAt)}</span>
+                      <span className="text-[10px] font-mono text-(--text-3) ml-auto shrink-0">{relTime(w.createdAt, t('settings.wishing.now'), dateLocale)}</span>
                     </div>
                     <p className="mt-1 text-sm text-(--text-2) m-0 whitespace-pre-wrap break-words leading-relaxed">
                       {w.content}
@@ -185,7 +188,7 @@ export default function WishingStarSection() {
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
           >
-            {isFetchingNextPage ? 'Carregando…' : 'Ver estrelas mais antigas'}
+            {isFetchingNextPage ? t('settings.wishing.loading') : t('settings.wishing.seeOlder')}
           </Button>
         </div>
       )}

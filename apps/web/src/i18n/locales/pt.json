@@ -183,7 +183,10 @@
     "notFoundDesc": "Este perfil já não existe — ou nunca existiu.",
     "memberSince": "— Membro desde",
     "dateFormat": "d 'de' MMMM 'de' yyyy",
-    "message": "Mensagem"
+    "message": "Mensagem",
+    "about": "Sobre",
+    "bioEmptySelf": "Você ainda não deixou suas palavras.",
+    "bioEmptyOther": "Sem palavras ainda."
   },
   "poll": {
     "title": "Nova enquete",
@@ -638,6 +641,26 @@
     "deleteDesc": "Esta ação é permanente e não pode ser desfeita.",
     "deleting": "Excluindo…",
     "confirmDelete": "Sim, excluir"
+  },
+  "srvDialog": {
+    "forgeCluster": "Forjar aglomerado",
+    "forgeConstellation": "Forjar constelação",
+    "groupDesc": "Grupo privado — adicione estrelas manualmente, sem link público.",
+    "serverDesc": "Servidor da sua comunidade — entrada via link de convite.",
+    "groupPlaceholder": "Ex: Amigos da faculdade",
+    "serverPlaceholder": "Ex: Órion",
+    "forming": "Formando…",
+    "lighting": "Acendendo…",
+    "createError": "Erro ao criar",
+    "rename": "Renomear",
+    "newName": "Novo nome",
+    "saving": "Salvando…",
+    "save": "Salvar",
+    "addMember": "Adicionar membro",
+    "usernamePlaceholder": "nome_do_usuario",
+    "memberAdded": "Membro adicionado!",
+    "adding": "Adicionando…",
+    "add": "Adicionar"
   },
   "notif": {
     "all": "Todas as mensagens",

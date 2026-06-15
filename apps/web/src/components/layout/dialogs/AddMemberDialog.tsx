@@ -2,6 +2,7 @@
  * Convida user via username pra um server/grupo.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import {
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function AddMemberDialog({ open, onClose, serverId }: Props) {
+  const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState('')
@@ -29,12 +31,12 @@ export function AddMemberDialog({ open, onClose, serverId }: Props) {
     mutationFn: async ({ id, u }: { id: string; u: string }) =>
       (await api.post(`/api/servers/${id}/invite/${u}`)).data,
     onSuccess: (data) => {
-      setSuccess(data.message ?? 'Membro adicionado!')
+      setSuccess(data.message ?? t('srvDialog.memberAdded'))
       setUsername(''); setError('')
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       setTimeout(() => setSuccess(''), 3000)
     },
-    onError: (e: any) => setError(e.response?.data?.error ?? 'Erro'),
+    onError: (e: any) => setError(e.response?.data?.error ?? t('common.error')),
   })
 
   const submit = () => {
@@ -47,11 +49,11 @@ export function AddMemberDialog({ open, onClose, serverId }: Props) {
     <Dialog open={open && !!serverId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-95!">
         <DialogHeader>
-          <DialogTitle>Adicionar membro</DialogTitle>
+          <DialogTitle>{t('srvDialog.addMember')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="inviteUsername">Username</Label>
+          <Label htmlFor="inviteUsername">{t('auth.username')}</Label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">@</span>
             <Input
@@ -60,7 +62,7 @@ export function AddMemberDialog({ open, onClose, serverId }: Props) {
               value={username}
               onChange={(e) => { setUsername(e.target.value.toLowerCase()); setError('') }}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
-              placeholder="nome_do_usuario"
+              placeholder={t('srvDialog.usernamePlaceholder')}
               className="pl-7"
             />
           </div>
@@ -69,9 +71,9 @@ export function AddMemberDialog({ open, onClose, serverId }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={submit} disabled={inviteMember.isPending || !username.trim()}>
-            {inviteMember.isPending ? 'Adicionando…' : 'Adicionar'}
+            {inviteMember.isPending ? t('srvDialog.adding') : t('srvDialog.add')}
           </Button>
         </DialogFooter>
       </DialogContent>

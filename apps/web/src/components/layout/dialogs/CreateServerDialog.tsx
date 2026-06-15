@@ -3,6 +3,7 @@
  * (popOrigin = posição do botão clicado).
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }: Props) {
+  const { t } = useTranslation()
   const [name, setName]   = useState('')
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
@@ -37,7 +39,7 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
       onCreated(s)
       onClose()
     },
-    onError: (e: any) => setError(e.response?.data?.error ?? 'Erro ao criar'),
+    onError: (e: any) => setError(e.response?.data?.error ?? t('srvDialog.createError')),
   })
 
   const submit = () => {
@@ -60,34 +62,32 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
             {mode === 'group' ? <Users className="size-5 text-(--accent)" /> : <Plus className="size-5 text-(--accent)" />}
           </div>
           <DialogTitle>
-            {mode === 'group' ? 'Forjar aglomerado' : 'Forjar constelação'}
+            {mode === 'group' ? t('srvDialog.forgeCluster') : t('srvDialog.forgeConstellation')}
           </DialogTitle>
           <DialogDescription>
-            {mode === 'group'
-              ? 'Grupo privado — adicione estrelas manualmente, sem link público.'
-              : 'Servidor da sua comunidade — entrada via link de convite.'}
+            {mode === 'group' ? t('srvDialog.groupDesc') : t('srvDialog.serverDesc')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="serverName">Nome</Label>
+          <Label htmlFor="serverName">{t('common.name')}</Label>
           <Input
             id="serverName"
             autoFocus
             value={name}
             onChange={(e) => { setName(e.target.value); setError('') }}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder={mode === 'group' ? 'Ex: Amigos da faculdade' : 'Ex: Órion'}
+            placeholder={mode === 'group' ? t('srvDialog.groupPlaceholder') : t('srvDialog.serverPlaceholder')}
           />
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={submit} disabled={createServer.isPending || !name.trim()}>
             {createServer.isPending
-              ? (mode === 'group' ? 'Formando…' : 'Acendendo…')
-              : (mode === 'group' ? 'Forjar aglomerado' : 'Forjar constelação')}
+              ? (mode === 'group' ? t('srvDialog.forming') : t('srvDialog.lighting'))
+              : (mode === 'group' ? t('srvDialog.forgeCluster') : t('srvDialog.forgeConstellation'))}
           </Button>
         </DialogFooter>
       </DialogContent>

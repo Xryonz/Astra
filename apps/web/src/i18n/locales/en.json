@@ -183,7 +183,10 @@
     "notFoundDesc": "This profile no longer exists — or never did.",
     "memberSince": "— Member since",
     "dateFormat": "MMMM d, yyyy",
-    "message": "Message"
+    "message": "Message",
+    "about": "About",
+    "bioEmptySelf": "You haven't left your words yet.",
+    "bioEmptyOther": "No words yet."
   },
   "poll": {
     "title": "New poll",
@@ -638,6 +641,26 @@
     "deleteDesc": "This action is permanent and can't be undone.",
     "deleting": "Deleting…",
     "confirmDelete": "Yes, delete"
+  },
+  "srvDialog": {
+    "forgeCluster": "Forge cluster",
+    "forgeConstellation": "Forge constellation",
+    "groupDesc": "Private group — add stars manually, no public link.",
+    "serverDesc": "A server for your community — join via invite link.",
+    "groupPlaceholder": "e.g. College friends",
+    "serverPlaceholder": "e.g. Orion",
+    "forming": "Forming…",
+    "lighting": "Lighting up…",
+    "createError": "Couldn't create",
+    "rename": "Rename",
+    "newName": "New name",
+    "saving": "Saving…",
+    "save": "Save",
+    "addMember": "Add member",
+    "usernamePlaceholder": "username",
+    "memberAdded": "Member added!",
+    "adding": "Adding…",
+    "add": "Add"
   },
   "notif": {
     "all": "All messages",

@@ -2,6 +2,7 @@
  * Rename server/grupo.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import {
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function EditServerDialog({ open, onClose, target }: Props) {
+  const { t } = useTranslation()
   const [name, setName]   = useState('')
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
@@ -36,7 +38,7 @@ export function EditServerDialog({ open, onClose, target }: Props) {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       onClose()
     },
-    onError: (e: any) => setError(e.response?.data?.error ?? 'Erro'),
+    onError: (e: any) => setError(e.response?.data?.error ?? t('common.error')),
   })
 
   const submit = () => {
@@ -49,11 +51,11 @@ export function EditServerDialog({ open, onClose, target }: Props) {
     <Dialog open={open && !!target} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-95!">
         <DialogHeader>
-          <DialogTitle>Renomear</DialogTitle>
+          <DialogTitle>{t('srvDialog.rename')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="editName">Novo nome</Label>
+          <Label htmlFor="editName">{t('srvDialog.newName')}</Label>
           <Input
             id="editName"
             autoFocus
@@ -67,9 +69,9 @@ export function EditServerDialog({ open, onClose, target }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={submit} disabled={renameServer.isPending || !name.trim()}>
-            {renameServer.isPending ? 'Salvando…' : 'Salvar'}
+            {renameServer.isPending ? t('srvDialog.saving') : t('srvDialog.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,6 +2,7 @@
  * Confirma exclusão de server/grupo. Destrutivo — sem volta.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function DeleteServerDialog({ open, onClose, target, onDeleted }: Props) {
+  const { t } = useTranslation()
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
 
@@ -32,7 +34,7 @@ export function DeleteServerDialog({ open, onClose, target, onDeleted }: Props) 
       onDeleted(id)
       onClose()
     },
-    onError: (e: any) => setError(e.response?.data?.error ?? 'Erro'),
+    onError: (e: any) => setError(e.response?.data?.error ?? t('common.error')),
   })
 
   return (
@@ -44,19 +46,19 @@ export function DeleteServerDialog({ open, onClose, target, onDeleted }: Props) 
           </div>
         </div>
         <DialogHeader className="text-center! items-center!">
-          <DialogTitle>Excluir {target?.name}?</DialogTitle>
-          <DialogDescription>Esta ação é permanente e não pode ser desfeita.</DialogDescription>
+          <DialogTitle>{t('dialogs.deleteTitle', { name: target?.name })}</DialogTitle>
+          <DialogDescription>{t('dialogs.deleteDesc')}</DialogDescription>
         </DialogHeader>
         {error && <p className="text-xs text-destructive">{error}</p>}
         <DialogFooter className="sm:justify-center">
-          <Button variant="secondary" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button variant="secondary" onClick={onClose} className="flex-1">{t('common.cancel')}</Button>
           <Button
             variant="destructive"
             onClick={() => target && deleteServer.mutate(target.id)}
             disabled={deleteServer.isPending}
             className="flex-1"
           >
-            {deleteServer.isPending ? 'Excluindo…' : 'Sim, excluir'}
+            {deleteServer.isPending ? t('dialogs.deleting') : t('dialogs.confirmDelete')}
           </Button>
         </DialogFooter>
       </DialogContent>

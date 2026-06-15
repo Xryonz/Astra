@@ -2,6 +2,8 @@
  * Bell icon no channel header → dropdown 3-state pra mode de notif.
  * Lê/grava via useChannelNotifPref (React Query). Optimistic update.
  */
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Bell, BellOff, AtSign, Check } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -14,22 +16,24 @@ import {
 
 interface Props { channelId: string }
 
-const OPTIONS: { id: ChannelNotifMode; label: string; hint: string; icon: React.ReactNode }[] = [
-  { id: 'all',      label: 'Todas as mensagens', hint: 'Notifica qualquer envio',                icon: <Bell    className="size-3.5" /> },
-  { id: 'mentions', label: 'Só @menções',         hint: 'Notifica quando te mencionarem',         icon: <AtSign  className="size-3.5" /> },
-  { id: 'mute',     label: 'Silenciar canal',     hint: 'Não notifica nada (sidebar dim)',        icon: <BellOff className="size-3.5" /> },
+const buildOptions = (t: TFunction): { id: ChannelNotifMode; label: string; hint: string; icon: React.ReactNode }[] => [
+  { id: 'all',      label: t('notif.all'),      hint: t('notif.allHint'),      icon: <Bell    className="size-3.5" /> },
+  { id: 'mentions', label: t('notif.mentions'), hint: t('notif.mentionsHint'), icon: <AtSign  className="size-3.5" /> },
+  { id: 'mute',     label: t('notif.mute'),     hint: t('notif.muteHint'),     icon: <BellOff className="size-3.5" /> },
 ]
 
 export default function ChannelNotifButton({ channelId }: Props) {
+  const { t }   = useTranslation()
   const current = useChannelNotifPref(channelId)
   const set     = useSetChannelNotifPref()
+  const OPTIONS = buildOptions(t)
 
   // Ícone reflete o modo atual
   const Icon = current === 'mute' ? BellOff : current === 'mentions' ? AtSign : Bell
   const title =
-    current === 'mute'     ? 'Notificações: silenciado'
-    : current === 'mentions' ? 'Notificações: só menções'
-    :                          'Notificações: todas'
+    current === 'mute'     ? t('notif.stateMuted')
+    : current === 'mentions' ? t('notif.stateMentions')
+    :                          t('notif.stateAll')
 
   return (
     <DropdownMenu>
@@ -70,12 +74,14 @@ export default function ChannelNotifButton({ channelId }: Props) {
  * Deve viver dentro de um <DropdownMenuContent>.
  */
 export function ChannelNotifMenuItems({ channelId }: Props) {
+  const { t }   = useTranslation()
   const current = useChannelNotifPref(channelId)
   const set     = useSetChannelNotifPref()
+  const OPTIONS = buildOptions(t)
   return (
     <>
       <DropdownMenuSeparator />
-      <DropdownMenuLabel>Notificações</DropdownMenuLabel>
+      <DropdownMenuLabel>{t('notif.title')}</DropdownMenuLabel>
       {OPTIONS.map((o) => (
         <DropdownMenuItem
           key={o.id}

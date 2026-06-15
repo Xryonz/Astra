@@ -1,7 +1,11 @@
 {
   "common": {
     "server": "servidor",
-    "group": "grupo"
+    "group": "grupo",
+    "cancel": "Cancelar",
+    "error": "Erro",
+    "name": "Nome",
+    "type": "Tipo"
   },
   "nav": {
     "constellations": "Constelações",
@@ -438,6 +442,61 @@
     "joinNamed": "Entrar em {{name}}",
     "joinOrLogin": "Entrar / Login",
     "maybeLater": "Talvez mais tarde"
+  },
+  "dialogs": {
+    "createChannelTitle": "Abrir órbita",
+    "createChannelDesc": "Canal da sua constelação. Texto pra chat, voz pra chamadas.",
+    "channelNamePh": "Ex: geral",
+    "savedAs": "Salvo como",
+    "typeText": "# Texto",
+    "typeTextDesc": "Chat, anexos, threads",
+    "typeVoice": "Voz",
+    "typeVoiceDesc": "Chamada e tela",
+    "createError": "Erro ao criar",
+    "nameNeedsChar": "Nome precisa de ao menos 1 letra ou número",
+    "opening": "Abrindo…",
+    "openOrbit": "Abrir órbita",
+    "deleteTitle": "Excluir {{name}}?",
+    "deleteDesc": "Esta ação é permanente e não pode ser desfeita.",
+    "deleting": "Excluindo…",
+    "confirmDelete": "Sim, excluir"
+  },
+  "notif": {
+    "all": "Todas as mensagens",
+    "allHint": "Notifica qualquer envio",
+    "mentions": "Só @menções",
+    "mentionsHint": "Notifica quando te mencionarem",
+    "mute": "Silenciar canal",
+    "muteHint": "Não notifica nada (sidebar dim)",
+    "stateMuted": "Notificações: silenciado",
+    "stateMentions": "Notificações: só menções",
+    "stateAll": "Notificações: todas",
+    "title": "Notificações"
+  },
+  "bell": {
+    "typeMention": "Menção",
+    "typeDm": "DM",
+    "typeReaction": "Reação",
+    "typeReply": "Resposta",
+    "nothingYet": "Nada por aqui ainda",
+    "unread_one": "{{count}} não lida",
+    "unread_other": "{{count}} não lidas",
+    "markAll": "Marcar todas",
+    "tabAll": "Todas",
+    "loading": "Carregando…",
+    "emptyLabel": "— Caixa silenciosa",
+    "allCaughtUp": "Tudo em dia",
+    "noTypeYet": "Nenhuma {{type}} ainda",
+    "emptyDesc": "Notificações chegarão aqui em tempo real.",
+    "seeMore": "Ver mais",
+    "ariaUnread": "Notificações ({{count}} não lidas)",
+    "aria": "Notificações",
+    "someone": "Alguém",
+    "unreadDot": "Não lida",
+    "sumMention": "mencionou você em #{{channel}}",
+    "sumDm": "enviou uma DM",
+    "sumReply": "respondeu você em #{{channel}}",
+    "sumReaction": "reagiu {{emoji}} à sua mensagem"
   },
   "settings": {
     "title": "Configurações",

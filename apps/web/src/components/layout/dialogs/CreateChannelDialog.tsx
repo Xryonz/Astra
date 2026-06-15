@@ -2,6 +2,7 @@
  * Cria canal (TEXT ou VOICE) dentro de um server.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function CreateChannelDialog({ open, onClose, serverId }: Props) {
+  const { t } = useTranslation()
   const [name, setName]   = useState('')
   const [type, setType]   = useState<'TEXT' | 'VOICE'>('TEXT')
   const [error, setError] = useState('')
@@ -44,12 +46,12 @@ export function CreateChannelDialog({ open, onClose, serverId }: Props) {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       onClose()
     },
-    onError: (e: any) => setError(e?.response?.data?.error ?? 'Erro ao criar'),
+    onError: (e: any) => setError(e?.response?.data?.error ?? t('dialogs.createError')),
   })
 
   const submit = () => {
     const slug = toSlug(name)
-    if (!slug) { setError('Nome precisa de ao menos 1 letra ou número'); return }
+    if (!slug) { setError(t('dialogs.nameNeedsChar')); return }
     createChannel.mutate({ n: slug, t: type })
   }
 
@@ -57,41 +59,41 @@ export function CreateChannelDialog({ open, onClose, serverId }: Props) {
     <Dialog open={open && !!serverId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-95!">
         <DialogHeader>
-          <DialogTitle>Abrir órbita</DialogTitle>
-          <DialogDescription>Canal da sua constelação. Texto pra chat, voz pra chamadas.</DialogDescription>
+          <DialogTitle>{t('dialogs.createChannelTitle')}</DialogTitle>
+          <DialogDescription>{t('dialogs.createChannelDesc')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sbNewChanName">Nome</Label>
+            <Label htmlFor="sbNewChanName">{t('common.name')}</Label>
             <Input
               id="sbNewChanName"
               autoFocus
               value={name}
               onChange={(e) => { setName(e.target.value); setError('') }}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
-              placeholder="Ex: geral"
+              placeholder={t('dialogs.channelNamePh')}
               maxLength={50}
             />
             {name && toSlug(name) !== name.trim().toLowerCase() && (
               <p className="text-marg text-(--text-3) m-0">
-                Salvo como <code className="px-1 bg-(--raised) border border-(--border)">{toSlug(name) || '—'}</code>
+                {t('dialogs.savedAs')} <code className="px-1 bg-(--raised) border border-(--border)">{toSlug(name) || '—'}</code>
               </p>
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Tipo</Label>
+            <Label>{t('common.type')}</Label>
             <div className="grid grid-cols-2 gap-2">
               <ChannelTypeButton
-                label="# Texto"
-                description="Chat, anexos, threads"
+                label={t('dialogs.typeText')}
+                description={t('dialogs.typeTextDesc')}
                 active={type === 'TEXT'}
                 onClick={() => setType('TEXT')}
               />
               <ChannelTypeButton
-                label="Voz"
-                description="Chamada e tela"
+                label={t('dialogs.typeVoice')}
+                description={t('dialogs.typeVoiceDesc')}
                 active={type === 'VOICE'}
                 onClick={() => setType('VOICE')}
               />
@@ -102,9 +104,9 @@ export function CreateChannelDialog({ open, onClose, serverId }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={submit} disabled={createChannel.isPending || !name.trim()}>
-            {createChannel.isPending ? 'Abrindo…' : 'Abrir órbita'}
+            {createChannel.isPending ? t('dialogs.opening') : t('dialogs.openOrbit')}
           </Button>
         </DialogFooter>
       </DialogContent>

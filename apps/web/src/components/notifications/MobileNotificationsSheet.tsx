@@ -10,12 +10,14 @@
  * unread em qualquer tela, não só dentro de um canal.
  */
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { NotificationCenter } from './NotificationBell'
 import { useNotificationCount } from '@/hooks/useNotifications'
 import { setAppBadge } from '@/lib/badge'
 
 export default function MobileNotificationsSheet() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function MobileNotificationsSheet() {
           <motion.aside
             role="dialog"
             data-state="open"
-            aria-label="Notificações"
+            aria-label={t('notif.title')}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{    y: '100%' }}

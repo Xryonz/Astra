@@ -5,8 +5,11 @@
  * com lista scrollable + filtros + mark-all-read.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
+import { enUS } from 'date-fns/locale/en-US'
 import { Sparkles } from 'lucide-react'
 import {
   useNotificationFeed, useNotificationCount, useMarkRead, useMarkAllRead,
@@ -16,12 +19,8 @@ import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/co
 import { Spinner } from '@/components/ui/spinner'
 import { resolveApiUrl } from '@/lib/api'
 
-const TYPE_LABEL: Record<NotificationType, string> = {
-  mention:  'Menção',
-  dm:       'DM',
-  reaction: 'Reação',
-  reply:    'Resposta',
-}
+const typeLabel = (t: TFunction, type: NotificationType) =>
+  t(`bell.type${type.charAt(0).toUpperCase()}${type.slice(1)}`)
 
 const TYPE_ICON: Record<NotificationType, string> = {
   mention:  '@',
@@ -31,6 +30,7 @@ const TYPE_ICON: Record<NotificationType, string> = {
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -69,7 +69,7 @@ export function NotificationBell() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="relative grid size-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-(--accent)/5 transition-colors"
-        aria-label={`Notificações${unread > 0 ? ` (${unread} não lidas)` : ''}`}
+        aria-label={unread > 0 ? t('bell.ariaUnread', { count: unread }) : t('bell.aria')}
       >
         <span
           key={shakeKey}
@@ -120,6 +120,7 @@ export function NotificationCenter({
   onClose: () => void
   className?: string
 }) {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<'all' | NotificationType>('all')
   const feed = useNotificationFeed()
   const markRead    = useMarkRead()
@@ -133,16 +134,16 @@ export function NotificationCenter({
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div>
           <h3 className="text-sm font-medium text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
-            Notificações
+            {t('notif.title')}
           </h3>
-          <p className="text-xs text-muted-foreground m-0">{all.length === 0 ? 'Nada por aqui ainda' : `${all.filter((n) => !n.readAt).length} não lidas`}</p>
+          <p className="text-xs text-muted-foreground m-0">{all.length === 0 ? t('bell.nothingYet') : t('bell.unread', { count: all.filter((n) => !n.readAt).length })}</p>
         </div>
         <button
           onClick={() => markAllRead.mutate()}
           disabled={all.every((n) => n.readAt)}
           className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
-          Marcar todas
+          {t('bell.markAll')}
         </button>
       </header>
 
@@ -158,7 +159,7 @@ export function NotificationCenter({
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {f === 'all' ? 'Todas' : TYPE_LABEL[f]}
+            {f === 'all' ? t('bell.tabAll') : typeLabel(t, f)}
           </button>
         ))}
       </div>
@@ -166,16 +167,16 @@ export function NotificationCenter({
       <div className="flex-1 overflow-y-auto">
         {feed.isLoading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
-            <Spinner size={12} /> Carregando…
+            <Spinner size={12} /> {t('bell.loading')}
           </div>
         ) : items.length === 0 ? (
           <Empty>
             <EmptyIcon><Sparkles className="size-6 text-(--accent)" /></EmptyIcon>
-            <EmptyLabel>— Caixa silenciosa</EmptyLabel>
+            <EmptyLabel>{t('bell.emptyLabel')}</EmptyLabel>
             <EmptyTitle>
-              {filter === 'all' ? 'Tudo em dia' : `Nenhuma ${TYPE_LABEL[filter as NotificationType].toLowerCase()} ainda`}
+              {filter === 'all' ? t('bell.allCaughtUp') : t('bell.noTypeYet', { type: typeLabel(t, filter as NotificationType).toLowerCase() })}
             </EmptyTitle>
-            <EmptyDescription>Notificações chegarão aqui em tempo real.</EmptyDescription>
+            <EmptyDescription>{t('bell.emptyDesc')}</EmptyDescription>
           </Empty>
         ) : (
           <div className="divide-y divide-border" role="list">
@@ -207,7 +208,7 @@ export function NotificationCenter({
               disabled={feed.isFetchingNextPage}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {feed.isFetchingNextPage ? 'Carregando…' : 'Ver mais'}
+              {feed.isFetchingNextPage ? t('bell.loading') : t('bell.seeMore')}
             </button>
           </div>
         )}
@@ -222,17 +223,18 @@ function NotificationRow({
   n: NotificationItem
   onActivate: (n: NotificationItem) => void
 }) {
+  const { t, i18n } = useTranslation()
   const avatar = n.payload?.authorAvatar ? resolveApiUrl(n.payload.authorAvatar) : null
-  const author = n.payload?.authorName ?? 'Alguém'
+  const author = n.payload?.authorName ?? t('bell.someone')
   const preview = n.payload?.preview ?? ''
-  const ts = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: ptBR })
+  const ts = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: i18n.language === 'pt' ? ptBR : enUS })
 
   let summary = ''
   switch (n.type) {
-    case 'mention':  summary = `mencionou você em #${n.payload.channelName ?? '?'}`; break
-    case 'dm':       summary = 'enviou uma DM'; break
-    case 'reply':    summary = `respondeu você em #${n.payload.channelName ?? '?'}`; break
-    case 'reaction': summary = `reagiu ${n.payload.emoji ?? '☆'} à sua mensagem`; break
+    case 'mention':  summary = t('bell.sumMention', { channel: n.payload.channelName ?? '?' }); break
+    case 'dm':       summary = t('bell.sumDm'); break
+    case 'reply':    summary = t('bell.sumReply', { channel: n.payload.channelName ?? '?' }); break
+    case 'reaction': summary = t('bell.sumReaction', { emoji: n.payload.emoji ?? '☆' }); break
   }
 
   return (
@@ -267,7 +269,7 @@ function NotificationRow({
       </div>
 
       {!n.readAt && (
-        <span className="shrink-0 mt-1.5 size-1.5 rounded-full bg-(--accent)" aria-label="Não lida" />
+        <span className="shrink-0 mt-1.5 size-1.5 rounded-full bg-(--accent)" aria-label={t('bell.unreadDot')} />
       )}
     </div>
   )

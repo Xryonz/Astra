@@ -182,6 +182,147 @@
     "emptyLede": "Pick a conversation on the left, or open someone's profile to start a dialogue.",
     "emptyAside": "Whispers — only you and them read them."
   },
+  "srv": {
+    "common": {
+      "cancel": "Cancel", "close": "Close", "delete": "Delete", "loading": "Loading…",
+      "saving": "Saving…", "creating": "Creating…", "save": "Save", "create": "Create", "back": "Back",
+      "group": "Group", "server": "Server", "groupLower": "group", "serverLower": "server"
+    },
+    "groups": { "geral": "General", "comunidade": "Community" },
+    "nav": {
+      "overview": "Overview", "channels": "Channels", "emojis": "Emojis",
+      "members": "Members", "roles": "Roles", "badges": "Badges", "bans": "Bans"
+    },
+    "perms": {
+      "MANAGE_SERVER": { "label": "Manage server", "desc": "Edit name, icon, retention" },
+      "MANAGE_ROLES": { "label": "Manage roles", "desc": "Create/edit roles (always belongs to the owner)" },
+      "MANAGE_CHANNELS": { "label": "Manage channels", "desc": "Create, edit, delete channels" },
+      "KICK_MEMBERS": { "label": "Remove members", "desc": "Kick members" },
+      "BAN_MEMBERS": { "label": "Ban members", "desc": "Permanent block" },
+      "MANAGE_MESSAGES": { "label": "Manage messages", "desc": "Delete others' messages, pin" },
+      "MENTION_EVERYONE": { "label": "Mention @everyone", "desc": "Notifies everyone" }
+    },
+    "retention": {
+      "forever": { "label": "Forever", "hint": "Messages never expire" },
+      "d1": { "label": "24 hours", "hint": "Deletes after 1 day" },
+      "d7": { "label": "7 days", "hint": "Deletes after 1 week" },
+      "d30": { "label": "30 days", "hint": "Deletes after 1 month" },
+      "d90": { "label": "90 days", "hint": "Deletes after 3 months" },
+      "d365": { "label": "1 year", "hint": "Deletes after 1 year" }
+    },
+    "toast": {
+      "inviteRegenerated": "Invite link regenerated. Old links no longer work.",
+      "inviteRegenError": "Couldn't regenerate invite",
+      "linkCopied": "Link copied",
+      "copyFailed": "Couldn't copy — copy it manually",
+      "saveError": "Couldn't save", "kickError": "Couldn't remove", "banError": "Couldn't ban"
+    },
+    "overview": {
+      "icon": "— I. Icon", "uploadImage": "Upload image", "removeIcon": "Remove icon",
+      "iconHint": "PNG, JPG, GIF or WebP · 5MB max · GIF animates on hover/active",
+      "iconTooLarge": "Icon larger than 5MB",
+      "banner": "— II. Banner",
+      "bannerDesc": "Shows at the top of the channel list and on the invite page. Without a banner, the name's signature constellation takes over.",
+      "uploadBanner": "Upload banner", "removeBanner": "Remove banner (back to constellation)",
+      "bannerHint": "PNG, JPG, GIF or WebP (animated ok) · 8MB max · ideal 600×200+",
+      "bannerTooLarge": "Banner larger than 8MB",
+      "discovery": "— III. Discovery",
+      "discoveryDesc": "List your constellation in the public directory — anyone can find it and join without an invite.",
+      "listed": "Listed in Discover", "list": "List in Discover",
+      "dirDescription": "Directory description", "dirPlaceholder": "What's this constellation about?",
+      "dirCounter": "{{n}}/200 · saved on blur.",
+      "name": "— IV. Name", "nameLabel": "{{kind}} name", "nameSavedHint": "Saved on blur.",
+      "invite": "— V. Invite",
+      "inviteDesc": "Anyone with this link can join. To revoke access, regenerate the code.",
+      "copy": "Copy", "copyTooltip": "Copies link to clipboard",
+      "regenerating": "Generating…", "regenerate": "Regenerate",
+      "regenTooltip": "Generates a new code — invalidates the current one",
+      "regenAdminOnly": "Only admins can regenerate the code.",
+      "retention": "— IV. Message retention",
+      "retentionDesc": "Set how long messages are kept. After the period, they're automatically deleted along with attachments.",
+      "retentionAdminOnly": "Only admins can change this.",
+      "retentionWorker": "Worker runs 1×/h · next purge catches everything older than {{days}}d",
+      "dangerZone": "— Danger zone",
+      "deleteTitle": "Delete {{kind}}",
+      "deleteDesc": "Permanent action. All channels, messages and members will be removed.",
+      "deleteBtn": "Delete permanently"
+    },
+    "regen": {
+      "title": "Regenerate invite link?",
+      "desc": "Anyone with the old link will NO LONGER be able to join. Use this if the link leaked or you want to revoke it.",
+      "confirm": "Yes, regenerate"
+    },
+    "members": {
+      "title": "— Members", "invite": "Invite friend",
+      "banTitle": "Ban {{name}}?",
+      "banDesc": "A ban is permanent until unbanned. The reason appears in the audit log.",
+      "banReasonLabel": "Reason (optional)", "banReasonPlaceholder": "e.g. spam, abusive behavior…",
+      "ban": "Ban", "banned": "{{name}} was banned",
+      "owner": "Owner", "admin": "Admin",
+      "editRoles": "Edit roles", "promote": "Promote to Admin", "demote": "Demote to Member",
+      "kickFromServer": "Remove from server",
+      "kickTitle": "Remove {{name}}?", "kickDesc": "They lose access immediately.",
+      "kicking": "Removing…", "kick": "Remove"
+    },
+    "deleteServer": { "title": "Delete {{name}}?", "desc": "Permanent. Can't be undone.", "deleting": "Deleting…", "confirm": "Yes, delete" },
+    "roles": {
+      "title": "— Roles", "new": "New role", "empty": "No roles yet. Create the first one.",
+      "permCount": "{{n}} perm", "edit": "Edit",
+      "deleteTitle": "Delete role \"{{name}}\"?", "deleteDesc": "Members with this role lose associated permissions. Not reversible.",
+      "deleteConfirm": "Delete role", "deleted": "Role \"{{name}}\" deleted",
+      "editTitle": "Edit \"{{name}}\"", "newTitle": "New role", "editDesc": "Customize name, color and permissions.",
+      "name": "Name", "customColor": "Custom color", "rolePreview": "Role name",
+      "hoist": "Display separately in the member list (hoist)", "perms": "Permissions",
+      "memberRolesTitle": "Member roles", "memberRolesDesc": "Check to assign, uncheck to remove.",
+      "noRolesYet": "No roles created yet — go to the Roles tab."
+    },
+    "emojis": {
+      "title": "Custom emojis",
+      "desc": "Up to 50 per server. PNG/JPG/WebP/GIF up to 512KB — recompressed to WebP 128×128. Use in chat as ",
+      "add": "Add emoji", "name": "Name", "file": "File", "addBtn": "Add",
+      "selectFile": "Select a file", "nameRule": "Name 2-32 chars, alphanumeric + underscore",
+      "uploadFail": "Upload failed", "used": "{{n}}/50 used", "empty": "No emojis yet.",
+      "deleteConfirm": "Delete :{{name}}:?"
+    },
+    "bans": { "title": "— Bans", "empty": "Nobody banned. Bans show up here.", "unban": "Unban" },
+    "channels": {
+      "title": "— Channels", "new": "New channel", "empty": "No channels. Create the first one.",
+      "createError": "Couldn't create", "deleteTitle": "Delete #{{name}}?",
+      "deleteDesc": "All messages in this channel will be lost. Permanent action.",
+      "deleteConfirm": "Delete channel", "deleted": "#{{name}} deleted", "deleteChannel": "Delete channel",
+      "selectToEdit": "Select a channel to edit.",
+      "visibility": "Visibility", "visibilityDesc": "A private channel is hidden from everyone except selected roles (and the owner).",
+      "public": "Public", "private": "Private",
+      "rolesCanSee": "Roles that can see this channel:", "noRoles": "No roles created. Go to the Roles tab.",
+      "newTitle": "New channel", "newDesc": "Choose a name and type. Text for chat, voice for calls.",
+      "nameLabel": "Name", "namePlaceholder": "E.g. general", "type": "Type",
+      "typeText": "# Text", "typeTextDesc": "Messages, attachments, threads",
+      "typeVoice": "Voice", "typeVoiceDesc": "Voice and screen calls",
+      "creating": "Creating…", "createBtn": "Create channel", "voice": "voice"
+    },
+    "badges": {
+      "create": "— Create badge", "emojiAria": "Badge emoji", "namePlaceholder": "Name (e.g. Founder)",
+      "colorAria": "Color", "descPlaceholder": "Short description (optional)",
+      "creating": "Creating…", "createBtn": "Create badge", "created": "Badge created", "createError": "Couldn't create",
+      "serverBadges": "— Server badges", "empty": "No badges yet. Create the first one above.",
+      "memberCount_one": "{{count}} member", "memberCount_other": "{{count}} members",
+      "grant": "Grant",
+      "deleteTitle": "Delete \"{{name}}\"?", "deleteDesc": "Removes the badge from everyone who has it. Not reversible.",
+      "deleteConfirm": "Delete", "deleted": "Badge deleted",
+      "grantDesc": "Check who receives this badge.", "searchMember": "Search member…"
+    },
+    "inviteFriends": {
+      "title": "Invite friend",
+      "descPrefix": "Add a friend directly to ", "descSuffix": " — no link needed.",
+      "searchPlaceholder": "Search by name or @username…",
+      "loading": "Loading friends…",
+      "noFriends": "You don't have any friends on Astra yet.",
+      "allMembers": "All your friends are already members.",
+      "noMatch": "No friend found for that filter.",
+      "invited": "Invited", "add": "Add",
+      "added": "Friend added to the server", "addError": "Couldn't add friend"
+    }
+  },
   "settings": {
     "title": "Settings",
     "groups": {

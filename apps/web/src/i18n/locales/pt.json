@@ -182,6 +182,147 @@
     "emptyLede": "Selecione uma conversa à esquerda, ou abra o perfil de alguém para começar um diálogo.",
     "emptyAside": "Sussurros — só você e ele leem."
   },
+  "srv": {
+    "common": {
+      "cancel": "Cancelar", "close": "Fechar", "delete": "Excluir", "loading": "Carregando…",
+      "saving": "Salvando…", "creating": "Criando…", "save": "Salvar", "create": "Criar", "back": "Voltar",
+      "group": "Grupo", "server": "Servidor", "groupLower": "grupo", "serverLower": "servidor"
+    },
+    "groups": { "geral": "Geral", "comunidade": "Comunidade" },
+    "nav": {
+      "overview": "Visão geral", "channels": "Canais", "emojis": "Emojis",
+      "members": "Membros", "roles": "Cargos", "badges": "Insígnias", "bans": "Banidos"
+    },
+    "perms": {
+      "MANAGE_SERVER": { "label": "Gerenciar servidor", "desc": "Editar nome, ícone, retenção" },
+      "MANAGE_ROLES": { "label": "Gerenciar cargos", "desc": "Criar/editar cargos (sempre pertence ao dono)" },
+      "MANAGE_CHANNELS": { "label": "Gerenciar canais", "desc": "Criar, editar, deletar canais" },
+      "KICK_MEMBERS": { "label": "Remover membros", "desc": "Expulsar membros" },
+      "BAN_MEMBERS": { "label": "Banir membros", "desc": "Bloqueio permanente" },
+      "MANAGE_MESSAGES": { "label": "Gerenciar mensagens", "desc": "Apagar mensagens de outros, fixar" },
+      "MENTION_EVERYONE": { "label": "Mencionar @everyone", "desc": "Notifica todo mundo" }
+    },
+    "retention": {
+      "forever": { "label": "Pra sempre", "hint": "Mensagens nunca expiram" },
+      "d1": { "label": "24 horas", "hint": "Apaga após 1 dia" },
+      "d7": { "label": "7 dias", "hint": "Apaga após 1 semana" },
+      "d30": { "label": "30 dias", "hint": "Apaga após 1 mês" },
+      "d90": { "label": "90 dias", "hint": "Apaga após 3 meses" },
+      "d365": { "label": "1 ano", "hint": "Apaga após 1 ano" }
+    },
+    "toast": {
+      "inviteRegenerated": "Link de convite regenerado. Links antigos não funcionam mais.",
+      "inviteRegenError": "Erro ao regenerar convite",
+      "linkCopied": "Link copiado",
+      "copyFailed": "Falha ao copiar — copie manualmente",
+      "saveError": "Erro ao salvar", "kickError": "Erro ao remover", "banError": "Erro ao banir"
+    },
+    "overview": {
+      "icon": "— I. Ícone", "uploadImage": "Carregar imagem", "removeIcon": "Remover ícone",
+      "iconHint": "PNG, JPG, GIF ou WebP · max 5MB · GIF anima no hover/ativo",
+      "iconTooLarge": "Ícone maior que 5MB",
+      "banner": "— II. Banner",
+      "bannerDesc": "Aparece no topo da lista de canais e na página de convite. Sem banner, a constelação-assinatura do nome assume.",
+      "uploadBanner": "Carregar banner", "removeBanner": "Remover banner (volta pra constelação)",
+      "bannerHint": "PNG, JPG, GIF ou WebP (animado ok) · max 8MB · ideal 600×200+",
+      "bannerTooLarge": "Banner maior que 8MB",
+      "discovery": "— III. Descoberta",
+      "discoveryDesc": "Liste sua constelação no diretório público — qualquer um pode achar e entrar sem convite.",
+      "listed": "Listada na Descoberta", "list": "Listar na Descoberta",
+      "dirDescription": "Descrição no diretório", "dirPlaceholder": "Sobre o que é essa constelação?",
+      "dirCounter": "{{n}}/200 · salva ao sair do campo.",
+      "name": "— IV. Nome", "nameLabel": "Nome do {{kind}}", "nameSavedHint": "Salva ao sair do campo.",
+      "invite": "— V. Convite",
+      "inviteDesc": "Qualquer pessoa com este link pode entrar. Pra revogar acesso, regenere o código.",
+      "copy": "Copiar", "copyTooltip": "Copia link pra área de transferência",
+      "regenerating": "Gerando…", "regenerate": "Regenerar",
+      "regenTooltip": "Gera novo código — invalida o atual",
+      "regenAdminOnly": "Só admins podem regenerar o código.",
+      "retention": "— IV. Retenção de mensagens",
+      "retentionDesc": "Defina por quanto tempo as mensagens ficam guardadas. Após o período, são apagadas automaticamente junto com anexos.",
+      "retentionAdminOnly": "Só admins podem mudar.",
+      "retentionWorker": "Worker roda 1x/h · próxima exclusão pega tudo mais velho que {{days}}d",
+      "dangerZone": "— Zona de perigo",
+      "deleteTitle": "Excluir {{kind}}",
+      "deleteDesc": "Ação permanente. Todos os canais, mensagens e membros serão removidos.",
+      "deleteBtn": "Excluir definitivamente"
+    },
+    "regen": {
+      "title": "Regenerar link de convite?",
+      "desc": "Qualquer pessoa com o link antigo NÃO conseguirá mais entrar. Use isso se o link vazou ou você quer revogá-lo.",
+      "confirm": "Sim, regenerar"
+    },
+    "members": {
+      "title": "— Membros", "invite": "Convidar amigo",
+      "banTitle": "Banir {{name}}?",
+      "banDesc": "Banimento é permanente até desbanido. Motivo aparece no audit log.",
+      "banReasonLabel": "Motivo (opcional)", "banReasonPlaceholder": "ex: spam, comportamento abusivo…",
+      "ban": "Banir", "banned": "{{name}} foi banido",
+      "owner": "Dono", "admin": "Admin",
+      "editRoles": "Editar cargos", "promote": "Promover a Admin", "demote": "Rebaixar a Membro",
+      "kickFromServer": "Remover do servidor",
+      "kickTitle": "Remover {{name}}?", "kickDesc": "Eles perdem acesso imediatamente.",
+      "kicking": "Removendo…", "kick": "Remover"
+    },
+    "deleteServer": { "title": "Excluir {{name}}?", "desc": "Permanente. Não pode ser desfeito.", "deleting": "Excluindo…", "confirm": "Sim, excluir" },
+    "roles": {
+      "title": "— Cargos", "new": "Novo cargo", "empty": "Nenhum cargo ainda. Cria o primeiro.",
+      "permCount": "{{n}} perm", "edit": "Editar",
+      "deleteTitle": "Excluir cargo \"{{name}}\"?", "deleteDesc": "Membros com esse cargo perdem permissões associadas. Não-reversível.",
+      "deleteConfirm": "Excluir cargo", "deleted": "Cargo \"{{name}}\" excluído",
+      "editTitle": "Editar \"{{name}}\"", "newTitle": "Novo cargo", "editDesc": "Customize nome, cor e permissões.",
+      "name": "Nome", "customColor": "Cor personalizada", "rolePreview": "Nome do cargo",
+      "hoist": "Exibir separadamente na lista de membros (hoist)", "perms": "Permissões",
+      "memberRolesTitle": "Cargos do membro", "memberRolesDesc": "Marque pra atribuir, desmarque pra remover.",
+      "noRolesYet": "Sem cargos criados ainda — vai na aba Cargos."
+    },
+    "emojis": {
+      "title": "Emojis customizados",
+      "desc": "Até 50 por servidor. PNG/JPG/WebP/GIF até 512KB — recompressados em WebP 128×128. Use no chat como ",
+      "add": "Adicionar emoji", "name": "Nome", "file": "Arquivo", "addBtn": "Adicionar",
+      "selectFile": "Selecione um arquivo", "nameRule": "Nome 2-32 chars, alfanum + underscore",
+      "uploadFail": "Falha no upload", "used": "{{n}}/50 usados", "empty": "Nenhum emoji ainda.",
+      "deleteConfirm": "Excluir :{{name}}:?"
+    },
+    "bans": { "title": "— Banidos", "empty": "Ninguém banido. Banimentos aparecem aqui.", "unban": "Desbanir" },
+    "channels": {
+      "title": "— Canais", "new": "Novo canal", "empty": "Sem canais. Cria o primeiro.",
+      "createError": "Erro ao criar", "deleteTitle": "Excluir #{{name}}?",
+      "deleteDesc": "Todas as mensagens deste canal serão perdidas. Ação permanente.",
+      "deleteConfirm": "Excluir canal", "deleted": "#{{name}} excluído", "deleteChannel": "Excluir canal",
+      "selectToEdit": "Selecione um canal pra editar.",
+      "visibility": "Visibilidade", "visibilityDesc": "Canal privado fica oculto pra todos exceto cargos selecionados (e o dono).",
+      "public": "Público", "private": "Privado",
+      "rolesCanSee": "Cargos que conseguem ver este canal:", "noRoles": "Nenhum cargo criado. Vá na aba Cargos.",
+      "newTitle": "Novo canal", "newDesc": "Escolha nome e tipo. Texto pra chat, voz pra chamadas.",
+      "nameLabel": "Nome", "namePlaceholder": "Ex: geral", "type": "Tipo",
+      "typeText": "# Texto", "typeTextDesc": "Mensagens, anexos, threads",
+      "typeVoice": "Voz", "typeVoiceDesc": "Chamada de voz e tela",
+      "creating": "Criando…", "createBtn": "Criar canal", "voice": "voz"
+    },
+    "badges": {
+      "create": "— Criar insígnia", "emojiAria": "Emoji da insígnia", "namePlaceholder": "Nome (ex: Fundador)",
+      "colorAria": "Cor", "descPlaceholder": "Descrição curta (opcional)",
+      "creating": "Criando…", "createBtn": "Criar insígnia", "created": "Insígnia criada", "createError": "Erro ao criar",
+      "serverBadges": "— Insígnias do servidor", "empty": "Nenhuma insígnia ainda. Cria a primeira acima.",
+      "memberCount_one": "{{count}} membro", "memberCount_other": "{{count}} membros",
+      "grant": "Conceder",
+      "deleteTitle": "Excluir \"{{name}}\"?", "deleteDesc": "Remove a insígnia de todos que a têm. Não-reversível.",
+      "deleteConfirm": "Excluir", "deleted": "Insígnia excluída",
+      "grantDesc": "Marque quem recebe esta insígnia.", "searchMember": "Buscar membro…"
+    },
+    "inviteFriends": {
+      "title": "Convidar amigo",
+      "descPrefix": "Adicione um amigo direto a ", "descSuffix": " — sem precisar de link.",
+      "searchPlaceholder": "Buscar por nome ou @username…",
+      "loading": "Carregando amigos…",
+      "noFriends": "Você ainda não tem amigos na Astra.",
+      "allMembers": "Todos os seus amigos já são membros.",
+      "noMatch": "Nenhum amigo encontrado pra esse filtro.",
+      "invited": "Convidado", "add": "Adicionar",
+      "added": "Amigo adicionado ao servidor", "addError": "Erro ao adicionar amigo"
+    }
+  },
   "settings": {
     "title": "Configurações",
     "groups": {

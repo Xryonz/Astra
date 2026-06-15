@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Users as UsersIcon, Image as ImageIcon, Shield, Crown, Trash2, UserMinus, ChevronDown, ChevronRight, Clock, Tag, Plus, Pencil, Check, Ban, Hash, Eye, EyeOff, RefreshCw, UserPlus, Search, Link as LinkIcon, Copy, Smile, X, Loader2, Award } from 'lucide-react'
@@ -50,20 +51,14 @@ interface ServerBadge {
 type SectionId = 'overview' | 'channels' | 'emojis' | 'members' | 'roles' | 'badges' | 'bans'
 interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'geral' | 'comunidade'; show: boolean }
 
-const PERM_OPTIONS: Array<{ key: string; label: string; desc: string }> = [
-  { key: 'MANAGE_SERVER',   label: 'Gerenciar servidor',   desc: 'Editar nome, ícone, retenção' },
-  { key: 'MANAGE_ROLES',    label: 'Gerenciar cargos',     desc: 'Criar/editar cargos (sempre pertence ao dono)' },
-  { key: 'MANAGE_CHANNELS', label: 'Gerenciar canais',     desc: 'Criar, editar, deletar canais' },
-  { key: 'KICK_MEMBERS',    label: 'Remover membros',      desc: 'Expulsar membros' },
-  { key: 'BAN_MEMBERS',     label: 'Banir membros',        desc: 'Bloqueio permanente' },
-  { key: 'MANAGE_MESSAGES', label: 'Gerenciar mensagens',  desc: 'Apagar mensagens de outros, fixar' },
-  { key: 'MENTION_EVERYONE',label: 'Mencionar @everyone',  desc: 'Notifica todo mundo' },
-]
+// chaves de permissão — label/desc vêm do i18n (srv.perms.<KEY>.label/desc)
+const PERM_OPTIONS = ['MANAGE_SERVER', 'MANAGE_ROLES', 'MANAGE_CHANNELS', 'KICK_MEMBERS', 'BAN_MEMBERS', 'MANAGE_MESSAGES', 'MENTION_EVERYONE'] as const
 
 const MAX_ICON_BYTES   = 5 * 1024 * 1024
 const MAX_BANNER_BYTES = 8 * 1024 * 1024
 
 export default function ServerSettingsPage() {
+  const { t }        = useTranslation()
   const { serverId } = useParams<{ serverId: string }>()
   const navigate     = useNavigate()
   const queryClient  = useQueryClient()
@@ -128,16 +123,16 @@ export default function ServerSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       setError('')
     },
-    onError: (e: any) => setError(e.response?.data?.error ?? 'Erro ao salvar'),
+    onError: (e: any) => setError(e.response?.data?.error ?? t('srv.toast.saveError')),
   })
 
-  const retentionPresets = [
-    { v: 0,   label: 'Pra sempre',  hint: 'Mensagens nunca expiram' },
-    { v: 1,   label: '24 horas',    hint: 'Apaga após 1 dia' },
-    { v: 7,   label: '7 dias',      hint: 'Apaga após 1 semana' },
-    { v: 30,  label: '30 dias',     hint: 'Apaga após 1 mês' },
-    { v: 90,  label: '90 dias',     hint: 'Apaga após 3 meses' },
-    { v: 365, label: '1 ano',       hint: 'Apaga após 1 ano' },
+  const retentionPresets: Array<{ v: number; key: string }> = [
+    { v: 0,   key: 'forever' },
+    { v: 1,   key: 'd1' },
+    { v: 7,   key: 'd7' },
+    { v: 30,  key: 'd30' },
+    { v: 90,  key: 'd90' },
+    { v: 365, key: 'd365' },
   ]
 
   const setMemberRole = useMutation({
@@ -152,7 +147,7 @@ export default function ServerSettingsPage() {
   const kickMember = useMutation({
     mutationFn: async (memberId: string) => api.delete(`/api/servers/${serverId}/members/${memberId}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['members', serverId] }); setKickTarget(null) },
-    onError:   (e: any) => setError(e.response?.data?.error ?? 'Erro ao remover'),
+    onError:   (e: any) => setError(e.response?.data?.error ?? t('srv.toast.kickError')),
   })
 
   const banMember = useMutation({
@@ -162,7 +157,7 @@ export default function ServerSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['members', serverId] })
       queryClient.invalidateQueries({ queryKey: ['bans', serverId] })
     },
-    onError: (e: any) => setError(e.response?.data?.error ?? 'Erro ao banir'),
+    onError: (e: any) => setError(e.response?.data?.error ?? t('srv.toast.banError')),
   })
 
   const deleteServer = useMutation({
@@ -182,16 +177,16 @@ export default function ServerSettingsPage() {
     mutationFn: async () => (await api.post(`/api/servers/${serverId}/regenerate-invite`)).data.data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
-      toast.success('Link de convite regenerado. Links antigos não funcionam mais.')
+      toast.success(t('srv.toast.inviteRegenerated'))
     },
-    onError: (e: any) => toast.error(e.response?.data?.error ?? 'Erro ao regenerar convite'),
+    onError: (e: any) => toast.error(e.response?.data?.error ?? t('srv.toast.inviteRegenError')),
   })
 
   const handleRegenerateInvite = async () => {
     const ok = await confirm({
-      title: 'Regenerar link de convite?',
-      description: 'Qualquer pessoa com o link antigo NÃO conseguirá mais entrar. Use isso se o link vazou ou você quer revogá-lo.',
-      confirmLabel: 'Sim, regenerar',
+      title: t('srv.regen.title'),
+      description: t('srv.regen.desc'),
+      confirmLabel: t('srv.regen.confirm'),
       destructive: true,
     })
     if (ok) regenerateInvite.mutate()
@@ -201,19 +196,19 @@ export default function ServerSettingsPage() {
     if (!server) return
     // App nativo: share sheet do OS. Web: clipboard como antes.
     shareInvite(server.inviteCode)
-      .then((mode) => { if (mode === 'copied') toast.success('Link copiado') })
-      .catch(() => toast.error('Falha ao copiar — copie manualmente'))
+      .then((mode) => { if (mode === 'copied') toast.success(t('srv.toast.linkCopied')) })
+      .catch(() => toast.error(t('srv.toast.copyFailed')))
   }
 
   const handleBannerFile = (file: File) => {
-    if (file.size > MAX_BANNER_BYTES) { setError('Banner maior que 8MB'); return }
+    if (file.size > MAX_BANNER_BYTES) { setError(t('srv.overview.bannerTooLarge')); return }
     const fr = new FileReader()
     fr.onload = () => { const url = String(fr.result); setBannerUrl(url); updateServer.mutate({ bannerUrl: url }) }
     fr.readAsDataURL(file)
   }
 
   const handleIconFile = (file: File) => {
-    if (file.size > MAX_ICON_BYTES) { setError('Ícone maior que 5MB'); return }
+    if (file.size > MAX_ICON_BYTES) { setError(t('srv.overview.iconTooLarge')); return }
     const fr = new FileReader()
     fr.onload = () => { const url = String(fr.result); setIconUrl(url); updateServer.mutate({ iconUrl: url }) }
     fr.readAsDataURL(file)
@@ -222,23 +217,23 @@ export default function ServerSettingsPage() {
   if (!server) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2 h-full text-sm text-(--text-3)">
-        <Spinner size={14} /> Carregando…
+        <Spinner size={14} /> {t('srv.common.loading')}
       </div>
     )
   }
 
   const allNav: NavItem[] = [
-    { id: 'overview', label: 'Visão geral', icon: <ImageIcon className="size-3.5" />, group: 'geral',      show: true },
-    { id: 'channels', label: 'Canais',      icon: <Hash className="size-3.5" />,      group: 'geral',      show: perms.has('MANAGE_CHANNELS') },
-    { id: 'emojis',   label: 'Emojis',      icon: <Smile className="size-3.5" />,     group: 'geral',      show: perms.has('MANAGE_CHANNELS') },
-    { id: 'members',  label: 'Membros',     icon: <UsersIcon className="size-3.5" />, group: 'comunidade', show: true },
-    { id: 'roles',    label: 'Cargos',      icon: <Tag className="size-3.5" />,       group: 'comunidade', show: perms.has('MANAGE_ROLES') },
-    { id: 'badges',   label: 'Insígnias',   icon: <Award className="size-3.5" />,     group: 'comunidade', show: perms.has('MANAGE_SERVER') || isOwner },
-    { id: 'bans',     label: 'Banidos',     icon: <Ban className="size-3.5" />,       group: 'comunidade', show: perms.has('BAN_MEMBERS') },
+    { id: 'overview', label: t('srv.nav.overview'), icon: <ImageIcon className="size-3.5" />, group: 'geral',      show: true },
+    { id: 'channels', label: t('srv.nav.channels'), icon: <Hash className="size-3.5" />,      group: 'geral',      show: perms.has('MANAGE_CHANNELS') },
+    { id: 'emojis',   label: t('srv.nav.emojis'),   icon: <Smile className="size-3.5" />,     group: 'geral',      show: perms.has('MANAGE_CHANNELS') },
+    { id: 'members',  label: t('srv.nav.members'),  icon: <UsersIcon className="size-3.5" />, group: 'comunidade', show: true },
+    { id: 'roles',    label: t('srv.nav.roles'),    icon: <Tag className="size-3.5" />,       group: 'comunidade', show: perms.has('MANAGE_ROLES') },
+    { id: 'badges',   label: t('srv.nav.badges'),   icon: <Award className="size-3.5" />,     group: 'comunidade', show: perms.has('MANAGE_SERVER') || isOwner },
+    { id: 'bans',     label: t('srv.nav.bans'),     icon: <Ban className="size-3.5" />,       group: 'comunidade', show: perms.has('BAN_MEMBERS') },
   ]
   const navItems = allNav.filter((n) => n.show)
   const currentLabel = navItems.find((n) => n.id === section)?.label ?? ''
-  const groupLabel = { geral: 'Geral', comunidade: 'Comunidade' } as const
+  const groupLabel = { geral: t('srv.groups.geral'), comunidade: t('srv.groups.comunidade') } as const
 
   return (
     // h-full: vive DENTRO do shell do AppPage (tab bar + notch já descontados).
@@ -250,12 +245,12 @@ export default function ServerSettingsPage() {
           <button
             onClick={() => navigate(-1)}
             className="size-8 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer rounded-lg shrink-0"
-            aria-label="Voltar"
+            aria-label={t('srv.common.back')}
           >
             <ArrowLeft className="size-4" />
           </button>
           <div className="min-w-0">
-            <p className="ed-marg m-0 leading-none">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
+            <p className="ed-marg m-0 leading-none">{server.isGroup ? t('srv.common.group') : t('srv.common.server')}</p>
             <h1 className="text-base m-0 font-normal tracking-tight text-foreground truncate leading-tight" style={{ fontFamily: 'var(--font-display)' }}>
               {server.name}
             </h1>
@@ -304,17 +299,17 @@ export default function ServerSettingsPage() {
           <div className="md:hidden flex items-center gap-2 px-4 py-3">
             {mobileOpen === null ? (
               <>
-                <button onClick={() => navigate(-1)} className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0" aria-label="Voltar">
+                <button onClick={() => navigate(-1)} className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0" aria-label={t('srv.common.back')}>
                   <ArrowLeft className="size-5" />
                 </button>
                 <div className="min-w-0">
-                  <p className="ed-marg m-0 leading-none">{server.isGroup ? 'Grupo' : 'Servidor'}</p>
+                  <p className="ed-marg m-0 leading-none">{server.isGroup ? t('srv.common.group') : t('srv.common.server')}</p>
                   <h1 className="text-lg m-0 font-normal tracking-tight text-foreground truncate leading-tight" style={{ fontFamily: 'var(--font-display)' }}>{server.name}</h1>
                 </div>
               </>
             ) : (
               <>
-                <button onClick={() => setMobileOpen(null)} className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0" aria-label="Voltar">
+                <button onClick={() => setMobileOpen(null)} className="size-10 -ml-1 grid place-items-center text-(--text-2) hover:text-(--accent) transition-colors cursor-pointer shrink-0" aria-label={t('srv.common.back')}>
                   <ArrowLeft className="size-5" />
                 </button>
                 <h1 className="flex-1 text-lg m-0 font-normal tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-display)' }}>{currentLabel}</h1>
@@ -359,7 +354,7 @@ export default function ServerSettingsPage() {
               {section === 'overview' && (
                 <div className="space-y-8">
             <section className="space-y-3">
-              <span className="ed-label">— I. Ícone</span>
+              <span className="ed-label">{t('srv.overview.icon')}</span>
               <div className="flex items-center gap-5 flex-wrap">
                 <div
                   className="size-24 flex items-center justify-center border border-(--border) bg-(--raised) overflow-hidden shrink-0"
@@ -382,15 +377,15 @@ export default function ServerSettingsPage() {
                     htmlFor="iconUpload"
                     className={`inline-flex items-center gap-2 px-4 h-10 border border-(--border) text-sm cursor-pointer transition-colors ${isAdmin ? 'hover:border-(--accent) hover:text-(--accent)' : 'opacity-50 cursor-not-allowed'}`}
                   >
-                    <ImageIcon className="size-3.5" /> Carregar imagem
+                    <ImageIcon className="size-3.5" /> {t('srv.overview.uploadImage')}
                   </label>
                   {iconUrl && isAdmin && (
                     <button
                       onClick={() => { setIconUrl(null); updateServer.mutate({ iconUrl: null }) }}
                       className="text-xs text-(--text-3) hover:text-(--danger) text-left transition-colors cursor-pointer"
-                    >Remover ícone</button>
+                    >{t('srv.overview.removeIcon')}</button>
                   )}
-                  <p className="text-[11px] text-(--text-3) m-0">PNG, JPG, GIF ou WebP · max 5MB · GIF anima no hover/ativo</p>
+                  <p className="text-[11px] text-(--text-3) m-0">{t('srv.overview.iconHint')}</p>
                 </div>
               </div>
             </section>
@@ -398,10 +393,9 @@ export default function ServerSettingsPage() {
             <Separator className="my-5" />
 
             <section className="space-y-3">
-              <span className="ed-label">— II. Banner</span>
+              <span className="ed-label">{t('srv.overview.banner')}</span>
               <p className="text-xs text-(--text-3) m-0 max-w-md">
-                Aparece no topo da lista de canais e na página de convite.
-                Sem banner, a constelação-assinatura do nome assume.
+                {t('srv.overview.bannerDesc')}
               </p>
               <div className="flex flex-col gap-3 max-w-md">
                 <div className="relative w-full h-28 border border-(--border) overflow-hidden">
@@ -422,15 +416,15 @@ export default function ServerSettingsPage() {
                     htmlFor="bannerUpload"
                     className={`inline-flex items-center gap-2 px-4 h-10 border border-(--border) text-sm cursor-pointer transition-colors self-start ${isAdmin ? 'hover:border-(--accent) hover:text-(--accent)' : 'opacity-50 cursor-not-allowed'}`}
                   >
-                    <ImageIcon className="size-3.5" /> Carregar banner
+                    <ImageIcon className="size-3.5" /> {t('srv.overview.uploadBanner')}
                   </label>
                   {bannerUrl && isAdmin && (
                     <button
                       onClick={() => { setBannerUrl(null); updateServer.mutate({ bannerUrl: null }) }}
                       className="text-xs text-(--text-3) hover:text-(--danger) text-left transition-colors cursor-pointer"
-                    >Remover banner (volta pra constelação)</button>
+                    >{t('srv.overview.removeBanner')}</button>
                   )}
-                  <p className="text-[11px] text-(--text-3) m-0">PNG, JPG, GIF ou WebP (animado ok) · max 8MB · ideal 600×200+</p>
+                  <p className="text-[11px] text-(--text-3) m-0">{t('srv.overview.bannerHint')}</p>
                 </div>
               </div>
             </section>
@@ -439,9 +433,9 @@ export default function ServerSettingsPage() {
               <>
                 <Separator className="my-5" />
                 <section className="space-y-3">
-                  <span className="ed-label">— III. Descoberta</span>
+                  <span className="ed-label">{t('srv.overview.discovery')}</span>
                   <p className="text-xs text-(--text-3) m-0 max-w-md">
-                    Liste sua constelação no diretório público — qualquer um pode achar e entrar sem convite.
+                    {t('srv.overview.discoveryDesc')}
                   </p>
                   <button
                     onClick={() => { if (!isAdmin) return; const next = !isPublic; setIsPublic(next); updateServer.mutate({ isPublic: next }) }}
@@ -449,11 +443,11 @@ export default function ServerSettingsPage() {
                     className={`self-start inline-flex items-center gap-2.5 px-4 h-10 border text-sm transition-colors ${isAdmin ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'} ${isPublic ? 'border-(--accent) bg-(--accent-dim) text-(--accent)' : 'border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent)'}`}
                   >
                     <span className={`size-3.5 rounded-full border shrink-0 transition-colors ${isPublic ? 'bg-(--accent) border-(--accent)' : 'border-(--border-mid)'}`} />
-                    {isPublic ? 'Listada na Descoberta' : 'Listar na Descoberta'}
+                    {isPublic ? t('srv.overview.listed') : t('srv.overview.list')}
                   </button>
                   {isPublic && (
                     <div className="flex flex-col gap-2 max-w-md">
-                      <Label htmlFor="srvDesc">Descrição no diretório</Label>
+                      <Label htmlFor="srvDesc">{t('srv.overview.dirDescription')}</Label>
                       <textarea
                         id="srvDesc"
                         value={description}
@@ -462,10 +456,10 @@ export default function ServerSettingsPage() {
                         disabled={!isAdmin}
                         maxLength={200}
                         rows={2}
-                        placeholder="Sobre o que é essa constelação?"
+                        placeholder={t('srv.overview.dirPlaceholder')}
                         className="w-full px-3 py-2 border border-(--border) bg-(--raised) text-sm text-foreground resize-none focus:border-(--accent) outline-none"
                       />
-                      <p className="text-[11px] text-(--text-3) m-0">{description.length}/200 · salva ao sair do campo.</p>
+                      <p className="text-[11px] text-(--text-3) m-0">{t('srv.overview.dirCounter', { n: description.length })}</p>
                     </div>
                   )}
                 </section>
@@ -475,9 +469,9 @@ export default function ServerSettingsPage() {
             <Separator className="my-5" />
 
             <section className="space-y-3">
-              <span className="ed-label">— IV. Nome</span>
+              <span className="ed-label">{t('srv.overview.name')}</span>
               <div className="flex flex-col gap-2 max-w-md">
-                <Label htmlFor="srvName">Nome do {server.isGroup ? 'grupo' : 'servidor'}</Label>
+                <Label htmlFor="srvName">{t('srv.overview.nameLabel', { kind: server.isGroup ? t('srv.common.groupLower') : t('srv.common.serverLower') })}</Label>
                 <Input
                   id="srvName"
                   value={name}
@@ -486,7 +480,7 @@ export default function ServerSettingsPage() {
                   disabled={!isAdmin}
                   maxLength={100}
                 />
-                <p className="text-[11px] text-(--text-3) m-0">Salva ao sair do campo.</p>
+                <p className="text-[11px] text-(--text-3) m-0">{t('srv.overview.nameSavedHint')}</p>
               </div>
             </section>
 
@@ -496,10 +490,10 @@ export default function ServerSettingsPage() {
                 <section className="space-y-3">
                   <div className="flex items-center gap-2">
                     <LinkIcon className="size-3.5 text-(--text-3)" />
-                    <span className="ed-label">— V. Convite</span>
+                    <span className="ed-label">{t('srv.overview.invite')}</span>
                   </div>
                   <p className="text-sm text-(--text-2) m-0 max-w-prose">
-                    Qualquer pessoa com este link pode entrar. Pra revogar acesso, regenere o código.
+                    {t('srv.overview.inviteDesc')}
                   </p>
                   <div className="flex items-center gap-2 max-w-xl flex-wrap">
                     <Input
@@ -511,10 +505,10 @@ export default function ServerSettingsPage() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="secondary" onClick={copyInvite} className="gap-1.5">
-                          <Copy className="size-3.5" /> Copiar
+                          <Copy className="size-3.5" /> {t('srv.overview.copy')}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Copia link pra área de transferência</TooltipContent>
+                      <TooltipContent>{t('srv.overview.copyTooltip')}</TooltipContent>
                     </Tooltip>
                     {isAdmin && (
                       <Tooltip>
@@ -526,16 +520,16 @@ export default function ServerSettingsPage() {
                             className="gap-1.5"
                           >
                             <RefreshCw className={`size-3.5 ${regenerateInvite.isPending ? 'animate-spin' : ''}`} />
-                            {regenerateInvite.isPending ? 'Gerando…' : 'Regenerar'}
+                            {regenerateInvite.isPending ? t('srv.overview.regenerating') : t('srv.overview.regenerate')}
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Gera novo código — invalida o atual</TooltipContent>
+                        <TooltipContent>{t('srv.overview.regenTooltip')}</TooltipContent>
                       </Tooltip>
                     )}
                   </div>
                   {!isAdmin && (
                     <p className="text-[11px] text-(--text-3) italic m-0">
-                      Só admins podem regenerar o código.
+                      {t('srv.overview.regenAdminOnly')}
                     </p>
                   )}
                 </section>
@@ -547,13 +541,13 @@ export default function ServerSettingsPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Clock className="size-3.5 text-(--text-3)" />
-                <span className="ed-label">— {server.isGroup ? 'IV' : 'IV'}. Retenção de mensagens</span>
+                <span className="ed-label">{t('srv.overview.retention')}</span>
               </div>
               <p className="text-sm text-(--text-2) m-0 max-w-prose">
-                Defina por quanto tempo as mensagens ficam guardadas. Após o período, são apagadas automaticamente junto com anexos.
+                {t('srv.overview.retentionDesc')}
               </p>
               {!isAdmin && (
-                <p className="text-xs text-(--text-3) italic">Só admins podem mudar.</p>
+                <p className="text-xs text-(--text-3) italic">{t('srv.overview.retentionAdminOnly')}</p>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-2xl">
                 {retentionPresets.map((p) => {
@@ -569,15 +563,15 @@ export default function ServerSettingsPage() {
                           : 'border-(--border) hover:border-(--accent) hover:text-(--accent)'
                       } ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                      <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>{p.label}</p>
-                      <p className="m-0 mt-1 text-[11px] text-(--text-3)">{p.hint}</p>
+                      <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>{t(`srv.retention.${p.key}.label`)}</p>
+                      <p className="m-0 mt-1 text-[11px] text-(--text-3)">{t(`srv.retention.${p.key}.hint`)}</p>
                     </button>
                   )
                 })}
               </div>
               {retentionDays > 0 && (
                 <p className="ed-marg">
-                  Worker roda 1x/h · próxima exclusão pega tudo mais velho que {retentionDays}d
+                  {t('srv.overview.retentionWorker', { days: retentionDays })}
                 </p>
               )}
             </section>
@@ -591,17 +585,17 @@ export default function ServerSettingsPage() {
                 <section className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Trash2 className="size-3.5 text-(--danger)" />
-                    <span className="ed-label text-(--danger)!">— Zona de perigo</span>
+                    <span className="ed-label text-(--danger)!">{t('srv.overview.dangerZone')}</span>
                   </div>
                   <div className="border border-(--danger)/40 bg-(--danger)/5 p-5">
                     <h3 className="text-base m-0 mb-1 text-(--danger)" style={{ fontFamily: 'var(--font-display)' }}>
-                      Excluir {server.isGroup ? 'grupo' : 'servidor'}
+                      {t('srv.overview.deleteTitle', { kind: server.isGroup ? t('srv.common.groupLower') : t('srv.common.serverLower') })}
                     </h3>
                     <p className="text-sm text-(--text-2) m-0 mb-3">
-                      Ação permanente. Todos os canais, mensagens e membros serão removidos.
+                      {t('srv.overview.deleteDesc')}
                     </p>
                     <Button variant="destructive" onClick={() => setShowDelete(true)}>
-                      <Trash2 className="size-3.5 mr-2" /> Excluir definitivamente
+                      <Trash2 className="size-3.5 mr-2" /> {t('srv.overview.deleteBtn')}
                     </Button>
                   </div>
                 </section>
@@ -613,7 +607,7 @@ export default function ServerSettingsPage() {
               {section === 'members' && (
                 <div className="space-y-2">
             <div className="flex items-center gap-2 mb-3">
-              <span className="ed-label">— Membros</span>
+              <span className="ed-label">{t('srv.members.title')}</span>
               <div className="flex-1 h-px bg-(--border)" />
               <span className="ed-marg">{members.length}</span>
               <Button
@@ -622,7 +616,7 @@ export default function ServerSettingsPage() {
                 onClick={() => setShowInviteFriends(true)}
                 className="gap-1.5 h-7"
               >
-                <UserPlus className="size-3.5" /> Convidar amigo
+                <UserPlus className="size-3.5" /> {t('srv.members.invite')}
               </Button>
             </div>
             <div className="flex flex-col gap-1.5" role="list">
@@ -645,15 +639,15 @@ export default function ServerSettingsPage() {
                     onKick={() => setKickTarget(m)}
                     onBan={async () => {
                       const reason = await prompt({
-                        title: `Banir ${m.user.displayName}?`,
-                        description: 'Banimento é permanente até desbanido. Motivo aparece no audit log.',
-                        label: 'Motivo (opcional)',
-                        placeholder: 'ex: spam, comportamento abusivo…',
-                        confirmLabel: 'Banir',
+                        title: t('srv.members.banTitle', { name: m.user.displayName }),
+                        description: t('srv.members.banDesc'),
+                        label: t('srv.members.banReasonLabel'),
+                        placeholder: t('srv.members.banReasonPlaceholder'),
+                        confirmLabel: t('srv.members.ban'),
                       })
                       if (reason === null) return
                       banMember.mutate({ userId: m.userId, reason: reason || null }, {
-                        onSuccess: () => toast.success(`${m.user.displayName} foi banido`),
+                        onSuccess: () => toast.success(t('srv.members.banned', { name: m.user.displayName })),
                       })
                     }}
                   />
@@ -713,13 +707,13 @@ export default function ServerSettingsPage() {
       <Dialog open={!!kickTarget} onOpenChange={(o: boolean) => !o && setKickTarget(null)}>
         <DialogContent className="max-w-95!">
           <DialogHeader>
-            <DialogTitle>Remover {kickTarget?.user.displayName}?</DialogTitle>
-            <DialogDescription>Eles perdem acesso imediatamente.</DialogDescription>
+            <DialogTitle>{t('srv.members.kickTitle', { name: kickTarget?.user.displayName })}</DialogTitle>
+            <DialogDescription>{t('srv.members.kickDesc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setKickTarget(null)}>Cancelar</Button>
+            <Button variant="secondary" onClick={() => setKickTarget(null)}>{t('srv.common.cancel')}</Button>
             <Button variant="destructive" onClick={() => kickTarget && kickMember.mutate(kickTarget.id)} disabled={kickMember.isPending}>
-              {kickMember.isPending ? 'Removendo…' : 'Remover'}
+              {kickMember.isPending ? t('srv.members.kicking') : t('srv.members.kick')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -743,13 +737,13 @@ export default function ServerSettingsPage() {
             </div>
           </div>
           <DialogHeader className="text-center! items-center!">
-            <DialogTitle>Excluir {server.name}?</DialogTitle>
-            <DialogDescription>Permanente. Não pode ser desfeito.</DialogDescription>
+            <DialogTitle>{t('srv.deleteServer.title', { name: server.name })}</DialogTitle>
+            <DialogDescription>{t('srv.deleteServer.desc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center">
-            <Button variant="secondary" className="flex-1" onClick={() => setShowDelete(false)}>Cancelar</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowDelete(false)}>{t('srv.common.cancel')}</Button>
             <Button variant="destructive" className="flex-1" onClick={() => deleteServer.mutate()} disabled={deleteServer.isPending}>
-              {deleteServer.isPending ? 'Excluindo…' : 'Sim, excluir'}
+              {deleteServer.isPending ? t('srv.deleteServer.deleting') : t('srv.deleteServer.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -769,6 +763,7 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
   onKick: () => void
   onBan: () => void
 }) {
+  const { t } = useTranslation()
   const [rolesOpen, setRolesOpen] = useState(false)
   const isSelf  = member.userId === currentUserId
   const isOwner = member.role === 'OWNER'
@@ -788,10 +783,10 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
             {member.user.displayName}
           </span>
           {isOwner && (
-            <Badge variant="default"><Crown className="size-2.5" /> Dono</Badge>
+            <Badge variant="default"><Crown className="size-2.5" /> {t('srv.members.owner')}</Badge>
           )}
           {member.role === 'ADMIN' && (
-            <Badge variant="secondary"><Shield className="size-2.5" /> Admin</Badge>
+            <Badge variant="secondary"><Shield className="size-2.5" /> {t('srv.members.admin')}</Badge>
           )}
           {member.roles?.map((r) => (
             <span
@@ -821,27 +816,27 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
           <DropdownMenuContent align="end">
             {isOwnerSelf && !isOwner && (
               <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRolesOpen((v) => !v) }}>
-                <Tag className="size-3.5" /> Editar cargos
+                <Tag className="size-3.5" /> {t('srv.members.editRoles')}
               </DropdownMenuItem>
             )}
             {canChangeRole && member.role !== 'ADMIN' && (
               <DropdownMenuItem onSelect={() => onSetRole('ADMIN')}>
-                <Shield className="size-3.5" /> Promover a Admin
+                <Shield className="size-3.5" /> {t('srv.members.promote')}
               </DropdownMenuItem>
             )}
             {canChangeRole && member.role === 'ADMIN' && (
               <DropdownMenuItem onSelect={() => onSetRole('MEMBER')}>
-                <Shield className="size-3.5" /> Rebaixar a Membro
+                <Shield className="size-3.5" /> {t('srv.members.demote')}
               </DropdownMenuItem>
             )}
             {canKick && (
               <DropdownMenuItem destructive onSelect={onKick}>
-                <UserMinus className="size-3.5" /> Remover do servidor
+                <UserMinus className="size-3.5" /> {t('srv.members.kickFromServer')}
               </DropdownMenuItem>
             )}
             {canBan && !isOwner && !isSelf && (
               <DropdownMenuItem destructive onSelect={onBan}>
-                <Ban className="size-3.5" /> Banir
+                <Ban className="size-3.5" /> {t('srv.members.ban')}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -861,6 +856,7 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
 }
 
 function RolesSection({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const { data: roles = [], isLoading } = useQuery<Role[]>({
@@ -900,19 +896,19 @@ function RolesSection({ serverId }: { serverId: string }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 mb-2">
-        <span className="ed-label">— Cargos</span>
+        <span className="ed-label">{t('srv.roles.title')}</span>
         <div className="flex-1 h-px bg-(--border)" />
         <Button size="sm" onClick={() => setEditing('new')} className="gap-2">
-          <Plus className="size-3.5" /> Novo cargo
+          <Plus className="size-3.5" /> {t('srv.roles.new')}
         </Button>
       </div>
 
       {isLoading && (
-        <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> Carregando…</div>
+        <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> {t('srv.common.loading')}</div>
       )}
 
       {!isLoading && roles.length === 0 && (
-        <p className="text-sm text-(--text-3) italic">Nenhum cargo ainda. Cria o primeiro.</p>
+        <p className="text-sm text-(--text-3) italic">{t('srv.roles.empty')}</p>
       )}
 
       <ul className="flex flex-col gap-1">
@@ -929,31 +925,31 @@ function RolesSection({ serverId }: { serverId: string }) {
               {r.name}
             </span>
             <span className="text-[10px] font-mono text-(--text-3)">
-              {r.permissions.length > 0 ? `${r.permissions.length} perm` : '—'}
+              {r.permissions.length > 0 ? t('srv.roles.permCount', { n: r.permissions.length }) : '—'}
             </span>
             <button
               onClick={() => setEditing(r)}
               className="size-7 flex items-center justify-center border border-(--border) text-(--text-3) hover:border-(--accent) hover:text-(--accent) transition-colors cursor-pointer"
-              title="Editar"
+              title={t('srv.roles.edit')}
             >
               <Pencil className="size-3" />
             </button>
             <button
               onClick={async () => {
                 const ok = await confirm({
-                  title: `Excluir cargo "${r.name}"?`,
-                  description: 'Membros com esse cargo perdem permissões associadas. Não-reversível.',
-                  confirmLabel: 'Excluir cargo',
+                  title: t('srv.roles.deleteTitle', { name: r.name }),
+                  description: t('srv.roles.deleteDesc'),
+                  confirmLabel: t('srv.roles.deleteConfirm'),
                   destructive: true,
                 })
                 if (ok) {
                   remove.mutate(r.id, {
-                    onSuccess: () => toast.success(`Cargo "${r.name}" excluído`),
+                    onSuccess: () => toast.success(t('srv.roles.deleted', { name: r.name })),
                   })
                 }
               }}
               className="size-7 flex items-center justify-center border border-(--border) text-(--text-3) hover:border-(--danger) hover:text-(--danger) transition-colors cursor-pointer"
-              title="Excluir"
+              title={t('srv.common.delete')}
             >
               <Trash2 className="size-3" />
             </button>
@@ -982,6 +978,7 @@ function RoleEditor({ role, onClose, onSave, saving }: {
   onSave: (body: Partial<Role>) => void
   saving: boolean
 }) {
+  const { t } = useTranslation()
   const [name, setName]   = useState(role?.name ?? '')
   const [color, setColor] = useState<string>(role?.color ?? '#c9a96e')
   const [hoist, setHoist] = useState<boolean>(role?.hoist ?? false)
@@ -995,20 +992,20 @@ function RoleEditor({ role, onClose, onSave, saving }: {
     <Dialog open onOpenChange={(o: boolean) => !o && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{role ? `Editar "${role.name}"` : 'Novo cargo'}</DialogTitle>
-          <DialogDescription>Customize nome, cor e permissões.</DialogDescription>
+          <DialogTitle>{role ? t('srv.roles.editTitle', { name: role.name }) : t('srv.roles.newTitle')}</DialogTitle>
+          <DialogDescription>{t('srv.roles.editDesc')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="roleName">Nome</Label>
+            <Label htmlFor="roleName">{t('srv.roles.name')}</Label>
             <Input id="roleName" value={name} onChange={(e) => setName(e.target.value)} maxLength={50} autoFocus />
           </div>
 
           <div className="flex flex-col gap-2">
             <Label className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={hasColor} onCheckedChange={(v) => setHasColor(!!v)} />
-              Cor personalizada
+              {t('srv.roles.customColor')}
             </Label>
             {hasColor && (
               <div className="flex items-center gap-2">
@@ -1023,7 +1020,7 @@ function RoleEditor({ role, onClose, onSave, saving }: {
                   className="px-3 py-1.5 border rounded-lg text-sm flex-1"
                   style={{ color, borderColor: color, background: color + '15', fontFamily: 'var(--font-display)' }}
                 >
-                  {name || 'Nome do cargo'}
+                  {name || t('srv.roles.rolePreview')}
                 </span>
               </div>
             )}
@@ -1032,28 +1029,28 @@ function RoleEditor({ role, onClose, onSave, saving }: {
           <div className="flex flex-col gap-2">
             <Label className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={hoist} onCheckedChange={(v) => setHoist(!!v)} />
-              Exibir separadamente na lista de membros (hoist)
+              {t('srv.roles.hoist')}
             </Label>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Permissões</Label>
+            <Label>{t('srv.roles.perms')}</Label>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {PERM_OPTIONS.map((p) => {
-                const active = perms.includes(p.key)
+              {PERM_OPTIONS.map((key) => {
+                const active = perms.includes(key)
                 return (
-                  <li key={p.key}>
+                  <li key={key}>
                     <button
                       type="button"
-                      onClick={() => togglePerm(p.key)}
+                      onClick={() => togglePerm(key)}
                       className={`w-full text-left p-2 border transition-colors cursor-pointer ${
                         active
                           ? 'border-(--accent) bg-(--accent-dim) text-(--accent)'
                           : 'border-(--border) hover:border-(--accent) hover:text-(--accent)'
                       }`}
                     >
-                      <p className="text-xs m-0 font-medium" style={{ fontFamily: 'var(--font-display)' }}>{p.label}</p>
-                      <p className="text-[10px] m-0 text-(--text-3) mt-0.5">{p.desc}</p>
+                      <p className="text-xs m-0 font-medium" style={{ fontFamily: 'var(--font-display)' }}>{t(`srv.perms.${key}.label`)}</p>
+                      <p className="text-[10px] m-0 text-(--text-3) mt-0.5">{t(`srv.perms.${key}.desc`)}</p>
                     </button>
                   </li>
                 )
@@ -1063,12 +1060,12 @@ function RoleEditor({ role, onClose, onSave, saving }: {
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('srv.common.cancel')}</Button>
           <Button
             onClick={() => onSave({ name: name.trim(), color: hasColor ? color : null, hoist, permissions: perms })}
             disabled={!name.trim() || saving}
           >
-            {saving ? 'Salvando…' : (role ? 'Salvar' : 'Criar')}
+            {saving ? t('srv.common.saving') : (role ? t('srv.common.save') : t('srv.common.create'))}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1082,6 +1079,7 @@ function MemberRolesPopover({ serverId, memberId, currentRoleIds, onClose }: {
   currentRoleIds: string[]
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: roles = [] } = useQuery<Role[]>({
     queryKey: ['roles', serverId],
@@ -1112,11 +1110,11 @@ function MemberRolesPopover({ serverId, memberId, currentRoleIds, onClose }: {
     <Dialog open onOpenChange={(o: boolean) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Cargos do membro</DialogTitle>
-          <DialogDescription>Marque pra atribuir, desmarque pra remover.</DialogDescription>
+          <DialogTitle>{t('srv.roles.memberRolesTitle')}</DialogTitle>
+          <DialogDescription>{t('srv.roles.memberRolesDesc')}</DialogDescription>
         </DialogHeader>
         <ul className="flex flex-col gap-1 max-h-80 overflow-y-auto">
-          {roles.length === 0 && <p className="text-sm text-(--text-3) italic">Sem cargos criados ainda — vai na aba Cargos.</p>}
+          {roles.length === 0 && <p className="text-sm text-(--text-3) italic">{t('srv.roles.noRolesYet')}</p>}
           {roles.map((r) => {
             const active = currentRoleIds.includes(r.id)
             return (
@@ -1137,7 +1135,7 @@ function MemberRolesPopover({ serverId, memberId, currentRoleIds, onClose }: {
           })}
         </ul>
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Fechar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('srv.common.close')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1146,6 +1144,7 @@ function MemberRolesPopover({ serverId, memberId, currentRoleIds, onClose }: {
 
 // ─── EmojisSection ────────────────────────────────────────────
 function EmojisSection({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const { data: emojis = [], isLoading } = useServerEmojis(serverId)
   const upload  = useUploadEmoji(serverId)
   const remove  = useDeleteEmoji(serverId)
@@ -1156,31 +1155,31 @@ function EmojisSection({ serverId }: { serverId: string }) {
 
   const submit = async () => {
     setErr(null)
-    if (!file) { setErr('Selecione um arquivo'); return }
-    if (!/^[a-z0-9_]{2,32}$/i.test(name)) { setErr('Nome 2-32 chars, alfanum + underscore'); return }
+    if (!file) { setErr(t('srv.emojis.selectFile')); return }
+    if (!/^[a-z0-9_]{2,32}$/i.test(name)) { setErr(t('srv.emojis.nameRule')); return }
     try {
       await upload.mutateAsync({ file, name })
       setName(''); setFile(null)
       if (inputRef.current) inputRef.current.value = ''
     } catch (e: any) {
-      setErr(e?.response?.data?.error ?? 'Falha no upload')
+      setErr(e?.response?.data?.error ?? t('srv.emojis.uploadFail'))
     }
   }
 
   return (
     <section>
       <h3 className="text-sm font-medium text-foreground mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-        Emojis customizados
+        {t('srv.emojis.title')}
       </h3>
       <p className="text-marg text-(--text-3) m-0 mb-4">
-        Até 50 por servidor. PNG/JPG/WebP/GIF até 512KB — recompressados em WebP 128×128. Use no chat como <code>:nome:</code>.
+        {t('srv.emojis.desc')}<code>:nome:</code>.
       </p>
 
       <div className="border border-(--border) bg-(--raised)/30 p-4 mb-4">
-        <p className="text-xs text-(--text-2) mb-3">Adicionar emoji</p>
+        <p className="text-xs text-(--text-2) mb-3">{t('srv.emojis.add')}</p>
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
           <div className="flex-1 flex flex-col gap-1">
-            <Label htmlFor="emoji-name" className="text-[10px] uppercase tracking-wider text-(--text-3)">Nome</Label>
+            <Label htmlFor="emoji-name" className="text-[10px] uppercase tracking-wider text-(--text-3)">{t('srv.emojis.name')}</Label>
             <Input
               id="emoji-name"
               value={name}
@@ -1190,7 +1189,7 @@ function EmojisSection({ serverId }: { serverId: string }) {
             />
           </div>
           <div className="flex-1 flex flex-col gap-1">
-            <Label htmlFor="emoji-file" className="text-[10px] uppercase tracking-wider text-(--text-3)">Arquivo</Label>
+            <Label htmlFor="emoji-file" className="text-[10px] uppercase tracking-wider text-(--text-3)">{t('srv.emojis.file')}</Label>
             <input
               ref={inputRef}
               id="emoji-file"
@@ -1202,19 +1201,19 @@ function EmojisSection({ serverId }: { serverId: string }) {
           </div>
           <Button onClick={submit} disabled={upload.isPending || !file || !name} className="gap-2">
             {upload.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-            Adicionar
+            {t('srv.emojis.addBtn')}
           </Button>
         </div>
         {err && <p className="text-xs text-(--danger) mt-2 m-0">{err}</p>}
-        <p className="text-[10px] text-(--text-3) mt-2 m-0">{emojis.length}/50 usados</p>
+        <p className="text-[10px] text-(--text-3) mt-2 m-0">{t('srv.emojis.used', { n: emojis.length })}</p>
       </div>
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-(--text-3)">
-          <Loader2 className="size-3.5 animate-spin" /> Carregando…
+          <Loader2 className="size-3.5 animate-spin" /> {t('srv.common.loading')}
         </div>
       ) : emojis.length === 0 ? (
-        <p className="text-sm text-(--text-3) italic m-0">Nenhum emoji ainda.</p>
+        <p className="text-sm text-(--text-3) italic m-0">{t('srv.emojis.empty')}</p>
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2">
           {emojis.map((e) => (
@@ -1229,10 +1228,10 @@ function EmojisSection({ serverId }: { serverId: string }) {
               <p className="text-xs text-(--text-2) m-0 truncate w-full text-center">:{e.name}:</p>
               <button
                 onClick={() => {
-                  if (confirm(`Excluir :${e.name}:?`)) remove.mutate(e.id)
+                  if (confirm(t('srv.emojis.deleteConfirm', { name: e.name }))) remove.mutate(e.id)
                 }}
                 className="absolute top-1 right-1 size-6 grid place-items-center text-(--text-3) hover:text-(--danger) opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                aria-label="Excluir"
+                aria-label={t('srv.common.delete')}
               >
                 <X className="size-3.5" />
               </button>
@@ -1250,6 +1249,7 @@ interface BanRow {
   user: { id: string; username: string; displayName: string; avatarUrl: string|null }
 }
 function BansSection({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: bans = [], isLoading } = useQuery<BanRow[]>({
     queryKey: ['bans', serverId],
@@ -1263,15 +1263,15 @@ function BansSection({ serverId }: { serverId: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 mb-2">
-        <span className="ed-label">— Banidos</span>
+        <span className="ed-label">{t('srv.bans.title')}</span>
         <div className="flex-1 h-px bg-(--border)" />
         <span className="ed-marg">{bans.length}</span>
       </div>
       {isLoading && (
-        <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> Carregando…</div>
+        <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> {t('srv.common.loading')}</div>
       )}
       {!isLoading && bans.length === 0 && (
-        <p className="text-sm text-(--text-3) italic">Ninguém banido. Banimentos aparecem aqui.</p>
+        <p className="text-sm text-(--text-3) italic">{t('srv.bans.empty')}</p>
       )}
       <ul className="flex flex-col gap-1.5">
         {bans.map((b) => (
@@ -1287,7 +1287,7 @@ function BansSection({ serverId }: { serverId: string }) {
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={() => unban.mutate(b.userId)} disabled={unban.isPending}>
-              Desbanir
+              {t('srv.bans.unban')}
             </Button>
           </li>
         ))}
@@ -1298,6 +1298,7 @@ function BansSection({ serverId }: { serverId: string }) {
 
 // ─── ChannelsVisibilitySection ───────────────────────────────
 function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; channels: Array<{ id: string; name: string; type?: string }> }) {
+  const { t } = useTranslation()
   const [selectedId, setSelectedId]   = useState<string | null>(channels[0]?.id ?? null)
   const [createOpen,  setCreateOpen]  = useState(false)
   const [newName,     setNewName]     = useState('')
@@ -1335,7 +1336,7 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
       setSelectedId(ch.id)
       setCreateOpen(false); setNewName(''); setNewType('TEXT'); setCreateErr('')
     },
-    onError: (e: any) => setCreateErr(e?.response?.data?.error ?? 'Erro ao criar'),
+    onError: (e: any) => setCreateErr(e?.response?.data?.error ?? t('srv.channels.createError')),
   })
 
   const deleteChannel = useMutation({
@@ -1359,16 +1360,16 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <span className="ed-label">— Canais</span>
+        <span className="ed-label">{t('srv.channels.title')}</span>
         <div className="flex-1 h-px bg-(--border)" />
         <Button size="sm" onClick={() => { setCreateOpen(true); setCreateErr('') }} className="gap-2">
-          <Plus className="size-3.5" /> Novo canal
+          <Plus className="size-3.5" /> {t('srv.channels.new')}
         </Button>
       </div>
 
       <div className="grid sm:grid-cols-[200px_1fr] gap-5">
       <ul className="border border-(--border) max-h-100 overflow-y-auto">
-        {channels.length === 0 && (<li className="p-4 text-xs text-(--text-3) italic">Sem canais. Cria o primeiro.</li>)}
+        {channels.length === 0 && (<li className="p-4 text-xs text-(--text-3) italic">{t('srv.channels.empty')}</li>)}
         {channels.map((c) => {
           const isVoice = c.type === 'VOICE'
           const active  = c.id === selectedId
@@ -1381,26 +1382,26 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
                 }`}
               >
                 {isVoice
-                  ? <span className="text-[10px] font-mono uppercase shrink-0 text-(--text-3)">voz</span>
+                  ? <span className="text-[10px] font-mono uppercase shrink-0 text-(--text-3)">{t('srv.channels.voice')}</span>
                   : <Hash className="size-3 shrink-0" />}
                 <span className="truncate">{c.name}</span>
               </button>
               <button
                 onClick={async () => {
                   const ok = await confirm({
-                    title: `Excluir #${c.name}?`,
-                    description: 'Todas as mensagens deste canal serão perdidas. Ação permanente.',
-                    confirmLabel: 'Excluir canal',
+                    title: t('srv.channels.deleteTitle', { name: c.name }),
+                    description: t('srv.channels.deleteDesc'),
+                    confirmLabel: t('srv.channels.deleteConfirm'),
                     destructive: true,
                   })
                   if (ok) {
                     deleteChannel.mutate(c.id, {
-                      onSuccess: () => toast.success(`#${c.name} excluído`),
+                      onSuccess: () => toast.success(t('srv.channels.deleted', { name: c.name })),
                     })
                   }
                 }}
                 className="size-8 grid place-items-center text-(--text-3) hover:text-(--danger) opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Excluir canal"
+                title={t('srv.channels.deleteChannel')}
               >
                 <Trash2 className="size-3" />
               </button>
@@ -1411,15 +1412,15 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
 
       <div className="space-y-4">
         {!selectedId ? (
-          <p className="text-sm text-(--text-3)">Selecione um canal pra editar.</p>
+          <p className="text-sm text-(--text-3)">{t('srv.channels.selectToEdit')}</p>
         ) : isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> Carregando…</div>
+          <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> {t('srv.common.loading')}</div>
         ) : (
           <>
             <header>
-              <h3 className="text-base m-0 mb-1 font-(family-name:--font-display)">Visibilidade</h3>
+              <h3 className="text-base m-0 mb-1 font-(family-name:--font-display)">{t('srv.channels.visibility')}</h3>
               <p className="text-xs text-(--text-3) m-0">
-                Canal privado fica oculto pra todos exceto cargos selecionados (e o dono).
+                {t('srv.channels.visibilityDesc')}
               </p>
             </header>
 
@@ -1430,7 +1431,7 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
                   !isPrivate ? 'border-(--accent) bg-(--accent-dim) text-(--accent)' : 'border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent)'
                 }`}
               >
-                <Eye className="size-3.5" /> Público
+                <Eye className="size-3.5" /> {t('srv.channels.public')}
               </button>
               <button
                 onClick={() => mut.mutate({ isPrivate: true, roleIds: allowedRoleIds })}
@@ -1438,15 +1439,15 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
                   isPrivate ? 'border-(--accent) bg-(--accent-dim) text-(--accent)' : 'border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent)'
                 }`}
               >
-                <EyeOff className="size-3.5" /> Privado
+                <EyeOff className="size-3.5" /> {t('srv.channels.private')}
               </button>
             </div>
 
             {isPrivate && (
               <section className="space-y-2">
-                <p className="text-xs text-(--text-3) m-0">Cargos que conseguem ver este canal:</p>
+                <p className="text-xs text-(--text-3) m-0">{t('srv.channels.rolesCanSee')}</p>
                 {roles.length === 0 && (
-                  <p className="text-xs text-(--text-3) italic">Nenhum cargo criado. Vá na aba Cargos.</p>
+                  <p className="text-xs text-(--text-3) italic">{t('srv.channels.noRoles')}</p>
                 )}
                 <div className="flex gap-2 flex-wrap">
                   {roles.map((r) => {
@@ -1477,24 +1478,24 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
       <Dialog open={createOpen} onOpenChange={(o: boolean) => { if (!o) { setCreateOpen(false); setNewName(''); setCreateErr('') } }}>
         <DialogContent className="max-w-95!">
           <DialogHeader>
-            <DialogTitle>Novo canal</DialogTitle>
-            <DialogDescription>Escolha nome e tipo. Texto pra chat, voz pra chamadas.</DialogDescription>
+            <DialogTitle>{t('srv.channels.newTitle')}</DialogTitle>
+            <DialogDescription>{t('srv.channels.newDesc')}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="newChanName">Nome</Label>
+              <Label htmlFor="newChanName">{t('srv.channels.nameLabel')}</Label>
               <Input
                 id="newChanName"
                 autoFocus
                 value={newName}
                 onChange={(e) => { setNewName(e.target.value); setCreateErr('') }}
                 onKeyDown={(e) => e.key === 'Enter' && newName.trim() && createChannel.mutate({ name: newName.trim(), type: newType })}
-                placeholder="Ex: geral"
+                placeholder={t('srv.channels.namePlaceholder')}
                 maxLength={50}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Tipo</Label>
+              <Label>{t('srv.channels.type')}</Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -1505,8 +1506,8 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
                       : 'border-(--border) hover:border-(--accent)'
                   }`}
                 >
-                  <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}># Texto</p>
-                  <p className="m-0 mt-0.5 text-[11px] text-(--text-3)">Mensagens, anexos, threads</p>
+                  <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>{t('srv.channels.typeText')}</p>
+                  <p className="m-0 mt-0.5 text-[11px] text-(--text-3)">{t('srv.channels.typeTextDesc')}</p>
                 </button>
                 <button
                   type="button"
@@ -1517,20 +1518,20 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
                       : 'border-(--border) hover:border-(--accent)'
                   }`}
                 >
-                  <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>Voz</p>
-                  <p className="m-0 mt-0.5 text-[11px] text-(--text-3)">Chamada de voz e tela</p>
+                  <p className="m-0 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>{t('srv.channels.typeVoice')}</p>
+                  <p className="m-0 mt-0.5 text-[11px] text-(--text-3)">{t('srv.channels.typeVoiceDesc')}</p>
                 </button>
               </div>
             </div>
             {createErr && <p className="text-xs text-(--danger)">{createErr}</p>}
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => { setCreateOpen(false); setNewName(''); setCreateErr('') }}>Cancelar</Button>
+            <Button variant="secondary" onClick={() => { setCreateOpen(false); setNewName(''); setCreateErr('') }}>{t('srv.common.cancel')}</Button>
             <Button
               onClick={() => newName.trim() && createChannel.mutate({ name: newName.trim(), type: newType })}
               disabled={createChannel.isPending || !newName.trim()}
             >
-              {createChannel.isPending ? 'Criando…' : 'Criar canal'}
+              {createChannel.isPending ? t('srv.channels.creating') : t('srv.channels.createBtn')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1543,6 +1544,7 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
 // Gerenciador de insígnias: dono cria badge (emoji+nome+cor+desc) e
 // concede a membros. As concessões aparecem no perfil de cada um.
 function BadgesSection({ serverId, members }: { serverId: string; members: Member[] }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const confirm = useConfirm()
   const { data: badges = [], isLoading } = useQuery<ServerBadge[]>({
@@ -1563,9 +1565,9 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['server-badges', serverId] })
       setName(''); setDesc(''); setIcon('✦'); setErr('')
-      toast.success('Insígnia criada')
+      toast.success(t('srv.badges.created'))
     },
-    onError: (e: any) => setErr(e.response?.data?.error ?? 'Erro ao criar'),
+    onError: (e: any) => setErr(e.response?.data?.error ?? t('srv.badges.createError')),
   })
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/servers/${serverId}/badges/${id}`),
@@ -1583,18 +1585,18 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
     <section className="space-y-6">
       {/* Criar */}
       <div className="border border-(--border) bg-(--raised)/30 rounded-2xl p-4 space-y-3">
-        <p className="ed-label">— Criar insígnia</p>
+        <p className="ed-label">{t('srv.badges.create')}</p>
         <div className="flex gap-2 items-center flex-wrap">
           <input
             value={icon}
             onChange={(e) => setIcon(e.target.value.slice(0, 4))}
             className="w-14 h-10 text-center text-lg border border-(--border) bg-(--base) rounded-lg focus:border-(--accent) outline-none"
-            aria-label="Emoji da insígnia"
+            aria-label={t('srv.badges.emojiAria')}
           />
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome (ex: Fundador)" maxLength={40} className="flex-1 min-w-40" />
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="size-10 cursor-pointer bg-transparent border border-(--border-mid) rounded-lg shrink-0" aria-label="Cor" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('srv.badges.namePlaceholder')} maxLength={40} className="flex-1 min-w-40" />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="size-10 cursor-pointer bg-transparent border border-(--border-mid) rounded-lg shrink-0" aria-label={t('srv.badges.colorAria')} />
         </div>
-        <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrição curta (opcional)" maxLength={120} />
+        <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t('srv.badges.descPlaceholder')} maxLength={120} />
         {name.trim() && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs" style={chip(color)}>
             <span className="text-sm leading-none">{icon || '✦'}</span>
@@ -1603,19 +1605,19 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
         )}
         {err && <p className="text-xs text-(--danger) m-0">{err}</p>}
         <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending} className="gap-2">
-          <Plus className="size-3.5" /> {create.isPending ? 'Criando…' : 'Criar insígnia'}
+          <Plus className="size-3.5" /> {create.isPending ? t('srv.badges.creating') : t('srv.badges.createBtn')}
         </Button>
       </div>
 
       {/* Existentes */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <span className="ed-label">— Insígnias do servidor</span>
+          <span className="ed-label">{t('srv.badges.serverBadges')}</span>
           <div className="flex-1 h-px bg-(--border)" />
           <span className="ed-marg">{badges.length}</span>
         </div>
-        {isLoading && <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> Carregando…</div>}
-        {!isLoading && badges.length === 0 && <p className="text-sm text-(--text-3) italic m-0">Nenhuma insígnia ainda. Cria a primeira acima.</p>}
+        {isLoading && <div className="flex items-center gap-2 text-sm text-(--text-3)"><Spinner size={12} /> {t('srv.common.loading')}</div>}
+        {!isLoading && badges.length === 0 && <p className="text-sm text-(--text-3) italic m-0">{t('srv.badges.empty')}</p>}
         <ul className="flex flex-col gap-1.5">
           {badges.map((b) => (
             <li key={b.id} className="flex items-center gap-2.5 px-3 py-2.5 border border-(--border) rounded-lg bg-(--raised)/20">
@@ -1624,18 +1626,18 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
                 <span className="font-medium" style={{ fontFamily: 'var(--font-display)' }}>{b.name}</span>
               </span>
               <span className="flex-1 min-w-0 text-[11px] text-(--text-3) truncate">
-                {b.grantedUserIds.length} {b.grantedUserIds.length === 1 ? 'membro' : 'membros'}{b.description ? ` · ${b.description}` : ''}
+                {t('srv.badges.memberCount', { count: b.grantedUserIds.length })}{b.description ? ` · ${b.description}` : ''}
               </span>
               <Button size="sm" variant="secondary" className="gap-1.5 h-8 shrink-0" onClick={() => setGranting(b)}>
-                <UserPlus className="size-3.5" /> Conceder
+                <UserPlus className="size-3.5" /> {t('srv.badges.grant')}
               </Button>
               <button
                 onClick={async () => {
-                  const ok = await confirm({ title: `Excluir "${b.name}"?`, description: 'Remove a insígnia de todos que a têm. Não-reversível.', confirmLabel: 'Excluir', destructive: true })
-                  if (ok) remove.mutate(b.id, { onSuccess: () => toast.success('Insígnia excluída') })
+                  const ok = await confirm({ title: t('srv.badges.deleteTitle', { name: b.name }), description: t('srv.badges.deleteDesc'), confirmLabel: t('srv.badges.deleteConfirm'), destructive: true })
+                  if (ok) remove.mutate(b.id, { onSuccess: () => toast.success(t('srv.badges.deleted')) })
                 }}
                 className="size-8 grid place-items-center border border-(--border) rounded-lg text-(--text-3) hover:border-(--danger) hover:text-(--danger) transition-colors cursor-pointer shrink-0"
-                title="Excluir"
+                title={t('srv.common.delete')}
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -1655,6 +1657,7 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
 function GrantBadgeDialog({ serverId, badge, members, onClose }: {
   serverId: string; badge: ServerBadge; members: Member[]; onClose: () => void
 }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [granted, setGranted] = useState<Set<string>>(new Set(badge.grantedUserIds))
@@ -1694,12 +1697,12 @@ function GrantBadgeDialog({ serverId, badge, members, onClose }: {
               <span className="font-medium" style={{ fontFamily: 'var(--font-display)' }}>{badge.name}</span>
             </span>
           </DialogTitle>
-          <DialogDescription className="text-(--text-3)">Marque quem recebe esta insígnia.</DialogDescription>
+          <DialogDescription className="text-(--text-3)">{t('srv.badges.grantDesc')}</DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-(--text-3) pointer-events-none" />
-            <Input placeholder="Buscar membro…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" autoFocus />
+            <Input placeholder={t('srv.badges.searchMember')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" autoFocus />
           </div>
         </div>
         <div className="border-t border-(--border) max-h-80 overflow-y-auto">
@@ -1723,7 +1726,7 @@ function GrantBadgeDialog({ serverId, badge, members, onClose }: {
           })}
         </div>
         <DialogFooter className="px-6 py-4 border-t border-(--border)">
-          <Button variant="secondary" onClick={onClose} className="ml-auto">Fechar</Button>
+          <Button variant="secondary" onClick={onClose} className="ml-auto">{t('srv.common.close')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1752,6 +1755,7 @@ function InviteFriendsDialog({
   serverName: string
   currentMemberUserIds: Set<string>
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [invitedNow, setInvitedNow] = useState<Set<string>>(new Set())
@@ -1769,9 +1773,9 @@ function InviteFriendsDialog({
     onSuccess: (_data, friendUserId) => {
       setInvitedNow((prev) => new Set(prev).add(friendUserId))
       queryClient.invalidateQueries({ queryKey: ['members', serverId] })
-      toast.success('Amigo adicionado ao servidor')
+      toast.success(t('srv.inviteFriends.added'))
     },
-    onError: (e: any) => toast.error(e.response?.data?.error ?? 'Erro ao adicionar amigo'),
+    onError: (e: any) => toast.error(e.response?.data?.error ?? t('srv.inviteFriends.addError')),
   })
 
   const eligible = friends.filter((f) => {
@@ -1788,9 +1792,9 @@ function InviteFriendsDialog({
           <div className="size-10 bg-(--accent-dim) border border-(--accent)/40 rounded-xl flex items-center justify-center mb-2">
             <UserPlus className="size-5 text-(--accent)" />
           </div>
-          <DialogTitle>Convidar amigo</DialogTitle>
+          <DialogTitle>{t('srv.inviteFriends.title')}</DialogTitle>
           <DialogDescription className="text-(--text-3)">
-            Adicione um amigo direto a <span className="text-foreground">{serverName}</span> — sem precisar de link.
+            {t('srv.inviteFriends.descPrefix')}<span className="text-foreground">{serverName}</span>{t('srv.inviteFriends.descSuffix')}
           </DialogDescription>
         </DialogHeader>
 
@@ -1798,7 +1802,7 @@ function InviteFriendsDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-(--text-3) pointer-events-none" />
             <Input
-              placeholder="Buscar por nome ou @username…"
+              placeholder={t('srv.inviteFriends.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -1810,16 +1814,16 @@ function InviteFriendsDialog({
         <div className="border-t border-(--border) max-h-80 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-(--text-3)">
-              <Spinner size={14} /> Carregando amigos…
+              <Spinner size={14} /> {t('srv.inviteFriends.loading')}
             </div>
           ) : eligible.length === 0 ? (
             <div className="py-10 px-6 text-center">
               <p className="text-sm text-(--text-2) m-0">
                 {friends.length === 0
-                  ? 'Você ainda não tem amigos na Astra.'
+                  ? t('srv.inviteFriends.noFriends')
                   : currentMemberUserIds.size > 0 && friends.length === currentMemberUserIds.size
-                    ? 'Todos os seus amigos já são membros.'
-                    : 'Nenhum amigo encontrado pra esse filtro.'}
+                    ? t('srv.inviteFriends.allMembers')
+                    : t('srv.inviteFriends.noMatch')}
               </p>
             </div>
           ) : (
@@ -1854,7 +1858,7 @@ function InviteFriendsDialog({
                       onClick={() => addFriend.mutate(f.user.id)}
                       className="gap-1.5 shrink-0"
                     >
-                      {isInvited ? <><Check className="size-3.5" /> Convidado</> : <><Plus className="size-3.5" /> Adicionar</>}
+                      {isInvited ? <><Check className="size-3.5" /> {t('srv.inviteFriends.invited')}</> : <><Plus className="size-3.5" /> {t('srv.inviteFriends.add')}</>}
                     </Button>
                   </motion.div>
                 )
@@ -1864,7 +1868,7 @@ function InviteFriendsDialog({
         </div>
 
         <DialogFooter className="px-6 py-4 border-t border-(--border)">
-          <Button variant="secondary" onClick={onClose} className="ml-auto">Fechar</Button>
+          <Button variant="secondary" onClick={onClose} className="ml-auto">{t('srv.common.close')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@
  * mono pra status, serif display pro room name.
  */
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, PhoneOff, Maximize2, ScreenShare, GripHorizontal,
@@ -37,6 +38,7 @@ function savePos(x: number, y: number) {
 }
 
 export function VoiceCallPanel() {
+  const { t } = useTranslation()
   const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleDeafen } = useVoiceCall()
   const expanded    = useUIStore((s) => s.voiceStageOpen)
   const setExpanded = useUIStore((s) => s.setVoiceStageOpen)
@@ -107,16 +109,16 @@ export function VoiceCallPanel() {
                   return (
                     <>
                       <p className="text-xs font-(family-name:--font-display) text-foreground m-0 truncate">
-                        {state === 'connecting' ? 'Conectando…'
-                          : state === 'disconnecting' ? 'Desconectando…'
-                          : state === 'error' ? 'Erro'
+                        {state === 'connecting' ? t('voice.connecting')
+                          : state === 'disconnecting' ? t('voice.disconnecting')
+                          : state === 'error' ? t('voice.error')
                           : speakerName
-                            ? <><span className="text-(--accent)">{speakerName}</span> está falando…</>
-                            : (parsed?.kind === 'channel' ? 'Em canal de voz' : 'Em chamada DM')}
+                            ? <><span className="text-(--accent)">{speakerName}</span> {t('voice.speaking')}</>
+                            : (parsed?.kind === 'channel' ? t('voice.inVoiceChannel') : t('voice.inDmCall'))}
                       </p>
                       <p className="text-[10px] font-mono text-(--text-3) m-0 truncate uppercase tracking-wider">
-                        {participants.length} · ao vivo
-                        {hasShare && ' · tela'}
+                        {participants.length} · {t('voice.live')}
+                        {hasShare && ` · ${t('voice.screen')}`}
                       </p>
                     </>
                   )
@@ -131,13 +133,13 @@ export function VoiceCallPanel() {
                       setExpanded(true)
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
-                    aria-label="Expandir"
+                    aria-label={t('voice.expand')}
                     className="size-7 rounded-lg border border-(--border-mid) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-colors cursor-pointer grid place-items-center"
                   >
                     <Maximize2 className="size-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="left">Expandir chamada</TooltipContent>
+                <TooltipContent side="left">{t('voice.expandCall')}</TooltipContent>
               </Tooltip>
             </header>
 
@@ -190,7 +192,7 @@ export function VoiceCallPanel() {
                       </TooltipTrigger>
                       <TooltipContent side="top">
                         {u?.displayName ?? p.identity.slice(0, 8)}
-                        {p.isLocal && ' (você)'}
+                        {p.isLocal && ` ${t('voice.youParen')}`}
                       </TooltipContent>
                     </Tooltip>
                   )
@@ -214,7 +216,7 @@ export function VoiceCallPanel() {
                 />
               </div>
               <span className="text-[10px] font-mono text-(--text-3) tabular-nums shrink-0">
-                {deafened ? 'mute' : `${Math.round(volume * 100)}%`}
+                {deafened ? t('voice.mute') : `${Math.round(volume * 100)}%`}
               </span>
             </div>
 
@@ -224,7 +226,7 @@ export function VoiceCallPanel() {
               onPointerDown={(e) => e.stopPropagation()}
             >
               <QuickBtn
-                label={localMic ? 'Mutar microfone' : 'Desmutar microfone'}
+                label={localMic ? t('voice.muteMic') : t('voice.unmuteMic')}
                 onClick={toggleMic}
                 active={!localMic}
                 danger={!localMic}
@@ -232,14 +234,14 @@ export function VoiceCallPanel() {
                 {localMic ? <Mic className="size-4" /> : <MicOff className="size-4" />}
               </QuickBtn>
               <QuickBtn
-                label={deafened ? 'Reabilitar áudio' : 'Mutar todos'}
+                label={deafened ? t('voice.reenableAudio') : t('voice.muteAll')}
                 onClick={toggleDeafen}
                 active={deafened}
                 danger={deafened}
               >
                 {deafened ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
               </QuickBtn>
-              <QuickBtn label="Sair da chamada" onClick={leave} primary danger>
+              <QuickBtn label={t('voice.leave')} onClick={leave} primary danger>
                 <PhoneOff className="size-4" />
               </QuickBtn>
             </footer>

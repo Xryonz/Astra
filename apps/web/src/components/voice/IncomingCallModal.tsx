@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
 import { PhoneCall, PhoneOff, GripHorizontal } from 'lucide-react'
 import { getSocket } from '@/lib/socket'
@@ -73,6 +74,7 @@ function playRing() {
 }
 
 export function IncomingCallModal() {
+  const { t } = useTranslation()
   const me = useAuthStore((s) => s.user)
   const cfg = useVoiceConfig()
   const voice = useVoiceCall()
@@ -199,7 +201,7 @@ export function IncomingCallModal() {
               className="size-2 rounded-full bg-(--accent) shrink-0"
             />
             <p className="text-[10px] font-mono text-(--accent) m-0 uppercase tracking-wider flex-1">
-              Chamada recebida
+              {t('voice.incomingCall')}
             </p>
             <span className="text-[10px] font-mono text-(--text-3) tabular-nums">
               {Math.ceil(remaining / 1000)}s
@@ -233,7 +235,7 @@ export function IncomingCallModal() {
                 @{incoming.fromUsername}
               </p>
               <p className="text-[10px] text-(--text-3) m-0 mt-0.5 italic">
-                te está ligando…
+                {t('voice.isCallingYou')}
               </p>
             </div>
           </div>
@@ -263,7 +265,7 @@ export function IncomingCallModal() {
               transition={{ type: 'spring', stiffness: 600, damping: 22 }}
               className="flex-1 h-10 rounded-full flex items-center justify-center gap-1.5 border-2 border-(--danger)/40 bg-(--danger)/5 text-(--danger) hover:bg-(--danger)/15 hover:border-(--danger) transition-colors cursor-pointer text-xs font-medium uppercase tracking-wider"
             >
-              <PhoneOff className="size-3.5" /> Recusar
+              <PhoneOff className="size-3.5" /> {t('voice.decline')}
             </motion.button>
             <motion.button
               type="button"
@@ -275,7 +277,7 @@ export function IncomingCallModal() {
               transition={{ type: 'spring', stiffness: 600, damping: 22 }}
               className="flex-1 h-10 rounded-full flex items-center justify-center gap-1.5 bg-(--accent) text-(--text-inv) hover:shadow-[0_4px_16px_-2px_var(--accent-glow)] transition-shadow cursor-pointer text-xs font-medium uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <PhoneCall className="size-3.5" /> Aceitar
+              <PhoneCall className="size-3.5" /> {t('voice.accept')}
             </motion.button>
           </footer>
         </motion.div>

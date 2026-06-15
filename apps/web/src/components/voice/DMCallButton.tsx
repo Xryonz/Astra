@@ -10,6 +10,7 @@
  *   - já em outra call → disabled
  */
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PhoneCall, PhoneOff } from 'lucide-react'
 import { getSocket } from '@/lib/socket'
 import { useVoiceCall, useVoiceConfig, parseRoomName } from '@/hooks/useVoiceCall'
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function DMCallButton({ conversationId, otherUserId, otherDisplayName }: Props) {
+  const { t } = useTranslation()
   const cfg   = useVoiceConfig()
   const voice = useVoiceCall()
   const [ringing, setRinging] = useState(false)
@@ -80,10 +82,10 @@ export function DMCallButton({ conversationId, otherUserId, otherDisplayName }: 
       <button
         onClick={() => voice.leave()}
         className="flex items-center gap-2 px-3 h-9 border border-(--danger)/40 text-(--danger) hover:bg-(--danger)/10 transition-colors text-sm"
-        title="Sair da chamada"
+        title={t('voice.leave')}
       >
         <PhoneOff className="size-3.5" />
-        <span className="hidden sm:inline">Sair</span>
+        <span className="hidden sm:inline">{t('voice.leaveShort')}</span>
       </button>
     )
   }
@@ -93,10 +95,10 @@ export function DMCallButton({ conversationId, otherUserId, otherDisplayName }: 
       <button
         onClick={cancelRing}
         className="flex items-center gap-2 px-3 h-9 border border-(--accent)/40 text-(--accent) animate-pulse transition-colors text-sm"
-        title={`Chamando ${otherDisplayName}…`}
+        title={t('voice.calling', { name: otherDisplayName })}
       >
         <PhoneCall className="size-3.5" />
-        <span className="hidden sm:inline">Tocando…</span>
+        <span className="hidden sm:inline">{t('voice.ringing')}</span>
       </button>
     )
   }
@@ -106,14 +108,14 @@ export function DMCallButton({ conversationId, otherUserId, otherDisplayName }: 
       onClick={startCall}
       disabled={!cfg.data?.enabled || inOther}
       title={
-        !cfg.data?.enabled ? 'Chamadas não configuradas'
-        : inOther          ? 'Você já está em outra chamada'
-        : `Ligar para ${otherDisplayName}`
+        !cfg.data?.enabled ? t('voice.callsNotConfigured')
+        : inOther          ? t('voice.alreadyInCall')
+        : t('voice.callUser', { name: otherDisplayName })
       }
       className="flex items-center gap-2 px-3 h-9 border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
     >
       <PhoneCall className="size-3.5" />
-      <span className="hidden sm:inline">Ligar</span>
+      <span className="hidden sm:inline">{t('voice.call')}</span>
     </button>
   )
 }

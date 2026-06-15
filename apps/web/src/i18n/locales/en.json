@@ -323,6 +323,37 @@
       "added": "Friend added to the server", "addError": "Couldn't add friend"
     }
   },
+  "voice": {
+    "connecting": "Connecting…", "disconnecting": "Disconnecting…", "error": "Error",
+    "voiceChannel": "Voice channel", "dmCall": "DM call",
+    "inVoiceChannel": "In voice channel", "inDmCall": "In DM call",
+    "speaking": "is speaking…",
+    "participant_one": "{{count}} participant", "participant_other": "{{count}} participants",
+    "sharingScreen": "· 1 sharing screen", "live": "live", "screen": "screen", "liveBadge": "Live",
+    "minimize": "Minimize", "expand": "Expand", "expandCall": "Expand call",
+    "you": "you", "youParen": "(you)", "mute": "mute",
+    "muteTitle": "Muted", "volumeTitle": "Volume {{pct}}%", "volume": "Volume",
+    "muteMic": "Mute microphone", "unmuteMic": "Unmute microphone",
+    "reenableAudio": "Re-enable audio", "muteAll": "Mute everyone",
+    "noiseOn": "Noise filter: on (Krisp)", "noiseOff": "Noise filter: off",
+    "cameraOff": "Turn camera off", "cameraOn": "Turn camera on",
+    "stopShare": "Stop sharing", "share": "Share screen",
+    "hideStats": "Hide stats", "showStats": "Show stats (connection/resolution)",
+    "leave": "Leave call",
+    "connection": "Connection: {{quality}}",
+    "personVolume": "This person's volume: {{pct}}%", "personVolumeLabel": "Person's volume",
+    "callSettings": "Call settings",
+    "microphone": "Microphone", "systemDefault": "System default", "speaker": "Speaker",
+    "streamQuality": "Stream quality",
+    "streamQualityHint": "Applies next time you share your screen.",
+    "fluidity": "Fluidity", "fluiditySub": "Game / video",
+    "sharpness": "Sharpness", "sharpnessSub": "Text / code",
+    "leaveShort": "Leave", "calling": "Calling {{name}}…", "ringing": "Ringing…",
+    "callsNotConfigured": "Calls not configured", "alreadyInCall": "You're already in another call",
+    "callUser": "Call {{name}}", "call": "Call",
+    "incomingCall": "Incoming call", "isCallingYou": "is calling you…",
+    "accept": "Answer", "decline": "Decline"
+  },
   "settings": {
     "title": "Settings",
     "groups": {

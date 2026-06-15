@@ -18,6 +18,7 @@
  * mono pra tech info, serif display pros nomes, tokens consistentes.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function VoiceCallStage({ onMinimize }: Props) {
+  const { t } = useTranslation()
   const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter, showStats, toggleStats } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
@@ -89,14 +91,14 @@ export function VoiceCallStage({ onMinimize }: Props) {
         <span className="size-2 rounded-full bg-(--success) animate-pulse shrink-0" aria-hidden />
         <div className="flex-1 min-w-0">
           <p className="text-sm m-0 font-(family-name:--font-display) text-foreground truncate leading-tight">
-            {state === 'connecting' ? 'Conectando…'
-              : state === 'connected' ? (parsed?.kind === 'channel' ? 'Canal de voz' : 'Chamada DM')
-              : state === 'disconnecting' ? 'Desconectando…'
-              : 'Erro'}
+            {state === 'connecting' ? t('voice.connecting')
+              : state === 'connected' ? (parsed?.kind === 'channel' ? t('voice.voiceChannel') : t('voice.dmCall'))
+              : state === 'disconnecting' ? t('voice.disconnecting')
+              : t('voice.error')}
           </p>
           <p className="text-[11px] font-mono text-(--text-3) m-0 truncate">
-            {participants.length} {participants.length === 1 ? 'participante' : 'participantes'}
-            {screenSharer && ' · 1 compartilhando tela'}
+            {t('voice.participant', { count: participants.length })}
+            {screenSharer && ` ${t('voice.sharingScreen')}`}
           </p>
         </div>
         <Tooltip>
@@ -104,12 +106,12 @@ export function VoiceCallStage({ onMinimize }: Props) {
             <button
               onClick={onMinimize}
               className="size-9 rounded-lg border border-(--border-mid) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-colors cursor-pointer grid place-items-center"
-              aria-label="Minimizar"
+              aria-label={t('voice.minimize')}
             >
               <Minimize2 className="size-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="z-80">Minimizar</TooltipContent>
+          <TooltipContent side="bottom" className="z-80">{t('voice.minimize')}</TooltipContent>
         </Tooltip>
       </motion.header>
 
@@ -159,7 +161,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         <button
           onClick={() => setVolume(volume > 0 ? 0 : 1)}
           disabled={deafened}
-          title={volume === 0 ? 'Mudo' : `Volume ${Math.round(volume * 100)}%`}
+          title={volume === 0 ? t('voice.muteTitle') : t('voice.volumeTitle', { pct: Math.round(volume * 100) })}
           className={cn(
             'shrink-0 size-8 grid place-items-center text-(--text-3) hover:text-(--accent) transition-colors rounded-lg',
             deafened && 'opacity-40 cursor-not-allowed',
@@ -172,7 +174,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
               : <Volume2 className="size-4" />}
         </button>
         <span className="text-[10px] font-mono text-(--text-3) uppercase tracking-wider shrink-0 hidden sm:inline">
-          Volume
+          {t('voice.volume')}
         </span>
         <Slider
           value={[Math.round(volume * 100)]}
@@ -181,7 +183,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
           max={100}
           step={1}
           disabled={deafened}
-          aria-label="Volume da chamada"
+          aria-label={t('voice.volume')}
           className="flex-1 max-w-xs"
         />
         <span className="text-[10px] font-mono text-(--text-2) tabular-nums w-9 text-right shrink-0">
@@ -197,7 +199,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         className="border-t border-(--border) bg-(--base) px-3 sm:px-4 py-3 sm:py-4 max-[640px]:landscape:py-1.5 pb-safe flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 shrink-0"
       >
         <ControlButton
-          label={localMic ? 'Mutar microfone' : 'Desmutar microfone'}
+          label={localMic ? t('voice.muteMic') : t('voice.unmuteMic')}
           onClick={toggleMic}
           active={!localMic}
           danger={!localMic}
@@ -206,7 +208,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </ControlButton>
 
         <ControlButton
-          label={deafened ? 'Reabilitar áudio' : 'Mutar todos'}
+          label={deafened ? t('voice.reenableAudio') : t('voice.muteAll')}
           onClick={toggleDeafen}
           active={deafened}
           danger={deafened}
@@ -215,7 +217,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </ControlButton>
 
         <ControlButton
-          label={noiseFilter ? 'Filtro de ruído: ligado (Krisp)' : 'Filtro de ruído: desligado'}
+          label={noiseFilter ? t('voice.noiseOn') : t('voice.noiseOff')}
           onClick={toggleNoiseFilter}
           active={noiseFilter}
         >
@@ -223,7 +225,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </ControlButton>
 
         <ControlButton
-          label={localCam ? 'Desligar câmera' : 'Ligar câmera'}
+          label={localCam ? t('voice.cameraOff') : t('voice.cameraOn')}
           onClick={toggleCamera}
           active={localCam}
         >
@@ -234,7 +236,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
             getDisplayMedia na maioria dos browsers) — esconde no md:flex. */}
         <div className="hidden md:contents">
           <ControlButton
-            label={localShare ? 'Parar compartilhamento' : 'Compartilhar tela'}
+            label={localShare ? t('voice.stopShare') : t('voice.share')}
             onClick={toggleScreen}
             active={localShare}
           >
@@ -245,7 +247,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         <CallSettings />
 
         <ControlButton
-          label={showStats ? 'Esconder estatísticas' : 'Mostrar estatísticas (conexão/resolução)'}
+          label={showStats ? t('voice.hideStats') : t('voice.showStats')}
           onClick={toggleStats}
           active={showStats}
         >
@@ -254,7 +256,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
 
         <div className="w-px h-8 bg-(--border) mx-1" aria-hidden />
 
-        <ControlButton label="Sair da chamada" onClick={leave} danger primary>
+        <ControlButton label={t('voice.leave')} onClick={leave} danger primary>
           <PhoneOff className="size-5" />
         </ControlButton>
       </motion.footer>
@@ -284,6 +286,7 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
   onVolume?: (v: number) => void
   showStats?: boolean
 }) {
+  const { t } = useTranslation()
   const displayName = user?.displayName ?? participant.identity.slice(0, 8)
   const initials    = displayName.slice(0, 2).toUpperCase()
   const speaking    = participant.isSpeaking
@@ -412,7 +415,7 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
           <span
             className="block size-2.5 rounded-full ring-2 ring-black/40"
             style={{ background: qualityColor(participant.connectionQuality) }}
-            aria-label={`Conexão: ${participant.connectionQuality}`}
+            aria-label={t('voice.connection', { quality: participant.connectionQuality })}
           />
         )}
       </div>
@@ -433,7 +436,7 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
         </span>
         {participant.isLocal ? (
           <span className="text-[9px] font-mono text-white/70 uppercase tracking-wider shrink-0">
-            você
+            {t('voice.you')}
           </span>
         ) : onVolume ? (
           <TileVolume value={volume ?? 1} onChange={onVolume} />
@@ -446,13 +449,14 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
 // ─── Per-person volume (popover slider no tile remoto) ────────
 
 function TileVolume({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { t } = useTranslation()
   const pct = Math.round(value * 100)
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Volume desta pessoa: ${pct}%`}
+          aria-label={t('voice.personVolume', { pct })}
           className={cn(
             'shrink-0 size-6 grid place-items-center rounded-md text-white/80 hover:text-white hover:bg-white/15 transition-colors',
             pct === 0 && 'text-(--danger)',
@@ -462,14 +466,14 @@ function TileVolume({ value, onChange }: { value: number; onChange: (v: number) 
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="z-80 w-48 p-3">
-        <p className="text-[10px] font-mono text-(--text-3) uppercase tracking-wider m-0 mb-2">Volume da pessoa</p>
+        <p className="text-[10px] font-mono text-(--text-3) uppercase tracking-wider m-0 mb-2">{t('voice.personVolumeLabel')}</p>
         <div className="flex items-center gap-2">
           <VolumeX className="size-3.5 text-(--text-3) shrink-0" />
           <Slider
             value={[pct]}
             onValueChange={(v) => onChange((v[0] ?? 0) / 100)}
             min={0} max={100} step={1}
-            aria-label="Volume da pessoa"
+            aria-label={t('voice.personVolumeLabel')}
             className="flex-1"
           />
           <span className="text-[10px] font-mono text-(--text-2) tabular-nums w-8 text-right shrink-0">{pct}%</span>
@@ -482,6 +486,7 @@ function TileVolume({ value, onChange }: { value: number; onChange: (v: number) 
 // ─── Screen share tile ────────────────────────────────────────
 
 function ScreenShareTile({ participant, user }: { participant: CallParticipantInfo; user?: UserMini }) {
+  const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement>(null)
   // Ref do LK Participant é estável entre snapshots (snapshot reusa o mesmo
   // objeto p). Antes a dep [participant] (CallParticipantInfo recriado a cada
@@ -544,7 +549,7 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
         {/* Pill AO VIVO (estilo Discord LIVE) — vermelha, dot pulsando. */}
         <span className="px-2 py-0.5 rounded-md bg-(--danger) text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
           <span className="size-1.5 rounded-full bg-white animate-pulse" />
-          Ao vivo
+          {t('voice.liveBadge')}
         </span>
         <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-white flex items-center gap-1">
           <ScreenShare className="size-3 text-(--accent)" />
@@ -558,6 +563,7 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
 // ─── Configurações da call (dispositivos + modo qualidade) ────
 
 function CallSettings() {
+  const { t } = useTranslation()
   const { audioInputId, audioOutputId, setAudioInput, setAudioOutput, screenQuality, setScreenQuality } = useVoiceCall()
   const [mics, setMics]         = useState<MediaDeviceInfo[]>([])
   const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([])
@@ -580,7 +586,7 @@ function CallSettings() {
           whileTap={{ scale: 0.9 }}
           whileHover={{ scale: 1.06 }}
           transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-          aria-label="Configurações da chamada"
+          aria-label={t('voice.callSettings')}
           className="size-11 sm:size-12 max-[640px]:landscape:size-9 rounded-full grid place-items-center border-2 border-(--border-mid) bg-(--raised)/60 text-(--text-1) hover:border-(--accent) hover:text-(--accent) transition-[background-color,border-color,color] duration-200 cursor-pointer"
         >
           <Settings2 className="size-5" />
@@ -588,30 +594,30 @@ function CallSettings() {
       </PopoverTrigger>
       <PopoverContent side="top" align="center" className="z-80 w-72 p-4 space-y-4">
         <div>
-          <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Microfone</label>
+          <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">{t('voice.microphone')}</label>
           <select value={audioInputId ?? ''} onChange={(e) => void setAudioInput(e.target.value)} className={selectCls}>
-            <option value="">Padrão do sistema</option>
-            {mics.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microfone'}</option>)}
+            <option value="">{t('voice.systemDefault')}</option>
+            {mics.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('voice.microphone')}</option>)}
           </select>
         </div>
 
         {canSetSink && (
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Alto-falante</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">{t('voice.speaker')}</label>
             <select value={audioOutputId ?? ''} onChange={(e) => void setAudioOutput(e.target.value)} className={selectCls}>
-              <option value="">Padrão do sistema</option>
-              {speakers.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Alto-falante'}</option>)}
+              <option value="">{t('voice.systemDefault')}</option>
+              {speakers.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('voice.speaker')}</option>)}
             </select>
           </div>
         )}
 
         <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">Qualidade da transmissão</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">{t('voice.streamQuality')}</span>
           <div className="flex gap-2 mt-1.5">
-            <QualityChip active={screenQuality === 'motion'} onClick={() => setScreenQuality('motion')} title="Fluidez" sub="Jogo / vídeo" />
-            <QualityChip active={screenQuality === 'detail'} onClick={() => setScreenQuality('detail')} title="Nitidez" sub="Texto / código" />
+            <QualityChip active={screenQuality === 'motion'} onClick={() => setScreenQuality('motion')} title={t('voice.fluidity')} sub={t('voice.fluiditySub')} />
+            <QualityChip active={screenQuality === 'detail'} onClick={() => setScreenQuality('detail')} title={t('voice.sharpness')} sub={t('voice.sharpnessSub')} />
           </div>
-          <p className="text-[10px] text-(--text-3) m-0 mt-1.5">Vale na próxima vez que você compartilhar a tela.</p>
+          <p className="text-[10px] text-(--text-3) m-0 mt-1.5">{t('voice.streamQualityHint')}</p>
         </div>
       </PopoverContent>
     </Popover>

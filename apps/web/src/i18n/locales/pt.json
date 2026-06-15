@@ -323,6 +323,37 @@
       "added": "Amigo adicionado ao servidor", "addError": "Erro ao adicionar amigo"
     }
   },
+  "voice": {
+    "connecting": "Conectando…", "disconnecting": "Desconectando…", "error": "Erro",
+    "voiceChannel": "Canal de voz", "dmCall": "Chamada DM",
+    "inVoiceChannel": "Em canal de voz", "inDmCall": "Em chamada DM",
+    "speaking": "está falando…",
+    "participant_one": "{{count}} participante", "participant_other": "{{count}} participantes",
+    "sharingScreen": "· 1 compartilhando tela", "live": "ao vivo", "screen": "tela", "liveBadge": "Ao vivo",
+    "minimize": "Minimizar", "expand": "Expandir", "expandCall": "Expandir chamada",
+    "you": "você", "youParen": "(você)", "mute": "mute",
+    "muteTitle": "Mudo", "volumeTitle": "Volume {{pct}}%", "volume": "Volume",
+    "muteMic": "Mutar microfone", "unmuteMic": "Desmutar microfone",
+    "reenableAudio": "Reabilitar áudio", "muteAll": "Mutar todos",
+    "noiseOn": "Filtro de ruído: ligado (Krisp)", "noiseOff": "Filtro de ruído: desligado",
+    "cameraOff": "Desligar câmera", "cameraOn": "Ligar câmera",
+    "stopShare": "Parar compartilhamento", "share": "Compartilhar tela",
+    "hideStats": "Esconder estatísticas", "showStats": "Mostrar estatísticas (conexão/resolução)",
+    "leave": "Sair da chamada",
+    "connection": "Conexão: {{quality}}",
+    "personVolume": "Volume desta pessoa: {{pct}}%", "personVolumeLabel": "Volume da pessoa",
+    "callSettings": "Configurações da chamada",
+    "microphone": "Microfone", "systemDefault": "Padrão do sistema", "speaker": "Alto-falante",
+    "streamQuality": "Qualidade da transmissão",
+    "streamQualityHint": "Vale na próxima vez que você compartilhar a tela.",
+    "fluidity": "Fluidez", "fluiditySub": "Jogo / vídeo",
+    "sharpness": "Nitidez", "sharpnessSub": "Texto / código",
+    "leaveShort": "Sair", "calling": "Chamando {{name}}…", "ringing": "Tocando…",
+    "callsNotConfigured": "Chamadas não configuradas", "alreadyInCall": "Você já está em outra chamada",
+    "callUser": "Ligar para {{name}}", "call": "Ligar",
+    "incomingCall": "Chamada recebida", "isCallingYou": "te está ligando…",
+    "accept": "Atender", "decline": "Recusar"
+  },
   "settings": {
     "title": "Configurações",
     "groups": {

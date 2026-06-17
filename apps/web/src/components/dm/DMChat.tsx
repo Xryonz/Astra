@@ -9,6 +9,7 @@ import { format, isToday, isYesterday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { FONT_FAMILY } from '@/components/profile/profileFonts'
 import { getOutboxFor } from '@/lib/outbox'
+import { cn } from '@/lib/utils'
 import type { MessageWithAuthor, PaginatedResponse, Attachment } from '@astra/types'
 
 function isImage(a: { type?: string; name?: string; url?: string }) {
@@ -281,7 +282,7 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
       )}
 
       {/* Messages */}
-      <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', padding: '0 0 8px' }}>
         {(() => {
           // Index do último envio meu — pra colar "Visto" só nele
           const lastMineIdx = (() => {
@@ -325,7 +326,7 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
   )
 }
 
-// ── Individual DM message bubble ─────────────────────────────────
+// ── Individual DM message row (flat, estilo Discord) ─────────────
 function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen, onReply }: {
   message:   MessageWithAuthor
   isMine:    boolean
@@ -343,51 +344,53 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
 
   return (
     <div
+      className={cn(
+        'group flex gap-4 relative border-l-2 transition-[border-color,background-color,opacity] duration-150',
+        grouped ? 'pl-4 pr-3' : 'pl-4 pr-3 pt-3 pb-1 mt-2',
+        hovered ? 'border-(--accent) bg-(--raised)/40' : 'border-transparent bg-transparent',
+        isPending ? 'opacity-60' : 'opacity-100',
+      )}
       style={{
-        display: 'flex',
-        flexDirection: isMine ? 'row-reverse' : 'row',
-        gap: 8,
-        marginTop: grouped ? 2 : 10,
-        ['--dm-slide-from' as string]: isMine ? '14px' : '-14px',
         animation: `dmMsgIn 0.38s cubic-bezier(0.34, 1.32, 0.55, 1) ${delay}s both`,
-        opacity: isPending ? 0.65 : 1,
-        transition: 'opacity 0.3s',
-        position: 'relative',
-        willChange: 'transform, opacity',
+        ['--dm-slide-from' as string]: '-14px',
+        paddingTop:    grouped ? 'var(--msg-density-py)' : undefined,
+        paddingBottom: grouped ? 'var(--msg-density-py)' : undefined,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Avatar — hidden when grouped */}
-      <div style={{ width: 32, flexShrink: 0, paddingTop: 2 }}>
-        {!grouped && (
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: color + '22', border: `2px solid ${color}44`,
-            overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {author.avatarUrl
-              ? <img src={author.avatarUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: 12, fontWeight: 700, color }}>
-                  {author.displayName.slice(0, 1).toUpperCase()}
-                </span>
-            }
-          </div>
-        )}
-      </div>
+      {/* Avatar à esquerda — escondido quando agrupado; gutter mostra a hora no hover */}
+      {!grouped ? (
+        <div style={{
+          width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
+          background: color + '22', border: `2px solid ${color}44`,
+          overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {author.avatarUrl
+            ? <img src={author.avatarUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <span style={{ fontSize: 15, fontWeight: 700, color }}>
+                {author.displayName.slice(0, 1).toUpperCase()}
+              </span>}
+        </div>
+      ) : (
+        <div className="w-10 shrink-0 flex items-start justify-end pt-0.5">
+          {hovered && !isPending && (
+            <span className="text-[10px] text-(--text-3) whitespace-nowrap" style={{ fontFamily: 'var(--font-mono)' }}>
+              {format(new Date(createdAt), 'HH:mm')}
+            </span>
+          )}
+        </div>
+      )}
 
-      {/* Bubble column */}
-      <div style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+      {/* Coluna de conteúdo — largura cheia, alinhada à esquerda */}
+      <div className="flex-1 min-w-0">
         {!grouped && (
-          <div style={{
-            display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3,
-            flexDirection: isMine ? 'row-reverse' : 'row',
-          }}>
-            <span style={{ color, fontSize: 12, fontWeight: 600, fontFamily: FONT_FAMILY[author.displayFont ?? 'serif'] }}>
+          <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">
+            <span style={{ color, fontSize: 13, fontWeight: 600, fontFamily: FONT_FAMILY[author.displayFont ?? 'serif'] }}>
               {isMine ? 'Você' : author.displayName}
             </span>
             {!isPending && (
-              <span style={{ color: 'var(--text-3)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+              <span className="text-[10px] text-(--text-3)" style={{ fontFamily: 'var(--font-mono)' }}>
                 {format(new Date(createdAt), 'HH:mm')}
               </span>
             )}
@@ -396,43 +399,27 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
 
         {/* Reply preview */}
         {replyTo && (
-          <div
-            className="flex items-center gap-2 px-2.5 py-1 mb-1 max-w-full border-l-2 border-(--accent) bg-(--raised)/60 text-(--text-3)"
-            style={{ borderRadius: '0 4px 4px 0' }}
-          >
-            <CornerDownRight className="size-3 text-(--accent) shrink-0" />
-            <span className="text-[11px] font-medium text-(--text-2) shrink-0" style={{ fontFamily: 'var(--font-display)' }}>
+          <div className="flex items-center gap-2 mb-1 max-w-full text-(--text-3)">
+            <CornerDownRight className="size-3 text-(--accent)/70 shrink-0" />
+            <span className="text-[12px] shrink-0" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent)' }}>
               {replyTo.authorName}
             </span>
-            <span className="text-[11px] italic truncate min-w-0">
+            <span className="text-[12px] italic truncate min-w-0">
               {replyTo.content || '— anexo —'}
             </span>
           </div>
         )}
 
-        {/* Bubble (só renderiza se tem texto) */}
+        {/* Texto — flat, sem bubble */}
         {content && (
-          <div style={{
-            background: isMine ? 'var(--accent)' : 'var(--raised)',
-            color:       isMine ? 'var(--text-inv)' : 'var(--text-1)',
-            border:      isMine ? 'none' : '1px solid var(--border-mid)',
-            borderRadius: grouped
-              ? (isMine ? '14px 4px 4px 14px' : '4px 14px 14px 4px')
-              : (isMine ? '14px 4px 14px 14px' : '4px 14px 14px 14px'),
-            padding: '8px 12px',
-            fontSize: 14, lineHeight: 1.5,
-            wordBreak: 'break-word',
-            transition: 'background 0.15s',
-            maxWidth: '100%',
-            boxShadow: isMine ? '0 2px 8px var(--accent-glow)' : 'none',
-          }}>
+          <div className="text-body leading-normal text-foreground wrap-break-word m-0">
             {content}
           </div>
         )}
 
-        {/* Attachments */}
+        {/* Anexos */}
         {attachments && attachments.length > 0 && (
-          <div className={`flex flex-wrap gap-2 ${content ? 'mt-1.5' : ''} ${isMine ? 'justify-end' : ''}`} style={{ maxWidth: '100%' }}>
+          <div className={`flex flex-wrap gap-2 ${content ? 'mt-1.5' : ''}`} style={{ maxWidth: '100%' }}>
             {attachments.map((a, i) => (
               <DMAttachment key={`${a.url}-${i}`} att={a} />
             ))}
@@ -451,7 +438,7 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
         )}
         {showSeen && (
           <span style={{
-            color: 'var(--text-3)', fontSize: 10, marginTop: 3,
+            color: 'var(--text-3)', fontSize: 10, marginTop: 3, display: 'inline-block',
             fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
           }}>
             ✓ Visto
@@ -459,11 +446,11 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
         )}
       </div>
 
-      {/* Reply-on-hover action */}
+      {/* Responder no hover */}
       {hovered && !isPending && onReply && (
         <button
           onClick={() => onReply(message)}
-          className={`absolute top-0 ${isMine ? 'left-12' : 'right-2'} size-6 grid place-items-center border border-(--border-mid) bg-(--overlay) text-(--text-3) hover:text-(--accent) hover:border-(--accent) transition-colors`}
+          className="absolute top-1 right-2 size-6 grid place-items-center border border-(--border-mid) bg-(--overlay) text-(--text-3) hover:text-(--accent) hover:border-(--accent) transition-colors"
           title="Responder"
         >
           <Reply className="size-3" />

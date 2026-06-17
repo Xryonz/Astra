@@ -22,13 +22,15 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Mic, MicOff, Volume2, VolumeX, Volume1,
-  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Wand2, Activity, Settings2,
+  ScreenShare, ScreenShareOff, Video, VideoOff, PhoneOff, Minimize2, Settings2,
 } from 'lucide-react'
 import { Track } from 'livekit-client'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Slider } from '@/components/ui/slider'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { Sheet, SheetTrigger, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
 import { resolveApiUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useVoiceCall, parseRoomName, type CallParticipantInfo } from '@/hooks/useVoiceCall'
@@ -40,7 +42,7 @@ interface Props {
 
 export function VoiceCallStage({ onMinimize }: Props) {
   const { t } = useTranslation()
-  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume, noiseFilter, toggleNoiseFilter, showStats, toggleStats } = useVoiceCall()
+  const { state, roomName, participants, error, deafened, volume, leave, toggleMic, toggleScreen, toggleCamera, toggleDeafen, setVolume, participantVolumes, setParticipantVolume, showStats } = useVoiceCall()
 
   const identities = participants.map((p) => p.identity)
   const { data: users = [] } = useUsersMini(identities)
@@ -217,14 +219,6 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </ControlButton>
 
         <ControlButton
-          label={noiseFilter ? t('voice.noiseOn') : t('voice.noiseOff')}
-          onClick={toggleNoiseFilter}
-          active={noiseFilter}
-        >
-          <Wand2 className="size-5" />
-        </ControlButton>
-
-        <ControlButton
           label={localCam ? t('voice.cameraOff') : t('voice.cameraOn')}
           onClick={toggleCamera}
           active={localCam}
@@ -245,14 +239,6 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </div>
 
         <CallSettings />
-
-        <ControlButton
-          label={showStats ? t('voice.hideStats') : t('voice.showStats')}
-          onClick={toggleStats}
-          active={showStats}
-        >
-          <Activity className="size-5" />
-        </ControlButton>
 
         <div className="w-px h-8 bg-(--border) mx-1" aria-hidden />
 
@@ -564,7 +550,12 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
 
 function CallSettings() {
   const { t } = useTranslation()
-  const { audioInputId, audioOutputId, setAudioInput, setAudioOutput, screenQuality, setScreenQuality } = useVoiceCall()
+  const {
+    audioInputId, audioOutputId, setAudioInput, setAudioOutput,
+    screenQuality, setScreenQuality,
+    noiseFilter, toggleNoiseFilter,
+    showStats, toggleStats,
+  } = useVoiceCall()
   const [mics, setMics]         = useState<MediaDeviceInfo[]>([])
   const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([])
   const canSetSink = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype
@@ -577,50 +568,98 @@ function CallSettings() {
     } catch { /* sem permissão / não suportado */ }
   }
 
-  const selectCls = 'w-full mt-1 px-2 py-1.5 text-xs bg-(--raised) border border-(--border-mid) rounded-lg text-(--text-1) outline-none focus:border-(--accent) cursor-pointer'
+  // noiseFilter é um toggle boolean — Krisp = true, Nenhum = false.
+  const setNoise = (want: boolean) => { if (want !== noiseFilter) toggleNoiseFilter() }
 
-  return (
-    <Popover onOpenChange={(o) => { if (o) void loadDevices() }}>
-      <PopoverTrigger asChild>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ scale: 1.06 }}
-          transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-          aria-label={t('voice.callSettings')}
-          className="size-11 sm:size-12 max-[640px]:landscape:size-9 rounded-full grid place-items-center border-2 border-(--border-mid) bg-(--raised)/60 text-(--text-1) hover:border-(--accent) hover:text-(--accent) transition-[background-color,border-color,color] duration-200 cursor-pointer"
-        >
-          <Settings2 className="size-5" />
-        </motion.button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="center" className="z-80 w-72 p-4 space-y-4">
+  const selectCls  = 'w-full mt-1 px-2 py-1.5 text-xs bg-(--raised) border border-(--border-mid) rounded-lg text-(--text-1) outline-none focus:border-(--accent) cursor-pointer'
+  const labelCls   = 'text-[10px] font-mono uppercase tracking-wider text-(--text-3)'
+
+  const renderBody = () => (
+    <>
+      {/* Dispositivos */}
+      <div>
+        <label className={labelCls}>{t('voice.microphone')}</label>
+        <select value={audioInputId ?? ''} onChange={(e) => void setAudioInput(e.target.value)} className={selectCls}>
+          <option value="">{t('voice.systemDefault')}</option>
+          {mics.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('voice.microphone')}</option>)}
+        </select>
+      </div>
+
+      {canSetSink && (
         <div>
-          <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">{t('voice.microphone')}</label>
-          <select value={audioInputId ?? ''} onChange={(e) => void setAudioInput(e.target.value)} className={selectCls}>
+          <label className={labelCls}>{t('voice.speaker')}</label>
+          <select value={audioOutputId ?? ''} onChange={(e) => void setAudioOutput(e.target.value)} className={selectCls}>
             <option value="">{t('voice.systemDefault')}</option>
-            {mics.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('voice.microphone')}</option>)}
+            {speakers.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('voice.speaker')}</option>)}
           </select>
         </div>
+      )}
 
-        {canSetSink && (
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">{t('voice.speaker')}</label>
-            <select value={audioOutputId ?? ''} onChange={(e) => void setAudioOutput(e.target.value)} className={selectCls}>
-              <option value="">{t('voice.systemDefault')}</option>
-              {speakers.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('voice.speaker')}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-(--text-3)">{t('voice.streamQuality')}</span>
-          <div className="flex gap-2 mt-1.5">
-            <QualityChip active={screenQuality === 'motion'} onClick={() => setScreenQuality('motion')} title={t('voice.fluidity')} sub={t('voice.fluiditySub')} />
-            <QualityChip active={screenQuality === 'detail'} onClick={() => setScreenQuality('detail')} title={t('voice.sharpness')} sub={t('voice.sharpnessSub')} />
-          </div>
-          <p className="text-[10px] text-(--text-3) m-0 mt-1.5">{t('voice.streamQualityHint')}</p>
+      {/* Supressão de ruído */}
+      <div>
+        <span className={labelCls}>{t('voice.noiseSection')}</span>
+        <div className="flex gap-2 mt-1.5">
+          <QualityChip active={noiseFilter}  onClick={() => setNoise(true)}  title="Krisp"                 sub={t('voice.noiseKrispSub')} />
+          <QualityChip active={!noiseFilter} onClick={() => setNoise(false)} title={t('voice.noiseNone')} sub={t('voice.noiseNoneSub')} />
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+
+      {/* Qualidade da transmissão */}
+      <div>
+        <span className={labelCls}>{t('voice.streamQuality')}</span>
+        <div className="flex gap-2 mt-1.5">
+          <QualityChip active={screenQuality === 'motion'} onClick={() => setScreenQuality('motion')} title={t('voice.fluidity')} sub={t('voice.fluiditySub')} />
+          <QualityChip active={screenQuality === 'detail'} onClick={() => setScreenQuality('detail')} title={t('voice.sharpness')} sub={t('voice.sharpnessSub')} />
+        </div>
+        <p className="text-[10px] text-(--text-3) m-0 mt-1.5">{t('voice.streamQualityHint')}</p>
+      </div>
+
+      {/* Estatísticas */}
+      <label className="flex items-center justify-between gap-3 cursor-pointer">
+        <span className={labelCls}>{t('voice.statsSection')}</span>
+        <Switch checked={showStats} onCheckedChange={() => toggleStats()} />
+      </label>
+    </>
+  )
+
+  const trigger = (
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      whileHover={{ scale: 1.06 }}
+      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+      aria-label={t('voice.callSettings')}
+      className="size-11 sm:size-12 max-[640px]:landscape:size-9 rounded-full grid place-items-center border-2 border-(--border-mid) bg-(--raised)/60 text-(--text-1) hover:border-(--accent) hover:text-(--accent) transition-[background-color,border-color,color] duration-200 cursor-pointer"
+    >
+      <Settings2 className="size-5" />
+    </motion.button>
+  )
+
+  return (
+    <>
+      {/* Desktop: popover ancorado no botão */}
+      <div className="hidden md:contents">
+        <Popover onOpenChange={(o) => { if (o) void loadDevices() }}>
+          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+          <PopoverContent side="top" align="center" className="z-80 w-80 p-4 space-y-4">
+            {renderBody()}
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Mobile: bottom sheet (estilo Discord) */}
+      <div className="contents md:hidden">
+        <Sheet onOpenChange={(o) => { if (o) void loadDevices() }}>
+          <SheetTrigger asChild>{trigger}</SheetTrigger>
+          <SheetContent
+            side="bottom"
+            className="z-90 rounded-t-2xl border-(--border) bg-(--base) px-4 pt-4 pb-safe max-h-[85vh] overflow-y-auto"
+          >
+            <SheetTitle className="mb-3">{t('voice.voiceSettings')}</SheetTitle>
+            <div className="space-y-4">{renderBody()}</div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
   )
 }
 

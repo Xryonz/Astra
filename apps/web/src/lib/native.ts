@@ -80,12 +80,16 @@ export async function initNativeApp(): Promise<void> {
     void Keyboard.addListener('keyboardWillShow', () => { freeze(); root.classList.add('astra-kb-open') })
     void Keyboard.addListener('keyboardDidShow', () => {
       unfreeze()
+      // Android NÃO dispara keyboardWillShow de forma confiável (só os Did*) —
+      // garante a classe aqui também. Sem isso a barra de perfil + respiro não
+      // colapsavam no Android e sobrava aquela faixa morta acima do teclado.
+      root.classList.add('astra-kb-open')
       // MessageList escuta: se estava perto do fim, gruda no fim de novo
       // (sem isso a última mensagem some atrás do composer).
       window.dispatchEvent(new Event('astra:kb-shown'))
     })
     void Keyboard.addListener('keyboardWillHide', () => { freeze(); root.classList.remove('astra-kb-open') })
-    void Keyboard.addListener('keyboardDidHide', unfreeze)
+    void Keyboard.addListener('keyboardDidHide', () => { unfreeze(); root.classList.remove('astra-kb-open') })
   } catch { /* plugin ausente */ }
 
   // App Shortcuts: long-press no ícone do Astra → atalhos diretos.

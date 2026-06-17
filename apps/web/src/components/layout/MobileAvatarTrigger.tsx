@@ -1,13 +1,11 @@
 /**
- * MobileAvatarTrigger — substituto do burger Menu em headers mobile.
- * Tap = abre a sidebar (drawer com servers + canais). Mostra avatar do user.
- * Visível só em mobile (md:hidden).
+ * MobileAvatarTrigger — hamburguer no header mobile (estilo Discord).
+ * Tap = abre a sidebar (drawer com servers + canais). Visível só em mobile
+ * (md:hidden). A foto do user agora vive só na barra de perfil de baixo.
  */
 import { useTranslation } from 'react-i18next'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { useAuthStore } from '@/store/authStore'
+import { Menu } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
-import { resolveApiUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -15,10 +13,8 @@ interface Props {
 }
 
 export default function MobileAvatarTrigger({ className }: Props) {
-  const { t }      = useTranslation()
-  const user       = useAuthStore((s) => s.user)
+  const { t }       = useTranslation()
   const openSidebar = useUIStore((s) => s.openMobileSidebar)
-  const initial    = (user?.displayName ?? 'A').slice(0, 1).toUpperCase()
   return (
     <button
       type="button"
@@ -26,17 +22,11 @@ export default function MobileAvatarTrigger({ className }: Props) {
       aria-label={t('sidebar.openConstellations')}
       className={cn(
         'md:hidden shrink-0 size-11 grid place-items-center cursor-pointer rounded-full',
-        'transition-transform active:scale-95',
+        'text-(--text-2) hover:text-(--accent) transition-[color,transform] active:scale-95',
         className,
       )}
     >
-      <Avatar className="size-9 border border-(--border-mid)">
-        {user?.avatarUrl
-          ? <AvatarImage src={resolveApiUrl(user.avatarUrl)} alt={user.displayName} />
-          : <AvatarFallback className="bg-(--raised) text-(--text-2) text-sm font-(family-name:--font-display)">
-              {initial}
-            </AvatarFallback>}
-      </Avatar>
+      <Menu className="size-5" />
     </button>
   )
 }

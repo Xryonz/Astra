@@ -72,13 +72,6 @@
     "wishingHint": "Sugerir o que mudar na Astra",
     "logout": "Sair"
   },
-  "navSheet": {
-    "title": "Navegar",
-    "constellationsHint": "Seus servidores e canais",
-    "starsHint": "Mensagens diretas",
-    "friendsHint": "Amigos e pedidos",
-    "alertsHint": "Notificações"
-  },
   "chat": {
     "header": {
       "search": "Buscar (Ctrl+K)",

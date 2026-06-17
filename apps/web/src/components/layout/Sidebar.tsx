@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X, Compass } from 'lucide-react'
@@ -56,6 +57,13 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   })
   const mobileOpen    = useUIStore((s) => s.mobileSidebarOpen)
   const closeMobile   = useUIStore((s) => s.closeMobileSidebar)
+  const location      = useLocation()
+
+  // Desktop: abrir uma DM colapsa a coluna de canais (rail | lista | conversa),
+  // focando no chat — norma Discord. `collapsed` é a preferência manual do user.
+  const onDMRoute          = location.pathname.startsWith('/app/dm')
+  const forceCollapse      = onDMRoute
+  const effectiveCollapsed = collapsed || forceCollapse
   // Dialogs: parent controla apenas open + target. Cada dialog componente
   // gerencia próprio form state + mutation.
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -356,20 +364,23 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           <div className="flex-1" />
 
           {/* Colapsar painel é conceito de desktop — no mobile o drawer
-              inteiro fecha, então o botão só confundia. */}
-          <div className="hidden md:contents">
-            <StripButton
-              title={collapsed ? t('sidebar.expandPanel') : t('sidebar.collapsePanel')}
-              icon={collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-              onClick={() => {
-                setCollapsed((c) => {
-                  const next = !c
-                  localStorage.setItem('astra-sidebar-collapsed', next ? '1' : '0')
-                  return next
-                })
-              }}
-            />
-          </div>
+              inteiro fecha, então o botão só confundia. Em DM/home o painel já
+              colapsa por contexto, então o toggle some (nada pra expandir). */}
+          {!forceCollapse && (
+            <div className="hidden md:contents">
+              <StripButton
+                title={collapsed ? t('sidebar.expandPanel') : t('sidebar.collapsePanel')}
+                icon={collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                onClick={() => {
+                  setCollapsed((c) => {
+                    const next = !c
+                    localStorage.setItem('astra-sidebar-collapsed', next ? '1' : '0')
+                    return next
+                  })
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── Channel panel ─────────────────────────────────── */}
@@ -381,7 +392,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             'h-full bg-muted border-r border-border flex flex-col overflow-hidden transition-[width] duration-300 ease-(--ease-spring) min-w-0',
             // Mobile: ocupa o resto da largura (após strip 64px). Desktop: w-55 ou colapsa.
             'flex-1 md:flex-none',
-            collapsed ? 'md:w-0 md:border-r-0' : 'md:w-55'
+            effectiveCollapsed ? 'md:w-0 md:border-r-0' : 'md:w-55'
           )}
         >
           {/* Mobile-only header: avatar (abre Mais) + título + X (fecha sidebar) */}

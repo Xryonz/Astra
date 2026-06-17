@@ -4,8 +4,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '@/lib/api'
-import DMList from '@/components/dm/DMList'
-import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
+import DMHome from '@/components/dm/DMHome'
 import DMChat from '@/components/dm/DMChat'
 import DMInput from '@/components/dm/DMInput'
 import TypingIndicator from '@/components/chat/TypingIndicator'
@@ -95,7 +94,7 @@ export default function DMPage() {
   return (
     <div className="flex h-full w-full font-(family-name:--font-body) anim-fade-in">
 
-      {/* ── Conversation list ─────────────────────────────
+      {/* ── Home: lista de DMs + abas (Mensagens/Amigos) + sino ───────────
           Desktop: sempre visível. Mobile: visível só quando nenhuma DM ativa. */}
       <aside
         className={cn(
@@ -103,21 +102,7 @@ export default function DMPage() {
           activeDM ? 'hidden md:flex' : 'flex'
         )}
       >
-        {/* Header */}
-        <div className="h-14 px-4 flex items-center gap-3 border-b border-(--border) shrink-0">
-          {/* Burger mobile-only */}
-          <MobileAvatarTrigger />
-
-          <h2
-            className="text-lg m-0 font-normal tracking-tight text-foreground truncate"
-            style={{ fontFamily: 'var(--font-display)' }}
-            title={t('dm.titleAttr')}
-          >
-            {t('dm.title')}
-          </h2>
-        </div>
-
-        <DMList
+        <DMHome
           activeDMId={activeDM?.conversationId ?? null}
           onSelectDM={(dm) => {
             setActiveDM(dm)

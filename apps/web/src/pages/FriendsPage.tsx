@@ -39,13 +39,9 @@ const PRESENCE_DOT: Record<string, string> = {
 
 export default function FriendsPage() {
   const { t }        = useTranslation()
-  const [tab, setTab] = useState<'friends' | 'pending' | 'add'>('friends')
   const friends      = useFriends()
   const requests     = useFriendRequests()
   const outgoing     = useFriendOutgoing()
-
-  const onlineCount  = (friends.data ?? []).filter((f) => f.presence === 'ONLINE').length
-  const pendingCount = (requests.data ?? []).length
 
   const { ref: ptrRef, pull, refreshing } = usePullToRefresh<HTMLDivElement>(
     () => Promise.all([friends.refetch(), requests.refetch(), outgoing.refetch()]),
@@ -80,36 +76,7 @@ export default function FriendsPage() {
             </Reveal>
           </header>
 
-          {/* Tabs editoriais */}
-          <Reveal delay={0.65}>
-            <nav className="flex gap-1 mb-8 border-b border-(--border)">
-              {[
-                { id: 'friends', label: t('friends.tabFriends'), count: friends.data?.length ?? 0 },
-                { id: 'pending', label: t('friends.tabPending'), count: pendingCount },
-                { id: 'add',     label: t('friends.tabAdd'), count: null as number | null },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setTab(item.id as any)}
-                  className={cn(
-                    'group relative px-3.5 py-2.5 text-sm -mb-px border-b-2 transition-colors font-(family-name:--font-display)',
-                    tab === item.id
-                      ? 'border-(--accent) text-foreground'
-                      : 'border-transparent text-(--text-3) hover:text-foreground',
-                  )}
-                >
-                  <span>{item.label}</span>
-                  {item.count !== null && item.count > 0 && (
-                    <span className="ml-1.5 text-[10px] font-mono text-(--text-3)">· {item.count}</span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </Reveal>
-
-          {tab === 'friends' && <FriendsList items={friends.data ?? []} onlineCount={onlineCount} loading={friends.isLoading} />}
-          {tab === 'pending' && <PendingList incoming={requests.data ?? []} outgoing={outgoing.data ?? []} />}
-          {tab === 'add'     && <AddFriendForm />}
+          <FriendsPanel />
         </div>
 
         {/* Margem direita — aside */}
@@ -122,6 +89,53 @@ export default function FriendsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * FriendsPanel — sub-abas (Amigos/Pendentes/Adicionar) + listas, sem o header
+ * editorial. Usado solto na FriendsPage e embutido na aba "Amigos" da home.
+ */
+export function FriendsPanel() {
+  const { t }         = useTranslation()
+  const [tab, setTab] = useState<'friends' | 'pending' | 'add'>('friends')
+  const friends       = useFriends()
+  const requests      = useFriendRequests()
+  const outgoing      = useFriendOutgoing()
+
+  const onlineCount  = (friends.data ?? []).filter((f) => f.presence === 'ONLINE').length
+  const pendingCount = (requests.data ?? []).length
+
+  return (
+    <>
+      <nav className="flex gap-1 mb-8 border-b border-(--border)">
+        {[
+          { id: 'friends', label: t('friends.tabFriends'), count: friends.data?.length ?? 0 },
+          { id: 'pending', label: t('friends.tabPending'), count: pendingCount },
+          { id: 'add',     label: t('friends.tabAdd'), count: null as number | null },
+        ].map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setTab(item.id as any)}
+            className={cn(
+              'group relative px-3.5 py-2.5 text-sm -mb-px border-b-2 transition-colors font-(family-name:--font-display)',
+              tab === item.id
+                ? 'border-(--accent) text-foreground'
+                : 'border-transparent text-(--text-3) hover:text-foreground',
+            )}
+          >
+            <span>{item.label}</span>
+            {item.count !== null && item.count > 0 && (
+              <span className="ml-1.5 text-[10px] font-mono text-(--text-3)">· {item.count}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'friends' && <FriendsList items={friends.data ?? []} onlineCount={onlineCount} loading={friends.isLoading} />}
+      {tab === 'pending' && <PendingList incoming={requests.data ?? []} outgoing={outgoing.data ?? []} />}
+      {tab === 'add'     && <AddFriendForm />}
+    </>
   )
 }
 

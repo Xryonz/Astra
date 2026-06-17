@@ -4,12 +4,9 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import Sidebar from '@/components/layout/Sidebar'
 import MobileProfileBar from '@/components/layout/MobileProfileBar'
-import MobileNavSheet from '@/components/layout/MobileNavSheet'
 import MobileMoreSheet from '@/components/layout/MobileMoreSheet'
 import MobileNotificationsSheet from '@/components/notifications/MobileNotificationsSheet'
 import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
-import AstraLogo from '@/components/AstraLogo'
-import { Reveal } from '@/components/anim/Reveal'
 import { PageTransition } from '@/components/anim/PageTransition'
 import { AnimatePresence } from 'motion/react'
 import { Pin, Search, Users as UsersIcon, Bookmark, MoreHorizontal } from 'lucide-react'
@@ -260,63 +257,10 @@ function ChannelView() {
             </ServerEmojiProvider>
           </>
         ) : (
-          /* Asymmetric editorial layout: pavlivka — left margin reservado pra
-             rótulo vertical / numeração; conteúdo ocupa coluna direita. */
-          <div className="flex-1 relative overflow-hidden">
-            <MobileAvatarTrigger className="absolute top-3 left-3 z-10" />
-
-            {/* Vignette sutil */}
-            <div className="ed-vignette" />
-
-            <div className="absolute inset-0 grid grid-cols-12 gap-6 px-6 sm:px-12 py-16">
-              <div className="col-span-12 md:col-span-7 md:col-start-4 flex flex-col justify-center max-w-[44ch]">
-                <Reveal delay={0.05}>
-                  <div className="anim-float mb-7">
-                    <AstraLogo size={88} />
-                  </div>
-                </Reveal>
-
-                <Reveal delay={0.18}>
-                  <span className="ed-marg block mb-3">{t('chat.empty.margin')}</span>
-                </Reveal>
-
-                <Reveal delay={0.30}>
-                  <h2 className="ed-h text-4xl sm:text-5xl m-0 mb-2 leading-[1.05]">
-                    {t('chat.empty.title1')}
-                  </h2>
-                </Reveal>
-
-                <Reveal delay={0.40}>
-                  <h2 className="ed-h text-4xl sm:text-5xl m-0 italic text-(--accent) leading-[1.05]">
-                    {t('chat.empty.title2')}
-                  </h2>
-                </Reveal>
-
-                <Reveal delay={0.55}>
-                  <div className="ed-hr-accent w-20 my-7" />
-                </Reveal>
-
-                <Reveal delay={0.65}>
-                  <p className="ed-lede max-w-[34ch] m-0 text-(--text-2)">
-                    {t('chat.empty.lede')}
-                  </p>
-                </Reveal>
-
-                <Reveal delay={0.85}>
-                  <p className="ed-marg mt-8">{t('chat.empty.shortcut')}</p>
-                </Reveal>
-              </div>
-
-              {/* Margem direita — aside / margin note (negative space + serif renaissance) */}
-              <div className="hidden lg:flex col-span-2 col-start-11 items-end pb-12">
-                <Reveal delay={1.0}>
-                  <p className="ed-aside max-w-[20ch]">
-                    {t('chat.empty.aside')}
-                  </p>
-                </Reveal>
-              </div>
-            </div>
-          </div>
+          /* Tela padrão = home de DMs (lista + abas Mensagens/Amigos + sino). */
+          <Suspense fallback={<div className="flex-1 min-w-0 h-full" />}>
+            <DMPage />
+          </Suspense>
         )}
       </div>
 
@@ -464,9 +408,8 @@ export default function AppPage() {
         <IncomingCallModal />
       </Suspense>
 
-      {/* Mobile-only: barra de perfil no bottom + sheets navegação/Mais/notificações */}
+      {/* Mobile-only: barra de perfil no bottom + sheets Mais/notificações */}
       <MobileProfileBar />
-      <MobileNavSheet />
       <MobileMoreSheet />
       <MobileNotificationsSheet />
 

@@ -1,13 +1,12 @@
 /**
- * MobileProfileBar — barra fixa no bottom (md:hidden) que substituiu a
- * bottom nav de 5 tabs. Modelo Discord (user-panel):
+ * MobileProfileBar — barra fixa no bottom (md:hidden), modelo user-panel do
+ * Discord:
  *
- *   [avatar] DisplayName ............... [✦]
- *            @username
+ *   [avatar] DisplayName ............... [rail]
+ *            • Status
  *
  * Esquerda (flex-1): toque → sheet "Mais" (perfil/config/sair).
- * Direita: botão constelação → sheet de navegação (Constelações/Estrelas/
- * Amigos/Avisos). Badge de não-lidos sinaliza Avisos lá dentro.
+ * Direita: botão constelação → abre o drawer da rail de servidores.
  *
  * Posição: fixed bottom + safe-area. Conteúdo das pages tem pb-16.
  * z-30 — abaixo de modais/sheets (40+), acima do conteúdo.
@@ -15,21 +14,21 @@
 import { useTranslation } from 'react-i18next'
 import { ConstellationIcon } from '@/components/icons/ConstellationIcon'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import StatusDot, { STATUS_LABEL_KEY } from '@/components/StatusDot'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
-import { useNotificationCount } from '@/hooks/useNotifications'
+import { usePresenceStore } from '@/store/presenceStore'
 import { resolveApiUrl } from '@/lib/api'
 import { hapticLight } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
 
 export default function MobileProfileBar() {
-  const { t }           = useTranslation()
-  const user            = useAuthStore((s) => s.user)
-  const setMoreOpen     = useUIStore((s) => s.setMobileMoreOpen)
-  const setNavOpen      = useUIStore((s) => s.setMobileNavOpen)
-  const navOpen         = useUIStore((s) => s.mobileNavOpen)
-  const { data: count } = useNotificationCount()
-  const unread          = count?.count ?? 0
+  const { t }        = useTranslation()
+  const user         = useAuthStore((s) => s.user)
+  const myStatus     = usePresenceStore((s) => s.myStatus)
+  const setMoreOpen  = useUIStore((s) => s.setMobileMoreOpen)
+  const openSidebar  = useUIStore((s) => s.openMobileSidebar)
+  const sidebarOpen  = useUIStore((s) => s.mobileSidebarOpen)
 
   return (
     <nav
@@ -59,30 +58,26 @@ export default function MobileProfileBar() {
             <p className="text-sm m-0 font-(family-name:--font-display) text-foreground truncate">
               {user?.displayName ?? '—'}
             </p>
-            <p className="text-[11px] font-mono text-(--text-3) m-0 truncate">
-              @{user?.username ?? '—'}
+            <p className="text-[11px] m-0 truncate flex items-center gap-1.5 text-(--text-3)">
+              <StatusDot status={myStatus} size={8} />
+              <span className="truncate">{t(STATUS_LABEL_KEY[myStatus])}</span>
             </p>
           </div>
         </button>
 
-        {/* Constelação — abre sheet de navegação */}
+        {/* Constelação — abre o drawer da rail de servidores */}
         <button
           type="button"
-          onClick={() => { hapticLight(); setNavOpen(true) }}
-          aria-label={t('navSheet.title')}
+          onClick={() => { hapticLight(); openSidebar() }}
+          aria-label={t('sidebar.openConstellations')}
           className={cn(
             'relative size-12 grid place-items-center rounded-xl shrink-0 cursor-pointer border transition-colors active:scale-95',
-            navOpen
+            sidebarOpen
               ? 'border-(--accent) bg-(--accent) text-(--void)'
               : 'border-(--border-mid) bg-(--raised)/50 text-(--text-2) hover:text-(--accent) hover:border-(--accent)',
           )}
         >
           <ConstellationIcon className="size-5" />
-          {unread > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-(--danger) text-[9px] font-semibold text-white flex items-center justify-center">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
         </button>
       </div>
     </nav>

@@ -699,7 +699,7 @@ function MessageItemImpl({
               src={author.avatarUrl}
               name={author.displayName}
               color="var(--accent)"
-              size={36}
+              size={40}
               isBot
               onClick={handleAvatarClick}
             />
@@ -710,14 +710,14 @@ function MessageItemImpl({
                   src={author.avatarUrl}
                   name={author.displayName}
                   color={defaultColor(author.id)}
-                  size={36}
+                  size={40}
                   onClick={handleAvatarClick}
                 />
               </span>
             </ProfileHoverCard>
           )
         ) : (
-          <div className="w-9 shrink-0 flex items-center justify-end">
+          <div className="w-10 shrink-0 flex items-center justify-end">
             {hovered && !isPending && (
               <span className="text-[10px] text-muted-foreground whitespace-nowrap" style={{ fontFamily: 'var(--font-mono)' }}>
                 {format(new Date(createdAt), 'HH:mm')}
@@ -750,7 +750,7 @@ function MessageItemImpl({
             </div>
           )}
 
-          <div className="text-body leading-[1.65] text-foreground wrap-break-word m-0">
+          <div className="text-body leading-normal text-foreground wrap-break-word m-0">
             {(message as any).pinned && (
               <span className="ed-marg inline-flex items-center gap-1 mb-1 text-(--accent)!">
                 <Pin className="size-2.5" /> {t('chat.message.pinned')}

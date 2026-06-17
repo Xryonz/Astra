@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import { sentry } from '@/lib/sentry'
+import { saveRefreshNative, loadRefreshNative, clearRefreshNative } from '@/lib/secureStore'
 
 const API_URL = (import.meta as any).env?.VITE_API_URL ?? ''
 export const apiBaseUrl = API_URL
@@ -10,8 +11,25 @@ export const resolveApiUrl = (url: string) =>
 
 const REFRESH_KEY = 'astra-refresh'
 export const getStoredRefreshToken = () => localStorage.getItem(REFRESH_KEY) || null
-export const setStoredRefreshToken = (token: string) => localStorage.setItem(REFRESH_KEY, token)
-export const clearStoredRefreshToken = () => localStorage.removeItem(REFRESH_KEY)
+export const setStoredRefreshToken = (token: string) => {
+  localStorage.setItem(REFRESH_KEY, token)
+  void saveRefreshNative(token)   // espelha no keystore seguro (no-op no web)
+}
+export const clearStoredRefreshToken = () => {
+  localStorage.removeItem(REFRESH_KEY)
+  void clearRefreshNative()
+}
+
+/**
+ * Boot nativo: se o localStorage da WebView perdeu o refresh token mas o
+ * keystore ainda tem, restaura no localStorage ANTES do bootstrapAuth ler.
+ * É o que evita o "forçado a relogar" em cold start no Android.
+ */
+export async function hydrateRefreshFromNative(): Promise<void> {
+  if (getStoredRefreshToken()) return
+  const native = await loadRefreshNative()
+  if (native) localStorage.setItem(REFRESH_KEY, native) // sem re-espelhar
+}
 
 export const api = axios.create({ baseURL: API_URL })
 

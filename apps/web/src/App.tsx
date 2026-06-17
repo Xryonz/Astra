@@ -2,6 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { bootstrapAuth } from '@/lib/bootstrap'
+import { hydrateRefreshFromNative } from '@/lib/api'
 import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
 import { registerNativePush } from '@/lib/pushNative'
 import { isAppLockEnabled, verifyAppLock, isVerifyingAppLock } from '@/lib/appLock'
@@ -47,7 +48,13 @@ export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   useEffect(() => {
-    bootstrapAuth().finally(() => setBooted(true))
+    // Hidrata o refresh token do keystore nativo ANTES do bootstrap — se a
+    // WebView limpou o localStorage, restaura daqui e evita relogin forçado.
+    void (async () => {
+      try { await hydrateRefreshFromNative() } catch { /* segue */ }
+      try { await bootstrapAuth() } catch { /* bootstrap já trata 401 */ }
+      setBooted(true)
+    })()
   }, [])
 
   // Push nativo (FCM): registra o device quando autenticado. No-op no web.

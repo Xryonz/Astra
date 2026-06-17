@@ -45,6 +45,11 @@ export async function verifyAppLock(): Promise<boolean> {
       reason:   'Desbloquear o Astra',
       title:    'Astra bloqueado',
       subtitle: 'Use sua digital pra entrar',
+      // useFallback: se a digital falhar/lockout, o Android oferece o PIN/padrão
+      // do aparelho — o user nunca fica preso fora. maxAttempts contém o loop de
+      // re-tentativa do sensor (Samsung reabria o prompt a cada erro).
+      useFallback: true,
+      maxAttempts: 2,
     })
     return true
   } catch {

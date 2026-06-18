@@ -30,9 +30,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +55,11 @@ import app.astra.mobile.ui.theme.astraColors
 import io.livekit.android.compose.ui.ScaleType
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.Room
+
+// Room e constante durante a call (mesmo EGL/renderer). Passa via local estavel
+// pra NAO entrar como parametro instavel em ParticipantTile — assim o tile pode
+// pular recomposicao quando so o "isSpeaking" de outro participante muda.
+private val LocalCallRoom = staticCompositionLocalOf<Room?> { null }
 
 @Composable
 fun CallScreen(
@@ -145,19 +152,21 @@ fun CallScreen(
                                 if (p.screenTrack != null) add(Tile("${p.identity}:scr", p, isScreen = true))
                             }
                         }
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            items(
-                                items = tiles,
-                                key = { it.key },
-                                span = { GridItemSpan(if (it.isScreen) 2 else 1) },
-                            ) { tile ->
-                                ParticipantTile(tile.participant, tile.isScreen, viewModel.room)
+                        CompositionLocalProvider(LocalCallRoom provides viewModel.room) {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(
+                                    items = tiles,
+                                    key = { it.key },
+                                    span = { GridItemSpan(if (it.isScreen) 2 else 1) },
+                                ) { tile ->
+                                    ParticipantTile(tile.participant, tile.isScreen)
+                                }
                             }
                         }
                     }
@@ -194,7 +203,8 @@ private fun subtitle(state: CallUiState): String = when (state.status) {
 }
 
 @Composable
-private fun ParticipantTile(p: CallParticipantUi, isScreen: Boolean, room: Room?) {
+private fun ParticipantTile(p: CallParticipantUi, isScreen: Boolean) {
+    val room = LocalCallRoom.current
     val shape = RoundedCornerShape(16.dp)
     val ring = if (!isScreen && p.isSpeaking) astraColors.accent else Color.Transparent
     val track = if (isScreen) p.screenTrack else p.videoTrack

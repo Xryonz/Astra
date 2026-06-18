@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.voice.presentation
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@Immutable
 data class CallParticipantUi(
     val identity: String,
     val name: String,

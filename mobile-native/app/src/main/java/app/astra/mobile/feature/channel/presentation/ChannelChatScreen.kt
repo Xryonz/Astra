@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,10 +44,14 @@ fun ChannelChatScreen(
                         color = astraColors.text2,
                         modifier = Modifier.align(Alignment.Center),
                     )
-                    else -> ChatMessageList(
-                        rows = state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content) },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    else -> {
+                        // So re-mapeia quando as mensagens mudam — digitar no input
+                        // (mesmo state) nao re-aloca a lista inteira.
+                        val rows = remember(state.messages) {
+                            state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content) }
+                        }
+                        ChatMessageList(rows = rows, modifier = Modifier.fillMaxSize())
+                    }
                 }
             }
 

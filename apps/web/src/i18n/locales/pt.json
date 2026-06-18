@@ -820,12 +820,20 @@
       "wishing": "Wishing Star",
       "sessions": "Sessões",
       "data": "Dados",
-      "language": "Idioma"
+      "language": "Idioma",
+      "accessibility": "Acessibilidade"
     },
     "save": {
       "saving": "Salvando…",
       "saved": "✓ Salvo",
       "error": "Erro ao salvar"
+    },
+    "accessibility": {
+      "title": "Acessibilidade",
+      "description": "Ajustes de conforto e feedback do app.",
+      "haptics": "Vibração",
+      "hapticsHint": "Feedback tátil em toques, envios e ações com peso. Só neste dispositivo.",
+      "hapticsWebHint": "Disponível só no app do celular."
     },
     "account": {
       "title": "Conta",

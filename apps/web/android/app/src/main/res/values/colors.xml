@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- --void do tema Astra. Usado como fundo da janela pra a area exposta
+         quando o teclado abre (Android 15 edge-to-edge + adjustResize) NAO
+         aparecer como o cinza padrao do tema DayNight. -->
+    <color name="astra_void">#FF06060E</color>
+</resources>

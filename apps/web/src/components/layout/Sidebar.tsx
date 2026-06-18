@@ -4,7 +4,6 @@ import { useLocation } from 'react-router-dom'
 import { useViewTransitionNavigate } from '@/hooks/useViewTransitionNavigate'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Users, UserPlus, Pencil, Trash2, PanelLeftClose, PanelLeftOpen, Mic, Copy, Eye, Sparkles, X, Compass } from 'lucide-react'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { useLongPress } from '@/hooks/useLongPress'
 import { useConfirm, usePrompt } from '@/hooks/useConfirm'
@@ -915,24 +914,11 @@ function VoiceParticipantsRow({
  * o acesso ao perfil moram aqui dentro, alinhado com a bottom nav.
  */
 function MobileSidebarHeader({ onClose }: { onClose: () => void }) {
-  const user        = useAuthStore((s) => s.user)
-  const setMoreOpen = useUIStore((s) => s.setMobileMoreOpen)
   return (
     <header className="md:hidden h-14 px-3 flex items-center gap-2 border-b border-(--border) bg-(--base) shrink-0">
-      <button
-        type="button"
-        onClick={() => setMoreOpen(true)}
-        aria-label="Abrir menu Mais"
-        className="size-10 grid place-items-center rounded-full cursor-pointer transition-transform active:scale-95"
-      >
-        <Avatar className="size-9 border border-(--border-mid)">
-          {user?.avatarUrl
-            ? <AvatarImage src={resolveApiUrl(user.avatarUrl)} alt={user.displayName} />
-            : <AvatarFallback className="bg-(--raised) text-(--text-2) text-sm font-(family-name:--font-display)">
-                {(user?.displayName ?? 'A').slice(0, 1).toUpperCase()}
-              </AvatarFallback>}
-        </Avatar>
-      </button>
+      {/* Espaçador pra manter "Constelações" centralizado (balanceia o X).
+          A foto do user vive só na barra de perfil de baixo. */}
+      <span className="size-10 shrink-0" aria-hidden />
       <h2
         className="flex-1 text-base m-0 font-normal tracking-tight text-foreground text-center truncate"
         style={{ fontFamily: 'var(--font-display)' }}

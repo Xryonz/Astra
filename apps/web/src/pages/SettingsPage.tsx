@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database, Brush, Sparkles, Languages, X, ChevronRight,
+  ArrowLeft, User, Image as ImageIcon, Palette, Bell, Shield, Users as UsersIcon, Database, Brush, Sparkles, Languages, Accessibility, X, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { registerBackHandler } from '@/lib/backHandler'
@@ -16,6 +16,7 @@ import SessionsSection     from '@/components/settings/sections/SessionsSection'
 import DataSection         from '@/components/settings/sections/DataSection'
 import WishingStarSection  from '@/components/settings/sections/WishingStarSection'
 import LanguageSection      from '@/components/settings/sections/LanguageSection'
+import AccessibilitySection from '@/components/settings/sections/AccessibilitySection'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Reveal } from '@/components/anim/Reveal'
 import { motion, AnimatePresence } from 'motion/react'
@@ -31,6 +32,7 @@ type SectionId =
   | 'name-colors'
   | 'notifications'
   | 'language'
+  | 'accessibility'
   | 'sessions'
   | 'data'
   | 'wishing'
@@ -46,6 +48,7 @@ const NAV: NavItem[] = [
   { id: 'name-colors',   label: 'settings.nav.name-colors',   icon: <UsersIcon className="size-3.5" />, group: 'app' },
   { id: 'notifications', label: 'settings.nav.notifications', icon: <Bell className="size-3.5" />,      group: 'app' },
   { id: 'language',      label: 'settings.nav.language',      icon: <Languages className="size-3.5" />, group: 'app' },
+  { id: 'accessibility', label: 'settings.nav.accessibility', icon: <Accessibility className="size-3.5" />, group: 'app' },
   { id: 'wishing',       label: 'settings.nav.wishing',       icon: <Sparkles className="size-3.5" />,  group: 'comunidade' },
   { id: 'sessions',      label: 'settings.nav.sessions',      icon: <Shield className="size-3.5" />,    group: 'privacidade' },
   { id: 'data',          label: 'settings.nav.data',          icon: <Database className="size-3.5" />,  group: 'privacidade' },
@@ -118,6 +121,7 @@ export default function SettingsPage() {
       case 'name-colors':   return <NameColorsSection />
       case 'notifications': return <NotificationsSection />
       case 'language':      return <LanguageSection />
+      case 'accessibility': return <AccessibilitySection />
       case 'wishing':       return <WishingStarSection />
       case 'sessions':      return <SessionsSection />
       case 'data':          return <DataSection />

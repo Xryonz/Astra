@@ -820,12 +820,20 @@
       "wishing": "Wishing Star",
       "sessions": "Sessions",
       "data": "Data",
-      "language": "Language"
+      "language": "Language",
+      "accessibility": "Accessibility"
     },
     "save": {
       "saving": "Saving…",
       "saved": "✓ Saved",
       "error": "Couldn't save"
+    },
+    "accessibility": {
+      "title": "Accessibility",
+      "description": "Comfort and feedback settings.",
+      "haptics": "Vibration",
+      "hapticsHint": "Haptic feedback on taps, sends and weighted actions. This device only.",
+      "hapticsWebHint": "Available only in the mobile app."
     },
     "account": {
       "title": "Account",

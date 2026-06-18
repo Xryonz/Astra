@@ -13,6 +13,10 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Fundo da janela = void. Sem isso, ao abrir o teclado a area exposta
+             mostra o cinza padrao do DayNight (faixa cinza acima do teclado). -->
+        <item name="android:windowBackground">@color/astra_void</item>
+        <item name="android:colorBackground">@color/astra_void</item>
     </style>
 
 

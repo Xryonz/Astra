@@ -24,16 +24,20 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Conexao Socket.io unica do app (espelha apps/web/src/lib/socket.ts).
  * - auth.token = access token JWT (mesmo do REST)
- * - heartbeat a cada 30s pra manter presenca viva no Redis
- * - reconnect automatico da lib; alem disso, se o handshake falhar por token
- *   expirado, refresca o token e reconecta (o server revalida o token em TODA
- *   conexao via io.use).
+ * - heartbeat 30s pra manter presenca viva no Redis
+ * - a lib reconecta sozinha (reconnection=true); cada (re)handshake le o token
+ *   atual do TokenStore. Se o handshake recusa por token expirado, refrescamos
+ *   o token e deixamos a proxima tentativa automatica usa-lo (sem connect manual,
+ *   pra nao competir com a auto-reconexao).
+ * - re-join das conversas abertas ao (re)conectar: as rooms sao do servidor e
+ *   se perdem na queda.
  */
 @Singleton
 class SocketManager @Inject constructor(
@@ -45,10 +49,11 @@ class SocketManager @Inject constructor(
     private var options: IO.Options? = null
     private var heartbeat: Job? = null
 
+    // Conversas abertas — re-emitidas como join_dm a cada (re)conexao.
+    private val activeRooms = ConcurrentHashMap.newKeySet<String>()
+
     @Volatile private var refreshing = false
-    // Corta loop: no maximo N refresh+reconnect seguidos sem um connect OK
-    // (evita queimar refresh tokens se o server estiver fora). Zera ao conectar.
-    private var refreshReconnects = 0
+    @Volatile private var lastRefreshAtMs = 0L
 
     private val _state = MutableStateFlow(ConnectionState.Disconnected)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
@@ -83,9 +88,10 @@ class SocketManager @Inject constructor(
 
         s.on(Socket.EVENT_CONNECT) {
             Log.d(TAG, "conectado id=${s.id()}")
-            refreshReconnects = 0
             _state.value = ConnectionState.Connected
             startHeartbeat()
+            // re-entra nas conversas abertas (rooms se perdem na queda)
+            activeRooms.forEach { s.emit("join_dm", it) }
         }
         s.on(Socket.EVENT_DISCONNECT) { args ->
             Log.d(TAG, "desconectado: ${args.firstOrNull()}")
@@ -96,10 +102,9 @@ class SocketManager @Inject constructor(
             val msg = args.firstOrNull()?.toString().orEmpty()
             Log.w(TAG, "connect_error: $msg")
             _state.value = ConnectionState.Disconnected
-            // So age se o erro for de auth (token). Erro de transporte/server-fora
-            // a propria lib reconecta sozinha (reconnection=true).
+            // Handshake recusou: se for token, refresca. A lib segue reconectando.
             if (msg.contains("TOKEN", true) || msg.contains("AUTH", true)) {
-                refreshAndReconnect(s)
+                refreshTokenForReconnect()
             }
         }
 
@@ -115,8 +120,8 @@ class SocketManager @Inject constructor(
             }
         }
 
-        // Reconnect automatico da lib: atualiza o auth que o proximo handshake
-        // envia (o Manager le do mesmo objeto opts).
+        // A cada tentativa automatica, manda o token atual do TokenStore (pode
+        // ter rotacionado via REST/Authenticator ou pelo refresh abaixo).
         s.io().on(Manager.EVENT_RECONNECT_ATTEMPT) {
             val fresh = runBlocking { tokenStore.currentAccess() }
             if (fresh != null) options?.auth = mapOf("token" to fresh)
@@ -126,19 +131,18 @@ class SocketManager @Inject constructor(
         s.connect()
     }
 
-    // Handshake rejeitou o token: refresca uma vez e reconecta com o novo.
-    private fun refreshAndReconnect(s: Socket) {
-        if (refreshing || refreshReconnects >= MAX_REFRESH_RECONNECTS) return
+    // Refresca o token (cooldown 10s pra nao queimar refresh tokens em loop).
+    // Nao chama connect(): a auto-reconexao da lib pega o token novo no proximo
+    // reconnect_attempt.
+    private fun refreshTokenForReconnect() {
+        val now = System.currentTimeMillis()
+        if (refreshing || now - lastRefreshAtMs < REFRESH_COOLDOWN_MS) return
         refreshing = true
-        refreshReconnects++
         scope.launch {
             val newAccess = tryRefresh()
+            lastRefreshAtMs = System.currentTimeMillis()
             refreshing = false
-            if (newAccess != null) {
-                options?.auth = mapOf("token" to newAccess)
-                _state.value = ConnectionState.Connecting
-                s.connect()
-            }
+            if (newAccess != null) options?.auth = mapOf("token" to newAccess)
         }
     }
 
@@ -155,19 +159,21 @@ class SocketManager @Inject constructor(
     }
 
     fun joinDm(conversationId: String) {
+        activeRooms.add(conversationId)
         socket?.emit("join_dm", conversationId)
     }
 
     fun leaveDm(conversationId: String) {
+        activeRooms.remove(conversationId)
         socket?.emit("leave_dm", conversationId)
     }
 
     fun disconnect() {
         stopHeartbeat()
+        activeRooms.clear()
         socket?.apply { off(); disconnect() }
         socket = null
         options = null
-        refreshReconnects = 0
         _state.value = ConnectionState.Disconnected
     }
 
@@ -188,6 +194,6 @@ class SocketManager @Inject constructor(
 
     private companion object {
         const val TAG = "SocketManager"
-        const val MAX_REFRESH_RECONNECTS = 3
+        const val REFRESH_COOLDOWN_MS = 10_000L
     }
 }

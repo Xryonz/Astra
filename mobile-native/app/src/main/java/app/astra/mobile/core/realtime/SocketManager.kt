@@ -3,6 +3,7 @@ package app.astra.mobile.core.realtime
 import android.util.Log
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.network.RefreshApi
 import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
@@ -26,18 +27,24 @@ import javax.inject.Singleton
  * Conexao Socket.io unica do app (espelha apps/web/src/lib/socket.ts).
  * - auth.token = access token JWT (mesmo do REST)
  * - heartbeat a cada 30s pra manter presenca viva no Redis
- * - reconnect automatico; no reconnect re-le o token (pode ter rotacionado)
- *
- * @Singleton via constructor injection — sem modulo Hilt extra.
+ * - reconnect automatico da lib; alem disso, se o handshake falhar por token
+ *   expirado, refresca o token e reconecta (o server revalida o token em TODA
+ *   conexao via io.use).
  */
 @Singleton
 class SocketManager @Inject constructor(
     private val tokenStore: TokenStore,
+    private val refreshApi: RefreshApi,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: Socket? = null
     private var options: IO.Options? = null
     private var heartbeat: Job? = null
+
+    @Volatile private var refreshing = false
+    // Corta loop: no maximo N refresh+reconnect seguidos sem um connect OK
+    // (evita queimar refresh tokens se o server estiver fora). Zera ao conectar.
+    private var refreshReconnects = 0
 
     private val _state = MutableStateFlow(ConnectionState.Disconnected)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
@@ -64,26 +71,33 @@ class SocketManager @Inject constructor(
 
         s.on(Socket.EVENT_CONNECT) {
             Log.d(TAG, "conectado id=${s.id()}")
+            refreshReconnects = 0
             _state.value = ConnectionState.Connected
             startHeartbeat()
         }
-        s.on(Socket.EVENT_DISCONNECT) {
-            Log.d(TAG, "desconectado")
+        s.on(Socket.EVENT_DISCONNECT) { args ->
+            Log.d(TAG, "desconectado: ${args.firstOrNull()}")
             _state.value = ConnectionState.Disconnected
             stopHeartbeat()
         }
         s.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            Log.w(TAG, "connect_error: ${args.firstOrNull()}")
+            val msg = args.firstOrNull()?.toString().orEmpty()
+            Log.w(TAG, "connect_error: $msg")
             _state.value = ConnectionState.Disconnected
+            // So age se o erro for de auth (token). Erro de transporte/server-fora
+            // a propria lib reconecta sozinha (reconnection=true).
+            if (msg.contains("TOKEN", true) || msg.contains("AUTH", true)) {
+                refreshAndReconnect(s)
+            }
         }
 
-        // M4a: so prova que o realtime chega. Vira state real no M4b/c.
+        // M4a: so prova que o realtime chega. Vira state real no M4c.
         s.on("presence_update") { args ->
             Log.d(TAG, "presence_update ${args.firstOrNull()}")
         }
 
-        // Reconnect com token possivelmente rotacionado: atualiza o auth que o
-        // proximo handshake envia (o Manager le do mesmo objeto opts).
+        // Reconnect automatico da lib: atualiza o auth que o proximo handshake
+        // envia (o Manager le do mesmo objeto opts).
         s.io().on(Manager.EVENT_RECONNECT_ATTEMPT) {
             val fresh = runBlocking { tokenStore.currentAccess() }
             if (fresh != null) options?.auth = mapOf("token" to fresh)
@@ -93,11 +107,40 @@ class SocketManager @Inject constructor(
         s.connect()
     }
 
+    // Handshake rejeitou o token: refresca uma vez e reconecta com o novo.
+    private fun refreshAndReconnect(s: Socket) {
+        if (refreshing || refreshReconnects >= MAX_REFRESH_RECONNECTS) return
+        refreshing = true
+        refreshReconnects++
+        scope.launch {
+            val newAccess = tryRefresh()
+            refreshing = false
+            if (newAccess != null) {
+                options?.auth = mapOf("token" to newAccess)
+                _state.value = ConnectionState.Connecting
+                s.connect()
+            }
+        }
+    }
+
+    private suspend fun tryRefresh(): String? {
+        val refresh = tokenStore.currentRefresh() ?: return null
+        return try {
+            val data = refreshApi.refresh("Bearer $refresh").data ?: return null
+            tokenStore.save(data.accessToken, data.refreshToken)
+            data.accessToken
+        } catch (e: Exception) {
+            Log.w(TAG, "refresh falhou: ${e.message}")
+            null
+        }
+    }
+
     fun disconnect() {
         stopHeartbeat()
         socket?.apply { off(); disconnect() }
         socket = null
         options = null
+        refreshReconnects = 0
         _state.value = ConnectionState.Disconnected
     }
 
@@ -118,5 +161,6 @@ class SocketManager @Inject constructor(
 
     private companion object {
         const val TAG = "SocketManager"
+        const val MAX_REFRESH_RECONNECTS = 3
     }
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema base (a UI inteira e Compose; aqui so o essencial do sistema).
+         Fundo void desde o boot pra nao piscar branco/cinza antes do Compose. -->
+    <style name="Theme.AstraMobile" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/astra_void</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

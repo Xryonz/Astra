@@ -16,11 +16,15 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
 - [ ] Perf refactor: memo + selectors finos + code-split (NAO "so dividir componente")
 - [ ] Build: 1 APK dev (debug) + 1 APK prod (release ASSINADO p/ distribuir)
 
-## T2 — Native Kotlin  /mobile-native  [LONGO PRAZO]
+## T2 — Native Kotlin  /mobile-native  [EM ANDAMENTO — decisao: encerrar Capacitor, migrar p/ Kotlin]
 - Clean Arch MVVM: data / domain / presentation (Composables + ViewModels)
 - Rede: Retrofit + kotlinx.serialization + WebSocket · DI: Hilt · async: Coroutines · img: Coil
-- Consome o backend existente
+- Consome o backend existente. Capacitor fica CONGELADO como shippable ate paridade.
 - Desktop futuro: Compose Multiplatform
+- Toolchain casado c/ Capacitor: Gradle 8.11.1 · AGP 8.7.2 · compileSdk 35 · JDK 17 · Kotlin 2.0.21
+- [x] M1 fundacao (Gradle+catalog, Compose, Hilt, tema Astra dark/amber, app roda vazio)
+- [ ] M2 rede (Retrofit+OkHttp+auth interceptor+DataStore) — precisa BASE_URL real
+- [ ] M3 slice Auth (login) · M4 WebSocket+DMs · M5 servers/canais/msgs · M6 LiveKit Android
 
 ## T3 — Dados/Infra  [QUANDO O VOLUME PEDIR]
 - Postgres (transacional) · Redis (presenca/sessao) · TimescaleDB (historico msgs, particao temporal por channel_id, created_at)

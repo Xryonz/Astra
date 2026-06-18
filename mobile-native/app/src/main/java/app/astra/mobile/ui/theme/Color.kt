@@ -1,12 +1,91 @@
 package app.astra.mobile.ui.theme
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// Paleta editorial-dark "obsidian" do Astra.
-val AstraVoid = Color(0xFF06060E)   // fundo base
-val AstraRaised = Color(0xFF12121A) // superficies elevadas
-val AstraBorder = Color(0xFF24242E)
-val AstraAmber = Color(0xFFC9A96E)  // accent
-val AstraText1 = Color(0xFFE8E6E0)  // texto primario
-val AstraText3 = Color(0xFF8A8A94)  // texto terciario
-val AstraDanger = Color(0xFFEF4444)
+// ── Tokens "DARK OBSIDIAN" / Astra cosmic (espelha apps/web/src/index.css) ──
+// Accent = prata-estelar (#d4d8e0), nao mais o ambar antigo.
+
+// Backgrounds — deep midnight blue-black, do mais fundo ao mais elevado
+val Void = Color(0xFF06060E)
+val Base = Color(0xFF09091A)
+val Raised = Color(0xFF0F0F24)
+val Overlay = Color(0xFF15152E)
+val HoverBg = Color(0xFF1C1C38)
+val ActiveBg = Color(0xFF22223F)
+
+// Accent — cold silver / starlight
+val Accent = Color(0xFFD4D8E0)
+val AccentH = Color(0xFFE8EBF0)
+val AccentDim = Color(0x1AD4D8E0)   // rgba(.10) — fills sutis
+val AccentGlow = Color(0x33D4D8E0)  // rgba(.20) — glows
+
+// Text — 3 niveis
+val Text1 = Color(0xFFF0EDFF)
+val Text2 = Color(0xFF9896BF)
+val Text3 = Color(0xFF6E6B95)
+val TextInv = Color(0xFF09091A)
+
+// Borders — color-mix(accent X%, #1a1a25) pre-computado
+val BorderDim = Color(0xFF363741)    // 15%
+val BorderMid = Color(0xFF494A54)    // 25%
+val BorderBright = Color(0xFF646670) // 40%
+
+// Semantic
+val Danger = Color(0xFFE07A7A)
+val Success = Color(0xFF6FCFA0)
+val Warning = Color(0xFFE8B86D)
+
+/**
+ * Tokens editoriais que o ColorScheme do Material3 nao cobre (6 camadas de
+ * fundo, 3 niveis de texto, variacoes do accent). Acesso via [astraColors].
+ */
+@Immutable
+data class AstraColors(
+    val void: Color,
+    val base: Color,
+    val raised: Color,
+    val overlay: Color,
+    val hover: Color,
+    val active: Color,
+    val accent: Color,
+    val accentH: Color,
+    val accentDim: Color,
+    val accentGlow: Color,
+    val text1: Color,
+    val text2: Color,
+    val text3: Color,
+    val textInv: Color,
+    val border: Color,
+    val borderMid: Color,
+    val borderBright: Color,
+    val danger: Color,
+    val success: Color,
+    val warning: Color,
+)
+
+val AstraColorTokens = AstraColors(
+    void = Void,
+    base = Base,
+    raised = Raised,
+    overlay = Overlay,
+    hover = HoverBg,
+    active = ActiveBg,
+    accent = Accent,
+    accentH = AccentH,
+    accentDim = AccentDim,
+    accentGlow = AccentGlow,
+    text1 = Text1,
+    text2 = Text2,
+    text3 = Text3,
+    textInv = TextInv,
+    border = BorderDim,
+    borderMid = BorderMid,
+    borderBright = BorderBright,
+    danger = Danger,
+    success = Success,
+    warning = Warning,
+)
+
+val LocalAstraColors = staticCompositionLocalOf { AstraColorTokens }

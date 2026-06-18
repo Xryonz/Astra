@@ -10,6 +10,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,16 +55,23 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSnappy
 import app.astra.mobile.ui.theme.astraColors
+
+/** Emojis de reacao rapida no long-press (espelha o quick-react do web). */
+val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
+
+/** Chip de reacao numa mensagem: emoji + contagem; mine destaca a borda. */
+data class ReactionChip(val emoji: String, val count: Int, val mine: Boolean)
 
 /**
  * Bolha de mensagem compartilhada (DM + canal). Entrada com slide direcional
  * (do lado do autor) + overshoot elastico; mensagem nova (sweep=true) ganha um
  * "starlight sweep" prata por cima. Espelha dmMsgIn + msgStarlightSweep do web.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun MessageBubble(
     mine: Boolean,
@@ -71,8 +80,10 @@ fun MessageBubble(
     animateIn: Boolean,
     sweep: Boolean,
     edited: Boolean = false,
+    reactions: List<ReactionChip> = emptyList(),
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    onToggleReaction: ((String) -> Unit)? = null,
 ) {
     val bg = if (mine) astraColors.accent else astraColors.raised
     val fg = if (mine) astraColors.textInv else astraColors.text1
@@ -95,8 +106,8 @@ fun MessageBubble(
     val fromX = if (mine) 26f else -26f
     val glow = astraColors.accentGlow
 
-    // Long-press abre o menu (so quando ha acoes — por ora, msg propria).
-    val hasMenu = onEdit != null || onDelete != null
+    // Long-press abre o menu (reagir e/ou editar/apagar).
+    val hasMenu = onEdit != null || onDelete != null || onToggleReaction != null
     var menuOpen by remember { mutableStateOf(false) }
 
     Row(
@@ -153,10 +164,61 @@ fun MessageBubble(
                         color = fg.copy(alpha = 0.55f),
                     )
                 }
+                if (reactions.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        reactions.forEach { r ->
+                            val chipShape = RoundedCornerShape(10.dp)
+                            Row(
+                                modifier = Modifier
+                                    .clip(chipShape)
+                                    .background(astraColors.base)
+                                    .border(1.dp, if (r.mine) astraColors.accent else astraColors.border, chipShape)
+                                    .then(
+                                        if (onToggleReaction != null) {
+                                            Modifier.clickable { onToggleReaction(r.emoji) }
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(r.emoji, fontSize = 13.sp)
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "${r.count}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (r.mine) astraColors.accent else astraColors.text2,
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             if (hasMenu) {
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (onToggleReaction != null) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            QuickReactions.forEach { e ->
+                                Text(
+                                    text = e,
+                                    fontSize = 20.sp,
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .clickable { menuOpen = false; onToggleReaction(e) }
+                                        .padding(6.dp),
+                                )
+                            }
+                        }
+                    }
                     if (onEdit != null) {
                         DropdownMenuItem(
                             text = { Text("Editar", color = astraColors.text1) },
@@ -182,6 +244,7 @@ data class ChatRow(
     val authorName: String,
     val content: String,
     val edited: Boolean = false,
+    val reactions: List<ReactionChip> = emptyList(),
 )
 
 /**
@@ -194,8 +257,10 @@ fun ChatMessageList(
     rows: List<ChatRow>,
     modifier: Modifier = Modifier,
     canEdit: Boolean = true,
+    canReact: Boolean = false,
     onEdit: (ChatRow) -> Unit = {},
     onDelete: (ChatRow) -> Unit = {},
+    onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
 ) {
     val animated = remember { mutableSetOf<String>() }
     var shownOnce by remember { mutableStateOf(false) }
@@ -212,7 +277,7 @@ fun ChatMessageList(
                 animated.add(row.id)
                 n
             }
-            // Acoes so na mensagem propria (long-press). Outras: sem menu por ora.
+            // Editar/apagar so na propria msg; reagir vale pra qualquer uma (canal).
             MessageBubble(
                 mine = row.mine,
                 authorName = row.authorName,
@@ -220,8 +285,10 @@ fun ChatMessageList(
                 animateIn = isNew,
                 sweep = isNew && shownOnce,
                 edited = row.edited,
+                reactions = row.reactions,
                 onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
                 onDelete = if (row.mine) ({ onDelete(row) }) else null,
+                onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
             )
         }
     }

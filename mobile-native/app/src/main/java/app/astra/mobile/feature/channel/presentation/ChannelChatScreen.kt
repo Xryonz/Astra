@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
+import app.astra.mobile.ui.components.ReactionChip
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
@@ -53,13 +54,24 @@ fun ChannelChatScreen(
                         // So re-mapeia quando as mensagens mudam — digitar no input
                         // (mesmo state) nao re-aloca a lista inteira.
                         val rows = remember(state.messages) {
-                            state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content, it.edited) }
+                            state.messages.map { m ->
+                                ChatRow(
+                                    id = m.id,
+                                    mine = m.mine,
+                                    authorName = m.authorName,
+                                    content = m.content,
+                                    edited = m.edited,
+                                    reactions = m.reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
+                                )
+                            }
                         }
                         ChatMessageList(
                             rows = rows,
                             modifier = Modifier.fillMaxSize(),
+                            canReact = true,
                             onEdit = { viewModel.startEdit(it.id, it.content) },
                             onDelete = { deleteTarget = it },
+                            onToggleReaction = { row, emoji -> viewModel.toggleReaction(row.id, emoji) },
                         )
                     }
                 }

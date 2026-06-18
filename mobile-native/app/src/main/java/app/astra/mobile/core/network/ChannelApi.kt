@@ -4,6 +4,7 @@ import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.ChannelMessagesPageDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
+import app.astra.mobile.core.network.dto.ReactRequest
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -38,5 +39,12 @@ interface ChannelApi {
     suspend fun deleteMessage(
         @Path("cid") channelId: String,
         @Path("mid") messageId: String,
+    )
+
+    @POST("api/channels/{cid}/messages/{mid}/react")
+    suspend fun react(
+        @Path("cid") channelId: String,
+        @Path("mid") messageId: String,
+        @Body body: ReactRequest,
     )
 }

@@ -5,11 +5,15 @@ import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
+import app.astra.mobile.core.network.dto.ReactRequest
+import app.astra.mobile.core.network.dto.ReactionDto
+import app.astra.mobile.core.network.dto.ReactionUpdateDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
+import app.astra.mobile.feature.channel.domain.model.MessageReaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
@@ -76,6 +80,17 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao apagar"))
     }
 
+    // Toggle no servidor; a UI atualiza pelo socket reaction_update (broadcast
+    // pra sala inclui o proprio autor). Fire-and-forget.
+    override suspend fun react(channelId: String, messageId: String, emoji: String): Result<Unit> = try {
+        channelApi.react(channelId, messageId, ReactRequest(emoji))
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao reagir"))
+    }
+
     override fun joinChannel(channelId: String) = socketManager.joinChannel(channelId)
 
     override fun leaveChannel(channelId: String) = socketManager.leaveChannel(channelId)
@@ -100,6 +115,17 @@ class ChannelRepositoryImpl @Inject constructor(
         socketManager.channelMessageEdited
             .filter { it.third == channelId }
             .map { it.first to it.second }
+
+    // reaction_update (JSON cru) -> (messageId, lista de reacoes ja com mine).
+    override fun reactionUpdates(channelId: String): Flow<Pair<String, List<MessageReaction>>> = flow {
+        val uid = tokenStore.currentUserId()
+        socketManager.channelReactionUpdate.collect { raw ->
+            val dto = runCatching { json.decodeFromString<ReactionUpdateDto>(raw) }.getOrNull()
+            if (dto != null && dto.channelId == channelId) {
+                emit(dto.messageId to dto.reactions.toDomain(uid))
+            }
+        }
+    }
 }
 
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
@@ -110,4 +136,8 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     createdAt = createdAt,
     mine = authorId == currentUserId,
     edited = edited,
+    reactions = reactions.toDomain(currentUserId),
 )
+
+private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =
+    map { MessageReaction(emoji = it.emoji, count = it.count, mine = uid != null && uid in it.users) }

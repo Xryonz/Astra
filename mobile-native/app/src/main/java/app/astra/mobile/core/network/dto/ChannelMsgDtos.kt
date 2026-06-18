@@ -12,7 +12,24 @@ data class ChannelMessageDto(
     val channelId: String,
     val createdAt: String? = null,
     val edited: Boolean = false,
+    val reactions: List<ReactionDto> = emptyList(),
     val author: MsgAuthorDto? = null,
+)
+
+// Resumo de reacao: { emoji, count, users[] }. mine = uid esta em users.
+@Serializable
+data class ReactionDto(
+    val emoji: String,
+    val count: Int = 0,
+    val users: List<String> = emptyList(),
+)
+
+// Evento socket reaction_update: { messageId, channelId, reactions[] }.
+@Serializable
+data class ReactionUpdateDto(
+    val messageId: String,
+    val channelId: String,
+    val reactions: List<ReactionDto> = emptyList(),
 )
 
 // GET /api/channels/:id/messages -> { data: { items, nextCursor, hasMore } }
@@ -28,3 +45,6 @@ data class SendChannelRequest(val content: String)
 
 @Serializable
 data class EditChannelRequest(val content: String)
+
+@Serializable
+data class ReactRequest(val emoji: String)

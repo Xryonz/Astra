@@ -78,6 +78,10 @@ class SocketManager @Inject constructor(
     private val _channelMessageEdited = MutableSharedFlow<Triple<String, String, String>>(extraBufferCapacity = 16)
     val channelMessageEdited: SharedFlow<Triple<String, String, String>> = _channelMessageEdited.asSharedFlow()
 
+    // reaction_update (JSON cru: messageId, channelId, reactions[]).
+    private val _channelReactionUpdate = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val channelReactionUpdate: SharedFlow<String> = _channelReactionUpdate.asSharedFlow()
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = runBlocking { tokenStore.currentAccess() } ?: return
@@ -146,6 +150,9 @@ class SocketManager @Inject constructor(
                     Triple(it.optString("messageId"), it.optString("content"), it.optString("channelId")),
                 )
             }
+        }
+        s.on("reaction_update") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _channelReactionUpdate.tryEmit(it.toString()) }
         }
 
         // A cada tentativa automatica, manda o token atual do TokenStore (pode

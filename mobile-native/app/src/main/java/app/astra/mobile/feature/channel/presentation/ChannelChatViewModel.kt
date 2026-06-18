@@ -40,6 +40,7 @@ class ChannelChatViewModel @Inject constructor(
         observeIncoming()
         observeDeleted()
         observeEdited()
+        observeReactions()
     }
 
     private fun loadHistory() {
@@ -74,6 +75,21 @@ class ChannelChatViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    // reaction_update -> substitui a lista de reacoes da msg.
+    private fun observeReactions() {
+        viewModelScope.launch {
+            repository.reactionUpdates(channelId).collect { (id, reactions) ->
+                _state.update { s ->
+                    s.copy(messages = s.messages.map { if (it.id == id) it.copy(reactions = reactions) else it })
+                }
+            }
+        }
+    }
+
+    fun toggleReaction(messageId: String, emoji: String) {
+        viewModelScope.launch { repository.react(channelId, messageId, emoji) }
     }
 
     private fun addMessage(msg: ChannelMessage) {

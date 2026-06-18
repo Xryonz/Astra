@@ -2,6 +2,7 @@ package app.astra.mobile.feature.channel.domain
 
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
+import app.astra.mobile.feature.channel.domain.model.MessageReaction
 import kotlinx.coroutines.flow.Flow
 
 interface ChannelRepository {
@@ -9,9 +10,11 @@ interface ChannelRepository {
     suspend fun send(channelId: String, content: String): Result<ChannelMessage>
     suspend fun edit(channelId: String, messageId: String, content: String): Result<Unit>
     suspend fun delete(channelId: String, messageId: String): Result<Unit>
+    suspend fun react(channelId: String, messageId: String, emoji: String): Result<Unit>
     fun joinChannel(channelId: String)
     fun leaveChannel(channelId: String)
     fun incomingMessages(channelId: String): Flow<ChannelMessage>
     fun deletedMessages(channelId: String): Flow<String>
     fun editedMessages(channelId: String): Flow<Pair<String, String>>
+    fun reactionUpdates(channelId: String): Flow<Pair<String, List<MessageReaction>>>
 }

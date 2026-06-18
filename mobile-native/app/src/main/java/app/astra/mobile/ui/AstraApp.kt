@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.astra.mobile.feature.auth.presentation.LoginScreen
+import app.astra.mobile.feature.channel.presentation.ChannelChatScreen
 import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.home.HomeScreen
@@ -33,9 +34,11 @@ private object Routes {
     const val DM_CHAT = "dm/{conversationId}?name={name}"
     const val SERVERS = "servers"
     const val CHANNELS = "channels/{serverId}?name={name}"
+    const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     // name encodado na query (%20 etc.) pra suportar espacos/acentos no display name.
     fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
+    fun channelChat(id: String, name: String) = "channel/$id?name=${Uri.encode(name)}"
 }
 
 @Composable
@@ -73,9 +76,17 @@ fun AstraApp() {
                 ) {
                     ChannelListScreen(
                         onBack = { nav.popBackStack() },
-                        // M5b: navega pro chat do canal. Por ora no-op.
-                        onOpenChannel = { _, _ -> },
+                        onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
                     )
+                }
+                composable(
+                    route = Routes.CHANNEL_CHAT,
+                    arguments = listOf(
+                        navArgument("channelId") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    ChannelChatScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.DMS) {
                     DmListScreen(

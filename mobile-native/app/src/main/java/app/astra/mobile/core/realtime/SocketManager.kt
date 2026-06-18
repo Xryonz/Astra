@@ -49,8 +49,9 @@ class SocketManager @Inject constructor(
     private var options: IO.Options? = null
     private var heartbeat: Job? = null
 
-    // Conversas abertas — re-emitidas como join_dm a cada (re)conexao.
+    // Conversas/canais abertos — re-emitidos como join a cada (re)conexao.
     private val activeRooms = ConcurrentHashMap.newKeySet<String>()
+    private val activeChannels = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile private var refreshing = false
     @Volatile private var lastRefreshAtMs = 0L
@@ -65,6 +66,13 @@ class SocketManager @Inject constructor(
 
     private val _dmDeleted = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 16)
     val dmDeleted: SharedFlow<Pair<String, String>> = _dmDeleted.asSharedFlow()
+
+    // Mensagens de canal (new_message) e delete (message_deleted: messageId, channelId).
+    private val _newChannelMessage = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val newChannelMessage: SharedFlow<String> = _newChannelMessage.asSharedFlow()
+
+    private val _channelMessageDeleted = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 16)
+    val channelMessageDeleted: SharedFlow<Pair<String, String>> = _channelMessageDeleted.asSharedFlow()
 
     fun connect() {
         if (socket?.connected() == true) return
@@ -90,8 +98,9 @@ class SocketManager @Inject constructor(
             Log.d(TAG, "conectado id=${s.id()}")
             _state.value = ConnectionState.Connected
             startHeartbeat()
-            // re-entra nas conversas abertas (rooms se perdem na queda)
+            // re-entra nas conversas/canais abertos (rooms se perdem na queda)
             activeRooms.forEach { s.emit("join_dm", it) }
+            activeChannels.forEach { s.emit("join_channel", it) }
         }
         s.on(Socket.EVENT_DISCONNECT) { args ->
             Log.d(TAG, "desconectado: ${args.firstOrNull()}")
@@ -117,6 +126,14 @@ class SocketManager @Inject constructor(
         s.on("dm_deleted") { args ->
             (args.firstOrNull() as? JSONObject)?.let {
                 _dmDeleted.tryEmit(it.optString("messageId") to it.optString("conversationId"))
+            }
+        }
+        s.on("new_message") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _newChannelMessage.tryEmit(it.toString()) }
+        }
+        s.on("message_deleted") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _channelMessageDeleted.tryEmit(it.optString("messageId") to it.optString("channelId"))
             }
         }
 
@@ -168,9 +185,20 @@ class SocketManager @Inject constructor(
         socket?.emit("leave_dm", conversationId)
     }
 
+    fun joinChannel(channelId: String) {
+        activeChannels.add(channelId)
+        socket?.emit("join_channel", channelId)
+    }
+
+    fun leaveChannel(channelId: String) {
+        activeChannels.remove(channelId)
+        socket?.emit("leave_channel", channelId)
+    }
+
     fun disconnect() {
         stopHeartbeat()
         activeRooms.clear()
+        activeChannels.clear()
         socket?.apply { off(); disconnect() }
         socket = null
         options = null

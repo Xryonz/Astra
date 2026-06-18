@@ -12,12 +12,15 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.livekit.android.LiveKit
+import io.livekit.android.RoomOptions
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.participant.Participant
+import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.RemoteAudioTrack
 import io.livekit.android.room.track.Track
+import io.livekit.android.room.track.VideoEncoding
 import io.livekit.android.room.track.VideoTrack
 import io.livekit.android.room.track.screencapture.ScreenCaptureParams
 import kotlinx.coroutines.CoroutineScope
@@ -93,7 +96,7 @@ class VoiceManager @Inject constructor(
             try {
                 val data = voiceApi.token(VoiceTokenRequest(roomKind, roomId)).data
                     ?: error("Resposta vazia do servidor")
-                val r = LiveKit.create(appContext)
+                val r = LiveKit.create(appContext, options = roomOptions())
                 room = r
                 observe(r)
                 r.connect(data.url, data.token)
@@ -171,6 +174,16 @@ class VoiceManager @Inject constructor(
             _state.update { it.copy(screenSharing = false) }
         }
     }
+
+    // Screenshare "gamer": 60fps + bitrate alto, simulcast OFF (1 camada full,
+    // evita troca de layer/flicker — mesma escolha do web). Codec fica VP8
+    // (default): VP9/AV1 derrubam frame no encode mobile.
+    private fun roomOptions() = RoomOptions(
+        screenShareTrackPublishDefaults = VideoTrackPublishDefaults(
+            videoEncoding = VideoEncoding(maxBitrate = SCREEN_MAX_BITRATE, maxFps = SCREEN_FPS),
+            simulcast = false,
+        ),
+    )
 
     private fun screenShareNotification(): Notification {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -295,5 +308,7 @@ class VoiceManager @Inject constructor(
         const val TAG = "VoiceManager"
         const val SCREEN_NOTIF_ID = 4202
         const val SCREEN_CHANNEL_ID = "astra_screen"
+        const val SCREEN_FPS = 60
+        const val SCREEN_MAX_BITRATE = 8_000_000
     }
 }

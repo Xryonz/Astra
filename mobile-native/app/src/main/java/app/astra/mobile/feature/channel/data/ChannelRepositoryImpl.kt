@@ -14,6 +14,7 @@ import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
 import app.astra.mobile.feature.channel.domain.model.MessageReaction
+import app.astra.mobile.feature.channel.domain.model.TypingUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
@@ -126,6 +127,15 @@ class ChannelRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    override fun typingEvents(channelId: String): Flow<TypingUser> =
+        socketManager.channelTyping
+            .filter { it.room == channelId }
+            .map { TypingUser(it.userId, it.username, it.typing) }
+
+    override fun startTyping(channelId: String) = socketManager.startTyping(channelId)
+
+    override fun stopTyping(channelId: String) = socketManager.stopTyping(channelId)
 }
 
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(

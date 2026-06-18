@@ -12,4 +12,5 @@ data class DmChatUiState(
     val replyToId: String? = null,
     val replyToAuthor: String? = null,
     val replyToPreview: String? = null,
+    val typingUsers: List<String> = emptyList(),
 )

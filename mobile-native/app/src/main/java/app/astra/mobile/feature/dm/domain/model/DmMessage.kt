@@ -22,3 +22,10 @@ data class OpenedConversation(
     val otherName: String,
     val otherAvatar: String?,
 )
+
+// Evento de digitacao (typing=false = parou). username so vem no start.
+data class TypingUser(
+    val userId: String,
+    val username: String,
+    val typing: Boolean,
+)

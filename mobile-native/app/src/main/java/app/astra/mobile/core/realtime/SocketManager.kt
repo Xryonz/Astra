@@ -82,6 +82,13 @@ class SocketManager @Inject constructor(
     private val _channelReactionUpdate = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val channelReactionUpdate: SharedFlow<String> = _channelReactionUpdate.asSharedFlow()
 
+    // Digitando — chave por userId (o evento de stop nao traz username).
+    private val _channelTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
+    val channelTyping: SharedFlow<TypingEvent> = _channelTyping.asSharedFlow()
+
+    private val _dmTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
+    val dmTyping: SharedFlow<TypingEvent> = _dmTyping.asSharedFlow()
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = runBlocking { tokenStore.currentAccess() } ?: return
@@ -154,6 +161,26 @@ class SocketManager @Inject constructor(
         s.on("reaction_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _channelReactionUpdate.tryEmit(it.toString()) }
         }
+        s.on("user_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _channelTyping.tryEmit(TypingEvent(it.optString("userId"), it.optString("username"), it.optString("channelId"), true))
+            }
+        }
+        s.on("user_stopped_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _channelTyping.tryEmit(TypingEvent(it.optString("userId"), "", it.optString("channelId"), false))
+            }
+        }
+        s.on("dm_user_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _dmTyping.tryEmit(TypingEvent(it.optString("userId"), it.optString("username"), it.optString("conversationId"), true))
+            }
+        }
+        s.on("dm_user_stopped_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _dmTyping.tryEmit(TypingEvent(it.optString("userId"), "", it.optString("conversationId"), false))
+            }
+        }
 
         // A cada tentativa automatica, manda o token atual do TokenStore (pode
         // ter rotacionado via REST/Authenticator ou pelo refresh abaixo).
@@ -203,6 +230,11 @@ class SocketManager @Inject constructor(
         socket?.emit("leave_dm", conversationId)
     }
 
+    fun startTyping(channelId: String) { socket?.emit("typing_start", channelId) }
+    fun stopTyping(channelId: String) { socket?.emit("typing_stop", channelId) }
+    fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }
+    fun stopDmTyping(conversationId: String) { socket?.emit("dm_typing_stop", conversationId) }
+
     fun joinChannel(channelId: String) {
         activeChannels.add(channelId)
         socket?.emit("join_channel", channelId)
@@ -243,3 +275,11 @@ class SocketManager @Inject constructor(
         const val REFRESH_COOLDOWN_MS = 10_000L
     }
 }
+
+// userId chaveia (stop nao traz username); username so vem preenchido no typing=true.
+data class TypingEvent(
+    val userId: String,
+    val username: String,
+    val room: String,
+    val typing: Boolean,
+)

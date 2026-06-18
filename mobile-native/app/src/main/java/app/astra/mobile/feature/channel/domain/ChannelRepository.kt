@@ -3,6 +3,7 @@ package app.astra.mobile.feature.channel.domain
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
 import app.astra.mobile.feature.channel.domain.model.MessageReaction
+import app.astra.mobile.feature.channel.domain.model.TypingUser
 import kotlinx.coroutines.flow.Flow
 
 interface ChannelRepository {
@@ -17,4 +18,7 @@ interface ChannelRepository {
     fun deletedMessages(channelId: String): Flow<String>
     fun editedMessages(channelId: String): Flow<Pair<String, String>>
     fun reactionUpdates(channelId: String): Flow<Pair<String, List<MessageReaction>>>
+    fun typingEvents(channelId: String): Flow<TypingUser>
+    fun startTyping(channelId: String)
+    fun stopTyping(channelId: String)
 }

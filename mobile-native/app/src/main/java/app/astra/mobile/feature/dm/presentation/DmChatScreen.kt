@@ -26,6 +26,7 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.ReplyBanner
+import app.astra.mobile.ui.components.TypingIndicator
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -84,6 +85,8 @@ fun DmChatScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
                 )
             }
+
+            TypingIndicator(state.typingUsers)
 
             if (state.replyToId != null) {
                 ReplyBanner(

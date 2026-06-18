@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -24,6 +26,8 @@ data class ChannelChatUiState(
     val replyToId: String? = null,
     val replyToAuthor: String? = null,
     val replyToPreview: String? = null,
+    // usernames digitando agora (exclui voce — o server nao ecoa pro emissor).
+    val typingUsers: List<String> = emptyList(),
 )
 
 @HiltViewModel
@@ -45,6 +49,7 @@ class ChannelChatViewModel @Inject constructor(
         observeDeleted()
         observeEdited()
         observeReactions()
+        observeTyping()
     }
 
     private fun loadHistory() {
@@ -96,6 +101,48 @@ class ChannelChatViewModel @Inject constructor(
         viewModelScope.launch { repository.react(channelId, messageId, emoji) }
     }
 
+    // ── Digitando ────────────────────────────────────────────────
+    // typingNames: userId -> username (stop nao traz username). Expira em 6s
+    // caso o evento de stop se perca.
+    private val typingNames = linkedMapOf<String, String>()
+    private val typingExpiry = mutableMapOf<String, Job>()
+
+    private fun observeTyping() {
+        viewModelScope.launch {
+            repository.typingEvents(channelId).collect { ev ->
+                if (ev.typing) {
+                    typingNames[ev.userId] = ev.username
+                    typingExpiry[ev.userId]?.cancel()
+                    typingExpiry[ev.userId] = viewModelScope.launch {
+                        delay(6_000)
+                        typingNames.remove(ev.userId); typingExpiry.remove(ev.userId); pushTyping()
+                    }
+                } else {
+                    typingNames.remove(ev.userId)
+                    typingExpiry.remove(ev.userId)?.cancel()
+                }
+                pushTyping()
+            }
+        }
+    }
+
+    private fun pushTyping() = _state.update { it.copy(typingUsers = typingNames.values.toList()) }
+
+    // Emite typing_start na 1a tecla, reinicia o timer de stop (3s sem digitar).
+    private var typingSent = false
+    private var typingStopJob: Job? = null
+    private fun handleTyping(value: String) {
+        if (value.isBlank()) { stopTypingNow(); return }
+        if (!typingSent) { typingSent = true; repository.startTyping(channelId) }
+        typingStopJob?.cancel()
+        typingStopJob = viewModelScope.launch { delay(3_000); stopTypingNow() }
+    }
+
+    private fun stopTypingNow() {
+        typingStopJob?.cancel(); typingStopJob = null
+        if (typingSent) { typingSent = false; repository.stopTyping(channelId) }
+    }
+
     private fun addMessage(msg: ChannelMessage) {
         _state.update { s ->
             if (s.messages.any { it.id == msg.id }) s
@@ -103,7 +150,10 @@ class ChannelChatViewModel @Inject constructor(
         }
     }
 
-    fun onInput(value: String) = _state.update { it.copy(input = value) }
+    fun onInput(value: String) {
+        _state.update { it.copy(input = value) }
+        handleTyping(value)
+    }
 
     // Long-press "Editar" -> entra em modo edicao reusando o input.
     fun startEdit(messageId: String, content: String) =
@@ -133,6 +183,7 @@ class ChannelChatViewModel @Inject constructor(
     fun send() {
         val text = _state.value.input.trim()
         if (text.isEmpty() || _state.value.sending) return
+        stopTypingNow()
         val editing = _state.value.editingId
         if (editing != null) {
             _state.update { it.copy(sending = true, input = "", editingId = null, error = null) }
@@ -169,6 +220,7 @@ class ChannelChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        stopTypingNow()
         repository.leaveChannel(channelId)
     }
 }

@@ -382,6 +382,24 @@ fun ReplyBanner(author: String, preview: String, onCancel: () -> Unit) {
     }
 }
 
+/** Linha "fulano esta digitando..." acima do composer. Vazio = nao renderiza. */
+@Composable
+fun TypingIndicator(names: List<String>) {
+    if (names.isEmpty()) return
+    val text = when (names.size) {
+        1 -> "${names[0]} esta digitando…"
+        2 -> "${names[0]} e ${names[1]} estao digitando…"
+        else -> "varias pessoas estao digitando…"
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontStyle = FontStyle.Italic,
+        color = astraColors.text3,
+        modifier = Modifier.padding(start = 18.dp, top = 2.dp, bottom = 2.dp),
+    )
+}
+
 /** Confirmacao de apagar mensagem (compartilhada DM + canal). */
 @Composable
 fun DeleteMessageDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {

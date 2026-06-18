@@ -14,6 +14,7 @@ import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.dm.domain.model.MessagesPage
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
+import app.astra.mobile.feature.dm.domain.model.TypingUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
@@ -121,6 +122,15 @@ class DmRepositoryImpl @Inject constructor(
         socketManager.dmDeleted
             .filter { it.second == conversationId }
             .map { it.first }
+
+    override fun typingEvents(conversationId: String): Flow<TypingUser> =
+        socketManager.dmTyping
+            .filter { it.room == conversationId }
+            .map { TypingUser(it.userId, it.username, it.typing) }
+
+    override fun startTyping(conversationId: String) = socketManager.startDmTyping(conversationId)
+
+    override fun stopTyping(conversationId: String) = socketManager.stopDmTyping(conversationId)
 }
 
 // Conversa sem otherUser (usuario sumiu) e descartada — nao da pra renderizar.

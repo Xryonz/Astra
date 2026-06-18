@@ -20,6 +20,13 @@ data class MessageReaction(
     val mine: Boolean,
 )
 
+// Evento de digitacao (typing=false = parou). username so vem no start.
+data class TypingUser(
+    val userId: String,
+    val username: String,
+    val typing: Boolean,
+)
+
 data class ChannelMessagesPage(
     val messages: List<ChannelMessage>,
     val nextCursor: String?,

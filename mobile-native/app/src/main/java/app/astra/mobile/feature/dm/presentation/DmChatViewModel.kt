@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -29,6 +31,7 @@ class DmChatViewModel @Inject constructor(
         loadHistory()
         observeIncoming()
         observeDeleted()
+        observeTyping()
     }
 
     private fun loadHistory() {
@@ -61,7 +64,49 @@ class DmChatViewModel @Inject constructor(
         }
     }
 
-    fun onInput(value: String) = _state.update { it.copy(input = value) }
+    fun onInput(value: String) {
+        _state.update { it.copy(input = value) }
+        handleTyping(value)
+    }
+
+    // ── Digitando (espelha o do canal, com dm_typing_*) ──────────
+    private val typingNames = linkedMapOf<String, String>()
+    private val typingExpiry = mutableMapOf<String, Job>()
+
+    private fun observeTyping() {
+        viewModelScope.launch {
+            repository.typingEvents(conversationId).collect { ev ->
+                if (ev.typing) {
+                    typingNames[ev.userId] = ev.username
+                    typingExpiry[ev.userId]?.cancel()
+                    typingExpiry[ev.userId] = viewModelScope.launch {
+                        delay(6_000)
+                        typingNames.remove(ev.userId); typingExpiry.remove(ev.userId); pushTyping()
+                    }
+                } else {
+                    typingNames.remove(ev.userId)
+                    typingExpiry.remove(ev.userId)?.cancel()
+                }
+                pushTyping()
+            }
+        }
+    }
+
+    private fun pushTyping() = _state.update { it.copy(typingUsers = typingNames.values.toList()) }
+
+    private var typingSent = false
+    private var typingStopJob: Job? = null
+    private fun handleTyping(value: String) {
+        if (value.isBlank()) { stopTypingNow(); return }
+        if (!typingSent) { typingSent = true; repository.startTyping(conversationId) }
+        typingStopJob?.cancel()
+        typingStopJob = viewModelScope.launch { delay(3_000); stopTypingNow() }
+    }
+
+    private fun stopTypingNow() {
+        typingStopJob?.cancel(); typingStopJob = null
+        if (typingSent) { typingSent = false; repository.stopTyping(conversationId) }
+    }
 
     fun startReply(messageId: String, author: String, preview: String) =
         _state.update { it.copy(replyToId = messageId, replyToAuthor = author, replyToPreview = preview) }
@@ -82,6 +127,7 @@ class DmChatViewModel @Inject constructor(
     fun send() {
         val text = _state.value.input.trim()
         if (text.isEmpty() || _state.value.sending) return
+        stopTypingNow()
         val replyId = _state.value.replyToId
         _state.update {
             it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
@@ -100,6 +146,7 @@ class DmChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        stopTypingNow()
         repository.leaveConversation(conversationId)
     }
 }

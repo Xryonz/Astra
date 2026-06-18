@@ -4,6 +4,7 @@ import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.dm.domain.model.MessagesPage
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
+import app.astra.mobile.feature.dm.domain.model.TypingUser
 import kotlinx.coroutines.flow.Flow
 
 interface DmRepository {
@@ -26,4 +27,8 @@ interface DmRepository {
 
     /** dm_deleted em tempo real — emite o id da mensagem removida. */
     fun deletedMessages(conversationId: String): Flow<String>
+
+    fun typingEvents(conversationId: String): Flow<TypingUser>
+    fun startTyping(conversationId: String)
+    fun stopTyping(conversationId: String)
 }

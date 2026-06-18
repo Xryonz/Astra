@@ -81,4 +81,7 @@ dependencies {
     // Imagens + storage local
     implementation(libs.coil.compose)
     implementation(libs.androidx.datastore.preferences)
+
+    // Realtime — Socket.io client (protocolo Engine.io, fala com o server v4)
+    implementation(libs.socketio.client)
 }

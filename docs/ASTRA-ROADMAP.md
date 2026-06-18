@@ -25,7 +25,8 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
 - [x] M1 fundacao (Gradle+catalog, Compose, Hilt, tema Astra dark/amber, app roda vazio)
 - [x] M2 rede (Retrofit+OkHttp+AuthInterceptor+TokenStore DataStore, modulos Hilt). BASE_URL = umbra-api-production.up.railway.app (mesma do Vite)
 - [x] M3 slice Auth: login (POST api/auth/login) → Clean Arch (dto/api → repo → usecase → VM → Compose), TokenStore persiste sessao, NavHost gate login/home, TokenAuthenticator faz refresh transparente no 401 (RefreshApi em client pelado p/ evitar loop). Compila+KSP/Hilt OK. Login real VALIDADO no emulador (sessao ativa).
-- [ ] M4 WebSocket+DMs · M5 servers/canais/msgs · M6 LiveKit Android
+- [ ] M4 WebSocket+DMs (fatiado): M4a SocketManager (conecta+heartbeat+reauth no reconnect) [escrito+compila, validar runtime] · M4b lista de DMs (REST GET /api/dm) · M4c chat DM (historico REST + join_dm/new_dm + enviar POST, dedupe por id)
+- [ ] M5 servers/canais/msgs · M6 LiveKit Android
 - AUTH/Google (nativo, futuro): Google so LOGA conta existente, NUNCA cria conta — ja e politica de seguranca do backend (passport.ts: email nao-registrado e bloqueado com code email_not_registered). No nativo, ao adicionar "Entrar com Google", tratar o deep link astra://login?error=google_email_unregistered -> mandar pro registro. Nao ha nada a mudar no backend.
 - DECISAO: Capacitor CONGELADO ja; camera/share/localizacao/animacoes serao nativos no Kotlin (nao no Capacitor)
 
@@ -45,3 +46,5 @@ caveman (think) · primeval-zen (output) · karpathy (code) · vercel-react · s
 ## Log de progresso
 - 2026-06-17: aba Acessibilidade+vibracao, DMs flat-rows, densidade canais, keystore p/ sessao, fundo void p/ gap teclado. Repo renomeado Umbra→Astra.
 - 2026-06-17: mobile-native sync OK no Android Studio (tela Astra roda no emulador) = M1+M2 validados. Wrapper Gradle 8.11.1 copiado do projeto Capacitor. M3 (login nativo) escrito + compila (Navigation Compose escolhido p/ o gate de telas).
+- 2026-06-18: M3 100% VALIDADO no emulador — login, credencial errada, persistencia (DataStore sobrevive fechar/reabrir), logout. Politica Google anotada.
+- 2026-06-18: M4a SocketManager escrito+compila (socket.io-client 2.1.0, conecta com access token, heartbeat 30s, re-auth no reconnect; chip de status na Home). Falta validar runtime no emulador.

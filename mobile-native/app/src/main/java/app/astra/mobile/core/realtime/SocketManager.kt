@@ -14,12 +14,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,6 +52,14 @@ class SocketManager @Inject constructor(
 
     private val _state = MutableStateFlow(ConnectionState.Disconnected)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
+
+    // Eventos de DM (JSON cru — a data layer parseia). replay=0: quem nao esta
+    // ouvindo na hora perde (so o chat aberto importa).
+    private val _newDm = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val newDm: SharedFlow<String> = _newDm.asSharedFlow()
+
+    private val _dmDeleted = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 16)
+    val dmDeleted: SharedFlow<Pair<String, String>> = _dmDeleted.asSharedFlow()
 
     fun connect() {
         if (socket?.connected() == true) return
@@ -91,9 +103,16 @@ class SocketManager @Inject constructor(
             }
         }
 
-        // M4a: so prova que o realtime chega. Vira state real no M4c.
         s.on("presence_update") { args ->
             Log.d(TAG, "presence_update ${args.firstOrNull()}")
+        }
+        s.on("new_dm") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _newDm.tryEmit(it.toString()) }
+        }
+        s.on("dm_deleted") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _dmDeleted.tryEmit(it.optString("messageId") to it.optString("conversationId"))
+            }
         }
 
         // Reconnect automatico da lib: atualiza o auth que o proximo handshake
@@ -133,6 +152,14 @@ class SocketManager @Inject constructor(
             Log.w(TAG, "refresh falhou: ${e.message}")
             null
         }
+    }
+
+    fun joinDm(conversationId: String) {
+        socket?.emit("join_dm", conversationId)
+    }
+
+    fun leaveDm(conversationId: String) {
+        socket?.emit("leave_dm", conversationId)
     }
 
     fun disconnect() {

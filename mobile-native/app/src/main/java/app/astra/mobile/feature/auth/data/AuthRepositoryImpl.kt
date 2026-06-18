@@ -33,6 +33,7 @@ class AuthRepositoryImpl @Inject constructor(
                 val data = resp.body()?.data
                     ?: return Result.failure(ApiException("Resposta invalida do servidor"))
                 tokenStore.save(data.accessToken, data.refreshToken)
+                tokenStore.setUserId(data.user.id)
                 Result.success(data.user.toDomain())
             } else {
                 Result.failure(ApiException(parseError(resp.errorBody()?.string(), resp.code())))

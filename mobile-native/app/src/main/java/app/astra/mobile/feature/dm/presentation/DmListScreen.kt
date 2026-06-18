@@ -16,13 +16,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,9 +46,18 @@ fun DmListScreen(
     viewModel: DmListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    var showDialog by remember { mutableStateOf(false) }
+
+    // Conversa aberta com sucesso -> fecha o dialog e navega pro chat.
+    LaunchedEffect(Unit) {
+        viewModel.opened.collect { conv ->
+            showDialog = false
+            onOpenConversation(conv.conversationId, conv.otherName)
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
-        Header(onBack)
+        Header(onBack = onBack, onNew = { showDialog = true })
         when {
             state.loading -> CenterBox {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -71,10 +86,63 @@ fun DmListScreen(
             }
         }
     }
+
+    if (showDialog) {
+        NewConversationDialog(
+            opening = state.opening,
+            error = state.openError,
+            onConfirm = viewModel::openConversation,
+            onDismiss = { showDialog = false; viewModel.clearOpenError() },
+        )
+    }
 }
 
 @Composable
-private fun Header(onBack: () -> Unit) {
+private fun NewConversationDialog(
+    opening: Boolean,
+    error: String?,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var username by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { if (!opening) onDismiss() },
+        title = { Text("Nova conversa") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    singleLine = true,
+                    enabled = !opening,
+                    label = { Text("@username") },
+                )
+                if (error != null) {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(username) },
+                enabled = username.isNotBlank() && !opening,
+            ) {
+                Text(if (opening) "Abrindo..." else "Abrir")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !opening) { Text("Cancelar") }
+        },
+    )
+}
+
+@Composable
+private fun Header(onBack: () -> Unit, onNew: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -90,6 +158,13 @@ private fun Header(onBack: () -> Unit) {
             text = "Mensagens",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "+",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable(onClick = onNew).padding(horizontal = 8.dp),
         )
     }
 }

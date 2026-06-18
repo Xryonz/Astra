@@ -20,6 +20,7 @@ class TokenStore @Inject constructor(
 ) {
     private val accessKey = stringPreferencesKey("access_token")
     private val refreshKey = stringPreferencesKey("refresh_token")
+    private val userIdKey = stringPreferencesKey("user_id")
 
     val accessToken: Flow<String?> = dataStore.data.map { it[accessKey] }
     val refreshToken: Flow<String?> = dataStore.data.map { it[refreshKey] }
@@ -28,8 +29,15 @@ class TokenStore @Inject constructor(
     suspend fun currentAccess(): String? = dataStore.data.first()[accessKey]
     suspend fun currentRefresh(): String? = dataStore.data.first()[refreshKey]
 
+    /** Id do usuario logado — pra marcar "minhas" mensagens no chat. */
+    suspend fun currentUserId(): String? = dataStore.data.first()[userIdKey]
+
     suspend fun save(access: String, refresh: String) {
         dataStore.edit { it[accessKey] = access; it[refreshKey] = refresh }
+    }
+
+    suspend fun setUserId(id: String) {
+        dataStore.edit { it[userIdKey] = id }
     }
 
     suspend fun setAccess(access: String) {
@@ -37,6 +45,6 @@ class TokenStore @Inject constructor(
     }
 
     suspend fun clear() {
-        dataStore.edit { it.remove(accessKey); it.remove(refreshKey) }
+        dataStore.edit { it.remove(accessKey); it.remove(refreshKey); it.remove(userIdKey) }
     }
 }

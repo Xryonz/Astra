@@ -12,18 +12,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import app.astra.mobile.feature.auth.presentation.LoginScreen
+import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.session.SessionViewModel
+import android.net.Uri
 
 private object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
     const val DMS = "dms"
+    const val DM_CHAT = "dm/{conversationId}?name={name}"
+    // name encodado na query (%20 etc.) pra suportar espacos/acentos no display name.
+    fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
 }
 
 @Composable
@@ -46,9 +53,17 @@ fun AstraApp() {
                 composable(Routes.DMS) {
                     DmListScreen(
                         onBack = { nav.popBackStack() },
-                        // M4c: navega pro chat da conversa. Por ora no-op.
-                        onOpenConversation = { _, _ -> },
+                        onOpenConversation = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
                     )
+                }
+                composable(
+                    route = Routes.DM_CHAT,
+                    arguments = listOf(
+                        navArgument("conversationId") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    DmChatScreen(onBack = { nav.popBackStack() })
                 }
             }
 

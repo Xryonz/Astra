@@ -27,6 +27,7 @@ data class CallParticipantUi(
     val micEnabled: Boolean,
     val cameraEnabled: Boolean,
     val videoTrack: VideoTrack?,
+    val screenTrack: VideoTrack?,
 )
 
 data class CallUiState(
@@ -74,6 +75,7 @@ class CallViewModel @Inject constructor(
                         micEnabled = p.micEnabled,
                         cameraEnabled = p.cameraEnabled,
                         videoTrack = p.videoTrack,
+                        screenTrack = p.screenTrack,
                     )
                 },
             )

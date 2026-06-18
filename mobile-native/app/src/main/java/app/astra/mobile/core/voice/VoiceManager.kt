@@ -38,6 +38,8 @@ data class CallParticipant(
     val cameraEnabled: Boolean = false,
     // Track da camera (null = sem video). Renderizada via VideoTrackView.
     val videoTrack: VideoTrack? = null,
+    // Track de compartilhamento de tela (null = nao esta compartilhando).
+    val screenTrack: VideoTrack? = null,
 )
 
 data class VoiceState(
@@ -196,6 +198,7 @@ class VoiceManager @Inject constructor(
         micEnabled = isMicrophoneEnabled,
         cameraEnabled = isCameraEnabled,
         videoTrack = getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack,
+        screenTrack = getTrackPublication(Track.Source.SCREEN_SHARE)?.track as? VideoTrack,
     )
 
     private fun applyDeafen(r: Room, deaf: Boolean) {

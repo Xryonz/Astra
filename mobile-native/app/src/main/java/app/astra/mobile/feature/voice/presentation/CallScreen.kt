@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -46,6 +47,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.voice.CallStatus
 import coil.compose.AsyncImage
+import io.livekit.android.compose.ui.ScaleType
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.Room
 
@@ -115,15 +117,29 @@ fun CallScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center),
                 )
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.participants, key = { it.identity }) { p ->
-                        ParticipantTile(p, viewModel.room)
+                else -> {
+                    // Cada pessoa = 1 tile de camera/avatar; quem compartilha tela
+                    // ganha um tile extra (span 2 colunas).
+                    val tiles = state.participants.flatMap { p ->
+                        buildList {
+                            add(Tile("${p.identity}:cam", p, isScreen = false))
+                            if (p.screenTrack != null) add(Tile("${p.identity}:scr", p, isScreen = true))
+                        }
+                    }
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(
+                            items = tiles,
+                            key = { it.key },
+                            span = { GridItemSpan(if (it.isScreen) 2 else 1) },
+                        ) { tile ->
+                            ParticipantTile(tile.participant, tile.isScreen, viewModel.room)
+                        }
                     }
                 }
             }
@@ -156,24 +172,27 @@ private fun subtitle(state: CallUiState): String = when (state.status) {
 }
 
 @Composable
-private fun ParticipantTile(p: CallParticipantUi, room: Room?) {
+private fun ParticipantTile(p: CallParticipantUi, isScreen: Boolean, room: Room?) {
     val shape = RoundedCornerShape(16.dp)
-    // Anel ambar quando a pessoa esta falando (active speaker).
-    val ring = if (p.isSpeaking) MaterialTheme.colorScheme.primary else Color.Transparent
+    // Anel ambar quando a pessoa fala (so no tile de pessoa, nao no de tela).
+    val ring = if (!isScreen && p.isSpeaking) MaterialTheme.colorScheme.primary else Color.Transparent
+    val track = if (isScreen) p.screenTrack else p.videoTrack
+    val showVideo = if (isScreen) track != null else (p.cameraEnabled && track != null)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(if (isScreen) 16f / 9f else 1f)
             .clip(shape)
             .border(2.dp, ring, shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(if (isScreen) Color.Black else MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        if (p.cameraEnabled && p.videoTrack != null) {
+        if (showVideo) {
             VideoTrackView(
-                videoTrack = p.videoTrack,
+                videoTrack = track,
                 modifier = Modifier.fillMaxSize().clip(shape),
                 passedRoom = room,
-                mirror = p.isLocal, // camera frontal espelhada pra quem se ve
+                mirror = !isScreen && p.isLocal, // camera frontal espelhada pra quem se ve
+                scaleType = if (isScreen) ScaleType.FitInside else ScaleType.Fill, // tela inteira vs preenche
             )
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -189,12 +208,16 @@ private fun ParticipantTile(p: CallParticipantUi, room: Room?) {
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!p.micEnabled) {
+            if (!isScreen && !p.micEnabled) {
                 Text("🔇", style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.width(4.dp))
             }
             Text(
-                text = if (p.isLocal) "${p.name} (voce)" else p.name,
+                text = when {
+                    isScreen -> "${p.name} (tela)"
+                    p.isLocal -> "${p.name} (voce)"
+                    else -> p.name
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White,
                 maxLines = 1,
@@ -203,6 +226,12 @@ private fun ParticipantTile(p: CallParticipantUi, room: Room?) {
         }
     }
 }
+
+private data class Tile(
+    val key: String,
+    val participant: CallParticipantUi,
+    val isScreen: Boolean,
+)
 
 @Composable
 private fun Avatar(name: String, url: String?) {

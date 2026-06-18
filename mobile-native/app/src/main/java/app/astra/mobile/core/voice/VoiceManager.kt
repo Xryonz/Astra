@@ -9,7 +9,10 @@ import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
+import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.track.RemoteAudioTrack
+import io.livekit.android.room.track.Track
+import io.livekit.android.room.track.VideoTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,12 +35,16 @@ data class CallParticipant(
     val isLocal: Boolean,
     val isSpeaking: Boolean,
     val micEnabled: Boolean,
+    val cameraEnabled: Boolean = false,
+    // Track da camera (null = sem video). Renderizada via VideoTrackView.
+    val videoTrack: VideoTrack? = null,
 )
 
 data class VoiceState(
     val status: CallStatus = CallStatus.Idle,
     val channelName: String = "",
     val micEnabled: Boolean = false,
+    val cameraOn: Boolean = false,
     val deafened: Boolean = false,
     val participants: List<CallParticipant> = emptyList(),
     val error: String? = null,
@@ -64,6 +71,9 @@ class VoiceManager @Inject constructor(
 
     private val _state = MutableStateFlow(VoiceState())
     val state: StateFlow<VoiceState> = _state.asStateFlow()
+
+    // Room ativa — VideoTrackView precisa dela (EGL/renderer). Estavel durante a call.
+    val activeRoom: Room? get() = room
 
     fun join(roomKind: String, roomId: String, channelName: String) {
         val current = _state.value.status
@@ -103,6 +113,20 @@ class VoiceManager @Inject constructor(
                 _state.update { it.copy(micEnabled = next) }
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Falha ao acessar microfone") }
+            }
+        }
+    }
+
+    // Camera e opcional (entra mudo de video). UI pede permissao CAMERA antes.
+    fun toggleCamera() {
+        val r = room ?: return
+        scope.launch {
+            val next = !_state.value.cameraOn
+            try {
+                r.localParticipant.setCameraEnabled(next)
+                _state.update { it.copy(cameraOn = next) }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Falha ao acessar a camera") }
             }
         }
     }
@@ -160,23 +184,19 @@ class VoiceManager @Inject constructor(
 
     private fun snapshot(r: Room): List<CallParticipant> {
         val out = ArrayList<CallParticipant>()
-        val local = r.localParticipant
-        out += CallParticipant(
-            identity = local.identity?.value.orEmpty(),
-            isLocal = true,
-            isSpeaking = local.isSpeaking,
-            micEnabled = local.isMicrophoneEnabled,
-        )
-        r.remoteParticipants.values.forEach { p ->
-            out += CallParticipant(
-                identity = p.identity?.value.orEmpty(),
-                isLocal = false,
-                isSpeaking = p.isSpeaking,
-                micEnabled = p.isMicrophoneEnabled,
-            )
-        }
+        out += r.localParticipant.toCallParticipant(isLocal = true)
+        r.remoteParticipants.values.forEach { out += it.toCallParticipant(isLocal = false) }
         return out
     }
+
+    private fun Participant.toCallParticipant(isLocal: Boolean) = CallParticipant(
+        identity = identity?.value.orEmpty(),
+        isLocal = isLocal,
+        isSpeaking = isSpeaking,
+        micEnabled = isMicrophoneEnabled,
+        cameraEnabled = isCameraEnabled,
+        videoTrack = getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack,
+    )
 
     private fun applyDeafen(r: Room, deaf: Boolean) {
         val vol = if (deaf) 0.0 else 1.0

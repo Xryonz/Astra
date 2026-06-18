@@ -89,5 +89,7 @@ dependencies {
 
     // Voz/video — LiveKit Android (WebRTC nativo). Mesmo backend /api/voice/token do web.
     implementation(libs.livekit.android)
+    // VideoTrackView (render de video no Compose, cuida do EGL/SurfaceView/lifecycle)
+    implementation(libs.livekit.android.compose)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

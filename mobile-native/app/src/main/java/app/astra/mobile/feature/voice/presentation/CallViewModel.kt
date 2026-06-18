@@ -8,6 +8,8 @@ import app.astra.mobile.core.voice.VoiceManager
 import app.astra.mobile.feature.server.domain.ServerRepository
 import app.astra.mobile.feature.server.domain.model.ServerMember
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.livekit.android.room.Room
+import io.livekit.android.room.track.VideoTrack
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,12 +25,15 @@ data class CallParticipantUi(
     val isLocal: Boolean,
     val isSpeaking: Boolean,
     val micEnabled: Boolean,
+    val cameraEnabled: Boolean,
+    val videoTrack: VideoTrack?,
 )
 
 data class CallUiState(
     val status: CallStatus = CallStatus.Idle,
     val channelName: String = "",
     val micEnabled: Boolean = false,
+    val cameraOn: Boolean = false,
     val deafened: Boolean = false,
     val participants: List<CallParticipantUi> = emptyList(),
     val error: String? = null,
@@ -55,6 +60,7 @@ class CallViewModel @Inject constructor(
                 status = vs.status,
                 channelName = vs.channelName.ifBlank { channelName },
                 micEnabled = vs.micEnabled,
+                cameraOn = vs.cameraOn,
                 deafened = vs.deafened,
                 error = vs.error,
                 participants = vs.participants.map { p ->
@@ -66,6 +72,8 @@ class CallViewModel @Inject constructor(
                         isLocal = p.isLocal,
                         isSpeaking = p.isSpeaking,
                         micEnabled = p.micEnabled,
+                        cameraEnabled = p.cameraEnabled,
+                        videoTrack = p.videoTrack,
                     )
                 },
             )
@@ -85,8 +93,12 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    // Room pra alimentar o VideoTrackView (EGL/renderer). Estavel durante a call.
+    val room: Room? get() = voiceManager.activeRoom
+
     fun join() = voiceManager.join("channel", channelId, channelName)
     fun toggleMic() = voiceManager.toggleMic()
+    fun toggleCamera() = voiceManager.toggleCamera()
     fun toggleDeafen() = voiceManager.toggleDeafen()
     fun leave() = voiceManager.leave()
     fun permissionDenied() = voiceManager.setError("Permissao de microfone negada")

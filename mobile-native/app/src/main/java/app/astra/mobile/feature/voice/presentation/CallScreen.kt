@@ -10,16 +10,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +46,8 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.voice.CallStatus
 import coil.compose.AsyncImage
+import io.livekit.android.compose.ui.VideoTrackView
+import io.livekit.android.room.Room
 
 @Composable
 fun CallScreen(
@@ -51,7 +57,7 @@ fun CallScreen(
     val state by viewModel.state.collectAsState()
     val ctx = LocalContext.current
 
-    val permLauncher = rememberLauncherForActivityResult(
+    val micLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) viewModel.join() else viewModel.permissionDenied()
@@ -59,10 +65,18 @@ fun CallScreen(
 
     // Mic e obrigatorio ANTES de entrar (foreground service type=microphone exige).
     LaunchedEffect(Unit) {
-        val granted = ContextCompat.checkSelfPermission(
-            ctx, Manifest.permission.RECORD_AUDIO,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (granted) viewModel.join() else permLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        if (hasPermission(ctx, Manifest.permission.RECORD_AUDIO)) viewModel.join()
+        else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    // Camera e opcional: pede permissao na hora de ligar.
+    val camLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) viewModel.toggleCamera() }
+
+    val onCamera = {
+        if (hasPermission(ctx, Manifest.permission.CAMERA)) viewModel.toggleCamera()
+        else camLauncher.launch(Manifest.permission.CAMERA)
     }
 
     val exit = {
@@ -101,8 +115,16 @@ fun CallScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center),
                 )
-                else -> LazyColumn(Modifier.fillMaxSize()) {
-                    items(state.participants, key = { it.identity }) { p -> ParticipantRow(p) }
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(state.participants, key = { it.identity }) { p ->
+                        ParticipantTile(p, viewModel.room)
+                    }
                 }
             }
         }
@@ -110,13 +132,18 @@ fun CallScreen(
         ControlBar(
             status = state.status,
             micEnabled = state.micEnabled,
+            cameraOn = state.cameraOn,
             deafened = state.deafened,
             onToggleMic = viewModel::toggleMic,
+            onToggleCamera = onCamera,
             onToggleDeafen = viewModel::toggleDeafen,
             onLeave = { exit() },
         )
     }
 }
+
+private fun hasPermission(ctx: android.content.Context, perm: String): Boolean =
+    ContextCompat.checkSelfPermission(ctx, perm) == PackageManager.PERMISSION_GRANTED
 
 private fun subtitle(state: CallUiState): String = when (state.status) {
     CallStatus.Connecting -> "Conectando…"
@@ -129,42 +156,61 @@ private fun subtitle(state: CallUiState): String = when (state.status) {
 }
 
 @Composable
-private fun ParticipantRow(p: CallParticipantUi) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun ParticipantTile(p: CallParticipantUi, room: Room?) {
+    val shape = RoundedCornerShape(16.dp)
+    // Anel ambar quando a pessoa esta falando (active speaker).
+    val ring = if (p.isSpeaking) MaterialTheme.colorScheme.primary else Color.Transparent
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(shape)
+            .border(2.dp, ring, shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Avatar(p.name, p.avatarUrl, p.isSpeaking)
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = if (p.isLocal) "${p.name} (voce)" else p.name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (!p.micEnabled) {
+        if (p.cameraEnabled && p.videoTrack != null) {
+            VideoTrackView(
+                videoTrack = p.videoTrack,
+                modifier = Modifier.fillMaxSize().clip(shape),
+                passedRoom = room,
+                mirror = p.isLocal, // camera frontal espelhada pra quem se ve
+            )
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Avatar(p.name, p.avatarUrl)
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.45f))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!p.micEnabled) {
+                Text("🔇", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.width(4.dp))
+            }
             Text(
-                text = "🔇",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 8.dp),
+                text = if (p.isLocal) "${p.name} (voce)" else p.name,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
 
 @Composable
-private fun Avatar(name: String, url: String?, speaking: Boolean) {
-    // Anel ambar quando a pessoa esta falando (active speaker).
-    val ring = if (speaking) MaterialTheme.colorScheme.primary else Color.Transparent
+private fun Avatar(name: String, url: String?) {
     Box(
         modifier = Modifier
-            .size(44.dp)
-            .border(2.dp, ring, CircleShape)
-            .padding(3.dp)
+            .size(64.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center,
     ) {
         if (!url.isNullOrBlank()) {
@@ -177,7 +223,7 @@ private fun Avatar(name: String, url: String?, speaking: Boolean) {
         } else {
             Text(
                 text = name.take(1).uppercase(),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -188,35 +234,44 @@ private fun Avatar(name: String, url: String?, speaking: Boolean) {
 private fun ControlBar(
     status: CallStatus,
     micEnabled: Boolean,
+    cameraOn: Boolean,
     deafened: Boolean,
     onToggleMic: () -> Unit,
+    onToggleCamera: () -> Unit,
     onToggleDeafen: () -> Unit,
     onLeave: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val live = status == CallStatus.Connected
-        OutlinedButton(
-            onClick = onToggleMic,
-            enabled = live && !deafened,
-            modifier = Modifier.weight(1f),
-        ) { Text(if (micEnabled) "Mutar" else "Ativar") }
+    val live = status == CallStatus.Connected
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(
+                onClick = onToggleMic,
+                enabled = live && !deafened,
+                modifier = Modifier.weight(1f),
+            ) { Text(if (micEnabled) "Mutar" else "Ativar") }
 
-        OutlinedButton(
-            onClick = onToggleDeafen,
-            enabled = live,
-            modifier = Modifier.weight(1f),
-        ) { Text(if (deafened) "Ouvir" else "Silenciar") }
+            OutlinedButton(
+                onClick = onToggleCamera,
+                enabled = live,
+                modifier = Modifier.weight(1f),
+            ) { Text(if (cameraOn) "Cam off" else "Cam on") }
 
+            OutlinedButton(
+                onClick = onToggleDeafen,
+                enabled = live,
+                modifier = Modifier.weight(1f),
+            ) { Text(if (deafened) "Ouvir" else "Surdo") }
+        }
+        Spacer(Modifier.padding(top = 10.dp))
         Button(
             onClick = onLeave,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
             ),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
         ) { Text("Sair") }
     }
 }

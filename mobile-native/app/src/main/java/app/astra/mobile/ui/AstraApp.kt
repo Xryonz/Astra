@@ -16,12 +16,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import app.astra.mobile.feature.auth.presentation.LoginScreen
+import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.session.SessionViewModel
 
 private object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
+    const val DMS = "dms"
 }
 
 @Composable
@@ -38,7 +40,16 @@ fun AstraApp() {
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
             ) {
                 composable(Routes.LOGIN) { LoginScreen() }
-                composable(Routes.HOME) { HomeScreen() }
+                composable(Routes.HOME) {
+                    HomeScreen(onOpenDms = { nav.navigate(Routes.DMS) })
+                }
+                composable(Routes.DMS) {
+                    DmListScreen(
+                        onBack = { nav.popBackStack() },
+                        // M4c: navega pro chat da conversa. Por ora no-op.
+                        onOpenConversation = { _, _ -> },
+                    )
+                }
             }
 
             // Login salva token -> isLoggedIn vira true; logout -> false.

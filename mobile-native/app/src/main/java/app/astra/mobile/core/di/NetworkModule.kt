@@ -3,6 +3,7 @@ package app.astra.mobile.core.di
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
+import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.TokenAuthenticator
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -58,6 +59,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAuthApi(retrofit: Retrofit): AuthApi = retrofit.create(AuthApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideDmApi(retrofit: Retrofit): DmApi = retrofit.create(DmApi::class.java)
 
     /**
      * RefreshApi roda num client SEPARADO e pelado (sem AuthInterceptor nem

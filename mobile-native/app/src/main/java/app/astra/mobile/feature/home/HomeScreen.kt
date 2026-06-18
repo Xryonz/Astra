@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -25,7 +26,10 @@ import app.astra.mobile.core.realtime.ConnectionState
 
 // Placeholder do M3 + status do socket (M4a). Vira a tela real de DMs no M4b/c.
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(
+    onOpenDms: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel(),
+) {
     val socket by viewModel.socketState.collectAsState()
 
     Column(
@@ -48,6 +52,10 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
             modifier = Modifier.padding(top = 8.dp),
         )
         Spacer(Modifier.height(24.dp))
+        Button(onClick = onOpenDms) {
+            Text("Mensagens")
+        }
+        Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = { viewModel.logout() }) {
             Text("Sair")
         }

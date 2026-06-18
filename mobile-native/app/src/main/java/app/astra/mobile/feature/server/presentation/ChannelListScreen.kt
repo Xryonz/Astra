@@ -30,6 +30,7 @@ import app.astra.mobile.feature.server.domain.model.Channel
 fun ChannelListScreen(
     onBack: () -> Unit,
     onOpenChannel: (channelId: String, channelName: String) -> Unit,
+    onOpenVoice: (channelId: String, channelName: String) -> Unit,
     viewModel: ChannelListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -59,7 +60,13 @@ fun ChannelListScreen(
             }
             else -> LazyColumn(Modifier.fillMaxSize()) {
                 items(state.channels, key = { it.id }) { channel ->
-                    ChannelRow(channel) { onOpenChannel(channel.id, channel.name) }
+                    ChannelRow(
+                        channel = channel,
+                        onClick = {
+                            if (channel.isVoice) onOpenVoice(channel.id, channel.name)
+                            else onOpenChannel(channel.id, channel.name)
+                        },
+                    )
                 }
             }
         }
@@ -90,14 +97,12 @@ private fun Header(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ChannelRow(channel: Channel, onTextClick: () -> Unit) {
-    // Canal de voz fica visivel mas desabilitado (entra no M6 com LiveKit).
-    val clickable = if (channel.isVoice) Modifier else Modifier.clickable(onClick = onTextClick)
-    val color = if (channel.isVoice) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+private fun ChannelRow(channel: Channel, onClick: () -> Unit) {
+    // Texto abre o chat; voz entra na chamada (M6a). Ambos clicaveis.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(clickable)
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -110,18 +115,10 @@ private fun ChannelRow(channel: Channel, onTextClick: () -> Unit) {
         Text(
             text = channel.name,
             style = MaterialTheme.typography.bodyLarge,
-            color = color,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (channel.isVoice) {
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "voz (em breve)",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 

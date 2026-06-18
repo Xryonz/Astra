@@ -39,6 +39,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // LiveKit usa java.time; minSdk 24 precisa de desugaring p/ rodar em <26.
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -84,4 +86,8 @@ dependencies {
 
     // Realtime — Socket.io client (protocolo Engine.io, fala com o server v4)
     implementation(libs.socketio.client)
+
+    // Voz/video — LiveKit Android (WebRTC nativo). Mesmo backend /api/voice/token do web.
+    implementation(libs.livekit.android)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

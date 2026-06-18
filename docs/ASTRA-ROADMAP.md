@@ -29,7 +29,11 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
   - Socket robusto: (1) auto-recupera token expirado no connect_error de auth (refresca via RefreshApi, cooldown 10s, deixa a auto-reconexao da lib usar o token novo); (2) re-join das conversas abertas no EVENT_CONNECT (rooms sao server-side, somem na queda — era o motivo de nao receber new_dm apos cair). activeRooms rastreado em join/leave.
 - [x] M5 servers/canais VALIDADO: M5a lista de servidores + canais (GET /api/servers ja traz channels aninhados + _count; criar servidor por nome cria #geral junto; voz desabilitado=M6) · M5b chat de canal (GET/POST /api/channels/:id/messages + join_channel/new_message/message_deleted, dedupe por id, reusa o motor do DM). Enter envia / Shift+Enter quebra linha nos dois chats.
   - Web: liberado "Adicionar membro" por @username pra servidor (nao so grupo) — invite/:username nao exige amizade; opt-out de estranhos = config futura.
-- [ ] M6 LiveKit Android
+- [~] M6 LiveKit Android (fatiado, valida cada slice com 2 contas):
+  - [~] M6a so audio ESCRITO+APK OK (falta validar no device): tocar canal voz -> POST /api/voice/token -> LiveKit.create + room.connect -> setMicrophoneEnabled. Audio remoto toca sozinho (SDK). CallService foreground type=microphone mantem a call em background. Permissao RECORD_AUDIO pedida antes de entrar (FGS exige). io.livekit:livekit-android 2.26.0 + desugaring (java.time em minSdk 24) + jitpack repo. Rota call/{channelId}. events via io.livekit.android.events.collect.
+  - [ ] M6b UI de participantes (quem fala, mute/deafen, presence)
+  - [ ] M6c video de camera (publicar + render tiles)
+  - [ ] M6d screenshare 60fps (MediaProjection) — o "gamer", mais pesado
 - AUTH/Google (nativo, futuro): Google so LOGA conta existente, NUNCA cria conta — ja e politica de seguranca do backend (passport.ts: email nao-registrado e bloqueado com code email_not_registered). No nativo, ao adicionar "Entrar com Google", tratar o deep link astra://login?error=google_email_unregistered -> mandar pro registro. Nao ha nada a mudar no backend.
 - DECISAO: Capacitor CONGELADO ja; camera/share/localizacao/animacoes serao nativos no Kotlin (nao no Capacitor)
 
@@ -57,3 +61,4 @@ caveman (think) · primeval-zen (output) · karpathy (code) · vercel-react · s
 - 2026-06-18: M5a servidores + canais VALIDADO (criar servidor, ver #geral, navegar).
 - 2026-06-18: M5b chat de canal escrito+compila — GET/POST /api/channels/:id/messages, realtime via SocketManager (new_message/message_deleted, join/leave_channel, re-join no connect), dedupe por id, bolhas mine/other. ChannelChatScreen duplica a UI do DM (extrair pra ui/chat compartilhado fica como cleanup futuro).
 - 2026-06-18: M5 100% VALIDADO no device (chat de canal bidirecional com 2 contas). Enter envia / Shift+Enter quebra linha (fix nos 2 chats). Web: "Adicionar membro" por @username liberado pra servidor normal (skill kotlin-specialist instalada local, gitignored).
+- 2026-06-18: M6a (voz so audio) ESCRITO + APK assembleDebug OK. LiveKit Android 2.26.0 (WebRTC nativo empacotado: liblkjingle_peerconnection_so.so), core library desugaring ligado, jitpack no settings. VoiceManager (Room unica, join/leave/toggleMic, state), CallService (foreground type=microphone), CallScreen pede RECORD_AUDIO antes de entrar. Canal de voz virou clicavel -> rota call/. Mesmo backend /api/voice/token do web. Falta validar no device com 2 contas (checkpoint: confirma se LIVEKIT_* esta setado na Railway).

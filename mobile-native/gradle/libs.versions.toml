@@ -17,6 +17,8 @@ coroutines = "1.9.0"
 coil = "2.7.0"
 datastore = "1.1.1"
 socketio = "2.1.0"
+livekit = "2.26.0"
+desugar = "2.1.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,6 +44,8 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 socketio-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketio" }
+livekit-android = { group = "io.livekit", name = "livekit-android", version.ref = "livekit" }
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

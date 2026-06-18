@@ -24,6 +24,7 @@ import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerListScreen
+import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 
@@ -35,10 +36,12 @@ private object Routes {
     const val SERVERS = "servers"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
+    const val CALL = "call/{channelId}?name={name}"
     // name encodado na query (%20 etc.) pra suportar espacos/acentos no display name.
     fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
     fun channelChat(id: String, name: String) = "channel/$id?name=${Uri.encode(name)}"
+    fun call(id: String, name: String) = "call/$id?name=${Uri.encode(name)}"
 }
 
 @Composable
@@ -77,6 +80,7 @@ fun AstraApp() {
                     ChannelListScreen(
                         onBack = { nav.popBackStack() },
                         onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
+                        onOpenVoice = { id, name -> nav.navigate(Routes.call(id, name)) },
                     )
                 }
                 composable(
@@ -87,6 +91,15 @@ fun AstraApp() {
                     ),
                 ) {
                     ChannelChatScreen(onBack = { nav.popBackStack() })
+                }
+                composable(
+                    route = Routes.CALL,
+                    arguments = listOf(
+                        navArgument("channelId") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    CallScreen(onLeave = { nav.popBackStack() })
                 }
                 composable(Routes.DMS) {
                     DmListScreen(

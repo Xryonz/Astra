@@ -18,6 +18,8 @@ data class ChannelChatUiState(
     val input: String = "",
     val sending: Boolean = false,
     val error: String? = null,
+    // id da mensagem em edicao (null = compondo nova). Reusa o input.
+    val editingId: String? = null,
 )
 
 @HiltViewModel
@@ -37,6 +39,7 @@ class ChannelChatViewModel @Inject constructor(
         loadHistory()
         observeIncoming()
         observeDeleted()
+        observeEdited()
     }
 
     private fun loadHistory() {
@@ -62,6 +65,17 @@ class ChannelChatViewModel @Inject constructor(
         }
     }
 
+    // message_edited (de qualquer autor) -> troca o conteudo + marca edited.
+    private fun observeEdited() {
+        viewModelScope.launch {
+            repository.editedMessages(channelId).collect { (id, content) ->
+                _state.update { s ->
+                    s.copy(messages = s.messages.map { if (it.id == id) it.copy(content = content, edited = true) else it })
+                }
+            }
+        }
+    }
+
     private fun addMessage(msg: ChannelMessage) {
         _state.update { s ->
             if (s.messages.any { it.id == msg.id }) s
@@ -71,9 +85,44 @@ class ChannelChatViewModel @Inject constructor(
 
     fun onInput(value: String) = _state.update { it.copy(input = value) }
 
+    // Long-press "Editar" -> entra em modo edicao reusando o input.
+    fun startEdit(messageId: String, content: String) =
+        _state.update { it.copy(editingId = messageId, input = content, error = null) }
+
+    fun cancelEdit() = _state.update { it.copy(editingId = null, input = "") }
+
+    fun deleteMessage(messageId: String) {
+        viewModelScope.launch {
+            repository.delete(channelId, messageId)
+                .onSuccess {
+                    _state.update { s -> s.copy(messages = s.messages.filterNot { it.id == messageId }) }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
     fun send() {
         val text = _state.value.input.trim()
         if (text.isEmpty() || _state.value.sending) return
+        val editing = _state.value.editingId
+        if (editing != null) {
+            _state.update { it.copy(sending = true, input = "", editingId = null, error = null) }
+            viewModelScope.launch {
+                repository.edit(channelId, editing, text)
+                    .onSuccess {
+                        _state.update { s ->
+                            s.copy(
+                                sending = false,
+                                messages = s.messages.map { if (it.id == editing) it.copy(content = text, edited = true) else it },
+                            )
+                        }
+                    }
+                    .onFailure { e ->
+                        _state.update { it.copy(sending = false, error = e.message, input = text, editingId = editing) }
+                    }
+            }
+            return
+        }
         _state.update { it.copy(sending = true, input = "", error = null) }
         viewModelScope.launch {
             repository.send(channelId, text)

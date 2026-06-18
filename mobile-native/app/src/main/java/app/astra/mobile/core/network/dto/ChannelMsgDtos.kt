@@ -11,6 +11,7 @@ data class ChannelMessageDto(
     val authorId: String,
     val channelId: String,
     val createdAt: String? = null,
+    val edited: Boolean = false,
     val author: MsgAuthorDto? = null,
 )
 
@@ -24,3 +25,6 @@ data class ChannelMessagesPageDto(
 
 @Serializable
 data class SendChannelRequest(val content: String)
+
+@Serializable
+data class EditChannelRequest(val content: String)

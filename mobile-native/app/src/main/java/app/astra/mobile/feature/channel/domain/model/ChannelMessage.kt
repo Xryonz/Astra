@@ -7,6 +7,7 @@ data class ChannelMessage(
     val authorAvatar: String?,
     val createdAt: String?,
     val mine: Boolean,
+    val edited: Boolean = false,
 )
 
 data class ChannelMessagesPage(

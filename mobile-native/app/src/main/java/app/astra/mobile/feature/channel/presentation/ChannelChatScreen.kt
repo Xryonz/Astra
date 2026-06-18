@@ -11,7 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +23,8 @@ import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
+import app.astra.mobile.ui.components.DeleteMessageDialog
+import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.theme.astraColors
 
@@ -30,6 +34,7 @@ fun ChannelChatScreen(
     viewModel: ChannelChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
@@ -48,9 +53,14 @@ fun ChannelChatScreen(
                         // So re-mapeia quando as mensagens mudam — digitar no input
                         // (mesmo state) nao re-aloca a lista inteira.
                         val rows = remember(state.messages) {
-                            state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content) }
+                            state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content, it.edited) }
                         }
-                        ChatMessageList(rows = rows, modifier = Modifier.fillMaxSize())
+                        ChatMessageList(
+                            rows = rows,
+                            modifier = Modifier.fillMaxSize(),
+                            onEdit = { viewModel.startEdit(it.id, it.content) },
+                            onDelete = { deleteTarget = it },
+                        )
                     }
                 }
             }
@@ -64,6 +74,8 @@ fun ChannelChatScreen(
                 )
             }
 
+            if (state.editingId != null) EditingBanner(onCancel = viewModel::cancelEdit)
+
             ChatInputBar(
                 text = state.input,
                 sending = state.sending,
@@ -71,5 +83,12 @@ fun ChannelChatScreen(
                 onSend = viewModel::send,
             )
         }
+    }
+
+    deleteTarget?.let { target ->
+        DeleteMessageDialog(
+            onConfirm = { viewModel.deleteMessage(target.id); deleteTarget = null },
+            onDismiss = { deleteTarget = null },
+        )
     }
 }

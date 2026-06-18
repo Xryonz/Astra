@@ -72,6 +72,15 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao enviar"))
     }
 
+    override suspend fun delete(conversationId: String, messageId: String): Result<Unit> = try {
+        dmApi.deleteMessage(conversationId, messageId)
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao apagar"))
+    }
+
     override suspend fun open(username: String): Result<OpenedConversation> = try {
         val dto = dmApi.open(OpenDmRequest(username.trim().removePrefix("@"))).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))

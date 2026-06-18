@@ -8,6 +8,7 @@ import app.astra.mobile.core.network.dto.OpenDmDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.SendDmRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -32,4 +33,10 @@ interface DmApi {
 
     @POST("api/dm/open")
     suspend fun open(@Body body: OpenDmRequest): ApiEnvelope<OpenDmDto>
+
+    @DELETE("api/dm/{cid}/messages/{mid}")
+    suspend fun deleteMessage(
+        @Path("cid") conversationId: String,
+        @Path("mid") messageId: String,
+    )
 }

@@ -4,6 +4,7 @@ import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.dto.ChannelMessageDto
+import app.astra.mobile.core.network.dto.EditChannelRequest
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.channel.domain.ChannelRepository
@@ -57,6 +58,24 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao enviar"))
     }
 
+    override suspend fun edit(channelId: String, messageId: String, content: String): Result<Unit> = try {
+        channelApi.editMessage(channelId, messageId, EditChannelRequest(content))
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao editar"))
+    }
+
+    override suspend fun delete(channelId: String, messageId: String): Result<Unit> = try {
+        channelApi.deleteMessage(channelId, messageId)
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao apagar"))
+    }
+
     override fun joinChannel(channelId: String) = socketManager.joinChannel(channelId)
 
     override fun leaveChannel(channelId: String) = socketManager.leaveChannel(channelId)
@@ -75,6 +94,12 @@ class ChannelRepositoryImpl @Inject constructor(
         socketManager.channelMessageDeleted
             .filter { it.second == channelId }
             .map { it.first }
+
+    // message_edited (messageId, content, channelId) -> (messageId, content) do canal certo.
+    override fun editedMessages(channelId: String): Flow<Pair<String, String>> =
+        socketManager.channelMessageEdited
+            .filter { it.third == channelId }
+            .map { it.first to it.second }
 }
 
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
@@ -84,4 +109,5 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     authorAvatar = author?.avatarUrl,
     createdAt = createdAt,
     mine = authorId == currentUserId,
+    edited = edited,
 )

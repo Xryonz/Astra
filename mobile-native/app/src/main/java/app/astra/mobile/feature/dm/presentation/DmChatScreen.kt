@@ -11,7 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +23,7 @@ import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
+import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.theme.astraColors
 
@@ -30,6 +33,7 @@ fun DmChatScreen(
     viewModel: DmChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
@@ -50,7 +54,13 @@ fun DmChatScreen(
                         val rows = remember(state.messages) {
                             state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content) }
                         }
-                        ChatMessageList(rows = rows, modifier = Modifier.fillMaxSize())
+                        // DM nao tem editar no backend -> canEdit=false (so apagar).
+                        ChatMessageList(
+                            rows = rows,
+                            modifier = Modifier.fillMaxSize(),
+                            canEdit = false,
+                            onDelete = { deleteTarget = it },
+                        )
                     }
                 }
             }
@@ -71,5 +81,12 @@ fun DmChatScreen(
                 onSend = viewModel::send,
             )
         }
+    }
+
+    deleteTarget?.let { target ->
+        DeleteMessageDialog(
+            onConfirm = { viewModel.deleteMessage(target.id); deleteTarget = null },
+            onDismiss = { deleteTarget = null },
+        )
     }
 }

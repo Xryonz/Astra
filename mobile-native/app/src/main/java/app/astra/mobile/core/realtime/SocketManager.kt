@@ -74,6 +74,10 @@ class SocketManager @Inject constructor(
     private val _channelMessageDeleted = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 16)
     val channelMessageDeleted: SharedFlow<Pair<String, String>> = _channelMessageDeleted.asSharedFlow()
 
+    // message_edited (messageId, content, channelId).
+    private val _channelMessageEdited = MutableSharedFlow<Triple<String, String, String>>(extraBufferCapacity = 16)
+    val channelMessageEdited: SharedFlow<Triple<String, String, String>> = _channelMessageEdited.asSharedFlow()
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = runBlocking { tokenStore.currentAccess() } ?: return
@@ -134,6 +138,13 @@ class SocketManager @Inject constructor(
         s.on("message_deleted") { args ->
             (args.firstOrNull() as? JSONObject)?.let {
                 _channelMessageDeleted.tryEmit(it.optString("messageId") to it.optString("channelId"))
+            }
+        }
+        s.on("message_edited") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _channelMessageEdited.tryEmit(
+                    Triple(it.optString("messageId"), it.optString("content"), it.optString("channelId")),
+                )
             }
         }
 

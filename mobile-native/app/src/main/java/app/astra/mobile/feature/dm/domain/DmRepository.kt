@@ -13,6 +13,8 @@ interface DmRepository {
 
     suspend fun send(conversationId: String, content: String): Result<DmMessage>
 
+    suspend fun delete(conversationId: String, messageId: String): Result<Unit>
+
     suspend fun open(username: String): Result<OpenedConversation>
 
     fun joinConversation(conversationId: String)

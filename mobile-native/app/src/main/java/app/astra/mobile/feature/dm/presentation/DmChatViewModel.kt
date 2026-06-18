@@ -63,6 +63,16 @@ class DmChatViewModel @Inject constructor(
 
     fun onInput(value: String) = _state.update { it.copy(input = value) }
 
+    fun deleteMessage(messageId: String) {
+        viewModelScope.launch {
+            repository.delete(conversationId, messageId)
+                .onSuccess {
+                    _state.update { s -> s.copy(messages = s.messages.filterNot { it.id == messageId }) }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
     fun send() {
         val text = _state.value.input.trim()
         if (text.isEmpty() || _state.value.sending) return

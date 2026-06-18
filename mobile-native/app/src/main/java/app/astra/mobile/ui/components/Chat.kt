@@ -2,9 +2,11 @@ package app.astra.mobile.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,8 +23,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +62,7 @@ import app.astra.mobile.ui.theme.astraColors
  * (do lado do autor) + overshoot elastico; mensagem nova (sweep=true) ganha um
  * "starlight sweep" prata por cima. Espelha dmMsgIn + msgStarlightSweep do web.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(
     mine: Boolean,
@@ -63,6 +70,9 @@ fun MessageBubble(
     content: String,
     animateIn: Boolean,
     sweep: Boolean,
+    edited: Boolean = false,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     val bg = if (mine) astraColors.accent else astraColors.raised
     val fg = if (mine) astraColors.textInv else astraColors.text1
@@ -85,44 +95,82 @@ fun MessageBubble(
     val fromX = if (mine) 26f else -26f
     val glow = astraColors.accentGlow
 
+    // Long-press abre o menu (so quando ha acoes — por ora, msg propria).
+    val hasMenu = onEdit != null || onDelete != null
+    var menuOpen by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 3.dp),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
     ) {
-        Column(
-            modifier = Modifier
-                .graphicsLayer {
-                    alpha = enter.value
-                    translationX = (1f - enter.value) * fromX.dp.toPx()
+        Box {
+            Column(
+                modifier = Modifier
+                    .graphicsLayer {
+                        alpha = enter.value
+                        translationX = (1f - enter.value) * fromX.dp.toPx()
+                    }
+                    .widthIn(max = 300.dp)
+                    .clip(shape)
+                    .background(bg)
+                    .then(
+                        if (hasMenu) {
+                            Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .drawWithContent {
+                        drawContent()
+                        val p = sweepA.value
+                        if (p > 0f && p < 1f) {
+                            val x = (p * 2f - 1f) * size.width
+                            drawRect(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(Color.Transparent, glow, Color.Transparent),
+                                    start = Offset(x - size.width * 0.5f, 0f),
+                                    end = Offset(x + size.width * 0.5f, size.height),
+                                ),
+                                blendMode = BlendMode.Screen,
+                            )
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+            ) {
+                if (!mine) {
+                    Text(
+                        text = authorName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = astraColors.accent,
+                    )
                 }
-                .widthIn(max = 300.dp)
-                .clip(shape)
-                .background(bg)
-                .drawWithContent {
-                    drawContent()
-                    val p = sweepA.value
-                    if (p > 0f && p < 1f) {
-                        val x = (p * 2f - 1f) * size.width
-                        drawRect(
-                            brush = Brush.linearGradient(
-                                colors = listOf(Color.Transparent, glow, Color.Transparent),
-                                start = Offset(x - size.width * 0.5f, 0f),
-                                end = Offset(x + size.width * 0.5f, size.height),
-                            ),
-                            blendMode = BlendMode.Screen,
+                Text(text = content, style = MaterialTheme.typography.bodyLarge, color = fg)
+                if (edited) {
+                    Text(
+                        text = "editado",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontStyle = FontStyle.Italic,
+                        color = fg.copy(alpha = 0.55f),
+                    )
+                }
+            }
+
+            if (hasMenu) {
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (onEdit != null) {
+                        DropdownMenuItem(
+                            text = { Text("Editar", color = astraColors.text1) },
+                            onClick = { menuOpen = false; onEdit() },
+                        )
+                    }
+                    if (onDelete != null) {
+                        DropdownMenuItem(
+                            text = { Text("Apagar", color = astraColors.danger) },
+                            onClick = { menuOpen = false; onDelete() },
                         )
                     }
                 }
-                .padding(horizontal = 14.dp, vertical = 9.dp),
-        ) {
-            if (!mine) {
-                Text(
-                    text = authorName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = astraColors.accent,
-                )
             }
-            Text(text = content, style = MaterialTheme.typography.bodyLarge, color = fg)
         }
     }
 }
@@ -133,6 +181,7 @@ data class ChatRow(
     val mine: Boolean,
     val authorName: String,
     val content: String,
+    val edited: Boolean = false,
 )
 
 /**
@@ -141,7 +190,13 @@ data class ChatRow(
  * carga inicial (shownOnce), pra nao varrer o historico inteiro de uma vez.
  */
 @Composable
-fun ChatMessageList(rows: List<ChatRow>, modifier: Modifier = Modifier) {
+fun ChatMessageList(
+    rows: List<ChatRow>,
+    modifier: Modifier = Modifier,
+    canEdit: Boolean = true,
+    onEdit: (ChatRow) -> Unit = {},
+    onDelete: (ChatRow) -> Unit = {},
+) {
     val animated = remember { mutableSetOf<String>() }
     var shownOnce by remember { mutableStateOf(false) }
     LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) shownOnce = true }
@@ -157,15 +212,50 @@ fun ChatMessageList(rows: List<ChatRow>, modifier: Modifier = Modifier) {
                 animated.add(row.id)
                 n
             }
+            // Acoes so na mensagem propria (long-press). Outras: sem menu por ora.
             MessageBubble(
                 mine = row.mine,
                 authorName = row.authorName,
                 content = row.content,
                 animateIn = isNew,
                 sweep = isNew && shownOnce,
+                edited = row.edited,
+                onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
+                onDelete = if (row.mine) ({ onDelete(row) }) else null,
             )
         }
     }
+}
+
+/** Banner acima do composer enquanto edita uma mensagem (input vira o texto dela). */
+@Composable
+fun EditingBanner(onCancel: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MarginaliaLabel("editando mensagem", color = astraColors.accent)
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "cancelar",
+            style = MaterialTheme.typography.labelMedium,
+            color = astraColors.text2,
+            modifier = Modifier.clickable(onClick = onCancel),
+        )
+    }
+}
+
+/** Confirmacao de apagar mensagem (compartilhada DM + canal). */
+@Composable
+fun DeleteMessageDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = astraColors.overlay,
+        title = { Text("Apagar mensagem?", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        text = { Text("Isso remove a mensagem pra todo mundo.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Apagar", color = astraColors.danger) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = astraColors.text2) } },
+    )
 }
 
 /** Composer cosmico: pill input + botao enviar circular. Enter envia, Shift+Enter quebra linha. */

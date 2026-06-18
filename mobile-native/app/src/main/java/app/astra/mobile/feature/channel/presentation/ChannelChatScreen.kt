@@ -28,6 +28,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardActions
@@ -149,7 +155,17 @@ private fun InputBar(
         OutlinedTextField(
             value = text,
             onValueChange = onInput,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                // Enter (teclado fisico) envia; Shift+Enter quebra linha (Discord-like).
+                .onPreviewKeyEvent { e ->
+                    if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
+                        onSend()
+                        true
+                    } else {
+                        false
+                    }
+                },
             placeholder = { Text("Mensagem") },
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),

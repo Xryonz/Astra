@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +24,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.server.domain.model.Channel
+import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.CosmicSpinner
+import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmptyState
+import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.theme.astraColors
 
 @Composable
 fun ChannelListScreen(
@@ -35,38 +40,37 @@ fun ChannelListScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    Column(Modifier.fillMaxSize()) {
-        Header(viewModel.serverName, onBack)
-        when {
-            state.loading -> CenterBox {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-            state.error != null -> CenterBox {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = state.error!!,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TextButton(onClick = viewModel::load) { Text("Tentar de novo") }
+    CosmicBackground {
+        Column(Modifier.fillMaxSize()) {
+            EditorialTopBar(
+                title = viewModel.serverName,
+                marginalia = "canais",
+                onBack = onBack,
+            )
+            when {
+                state.loading -> CenterBox { CosmicSpinner() }
+                state.error != null -> CenterBox {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.error!!, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+                        TextButton(onClick = viewModel::load) {
+                            Text("Tentar de novo", color = astraColors.accent)
+                        }
+                    }
                 }
-            }
-            state.channels.isEmpty() -> CenterBox {
-                Text(
-                    text = "Nenhum canal visivel",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                state.channels.isEmpty() -> EmptyState(
+                    line = "Nenhum canal visivel",
+                    hint = "este servidor nao tem canais pra voce",
                 )
-            }
-            else -> LazyColumn(Modifier.fillMaxSize()) {
-                items(state.channels, key = { it.id }) { channel ->
-                    ChannelRow(
-                        channel = channel,
-                        onClick = {
-                            if (channel.isVoice) onOpenVoice(viewModel.serverId, channel.id, channel.name)
-                            else onOpenChannel(channel.id, channel.name)
-                        },
-                    )
+                else -> LazyColumn(Modifier.fillMaxSize()) {
+                    items(state.channels, key = { it.id }) { channel ->
+                        ChannelRow(
+                            channel = channel,
+                            onClick = {
+                                if (channel.isVoice) onOpenVoice(viewModel.serverId, channel.id, channel.name)
+                                else onOpenChannel(channel.id, channel.name)
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -74,51 +78,32 @@ fun ChannelListScreen(
 }
 
 @Composable
-private fun Header(title: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "‹",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.clickable(onClick = onBack).padding(horizontal = 8.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
 private fun ChannelRow(channel: Channel, onClick: () -> Unit) {
-    // Texto abre o chat; voz entra na chamada (M6a). Ambos clicaveis.
+    // Texto abre o chat; voz entra na chamada. Ambos clicaveis.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = if (channel.isVoice) "🔊" else "#",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (channel.isVoice) astraColors.accent else astraColors.text3,
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             text = channel.name,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = astraColors.text1,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
+        if (channel.isVoice) {
+            MarginaliaLabel("voz", color = astraColors.text3)
+        }
     }
 }
 

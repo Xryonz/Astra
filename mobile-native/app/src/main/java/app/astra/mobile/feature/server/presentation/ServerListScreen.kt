@@ -1,7 +1,9 @@
 package app.astra.mobile.feature.server.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -16,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,6 +37,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.CosmicSpinner
+import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmptyState
+import app.astra.mobile.ui.components.TopBarAction
+import app.astra.mobile.ui.theme.DmSerif
+import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
 
 @Composable
@@ -51,32 +59,32 @@ fun ServerListScreen(
         viewModel.created.collect { showDialog = false }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Header(onBack = onBack, onNew = { showDialog = true })
-        when {
-            state.loading -> CenterBox {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-            state.error != null -> CenterBox {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = state.error!!,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TextButton(onClick = viewModel::load) { Text("Tentar de novo") }
+    CosmicBackground {
+        Column(Modifier.fillMaxSize()) {
+            EditorialTopBar(
+                title = "Servidores",
+                marginalia = "comunidades",
+                onBack = onBack,
+                trailing = { TopBarAction("+", onClick = { showDialog = true }) },
+            )
+            when {
+                state.loading -> CenterBox { CosmicSpinner() }
+                state.error != null -> CenterBox {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(state.error!!, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+                        TextButton(onClick = viewModel::load) {
+                            Text("Tentar de novo", color = astraColors.accent)
+                        }
+                    }
                 }
-            }
-            state.servers.isEmpty() -> CenterBox {
-                Text(
-                    text = "Nenhum servidor ainda. Toque em + pra criar.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                state.servers.isEmpty() -> EmptyState(
+                    line = "Nenhum servidor ainda",
+                    hint = "toque em + pra criar um",
                 )
-            }
-            else -> LazyColumn(Modifier.fillMaxSize()) {
-                items(state.servers, key = { it.id }) { server ->
-                    ServerRow(server) { onOpenServer(server.id, server.name) }
+                else -> LazyColumn(Modifier.fillMaxSize()) {
+                    items(state.servers, key = { it.id }) { server ->
+                        ServerRow(server) { onOpenServer(server.id, server.name) }
+                    }
                 }
             }
         }
@@ -93,6 +101,57 @@ fun ServerListScreen(
 }
 
 @Composable
+private fun ServerRow(server: Server, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ServerIcon(server.iconUrl, server.name)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                text = server.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = astraColors.text1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${server.memberCount} membro${if (server.memberCount == 1) "" else "s"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = astraColors.text2,
+            )
+        }
+        Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+@Composable
+private fun ServerIcon(url: String?, name: String) {
+    val shape = RoundedCornerShape(14.dp)
+    val mod = Modifier
+        .size(46.dp)
+        .clip(shape)
+        .background(astraColors.raised)
+        .border(1.dp, astraColors.borderMid, shape)
+    if (url != null) {
+        AsyncImage(model = url, contentDescription = null, modifier = mod, contentScale = ContentScale.Crop)
+    } else {
+        Box(mod, contentAlignment = Alignment.Center) {
+            Text(
+                text = name.take(1).uppercase(),
+                fontFamily = DmSerif,
+                style = MaterialTheme.typography.titleLarge,
+                color = astraColors.accent,
+            )
+        }
+    }
+}
+
+@Composable
 private fun CreateServerDialog(
     creating: Boolean,
     error: String?,
@@ -102,7 +161,8 @@ private fun CreateServerDialog(
     var name by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { if (!creating) onDismiss() },
-        title = { Text("Novo servidor") },
+        containerColor = astraColors.overlay,
+        title = { Text("Novo servidor", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             Column {
                 OutlinedTextField(
@@ -116,7 +176,7 @@ private fun CreateServerDialog(
                     Text(
                         text = error,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        color = astraColors.danger,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -124,88 +184,15 @@ private fun CreateServerDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank() && !creating) {
-                Text(if (creating) "Criando..." else "Criar")
+                Text(if (creating) "Criando..." else "Criar", color = astraColors.accent)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !creating) { Text("Cancelar") }
+            TextButton(onClick = onDismiss, enabled = !creating) {
+                Text("Cancelar", color = astraColors.text2)
+            }
         },
     )
-}
-
-@Composable
-private fun Header(onBack: () -> Unit, onNew: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "‹",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.clickable(onClick = onBack).padding(horizontal = 8.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = "Servidores",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = "+",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clickable(onClick = onNew).padding(horizontal = 8.dp),
-        )
-    }
-}
-
-@Composable
-private fun ServerRow(server: Server, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ServerIcon(server.iconUrl, server.name)
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(
-                text = server.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "${server.memberCount} membro${if (server.memberCount == 1) "" else "s"}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ServerIcon(url: String?, name: String) {
-    val mod = Modifier
-        .size(44.dp)
-        .clip(RoundedCornerShape(14.dp))
-        .background(MaterialTheme.colorScheme.surfaceVariant)
-    if (url != null) {
-        AsyncImage(model = url, contentDescription = null, modifier = mod, contentScale = ContentScale.Crop)
-    } else {
-        Box(mod, contentAlignment = Alignment.Center) {
-            Text(
-                text = name.take(1).uppercase(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
 }
 
 @Composable

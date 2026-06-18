@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,20 +19,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,14 +37,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.voice.CallStatus
-import coil.compose.AsyncImage
+import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.CosmicSpinner
+import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.theme.DmSerif
+import app.astra.mobile.ui.theme.astraColors
 import io.livekit.android.compose.ui.ScaleType
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.Room
@@ -73,7 +74,6 @@ fun CallScreen(
         else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    // Camera e opcional: pede permissao na hora de ligar.
     val camLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted -> if (granted) viewModel.toggleCamera() }
@@ -83,8 +83,7 @@ fun CallScreen(
         else camLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // Screenshare: o sistema pede a captura por um dialogo proprio (nao e uma
-    // runtime permission). O resultData volta aqui e vai pro LiveKit.
+    // Screenshare: dialogo de captura do sistema -> resultData -> LiveKit.
     val screenLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -108,76 +107,76 @@ fun CallScreen(
     }
     BackHandler { exit() }
 
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
-            Text(
-                text = "🔊 ${state.channelName}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.padding(top = 2.dp))
-            Text(
-                text = subtitle(state),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (state.status == CallStatus.Error) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    CosmicBackground {
+        Column(Modifier.fillMaxSize()) {
+            // Cabecalho cosmico
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
+                MarginaliaLabel("chamada de voz")
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = state.channelName,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = astraColors.text1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle(state),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.status == CallStatus.Error) astraColors.danger else astraColors.text2,
+                )
+            }
 
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                state.status == CallStatus.Connecting -> CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-                state.participants.isEmpty() -> Text(
-                    text = if (state.status == CallStatus.Error) "—" else "Ninguem na chamada",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-                else -> {
-                    // Cada pessoa = 1 tile de camera/avatar; quem compartilha tela
-                    // ganha um tile extra (span 2 colunas).
-                    val tiles = state.participants.flatMap { p ->
-                        buildList {
-                            add(Tile("${p.identity}:cam", p, isScreen = false))
-                            if (p.screenTrack != null) add(Tile("${p.identity}:scr", p, isScreen = true))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    state.status == CallStatus.Connecting ->
+                        CosmicSpinner(Modifier.align(Alignment.Center))
+                    state.participants.isEmpty() -> Text(
+                        text = if (state.status == CallStatus.Error) "—" else "Ninguem na chamada",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = astraColors.text2,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                    else -> {
+                        val tiles = state.participants.flatMap { p ->
+                            buildList {
+                                add(Tile("${p.identity}:cam", p, isScreen = false))
+                                if (p.screenTrack != null) add(Tile("${p.identity}:scr", p, isScreen = true))
+                            }
                         }
-                    }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(
-                            items = tiles,
-                            key = { it.key },
-                            span = { GridItemSpan(if (it.isScreen) 2 else 1) },
-                        ) { tile ->
-                            ParticipantTile(tile.participant, tile.isScreen, viewModel.room)
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(
+                                items = tiles,
+                                key = { it.key },
+                                span = { GridItemSpan(if (it.isScreen) 2 else 1) },
+                            ) { tile ->
+                                ParticipantTile(tile.participant, tile.isScreen, viewModel.room)
+                            }
                         }
                     }
                 }
             }
-        }
 
-        ControlBar(
-            status = state.status,
-            micEnabled = state.micEnabled,
-            cameraOn = state.cameraOn,
-            screenSharing = state.screenSharing,
-            deafened = state.deafened,
-            onToggleMic = viewModel::toggleMic,
-            onToggleCamera = onCamera,
-            onToggleScreen = onScreen,
-            onToggleDeafen = viewModel::toggleDeafen,
-            onLeave = { exit() },
-        )
+            ControlBar(
+                status = state.status,
+                micEnabled = state.micEnabled,
+                cameraOn = state.cameraOn,
+                screenSharing = state.screenSharing,
+                deafened = state.deafened,
+                onToggleMic = viewModel::toggleMic,
+                onToggleCamera = onCamera,
+                onToggleScreen = onScreen,
+                onToggleDeafen = viewModel::toggleDeafen,
+                onLeave = { exit() },
+            )
+        }
     }
 }
 
@@ -197,8 +196,7 @@ private fun subtitle(state: CallUiState): String = when (state.status) {
 @Composable
 private fun ParticipantTile(p: CallParticipantUi, isScreen: Boolean, room: Room?) {
     val shape = RoundedCornerShape(16.dp)
-    // Anel ambar quando a pessoa fala (so no tile de pessoa, nao no de tela).
-    val ring = if (!isScreen && p.isSpeaking) MaterialTheme.colorScheme.primary else Color.Transparent
+    val ring = if (!isScreen && p.isSpeaking) astraColors.accent else Color.Transparent
     val track = if (isScreen) p.screenTrack else p.videoTrack
     val showVideo = if (isScreen) track != null else (p.cameraEnabled && track != null)
     Box(
@@ -207,19 +205,19 @@ private fun ParticipantTile(p: CallParticipantUi, isScreen: Boolean, room: Room?
             .aspectRatio(if (isScreen) 16f / 9f else 1f)
             .clip(shape)
             .border(2.dp, ring, shape)
-            .background(if (isScreen) Color.Black else MaterialTheme.colorScheme.surfaceVariant),
+            .background(if (isScreen) Color.Black else astraColors.raised),
     ) {
         if (showVideo) {
             VideoTrackView(
                 videoTrack = track,
                 modifier = Modifier.fillMaxSize().clip(shape),
                 passedRoom = room,
-                mirror = !isScreen && p.isLocal, // camera frontal espelhada pra quem se ve
-                scaleType = if (isScreen) ScaleType.FitInside else ScaleType.Fill, // tela inteira vs preenche
+                mirror = !isScreen && p.isLocal,
+                scaleType = if (isScreen) ScaleType.FitInside else ScaleType.Fill,
             )
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Avatar(p.name, p.avatarUrl)
+                AstraAvatar(p.avatarUrl, p.name, size = 64)
             }
         }
 
@@ -257,32 +255,6 @@ private data class Tile(
 )
 
 @Composable
-private fun Avatar(name: String, url: String?) {
-    Box(
-        modifier = Modifier
-            .size(64.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surface),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (!url.isNullOrBlank()) {
-            AsyncImage(
-                model = url,
-                contentDescription = name,
-                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Text(
-                text = name.take(1).uppercase(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
-
-@Composable
 private fun ControlBar(
     status: CallStatus,
     micEnabled: Boolean,
@@ -298,39 +270,55 @@ private fun ControlBar(
     val live = status == CallStatus.Connected
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(
-                onClick = onToggleMic,
-                enabled = live && !deafened,
-                modifier = Modifier.weight(1f),
-            ) { Text(if (micEnabled) "Mutar" else "Ativar") }
-
-            OutlinedButton(
-                onClick = onToggleDeafen,
-                enabled = live,
-                modifier = Modifier.weight(1f),
-            ) { Text(if (deafened) "Ouvir" else "Surdo") }
+            CallToggle("Microfone", active = micEnabled, enabled = live && !deafened, onClick = onToggleMic, modifier = Modifier.weight(1f))
+            CallToggle("Surdo", active = deafened, enabled = live, onClick = onToggleDeafen, activeColor = astraColors.danger, modifier = Modifier.weight(1f))
         }
-        Spacer(Modifier.padding(top = 10.dp))
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(
-                onClick = onToggleCamera,
-                enabled = live,
-                modifier = Modifier.weight(1f),
-            ) { Text(if (cameraOn) "Camera off" else "Camera") }
-
-            OutlinedButton(
-                onClick = onToggleScreen,
-                enabled = live,
-                modifier = Modifier.weight(1f),
-            ) { Text(if (screenSharing) "Parar tela" else "Tela") }
+            CallToggle("Camera", active = cameraOn, enabled = live, onClick = onToggleCamera, modifier = Modifier.weight(1f))
+            CallToggle("Tela", active = screenSharing, enabled = live, onClick = onToggleScreen, modifier = Modifier.weight(1f))
         }
-        Spacer(Modifier.padding(top = 10.dp))
-        Button(
-            onClick = onLeave,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Sair") }
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(astraColors.danger)
+                .clickable(onClick = onLeave),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Sair", color = Color.White, style = MaterialTheme.typography.titleSmall)
+        }
+    }
+}
+
+/** Pill toggle: preenchido (activeColor) quando ligado, contornado quando desligado. */
+@Composable
+private fun CallToggle(
+    label: String,
+    active: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    activeColor: Color = astraColors.accent,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    val bg = if (active) activeColor else astraColors.raised
+    val fg = when {
+        !enabled -> astraColors.text3
+        active -> astraColors.textInv
+        else -> astraColors.text2
+    }
+    Box(
+        modifier = modifier
+            .height(46.dp)
+            .clip(shape)
+            .background(bg.copy(alpha = if (enabled) 1f else 0.4f))
+            .border(1.dp, if (active) Color.Transparent else astraColors.borderMid, shape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = fg, fontSize = 14.sp)
     }
 }

@@ -26,3 +26,18 @@ data class ServerCountDto(val members: Int = 0)
 
 @Serializable
 data class CreateServerRequest(val name: String)
+
+// GET /api/servers/:id/members -> { data: [ { userId, user:{username,displayName,avatarUrl} } ] }
+// (ignora role/nameColor/roles[] etc via ignoreUnknownKeys)
+@Serializable
+data class ServerMemberDto(
+    val userId: String,
+    val user: MemberUserDto,
+)
+
+@Serializable
+data class MemberUserDto(
+    val username: String,
+    val displayName: String? = null,
+    val avatarUrl: String? = null,
+)

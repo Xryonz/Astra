@@ -9,6 +9,7 @@ import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
+import io.livekit.android.room.track.RemoteAudioTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,11 +25,21 @@ import javax.inject.Singleton
 
 enum class CallStatus { Idle, Connecting, Connected, Error }
 
+// identity = userId (LiveKit usa req.userId como identity). Nome/avatar sao
+// resolvidos na camada de cima (CallViewModel via /members).
+data class CallParticipant(
+    val identity: String,
+    val isLocal: Boolean,
+    val isSpeaking: Boolean,
+    val micEnabled: Boolean,
+)
+
 data class VoiceState(
     val status: CallStatus = CallStatus.Idle,
     val channelName: String = "",
     val micEnabled: Boolean = false,
-    val participants: Int = 0,
+    val deafened: Boolean = false,
+    val participants: List<CallParticipant> = emptyList(),
     val error: String? = null,
 )
 
@@ -36,10 +47,11 @@ data class VoiceState(
  * Chamada de voz unica do app (espelha apps/web/src/store/voiceStore.ts).
  *
  * Fluxo: POST /api/voice/token -> LiveKit.create -> room.connect(url, token)
- * -> setMicrophoneEnabled(true). O audio remoto toca automaticamente (o SDK
- * gerencia playback). CallService mantem a call viva com o app em background.
+ * -> setMicrophoneEnabled(true). O audio remoto toca sozinho (o SDK gerencia
+ * playback). CallService mantem a call viva com o app em background.
  *
- * M6a = so audio. Camera/tela entram em M6c/M6d.
+ * M6b: expoe a lista de participantes (quem fala / mic) e deafen (setVolume 0
+ * em todas as tracks remotas). M6c/M6d: camera/tela.
  */
 @Singleton
 class VoiceManager @Inject constructor(
@@ -71,7 +83,7 @@ class VoiceManager @Inject constructor(
                     it.copy(
                         status = CallStatus.Connected,
                         micEnabled = true,
-                        participants = participantCount(r),
+                        participants = snapshot(r),
                     )
                 }
             } catch (e: Exception) {
@@ -95,6 +107,18 @@ class VoiceManager @Inject constructor(
         }
     }
 
+    // Deafen estilo Discord: silencia todo mundo (setVolume 0) E corta seu mic.
+    // Undeafen restaura o volume e reativa o mic.
+    fun toggleDeafen() {
+        val r = room ?: return
+        scope.launch {
+            val deaf = !_state.value.deafened
+            applyDeafen(r, deaf)
+            try { r.localParticipant.setMicrophoneEnabled(!deaf) } catch (_: Exception) {}
+            _state.update { it.copy(deafened = deaf, micEnabled = !deaf) }
+        }
+    }
+
     fun leave() {
         scope.launch {
             cleanup()
@@ -112,25 +136,56 @@ class VoiceManager @Inject constructor(
         eventsJob?.cancel()
         eventsJob = scope.launch {
             r.events.collect { event ->
-                when (event) {
-                    is RoomEvent.Disconnected -> {
-                        // Servidor/rede derrubou: solta a room sem cancelar este
-                        // coletor de dentro dele mesmo.
-                        releaseRoom()
-                        _state.value = VoiceState()
-                    }
-                    is RoomEvent.ParticipantConnected,
-                    is RoomEvent.ParticipantDisconnected,
-                    is RoomEvent.TrackSubscribed,
-                    is RoomEvent.TrackUnsubscribed,
-                    -> _state.update { it.copy(participants = participantCount(r)) }
-                    else -> {}
+                if (event is RoomEvent.Disconnected) {
+                    // Servidor/rede derrubou: solta a room sem cancelar este
+                    // coletor de dentro dele mesmo.
+                    releaseRoom()
+                    _state.value = VoiceState()
+                } else {
+                    // Qualquer outro evento (entrou/saiu/falou/mutou/publicou track)
+                    // -> rebuild barato da lista. Listas de call sao pequenas.
+                    refreshParticipants(r)
                 }
             }
         }
     }
 
-    private fun participantCount(r: Room): Int = r.remoteParticipants.size + 1
+    private fun refreshParticipants(r: Room) {
+        // Reaplica deafen pra pegar tracks que acabaram de chegar.
+        if (_state.value.deafened) applyDeafen(r, true)
+        val list = snapshot(r)
+        val localMic = list.firstOrNull { it.isLocal }?.micEnabled ?: _state.value.micEnabled
+        _state.update { it.copy(participants = list, micEnabled = localMic) }
+    }
+
+    private fun snapshot(r: Room): List<CallParticipant> {
+        val out = ArrayList<CallParticipant>()
+        val local = r.localParticipant
+        out += CallParticipant(
+            identity = local.identity?.value.orEmpty(),
+            isLocal = true,
+            isSpeaking = local.isSpeaking,
+            micEnabled = local.isMicrophoneEnabled,
+        )
+        r.remoteParticipants.values.forEach { p ->
+            out += CallParticipant(
+                identity = p.identity?.value.orEmpty(),
+                isLocal = false,
+                isSpeaking = p.isSpeaking,
+                micEnabled = p.isMicrophoneEnabled,
+            )
+        }
+        return out
+    }
+
+    private fun applyDeafen(r: Room, deaf: Boolean) {
+        val vol = if (deaf) 0.0 else 1.0
+        r.remoteParticipants.values.forEach { p ->
+            p.audioTrackPublications.forEach { (_, track) ->
+                (track as? RemoteAudioTrack)?.setVolume(vol)
+            }
+        }
+    }
 
     private fun releaseRoom() {
         room?.let {

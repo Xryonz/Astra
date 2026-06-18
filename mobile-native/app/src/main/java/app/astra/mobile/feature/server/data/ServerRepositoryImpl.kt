@@ -8,6 +8,7 @@ import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.feature.server.domain.ServerRepository
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.feature.server.domain.model.ServerMember
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
@@ -28,6 +29,23 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Sem conexao com o servidor"))
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar servidores"))
+    }
+
+    override suspend fun members(serverId: String): Result<List<ServerMember>> = try {
+        val env = serverApi.members(serverId)
+        Result.success(
+            env.data.orEmpty().map {
+                ServerMember(
+                    userId = it.userId,
+                    name = it.user.displayName ?: it.user.username,
+                    avatarUrl = it.user.avatarUrl,
+                )
+            },
+        )
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao carregar membros"))
     }
 
     override suspend fun createServer(name: String): Result<Server> = try {

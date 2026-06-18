@@ -24,7 +24,7 @@ class ChannelListViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val serverId: String = savedStateHandle["serverId"] ?: ""
+    val serverId: String = savedStateHandle["serverId"] ?: ""
     val serverName: String = savedStateHandle["name"] ?: "Servidor"
 
     private val _state = MutableStateFlow(ChannelListUiState())

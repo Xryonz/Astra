@@ -30,7 +30,7 @@ import app.astra.mobile.feature.server.domain.model.Channel
 fun ChannelListScreen(
     onBack: () -> Unit,
     onOpenChannel: (channelId: String, channelName: String) -> Unit,
-    onOpenVoice: (channelId: String, channelName: String) -> Unit,
+    onOpenVoice: (serverId: String, channelId: String, channelName: String) -> Unit,
     viewModel: ChannelListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -63,7 +63,7 @@ fun ChannelListScreen(
                     ChannelRow(
                         channel = channel,
                         onClick = {
-                            if (channel.isVoice) onOpenVoice(channel.id, channel.name)
+                            if (channel.isVoice) onOpenVoice(viewModel.serverId, channel.id, channel.name)
                             else onOpenChannel(channel.id, channel.name)
                         },
                     )

@@ -13,3 +13,9 @@ data class Channel(
     val name: String,
     val isVoice: Boolean,
 )
+
+data class ServerMember(
+    val userId: String,
+    val name: String,
+    val avatarUrl: String?,
+)

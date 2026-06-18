@@ -2,8 +2,9 @@ package app.astra.mobile.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +12,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Reveal
+import app.astra.mobile.ui.theme.GreatVibes
+import app.astra.mobile.ui.theme.astraColors
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -134,15 +145,28 @@ fun AstraApp() {
 
 @Composable
 private fun SplashScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "Astra",
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
+    CosmicBackground {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Reveal {
+                // Wordmark em Great Vibes com glow prata atras (textShadow do web).
+                Text(
+                    text = "Astra",
+                    style = TextStyle(
+                        fontFamily = GreatVibes,
+                        fontSize = 76.sp,
+                        color = astraColors.accent,
+                        shadow = Shadow(astraColors.accentGlow, Offset(0f, 6f), blurRadius = 48f),
+                    ),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Reveal(delayMillis = 220) {
+                MarginaliaLabel("constelacoes . pessoas . conversas")
+            }
+        }
     }
 }

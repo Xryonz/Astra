@@ -28,6 +28,7 @@ import app.astra.mobile.core.realtime.ConnectionState
 @Composable
 fun HomeScreen(
     onOpenDms: () -> Unit,
+    onOpenServers: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val socket by viewModel.socketState.collectAsState()
@@ -54,6 +55,10 @@ fun HomeScreen(
         Spacer(Modifier.height(24.dp))
         Button(onClick = onOpenDms) {
             Text("Mensagens")
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = onOpenServers) {
+            Text("Servidores")
         }
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = { viewModel.logout() }) {

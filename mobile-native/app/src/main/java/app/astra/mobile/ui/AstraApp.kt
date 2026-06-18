@@ -21,6 +21,8 @@ import app.astra.mobile.feature.auth.presentation.LoginScreen
 import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.home.HomeScreen
+import app.astra.mobile.feature.server.presentation.ChannelListScreen
+import app.astra.mobile.feature.server.presentation.ServerListScreen
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 
@@ -29,8 +31,11 @@ private object Routes {
     const val HOME = "home"
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
+    const val SERVERS = "servers"
+    const val CHANNELS = "channels/{serverId}?name={name}"
     // name encodado na query (%20 etc.) pra suportar espacos/acentos no display name.
     fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
+    fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
 }
 
 @Composable
@@ -48,7 +53,29 @@ fun AstraApp() {
             ) {
                 composable(Routes.LOGIN) { LoginScreen() }
                 composable(Routes.HOME) {
-                    HomeScreen(onOpenDms = { nav.navigate(Routes.DMS) })
+                    HomeScreen(
+                        onOpenDms = { nav.navigate(Routes.DMS) },
+                        onOpenServers = { nav.navigate(Routes.SERVERS) },
+                    )
+                }
+                composable(Routes.SERVERS) {
+                    ServerListScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenServer = { id, name -> nav.navigate(Routes.channels(id, name)) },
+                    )
+                }
+                composable(
+                    route = Routes.CHANNELS,
+                    arguments = listOf(
+                        navArgument("serverId") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    ChannelListScreen(
+                        onBack = { nav.popBackStack() },
+                        // M5b: navega pro chat do canal. Por ora no-op.
+                        onOpenChannel = { _, _ -> },
+                    )
                 }
                 composable(Routes.DMS) {
                     DmListScreen(

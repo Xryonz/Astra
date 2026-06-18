@@ -18,9 +18,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // Backend Astra existente. TODO: trocar pela URL real (a mesma do
-        // VITE_API_URL do app web). Terminar com "/".
-        buildConfigField("String", "BASE_URL", "\"https://CHANGE_ME.example.com/\"")
+        // Backend Astra existente (mesma URL do VITE_API_URL do app web,
+        // .env.production). O Railway mantem o nome antigo "umbra". Termina em "/".
+        buildConfigField("String", "BASE_URL", "\"https://umbra-api-production.up.railway.app/\"")
     }
 
     buildTypes {

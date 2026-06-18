@@ -23,8 +23,10 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
 - Desktop futuro: Compose Multiplatform
 - Toolchain casado c/ Capacitor: Gradle 8.11.1 · AGP 8.7.2 · compileSdk 35 · JDK 17 · Kotlin 2.0.21
 - [x] M1 fundacao (Gradle+catalog, Compose, Hilt, tema Astra dark/amber, app roda vazio)
-- [ ] M2 rede (Retrofit+OkHttp+auth interceptor+DataStore) — precisa BASE_URL real
-- [ ] M3 slice Auth (login) · M4 WebSocket+DMs · M5 servers/canais/msgs · M6 LiveKit Android
+- [x] M2 rede (Retrofit+OkHttp+AuthInterceptor+TokenStore DataStore, modulos Hilt). BASE_URL = umbra-api-production.up.railway.app (mesma do Vite)
+- [ ] M3 slice Auth (login → /api/auth, ViewModel, tela Compose, Authenticator p/ refresh no 401)
+- [ ] M4 WebSocket+DMs · M5 servers/canais/msgs · M6 LiveKit Android
+- DECISAO: Capacitor CONGELADO ja; camera/share/localizacao/animacoes serao nativos no Kotlin (nao no Capacitor)
 
 ## T3 — Dados/Infra  [QUANDO O VOLUME PEDIR]
 - Postgres (transacional) · Redis (presenca/sessao) · TimescaleDB (historico msgs, particao temporal por channel_id, created_at)

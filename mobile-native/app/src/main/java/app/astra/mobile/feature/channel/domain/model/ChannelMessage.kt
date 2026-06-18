@@ -9,6 +9,8 @@ data class ChannelMessage(
     val mine: Boolean,
     val edited: Boolean = false,
     val reactions: List<MessageReaction> = emptyList(),
+    val replyToAuthor: String? = null,
+    val replyToContent: String? = null,
 )
 
 // mine = o usuario atual reagiu com esse emoji (pra destacar o chip).

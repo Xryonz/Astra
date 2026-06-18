@@ -63,6 +63,12 @@ class DmChatViewModel @Inject constructor(
 
     fun onInput(value: String) = _state.update { it.copy(input = value) }
 
+    fun startReply(messageId: String, author: String, preview: String) =
+        _state.update { it.copy(replyToId = messageId, replyToAuthor = author, replyToPreview = preview) }
+
+    fun cancelReply() =
+        _state.update { it.copy(replyToId = null, replyToAuthor = null, replyToPreview = null) }
+
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
             repository.delete(conversationId, messageId)
@@ -76,9 +82,12 @@ class DmChatViewModel @Inject constructor(
     fun send() {
         val text = _state.value.input.trim()
         if (text.isEmpty() || _state.value.sending) return
-        _state.update { it.copy(sending = true, input = "", error = null) }
+        val replyId = _state.value.replyToId
+        _state.update {
+            it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
+        }
         viewModelScope.launch {
-            repository.send(conversationId, text)
+            repository.send(conversationId, text, replyId)
                 .onSuccess { msg ->
                     addMessage(msg)
                     _state.update { it.copy(sending = false) }

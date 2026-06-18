@@ -7,6 +7,8 @@ data class DmMessage(
     val authorAvatar: String?,
     val createdAt: String?,
     val mine: Boolean,
+    val replyToAuthor: String? = null,
+    val replyToContent: String? = null,
 )
 
 data class MessagesPage(

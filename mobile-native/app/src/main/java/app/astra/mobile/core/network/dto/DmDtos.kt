@@ -27,6 +27,7 @@ data class DmMessageDto(
     val senderId: String,
     val conversationId: String,
     val createdAt: String? = null,
+    val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
 )
 
@@ -36,6 +37,15 @@ data class MsgAuthorDto(
     val username: String,
     val displayName: String? = null,
     val avatarUrl: String? = null,
+)
+
+// Snapshot do pai citado numa resposta (canal + DM): { id, content, authorName, authorAvatar }.
+@Serializable
+data class ReplyToDto(
+    val id: String,
+    val content: String = "",
+    val authorName: String? = null,
+    val authorAvatar: String? = null,
 )
 
 // GET /api/dm/:id/messages -> { data: { items, nextCursor, hasMore } }
@@ -57,4 +67,4 @@ data class OpenDmDto(
 data class OpenDmRequest(val username: String)
 
 @Serializable
-data class SendDmRequest(val content: String)
+data class SendDmRequest(val content: String, val replyToId: String? = null)

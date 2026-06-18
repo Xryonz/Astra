@@ -20,6 +20,10 @@ data class ChannelChatUiState(
     val error: String? = null,
     // id da mensagem em edicao (null = compondo nova). Reusa o input.
     val editingId: String? = null,
+    // alvo de resposta (null = sem responder). author/preview alimentam o banner.
+    val replyToId: String? = null,
+    val replyToAuthor: String? = null,
+    val replyToPreview: String? = null,
 )
 
 @HiltViewModel
@@ -107,6 +111,15 @@ class ChannelChatViewModel @Inject constructor(
 
     fun cancelEdit() = _state.update { it.copy(editingId = null, input = "") }
 
+    // Responder: guarda o alvo (cancela edicao se estava editando).
+    fun startReply(messageId: String, author: String, preview: String) =
+        _state.update {
+            it.copy(replyToId = messageId, replyToAuthor = author, replyToPreview = preview, editingId = null)
+        }
+
+    fun cancelReply() =
+        _state.update { it.copy(replyToId = null, replyToAuthor = null, replyToPreview = null) }
+
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
             repository.delete(channelId, messageId)
@@ -139,9 +152,12 @@ class ChannelChatViewModel @Inject constructor(
             }
             return
         }
-        _state.update { it.copy(sending = true, input = "", error = null) }
+        val replyId = _state.value.replyToId
+        _state.update {
+            it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
+        }
         viewModelScope.launch {
-            repository.send(channelId, text)
+            repository.send(channelId, text, replyId)
                 .onSuccess { msg ->
                     addMessage(msg)
                     _state.update { it.copy(sending = false) }

@@ -51,9 +51,9 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
 
-    override suspend fun send(channelId: String, content: String): Result<ChannelMessage> = try {
+    override suspend fun send(channelId: String, content: String, replyToId: String?): Result<ChannelMessage> = try {
         val uid = tokenStore.currentUserId()
-        val dto = channelApi.send(channelId, SendChannelRequest(content)).data
+        val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId)).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
@@ -137,6 +137,8 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     mine = authorId == currentUserId,
     edited = edited,
     reactions = reactions.toDomain(currentUserId),
+    replyToAuthor = replyTo?.authorName,
+    replyToContent = replyTo?.content,
 )
 
 private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =

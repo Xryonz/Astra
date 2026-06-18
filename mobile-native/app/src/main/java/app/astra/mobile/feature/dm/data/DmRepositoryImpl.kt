@@ -61,9 +61,9 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
 
-    override suspend fun send(conversationId: String, content: String): Result<DmMessage> = try {
+    override suspend fun send(conversationId: String, content: String, replyToId: String?): Result<DmMessage> = try {
         val uid = tokenStore.currentUserId()
-        val dto = dmApi.send(conversationId, SendDmRequest(content)).data
+        val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId)).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
@@ -142,4 +142,6 @@ private fun DmMessageDto.toDomain(currentUserId: String?) = DmMessage(
     authorAvatar = author?.avatarUrl,
     createdAt = createdAt,
     mine = senderId == currentUserId,
+    replyToAuthor = replyTo?.authorName,
+    replyToContent = replyTo?.content,
 )

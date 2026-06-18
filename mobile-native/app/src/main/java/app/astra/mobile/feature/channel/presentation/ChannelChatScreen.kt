@@ -27,6 +27,7 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -62,6 +63,8 @@ fun ChannelChatScreen(
                                     content = m.content,
                                     edited = m.edited,
                                     reactions = m.reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
+                                    replyAuthor = m.replyToAuthor,
+                                    replyContent = m.replyToContent,
                                 )
                             }
                         }
@@ -71,6 +74,7 @@ fun ChannelChatScreen(
                             canReact = true,
                             onEdit = { viewModel.startEdit(it.id, it.content) },
                             onDelete = { deleteTarget = it },
+                            onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
                             onToggleReaction = { row, emoji -> viewModel.toggleReaction(row.id, emoji) },
                         )
                     }
@@ -87,6 +91,13 @@ fun ChannelChatScreen(
             }
 
             if (state.editingId != null) EditingBanner(onCancel = viewModel::cancelEdit)
+            if (state.replyToId != null) {
+                ReplyBanner(
+                    author = state.replyToAuthor ?: "mensagem",
+                    preview = state.replyToPreview.orEmpty(),
+                    onCancel = viewModel::cancelReply,
+                )
+            }
 
             ChatInputBar(
                 text = state.input,

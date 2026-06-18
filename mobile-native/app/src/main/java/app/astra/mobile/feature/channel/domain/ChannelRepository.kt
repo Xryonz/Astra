@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ChannelRepository {
     suspend fun messages(channelId: String, cursor: String?): Result<ChannelMessagesPage>
-    suspend fun send(channelId: String, content: String): Result<ChannelMessage>
+    suspend fun send(channelId: String, content: String, replyToId: String? = null): Result<ChannelMessage>
     suspend fun edit(channelId: String, messageId: String, content: String): Result<Unit>
     suspend fun delete(channelId: String, messageId: String): Result<Unit>
     suspend fun react(channelId: String, messageId: String, emoji: String): Result<Unit>

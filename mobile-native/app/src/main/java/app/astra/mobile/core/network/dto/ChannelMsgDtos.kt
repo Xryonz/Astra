@@ -13,6 +13,7 @@ data class ChannelMessageDto(
     val createdAt: String? = null,
     val edited: Boolean = false,
     val reactions: List<ReactionDto> = emptyList(),
+    val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
 )
 
@@ -41,7 +42,7 @@ data class ChannelMessagesPageDto(
 )
 
 @Serializable
-data class SendChannelRequest(val content: String)
+data class SendChannelRequest(val content: String, val replyToId: String? = null)
 
 @Serializable
 data class EditChannelRequest(val content: String)

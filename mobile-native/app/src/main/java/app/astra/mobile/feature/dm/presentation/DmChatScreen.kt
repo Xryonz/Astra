@@ -25,6 +25,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
@@ -52,14 +53,24 @@ fun DmChatScreen(
                         // So re-mapeia quando as mensagens mudam — digitar no input
                         // (mesmo state) nao re-aloca a lista inteira.
                         val rows = remember(state.messages) {
-                            state.messages.map { ChatRow(it.id, it.mine, it.authorName, it.content) }
+                            state.messages.map { m ->
+                                ChatRow(
+                                    id = m.id,
+                                    mine = m.mine,
+                                    authorName = m.authorName,
+                                    content = m.content,
+                                    replyAuthor = m.replyToAuthor,
+                                    replyContent = m.replyToContent,
+                                )
+                            }
                         }
-                        // DM nao tem editar no backend -> canEdit=false (so apagar).
+                        // DM nao tem editar/reagir no backend -> so apagar + responder.
                         ChatMessageList(
                             rows = rows,
                             modifier = Modifier.fillMaxSize(),
                             canEdit = false,
                             onDelete = { deleteTarget = it },
+                            onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
                         )
                     }
                 }
@@ -71,6 +82,14 @@ fun DmChatScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = astraColors.danger,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                )
+            }
+
+            if (state.replyToId != null) {
+                ReplyBanner(
+                    author = state.replyToAuthor ?: "mensagem",
+                    preview = state.replyToPreview.orEmpty(),
+                    onCancel = viewModel::cancelReply,
                 )
             }
 

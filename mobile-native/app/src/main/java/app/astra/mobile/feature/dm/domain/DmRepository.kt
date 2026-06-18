@@ -11,7 +11,7 @@ interface DmRepository {
 
     suspend fun messages(conversationId: String, cursor: String?): Result<MessagesPage>
 
-    suspend fun send(conversationId: String, content: String): Result<DmMessage>
+    suspend fun send(conversationId: String, content: String, replyToId: String? = null): Result<DmMessage>
 
     suspend fun delete(conversationId: String, messageId: String): Result<Unit>
 

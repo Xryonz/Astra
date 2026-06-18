@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -54,6 +55,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.theme.EaseOutSoft
@@ -81,8 +83,11 @@ fun MessageBubble(
     sweep: Boolean,
     edited: Boolean = false,
     reactions: List<ReactionChip> = emptyList(),
+    replyAuthor: String? = null,
+    replyContent: String? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    onReply: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
 ) {
     val bg = if (mine) astraColors.accent else astraColors.raised
@@ -106,8 +111,8 @@ fun MessageBubble(
     val fromX = if (mine) 26f else -26f
     val glow = astraColors.accentGlow
 
-    // Long-press abre o menu (reagir e/ou editar/apagar).
-    val hasMenu = onEdit != null || onDelete != null || onToggleReaction != null
+    // Long-press abre o menu (reagir / responder / editar / apagar).
+    val hasMenu = onEdit != null || onDelete != null || onReply != null || onToggleReaction != null
     var menuOpen by remember { mutableStateOf(false) }
 
     Row(
@@ -148,6 +153,32 @@ fun MessageBubble(
                     }
                     .padding(horizontal = 14.dp, vertical = 9.dp),
             ) {
+                // Quote da mensagem respondida (caixinha no topo da bolha).
+                if (replyContent != null) {
+                    Column(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (mine) Color.Black.copy(alpha = 0.13f) else astraColors.base)
+                            .widthIn(max = 272.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = "↩ ${replyAuthor ?: "mensagem"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (mine) fg.copy(alpha = 0.8f) else astraColors.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = replyContent,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = fg.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
                 if (!mine) {
                     Text(
                         text = authorName,
@@ -219,6 +250,12 @@ fun MessageBubble(
                             }
                         }
                     }
+                    if (onReply != null) {
+                        DropdownMenuItem(
+                            text = { Text("Responder", color = astraColors.text1) },
+                            onClick = { menuOpen = false; onReply() },
+                        )
+                    }
                     if (onEdit != null) {
                         DropdownMenuItem(
                             text = { Text("Editar", color = astraColors.text1) },
@@ -245,6 +282,8 @@ data class ChatRow(
     val content: String,
     val edited: Boolean = false,
     val reactions: List<ReactionChip> = emptyList(),
+    val replyAuthor: String? = null,
+    val replyContent: String? = null,
 )
 
 /**
@@ -260,6 +299,7 @@ fun ChatMessageList(
     canReact: Boolean = false,
     onEdit: (ChatRow) -> Unit = {},
     onDelete: (ChatRow) -> Unit = {},
+    onReply: (ChatRow) -> Unit = {},
     onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
 ) {
     val animated = remember { mutableSetOf<String>() }
@@ -286,8 +326,11 @@ fun ChatMessageList(
                 sweep = isNew && shownOnce,
                 edited = row.edited,
                 reactions = row.reactions,
+                replyAuthor = row.replyAuthor,
+                replyContent = row.replyContent,
                 onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
                 onDelete = if (row.mine) ({ onDelete(row) }) else null,
+                onReply = { onReply(row) },
                 onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
             )
         }
@@ -303,6 +346,33 @@ fun EditingBanner(onCancel: () -> Unit) {
     ) {
         MarginaliaLabel("editando mensagem", color = astraColors.accent)
         Spacer(Modifier.weight(1f))
+        Text(
+            text = "cancelar",
+            style = MaterialTheme.typography.labelMedium,
+            color = astraColors.text2,
+            modifier = Modifier.clickable(onClick = onCancel),
+        )
+    }
+}
+
+/** Banner acima do composer enquanto responde a uma mensagem. */
+@Composable
+fun ReplyBanner(author: String, preview: String, onCancel: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            MarginaliaLabel("respondendo a $author", color = astraColors.accent)
+            Text(
+                text = preview,
+                style = MaterialTheme.typography.bodySmall,
+                color = astraColors.text3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
         Text(
             text = "cancelar",
             style = MaterialTheme.typography.labelMedium,

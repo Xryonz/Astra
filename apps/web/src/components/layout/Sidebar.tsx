@@ -166,9 +166,11 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         icon: '✏️', label: t('sidebar.rename', { kind }),
         onClick: () => { setEditServerId(menu.server.id); setShowEditModal(true) },
       })
-      if (menu.server.isGroup) {
-        items.push({ icon: '👥', label: t('sidebar.addMember'), onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true) } })
-      }
+      // Adicionar membro por @username (invite/:username — NAO exige amizade).
+      // Antes so aparecia pra grupo; liberado pra servidor tambem. Gate de dono
+      // ja garantido pelo if (menu.isOwner) acima. Opt-out de "convite por
+      // estranhos" fica pra config de acessibilidade futura.
+      items.push({ icon: '👥', label: t('sidebar.addMember'), onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true) } })
       items.push({ icon: '🗑️', label: t('sidebar.delete', { kind }), danger: true, onClick: () => { setDeleteServerId(menu.server.id); setShowDeleteModal(true) } })
     } else {
       items.push({ icon: '🚪', label: t('sidebar.leave', { kind }), danger: true, onClick: () => leaveServer.mutate(menu.server.id) })

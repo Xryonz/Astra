@@ -24,7 +24,7 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
 - Toolchain casado c/ Capacitor: Gradle 8.11.1 · AGP 8.7.2 · compileSdk 35 · JDK 17 · Kotlin 2.0.21
 - [x] M1 fundacao (Gradle+catalog, Compose, Hilt, tema Astra dark/amber, app roda vazio)
 - [x] M2 rede (Retrofit+OkHttp+AuthInterceptor+TokenStore DataStore, modulos Hilt). BASE_URL = umbra-api-production.up.railway.app (mesma do Vite)
-- [ ] M3 slice Auth (login → /api/auth, ViewModel, tela Compose, Authenticator p/ refresh no 401)
+- [x] M3 slice Auth: login (POST api/auth/login) → Clean Arch (dto/api → repo → usecase → VM → Compose), TokenStore persiste sessao, NavHost gate login/home, TokenAuthenticator faz refresh transparente no 401 (RefreshApi em client pelado p/ evitar loop). Compila+KSP/Hilt OK. FALTA: validar login real no emulador.
 - [ ] M4 WebSocket+DMs · M5 servers/canais/msgs · M6 LiveKit Android
 - DECISAO: Capacitor CONGELADO ja; camera/share/localizacao/animacoes serao nativos no Kotlin (nao no Capacitor)
 
@@ -43,3 +43,4 @@ caveman (think) · primeval-zen (output) · karpathy (code) · vercel-react · s
 
 ## Log de progresso
 - 2026-06-17: aba Acessibilidade+vibracao, DMs flat-rows, densidade canais, keystore p/ sessao, fundo void p/ gap teclado. Repo renomeado Umbra→Astra.
+- 2026-06-17: mobile-native sync OK no Android Studio (tela Astra roda no emulador) = M1+M2 validados. Wrapper Gradle 8.11.1 copiado do projeto Capacitor. M3 (login nativo) escrito + compila (Navigation Compose escolhido p/ o gate de telas).

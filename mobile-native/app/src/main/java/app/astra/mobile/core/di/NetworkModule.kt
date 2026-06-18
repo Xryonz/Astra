@@ -1,7 +1,10 @@
 package app.astra.mobile.core.di
 
 import app.astra.mobile.BuildConfig
+import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
+import app.astra.mobile.core.network.RefreshApi
+import app.astra.mobile.core.network.TokenAuthenticator
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -25,18 +28,21 @@ object NetworkModule {
         explicitNulls = false
     }
 
+    private fun logging() = HttpLoggingInterceptor().apply {
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+        else HttpLoggingInterceptor.Level.NONE
+    }
+
     @Provides
     @Singleton
-    fun provideOkHttp(authInterceptor: AuthInterceptor): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
-            else HttpLoggingInterceptor.Level.NONE
-        }
-        return OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)
-            .addInterceptor(logging)
-            .build()
-    }
+    fun provideOkHttp(
+        authInterceptor: AuthInterceptor,
+        authenticator: TokenAuthenticator,
+    ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(authInterceptor)
+        .addInterceptor(logging())
+        .authenticator(authenticator) // refresh transparente no 401
+        .build()
 
     @Provides
     @Singleton
@@ -47,5 +53,27 @@ object NetworkModule {
             .client(client)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApi(retrofit: Retrofit): AuthApi = retrofit.create(AuthApi::class.java)
+
+    /**
+     * RefreshApi roda num client SEPARADO e pelado (sem AuthInterceptor nem
+     * Authenticator) pra que o /refresh nunca dispare outro ciclo de refresh.
+     */
+    @Provides
+    @Singleton
+    fun provideRefreshApi(json: Json): RefreshApi {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(logging())
+            .build()
+        val retrofit = Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+        return retrofit.create(RefreshApi::class.java)
     }
 }

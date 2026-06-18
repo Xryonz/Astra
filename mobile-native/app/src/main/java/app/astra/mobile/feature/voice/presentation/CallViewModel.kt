@@ -35,6 +35,7 @@ data class CallUiState(
     val channelName: String = "",
     val micEnabled: Boolean = false,
     val cameraOn: Boolean = false,
+    val screenSharing: Boolean = false,
     val deafened: Boolean = false,
     val participants: List<CallParticipantUi> = emptyList(),
     val error: String? = null,
@@ -62,6 +63,7 @@ class CallViewModel @Inject constructor(
                 channelName = vs.channelName.ifBlank { channelName },
                 micEnabled = vs.micEnabled,
                 cameraOn = vs.cameraOn,
+                screenSharing = vs.screenSharing,
                 deafened = vs.deafened,
                 error = vs.error,
                 participants = vs.participants.map { p ->
@@ -102,6 +104,8 @@ class CallViewModel @Inject constructor(
     fun toggleMic() = voiceManager.toggleMic()
     fun toggleCamera() = voiceManager.toggleCamera()
     fun toggleDeafen() = voiceManager.toggleDeafen()
+    fun startScreenShare(resultData: android.content.Intent) = voiceManager.startScreenShare(resultData)
+    fun stopScreenShare() = voiceManager.stopScreenShare()
     fun leave() = voiceManager.leave()
     fun permissionDenied() = voiceManager.setError("Permissao de microfone negada")
 }

@@ -1,7 +1,13 @@
 package app.astra.mobile.core.voice
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,6 +19,7 @@ import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.track.RemoteAudioTrack
 import io.livekit.android.room.track.Track
 import io.livekit.android.room.track.VideoTrack
+import io.livekit.android.room.track.screencapture.ScreenCaptureParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,6 +54,7 @@ data class VoiceState(
     val channelName: String = "",
     val micEnabled: Boolean = false,
     val cameraOn: Boolean = false,
+    val screenSharing: Boolean = false,
     val deafened: Boolean = false,
     val participants: List<CallParticipant> = emptyList(),
     val error: String? = null,
@@ -131,6 +139,58 @@ class VoiceManager @Inject constructor(
                 _state.update { it.copy(error = "Falha ao acessar a camera") }
             }
         }
+    }
+
+    // Screenshare: o resultData vem do dialogo MediaProjection (pedido na UI).
+    // O LiveKit roda o proprio foreground service (type mediaProjection) usando
+    // a notificacao passada aqui — a lib ja declara o service no manifesto dela.
+    fun startScreenShare(resultData: Intent) {
+        val r = room ?: return
+        scope.launch {
+            try {
+                r.localParticipant.setScreenShareEnabled(
+                    true,
+                    ScreenCaptureParams(
+                        mediaProjectionPermissionResultData = resultData,
+                        notificationId = SCREEN_NOTIF_ID,
+                        notification = screenShareNotification(),
+                    ),
+                )
+                _state.update { it.copy(screenSharing = true) }
+            } catch (e: Exception) {
+                Log.w(TAG, "screenshare falhou: ${e.message}")
+                _state.update { it.copy(error = "Falha ao compartilhar a tela") }
+            }
+        }
+    }
+
+    fun stopScreenShare() {
+        val r = room ?: return
+        scope.launch {
+            try { r.localParticipant.setScreenShareEnabled(false) } catch (_: Exception) {}
+            _state.update { it.copy(screenSharing = false) }
+        }
+    }
+
+    private fun screenShareNotification(): Notification {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val mgr = appContext.getSystemService(NotificationManager::class.java)
+            if (mgr.getNotificationChannel(SCREEN_CHANNEL_ID) == null) {
+                mgr.createNotificationChannel(
+                    NotificationChannel(
+                        SCREEN_CHANNEL_ID,
+                        "Compartilhamento de tela",
+                        NotificationManager.IMPORTANCE_LOW,
+                    ).apply { setShowBadge(false) },
+                )
+            }
+        }
+        return NotificationCompat.Builder(appContext, SCREEN_CHANNEL_ID)
+            .setContentTitle("Compartilhando a tela")
+            .setContentText("Astra")
+            .setSmallIcon(android.R.drawable.ic_menu_share)
+            .setOngoing(true)
+            .build()
     }
 
     // Deafen estilo Discord: silencia todo mundo (setVolume 0) E corta seu mic.
@@ -231,5 +291,9 @@ class VoiceManager @Inject constructor(
         else -> e.message ?: "Falha ao conectar na chamada"
     }
 
-    private companion object { const val TAG = "VoiceManager" }
+    private companion object {
+        const val TAG = "VoiceManager"
+        const val SCREEN_NOTIF_ID = 4202
+        const val SCREEN_CHANNEL_ID = "astra_screen"
+    }
 }

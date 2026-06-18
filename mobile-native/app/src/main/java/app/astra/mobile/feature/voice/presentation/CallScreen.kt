@@ -1,7 +1,9 @@
 package app.astra.mobile.feature.voice.presentation
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -81,6 +83,25 @@ fun CallScreen(
         else camLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    // Screenshare: o sistema pede a captura por um dialogo proprio (nao e uma
+    // runtime permission). O resultData volta aqui e vai pro LiveKit.
+    val screenLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            viewModel.startScreenShare(data)
+        }
+    }
+    val onScreen = {
+        if (state.screenSharing) {
+            viewModel.stopScreenShare()
+        } else {
+            val mpm = ctx.getSystemService(MediaProjectionManager::class.java)
+            screenLauncher.launch(mpm.createScreenCaptureIntent())
+        }
+    }
+
     val exit = {
         viewModel.leave()
         onLeave()
@@ -149,9 +170,11 @@ fun CallScreen(
             status = state.status,
             micEnabled = state.micEnabled,
             cameraOn = state.cameraOn,
+            screenSharing = state.screenSharing,
             deafened = state.deafened,
             onToggleMic = viewModel::toggleMic,
             onToggleCamera = onCamera,
+            onToggleScreen = onScreen,
             onToggleDeafen = viewModel::toggleDeafen,
             onLeave = { exit() },
         )
@@ -264,18 +287,17 @@ private fun ControlBar(
     status: CallStatus,
     micEnabled: Boolean,
     cameraOn: Boolean,
+    screenSharing: Boolean,
     deafened: Boolean,
     onToggleMic: () -> Unit,
     onToggleCamera: () -> Unit,
+    onToggleScreen: () -> Unit,
     onToggleDeafen: () -> Unit,
     onLeave: () -> Unit,
 ) {
     val live = status == CallStatus.Connected
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(
                 onClick = onToggleMic,
                 enabled = live && !deafened,
@@ -283,16 +305,24 @@ private fun ControlBar(
             ) { Text(if (micEnabled) "Mutar" else "Ativar") }
 
             OutlinedButton(
-                onClick = onToggleCamera,
-                enabled = live,
-                modifier = Modifier.weight(1f),
-            ) { Text(if (cameraOn) "Cam off" else "Cam on") }
-
-            OutlinedButton(
                 onClick = onToggleDeafen,
                 enabled = live,
                 modifier = Modifier.weight(1f),
             ) { Text(if (deafened) "Ouvir" else "Surdo") }
+        }
+        Spacer(Modifier.padding(top = 10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = onToggleCamera,
+                enabled = live,
+                modifier = Modifier.weight(1f),
+            ) { Text(if (cameraOn) "Camera off" else "Camera") }
+
+            OutlinedButton(
+                onClick = onToggleScreen,
+                enabled = live,
+                modifier = Modifier.weight(1f),
+            ) { Text(if (screenSharing) "Parar tela" else "Tela") }
         }
         Spacer(Modifier.padding(top = 10.dp))
         Button(

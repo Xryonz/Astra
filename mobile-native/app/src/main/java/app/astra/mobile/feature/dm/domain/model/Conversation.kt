@@ -6,4 +6,6 @@ data class Conversation(
     val otherName: String,
     val otherAvatarUrl: String?,
     val preview: String,
+    val lastMessageAt: String? = null,
+    val lastFromMe: Boolean = false,
 )

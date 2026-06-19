@@ -3,6 +3,7 @@ package app.astra.mobile.core.network
 import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
+import app.astra.mobile.core.network.dto.DmReadDto
 import app.astra.mobile.core.network.dto.MessagesPageDto
 import app.astra.mobile.core.network.dto.OpenDmDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
@@ -39,4 +40,10 @@ interface DmApi {
         @Path("cid") conversationId: String,
         @Path("mid") messageId: String,
     )
+
+    @GET("api/reads/dm")
+    suspend fun dmReads(): ApiEnvelope<Map<String, DmReadDto>>
+
+    @POST("api/dm/{cid}/read")
+    suspend fun markRead(@Path("cid") conversationId: String)
 }

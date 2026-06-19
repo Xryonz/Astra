@@ -46,6 +46,7 @@ class ChannelChatViewModel @Inject constructor(
 
     init {
         repository.joinChannel(channelId)
+        viewModelScope.launch { repository.markRead(channelId) }
         loadHistory()
         observeIncoming()
         observeDeleted()

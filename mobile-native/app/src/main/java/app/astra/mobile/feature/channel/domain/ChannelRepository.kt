@@ -23,6 +23,7 @@ interface ChannelRepository {
     fun stopTyping(channelId: String)
     suspend fun pin(channelId: String, messageId: String, pinned: Boolean): Result<Unit>
     suspend fun pinnedMessages(channelId: String): Result<List<ChannelMessage>>
+    suspend fun markRead(channelId: String): Result<Unit>
     /** message_pinned -> (messageId, pinned) do canal certo. */
     fun pinnedUpdates(channelId: String): Flow<Pair<String, Boolean>>
 }

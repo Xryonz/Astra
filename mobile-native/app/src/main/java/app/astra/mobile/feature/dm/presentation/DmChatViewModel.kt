@@ -28,6 +28,7 @@ class DmChatViewModel @Inject constructor(
 
     init {
         repository.joinConversation(conversationId)
+        viewModelScope.launch { repository.markRead(conversationId) }
         loadHistory()
         observeIncoming()
         observeDeleted()

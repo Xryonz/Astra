@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.server.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -9,9 +10,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,7 +69,9 @@ fun ChannelListScreen(
                     items(state.channels, key = { it.id }) { channel ->
                         ChannelRow(
                             channel = channel,
+                            unread = channel.id in state.unread,
                             onClick = {
+                                viewModel.markSeen(channel.id)
                                 if (channel.isVoice) onOpenVoice(viewModel.serverId, channel.id, channel.name)
                                 else onOpenChannel(channel.id, channel.name)
                             },
@@ -78,7 +84,7 @@ fun ChannelListScreen(
 }
 
 @Composable
-private fun ChannelRow(channel: Channel, onClick: () -> Unit) {
+private fun ChannelRow(channel: Channel, unread: Boolean, onClick: () -> Unit) {
     // Texto abre o chat; voz entra na chamada. Ambos clicaveis.
     Row(
         modifier = Modifier
@@ -96,12 +102,19 @@ private fun ChannelRow(channel: Channel, onClick: () -> Unit) {
         Text(
             text = channel.name,
             style = MaterialTheme.typography.bodyLarge,
-            color = astraColors.text1,
+            color = if (unread) astraColors.text1 else astraColors.text2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (channel.isVoice) {
+        if (unread) {
+            Box(
+                Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.accent),
+            )
+        } else if (channel.isVoice) {
             MarginaliaLabel("voz", color = astraColors.text3)
         }
     }

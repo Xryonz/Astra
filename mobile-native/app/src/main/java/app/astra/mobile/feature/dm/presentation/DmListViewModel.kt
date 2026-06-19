@@ -25,14 +25,37 @@ class DmListViewModel @Inject constructor(
     private val _opened = MutableSharedFlow<OpenedConversation>(extraBufferCapacity = 1)
     val opened = _opened.asSharedFlow()
 
-    init { load() }
+    init {
+        load()
+        observeIncoming()
+    }
 
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
+            val reads = repository.dmReads().getOrNull().orEmpty()
             repository.conversations()
-                .onSuccess { list -> _state.update { it.copy(loading = false, conversations = list) } }
+                .onSuccess { list ->
+                    val unread = list
+                        .filter { c ->
+                            !c.lastFromMe && c.lastMessageAt?.let { last -> reads[c.id]?.let { last > it } ?: true } ?: false
+                        }
+                        .map { it.id }.toSet()
+                    _state.update { it.copy(loading = false, conversations = list, unread = unread) }
+                }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Erro inesperado") } }
+        }
+    }
+
+    // Clicou na conversa -> some o dot na hora (o chat marca lido no servidor).
+    fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
+
+    // new_dm de outra pessoa enquanto na lista -> marca nao-lido.
+    private fun observeIncoming() {
+        viewModelScope.launch {
+            repository.incomingConversations().collect { convId ->
+                _state.update { it.copy(unread = it.unread + convId) }
+            }
         }
     }
 

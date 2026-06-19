@@ -56,4 +56,7 @@ interface ChannelApi {
 
     @GET("api/channels/{cid}/pinned")
     suspend fun pinned(@Path("cid") channelId: String): ApiEnvelope<List<ChannelMessageDto>>
+
+    @POST("api/channels/{cid}/read")
+    suspend fun markRead(@Path("cid") channelId: String)
 }

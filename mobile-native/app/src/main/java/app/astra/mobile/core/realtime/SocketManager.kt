@@ -93,6 +93,10 @@ class SocketManager @Inject constructor(
     private val _dmTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
     val dmTyping: SharedFlow<TypingEvent> = _dmTyping.asSharedFlow()
 
+    // channel_activity {channelId, lastMessageAt} -> emite o channelId (nao-lido ao vivo).
+    private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = runBlocking { tokenStore.currentAccess() } ?: return
@@ -191,6 +195,9 @@ class SocketManager @Inject constructor(
             (args.firstOrNull() as? JSONObject)?.let {
                 _dmTyping.tryEmit(TypingEvent(it.optString("userId"), "", it.optString("conversationId"), false))
             }
+        }
+        s.on("channel_activity") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _channelActivity.tryEmit(it.optString("channelId")) }
         }
 
         // A cada tentativa automatica, manda o token atual do TokenStore (pode

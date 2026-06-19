@@ -11,11 +11,19 @@ data class ConversationDto(
     val lastMessage: LastMessageDto? = null,
 )
 
-// lastMessage no GET /api/dm e a row crua (sem author). So o preview interessa.
+// lastMessage no GET /api/dm e a row crua (sem author). preview + createdAt + senderId.
 @Serializable
 data class LastMessageDto(
     val content: String = "",
     val senderId: String? = null,
+    val createdAt: String? = null,
+)
+
+// GET /api/reads/dm -> { [conversationId]: { mine, other } } (ISO ou null).
+@Serializable
+data class DmReadDto(
+    val mine: String? = null,
+    val other: String? = null,
 )
 
 // Mensagem de DM — shape de GET messages, POST message E do evento new_dm.

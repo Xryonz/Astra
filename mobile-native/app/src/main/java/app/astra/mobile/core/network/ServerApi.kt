@@ -18,4 +18,8 @@ interface ServerApi {
 
     @GET("api/servers/{id}/members")
     suspend fun members(@Path("id") serverId: String): ApiEnvelope<List<ServerMemberDto>>
+
+    // { data: { [channelId]: lastReadAtISO } }
+    @GET("api/reads/channels")
+    suspend fun channelReads(): ApiEnvelope<Map<String, String>>
 }

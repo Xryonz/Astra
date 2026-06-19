@@ -160,6 +160,13 @@ class ChannelRepositoryImpl @Inject constructor(
         socketManager.channelMessagePinned
             .filter { it.second == channelId }
             .map { it.first to it.third }
+
+    override suspend fun markRead(channelId: String): Result<Unit> = try {
+        channelApi.markRead(channelId)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao marcar como lido"))
+    }
 }
 
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(

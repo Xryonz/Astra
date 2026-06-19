@@ -37,12 +37,34 @@ class DmRepositoryImpl @Inject constructor(
 ) : DmRepository {
 
     override suspend fun conversations(): Result<List<Conversation>> = try {
+        val uid = tokenStore.currentUserId()
         val env = dmApi.conversations()
-        Result.success(env.data.orEmpty().mapNotNull { it.toDomain() })
+        Result.success(env.data.orEmpty().mapNotNull { it.toDomain(uid) })
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar conversas"))
+    }
+
+    override suspend fun dmReads(): Result<Map<String, String?>> = try {
+        Result.success(dmApi.dmReads().data.orEmpty().mapValues { it.value.mine })
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao carregar leituras"))
+    }
+
+    override suspend fun markRead(conversationId: String): Result<Unit> = try {
+        dmApi.markRead(conversationId)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao marcar como lido"))
+    }
+
+    override fun incomingConversations(): Flow<String> = flow {
+        val uid = tokenStore.currentUserId()
+        socketManager.newDm.collect { raw ->
+            val dto = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull()
+            if (dto != null && dto.senderId != uid) emit(dto.conversationId)
+        }
     }
 
     override suspend fun messages(conversationId: String, cursor: String?): Result<MessagesPage> = try {
@@ -134,7 +156,7 @@ class DmRepositoryImpl @Inject constructor(
 }
 
 // Conversa sem otherUser (usuario sumiu) e descartada — nao da pra renderizar.
-private fun ConversationDto.toDomain(): Conversation? {
+private fun ConversationDto.toDomain(uid: String?): Conversation? {
     val u = otherUser ?: return null
     return Conversation(
         id = id,
@@ -142,6 +164,8 @@ private fun ConversationDto.toDomain(): Conversation? {
         otherName = u.displayName ?: u.username,
         otherAvatarUrl = u.avatarUrl,
         preview = lastMessage?.content?.ifBlank { "Anexo" } ?: "Sem mensagens ainda",
+        lastMessageAt = lastMessage?.createdAt,
+        lastFromMe = lastMessage?.senderId != null && lastMessage.senderId == uid,
     )
 }
 

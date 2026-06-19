@@ -12,6 +12,7 @@ data class Channel(
     val id: String,
     val name: String,
     val isVoice: Boolean,
+    val lastMessageAt: String? = null,
 )
 
 data class ServerMember(

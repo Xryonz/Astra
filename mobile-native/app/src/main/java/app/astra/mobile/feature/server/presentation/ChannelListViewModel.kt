@@ -16,6 +16,8 @@ data class ChannelListUiState(
     val loading: Boolean = true,
     val channels: List<Channel> = emptyList(),
     val error: String? = null,
+    // channelIds com mensagem nova nao-lida (dot na lista).
+    val unread: Set<String> = emptySet(),
 )
 
 @HiltViewModel
@@ -30,18 +32,40 @@ class ChannelListViewModel @Inject constructor(
     private val _state = MutableStateFlow(ChannelListUiState())
     val state = _state.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        observeActivity()
+    }
 
-    // GET /api/servers ja traz os canais aninhados — pega o servidor desta tela.
+    // GET /api/servers ja traz os canais aninhados (com lastMessageAt) — junta
+    // com /reads/channels pra marcar o que esta nao-lido.
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
+            val reads = repository.channelReads().getOrNull().orEmpty()
             repository.servers()
                 .onSuccess { list ->
-                    val server = list.find { it.id == serverId }
-                    _state.update { it.copy(loading = false, channels = server?.channels ?: emptyList()) }
+                    val channels = list.find { it.id == serverId }?.channels ?: emptyList()
+                    val unread = channels
+                        .filter { ch -> ch.lastMessageAt?.let { last -> reads[ch.id]?.let { last > it } ?: true } ?: false }
+                        .map { it.id }.toSet()
+                    _state.update { it.copy(loading = false, channels = channels, unread = unread) }
                 }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Erro inesperado") } }
+        }
+    }
+
+    // Clicou no canal -> some o dot na hora (e o chat marca lido no servidor).
+    fun markSeen(channelId: String) = _state.update { it.copy(unread = it.unread - channelId) }
+
+    // channel_activity ao vivo: so marca canais desta tela.
+    private fun observeActivity() {
+        viewModelScope.launch {
+            repository.channelActivity().collect { chId ->
+                if (_state.value.channels.any { it.id == chId }) {
+                    _state.update { it.copy(unread = it.unread + chId) }
+                }
+            }
         }
     }
 }

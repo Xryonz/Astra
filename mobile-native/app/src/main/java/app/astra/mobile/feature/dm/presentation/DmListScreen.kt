@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.dm.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -27,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,7 +83,10 @@ fun DmListScreen(
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.conversations, key = { it.id }) { conv ->
-                        ConversationRow(conv) { onOpenConversation(conv.id, conv.otherName) }
+                        ConversationRow(conv, unread = conv.id in state.unread) {
+                            viewModel.markSeen(conv.id)
+                            onOpenConversation(conv.id, conv.otherName)
+                        }
                     }
                 }
             }
@@ -97,7 +104,7 @@ fun DmListScreen(
 }
 
 @Composable
-private fun ConversationRow(conv: Conversation, onClick: () -> Unit) {
+private fun ConversationRow(conv: Conversation, unread: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -118,9 +125,18 @@ private fun ConversationRow(conv: Conversation, onClick: () -> Unit) {
             Text(
                 text = conv.preview,
                 style = MaterialTheme.typography.bodySmall,
-                color = astraColors.text2,
+                color = if (unread) astraColors.text1 else astraColors.text2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (unread) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.accent),
             )
         }
     }

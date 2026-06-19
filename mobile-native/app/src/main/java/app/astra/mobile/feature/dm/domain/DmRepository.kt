@@ -31,4 +31,10 @@ interface DmRepository {
     fun typingEvents(conversationId: String): Flow<TypingUser>
     fun startTyping(conversationId: String)
     fun stopTyping(conversationId: String)
+
+    /** { conversationId -> meu lastReadAtISO (ou null) }. */
+    suspend fun dmReads(): Result<Map<String, String?>>
+    suspend fun markRead(conversationId: String): Result<Unit>
+    /** new_dm de OUTRA pessoa ao vivo: emite o conversationId. */
+    fun incomingConversations(): Flow<String>
 }

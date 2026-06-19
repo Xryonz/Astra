@@ -19,6 +19,7 @@ data class ChannelDto(
     val name: String,
     val type: String = "TEXT", // TEXT | VOICE
     val isPrivate: Boolean = false,
+    val lastMessageAt: String? = null, // ISO; null = canal sem mensagens
 )
 
 @Serializable

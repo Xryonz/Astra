@@ -28,6 +28,8 @@ data class ChannelChatUiState(
     val replyToPreview: String? = null,
     // usernames digitando agora (exclui voce — o server nao ecoa pro emissor).
     val typingUsers: List<String> = emptyList(),
+    // mensagens fixadas (carregadas sob demanda pro sheet de Fixadas).
+    val pinned: List<ChannelMessage> = emptyList(),
 )
 
 @HiltViewModel
@@ -50,6 +52,7 @@ class ChannelChatViewModel @Inject constructor(
         observeEdited()
         observeReactions()
         observeTyping()
+        observePinned()
     }
 
     private fun loadHistory() {
@@ -99,6 +102,31 @@ class ChannelChatViewModel @Inject constructor(
 
     fun toggleReaction(messageId: String, emoji: String) {
         viewModelScope.launch { repository.react(channelId, messageId, emoji) }
+    }
+
+    // message_pinned -> marca/desmarca pinned na msg da lista.
+    private fun observePinned() {
+        viewModelScope.launch {
+            repository.pinnedUpdates(channelId).collect { (id, pinned) ->
+                _state.update { s ->
+                    s.copy(messages = s.messages.map { if (it.id == id) it.copy(pinned = pinned) else it })
+                }
+            }
+        }
+    }
+
+    fun togglePin(messageId: String, pinned: Boolean) {
+        viewModelScope.launch {
+            repository.pin(channelId, messageId, pinned)
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun loadPinned() {
+        viewModelScope.launch {
+            repository.pinnedMessages(channelId)
+                .onSuccess { list -> _state.update { it.copy(pinned = list) } }
+        }
     }
 
     // ── Digitando ────────────────────────────────────────────────

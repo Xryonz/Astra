@@ -82,12 +82,14 @@ fun MessageBubble(
     animateIn: Boolean,
     sweep: Boolean,
     edited: Boolean = false,
+    pinned: Boolean = false,
     reactions: List<ReactionChip> = emptyList(),
     replyAuthor: String? = null,
     replyContent: String? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onReply: (() -> Unit)? = null,
+    onTogglePin: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
 ) {
     val bg = if (mine) astraColors.accent else astraColors.raised
@@ -111,8 +113,9 @@ fun MessageBubble(
     val fromX = if (mine) 26f else -26f
     val glow = astraColors.accentGlow
 
-    // Long-press abre o menu (reagir / responder / editar / apagar).
-    val hasMenu = onEdit != null || onDelete != null || onReply != null || onToggleReaction != null
+    // Long-press abre o menu (reagir / responder / fixar / editar / apagar).
+    val hasMenu = onEdit != null || onDelete != null || onReply != null ||
+        onTogglePin != null || onToggleReaction != null
     var menuOpen by remember { mutableStateOf(false) }
 
     Row(
@@ -153,6 +156,14 @@ fun MessageBubble(
                     }
                     .padding(horizontal = 14.dp, vertical = 9.dp),
             ) {
+                if (pinned) {
+                    Text(
+                        text = "📌 fixado",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (mine) fg.copy(alpha = 0.7f) else astraColors.accent,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                }
                 // Quote da mensagem respondida (caixinha no topo da bolha).
                 if (replyContent != null) {
                     Column(
@@ -256,6 +267,12 @@ fun MessageBubble(
                             onClick = { menuOpen = false; onReply() },
                         )
                     }
+                    if (onTogglePin != null) {
+                        DropdownMenuItem(
+                            text = { Text(if (pinned) "Desafixar" else "Fixar", color = astraColors.text1) },
+                            onClick = { menuOpen = false; onTogglePin() },
+                        )
+                    }
                     if (onEdit != null) {
                         DropdownMenuItem(
                             text = { Text("Editar", color = astraColors.text1) },
@@ -281,6 +298,7 @@ data class ChatRow(
     val authorName: String,
     val content: String,
     val edited: Boolean = false,
+    val pinned: Boolean = false,
     val reactions: List<ReactionChip> = emptyList(),
     val replyAuthor: String? = null,
     val replyContent: String? = null,
@@ -297,9 +315,11 @@ fun ChatMessageList(
     modifier: Modifier = Modifier,
     canEdit: Boolean = true,
     canReact: Boolean = false,
+    canPin: Boolean = false,
     onEdit: (ChatRow) -> Unit = {},
     onDelete: (ChatRow) -> Unit = {},
     onReply: (ChatRow) -> Unit = {},
+    onTogglePin: (ChatRow) -> Unit = {},
     onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
 ) {
     val animated = remember { mutableSetOf<String>() }
@@ -325,12 +345,14 @@ fun ChatMessageList(
                 animateIn = isNew,
                 sweep = isNew && shownOnce,
                 edited = row.edited,
+                pinned = row.pinned,
                 reactions = row.reactions,
                 replyAuthor = row.replyAuthor,
                 replyContent = row.replyContent,
                 onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
                 onDelete = if (row.mine) ({ onDelete(row) }) else null,
                 onReply = { onReply(row) },
+                onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
                 onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
             )
         }
@@ -397,6 +419,37 @@ fun TypingIndicator(names: List<String>) {
         fontStyle = FontStyle.Italic,
         color = astraColors.text3,
         modifier = Modifier.padding(start = 18.dp, top = 2.dp, bottom = 2.dp),
+    )
+}
+
+/** Lista de mensagens fixadas (autor + conteudo). items vazio = "nada fixado". */
+@Composable
+fun PinnedMessagesDialog(items: List<Pair<String, String>>, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = astraColors.overlay,
+        title = { Text("Mensagens fixadas", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        text = {
+            if (items.isEmpty()) {
+                Text("Nada fixado neste canal.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items.forEach { (author, content) ->
+                        Column {
+                            Text(author, style = MaterialTheme.typography.labelSmall, color = astraColors.accent)
+                            Text(
+                                content,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = astraColors.text1,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = astraColors.accent) } },
     )
 }
 

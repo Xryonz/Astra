@@ -12,6 +12,7 @@ data class ChannelMessageDto(
     val channelId: String,
     val createdAt: String? = null,
     val edited: Boolean = false,
+    val pinned: Boolean = false,
     val reactions: List<ReactionDto> = emptyList(),
     val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,

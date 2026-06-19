@@ -8,6 +8,7 @@ data class ChannelMessage(
     val createdAt: String?,
     val mine: Boolean,
     val edited: Boolean = false,
+    val pinned: Boolean = false,
     val reactions: List<MessageReaction> = emptyList(),
     val replyToAuthor: String? = null,
     val replyToContent: String? = null,

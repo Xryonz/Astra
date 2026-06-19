@@ -82,6 +82,10 @@ class SocketManager @Inject constructor(
     private val _channelReactionUpdate = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val channelReactionUpdate: SharedFlow<String> = _channelReactionUpdate.asSharedFlow()
 
+    // message_pinned (messageId, channelId, pinned).
+    private val _channelMessagePinned = MutableSharedFlow<Triple<String, String, Boolean>>(extraBufferCapacity = 16)
+    val channelMessagePinned: SharedFlow<Triple<String, String, Boolean>> = _channelMessagePinned.asSharedFlow()
+
     // Digitando — chave por userId (o evento de stop nao traz username).
     private val _channelTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
     val channelTyping: SharedFlow<TypingEvent> = _channelTyping.asSharedFlow()
@@ -160,6 +164,13 @@ class SocketManager @Inject constructor(
         }
         s.on("reaction_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _channelReactionUpdate.tryEmit(it.toString()) }
+        }
+        s.on("message_pinned") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _channelMessagePinned.tryEmit(
+                    Triple(it.optString("messageId"), it.optString("channelId"), it.optBoolean("pinned")),
+                )
+            }
         }
         s.on("user_typing") { args ->
             (args.firstOrNull() as? JSONObject)?.let {

@@ -27,7 +27,9 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.PinnedMessagesDialog
 import app.astra.mobile.ui.components.ReplyBanner
+import app.astra.mobile.ui.components.TopBarAction
 import app.astra.mobile.ui.components.TypingIndicator
 import app.astra.mobile.ui.theme.astraColors
 
@@ -38,10 +40,16 @@ fun ChannelChatScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
+    var pinnedOpen by remember { mutableStateOf(false) }
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "# ${viewModel.channelName}", marginalia = "canal de texto", onBack = onBack)
+            EditorialTopBar(
+                title = "# ${viewModel.channelName}",
+                marginalia = "canal de texto",
+                onBack = onBack,
+                trailing = { TopBarAction("📌", onClick = { viewModel.loadPinned(); pinnedOpen = true }) },
+            )
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -63,6 +71,7 @@ fun ChannelChatScreen(
                                     authorName = m.authorName,
                                     content = m.content,
                                     edited = m.edited,
+                                    pinned = m.pinned,
                                     reactions = m.reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,
@@ -73,9 +82,11 @@ fun ChannelChatScreen(
                             rows = rows,
                             modifier = Modifier.fillMaxSize(),
                             canReact = true,
+                            canPin = true,
                             onEdit = { viewModel.startEdit(it.id, it.content) },
                             onDelete = { deleteTarget = it },
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
+                            onTogglePin = { viewModel.togglePin(it.id, !it.pinned) },
                             onToggleReaction = { row, emoji -> viewModel.toggleReaction(row.id, emoji) },
                         )
                     }
@@ -115,6 +126,13 @@ fun ChannelChatScreen(
         DeleteMessageDialog(
             onConfirm = { viewModel.deleteMessage(target.id); deleteTarget = null },
             onDismiss = { deleteTarget = null },
+        )
+    }
+
+    if (pinnedOpen) {
+        PinnedMessagesDialog(
+            items = state.pinned.map { it.authorName to it.content },
+            onDismiss = { pinnedOpen = false },
         )
     }
 }

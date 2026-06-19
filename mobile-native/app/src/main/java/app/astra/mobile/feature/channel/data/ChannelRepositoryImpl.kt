@@ -136,6 +136,30 @@ class ChannelRepositoryImpl @Inject constructor(
     override fun startTyping(channelId: String) = socketManager.startTyping(channelId)
 
     override fun stopTyping(channelId: String) = socketManager.stopTyping(channelId)
+
+    override suspend fun pin(channelId: String, messageId: String, pinned: Boolean): Result<Unit> = try {
+        if (pinned) channelApi.pin(channelId, messageId) else channelApi.unpin(channelId, messageId)
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Sem permissao pra fixar"))
+    }
+
+    override suspend fun pinnedMessages(channelId: String): Result<List<ChannelMessage>> = try {
+        val uid = tokenStore.currentUserId()
+        val list = channelApi.pinned(channelId).data.orEmpty().map { it.toDomain(uid) }
+        Result.success(list)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao carregar fixadas"))
+    }
+
+    override fun pinnedUpdates(channelId: String): Flow<Pair<String, Boolean>> =
+        socketManager.channelMessagePinned
+            .filter { it.second == channelId }
+            .map { it.first to it.third }
 }
 
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
@@ -146,6 +170,7 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     createdAt = createdAt,
     mine = authorId == currentUserId,
     edited = edited,
+    pinned = pinned,
     reactions = reactions.toDomain(currentUserId),
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,

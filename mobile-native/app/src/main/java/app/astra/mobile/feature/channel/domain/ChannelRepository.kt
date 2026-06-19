@@ -21,4 +21,8 @@ interface ChannelRepository {
     fun typingEvents(channelId: String): Flow<TypingUser>
     fun startTyping(channelId: String)
     fun stopTyping(channelId: String)
+    suspend fun pin(channelId: String, messageId: String, pinned: Boolean): Result<Unit>
+    suspend fun pinnedMessages(channelId: String): Result<List<ChannelMessage>>
+    /** message_pinned -> (messageId, pinned) do canal certo. */
+    fun pinnedUpdates(channelId: String): Flow<Pair<String, Boolean>>
 }

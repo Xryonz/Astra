@@ -47,4 +47,13 @@ interface ChannelApi {
         @Path("mid") messageId: String,
         @Body body: ReactRequest,
     )
+
+    @POST("api/channels/{cid}/messages/{mid}/pin")
+    suspend fun pin(@Path("cid") channelId: String, @Path("mid") messageId: String)
+
+    @DELETE("api/channels/{cid}/messages/{mid}/pin")
+    suspend fun unpin(@Path("cid") channelId: String, @Path("mid") messageId: String)
+
+    @GET("api/channels/{cid}/pinned")
+    suspend fun pinned(@Path("cid") channelId: String): ApiEnvelope<List<ChannelMessageDto>>
 }

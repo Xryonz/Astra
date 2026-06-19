@@ -49,8 +49,8 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
   - [x] M8c responder (canal+DM): menu Responder + ReplyBanner + quote do pai no topo da bolha; replyToId no POST; replyTo ja vinha do GET/socket.
   - [x] M8d digitando (canal+DM): emite typing_start na 1a tecla / stop apos 3s ou no envio; escuta user_typing/dm_user_typing, agrega por userId (stop nao traz username) c/ expiry 6s; TypingIndicator acima do composer.
   - [x] M8f fixar (SO canal): menu Fixar/Desafixar + indicador 📌 + acao 📌 abre dialog de fixadas (GET /pinned); POST/DELETE .../pin + socket message_pinned.
-  - [ ] M8e nao-lidas: BLOQUEADO por dado — GET /api/servers (ChannelDto) NAO traz lastMessageAt, entao o dot de canal nao da pra computar no cold-start via REST. Opcoes a decidir com o user: (a) so socket channel_activity (unread ao vivo, some ao reabrir o app); (b) adicionar lastMessageAt no GET /api/servers (toca backend compartilhado); (c) endpoint dedicado de unread. DM tem dado (lastMessage + /reads/dm) mas faltaria createdAt do lastMessage no DTO.
-  - TODOS os slices compilam + APK OK; falta validar no device + decidir M8e.
+  - [x] M8e nao-lidas (canal+DM): o GET /api/servers JA devolvia lastMessageAt por canal (nativo so jogava fora no ignoreUnknownKeys) e as rotas /reads ja existiam -> ZERO mudanca no backend. Canal: junta lastMessageAt + /reads/channels = dot; markRead ao abrir; channel_activity ao vivo; markSeen otimista no clique. DM: lastMessage.createdAt + /reads/dm (mine) + lastFromMe (nao marca msg propria); markRead ao abrir; new_dm de outro ao vivo. Dot prata nas 2 listas.
+  - M8 COMPLETO (6/6): todos compilam + APK OK; falta validar no device.
 - AUTH/Google (nativo, futuro): Google so LOGA conta existente, NUNCA cria conta — ja e politica de seguranca do backend (passport.ts: email nao-registrado e bloqueado com code email_not_registered). No nativo, ao adicionar "Entrar com Google", tratar o deep link astra://login?error=google_email_unregistered -> mandar pro registro. Nao ha nada a mudar no backend.
 - DECISAO: Capacitor CONGELADO ja; camera/share/localizacao/animacoes serao nativos no Kotlin (nao no Capacitor)
 

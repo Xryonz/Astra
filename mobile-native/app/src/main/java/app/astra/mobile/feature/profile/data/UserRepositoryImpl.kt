@@ -6,12 +6,14 @@ import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import app.astra.mobile.feature.friends.domain.model.Presence
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.MutualServer
 import app.astra.mobile.feature.profile.domain.model.Profile
 import app.astra.mobile.feature.profile.domain.model.ProfileView
+import app.astra.mobile.feature.profile.domain.model.UserStatus
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import java.io.IOException
@@ -79,6 +81,15 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun changePassword(current: String, new: String): Result<Unit> {
         return try {
             api.changePassword(ChangePasswordRequest(current, new))
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(mapError(e))
+        }
+    }
+
+    override suspend fun setStatus(status: UserStatus): Result<Unit> {
+        return try {
+            api.setStatus(SetStatusRequest(status.name))
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(mapError(e))

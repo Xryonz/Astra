@@ -112,6 +112,7 @@ fun AstraApp() {
                         onOpenDms = { nav.navigate(Routes.DMS) },
                         onOpenFriends = { nav.navigate(Routes.FRIENDS) },
                         onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+                        onOpenProfile = { nav.navigate(Routes.PROFILE_EDIT) },
                         onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
                     )
                 }

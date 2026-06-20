@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -45,14 +47,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.MessageCircle
+import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.SquarePen
 import com.composables.icons.lucide.UserPlus
-import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.feature.dm.domain.model.Conversation
+import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
@@ -60,6 +64,7 @@ import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.Reveal
+import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
@@ -72,10 +77,10 @@ fun HomeScreen(
     onOpenDms: () -> Unit,
     onOpenFriends: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenProfile: () -> Unit,
     onJoinVoice: (channelId: String, name: String, serverId: String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val socket by viewModel.socketState.collectAsState()
     val state by viewModel.state.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
@@ -211,8 +216,11 @@ fun HomeScreen(
                 BottomUserBar(
                     name = state.myName,
                     avatar = state.myAvatar,
-                    socket = socket,
+                    status = state.myStatus,
+                    onPickStatus = viewModel::setStatus,
+                    onProfile = onOpenProfile,
                     onSettings = onOpenSettings,
+                    onLogout = { viewModel.logout() },
                 )
             }
         }
@@ -445,36 +453,55 @@ private fun DmRow(c: Conversation, unread: Boolean, onClick: () -> Unit) {
     }
 }
 
-// ── Barra de usuario (rodape) ───────────────────────────────────
+// ── Card de usuario (rodape) — espelha o UserFooter do web ───────
 @Composable
 private fun BottomUserBar(
     name: String,
     avatar: String?,
-    socket: ConnectionState,
+    status: UserStatus,
+    onPickStatus: (UserStatus) -> Unit,
+    onProfile: () -> Unit,
     onSettings: () -> Unit,
+    onLogout: () -> Unit,
 ) {
-    val (status, statusColor) = when (socket) {
-        ConnectionState.Connected -> "online" to astraColors.success
-        ConnectionState.Connecting -> "conectando" to astraColors.text3
-        ConnectionState.Disconnected -> "offline" to astraColors.danger
-    }
+    var menuOpen by remember { mutableStateOf(false) }
     Column(Modifier.navigationBarsPadding()) {
         HairlineRule()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(astraColors.base)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AstraAvatar(
-                url = avatar,
-                name = name.ifBlank { "?" },
-                size = 38,
-                modifier = Modifier.clip(CircleShape).clickable(onClick = onSettings),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // Avatar + dot de status -> abre o seletor de status
+            Box {
+                Box(Modifier.clip(CircleShape).clickable { menuOpen = true }) {
+                    AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 38)
+                    StatusDot(
+                        status = status,
+                        size = 14.dp,
+                        bordered = true,
+                        borderColor = astraColors.base,
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+                }
+                StatusMenu(
+                    expanded = menuOpen,
+                    current = status,
+                    onPick = { menuOpen = false; onPickStatus(it) },
+                    onDismiss = { menuOpen = false },
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { menuOpen = true }
+                    .padding(horizontal = 2.dp, vertical = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Text(
                     text = name.ifBlank { "Astra" },
                     style = MaterialTheme.typography.titleSmall,
@@ -483,28 +510,70 @@ private fun BottomUserBar(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor))
+                    StatusDot(status, size = 8.dp)
                     Spacer(Modifier.width(6.dp))
-                    MarginaliaLabel(status, color = statusColor)
+                    MarginaliaLabel(statusLabel(status))
                 }
             }
-            // Sino decorativo (notificacoes ficam pro futuro).
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.border, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Lucide.Bell,
-                    contentDescription = "Notificações",
-                    tint = astraColors.text2,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
+            FooterIconBtn(Lucide.Pencil, "Editar perfil", onProfile)
+            FooterIconBtn(Lucide.Settings, "Configuracoes", onSettings)
+            FooterIconBtn(Lucide.LogOut, "Sair", onLogout, danger = true)
         }
+    }
+}
+
+private fun statusLabel(s: UserStatus): String = when (s) {
+    UserStatus.ONLINE -> "Online"
+    UserStatus.IDLE -> "Ausente"
+    UserStatus.DND -> "Não perturbe"
+    UserStatus.INVISIBLE -> "Invisível"
+    UserStatus.OFFLINE -> "Offline"
+}
+
+@Composable
+private fun StatusMenu(
+    expanded: Boolean,
+    current: UserStatus,
+    onPick: (UserStatus) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StatusDot(s, size = 10.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = statusLabel(s),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (s == current) astraColors.accent else astraColors.text1,
+                        )
+                    }
+                },
+                onClick = { onPick(s) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun FooterIconBtn(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    desc: String,
+    onClick: () -> Unit,
+    danger: Boolean = false,
+) {
+    Box(
+        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = desc,
+            tint = if (danger) astraColors.danger else astraColors.text2,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 

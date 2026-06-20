@@ -2,6 +2,7 @@ package app.astra.mobile.feature.profile.domain
 
 import app.astra.mobile.feature.profile.domain.model.Profile
 import app.astra.mobile.feature.profile.domain.model.ProfileView
+import app.astra.mobile.feature.profile.domain.model.UserStatus
 
 interface UserRepository {
     // Perfil do usuario logado. Cacheia em memoria (Singleton) — forceRefresh
@@ -22,4 +23,7 @@ interface UserRepository {
     ): Result<Profile>
 
     suspend fun changePassword(current: String, new: String): Result<Unit>
+
+    // Define o status escolhido (ONLINE/IDLE/DND/INVISIBLE). Persiste no servidor.
+    suspend fun setStatus(status: UserStatus): Result<Unit>
 }

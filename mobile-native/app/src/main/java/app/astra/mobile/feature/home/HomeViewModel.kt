@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
+import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
 import app.astra.mobile.feature.profile.domain.UserRepository
+import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.ServerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -25,6 +27,7 @@ class HomeViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val dmRepository: DmRepository,
     private val userRepository: UserRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     val socketState: StateFlow<ConnectionState> = socketManager.state
@@ -91,6 +94,15 @@ class HomeViewModel @Inject constructor(
 
     // Tap na DM -> some o dot na hora.
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
+
+    // Seletor de status: atualiza otimista e persiste no servidor.
+    fun setStatus(status: UserStatus) {
+        _state.update { it.copy(myStatus = status) }
+        viewModelScope.launch { userRepository.setStatus(status) }
+    }
+
+    // logout flipa isLoggedIn -> AstraApp volta pro login sozinho.
+    fun logout() = viewModelScope.launch { authRepository.logout() }
 
     // new_dm de outra pessoa ao vivo -> marca nao-lido.
     private fun observeIncoming() {

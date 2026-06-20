@@ -3,6 +3,7 @@ package app.astra.mobile.core.network
 import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
+import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import app.astra.mobile.core.network.dto.UserWrapper
 import retrofit2.http.Body
@@ -28,4 +29,8 @@ interface UserApi {
     // HttpException com mensagem amigavel no errorBody.
     @POST("api/auth/password")
     suspend fun changePassword(@Body body: ChangePasswordRequest)
+
+    // Define o status escolhido (persiste no DB + Redis; broadcast via socket).
+    @PATCH("api/profile/status")
+    suspend fun setStatus(@Body body: SetStatusRequest)
 }

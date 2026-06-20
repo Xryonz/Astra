@@ -58,3 +58,7 @@ data class ChangePasswordRequest(
     val currentPassword: String,
     val newPassword: String,
 )
+
+// PATCH /api/profile/status — ONLINE | IDLE | DND | INVISIBLE
+@Serializable
+data class SetStatusRequest(val status: String)

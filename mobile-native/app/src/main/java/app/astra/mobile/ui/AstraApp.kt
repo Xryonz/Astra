@@ -3,8 +3,6 @@ package app.astra.mobile.ui
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
@@ -89,12 +87,14 @@ fun AstraApp() {
             NavHost(
                 navController = nav,
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
-                // Transicoes editoriais: avanca = nova tela desliza leve da direita +
-                // fade; volta = tela atual desliza pra direita. Sutil, nao chamativo.
-                enterTransition = { slideInHorizontally(tween(320, easing = EaseSpring)) { it / 14 } + fadeIn(tween(260)) },
-                exitTransition = { scaleOut(tween(240), targetScale = 0.97f) + fadeOut(tween(180)) },
-                popEnterTransition = { scaleIn(tween(260), initialScale = 0.98f) + fadeIn(tween(220)) },
-                popExitTransition = { slideOutHorizontally(tween(260)) { it / 12 } + fadeOut(tween(200)) },
+                // Transicoes espelham o PageTransition do web (motion/react): fade +
+                // slide-x curto na curva EaseSpring (0.16,1,0.3,1), exit rapido. Sem
+                // scale (blur/scale animado repinta a tela inteira por frame = jank).
+                // Avanca = entra da direita; volta = entra da esquerda, atual sai pra direita.
+                enterTransition = { fadeIn(tween(200, easing = EaseSpring)) + slideInHorizontally(tween(200, easing = EaseSpring)) { it / 16 } },
+                exitTransition = { fadeOut(tween(120)) },
+                popEnterTransition = { fadeIn(tween(200, easing = EaseSpring)) + slideInHorizontally(tween(200, easing = EaseSpring)) { -it / 16 } },
+                popExitTransition = { fadeOut(tween(140)) + slideOutHorizontally(tween(180, easing = EaseSpring)) { it / 16 } },
             ) {
                 composable(Routes.LOGIN) {
                     LoginScreen(onGoToRegister = { nav.navigate(Routes.REGISTER) })

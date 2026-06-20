@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.home
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,8 +40,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,6 +58,7 @@ import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.Reveal
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
@@ -70,6 +77,8 @@ fun HomeScreen(
     val socket by viewModel.socketState.collectAsState()
     val state by viewModel.state.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
 
     // DM aberta pelo FAB -> navega pro chat e fecha o dialog.
     LaunchedEffect(Unit) {
@@ -79,28 +88,122 @@ fun HomeScreen(
         }
     }
 
+    val dms = remember(state.dms, query) {
+        if (query.isBlank()) state.dms
+        else state.dms.filter { it.otherName.contains(query.trim(), ignoreCase = true) }
+    }
+
     CosmicBackground {
-        Box(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxSize().statusBarsPadding()) {
-                ServerRail(
-                    servers = state.servers,
-                    onOpenServer = onOpenServer,
-                    onAddServer = onOpenServers,
-                )
-                MainPanel(
-                    state = state,
+        Row(Modifier.fillMaxSize().statusBarsPadding()) {
+            ServerRail(
+                servers = state.servers,
+                onOpenServer = onOpenServer,
+                onAddServer = onOpenServers,
+            )
+
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Column(Modifier.padding(horizontal = 18.dp).padding(top = 14.dp)) {
+                    Reveal {
+                        Text(
+                            text = "Mensagens",
+                            fontFamily = DmSerif,
+                            fontSize = 30.sp,
+                            color = astraColors.text1,
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Reveal(delayMillis = 70) {
+                        SearchAddRow(
+                            searchOpen = searchOpen,
+                            query = query,
+                            onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
+                            onQuery = { query = it },
+                            onAddFriends = onOpenFriends,
+                        )
+                    }
+                }
+
+                // Corpo: faixa "na voz" + lista de DMs. FAB flutua no canto.
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Column(Modifier.fillMaxSize()) {
+                        if (state.activeVoice.isNotEmpty() && query.isBlank()) {
+                            Spacer(Modifier.height(16.dp))
+                            MarginaliaLabel("na voz", Modifier.padding(horizontal = 18.dp))
+                            Spacer(Modifier.height(8.dp))
+                            LazyRow(
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(state.activeVoice, key = { it.channelId }) { room ->
+                                    VoiceRoomCard(room) {
+                                        onJoinVoice(room.channelId, room.channelName, room.serverId)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            MarginaliaLabel("conversas")
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                text = "ver todas",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = astraColors.accent,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable(onClick = onOpenDms)
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            when {
+                                state.loading -> ListSkeleton(avatar = true)
+                                dms.isEmpty() -> Text(
+                                    text = if (query.isBlank())
+                                        "Nenhuma conversa ainda — toque em Adicionar amigos."
+                                    else "Nada encontrado.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = astraColors.text3,
+                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                                )
+                                else -> LazyColumn(
+                                    Modifier.fillMaxSize(),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                        start = 18.dp,
+                                        end = 18.dp,
+                                        bottom = 92.dp,
+                                    ),
+                                ) {
+                                    items(dms, key = { it.id }) { c ->
+                                        DmRow(c, unread = c.id in state.unread) {
+                                            viewModel.markSeen(c.id)
+                                            onOpenDm(c.id, c.otherName)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    NewMessageFab(
+                        onClick = { showDialog = true },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 16.dp),
+                    )
+                }
+
+                BottomUserBar(
+                    name = state.myName,
+                    avatar = state.myAvatar,
                     socket = socket,
-                    onJoinVoice = onJoinVoice,
-                    onOpenDm = { c -> viewModel.markSeen(c.id); onOpenDm(c.id, c.otherName) },
-                    onOpenDms = onOpenDms,
-                    onOpenFriends = onOpenFriends,
-                    onOpenSettings = onOpenSettings,
+                    onSettings = onOpenSettings,
                 )
             }
-            NewMessageFab(
-                onClick = { showDialog = true },
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(20.dp),
-            )
         }
     }
 
@@ -189,119 +292,103 @@ private fun RailServer(server: Server, onClick: () -> Unit) {
     }
 }
 
-// ── Painel principal (direita) ──────────────────────────────────
+// ── Busca + Adicionar amigos ────────────────────────────────────
 @Composable
-private fun RowScope.MainPanel(
-    state: HomeUiState,
-    socket: ConnectionState,
-    onJoinVoice: (String, String, String) -> Unit,
-    onOpenDm: (Conversation) -> Unit,
-    onOpenDms: () -> Unit,
-    onOpenFriends: () -> Unit,
-    onOpenSettings: () -> Unit,
+private fun SearchAddRow(
+    searchOpen: Boolean,
+    query: String,
+    onToggleSearch: () -> Unit,
+    onQuery: (String) -> Unit,
+    onAddFriends: () -> Unit,
 ) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Botao de busca circular
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, if (searchOpen) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, CircleShape)
+                    .clickable(onClick = onToggleSearch),
+                contentAlignment = Alignment.Center,
+            ) {
+                SearchGlyph(color = if (searchOpen) astraColors.accent else astraColors.text2)
+            }
+            Spacer(Modifier.width(10.dp))
+            // Pill "Adicionar amigos"
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.border, RoundedCornerShape(12.dp))
+                    .clickable(onClick = onAddFriends)
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PersonAddGlyph(color = astraColors.text1)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Adicionar amigos",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = astraColors.text1,
+                )
+            }
+        }
+        if (searchOpen) {
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQuery,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Buscar conversa", color = astraColors.text3) },
+            )
+        }
+    }
+}
+
+// ── Card de canal de voz ativo (faixa horizontal) ───────────────
+@Composable
+private fun VoiceRoomCard(room: ActiveVoiceRoom, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .padding(horizontal = 18.dp, vertical = 16.dp),
-    ) {
-        // Header: avatar (-> settings) + nome + status do socket
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AstraAvatar(
-                url = state.myAvatar,
-                name = state.myName.ifBlank { "?" },
-                size = 42,
-                modifier = Modifier.clip(CircleShape).clickable(onClick = onOpenSettings),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                MarginaliaLabel("bem-vindo")
-                Text(
-                    text = state.myName.ifBlank { "Astra" },
-                    style = MaterialTheme.typography.titleLarge,
-                    color = astraColors.text1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            SocketChip(socket)
-        }
-
-        Spacer(Modifier.height(18.dp))
-        EntryRow("Amigos", "sua constelacao", onOpenFriends)
-
-        // Faixa "na voz" — so aparece quando ha alguem em canal de voz agora.
-        if (state.activeVoice.isNotEmpty()) {
-            Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("na voz")
-            Spacer(Modifier.height(6.dp))
-            state.activeVoice.forEach { room ->
-                ActiveVoiceCard(room) { onJoinVoice(room.channelId, room.channelName, room.serverId) }
-                Spacer(Modifier.height(8.dp))
-            }
-        }
-
-        Spacer(Modifier.height(22.dp))
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            MarginaliaLabel("mensagens")
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = "ver todas",
-                style = MaterialTheme.typography.labelMedium,
-                color = astraColors.accent,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onOpenDms).padding(6.dp),
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                state.loading -> ListSkeleton(avatar = true)
-                state.dms.isEmpty() -> Text(
-                    text = "Nenhuma conversa ainda — abra Amigos pra comecar.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = astraColors.text3,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                else -> LazyColumn(Modifier.fillMaxSize()) {
-                    items(state.dms, key = { it.id }) { c ->
-                        DmPreviewRow(c, unread = c.id in state.unread) { onOpenDm(c) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EntryRow(title: String, sub: String, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
+            .width(184.dp)
             .clip(shape)
             .background(astraColors.raised)
-            .border(1.dp, astraColors.border, shape)
+            .border(1.dp, astraColors.accent.copy(alpha = 0.4f), shape)
             .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
-            MarginaliaLabel(sub)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
+            Spacer(Modifier.width(8.dp))
+            MarginaliaLabel("na voz", color = astraColors.accent)
         }
-        Text("›", fontFamily = DmSerif, fontSize = 24.sp, color = astraColors.text3)
+        Text(
+            text = room.channelName,
+            style = MaterialTheme.typography.titleMedium,
+            color = astraColors.text1,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        MarginaliaLabel("${room.serverName} · ${room.count} na sala")
     }
 }
 
+// ── Linha de conversa ───────────────────────────────────────────
 @Composable
-private fun DmPreviewRow(c: Conversation, unread: Boolean, onClick: () -> Unit) {
+private fun DmRow(c: Conversation, unread: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AstraAvatar(c.otherAvatarUrl, c.otherName, size = 44)
+        AstraAvatar(c.otherAvatarUrl, c.otherName, size = 48)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -312,47 +399,81 @@ private fun DmPreviewRow(c: Conversation, unread: Boolean, onClick: () -> Unit) 
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = c.preview,
+                text = if (c.lastFromMe) "Você: ${c.preview}" else c.preview,
                 style = MaterialTheme.typography.bodySmall,
                 color = if (unread) astraColors.text1 else astraColors.text3,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (unread) {
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(9.dp).clip(CircleShape).background(astraColors.accent))
+        Spacer(Modifier.width(10.dp))
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val time = relativeShort(c.lastMessageAt)
+            if (time.isNotEmpty()) MarginaliaLabel(time)
+            if (unread) {
+                Box(
+                    Modifier.size(9.dp).clip(CircleShape).background(astraColors.accent),
+                )
+            }
         }
     }
 }
 
-// Card de canal de voz com gente dentro agora — tap entra na call.
+// ── Barra de usuario (rodape) ───────────────────────────────────
 @Composable
-private fun ActiveVoiceCard(room: ActiveVoiceRoom, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(astraColors.raised)
-            .border(1.dp, astraColors.accent.copy(alpha = 0.4f), shape)
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("◉", color = astraColors.accent, fontSize = 18.sp)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = room.channelName,
-                style = MaterialTheme.typography.titleMedium,
-                color = astraColors.text1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+private fun BottomUserBar(
+    name: String,
+    avatar: String?,
+    socket: ConnectionState,
+    onSettings: () -> Unit,
+) {
+    val (status, statusColor) = when (socket) {
+        ConnectionState.Connected -> "online" to astraColors.success
+        ConnectionState.Connecting -> "conectando" to astraColors.text3
+        ConnectionState.Disconnected -> "offline" to astraColors.danger
+    }
+    Column(Modifier.navigationBarsPadding()) {
+        HairlineRule()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(astraColors.base)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AstraAvatar(
+                url = avatar,
+                name = name.ifBlank { "?" },
+                size = 38,
+                modifier = Modifier.clip(CircleShape).clickable(onClick = onSettings),
             )
-            MarginaliaLabel("${room.serverName} · ${room.count} na voz")
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = name.ifBlank { "Astra" },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = astraColors.text1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor))
+                    Spacer(Modifier.width(6.dp))
+                    MarginaliaLabel(status, color = statusColor)
+                }
+            }
+            // Sino decorativo (notificacoes ficam pro futuro).
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.border, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                BellGlyph(color = astraColors.text2)
+            }
         }
-        Text("entrar", style = MaterialTheme.typography.labelMedium, color = astraColors.accent)
     }
 }
 
@@ -366,7 +487,7 @@ private fun NewMessageFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text("✎", color = astraColors.base, fontSize = 22.sp)
+        ComposeGlyph(color = astraColors.textInv, size = 24.dp)
     }
 }
 
@@ -414,16 +535,94 @@ private fun NewConversationDialog(
     )
 }
 
+// ── Glyphs monocromaticos (Canvas) — espelham os lucide do web ───
 @Composable
-private fun SocketChip(state: ConnectionState) {
-    val (label, color) = when (state) {
-        ConnectionState.Connected -> "online" to astraColors.success
-        ConnectionState.Connecting -> "conectando" to astraColors.text3
-        ConnectionState.Disconnected -> "offline" to astraColors.danger
+private fun SearchGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 18.dp) {
+    Canvas(modifier.size(size)) {
+        val s = this.size.minDimension
+        val w = s * 0.09f
+        val r = s * 0.30f
+        val c = Offset(s * 0.42f, s * 0.42f)
+        drawCircle(color, r, c, style = Stroke(w))
+        val edge = Offset(c.x + r * 0.7071f, c.y + r * 0.7071f)
+        drawLine(color, edge, Offset(s * 0.88f, s * 0.88f), strokeWidth = w, cap = StrokeCap.Round)
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.width(7.dp))
-        MarginaliaLabel(label, color = color)
+}
+
+@Composable
+private fun PersonAddGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 18.dp) {
+    Canvas(modifier.size(size)) {
+        val s = this.size.minDimension
+        val w = s * 0.085f
+        // cabeca
+        drawCircle(color, s * 0.13f, Offset(s * 0.36f, s * 0.30f), style = Stroke(w))
+        // ombros (meio circulo aberto pra cima)
+        drawArc(
+            color = color,
+            startAngle = 200f, sweepAngle = 140f, useCenter = false,
+            topLeft = Offset(s * 0.14f, s * 0.46f),
+            size = androidx.compose.ui.geometry.Size(s * 0.44f, s * 0.48f),
+            style = Stroke(w, cap = StrokeCap.Round),
+        )
+        // mais
+        drawLine(color, Offset(s * 0.80f, s * 0.22f), Offset(s * 0.80f, s * 0.44f), strokeWidth = w, cap = StrokeCap.Round)
+        drawLine(color, Offset(s * 0.69f, s * 0.33f), Offset(s * 0.91f, s * 0.33f), strokeWidth = w, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun BellGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 18.dp) {
+    Canvas(modifier.size(size)) {
+        val s = this.size.minDimension
+        val w = s * 0.08f
+        // domo (meio circulo de cima)
+        drawArc(
+            color = color, startAngle = 180f, sweepAngle = 180f, useCenter = false,
+            topLeft = Offset(s * 0.26f, s * 0.24f),
+            size = androidx.compose.ui.geometry.Size(s * 0.48f, s * 0.48f),
+            style = Stroke(w, cap = StrokeCap.Round),
+        )
+        // laterais
+        drawLine(color, Offset(s * 0.26f, s * 0.48f), Offset(s * 0.26f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
+        drawLine(color, Offset(s * 0.74f, s * 0.48f), Offset(s * 0.74f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
+        // aba inferior
+        drawLine(color, Offset(s * 0.20f, s * 0.62f), Offset(s * 0.80f, s * 0.62f), strokeWidth = w, cap = StrokeCap.Round)
+        // badalo
+        drawCircle(color, s * 0.05f, Offset(s * 0.50f, s * 0.72f))
+        // topo
+        drawLine(color, Offset(s * 0.50f, s * 0.18f), Offset(s * 0.50f, s * 0.24f), strokeWidth = w, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun ComposeGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 22.dp) {
+    Canvas(modifier.size(size)) {
+        val s = this.size.minDimension
+        val w = s * 0.11f
+        // corpo do lapis (diagonal)
+        drawLine(color, Offset(s * 0.28f, s * 0.72f), Offset(s * 0.64f, s * 0.36f), strokeWidth = w * 1.4f, cap = StrokeCap.Round)
+        // ponta
+        drawLine(color, Offset(s * 0.66f, s * 0.34f), Offset(s * 0.76f, s * 0.24f), strokeWidth = w * 1.4f, cap = StrokeCap.Round)
+        // linha embaixo (papel)
+        drawLine(color, Offset(s * 0.26f, s * 0.78f), Offset(s * 0.44f, s * 0.78f), strokeWidth = w, cap = StrokeCap.Round)
+    }
+}
+
+// ISO -> "agora / 5m / 3h / 2d / 3 sem / 5 mês". Falha de parse = vazio.
+private fun relativeShort(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    return try {
+        val then = java.time.Instant.parse(iso)
+        val sec = java.time.Duration.between(then, java.time.Instant.now()).seconds.coerceAtLeast(0)
+        when {
+            sec < 60 -> "agora"
+            sec < 3600 -> "${sec / 60}m"
+            sec < 86_400 -> "${sec / 3600}h"
+            sec < 604_800 -> "${sec / 86_400}d"
+            sec < 2_592_000 -> "${sec / 604_800} sem"
+            else -> "${sec / 2_592_000} mês"
+        }
+    } catch (e: Exception) {
+        ""
     }
 }

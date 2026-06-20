@@ -41,6 +41,7 @@ import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
+import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
 import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
@@ -64,6 +65,7 @@ private object Routes {
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
     const val SERVERS = "servers"
+    const val JOIN = "join"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}"
@@ -145,6 +147,17 @@ fun AstraApp() {
                     ServerListScreen(
                         onBack = { nav.popBackStack() },
                         onOpenServer = { id, name -> nav.navigate(Routes.channels(id, name)) },
+                        onOpenJoin = { nav.navigate(Routes.JOIN) },
+                    )
+                }
+                composable(Routes.JOIN) {
+                    JoinServerScreen(
+                        onBack = { nav.popBackStack() },
+                        onJoined = { id, name ->
+                            nav.navigate(Routes.channels(id, name)) {
+                                popUpTo(Routes.JOIN) { inclusive = true }
+                            }
+                        },
                     )
                 }
                 composable(

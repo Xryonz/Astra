@@ -9,6 +9,7 @@ data class ServerDto(
     val id: String,
     val name: String,
     val iconUrl: String? = null,
+    val inviteCode: String? = null, // GET /api/servers ja devolve (select * em servers)
     val channels: List<ChannelDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,
 )

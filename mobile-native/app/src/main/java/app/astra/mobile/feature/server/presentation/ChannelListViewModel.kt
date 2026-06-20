@@ -18,6 +18,8 @@ data class ChannelListUiState(
     val error: String? = null,
     // channelIds com mensagem nova nao-lida (dot na lista).
     val unread: Set<String> = emptySet(),
+    // codigo do convite deste servidor (pro botao Convidar). null = sem acesso.
+    val inviteCode: String? = null,
 )
 
 @HiltViewModel
@@ -45,11 +47,12 @@ class ChannelListViewModel @Inject constructor(
             val reads = repository.channelReads().getOrNull().orEmpty()
             repository.servers()
                 .onSuccess { list ->
-                    val channels = list.find { it.id == serverId }?.channels ?: emptyList()
+                    val server = list.find { it.id == serverId }
+                    val channels = server?.channels ?: emptyList()
                     val unread = channels
                         .filter { ch -> ch.lastMessageAt?.let { last -> reads[ch.id]?.let { last > it } ?: true } ?: false }
                         .map { it.id }.toSet()
-                    _state.update { it.copy(loading = false, channels = channels, unread = unread) }
+                    _state.update { it.copy(loading = false, channels = channels, unread = unread, inviteCode = server?.inviteCode) }
                 }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Erro inesperado") } }
         }

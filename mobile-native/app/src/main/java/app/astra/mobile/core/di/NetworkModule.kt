@@ -5,6 +5,7 @@ import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.FriendsApi
+import app.astra.mobile.core.network.InvitesApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
@@ -88,6 +89,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideFriendsApi(retrofit: Retrofit): FriendsApi = retrofit.create(FriendsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideInvitesApi(retrofit: Retrofit): InvitesApi = retrofit.create(InvitesApi::class.java)
 
     /**
      * RefreshApi roda num client SEPARADO e pelado (sem AuthInterceptor nem

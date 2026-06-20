@@ -50,6 +50,7 @@ import coil.compose.AsyncImage
 fun ServerListScreen(
     onBack: () -> Unit,
     onOpenServer: (id: String, name: String) -> Unit,
+    onOpenJoin: () -> Unit,
     viewModel: ServerListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -67,6 +68,21 @@ fun ServerListScreen(
                 onBack = onBack,
                 trailing = { TopBarAction("+", onClick = { showDialog = true }) },
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenJoin)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Entrar com um convite",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = astraColors.accent,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
+            }
             when {
                 state.loading -> ListSkeleton(avatar = true)
                 state.error != null -> CenterBox {

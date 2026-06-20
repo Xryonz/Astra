@@ -6,6 +6,7 @@ data class Server(
     val iconUrl: String?,
     val memberCount: Int,
     val channels: List<Channel>,
+    val inviteCode: String? = null,
 )
 
 data class Channel(

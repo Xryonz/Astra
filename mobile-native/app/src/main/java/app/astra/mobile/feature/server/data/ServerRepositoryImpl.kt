@@ -92,6 +92,7 @@ private fun ServerDto.toDomain() = Server(
     name = name,
     iconUrl = iconUrl,
     memberCount = count?.members ?: 0,
+    inviteCode = inviteCode,
     channels = channels.map {
         Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt)
     },

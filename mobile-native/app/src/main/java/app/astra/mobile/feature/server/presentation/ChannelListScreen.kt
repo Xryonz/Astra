@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,9 +25,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.content.Context
+import android.content.Intent
+import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -43,6 +48,7 @@ fun ChannelListScreen(
     viewModel: ChannelListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
 
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
@@ -50,6 +56,20 @@ fun ChannelListScreen(
                 title = viewModel.serverName,
                 marginalia = "canais",
                 onBack = onBack,
+                trailing = {
+                    val code = state.inviteCode
+                    if (!code.isNullOrBlank()) {
+                        Text(
+                            text = "Convidar",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = astraColors.accent,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { shareInvite(context, code) }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        )
+                    }
+                },
             )
             when {
                 state.loading -> ListSkeleton(avatar = false)
@@ -123,4 +143,15 @@ private fun ChannelRow(channel: Channel, unread: Boolean, onClick: () -> Unit) {
 @Composable
 private fun CenterBox(content: @Composable BoxScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center, content = content)
+}
+
+// Link /i/:code = pagina OG da API que redireciona pro /invite/:code do site
+// (mesmo link que o web compartilha). Abre o share sheet do Android.
+private fun shareInvite(context: Context, code: String) {
+    val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "Entra na minha constelacao no Astra: $link")
+    }
+    context.startActivity(Intent.createChooser(send, "Compartilhar convite"))
 }

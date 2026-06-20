@@ -40,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.friends.domain.model.Friend
 import app.astra.mobile.feature.friends.domain.model.FriendRequest
 import app.astra.mobile.feature.friends.domain.model.Presence
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -65,8 +66,8 @@ fun FriendsScreen(
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
-                title = "Amigos",
-                marginalia = "sua constelacao",
+                title = "Estrelas",
+                marginalia = "sua constelacao de amigos",
                 onBack = onBack,
                 trailing = { TopBarAction("+", onClick = { showAdd = true }) },
             )
@@ -89,7 +90,7 @@ fun FriendsScreen(
                 }
                 else -> when (state.tab) {
                     FriendsTab.AMIGOS ->
-                        if (state.friends.isEmpty()) EmptyState("Nenhum amigo ainda", "toque em + pra adicionar")
+                        if (state.friends.isEmpty()) EmptyState(AstraCopy.Empties.noFriends.title, "toque em + pra alinhar uma estrela")
                         else LazyColumn(Modifier.fillMaxSize()) {
                             items(state.friends, key = { it.friendshipId }) { f ->
                                 FriendRow(
@@ -152,7 +153,7 @@ private fun TabBar(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        TabItem("Amigos", amigos, tab == FriendsTab.AMIGOS, Modifier.weight(1f)) { onSelect(FriendsTab.AMIGOS) }
+        TabItem("Estrelas", amigos, tab == FriendsTab.AMIGOS, Modifier.weight(1f)) { onSelect(FriendsTab.AMIGOS) }
         TabItem("Pedidos", pedidos, tab == FriendsTab.PEDIDOS, Modifier.weight(1f)) { onSelect(FriendsTab.PEDIDOS) }
         TabItem("Enviados", enviados, tab == FriendsTab.ENVIADOS, Modifier.weight(1f)) { onSelect(FriendsTab.ENVIADOS) }
     }
@@ -297,11 +298,11 @@ private fun AddFriendDialog(
     AlertDialog(
         onDismissRequest = { if (!adding) onDismiss() },
         containerColor = astraColors.overlay,
-        title = { Text("Adicionar amigo", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        title = { Text(AstraCopy.Action.addStar, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             Column {
                 Text(
-                    "Digite o @username de quem voce quer adicionar.",
+                    "Alinhe uma estrela pelo @username (ou pela coordenada Astra).",
                     style = MaterialTheme.typography.bodySmall,
                     color = astraColors.text2,
                     modifier = Modifier.padding(bottom = 10.dp),
@@ -350,8 +351,8 @@ private fun presenceColor(p: Presence): Color = when (p) {
 }
 
 private fun presenceLabel(p: Presence): String = when (p) {
-    Presence.ONLINE -> "online"
-    Presence.IDLE -> "ausente"
-    Presence.DND -> "nao perturbe"
-    Presence.OFFLINE -> "offline"
+    Presence.ONLINE -> AstraCopy.statusLabel("ONLINE")
+    Presence.IDLE -> AstraCopy.statusLabel("IDLE")
+    Presence.DND -> AstraCopy.statusLabel("DND")
+    Presence.OFFLINE -> AstraCopy.statusLabel("OFFLINE")
 }

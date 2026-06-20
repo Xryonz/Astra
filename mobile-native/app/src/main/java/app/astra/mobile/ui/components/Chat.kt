@@ -434,7 +434,7 @@ fun PinnedMessagesDialog(items: List<Pair<String, String>>, onDismiss: () -> Uni
         title = { Text("Mensagens fixadas", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             if (items.isEmpty()) {
-                Text("Nada fixado neste canal.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+                Text("Nada fixado nesta orbita.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items.forEach { (author, content) ->

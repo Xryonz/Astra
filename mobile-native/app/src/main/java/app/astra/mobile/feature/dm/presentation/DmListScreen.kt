@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.dm.domain.model.Conversation
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -62,8 +63,8 @@ fun DmListScreen(
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
-                title = "Mensagens",
-                marginalia = "conversas diretas",
+                title = "Sussurros",
+                marginalia = "mensagens diretas",
                 onBack = onBack,
                 trailing = { TopBarAction("+", onClick = { showDialog = true }) },
             )
@@ -78,8 +79,8 @@ fun DmListScreen(
                     }
                 }
                 state.conversations.isEmpty() -> EmptyState(
-                    line = "Nenhuma conversa ainda",
-                    hint = "toque em + pra comecar uma",
+                    line = AstraCopy.Empties.noDMs.title,
+                    hint = "toque em + pra iniciar um sussurro",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.conversations, key = { it.id }) { conv ->
@@ -153,7 +154,7 @@ private fun NewConversationDialog(
     AlertDialog(
         onDismissRequest = { if (!opening) onDismiss() },
         containerColor = astraColors.overlay,
-        title = { Text("Nova conversa", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        title = { Text(AstraCopy.Action.startDM, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             Column {
                 OutlinedTextField(

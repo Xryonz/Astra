@@ -244,7 +244,7 @@ private fun SplashScreen() {
             }
             Spacer(Modifier.height(10.dp))
             Reveal(delayMillis = 220) {
-                MarginaliaLabel("constelacoes . pessoas . conversas")
+                MarginaliaLabel("constelacoes . estrelas . sussurros")
             }
         }
     }

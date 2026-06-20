@@ -46,7 +46,7 @@ fun ChannelChatScreen(
         Column(Modifier.fillMaxSize().imePadding()) {
             EditorialTopBar(
                 title = "# ${viewModel.channelName}",
-                marginalia = "canal de texto",
+                marginalia = "orbita de texto",
                 onBack = onBack,
                 trailing = { TopBarAction("📌", onClick = { viewModel.loadPinned(); pinnedOpen = true }) },
             )
@@ -55,7 +55,7 @@ fun ChannelChatScreen(
                 when {
                     state.loading -> MessageListSkeleton()
                     state.messages.isEmpty() -> Text(
-                        text = "Comece a conversa neste canal",
+                        text = "Silencio nesta orbita — solte a primeira transmissao",
                         style = MaterialTheme.typography.bodyMedium,
                         color = astraColors.text2,
                         modifier = Modifier.align(Alignment.Center),

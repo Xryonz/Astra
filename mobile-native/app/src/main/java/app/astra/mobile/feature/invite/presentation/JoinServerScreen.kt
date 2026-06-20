@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -49,7 +50,7 @@ fun JoinServerScreen(
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
-                title = "Entrar por convite",
+                title = AstraCopy.Action.joinServer,
                 marginalia = "convite",
                 onBack = onBack,
             )
@@ -106,12 +107,12 @@ fun JoinServerScreen(
                             color = astraColors.text1,
                             textAlign = TextAlign.Center,
                         )
-                        MarginaliaLabel("${preview.memberCount} membro${if (preview.memberCount == 1) "" else "s"}")
+                        MarginaliaLabel("${preview.memberCount} ${if (preview.memberCount == 1) AstraCopy.Noun.person else AstraCopy.Noun.personPl}")
 
                         Spacer(Modifier.height(6.dp))
                         if (preview.isGroup) {
                             Text(
-                                text = "Este é um grupo privado. Peça pra um admin te adicionar.",
+                                text = "Este é um aglomerado privado. Peça pra um admin te adicionar.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = astraColors.text3,
                                 textAlign = TextAlign.Center,
@@ -130,7 +131,7 @@ fun JoinServerScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    text = if (state.joining) "Entrando..." else "Entrar em ${preview.name}",
+                                    text = if (state.joining) "Orbitando..." else "Orbitar ${preview.name}",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = astraColors.textInv,
                                 )

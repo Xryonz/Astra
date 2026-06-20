@@ -170,7 +170,7 @@ fun AccountScreen(
                 }
 
                 Spacer(Modifier.height(26.dp))
-                ReadOnlyField("id interno", state.userId, mono = true)
+                ReadOnlyField("Coordenada Astra", state.userId, mono = true)
 
                 Spacer(Modifier.height(26.dp))
                 HairlineRule()

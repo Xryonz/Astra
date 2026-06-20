@@ -126,14 +126,14 @@ fun UserProfileScreen(
 
                             if (p.createdAt != null) {
                                 Spacer(Modifier.height(16.dp))
-                                MarginaliaLabel("membro desde ${p.createdAt.take(10)}")
+                                MarginaliaLabel("estrela desde ${p.createdAt.take(10)}")
                             }
 
                             if (v.mutual.isNotEmpty()) {
                                 Spacer(Modifier.height(20.dp))
                                 HairlineRule()
                                 Spacer(Modifier.height(14.dp))
-                                MarginaliaLabel("servidores em comum")
+                                MarginaliaLabel("constelacoes em comum")
                                 Spacer(Modifier.height(10.dp))
                                 v.mutual.forEach { MutualRow(it) }
                             }

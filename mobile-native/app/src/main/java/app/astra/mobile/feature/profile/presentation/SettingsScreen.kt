@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -88,7 +89,7 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Sair da conta", style = MaterialTheme.typography.titleMedium, color = astraColors.danger)
+                Text(AstraCopy.Action.logout, style = MaterialTheme.typography.titleMedium, color = astraColors.danger)
             }
             Spacer(Modifier.height(24.dp))
         }

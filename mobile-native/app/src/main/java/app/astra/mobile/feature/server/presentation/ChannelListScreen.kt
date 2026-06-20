@@ -54,7 +54,7 @@ fun ChannelListScreen(
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
                 title = viewModel.serverName,
-                marginalia = "canais",
+                marginalia = "orbitas",
                 onBack = onBack,
                 trailing = {
                     val code = state.inviteCode
@@ -82,8 +82,8 @@ fun ChannelListScreen(
                     }
                 }
                 state.channels.isEmpty() -> EmptyState(
-                    line = "Nenhum canal visivel",
-                    hint = "este servidor nao tem canais pra voce",
+                    line = "Nenhuma orbita visivel",
+                    hint = "esta constelacao nao tem orbitas pra voce",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.channels, key = { it.id }) { channel ->

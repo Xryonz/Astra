@@ -39,7 +39,7 @@ fun DmChatScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = viewModel.otherName, marginalia = "conversa", onBack = onBack)
+            EditorialTopBar(title = viewModel.otherName, marginalia = "sussurro", onBack = onBack)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {

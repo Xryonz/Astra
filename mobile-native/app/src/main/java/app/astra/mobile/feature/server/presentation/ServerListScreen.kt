@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
@@ -63,8 +64,8 @@ fun ServerListScreen(
     CosmicBackground {
         Column(Modifier.fillMaxSize()) {
             EditorialTopBar(
-                title = "Servidores",
-                marginalia = "comunidades",
+                title = "Constelacoes",
+                marginalia = "seu ceu",
                 onBack = onBack,
                 trailing = { TopBarAction("+", onClick = { showDialog = true }) },
             )
@@ -76,7 +77,7 @@ fun ServerListScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Entrar com um convite",
+                    text = "${AstraCopy.Action.joinServer} com um convite",
                     style = MaterialTheme.typography.titleSmall,
                     color = astraColors.accent,
                     modifier = Modifier.weight(1f),
@@ -94,8 +95,8 @@ fun ServerListScreen(
                     }
                 }
                 state.servers.isEmpty() -> EmptyState(
-                    line = "Nenhum servidor ainda",
-                    hint = "toque em + pra criar um",
+                    line = AstraCopy.Empties.noServers.title,
+                    hint = "toque em + pra forjar uma",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.servers, key = { it.id }) { server ->
@@ -136,7 +137,7 @@ private fun ServerRow(server: Server, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${server.memberCount} membro${if (server.memberCount == 1) "" else "s"}",
+                text = "${server.memberCount} ${if (server.memberCount == 1) AstraCopy.Noun.person else AstraCopy.Noun.personPl}",
                 style = MaterialTheme.typography.bodySmall,
                 color = astraColors.text2,
             )
@@ -178,15 +179,21 @@ private fun CreateServerDialog(
     AlertDialog(
         onDismissRequest = { if (!creating) onDismiss() },
         containerColor = astraColors.overlay,
-        title = { Text("Novo servidor", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        title = { Text(AstraCopy.Action.createServer, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             Column {
+                Text(
+                    text = AstraCopy.Desc.constelacao,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = astraColors.text3,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
                     enabled = !creating,
-                    label = { Text("Nome do servidor") },
+                    label = { Text("Nome da constelacao") },
                 )
                 if (error != null) {
                     Text(
@@ -200,7 +207,7 @@ private fun CreateServerDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank() && !creating) {
-                Text(if (creating) "Criando..." else "Criar", color = astraColors.accent)
+                Text(if (creating) "Forjando..." else "Forjar", color = astraColors.accent)
             }
         },
         dismissButton = {

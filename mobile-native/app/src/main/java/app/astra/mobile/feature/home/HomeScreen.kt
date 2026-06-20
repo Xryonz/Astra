@@ -58,6 +58,7 @@ import com.composables.icons.lucide.UserPlus
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.HairlineRule
@@ -111,7 +112,7 @@ fun HomeScreen(
                 Column(Modifier.padding(horizontal = 18.dp).padding(top = 14.dp)) {
                     Reveal {
                         Text(
-                            text = "Mensagens",
+                            text = "Sussurros",
                             fontFamily = DmSerif,
                             fontSize = 30.sp,
                             color = astraColors.text1,
@@ -153,7 +154,7 @@ fun HomeScreen(
                             Modifier.fillMaxWidth().padding(horizontal = 18.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            MarginaliaLabel("conversas")
+                            MarginaliaLabel("sussurros")
                             Spacer(Modifier.weight(1f))
                             Box(
                                 modifier = Modifier
@@ -164,7 +165,7 @@ fun HomeScreen(
                             ) {
                                 Icon(
                                     Lucide.MessageSquarePlus,
-                                    contentDescription = "Nova conversa",
+                                    contentDescription = "Iniciar sussurro",
                                     tint = astraColors.accent,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -187,7 +188,7 @@ fun HomeScreen(
                                 state.loading -> ListSkeleton(avatar = true)
                                 dms.isEmpty() -> Text(
                                     text = if (query.isBlank())
-                                        "Nenhuma conversa ainda — toque em Adicionar amigos."
+                                        "${AstraCopy.Empties.noDMs.title} — toque em Adicionar estrelas."
                                     else "Nada encontrado.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = astraColors.text3,
@@ -367,7 +368,7 @@ private fun SearchAddRow(
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "Adicionar amigos",
+                    text = "Adicionar estrelas",
                     style = MaterialTheme.typography.titleSmall,
                     color = astraColors.text1,
                 )
@@ -380,7 +381,7 @@ private fun SearchAddRow(
                 onValueChange = onQuery,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar conversa", color = astraColors.text3) },
+                placeholder = { Text("Buscar estrela", color = astraColors.text3) },
             )
         }
     }
@@ -412,7 +413,7 @@ private fun VoiceRoomCard(room: ActiveVoiceRoom, onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        MarginaliaLabel("${room.serverName} · ${room.count} na sala")
+        MarginaliaLabel("${room.serverName} · ${room.count} na orbita")
     }
 }
 
@@ -523,13 +524,7 @@ private fun BottomUserBar(
     }
 }
 
-private fun statusLabel(s: UserStatus): String = when (s) {
-    UserStatus.ONLINE -> "Online"
-    UserStatus.IDLE -> "Ausente"
-    UserStatus.DND -> "Não perturbe"
-    UserStatus.INVISIBLE -> "Invisível"
-    UserStatus.OFFLINE -> "Offline"
-}
+private fun statusLabel(s: UserStatus): String = AstraCopy.statusLabel(s.name)
 
 @Composable
 private fun StatusMenu(
@@ -589,9 +584,15 @@ private fun NewConversationDialog(
     AlertDialog(
         onDismissRequest = { if (!opening) onDismiss() },
         containerColor = astraColors.overlay,
-        title = { Text("Nova conversa", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        title = { Text(AstraCopy.Action.startDM, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             Column {
+                Text(
+                    text = AstraCopy.Desc.sussurro,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = astraColors.text3,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },

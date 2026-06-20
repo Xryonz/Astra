@@ -1,6 +1,5 @@
 package app.astra.mobile.feature.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -40,16 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.SquarePen
+import com.composables.icons.lucide.UserPlus
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.server.domain.model.Server
@@ -313,7 +313,12 @@ private fun SearchAddRow(
                     .clickable(onClick = onToggleSearch),
                 contentAlignment = Alignment.Center,
             ) {
-                SearchGlyph(color = if (searchOpen) astraColors.accent else astraColors.text2)
+                Icon(
+                    Lucide.Search,
+                    contentDescription = "Buscar",
+                    tint = if (searchOpen) astraColors.accent else astraColors.text2,
+                    modifier = Modifier.size(18.dp),
+                )
             }
             Spacer(Modifier.width(10.dp))
             // Pill "Adicionar amigos"
@@ -329,7 +334,12 @@ private fun SearchAddRow(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PersonAddGlyph(color = astraColors.text1)
+                Icon(
+                    Lucide.UserPlus,
+                    contentDescription = null,
+                    tint = astraColors.text1,
+                    modifier = Modifier.size(18.dp),
+                )
                 Spacer(Modifier.width(10.dp))
                 Text(
                     text = "Adicionar amigos",
@@ -471,7 +481,12 @@ private fun BottomUserBar(
                     .border(1.dp, astraColors.border, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                BellGlyph(color = astraColors.text2)
+                Icon(
+                    Lucide.Bell,
+                    contentDescription = "Notificações",
+                    tint = astraColors.text2,
+                    modifier = Modifier.size(18.dp),
+                )
             }
         }
     }
@@ -487,7 +502,12 @@ private fun NewMessageFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        ComposeGlyph(color = astraColors.textInv, size = 24.dp)
+        Icon(
+            Lucide.SquarePen,
+            contentDescription = "Nova mensagem",
+            tint = astraColors.textInv,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
@@ -533,79 +553,6 @@ private fun NewConversationDialog(
             }
         },
     )
-}
-
-// ── Glyphs monocromaticos (Canvas) — espelham os lucide do web ───
-@Composable
-private fun SearchGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 18.dp) {
-    Canvas(modifier.size(size)) {
-        val s = this.size.minDimension
-        val w = s * 0.09f
-        val r = s * 0.30f
-        val c = Offset(s * 0.42f, s * 0.42f)
-        drawCircle(color, r, c, style = Stroke(w))
-        val edge = Offset(c.x + r * 0.7071f, c.y + r * 0.7071f)
-        drawLine(color, edge, Offset(s * 0.88f, s * 0.88f), strokeWidth = w, cap = StrokeCap.Round)
-    }
-}
-
-@Composable
-private fun PersonAddGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 18.dp) {
-    Canvas(modifier.size(size)) {
-        val s = this.size.minDimension
-        val w = s * 0.085f
-        // cabeca
-        drawCircle(color, s * 0.13f, Offset(s * 0.36f, s * 0.30f), style = Stroke(w))
-        // ombros (meio circulo aberto pra cima)
-        drawArc(
-            color = color,
-            startAngle = 200f, sweepAngle = 140f, useCenter = false,
-            topLeft = Offset(s * 0.14f, s * 0.46f),
-            size = androidx.compose.ui.geometry.Size(s * 0.44f, s * 0.48f),
-            style = Stroke(w, cap = StrokeCap.Round),
-        )
-        // mais
-        drawLine(color, Offset(s * 0.80f, s * 0.22f), Offset(s * 0.80f, s * 0.44f), strokeWidth = w, cap = StrokeCap.Round)
-        drawLine(color, Offset(s * 0.69f, s * 0.33f), Offset(s * 0.91f, s * 0.33f), strokeWidth = w, cap = StrokeCap.Round)
-    }
-}
-
-@Composable
-private fun BellGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 18.dp) {
-    Canvas(modifier.size(size)) {
-        val s = this.size.minDimension
-        val w = s * 0.08f
-        // domo (meio circulo de cima)
-        drawArc(
-            color = color, startAngle = 180f, sweepAngle = 180f, useCenter = false,
-            topLeft = Offset(s * 0.26f, s * 0.24f),
-            size = androidx.compose.ui.geometry.Size(s * 0.48f, s * 0.48f),
-            style = Stroke(w, cap = StrokeCap.Round),
-        )
-        // laterais
-        drawLine(color, Offset(s * 0.26f, s * 0.48f), Offset(s * 0.26f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
-        drawLine(color, Offset(s * 0.74f, s * 0.48f), Offset(s * 0.74f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
-        // aba inferior
-        drawLine(color, Offset(s * 0.20f, s * 0.62f), Offset(s * 0.80f, s * 0.62f), strokeWidth = w, cap = StrokeCap.Round)
-        // badalo
-        drawCircle(color, s * 0.05f, Offset(s * 0.50f, s * 0.72f))
-        // topo
-        drawLine(color, Offset(s * 0.50f, s * 0.18f), Offset(s * 0.50f, s * 0.24f), strokeWidth = w, cap = StrokeCap.Round)
-    }
-}
-
-@Composable
-private fun ComposeGlyph(modifier: Modifier = Modifier, color: Color, size: Dp = 22.dp) {
-    Canvas(modifier.size(size)) {
-        val s = this.size.minDimension
-        val w = s * 0.11f
-        // corpo do lapis (diagonal)
-        drawLine(color, Offset(s * 0.28f, s * 0.72f), Offset(s * 0.64f, s * 0.36f), strokeWidth = w * 1.4f, cap = StrokeCap.Round)
-        // ponta
-        drawLine(color, Offset(s * 0.66f, s * 0.34f), Offset(s * 0.76f, s * 0.24f), strokeWidth = w * 1.4f, cap = StrokeCap.Round)
-        // linha embaixo (papel)
-        drawLine(color, Offset(s * 0.26f, s * 0.78f), Offset(s * 0.44f, s * 0.78f), strokeWidth = w, cap = StrokeCap.Round)
-    }
 }
 
 // ISO -> "agora / 5m / 3h / 2d / 3 sem / 5 mês". Falha de parse = vazio.

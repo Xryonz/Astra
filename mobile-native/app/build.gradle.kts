@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.lucide.icons) // icones Lucide (mesma familia do web)
     debugImplementation(libs.androidx.ui.tooling)
 
     // DI — Hilt (via KSP)

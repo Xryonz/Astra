@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.SquarePen
 import com.composables.icons.lucide.UserPlus
@@ -123,7 +124,7 @@ fun HomeScreen(
                     }
                 }
 
-                // Corpo: faixa "na voz" + lista de DMs. FAB flutua no canto.
+                // Corpo: faixa "na voz" + lista de DMs.
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     Column(Modifier.fillMaxSize()) {
                         if (state.activeVoice.isNotEmpty() && query.isBlank()) {
@@ -149,6 +150,21 @@ fun HomeScreen(
                         ) {
                             MarginaliaLabel("conversas")
                             Spacer(Modifier.weight(1f))
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .clickable { showDialog = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Lucide.SquarePen,
+                                    contentDescription = "Nova conversa",
+                                    tint = astraColors.accent,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                            Spacer(Modifier.width(4.dp))
                             Text(
                                 text = "ver todas",
                                 style = MaterialTheme.typography.labelMedium,
@@ -177,7 +193,7 @@ fun HomeScreen(
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                                         start = 18.dp,
                                         end = 18.dp,
-                                        bottom = 92.dp,
+                                        bottom = 12.dp,
                                     ),
                                 ) {
                                     items(dms, key = { it.id }) { c ->
@@ -190,11 +206,6 @@ fun HomeScreen(
                             }
                         }
                     }
-
-                    NewMessageFab(
-                        onClick = { showDialog = true },
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 16.dp),
-                    )
                 }
 
                 BottomUserBar(
@@ -235,7 +246,12 @@ private fun ServerRail(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         RailTile(active = true, onClick = {}) {
-            Text("✦", color = astraColors.accent, fontSize = 20.sp)
+            Icon(
+                Lucide.MessageCircle,
+                contentDescription = "Mensagens diretas",
+                tint = astraColors.accent,
+                modifier = Modifier.size(22.dp),
+            )
         }
         HairlineRule(Modifier.width(28.dp))
         servers.forEach { srv ->
@@ -489,25 +505,6 @@ private fun BottomUserBar(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun NewMessageFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(astraColors.accent)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Lucide.SquarePen,
-            contentDescription = "Nova mensagem",
-            tint = astraColors.textInv,
-            modifier = Modifier.size(24.dp),
-        )
     }
 }
 

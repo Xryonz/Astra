@@ -94,6 +94,8 @@ fun MessageBubble(
 ) {
     val bg = if (mine) astraColors.accent else astraColors.raised
     val fg = if (mine) astraColors.textInv else astraColors.text1
+    // Borda que destaca a bolha. Ponto unico -> futura personalizacao troca so aqui.
+    val borderColor = if (mine) Color.Black.copy(alpha = 0.18f) else astraColors.borderMid
     val shape = RoundedCornerShape(
         topStart = 16.dp, topEnd = 16.dp,
         bottomStart = if (mine) 16.dp else 5.dp,
@@ -132,6 +134,7 @@ fun MessageBubble(
                     .widthIn(max = 300.dp)
                     .clip(shape)
                     .background(bg)
+                    .border(1.dp, borderColor, shape)
                     .then(
                         if (hasMenu) {
                             Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })

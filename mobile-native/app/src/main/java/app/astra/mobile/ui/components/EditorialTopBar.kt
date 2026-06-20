@@ -47,14 +47,14 @@ fun EditorialTopBar(
             Text(
                 text = "‹",
                 fontFamily = DmSerif,
-                fontSize = 30.sp,
-                color = astraColors.text2,
+                fontSize = 40.sp,
+                color = astraColors.text1,
                 modifier = Modifier
                     .clip(CircleShape)
                     .clickable(onClick = onBack)
-                    .padding(horizontal = 10.dp, vertical = 2.dp),
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(4.dp))
         }
         Column(Modifier.weight(1f)) {
             if (marginalia != null) {

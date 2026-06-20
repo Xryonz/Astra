@@ -22,13 +22,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -75,14 +75,17 @@ fun SettingsScreen(
             SettingsRow("Aparencia", "em breve", onClick = null)
             SettingsRow("Notificacoes", "em breve", onClick = null)
 
-            Spacer(Modifier.height(24.dp))
-            HairlineRule(Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(20.dp))
+            val logoutShape = RoundedCornerShape(14.dp)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+                    .clip(logoutShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.danger.copy(alpha = 0.4f), logoutShape)
                     .clickable(onClick = viewModel::logout)
-                    .padding(horizontal = 22.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Sair da conta", style = MaterialTheme.typography.titleMedium, color = astraColors.danger)
@@ -96,11 +99,16 @@ fun SettingsScreen(
 @Composable
 private fun SettingsRow(title: String, sub: String, onClick: (() -> Unit)?) {
     val enabled = onClick != null
+    val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 4.dp)
+            .clip(shape)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.border, shape)
             .then(if (enabled) Modifier.clickable(onClick = onClick!!) else Modifier)
-            .padding(horizontal = 22.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

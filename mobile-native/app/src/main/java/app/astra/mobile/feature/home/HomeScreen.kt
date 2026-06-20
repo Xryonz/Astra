@@ -49,11 +49,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.LogOut
-import com.composables.icons.lucide.MessageCircle
+import com.composables.icons.lucide.MessageSquarePlus
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.SquarePen
+import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.UserPlus
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
@@ -163,7 +163,7 @@ fun HomeScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    Lucide.SquarePen,
+                                    Lucide.MessageSquarePlus,
                                     contentDescription = "Nova conversa",
                                     tint = astraColors.accent,
                                     modifier = Modifier.size(18.dp),
@@ -247,7 +247,8 @@ private fun ServerRail(
         modifier = Modifier
             .width(72.dp)
             .fillMaxHeight()
-            .background(astraColors.base)
+            // Semi-transparente: deixa o StarField/fundo cosmico vazar atras do rail.
+            .background(astraColors.base.copy(alpha = 0.55f))
             .verticalScroll(rememberScrollState())
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -255,7 +256,7 @@ private fun ServerRail(
     ) {
         RailTile(active = true, onClick = {}) {
             Icon(
-                Lucide.MessageCircle,
+                Lucide.Sparkles,
                 contentDescription = "Mensagens diretas",
                 tint = astraColors.accent,
                 modifier = Modifier.size(22.dp),

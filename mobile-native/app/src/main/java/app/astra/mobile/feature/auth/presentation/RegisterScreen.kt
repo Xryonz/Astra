@@ -52,30 +52,33 @@ import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
 @Composable
-fun LoginScreen(
-    onGoToRegister: () -> Unit,
-    viewModel: LoginViewModel = hiltViewModel(),
+fun RegisterScreen(
+    onGoToLogin: () -> Unit,
+    viewModel: RegisterViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    LoginContent(
+    RegisterContent(
         state = state,
+        onDisplayName = viewModel::onDisplayName,
+        onUsername = viewModel::onUsername,
         onEmail = viewModel::onEmail,
         onPassword = viewModel::onPassword,
         onSubmit = viewModel::submit,
-        onGoToRegister = onGoToRegister,
+        onGoToLogin = onGoToLogin,
     )
 }
 
 @Composable
-private fun LoginContent(
-    state: LoginUiState,
+private fun RegisterContent(
+    state: RegisterUiState,
+    onDisplayName: (String) -> Unit,
+    onUsername: (String) -> Unit,
     onEmail: (String) -> Unit,
     onPassword: (String) -> Unit,
     onSubmit: () -> Unit,
-    onGoToRegister: () -> Unit,
+    onGoToLogin: () -> Unit,
 ) {
     CosmicBackground {
-        // Glow prata suave atras do form (espelha o radial accent-dim do web)
         Box(
             Modifier
                 .align(Alignment.Center)
@@ -91,11 +94,10 @@ private fun LoginContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .imePadding()
-                .padding(horizontal = 30.dp, vertical = 48.dp),
+                .padding(horizontal = 30.dp, vertical = 40.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start,
         ) {
-            // Wordmark
             Reveal {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = "✦", color = astraColors.accent, fontSize = 18.sp)
@@ -104,14 +106,13 @@ private fun LoginContent(
                 }
             }
 
-            Spacer(Modifier.height(44.dp))
+            Spacer(Modifier.height(34.dp))
 
-            // Secao: numeral + marginalia
             Reveal(delayMillis = 90) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    RomanNumeral("I.", fontSize = 22.sp)
+                    RomanNumeral("II.", fontSize = 22.sp)
                     Spacer(Modifier.width(10.dp))
-                    MarginaliaLabel("entrar", Modifier.padding(bottom = 4.dp))
+                    MarginaliaLabel("criar conta", Modifier.padding(bottom = 4.dp))
                 }
             }
 
@@ -119,7 +120,7 @@ private fun LoginContent(
 
             Reveal(delayMillis = 140) {
                 Text(
-                    text = "Bem-vindo de volta",
+                    text = "Criar sua conta",
                     style = MaterialTheme.typography.headlineMedium,
                     color = astraColors.text1,
                 )
@@ -129,17 +130,45 @@ private fun LoginContent(
 
             Reveal(delayMillis = 180) {
                 Text(
-                    text = "Entre pra continuar de onde parou.",
+                    text = "Junte-se a constelacao.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = astraColors.text2,
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
             Reveal(delayMillis = 220) { HairlineRule() }
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(26.dp))
 
-            Reveal(delayMillis = 280) {
+            Reveal(delayMillis = 260) {
+                EditorialField(
+                    value = state.displayName,
+                    onValue = onDisplayName,
+                    label = "nome",
+                    placeholder = "Como te chamam",
+                    enabled = !state.loading,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next,
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Reveal(delayMillis = 300) {
+                EditorialField(
+                    value = state.username,
+                    onValue = onUsername,
+                    label = "username",
+                    placeholder = "minusculas_e_numeros",
+                    enabled = !state.loading,
+                    keyboardType = KeyboardType.Ascii,
+                    imeAction = ImeAction.Next,
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Reveal(delayMillis = 340) {
                 EditorialField(
                     value = state.email,
                     onValue = onEmail,
@@ -151,14 +180,14 @@ private fun LoginContent(
                 )
             }
 
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(20.dp))
 
-            Reveal(delayMillis = 330) {
+            Reveal(delayMillis = 380) {
                 EditorialField(
                     value = state.password,
                     onValue = onPassword,
                     label = "senha",
-                    placeholder = "••••••••",
+                    placeholder = "8+ com maiuscula e numero",
                     enabled = !state.loading,
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -172,9 +201,9 @@ private fun LoginContent(
                 AuthErrorBox(state.error)
             }
 
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(28.dp))
 
-            Reveal(delayMillis = 380) {
+            Reveal(delayMillis = 420) {
                 Button(
                     onClick = onSubmit,
                     enabled = !state.loading,
@@ -195,7 +224,7 @@ private fun LoginContent(
                         )
                     } else {
                         Text(
-                            text = "ENTRAR",
+                            text = "CRIAR CONTA",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
                             letterSpacing = 0.18.em,
@@ -206,22 +235,22 @@ private fun LoginContent(
 
             Spacer(Modifier.height(26.dp))
 
-            Reveal(delayMillis = 430) {
+            Reveal(delayMillis = 460) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MarginaliaLabel("nao tem conta?")
+                    MarginaliaLabel("ja tem conta?")
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Criar conta",
+                        text = "Entrar",
                         fontFamily = DmSerif,
                         fontStyle = FontStyle.Italic,
                         fontSize = 18.sp,
                         color = astraColors.accent,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
-                            .clickable(enabled = !state.loading, onClick = onGoToRegister)
+                            .clickable(enabled = !state.loading, onClick = onGoToLogin)
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
@@ -232,11 +261,12 @@ private fun LoginContent(
 
 @Preview(showBackground = true, backgroundColor = 0xFF06060E)
 @Composable
-private fun LoginPreview() {
+private fun RegisterPreview() {
     AstraTheme {
-        LoginContent(
-            state = LoginUiState(email = "theo@astra.app", error = "E-mail ou senha incorretos"),
-            onEmail = {}, onPassword = {}, onSubmit = {}, onGoToRegister = {},
+        RegisterContent(
+            state = RegisterUiState(displayName = "Theo", username = "theo", email = "theo@astra.app"),
+            onDisplayName = {}, onUsername = {}, onEmail = {}, onPassword = {},
+            onSubmit = {}, onGoToLogin = {},
         )
     }
 }

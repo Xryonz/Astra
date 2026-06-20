@@ -1,5 +1,12 @@
 package app.astra.mobile.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.Reveal
+import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.GreatVibes
 import app.astra.mobile.ui.theme.astraColors
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,10 +37,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.astra.mobile.feature.auth.presentation.LoginScreen
+import app.astra.mobile.feature.auth.presentation.RegisterScreen
 import app.astra.mobile.feature.channel.presentation.ChannelChatScreen
 import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
+import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
+import app.astra.mobile.feature.profile.presentation.AccountScreen
+import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
+import app.astra.mobile.feature.profile.presentation.SettingsScreen
+import app.astra.mobile.feature.profile.presentation.UserProfileScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerListScreen
 import app.astra.mobile.feature.voice.presentation.CallScreen
@@ -41,7 +55,14 @@ import android.net.Uri
 
 private object Routes {
     const val LOGIN = "login"
+    const val REGISTER = "register"
     const val HOME = "home"
+    const val SETTINGS = "settings"
+    const val ACCOUNT = "settings/account"
+    const val PROFILE_EDIT = "settings/profile"
+    const val FRIENDS = "friends"
+    const val USER_PROFILE = "user/{userId}?name={name}"
+    fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
     const val SERVERS = "servers"
@@ -68,13 +89,57 @@ fun AstraApp() {
             NavHost(
                 navController = nav,
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
+                // Transicoes editoriais: avanca = nova tela desliza leve da direita +
+                // fade; volta = tela atual desliza pra direita. Sutil, nao chamativo.
+                enterTransition = { slideInHorizontally(tween(320, easing = EaseSpring)) { it / 14 } + fadeIn(tween(260)) },
+                exitTransition = { scaleOut(tween(240), targetScale = 0.97f) + fadeOut(tween(180)) },
+                popEnterTransition = { scaleIn(tween(260), initialScale = 0.98f) + fadeIn(tween(220)) },
+                popExitTransition = { slideOutHorizontally(tween(260)) { it / 12 } + fadeOut(tween(200)) },
             ) {
-                composable(Routes.LOGIN) { LoginScreen() }
+                composable(Routes.LOGIN) {
+                    LoginScreen(onGoToRegister = { nav.navigate(Routes.REGISTER) })
+                }
+                composable(Routes.REGISTER) {
+                    RegisterScreen(onGoToLogin = { nav.popBackStack() })
+                }
                 composable(Routes.HOME) {
                     HomeScreen(
-                        onOpenDms = { nav.navigate(Routes.DMS) },
+                        onOpenServer = { id, name -> nav.navigate(Routes.channels(id, name)) },
                         onOpenServers = { nav.navigate(Routes.SERVERS) },
+                        onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
+                        onOpenDms = { nav.navigate(Routes.DMS) },
+                        onOpenFriends = { nav.navigate(Routes.FRIENDS) },
+                        onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+                        onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
                     )
+                }
+                composable(Routes.FRIENDS) {
+                    FriendsScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                    )
+                }
+                composable(
+                    route = Routes.USER_PROFILE,
+                    arguments = listOf(
+                        navArgument("userId") { type = NavType.StringType },
+                        navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) {
+                    UserProfileScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.SETTINGS) {
+                    SettingsScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenAccount = { nav.navigate(Routes.ACCOUNT) },
+                        onOpenProfile = { nav.navigate(Routes.PROFILE_EDIT) },
+                    )
+                }
+                composable(Routes.ACCOUNT) {
+                    AccountScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.PROFILE_EDIT) {
+                    ProfileEditScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.SERVERS) {
                     ServerListScreen(

@@ -29,9 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.ui.components.CosmicBackground
-import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
+import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
 
@@ -52,7 +52,7 @@ fun ChannelListScreen(
                 onBack = onBack,
             )
             when {
-                state.loading -> CenterBox { CosmicSpinner() }
+                state.loading -> ListSkeleton(avatar = false)
                 state.error != null -> CenterBox {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(state.error!!, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)

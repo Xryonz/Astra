@@ -38,9 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.components.CosmicBackground
-import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
+import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.TopBarAction
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -68,7 +68,7 @@ fun ServerListScreen(
                 trailing = { TopBarAction("+", onClick = { showDialog = true }) },
             )
             when {
-                state.loading -> CenterBox { CosmicSpinner() }
+                state.loading -> ListSkeleton(avatar = true)
                 state.error != null -> CenterBox {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(state.error!!, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)

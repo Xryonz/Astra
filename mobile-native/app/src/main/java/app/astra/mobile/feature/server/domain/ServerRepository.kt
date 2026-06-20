@@ -10,6 +10,8 @@ interface ServerRepository {
     suspend fun members(serverId: String): Result<List<ServerMember>>
     /** { channelId -> lastReadAtISO } do user atual. */
     suspend fun channelReads(): Result<Map<String, String>>
+    /** { channelId -> userIds } — quem esta em cada canal de voz agora. */
+    suspend fun voicePresence(channelIds: List<String>): Result<Map<String, List<String>>>
     /** channel_activity ao vivo: emite o channelId que recebeu mensagem nova. */
     fun channelActivity(): Flow<String>
 }

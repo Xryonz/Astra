@@ -1,0 +1,22 @@
+package app.astra.mobile.feature.profile.presentation
+
+data class ProfileEditUiState(
+    val loading: Boolean = true,
+    val displayName: String = "",
+    val username: String = "",
+    val avatarUrl: String = "",
+    val bio: String = "",
+    val pronouns: String = "",
+    val bannerColor: String = "",
+    val origAvatarUrl: String = "",
+    val origBio: String = "",
+    val origPronouns: String = "",
+    val origBannerColor: String = "",
+    val saving: Boolean = false,
+    val saved: Boolean = false,
+    val error: String? = null,
+) {
+    val dirty: Boolean
+        get() = avatarUrl != origAvatarUrl || bio != origBio ||
+            pronouns != origPronouns || bannerColor != origBannerColor
+}

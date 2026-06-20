@@ -23,10 +23,10 @@ import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.ReactionChip
 import app.astra.mobile.ui.components.CosmicBackground
-import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.MessageListSkeleton
 import app.astra.mobile.ui.components.PinnedMessagesDialog
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TopBarAction
@@ -53,7 +53,7 @@ fun ChannelChatScreen(
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    state.loading -> CosmicSpinner(Modifier.align(Alignment.Center))
+                    state.loading -> MessageListSkeleton()
                     state.messages.isEmpty() -> Text(
                         text = "Comece a conversa neste canal",
                         style = MaterialTheme.typography.bodyMedium,

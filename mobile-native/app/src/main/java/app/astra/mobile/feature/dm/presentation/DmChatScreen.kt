@@ -22,9 +22,9 @@ import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.CosmicBackground
-import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.MessageListSkeleton
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TypingIndicator
 import app.astra.mobile.ui.theme.astraColors
@@ -43,7 +43,7 @@ fun DmChatScreen(
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    state.loading -> CosmicSpinner(Modifier.align(Alignment.Center))
+                    state.loading -> MessageListSkeleton()
                     state.messages.isEmpty() -> Text(
                         text = "Diga oi 👋",
                         style = MaterialTheme.typography.bodyMedium,

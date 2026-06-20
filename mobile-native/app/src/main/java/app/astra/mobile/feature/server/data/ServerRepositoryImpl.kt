@@ -2,6 +2,7 @@ package app.astra.mobile.feature.server.data
 
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.ServerApi
+import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ApiError
@@ -21,6 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class ServerRepositoryImpl @Inject constructor(
     private val serverApi: ServerApi,
+    private val voiceApi: VoiceApi,
     private val socketManager: SocketManager,
     private val json: Json,
 ) : ServerRepository {
@@ -57,6 +59,14 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Sem conexao com o servidor"))
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar leituras"))
+    }
+
+    override suspend fun voicePresence(channelIds: List<String>): Result<Map<String, List<String>>> = try {
+        if (channelIds.isEmpty()) Result.success(emptyMap())
+        else Result.success(voiceApi.presence(channelIds.joinToString(",")).data.orEmpty())
+    } catch (e: Exception) {
+        // Presence e best-effort (faixa some se falhar) — nao quebra a home.
+        Result.failure(ApiException("Falha ao carregar presenca de voz"))
     }
 
     override fun channelActivity(): Flow<String> = socketManager.channelActivity

@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import retrofit2.HttpException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -99,18 +101,36 @@ class VoiceManager @Inject constructor(
                 val r = LiveKit.create(appContext, options = roomOptions())
                 room = r
                 observe(r)
-                r.connect(data.url, data.token)
-                r.localParticipant.setMicrophoneEnabled(true)
+                // Timeout defensivo: em rede que bloqueia UDP — ou no emulador, onde
+                // o WebRTC costuma travar — o connect fica pendurado ate o timeout
+                // interno (30s+). Limitamos pra falhar rapido e com mensagem clara.
+                withTimeout(CONNECT_TIMEOUT_MS) { r.connect(data.url, data.token) }
+                // Mic pos-connect: se a permissao/rota de audio falhar, ENTRA MUDO
+                // em vez de derrubar a call inteira (espelha o voiceStore do web).
+                try {
+                    r.localParticipant.setMicrophoneEnabled(true)
+                } catch (micErr: Exception) {
+                    Log.w(TAG, "mic falhou, entrando mudo: ${micErr.message}")
+                }
                 CallService.start(appContext, channelName)
                 _state.update {
                     it.copy(
                         status = CallStatus.Connected,
-                        micEnabled = true,
+                        micEnabled = r.localParticipant.isMicrophoneEnabled,
                         participants = snapshot(r),
                     )
                 }
+            } catch (e: TimeoutCancellationException) {
+                Log.w(TAG, "connect timeout (${CONNECT_TIMEOUT_MS}ms)")
+                cleanup()
+                _state.update {
+                    it.copy(
+                        status = CallStatus.Error,
+                        error = "A conexao demorou demais. Rede instavel — tente outra rede ou um aparelho real.",
+                    )
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "join falhou: ${e.message}")
+                Log.w(TAG, "join falhou: ${e.message}", e)
                 cleanup()
                 _state.update { it.copy(status = CallStatus.Error, error = humanize(e)) }
             }
@@ -306,6 +326,7 @@ class VoiceManager @Inject constructor(
 
     private companion object {
         const val TAG = "VoiceManager"
+        const val CONNECT_TIMEOUT_MS = 20_000L
         const val SCREEN_NOTIF_ID = 4202
         const val SCREEN_CHANNEL_ID = "astra_screen"
         const val SCREEN_FPS = 60

@@ -42,6 +42,7 @@ import app.astra.mobile.feature.friends.domain.model.FriendRequest
 import app.astra.mobile.feature.friends.domain.model.Presence
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.AstraTabs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
@@ -72,12 +73,12 @@ fun FriendsScreen(
                 trailing = { TopBarAction("+", onClick = { showAdd = true }) },
             )
 
-            TabBar(
-                tab = state.tab,
-                amigos = state.friends.size,
-                pedidos = state.incoming.size,
-                enviados = state.outgoing.size,
-                onSelect = viewModel::selectTab,
+            AstraTabs(
+                tabs = listOf("Estrelas", "Pedidos", "Enviados"),
+                counts = listOf(state.friends.size, state.incoming.size, state.outgoing.size),
+                selectedIndex = state.tab.ordinal,
+                onSelect = { viewModel.selectTab(FriendsTab.values()[it]) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             )
 
             when {
@@ -137,48 +138,6 @@ fun FriendsScreen(
             error = state.addError,
             onConfirm = viewModel::sendRequest,
             onDismiss = { showAdd = false; viewModel.clearAddError() },
-        )
-    }
-}
-
-@Composable
-private fun TabBar(
-    tab: FriendsTab,
-    amigos: Int,
-    pedidos: Int,
-    enviados: Int,
-    onSelect: (FriendsTab) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        TabItem("Estrelas", amigos, tab == FriendsTab.AMIGOS, Modifier.weight(1f)) { onSelect(FriendsTab.AMIGOS) }
-        TabItem("Pedidos", pedidos, tab == FriendsTab.PEDIDOS, Modifier.weight(1f)) { onSelect(FriendsTab.PEDIDOS) }
-        TabItem("Enviados", enviados, tab == FriendsTab.ENVIADOS, Modifier.weight(1f)) { onSelect(FriendsTab.ENVIADOS) }
-    }
-}
-
-@Composable
-private fun TabItem(label: String, count: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = if (count > 0) "$label ($count)" else label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (selected) astraColors.accent else astraColors.text2,
-        )
-        Box(
-            Modifier
-                .height(2.dp)
-                .width(if (selected) 26.dp else 0.dp)
-                .background(astraColors.accent),
         )
     }
 }

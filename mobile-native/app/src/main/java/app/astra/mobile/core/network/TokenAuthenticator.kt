@@ -1,6 +1,5 @@
 package app.astra.mobile.core.network
 
-import app.astra.mobile.core.data.TokenStore
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.Request
@@ -11,42 +10,32 @@ import javax.inject.Singleton
 
 /**
  * Quando uma request autenticada volta 401, o OkHttp chama isto ANTES de
- * desistir. Aqui: troca o access token via /refresh e re-tenta a request
- * original com o token novo. Transparente pras camadas de cima.
+ * desistir. Aqui: troca o access token via [TokenRefresher] e re-tenta a
+ * request original com o token novo. Transparente pras camadas de cima.
+ *
+ * O refresh em si vive no TokenRefresher (Mutex) pra serializar 401s paralelos
+ * e nao deslogar na corrida de rotacao do refresh token.
  *
  * runBlocking e ok: o Authenticator ja roda fora da main thread.
  */
 @Singleton
 class TokenAuthenticator @Inject constructor(
-    private val tokenStore: TokenStore,
-    private val refreshApi: RefreshApi,
+    private val tokenRefresher: TokenRefresher,
 ) : Authenticator {
 
     override fun authenticate(route: Route?, response: Response): Request? {
         // Ja tentamos refresh nesta cadeia e tomamos 401 de novo -> desiste.
         if (responseCount(response) >= 2) return null
 
-        val refresh = runBlocking { tokenStore.currentRefresh() } ?: return null
+        // O access token que ESTA request usou e falhou — passado como "stale"
+        // pro refresher detectar se outra chamada ja rotacionou nesse meio tempo.
+        val staleAccess = response.request.header("Authorization")
+            ?.removePrefix("Bearer ")?.trim()
 
-        val newTokens = runBlocking {
-            try {
-                refreshApi.refresh("Bearer $refresh").data
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        // Refresh morreu (expirou/revogado) -> limpa a sessao. O app reage ao
-        // refreshToken sumir e volta pra tela de login.
-        if (newTokens == null) {
-            runBlocking { tokenStore.clear() }
-            return null
-        }
-
-        runBlocking { tokenStore.save(newTokens.accessToken, newTokens.refreshToken) }
+        val newAccess = runBlocking { tokenRefresher.refresh(staleAccess) } ?: return null
 
         return response.request.newBuilder()
-            .header("Authorization", "Bearer ${newTokens.accessToken}")
+            .header("Authorization", "Bearer $newAccess")
             .build()
     }
 

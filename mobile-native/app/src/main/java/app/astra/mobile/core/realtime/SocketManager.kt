@@ -3,7 +3,7 @@ package app.astra.mobile.core.realtime
 import android.util.Log
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.data.TokenStore
-import app.astra.mobile.core.network.RefreshApi
+import app.astra.mobile.core.network.TokenRefresher
 import io.socket.client.IO
 import io.socket.client.Manager
 import io.socket.client.Socket
@@ -42,7 +42,7 @@ import javax.inject.Singleton
 @Singleton
 class SocketManager @Inject constructor(
     private val tokenStore: TokenStore,
-    private val refreshApi: RefreshApi,
+    private val tokenRefresher: TokenRefresher,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: Socket? = null
@@ -226,17 +226,10 @@ class SocketManager @Inject constructor(
         }
     }
 
-    private suspend fun tryRefresh(): String? {
-        val refresh = tokenStore.currentRefresh() ?: return null
-        return try {
-            val data = refreshApi.refresh("Bearer $refresh").data ?: return null
-            tokenStore.save(data.accessToken, data.refreshToken)
-            data.accessToken
-        } catch (e: Exception) {
-            Log.w(TAG, "refresh falhou: ${e.message}")
-            null
-        }
-    }
+    // Refresh serializado pelo mesmo Mutex do HTTP (TokenRefresher) — nao corre
+    // contra o Authenticator nem desloga na rotacao do refresh token.
+    private suspend fun tryRefresh(): String? =
+        tokenRefresher.refresh(tokenStore.currentAccess())
 
     fun joinDm(conversationId: String) {
         activeRooms.add(conversationId)

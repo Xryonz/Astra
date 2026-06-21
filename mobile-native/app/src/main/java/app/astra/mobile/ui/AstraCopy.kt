@@ -51,7 +51,7 @@ object AstraCopy {
         const val startDM = "Iniciar sussurro"
         const val addStar = "Adicionar estrela"
         const val findStar = "Procurar uma estrela"
-        const val logout = "Sair da Astra"
+        const val logout = "Sair do Astra"
     }
 
     // Descricoes explicativas (microcopy de "(servidor)" etc)

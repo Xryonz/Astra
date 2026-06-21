@@ -21,6 +21,8 @@ data class HomeUiState(
     val activeVoice: List<ActiveVoiceRoom> = emptyList(),
     val myName: String = "",
     val myAvatar: String? = null,
+    val myBanner: String? = null,
+    val myBannerColor: String? = null,
     val myStatus: UserStatus = UserStatus.ONLINE,
     // FAB "nova mensagem" (abrir DM por @username)
     val opening: Boolean = false,

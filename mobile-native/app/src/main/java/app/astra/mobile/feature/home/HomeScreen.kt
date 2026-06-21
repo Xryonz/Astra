@@ -42,15 +42,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.MessageSquarePlus
-import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Sparkles
@@ -217,11 +220,12 @@ fun HomeScreen(
                 BottomUserBar(
                     name = state.myName,
                     avatar = state.myAvatar,
+                    banner = state.myBanner,
+                    bannerColor = state.myBannerColor,
                     status = state.myStatus,
                     onPickStatus = viewModel::setStatus,
                     onProfile = onOpenProfile,
                     onSettings = onOpenSettings,
-                    onLogout = { viewModel.logout() },
                 )
             }
         }
@@ -244,12 +248,24 @@ private fun ServerRail(
     onOpenServer: (String, String) -> Unit,
     onAddServer: () -> Unit,
 ) {
+    // Capturado fora do drawBehind (lambda nao e @Composable).
+    val railBorder = astraColors.borderMid
     Column(
         modifier = Modifier
             .width(72.dp)
             .fillMaxHeight()
-            // Semi-transparente: deixa o StarField/fundo cosmico vazar atras do rail.
-            .background(astraColors.base.copy(alpha = 0.55f))
+            // Semi-transparente: deixa o fundo cosmico vazar atras do rail.
+            .background(astraColors.base.copy(alpha = 0.5f))
+            // Borda direita destacada (paridade web: border-r border-(--border)).
+            .drawBehind {
+                val x = size.width
+                drawLine(
+                    color = railBorder,
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
             .verticalScroll(rememberScrollState())
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -276,16 +292,28 @@ private fun ServerRail(
 @Composable
 private fun RailTile(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(shape)
-            .background(if (active) astraColors.accentDim else astraColors.raised)
-            .border(1.dp, if (active) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, shape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-        content = { content() },
-    )
+    // Box full-width pra ancorar o indicador na borda esquerda do rail (Discord).
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        if (active) {
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .size(width = 3.dp, height = 24.dp)
+                    .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
+                    .background(astraColors.accent),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(shape)
+                .background(if (active) astraColors.accentDim else astraColors.raised)
+                .border(1.dp, if (active) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, shape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+            content = { content() },
+        )
+    }
 }
 
 @Composable
@@ -455,73 +483,111 @@ private fun DmRow(c: Conversation, unread: Boolean, onClick: () -> Unit) {
     }
 }
 
-// ── Card de usuario (rodape) — espelha o UserFooter do web ───────
+// ── Barra de perfil (rodape) — modelo user-panel do Discord ──────
+// Full-width tampando o bottom, banner do user faiscando atras (scrim
+// pra legibilidade). Sem dot no avatar, sem botao de sair (sair vive
+// nas Configuracoes). Toque no avatar -> perfil; no nome -> status.
 @Composable
 private fun BottomUserBar(
     name: String,
     avatar: String?,
+    banner: String?,
+    bannerColor: String?,
     status: UserStatus,
     onPickStatus: (UserStatus) -> Unit,
     onProfile: () -> Unit,
     onSettings: () -> Unit,
-    onLogout: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Column(Modifier.navigationBarsPadding()) {
+    val base = astraColors.base
+    Column {
         HairlineRule()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(astraColors.base)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Avatar + dot de status -> abre o seletor de status
-            Box {
-                Box(Modifier.clip(CircleShape).clickable { menuOpen = true }) {
-                    AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 38)
-                    StatusDot(
-                        status = status,
-                        size = 14.dp,
-                        bordered = true,
-                        borderColor = astraColors.base,
-                        modifier = Modifier.align(Alignment.BottomEnd),
+        Box(Modifier.fillMaxWidth()) {
+            // Fundo: piso base + banner (faint) + scrim pra contraste do texto.
+            Box(Modifier.matchParentSize().background(base))
+            if (!banner.isNullOrBlank()) {
+                AsyncImage(
+                    model = banner,
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.55f,
+                )
+            } else {
+                parseHexColor(bannerColor)?.let {
+                    Box(Modifier.matchParentSize().background(it.copy(alpha = 0.4f)))
+                }
+            }
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(listOf(base.copy(alpha = 0.35f), base.copy(alpha = 0.7f))),
+                ),
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Avatar (sem dot) -> abre o perfil
+                Box(Modifier.clip(CircleShape).clickable(onClick = onProfile)) {
+                    AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 42)
+                }
+                Spacer(Modifier.width(11.dp))
+                // Nome + chevron + status -> abre o seletor de status
+                Box(Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { menuOpen = true }
+                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = name.ifBlank { "Astra" },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = astraColors.text1,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                Lucide.ChevronDown,
+                                contentDescription = null,
+                                tint = astraColors.text3,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StatusDot(status, size = 8.dp)
+                            Spacer(Modifier.width(6.dp))
+                            MarginaliaLabel(statusLabel(status))
+                        }
+                    }
+                    StatusMenu(
+                        expanded = menuOpen,
+                        current = status,
+                        onPick = { menuOpen = false; onPickStatus(it) },
+                        onDismiss = { menuOpen = false },
                     )
                 }
-                StatusMenu(
-                    expanded = menuOpen,
-                    current = status,
-                    onPick = { menuOpen = false; onPickStatus(it) },
-                    onDismiss = { menuOpen = false },
-                )
+                Spacer(Modifier.width(6.dp))
+                FooterIconBtn(Lucide.Settings, "Configuracoes", onSettings)
             }
-            Spacer(Modifier.width(10.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { menuOpen = true }
-                    .padding(horizontal = 2.dp, vertical = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = name.ifBlank { "Astra" },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = astraColors.text1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    StatusDot(status, size = 8.dp)
-                    Spacer(Modifier.width(6.dp))
-                    MarginaliaLabel(statusLabel(status))
-                }
-            }
-            FooterIconBtn(Lucide.Pencil, "Editar perfil", onProfile)
-            FooterIconBtn(Lucide.Settings, "Configuracoes", onSettings)
-            FooterIconBtn(Lucide.LogOut, "Sair", onLogout, danger = true)
         }
     }
+}
+
+// Hex "#rrggbb" -> Color. Invalido/nulo = null (cai pro fundo base).
+private fun parseHexColor(raw: String?): Color? {
+    if (raw.isNullOrBlank()) return null
+    val h = raw.trim().removePrefix("#")
+    if (h.length != 6) return null
+    return runCatching { Color("FF$h".toLong(16)) }.getOrNull()
 }
 
 private fun statusLabel(s: UserStatus): String = AstraCopy.statusLabel(s.name)

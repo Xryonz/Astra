@@ -87,6 +87,8 @@ class HomeViewModel @Inject constructor(
                     activeVoice = activeVoice,
                     myName = me?.displayName ?: "",
                     myAvatar = me?.avatarUrl,
+                    myBanner = me?.bannerUrl,
+                    myBannerColor = me?.bannerColor,
                 )
             }
         }

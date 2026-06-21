@@ -26,11 +26,13 @@ data class HomeUiState(
     // id do user logado — detecta se sou dono da Constelacao selecionada.
     val myId: String? = null,
     val myName: String = "",
+    val myUsername: String = "",
     val myAvatar: String? = null,
     val myBanner: String? = null,
     val myBannerColor: String? = null,
     val myBio: String? = null,
     val myPronouns: String? = null,
+    val myCreatedAt: String? = null,
     val myStatus: UserStatus = UserStatus.ONLINE,
     // FAB "nova mensagem" (abrir DM por @username)
     val opening: Boolean = false,

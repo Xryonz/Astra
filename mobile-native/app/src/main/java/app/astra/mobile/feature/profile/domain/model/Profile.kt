@@ -15,4 +15,8 @@ data class Profile(
     val statusEmoji: String?,
     val hasPassword: Boolean,
     val createdAt: String?,
+    // Presenca escolhida (ONLINE/IDLE/DND/INVISIBLE). me() nao traz do servidor
+    // (so /profile/:id traz effectiveStatus), entao default ONLINE; setStatus
+    // atualiza o cache em memoria pra refletir na sessao.
+    val status: UserStatus = UserStatus.ONLINE,
 )

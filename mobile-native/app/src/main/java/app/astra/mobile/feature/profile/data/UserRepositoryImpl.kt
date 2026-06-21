@@ -91,6 +91,8 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun setStatus(status: UserStatus): Result<Unit> {
         return try {
             api.setStatus(SetStatusRequest(status.name))
+            // me() nao devolve status; refletimos a escolha no cache pra Home/Edit.
+            cached = cached?.copy(status = status)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(mapError(e))

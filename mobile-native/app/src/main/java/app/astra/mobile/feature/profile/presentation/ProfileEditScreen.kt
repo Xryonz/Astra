@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.feature.profile.domain.model.UserStatus
+import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AuthErrorBox
@@ -50,6 +52,8 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.OptionRow
+import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
@@ -191,6 +195,21 @@ fun ProfileEditScreen(
                     "Foto ou GIF · comprime sozinho · GIF anima",
                     Modifier.padding(top = 8.dp),
                 )
+
+                // ── Status (persiste na hora) ──
+                Spacer(Modifier.height(22.dp))
+                MarginaliaLabel("status")
+                Spacer(Modifier.height(10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
+                        OptionRow(
+                            title = AstraCopy.statusLabel(s.name),
+                            selected = s == state.status,
+                            leading = { StatusDot(s, size = 10.dp) },
+                            onClick = { viewModel.onStatus(s) },
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(20.dp))
                 EditorialField(

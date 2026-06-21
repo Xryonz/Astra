@@ -319,14 +319,15 @@ fun HomeScreen(
     if (profileSheet) {
         ProfileSheet(
             name = state.myName,
+            username = state.myUsername,
             avatar = state.myAvatar,
             banner = state.myBanner,
             bannerColor = state.myBannerColor,
             bio = state.myBio,
             pronouns = state.myPronouns,
+            createdAt = state.myCreatedAt,
             status = state.myStatus,
-            onPickStatus = viewModel::setStatus,
-            onPersonalize = { profileSheet = false; onOpenProfile() },
+            onEditProfile = { profileSheet = false; onOpenProfile() },
             onDismiss = { profileSheet = false },
         )
     }
@@ -619,7 +620,8 @@ private fun RailServer(
     }
 }
 
-// Menu de long-press do servidor — opcoes com borda (OptionRow), cientes de dono.
+// Menu de long-press (estilo do print): card sem escurecer a tela, titulo +
+// divisoria + linhas (rotulo a esquerda, icone a direita). Ciente de dono.
 @Composable
 private fun ServerRailMenu(
     expanded: Boolean,
@@ -630,29 +632,57 @@ private fun ServerRailMenu(
     onInvite: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier.width(244.dp).padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.background(astraColors.overlay),
+    ) {
+        Column(Modifier.width(248.dp)) {
             Text(
                 text = serverName,
-                style = MaterialTheme.typography.titleSmall,
+                fontFamily = DmSerif,
+                fontSize = 18.sp,
                 color = astraColors.text1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 2.dp, top = 2.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
+            if (isOwner || hasInvite) HairlineRule()
             if (isOwner) {
-                OptionRow(title = "Editar constelacao", sub = "icone, nome e visibilidade", onClick = onEdit)
+                MenuRow("Editar constelacao", Lucide.Settings, onEdit)
             }
+            if (isOwner && hasInvite) HairlineRule()
             if (hasInvite) {
-                OptionRow(title = "Convidar", sub = "compartilhar link de orbita", onClick = onInvite)
+                MenuRow("Convidar", Lucide.UserPlus, onInvite)
             }
             if (!isOwner && !hasInvite) {
-                MarginaliaLabel("sem acoes disponiveis", Modifier.padding(2.dp))
+                Text(
+                    text = "Sem acoes disponiveis",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = astraColors.text3,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
             }
         }
+    }
+}
+
+// Linha do menu: rotulo a esquerda, icone a direita (paridade com o print).
+@Composable
+private fun MenuRow(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = astraColors.text1, modifier = Modifier.weight(1f))
+        Icon(icon, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -1060,19 +1090,21 @@ private fun parseHexColor(raw: String?): Color? {
 
 private fun statusLabel(s: UserStatus): String = AstraCopy.statusLabel(s.name)
 
-// ── Sheet de perfil (sobe de baixo) — card + status + atalho Personalizar ──
+// ── Sheet de perfil (sobe de baixo) — card + atalho Editar perfil ──
+// Status fica como indicador read-only; configurar status vive no Editar perfil.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileSheet(
     name: String,
+    username: String,
     avatar: String?,
     banner: String?,
     bannerColor: String?,
     bio: String?,
     pronouns: String?,
+    createdAt: String?,
     status: UserStatus,
-    onPickStatus: (UserStatus) -> Unit,
-    onPersonalize: () -> Unit,
+    onEditProfile: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val base = astraColors.base
@@ -1096,7 +1128,7 @@ private fun ProfileSheet(
                 .padding(bottom = 18.dp),
         ) {
             // Banner do card + scrim.
-            Box(Modifier.fillMaxWidth().height(96.dp)) {
+            Box(Modifier.fillMaxWidth().height(104.dp)) {
                 if (!banner.isNullOrBlank()) {
                     AsyncImage(
                         model = banner,
@@ -1113,12 +1145,12 @@ private fun ProfileSheet(
                     ),
                 )
             }
-            // Identidade: avatar + nome + pronomes.
+            // Identidade: avatar + nome + @username/pronomes + status (read-only).
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 56)
+                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 60)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
@@ -1129,7 +1161,24 @@ private fun ProfileSheet(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (!pronouns.isNullOrBlank()) MarginaliaLabel(pronouns)
+                    Text(
+                        text = buildString {
+                            if (username.isNotBlank()) append("@$username")
+                            if (!pronouns.isNullOrBlank()) {
+                                if (isNotEmpty()) append("  ·  ")
+                                append(pronouns)
+                            }
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = astraColors.text3,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StatusDot(status, size = 8.dp)
+                        Spacer(Modifier.width(6.dp))
+                        MarginaliaLabel(statusLabel(status))
+                    }
                 }
             }
             if (!bio.isNullOrBlank()) {
@@ -1137,35 +1186,31 @@ private fun ProfileSheet(
                     text = bio,
                     style = MaterialTheme.typography.bodyMedium,
                     color = astraColors.text2,
-                    modifier = Modifier.padding(horizontal = 18.dp).padding(top = 10.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp).padding(top = 12.dp),
                 )
             }
-
-            Spacer(Modifier.height(18.dp))
-            MarginaliaLabel("status", Modifier.padding(horizontal = 18.dp))
-            Spacer(Modifier.height(8.dp))
-            Column(
-                modifier = Modifier.padding(horizontal = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
-                    OptionRow(
-                        title = statusLabel(s),
-                        selected = s == status,
-                        leading = { StatusDot(s, size = 10.dp) },
-                        onClick = { onPickStatus(s); onDismiss() },
-                    )
-                }
+            memberSince(createdAt)?.let {
+                MarginaliaLabel(it, Modifier.padding(horizontal = 18.dp).padding(top = 10.dp))
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
             AstraButton(
-                text = "Personalizar perfil",
-                onClick = onPersonalize,
+                text = "Editar perfil",
+                onClick = onEditProfile,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
             )
         }
     }
+}
+
+// ISO -> "membro desde 8 de dez. de 2021" (pt-BR). Falha de parse = null.
+private fun memberSince(iso: String?): String? {
+    if (iso.isNullOrBlank()) return null
+    return runCatching {
+        val date = java.time.OffsetDateTime.parse(iso).toLocalDate()
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("d 'de' MMM 'de' yyyy", java.util.Locale("pt", "BR"))
+        "membro desde ${date.format(fmt)}"
+    }.getOrNull()
 }
 
 // Share sheet do convite (/i/:code = pagina OG que redireciona pro /invite/:code).

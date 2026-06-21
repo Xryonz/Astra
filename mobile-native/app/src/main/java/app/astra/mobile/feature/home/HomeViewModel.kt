@@ -104,11 +104,14 @@ class HomeViewModel @Inject constructor(
                     activeVoice = activeVoice,
                     myId = myId,
                     myName = me?.displayName ?: "",
+                    myUsername = me?.username ?: "",
                     myAvatar = me?.avatarUrl,
                     myBanner = me?.bannerUrl,
                     myBannerColor = me?.bannerColor,
                     myBio = me?.bio,
                     myPronouns = me?.pronouns,
+                    myCreatedAt = me?.createdAt,
+                    myStatus = me?.status ?: UserStatus.ONLINE,
                 )
             }
         }
@@ -128,11 +131,14 @@ class HomeViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         myName = me.displayName,
+                        myUsername = me.username,
                         myAvatar = me.avatarUrl,
                         myBanner = me.bannerUrl,
                         myBannerColor = me.bannerColor,
                         myBio = me.bio,
                         myPronouns = me.pronouns,
+                        myCreatedAt = me.createdAt,
+                        myStatus = me.status,
                     )
                 }
             }
@@ -150,12 +156,6 @@ class HomeViewModel @Inject constructor(
 
     // Tap na DM -> some o dot na hora.
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
-
-    // Seletor de status: atualiza otimista e persiste no servidor.
-    fun setStatus(status: UserStatus) {
-        _state.update { it.copy(myStatus = status) }
-        viewModelScope.launch { userRepository.setStatus(status) }
-    }
 
     // Forja constelacao (isGroup=false) ou aglomerado (true). Ao criar,
     // recarrega so a lista de servidores (rail aparece na hora) e entra nela.

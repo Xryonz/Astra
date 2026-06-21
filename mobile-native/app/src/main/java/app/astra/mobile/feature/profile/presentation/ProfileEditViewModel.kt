@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.Profile
+import app.astra.mobile.feature.profile.domain.model.UserStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,12 +33,20 @@ class ProfileEditViewModel @Inject constructor(
         loading = false,
         displayName = p.displayName,
         username = p.username,
+        status = p.status,
         avatarUrl = p.avatarUrl.orEmpty(), origAvatarUrl = p.avatarUrl.orEmpty(),
         bannerUrl = p.bannerUrl.orEmpty(), origBannerUrl = p.bannerUrl.orEmpty(),
         bio = p.bio.orEmpty(), origBio = p.bio.orEmpty(),
         pronouns = p.pronouns.orEmpty(), origPronouns = p.pronouns.orEmpty(),
         bannerColor = p.bannerColor.orEmpty(), origBannerColor = p.bannerColor.orEmpty(),
     )
+
+    // Status: persiste na hora (endpoint proprio). Otimista no state.
+    fun onStatus(v: UserStatus) {
+        if (v == _state.value.status) return
+        _state.update { it.copy(status = v) }
+        viewModelScope.launch { userRepository.setStatus(v) }
+    }
 
     fun onBio(v: String) = _state.update { it.copy(bio = v, saved = false, error = null) }
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }

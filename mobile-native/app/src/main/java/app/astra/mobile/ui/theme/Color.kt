@@ -21,10 +21,10 @@ val AccentH = Color(0xFFE8EBF0)
 val AccentDim = Color(0x1AD4D8E0)   // rgba(.10) — fills sutis
 val AccentGlow = Color(0x33D4D8E0)  // rgba(.20) — glows
 
-// Text — 3 niveis
+// Text — 3 niveis (text2/text3 clareados: legiveis em luz alta sem achatar a hierarquia)
 val Text1 = Color(0xFFF0EDFF)
-val Text2 = Color(0xFF9896BF)
-val Text3 = Color(0xFF6E6B95)
+val Text2 = Color(0xFFB4B2D6)
+val Text3 = Color(0xFF8E8BB0)
 val TextInv = Color(0xFF09091A)
 
 // Borders — color-mix(accent X%, #1a1a25) pre-computado

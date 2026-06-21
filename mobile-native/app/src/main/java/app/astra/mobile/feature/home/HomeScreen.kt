@@ -1,8 +1,13 @@
 package app.astra.mobile.feature.home
 
+import android.content.Context
+import android.content.Intent
+import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -45,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -65,15 +71,19 @@ import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.UserPlus
+import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
+import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.OptionRow
 import app.astra.mobile.ui.components.Reveal
 import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.theme.DmSerif
@@ -82,7 +92,8 @@ import coil.compose.AsyncImage
 
 @Composable
 fun HomeScreen(
-    onOpenServer: (id: String, name: String) -> Unit,
+    onOpenChannel: (id: String, name: String) -> Unit,
+    onOpenServerEdit: (serverId: String) -> Unit,
     onOpenJoin: () -> Unit,
     onOpenDm: (id: String, name: String) -> Unit,
     onOpenDms: () -> Unit,
@@ -100,6 +111,8 @@ fun HomeScreen(
     var createChooser by remember { mutableStateOf(false) }
     var showForge by remember { mutableStateOf(false) }
     var forgeAsGroup by remember { mutableStateOf(false) }
+    // Sheet do perfil (sobe de baixo ao tocar no bottom bar).
+    var profileSheet by remember { mutableStateOf(false) }
 
     // DM aberta pelo FAB -> navega pro chat e fecha o dialog.
     LaunchedEffect(Unit) {
@@ -109,11 +122,11 @@ fun HomeScreen(
         }
     }
 
-    // Constelacao forjada -> fecha o dialog e entra nela.
+    // Constelacao forjada -> fecha o dialog e abre ela inline (painel de canais).
     LaunchedEffect(Unit) {
         viewModel.serverCreated.collect { srv ->
             showForge = false
-            onOpenServer(srv.id, srv.name)
+            viewModel.selectServer(srv.id)
         }
     }
 
@@ -138,13 +151,24 @@ fun HomeScreen(
     CosmicBackground {
         Box(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize().statusBarsPadding()) {
+                val selected = state.servers.find { it.id == state.selectedServerId }
                 ServerRail(
                     servers = state.servers,
-                    onOpenServer = onOpenServer,
+                    selectedServerId = state.selectedServerId,
+                    myId = state.myId,
+                    onSelectDms = { viewModel.selectServer(null) },
+                    onSelectServer = { viewModel.selectServer(it) },
+                    onEditServer = onOpenServerEdit,
                     onAddServer = { createChooser = true },
                 )
 
-            Column(Modifier.weight(1f).fillMaxHeight()) {
+            Crossfade(
+                targetState = selected,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                label = "home-panel",
+            ) { srv ->
+              if (srv == null) {
+                Column(Modifier.fillMaxSize()) {
                 Column(Modifier.padding(horizontal = 18.dp).padding(top = 14.dp)) {
                     Reveal {
                         Text(
@@ -251,6 +275,17 @@ fun HomeScreen(
                 }
 
             }
+              } else {
+                ServerChannelsPanel(
+                    server = srv,
+                    isOwner = srv.ownerId != null && srv.ownerId == state.myId,
+                    channelUnread = state.channelUnread,
+                    onOpenChannel = { id, name -> viewModel.markChannelSeen(id); onOpenChannel(id, name) },
+                    onJoinVoice = { id, name -> viewModel.markChannelSeen(id); onJoinVoice(id, name, srv.id) },
+                    onEdit = { onOpenServerEdit(srv.id) },
+                )
+              }
+            }
             }
 
             // Sobrepoe TODO o rodape (inclusive parte do rail), cantos
@@ -262,12 +297,26 @@ fun HomeScreen(
                 banner = state.myBanner,
                 bannerColor = state.myBannerColor,
                 status = state.myStatus,
-                onPickStatus = viewModel::setStatus,
-                onProfile = onOpenProfile,
+                onOpenSheet = { profileSheet = true },
                 onSettings = onOpenSettings,
                 onBell = {},
             )
         }
+    }
+
+    if (profileSheet) {
+        ProfileSheet(
+            name = state.myName,
+            avatar = state.myAvatar,
+            banner = state.myBanner,
+            bannerColor = state.myBannerColor,
+            bio = state.myBio,
+            pronouns = state.myPronouns,
+            status = state.myStatus,
+            onPickStatus = viewModel::setStatus,
+            onPersonalize = { profileSheet = false; onOpenProfile() },
+            onDismiss = { profileSheet = false },
+        )
     }
 
     if (showDialog) {
@@ -326,7 +375,7 @@ private fun CreateChooserDialog(
                 .navigationBarsPadding()
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = "Forjar ou orbitar",
@@ -343,20 +392,15 @@ private fun CreateChooserDialog(
 
 @Composable
 private fun ChooserRow(label: String, sub: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.accent)
-            MarginaliaLabel(sub)
-        }
-        Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
-    }
+    OptionRow(
+        title = label,
+        sub = sub,
+        onClick = onClick,
+        titleColor = astraColors.accent,
+        trailing = {
+            Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
+        },
+    )
 }
 
 // ── Dialog de forjar (nome) — serve servidor e grupo ──
@@ -417,9 +461,14 @@ private fun ForgeDialog(
 @Composable
 private fun ServerRail(
     servers: List<Server>,
-    onOpenServer: (String, String) -> Unit,
+    selectedServerId: String?,
+    myId: String?,
+    onSelectDms: () -> Unit,
+    onSelectServer: (String) -> Unit,
+    onEditServer: (String) -> Unit,
     onAddServer: () -> Unit,
 ) {
+    val context = LocalContext.current
     // Capturado fora do drawBehind (lambda nao e @Composable).
     val railBorder = astraColors.borderMid
     Column(
@@ -444,7 +493,8 @@ private fun ServerRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        RailTile(active = true, onClick = {}) {
+        // Sparkles = Sussurros (DMs). Ativo quando nenhuma Constelacao selecionada.
+        RailTile(active = selectedServerId == null, onClick = onSelectDms) {
             Icon(
                 Lucide.Sparkles,
                 contentDescription = "Mensagens diretas",
@@ -454,7 +504,14 @@ private fun ServerRail(
         }
         HairlineRule(Modifier.width(28.dp))
         servers.forEach { srv ->
-            RailServer(srv) { onOpenServer(srv.id, srv.name) }
+            RailServer(
+                server = srv,
+                active = selectedServerId == srv.id,
+                isOwner = srv.ownerId != null && srv.ownerId == myId,
+                onClick = { onSelectServer(srv.id) },
+                onEdit = { onEditServer(srv.id) },
+                onInvite = { srv.inviteCode?.let { shareServerInvite(context, it) } },
+            )
         }
         RailTile(active = false, onClick = onAddServer) {
             Text("+", fontFamily = DmSerif, fontSize = 24.sp, color = astraColors.accent)
@@ -489,34 +546,256 @@ private fun RailTile(active: Boolean, onClick: () -> Unit, content: @Composable 
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RailServer(server: Server, onClick: () -> Unit) {
+private fun RailServer(
+    server: Server,
+    active: Boolean,
+    isOwner: Boolean,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onInvite: () -> Unit,
+) {
     val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(shape)
-            .background(astraColors.raised)
-            .border(1.dp, astraColors.border, shape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
+    var menuOpen by remember { mutableStateOf(false) }
+    // Box full-width pra ancorar o indicador ativo na borda esquerda (Discord).
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        if (active) {
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .size(width = 3.dp, height = 24.dp)
+                    .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
+                    .background(astraColors.accent),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(shape)
+                .background(if (active) astraColors.accentDim else astraColors.raised)
+                .border(1.dp, if (active) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, shape)
+                // Tap = seleciona (canais inline). Segurar = menu de opcoes.
+                .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true }),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!server.iconUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = server.iconUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().clip(shape),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Text(
+                    text = server.name.take(1).uppercase(),
+                    fontFamily = DmSerif,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = astraColors.accent,
+                )
+            }
+        }
+        ServerRailMenu(
+            expanded = menuOpen,
+            serverName = server.name,
+            isOwner = isOwner,
+            hasInvite = !server.inviteCode.isNullOrBlank(),
+            onEdit = { menuOpen = false; onEdit() },
+            onInvite = { menuOpen = false; onInvite() },
+            onDismiss = { menuOpen = false },
+        )
+    }
+}
+
+// Menu de long-press do servidor — opcoes com borda (OptionRow), cientes de dono.
+@Composable
+private fun ServerRailMenu(
+    expanded: Boolean,
+    serverName: String,
+    isOwner: Boolean,
+    hasInvite: Boolean,
+    onEdit: () -> Unit,
+    onInvite: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.width(244.dp).padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = serverName,
+                style = MaterialTheme.typography.titleSmall,
+                color = astraColors.text1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 2.dp, top = 2.dp),
+            )
+            if (isOwner) {
+                OptionRow(title = "Editar constelacao", sub = "icone, nome e visibilidade", onClick = onEdit)
+            }
+            if (hasInvite) {
+                OptionRow(title = "Convidar", sub = "compartilhar link de orbita", onClick = onInvite)
+            }
+            if (!isOwner && !hasInvite) {
+                MarginaliaLabel("sem acoes disponiveis", Modifier.padding(2.dp))
+            }
+        }
+    }
+}
+
+// ── Painel de canais inline (substitui os Sussurros quando ha Constelacao) ──
+@Composable
+private fun ServerChannelsPanel(
+    server: Server,
+    isOwner: Boolean,
+    channelUnread: Set<String>,
+    onOpenChannel: (String, String) -> Unit,
+    onJoinVoice: (String, String) -> Unit,
+    onEdit: () -> Unit,
+) {
+    val context = LocalContext.current
+    Column(Modifier.fillMaxSize()) {
+        ServerPanelHeader(
+            server = server,
+            isOwner = isOwner,
+            onEdit = onEdit,
+            onInvite = { server.inviteCode?.let { shareServerInvite(context, it) } },
+        )
+        if (server.channels.isEmpty()) {
+            Text(
+                text = "Nenhuma orbita visivel nesta constelacao.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = astraColors.text3,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(server.channels, key = { it.id }) { ch ->
+                    ChannelOption(ch, unread = ch.id in channelUnread) {
+                        if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Cabecalho rico: backdrop do icone (faint) + scrim, icone + nome + acoes.
+@Composable
+private fun ServerPanelHeader(
+    server: Server,
+    isOwner: Boolean,
+    onEdit: () -> Unit,
+    onInvite: () -> Unit,
+) {
+    val base = astraColors.base
+    Box(Modifier.fillMaxWidth().height(146.dp)) {
         if (!server.iconUrl.isNullOrBlank()) {
             AsyncImage(
                 model = server.iconUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().clip(shape),
+                modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Crop,
+                alpha = 0.35f,
             )
         } else {
-            Text(
-                text = server.name.take(1).uppercase(),
-                fontFamily = DmSerif,
-                style = MaterialTheme.typography.titleLarge,
-                color = astraColors.accent,
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(listOf(astraColors.accentDim, base)),
+                ),
             )
         }
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(listOf(base.copy(alpha = 0.3f), base.copy(alpha = 0.92f))),
+            ),
+        )
+        Column(
+            modifier = Modifier.matchParentSize().padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            // Acoes (topo-direita): convidar + engrenagem (dono).
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (!server.inviteCode.isNullOrBlank()) {
+                    Text(
+                        text = "Convidar",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = astraColors.accent,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, astraColors.border, RoundedCornerShape(8.dp))
+                            .clickable(onClick = onInvite)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+                if (isOwner) {
+                    Spacer(Modifier.width(8.dp))
+                    CircleIconBtn(Lucide.Settings, "Editar constelacao", onEdit)
+                }
+            }
+            // Identidade (base): icone + nome + contagem.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val shape = RoundedCornerShape(14.dp)
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(shape)
+                        .background(astraColors.raised)
+                        .border(1.dp, astraColors.borderMid, shape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (!server.iconUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = server.iconUrl,
+                            contentDescription = null,
+                            modifier = Modifier.matchParentSize().clip(shape),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Text(server.name.take(1).uppercase(), fontFamily = DmSerif, fontSize = 24.sp, color = astraColors.accent)
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = server.name,
+                        fontFamily = DmSerif,
+                        fontSize = 24.sp,
+                        color = astraColors.text1,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    MarginaliaLabel("${server.memberCount} na constelacao")
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun ChannelOption(channel: Channel, unread: Boolean, onClick: () -> Unit) {
+    OptionRow(
+        title = channel.name,
+        onClick = onClick,
+        titleColor = if (unread) astraColors.text1 else astraColors.text2,
+        leading = {
+            Text(
+                text = if (channel.isVoice) "🔊" else "#",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (channel.isVoice) astraColors.accent else astraColors.text3,
+            )
+        },
+        trailing = if (unread) {
+            { Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent)) }
+        } else if (channel.isVoice) {
+            { MarginaliaLabel("voz", color = astraColors.text3) }
+        } else null,
+    )
 }
 
 // ── Busca + Adicionar amigos ────────────────────────────────────
@@ -669,12 +948,10 @@ private fun BottomUserBar(
     banner: String?,
     bannerColor: String?,
     status: UserStatus,
-    onPickStatus: (UserStatus) -> Unit,
-    onProfile: () -> Unit,
+    onOpenSheet: () -> Unit,
     onSettings: () -> Unit,
     onBell: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
     val base = astraColors.base
     val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
     Box(
@@ -711,20 +988,19 @@ private fun BottomUserBar(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Avatar (sem dot) -> abre o perfil
-            Box(Modifier.clip(CircleShape).clickable(onClick = onProfile)) {
+            // Avatar + nome + status = um toque -> abre o sheet de perfil.
+            // (status nao e mais escolhido direto daqui; vive no sheet.)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onOpenSheet)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 42)
-            }
-            Spacer(Modifier.width(11.dp))
-            // Nome + chevron + status -> abre o seletor de status
-            Box(Modifier.weight(1f)) {
-                Column(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { menuOpen = true }
-                        .padding(horizontal = 4.dp, vertical = 3.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = name.ifBlank { "Astra" },
@@ -748,12 +1024,6 @@ private fun BottomUserBar(
                         MarginaliaLabel(statusLabel(status))
                     }
                 }
-                StatusMenu(
-                    expanded = menuOpen,
-                    current = status,
-                    onPick = { menuOpen = false; onPickStatus(it) },
-                    onDismiss = { menuOpen = false },
-                )
             }
             Spacer(Modifier.width(8.dp))
             CircleIconBtn(Lucide.Bell, "Notificacoes", onBell)
@@ -793,31 +1063,122 @@ private fun parseHexColor(raw: String?): Color? {
 
 private fun statusLabel(s: UserStatus): String = AstraCopy.statusLabel(s.name)
 
+// ── Sheet de perfil (sobe de baixo) — card + status + atalho Personalizar ──
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StatusMenu(
-    expanded: Boolean,
-    current: UserStatus,
-    onPick: (UserStatus) -> Unit,
+private fun ProfileSheet(
+    name: String,
+    avatar: String?,
+    banner: String?,
+    bannerColor: String?,
+    bio: String?,
+    pronouns: String?,
+    status: UserStatus,
+    onPickStatus: (UserStatus) -> Unit,
+    onPersonalize: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
-            DropdownMenuItem(
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StatusDot(s, size = 10.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = statusLabel(s),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (s == current) astraColors.accent else astraColors.text1,
-                        )
-                    }
-                },
-                onClick = { onPick(s) },
+    val base = astraColors.base
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = astraColors.overlay,
+        dragHandle = {
+            Box(
+                Modifier
+                    .padding(top = 10.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(astraColors.borderMid),
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 18.dp),
+        ) {
+            // Banner do card + scrim.
+            Box(Modifier.fillMaxWidth().height(96.dp)) {
+                if (!banner.isNullOrBlank()) {
+                    AsyncImage(
+                        model = banner,
+                        contentDescription = null,
+                        modifier = Modifier.matchParentSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Box(Modifier.matchParentSize().background(parseHexColor(bannerColor) ?: astraColors.raised))
+                }
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.verticalGradient(listOf(Color.Transparent, base.copy(alpha = 0.85f))),
+                    ),
+                )
+            }
+            // Identidade: avatar + nome + pronomes.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 56)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = name.ifBlank { "Astra" },
+                        fontFamily = DmSerif,
+                        fontSize = 24.sp,
+                        color = astraColors.text1,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (!pronouns.isNullOrBlank()) MarginaliaLabel(pronouns)
+                }
+            }
+            if (!bio.isNullOrBlank()) {
+                Text(
+                    text = bio,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = astraColors.text2,
+                    modifier = Modifier.padding(horizontal = 18.dp).padding(top = 10.dp),
+                )
+            }
+
+            Spacer(Modifier.height(18.dp))
+            MarginaliaLabel("status", Modifier.padding(horizontal = 18.dp))
+            Spacer(Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
+                    OptionRow(
+                        title = statusLabel(s),
+                        selected = s == status,
+                        leading = { StatusDot(s, size = 10.dp) },
+                        onClick = { onPickStatus(s); onDismiss() },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+            AstraButton(
+                text = "Personalizar perfil",
+                onClick = onPersonalize,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
             )
         }
     }
+}
+
+// Share sheet do convite (/i/:code = pagina OG que redireciona pro /invite/:code).
+private fun shareServerInvite(context: Context, code: String) {
+    val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "Entra na minha constelacao no Astra: $link")
+    }
+    context.startActivity(Intent.createChooser(send, "Compartilhar convite"))
 }
 
 

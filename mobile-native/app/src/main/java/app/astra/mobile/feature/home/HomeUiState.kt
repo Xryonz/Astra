@@ -18,11 +18,19 @@ data class HomeUiState(
     val servers: List<Server> = emptyList(),
     val dms: List<Conversation> = emptyList(),
     val unread: Set<String> = emptySet(),
+    // channelIds nao-lidos (dot na lista de orbitas inline).
+    val channelUnread: Set<String> = emptySet(),
     val activeVoice: List<ActiveVoiceRoom> = emptyList(),
+    // null = painel de Sussurros (DMs); senao = painel de canais da Constelacao.
+    val selectedServerId: String? = null,
+    // id do user logado — detecta se sou dono da Constelacao selecionada.
+    val myId: String? = null,
     val myName: String = "",
     val myAvatar: String? = null,
     val myBanner: String? = null,
     val myBannerColor: String? = null,
+    val myBio: String? = null,
+    val myPronouns: String? = null,
     val myStatus: UserStatus = UserStatus.ONLINE,
     // FAB "nova mensagem" (abrir DM por @username)
     val opening: Boolean = false,

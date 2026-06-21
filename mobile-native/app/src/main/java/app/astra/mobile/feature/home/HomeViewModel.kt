@@ -2,6 +2,7 @@ package app.astra.mobile.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.auth.domain.AuthRepository
@@ -29,6 +30,7 @@ class HomeViewModel @Inject constructor(
     private val dmRepository: DmRepository,
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
+    private val tokenStore: TokenStore,
 ) : ViewModel() {
 
     val socketState: StateFlow<ConnectionState> = socketManager.state
@@ -52,22 +54,31 @@ class HomeViewModel @Inject constructor(
     fun load() {
         _state.update { it.copy(loading = true) }
         viewModelScope.launch {
-            // Servidores + conversas + leituras + perfil, tudo em paralelo.
+            // Servidores + conversas + leituras (DM + canal) + perfil, em paralelo.
             val serversD = async { serverRepository.servers() }
             val convD = async { dmRepository.conversations() }
             val readsD = async { dmRepository.dmReads() }
+            val chReadsD = async { serverRepository.channelReads() }
             val meD = async { userRepository.me() }
+            val myIdD = async { tokenStore.currentUserId() }
 
             val servers = serversD.await().getOrDefault(emptyList())
             val conversations = convD.await().getOrDefault(emptyList())
             val reads = readsD.await().getOrNull().orEmpty()
+            val chReads = chReadsD.await().getOrNull().orEmpty()
             val me = meD.await().getOrNull()
+            val myId = myIdD.await()
 
             // Nao-lido: ultima msg nao foi minha E e mais nova que minha ultima leitura.
             val unread = conversations
                 .filter { c ->
                     !c.lastFromMe && c.lastMessageAt?.let { last -> reads[c.id]?.let { last > it } ?: true } ?: false
                 }
+                .map { it.id }.toSet()
+
+            // Canais nao-lidos (todas as Constelacoes) -> dot no painel inline.
+            val channelUnread = servers.flatMap { it.channels }
+                .filter { ch -> ch.lastMessageAt?.let { last -> chReads[ch.id]?.let { last > it } ?: true } ?: false }
                 .map { it.id }.toSet()
 
             // Canais de voz (vem aninhados em servers) -> 1 chamada de presence -> salas com gente.
@@ -89,15 +100,25 @@ class HomeViewModel @Inject constructor(
                     servers = servers,
                     dms = conversations,
                     unread = unread,
+                    channelUnread = channelUnread,
                     activeVoice = activeVoice,
+                    myId = myId,
                     myName = me?.displayName ?: "",
                     myAvatar = me?.avatarUrl,
                     myBanner = me?.bannerUrl,
                     myBannerColor = me?.bannerColor,
+                    myBio = me?.bio,
+                    myPronouns = me?.pronouns,
                 )
             }
         }
     }
+
+    // Rail: seleciona a Constelacao (mostra canais no painel) ou null (volta aos Sussurros).
+    fun selectServer(id: String?) = _state.update { it.copy(selectedServerId = id) }
+
+    // Tap numa orbita -> some o dot na hora.
+    fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
 
     // Voltou pra Home (ON_RESUME) -> reflete edicoes de perfil no bottom bar.
     // me() le o cache, que o updateProfile ja atualizou no SALVAR -> sem rede.
@@ -110,6 +131,8 @@ class HomeViewModel @Inject constructor(
                         myAvatar = me.avatarUrl,
                         myBanner = me.bannerUrl,
                         myBannerColor = me.bannerColor,
+                        myBio = me.bio,
+                        myPronouns = me.pronouns,
                     )
                 }
             }

@@ -27,7 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -296,7 +298,8 @@ fun HomeScreen(
     }
 }
 
-// ── Popup: forjar constelacao / forjar aglomerado / orbitar com convite ──
+// ── Bottom sheet: forjar constelacao / aglomerado / orbitar com convite ──
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateChooserDialog(
     onServer: () -> Unit,
@@ -304,20 +307,38 @@ private fun CreateChooserDialog(
     onJoin: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = astraColors.overlay,
-        title = { Text("Forjar ou orbitar", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                ChooserRow(AstraCopy.Action.createServer, AstraCopy.Desc.constelacao, onServer)
-                ChooserRow(AstraCopy.Action.createGroup, AstraCopy.Desc.aglomerado, onGroup)
-                ChooserRow("${AstraCopy.Action.joinServer} com um convite", "entrar numa que ja existe", onJoin)
-            }
+        dragHandle = {
+            Box(
+                Modifier
+                    .padding(top = 10.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(astraColors.borderMid),
+            )
         },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = astraColors.text2) } },
-    )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = "Forjar ou orbitar",
+                style = MaterialTheme.typography.titleLarge,
+                color = astraColors.text1,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            ChooserRow(AstraCopy.Action.createServer, AstraCopy.Desc.constelacao, onServer)
+            ChooserRow(AstraCopy.Action.createGroup, AstraCopy.Desc.aglomerado, onGroup)
+            ChooserRow("${AstraCopy.Action.joinServer} com um convite", "entrar numa que ja existe", onJoin)
+        }
+    }
 }
 
 @Composable

@@ -33,12 +33,13 @@ import kotlinx.coroutines.delay
 fun Reveal(
     delayMillis: Int = 0,
     distance: Float = 14f,
+    durationMillis: Int = 500,
     content: @Composable () -> Unit,
 ) {
     val anim = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         delay(delayMillis.toLong())
-        anim.animateTo(1f, tween(durationMillis = 500, easing = EaseSpring))
+        anim.animateTo(1f, tween(durationMillis = durationMillis, easing = EaseSpring))
     }
     androidx.compose.foundation.layout.Box(
         Modifier.graphicsLayer {

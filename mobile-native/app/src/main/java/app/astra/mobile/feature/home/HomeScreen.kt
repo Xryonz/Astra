@@ -13,6 +13,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,8 +62,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -171,13 +171,23 @@ fun HomeScreen(
                     onAddServer = { createChooser = true },
                 )
 
+            // Painel sobreposto ao rail: canto arredondado no topo-esquerda +
+            // hairline, fundo translucido (o starfield vaza atras da lista).
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(topStart = 24.dp))
+                    .background(astraColors.base.copy(alpha = 0.16f))
+                    .border(1.dp, astraColors.borderMid, RoundedCornerShape(topStart = 24.dp)),
+            ) {
             AnimatedContent(
                 targetState = selected,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
+                modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
-                    // Conteudo novo desliza da esquerda + fade; o antigo so esvanece.
-                    (slideInHorizontally(tween(360, easing = EaseSpring)) { w -> -w / 5 } + fadeIn(tween(280)))
-                        .togetherWith(fadeOut(tween(160)))
+                    // Painel novo desliza da esquerda + fade suave; o antigo esvanece devagar.
+                    (slideInHorizontally(tween(520, easing = EaseSpring)) { w -> -w / 4 } + fadeIn(tween(420)))
+                        .togetherWith(fadeOut(tween(260)))
                 },
                 label = "home-panel",
             ) { srv ->
@@ -276,8 +286,12 @@ fun HomeScreen(
                                         bottom = 92.dp,
                                     ),
                                 ) {
-                                    items(dms, key = { it.id }) { c ->
-                                        DmRow(c, unread = c.id in state.unread) {
+                                    itemsIndexed(dms, key = { _, c -> c.id }) { i, c ->
+                                        DmRow(
+                                            c,
+                                            unread = c.id in state.unread,
+                                            showDivider = i < dms.lastIndex,
+                                        ) {
                                             viewModel.markSeen(c.id)
                                             onOpenDm(c.id, c.otherName)
                                         }
@@ -301,6 +315,7 @@ fun HomeScreen(
               }
             }
             }
+            }
 
             // Sobrepoe TODO o rodape (inclusive parte do rail), cantos
             // arredondados em cima dando efeito de card sobreposto (Discord).
@@ -308,8 +323,6 @@ fun HomeScreen(
                 modifier = Modifier.align(Alignment.BottomCenter),
                 name = state.myName,
                 avatar = state.myAvatar,
-                banner = state.myBanner,
-                bannerColor = state.myBannerColor,
                 status = state.myStatus,
                 onOpenSheet = { profileSheet = true },
                 onSettings = onOpenSettings,
@@ -484,24 +497,12 @@ private fun ServerRail(
     onAddServer: () -> Unit,
 ) {
     val context = LocalContext.current
-    // Capturado fora do drawBehind (lambda nao e @Composable).
-    val railBorder = astraColors.borderMid
     Column(
         modifier = Modifier
             .width(72.dp)
             .fillMaxHeight()
             // Transparente: o fundo cosmico/StarField vaza inteiro atras do rail.
-            // So a borda direita e os tiles delimitam.
-            // Borda direita destacada (paridade web: border-r border-(--border)).
-            .drawBehind {
-                val x = size.width
-                drawLine(
-                    color = railBorder,
-                    start = Offset(x, 0f),
-                    end = Offset(x, size.height),
-                    strokeWidth = 1.dp.toPx(),
-                )
-            }
+            // O separador agora e o canto arredondado + hairline do painel sobreposto.
             .verticalScroll(rememberScrollState())
             // bottom grande: o bottom bar sobrepoe o rodape do rail.
             .padding(top = 14.dp, bottom = 92.dp),
@@ -733,7 +734,7 @@ private fun ServerChannelsPanel(
                     },
                 ) { i, item ->
                     // Cascata: cada item entra com leve atraso (cap em 12 pra nao arrastar).
-                    Reveal(delayMillis = i.coerceAtMost(12) * 28) {
+                    Reveal(delayMillis = i.coerceAtMost(12) * 42, durationMillis = 620, distance = 18f) {
                         when (item) {
                             is ChannelPanelItem.Header -> CategoryHeader(
                                 category = item.category,
@@ -992,88 +993,79 @@ private fun VoiceRoomCard(room: ActiveVoiceRoom, onClick: () -> Unit) {
 
 // ── Linha de conversa ───────────────────────────────────────────
 @Composable
-private fun DmRow(c: Conversation, unread: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AstraAvatar(c.otherAvatarUrl, c.otherName, size = 48)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = c.otherName,
-                style = MaterialTheme.typography.titleMedium,
-                color = astraColors.text1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = if (c.lastFromMe) "Você: ${c.preview}" else c.preview,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (unread) astraColors.text1 else astraColors.text3,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val time = relativeShort(c.lastMessageAt)
-            if (time.isNotEmpty()) MarginaliaLabel(time)
-            if (unread) {
-                Box(
-                    Modifier.size(9.dp).clip(CircleShape).background(astraColors.accent),
+private fun DmRow(c: Conversation, unread: Boolean, showDivider: Boolean, onClick: () -> Unit) {
+    // Toque -> fundo raised some assim que solta (sem ripple). Selecao persistente
+    // nao se aplica: tocar navega pra fora da lista.
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (pressed) astraColors.raised.copy(alpha = 0.6f) else Color.Transparent)
+                .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+                .padding(vertical = 9.dp, horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AstraAvatar(c.otherAvatarUrl, c.otherName, size = 48)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = c.otherName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = astraColors.text1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = if (c.lastFromMe) "Você: ${c.preview}" else c.preview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (unread) astraColors.text1 else astraColors.text3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+            Spacer(Modifier.width(10.dp))
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val time = relativeShort(c.lastMessageAt)
+                if (time.isNotEmpty()) MarginaliaLabel(time)
+                if (unread) {
+                    Box(
+                        Modifier.size(9.dp).clip(CircleShape).background(astraColors.accent),
+                    )
+                }
+            }
         }
+        // Hairline indentada (comeca depois do avatar), estilo Discord.
+        if (showDivider) HairlineRule(Modifier.padding(start = 66.dp, top = 2.dp))
     }
 }
 
 // ── Barra de perfil (rodape) — modelo user-panel do Discord ──────
 // Sobrepoe TODO o rodape (inclusive parte do rail), cantos arredondados
-// em cima dando efeito de card sobreposto. Banner do user faiscando atras
-// (scrim pra legibilidade). Sem dot no avatar, sem botao de sair (sair
-// vive nas Configuracoes). Avatar -> perfil; nome -> status; sino + engrenagem.
+// em cima dando efeito de card sobreposto. Fundo base solido — o banner do
+// user vive so no sheet de perfil (nao distrai/gasta bateria na barra fixa).
+// Sem dot no avatar, sem botao de sair (sair vive nas Configuracoes).
+// Avatar -> perfil; nome -> status; sino + engrenagem.
 @Composable
 private fun BottomUserBar(
     modifier: Modifier = Modifier,
     name: String,
     avatar: String?,
-    banner: String?,
-    bannerColor: String?,
     status: UserStatus,
     onOpenSheet: () -> Unit,
     onSettings: () -> Unit,
     onBell: () -> Unit,
 ) {
-    val base = astraColors.base
     val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
     Box(
         modifier
             .fillMaxWidth()
             .clip(shape)
+            .background(astraColors.base)
             .border(1.dp, astraColors.borderMid, shape),
     ) {
-        // Fundo: piso base + banner (faint) + scrim pra contraste do texto.
-        Box(Modifier.matchParentSize().background(base))
-        if (!banner.isNullOrBlank()) {
-            AsyncImage(
-                model = banner,
-                contentDescription = null,
-                modifier = Modifier.matchParentSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.55f,
-            )
-        } else {
-            parseHexColor(bannerColor)?.let {
-                Box(Modifier.matchParentSize().background(it.copy(alpha = 0.4f)))
-            }
-        }
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(listOf(base.copy(alpha = 0.4f), base.copy(alpha = 0.78f))),
-            ),
-        )
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()

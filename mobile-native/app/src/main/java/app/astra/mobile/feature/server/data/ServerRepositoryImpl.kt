@@ -9,6 +9,7 @@ import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.server.domain.ServerRepository
+import app.astra.mobile.feature.server.domain.model.Category
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.feature.server.domain.model.ServerMember
@@ -112,6 +113,7 @@ private fun ServerDto.toDomain() = Server(
     ownerId = ownerId,
     isPublic = isPublic,
     channels = channels.map {
-        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt)
+        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId)
     },
+    categories = categories.map { Category(it.id, it.name, it.position) },
 )

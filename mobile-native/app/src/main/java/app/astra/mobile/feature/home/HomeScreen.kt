@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageSquarePlus
 import com.composables.icons.lucide.Search
@@ -80,6 +81,7 @@ import com.composables.icons.lucide.UserPlus
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
+import app.astra.mobile.feature.server.domain.model.Category
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
@@ -699,6 +701,8 @@ private fun ServerChannelsPanel(
     onEdit: () -> Unit,
 ) {
     val context = LocalContext.current
+    // Categorias colapsadas (por id). Reset ao trocar de Constelacao.
+    var collapsed by remember(server.id) { mutableStateOf(emptySet<String>()) }
     Column(Modifier.fillMaxSize()) {
         ServerPanelHeader(
             server = server,
@@ -714,20 +718,82 @@ private fun ServerChannelsPanel(
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
             )
         } else {
+            val items = remember(server, collapsed) { buildChannelPanelItems(server, collapsed) }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 6.dp, bottom = 96.dp),
             ) {
-                itemsIndexed(server.channels, key = { _, ch -> ch.id }) { i, ch ->
-                    // Cascata: cada orbita entra com leve atraso (cap em 12 pra nao arrastar).
+                itemsIndexed(
+                    items,
+                    key = { _, it ->
+                        when (it) {
+                            is ChannelPanelItem.Header -> "h_${it.category.id}"
+                            is ChannelPanelItem.Row -> it.channel.id
+                        }
+                    },
+                ) { i, item ->
+                    // Cascata: cada item entra com leve atraso (cap em 12 pra nao arrastar).
                     Reveal(delayMillis = i.coerceAtMost(12) * 28) {
-                        ChannelRowFlat(ch, unread = ch.id in channelUnread) {
-                            if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                        when (item) {
+                            is ChannelPanelItem.Header -> CategoryHeader(
+                                category = item.category,
+                                collapsed = item.category.id in collapsed,
+                                onToggle = {
+                                    collapsed = if (item.category.id in collapsed) collapsed - item.category.id
+                                    else collapsed + item.category.id
+                                },
+                            )
+                            is ChannelPanelItem.Row -> {
+                                val ch = item.channel
+                                ChannelRowFlat(ch, unread = ch.id in channelUnread) {
+                                    if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// Itens achatados do painel: header de categoria + linhas de canal, respeitando
+// colapso. Canais sem categoria vem primeiro (sem header, estilo Discord).
+private sealed interface ChannelPanelItem {
+    data class Header(val category: Category) : ChannelPanelItem
+    data class Row(val channel: Channel) : ChannelPanelItem
+}
+
+private fun buildChannelPanelItems(server: Server, collapsed: Set<String>): List<ChannelPanelItem> {
+    val items = mutableListOf<ChannelPanelItem>()
+    server.channels.filter { it.categoryId == null }.forEach { items += ChannelPanelItem.Row(it) }
+    server.categories.forEach { cat ->
+        items += ChannelPanelItem.Header(cat)
+        if (cat.id !in collapsed) {
+            server.channels.filter { it.categoryId == cat.id }.forEach { items += ChannelPanelItem.Row(it) }
+        }
+    }
+    return items
+}
+
+// Header de categoria (colapsavel): chevron + nome (marginalia uppercase).
+@Composable
+private fun CategoryHeader(category: Category, collapsed: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 14.dp, end = 16.dp, top = 16.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (collapsed) Lucide.ChevronRight else Lucide.ChevronDown,
+            contentDescription = null,
+            tint = astraColors.text3,
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        MarginaliaLabel(category.name)
     }
 }
 

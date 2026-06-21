@@ -6,6 +6,7 @@ data class Server(
     val iconUrl: String?,
     val memberCount: Int,
     val channels: List<Channel>,
+    val categories: List<Category> = emptyList(),
     val inviteCode: String? = null,
     val ownerId: String? = null,
     val isPublic: Boolean = false,
@@ -16,6 +17,14 @@ data class Channel(
     val name: String,
     val isVoice: Boolean,
     val lastMessageAt: String? = null,
+    val categoryId: String? = null, // null = sem categoria (mostrado no topo)
+)
+
+// Categoria de canal (agrupa orbitas). position ja vem ordenado do backend.
+data class Category(
+    val id: String,
+    val name: String,
+    val position: Int,
 )
 
 data class ServerMember(

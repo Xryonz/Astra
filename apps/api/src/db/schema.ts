@@ -211,18 +211,35 @@ export const auditLogs = pgTable('ServerAuditLog', {
   byServerCreated: index('ServerAuditLog_serverId_createdAt_idx').on(t.serverId, t.createdAt.desc()),
 }))
 
+// ─── ChannelCategory ──────────────────────────────────────────
+// Agrupa canais (estilo Discord). position ordena os grupos. Channel.categoryId
+// null = sem categoria (mostrado no topo, fora de qualquer grupo).
+export const channelCategories = pgTable('ChannelCategory', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  name:      text('name').notNull(),
+  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  position:  integer('position').notNull().default(0),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  byServer: index('ChannelCategory_serverId_idx').on(t.serverId),
+}))
+
 // ─── Channel ──────────────────────────────────────────────────
 // isPrivate=true → só visível pra members com role listada em ChannelRolePerm.
 // isPrivate=false (default) → todos members veem.
+// categoryId null = sem categoria; position ordena dentro do grupo.
 export const channels = pgTable('Channel', {
-  id:        text('id').primaryKey().$defaultFn(createId),
-  name:      text('name').notNull(),
-  type:      channelTypeEnum('type').notNull().default('TEXT'),
-  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
-  isPrivate: boolean('isPrivate').notNull().default(false),
-  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+  id:         text('id').primaryKey().$defaultFn(createId),
+  name:       text('name').notNull(),
+  type:       channelTypeEnum('type').notNull().default('TEXT'),
+  serverId:   text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  categoryId: text('categoryId').references(() => channelCategories.id, { onDelete: 'set null' }),
+  position:   integer('position').notNull().default(0),
+  isPrivate:  boolean('isPrivate').notNull().default(false),
+  createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
-  byServer: index('Channel_serverId_idx').on(t.serverId),
+  byServer:   index('Channel_serverId_idx').on(t.serverId),
+  byCategory: index('Channel_categoryId_idx').on(t.categoryId),
 }))
 
 // ─── ChannelRolePerm ──────────────────────────────────────────

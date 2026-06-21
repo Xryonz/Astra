@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { servers, serverMembers, channels, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
+import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -28,13 +28,14 @@ async function listServersForUser(userId: string) {
   const serverIds = myMemberships.map((m) => m.serverId)
   if (serverIds.length === 0) return []
 
-  const [srvRows, chRows, countRows] = await Promise.all([
+  const [srvRows, chRows, countRows, catRows] = await Promise.all([
     db.select().from(servers).where(inArray(servers.id, serverIds)).orderBy(asc(servers.createdAt)),
-    db.select().from(channels).where(inArray(channels.serverId, serverIds)).orderBy(asc(channels.createdAt)),
+    db.select().from(channels).where(inArray(channels.serverId, serverIds)).orderBy(asc(channels.position), asc(channels.createdAt)),
     db.select({ serverId: serverMembers.serverId, count: sql<number>`count(*)::int` })
       .from(serverMembers)
       .where(inArray(serverMembers.serverId, serverIds))
       .groupBy(serverMembers.serverId),
+    db.select().from(channelCategories).where(inArray(channelCategories.serverId, serverIds)).orderBy(asc(channelCategories.position)),
   ])
 
   // lastMessageAt por canal — pra unread indicator no sidebar comparar
@@ -63,24 +64,32 @@ async function listServersForUser(userId: string) {
     channelsByServer.set(c.serverId, arr)
   }
   const countByServer = new Map(countRows.map((r) => [r.serverId, r.count]))
+  const catsByServer = new Map<string, Array<typeof catRows[number]>>()
+  for (const c of catRows) {
+    const arr = catsByServer.get(c.serverId) ?? []
+    arr.push(c)
+    catsByServer.set(c.serverId, arr)
+  }
 
   return srvRows.map((s) => ({
     ...s,
-    channels: channelsByServer.get(s.id) ?? [],
-    _count:   { members: countByServer.get(s.id) ?? 0 },
+    channels:   channelsByServer.get(s.id) ?? [],
+    categories: catsByServer.get(s.id) ?? [],
+    _count:     { members: countByServer.get(s.id) ?? 0 },
   }))
 }
 
 async function serverWithChannelsAndCount(serverId: string) {
   const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1)
   if (!srv) return null
-  const [chRows, [countRow]] = await Promise.all([
-    db.select().from(channels).where(eq(channels.serverId, serverId)).orderBy(asc(channels.createdAt)),
+  const [chRows, [countRow], catRows] = await Promise.all([
+    db.select().from(channels).where(eq(channels.serverId, serverId)).orderBy(asc(channels.position), asc(channels.createdAt)),
     db.select({ count: sql<number>`count(*)::int` })
       .from(serverMembers)
       .where(eq(serverMembers.serverId, serverId)),
+    db.select().from(channelCategories).where(eq(channelCategories.serverId, serverId)).orderBy(asc(channelCategories.position)),
   ])
-  return { ...srv, channels: chRows, _count: { members: countRow?.count ?? 0 } }
+  return { ...srv, channels: chRows, categories: catRows, _count: { members: countRow?.count ?? 0 } }
 }
 
 // GET /api/servers
@@ -106,7 +115,9 @@ serversRouter.post(
         name, iconUrl, isGroup, ownerId: req.userId!,
       }).returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
-      await tx.insert(channels).values({ name: 'geral', type: 'TEXT', serverId: s.id })
+      // Semeia uma categoria "Geral" com o canal geral dentro (estilo Discord).
+      const [cat] = await tx.insert(channelCategories).values({ name: 'Geral', serverId: s.id, position: 0 }).returning()
+      await tx.insert(channels).values({ name: 'geral', type: 'TEXT', serverId: s.id, categoryId: cat.id, position: 0 })
       return s
     })
 
@@ -714,29 +725,48 @@ channelsRouter.patch(
   })
 )
 
-// PATCH /api/servers/:serverId/channels/:channelId — rename
-const RenameChannelSchema = z.object({ name: z.string().min(1).max(50) })
+// PATCH /api/servers/:serverId/channels/:channelId — rename e/ou mover de categoria
+const UpdateChannelSchema = z.object({
+  name:       z.string().min(1).max(50).optional(),
+  categoryId: z.string().nullable().optional(),
+  position:   z.number().int().min(0).optional(),
+})
 channelsRouter.patch(
   '/:serverId/channels/:channelId',
   requireAuth,
-  validate(RenameChannelSchema),
+  validate(UpdateChannelSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, channelId } = req.params
-    const { name } = req.body as z.infer<typeof RenameChannelSchema>
+    const { name, categoryId, position } = req.body as z.infer<typeof UpdateChannelSchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão' })
 
+    // Mover pra categoria → confere que ela pertence a este servidor.
+    if (categoryId) {
+      const [cat] = await db.select({ id: channelCategories.id })
+        .from(channelCategories)
+        .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
+        .limit(1)
+      if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
+    }
+
+    const set: Partial<{ name: string; categoryId: string | null; position: number }> = {}
+    if (name !== undefined) set.name = name
+    if (categoryId !== undefined) set.categoryId = categoryId
+    if (position !== undefined) set.position = position
+    if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
+
     const r = await db.update(channels)
-      .set({ name })
+      .set(set)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
-      .returning({ id: channels.id, name: channels.name })
+      .returning({ id: channels.id, name: channels.name, categoryId: channels.categoryId, position: channels.position })
     if (r.length === 0) return res.status(404).json({ error: 'Canal não encontrado' })
 
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
-      targetId: channelId, metadata: { name },
+      targetId: channelId, metadata: { name, categoryId, position },
     })
     res.json({ data: r[0] })
   })
@@ -765,5 +795,80 @@ channelsRouter.delete(
       targetId: channelId, metadata: { name: r[0].name },
     })
     res.json({ message: 'Canal excluído' })
+  })
+)
+
+// ─── CATEGORIES ───────────────────────────────────────────────
+// CRUD de categorias de canal (estilo Discord). Owner ou MANAGE_CHANNELS.
+// Deletar categoria não apaga canais — eles viram "sem categoria" (FK set null).
+const CreateCategorySchema = z.object({ name: z.string().min(1).max(50) })
+channelsRouter.post(
+  '/:serverId/categories',
+  requireAuth,
+  validate(CreateCategorySchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serverId } = req.params
+    const { name } = req.body as z.infer<typeof CreateCategorySchema>
+
+    const m = await getMemberPerms(req.userId!, serverId)
+    if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
+      return res.status(403).json({ error: 'Sem permissão pra criar categorias' })
+
+    const existing = await db.select({ position: channelCategories.position })
+      .from(channelCategories).where(eq(channelCategories.serverId, serverId))
+    const nextPos = existing.length ? Math.max(...existing.map((e) => e.position)) + 1 : 0
+
+    const [cat] = await db.insert(channelCategories)
+      .values({ name, serverId, position: nextPos }).returning()
+    res.status(201).json({ data: cat })
+  })
+)
+
+const UpdateCategorySchema = z.object({
+  name:     z.string().min(1).max(50).optional(),
+  position: z.number().int().min(0).optional(),
+})
+channelsRouter.patch(
+  '/:serverId/categories/:categoryId',
+  requireAuth,
+  validate(UpdateCategorySchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serverId, categoryId } = req.params
+    const { name, position } = req.body as z.infer<typeof UpdateCategorySchema>
+
+    const m = await getMemberPerms(req.userId!, serverId)
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
+      return res.status(403).json({ error: 'Sem permissão' })
+
+    const set: Partial<{ name: string; position: number }> = {}
+    if (name !== undefined) set.name = name
+    if (position !== undefined) set.position = position
+    if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
+
+    const r = await db.update(channelCategories)
+      .set(set)
+      .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
+      .returning()
+    if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
+    res.json({ data: r[0] })
+  })
+)
+
+channelsRouter.delete(
+  '/:serverId/categories/:categoryId',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serverId, categoryId } = req.params
+
+    const m = await getMemberPerms(req.userId!, serverId)
+    if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
+      return res.status(403).json({ error: 'Sem permissão' })
+
+    const r = await db.delete(channelCategories)
+      .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
+      .returning({ id: channelCategories.id })
+    if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
+    res.json({ message: 'Categoria excluída' })
   })
 )

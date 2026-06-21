@@ -13,6 +13,7 @@ data class ServerDto(
     val inviteCode: String? = null,
     val isPublic: Boolean = false,
     val channels: List<ChannelDto> = emptyList(),
+    val categories: List<CategoryDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,
 )
 
@@ -22,7 +23,16 @@ data class ChannelDto(
     val name: String,
     val type: String = "TEXT", // TEXT | VOICE
     val isPrivate: Boolean = false,
+    val categoryId: String? = null, // null = sem categoria
+    val position: Int = 0,
     val lastMessageAt: String? = null, // ISO; null = canal sem mensagens
+)
+
+@Serializable
+data class CategoryDto(
+    val id: String,
+    val name: String,
+    val position: Int = 0,
 )
 
 @Serializable

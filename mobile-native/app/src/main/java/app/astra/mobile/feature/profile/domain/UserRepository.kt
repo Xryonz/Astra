@@ -18,6 +18,7 @@ interface UserRepository {
         username: String? = null,
         bio: String? = null,
         avatarUrl: String? = null,
+        bannerUrl: String? = null,
         bannerColor: String? = null,
         pronouns: String? = null,
     ): Result<Profile>

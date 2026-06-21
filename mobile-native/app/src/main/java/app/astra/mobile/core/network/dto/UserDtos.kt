@@ -49,6 +49,7 @@ data class UpdateProfileRequest(
     val username: String? = null,
     val bio: String? = null,
     val avatarUrl: String? = null,
+    val bannerUrl: String? = null,
     val bannerColor: String? = null,
     val pronouns: String? = null,
 )

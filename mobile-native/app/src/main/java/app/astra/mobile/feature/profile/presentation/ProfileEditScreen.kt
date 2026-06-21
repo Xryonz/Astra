@@ -1,6 +1,12 @@
 package app.astra.mobile.feature.profile.presentation
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -28,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,6 +53,7 @@ import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
+import coil.compose.AsyncImage
 
 @Composable
 fun ProfileEditScreen(
@@ -51,6 +61,16 @@ fun ProfileEditScreen(
     viewModel: ProfileEditViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val ctx = LocalContext.current
+
+    // Photo Picker do Android (sem permissao). Le os bytes e manda pro VM.
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        readImage(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadAvatar(bytes, mime, name) }
+    }
+    val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        readImage(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadBanner(bytes, mime, name) }
+    }
+    val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
@@ -67,22 +87,56 @@ fun ProfileEditScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 26.dp, vertical = 18.dp),
             ) {
-                // ── Preview do cartao ──
-                val banner = parseHexColor(state.bannerColor) ?: astraColors.overlay
+                // ── Preview do cartao: banner (imagem ou cor) + avatar tocavel ──
+                val bannerColor = parseHexColor(state.bannerColor) ?: astraColors.overlay
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
+                        .height(120.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(banner),
+                        .background(bannerColor),
                 ) {
+                    if (state.bannerUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = state.bannerUrl,
+                            contentDescription = null,
+                            modifier = Modifier.matchParentSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                    // Scrim pra legibilidade do nome.
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.28f)),
+                    )
+                    if (state.uploadingBanner) {
+                        Box(Modifier.matchParentSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(26.dp), strokeWidth = 2.dp, color = Color.White)
+                        }
+                    }
                     Row(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        AstraAvatar(state.avatarUrl.ifBlank { null }, state.displayName, size = 56)
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { avatarPicker.launch(imageRequest) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            AstraAvatar(state.avatarUrl.ifBlank { null }, state.displayName, size = 60)
+                            if (state.uploadingAvatar) {
+                                Box(
+                                    Modifier.size(60.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                                }
+                            }
+                        }
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
@@ -106,17 +160,43 @@ fun ProfileEditScreen(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
-
-                EditorialField(
-                    value = state.avatarUrl, onValue = viewModel::onAvatarUrl,
-                    label = "url do avatar", placeholder = "https://...",
-                    enabled = !state.saving, keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next,
+                Spacer(Modifier.height(14.dp))
+                // ── Acoes de imagem ──
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    UploadChip(
+                        label = "Trocar foto",
+                        busy = state.uploadingAvatar,
+                        modifier = Modifier.weight(1f),
+                        onClick = { avatarPicker.launch(imageRequest) },
+                    )
+                    UploadChip(
+                        label = "Trocar banner",
+                        busy = state.uploadingBanner,
+                        modifier = Modifier.weight(1f),
+                        onClick = { bannerPicker.launch(imageRequest) },
+                    )
+                }
+                if (state.bannerUrl.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "remover banner",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = astraColors.text3,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = viewModel::removeBanner)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    )
+                }
+                MarginaliaLabel(
+                    "PNG, JPG, GIF ou WebP · avatar 5MB · banner 8MB (animado ok)",
+                    Modifier.padding(top = 8.dp),
                 )
+
                 Spacer(Modifier.height(20.dp))
                 EditorialField(
                     value = state.bannerColor, onValue = viewModel::onBannerColor,
-                    label = "cor do banner", placeholder = "#1a1a2e",
+                    label = "cor do banner (sem imagem)", placeholder = "#1a1a2e",
                     enabled = !state.saving, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next,
                 )
                 Spacer(Modifier.height(20.dp))
@@ -167,6 +247,50 @@ fun ProfileEditScreen(
             }
         }
     }
+}
+
+/** Botao-pilula editorial pra disparar o picker; vira spinner enquanto sobe. */
+@Composable
+private fun UploadChip(
+    label: String,
+    busy: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(shape)
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.border, shape)
+            .clickable(enabled = !busy, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = astraColors.accent)
+        } else {
+            Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
+        }
+    }
+}
+
+/** Le os bytes + mime + nome (com extensao) de uma Uri do picker. */
+private fun readImage(ctx: android.content.Context, uri: Uri?): Triple<ByteArray, String, String>? {
+    if (uri == null) return null
+    val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
+    val bytes = runCatching {
+        ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    }.getOrNull() ?: return null
+    return Triple(bytes, mime, "upload.${extFor(mime)}")
+}
+
+private fun extFor(mime: String): String = when (mime.substringBefore(';').trim().lowercase()) {
+    "image/gif" -> "gif"
+    "image/webp" -> "webp"
+    "image/png" -> "png"
+    "image/avif" -> "avif"
+    else -> "jpg"
 }
 
 /** "#RRGGBB" -> Color. Invalido/vazio -> null (usa fallback). */

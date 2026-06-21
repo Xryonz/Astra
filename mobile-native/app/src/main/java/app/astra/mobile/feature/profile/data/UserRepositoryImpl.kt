@@ -63,12 +63,13 @@ class UserRepositoryImpl @Inject constructor(
         username: String?,
         bio: String?,
         avatarUrl: String?,
+        bannerUrl: String?,
         bannerColor: String?,
         pronouns: String?,
     ): Result<Profile> {
         return try {
             val data = api.updateProfile(
-                UpdateProfileRequest(displayName, username, bio, avatarUrl, bannerColor, pronouns),
+                UpdateProfileRequest(displayName, username, bio, avatarUrl, bannerUrl, bannerColor, pronouns),
             ).data ?: return Result.failure(ApiException("Resposta vazia do servidor"))
             val p = data.user.toDomain()
             cached = p

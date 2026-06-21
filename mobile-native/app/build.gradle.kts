@@ -84,6 +84,7 @@ dependencies {
 
     // Imagens + storage local
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif) // decoder GIF/WebP animado (avatar/banner animados)
     implementation(libs.androidx.datastore.preferences)
 
     // Realtime — Socket.io client (protocolo Engine.io, fala com o server v4)

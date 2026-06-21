@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.Reveal
+import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.GreatVibes
 import app.astra.mobile.ui.theme.astraColors
@@ -94,10 +95,10 @@ fun AstraApp() {
                 // slide-x curto na curva EaseSpring (0.16,1,0.3,1), exit rapido. Sem
                 // scale (blur/scale animado repinta a tela inteira por frame = jank).
                 // Avanca = entra da direita; volta = entra da esquerda, atual sai pra direita.
-                enterTransition = { fadeIn(tween(200, easing = EaseSpring)) + slideInHorizontally(tween(200, easing = EaseSpring)) { it / 16 } },
-                exitTransition = { fadeOut(tween(120)) },
-                popEnterTransition = { fadeIn(tween(200, easing = EaseSpring)) + slideInHorizontally(tween(200, easing = EaseSpring)) { -it / 16 } },
-                popExitTransition = { fadeOut(tween(140)) + slideOutHorizontally(tween(180, easing = EaseSpring)) { it / 16 } },
+                enterTransition = { fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { it / 8 } },
+                exitTransition = { fadeOut(tween(240, easing = EaseOutSoft)) },
+                popEnterTransition = { fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { -it / 8 } },
+                popExitTransition = { fadeOut(tween(260, easing = EaseOutSoft)) + slideOutHorizontally(tween(340, easing = EaseSpring)) { it / 8 } },
             ) {
                 composable(Routes.LOGIN) {
                     LoginScreen(onGoToRegister = { nav.navigate(Routes.REGISTER) })

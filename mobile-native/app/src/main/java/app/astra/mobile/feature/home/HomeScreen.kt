@@ -2,7 +2,12 @@ package app.astra.mobile.feature.home
 
 import android.content.Context
 import android.content.Intent
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,6 +93,7 @@ import app.astra.mobile.ui.components.OptionRow
 import app.astra.mobile.ui.components.Reveal
 import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.theme.DmSerif
+import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
 
@@ -162,9 +169,14 @@ fun HomeScreen(
                     onAddServer = { createChooser = true },
                 )
 
-            Crossfade(
+            AnimatedContent(
                 targetState = selected,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
+                transitionSpec = {
+                    // Conteudo novo desliza da esquerda + fade; o antigo so esvanece.
+                    (slideInHorizontally(tween(360, easing = EaseSpring)) { w -> -w / 5 } + fadeIn(tween(280)))
+                        .togetherWith(fadeOut(tween(160)))
+                },
                 label = "home-panel",
             ) { srv ->
               if (srv == null) {
@@ -645,6 +657,8 @@ private fun ServerRailMenu(
 }
 
 // ── Painel de canais inline (substitui os Sussurros quando ha Constelacao) ──
+// Layout do print: capa (icone full-color) -> nome + n. membros + convidar/editar
+// -> orbitas em linhas flat. Canais entram em cascata (Reveal).
 @Composable
 private fun ServerChannelsPanel(
     server: Server,
@@ -672,12 +686,14 @@ private fun ServerChannelsPanel(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(top = 6.dp, bottom = 96.dp),
             ) {
-                items(server.channels, key = { it.id }) { ch ->
-                    ChannelOption(ch, unread = ch.id in channelUnread) {
-                        if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                itemsIndexed(server.channels, key = { _, ch -> ch.id }) { i, ch ->
+                    // Cascata: cada orbita entra com leve atraso (cap em 12 pra nao arrastar).
+                    Reveal(delayMillis = i.coerceAtMost(12) * 28) {
+                        ChannelRowFlat(ch, unread = ch.id in channelUnread) {
+                            if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                        }
                     }
                 }
             }
@@ -685,7 +701,7 @@ private fun ServerChannelsPanel(
     }
 }
 
-// Cabecalho rico: backdrop do icone (faint) + scrim, icone + nome + acoes.
+// Capa (icone como banner full-color, sem escurecer) + nome + contagem + acoes.
 @Composable
 private fun ServerPanelHeader(
     server: Server,
@@ -694,108 +710,89 @@ private fun ServerPanelHeader(
     onInvite: () -> Unit,
 ) {
     val base = astraColors.base
-    Box(Modifier.fillMaxWidth().height(146.dp)) {
-        if (!server.iconUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = server.iconUrl,
-                contentDescription = null,
-                modifier = Modifier.matchParentSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.35f,
-            )
-        } else {
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().height(132.dp)) {
+            if (!server.iconUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = server.iconUrl,
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.verticalGradient(listOf(astraColors.accentDim, base)),
+                    ),
+                )
+            }
+            // Scrim curtinho so na base pra encostar no fundo (sem escurecer a capa).
             Box(
                 Modifier.matchParentSize().background(
-                    Brush.verticalGradient(listOf(astraColors.accentDim, base)),
+                    Brush.verticalGradient(0.65f to Color.Transparent, 1f to base),
                 ),
             )
         }
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(listOf(base.copy(alpha = 0.3f), base.copy(alpha = 0.92f))),
-            ),
-        )
-        Column(
-            modifier = Modifier.matchParentSize().padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Acoes (topo-direita): convidar + engrenagem (dono).
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (!server.inviteCode.isNullOrBlank()) {
-                    Text(
-                        text = "Convidar",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = astraColors.accent,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, astraColors.border, RoundedCornerShape(8.dp))
-                            .clickable(onClick = onInvite)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-                if (isOwner) {
-                    Spacer(Modifier.width(8.dp))
-                    CircleIconBtn(Lucide.Settings, "Editar constelacao", onEdit)
-                }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = server.name,
+                    fontFamily = DmSerif,
+                    fontSize = 26.sp,
+                    color = astraColors.text1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                MarginaliaLabel("${server.memberCount} na constelacao")
             }
-            // Identidade (base): icone + nome + contagem.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val shape = RoundedCornerShape(14.dp)
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(shape)
-                        .background(astraColors.raised)
-                        .border(1.dp, astraColors.borderMid, shape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (!server.iconUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = server.iconUrl,
-                            contentDescription = null,
-                            modifier = Modifier.matchParentSize().clip(shape),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Text(server.name.take(1).uppercase(), fontFamily = DmSerif, fontSize = 24.sp, color = astraColors.accent)
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = server.name,
-                        fontFamily = DmSerif,
-                        fontSize = 24.sp,
-                        color = astraColors.text1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    MarginaliaLabel("${server.memberCount} na constelacao")
-                }
+            if (!server.inviteCode.isNullOrBlank()) {
+                CircleIconBtn(Lucide.UserPlus, "Convidar", onInvite)
+            }
+            if (isOwner) {
+                Spacer(Modifier.width(8.dp))
+                CircleIconBtn(Lucide.Settings, "Editar constelacao", onEdit)
             }
         }
+        Spacer(Modifier.height(12.dp))
+        HairlineRule(Modifier.padding(horizontal = 16.dp))
+        Spacer(Modifier.height(2.dp))
     }
 }
 
+// Linha de orbita flat (estilo Discord): # / 🔊 + nome, sem borda. Nao-lido fica
+// mais claro com dot; voz mostra rotulo.
 @Composable
-private fun ChannelOption(channel: Channel, unread: Boolean, onClick: () -> Unit) {
-    OptionRow(
-        title = channel.name,
-        onClick = onClick,
-        titleColor = if (unread) astraColors.text1 else astraColors.text2,
-        leading = {
-            Text(
-                text = if (channel.isVoice) "🔊" else "#",
-                style = MaterialTheme.typography.titleMedium,
-                color = if (channel.isVoice) astraColors.accent else astraColors.text3,
-            )
-        },
-        trailing = if (unread) {
-            { Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent)) }
+private fun ChannelRowFlat(channel: Channel, unread: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (channel.isVoice) "🔊" else "#",
+            style = MaterialTheme.typography.titleMedium,
+            color = if (channel.isVoice) astraColors.accent else astraColors.text3,
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = channel.name,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (unread) astraColors.text1 else astraColors.text2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (unread) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
         } else if (channel.isVoice) {
-            { MarginaliaLabel("voz", color = astraColors.text3) }
-        } else null,
-    )
+            MarginaliaLabel("voz", color = astraColors.text3)
+        }
+    }
 }
 
 // ── Busca + Adicionar amigos ────────────────────────────────────

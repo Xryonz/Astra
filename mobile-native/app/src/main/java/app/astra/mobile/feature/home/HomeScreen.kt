@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageSquarePlus
@@ -130,12 +131,13 @@ fun HomeScreen(
     }
 
     CosmicBackground {
-        Row(Modifier.fillMaxSize().statusBarsPadding()) {
-            ServerRail(
-                servers = state.servers,
-                onOpenServer = onOpenServer,
-                onAddServer = { createChooser = true },
-            )
+        Box(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxSize().statusBarsPadding()) {
+                ServerRail(
+                    servers = state.servers,
+                    onOpenServer = onOpenServer,
+                    onAddServer = { createChooser = true },
+                )
 
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 Column(Modifier.padding(horizontal = 18.dp).padding(top = 14.dp)) {
@@ -228,7 +230,7 @@ fun HomeScreen(
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                                         start = 18.dp,
                                         end = 18.dp,
-                                        bottom = 12.dp,
+                                        bottom = 92.dp,
                                     ),
                                 ) {
                                     items(dms, key = { it.id }) { c ->
@@ -243,17 +245,23 @@ fun HomeScreen(
                     }
                 }
 
-                BottomUserBar(
-                    name = state.myName,
-                    avatar = state.myAvatar,
-                    banner = state.myBanner,
-                    bannerColor = state.myBannerColor,
-                    status = state.myStatus,
-                    onPickStatus = viewModel::setStatus,
-                    onProfile = onOpenProfile,
-                    onSettings = onOpenSettings,
-                )
             }
+            }
+
+            // Sobrepoe TODO o rodape (inclusive parte do rail), cantos
+            // arredondados em cima dando efeito de card sobreposto (Discord).
+            BottomUserBar(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                name = state.myName,
+                avatar = state.myAvatar,
+                banner = state.myBanner,
+                bannerColor = state.myBannerColor,
+                status = state.myStatus,
+                onPickStatus = viewModel::setStatus,
+                onProfile = onOpenProfile,
+                onSettings = onOpenSettings,
+                onBell = {},
+            )
         }
     }
 
@@ -407,7 +415,8 @@ private fun ServerRail(
                 )
             }
             .verticalScroll(rememberScrollState())
-            .padding(vertical = 14.dp),
+            // bottom grande: o bottom bar sobrepoe o rodape do rail.
+            .padding(top = 14.dp, bottom = 92.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -624,11 +633,13 @@ private fun DmRow(c: Conversation, unread: Boolean, onClick: () -> Unit) {
 }
 
 // ── Barra de perfil (rodape) — modelo user-panel do Discord ──────
-// Full-width tampando o bottom, banner do user faiscando atras (scrim
-// pra legibilidade). Sem dot no avatar, sem botao de sair (sair vive
-// nas Configuracoes). Toque no avatar -> perfil; no nome -> status.
+// Sobrepoe TODO o rodape (inclusive parte do rail), cantos arredondados
+// em cima dando efeito de card sobreposto. Banner do user faiscando atras
+// (scrim pra legibilidade). Sem dot no avatar, sem botao de sair (sair
+// vive nas Configuracoes). Avatar -> perfil; nome -> status; sino + engrenagem.
 @Composable
 private fun BottomUserBar(
+    modifier: Modifier = Modifier,
     name: String,
     avatar: String?,
     banner: String?,
@@ -637,88 +648,114 @@ private fun BottomUserBar(
     onPickStatus: (UserStatus) -> Unit,
     onProfile: () -> Unit,
     onSettings: () -> Unit,
+    onBell: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val base = astraColors.base
-    Column {
-        HairlineRule()
-        Box(Modifier.fillMaxWidth()) {
-            // Fundo: piso base + banner (faint) + scrim pra contraste do texto.
-            Box(Modifier.matchParentSize().background(base))
-            if (!banner.isNullOrBlank()) {
-                AsyncImage(
-                    model = banner,
-                    contentDescription = null,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = ContentScale.Crop,
-                    alpha = 0.55f,
-                )
-            } else {
-                parseHexColor(bannerColor)?.let {
-                    Box(Modifier.matchParentSize().background(it.copy(alpha = 0.4f)))
-                }
-            }
-            Box(
-                Modifier.matchParentSize().background(
-                    Brush.verticalGradient(listOf(base.copy(alpha = 0.35f), base.copy(alpha = 0.7f))),
-                ),
+    val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(1.dp, astraColors.borderMid, shape),
+    ) {
+        // Fundo: piso base + banner (faint) + scrim pra contraste do texto.
+        Box(Modifier.matchParentSize().background(base))
+        if (!banner.isNullOrBlank()) {
+            AsyncImage(
+                model = banner,
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.55f,
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Avatar (sem dot) -> abre o perfil
-                Box(Modifier.clip(CircleShape).clickable(onClick = onProfile)) {
-                    AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 42)
-                }
-                Spacer(Modifier.width(11.dp))
-                // Nome + chevron + status -> abre o seletor de status
-                Box(Modifier.weight(1f)) {
-                    Column(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { menuOpen = true }
-                            .padding(horizontal = 4.dp, vertical = 3.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = name.ifBlank { "Astra" },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = astraColors.text1,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                Lucide.ChevronDown,
-                                contentDescription = null,
-                                tint = astraColors.text3,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            StatusDot(status, size = 8.dp)
-                            Spacer(Modifier.width(6.dp))
-                            MarginaliaLabel(statusLabel(status))
-                        }
-                    }
-                    StatusMenu(
-                        expanded = menuOpen,
-                        current = status,
-                        onPick = { menuOpen = false; onPickStatus(it) },
-                        onDismiss = { menuOpen = false },
-                    )
-                }
-                Spacer(Modifier.width(6.dp))
-                FooterIconBtn(Lucide.Settings, "Configuracoes", onSettings)
+        } else {
+            parseHexColor(bannerColor)?.let {
+                Box(Modifier.matchParentSize().background(it.copy(alpha = 0.4f)))
             }
         }
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(listOf(base.copy(alpha = 0.4f), base.copy(alpha = 0.78f))),
+            ),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Avatar (sem dot) -> abre o perfil
+            Box(Modifier.clip(CircleShape).clickable(onClick = onProfile)) {
+                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 42)
+            }
+            Spacer(Modifier.width(11.dp))
+            // Nome + chevron + status -> abre o seletor de status
+            Box(Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { menuOpen = true }
+                        .padding(horizontal = 4.dp, vertical = 3.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = name.ifBlank { "Astra" },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = astraColors.text1,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            Lucide.ChevronDown,
+                            contentDescription = null,
+                            tint = astraColors.text3,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StatusDot(status, size = 8.dp)
+                        Spacer(Modifier.width(6.dp))
+                        MarginaliaLabel(statusLabel(status))
+                    }
+                }
+                StatusMenu(
+                    expanded = menuOpen,
+                    current = status,
+                    onPick = { menuOpen = false; onPickStatus(it) },
+                    onDismiss = { menuOpen = false },
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            CircleIconBtn(Lucide.Bell, "Notificacoes", onBell)
+            Spacer(Modifier.width(8.dp))
+            CircleIconBtn(Lucide.Settings, "Configuracoes", onSettings)
+        }
+    }
+}
+
+/** Botao de icone circular (sino/engrenagem) do bottom bar. */
+@Composable
+private fun CircleIconBtn(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    desc: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(astraColors.raised.copy(alpha = 0.85f))
+            .border(1.dp, astraColors.border, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = desc, tint = astraColors.text2, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -759,25 +796,6 @@ private fun StatusMenu(
     }
 }
 
-@Composable
-private fun FooterIconBtn(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    desc: String,
-    onClick: () -> Unit,
-    danger: Boolean = false,
-) {
-    Box(
-        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            icon,
-            contentDescription = desc,
-            tint = if (danger) astraColors.danger else astraColors.text2,
-            modifier = Modifier.size(18.dp),
-        )
-    }
-}
 
 @Composable
 private fun NewConversationDialog(

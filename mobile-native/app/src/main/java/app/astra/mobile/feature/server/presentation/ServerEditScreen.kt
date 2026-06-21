@@ -61,7 +61,7 @@ fun ServerEditScreen(
     val ctx = LocalContext.current
 
     val iconPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadIcon(bytes, mime, name) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadIcon(bytes, mime) }
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 

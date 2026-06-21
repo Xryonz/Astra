@@ -3,7 +3,7 @@ package app.astra.mobile.feature.server.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.server.domain.ServerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +15,6 @@ import javax.inject.Inject
 @HiltViewModel
 class ServerEditViewModel @Inject constructor(
     private val repository: ServerRepository,
-    private val uploader: ImageUploader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -50,16 +49,12 @@ class ServerEditViewModel @Inject constructor(
 
     fun onName(v: String) = _state.update { it.copy(name = v, saved = false, error = null) }
 
-    // Upload do icone (limite 5MB, igual Capacitor). Preenche; SALVAR persiste.
-    fun uploadIcon(bytes: ByteArray, mime: String, filename: String) {
-        if (bytes.size > MAX_ICON) {
-            _state.update { it.copy(error = "Icone maior que 5MB.") }
-            return
-        }
+    // Icone -> data URI (comprime/reescala; GIF anima). Preenche; SALVAR persiste.
+    fun uploadIcon(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingIcon = true, error = null, saved = false) }
         viewModelScope.launch {
-            uploader.upload(bytes, mime, filename)
-                .onSuccess { url -> _state.update { it.copy(uploadingIcon = false, iconUrl = url) } }
+            ImageEncoder.toDataUri(bytes, mime, ICON_DIM, ICON_GIF_MAX)
+                .onSuccess { uri -> _state.update { it.copy(uploadingIcon = false, iconUrl = uri) } }
                 .onFailure { e -> _state.update { it.copy(uploadingIcon = false, error = e.message) } }
         }
     }
@@ -88,6 +83,7 @@ class ServerEditViewModel @Inject constructor(
     }
 
     private companion object {
-        const val MAX_ICON = 5 * 1024 * 1024
+        const val ICON_DIM = 512
+        const val ICON_GIF_MAX = 4_500_000
     }
 }

@@ -65,10 +65,10 @@ fun ProfileEditScreen(
 
     // Photo Picker do Android (sem permissao). Le os bytes e manda pro VM.
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadAvatar(bytes, mime, name) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadAvatar(bytes, mime) }
     }
     val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImageBytes(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadBanner(bytes, mime, name) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadBanner(bytes, mime) }
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
@@ -189,7 +189,7 @@ fun ProfileEditScreen(
                     )
                 }
                 MarginaliaLabel(
-                    "PNG, JPG, GIF ou WebP · avatar 5MB · banner 8MB (animado ok)",
+                    "Foto ou GIF · comprime sozinho · GIF anima",
                     Modifier.padding(top = 8.dp),
                 )
 

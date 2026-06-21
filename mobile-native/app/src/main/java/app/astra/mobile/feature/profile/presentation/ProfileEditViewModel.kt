@@ -2,7 +2,7 @@ package app.astra.mobile.feature.profile.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.Profile
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,7 +15,6 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    private val uploader: ImageUploader,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileEditUiState())
@@ -44,31 +43,23 @@ class ProfileEditViewModel @Inject constructor(
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }
     fun onBannerColor(v: String) = _state.update { it.copy(bannerColor = v, saved = false, error = null) }
 
-    // Upload de avatar (limite 5MB, igual Capacitor). Preenche o campo; o
-    // SALVAR persiste. Preview atualiza na hora.
-    fun uploadAvatar(bytes: ByteArray, mime: String, filename: String) {
-        if (bytes.size > MAX_AVATAR) {
-            _state.update { it.copy(error = "Avatar maior que 5MB.") }
-            return
-        }
+    // Avatar -> data URI (comprime e reescala; GIF anima). Preenche o campo;
+    // o SALVAR persiste. Preview atualiza na hora.
+    fun uploadAvatar(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingAvatar = true, error = null, saved = false) }
         viewModelScope.launch {
-            uploader.upload(bytes, mime, filename)
-                .onSuccess { url -> _state.update { it.copy(uploadingAvatar = false, avatarUrl = url) } }
+            ImageEncoder.toDataUri(bytes, mime, AVATAR_DIM, AVATAR_GIF_MAX)
+                .onSuccess { uri -> _state.update { it.copy(uploadingAvatar = false, avatarUrl = uri) } }
                 .onFailure { e -> _state.update { it.copy(uploadingAvatar = false, error = e.message) } }
         }
     }
 
-    // Upload de banner (limite 8MB, animado ok).
-    fun uploadBanner(bytes: ByteArray, mime: String, filename: String) {
-        if (bytes.size > MAX_BANNER) {
-            _state.update { it.copy(error = "Banner maior que 8MB.") }
-            return
-        }
+    // Banner -> data URI (mais largo; animado ok).
+    fun uploadBanner(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
         viewModelScope.launch {
-            uploader.upload(bytes, mime, filename)
-                .onSuccess { url -> _state.update { it.copy(uploadingBanner = false, bannerUrl = url) } }
+            ImageEncoder.toDataUri(bytes, mime, BANNER_DIM, BANNER_GIF_MAX)
+                .onSuccess { uri -> _state.update { it.copy(uploadingBanner = false, bannerUrl = uri) } }
                 .onFailure { e -> _state.update { it.copy(uploadingBanner = false, error = e.message) } }
         }
     }
@@ -94,7 +85,9 @@ class ProfileEditViewModel @Inject constructor(
     }
 
     private companion object {
-        const val MAX_AVATAR = 5 * 1024 * 1024
-        const val MAX_BANNER = 8 * 1024 * 1024
+        const val AVATAR_DIM = 512
+        const val BANNER_DIM = 1280
+        const val AVATAR_GIF_MAX = 4_500_000
+        const val BANNER_GIF_MAX = 5_500_000
     }
 }

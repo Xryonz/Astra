@@ -8,6 +8,7 @@ data class Server(
     val channels: List<Channel>,
     val inviteCode: String? = null,
     val ownerId: String? = null,
+    val isPublic: Boolean = false,
 )
 
 data class Channel(

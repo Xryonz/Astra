@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.components.AstraButton
+import app.astra.mobile.ui.components.AstraSwitch
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -133,6 +135,21 @@ fun ServerEditScreen(
                     label = "nome da constelacao", placeholder = "minha constelacao",
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
                 )
+
+                Spacer(Modifier.height(22.dp))
+                // Visibilidade no diretorio publico (Descobrir) — switch.
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Constelacao publica", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
+                        MarginaliaLabel("aparece no Descobrir; qualquer um entra sem convite")
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    AstraSwitch(
+                        checked = state.isPublic,
+                        onCheckedChange = viewModel::onPublic,
+                        enabled = !state.saving,
+                    )
+                }
 
                 if (state.error != null) {
                     Spacer(Modifier.height(14.dp))

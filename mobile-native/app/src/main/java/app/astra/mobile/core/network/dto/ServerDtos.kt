@@ -11,6 +11,7 @@ data class ServerDto(
     val iconUrl: String? = null,
     val ownerId: String? = null, // GET /api/servers ja devolve (select * em servers)
     val inviteCode: String? = null,
+    val isPublic: Boolean = false,
     val channels: List<ChannelDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,
 )
@@ -35,6 +36,7 @@ data class CreateServerRequest(val name: String, val isGroup: Boolean = false)
 data class UpdateServerRequest(
     val name: String? = null,
     val iconUrl: String? = null,
+    val isPublic: Boolean? = null,
 )
 
 // GET /api/servers/:id/members -> { data: [ { userId, user:{username,displayName,avatarUrl} } ] }

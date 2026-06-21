@@ -39,6 +39,7 @@ class ServerEditViewModel @Inject constructor(
                                 loading = false,
                                 name = s.name, origName = s.name,
                                 iconUrl = s.iconUrl.orEmpty(), origIcon = s.iconUrl.orEmpty(),
+                                isPublic = s.isPublic, origPublic = s.isPublic,
                             )
                         }
                     }
@@ -48,6 +49,8 @@ class ServerEditViewModel @Inject constructor(
     }
 
     fun onName(v: String) = _state.update { it.copy(name = v, saved = false, error = null) }
+
+    fun onPublic(v: Boolean) = _state.update { it.copy(isPublic = v, saved = false, error = null) }
 
     // Icone -> data URI (comprime/reescala; GIF anima). Preenche; SALVAR persiste.
     fun uploadIcon(bytes: ByteArray, mime: String) {
@@ -68,6 +71,7 @@ class ServerEditViewModel @Inject constructor(
                 id = serverId,
                 name = s.name.trim().takeIf { it != s.origName },
                 iconUrl = s.iconUrl.takeIf { it != s.origIcon },
+                isPublic = s.isPublic.takeIf { it != s.origPublic },
             )
                 .onSuccess { srv ->
                     _state.update {
@@ -75,6 +79,7 @@ class ServerEditViewModel @Inject constructor(
                             saving = false, saved = true,
                             name = srv.name, origName = srv.name,
                             iconUrl = srv.iconUrl.orEmpty(), origIcon = srv.iconUrl.orEmpty(),
+                            isPublic = srv.isPublic, origPublic = srv.isPublic,
                         )
                     }
                 }

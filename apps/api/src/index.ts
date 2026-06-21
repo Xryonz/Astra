@@ -114,10 +114,11 @@ app.use(cookieParser())
 // reqContext ANTES dos parsers pra que logs de body-parse já tenham reqId
 app.use(reqContext)
 app.use(httpMetrics)
-// /api/profile: limit 4MB pra acomodar avatar/banner em base64
-// (data:image/webp;base64 de ~3MB = imagem ~2.2MB). Reduzido de 8MB.
-// Maior que isso: usar upload multipart em /api/upload.
-app.use('/api/profile', express.json({ limit: '4mb' }))
+// /api/profile: limit 8MB pra acomodar avatar/banner em base64. Tem que ser
+// >= ao teto real da rota (isDataUriTooLarge = 6MB decodificado ≈ 8MB em base64);
+// com 4MB o body-parser cortava o banner ANTES da rota -> 500 "Erro interno".
+// Maior que o teto: usar upload multipart em /api/upload.
+app.use('/api/profile', express.json({ limit: '8mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)
@@ -177,6 +178,12 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
       ...(err.code ? { code: err.code } : {}),
       ...(err.meta ? { meta: err.meta } : {}),
     })
+  }
+
+  // Body-parser: payload acima do limite vira 413 com mensagem clara, em vez de
+  // cair no 500 "Erro interno" (era o sintoma ao trocar banner grande).
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    return res.status(413).json({ error: 'Arquivo muito grande. Tente um menor.' })
   }
 
   const cause = err?.cause ?? err

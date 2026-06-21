@@ -94,6 +94,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    // Voltou pra Home (ON_RESUME) -> reflete edicoes de perfil no bottom bar.
+    // me() le o cache, que o updateProfile ja atualizou no SALVAR -> sem rede.
+    fun refreshProfile() {
+        viewModelScope.launch {
+            userRepository.me().onSuccess { me ->
+                _state.update {
+                    it.copy(
+                        myName = me.displayName,
+                        myAvatar = me.avatarUrl,
+                        myBanner = me.bannerUrl,
+                        myBannerColor = me.bannerColor,
+                    )
+                }
+            }
+        }
+    }
+
     // Tap na DM -> some o dot na hora.
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
 

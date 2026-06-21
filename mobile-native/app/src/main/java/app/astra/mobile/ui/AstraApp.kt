@@ -110,7 +110,7 @@ fun AstraApp() {
                 composable(Routes.HOME) {
                     HomeScreen(
                         onOpenServer = { id, name -> nav.navigate(Routes.channels(id, name)) },
-                        onOpenServers = { nav.navigate(Routes.SERVERS) },
+                        onOpenJoin = { nav.navigate(Routes.JOIN) },
                         onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
                         onOpenDms = { nav.navigate(Routes.DMS) },
                         onOpenFriends = { nav.navigate(Routes.FRIENDS) },

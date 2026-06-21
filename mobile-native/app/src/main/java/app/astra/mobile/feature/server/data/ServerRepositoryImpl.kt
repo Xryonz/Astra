@@ -72,8 +72,8 @@ class ServerRepositoryImpl @Inject constructor(
 
     override fun channelActivity(): Flow<String> = socketManager.channelActivity
 
-    override suspend fun createServer(name: String): Result<Server> = try {
-        val dto = serverApi.create(CreateServerRequest(name.trim())).data
+    override suspend fun createServer(name: String, isGroup: Boolean): Result<Server> = try {
+        val dto = serverApi.create(CreateServerRequest(name.trim(), isGroup)).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
         Result.success(dto.toDomain())
     } catch (e: HttpException) {

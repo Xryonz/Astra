@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ServerRepository {
     suspend fun servers(): Result<List<Server>>
-    suspend fun createServer(name: String): Result<Server>
+    suspend fun createServer(name: String, isGroup: Boolean = false): Result<Server>
     /** Edita nome/icone da Constelacao (so dono/admin no backend). */
     suspend fun updateServer(id: String, name: String?, iconUrl: String?): Result<Server>
     suspend fun members(serverId: String): Result<List<ServerMember>>

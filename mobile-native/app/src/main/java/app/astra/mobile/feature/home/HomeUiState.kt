@@ -27,4 +27,7 @@ data class HomeUiState(
     // FAB "nova mensagem" (abrir DM por @username)
     val opening: Boolean = false,
     val openError: String? = null,
+    // Popup de forjar constelacao/aglomerado
+    val creating: Boolean = false,
+    val createError: String? = null,
 )

@@ -28,7 +28,7 @@ data class ChannelDto(
 data class ServerCountDto(val members: Int = 0)
 
 @Serializable
-data class CreateServerRequest(val name: String)
+data class CreateServerRequest(val name: String, val isGroup: Boolean = false)
 
 // PATCH /api/servers/:id — campos null omitidos (explicitNulls=false).
 @Serializable

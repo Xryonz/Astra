@@ -80,7 +80,7 @@ import coil.compose.AsyncImage
 @Composable
 fun HomeScreen(
     onOpenServer: (id: String, name: String) -> Unit,
-    onOpenServers: () -> Unit,
+    onOpenJoin: () -> Unit,
     onOpenDm: (id: String, name: String) -> Unit,
     onOpenDms: () -> Unit,
     onOpenFriends: () -> Unit,
@@ -93,12 +93,24 @@ fun HomeScreen(
     var showDialog by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    // Popup de criar: chooser (servidor/grupo/convite) -> dialog de forjar.
+    var createChooser by remember { mutableStateOf(false) }
+    var showForge by remember { mutableStateOf(false) }
+    var forgeAsGroup by remember { mutableStateOf(false) }
 
     // DM aberta pelo FAB -> navega pro chat e fecha o dialog.
     LaunchedEffect(Unit) {
         viewModel.opened.collect { conv ->
             showDialog = false
             onOpenDm(conv.conversationId, conv.otherName)
+        }
+    }
+
+    // Constelacao forjada -> fecha o dialog e entra nela.
+    LaunchedEffect(Unit) {
+        viewModel.serverCreated.collect { srv ->
+            showForge = false
+            onOpenServer(srv.id, srv.name)
         }
     }
 
@@ -122,7 +134,7 @@ fun HomeScreen(
             ServerRail(
                 servers = state.servers,
                 onOpenServer = onOpenServer,
-                onAddServer = onOpenServers,
+                onAddServer = { createChooser = true },
             )
 
             Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -253,6 +265,120 @@ fun HomeScreen(
             onDismiss = { showDialog = false; viewModel.clearOpenError() },
         )
     }
+
+    if (createChooser) {
+        CreateChooserDialog(
+            onServer = { createChooser = false; forgeAsGroup = false; showForge = true },
+            onGroup = { createChooser = false; forgeAsGroup = true; showForge = true },
+            onJoin = { createChooser = false; onOpenJoin() },
+            onDismiss = { createChooser = false },
+        )
+    }
+    if (showForge) {
+        ForgeDialog(
+            isGroup = forgeAsGroup,
+            creating = state.creating,
+            error = state.createError,
+            onConfirm = { name -> viewModel.createServer(name, forgeAsGroup) },
+            onDismiss = { showForge = false; viewModel.clearCreateError() },
+        )
+    }
+}
+
+// ── Popup: forjar constelacao / forjar aglomerado / orbitar com convite ──
+@Composable
+private fun CreateChooserDialog(
+    onServer: () -> Unit,
+    onGroup: () -> Unit,
+    onJoin: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = astraColors.overlay,
+        title = { Text("Forjar ou orbitar", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ChooserRow(AstraCopy.Action.createServer, AstraCopy.Desc.constelacao, onServer)
+                ChooserRow(AstraCopy.Action.createGroup, AstraCopy.Desc.aglomerado, onGroup)
+                ChooserRow("${AstraCopy.Action.joinServer} com um convite", "entrar numa que ja existe", onJoin)
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = astraColors.text2) } },
+    )
+}
+
+@Composable
+private fun ChooserRow(label: String, sub: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.accent)
+            MarginaliaLabel(sub)
+        }
+        Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+// ── Dialog de forjar (nome) — serve servidor e grupo ──
+@Composable
+private fun ForgeDialog(
+    isGroup: Boolean,
+    creating: Boolean,
+    error: String?,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    val title = if (isGroup) AstraCopy.Action.createGroup else AstraCopy.Action.createServer
+    val desc = if (isGroup) AstraCopy.Desc.aglomerado else AstraCopy.Desc.constelacao
+    AlertDialog(
+        onDismissRequest = { if (!creating) onDismiss() },
+        containerColor = astraColors.overlay,
+        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
+        text = {
+            Column {
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = astraColors.text3,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    enabled = !creating,
+                    label = { Text(if (isGroup) "Nome do aglomerado" else "Nome da constelacao") },
+                )
+                if (error != null) {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = astraColors.danger,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank() && !creating) {
+                Text(if (creating) "Forjando..." else "Forjar", color = astraColors.accent)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !creating) {
+                Text("Cancelar", color = astraColors.text2)
+            }
+        },
+    )
 }
 
 // ── Rail de servidores (esquerda) ───────────────────────────────
@@ -268,8 +394,8 @@ private fun ServerRail(
         modifier = Modifier
             .width(72.dp)
             .fillMaxHeight()
-            // Semi-transparente: deixa o fundo cosmico vazar atras do rail.
-            .background(astraColors.base.copy(alpha = 0.5f))
+            // Transparente: o fundo cosmico/StarField vaza inteiro atras do rail.
+            // So a borda direita e os tiles delimitam.
             // Borda direita destacada (paridade web: border-r border-(--border)).
             .drawBehind {
                 val x = size.width

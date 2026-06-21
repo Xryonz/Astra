@@ -10,6 +10,7 @@ import app.astra.mobile.feature.dm.domain.model.OpenedConversation
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.ServerRepository
+import app.astra.mobile.feature.server.domain.model.Server
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -38,6 +39,10 @@ class HomeViewModel @Inject constructor(
     // Evento one-shot: DM aberta pelo FAB -> a tela navega pro chat.
     private val _opened = MutableSharedFlow<OpenedConversation>(extraBufferCapacity = 1)
     val opened = _opened.asSharedFlow()
+
+    // Evento one-shot: constelacao criada -> a tela entra nela.
+    private val _serverCreated = MutableSharedFlow<Server>(extraBufferCapacity = 1)
+    val serverCreated = _serverCreated.asSharedFlow()
 
     init {
         load()
@@ -119,6 +124,24 @@ class HomeViewModel @Inject constructor(
         _state.update { it.copy(myStatus = status) }
         viewModelScope.launch { userRepository.setStatus(status) }
     }
+
+    // Forja constelacao (isGroup=false) ou aglomerado (true). Ao criar,
+    // recarrega so a lista de servidores (rail aparece na hora) e entra nela.
+    fun createServer(name: String, isGroup: Boolean) {
+        if (_state.value.creating || name.isBlank()) return
+        _state.update { it.copy(creating = true, createError = null) }
+        viewModelScope.launch {
+            serverRepository.createServer(name.trim(), isGroup)
+                .onSuccess { srv ->
+                    val servers = serverRepository.servers().getOrDefault(_state.value.servers)
+                    _state.update { it.copy(creating = false, servers = servers) }
+                    _serverCreated.tryEmit(srv)
+                }
+                .onFailure { e -> _state.update { it.copy(creating = false, createError = e.message ?: "Erro inesperado") } }
+        }
+    }
+
+    fun clearCreateError() = _state.update { it.copy(createError = null) }
 
     // logout flipa isLoggedIn -> AstraApp volta pro login sozinho.
     fun logout() = viewModelScope.launch { authRepository.logout() }

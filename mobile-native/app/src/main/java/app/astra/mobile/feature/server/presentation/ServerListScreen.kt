@@ -41,8 +41,9 @@ import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
+import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
-import app.astra.mobile.ui.components.TopBarAction
+import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
@@ -67,23 +68,19 @@ fun ServerListScreen(
                 title = "Constelacoes",
                 marginalia = "seu ceu",
                 onBack = onBack,
-                trailing = { TopBarAction("+", onClick = { showDialog = true }) },
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenJoin)
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "${AstraCopy.Action.joinServer} com um convite",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = astraColors.accent,
-                    modifier = Modifier.weight(1f),
-                )
-                Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
-            }
+            // Duas acoes claras (antes 'criar' era so um '+' no canto, dificil de achar).
+            ActionRow(
+                label = AstraCopy.Action.createServer,
+                sub = "criar a sua do zero",
+                onClick = { showDialog = true },
+            )
+            ActionRow(
+                label = "${AstraCopy.Action.joinServer} com um convite",
+                sub = "entrar numa que ja existe",
+                onClick = onOpenJoin,
+            )
+            HairlineRule(Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
             when {
                 state.loading -> ListSkeleton(avatar = true)
                 state.error != null -> CenterBox {
@@ -96,7 +93,7 @@ fun ServerListScreen(
                 }
                 state.servers.isEmpty() -> EmptyState(
                     line = AstraCopy.Empties.noServers.title,
-                    hint = "toque em + pra forjar uma",
+                    hint = "toque em Forjar constelacao acima",
                 )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.servers, key = { it.id }) { server ->
@@ -114,6 +111,24 @@ fun ServerListScreen(
             onConfirm = viewModel::createServer,
             onDismiss = { showDialog = false; viewModel.clearCreateError() },
         )
+    }
+}
+
+/** Linha de acao clara (label accent + sublabel) — Forjar / Orbitar. */
+@Composable
+private fun ActionRow(label: String, sub: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.accent)
+            MarginaliaLabel(sub)
+        }
+        Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
     }
 }
 

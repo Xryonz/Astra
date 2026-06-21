@@ -21,6 +21,7 @@ livekit = "2.26.0"
 livekitCompose = "2.4.0"
 desugar = "2.1.2"
 lucide = "1.1.0"
+browser = "1.8.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -51,6 +52,7 @@ livekit-android = { group = "io.livekit", name = "livekit-android", version.ref 
 livekit-android-compose = { group = "io.livekit", name = "livekit-android-compose-components", version.ref = "livekitCompose" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 lucide-icons = { group = "com.composables", name = "icons-lucide-android", version.ref = "lucide" }
+androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -3,6 +3,7 @@ package app.astra.mobile.feature.auth.data
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.AuthApi
+import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.LoginRequest
 import app.astra.mobile.core.network.dto.RegisterRequest
@@ -11,6 +12,7 @@ import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.feature.auth.domain.model.AuthUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.IOException
@@ -20,6 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
+    private val refreshApi: RefreshApi,
     private val tokenStore: TokenStore,
     private val json: Json,
 ) : AuthRepository {
@@ -78,6 +81,32 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun completeGoogleLogin(refreshToken: String): Result<Unit> {
+        return try {
+            // Troca o refresh do deep link por access + novo refresh (rotaciona).
+            val data = refreshApi.refresh("Bearer $refreshToken").data
+                ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            tokenStore.save(data.accessToken, data.refreshToken)
+            // userId pra deteccao de dono etc — decodificado do JWT (sem chamada extra).
+            userIdFromJwt(data.accessToken)?.let { tokenStore.setUserId(it) }
+            Result.success(Unit)
+        } catch (e: IOException) {
+            Result.failure(ApiException("Sem conexao com o servidor"))
+        } catch (e: Exception) {
+            Result.failure(ApiException("Nao foi possivel entrar com o Google"))
+        }
+    }
+
+    // Le o claim userId do payload do JWT (base64url). Falha -> null.
+    private fun userIdFromJwt(accessToken: String): String? = runCatching {
+        val payload = accessToken.split(".")[1]
+        val bytes = android.util.Base64.decode(
+            payload,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP,
+        )
+        json.decodeFromString<JwtPayload>(String(bytes, Charsets.UTF_8)).userId
+    }.getOrNull()
+
     override suspend fun logout() {
         tokenStore.clear()
     }
@@ -102,3 +131,7 @@ private fun UserDto.toDomain() = AuthUser(
     displayName = displayName ?: username,
     avatarUrl = avatarUrl,
 )
+
+// So o claim que precisamos do payload do JWT (ignoreUnknownKeys cobre jti/iat/exp).
+@Serializable
+private data class JwtPayload(val userId: String? = null)

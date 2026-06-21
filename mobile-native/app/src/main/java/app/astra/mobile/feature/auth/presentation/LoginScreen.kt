@@ -1,6 +1,10 @@
 package app.astra.mobile.feature.auth.presentation
 
+import android.content.Context
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,8 +32,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -40,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.BuildConfig
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialField
@@ -57,13 +64,24 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     LoginContent(
         state = state,
         onEmail = viewModel::onEmail,
         onPassword = viewModel::onPassword,
         onSubmit = viewModel::submit,
+        onGoogle = { openGoogleAuth(context) },
         onGoToRegister = onGoToRegister,
     )
+}
+
+// Abre o fluxo OAuth do Google numa Custom Tab. O backend redireciona pro deep
+// link astra://auth/callback#refresh=<token>, capturado no MainActivity.
+private fun openGoogleAuth(context: Context) {
+    val url = BuildConfig.BASE_URL + "api/auth/google?platform=mobile"
+    runCatching {
+        CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+    }
 }
 
 @Composable
@@ -72,6 +90,7 @@ private fun LoginContent(
     onEmail: (String) -> Unit,
     onPassword: (String) -> Unit,
     onSubmit: () -> Unit,
+    onGoogle: () -> Unit,
     onGoToRegister: () -> Unit,
 ) {
     CosmicBackground {
@@ -204,9 +223,55 @@ private fun LoginContent(
                 }
             }
 
+            Spacer(Modifier.height(20.dp))
+
+            // Divisor "ou" + login com Google (deep link astra:// pelo backend).
+            Reveal(delayMillis = 420) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { HairlineRule() }
+                    Text(
+                        text = "  ou  ",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = astraColors.text3,
+                    )
+                    Box(Modifier.weight(1f)) { HairlineRule() }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Reveal(delayMillis = 460) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(astraColors.raised)
+                        .border(1.dp, astraColors.borderMid, RoundedCornerShape(12.dp))
+                        .clickable(enabled = !state.loading, onClick = onGoogle),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "G",
+                            fontFamily = DmSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = astraColors.accent,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "Continuar com Google",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = astraColors.text1,
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(26.dp))
 
-            Reveal(delayMillis = 430) {
+            Reveal(delayMillis = 520) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -236,7 +301,7 @@ private fun LoginPreview() {
     AstraTheme {
         LoginContent(
             state = LoginUiState(email = "theo@astra.app", error = "E-mail ou senha incorretos"),
-            onEmail = {}, onPassword = {}, onSubmit = {}, onGoToRegister = {},
+            onEmail = {}, onPassword = {}, onSubmit = {}, onGoogle = {}, onGoToRegister = {},
         )
     }
 }

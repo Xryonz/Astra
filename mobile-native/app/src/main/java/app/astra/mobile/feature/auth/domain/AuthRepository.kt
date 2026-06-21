@@ -16,5 +16,9 @@ interface AuthRepository {
         password: String,
     ): Result<AuthUser>
 
+    // OAuth Google: o deep link astra://auth/callback traz so o refresh token.
+    // Aqui trocamos por access + setamos a sessao (isLoggedIn vira true).
+    suspend fun completeGoogleLogin(refreshToken: String): Result<Unit>
+
     suspend fun logout()
 }

@@ -48,7 +48,6 @@ import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.UserProfileScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
-import app.astra.mobile.feature.server.presentation.ServerListScreen
 import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
@@ -65,7 +64,6 @@ private object Routes {
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
-    const val SERVERS = "servers"
     const val JOIN = "join"
     const val SERVER_EDIT = "server/{serverId}/edit"
     fun serverEdit(id: String) = "server/$id/edit"
@@ -146,13 +144,6 @@ fun AstraApp() {
                 }
                 composable(Routes.PROFILE_EDIT) {
                     ProfileEditScreen(onBack = { nav.popBackStack() })
-                }
-                composable(Routes.SERVERS) {
-                    ServerListScreen(
-                        onBack = { nav.popBackStack() },
-                        onOpenServer = { id, name -> nav.navigate(Routes.channels(id, name)) },
-                        onOpenJoin = { nav.navigate(Routes.JOIN) },
-                    )
                 }
                 composable(Routes.JOIN) {
                     JoinServerScreen(

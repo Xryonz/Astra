@@ -116,6 +116,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    // Voltou pra Home -> recarrega o rail (pega icone/nome de servidor editado).
+    fun refreshServers() {
+        viewModelScope.launch {
+            serverRepository.servers().onSuccess { servers ->
+                _state.update { it.copy(servers = servers) }
+            }
+        }
+    }
+
     // Tap na DM -> some o dot na hora.
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
 

@@ -1,6 +1,5 @@
 package app.astra.mobile.feature.profile.presentation
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -52,6 +51,7 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
 
@@ -65,10 +65,10 @@ fun ProfileEditScreen(
 
     // Photo Picker do Android (sem permissao). Le os bytes e manda pro VM.
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImage(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadAvatar(bytes, mime, name) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadAvatar(bytes, mime, name) }
     }
     val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        readImage(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadBanner(bytes, mime, name) }
+        readImageBytes(ctx, uri)?.let { (bytes, mime, name) -> viewModel.uploadBanner(bytes, mime, name) }
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
@@ -273,24 +273,6 @@ private fun UploadChip(
             Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
         }
     }
-}
-
-/** Le os bytes + mime + nome (com extensao) de uma Uri do picker. */
-private fun readImage(ctx: android.content.Context, uri: Uri?): Triple<ByteArray, String, String>? {
-    if (uri == null) return null
-    val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
-    val bytes = runCatching {
-        ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-    }.getOrNull() ?: return null
-    return Triple(bytes, mime, "upload.${extFor(mime)}")
-}
-
-private fun extFor(mime: String): String = when (mime.substringBefore(';').trim().lowercase()) {
-    "image/gif" -> "gif"
-    "image/webp" -> "webp"
-    "image/png" -> "png"
-    "image/avif" -> "avif"
-    else -> "jpg"
 }
 
 /** "#RRGGBB" -> Color. Invalido/vazio -> null (usa fallback). */

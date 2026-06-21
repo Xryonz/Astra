@@ -9,7 +9,8 @@ data class ServerDto(
     val id: String,
     val name: String,
     val iconUrl: String? = null,
-    val inviteCode: String? = null, // GET /api/servers ja devolve (select * em servers)
+    val ownerId: String? = null, // GET /api/servers ja devolve (select * em servers)
+    val inviteCode: String? = null,
     val channels: List<ChannelDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,
 )
@@ -28,6 +29,13 @@ data class ServerCountDto(val members: Int = 0)
 
 @Serializable
 data class CreateServerRequest(val name: String)
+
+// PATCH /api/servers/:id — campos null omitidos (explicitNulls=false).
+@Serializable
+data class UpdateServerRequest(
+    val name: String? = null,
+    val iconUrl: String? = null,
+)
 
 // GET /api/servers/:id/members -> { data: [ { userId, user:{username,displayName,avatarUrl} } ] }
 // (ignora role/nameColor/roles[] etc via ignoreUnknownKeys)

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import android.content.Context
 import android.content.Intent
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Settings
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.ui.components.CosmicBackground
@@ -45,6 +48,7 @@ fun ChannelListScreen(
     onBack: () -> Unit,
     onOpenChannel: (channelId: String, channelName: String) -> Unit,
     onOpenVoice: (serverId: String, channelId: String, channelName: String) -> Unit,
+    onOpenEdit: () -> Unit,
     viewModel: ChannelListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -57,6 +61,18 @@ fun ChannelListScreen(
                 marginalia = "orbitas",
                 onBack = onBack,
                 trailing = {
+                    if (state.isOwner) {
+                        Icon(
+                            Lucide.Settings,
+                            contentDescription = "Editar constelacao",
+                            tint = astraColors.accent,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable(onClick = onOpenEdit)
+                                .padding(6.dp)
+                                .size(20.dp),
+                        )
+                    }
                     val code = state.inviteCode
                     if (!code.isNullOrBlank()) {
                         Text(

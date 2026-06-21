@@ -4,8 +4,10 @@ import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
+import app.astra.mobile.core.network.dto.UpdateServerRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -15,6 +17,10 @@ interface ServerApi {
 
     @POST("api/servers")
     suspend fun create(@Body body: CreateServerRequest): ApiEnvelope<ServerDto>
+
+    // Edita nome/icone (so dono/admin no backend; 403 se nao for).
+    @PATCH("api/servers/{id}")
+    suspend fun update(@Path("id") id: String, @Body body: UpdateServerRequest): ApiEnvelope<ServerDto>
 
     @GET("api/servers/{id}/members")
     suspend fun members(@Path("id") serverId: String): ApiEnvelope<List<ServerMemberDto>>

@@ -47,6 +47,7 @@ import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.UserProfileScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
+import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.server.presentation.ServerListScreen
 import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.session.SessionViewModel
@@ -66,6 +67,8 @@ private object Routes {
     const val DM_CHAT = "dm/{conversationId}?name={name}"
     const val SERVERS = "servers"
     const val JOIN = "join"
+    const val SERVER_EDIT = "server/{serverId}/edit"
+    fun serverEdit(id: String) = "server/$id/edit"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}"
@@ -167,12 +170,20 @@ fun AstraApp() {
                         navArgument("serverId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
-                ) {
+                ) { entry ->
+                    val serverId = entry.arguments?.getString("serverId").orEmpty()
                     ChannelListScreen(
                         onBack = { nav.popBackStack() },
                         onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
-                        onOpenVoice = { serverId, id, name -> nav.navigate(Routes.call(id, name, serverId)) },
+                        onOpenVoice = { sid, id, name -> nav.navigate(Routes.call(id, name, sid)) },
+                        onOpenEdit = { nav.navigate(Routes.serverEdit(serverId)) },
                     )
+                }
+                composable(
+                    route = Routes.SERVER_EDIT,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    ServerEditScreen(onBack = { nav.popBackStack() })
                 }
                 composable(
                     route = Routes.CHANNEL_CHAT,

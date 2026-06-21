@@ -5,6 +5,7 @@ import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.ServerDto
+import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.server.domain.ServerRepository
@@ -85,6 +86,21 @@ class ServerRepositoryImpl @Inject constructor(
     } catch (e: Exception) {
         Result.failure(ApiException("Nao foi possivel criar o servidor"))
     }
+
+    override suspend fun updateServer(id: String, name: String?, iconUrl: String?): Result<Server> = try {
+        val dto = serverApi.update(id, UpdateServerRequest(name = name, iconUrl = iconUrl)).data
+            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+        Result.success(dto.toDomain())
+    } catch (e: HttpException) {
+        val msg = e.response()?.errorBody()?.string()?.let {
+            runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
+        }
+        Result.failure(ApiException(msg ?: "Nao foi possivel salvar a constelacao"))
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Nao foi possivel salvar a constelacao"))
+    }
 }
 
 private fun ServerDto.toDomain() = Server(
@@ -93,6 +109,7 @@ private fun ServerDto.toDomain() = Server(
     iconUrl = iconUrl,
     memberCount = count?.members ?: 0,
     inviteCode = inviteCode,
+    ownerId = ownerId,
     channels = channels.map {
         Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt)
     },

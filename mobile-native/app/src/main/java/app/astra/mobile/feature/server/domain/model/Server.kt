@@ -7,6 +7,7 @@ data class Server(
     val memberCount: Int,
     val channels: List<Channel>,
     val inviteCode: String? = null,
+    val ownerId: String? = null,
 )
 
 data class Channel(

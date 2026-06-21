@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -142,24 +141,12 @@ fun ServerEditScreen(
 
                 Spacer(Modifier.height(24.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(
+                    AstraButton(
+                        text = "SALVAR",
                         onClick = viewModel::save,
-                        enabled = state.dirty && state.name.isNotBlank() && !state.saving,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = astraColors.accent,
-                            contentColor = astraColors.textInv,
-                            disabledContainerColor = astraColors.accent.copy(alpha = 0.4f),
-                            disabledContentColor = astraColors.textInv.copy(alpha = 0.7f),
-                        ),
-                        modifier = Modifier.height(46.dp),
-                    ) {
-                        if (state.saving) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = astraColors.textInv)
-                        } else {
-                            Text("SALVAR", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 0.16.em)
-                        }
-                    }
+                        enabled = state.dirty && state.name.isNotBlank(),
+                        loading = state.saving,
+                    )
                     if (state.saved) {
                         Spacer(Modifier.width(12.dp))
                         MarginaliaLabel("salvo ✓", color = astraColors.success)

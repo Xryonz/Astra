@@ -2,7 +2,6 @@ package app.astra.mobile.feature.home
 
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -104,6 +103,8 @@ import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
+import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
+import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
 
 @Composable
 fun HomeScreen(
@@ -158,11 +159,11 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Erro de gestao de categoria/canal -> Toast e limpa.
-    val context = LocalContext.current
+    // Erro de criar canal -> Toast (RikkaUI Scale, vermelho) e limpa.
+    val toastState = LocalToastHostState.current
     LaunchedEffect(state.manageError) {
         state.manageError?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            toastState.show(it, variant = ToastVariant.Destructive)
             viewModel.clearManageError()
         }
     }

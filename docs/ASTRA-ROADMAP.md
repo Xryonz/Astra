@@ -72,7 +72,28 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
 - **Criptografia:** E2EE so nas DMs e DEPOIS (canais ficam legiveis pro servidor -> preserva IA-resumo + busca). Agora: endurecer o basico.
 - **Proximo bloco:** Room + offline-first (UI le do banco local por Flow; rede so escreve). Base pro resto.
 - **Features T5 mantidas (todas):** IA resumir canal, aba de plugins, modo LAN, eco-mode. Swipe entra como win barato no fluxo normal de UI.
-- **Aberto p/ Rodada 2:** engine do banco (Room x SQLDelight), escopo do offline-first MVP, timing do desktop/KMP, ordem das features T5.
+
+### Rodada 2 (detalhe do bloco + sequencia)
+- **Banco local:** Room com KMP (2.7+ suporta Android + JVM desktop -> nao bloqueia o T4). Integra com Coroutines/Flow ja em uso.
+- **Offline-first MVP:** read-cache do chat (DMs+canais leem do Room instantaneo; socket/REST so ESCREVEM no Room; UI nunca espera rede). Envio offline (outbox) fica pra fase 2.
+- **Desktop/KMP:** so DEPOIS da paridade mobile (extrair shared, Retrofit->Ktor, Hilt->Koin).
+- **Ordem T5:** IA resumir canal (1o, reusa Claude) -> eco-mode -> modo LAN -> aba de plugins (ultimo).
+
+## Ordem de execucao (plano sequenciado — pos device-test)
+0. **Validar no device** o que ja shipou (auth, Home polish, perfil, 4c) + **redeploy da API** (fix do banner).
+1. **Room + offline-first (read-cache do chat):** Room KMP como fonte da verdade; UI observa `Flow`; socket/REST escrevem no Room. Sem envio offline ainda.
+2. **IA resumir canal:** `POST /api/channels/:id/summarize?since=<lastRead>` (reusa Claude do bot.ts) + botao no header do canal -> sheet com resumo.
+3. **Eco-mode:** toggle pausa anim / baixa polling / congela GIF; auto em bateria baixa.
+4. **Modo LAN:** descoberta mDNS/NSD + chat texto P2P (voz depois).
+5. **Aba de plugins:** API estavel + sandbox + escopo de permissao (read-only primeiro).
+- Transversal: RikkaUI copy-paste em componente NOVO (Material3 sai aos poucos); swipe como win barato; E2EE so DMs quando o produto pedir.
+- So apos paridade mobile: desktop/KMP (shared, Ktor, Koin, Compose MP, Conveyor, toggle HW-accel; LiveKit desktop = problema em aberto).
+
+### Room read-cache — fatiamento (quando comecar o bloco 1)
+- R1: dep Room KMP + entidades (MessageEntity/ConversationEntity) + DAO + DB.
+- R2: chat DM le do Room (Flow) -> abre instantaneo; REST/socket escrevem no Room (nao mais direto na UI).
+- R3: chat de canal igual (reusa o motor).
+- R4: cache de imagens/anexos (Coil disk cache) + retencao (limite por conversa).
 
 ## T4 — Desktop nativo + KMP  [FUTURO — depois da paridade mobile]
 Meta: reaproveitar o Kotlin do /mobile-native no desktop sem reescrever.

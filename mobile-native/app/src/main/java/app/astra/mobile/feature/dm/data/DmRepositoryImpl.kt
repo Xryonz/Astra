@@ -2,6 +2,8 @@ package app.astra.mobile.feature.dm.data
 
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.db.MessageDao
+import app.astra.mobile.core.db.MessageEntity
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.ConversationDto
@@ -15,10 +17,13 @@ import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.dm.domain.model.MessagesPage
 import app.astra.mobile.feature.dm.domain.model.OpenedConversation
 import app.astra.mobile.feature.dm.domain.model.TypingUser
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
@@ -33,6 +38,7 @@ class DmRepositoryImpl @Inject constructor(
     private val dmApi: DmApi,
     private val socketManager: SocketManager,
     private val tokenStore: TokenStore,
+    private val messageDao: MessageDao,
     private val json: Json,
 ) : DmRepository {
 
@@ -71,6 +77,8 @@ class DmRepositoryImpl @Inject constructor(
         val uid = tokenStore.currentUserId()
         val page = dmApi.messages(conversationId, cursor, PAGE_SIZE).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+        // SSOT: grava no Room; a UI le pelo observeMessages.
+        messageDao.upsert(page.items.map { it.toEntity(conversationId) })
         Result.success(
             MessagesPage(
                 messages = page.items.map { it.toDomain(uid) },
@@ -88,6 +96,7 @@ class DmRepositoryImpl @Inject constructor(
         val uid = tokenStore.currentUserId()
         val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId)).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+        messageDao.upsert(dto.toEntity(conversationId))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -97,6 +106,7 @@ class DmRepositoryImpl @Inject constructor(
 
     override suspend fun delete(conversationId: String, messageId: String): Result<Unit> = try {
         dmApi.deleteMessage(conversationId, messageId)
+        messageDao.deleteById(messageId)
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -130,20 +140,28 @@ class DmRepositoryImpl @Inject constructor(
 
     override fun leaveConversation(conversationId: String) = socketManager.leaveDm(conversationId)
 
-    override fun incomingMessages(conversationId: String): Flow<DmMessage> = flow {
+    override fun observeMessages(conversationId: String): Flow<List<DmMessage>> = flow {
         val uid = tokenStore.currentUserId()
-        socketManager.newDm.collect { raw ->
-            val dto = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull()
-            if (dto != null && dto.conversationId == conversationId) {
-                emit(dto.toDomain(uid))
+        coroutineScope {
+            // new_dm -> grava no Room (a msg que eu enviei tambem ecoa aqui; upsert dedupa por id).
+            launch {
+                socketManager.newDm.collect { raw ->
+                    val dto = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull()
+                    if (dto != null && dto.conversationId == conversationId) {
+                        messageDao.upsert(dto.toEntity(conversationId))
+                    }
+                }
             }
+            // dm_deleted -> remove do Room.
+            launch {
+                socketManager.dmDeleted.collect { (id, conv) ->
+                    if (conv == conversationId) messageDao.deleteById(id)
+                }
+            }
+            // Fonte da verdade: as linhas do Room mapeadas pro dominio (mine via uid atual).
+            emitAll(messageDao.observe(conversationId).map { rows -> rows.map { it.toDm(uid) } })
         }
     }
-
-    override fun deletedMessages(conversationId: String): Flow<String> =
-        socketManager.dmDeleted
-            .filter { it.second == conversationId }
-            .map { it.first }
 
     override fun typingEvents(conversationId: String): Flow<TypingUser> =
         socketManager.dmTyping
@@ -178,4 +196,29 @@ private fun DmMessageDto.toDomain(currentUserId: String?) = DmMessage(
     mine = senderId == currentUserId,
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,
+)
+
+// DTO -> linha do cache. authorId = senderId (mine e computado na leitura).
+private fun DmMessageDto.toEntity(conversationId: String) = MessageEntity(
+    id = id,
+    conversationId = conversationId,
+    authorId = senderId,
+    authorName = author?.displayName ?: author?.username ?: "Alguem",
+    authorAvatar = author?.avatarUrl,
+    content = content,
+    createdAt = createdAt,
+    replyToAuthor = replyTo?.authorName,
+    replyToContent = replyTo?.content,
+)
+
+// Linha do cache -> dominio. mine = autor sou eu (uid atual).
+private fun MessageEntity.toDm(uid: String?) = DmMessage(
+    id = id,
+    content = content,
+    authorName = authorName,
+    authorAvatar = authorAvatar,
+    createdAt = createdAt,
+    mine = authorId != null && authorId == uid,
+    replyToAuthor = replyToAuthor,
+    replyToContent = replyToContent,
 )

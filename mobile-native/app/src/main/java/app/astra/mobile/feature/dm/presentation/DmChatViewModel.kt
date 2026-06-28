@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.feature.dm.domain.DmRepository
-import app.astra.mobile.feature.dm.domain.model.DmMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -29,39 +28,26 @@ class DmChatViewModel @Inject constructor(
     init {
         repository.joinConversation(conversationId)
         viewModelScope.launch { repository.markRead(conversationId) }
+        observeMessages()
         loadHistory()
-        observeIncoming()
-        observeDeleted()
         observeTyping()
+    }
+
+    // SSOT: a tela so observa o cache (Room). new_dm/dm_deleted o repo dreno pro
+    // banco; o historico (loadHistory) tambem grava no banco. Sem mutar lista na mao.
+    private fun observeMessages() {
+        viewModelScope.launch {
+            repository.observeMessages(conversationId).collect { msgs ->
+                _state.update { it.copy(messages = msgs) }
+            }
+        }
     }
 
     private fun loadHistory() {
         viewModelScope.launch {
             repository.messages(conversationId, null)
-                .onSuccess { page -> _state.update { it.copy(loading = false, messages = page.messages) } }
+                .onSuccess { _state.update { it.copy(loading = false) } }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
-        }
-    }
-
-    // new_dm chega aqui (inclusive a propria msg que mandei) — dedupe por id.
-    private fun observeIncoming() {
-        viewModelScope.launch {
-            repository.incomingMessages(conversationId).collect(::addMessage)
-        }
-    }
-
-    private fun observeDeleted() {
-        viewModelScope.launch {
-            repository.deletedMessages(conversationId).collect { deletedId ->
-                _state.update { s -> s.copy(messages = s.messages.filterNot { it.id == deletedId }) }
-            }
-        }
-    }
-
-    private fun addMessage(msg: DmMessage) {
-        _state.update { s ->
-            if (s.messages.any { it.id == msg.id }) s
-            else s.copy(messages = s.messages + msg)
         }
     }
 
@@ -117,10 +103,8 @@ class DmChatViewModel @Inject constructor(
 
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
+            // Sucesso: o repo ja removeu do Room -> a lista atualiza pelo observeMessages.
             repository.delete(conversationId, messageId)
-                .onSuccess {
-                    _state.update { s -> s.copy(messages = s.messages.filterNot { it.id == messageId }) }
-                }
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
         }
     }
@@ -134,11 +118,9 @@ class DmChatViewModel @Inject constructor(
             it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
         }
         viewModelScope.launch {
+            // Sucesso: o repo grava a msg no Room -> aparece pelo observeMessages.
             repository.send(conversationId, text, replyId)
-                .onSuccess { msg ->
-                    addMessage(msg)
-                    _state.update { it.copy(sending = false) }
-                }
+                .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
                     // devolve o texto pro campo pra nao perder o que foi digitado
                     _state.update { it.copy(sending = false, error = e.message, input = text) }

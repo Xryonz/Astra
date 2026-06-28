@@ -10,6 +10,13 @@ import kotlinx.coroutines.flow.Flow
 interface DmRepository {
     suspend fun conversations(): Result<List<Conversation>>
 
+    /**
+     * SSOT: a UI observa o cache (Room). Enquanto coletado, tambem dreno o socket
+     * (new_dm/dm_deleted) pra dentro do Room — a tela so olha o banco.
+     */
+    fun observeMessages(conversationId: String): Flow<List<DmMessage>>
+
+    /** Busca o historico (REST) e grava no Room; a UI atualiza pelo observeMessages. */
     suspend fun messages(conversationId: String, cursor: String?): Result<MessagesPage>
 
     suspend fun send(conversationId: String, content: String, replyToId: String? = null): Result<DmMessage>
@@ -21,12 +28,6 @@ interface DmRepository {
     fun joinConversation(conversationId: String)
 
     fun leaveConversation(conversationId: String)
-
-    /** new_dm em tempo real, ja filtrado por conversa e mapeado pro dominio. */
-    fun incomingMessages(conversationId: String): Flow<DmMessage>
-
-    /** dm_deleted em tempo real — emite o id da mensagem removida. */
-    fun deletedMessages(conversationId: String): Flow<String>
 
     fun typingEvents(conversationId: String): Flow<TypingUser>
     fun startTyping(conversationId: String)

@@ -26,4 +26,8 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun clearConversation(conversationId: String)
+
+    // Logout: zera o cache pra mensagens nao vazarem pra proxima conta.
+    @Query("DELETE FROM messages")
+    suspend fun clearAll()
 }

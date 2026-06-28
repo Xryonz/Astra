@@ -2,6 +2,7 @@ package app.astra.mobile.feature.auth.data
 
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.db.MessageDao
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.dto.ApiError
@@ -24,6 +25,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
     private val refreshApi: RefreshApi,
     private val tokenStore: TokenStore,
+    private val messageDao: MessageDao,
     private val json: Json,
 ) : AuthRepository {
 
@@ -109,6 +111,8 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout() {
         tokenStore.clear()
+        // Zera o cache local de mensagens pra nao vazar pra proxima conta.
+        messageDao.clearAll()
     }
 
     // Le a mensagem amigavel do backend; se nao der, cai num fallback por status.

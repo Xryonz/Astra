@@ -49,6 +49,22 @@ data class UpdateServerRequest(
     val isPublic: Boolean? = null,
 )
 
+// POST /api/servers/:id/channels — cria canal (type TEXT|VOICE). categoryId NAO
+// e aceito no create; mover pra categoria e um PATCH separado.
+@Serializable
+data class CreateChannelRequest(val name: String, val type: String = "TEXT")
+
+// POST /api/servers/:id/categories
+@Serializable
+data class CreateCategoryRequest(val name: String)
+
+// PATCH /api/servers/:id/categories/:catId — rename/reposiciona (nulls omitidos).
+@Serializable
+data class UpdateCategoryRequest(
+    val name: String? = null,
+    val position: Int? = null,
+)
+
 // GET /api/servers/:id/members -> { data: [ { userId, user:{username,displayName,avatarUrl} } ] }
 // (ignora role/nameColor/roles[] etc via ignoreUnknownKeys)
 @Serializable

@@ -40,4 +40,6 @@ data class HomeUiState(
     // Popup de forjar constelacao/aglomerado
     val creating: Boolean = false,
     val createError: String? = null,
+    // Gestao de categorias/canais no painel (erro vira Toast e limpa).
+    val manageError: String? = null,
 )

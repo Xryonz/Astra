@@ -24,6 +24,7 @@ import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.ReactionChip
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.DeleteMessageDialog
+import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MessageListSkeleton
@@ -43,7 +44,7 @@ fun ChannelChatScreen(
     var pinnedOpen by remember { mutableStateOf(false) }
 
     CosmicBackground {
-        Column(Modifier.fillMaxSize().imePadding()) {
+        Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
             EditorialTopBar(
                 title = "# ${viewModel.channelName}",
                 marginalia = "orbita de texto",

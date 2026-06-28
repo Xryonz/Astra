@@ -23,6 +23,7 @@ import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.DeleteMessageDialog
+import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MessageListSkeleton
 import app.astra.mobile.ui.components.ReplyBanner
@@ -38,7 +39,7 @@ fun DmChatScreen(
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
 
     CosmicBackground {
-        Column(Modifier.fillMaxSize().imePadding()) {
+        Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
             EditorialTopBar(title = viewModel.otherName, marginalia = "sussurro", onBack = onBack)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {

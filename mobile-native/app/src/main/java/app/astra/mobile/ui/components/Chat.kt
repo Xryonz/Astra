@@ -1,12 +1,15 @@
 package app.astra.mobile.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -45,12 +49,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,6 +66,8 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSnappy
 import app.astra.mobile.ui.theme.astraColors
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialog as RAlertDialog
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogAction
 import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogActionVariant
@@ -126,21 +136,82 @@ fun MessageBubble(
         onTogglePin != null || onToggleReaction != null
     var menuOpen by remember { mutableStateOf(false) }
 
+    // Swipe-to-reply: arrasta a bolha no sentido do autor (recebida ->, minha <-,
+    // sempre pra dentro da tela). Passando do limite dispara onReply com haptic; a
+    // bolha volta com mola. swipeX so e lido dentro de graphicsLayer (deferido) ->
+    // o arraste nao recompoe a lista a cada frame.
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val maxDragPx = with(density) { 64.dp.toPx() }
+    val thresholdPx = with(density) { 44.dp.toPx() }
+    val swipeX = remember { Animatable(0f) }
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 3.dp),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
     ) {
-        Box {
+        Box(contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
+            // Seta de responder, revelada conforme o arraste passa do limite.
+            if (onReply != null) {
+                Text(
+                    text = "↩",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = astraColors.accent,
+                    modifier = Modifier
+                        .graphicsLayer {
+                            val p = (abs(swipeX.value) / thresholdPx).coerceIn(0f, 1f)
+                            alpha = p
+                            scaleX = 0.5f + 0.5f * p
+                            scaleY = 0.5f + 0.5f * p
+                        }
+                        .padding(horizontal = 10.dp),
+                )
+            }
             Column(
                 modifier = Modifier
                     .graphicsLayer {
                         alpha = enter.value
-                        translationX = (1f - enter.value) * fromX.dp.toPx()
+                        translationX = (1f - enter.value) * fromX.dp.toPx() + swipeX.value
                     }
                     .widthIn(max = 300.dp)
                     .clip(shape)
                     .background(bg)
                     .border(1.dp, borderColor, shape)
+                    .then(
+                        if (onReply != null) {
+                            Modifier.pointerInput(mine) {
+                                var triggered = false
+                                detectHorizontalDragGestures(
+                                    onDragStart = { triggered = false },
+                                    onHorizontalDrag = { change, dx ->
+                                        val next = swipeX.value + dx
+                                        val clamped =
+                                            if (mine) next.coerceIn(-maxDragPx, 0f)
+                                            else next.coerceIn(0f, maxDragPx)
+                                        change.consume()
+                                        scope.launch { swipeX.snapTo(clamped) }
+                                        if (!triggered && abs(clamped) >= thresholdPx) {
+                                            triggered = true
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        if (triggered) onReply()
+                                        scope.launch {
+                                            swipeX.animateTo(
+                                                0f,
+                                                spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
+                                            )
+                                        }
+                                    },
+                                    onDragCancel = { scope.launch { swipeX.animateTo(0f, spring()) } },
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    )
                     .then(
                         if (hasMenu) {
                             Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })

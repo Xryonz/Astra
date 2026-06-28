@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -359,7 +360,19 @@ fun ChatMessageList(
     var shownOnce by remember { mutableStateOf(false) }
     LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) shownOnce = true }
 
+    // Auto-follow: quando a msg mais nova muda, desce pro fim SE ela e minha
+    // (acabei de enviar) OU eu ja estava perto do fim. Nao puxa quem le o
+    // historico la em cima. reverseLayout: indice 0 = fim (mais nova).
+    val listState = rememberLazyListState()
+    val newest = rows.lastOrNull()
+    LaunchedEffect(newest?.id) {
+        if (newest != null && (newest.mine || listState.firstVisibleItemIndex <= 2)) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     LazyColumn(
+        state = listState,
         modifier = modifier,
         reverseLayout = true,
         contentPadding = PaddingValues(vertical = 10.dp),

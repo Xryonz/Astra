@@ -1,3 +1,7 @@
+// AGP 9 + newDsl=false: o DSL legado (android{}, kotlinOptions) e deprecated em
+// nivel de erro. Silenciado ate a migracao pro built-in Kotlin (junto do KMP/T4).
+@file:Suppress("DEPRECATION", "DEPRECATION_ERROR")
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -77,12 +81,16 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.lucide.icons) // icones Lucide (mesma familia do web)
     implementation(libs.androidx.browser) // Custom Tabs (OAuth Google)
+    implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (componentes copy-paste por cima)
     debugImplementation(libs.androidx.ui.tooling)
 
     // DI — Hilt (via KSP)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
+    // Hilt 2.60 gera codigo que referencia @CanIgnoreReturnValue (errorprone);
+    // nao vem mais transitivo no AGP 9 -> precisa explicito no classpath de compile.
+    implementation(libs.errorprone.annotations)
 
     // Rede — Retrofit + kotlinx.serialization + OkHttp
     implementation(libs.retrofit)

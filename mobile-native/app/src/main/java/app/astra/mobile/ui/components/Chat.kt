@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -46,7 +45,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -61,6 +59,8 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSnappy
 import app.astra.mobile.ui.theme.astraColors
+import zed.rainxch.rikkaui.components.ui.input.Input
+import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 
 /** Emojis de reacao rapida no long-press (espelha o quick-react do web). */
 val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
@@ -512,41 +512,23 @@ fun ChatInputBar(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
+        // Input RikkaUI: borda com Glow prata no foco (anel pulsa pra fora).
+        // Cores herdadas do RikkaTheme obsidian (ring/focusedBorder = accent).
+        Input(
+            value = text,
+            onValueChange = onInput,
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(22.dp))
-                .background(astraColors.raised)
-                .border(1.dp, astraColors.borderMid, RoundedCornerShape(22.dp))
-                .padding(horizontal = 16.dp, vertical = 11.dp),
-        ) {
-            BasicTextField(
-                value = text,
-                onValueChange = onInput,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = astraColors.text1),
-                cursorBrush = SolidColor(astraColors.accent),
-                maxLines = 4,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // Enter (teclado fisico) envia; Shift+Enter quebra linha.
-                    .onPreviewKeyEvent { e ->
-                        if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                            onSend(); true
-                        } else false
-                    },
-                decorationBox = { inner ->
-                    if (text.isEmpty()) {
-                        Text(
-                            text = "Mensagem",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontStyle = FontStyle.Italic,
-                            color = astraColors.text3,
-                        )
-                    }
-                    inner()
+                // Enter (teclado fisico) envia; Shift+Enter quebra linha.
+                .onPreviewKeyEvent { e ->
+                    if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
+                        onSend(); true
+                    } else false
                 },
-            )
-        }
+            placeholder = "Mensagem",
+            singleLine = false,
+            animation = InputAnimation.Glow,
+        )
         Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier

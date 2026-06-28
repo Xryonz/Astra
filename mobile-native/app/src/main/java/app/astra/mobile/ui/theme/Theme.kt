@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import zed.rainxch.rikkaui.foundation.RikkaTheme
 
 // Astra e dark-only por design. Mapeia os tokens cosmicos no ColorScheme do
 // Material3 (pros componentes prontos) + expoe os extras via LocalAstraColors.
@@ -33,8 +34,11 @@ fun AstraTheme(content: @Composable () -> Unit) {
         MaterialTheme(
             colorScheme = AstraDarkColors,
             typography = AstraTypography,
-            content = content,
-        )
+        ) {
+            // RikkaUI por cima: provê os tokens obsidian pros componentes RikkaUI
+            // (Input, etc.). Material3 e RikkaUI coexistem durante a migração.
+            RikkaTheme(colors = ObsidianRikkaColors, content = content)
+        }
     }
 }
 

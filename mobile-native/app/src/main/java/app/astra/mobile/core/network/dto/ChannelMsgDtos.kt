@@ -26,6 +26,14 @@ data class ReactionDto(
     val users: List<String> = emptyList(),
 )
 
+// Resposta REST do toggle de reacao: { action, reactions[] }. Aplicada de forma
+// otimista no cache (o socket reaction_update reaplica o mesmo resumo).
+@Serializable
+data class ReactResultDto(
+    val action: String = "",
+    val reactions: List<ReactionDto> = emptyList(),
+)
+
 // Evento socket reaction_update: { messageId, channelId, reactions[] }.
 @Serializable
 data class ReactionUpdateDto(

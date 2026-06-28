@@ -75,6 +75,8 @@ class ChannelRepositoryImpl @Inject constructor(
 
     override suspend fun edit(channelId: String, messageId: String, content: String): Result<Unit> = try {
         channelApi.editMessage(channelId, messageId, EditChannelRequest(content))
+        // Otimista: aplica no cache na hora (o socket message_edited reaplica o mesmo).
+        messageDao.applyEdit(messageId, content)
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -92,10 +94,17 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao apagar"))
     }
 
-    // Toggle no servidor; a UI atualiza pelo socket reaction_update (broadcast
-    // pra sala inclui o proprio autor). Fire-and-forget.
+    // Toggle no servidor; aplica o resumo autoritativo que a resposta REST devolve
+    // na hora (otimista). O socket reaction_update reaplica o mesmo — idempotente,
+    // porque o resumo e absoluto (nao incremental).
     override suspend fun react(channelId: String, messageId: String, emoji: String): Result<Unit> = try {
-        channelApi.react(channelId, messageId, ReactRequest(emoji))
+        val result = channelApi.react(channelId, messageId, ReactRequest(emoji)).data
+        if (result != null) {
+            messageDao.applyReactions(
+                messageId,
+                if (result.reactions.isEmpty()) null else json.encodeToString(result.reactions),
+            )
+        }
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -160,6 +169,8 @@ class ChannelRepositoryImpl @Inject constructor(
 
     override suspend fun pin(channelId: String, messageId: String, pinned: Boolean): Result<Unit> = try {
         if (pinned) channelApi.pin(channelId, messageId) else channelApi.unpin(channelId, messageId)
+        // Otimista: marca no cache na hora (o socket message_pinned reaplica o mesmo).
+        messageDao.applyPinned(messageId, pinned)
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))

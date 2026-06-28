@@ -5,6 +5,7 @@ import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.ChannelMessagesPageDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
 import app.astra.mobile.core.network.dto.ReactRequest
+import app.astra.mobile.core.network.dto.ReactResultDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -46,7 +47,7 @@ interface ChannelApi {
         @Path("cid") channelId: String,
         @Path("mid") messageId: String,
         @Body body: ReactRequest,
-    )
+    ): ApiEnvelope<ReactResultDto>
 
     @POST("api/channels/{cid}/messages/{mid}/pin")
     suspend fun pin(@Path("cid") channelId: String, @Path("mid") messageId: String)
@@ -54,7 +55,7 @@ interface ChannelApi {
     @DELETE("api/channels/{cid}/messages/{mid}/pin")
     suspend fun unpin(@Path("cid") channelId: String, @Path("mid") messageId: String)
 
-    @GET("api/channels/{cid}/pinned")
+    @GET("api/channels/{cid}/messages/pinned")
     suspend fun pinned(@Path("cid") channelId: String): ApiEnvelope<List<ChannelMessageDto>>
 
     @POST("api/channels/{cid}/read")

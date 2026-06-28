@@ -154,9 +154,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // ── Gestao de categorias/canais (painel inline) ──
-    // Cada acao chama o repo e recarrega os servers (reflete no painel). Falha
-    // vira manageError -> a tela mostra um Toast e limpa.
+    // ── Criar canal (painel inline) ──
+    // Chama o repo e recarrega os servers (reflete no painel). Falha vira
+    // manageError -> a tela mostra um Toast e limpa.
     private suspend fun reloadServers() {
         serverRepository.servers().onSuccess { servers -> _state.update { it.copy(servers = servers) } }
     }
@@ -167,13 +167,8 @@ class HomeViewModel @Inject constructor(
                 .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Acao falhou") } }
         }
     }
-    fun createCategory(serverId: String, name: String) = manage { serverRepository.createCategory(serverId, name) }
-    fun renameCategory(serverId: String, categoryId: String, name: String) = manage { serverRepository.renameCategory(serverId, categoryId, name) }
-    fun deleteCategory(serverId: String, categoryId: String) = manage { serverRepository.deleteCategory(serverId, categoryId) }
-    fun createChannel(serverId: String, name: String, isVoice: Boolean, categoryId: String?) =
-        manage { serverRepository.createChannel(serverId, name, isVoice, categoryId) }
-    fun moveChannel(serverId: String, channelId: String, categoryId: String?) =
-        manage { serverRepository.moveChannel(serverId, channelId, categoryId) }
+    fun createChannel(serverId: String, name: String, isVoice: Boolean) =
+        manage { serverRepository.createChannel(serverId, name, isVoice) }
     fun clearManageError() = _state.update { it.copy(manageError = null) }
 
     // Tap na DM -> some o dot na hora.

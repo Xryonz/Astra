@@ -3,11 +3,9 @@ package app.astra.mobile.feature.server.data
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.VoiceApi
-import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.ServerDto
-import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.realtime.SocketManager
@@ -19,9 +17,6 @@ import app.astra.mobile.feature.server.domain.model.ServerMember
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -109,46 +104,12 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Nao foi possivel salvar a constelacao"))
     }
 
-    override suspend fun createCategory(serverId: String, name: String): Result<Unit> = try {
-        serverApi.createCategory(serverId, CreateCategoryRequest(name.trim()))
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(apiError(e, "Nao foi possivel criar a categoria"))
-    }
-
-    override suspend fun renameCategory(serverId: String, categoryId: String, name: String): Result<Unit> = try {
-        serverApi.patchCategory(serverId, categoryId, UpdateCategoryRequest(name = name.trim()))
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(apiError(e, "Nao foi possivel renomear a categoria"))
-    }
-
-    override suspend fun deleteCategory(serverId: String, categoryId: String): Result<Unit> = try {
-        serverApi.deleteCategory(serverId, categoryId)
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(apiError(e, "Nao foi possivel excluir a categoria"))
-    }
-
-    override suspend fun createChannel(serverId: String, name: String, isVoice: Boolean, categoryId: String?): Result<Unit> = try {
+    override suspend fun createChannel(serverId: String, name: String, isVoice: Boolean): Result<Unit> = try {
         val type = if (isVoice) "VOICE" else "TEXT"
-        val newId = serverApi.createChannel(serverId, CreateChannelRequest(name.trim(), type)).data?.id
-        // O create nao aceita categoryId; se foi pedido numa categoria, move agora.
-        if (newId != null && categoryId != null) {
-            serverApi.patchChannel(serverId, newId, JsonObject(mapOf("categoryId" to JsonPrimitive(categoryId))))
-        }
+        serverApi.createChannel(serverId, CreateChannelRequest(name.trim(), type))
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(apiError(e, "Nao foi possivel criar o canal"))
-    }
-
-    override suspend fun moveChannel(serverId: String, channelId: String, categoryId: String?): Result<Unit> = try {
-        // categoryId:null EXPLICITO = sem categoria (JsonObject pra nao ser omitido).
-        val value = if (categoryId == null) JsonNull else JsonPrimitive(categoryId)
-        serverApi.patchChannel(serverId, channelId, JsonObject(mapOf("categoryId" to value)))
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(apiError(e, "Nao foi possivel mover o canal"))
     }
 
     // Le a mensagem amigavel do backend; senao cai no fallback.

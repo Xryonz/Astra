@@ -88,7 +88,6 @@ import com.composables.icons.lucide.UserPlus
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
-import app.astra.mobile.feature.server.domain.model.Category
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
@@ -327,11 +326,7 @@ fun HomeScreen(
                     onOpenChannel = { id, name -> viewModel.markChannelSeen(id); onOpenChannel(id, name) },
                     onJoinVoice = { id, name -> viewModel.markChannelSeen(id); onJoinVoice(id, name, srv.id) },
                     onEdit = { onOpenServerEdit(srv.id) },
-                    onCreateCategory = { name -> viewModel.createCategory(srv.id, name) },
-                    onRenameCategory = { catId, name -> viewModel.renameCategory(srv.id, catId, name) },
-                    onDeleteCategory = { catId -> viewModel.deleteCategory(srv.id, catId) },
-                    onCreateChannel = { name, isVoice, catId -> viewModel.createChannel(srv.id, name, isVoice, catId) },
-                    onMoveChannel = { chId, catId -> viewModel.moveChannel(srv.id, chId, catId) },
+                    onCreateChannel = { name, isVoice -> viewModel.createChannel(srv.id, name, isVoice) },
                 )
               }
             }
@@ -727,21 +722,11 @@ private fun ServerChannelsPanel(
     onOpenChannel: (String, String) -> Unit,
     onJoinVoice: (String, String) -> Unit,
     onEdit: () -> Unit,
-    onCreateCategory: (name: String) -> Unit,
-    onRenameCategory: (categoryId: String, name: String) -> Unit,
-    onDeleteCategory: (categoryId: String) -> Unit,
-    onCreateChannel: (name: String, isVoice: Boolean, categoryId: String?) -> Unit,
-    onMoveChannel: (channelId: String, categoryId: String?) -> Unit,
+    onCreateChannel: (name: String, isVoice: Boolean) -> Unit,
 ) {
     val context = LocalContext.current
-    // Categorias colapsadas (por id). Reset ao trocar de Constelacao.
-    var collapsed by remember(server.id) { mutableStateOf(emptySet<String>()) }
-    // Gestao (so dono): dialogs/sheet abertos por estado.
-    var showCreateCategory by remember { mutableStateOf(false) }
-    var renameTarget by remember { mutableStateOf<Category?>(null) }
-    var deleteTarget by remember { mutableStateOf<Category?>(null) }
-    var newChannelCat by remember { mutableStateOf<Category?>(null) }
-    var moveTarget by remember { mutableStateOf<Channel?>(null) }
+    // Criar canal (so dono): dialog aberto por estado.
+    var showCreateChannel by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         ServerPanelHeader(
@@ -749,7 +734,7 @@ private fun ServerChannelsPanel(
             isOwner = isOwner,
             onEdit = onEdit,
             onInvite = { server.inviteCode?.let { shareServerInvite(context, it) } },
-            onAddCategory = if (isOwner) ({ showCreateCategory = true }) else null,
+            onAddChannel = if (isOwner) ({ showCreateChannel = true }) else null,
         )
         if (server.channels.isEmpty()) {
             Text(
@@ -759,46 +744,21 @@ private fun ServerChannelsPanel(
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
             )
         } else {
-            val items = remember(server, collapsed) { buildChannelPanelItems(server, collapsed) }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 6.dp, bottom = 96.dp),
             ) {
                 itemsIndexed(
-                    items,
-                    key = { _, it ->
-                        when (it) {
-                            is ChannelPanelItem.Header -> "h_${it.category.id}"
-                            is ChannelPanelItem.Row -> it.channel.id
-                        }
-                    },
-                ) { i, item ->
+                    server.channels,
+                    key = { _, ch -> ch.id },
+                ) { i, ch ->
                     // Cascata: cada item entra com leve atraso (cap em 12 pra nao arrastar).
                     Reveal(delayMillis = i.coerceAtMost(12) * 42, durationMillis = 620, distance = 18f) {
-                        when (item) {
-                            is ChannelPanelItem.Header -> CategoryHeader(
-                                category = item.category,
-                                collapsed = item.category.id in collapsed,
-                                canManage = isOwner,
-                                onToggle = {
-                                    collapsed = if (item.category.id in collapsed) collapsed - item.category.id
-                                    else collapsed + item.category.id
-                                },
-                                onRename = { renameTarget = item.category },
-                                onNewChannel = { newChannelCat = item.category },
-                                onDelete = { deleteTarget = item.category },
-                            )
-                            is ChannelPanelItem.Row -> {
-                                val ch = item.channel
-                                ChannelRowFlat(
-                                    channel = ch,
-                                    unread = ch.id in channelUnread,
-                                    canManage = isOwner,
-                                    onLongPress = { moveTarget = ch },
-                                ) {
-                                    if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
-                                }
-                            }
+                        ChannelRowFlat(
+                            channel = ch,
+                            unread = ch.id in channelUnread,
+                        ) {
+                            if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
                         }
                     }
                 }
@@ -806,127 +766,11 @@ private fun ServerChannelsPanel(
         }
     }
 
-    // ── Dialogs/sheet de gestao ──
-    if (showCreateCategory) {
-        NamePromptDialog(
-            title = "Nova categoria",
-            label = "Nome da categoria",
-            confirm = "Criar",
-            onConfirm = { onCreateCategory(it); showCreateCategory = false },
-            onDismiss = { showCreateCategory = false },
-        )
-    }
-    renameTarget?.let { cat ->
-        NamePromptDialog(
-            title = "Renomear categoria",
-            label = "Nome da categoria",
-            initial = cat.name,
-            confirm = "Salvar",
-            onConfirm = { onRenameCategory(cat.id, it); renameTarget = null },
-            onDismiss = { renameTarget = null },
-        )
-    }
-    deleteTarget?.let { cat ->
-        ConfirmDialog(
-            title = "Excluir categoria",
-            message = "Os canais de \"${cat.name}\" voltam pra sem categoria. Confirmar?",
-            confirm = "Excluir",
-            onConfirm = { onDeleteCategory(cat.id); deleteTarget = null },
-            onDismiss = { deleteTarget = null },
-        )
-    }
-    newChannelCat?.let { cat ->
+    if (showCreateChannel) {
         CreateChannelDialog(
-            categoryName = cat.name,
-            onConfirm = { name, isVoice -> onCreateChannel(name, isVoice, cat.id); newChannelCat = null },
-            onDismiss = { newChannelCat = null },
+            onConfirm = { name, isVoice -> onCreateChannel(name, isVoice); showCreateChannel = false },
+            onDismiss = { showCreateChannel = false },
         )
-    }
-    moveTarget?.let { ch ->
-        MoveChannelSheet(
-            channel = ch,
-            categories = server.categories,
-            onMove = { catId -> onMoveChannel(ch.id, catId); moveTarget = null },
-            onDismiss = { moveTarget = null },
-        )
-    }
-}
-
-// Itens achatados do painel: header de categoria + linhas de canal, respeitando
-// colapso. Canais sem categoria vem primeiro (sem header, estilo Discord).
-private sealed interface ChannelPanelItem {
-    data class Header(val category: Category) : ChannelPanelItem
-    data class Row(val channel: Channel) : ChannelPanelItem
-}
-
-private fun buildChannelPanelItems(server: Server, collapsed: Set<String>): List<ChannelPanelItem> {
-    val items = mutableListOf<ChannelPanelItem>()
-    server.channels.filter { it.categoryId == null }.forEach { items += ChannelPanelItem.Row(it) }
-    server.categories.forEach { cat ->
-        items += ChannelPanelItem.Header(cat)
-        if (cat.id !in collapsed) {
-            server.channels.filter { it.categoryId == cat.id }.forEach { items += ChannelPanelItem.Row(it) }
-        }
-    }
-    return items
-}
-
-// Header de categoria (colapsavel): chevron + nome (marginalia uppercase).
-// Tap = colapsa/expande. Segurar (so dono) = menu renomear/novo canal/excluir.
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun CategoryHeader(
-    category: Category,
-    collapsed: Boolean,
-    canManage: Boolean,
-    onToggle: () -> Unit,
-    onRename: () -> Unit,
-    onNewChannel: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    var menuOpen by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(onClick = onToggle, onLongClick = { if (canManage) menuOpen = true })
-                .padding(start = 14.dp, end = 16.dp, top = 16.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                if (collapsed) Lucide.ChevronRight else Lucide.ChevronDown,
-                contentDescription = null,
-                tint = astraColors.text3,
-                modifier = Modifier.size(14.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            MarginaliaLabel(category.name, Modifier.weight(1f))
-            if (canManage) {
-                Icon(
-                    Lucide.Plus,
-                    contentDescription = "Adicionar canal",
-                    tint = astraColors.text3,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable(onClick = onNewChannel)
-                        .padding(2.dp)
-                        .size(16.dp),
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false },
-            modifier = Modifier.background(astraColors.overlay),
-        ) {
-            Column(Modifier.width(220.dp)) {
-                MenuRow("Renomear", Lucide.Settings) { menuOpen = false; onRename() }
-                HairlineRule()
-                MenuRow("Novo canal aqui", Lucide.Plus) { menuOpen = false; onNewChannel() }
-                HairlineRule()
-                MenuRow("Excluir categoria", Lucide.Trash2) { menuOpen = false; onDelete() }
-            }
-        }
     }
 }
 
@@ -937,7 +781,7 @@ private fun ServerPanelHeader(
     isOwner: Boolean,
     onEdit: () -> Unit,
     onInvite: () -> Unit,
-    onAddCategory: (() -> Unit)? = null,
+    onAddChannel: (() -> Unit)? = null,
 ) {
     val base = astraColors.base
     Column(Modifier.fillMaxWidth()) {
@@ -981,9 +825,9 @@ private fun ServerPanelHeader(
             if (!server.inviteCode.isNullOrBlank()) {
                 CircleIconBtn(Lucide.UserPlus, "Convidar", onInvite)
             }
-            onAddCategory?.let {
+            onAddChannel?.let {
                 Spacer(Modifier.width(8.dp))
-                CircleIconBtn(Lucide.Plus, "Nova categoria", it)
+                CircleIconBtn(Lucide.Plus, "Novo canal", it)
             }
             if (isOwner) {
                 Spacer(Modifier.width(8.dp))
@@ -997,20 +841,17 @@ private fun ServerPanelHeader(
 }
 
 // Linha de orbita flat (estilo Discord): # / 🔊 + nome, sem borda. Nao-lido fica
-// mais claro com dot; voz mostra rotulo. Segurar (so dono) = "Mover para...".
-@OptIn(ExperimentalFoundationApi::class)
+// mais claro com dot; voz mostra rotulo.
 @Composable
 private fun ChannelRowFlat(
     channel: Channel,
     unread: Boolean,
-    canManage: Boolean,
-    onLongPress: () -> Unit,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = { if (canManage) onLongPress() })
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1036,67 +877,9 @@ private fun ChannelRowFlat(
     }
 }
 
-// ── Dialog generico de nome (criar/renomear categoria) ──
-@Composable
-private fun NamePromptDialog(
-    title: String,
-    label: String,
-    confirm: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-    initial: String = "",
-) {
-    var name by remember { mutableStateOf(initial) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                singleLine = true,
-                label = { Text(label) },
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name.trim()) }, enabled = name.isNotBlank()) {
-                Text(confirm, color = astraColors.accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = astraColors.text2) }
-        },
-    )
-}
-
-// ── Confirmacao destrutiva (excluir categoria) ──
-@Composable
-private fun ConfirmDialog(
-    title: String,
-    message: String,
-    confirm: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = { Text(message, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(confirm, color = astraColors.danger) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = astraColors.text2) }
-        },
-    )
-}
-
-// ── Criar canal numa categoria: nome + tipo (texto/voz) ──
+// ── Criar canal: nome + tipo (texto/voz) ──
 @Composable
 private fun CreateChannelDialog(
-    categoryName: String,
     onConfirm: (name: String, isVoice: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1108,7 +891,6 @@ private fun CreateChannelDialog(
         title = { Text("Novo canal", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("em $categoryName", style = MaterialTheme.typography.bodySmall, color = astraColors.text3)
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -1128,60 +910,6 @@ private fun CreateChannelDialog(
             TextButton(onClick = onDismiss) { Text("Cancelar", color = astraColors.text2) }
         },
     )
-}
-
-// ── Mover canal: sheet com "sem categoria" + cada categoria ──
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MoveChannelSheet(
-    channel: Channel,
-    categories: List<Category>,
-    onMove: (categoryId: String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        dragHandle = {
-            Box(
-                Modifier
-                    .padding(top = 10.dp)
-                    .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(astraColors.borderMid),
-            )
-        },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 18.dp)
-                .padding(bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Mover \"${channel.name}\"",
-                style = MaterialTheme.typography.titleLarge,
-                color = astraColors.text1,
-                modifier = Modifier.padding(vertical = 8.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            OptionRow(
-                title = "Sem categoria",
-                selected = channel.categoryId == null,
-                onClick = { onMove(null) },
-            )
-            categories.forEach { cat ->
-                OptionRow(
-                    title = cat.name,
-                    selected = channel.categoryId == cat.id,
-                    onClick = { onMove(cat.id) },
-                )
-            }
-        }
-    }
 }
 
 // ── Busca + Adicionar amigos ────────────────────────────────────

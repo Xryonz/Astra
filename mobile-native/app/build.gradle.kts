@@ -81,7 +81,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.lucide.icons) // icones Lucide (mesma familia do web)
     implementation(libs.androidx.browser) // Custom Tabs (OAuth Google)
-    implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (componentes copy-paste por cima)
+    implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (tokens)
+    implementation(libs.rikkaui.components) // RikkaUI: componentes (Input, Dialog, Avatar...); ejeta p/ copy-paste ao customizar
     debugImplementation(libs.androidx.ui.tooling)
 
     // DI — Hilt (via KSP)

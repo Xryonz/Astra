@@ -60,6 +60,7 @@ desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", ver
 lucide-icons = { group = "com.composables", name = "icons-lucide-android", version.ref = "lucide" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 rikkaui-foundation = { group = "dev.rikkaui", name = "foundation", version.ref = "rikkaui" }
+rikkaui-components = { group = "dev.rikkaui", name = "components", version.ref = "rikkaui" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorprone" }
 
 [plugins]

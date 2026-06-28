@@ -67,6 +67,13 @@ Regra: nunca pular etapas; perguntar a cada passo como progredir.
 - Free tier: Render/Zeabur (API) · Supabase (PG/Timescale) · Upstash (Redis)
 - Agora: tabela messages "partition-ready"; migrar p/ Timescale so sob volume
 
+## Decisoes de planejamento — Rodada 1 (2026-06-27)
+- **RikkaUI:** adotar via copy-paste/CLI, MIGRACAO GRADUAL (componente novo nasce RikkaUI; Material3 sai aos poucos). Nao refatorar tudo de uma vez.
+- **Criptografia:** E2EE so nas DMs e DEPOIS (canais ficam legiveis pro servidor -> preserva IA-resumo + busca). Agora: endurecer o basico.
+- **Proximo bloco:** Room + offline-first (UI le do banco local por Flow; rede so escreve). Base pro resto.
+- **Features T5 mantidas (todas):** IA resumir canal, aba de plugins, modo LAN, eco-mode. Swipe entra como win barato no fluxo normal de UI.
+- **Aberto p/ Rodada 2:** engine do banco (Room x SQLDelight), escopo do offline-first MVP, timing do desktop/KMP, ordem das features T5.
+
 ## T4 — Desktop nativo + KMP  [FUTURO — depois da paridade mobile]
 Meta: reaproveitar o Kotlin do /mobile-native no desktop sem reescrever.
 - **KMP (Kotlin Multiplatform)** — mover `data/` + `domain/` (repos, use cases, models, DTOs) pra um modulo `shared` que compila pra Android + JVM Desktop. Comecar extraindo 1 feature pequena (auth) pro shared, validar nos 2 targets, migrar o resto. Tensao: Hilt e Retrofit sao Android-only (ver T6) — trocar antes.
@@ -89,6 +96,12 @@ Meta: reaproveitar o Kotlin do /mobile-native no desktop sem reescrever.
 - **Melhorar offline-first** — outbox pattern: msg enviada offline entra numa fila local (Room) com status "enviando", UI otimista; um worker (WorkManager no Android) drena a fila quando a conexao volta; reconcilia por id pra nao duplicar. Casa direto com o Room.
 - **Coroutines & Flow** — JA em uso (Retrofit suspend, SocketManager como SharedFlow, StateFlow nos VMs). Proximo: ligar o Room por Flow pra UI atualizar sozinha quando o cache muda (sem refetch manual) — e a cola do offline-first.
 - **Hilt** — JA em uso (DI do Android). Atencao pro KMP: Hilt e Android-only. Ao extrair o `shared`, a DI dele vira Koin ou manual. Padrao comum: Koin no shared, Hilt so na borda Android. Decidir no T4.
+
+## Stack de UI — RikkaUI  [user: copy-paste/CLI, migracao gradual]
+- **O que e:** lib de componentes + design system pro Compose, estilo shadcn/ui (`compose.foundation` puro, ZERO Material3, Compose Multiplatform). v0.3.0 (pre-1.0). Repo rainxchzed/RikkaUi, docs rikkaui.dev. 2 modos: Gradle dep (`dev.rikkaui:foundation/components:0.3.0`) OU CLI copy-paste (voce dona o codigo-fonte).
+- **Encaixe:** alinha com a filosofia do projeto (shadcn = primitivo + estetica editorial por cima) e com o desktop (Compose MP reusa). Substitui/encorpa a camada de primitivos do mobile.
+- **Mentor — recomendacao:** adotar pelo modo COPY-PASTE/CLI (dona o snapshot) — insula da rotatividade de API pre-1.0 e casa com "editorial por cima do primitivo". NAO arrancar o Material3 de uma vez: usar RikkaUI em componente NOVO e migrar aos poucos (hoje o app usa M3 forte: ModalBottomSheet, AlertDialog, DropdownMenu, Button, MaterialTheme typography).
+- **Tensao:** RikkaUI = foundation puro x app hoje = Material3. Migracao total e refactor grande -> gradual.
 
 ## Perf Compose — notas (do user, aplicar sempre)
 - **Adiar leitura de estado:** estado que muda todo frame (posicao de menu deslizando, offset de swipe) vai em modifier-lambda (`Modifier.offset { IntOffset(x,0) }`, `graphicsLayer { }`) — le na fase de layout/draw, NAO na composicao -> nao recompoe a tela inteira por frame (mata o jank). Ja fazemos no `Reveal` (graphicsLayer).

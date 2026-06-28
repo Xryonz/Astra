@@ -97,6 +97,11 @@ dependencies {
     implementation(libs.coil.gif) // decoder GIF/WebP animado (avatar/banner animados)
     implementation(libs.androidx.datastore.preferences)
 
+    // Banco local — Room (cache de mensagens, base do offline-first). KSP gera o impl.
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx) // suspend + Flow nas queries
+    ksp(libs.androidx.room.compiler)
+
     // Realtime — Socket.io client (protocolo Engine.io, fala com o server v4)
     implementation(libs.socketio.client)
 

@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,7 +23,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -338,8 +335,6 @@ data class ChatRow(
     val reactions: List<ReactionChip> = emptyList(),
     val replyAuthor: String? = null,
     val replyContent: String? = null,
-    // Hora "HH:mm" — usada no cabecalho da linha plana (canal). Bolha ignora.
-    val time: String = "",
 )
 
 /**
@@ -392,175 +387,6 @@ fun ChatMessageList(
                 onReply = { onReply(row) },
                 onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
                 onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
-            )
-        }
-    }
-}
-
-/**
- * Linha plana editorial (canal): cabecalho NOME · hora so no 1o do grupo, quote
- * de reply com barra amber, reacoes e menu de long-press. Sem bolha — densidade
- * de "coluna de jornal". Mensagens seguidas do mesmo autor agrupam.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun FlatMessageRow(
-    mine: Boolean,
-    authorName: String,
-    time: String,
-    content: String,
-    showHeader: Boolean,
-    animateIn: Boolean,
-    edited: Boolean = false,
-    pinned: Boolean = false,
-    reactions: List<ReactionChip> = emptyList(),
-    replyAuthor: String? = null,
-    replyContent: String? = null,
-    onEdit: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null,
-    onReply: (() -> Unit)? = null,
-    onTogglePin: (() -> Unit)? = null,
-    onToggleReaction: ((String) -> Unit)? = null,
-) {
-    val hasMenu = onEdit != null || onDelete != null || onReply != null ||
-        onTogglePin != null || onToggleReaction != null
-    var menuOpen by remember { mutableStateOf(false) }
-    val enter = remember { Animatable(if (animateIn) 0f else 1f) }
-    LaunchedEffect(Unit) { if (animateIn) enter.animateTo(1f, tween(360, easing = EaseSnappy)) }
-
-    Box {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    alpha = enter.value
-                    translationX = (1f - enter.value) * (-18f).dp.toPx()
-                }
-                .then(
-                    if (hasMenu) Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })
-                    else Modifier,
-                )
-                .padding(horizontal = 18.dp)
-                .padding(top = if (showHeader) 8.dp else 1.dp, bottom = 1.dp),
-        ) {
-            if (showHeader) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 1.dp),
-                ) {
-                    Text(
-                        text = authorName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (mine) astraColors.text1 else astraColors.accent,
-                    )
-                    if (time.isNotEmpty()) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(time, style = MaterialTheme.typography.labelSmall, color = astraColors.text3)
-                    }
-                }
-            }
-            if (pinned) {
-                Text("📌 fixado", style = MaterialTheme.typography.labelSmall, color = astraColors.accent)
-            }
-            if (replyContent != null) {
-                Row(modifier = Modifier.height(IntrinsicSize.Min).padding(vertical = 2.dp)) {
-                    Box(
-                        Modifier.width(2.dp).fillMaxHeight()
-                            .clip(RoundedCornerShape(1.dp)).background(astraColors.accent),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "↩ ${replyAuthor ?: "mensagem"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = astraColors.accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = replyContent,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = astraColors.text3,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-            Text(text = content, style = MaterialTheme.typography.bodyLarge, color = astraColors.text1)
-            if (edited) {
-                Text(
-                    text = "editado",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontStyle = FontStyle.Italic,
-                    color = astraColors.text3,
-                )
-            }
-            MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 4.dp))
-        }
-        if (hasMenu) {
-            MessageActionsMenu(
-                expanded = menuOpen,
-                onDismiss = { menuOpen = false },
-                pinned = pinned,
-                onEdit = onEdit,
-                onDelete = onDelete,
-                onReply = onReply,
-                onTogglePin = onTogglePin,
-                onToggleReaction = onToggleReaction,
-            )
-        }
-    }
-}
-
-/**
- * Lista plana do canal (reverseLayout, mais nova embaixo). Agrupa mensagens
- * seguidas do mesmo autor (cabecalho so no 1o). Anima a entrada de msg nova.
- */
-@Composable
-fun ChannelMessageList(
-    rows: List<ChatRow>,
-    modifier: Modifier = Modifier,
-    onEdit: (ChatRow) -> Unit = {},
-    onDelete: (ChatRow) -> Unit = {},
-    onReply: (ChatRow) -> Unit = {},
-    onTogglePin: (ChatRow) -> Unit = {},
-    onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
-) {
-    val animated = remember { mutableSetOf<String>() }
-    val display = rows.asReversed()
-
-    LazyColumn(
-        modifier = modifier,
-        reverseLayout = true,
-        contentPadding = PaddingValues(vertical = 10.dp),
-    ) {
-        itemsIndexed(display, key = { _, row -> row.id }) { index, row ->
-            // display vai do mais novo (0) ao mais velho. O "anterior cronologico"
-            // e o proximo item; autor diferente => novo grupo => mostra cabecalho.
-            val showHeader = display.getOrNull(index + 1)?.authorName != row.authorName
-            val isNew = remember(row.id) {
-                val n = row.id !in animated
-                animated.add(row.id)
-                n
-            }
-            FlatMessageRow(
-                mine = row.mine,
-                authorName = row.authorName,
-                time = row.time,
-                content = row.content,
-                showHeader = showHeader,
-                animateIn = isNew,
-                edited = row.edited,
-                pinned = row.pinned,
-                reactions = row.reactions,
-                replyAuthor = row.replyAuthor,
-                replyContent = row.replyContent,
-                onEdit = if (row.mine) ({ onEdit(row) }) else null,
-                onDelete = if (row.mine) ({ onDelete(row) }) else null,
-                onReply = { onReply(row) },
-                onTogglePin = { onTogglePin(row) },
-                onToggleReaction = { emoji: String -> onToggleReaction(row, emoji) },
             )
         }
     }

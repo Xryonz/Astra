@@ -18,8 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import app.astra.mobile.ui.components.ChannelMessageList
 import app.astra.mobile.ui.components.ChatInputBar
+import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.ReactionChip
 import app.astra.mobile.ui.components.CosmicBackground
@@ -77,13 +77,14 @@ fun ChannelChatScreen(
                                     reactions = m.reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,
-                                    time = clock(m.createdAt),
                                 )
                             }
                         }
-                        ChannelMessageList(
+                        ChatMessageList(
                             rows = rows,
                             modifier = Modifier.fillMaxSize(),
+                            canReact = true,
+                            canPin = true,
                             onEdit = { viewModel.startEdit(it.id, it.content) },
                             onDelete = { deleteTarget = it },
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
@@ -137,11 +138,3 @@ fun ChannelChatScreen(
         )
     }
 }
-
-// ISO -> "HH:mm" no fuso do aparelho. Vazio se nao parsear (cabecalho omite a hora).
-private val clockFmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
-private fun clock(iso: String?): String = iso?.let {
-    runCatching {
-        java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).format(clockFmt)
-    }.getOrNull()
-}.orEmpty()

@@ -107,10 +107,9 @@ fun DmChatScreen(
         }
     }
 
-    deleteTarget?.let { target ->
-        DeleteMessageDialog(
-            onConfirm = { viewModel.deleteMessage(target.id); deleteTarget = null },
-            onDismiss = { deleteTarget = null },
-        )
-    }
+    DeleteMessageDialog(
+        open = deleteTarget != null,
+        onConfirm = { deleteTarget?.let { viewModel.deleteMessage(it.id) }; deleteTarget = null },
+        onDismiss = { deleteTarget = null },
+    )
 }

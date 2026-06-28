@@ -60,6 +60,13 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSnappy
 import app.astra.mobile.ui.theme.astraColors
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialog as RAlertDialog
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogAction
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogActionVariant
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogAnimation
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogCancel
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogFooter
+import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogHeader
 import zed.rainxch.rikkaui.components.ui.input.Input
 import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 
@@ -499,17 +506,31 @@ fun PinnedMessagesDialog(items: List<Pair<String, String>>, onDismiss: () -> Uni
     )
 }
 
-/** Confirmacao de apagar mensagem (compartilhada DM + canal). */
+/**
+ * Confirmacao de apagar mensagem (compartilhada DM + canal). RikkaUI AlertDialog
+ * com FadeScale — fica composto sempre; `open` dirige a entrada/saida animada.
+ */
 @Composable
-fun DeleteMessageDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        title = { Text("Apagar mensagem?", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = { Text("Isso remove a mensagem pra todo mundo.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Apagar", color = astraColors.danger) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = astraColors.text2) } },
-    )
+fun DeleteMessageDialog(open: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    RAlertDialog(
+        open = open,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+        animation = AlertDialogAnimation.FadeScale,
+    ) {
+        AlertDialogHeader(
+            title = "Apagar mensagem?",
+            description = "Isso remove a mensagem pra todo mundo.",
+        )
+        AlertDialogFooter {
+            AlertDialogCancel(onClick = onDismiss, text = "Cancelar")
+            AlertDialogAction(
+                text = "Apagar",
+                onClick = onConfirm,
+                variant = AlertDialogActionVariant.Destructive,
+            )
+        }
+    }
 }
 
 /** Composer cosmico: pill input + botao enviar circular. Enter envia, Shift+Enter quebra linha. */

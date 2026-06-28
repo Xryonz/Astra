@@ -53,7 +53,9 @@ fun ChannelChatScreen(
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    state.loading -> MessageListSkeleton()
+                    // So mostra skeleton se NAO tem cache ainda; com cache (Room),
+                    // a lista aparece na hora e o REST atualiza por baixo.
+                    state.loading && state.messages.isEmpty() -> MessageListSkeleton()
                     state.messages.isEmpty() -> Text(
                         text = "Silencio nesta orbita — solte a primeira transmissao",
                         style = MaterialTheme.typography.bodyMedium,

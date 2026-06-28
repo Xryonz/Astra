@@ -73,15 +73,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChevronDown
-import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Link
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageSquarePlus
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Sparkles
-import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.UserPlus
+import com.composables.icons.lucide.Users
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
@@ -122,8 +122,7 @@ fun HomeScreen(
     var showDialog by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    // Popup de criar: chooser (servidor/grupo/convite) -> dialog de forjar.
-    var createChooser by remember { mutableStateOf(false) }
+    // Criar: o dropdown do "+" (servidor/grupo/convite) leva ao dialog de forjar.
     var showForge by remember { mutableStateOf(false) }
     var forgeAsGroup by remember { mutableStateOf(false) }
     // Sheet do perfil (sobe de baixo ao tocar no bottom bar).
@@ -183,7 +182,9 @@ fun HomeScreen(
                     onSelectDms = { viewModel.selectServer(null) },
                     onSelectServer = { viewModel.selectServer(it) },
                     onEditServer = onOpenServerEdit,
-                    onAddServer = { createChooser = true },
+                    onCreateServer = { forgeAsGroup = false; showForge = true },
+                    onCreateGroup = { forgeAsGroup = true; showForge = true },
+                    onJoinInvite = onOpenJoin,
                 )
 
             // Painel sobreposto ao rail: canto arredondado no topo-esquerda +
@@ -372,14 +373,6 @@ fun HomeScreen(
         onDismiss = { showDialog = false; viewModel.clearOpenError() },
     )
 
-    if (createChooser) {
-        CreateChooserDialog(
-            onServer = { createChooser = false; forgeAsGroup = false; showForge = true },
-            onGroup = { createChooser = false; forgeAsGroup = true; showForge = true },
-            onJoin = { createChooser = false; onOpenJoin() },
-            onDismiss = { createChooser = false },
-        )
-    }
     ForgeDialog(
         open = showForge,
         isGroup = forgeAsGroup,
@@ -390,61 +383,6 @@ fun HomeScreen(
     )
 }
 
-// ── Bottom sheet: forjar constelacao / aglomerado / orbitar com convite ──
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CreateChooserDialog(
-    onServer: () -> Unit,
-    onGroup: () -> Unit,
-    onJoin: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        dragHandle = {
-            Box(
-                Modifier
-                    .padding(top = 10.dp)
-                    .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(astraColors.borderMid),
-            )
-        },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 18.dp)
-                .padding(bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Forjar ou orbitar",
-                style = MaterialTheme.typography.titleLarge,
-                color = astraColors.text1,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-            ChooserRow(AstraCopy.Action.createServer, AstraCopy.Desc.constelacao, onServer)
-            ChooserRow(AstraCopy.Action.createGroup, AstraCopy.Desc.aglomerado, onGroup)
-            ChooserRow("${AstraCopy.Action.joinServer} com um convite", "entrar numa que ja existe", onJoin)
-        }
-    }
-}
-
-@Composable
-private fun ChooserRow(label: String, sub: String, onClick: () -> Unit) {
-    OptionRow(
-        title = label,
-        sub = sub,
-        onClick = onClick,
-        titleColor = astraColors.accent,
-        trailing = {
-            Text("›", fontFamily = DmSerif, color = astraColors.text3, style = MaterialTheme.typography.titleLarge)
-        },
-    )
-}
 
 // ── Dialog de forjar (nome) — serve servidor e grupo ──
 @Composable
@@ -499,7 +437,9 @@ private fun ServerRail(
     onSelectDms: () -> Unit,
     onSelectServer: (String) -> Unit,
     onEditServer: (String) -> Unit,
-    onAddServer: () -> Unit,
+    onCreateServer: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onJoinInvite: () -> Unit,
 ) {
     val context = LocalContext.current
     Column(
@@ -534,8 +474,58 @@ private fun ServerRail(
                 onInvite = { srv.inviteCode?.let { shareServerInvite(context, it) } },
             )
         }
-        RailTile(active = false, onClick = onAddServer) {
+        RailAddMenu(
+            onCreateServer = onCreateServer,
+            onCreateGroup = onCreateGroup,
+            onJoinInvite = onJoinInvite,
+        )
+    }
+}
+
+// "+" do rail: clicar abre um dropdown (mesmo estilo do menu de segurar um
+// servidor) com criar servidor / grupo / entrar com convite — no lugar do
+// bottom sheet, economizando um passo. Ancora no proprio tile, abre a direita.
+@Composable
+private fun RailAddMenu(
+    onCreateServer: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onJoinInvite: () -> Unit,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(shape)
+                .background(astraColors.raised)
+                .border(1.dp, astraColors.border, shape)
+                .clickable { menuOpen = true },
+            contentAlignment = Alignment.Center,
+        ) {
             Text("+", fontFamily = DmSerif, fontSize = 24.sp, color = astraColors.accent)
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                offset = DpOffset(x = 56.dp, y = (-48).dp),
+                modifier = Modifier.background(astraColors.overlay),
+            ) {
+                Column(Modifier.width(248.dp)) {
+                    Text(
+                        text = "Forjar ou orbitar",
+                        fontFamily = DmSerif,
+                        fontSize = 18.sp,
+                        color = astraColors.text1,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                    HairlineRule()
+                    MenuRow("Criar servidor", Lucide.Sparkles) { menuOpen = false; onCreateServer() }
+                    HairlineRule()
+                    MenuRow("Criar grupo", Lucide.Users) { menuOpen = false; onCreateGroup() }
+                    HairlineRule()
+                    MenuRow("Entrar com convite", Lucide.Link) { menuOpen = false; onJoinInvite() }
+                }
+            }
         }
     }
 }

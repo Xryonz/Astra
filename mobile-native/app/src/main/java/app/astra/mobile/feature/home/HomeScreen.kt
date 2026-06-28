@@ -40,7 +40,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,7 +48,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -92,6 +90,7 @@ import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraButton
+import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
@@ -365,14 +364,13 @@ fun HomeScreen(
         )
     }
 
-    if (showDialog) {
-        NewConversationDialog(
-            opening = state.opening,
-            error = state.openError,
-            onConfirm = viewModel::openConversation,
-            onDismiss = { showDialog = false; viewModel.clearOpenError() },
-        )
-    }
+    NewConversationDialog(
+        open = showDialog,
+        opening = state.opening,
+        error = state.openError,
+        onConfirm = viewModel::openConversation,
+        onDismiss = { showDialog = false; viewModel.clearOpenError() },
+    )
 
     if (createChooser) {
         CreateChooserDialog(
@@ -382,15 +380,14 @@ fun HomeScreen(
             onDismiss = { createChooser = false },
         )
     }
-    if (showForge) {
-        ForgeDialog(
-            isGroup = forgeAsGroup,
-            creating = state.creating,
-            error = state.createError,
-            onConfirm = { name -> viewModel.createServer(name, forgeAsGroup) },
-            onDismiss = { showForge = false; viewModel.clearCreateError() },
-        )
-    }
+    ForgeDialog(
+        open = showForge,
+        isGroup = forgeAsGroup,
+        creating = state.creating,
+        error = state.createError,
+        onConfirm = { name -> viewModel.createServer(name, forgeAsGroup) },
+        onDismiss = { showForge = false; viewModel.clearCreateError() },
+    )
 }
 
 // ── Bottom sheet: forjar constelacao / aglomerado / orbitar com convite ──
@@ -452,55 +449,45 @@ private fun ChooserRow(label: String, sub: String, onClick: () -> Unit) {
 // ── Dialog de forjar (nome) — serve servidor e grupo ──
 @Composable
 private fun ForgeDialog(
+    open: Boolean,
     isGroup: Boolean,
     creating: Boolean,
     error: String?,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember(open) { mutableStateOf("") }
     val title = if (isGroup) AstraCopy.Action.createGroup else AstraCopy.Action.createServer
     val desc = if (isGroup) AstraCopy.Desc.aglomerado else AstraCopy.Desc.constelacao
-    AlertDialog(
-        onDismissRequest = { if (!creating) onDismiss() },
-        containerColor = astraColors.overlay,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            Column {
-                Text(
-                    text = desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = astraColors.text3,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    enabled = !creating,
-                    label = { Text(if (isGroup) "Nome do aglomerado" else "Nome da constelacao") },
-                )
-                if (error != null) {
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = astraColors.danger,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank() && !creating) {
-                Text(if (creating) "Forjando..." else "Forjar", color = astraColors.accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !creating) {
-                Text("Cancelar", color = astraColors.text2)
-            }
-        },
-    )
+    AstraDialog(
+        open = open,
+        onDismiss = { if (!creating) onDismiss() },
+        title = title,
+        confirmText = if (creating) "Forjando..." else "Forjar",
+        onConfirm = { onConfirm(name) },
+        confirmEnabled = name.isNotBlank() && !creating,
+    ) {
+        Text(
+            text = desc,
+            style = MaterialTheme.typography.bodySmall,
+            color = astraColors.text3,
+        )
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            singleLine = true,
+            enabled = !creating,
+            label = { Text(if (isGroup) "Nome do aglomerado" else "Nome da constelacao") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = astraColors.danger,
+            )
+        }
+    }
 }
 
 // ── Rail de servidores (esquerda) ───────────────────────────────
@@ -767,12 +754,11 @@ private fun ServerChannelsPanel(
         }
     }
 
-    if (showCreateChannel) {
-        CreateChannelDialog(
-            onConfirm = { name, isVoice -> onCreateChannel(name, isVoice); showCreateChannel = false },
-            onDismiss = { showCreateChannel = false },
-        )
-    }
+    CreateChannelDialog(
+        open = showCreateChannel,
+        onConfirm = { name, isVoice -> onCreateChannel(name, isVoice); showCreateChannel = false },
+        onDismiss = { showCreateChannel = false },
+    )
 }
 
 // Capa (icone como banner full-color, sem escurecer) + nome + contagem + acoes.
@@ -881,36 +867,30 @@ private fun ChannelRowFlat(
 // ── Criar canal: nome + tipo (texto/voz) ──
 @Composable
 private fun CreateChannelDialog(
+    open: Boolean,
     onConfirm: (name: String, isVoice: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var isVoice by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        title = { Text("Novo canal", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Nome do canal") },
-                )
-                OptionRow(title = "Texto", selected = !isVoice, onClick = { isVoice = false })
-                OptionRow(title = "Voz", selected = isVoice, onClick = { isVoice = true })
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name.trim(), isVoice) }, enabled = name.isNotBlank()) {
-                Text("Criar", color = astraColors.accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = astraColors.text2) }
-        },
-    )
+    var name by remember(open) { mutableStateOf("") }
+    var isVoice by remember(open) { mutableStateOf(false) }
+    AstraDialog(
+        open = open,
+        onDismiss = onDismiss,
+        title = "Novo canal",
+        confirmText = "Criar",
+        onConfirm = { onConfirm(name.trim(), isVoice) },
+        confirmEnabled = name.isNotBlank(),
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            singleLine = true,
+            label = { Text("Nome do canal") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OptionRow(title = "Texto", selected = !isVoice, onClick = { isVoice = false })
+        OptionRow(title = "Voz", selected = isVoice, onClick = { isVoice = true })
+    }
 }
 
 // ── Busca + Adicionar amigos ────────────────────────────────────
@@ -1394,52 +1374,42 @@ private fun shareServerInvite(context: Context, code: String) {
 
 @Composable
 private fun NewConversationDialog(
+    open: Boolean,
     opening: Boolean,
     error: String?,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var username by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = { if (!opening) onDismiss() },
-        containerColor = astraColors.overlay,
-        title = { Text(AstraCopy.Action.startDM, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            Column {
-                Text(
-                    text = AstraCopy.Desc.sussurro,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = astraColors.text3,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    singleLine = true,
-                    enabled = !opening,
-                    label = { Text("@username") },
-                )
-                if (error != null) {
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = astraColors.danger,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(username) }, enabled = username.isNotBlank() && !opening) {
-                Text(if (opening) "Abrindo..." else "Abrir", color = astraColors.accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !opening) {
-                Text("Cancelar", color = astraColors.text2)
-            }
-        },
-    )
+    var username by remember(open) { mutableStateOf("") }
+    AstraDialog(
+        open = open,
+        onDismiss = { if (!opening) onDismiss() },
+        title = AstraCopy.Action.startDM,
+        confirmText = if (opening) "Abrindo..." else "Abrir",
+        onConfirm = { onConfirm(username) },
+        confirmEnabled = username.isNotBlank() && !opening,
+    ) {
+        Text(
+            text = AstraCopy.Desc.sussurro,
+            style = MaterialTheme.typography.bodySmall,
+            color = astraColors.text3,
+        )
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            singleLine = true,
+            enabled = !opening,
+            label = { Text("@username") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = astraColors.danger,
+            )
+        }
+    }
 }
 
 // ISO -> "agora / 5m / 3h / 2d / 3 sem / 5 mês". Falha de parse = vazio.

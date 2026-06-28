@@ -26,12 +26,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -477,33 +475,34 @@ fun TypingIndicator(names: List<String>) {
 
 /** Lista de mensagens fixadas (autor + conteudo). items vazio = "nada fixado". */
 @Composable
-fun PinnedMessagesDialog(items: List<Pair<String, String>>, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
-        title = { Text("Mensagens fixadas", style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            if (items.isEmpty()) {
-                Text("Nada fixado nesta orbita.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items.forEach { (author, content) ->
-                        Column {
-                            Text(author, style = MaterialTheme.typography.labelSmall, color = astraColors.accent)
-                            Text(
-                                content,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = astraColors.text1,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+fun PinnedMessagesDialog(open: Boolean, items: List<Pair<String, String>>, onDismiss: () -> Unit) {
+    AstraDialog(
+        open = open,
+        onDismiss = onDismiss,
+        title = "Mensagens fixadas",
+        confirmText = "Fechar",
+        onConfirm = onDismiss,
+        dismissText = null,
+    ) {
+        if (items.isEmpty()) {
+            Text("Nada fixado nesta orbita.", style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items.forEach { (author, content) ->
+                    Column {
+                        Text(author, style = MaterialTheme.typography.labelSmall, color = astraColors.accent)
+                        Text(
+                            content,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = astraColors.text1,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar", color = astraColors.accent) } },
-    )
+        }
+    }
 }
 
 /**

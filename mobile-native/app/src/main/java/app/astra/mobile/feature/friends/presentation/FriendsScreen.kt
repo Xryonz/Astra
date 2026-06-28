@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -42,6 +41,7 @@ import app.astra.mobile.feature.friends.domain.model.FriendRequest
 import app.astra.mobile.feature.friends.domain.model.Presence
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.AstraTabs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -132,14 +132,13 @@ fun FriendsScreen(
         }
     }
 
-    if (showAdd) {
-        AddFriendDialog(
-            adding = state.adding,
-            error = state.addError,
-            onConfirm = viewModel::sendRequest,
-            onDismiss = { showAdd = false; viewModel.clearAddError() },
-        )
-    }
+    AddFriendDialog(
+        open = showAdd,
+        adding = state.adding,
+        error = state.addError,
+        onConfirm = viewModel::sendRequest,
+        onDismiss = { showAdd = false; viewModel.clearAddError() },
+    )
 }
 
 @Composable
@@ -248,52 +247,42 @@ private fun Pill(label: String, accent: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun AddFriendDialog(
+    open: Boolean,
     adding: Boolean,
     error: String?,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var username by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = { if (!adding) onDismiss() },
-        containerColor = astraColors.overlay,
-        title = { Text(AstraCopy.Action.addStar, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            Column {
-                Text(
-                    "Alinhe uma estrela pelo @username (ou pela coordenada Astra).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = astraColors.text2,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    singleLine = true,
-                    enabled = !adding,
-                    label = { Text("@username") },
-                )
-                if (error != null) {
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = astraColors.danger,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(username) }, enabled = username.isNotBlank() && !adding) {
-                Text(if (adding) "Enviando..." else "Adicionar", color = astraColors.accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !adding) {
-                Text("Cancelar", color = astraColors.text2)
-            }
-        },
-    )
+    var username by remember(open) { mutableStateOf("") }
+    AstraDialog(
+        open = open,
+        onDismiss = { if (!adding) onDismiss() },
+        title = AstraCopy.Action.addStar,
+        confirmText = if (adding) "Enviando..." else "Adicionar",
+        onConfirm = { onConfirm(username) },
+        confirmEnabled = username.isNotBlank() && !adding,
+    ) {
+        Text(
+            "Alinhe uma estrela pelo @username (ou pela coordenada Astra).",
+            style = MaterialTheme.typography.bodySmall,
+            color = astraColors.text2,
+        )
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            singleLine = true,
+            enabled = !adding,
+            label = { Text("@username") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = astraColors.danger,
+            )
+        }
+    }
 }
 
 @Composable

@@ -130,10 +130,9 @@ fun ChannelChatScreen(
         onDismiss = { deleteTarget = null },
     )
 
-    if (pinnedOpen) {
-        PinnedMessagesDialog(
-            items = state.pinned.map { it.authorName to it.content },
-            onDismiss = { pinnedOpen = false },
-        )
-    }
+    PinnedMessagesDialog(
+        open = pinnedOpen,
+        items = state.pinned.map { it.authorName to it.content },
+        onDismiss = { pinnedOpen = false },
+    )
 }

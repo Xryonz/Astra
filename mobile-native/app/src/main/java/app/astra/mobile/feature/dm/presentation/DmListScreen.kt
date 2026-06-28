@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -37,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.EmptyState
@@ -94,14 +94,13 @@ fun DmListScreen(
         }
     }
 
-    if (showDialog) {
-        NewConversationDialog(
-            opening = state.opening,
-            error = state.openError,
-            onConfirm = viewModel::openConversation,
-            onDismiss = { showDialog = false; viewModel.clearOpenError() },
-        )
-    }
+    NewConversationDialog(
+        open = showDialog,
+        opening = state.opening,
+        error = state.openError,
+        onConfirm = viewModel::openConversation,
+        onDismiss = { showDialog = false; viewModel.clearOpenError() },
+    )
 }
 
 @Composable
@@ -145,46 +144,37 @@ private fun ConversationRow(conv: Conversation, unread: Boolean, onClick: () -> 
 
 @Composable
 private fun NewConversationDialog(
+    open: Boolean,
     opening: Boolean,
     error: String?,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var username by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = { if (!opening) onDismiss() },
-        containerColor = astraColors.overlay,
-        title = { Text(AstraCopy.Action.startDM, style = MaterialTheme.typography.titleLarge, color = astraColors.text1) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    singleLine = true,
-                    enabled = !opening,
-                    label = { Text("@username") },
-                )
-                if (error != null) {
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = astraColors.danger,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(username) }, enabled = username.isNotBlank() && !opening) {
-                Text(if (opening) "Abrindo..." else "Abrir", color = astraColors.accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !opening) {
-                Text("Cancelar", color = astraColors.text2)
-            }
-        },
-    )
+    var username by remember(open) { mutableStateOf("") }
+    AstraDialog(
+        open = open,
+        onDismiss = { if (!opening) onDismiss() },
+        title = AstraCopy.Action.startDM,
+        confirmText = if (opening) "Abrindo..." else "Abrir",
+        onConfirm = { onConfirm(username) },
+        confirmEnabled = username.isNotBlank() && !opening,
+    ) {
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            singleLine = true,
+            enabled = !opening,
+            label = { Text("@username") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = astraColors.danger,
+            )
+        }
+    }
 }
 
 @Composable

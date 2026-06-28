@@ -50,6 +50,15 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Renomeia o APK de saida: debug -> Astra.apk, release -> Astra-release.apk.
+    applicationVariants.all {
+        val variantName = name
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                if (variantName == "release") "Astra-release.apk" else "Astra.apk"
+        }
+    }
 }
 
 dependencies {

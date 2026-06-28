@@ -13,9 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,6 +45,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -342,6 +345,7 @@ fun HomeScreen(
             pronouns = state.myPronouns,
             createdAt = state.myCreatedAt,
             status = state.myStatus,
+            servers = state.servers,
             onEditProfile = { profileSheet = false; onOpenProfile() },
             onDismiss = { profileSheet = false },
         )
@@ -1148,8 +1152,10 @@ private fun parseHexColor(raw: String?): Color? {
 
 private fun statusLabel(s: UserStatus): String = AstraCopy.statusLabel(s.name)
 
-// ── Sheet de perfil (sobe de baixo) — card + atalho Editar perfil ──
-// Status fica como indicador read-only; configurar status vive no Editar perfil.
+// ── Sheet de perfil (sobe alto) — banner + identidade + secoes em card ──
+// Status e indicador read-only; configurar status vive no Editar perfil.
+// Sem tabs/wishlist por decisao do user; secoes: Sobre (bio + membro desde) e
+// Constelacoes. Conteudo rola dentro do sheet (skipPartiallyExpanded = abre alto).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileSheet(
@@ -1162,13 +1168,16 @@ private fun ProfileSheet(
     pronouns: String?,
     createdAt: String?,
     status: UserStatus,
+    servers: List<Server>,
     onEditProfile: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val base = astraColors.base
+    val member = memberSince(createdAt)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = astraColors.overlay,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
             Box(
                 Modifier
@@ -1182,11 +1191,12 @@ private fun ProfileSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(bottom = 18.dp),
         ) {
             // Banner do card + scrim.
-            Box(Modifier.fillMaxWidth().height(104.dp)) {
+            Box(Modifier.fillMaxWidth().height(120.dp)) {
                 if (!banner.isNullOrBlank()) {
                     AsyncImage(
                         model = banner,
@@ -1239,16 +1249,42 @@ private fun ProfileSheet(
                     }
                 }
             }
-            if (!bio.isNullOrBlank()) {
-                Text(
-                    text = bio,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = astraColors.text2,
-                    modifier = Modifier.padding(horizontal = 18.dp).padding(top = 12.dp),
-                )
+
+            // ── Sobre: bio + membro desde ──
+            if (!bio.isNullOrBlank() || member != null) {
+                Spacer(Modifier.height(16.dp))
+                ProfileCard(Modifier.padding(horizontal = 18.dp)) {
+                    if (!bio.isNullOrBlank()) {
+                        MarginaliaLabel("bio")
+                        Spacer(Modifier.height(6.dp))
+                        Text(bio, style = MaterialTheme.typography.bodyMedium, color = astraColors.text2)
+                    }
+                    member?.let {
+                        if (!bio.isNullOrBlank()) Spacer(Modifier.height(14.dp))
+                        MarginaliaLabel("membro desde")
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            it.removePrefix("membro desde "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = astraColors.text2,
+                        )
+                    }
+                }
             }
-            memberSince(createdAt)?.let {
-                MarginaliaLabel(it, Modifier.padding(horizontal = 18.dp).padding(top = 10.dp))
+
+            // ── Constelacoes: servidores que o user participa ──
+            if (servers.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                ProfileCard(Modifier.padding(horizontal = 18.dp)) {
+                    MarginaliaLabel("constelacoes")
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        servers.forEach { ConstellationChip(it) }
+                    }
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -1258,6 +1294,63 @@ private fun ProfileSheet(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
             )
         }
+    }
+}
+
+// Card de secao do perfil: superficie raised + hairline (estetica editorial).
+@Composable
+private fun ProfileCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(astraColors.raised)
+            .border(1.dp, astraColors.border, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        content = content,
+    )
+}
+
+// Tile de constelacao (icone ou inicial) + nome curto, na secao Constelacoes.
+@Composable
+private fun ConstellationChip(server: Server) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        modifier = Modifier.width(64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(shape)
+                .background(astraColors.overlay)
+                .border(1.dp, astraColors.border, shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!server.iconUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = server.iconUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().clip(shape),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Text(
+                    text = server.name.take(1).uppercase(),
+                    fontFamily = DmSerif,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = astraColors.accent,
+                )
+            }
+        }
+        Text(
+            text = server.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = astraColors.text3,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

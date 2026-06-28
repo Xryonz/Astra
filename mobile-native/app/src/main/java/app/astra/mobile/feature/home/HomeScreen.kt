@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -631,16 +632,18 @@ private fun RailServer(
                     color = astraColors.accent,
                 )
             }
+            // Menu ancorado ao botao (nao ao rail) -> abre a direita dele, com
+            // folga da borda da tela, em vez de colado na lateral do celular.
+            ServerRailMenu(
+                expanded = menuOpen,
+                serverName = server.name,
+                isOwner = isOwner,
+                hasInvite = !server.inviteCode.isNullOrBlank(),
+                onEdit = { menuOpen = false; onEdit() },
+                onInvite = { menuOpen = false; onInvite() },
+                onDismiss = { menuOpen = false },
+            )
         }
-        ServerRailMenu(
-            expanded = menuOpen,
-            serverName = server.name,
-            isOwner = isOwner,
-            hasInvite = !server.inviteCode.isNullOrBlank(),
-            onEdit = { menuOpen = false; onEdit() },
-            onInvite = { menuOpen = false; onInvite() },
-            onDismiss = { menuOpen = false },
-        )
     }
 }
 
@@ -659,6 +662,9 @@ private fun ServerRailMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        // x: largura do botao (48) + folga -> o card encosta na direita do tile.
+        // y: sobe pro topo do menu alinhar com o topo do botao (anchor.bottom - 48).
+        offset = DpOffset(x = 56.dp, y = (-48).dp),
         modifier = Modifier.background(astraColors.overlay),
     ) {
         Column(Modifier.width(248.dp)) {

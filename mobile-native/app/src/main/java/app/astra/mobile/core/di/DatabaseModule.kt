@@ -18,7 +18,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AstraDatabase =
-        Room.databaseBuilder(context, AstraDatabase::class.java, "astra.db").build()
+        Room.databaseBuilder(context, AstraDatabase::class.java, "astra.db")
+            // Cache descartavel: mudou o schema -> recria e rebusca da rede.
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     fun provideMessageDao(db: AstraDatabase): MessageDao = db.messageDao()

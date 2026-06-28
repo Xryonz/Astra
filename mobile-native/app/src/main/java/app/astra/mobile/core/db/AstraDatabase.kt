@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
  * houver, ligar o export + pasta de schemas). version sobe a cada mudanca de
  * entidade.
  */
-@Database(entities = [MessageEntity::class], version = 1, exportSchema = false)
+@Database(entities = [MessageEntity::class], version = 2, exportSchema = false)
 abstract class AstraDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
 }

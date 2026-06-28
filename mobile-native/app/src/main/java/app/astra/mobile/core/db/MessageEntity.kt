@@ -25,4 +25,9 @@ data class MessageEntity(
     val createdAt: String?,
     val replyToAuthor: String? = null,
     val replyToContent: String? = null,
+    // Campos so de canal — DM deixa o default. reactionsJson = List<ReactionDto>
+    // serializada (mine e recomputado na leitura via uid).
+    val edited: Boolean = false,
+    val pinned: Boolean = false,
+    val reactionsJson: String? = null,
 )

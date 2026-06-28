@@ -2,6 +2,8 @@ package app.astra.mobile.feature.channel.data
 
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.db.MessageDao
+import app.astra.mobile.core.db.MessageEntity
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
@@ -15,11 +17,15 @@ import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
 import app.astra.mobile.feature.channel.domain.model.MessageReaction
 import app.astra.mobile.feature.channel.domain.model.TypingUser
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import javax.inject.Inject
@@ -32,6 +38,7 @@ class ChannelRepositoryImpl @Inject constructor(
     private val channelApi: ChannelApi,
     private val socketManager: SocketManager,
     private val tokenStore: TokenStore,
+    private val messageDao: MessageDao,
     private val json: Json,
 ) : ChannelRepository {
 
@@ -39,6 +46,8 @@ class ChannelRepositoryImpl @Inject constructor(
         val uid = tokenStore.currentUserId()
         val page = channelApi.messages(channelId, cursor, PAGE_SIZE).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+        // SSOT: grava no Room; a UI le pelo observeMessages.
+        messageDao.upsert(page.items.map { it.toEntity(channelId, json) })
         Result.success(
             ChannelMessagesPage(
                 messages = page.items.map { it.toDomain(uid) },
@@ -56,6 +65,7 @@ class ChannelRepositoryImpl @Inject constructor(
         val uid = tokenStore.currentUserId()
         val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId)).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+        messageDao.upsert(dto.toEntity(channelId, json))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -74,6 +84,7 @@ class ChannelRepositoryImpl @Inject constructor(
 
     override suspend fun delete(channelId: String, messageId: String): Result<Unit> = try {
         channelApi.deleteMessage(channelId, messageId)
+        messageDao.deleteById(messageId)
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -96,35 +107,45 @@ class ChannelRepositoryImpl @Inject constructor(
 
     override fun leaveChannel(channelId: String) = socketManager.leaveChannel(channelId)
 
-    override fun incomingMessages(channelId: String): Flow<ChannelMessage> = flow {
+    override fun observeMessages(channelId: String): Flow<List<ChannelMessage>> = flow {
         val uid = tokenStore.currentUserId()
-        socketManager.newChannelMessage.collect { raw ->
-            val dto = runCatching { json.decodeFromString<ChannelMessageDto>(raw) }.getOrNull()
-            if (dto != null && dto.channelId == channelId) {
-                emit(dto.toDomain(uid))
+        coroutineScope {
+            // new_message -> grava no Room (a propria msg ecoa aqui; upsert dedupa por id).
+            launch {
+                socketManager.newChannelMessage.collect { raw ->
+                    val dto = runCatching { json.decodeFromString<ChannelMessageDto>(raw) }.getOrNull()
+                    if (dto != null && dto.channelId == channelId) messageDao.upsert(dto.toEntity(channelId, json))
+                }
             }
-        }
-    }
-
-    override fun deletedMessages(channelId: String): Flow<String> =
-        socketManager.channelMessageDeleted
-            .filter { it.second == channelId }
-            .map { it.first }
-
-    // message_edited (messageId, content, channelId) -> (messageId, content) do canal certo.
-    override fun editedMessages(channelId: String): Flow<Pair<String, String>> =
-        socketManager.channelMessageEdited
-            .filter { it.third == channelId }
-            .map { it.first to it.second }
-
-    // reaction_update (JSON cru) -> (messageId, lista de reacoes ja com mine).
-    override fun reactionUpdates(channelId: String): Flow<Pair<String, List<MessageReaction>>> = flow {
-        val uid = tokenStore.currentUserId()
-        socketManager.channelReactionUpdate.collect { raw ->
-            val dto = runCatching { json.decodeFromString<ReactionUpdateDto>(raw) }.getOrNull()
-            if (dto != null && dto.channelId == channelId) {
-                emit(dto.messageId to dto.reactions.toDomain(uid))
+            // message_deleted -> remove.
+            launch {
+                socketManager.channelMessageDeleted.collect { (id, ch) ->
+                    if (ch == channelId) messageDao.deleteById(id)
+                }
             }
+            // message_edited (id, content, channelId) -> troca conteudo + marca edited.
+            launch {
+                socketManager.channelMessageEdited.collect { (id, content, ch) ->
+                    if (ch == channelId) messageDao.applyEdit(id, content)
+                }
+            }
+            // reaction_update -> regrava as reacoes (mine recomputado na leitura via uid).
+            launch {
+                socketManager.channelReactionUpdate.collect { raw ->
+                    val dto = runCatching { json.decodeFromString<ReactionUpdateDto>(raw) }.getOrNull()
+                    if (dto != null && dto.channelId == channelId) {
+                        messageDao.applyReactions(dto.messageId, if (dto.reactions.isEmpty()) null else json.encodeToString(dto.reactions))
+                    }
+                }
+            }
+            // message_pinned (id, channelId, pinned) -> marca/desmarca.
+            launch {
+                socketManager.channelMessagePinned.collect { (id, ch, pinned) ->
+                    if (ch == channelId) messageDao.applyPinned(id, pinned)
+                }
+            }
+            // Fonte da verdade: linhas do Room mapeadas (mine via uid; reacoes do JSON).
+            emitAll(messageDao.observe(channelId).map { rows -> rows.map { it.toChannelMessage(uid, json) } })
         }
     }
 
@@ -156,11 +177,6 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar fixadas"))
     }
 
-    override fun pinnedUpdates(channelId: String): Flow<Pair<String, Boolean>> =
-        socketManager.channelMessagePinned
-            .filter { it.second == channelId }
-            .map { it.first to it.third }
-
     override suspend fun markRead(channelId: String): Result<Unit> = try {
         channelApi.markRead(channelId)
         Result.success(Unit)
@@ -185,3 +201,40 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
 
 private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =
     map { MessageReaction(emoji = it.emoji, count = it.count, mine = uid != null && uid in it.users) }
+
+// DTO -> linha do cache. Reacoes guardadas como List<ReactionDto> serializada
+// (mantem `users` pra recomputar `mine` na leitura). authorId guardado p/ mine.
+private fun ChannelMessageDto.toEntity(channelId: String, json: Json) = MessageEntity(
+    id = id,
+    conversationId = channelId,
+    authorId = authorId,
+    authorName = author?.displayName ?: author?.username ?: "Alguem",
+    authorAvatar = author?.avatarUrl,
+    content = content,
+    createdAt = createdAt,
+    replyToAuthor = replyTo?.authorName,
+    replyToContent = replyTo?.content,
+    edited = edited,
+    pinned = pinned,
+    reactionsJson = if (reactions.isEmpty()) null else json.encodeToString(reactions),
+)
+
+// Linha do cache -> dominio. mine = autor sou eu; reacoes desserializadas + mine.
+private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMessage {
+    val reactions = reactionsJson?.let {
+        runCatching { json.decodeFromString<List<ReactionDto>>(it).toDomain(uid) }.getOrNull()
+    } ?: emptyList()
+    return ChannelMessage(
+        id = id,
+        content = content,
+        authorName = authorName,
+        authorAvatar = authorAvatar,
+        createdAt = createdAt,
+        mine = authorId != null && authorId == uid,
+        edited = edited,
+        pinned = pinned,
+        reactions = reactions,
+        replyToAuthor = replyToAuthor,
+        replyToContent = replyToContent,
+    )
+}

@@ -47,73 +47,31 @@ class ChannelChatViewModel @Inject constructor(
     init {
         repository.joinChannel(channelId)
         viewModelScope.launch { repository.markRead(channelId) }
+        observeMessages()
         loadHistory()
-        observeIncoming()
-        observeDeleted()
-        observeEdited()
-        observeReactions()
         observeTyping()
-        observePinned()
+    }
+
+    // SSOT: a tela so observa o cache (Room). new/deleted/edited/reaction/pinned
+    // o repo dreno pro banco; o historico (loadHistory) tambem grava nele.
+    private fun observeMessages() {
+        viewModelScope.launch {
+            repository.observeMessages(channelId).collect { msgs ->
+                _state.update { it.copy(messages = msgs) }
+            }
+        }
     }
 
     private fun loadHistory() {
         viewModelScope.launch {
             repository.messages(channelId, null)
-                .onSuccess { page -> _state.update { it.copy(loading = false, messages = page.messages) } }
+                .onSuccess { _state.update { it.copy(loading = false) } }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
-        }
-    }
-
-    // new_message chega aqui (inclusive a propria) — dedupe por id.
-    private fun observeIncoming() {
-        viewModelScope.launch {
-            repository.incomingMessages(channelId).collect(::addMessage)
-        }
-    }
-
-    private fun observeDeleted() {
-        viewModelScope.launch {
-            repository.deletedMessages(channelId).collect { deletedId ->
-                _state.update { s -> s.copy(messages = s.messages.filterNot { it.id == deletedId }) }
-            }
-        }
-    }
-
-    // message_edited (de qualquer autor) -> troca o conteudo + marca edited.
-    private fun observeEdited() {
-        viewModelScope.launch {
-            repository.editedMessages(channelId).collect { (id, content) ->
-                _state.update { s ->
-                    s.copy(messages = s.messages.map { if (it.id == id) it.copy(content = content, edited = true) else it })
-                }
-            }
-        }
-    }
-
-    // reaction_update -> substitui a lista de reacoes da msg.
-    private fun observeReactions() {
-        viewModelScope.launch {
-            repository.reactionUpdates(channelId).collect { (id, reactions) ->
-                _state.update { s ->
-                    s.copy(messages = s.messages.map { if (it.id == id) it.copy(reactions = reactions) else it })
-                }
-            }
         }
     }
 
     fun toggleReaction(messageId: String, emoji: String) {
         viewModelScope.launch { repository.react(channelId, messageId, emoji) }
-    }
-
-    // message_pinned -> marca/desmarca pinned na msg da lista.
-    private fun observePinned() {
-        viewModelScope.launch {
-            repository.pinnedUpdates(channelId).collect { (id, pinned) ->
-                _state.update { s ->
-                    s.copy(messages = s.messages.map { if (it.id == id) it.copy(pinned = pinned) else it })
-                }
-            }
-        }
     }
 
     fun togglePin(messageId: String, pinned: Boolean) {
@@ -172,13 +130,6 @@ class ChannelChatViewModel @Inject constructor(
         if (typingSent) { typingSent = false; repository.stopTyping(channelId) }
     }
 
-    private fun addMessage(msg: ChannelMessage) {
-        _state.update { s ->
-            if (s.messages.any { it.id == msg.id }) s
-            else s.copy(messages = s.messages + msg)
-        }
-    }
-
     fun onInput(value: String) {
         _state.update { it.copy(input = value) }
         handleTyping(value)
@@ -201,10 +152,8 @@ class ChannelChatViewModel @Inject constructor(
 
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
+            // Sucesso: o repo ja removeu do Room -> a lista atualiza pelo observeMessages.
             repository.delete(channelId, messageId)
-                .onSuccess {
-                    _state.update { s -> s.copy(messages = s.messages.filterNot { it.id == messageId }) }
-                }
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
         }
     }
@@ -217,15 +166,9 @@ class ChannelChatViewModel @Inject constructor(
         if (editing != null) {
             _state.update { it.copy(sending = true, input = "", editingId = null, error = null) }
             viewModelScope.launch {
+                // Sucesso: o socket message_edited aplica no Room -> a lista atualiza sozinha.
                 repository.edit(channelId, editing, text)
-                    .onSuccess {
-                        _state.update { s ->
-                            s.copy(
-                                sending = false,
-                                messages = s.messages.map { if (it.id == editing) it.copy(content = text, edited = true) else it },
-                            )
-                        }
-                    }
+                    .onSuccess { _state.update { it.copy(sending = false) } }
                     .onFailure { e ->
                         _state.update { it.copy(sending = false, error = e.message, input = text, editingId = editing) }
                     }
@@ -237,11 +180,9 @@ class ChannelChatViewModel @Inject constructor(
             it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
         }
         viewModelScope.launch {
+            // Sucesso: o repo grava no Room -> aparece pelo observeMessages.
             repository.send(channelId, text, replyId)
-                .onSuccess { msg ->
-                    addMessage(msg)
-                    _state.update { it.copy(sending = false) }
-                }
+                .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
                     _state.update { it.copy(sending = false, error = e.message, input = text) }
                 }

@@ -9,11 +9,6 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 
-/**
- * Cargos customizados por servidor.
- * CRUD gated por MANAGE_ROLES (owner ganha implicitamente).
- */
-
 const HEX = /^#[0-9a-fA-F]{6}$/
 
 const CreateRoleSchema = z.object({
@@ -36,14 +31,12 @@ async function canManageRoles(userId: string, serverId: string) {
 
 export const rolesRouter = Router()
 
-// GET /api/servers/:serverId/roles
 rolesRouter.get(
   '/:serverId/roles',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
 
-    // qualquer membro pode listar
     const [member] = await db.select({ id: serverMembers.id }).from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
@@ -57,7 +50,6 @@ rolesRouter.get(
   })
 )
 
-// POST /api/servers/:serverId/roles
 rolesRouter.post(
   '/:serverId/roles',
   requireAuth,
@@ -71,7 +63,6 @@ rolesRouter.post(
 
     const body = req.body as z.infer<typeof CreateRoleSchema>
 
-    // Próxima posição = max + 1
     const [{ max } = { max: 0 }] = await db
       .select({ max: sql<number>`COALESCE(MAX(${roles.position}), 0)::int` })
       .from(roles)
@@ -95,7 +86,6 @@ rolesRouter.post(
   })
 )
 
-// PATCH /api/servers/:serverId/roles/:roleId
 rolesRouter.patch(
   '/:serverId/roles/:roleId',
   requireAuth,
@@ -127,7 +117,6 @@ rolesRouter.patch(
   })
 )
 
-// PATCH /api/servers/:serverId/roles/positions — reorder em batch
 rolesRouter.patch(
   '/:serverId/roles/positions/batch',
   requireAuth,
@@ -148,7 +137,6 @@ rolesRouter.patch(
   })
 )
 
-// DELETE /api/servers/:serverId/roles/:roleId
 rolesRouter.delete(
   '/:serverId/roles/:roleId',
   requireAuth,
@@ -168,7 +156,6 @@ rolesRouter.delete(
   })
 )
 
-// POST /api/servers/:serverId/members/:memberId/roles/:roleId — assign
 rolesRouter.post(
   '/:serverId/members/:memberId/roles/:roleId',
   requireAuth,
@@ -177,7 +164,6 @@ rolesRouter.post(
     if (!(await canManageRoles(req.userId!, serverId)))
       return res.status(403).json({ error: 'Sem permissão pra atribuir cargos' })
 
-    // valida que member e role existem no servidor
     const [[m], [r]] = await Promise.all([
       db.select({ id: serverMembers.id }).from(serverMembers)
         .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId))).limit(1),
@@ -187,7 +173,6 @@ rolesRouter.post(
     if (!m) return res.status(404).json({ error: 'Membro não encontrado' })
     if (!r) return res.status(404).json({ error: 'Cargo não encontrado' })
 
-    // upsert idempotente
     const [existing] = await db.select({ id: memberRoles.id }).from(memberRoles)
       .where(and(eq(memberRoles.memberId, memberId), eq(memberRoles.roleId, roleId))).limit(1)
     if (!existing) await db.insert(memberRoles).values({ memberId, roleId })
@@ -201,7 +186,6 @@ rolesRouter.post(
   })
 )
 
-// DELETE /api/servers/:serverId/members/:memberId/roles/:roleId — unassign
 rolesRouter.delete(
   '/:serverId/members/:memberId/roles/:roleId',
   requireAuth,

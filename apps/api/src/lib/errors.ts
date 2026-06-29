@@ -1,13 +1,4 @@
-/**
- * Erro padronizado pra rotas. Quem joga um HttpError ganha resposta
- * { error, code? } com o status correto via error handler em index.ts.
- *
- *   throw new HttpError(403, 'Sem permissão', 'NO_PERM')
- *
- * Helpers atalhos:
- *   throw forbidden('Sem permissão pra editar')
- *   throw notFound('Cargo não encontrado')
- */
+
 export class HttpError extends Error {
   readonly status: number
   readonly code?: string

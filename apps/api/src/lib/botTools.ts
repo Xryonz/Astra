@@ -1,13 +1,4 @@
-/**
- * Tools que o bot pode chamar via Anthropic tool-use.
- *
- * Cada tool tem:
- *  - definition: { name, description, input_schema } — vai pro Claude
- *  - handler: (input, ctx) => result string — executa server-side
- *
- * Read-only por enquanto (Fase 1). Tools com side-effects (createReminder,
- * etc) entram em Fase 2 quando tiver worker pra disparar.
- */
+
 import { and, desc, eq, ilike, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { messages, channels, serverMembers, users, servers, reminders } from '../db/schema'
@@ -18,7 +9,7 @@ import { logger } from './logger'
 export interface BotContext {
   userId:    string
   channelId: string
-  serverId:  string | null  // null se for DM
+  serverId:  string | null
   username:  string
 }
 
@@ -30,7 +21,6 @@ export interface ToolDefinition {
 
 type ToolHandler = (input: any, ctx: BotContext) => Promise<string>
 
-// ─── search_messages ──────────────────────────────────────────
 const searchMessagesDef: ToolDefinition = {
   name: 'search_messages',
   description:
@@ -70,7 +60,6 @@ const searchMessages: ToolHandler = async (input, ctx) => {
   ).join('\n')
 }
 
-// ─── summarize_channel ────────────────────────────────────────
 const summarizeChannelDef: ToolDefinition = {
   name: 'summarize_channel',
   description:
@@ -97,7 +86,6 @@ const summarizeChannel: ToolHandler = async (input, ctx) => {
 
   if (rows.length === 0) return 'O canal está vazio.'
 
-  // Retorna em ordem cronológica (mais antiga primeiro)
   const ordered = rows.reverse()
   const transcript = ordered.map((r) =>
     `[${r.authorName}]: ${r.content.slice(0, 240)}`
@@ -106,7 +94,6 @@ const summarizeChannel: ToolHandler = async (input, ctx) => {
   return `Últimas ${ordered.length} mensagens do canal:\n${transcript}`
 }
 
-// ─── get_server_info ──────────────────────────────────────────
 const getServerInfoDef: ToolDefinition = {
   name: 'get_server_info',
   description:
@@ -135,7 +122,6 @@ const getServerInfo: ToolHandler = async (_input, ctx) => {
   ].join('\n')
 }
 
-// ─── recall_user ──────────────────────────────────────────────
 const recallUserDef: ToolDefinition = {
   name: 'recall_user',
   description:
@@ -174,7 +160,6 @@ const recallUser: ToolHandler = async (input, ctx) => {
   ].join('\n')
 }
 
-// ─── create_reminder ──────────────────────────────────────────
 const createReminderDef: ToolDefinition = {
   name: 'create_reminder',
   description:
@@ -204,8 +189,6 @@ const createReminder: ToolHandler = async (input, ctx) => {
   return `Lembrete criado: "${content}" — disparo em ${r.dueAt.toLocaleString('pt-BR')}.`
 }
 
-// ─── Registry ─────────────────────────────────────────────────
-
 const REGISTRY: Record<string, { def: ToolDefinition; handler: ToolHandler }> = {
   search_messages:    { def: searchMessagesDef,    handler: searchMessages },
   summarize_channel:  { def: summarizeChannelDef,  handler: summarizeChannel },
@@ -216,10 +199,6 @@ const REGISTRY: Record<string, { def: ToolDefinition; handler: ToolHandler }> = 
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = Object.values(REGISTRY).map((r) => r.def)
 
-/**
- * Executa uma tool pelo nome. Retorna texto pra mandar de volta ao Claude.
- * Erros são capturados e retornados como texto (Claude lida bem com isso).
- */
 export async function runTool(name: string, input: any, ctx: BotContext): Promise<string> {
   const entry = REGISTRY[name]
   if (!entry) return `Erro: tool desconhecida '${name}'.`

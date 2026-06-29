@@ -37,7 +37,7 @@ describe('refresh token', () => {
   })
 
   it('dois refresh no mesmo segundo geram tokens DIFERENTES (jti aleatório)', () => {
-    // Regressão da bug que causava UNIQUE violation em RefreshToken.token
+
     const a = generateRefreshToken('same-user')
     const b = generateRefreshToken('same-user')
     expect(a).not.toBe(b)

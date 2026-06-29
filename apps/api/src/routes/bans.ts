@@ -1,8 +1,4 @@
-/**
- * Banimentos. BAN remove o member e cria um registro em ServerBan
- * que sobrevive ao kick → impede rejoin via convite.
- * Gated por BAN_MEMBERS (owner ganha implícito).
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
@@ -22,7 +18,6 @@ const BanSchema = z.object({
   reason: z.string().max(500).optional().nullable(),
 })
 
-// GET /api/servers/:serverId/bans
 bansRouter.get(
   '/:serverId/bans',
   requireAuth,
@@ -54,7 +49,6 @@ bansRouter.get(
   })
 )
 
-// POST /api/servers/:serverId/bans
 bansRouter.post(
   '/:serverId/bans',
   requireAuth,
@@ -75,7 +69,6 @@ bansRouter.post(
     if (!srv) return res.status(404).json({ error: 'Servidor não encontrado' })
     if (srv.ownerId === userId) return res.status(400).json({ error: 'Não é possível banir o dono' })
 
-    // Hierarquia: não-owner não pode banir outro com BAN_MEMBERS
     if (!requester.isOwner) {
       const targetPerms = await getMemberPerms(userId, serverId)
       if (targetPerms.isOwner || targetPerms.permissions.has(PERMS.BAN_MEMBERS))
@@ -83,7 +76,7 @@ bansRouter.post(
     }
 
     await db.transaction(async (tx) => {
-      // upsert do ban
+
       const [existing] = await tx.select({ id: serverBans.id }).from(serverBans)
         .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, userId))).limit(1)
       if (!existing) {
@@ -91,7 +84,7 @@ bansRouter.post(
           serverId, userId, bannedById: req.userId!, reason: reason ?? null,
         })
       }
-      // remove o member se existir
+
       await tx.delete(serverMembers).where(and(
         eq(serverMembers.userId, userId),
         eq(serverMembers.serverId, serverId),
@@ -108,7 +101,6 @@ bansRouter.post(
   })
 )
 
-// DELETE /api/servers/:serverId/bans/:userId
 bansRouter.delete(
   '/:serverId/bans/:userId',
   requireAuth,

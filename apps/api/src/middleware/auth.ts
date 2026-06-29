@@ -11,13 +11,9 @@ declare global {
   }
 }
 
-/**
- * Extracts a Bearer token from the Authorization header.
- * Returns null without throwing so the caller decides the response.
- */
 function extractBearer(authHeader: string | undefined): string | null {
   if (!authHeader) return null
-  // Accepts "Bearer <token>" — case-insensitive prefix
+
   const match = authHeader.match(/^Bearer\s+(\S+)$/i)
   return match ? match[1] : null
 }
@@ -41,7 +37,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     req.jti    = payload.jti
     next()
   } catch (err: any) {
-    // Distinguish expired from malformed — clients can use this to trigger refresh
+
     const isExpired = err?.name === 'TokenExpiredError'
     return res.status(401).json({
       error: isExpired ? 'Token expirado' : 'Token inválido',
@@ -50,10 +46,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-/**
- * Optional auth — attaches user if token is valid but does NOT block the request.
- * Useful for public endpoints that change behaviour for logged-in users.
- */
 export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractBearer(req.headers.authorization)
   if (!token) return next()
@@ -66,7 +58,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
       req.jti    = payload.jti
     }
   } catch {
-    // Silently ignore — optional auth never blocks
+
   }
 
   next()

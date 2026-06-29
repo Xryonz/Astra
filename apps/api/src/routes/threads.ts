@@ -41,7 +41,6 @@ const CreateThreadSchema = z.object({
 export function createThreadsRouter(io: SocketServer) {
   const router = Router()
 
-  // GET /api/channels/:channelId/threads — lista threads do canal
   router.get(
     '/channels/:channelId/threads',
     requireAuth,
@@ -68,7 +67,6 @@ export function createThreadsRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/channels/:channelId/threads — cria thread a partir de uma msg
   router.post(
     '/channels/:channelId/threads',
     requireAuth,
@@ -79,7 +77,6 @@ export function createThreadsRouter(io: SocketServer) {
       const access = await assertChannelMembership(req.userId!, channelId)
       if (!access) return res.status(403).json({ error: 'Acesso negado' })
 
-      // Verifica que parent existe no mesmo canal e não tá deletada
       const [parent] = await db.select({ id: messages.id })
         .from(messages)
         .where(and(
@@ -100,7 +97,6 @@ export function createThreadsRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/threads/:threadId/messages
   router.get(
     '/threads/:threadId/messages',
     requireAuth,
@@ -143,7 +139,6 @@ export function createThreadsRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/threads/:threadId/messages
   router.post(
     '/threads/:threadId/messages',
     requireAuth,
@@ -165,7 +160,6 @@ export function createThreadsRouter(io: SocketServer) {
         id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl,
       }).from(users).where(eq(users.id, req.userId!)).limit(1)
 
-      // touch updatedAt da thread pra ordenar por atividade
       await db.update(threads).set({ updatedAt: new Date() }).where(eq(threads.id, threadId))
 
       const payload = { ...inserted, author, reactions: [], mentions: [] }

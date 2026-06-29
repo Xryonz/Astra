@@ -1,15 +1,4 @@
-/**
- * Notifications feed + prefs.
- *
- *   GET  /api/notifications          → lista paginada (cursor por createdAt)
- *   GET  /api/notifications/unread   → contagem rápida (badge)
- *   POST /api/notifications/:id/read → marca uma como lida
- *   POST /api/notifications/read-all → marca todas
- *   GET  /api/notifications/prefs    → prefs atuais (+ defaults)
- *   PATCH /api/notifications/prefs   → atualiza prefs (partial)
- *
- *  Retention: rows lidas mais antigas que 30d são limpas pelo retentionWorker.
- */
+
 import { Router, Request, Response } from 'express'
 import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -22,7 +11,6 @@ import { DEFAULT_PREFS, parsePrefs } from '../lib/notifications'
 
 const router = Router()
 
-// ── Feed ────────────────────────────────────────────────────────
 router.get(
   '/notifications',
   requireAuth,
@@ -99,7 +87,6 @@ router.post(
   })
 )
 
-// ── Prefs ───────────────────────────────────────────────────────
 const PrefsSchema = z.object({
   mentions:   z.boolean().optional(),
   dms:        z.boolean().optional(),

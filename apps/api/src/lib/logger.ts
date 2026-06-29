@@ -1,13 +1,4 @@
-/**
- * Logger estruturado.
- *  - Dev: pretty text (ISO ts + [LEVEL] [scope] msg + extras inline)
- *  - Prod: JSON por linha (Logtail/Axiom/Datadog ingest direto)
- *  - reqId via AsyncLocalStorage: middleware seta, todos os logs daquele request herdam
- *  - error level chama sentry.captureException se Sentry tiver inicializado
- *
- *   logger.info('Push', 'VAPID configurado')
- *   logger.error('Auth', 'token inválido', err)
- */
+
 import { AsyncLocalStorage } from 'async_hooks'
 
 type Level = 'debug' | 'info' | 'warn' | 'error'
@@ -28,7 +19,6 @@ export function getLogContext(): LogContext | undefined {
   return als.getStore()
 }
 
-/** Lazy import — evita ciclo logger ↔ sentry. */
 let sentryRef: typeof import('./sentry').sentry | null = null
 function getSentry() {
   if (sentryRef) return sentryRef
@@ -80,7 +70,6 @@ function emit(level: Level, scope: string, msg: string, extra: unknown[]) {
     else sink(line, ...extra)
   }
 
-  // Forward errors pro Sentry (no-op se DSN ausente)
   if (level === 'error') {
     const s = getSentry()
     if (s?.isEnabled()) {

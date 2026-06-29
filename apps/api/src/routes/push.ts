@@ -10,7 +10,6 @@ import { getVapidPublicKey, isPushEnabled, sendPush } from '../lib/push'
 
 const router = Router()
 
-// GET /api/push/vapid-public-key
 router.get(
   '/vapid-public-key',
   asyncHandler(async (_req: Request, res: Response) => {
@@ -18,7 +17,6 @@ router.get(
   })
 )
 
-// POST /api/push/subscribe — body: { endpoint, keys: { p256dh, auth } }
 const SubscribeSchema = z.object({
   endpoint: z.string().url(),
   keys: z.object({
@@ -35,7 +33,6 @@ router.post(
     const { endpoint, keys } = req.body as z.infer<typeof SubscribeSchema>
     const userAgent = req.headers['user-agent']?.slice(0, 200) ?? null
 
-    // Upsert manual: se já existe esse endpoint, atualiza o user
     const [existing] = await db.select({ id: pushSubscriptions.id })
       .from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).limit(1)
 
@@ -53,7 +50,6 @@ router.post(
   })
 )
 
-// DELETE /api/push/subscribe?endpoint=...
 router.delete(
   '/subscribe',
   requireAuth,
@@ -69,8 +65,6 @@ router.delete(
   })
 )
 
-// ── FCM (app nativo) ──────────────────────────────────────────
-// POST /api/push/fcm-token — registra/renova token do device
 const FcmTokenSchema = z.object({
   token:    z.string().min(10),
   platform: z.enum(['android', 'ios']).default('android'),
@@ -83,7 +77,6 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { token, platform } = req.body as z.infer<typeof FcmTokenSchema>
 
-    // Upsert por token: device pode trocar de user (logout/login)
     const [existing] = await db.select({ id: fcmTokens.id })
       .from(fcmTokens).where(eq(fcmTokens.token, token)).limit(1)
 
@@ -98,7 +91,6 @@ router.post(
   })
 )
 
-// DELETE /api/push/fcm-token — remove no logout
 router.delete(
   '/fcm-token',
   requireAuth,
@@ -113,7 +105,6 @@ router.delete(
   })
 )
 
-// POST /api/push/test — dispara um push de teste pro próprio user
 router.post(
   '/test',
   requireAuth,

@@ -7,11 +7,6 @@ import { asyncHandler } from '../lib/asyncHandler'
 
 const router = Router()
 
-/**
- * GET /api/search?q=...&scope=all|messages|channels|users
- *
- * Busca limitada aos servidores onde o user é membro. Sem leak cross-server.
- */
 router.get(
   '/',
   requireAuth,
@@ -22,7 +17,6 @@ router.get(
 
     const like = `%${q}%`
 
-    // Servers que o user faz parte
     const myMemberships = await db.select({ serverId: serverMembers.serverId })
       .from(serverMembers).where(eq(serverMembers.userId, req.userId!))
     const serverIds = myMemberships.map((m) => m.serverId)
@@ -74,14 +68,13 @@ router.get(
             ))
             .limit(20)
         : Promise.resolve([] as any[]),
-      // Servers I'm in matching name
+
       db.select({ id: servers.id, name: servers.name, iconUrl: servers.iconUrl, isGroup: servers.isGroup })
         .from(servers)
         .where(and(ilike(servers.name, like), inArray(servers.id, serverIds)))
         .limit(10),
     ])
 
-    // Dedupe usuários (podem aparecer múltiplas vezes por membership)
     const seenU = new Set<string>()
     const dedupUsers = usrs.filter((u) => seenU.has(u.id) ? false : (seenU.add(u.id), true))
 

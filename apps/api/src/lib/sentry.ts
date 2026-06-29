@@ -1,15 +1,4 @@
-/**
- * Sentry — error tracking + tracing (opt-in via SENTRY_DSN).
- *
- * Sem DSN, vira no-op completo: `captureException` aceita e descarta.
- * Init é idempotente; chame uma vez no boot, antes de criar o Express.
- *
- * Como usar:
- *   import { initSentry, sentry } from './lib/sentry'
- *   initSentry()
- *   ...
- *   sentry.captureException(err, { tags: { route: '/api/foo' } })
- */
+
 import * as Sentry from '@sentry/node'
 import { env } from './env'
 import { logger } from './logger'
@@ -27,9 +16,9 @@ export function initSentry(): void {
     environment:      env.SENTRY_ENVIRONMENT ?? env.NODE_ENV,
     release:          env.RELEASE,
     tracesSampleRate: env.SENTRY_TRACES_SAMPLE,
-    // Não envia PII automaticamente; envia só o que a gente marca via setUser/setTag.
+
     sendDefaultPii:   false,
-    // Filtra ruído conhecido (timeouts de socket, etc) — pode crescer com tempo.
+
     ignoreErrors: [
       /ECONNRESET/,
       /EPIPE/,
@@ -40,7 +29,6 @@ export function initSentry(): void {
   logger.info('Sentry', `inicializado (env=${env.SENTRY_ENVIRONMENT ?? env.NODE_ENV})`)
 }
 
-/** Wrapper que vira no-op se Sentry não foi inicializado. */
 export const sentry = {
   captureException(err: unknown, ctx?: { tags?: Record<string, string>; user?: { id?: string } }) {
     if (!initialized) return

@@ -14,13 +14,8 @@ import { invalidateMembersCache } from '../lib/membersCache'
 
 export const serversRouter = Router()
 
-/**
- * Helper: monta a lista de servidores (com channels[] e _count.members)
- * pra um usuário específico. Prisma fazia em 1 query via include — em
- * Drizzle quebramos em 3 queries paralelas e juntamos em JS (clareza > magia).
- */
 async function listServersForUser(userId: string) {
-  // Servidores onde o user é membro
+
   const myMemberships = await db.select({ serverId: serverMembers.serverId })
     .from(serverMembers)
     .where(eq(serverMembers.userId, userId))
@@ -38,8 +33,6 @@ async function listServersForUser(userId: string) {
     db.select().from(channelCategories).where(inArray(channelCategories.serverId, serverIds)).orderBy(asc(channelCategories.position)),
   ])
 
-  // lastMessageAt por canal — pra unread indicator no sidebar comparar
-  // com lastReadAt do ChannelRead. 1 query agrupada (max createdAt).
   const channelIds = chRows.map((c) => c.id)
   let lastByChannel = new Map<string, Date>()
   if (channelIds.length > 0) {
@@ -53,7 +46,6 @@ async function listServersForUser(userId: string) {
     lastByChannel = new Map(lastRows.map((r) => [r.channelId, r.lastAt]))
   }
 
-  // Filtra canais por visibilidade (privados só pra quem tem role)
   const visible = await filterVisibleChannels(userId, channelIds)
   const channelsByServer = new Map<string, Array<typeof chRows[number] & { lastMessageAt: Date | null }>>()
   for (const c of chRows) {
@@ -92,7 +84,6 @@ async function serverWithChannelsAndCount(serverId: string) {
   return { ...srv, channels: chRows, categories: catRows, _count: { members: countRow?.count ?? 0 } }
 }
 
-// GET /api/servers
 serversRouter.get(
   '/',
   requireAuth,
@@ -102,7 +93,6 @@ serversRouter.get(
   })
 )
 
-// POST /api/servers
 serversRouter.post(
   '/',
   requireAuth,
@@ -115,7 +105,7 @@ serversRouter.post(
         name, iconUrl, isGroup, ownerId: req.userId!,
       }).returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
-      // Semeia uma categoria "Geral" com o canal geral dentro (estilo Discord).
+
       const [cat] = await tx.insert(channelCategories).values({ name: 'Geral', serverId: s.id, position: 0 }).returning()
       await tx.insert(channels).values({ name: 'geral', type: 'TEXT', serverId: s.id, categoryId: cat.id, position: 0 })
       return s
@@ -126,7 +116,6 @@ serversRouter.post(
   })
 )
 
-// ── PATCH /api/servers/:serverId — rename / change icon ───────
 const ALLOWED_ICON_HOSTS = [
   'i.imgur.com','media.giphy.com','cdn.discordapp.com','media.tenor.com',
   'i.postimg.cc','images.unsplash.com','lh3.googleusercontent.com',
@@ -142,7 +131,7 @@ function isIconTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   return url.length * 0.75 > 5 * 1024 * 1024
 }
-// Banner: maior que ícone (imagem larga, GIF animado pesa) — teto 8MB
+
 function isBannerTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   return url.length * 0.75 > 8 * 1024 * 1024
@@ -199,9 +188,6 @@ serversRouter.patch(
   })
 )
 
-// ── POST /api/servers/:serverId/regenerate-invite ─────────────
-// Rotaciona o inviteCode: links antigos param de funcionar imediatamente.
-// Usado quando o convite vazou ou simplesmente o owner quer trocar.
 serversRouter.post(
   '/:serverId/regenerate-invite',
   requireAuth,
@@ -225,10 +211,6 @@ serversRouter.post(
   })
 )
 
-// ── POST /api/servers/:serverId/add-friend ────────────────────
-// Adiciona um amigo (friendship accepted) direto ao servidor — sem precisar
-// passar pelo invite link. Notifica o amigo via Notification + invalida queries.
-// Requer apenas que o caller seja membro (qualquer um pode convidar amigos).
 const AddFriendSchema = z.object({
   friendUserId: z.string().min(1, 'friendUserId obrigatório'),
 })
@@ -242,14 +224,12 @@ serversRouter.post(
     const { friendUserId } = req.body as { friendUserId: string }
     const callerId = req.userId!
 
-    // 1) Caller é membro do server?
     const [callerMember] = await db.select({ id: serverMembers.id })
       .from(serverMembers)
       .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, callerId)))
       .limit(1)
     if (!callerMember) return res.status(403).json({ error: 'Você não é membro deste servidor' })
 
-    // 2) São amigos aceitos? (par sempre normalizado userA < userB no schema)
     const [a, b] = callerId < friendUserId ? [callerId, friendUserId] : [friendUserId, callerId]
     const [friendship] = await db.select({ id: friendships.id, status: friendships.status })
       .from(friendships)
@@ -259,24 +239,20 @@ serversRouter.post(
       return res.status(403).json({ error: 'Você só pode adicionar amigos aceitos' })
     }
 
-    // 3) Friend está banido do server?
     const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
       .where(and(eq(serverBans.serverId, serverId), eq(serverBans.userId, friendUserId)))
       .limit(1)
     if (banned) return res.status(403).json({ error: 'Esse amigo está banido do servidor' })
 
-    // 4) Já é membro?
     const [already] = await db.select({ id: serverMembers.id }).from(serverMembers)
       .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, friendUserId)))
       .limit(1)
     if (already) return res.status(409).json({ error: 'Esse amigo já é membro' })
 
-    // 5) Server existe?
     const [server] = await db.select({ id: servers.id, name: servers.name, isGroup: servers.isGroup })
       .from(servers).where(eq(servers.id, serverId)).limit(1)
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado' })
 
-    // 6) Insert + notification
     await db.insert(serverMembers).values({ userId: friendUserId, serverId })
     void invalidateMembersCache(serverId)
     await db.insert(notifications).values({
@@ -298,7 +274,6 @@ serversRouter.post(
   })
 )
 
-// ── PATCH /api/servers/:serverId/members/:memberId — role change (OWNER only)
 const RoleSchema = z.object({ role: z.enum(['ADMIN', 'MEMBER']) })
 
 serversRouter.patch(
@@ -326,7 +301,6 @@ serversRouter.patch(
   })
 )
 
-// ── DELETE /api/servers/:serverId/members/:memberId — kick (OWNER/ADMIN)
 serversRouter.delete(
   '/:serverId/members/:memberId',
   requireAuth,
@@ -345,7 +319,7 @@ serversRouter.delete(
     if (!target) return res.status(404).json({ error: 'Membro não encontrado' })
     if (target.role === 'OWNER') return res.status(400).json({ error: 'Não é possível remover o dono' })
     if (target.userId === req.userId) return res.status(400).json({ error: 'Use sair do servidor para se remover' })
-    // Sem-owner não pode kickar quem também tem KICK_MEMBERS (igual hierarquia Discord)
+
     if (!requester.isOwner) {
       const targetPerms = await getMemberPerms(target.userId, serverId)
       if (targetPerms.isOwner || targetPerms.permissions.has(PERMS.KICK_MEMBERS))
@@ -362,7 +336,6 @@ serversRouter.delete(
   })
 )
 
-// ── DELETE /api/servers/:serverId — delete (owner only) ───────
 serversRouter.delete(
   '/:serverId',
   requireAuth,
@@ -377,13 +350,11 @@ serversRouter.delete(
       return res.status(403).json({ error: 'Apenas o dono pode excluir o servidor' })
     }
 
-    // Cascade no schema → apaga members/channels/messages
     await db.delete(servers).where(eq(servers.id, serverId))
     res.json({ message: 'Servidor excluído com sucesso' })
   })
 )
 
-// ── DELETE /api/servers/:serverId/leave ───────────────────────
 serversRouter.delete(
   '/:serverId/leave',
   requireAuth,
@@ -411,7 +382,6 @@ serversRouter.delete(
   })
 )
 
-// ── POST /api/servers/join/:inviteCode ────────────────────────
 serversRouter.post(
   '/join/:inviteCode',
   requireAuth,
@@ -436,7 +406,6 @@ serversRouter.post(
   })
 )
 
-// ── GET /api/servers/:serverId/members ────────────────────────
 serversRouter.get(
   '/:serverId/members',
   requireAuth,
@@ -467,7 +436,6 @@ serversRouter.get(
       .where(eq(serverMembers.serverId, serverId))
       .orderBy(asc(serverMembers.joinedAt))
 
-    // Anexa roles[] e topColor pra cada member em 1 query
     const memberIds = members.map((m) => m.id)
     let rolesByMember = new Map<string, Array<{ id: string; name: string; color: string|null; position: number; hoist: boolean }>>()
     if (memberIds.length > 0) {
@@ -489,7 +457,7 @@ serversRouter.get(
           id: a.roleId, name: a.name, color: a.color, position: a.position, hoist: a.hoist,
         })
       }
-      // Sort por position desc dentro de cada member
+
       for (const arr of rolesByMember.values()) arr.sort((a, b) => b.position - a.position)
     }
 
@@ -503,7 +471,6 @@ serversRouter.get(
   })
 )
 
-// ── POST /api/servers/:serverId/invite/:username ──────────────
 serversRouter.post(
   '/:serverId/invite/:username',
   requireAuth,
@@ -539,7 +506,6 @@ serversRouter.post(
   })
 )
 
-// ── PATCH /api/servers/:serverId/my-color ─────────────────────
 const NameColorSchema = z.object({
   nameColor: z.string().regex(/^(#[0-9a-fA-F]{6}|gradient:\d+:#[0-9a-fA-F]{6}:#[0-9a-fA-F]{6})$/, 'Formato inválido').nullable(),
 })
@@ -565,7 +531,6 @@ serversRouter.patch(
   })
 )
 
-// ── GET /api/servers/:serverId/audit — trilha de ações administrativas
 serversRouter.get(
   '/:serverId/audit',
   requireAuth,
@@ -610,7 +575,6 @@ function safeParseObj(raw: unknown): Record<string, unknown> {
   try { const v = JSON.parse(raw); return v && typeof v === 'object' ? v as Record<string, unknown> : {} } catch { return {} }
 }
 
-// ── GET /api/servers/:serverId/me — perms do user atual neste server
 serversRouter.get(
   '/:serverId/me',
   requireAuth,
@@ -626,7 +590,6 @@ serversRouter.get(
   })
 )
 
-// ─── CHANNELS ROUTER ──────────────────────────────────────────
 export const channelsRouter = Router()
 
 channelsRouter.post(
@@ -651,9 +614,6 @@ channelsRouter.post(
   })
 )
 
-// ── Visibility: GET/PATCH /api/servers/:serverId/channels/:channelId/visibility
-// Body PATCH: { isPrivate: bool, roleIds?: string[] }
-// roleIds vazio + isPrivate=true → canal escondido pra todos (exceto owner)
 channelsRouter.get(
   '/:serverId/channels/:channelId/visibility',
   requireAuth,
@@ -692,14 +652,12 @@ channelsRouter.patch(
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão' })
 
-    // Confere canal pertence ao server
     const [ch] = await db.select({ id: channels.id })
       .from(channels)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
       .limit(1)
     if (!ch) return res.status(404).json({ error: 'Canal não encontrado' })
 
-    // Filtra roleIds pra garantir que pertencem a esse server
     let validRoleIds: string[] = []
     if (roleIds.length > 0) {
       const validRoles = await db.select({ id: roles.id }).from(roles)
@@ -725,7 +683,6 @@ channelsRouter.patch(
   })
 )
 
-// PATCH /api/servers/:serverId/channels/:channelId — rename e/ou mover de categoria
 const UpdateChannelSchema = z.object({
   name:       z.string().min(1).max(50).optional(),
   categoryId: z.string().nullable().optional(),
@@ -743,7 +700,6 @@ channelsRouter.patch(
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão' })
 
-    // Mover pra categoria → confere que ela pertence a este servidor.
     if (categoryId) {
       const [cat] = await db.select({ id: channelCategories.id })
         .from(channelCategories)
@@ -772,7 +728,6 @@ channelsRouter.patch(
   })
 )
 
-// DELETE /api/servers/:serverId/channels/:channelId
 channelsRouter.delete(
   '/:serverId/channels/:channelId',
   requireAuth,
@@ -784,7 +739,6 @@ channelsRouter.delete(
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão pra excluir canais' })
 
-    // Garante que o canal pertence a este servidor (defesa em profundidade)
     const r = await db.delete(channels)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
       .returning({ id: channels.id, name: channels.name })
@@ -798,9 +752,6 @@ channelsRouter.delete(
   })
 )
 
-// ─── CATEGORIES ───────────────────────────────────────────────
-// CRUD de categorias de canal (estilo Discord). Owner ou MANAGE_CHANNELS.
-// Deletar categoria não apaga canais — eles viram "sem categoria" (FK set null).
 const CreateCategorySchema = z.object({ name: z.string().min(1).max(50) })
 channelsRouter.post(
   '/:serverId/categories',

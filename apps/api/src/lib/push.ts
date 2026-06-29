@@ -6,7 +6,6 @@ import { env } from './env'
 
 let isConfigured = false
 
-/** Inicializa VAPID. Se faltar key, push fica desligado (no-op). */
 export function initPush() {
   if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
     console.warn('[Push] VAPID_PUBLIC_KEY/PRIVATE_KEY ausentes — push desabilitado')
@@ -28,24 +27,18 @@ export interface PushPayload {
   url?:  string
   icon?: string
   tag?:  string
-  /** se true, replaces qualquer notificação anterior com mesma `tag` */
+
   renotify?: boolean
-  /** Quando true, SW renderiza com [Abrir] [Responder] (input inline). */
+
   actionable?: boolean
-  /** Necessário pra reply inline funcionar (SW posta no canal certo). */
+
   channelId?: string
-  /** Idem pra DMs. */
+
   dmConvId?:  string
 }
 
-/**
- * Envia push pra todas as subscriptions de um user — web push (VAPID) E
- * devices nativos (FCM). Sub gone (410/404) é removida automaticamente —
- * best-effort, não bloqueia o caller.
- */
 export async function sendPush(userId: string, payload: PushPayload) {
-  // FCM em paralelo, fire-and-forget — import dinâmico evita ciclo
-  // (fcm.ts importa PushPayload daqui).
+
   void import('./fcm').then(({ sendFcmToUser }) => sendFcmToUser(userId, payload)).catch(() => {})
 
   if (!isConfigured) return
@@ -64,7 +57,7 @@ export async function sendPush(userId: string, payload: PushPayload) {
     } catch (err: any) {
       const code = err?.statusCode
       if (code === 404 || code === 410) {
-        // Endpoint expirou/cancelado — limpa
+
         await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, s.id)).catch(() => {})
       } else {
         console.error('[Push] erro:', code ?? err?.message ?? err)

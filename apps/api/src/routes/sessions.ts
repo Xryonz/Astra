@@ -8,11 +8,6 @@ import { hashToken } from '../lib/jwt'
 
 const router = Router()
 
-/**
- * GET /api/sessions — lista todas as sessões ativas (refresh tokens não-revogados,
- * não-expirados) do user. A sessão CORRENTE é marcada via match com o refresh
- * Bearer no body (opcional — frontend pode mandar pra UI destacar "este device").
- */
 router.get(
   '/',
   requireAuth,
@@ -39,11 +34,6 @@ router.get(
   })
 )
 
-/**
- * DELETE /api/sessions/:id — revoga uma sessão específica (refresh token).
- * User só pode revogar o que é dele. Não revoga a sessão CORRENTE — frontend
- * precisa fazer logout normal pra essa.
- */
 router.delete(
   '/:id',
   requireAuth,
@@ -65,12 +55,6 @@ router.delete(
   })
 )
 
-/**
- * POST /api/sessions/revoke-others — revoga TODAS as sessões exceto a atual.
- * Identifica a atual pelo refresh token no body (Bearer não serve aqui —
- * Authorization carrega o access token). Útil pro botão "encerrar outros
- * dispositivos" — flow padrão pós-troca de senha ou suspeita de comprometido.
- */
 router.post(
   '/revoke-others',
   requireAuth,

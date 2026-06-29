@@ -1,9 +1,4 @@
-/**
- * POST /api/translate  { text, targetLang }  → { translation, sourceLang? }
- *
- * Usa Claude Haiku (rápido + barato). Cache 24h em Redis por hash(text+targetLang).
- * Rate limit 50 traduções/user/dia (cota separada do bot).
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import crypto from 'crypto'
@@ -45,7 +40,6 @@ router.post('/', requireAuth, validate(TranslateSchema), asyncHandler(async (req
     return res.status(503).json({ error: 'Tradutor offline (sem chave de API)' })
   }
 
-  // Rate limit
   const qKey = dayKey(req.userId!)
   const count = await redis.incr(qKey)
   if (count === 1) await redis.expire(qKey, 86_400)
@@ -53,7 +47,6 @@ router.post('/', requireAuth, validate(TranslateSchema), asyncHandler(async (req
     return res.status(429).json({ error: `Limite diário (${DAILY_LIMIT}) atingido. Tente amanhã.` })
   }
 
-  // Cache lookup
   const hash = crypto.createHash('sha256').update(`${targetLang}\n${text}`).digest('hex').slice(0, 32)
   const cacheKey = `translate:result:${hash}`
   const cached = await redis.get(cacheKey)
@@ -61,7 +54,6 @@ router.post('/', requireAuth, validate(TranslateSchema), asyncHandler(async (req
     return res.json({ data: { translation: cached, cached: true } })
   }
 
-  // Claude call
   try {
     const aRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

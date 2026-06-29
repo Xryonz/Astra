@@ -15,8 +15,8 @@ import { getMemberPerms, PERMS } from '../lib/permissions'
 import { UPLOAD_DIR } from './upload'
 
 const MAX_EMOJIS = 50
-const MAX_SIZE   = 512 * 1024  // 512KB pré-transcode (Discord = 256KB)
-const EMOJI_PX   = 128         // Discord usa 128px também
+const MAX_SIZE   = 512 * 1024
+const EMOJI_PX   = 128
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -41,13 +41,12 @@ async function ensureCanManage(serverId: string, userId: string): Promise<boolea
   return perms.permissions.has(PERMS.MANAGE_CHANNELS)
 }
 
-// ── GET /api/servers/:serverId/emojis ─────────────────────────
 router.get(
   '/:serverId/emojis',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    // Membership obrigatória
+
     const [m] = await db.select({ id: serverMembers.id }).from(serverMembers)
       .where(and(eq(serverMembers.userId, req.userId!), eq(serverMembers.serverId, serverId)))
       .limit(1)
@@ -60,8 +59,6 @@ router.get(
   })
 )
 
-// ── POST /api/servers/:serverId/emojis ────────────────────────
-// multipart: file + name. Recompressa em WebP 128x128.
 router.post(
   '/:serverId/emojis',
   requireAuth,
@@ -87,7 +84,6 @@ router.post(
     const file = req.file
     if (!file) return res.status(400).json({ error: 'Arquivo obrigatório' })
 
-    // Limite total
     const existing = await db.select({ id: serverEmojis.id, name: serverEmojis.name })
       .from(serverEmojis).where(eq(serverEmojis.serverId, serverId))
     if (existing.length >= MAX_EMOJIS) {
@@ -97,11 +93,10 @@ router.post(
       return res.status(409).json({ error: `Já existe um emoji chamado :${name}:` })
     }
 
-    // Transcoda — animated GIF preserva animação se input for GIF, senão WebP.
     const isAnimated = file.mimetype.includes('gif')
     let buffer: Buffer, ext: string, mime: string
     if (isAnimated) {
-      // animated WebP preserva looping
+
       buffer = await sharp(file.buffer, { animated: true })
         .resize({ width: EMOJI_PX, height: EMOJI_PX, fit: 'inside' })
         .webp({ quality: 80, effort: 4 })
@@ -133,7 +128,6 @@ router.post(
   })
 )
 
-// ── DELETE /api/servers/:serverId/emojis/:emojiId ─────────────
 router.delete(
   '/:serverId/emojis/:emojiId',
   requireAuth,
@@ -147,7 +141,6 @@ router.delete(
       .returning({ id: serverEmojis.id, url: serverEmojis.url })
     if (result.length === 0) return res.status(404).json({ error: 'Emoji não encontrado' })
 
-    // Limpa file. Best-effort.
     const url = result[0].url
     if (url.startsWith('/uploads/')) {
       const p = path.join(UPLOAD_DIR, url.replace('/uploads/', ''))
@@ -157,7 +150,6 @@ router.delete(
   })
 )
 
-// ── PATCH /api/servers/:serverId/emojis/:emojiId — rename ─────
 const RenameSchema = z.object({ name: z.string().regex(NAME_RE) })
 router.patch(
   '/:serverId/emojis/:emojiId',

@@ -1,17 +1,4 @@
-/**
- * Polls são mensagens com `poll` JSON populado. Reusa o pipeline de
- * messages (canal/permission/socket), mas com vote toggle via endpoint
- * dedicado pra atomicidade.
- *
- * Shape do poll JSON salvo em messages.poll:
- *   {
- *     question: string,
- *     options: [{ id, text, votes: userId[] }],
- *     allowMultiple: boolean,
- *     expiresAt: ISO string | null,
- *     closed: boolean
- *   }
- */
+
 import { Router, Request, Response } from 'express'
 import { Server as SocketServer } from 'socket.io'
 import { z } from 'zod'
@@ -29,7 +16,7 @@ const CreatePollSchema = z.object({
   question:      z.string().min(3).max(300),
   options:       z.array(z.string().min(1).max(80)).min(2).max(8),
   allowMultiple: z.boolean().optional().default(false),
-  // Duração em horas. null/undefined = sem expiração
+
   durationHours: z.number().int().min(1).max(168).optional().nullable(),
 })
 
@@ -83,7 +70,6 @@ async function assertChannelAccess(userId: string, channelId: string) {
 export function createPollsRouter(io: SocketServer) {
   const router = Router({ mergeParams: true })
 
-  // POST /api/channels/:channelId/polls
   router.post(
     '/',
     requireAuth,
@@ -134,7 +120,6 @@ export function createPollsRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/channels/:channelId/polls/:messageId/vote
   router.post(
     '/:messageId/vote',
     requireAuth,
@@ -146,8 +131,6 @@ export function createPollsRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      // Loop com retry pra race em vote simultâneo
-      // (DB tem versão otimista via updatedAt — re-lê e tenta de novo se mudou)
       for (let attempt = 0; attempt < 3; attempt++) {
         const [msg] = await db.select({
           id: messages.id, poll: messages.poll, updatedAt: messages.updatedAt,
@@ -166,19 +149,17 @@ export function createPollsRouter(io: SocketServer) {
         const targetOption = poll.options.find((o) => o.id === optionId)
         if (!targetOption) return res.status(400).json({ error: 'Opção inválida' })
 
-        // Toggle: se já votou nesta opção → remove. Senão adiciona (single-vote remove de outras).
         const alreadyVoted = targetOption.votes.includes(req.userId!)
         if (alreadyVoted) {
           targetOption.votes = targetOption.votes.filter((u) => u !== req.userId)
         } else {
           if (!poll.allowMultiple) {
-            // Tira voto de qualquer outra opção
+
             for (const o of poll.options) o.votes = o.votes.filter((u) => u !== req.userId)
           }
           targetOption.votes.push(req.userId!)
         }
 
-        // Tenta gravar com WHERE updatedAt = prevUpdatedAt (optimistic concurrency)
         const r = await db.update(messages)
           .set({ poll: JSON.stringify(poll) })
           .where(and(eq(messages.id, messageId), eq(messages.updatedAt, msg.updatedAt)))
@@ -188,14 +169,13 @@ export function createPollsRouter(io: SocketServer) {
           io.to(`channel:${channelId}`).emit('poll_updated', { messageId, channelId, poll })
           return res.json({ data: { messageId, poll } })
         }
-        // Outro vote ganhou a corrida — tenta de novo
+
       }
 
       return res.status(409).json({ error: 'Voto não pôde ser registrado (conflito de concorrência). Tente de novo.' })
     })
   )
 
-  // POST /api/channels/:channelId/polls/:messageId/close
   router.post(
     '/:messageId/close',
     requireAuth,
@@ -212,7 +192,6 @@ export function createPollsRouter(io: SocketServer) {
         .limit(1)
       if (!msg || !msg.poll) return res.status(404).json({ error: 'Poll não encontrada' })
 
-      // Só o autor ou quem tem MANAGE_MESSAGES pode encerrar
       const m = await getMemberPerms(req.userId!, channel.serverId)
       const canClose = msg.authorId === req.userId || m.isOwner || m.permissions.has(PERMS.MANAGE_MESSAGES)
       if (!canClose) return res.status(403).json({ error: 'Sem permissão' })

@@ -1,15 +1,4 @@
-/**
- * Bookmarks — pasta pessoal de mensagens salvas.
- *
- *   GET    /api/bookmarks                → lista paginada (cursor)
- *   POST   /api/bookmarks                → cria { targetId, kind, note? }
- *   PATCH  /api/bookmarks/:id            → atualiza note
- *   DELETE /api/bookmarks/:id            → remove
- *
- * Privado por user (RLS no app: where userId = req.userId em toda query).
- * Lista enriquece com snapshot da mensagem alvo (autor + preview) — single
- * query agregando via LEFT JOIN; LEFT pra resistir a target deletada.
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, desc, eq, lt } from 'drizzle-orm'
@@ -58,8 +47,6 @@ router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) =>
     ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString() })).toString('base64url')
     : null
 
-  // Enriquecimento em batch: separa por kind, faz 2 queries (1 por tipo).
-  // Mais rápido que 1 JOIN com union pq Drizzle não suporta union elegante.
   const msgIds = items.filter((b) => b.kind === 'message').map((b) => b.targetId)
   const dmIds  = items.filter((b) => b.kind === 'dm').map((b) => b.targetId)
 
@@ -104,10 +91,6 @@ router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) =>
 router.post('/', requireAuth, validate(CreateSchema), asyncHandler(async (req: Request, res: Response) => {
   const { targetId, kind, note } = req.body as z.infer<typeof CreateSchema>
 
-  // Validação: target precisa existir e ser acessível pelo user.
-  // 'message' → checa membership do server dono do canal. Skip detalhe aqui
-  // confiando que se o user tem o messageId, ele veio do feed dele (autz mínimo).
-  // 'dm' → confere que o user participa da conv.
   if (kind === 'dm') {
     const [dm] = await db.select({ senderId: directMessages.senderId, receiverId: directMessages.receiverId })
       .from(directMessages).where(eq(directMessages.id, targetId)).limit(1)
@@ -116,7 +99,6 @@ router.post('/', requireAuth, validate(CreateSchema), asyncHandler(async (req: R
       return res.status(403).json({ error: 'Sem acesso' })
     }
   }
-  // kind 'message' → confia no client (todos os feeds já são protegidos por membership)
 
   try {
     const [created] = await db.insert(bookmarks).values({
@@ -125,7 +107,7 @@ router.post('/', requireAuth, validate(CreateSchema), asyncHandler(async (req: R
     res.status(201).json({ data: created })
   } catch (e: any) {
     if (e?.code === '23505') {
-      // Já existe — retorna idempotente
+
       const [existing] = await db.select().from(bookmarks)
         .where(and(eq(bookmarks.userId, req.userId!), eq(bookmarks.targetId, targetId), eq(bookmarks.kind, kind)))
         .limit(1)
@@ -153,7 +135,6 @@ router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Respon
   res.json({ data: { ok: true } })
 }))
 
-// Helper: inArray sem fan-out quando empty
 import { inArray } from 'drizzle-orm'
 function inArrayOrFalse<T extends { name: string }>(col: T, vals: string[]) {
   return inArray(col as any, vals)

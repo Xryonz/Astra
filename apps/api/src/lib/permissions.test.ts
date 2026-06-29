@@ -48,7 +48,7 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
     expect(m.permissions.has(PERMS.MANAGE_CHANNELS)).toBe(true)
     expect(m.permissions.has(PERMS.KICK_MEMBERS)).toBe(true)
     expect(m.permissions.has(PERMS.MANAGE_MESSAGES)).toBe(true)
-    // NÃO ganha BAN/ROLES por default
+
     expect(m.permissions.has(PERMS.BAN_MEMBERS)).toBe(false)
     expect(m.permissions.has(PERMS.MANAGE_ROLES)).toBe(false)
   })
@@ -73,7 +73,7 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
       { id: 'm1', role: 'MEMBER' },
       [
         '["BAN_MEMBERS"]',
-        '["MANAGE_ROLES","BAN_MEMBERS"]', // BAN duplicado
+        '["MANAGE_ROLES","BAN_MEMBERS"]',
         '["MANAGE_CHANNELS"]',
       ],
     )
@@ -88,7 +88,7 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
       { id: 'm1', role: 'ADMIN' },
       ['["BAN_MEMBERS"]'],
     )
-    // ADMIN base + BAN_MEMBERS
+
     expect(m.permissions.size).toBe(5)
     expect(m.permissions.has(PERMS.BAN_MEMBERS)).toBe(true)
     expect(m.permissions.has(PERMS.MANAGE_SERVER)).toBe(true)
@@ -113,11 +113,10 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
   })
 
   it('owner com cargo: perms-set fica vazio (isOwner short-circuit)', () => {
-    // Convenção: owner usa isOwner pra short-circuit, então perms-set
-    // não precisa estar populado. Mas se for member também, deve refletir.
+
     const m = computeMemberPerms('u1', 'u1', { id: 'm1', role: 'MEMBER' }, ['["BAN_MEMBERS"]'])
     expect(m.isOwner).toBe(true)
-    // Set ainda reflete o que ele tem como member
+
     expect(m.permissions.has(PERMS.BAN_MEMBERS)).toBe(true)
   })
 
@@ -127,8 +126,7 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
   })
 
   it('role enum "OWNER" (sem ownerId match) NÃO ganha admin perms', () => {
-    // Guard: convenção é que dono usa servers.ownerId, não member.role.
-    // Se algum day role=OWNER aparecer em member sem ownerId match, set fica vazio.
+
     const m = computeMemberPerms('outro-user', 'u1', { id: 'm1', role: 'OWNER' }, [])
     expect(m.isOwner).toBe(false)
     expect(m.isAdmin).toBe(false)
@@ -136,13 +134,13 @@ describe('computeMemberPerms — cascata Owner → Admin → Cargos', () => {
   })
 
   it('ownerId vazio string NÃO faz match', () => {
-    // Defesa: ownerId '' não bate com qualquer userId truthy.
+
     const m = computeMemberPerms('', 'u1', null, [])
     expect(m.isOwner).toBe(false)
   })
 
   it('MENTION_EVERYONE só vem de cargo customizado', () => {
-    // Legacy ADMIN não inclui MENTION_EVERYONE; tem que ser dado por cargo.
+
     const m = computeMemberPerms('owner', 'u1', { id: 'm1', role: 'ADMIN' }, [])
     expect(m.permissions.has(PERMS.MENTION_EVERYONE)).toBe(false)
 
@@ -193,7 +191,7 @@ describe('computeChannelVisibility', () => {
   })
 
   it('ownerId null com userId null não dá match (guard)', () => {
-    // Edge case: server sem owner + user anônimo NÃO deve passar.
+
     expect(computeChannelVisibility({
       ...base, ownerId: null, userId: '', isMember: false,
     })).toBe(false)

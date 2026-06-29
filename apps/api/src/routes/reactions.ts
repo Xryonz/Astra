@@ -16,7 +16,6 @@ const EmojiSchema = z.object({
 export function createReactionsRouter(io: SocketServer) {
   const router = Router({ mergeParams: true })
 
-  // POST /api/channels/:channelId/messages/:messageId/react
   router.post(
     '/',
     requireAuth,
@@ -25,7 +24,6 @@ export function createReactionsRouter(io: SocketServer) {
       const { channelId, messageId } = req.params
       const { emoji } = req.body
 
-      // Verifica acesso ao canal (membership no server dono do canal)
       const [channel] = await db.select({ serverId: channels.serverId }).from(channels)
         .where(eq(channels.id, channelId)).limit(1)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
@@ -46,7 +44,6 @@ export function createReactionsRouter(io: SocketServer) {
         .limit(1)
       if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' })
 
-      // Toggle
       const [existing] = await db.select({ id: messageReactions.id }).from(messageReactions)
         .where(and(
           eq(messageReactions.messageId, messageId),
@@ -68,7 +65,6 @@ export function createReactionsRouter(io: SocketServer) {
 
       io.to(`channel:${channelId}`).emit('reaction_update', { messageId, channelId, reactions })
 
-      // Notifica autor da msg (só ao ADICIONAR, e nunca self)
       if (action === 'added' && message.authorId !== req.userId) {
         const [actor] = await db.select({
           displayName: users.displayName, avatarUrl: users.avatarUrl,
@@ -83,7 +79,7 @@ export function createReactionsRouter(io: SocketServer) {
             authorAvatar: actor?.avatarUrl ?? null,
             preview:     (message.content ?? '').slice(0, 80),
           },
-          // Reactions são "soft" — sem push por padrão (evita spam)
+
         }).catch(() => {})
       }
 
@@ -91,7 +87,6 @@ export function createReactionsRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/channels/:channelId/messages/:messageId/reactions
   router.get(
     '/',
     requireAuth,
@@ -105,7 +100,6 @@ export function createReactionsRouter(io: SocketServer) {
   return router
 }
 
-// ─── Helper compartilhado com messages.ts ─────────────────────
 export async function getReactionSummary(messageId: string) {
   const raw = await db.select({
     emoji:  messageReactions.emoji,

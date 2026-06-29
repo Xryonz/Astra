@@ -4,10 +4,6 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
 
-// Subset estável de colunas — evita "column X does not exist" quando
-// novas colunas chegam no schema TS antes da migration rodar em prod.
-// (Foi exatamente isso que quebrou Google login quando preferences foi
-// adicionada e a migration não estava no journal do Drizzle.)
 const userMinCols = {
   id:           users.id,
   email:        users.email,
@@ -17,8 +13,6 @@ const userMinCols = {
   avatarUrl:    users.avatarUrl,
 }
 
-// Tipos compartilhados pro callback — não exportar via passport.user
-// (sessões desligadas) então a info viaja via `info` (3º arg do done()).
 export interface GoogleAuthFailureInfo {
   code:  'email_not_registered'
   email: string
@@ -37,19 +31,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           const email = profile.emails?.[0].value
           if (!email) return done(new Error('E-mail não disponível no perfil Google'))
 
-          // 1. Busca por googleId — já linkado antes.
-          //    NÃO sobrescrever avatarUrl/displayName: user pode ter
-          //    customizado depois (foto custom em /api/profile, nome editado).
-          //    Antes esse update jogava fora a foto custom toda vez que
-          //    fazia login Google. Login = só autenticar, não re-sincronizar.
           const [byGoogleId] = await db.select(userMinCols).from(users)
             .where(eq(users.googleId, profile.id)).limit(1)
 
           if (byGoogleId) return done(null, byGoogleId)
 
-          // 2. Busca por email — pode ter conta manual antes. Liga ao Google
-          //    e preenche avatar/nome SÓ se estão vazios — preserva o que
-          //    o user já tiver customizado na conta manual.
           const [byEmail] = await db.select(userMinCols).from(users)
             .where(eq(users.email, email)).limit(1)
 
@@ -62,10 +48,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             return done(null, linked)
           }
 
-          // 3. Email não registrado → BLOQUEIA. Não cria conta automaticamente.
-          //    Política de segurança: usuário precisa registrar manualmente,
-          //    impedindo que qualquer Google login ocupe usernames livres.
-          //    `info` passado pra callback do auth.ts redirecionar com email.
           const failureInfo: GoogleAuthFailureInfo = {
             code:  'email_not_registered',
             email,

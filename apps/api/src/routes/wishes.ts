@@ -1,14 +1,4 @@
-/**
- * WishingStar — sugestões públicas globais do que mudar no Astra.
- *
- *   GET  /api/wishes?limit=20&cursor=<isoDate-id>   lista global ordenada
- *   POST /api/wishes        { content: string }    cria um wish
- *
- * Sanitização: só texto. Newlines preservados, mas markdown/HTML escapado
- * no client (não vamos renderizar como rich). Limite 4–500 chars.
- *
- * Anti-spam: rate-limit 3 wishes / 10min por user via in-memory throttle.
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, desc, eq, lt, or } from 'drizzle-orm'
@@ -33,8 +23,6 @@ const QuerySchema = z.object({
   cursor: z.string().max(80).optional(),
 })
 
-// Remove control chars (preserva \t \n \r), normaliza unicode, colapsa whitespace.
-// Markdown/HTML são escapados no render do client — aqui apenas garantimos texto puro.
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g
 function sanitizeContent(raw: string): string {
@@ -46,7 +34,6 @@ function sanitizeContent(raw: string): string {
     .trim()
 }
 
-// Rate-limit por user: max 3 wishes em 10min
 const RATE_WINDOW_MS = 10 * 60_000
 const RATE_MAX       = 3
 const recent         = new Map<string, number[]>()
@@ -67,13 +54,12 @@ router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) =>
   if (!parsed.success) throw badRequest('Parâmetros inválidos')
   const { limit, cursor } = parsed.data
 
-  // Cursor format: <createdAtIso>__<id>
   let where = undefined
   if (cursor) {
     const [iso, id] = cursor.split('__')
     const dt = new Date(iso)
     if (!Number.isNaN(dt.getTime()) && id) {
-      // Itens criados ANTES do cursor (pagina pra trás na ordem DESC)
+
       where = or(
         lt(wishingStars.createdAt, dt),
         and(eq(wishingStars.createdAt, dt), lt(wishingStars.id, id)),

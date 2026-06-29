@@ -47,15 +47,11 @@ function parseCursor(cursor?: string): CursorPayload | null {
   }
 }
 
-
 function safeParseAttachments(raw: unknown): any[] {
   if (!raw || typeof raw !== 'string') return []
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : [] } catch { return [] }
 }
 
-/**
- * Anexa o resumo de reactions a uma lista de mensagens em 1 query.
- */
 async function attachReactions<T extends { id: string }>(messageList: T[]) {
   if (messageList.length === 0) return messageList
   const ids = messageList.map((m) => m.id)
@@ -95,9 +91,6 @@ async function attachReactions<T extends { id: string }>(messageList: T[]) {
 export function createMessagesRouter(io: SocketServer) {
   const router = Router({ mergeParams: true })
 
-  /**
-   * Verifica acesso ao canal (respeita visibilidade por role) e devolve canal+server.
-   */
   async function assertChannelAccess(userId: string, channelId: string) {
     const [row] = await db.select({
       channelId:  channels.id,
@@ -116,13 +109,12 @@ export function createMessagesRouter(io: SocketServer) {
       .limit(1)
 
     if (!row || !row.membershipId) return null
-    // Visibilidade por role: re-usa helper (cobre owner + canal público + privado match)
+
     const canSee = await userCanSeeChannel(userId, channelId)
     if (!canSee) return null
     return row
   }
 
-  // GET /api/channels/:channelId/messages
   router.get(
     '/',
     requireAuth,
@@ -136,7 +128,6 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      // Filtro efêmeras expiradas: expiresAt null OU > now
       const now = new Date()
       const conditions = [
         eq(messages.channelId, channelId),
@@ -194,7 +185,6 @@ export function createMessagesRouter(io: SocketServer) {
       const lastItem  = items[items.length - 1]
       const nextCursor = hasMore && lastItem ? encodeCursor(lastItem.createdAt, lastItem.id) : null
 
-      // Transforma rows: extrai replyTo nested + parse attachments + parse poll
       const shaped = items.map((r: any) => ({
         ...r,
         attachments: safeParseAttachments(r.attachments),
@@ -213,7 +203,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/channels/:channelId/messages
   router.post(
     '/',
     requireAuth,
@@ -228,7 +217,6 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      // Valida replyToId — tem que ser msg do MESMO canal e não deletada
       let validReplyToId: string | null = null
       let replyParent: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null } | null = null
       if (replyToId) {
@@ -297,9 +285,6 @@ export function createMessagesRouter(io: SocketServer) {
       const attachmentsJson = JSON.stringify(Array.isArray(attachments) ? attachments.slice(0, 10) : [])
       const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null
 
-      // ── PARALELIZAR queries independentes pré-INSERT ─────────
-      // Antes: sequencial (mem→mentions = 2 RTTs). Agora: 1 RTT.
-      // SELECTs viram prepared statements (plan cacheado no pg-pool).
       const [membership, mentionedIds, author] = await Promise.all([
         selectMemberColor.execute({ userId: req.userId!, serverId: channel.serverId }).then((rows) => rows[0]),
         parseMentions(content, channel.serverId),
@@ -309,8 +294,6 @@ export function createMessagesRouter(io: SocketServer) {
       const authorColor = membership?.nameColor ?? null
       const mentionsStr = mentionedIds.join(',')
 
-      // INSERT em DSL ad-hoc — prepared statement com nullable placeholders
-      // (replyToId/expiresAt) deu instabilidade; mantemos só SELECTs prepared.
       const [inserted] = await db.insert(messages).values({
         content, channelId, authorId: req.userId!, authorColor, mentions: mentionsStr,
         attachments: attachmentsJson,
@@ -324,24 +307,15 @@ export function createMessagesRouter(io: SocketServer) {
         replyTo: replyParent,
       }
 
-      // ── EMIT ASAP ────────────────────────────────────────────
-      // Antes desse emit, só INSERT + 1 Promise.all (3 SELECTs em paralelo).
-      // Receptores recebem msg em ~50ms ao invés de ~200ms+.
       io.to(`channel:${channelId}`).emit('new_message', { ...msgWithReactions, clientNonce: clientNonce ?? null })
       messagesSentTotal.inc({ kind: 'channel' })
 
-      // ── Resposta REST imediata (autor pode confirmar UI) ─────
       res.status(201).json({ data: msgWithReactions })
 
-      // ── BACKGROUND: trabalho não-crítico após response ───────
-      // setImmediate libera o event loop pra Express finalizar a response
-      // antes desse trabalho rodar. Errors logados, não afetam o client.
       setImmediate(() => {
         void (async () => {
           try {
-            // 1. Notifica sidebar de membros do server (channel_activity).
-            //    Lookup per-channel notif pref pra suprimir em 'mute' (e
-            //    em 'mentions' se o user não foi mencionado).
+
             const allMembers = await db.select({ userId: serverMembers.userId }).from(serverMembers)
               .where(eq(serverMembers.serverId, channel.serverId))
             const memberIds = allMembers.map((m) => m.userId).filter((id) => id !== req.userId)
@@ -355,9 +329,6 @@ export function createMessagesRouter(io: SocketServer) {
               io.to(`user:${userId}`).emit('channel_activity', { channelId, lastMessageAt: now })
             }
 
-            // 2. Mentions: legacy event + notify (feed + push).
-            //    Suprime se user setou 'mute' explicitamente — 'mentions' aqui
-            //    deixa passar (justamente o caso pra menção).
             for (const userId of mentionedIds) {
               if (userId === req.userId) continue
               if (notifModes.get(userId) === 'mute') continue
@@ -395,7 +366,6 @@ export function createMessagesRouter(io: SocketServer) {
               }).catch(() => {})
             }
 
-            // 3. Reply notif
             if (validReplyToId && replyParent && replyParent.authorId !== req.userId) {
               void notify({
                 io, userId: replyParent.authorId, actorId: req.userId!, type: 'reply',
@@ -423,7 +393,7 @@ export function createMessagesRouter(io: SocketServer) {
               }).catch(() => {})
             }
           } catch (err) {
-            // Background work falhou — não afeta o client, mas registra.
+
             // eslint-disable-next-line no-console
             console.error('[messages POST] background work failed:', err)
           }
@@ -432,7 +402,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // PATCH /api/channels/:channelId/messages/:messageId
   router.patch(
     '/:messageId',
     requireAuth,
@@ -451,8 +420,6 @@ export function createMessagesRouter(io: SocketServer) {
         .where(eq(channels.id, channelId)).limit(1)
       const mentionedIds = channel ? await parseMentions(content, channel.serverId) : []
 
-      // Salva versão anterior em MessageEdit antes de sobrescrever
-      // (só se conteúdo mudou de fato, não polui histórico com edits no-op)
       if (message.content !== content) {
         await db.insert(messageEdits).values({
           messageId,
@@ -473,7 +440,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/channels/:channelId/messages/:messageId/pin
   router.post(
     '/:messageId/pin',
     requireAuth,
@@ -483,7 +449,6 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      // Verifica role: OWNER/ADMIN OU autor da mensagem
       const [msg] = await db.select({ authorId: messages.authorId }).from(messages)
         .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
         .limit(1)
@@ -503,7 +468,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // DELETE /api/channels/:channelId/messages/:messageId/pin
   router.delete(
     '/:messageId/pin',
     requireAuth,
@@ -532,7 +496,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/channels/:channelId/pinned
   router.get(
     '/pinned',
     requireAuth,
@@ -574,7 +537,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/channels/:channelId/messages/:messageId/edits — histórico de edições
   router.get(
     '/:messageId/edits',
     requireAuth,
@@ -583,7 +545,6 @@ export function createMessagesRouter(io: SocketServer) {
       const channel = await assertChannelAccess(req.userId!, channelId)
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
-      // Confere que a mensagem pertence ao canal antes de devolver histórico
       const [msg] = await db.select({ id: messages.id }).from(messages)
         .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId)))
         .limit(1)
@@ -603,7 +564,6 @@ export function createMessagesRouter(io: SocketServer) {
     })
   )
 
-  // DELETE /api/channels/:channelId/messages/:messageId
   router.delete(
     '/:messageId',
     requireAuth,

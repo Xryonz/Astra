@@ -13,14 +13,12 @@ import { selectAuthorById, selectMemberColor } from '../db/prepared'
 
 const userSockets = new Map<string, Set<string>>()
 
-// Throttle DB writes do status: user zapando IDLE/ONLINE não deve escrever a cada tick.
-// Redis (setUserOnline) é hot path e sempre roda; DB persiste só a cada 5s OU em mudança final.
 const STATUS_DB_TTL_MS = 5_000
 const lastStatusDbWrite = new Map<string, { at: number; status: string }>()
 function shouldPersistStatus(userId: string, status: string): boolean {
   const prev = lastStatusDbWrite.get(userId)
   const now  = Date.now()
-  // Se mudou pra um status diferente, sempre persiste; senão throttle 5s.
+
   if (!prev || prev.status !== status || now - prev.at > STATUS_DB_TTL_MS) {
     lastStatusDbWrite.set(userId, { at: now, status })
     return true
@@ -28,15 +26,11 @@ function shouldPersistStatus(userId: string, status: string): boolean {
   return false
 }
 
-// Reutiliza helper central (respeita canais privados por role)
 import { userCanSeeChannel } from '../lib/permissions'
 async function userCanAccessChannel(userId: string, channelId: string): Promise<boolean> {
   return userCanSeeChannel(userId, channelId)
 }
 
-/**
- * Confere se o user participa da DM conversation.
- */
 async function userCanAccessDM(userId: string, conversationId: string): Promise<boolean> {
   const [row] = await db.select({ id: dmConversations.id }).from(dmConversations)
     .where(and(
@@ -82,27 +76,23 @@ export function setupSocket(io: Server) {
 
     const chosenStatus = (socket.data.status as 'ONLINE'|'IDLE'|'DND'|'INVISIBLE') ?? 'ONLINE'
     await setUserOnline(userId, chosenStatus)
-    // INVISIBLE → broadcast como offline pra não revelar presença
+
     const broadcastStatus = chosenStatus === 'INVISIBLE' ? 'OFFLINE' : chosenStatus
     socket.broadcast.emit('presence_update', { userId, status: broadcastStatus })
 
-    // Cliente pode mudar status em runtime
     socket.on('set_status', async (newStatus: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE') => {
       if (!['ONLINE','IDLE','DND','INVISIBLE'].includes(newStatus)) return
       socket.data.status = newStatus
       await setUserOnline(userId, newStatus)
-      // Persistir DB só quando muda OU passou 5s — IDLE→ONLINE espontâneo
-      // do client (heartbeat-driven) não justifica write em cada tick.
+
       if (shouldPersistStatus(userId, newStatus)) {
         try { await db.update(users).set({ status: newStatus }).where(eq(users.id, userId)) } catch {}
       }
       const out = newStatus === 'INVISIBLE' ? 'OFFLINE' : newStatus
       socket.broadcast.emit('presence_update', { userId, status: out })
-      socket.emit('presence_update', { userId, status: newStatus }) // self vê o real
+      socket.emit('presence_update', { userId, status: newStatus })
     })
 
-    // ── Personal room for mention notifications ───────────────
-    // Every connected user joins "user:<id>" so we can target them directly
     socket.join(`user:${userId}`)
 
     socket.on('heartbeat', () => {
@@ -110,7 +100,6 @@ export function setupSocket(io: Server) {
       refreshPresence(userId)
     })
 
-    // ── Channel rooms ─────────────────────────────────────────
     socket.on('join_channel', async (channelId: string) => {
       if (typeof channelId !== 'string' || !channelId) return
       const ok = await userCanAccessChannel(userId, channelId)
@@ -123,7 +112,6 @@ export function setupSocket(io: Server) {
       socket.to(`channel:${channelId}`).emit('user_stopped_typing', { userId, channelId })
     })
 
-    // ── DM rooms ──────────────────────────────────────────────
     socket.on('join_dm', async (conversationId: string) => {
       if (typeof conversationId !== 'string' || !conversationId) return
       const ok = await userCanAccessDM(userId, conversationId)
@@ -135,9 +123,6 @@ export function setupSocket(io: Server) {
       socket.leave(`dm:${conversationId}`)
     })
 
-    // ── DM call signaling (voice/video) ───────────────────────
-    // Convida outro user pra entrar numa chamada LiveKit. Server só faz
-    // signaling — o handshake real (token, conexão SFU) acontece via REST + WebRTC.
     socket.on('dm_call_invite', async (p: { conversationId: string; toUserId: string }) => {
       if (!p || typeof p.conversationId !== 'string' || typeof p.toUserId !== 'string') return
       const ok = await userCanAccessDM(userId, p.conversationId)
@@ -170,8 +155,6 @@ export function setupSocket(io: Server) {
       })
     })
 
-    // ── Typing ────────────────────────────────────────────────
-    // Só emite pros rooms onde o user já entrou (joinedRoom previne broadcast spoof).
     socket.on('typing_start', (channelId: string) => {
       if (typeof channelId !== 'string' || !channelId) return
       const room = `channel:${channelId}`
@@ -185,7 +168,6 @@ export function setupSocket(io: Server) {
       socket.to(room).emit('user_stopped_typing', { userId, channelId })
     })
 
-    // DM typing — mesma lógica mas com room `dm:${convId}`.
     socket.on('dm_typing_start', (conversationId: string) => {
       if (typeof conversationId !== 'string' || !conversationId) return
       const room = `dm:${conversationId}`
@@ -199,7 +181,6 @@ export function setupSocket(io: Server) {
       socket.to(room).emit('dm_user_stopped_typing', { userId, conversationId })
     })
 
-    // ── Spam check ────────────────────────────────────────────
     socket.on('check_message', async (payload: { channelId: string; serverId: string }) => {
       const { channelId, serverId } = payload
       if (!channelId || !serverId) return
@@ -233,15 +214,6 @@ export function setupSocket(io: Server) {
       socket.emit('message_allowed', { channelId })
     })
 
-    // ── Fast send (texto simples, sem anexo/reply/TTL/poll) ───
-    // Pula HTTP handshake do POST: cliente emite via socket persistente.
-    // Pra casos complexos (anexos, reply, poll, TTL) continua HTTP em
-    // /api/channels/:id/messages. Cobre ~80% dos sends.
-    //
-    // Contrato:
-    //   in:  { channelId, content, clientNonce }
-    //   ack: { ok: true, msg } | { ok: false, error, code? }
-    //   Broadcast: io.to(`channel:${channelId}`).emit('new_message', msg)
     socket.on('fast_send_text', async (
       payload: { channelId: string; content: string; clientNonce?: string },
       ack?: (r: { ok: boolean; error?: string; code?: string; msg?: unknown }) => void,
@@ -257,21 +229,18 @@ export function setupSocket(io: Server) {
           return safeAck({ ok: false, error: 'Conteúdo inválido' })
         }
 
-        // 1. Membership + canal acessível
         const [ch] = await db.select({ id: channels.id, serverId: channels.serverId })
           .from(channels).where(eq(channels.id, channelId)).limit(1)
         if (!ch) return safeAck({ ok: false, error: 'Canal não encontrado' })
         const canAccess = await userCanAccessChannel(userId, channelId)
         if (!canAccess) return safeAck({ ok: false, error: 'Acesso negado' })
 
-        // 2. Mute check
         const muted = await isUserMuted(userId, ch.serverId)
         if (muted) {
           const secondsLeft = await getMuteExpiry(userId, ch.serverId)
           return safeAck({ ok: false, error: 'Silenciado', code: 'MUTED', ...{ secondsLeft } } as any)
         }
 
-        // 3. Spam check
         const { spamDetected } = await trackMessage(userId, channelId)
         if (spamDetected) {
           const botId = await getBotId()
@@ -279,14 +248,12 @@ export function setupSocket(io: Server) {
           return safeAck({ ok: false, error: 'Spam detectado', code: 'SPAM_MUTED' })
         }
 
-        // 4. Paralelo: membership color + mentions + author lookup
         const [membership, mentionedIds, author] = await Promise.all([
           selectMemberColor.execute({ userId, serverId: ch.serverId }).then((rows) => rows[0]),
           parseMentions(trimmed, ch.serverId),
           selectAuthorById.execute({ userId }).then((rows) => rows[0]),
         ])
 
-        // 5. INSERT
         const [inserted] = await db.insert(messages).values({
           content:     trimmed,
           channelId,
@@ -306,12 +273,10 @@ export function setupSocket(io: Server) {
           clientNonce: clientNonce ?? null,
         }
 
-        // 6. Broadcast + ack
         io.to(`channel:${channelId}`).emit('new_message', payload2)
         messagesSentTotal.inc({ kind: 'channel' })
         safeAck({ ok: true, msg: payload2 })
 
-        // 7. Background: notif mentions + channel_activity
         setImmediate(() => {
           void (async () => {
             try {
@@ -339,12 +304,11 @@ export function setupSocket(io: Server) {
       }
     })
 
-    // ── Bot command ───────────────────────────────────────────
     socket.on('bot_command', async (payload: { channelId: string; serverId: string; content: string }) => {
       const { channelId, serverId, content } = payload ?? {}
       if (typeof channelId !== 'string' || typeof serverId !== 'string' || typeof content !== 'string') return
       if (!content.toLowerCase().startsWith('/astra')) return
-      // Confirma membership pra impedir injeção de mensagem do bot em canal alheio
+
       const canAccess = await userCanAccessChannel(userId, channelId)
       if (!canAccess) return
 
@@ -390,7 +354,6 @@ export function setupSocket(io: Server) {
       io.to(`channel:${channelId}`).emit('new_message', botMsg)
     })
 
-    // ── Disconnect ────────────────────────────────────────────
     socket.on('disconnect', async () => {
       const sockets = userSockets.get(userId)
       sockets?.delete(socket.id)

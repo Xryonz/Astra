@@ -1,13 +1,4 @@
-/**
- * Reminders: parse de duração + worker que dispara dueAt.
- *
- *   parseDuration("2h30m") → 9_000_000 ms (~2.5h)
- *   parseDuration("30min") → 1_800_000
- *   parseDuration("1d")    → 86_400_000
- *
- * Worker roda a cada 30s; pega reminders dueAt <= now + deliveredAt null,
- * marca deliveredAt antes de emitir pra evitar double-fire em restart.
- */
+
 import { and, eq, isNull, lte } from 'drizzle-orm'
 import { db } from '../db'
 import { reminders, users } from '../db/schema'
@@ -16,13 +7,10 @@ import { notify } from './notifications'
 import type { Server as SocketServer } from 'socket.io'
 
 const TICK_MS = 30_000
-const MAX_DURATION_MS = 365 * 24 * 60 * 60 * 1000 // 1 ano cap
-const MIN_DURATION_MS = 60 * 1000                 // 1 min mín
+const MAX_DURATION_MS = 365 * 24 * 60 * 60 * 1000
+const MIN_DURATION_MS = 60 * 1000
 let intervalRef: ReturnType<typeof setInterval> | null = null
 
-/**
- * Parse "10m", "2h", "1d", "30min", "1h30m", "1d12h". Retorna ms ou null se inválido.
- */
 export function parseDuration(input: string): number | null {
   if (!input) return null
   const re = /(\d+)\s*(d|h|m|min|s)/gi
@@ -44,9 +32,6 @@ export function parseDuration(input: string): number | null {
   return total
 }
 
-/**
- * Inicia worker. Idempotente.
- */
 export function startReminderWorker(io: SocketServer) {
   if (process.env.NODE_ENV === 'test') return
   if (intervalRef) clearInterval(intervalRef)
@@ -65,8 +50,6 @@ export function startReminderWorker(io: SocketServer) {
 
       if (due.length === 0) return
 
-      // Mark delivered FIRST (atomic-ish via UPDATE WHERE deliveredAt IS NULL)
-      // pra evitar double-fire em race entre workers/restart.
       const claimed: typeof due = []
       for (const r of due) {
         const updated = await db.update(reminders)
@@ -85,7 +68,7 @@ export function startReminderWorker(io: SocketServer) {
         const title   = isSelf ? '⏰ Lembrete' : `⏰ Lembrete de ${creator?.displayName ?? 'alguém'}`
 
         await notify({
-          io, userId: r.targetUserId, actorId: r.creatorId, type: 'reply', // reusa tipo 'reply' por hora — UI render igual
+          io, userId: r.targetUserId, actorId: r.creatorId, type: 'reply',
           payload: {
             isReminder: true,
             authorId:   r.creatorId,

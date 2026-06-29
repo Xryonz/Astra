@@ -1,13 +1,4 @@
-/**
- * FCM — push nativo pro app Android/iOS via Firebase Cloud Messaging.
- *
- * Opt-in por env: FIREBASE_SERVICE_ACCOUNT = JSON da service account
- * (Firebase Console → Project Settings → Service accounts → Generate key).
- * Sem a env, vira no-op silencioso — web push continua funcionando.
- *
- * Tokens inválidos (app desinstalado) são removidos automaticamente,
- * mesmo padrão do web push em lib/push.ts.
- */
+
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { fcmTokens } from '../db/schema'
@@ -38,17 +29,12 @@ export async function initFcm(): Promise<void> {
 
 export function isFcmEnabled() { return messaging !== null }
 
-/**
- * Envia o payload pra todos os devices nativos do user.
- * Channel Android derivado do conteúdo: menções/DMs/geral.
- */
 export async function sendFcmToUser(userId: string, payload: PushPayload): Promise<void> {
   if (!messaging) return
 
   const rows = await db.select().from(fcmTokens).where(eq(fcmTokens.userId, userId))
   if (rows.length === 0) return
 
-  // Channel id casa com os criados no app (lib/pushNative.ts do front)
   const channelId = payload.tag?.includes('mention') ? 'mentions'
     : payload.dmConvId ? 'dms'
     : 'general'

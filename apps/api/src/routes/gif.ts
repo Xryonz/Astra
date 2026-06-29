@@ -3,16 +3,6 @@ import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { env } from '../lib/env'
 
-/**
- * Proxy pra Giphy API v1. Mantém a API key no backend.
- * Endpoints:
- *   GET /api/gif/featured?pos=&limit=
- *   GET /api/gif/search?q=&pos=&limit=
- *   GET /api/gif/enabled
- *
- * Resposta normalizada: { results: [{ id, title, preview, full, width, height, size }] }
- */
-
 const GIPHY_BASE = 'https://api.giphy.com/v1/gifs'
 
 interface GiphyImage { url: string; width?: string; height?: string; size?: string }

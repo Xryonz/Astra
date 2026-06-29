@@ -42,19 +42,12 @@ const userSafeColumns = {
   onboardedAt:     users.onboardedAt,
 }
 
-// Refresh token: localStorage no front + Authorization: Bearer no /refresh.
-// Trade-off: vulnerável a XSS, MAS desbloqueia deploy cross-domain
-// (vercel.app ↔ railway.app) onde cookies Set-Cookie cross-site são
-// rejeitados pelo browser (Public Suffix List + 3rd-party cookie policy).
-// Mitigação: React 19 escapa HTML por default, CSP em secureHeaders.ts.
-
 function extractRefreshToken(req: Request): string | undefined {
   const auth = req.header('authorization')
   if (!auth?.startsWith('Bearer ')) return undefined
   return auth.slice(7).trim() || undefined
 }
 
-// ── POST /api/auth/register ───────────────────────────────────
 router.post(
   '/register',
   authLimiter,
@@ -92,7 +85,6 @@ router.post(
   })
 )
 
-// ── POST /api/auth/login ──────────────────────────────────────
 router.post(
   '/login',
   authLimiter,
@@ -105,7 +97,6 @@ router.post(
       .where(eq(users.email, email))
       .limit(1)
 
-    // Timing-safe: compara hash mesmo quando usuário não existe
     const fakeHash = '$2b$12$invalidhashtopreventtimingattacks000000000000000000000'
     const valid = user
       ? await bcrypt.compare(password, user.passwordHash ?? fakeHash)
@@ -126,7 +117,6 @@ router.post(
   })
 )
 
-// ── POST /api/auth/refresh ────────────────────────────────────
 router.post(
   '/refresh',
   asyncHandler(async (req: Request, res: Response) => {
@@ -142,8 +132,6 @@ router.post(
 
     const tokenHash = hashToken(token)
 
-    // Claim atômico: UPDATE...RETURNING garante que só 1 refresh ganha em
-    // chamadas paralelas. Previne replay attack se cliente repetir o token.
     const claimed = await db.update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(and(
@@ -167,12 +155,11 @@ router.post(
   })
 )
 
-// ── POST /api/auth/logout ─────────────────────────────────────
 router.post(
   '/logout',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    // refreshToken vem no body (header Authorization carrega o access).
+
     const refreshTokenRaw = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : ''
     if (refreshTokenRaw) {
       const tokenHash = hashToken(refreshTokenRaw)
@@ -185,7 +172,6 @@ router.post(
   })
 )
 
-// ── GET /api/auth/me ──────────────────────────────────────────
 router.get(
   '/me',
   requireAuth,
@@ -200,10 +186,6 @@ router.get(
   })
 )
 
-// ── POST /api/auth/password ───────────────────────────────────
-// Troca de senha (logado): confere a senha atual antes de gravar a nova.
-// Conta só-Google (sem passwordHash) não troca por aqui — precisa do
-// fluxo de "definir senha" via email (Resend).
 router.post(
   '/password',
   requireAuth,
@@ -230,9 +212,6 @@ router.post(
   })
 )
 
-// ── POST /api/auth/onboarded ──────────────────────────────────
-// Marca o onboarding (personalização inicial) como concluído. Idempotente:
-// só grava se ainda era null; senão devolve o timestamp existente.
 router.post(
   '/onboarded',
   requireAuth,
@@ -248,12 +227,6 @@ router.post(
   })
 )
 
-// ── Google OAuth ──────────────────────────────────────────────
-// App nativo (Capacitor): WebViews embarcados são BLOQUEADOS pelo Google
-// (disallowed_useragent), então o app abre este endpoint numa Custom Tab /
-// Safari View com ?platform=mobile. O `state` do OAuth carrega essa flag
-// até o callback, que então redireciona pro deep link astra:// em vez do
-// CLIENT_URL — o OS troca de volta pro app, que extrai o token do fragment.
 router.get('/google', (req: Request, res: Response, next) => {
   const state = req.query.platform === 'mobile' ? 'mobile' : undefined
   passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next)
@@ -263,12 +236,10 @@ router.get(
   '/google/callback',
   (req: Request, res: Response, next) => {
     const isMobile  = req.query.state === 'mobile'
-    // Deep link pro app nativo; web continua indo pro CLIENT_URL
+
     const clientBase = isMobile ? 'astra://auth/callback' : `${process.env.CLIENT_URL}/auth/callback`
     const loginUrl   = isMobile ? 'astra://login'         : `${process.env.CLIENT_URL}/login`
 
-    // Callback custom pra capturar `info` (3º arg do done()) com email
-    // não-registrado e redirecionar pra /login com query param amigável.
     passport.authenticate('google', { session: false }, async (err: Error | null, user: { id: string } | false, info: { code?: string; email?: string } | undefined) => {
       if (err) {
         return res.redirect(`${loginUrl}?error=oauth`)
@@ -288,7 +259,7 @@ router.get(
           userAgent: req.header('user-agent') ?? undefined,
           ip:        req.ip,
         })
-        // Hash fragment: não aparece em access logs, server nunca vê.
+
         res.redirect(`${clientBase}#refresh=${encodeURIComponent(refreshToken)}`)
       } catch (e) {
         next(e)
@@ -297,17 +268,8 @@ router.get(
   }
 )
 
-// ── Helper ────────────────────────────────────────────────────
-// Refresh TTL: 30 dias. Como /refresh emite NOVO token e revoga o velho
-// via UPDATE atômico, isso é sliding window de fato — cada uso renova
-// outros 30d. Cobertura típica: user que abre o app ao menos 1x/mês
-// fica logado pra sempre. Discord/WhatsApp Web usam padrão similar.
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
-/**
- * Trunca IP pra granularidade ~/24 (IPv4) ou /48 (IPv6). UI mostra
- * região aproximada sem armazenar IP exato (LGPD/privacy).
- */
 function truncateIp(ip: string | undefined): string | null {
   if (!ip) return null
   const v4mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+)\.\d+$/i)

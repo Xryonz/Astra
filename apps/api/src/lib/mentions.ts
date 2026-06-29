@@ -1,10 +1,4 @@
-/**
- * parseMentions — resolve @username → userId no contexto de um servidor.
- *
- * Lê do cache Redis (membersCache) — primeiro hit popula. parseMentions
- * é hot path (chamado em todo envio de mensagem); cache reduz lookup
- * pra ~0ms após warmup.
- */
+
 import { getCachedMembers } from './membersCache'
 
 export async function parseMentions(content: string, serverId: string): Promise<string[]> {

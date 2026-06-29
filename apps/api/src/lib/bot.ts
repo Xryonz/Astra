@@ -1,21 +1,4 @@
-/**
- * Bot v2 — Sonnet 4.6 com tool-use + memória 24h.
- *
- * Pipeline por turn:
- *   1. Salva turn do user em memory
- *   2. Carrega summary (se houver) + working window de turns
- *   3. Monta `messages[]` pro Claude (summary vai como system extra)
- *   4. Loop multi-turn: enquanto resposta tem tool_use → executa → manda result
- *      (cap em 5 iterações pra evitar loop infinito)
- *   5. Salva resposta final em memory + retorna ao chamador
- *   6. Se contar de turns > SUMMARY_TRIGGER, agenda summarize async
- *
- * System prompt usa cache_control da Anthropic — 90% desconto em prompts cached.
- *
- * Rate limits checados antes de chamar API:
- *   - DAILY_TOKEN_LIMIT por user
- *   - DAILY_TOOL_LIMIT por user
- */
+
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
@@ -31,7 +14,6 @@ import {
 import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
 import { botInvocationsTotal, botTokensTotal } from './metrics'
 
-// ─── Bot identity ─────────────────────────────────────────────
 export const BOT_USERNAME    = 'astra_bot'
 export const BOT_DISPLAYNAME = 'Astra'
 export const BOT_EMAIL       = 'bot@astra.internal'
@@ -56,7 +38,6 @@ interface AnthropicResponse {
   error?:        { type?: string; message?: string }
 }
 
-// ─── initBot ──────────────────────────────────────────────────
 export async function initBot(): Promise<string> {
   const [existing] = await db.select({ id: users.id }).from(users)
     .where(eq(users.username, BOT_USERNAME)).limit(1)
@@ -78,7 +59,6 @@ export async function initBot(): Promise<string> {
   return bot.id
 }
 
-// ─── getBotId (cached) ────────────────────────────────────────
 export async function getBotId(): Promise<string | null> {
   const cached = await redis.get('bot:userId')
   if (cached) return cached
@@ -87,8 +67,6 @@ export async function getBotId(): Promise<string | null> {
   if (bot) await redis.set('bot:userId', bot.id)
   return bot?.id ?? null
 }
-
-// ─── askBot ───────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `Você é a Astra, assistente oficial da plataforma de chat Astra.
 
@@ -120,25 +98,21 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     return { text: 'Estou offline no momento (sem chave de API). Tente mais tarde.', toolsUsed: [] }
   }
 
-  // Rate limit: pre-estimate token cost (rough — vai refinar com usage real depois)
-  const estTokens = Math.ceil((userMessage.length + 4000) / 4) // rough chars/4
+  const estTokens = Math.ceil((userMessage.length + 4000) / 4)
   const tokCheck = await consumeTokens(ctx.userId, estTokens)
   if (!tokCheck.allowed) {
     botInvocationsTotal.inc({ status: 'rate_limited' })
     return { text: `Você usou todo seu limite diário comigo (${100_000} tokens). Tente de novo amanhã.`, toolsUsed: [], truncated: 'tokens' }
   }
 
-  // Salva turn do user
   const nowMs = Date.now()
   await pushTurn(ctx.userId, ctx.channelId, { role: 'user', content: userMessage, ts: nowMs })
 
-  // Carrega memória
   const [summary, history] = await Promise.all([
     getSummary(ctx.userId, ctx.channelId),
     getHistory(ctx.userId, ctx.channelId, WORKING_WINDOW),
   ])
 
-  // Monta system prompt com cache_control
   const systemBlocks: any[] = [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
   if (summary) {
     systemBlocks.push({
@@ -147,14 +121,12 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     })
   }
 
-  // Converte history → Anthropic messages format
   const messages = historyToMessages(history)
 
   const toolsUsed: string[] = []
   let truncated: AskBotResult['truncated']
   let finalText = ''
 
-  // Loop multi-turn pra tool-use
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const res = await callClaude({
       model: MODEL_SONNET,
@@ -170,7 +142,6 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
       break
     }
 
-    // Atualiza budget com tokens reais + métricas
     if (res.usage) {
       const inTok    = res.usage.input_tokens ?? 0
       const outTok   = res.usage.output_tokens ?? 0
@@ -179,7 +150,7 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
       if (outTok)  botTokensTotal.inc({ kind: 'output'     }, outTok)
       if (cacheRd) botTokensTotal.inc({ kind: 'cache_read' }, cacheRd)
       const realTokens = inTok + outTok
-      // Ajusta (já consumimos a estimativa antes; aqui adicionamos delta)
+
       const delta = Math.max(0, realTokens - estTokens)
       if (delta > 0) await consumeTokens(ctx.userId, delta)
     }
@@ -188,17 +159,14 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     const textBlocks = blocks.filter((b) => b.type === 'text' && b.text)
     const toolBlocks = blocks.filter((b) => b.type === 'tool_use' && b.name && b.id)
 
-    // Acumula texto desta iteração no final
     if (textBlocks.length > 0) {
       finalText = textBlocks.map((b) => b.text).join('\n').trim()
     }
 
     if (res.stop_reason !== 'tool_use' || toolBlocks.length === 0) {
-      break // termina o loop — sem mais tools chamadas
+      break
     }
 
-    // Tem tool_use → executa todas, adiciona ao messages, volta pro loop
-    // Primeiro adiciona a resposta do assistant (com tool_use blocks) ao histórico
     messages.push({ role: 'assistant', content: blocks })
 
     const toolResults: any[] = []
@@ -231,13 +199,10 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     }
   }
 
-  // Fallback se nenhum texto saiu
   if (!finalText.trim()) finalText = 'Não consegui formular uma resposta. Tente reformular?'
 
-  // Salva resposta no histórico
   await pushTurn(ctx.userId, ctx.channelId, { role: 'assistant', content: finalText, ts: Date.now() })
 
-  // Agenda summarize se passar do trigger (async — não bloqueia resposta)
   const total = await countTurns(ctx.userId, ctx.channelId)
   if (total >= SUMMARY_TRIGGER) {
     void maybeSummarize(ctx.userId, ctx.channelId).catch((e) =>
@@ -248,8 +213,6 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   botInvocationsTotal.inc({ status: truncated ?? 'ok' })
   return { text: finalText, toolsUsed, truncated }
 }
-
-// ─── COMMANDS ─────────────────────────────────────────────────
 
 export async function handleBotCommand(
   content: string,
@@ -290,11 +253,8 @@ export async function handleBotCommand(
   return null
 }
 
-// ─── Internals ────────────────────────────────────────────────
-
 function historyToMessages(history: MemoryTurn[]): any[] {
-  // Garante que sequência alterna user/assistant (Anthropic requer). Se não
-  // alternar (ex: dois assistants seguidos por causa de race), faz coalesce.
+
   const out: any[] = []
   let lastRole: 'user' | 'assistant' | null = null
   for (const t of history) {
@@ -337,12 +297,8 @@ async function callClaude(opts: {
   return res.json() as Promise<AnthropicResponse>
 }
 
-/**
- * Comprime turns antigos num resumo curto. Mantém últimos WORKING_WINDOW
- * intactos, resume o que vier antes. Usa Haiku (barato + rápido).
- */
 async function maybeSummarize(userId: string, channelId: string): Promise<void> {
-  const history = await getHistory(userId, channelId, 200) // pega tudo até 200
+  const history = await getHistory(userId, channelId, 200)
   if (history.length <= WORKING_WINDOW) return
 
   const toSummarize = history.slice(0, history.length - WORKING_WINDOW)

@@ -42,7 +42,6 @@ function isDataUriTooLarge(url: string | null | undefined): boolean {
   return bytes > 6 * 1024 * 1024
 }
 
-// GET /api/profile/lookup?ids=a,b,c — batch lookup pra UIs (voice panel, etc)
 router.get(
   '/lookup',
   requireAuth,
@@ -61,7 +60,6 @@ router.get(
   })
 )
 
-// PATCH /api/profile
 router.patch(
   '/',
   requireAuth,
@@ -85,7 +83,6 @@ router.patch(
       return res.status(413).json({ error: 'Avatar muito grande. Máximo 5MB.' })
     }
 
-    // Username uniqueness
     if (username) {
       const [conflict] = await db.select({ id: users.id }).from(users)
         .where(and(eq(users.username, username), ne(users.id, req.userId!)))
@@ -128,7 +125,6 @@ router.patch(
   })
 )
 
-// GET /api/profile/presence?ids=a,b,c — bulk status pra members lists
 router.get(
   '/presence',
   requireAuth,
@@ -148,13 +144,10 @@ router.get(
   })
 )
 
-// ── Preferências (tema/aparência) ─────────────────────────────
-// Schema livre — server só passa por como JSON. Limita 4KB pra não inflar.
 const PreferencesSchema = z.object({
   preferences: z.record(z.unknown()),
 })
 
-// GET /api/profile/preferences — usado no bootstrap pra restaurar tema
 router.get(
   '/preferences',
   requireAuth,
@@ -170,7 +163,6 @@ router.get(
   })
 )
 
-// PATCH /api/profile/preferences — sync de tema/aparência cross-device
 router.patch(
   '/preferences',
   requireAuth,
@@ -187,7 +179,6 @@ router.patch(
   })
 )
 
-// PATCH /api/profile/status — set chosen presence status
 const StatusSchema = z.object({ status: z.enum(['ONLINE','IDLE','DND','INVISIBLE']) })
 
 router.patch(
@@ -202,7 +193,6 @@ router.patch(
   })
 )
 
-// GET /api/profile/:userId
 router.get(
   '/:userId',
   requireAuth,
@@ -225,8 +215,6 @@ router.get(
     }).from(users).where(eq(users.id, targetId)).limit(1)
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
 
-    // Status efetivo: combina socket vivo (Redis) com status preferido (DB).
-    // Se INVISIBLE e não for o próprio user pedindo, devolve OFFLINE.
     const liveStatus = await getUserStatus(targetId)
     const isSelf = targetId === req.userId
     let effectiveStatus: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE'|'OFFLINE'
@@ -235,7 +223,6 @@ router.get(
     else effectiveStatus = liveStatus
     ;(user as any).effectiveStatus = effectiveStatus
 
-    // Mutual servers: intersect requester's memberships with target's memberships
     const [myMems, theirMems] = await Promise.all([
       db.select({ serverId: serverMembers.serverId }).from(serverMembers).where(eq(serverMembers.userId, req.userId!)),
       db.select({ serverId: serverMembers.serverId, role: serverMembers.role }).from(serverMembers).where(eq(serverMembers.userId, targetId)),
@@ -255,7 +242,6 @@ router.get(
   })
 )
 
-// GET /api/profile/by-username/:username — compact card pra hover preview
 router.get(
   '/by-username/:username',
   requireAuth,
@@ -279,11 +265,6 @@ router.get(
   })
 )
 
-// ════════════════════════════════════════════════════════
-// GUESTBOOK (ProfileNote)
-// ════════════════════════════════════════════════════════
-
-// GET /api/profile/:userId/notes — listing público (pinned primeiro, depois recente)
 router.get(
   '/:userId/notes',
   requireAuth,
@@ -319,8 +300,6 @@ router.get(
   })
 )
 
-// POST /api/profile/:userId/notes — criar/atualizar (upsert por author)
-// Regras: não pode escrever no próprio perfil; só amigos podem.
 router.post(
   '/:userId/notes',
   requireAuth,
@@ -330,7 +309,6 @@ router.post(
     const me       = req.userId!
     if (targetId === me) return res.status(400).json({ error: 'Não dá pra escrever no próprio mural' })
 
-    // Só amigos podem deixar nota (par sempre normalizado)
     const [a, b] = me < targetId ? [me, targetId] : [targetId, me]
     const [friendRow] = await db.select({ id: friendships.id })
       .from(friendships)
@@ -344,7 +322,6 @@ router.post(
     const trimmed = content.trim()
     if (!trimmed) return res.status(400).json({ error: 'Nota vazia' })
 
-    // Upsert: 1 nota por (perfil, author). Update se existe.
     const [existing] = await db.select({ id: profileNotes.id })
       .from(profileNotes)
       .where(and(eq(profileNotes.profileUserId, targetId), eq(profileNotes.authorId, me)))
@@ -366,8 +343,6 @@ router.post(
   })
 )
 
-// DELETE /api/profile/notes/:noteId — autor pode remover sua nota;
-// dono do perfil também pode remover qualquer nota do próprio mural.
 router.delete(
   '/notes/:noteId',
   requireAuth,
@@ -386,7 +361,6 @@ router.delete(
   })
 )
 
-// PATCH /api/profile/notes/:noteId/pin — dono do perfil pin/unpin
 router.patch(
   '/notes/:noteId/pin',
   requireAuth,
@@ -399,7 +373,6 @@ router.patch(
     if (!note) return res.status(404).json({ error: 'Nota não encontrada' })
     if (note.profileUserId !== me) return res.status(403).json({ error: 'Apenas o dono do mural' })
 
-    // Single-pin: ao pinar, despina os outros
     if (!note.pinned) {
       await db.update(profileNotes).set({ pinned: false })
         .where(eq(profileNotes.profileUserId, me))

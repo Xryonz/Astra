@@ -1,20 +1,14 @@
-/**
- * Script temporário pra aplicar migrations das tabelas ServerRole/ServerMemberRole/ServerBan/ServerAuditLog
- * sem o prompt interativo do drizzle-kit. Rodar com:
- *   npx ts-node src/db/manualMigrate.ts
- */
+
 import 'dotenv/config'
 import { Pool } from 'pg'
 import dns from 'dns'
 
-// Força Node a resolver IPv4 primeiro. Sem isso o Node 18+ pode pegar
-// AAAA (IPv6) que ISPs como Vivo bloqueiam → ETIMEDOUT silencioso.
 dns.setDefaultResultOrder('ipv4first')
 
 const pool = new Pool({
   connectionString:     process.env.DATABASE_URL!,
   ssl:                  { rejectUnauthorized: false },
-  connectionTimeoutMillis: 15_000,  // falha rápido em vez de pendurar
+  connectionTimeoutMillis: 15_000,
 })
 
 const sql = `
@@ -220,14 +214,14 @@ async function main() {
     process.env.DATABASE_URL.replace(/:\/\/[^@]*@/, '://***:***@').slice(0, 80) + '…')
 
   try {
-    // Testa conexão antes do query
+
     await pool.query('SELECT 1')
     console.log('[Migrate] ✓ Conexão DB ok')
 
     await pool.query(sql)
     console.log('[Migrate] ✓ Tabelas criadas')
   } catch (err: any) {
-    // Logging robusto — pg errors raramente têm err.message útil
+
     console.error('[Migrate] ❌ erro ao migrar:')
     console.error('  message:    ', err?.message || '(vazio)')
     console.error('  code:       ', err?.code)

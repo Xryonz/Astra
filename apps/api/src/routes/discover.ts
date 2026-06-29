@@ -1,8 +1,4 @@
-/**
- * Descoberta (Discover) — diretório de constelações públicas. Donos/admins
- * ligam "Listar na Descoberta" nas configs (Server.isPublic). Qualquer um
- * pode entrar direto, sem convite.
- */
+
 import { Router, Request, Response } from 'express'
 import { and, desc, eq, ilike, sql } from 'drizzle-orm'
 import { db } from '../db'
@@ -14,8 +10,6 @@ import { invalidateMembersCache } from '../lib/membersCache'
 
 const router = Router()
 
-// GET /api/discover?q=texto — lista servidores públicos (não-grupos),
-// ordenados por nº de membros. q filtra por nome (opcional).
 router.get(
   '/',
   requireAuth,
@@ -42,7 +36,6 @@ router.get(
   })
 )
 
-// POST /api/discover/:serverId/join — entra direto num servidor público.
 router.post(
   '/:serverId/join',
   authLimiter,

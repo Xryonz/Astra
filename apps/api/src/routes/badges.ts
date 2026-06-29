@@ -1,11 +1,4 @@
-/**
- * Badges (insígnias).
- *  - Servidor: o dono (ou MANAGE_SERVER) cria badges e concede a membros.
- *  - Global: derivadas em runtime (Pioneiro, Bot) — não vivem no banco.
- *
- * Dois routers: serverBadgesRouter (/api/servers) e userBadgesRouter
- * (/api/users) — o perfil busca badges de um usuário por aqui.
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
@@ -27,13 +20,12 @@ const CreateBadgeSchema = z.object({
 })
 const GrantSchema = z.object({ userId: z.string().min(1) })
 
-// Badges globais derivadas (sem concessão manual).
 function deriveGlobalBadges(u: { isBot: boolean; createdAt: Date | null }) {
   const out: Array<{ id: string; name: string; icon: string; color: string; description: string }> = []
   if (u.isBot) {
     out.push({ id: 'bot', name: 'Bot', icon: '🤖', color: '#6e6b95', description: 'Conta automatizada' })
   }
-  // Pioneiro: contas dos primeiros tempos da Astra.
+
   const PIONEER_CUTOFF = new Date('2027-01-01')
   if (u.createdAt && u.createdAt < PIONEER_CUTOFF) {
     out.push({ id: 'pioneer', name: 'Pioneiro', icon: '✦', color: '#c9a96e', description: 'Esteve aqui desde o começo da Astra' })
@@ -46,7 +38,6 @@ async function requireManage(userId: string, serverId: string): Promise<boolean>
   return m.isOwner || m.permissions.has(PERMS.MANAGE_SERVER)
 }
 
-// ── GET /api/users/:userId/badges ─────────────────────────────
 userBadgesRouter.get(
   '/:userId/badges',
   requireAuth,
@@ -75,7 +66,6 @@ userBadgesRouter.get(
   })
 )
 
-// ── GET /api/servers/:serverId/badges ─────────────────────────
 serverBadgesRouter.get(
   '/:serverId/badges',
   requireAuth,
@@ -87,8 +77,6 @@ serverBadgesRouter.get(
       .where(eq(badges.serverId, serverId))
       .orderBy(desc(badges.createdAt))
 
-    // Quem tem cada badge — pro gerenciador marcar membros já agraciados.
-    // 1 query agrupada em JS (evita endpoint extra por badge).
     const grants = await db.select({ badgeId: badgeGrants.badgeId, userId: badgeGrants.userId })
       .from(badgeGrants)
       .innerJoin(badges, eq(badges.id, badgeGrants.badgeId))
@@ -103,7 +91,6 @@ serverBadgesRouter.get(
   })
 )
 
-// ── POST /api/servers/:serverId/badges ────────────────────────
 serverBadgesRouter.post(
   '/:serverId/badges',
   requireAuth,
@@ -119,7 +106,6 @@ serverBadgesRouter.post(
   })
 )
 
-// ── DELETE /api/servers/:serverId/badges/:badgeId ─────────────
 serverBadgesRouter.delete(
   '/:serverId/badges/:badgeId',
   requireAuth,
@@ -134,7 +120,6 @@ serverBadgesRouter.delete(
   })
 )
 
-// ── POST /api/servers/:serverId/badges/:badgeId/grants ────────
 serverBadgesRouter.post(
   '/:serverId/badges/:badgeId/grants',
   requireAuth,
@@ -152,7 +137,6 @@ serverBadgesRouter.post(
   })
 )
 
-// ── DELETE /api/servers/:serverId/badges/:badgeId/grants/:userId ──
 serverBadgesRouter.delete(
   '/:serverId/badges/:badgeId/grants/:userId',
   requireAuth,

@@ -15,14 +15,6 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-/**
- * GET /i/:code — página HTML com OG tags + redirect imediato pro site.
- *
- * O site é SPA (Vercel serve o mesmo index.html pra toda rota), então o
- * crawler do WhatsApp/Telegram/Discord nunca veria um preview por convite.
- * O link compartilhado (lib/native.ts shareInvite) aponta pra cá: crawler
- * lê as OG tags; humano é redirecionado pro /invite/:code do site.
- */
 router.get(
   '/:code',
   asyncHandler(async (req: Request, res: Response) => {
@@ -35,14 +27,11 @@ router.get(
       bannerUrl: servers.bannerUrl,
     }).from(servers).where(eq(servers.inviteCode, req.params.code)).limit(1)
 
-    // Convite inválido: manda pro site mesmo assim — lá tem a tela de erro
     if (!server) return res.redirect(target)
 
     const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
       .from(serverMembers).where(eq(serverMembers.serverId, server.id))
 
-    // og:image precisa ser URL pública — data: URIs (como os ícones em
-    // base64) não funcionam em crawler. Preferência: banner > ícone > logo.
     const apiBase = `${req.protocol}://${req.get('host')}`
     const toPublicUrl = (u: string | null): string | null => {
       if (!u || u.startsWith('data:')) return null

@@ -1,13 +1,4 @@
-/**
- * membersCache — cache Redis de `[{userId, username}]` por servidor.
- *
- * Por quê: parseMentions (hot path do chat) precisa resolver @username
- * → userId em todo envio. Sem cache, é 1 DB hit por mensagem.
- *
- * Estratégia: cache write-through com TTL 60s. Invalidação manual em
- * todas as rotas que mutam membership (invite accept, kick, leave, ban,
- * add-via-friend). Pior caso de stale: 60s — aceitável.
- */
+
 import { db } from '../db'
 import { eq } from 'drizzle-orm'
 import { serverMembers, users } from '../db/schema'
@@ -34,7 +25,6 @@ export async function getCachedMembers(serverId: string): Promise<CachedMember[]
   return rows
 }
 
-/** Invalida cache imediatamente. Chamar após qualquer mudança de membership. */
 export async function invalidateMembersCache(serverId: string): Promise<void> {
   await redis.del(key(serverId))
 }

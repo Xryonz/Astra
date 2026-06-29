@@ -26,7 +26,7 @@ describe('validate middleware', () => {
 
     expect(next).toHaveBeenCalledTimes(1)
     expect(res.status).not.toHaveBeenCalled()
-    // Zod descarta o `extra` por default → req.body sanitizado
+
     expect(req.body).toEqual({ name: 'Joao', age: 30 })
   })
 
@@ -42,7 +42,7 @@ describe('validate middleware', () => {
     const payload = res.status.mock.results[0].value.json.mock.calls[0][0]
     expect(payload.error).toBe('Dados inválidos')
     expect(Array.isArray(payload.details)).toBe(true)
-    expect(payload.details.length).toBeGreaterThanOrEqual(2) // name min2 + age positive
+    expect(payload.details.length).toBeGreaterThanOrEqual(2)
   })
 
   it('source=query valida req.query', () => {

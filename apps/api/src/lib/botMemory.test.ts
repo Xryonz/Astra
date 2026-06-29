@@ -11,7 +11,7 @@ const U = 'user-test'
 const C = 'channel-test'
 
 beforeEach(async () => {
-  // ioredis-mock dá flushall — limpa entre tests
+
   await (redis as any).flushall()
 })
 
@@ -66,7 +66,7 @@ describe('TTL — fixo, não reseta com novo turn', () => {
   it('primeiro turn seta TTL de 24h', async () => {
     await pushTurn(U, C, { role: 'user', content: 'a', ts: 1 })
     const ttl = await redis.ttl(`bot:mem:${U}:${C}`)
-    // ioredis-mock pode retornar -1 dependendo da versão; aceita -1 OU valor próximo de 24h
+
     if (ttl !== -1) {
       expect(ttl).toBeGreaterThan(MEMORY_TTL_SECONDS - 5)
       expect(ttl).toBeLessThanOrEqual(MEMORY_TTL_SECONDS)
@@ -74,9 +74,7 @@ describe('TTL — fixo, não reseta com novo turn', () => {
   })
 
   it('código usa EXPIRE NX no segundo turn (não tenta resetar)', async () => {
-    // pushTurn faz redis.multi().zadd().expire(NX) — o spy em redis.expire
-    // não pega (multi() retorna pipeline com .expire próprio). Aqui
-    // interceptamos o multi() pra capturar as calls do pipeline.
+
     await pushTurn(U, C, { role: 'user', content: 'a', ts: 1 })
 
     const expireCalls: unknown[][] = []
@@ -112,7 +110,6 @@ describe('summary', () => {
     await pushTurn(U, C, { role: 'user', content: 'antigo-2', ts: 200 })
     await pushTurn(U, C, { role: 'user', content: 'recente',  ts: 500 })
 
-    // Cutoff em 300 → apaga ts < 300
     await setSummary(U, C, { text: 'sum', turnsCovered: 2, createdAt: 1 }, 300)
 
     const h = await getHistory(U, C, 10)

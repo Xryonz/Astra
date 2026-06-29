@@ -1,9 +1,4 @@
-/**
- * Reminders REST.
- *   POST   /api/reminders            { content, durationMs? OR dueAt, channelId?, targetUserId? }
- *   GET    /api/reminders            lista pendentes do user (+ delivered últimos 7d)
- *   DELETE /api/reminders/:id        cancela (apaga se pending)
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, desc, eq, gt, isNull, or } from 'drizzle-orm'
@@ -34,8 +29,7 @@ router.post('/', requireAuth, validate(CreateSchema), asyncHandler(async (req: R
 
   const target = targetUserId ?? req.userId!
   if (target !== req.userId) {
-    // Pinging outro user — confere que existe (privacidade: hoje qualquer um pode lembrar qualquer um;
-    // futuro: exigir amizade ou config opt-out)
+
     const [u] = await db.select({ id: users.id }).from(users).where(eq(users.id, target)).limit(1)
     if (!u) return res.status(404).json({ error: 'Usuário-alvo não encontrado' })
   }
@@ -61,7 +55,7 @@ router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) =>
 
 router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params
-  // Só o criador pode cancelar (e antes de entregar)
+
   await db.delete(reminders).where(and(
     eq(reminders.id, id),
     eq(reminders.creatorId, req.userId!),

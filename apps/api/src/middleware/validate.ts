@@ -3,13 +3,11 @@ import { ZodSchema, ZodError } from 'zod'
 
 type Source = 'body' | 'query' | 'params'
 
-// Factory que retorna um middleware de validação para qualquer schema Zod
-// Uso: router.post('/route', validate(MySchema), handler)
 export function validate(schema: ZodSchema, source: Source = 'body') {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsed = schema.parse(req[source])
-      req[source] = parsed // Substitui com dados sanitizados
+      req[source] = parsed
       next()
     } catch (error) {
       if (error instanceof ZodError) {

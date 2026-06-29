@@ -1,6 +1,4 @@
-/**
- * Audit log helper. Fire-and-forget — falhas não bloqueiam a ação principal.
- */
+
 import { db } from '../db'
 import { auditLogs } from '../db/schema'
 

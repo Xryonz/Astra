@@ -1,14 +1,4 @@
-/**
- * Read receipts:
- *  - POST /api/channels/:channelId/read       → marca canal como lido agora
- *  - GET  /api/reads/channels                 → lastReadAt por canal do user atual
- *  - POST /api/dm/:conversationId/read        → marca conv DM como lida + emite socket
- *  - GET  /api/reads/dm                       → lastReadByOther (+seu) por conv
- *
- * Frontend usa pra:
- *  - sidebar: dot quando channel.lastMsgAt > read.lastReadAt
- *  - DM: "Visto" no último envio quando other.lastRead >= msg.createdAt
- */
+
 import { Router, Request, Response } from 'express'
 import { Server as SocketServer } from 'socket.io'
 import { and, eq, isNull, or, sql } from 'drizzle-orm'
@@ -20,14 +10,12 @@ import { asyncHandler } from '../lib/asyncHandler'
 export function createReadsRouter(io: SocketServer) {
   const router = Router()
 
-  // POST /api/channels/:channelId/read
   router.post(
     '/channels/:channelId/read',
     requireAuth,
     asyncHandler(async (req: Request, res: Response) => {
       const { channelId } = req.params
 
-      // Confirma membership antes de gravar (não permite "marcar lido" canal que não tem acesso)
       const [row] = await db.select({ membershipId: serverMembers.id })
         .from(channels)
         .innerJoin(serverMembers, and(
@@ -39,7 +27,7 @@ export function createReadsRouter(io: SocketServer) {
       if (!row) return res.status(403).json({ error: 'Acesso negado' })
 
       const now = new Date()
-      // Upsert: insert ou update lastReadAt no unique (userId, channelId)
+
       await db.insert(channelReads)
         .values({ userId: req.userId!, channelId, lastReadAt: now })
         .onConflictDoUpdate({
@@ -47,10 +35,6 @@ export function createReadsRouter(io: SocketServer) {
           set:    { lastReadAt: now },
         })
 
-      // Marca notifs do sino (mention/reply/reaction) deste canal como lidas.
-      // Antes só marcava ao clicar no item do sino — user que via a msg
-      // direto no canal continuava com badge não-lido pra sempre.
-      // payload é text JSON, então cast pra jsonb pra usar ->>.
       const marked = await db.update(notifications)
         .set({ readAt: now })
         .where(and(
@@ -60,7 +44,6 @@ export function createReadsRouter(io: SocketServer) {
         ))
         .returning({ id: notifications.id })
 
-      // Emite socket pra fechar badge no mesmo device (e outros do user)
       if (marked.length > 0) {
         io.to(`user:${req.userId}`).emit('notifications_read', {
           ids:   marked.map((m) => m.id),
@@ -72,7 +55,6 @@ export function createReadsRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/reads/channels — pega tudo de uma vez (sidebar precisa)
   router.get(
     '/reads/channels',
     requireAuth,
@@ -90,7 +72,6 @@ export function createReadsRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/dm/:conversationId/read
   router.post(
     '/dm/:conversationId/read',
     requireAuth,
@@ -111,7 +92,6 @@ export function createReadsRouter(io: SocketServer) {
         .set(isA ? { lastReadByA: now } : { lastReadByB: now })
         .where(eq(dmConversations.id, conversationId))
 
-      // Notifica o outro lado (pra atualizar "Visto" no chat dele)
       const otherId = isA ? conv.userBId : conv.userAId
       io.to(`user:${otherId}`).emit('dm_read', {
         conversationId,
@@ -120,7 +100,6 @@ export function createReadsRouter(io: SocketServer) {
         lastReadAt: now.toISOString(),
       })
 
-      // Marca notifs DM deste user/conversa como lidas
       const marked = await db.update(notifications)
         .set({ readAt: now })
         .where(and(
@@ -141,7 +120,6 @@ export function createReadsRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/reads/dm — { [conversationId]: { mine, other } }
   router.get(
     '/reads/dm',
     requireAuth,

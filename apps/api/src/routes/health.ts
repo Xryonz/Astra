@@ -1,13 +1,4 @@
-/**
- * Health endpoints — convenção Kubernetes-style:
- *  - /live   liveness: processo respira (sempre 200 se Node tá vivo)
- *  - /ready  readiness: DB + Redis respondem; 503 se algo falha
- *  - /health legado: equivalente a /ready
- *  - /metrics Prometheus scrape (protegido por METRICS_TOKEN)
- *
- * Liveness != Readiness intencionalmente: orquestrador não deve
- * reiniciar o pod só porque o Redis tá lento; deve só tirar do LB.
- */
+
 import { Router } from 'express'
 import { pool } from '../db'
 import { redis } from '../lib/redis'
@@ -64,7 +55,7 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
 })
 
 healthRouter.get('/metrics', async (req, res) => {
-  // Proteção: em prod exige Bearer; em dev/test fica livre pra scrape local
+
   if (env.NODE_ENV === 'production') {
     if (!env.METRICS_TOKEN) {
       return res.status(404).json({ error: 'metrics disabled' })

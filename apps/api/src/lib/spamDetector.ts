@@ -34,8 +34,6 @@ export async function muteUser(
   const expiresAt = new Date(Date.now() + MUTE_MINUTES * 60 * 1000)
   const ttl = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
 
-  // Upsert: tenta atualizar primeiro, se nada bater, insere.
-  // Drizzle: usamos onConflictDoUpdate via constraint @@unique([userId, serverId]).
   await db.insert(mutedMembers).values({
     userId, serverId, mutedById: botUserId, reason, expiresAt,
   })

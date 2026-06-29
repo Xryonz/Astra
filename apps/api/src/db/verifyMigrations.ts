@@ -1,16 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-/**
- * Valida no startup que TODA migration .sql tem entry no _journal.json
- * do Drizzle. Sem isso, o migrator pula silenciosamente .sql novos e o
- * server sobe com schema TS prometendo colunas que o DB ainda não tem
- * (foi exatamente assim que Google login quebrou — preferences no schema
- * mas sem entry → migration nunca rodou → SELECT * 42703).
- *
- * Comportamento: se houver .sql sem entry, lança ANTES de qualquer query.
- * Falhar rápido > debugar erro críptico em runtime.
- */
 export function verifyMigrationsJournal(migrationsFolder: string): void {
   let journal: { entries: Array<{ tag: string }> }
   try {
@@ -33,7 +23,6 @@ export function verifyMigrationsJournal(migrationsFolder: string): void {
     )
   }
 
-  // Extra: entries no journal sem .sql correspondente (raro mas indica drift)
   const orphan = [...registered].filter((tag) => !sqlFiles.includes(tag))
   if (orphan.length > 0) {
     console.warn(

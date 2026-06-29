@@ -11,7 +11,6 @@ import { invalidateMembersCache } from '../lib/membersCache'
 
 const router = Router()
 
-// GET /api/invites/:code — preview público
 router.get(
   '/:code',
   asyncHandler(async (req: Request, res: Response) => {
@@ -33,7 +32,6 @@ router.get(
   })
 )
 
-// POST /api/invites/:code/join
 router.post(
   '/:code/join',
   authLimiter,
@@ -49,7 +47,6 @@ router.post(
       })
     }
 
-    // Banimento por user sobrevive a kicks → impede rejoin via convite
     const [banned] = await db.select({ id: serverBans.id }).from(serverBans)
       .where(and(eq(serverBans.userId, req.userId!), eq(serverBans.serverId, server.id)))
       .limit(1)
@@ -63,7 +60,6 @@ router.post(
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id, role: 'MEMBER' })
     void invalidateMembersCache(server.id)
 
-    // Retorna shape com channels + _count.members (como Prisma include fazia)
     const [chRows, [countRow]] = await Promise.all([
       db.select().from(channels).where(eq(channels.serverId, server.id)).orderBy(asc(channels.createdAt)),
       db.select({ count: sql<number>`count(*)::int` }).from(serverMembers).where(eq(serverMembers.serverId, server.id)),
@@ -73,7 +69,6 @@ router.post(
   })
 )
 
-// POST /api/invites/:serverId/regenerate
 router.post(
   '/:serverId/regenerate',
   requireAuth,

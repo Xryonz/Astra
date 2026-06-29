@@ -1,11 +1,4 @@
-/**
- * Per-channel notification preferences.
- *
- * Routes:
- *   GET  /api/channels/notification-prefs       → lista todas do user (Map)
- *   PUT  /api/channels/:channelId/notification-pref { mode } → upsert
- *   DELETE /api/channels/:channelId/notification-pref → reseta pra default
- */
+
 import { Router, Request, Response } from 'express'
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
@@ -21,7 +14,6 @@ const router = Router()
 const MODES = ['all', 'mentions', 'mute'] as const
 const PrefSchema = z.object({ mode: z.enum(MODES) })
 
-// GET /api/channels/notification-prefs
 router.get(
   '/channels/notification-prefs',
   requireAuth,
@@ -34,7 +26,6 @@ router.get(
   }),
 )
 
-// PUT /api/channels/:channelId/notification-pref
 router.put(
   '/channels/:channelId/notification-pref',
   requireAuth,
@@ -43,11 +34,9 @@ router.put(
     const { channelId } = req.params
     const { mode } = req.body as z.infer<typeof PrefSchema>
 
-    // Membership / visibilidade
     const allowed = await userCanSeeChannel(req.userId!, channelId)
     if (!allowed) return res.status(403).json({ error: 'Acesso negado' })
 
-    // upsert via ON CONFLICT (unique idx userId+channelId)
     await db.insert(channelNotifPrefs).values({
       userId:    req.userId!,
       channelId,
@@ -61,7 +50,6 @@ router.put(
   }),
 )
 
-// DELETE /api/channels/:channelId/notification-pref
 router.delete(
   '/channels/:channelId/notification-pref',
   requireAuth,
@@ -75,12 +63,6 @@ router.delete(
   }),
 )
 
-/**
- * Helper pra usar no notification dispatcher: retorna o mode efetivo
- * pra um conjunto de user/channel pairs. Default 'all' se sem row.
- *
- * Bulk lookup (1 query pra N pairs) pra evitar N+1 em hot path.
- */
 export async function getNotifModesFor(
   channelId: string,
   userIds: string[],
@@ -102,6 +84,4 @@ export async function getNotifModesFor(
 
 export default router
 
-// ── Suppress unused-import (tabela 'channels'/'serverMembers' usadas
-//    apenas em type-checks de FK durante schema gen).
 void channels; void serverMembers;

@@ -12,8 +12,6 @@ async function main() {
     process.exit(1)
   }
 
-  // SSL: Railway internal e localhost rodam em rede privada/loopback (sem TLS).
-  // Tudo o mais (public Railway, cloud Postgres) precisa SSL com cert relaxado.
   const isPlaintext =
     url.includes('.railway.internal') ||
     url.includes('localhost') ||

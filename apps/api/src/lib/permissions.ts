@@ -1,14 +1,4 @@
-/**
- * Sistema central de permissões.
- *
- * Cascata:
- *   1) Dono do servidor → todas perms implícitas
- *   2) Membro com legacy enum role 'ADMIN' → set base de admin
- *   3) Cargos customizados atribuídos via ServerMemberRole → união das perms
- *
- * Permissões são strings em JSON array dentro de ServerRole.permissions.
- * Frontend (RoleEditor.tsx) usa estes mesmos identificadores.
- */
+
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { servers, serverMembers, roles, memberRoles, channels, channelRolePerms } from '../db/schema'
@@ -24,7 +14,6 @@ export const PERMS = {
 } as const
 export type Permission = typeof PERMS[keyof typeof PERMS]
 
-// Set base que legacy ADMIN ganha sem precisar de cargo customizado
 const LEGACY_ADMIN_PERMS: Permission[] = [
   PERMS.MANAGE_SERVER,
   PERMS.MANAGE_CHANNELS,
@@ -39,11 +28,6 @@ export interface MemberPerms {
   memberId:    string | null
 }
 
-/**
- * Carrega todas as permissões efetivas de um user num server.
- * Owner → isOwner=true e Set vazio (use isOwner pra short-circuit).
- * Não-membro → memberId=null, permissions vazias.
- */
 export async function getMemberPerms(userId: string, serverId: string): Promise<MemberPerms> {
   const [srv] = await db.select({ ownerId: servers.ownerId }).from(servers)
     .where(eq(servers.id, serverId)).limit(1)
@@ -65,19 +49,12 @@ export async function getMemberPerms(userId: string, serverId: string): Promise<
   return computeMemberPerms(srv.ownerId, userId, member ?? null, rolesPermsRaw)
 }
 
-/**
- * Atalho pra checagem direta. Owner sempre true.
- */
 export async function hasPermission(userId: string, serverId: string, perm: Permission): Promise<boolean> {
   const m = await getMemberPerms(userId, serverId)
   if (m.isOwner) return true
   return m.permissions.has(perm)
 }
 
-/**
- * Parser puro — útil em testes e externamente. Aceita JSON string, retorna
- * só permissões válidas conhecidas, descarta lixo silenciosamente.
- */
 export function parsePermissionsJson(raw: unknown): Permission[] {
   if (typeof raw !== 'string') return []
   try {
@@ -89,13 +66,6 @@ export function parsePermissionsJson(raw: unknown): Permission[] {
   }
 }
 
-/**
- * Pode esse user ver/acessar esse canal?
- *  - Canal público (isPrivate=false): qualquer membro do server vê.
- *  - Canal privado: owner do server sempre vê; senão precisa ter pelo menos
- *    1 role atribuída que esteja em ChannelRolePerm desse canal.
- * Retorna false se não-membro do server, canal inexistente, ou sem perm.
- */
 export async function userCanSeeChannel(userId: string, channelId: string): Promise<boolean> {
   const [row] = await db.select({
     serverId:  channels.serverId,
@@ -118,7 +88,6 @@ export async function userCanSeeChannel(userId: string, channelId: string): Prom
 
   if (!row.isPrivate) return true
 
-  // Privado → user precisa ter role que esteja em ChannelRolePerm
   const userRoleRows = await db.select({ roleId: memberRoles.roleId })
     .from(memberRoles)
     .where(eq(memberRoles.memberId, member.id))
@@ -132,17 +101,12 @@ export async function userCanSeeChannel(userId: string, channelId: string): Prom
   return !!match
 }
 
-/**
- * Filtra uma lista de canais retornando só os que o user pode ver. Single
- * query — útil pra `listServersForUser`. Em vez de N queries, agrega tudo.
- */
 export async function filterVisibleChannels(
   userId: string,
   channelIds: string[],
 ): Promise<Set<string>> {
   if (channelIds.length === 0) return new Set()
 
-  // Pega channel info + ownerId do server
   const rows = await db.select({
     channelId: channels.id,
     serverId:  channels.serverId,
@@ -164,7 +128,6 @@ export async function filterVisibleChannels(
 
   if (privateNeedingCheck.length === 0) return visible
 
-  // Pega membership do user em todos os servers relevantes
   const serverIds = [...new Set(privateNeedingCheck.map((c) => c.serverId))]
   const memberships = await db.select({
     memberId: serverMembers.id, serverId: serverMembers.serverId,
@@ -173,7 +136,6 @@ export async function filterVisibleChannels(
     .where(and(eq(serverMembers.userId, userId), inArray(serverMembers.serverId, serverIds)))
   const memberByServer = new Map(memberships.map((m) => [m.serverId, m.memberId]))
 
-  // Pega role IDs do user nos servers relevantes
   const memberIds = memberships.map((m) => m.memberId)
   const userRoles = memberIds.length > 0
     ? await db.select({ memberId: memberRoles.memberId, roleId: memberRoles.roleId })
@@ -186,7 +148,6 @@ export async function filterVisibleChannels(
     rolesByMember.set(r.memberId, arr)
   }
 
-  // Pega channel→role mapping
   const privateChannelIds = privateNeedingCheck.map((c) => c.channelId)
   const channelRoles = await db.select({
     channelId: channelRolePerms.channelId, roleId: channelRolePerms.roleId,
@@ -198,7 +159,6 @@ export async function filterVisibleChannels(
     rolesByChannel.set(c.channelId, s)
   }
 
-  // Match
   for (const pc of privateNeedingCheck) {
     const memberId = memberByServer.get(pc.serverId)
     if (!memberId) continue
@@ -211,16 +171,6 @@ export async function filterVisibleChannels(
   return visible
 }
 
-/**
- * Lógica pura da visibilidade de canal — mesmas regras que userCanSeeChannel,
- * mas isolada de DB pra ser testável e reutilizável em batch checks.
- *
- *  - Server inexistente → false
- *  - Owner → true
- *  - Não-membro → false
- *  - Canal público → true
- *  - Canal privado: precisa de pelo menos 1 role do user dentro das allowedRoles
- */
 export function computeChannelVisibility(input: {
   ownerId:      string | null
   userId:       string
@@ -238,14 +188,6 @@ export function computeChannelVisibility(input: {
   return userRoleIds.some((id) => allowedSet.has(id))
 }
 
-/**
- * Lógica pura da cascata Owner → Admin legacy → Cargos. Testável sem DB.
- *
- * @param ownerId   id do user dono do server
- * @param userId    id do user sendo avaliado
- * @param member    null se não-membro; senão { id, role }
- * @param rolesPermsRaw  array de strings JSON (raw permissions de cada cargo do user)
- */
 export function computeMemberPerms(
   ownerId:       string | null,
   userId:        string,

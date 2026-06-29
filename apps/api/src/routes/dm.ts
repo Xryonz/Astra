@@ -13,7 +13,6 @@ import { notify } from '../lib/notifications'
 import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
 
-// DM aceita anexos + reply + efêmera (mas sem mentions/poll/threads).
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
   attachments: z.array(z.object({
@@ -40,7 +39,6 @@ function safeJson<T>(raw: string | null | undefined, fallback: T): T {
 export function createDMRouter(io: SocketServer) {
   const router = Router()
 
-  // GET /api/dm — lista das conversas do user
   router.get(
     '/',
     requireAuth,
@@ -53,7 +51,6 @@ export function createDMRouter(io: SocketServer) {
 
       if (convs.length === 0) return res.json({ data: [] })
 
-      // Carrega "outro usuário" de cada conv + última mensagem em batch
       const otherIds = convs.map((c) => (c.userAId === userId ? c.userBId : c.userAId))
       const convIds  = convs.map((c) => c.id)
 
@@ -62,8 +59,7 @@ export function createDMRouter(io: SocketServer) {
           id: users.id, username: users.username,
           displayName: users.displayName, avatarUrl: users.avatarUrl,
         }).from(users).where(inArray(users.id, otherIds)),
-        // Última mensagem por conv: pega todas não-deletadas e seleciona em JS.
-        // OK pra MVP; otimizar com window function depois se virar gargalo.
+
         db.select().from(directMessages)
           .where(and(inArray(directMessages.conversationId, convIds), isNull(directMessages.deletedAt)))
           .orderBy(desc(directMessages.createdAt)),
@@ -86,8 +82,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/dm/open  body: { userId? , username? }
-  // Variante body-driven usada pelo FriendsPage e por flows que já têm userId.
   router.post(
     '/open',
     requireAuth,
@@ -110,7 +104,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/dm/open/:username (legacy / atalho por URL)
   router.post(
     '/open/:username',
     requireAuth,
@@ -128,7 +121,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // GET /api/dm/:conversationId/messages
   router.get(
     '/:conversationId/messages',
     requireAuth,
@@ -152,7 +144,6 @@ export function createDMRouter(io: SocketServer) {
       ]
       if (cursor) conditions.push(lt(directMessages.id, cursor))
 
-      // Esconde mensagens já expiradas (expiresAt no futuro OU null)
       const now = new Date()
       conditions.push(
         or(isNull(directMessages.expiresAt), gt(directMessages.expiresAt, now)) as any,
@@ -170,7 +161,7 @@ export function createDMRouter(io: SocketServer) {
         edited:         directMessages.edited,
         deletedAt:      directMessages.deletedAt,
         createdAt:      directMessages.createdAt,
-        // alias `sender` → `author` pra casar com MessageWithAuthor
+
         author: {
           id: users.id, username: users.username,
           displayName: users.displayName, avatarUrl: users.avatarUrl,
@@ -187,7 +178,6 @@ export function createDMRouter(io: SocketServer) {
       const items     = hasMore ? rows.slice(0, take) : rows
       const nextCursor = hasMore ? items[items.length - 1].id : null
 
-      // Batch fetch replyTo snapshots
       const replyIds = items.map((m) => m.replyToId).filter(Boolean) as string[]
       let replyMap = new Map<string, { id: string; content: string; authorName: string; authorAvatar: string | null }>()
       if (replyIds.length > 0) {
@@ -220,7 +210,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // POST /api/dm/:conversationId/messages
   router.post(
     '/:conversationId/messages',
     requireAuth,
@@ -240,7 +229,6 @@ export function createDMRouter(io: SocketServer) {
 
       const receiverId = conv.userAId === req.userId ? conv.userBId : conv.userAId
 
-      // Valida reply: deve ser msg dessa mesma conv
       let validReplyToId: string | null = null
       let replySnapshot: { id: string; content: string; authorName: string; authorAvatar: string | null } | null = null
       if (replyToId) {
@@ -262,7 +250,6 @@ export function createDMRouter(io: SocketServer) {
 
       const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null
 
-      // ── PARALELIZAR INSERT + SELECT author (independentes) ───
       const [insertedRows, authorRows] = await Promise.all([
         db.insert(directMessages).values({
           content, senderId: req.userId!, receiverId, conversationId,
@@ -286,12 +273,10 @@ export function createDMRouter(io: SocketServer) {
         author,
       }
 
-      // ── EMIT ASAP + responde REST imediato ───────────────────
       io.to(`dm:${conversationId}`).emit('new_dm', message)
       messagesSentTotal.inc({ kind: 'dm' })
       res.status(201).json({ data: message })
 
-      // ── BACKGROUND: bump conv + notify ───────────────────────
       setImmediate(() => {
         void (async () => {
           try {
@@ -311,7 +296,7 @@ export function createDMRouter(io: SocketServer) {
               push: {
                 title: `Nova DM de ${author?.displayName ?? 'Alguém'}`,
                 body:  content.slice(0, 140),
-                // Rota deep: clicar na notificação abre a conversa certa
+
                 url:   `/app/dm/${conversationId}`,
                 tag:   `dm-${conversationId}`,
                 icon:  author?.avatarUrl ?? undefined,
@@ -326,7 +311,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // DELETE /api/dm/:conversationId/messages/:messageId
   router.delete(
     '/:conversationId/messages/:messageId',
     requireAuth,

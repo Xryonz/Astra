@@ -1,15 +1,4 @@
-/**
- * Friends (amizades).
- *
- *   GET    /api/friends             aceitos (com presence)
- *   GET    /api/friends/requests    pedidos recebidos pendentes
- *   GET    /api/friends/outgoing    pedidos enviados pendentes
- *   POST   /api/friends/request     { username } cria pending
- *   POST   /api/friends/:id/accept  receiver aceita
- *   DELETE /api/friends/:id         remove/reject (qualquer lado)
- *
- * Normalização: pair sempre (userAId < userBId). requesterId é quem mandou.
- */
+
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
@@ -36,7 +25,6 @@ async function presenceFor(userId: string) {
   return v
 }
 
-// ── GET friends (aceitos) ───────────────────────────────────────
 router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const rows = await db.select().from(friendships)
     .where(and(
@@ -68,7 +56,6 @@ router.get('/', requireAuth, asyncHandler(async (req: Request, res: Response) =>
   res.json({ data: enriched.filter(Boolean) })
 }))
 
-// ── Pending recebidos ──────────────────────────────────────────
 router.get('/requests', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const rows = await db.select().from(friendships)
     .where(and(
@@ -93,7 +80,6 @@ router.get('/requests', requireAuth, asyncHandler(async (req: Request, res: Resp
   })
 }))
 
-// ── Pending enviados ──────────────────────────────────────────
 router.get('/outgoing', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const rows = await db.select().from(friendships)
     .where(and(
@@ -117,8 +103,6 @@ router.get('/outgoing', requireAuth, asyncHandler(async (req: Request, res: Resp
   })
 }))
 
-// ── Request ──────────────────────────────────────────────────
-// Aceita identificação via username OU coordenada (Astra ID, ex: A7F2-9B).
 const RequestSchema = z
   .object({
     username:   z.string().min(1).max(64).optional(),
@@ -140,18 +124,17 @@ router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async
 
   const [a, b] = normalize(req.userId!, target.id)
 
-  // Idempotente: se já existe, retorna
   const [existing] = await db.select().from(friendships)
     .where(and(eq(friendships.userAId, a), eq(friendships.userBId, b))).limit(1)
   if (existing) {
     if (existing.status === 'accepted') return res.json({ data: { status: 'accepted', id: existing.id } })
-    // Se outro mandou pra mim → auto-accept
+
     if (existing.requesterId !== req.userId) {
       const [accepted] = await db.update(friendships)
         .set({ status: 'accepted', acceptedAt: new Date() })
         .where(eq(friendships.id, existing.id))
         .returning()
-      // Garante conversa DM (best-effort)
+
       getOrCreateConversation(req.userId!, target.id).catch(() => {})
       return res.json({ data: accepted })
     }
@@ -168,7 +151,7 @@ router.post('/:id/accept', requireAuth, asyncHandler(async (req: Request, res: R
   const { id } = req.params
   const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
   if (!row) throw notFound('Pedido não encontrado')
-  // Quem aceita NÃO pode ser o requester
+
   if (row.requesterId === req.userId) throw badRequest('Você que mandou — espere ele aceitar')
   if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
   if (row.status === 'accepted') return res.json({ data: row })
@@ -177,7 +160,7 @@ router.post('/:id/accept', requireAuth, asyncHandler(async (req: Request, res: R
     .set({ status: 'accepted', acceptedAt: new Date() })
     .where(eq(friendships.id, id))
     .returning()
-  // Auto-cria DM conversation entre os dois (best-effort)
+
   const otherId = row.userAId === req.userId ? row.userBId : row.userAId
   getOrCreateConversation(req.userId!, otherId).catch(() => {})
   res.json({ data: updated })
@@ -186,14 +169,12 @@ router.post('/:id/accept', requireAuth, asyncHandler(async (req: Request, res: R
 router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params
   const [row] = await db.select().from(friendships).where(eq(friendships.id, id)).limit(1)
-  if (!row) return res.json({ data: { ok: true } }) // idempotente
+  if (!row) return res.json({ data: { ok: true } })
   if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
   await db.delete(friendships).where(eq(friendships.id, id))
   res.json({ data: { ok: true } })
 }))
 
-// ── PATCH /api/me/custom-status ───────────────────────────────
-// Convenientemente aqui pra co-habitar com friends (perfil social).
 const StatusSchema = z.object({ customStatus: z.string().max(100).nullable() })
 
 router.patch('/custom-status', requireAuth, validate(StatusSchema), asyncHandler(async (req: Request, res: Response) => {

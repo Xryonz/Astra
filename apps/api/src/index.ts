@@ -2,7 +2,7 @@ import 'dotenv/config'
 import './lib/env'
 
 import { initSentry, sentry } from './lib/sentry'
-initSentry() // chama antes de criar Express pra capturar erros do boot
+initSentry()
 
 import express    from 'express'
 import http       from 'http'
@@ -60,20 +60,11 @@ import { HttpError }                     from './lib/errors'
 import { logger }                        from './lib/logger'
 
 const app        = express()
-// Atrás de proxy reverso (Render/Railway/Fly/nginx): confia no header
-// X-Forwarded-* pra que:
-//  - req.ip retorne IP real do user (não do proxy) → rate-limit funciona por user
-//  - req.protocol retorne 'https' quando o user acessou via HTTPS → OAuth callback
-//    URL é construída com scheme certo, secure-cookies enviam, redirects funcionam
-//
-// '1' = confia em EXATAMENTE 1 hop (o proxy do hosting). Confiar em 'true' aceitaria
-// qualquer X-Forwarded-For falsificado pelo cliente → IP spoofing trivial.
+
 app.set('trust proxy', 1)
 
 const httpServer = http.createServer(app)
 
-// Socket.IO CORS: mesma whitelist do HTTP CORS (lib/allowedOrigins) —
-// CLIENT_URL + origins do app Capacitor + localhost:* em dev.
 const socketAllowedOrigin = (origin: string | undefined, cb: (err: Error | null, ok?: boolean) => void) => {
   if (!origin) return cb(null, true)
   if (isAllowedOrigin(origin)) return cb(null, true)
@@ -87,16 +78,12 @@ const io = new SocketServer(httpServer, {
 })
 setupSocket(io)
 
-// ── Security ──────────────────────────────────────────────────
 app.use(hidePoweredBy)
 app.use(secureHeaders)
 
-// CORS: whitelist central em lib/allowedOrigins — CLIENT_URL + Capacitor
-// (https://localhost, capacitor://localhost) + localhost:* em dev (Vite
-// pula porta 5173→5174 quando ocupada; já causou bug silencioso).
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true)  // server-to-server, curl, etc.
+    if (!origin) return cb(null, true)
     if (isAllowedOrigin(origin)) return cb(null, true)
     cb(new Error('CORS blocked'))
   },
@@ -106,32 +93,25 @@ app.use(cors({
   maxAge:          600,
 }))
 
-// gzip nas respostas (JSON desce 60-80% menor — ícones base64 idem).
-// Threshold default 1kb: payloads minúsculos não pagam o overhead.
 app.use(compression())
 
 app.use(cookieParser())
-// reqContext ANTES dos parsers pra que logs de body-parse já tenham reqId
+
 app.use(reqContext)
 app.use(httpMetrics)
-// /api/profile: limit 8MB pra acomodar avatar/banner em base64. Tem que ser
-// >= ao teto real da rota (isDataUriTooLarge = 6MB decodificado ≈ 8MB em base64);
-// com 4MB o body-parser cortava o banner ANTES da rota -> 500 "Erro interno".
-// Maior que o teto: usar upload multipart em /api/upload.
+
 app.use('/api/profile', express.json({ limit: '8mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)
 app.use(globalLimiter)
 
-// ── Health/Metrics (antes dos routers de negócio, sem rate-limit) ──
 app.use(healthRouter)
 
-// ── Routes ────────────────────────────────────────────────────
 app.use('/api/auth',     authRouter)
 app.use('/api/profile',  profileRouter)
 app.use('/api/invites',  inviteRouter)
-// /i/:code — HTML com OG tags (preview no WhatsApp/Telegram) + redirect pro site
+
 app.use('/i',            invitePreviewRouter)
 app.use('/api/servers',  serversRouter)
 app.use('/api/servers',  channelsRouter)
@@ -159,10 +139,9 @@ app.use('/api/wishes',    wishesRouter)
 app.use('/api/sessions',  sessionsRouter)
 app.use('/api/servers',   emojisRouter)
 app.use('/api',           channelNotifPrefsRouter)
-// Static files: serve uploads. Cache 1d (immutable nomes únicos)
+
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1d', immutable: true, fallthrough: true }))
 
-// Reactions: /api/channels/:channelId/messages/:messageId/react
 app.use(
   '/api/channels/:channelId/messages/:messageId/react',
   createReactionsRouter(io)
@@ -171,7 +150,7 @@ app.use(
 app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada' }))
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  // HttpError → resposta estruturada com status correto e sem leak de stack
+
   if (err instanceof HttpError) {
     return res.status(err.status).json({
       error: err.message,
@@ -180,8 +159,6 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
     })
   }
 
-  // Body-parser: payload acima do limite vira 413 com mensagem clara, em vez de
-  // cair no 500 "Erro interno" (era o sintoma ao trocar banner grande).
   if (err?.type === 'entity.too.large' || err?.status === 413) {
     return res.status(413).json({ error: 'Arquivo muito grande. Tente um menor.' })
   }
@@ -196,7 +173,6 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   } : null
   logger.error('Error', err?.message ?? 'unknown', err, dbInfo ?? '')
 
-  // Reporta erros 5xx no Sentry com tags de contexto
   sentry.captureException(err, {
     tags: { route: req.route?.path ?? req.path, method: req.method, reqId: req.reqId ?? '' },
     user: req.userId ? { id: req.userId } : undefined,

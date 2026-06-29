@@ -1,11 +1,18 @@
 package app.astra.mobile.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +62,7 @@ import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
+import kotlinx.coroutines.delay
 
 private object Routes {
     const val LOGIN = "login"
@@ -84,9 +95,9 @@ fun AstraApp() {
     val sessionViewModel: SessionViewModel = hiltViewModel()
     val loggedIn by sessionViewModel.isLoggedIn.collectAsState()
 
-    when (loggedIn) {
-        null -> SplashScreen() // DataStore ainda lendo
-        else -> {
+    Box(Modifier.fillMaxSize()) {
+        // App por baixo: so monta quando ja sabemos o login (evita flicker de rota).
+        if (loggedIn != null) {
             val nav = rememberNavController()
             NavHost(
                 navController = nav,
@@ -223,11 +234,34 @@ fun AstraApp() {
                 }
             }
         }
+
+        // Splash por cima: cobre a montagem/carga inicial e some com fade depois de
+        // ~1.8s, revelando o app ja pronto por baixo (entretem enquanto carrega).
+        var splashGone by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(1800)
+            splashGone = true
+        }
+        AnimatedVisibility(
+            visible = !splashGone,
+            enter = EnterTransition.None,
+            exit = fadeOut(tween(520, easing = EaseOutSoft)),
+        ) {
+            SplashScreen()
+        }
     }
 }
 
 @Composable
 private fun SplashScreen() {
+    // Glow do wordmark respira (pulsa) enquanto o app carrega por baixo.
+    val inf = rememberInfiniteTransition(label = "splash")
+    val pulse by inf.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = EaseOutSoft), RepeatMode.Reverse),
+        label = "glow",
+    )
     CosmicBackground {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -235,14 +269,18 @@ private fun SplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Reveal {
-                // Wordmark em Great Vibes com glow prata atras (textShadow do web).
+                // Wordmark em Great Vibes com glow prata pulsando (textShadow do web).
                 Text(
                     text = "Astra",
                     style = TextStyle(
                         fontFamily = GreatVibes,
                         fontSize = 76.sp,
                         color = astraColors.accent,
-                        shadow = Shadow(astraColors.accentGlow, Offset(0f, 6f), blurRadius = 48f),
+                        shadow = Shadow(
+                            astraColors.accentGlow.copy(alpha = 0.4f + 0.5f * pulse),
+                            Offset(0f, 6f),
+                            blurRadius = 34f + 30f * pulse,
+                        ),
                     ),
                 )
             }

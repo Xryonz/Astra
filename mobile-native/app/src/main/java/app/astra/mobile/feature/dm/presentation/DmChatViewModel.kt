@@ -71,6 +71,9 @@ class DmChatViewModel @Inject constructor(
         }
     }
 
+    fun addAttachment(att: Attachment) =
+        _state.update { it.copy(pendingAttachments = it.pendingAttachments + att) }
+
     fun removeAttachment(att: Attachment) =
         _state.update { it.copy(pendingAttachments = it.pendingAttachments - att) }
 

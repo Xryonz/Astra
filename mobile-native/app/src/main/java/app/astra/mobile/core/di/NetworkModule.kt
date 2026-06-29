@@ -5,6 +5,7 @@ import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.FriendsApi
+import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.InvitesApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.RefreshApi
@@ -90,6 +91,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideUploadApi(retrofit: Retrofit): UploadApi = retrofit.create(UploadApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideGifApi(retrofit: Retrofit): GifApi = retrofit.create(GifApi::class.java)
 
     @Provides
     @Singleton

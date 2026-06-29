@@ -637,6 +637,7 @@ fun ChatInputBar(
     onInput: (String) -> Unit,
     onSend: () -> Unit,
     onAttach: (() -> Unit)? = null,
+    onGif: (() -> Unit)? = null,
     uploading: Boolean = false,
     hasAttachments: Boolean = false,
 ) {
@@ -659,6 +660,26 @@ fun ChatInputBar(
                 Text(
                     text = if (uploading) "…" else "+",
                     style = MaterialTheme.typography.titleLarge,
+                    color = astraColors.text2,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+
+        if (onGif != null) {
+            Box(
+                modifier = Modifier
+                    .height(46.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.borderMid, CircleShape)
+                    .clickable(onClick = onGif)
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "GIF",
+                    style = MaterialTheme.typography.labelLarge,
                     color = astraColors.text2,
                 )
             }

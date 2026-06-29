@@ -23,7 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
+import app.astra.mobile.feature.gif.presentation.GifPicker
 import app.astra.mobile.ui.components.ChatInputBar
 import app.astra.mobile.ui.components.ChatMessageList
 import app.astra.mobile.ui.components.ChatRow
@@ -48,6 +50,7 @@ fun DmChatScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
+    var gifOpen by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -136,8 +139,27 @@ fun DmChatScreen(
                 onInput = viewModel::onInput,
                 onSend = viewModel::send,
                 onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onGif = { gifOpen = true },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
+            )
+        }
+
+        if (gifOpen) {
+            GifPicker(
+                onPick = { g ->
+                    viewModel.addAttachment(
+                        Attachment(
+                            url = g.full,
+                            type = "image/gif",
+                            name = (g.title.ifBlank { "gif" }) + ".gif",
+                            size = g.size,
+                            width = g.width,
+                            height = g.height,
+                        ),
+                    )
+                },
+                onClose = { gifOpen = false },
             )
         }
     }

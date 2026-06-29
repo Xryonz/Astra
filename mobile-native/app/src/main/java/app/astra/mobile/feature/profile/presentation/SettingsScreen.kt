@@ -39,6 +39,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenProfile: () -> Unit,
+    onOpenAppearance: () -> Unit,
+    onOpenAccessibility: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -72,7 +74,8 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— app", Modifier.padding(start = 22.dp, bottom = 8.dp))
-            SettingsRow("Aparencia", "em breve", onClick = null)
+            SettingsRow("Aparencia", "fonte e densidade do chat", onOpenAppearance)
+            SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
             SettingsRow("Notificacoes", "em breve", onClick = null)
 
             Spacer(Modifier.height(20.dp))

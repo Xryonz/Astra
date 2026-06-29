@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.astraColors
 import kotlin.math.PI
 import kotlin.math.cos
@@ -51,6 +52,10 @@ private val METEORS: List<MeteorDef> = buildList {
 
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) {
+    if (LocalAppPrefs.current.reduceMotion) {
+        StarFieldStatic(modifier, color)
+        return
+    }
     val inf = rememberInfiniteTransition(label = "starfield")
 
     val drift by inf.animateFloat(
@@ -97,6 +102,20 @@ fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) 
                 drawLine(color, Offset(tailX, tailY), Offset(headX, headY), 1.5.dp.toPx(), StrokeCap.Round, alpha = alpha * 0.7f)
                 drawCircle(color, 2.2.dp.toPx(), Offset(headX, headY), alpha = alpha)
             }
+        }
+    }
+}
+
+@Composable
+private fun StarFieldStatic(modifier: Modifier = Modifier, color: Color = astraColors.accent) {
+    Canvas(modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        BG_STARS.forEach { s ->
+            drawCircle(color, s.r.dp.toPx(), Offset(s.x * w, s.y * h), alpha = 0.34f)
+        }
+        TWINKLES.forEach { t ->
+            drawCircle(color, t.r.dp.toPx(), Offset(t.x * w, t.y * h), alpha = 0.55f)
         }
     }
 }

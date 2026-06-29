@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSnappy
 import app.astra.mobile.ui.theme.astraColors
@@ -105,14 +106,15 @@ fun MessageBubble(
     onTogglePin: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
 ) {
+    val prefs = LocalAppPrefs.current
     val shape = RoundedCornerShape(14.dp)
-    val enter = remember { Animatable(if (animateIn) 0f else 1f) }
+    val enter = remember { Animatable(if (animateIn && !prefs.reduceMotion) 0f else 1f) }
     val sweepA = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        if (animateIn) enter.animateTo(1f, tween(360, easing = EaseSnappy))
+        if (animateIn && !prefs.reduceMotion) enter.animateTo(1f, tween(360, easing = EaseSnappy))
     }
     LaunchedEffect(sweep) {
-        if (sweep) {
+        if (sweep && !prefs.reduceMotion) {
             sweepA.snapTo(0f)
             sweepA.animateTo(1f, tween(900, delayMillis = 120, easing = EaseOutSoft))
         }
@@ -134,7 +136,12 @@ fun MessageBubble(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 10.dp, end = 10.dp, top = if (grouped) 2.dp else 10.dp, bottom = 1.dp),
+            .padding(
+                start = 10.dp,
+                end = 10.dp,
+                top = if (grouped) prefs.density.groupedTopDp.dp else prefs.density.topDp.dp,
+                bottom = 1.dp,
+            ),
         verticalAlignment = Alignment.Top,
     ) {
         Box(Modifier.width(46.dp)) {
@@ -188,7 +195,7 @@ fun MessageBubble(
                                             scope.launch { swipeX.snapTo(clamped) }
                                             if (!triggered && abs(clamped) >= thresholdPx) {
                                                 triggered = true
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             }
                                         },
                                         onDragEnd = {
@@ -268,7 +275,7 @@ fun MessageBubble(
                     Text(
                         text = content,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontSize = 17.sp,
+                        fontSize = (17 * prefs.fontSize.scale).sp,
                         color = astraColors.text1,
                         textAlign = TextAlign.Center,
                     )

@@ -53,7 +53,9 @@ import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
+import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
+import app.astra.mobile.feature.profile.presentation.AppearanceScreen
 import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.UserProfileScreen
@@ -71,6 +73,8 @@ private object Routes {
     const val SETTINGS = "settings"
     const val ACCOUNT = "settings/account"
     const val PROFILE_EDIT = "settings/profile"
+    const val APPEARANCE = "settings/appearance"
+    const val ACCESSIBILITY = "settings/accessibility"
     const val FRIENDS = "friends"
     const val USER_PROFILE = "user/{userId}?name={name}"
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
@@ -94,6 +98,7 @@ private object Routes {
 fun AstraApp() {
     val sessionViewModel: SessionViewModel = hiltViewModel()
     val loggedIn by sessionViewModel.isLoggedIn.collectAsState()
+    val reduceMotion = LocalAppPrefs.current.reduceMotion
 
     Box(Modifier.fillMaxSize()) {
 
@@ -103,10 +108,10 @@ fun AstraApp() {
                 navController = nav,
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
 
-                enterTransition = { fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { it / 8 } },
-                exitTransition = { fadeOut(tween(240, easing = EaseOutSoft)) },
-                popEnterTransition = { fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { -it / 8 } },
-                popExitTransition = { fadeOut(tween(260, easing = EaseOutSoft)) + slideOutHorizontally(tween(340, easing = EaseSpring)) { it / 8 } },
+                enterTransition = { if (reduceMotion) fadeIn(tween(120, easing = EaseOutSoft)) else fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { it / 8 } },
+                exitTransition = { fadeOut(tween(if (reduceMotion) 90 else 240, easing = EaseOutSoft)) },
+                popEnterTransition = { if (reduceMotion) fadeIn(tween(120, easing = EaseOutSoft)) else fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { -it / 8 } },
+                popExitTransition = { if (reduceMotion) fadeOut(tween(90, easing = EaseOutSoft)) else fadeOut(tween(260, easing = EaseOutSoft)) + slideOutHorizontally(tween(340, easing = EaseSpring)) { it / 8 } },
             ) {
                 composable(Routes.LOGIN) {
                     LoginScreen(onGoToRegister = { nav.navigate(Routes.REGISTER) })
@@ -147,10 +152,18 @@ fun AstraApp() {
                         onBack = { nav.popBackStack() },
                         onOpenAccount = { nav.navigate(Routes.ACCOUNT) },
                         onOpenProfile = { nav.navigate(Routes.PROFILE_EDIT) },
+                        onOpenAppearance = { nav.navigate(Routes.APPEARANCE) },
+                        onOpenAccessibility = { nav.navigate(Routes.ACCESSIBILITY) },
                     )
                 }
                 composable(Routes.ACCOUNT) {
                     AccountScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.APPEARANCE) {
+                    AppearanceScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.ACCESSIBILITY) {
+                    AccessibilityScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.PROFILE_EDIT) {
                     ProfileEditScreen(onBack = { nav.popBackStack() })
@@ -249,12 +262,13 @@ fun AstraApp() {
 private fun SplashScreen() {
 
     val inf = rememberInfiniteTransition(label = "splash")
-    val pulse by inf.animateFloat(
+    val pulseAnim by inf.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1400, easing = EaseOutSoft), RepeatMode.Reverse),
         label = "glow",
     )
+    val pulse = if (LocalAppPrefs.current.reduceMotion) 0f else pulseAnim
     CosmicBackground {
         Column(
             modifier = Modifier.fillMaxSize(),

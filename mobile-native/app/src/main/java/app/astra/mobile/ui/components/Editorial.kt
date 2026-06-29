@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import androidx.compose.animation.core.tween
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.DmMono
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseSpring
@@ -32,6 +33,10 @@ fun Reveal(
     durationMillis: Int = 500,
     content: @Composable () -> Unit,
 ) {
+    if (LocalAppPrefs.current.reduceMotion) {
+        androidx.compose.foundation.layout.Box { content() }
+        return
+    }
     val anim = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         delay(delayMillis.toLong())

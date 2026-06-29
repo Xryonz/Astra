@@ -12,6 +12,7 @@ import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.TokenAuthenticator
+import app.astra.mobile.core.network.TranslateApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
@@ -100,6 +101,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideDiscoverApi(retrofit: Retrofit): DiscoverApi = retrofit.create(DiscoverApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideTranslateApi(retrofit: Retrofit): TranslateApi = retrofit.create(TranslateApi::class.java)
 
     @Provides
     @Singleton

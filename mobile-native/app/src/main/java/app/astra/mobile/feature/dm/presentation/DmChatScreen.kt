@@ -83,7 +83,7 @@ fun DmChatScreen(
                     )
                     else -> {
 
-                        val rows = remember(state.messages) {
+                        val rows = remember(state.messages, state.translations) {
                             state.messages.map { m ->
                                 ChatRow(
                                     id = m.id,
@@ -94,6 +94,7 @@ fun DmChatScreen(
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,
                                     attachments = m.attachments,
+                                    translation = state.translations[m.id],
                                 )
                             }
                         }
@@ -104,6 +105,7 @@ fun DmChatScreen(
                             canEdit = false,
                             onDelete = { deleteTarget = it },
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
+                            onTranslate = { viewModel.translate(it.id, it.content) },
                         )
                     }
                 }

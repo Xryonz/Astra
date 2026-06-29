@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.model.toModel
+import app.astra.mobile.core.translate.Translator
 import app.astra.mobile.core.upload.ImageUploader
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.channel.domain.ChannelRepository
@@ -37,12 +38,16 @@ data class ChannelChatUiState(
 
     val pendingAttachments: List<Attachment> = emptyList(),
     val uploading: Boolean = false,
+
+    val translations: Map<String, String> = emptyMap(),
+    val translatingIds: Set<String> = emptySet(),
 )
 
 @HiltViewModel
 class ChannelChatViewModel @Inject constructor(
     private val repository: ChannelRepository,
     private val imageUploader: ImageUploader,
+    private val translator: Translator,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -146,6 +151,21 @@ class ChannelChatViewModel @Inject constructor(
                     _state.update { it.copy(uploading = false, pendingAttachments = it.pendingAttachments + dtos.map { d -> d.toModel() }) }
                 }
                 .onFailure { e -> _state.update { it.copy(uploading = false, error = e.message) } }
+        }
+    }
+
+    fun translate(messageId: String, content: String) {
+        val st = _state.value
+        if (st.translations.containsKey(messageId)) {
+            _state.update { it.copy(translations = it.translations - messageId) }
+            return
+        }
+        if (messageId in st.translatingIds || content.isBlank()) return
+        _state.update { it.copy(translatingIds = it.translatingIds + messageId) }
+        viewModelScope.launch {
+            translator.translate(content)
+                .onSuccess { t -> _state.update { it.copy(translations = it.translations + (messageId to t), translatingIds = it.translatingIds - messageId) } }
+                .onFailure { e -> _state.update { it.copy(translatingIds = it.translatingIds - messageId, error = e.message) } }
         }
     }
 

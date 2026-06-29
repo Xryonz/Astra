@@ -93,7 +93,7 @@ fun ChannelChatScreen(
                     )
                     else -> {
 
-                        val rows = remember(state.messages) {
+                        val rows = remember(state.messages, state.translations) {
                             state.messages.map { m ->
                                 ChatRow(
                                     id = m.id,
@@ -107,6 +107,7 @@ fun ChannelChatScreen(
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,
                                     attachments = m.attachments,
+                                    translation = state.translations[m.id],
                                 )
                             }
                         }
@@ -120,6 +121,7 @@ fun ChannelChatScreen(
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
                             onTogglePin = { viewModel.togglePin(it.id, !it.pinned) },
                             onToggleReaction = { row, emoji -> viewModel.toggleReaction(row.id, emoji) },
+                            onTranslate = { viewModel.translate(it.id, it.content) },
                         )
                     }
                 }

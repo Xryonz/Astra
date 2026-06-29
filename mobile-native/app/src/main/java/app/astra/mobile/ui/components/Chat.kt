@@ -103,11 +103,13 @@ fun MessageBubble(
     replyAuthor: String? = null,
     replyContent: String? = null,
     attachments: List<Attachment> = emptyList(),
+    translation: String? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onReply: (() -> Unit)? = null,
     onTogglePin: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
+    onTranslate: (() -> Unit)? = null,
     onOpenImage: ((List<Attachment>, Int) -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
@@ -126,7 +128,7 @@ fun MessageBubble(
     val glow = astraColors.accentGlow
 
     val hasMenu = onEdit != null || onDelete != null || onReply != null ||
-        onTogglePin != null || onToggleReaction != null
+        onTogglePin != null || onToggleReaction != null || onTranslate != null
     var menuOpen by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
@@ -298,6 +300,23 @@ fun MessageBubble(
                                     textAlign = TextAlign.Center,
                                 )
                             }
+                            if (translation != null) {
+                                Spacer(Modifier.height(6.dp))
+                                HairlineRule(Modifier.width(80.dp))
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = "tradução",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = astraColors.accent,
+                                )
+                                Text(
+                                    text = translation,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontSize = (15 * prefs.fontSize.scale).sp,
+                                    color = astraColors.text1.copy(alpha = 0.85f),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                             if (edited) {
                                 Text(
                                     text = "editado",
@@ -320,6 +339,7 @@ fun MessageBubble(
                         onReply = onReply,
                         onTogglePin = onTogglePin,
                         onToggleReaction = onToggleReaction,
+                        onTranslate = onTranslate,
                     )
                 }
             }
@@ -375,6 +395,7 @@ private fun MessageActionsMenu(
     onReply: (() -> Unit)?,
     onTogglePin: (() -> Unit)?,
     onToggleReaction: ((String) -> Unit)?,
+    onTranslate: (() -> Unit)? = null,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         if (onToggleReaction != null) {
@@ -398,6 +419,12 @@ private fun MessageActionsMenu(
             DropdownMenuItem(
                 text = { Text("Responder", color = astraColors.text1) },
                 onClick = { onDismiss(); onReply() },
+            )
+        }
+        if (onTranslate != null) {
+            DropdownMenuItem(
+                text = { Text("Traduzir", color = astraColors.text1) },
+                onClick = { onDismiss(); onTranslate() },
             )
         }
         if (onTogglePin != null) {
@@ -433,6 +460,7 @@ data class ChatRow(
     val replyAuthor: String? = null,
     val replyContent: String? = null,
     val attachments: List<Attachment> = emptyList(),
+    val translation: String? = null,
 )
 
 @Composable
@@ -447,6 +475,7 @@ fun ChatMessageList(
     onReply: (ChatRow) -> Unit = {},
     onTogglePin: (ChatRow) -> Unit = {},
     onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
+    onTranslate: (ChatRow) -> Unit = {},
 ) {
     val animated = remember { mutableSetOf<String>() }
     var shownOnce by remember { mutableStateOf(false) }
@@ -500,11 +529,13 @@ fun ChatMessageList(
                     replyAuthor = row.replyAuthor,
                     replyContent = row.replyContent,
                     attachments = row.attachments,
+                    translation = row.translation,
                     onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
                     onDelete = if (row.mine) ({ onDelete(row) }) else null,
                     onReply = { onReply(row) },
                     onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
                     onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
+                    onTranslate = if (row.content.isNotBlank()) ({ onTranslate(row) }) else null,
                     onOpenImage = { imgs, idx -> lightbox = imgs to idx },
                 )
             }

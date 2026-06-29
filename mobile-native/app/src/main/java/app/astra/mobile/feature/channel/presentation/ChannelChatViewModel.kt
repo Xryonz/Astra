@@ -3,6 +3,10 @@ package app.astra.mobile.feature.channel.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.core.model.toModel
+import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,11 +34,15 @@ data class ChannelChatUiState(
     val typingUsers: List<String> = emptyList(),
 
     val pinned: List<ChannelMessage> = emptyList(),
+
+    val pendingAttachments: List<Attachment> = emptyList(),
+    val uploading: Boolean = false,
 )
 
 @HiltViewModel
 class ChannelChatViewModel @Inject constructor(
     private val repository: ChannelRepository,
+    private val imageUploader: ImageUploader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -129,6 +137,21 @@ class ChannelChatViewModel @Inject constructor(
         handleTyping(value)
     }
 
+    fun attachImages(files: List<UploadFile>) {
+        if (files.isEmpty()) return
+        _state.update { it.copy(uploading = true, error = null) }
+        viewModelScope.launch {
+            imageUploader.uploadMany(files)
+                .onSuccess { dtos ->
+                    _state.update { it.copy(uploading = false, pendingAttachments = it.pendingAttachments + dtos.map { d -> d.toModel() }) }
+                }
+                .onFailure { e -> _state.update { it.copy(uploading = false, error = e.message) } }
+        }
+    }
+
+    fun removeAttachment(att: Attachment) =
+        _state.update { it.copy(pendingAttachments = it.pendingAttachments - att) }
+
     fun startEdit(messageId: String, content: String) =
         _state.update { it.copy(editingId = messageId, input = content, error = null) }
 
@@ -152,7 +175,8 @@ class ChannelChatViewModel @Inject constructor(
 
     fun send() {
         val text = _state.value.input.trim()
-        if (text.isEmpty() || _state.value.sending) return
+        val pending = _state.value.pendingAttachments
+        if ((text.isEmpty() && pending.isEmpty()) || _state.value.sending || _state.value.uploading) return
         stopTypingNow()
         val editing = _state.value.editingId
         if (editing != null) {
@@ -169,14 +193,14 @@ class ChannelChatViewModel @Inject constructor(
         }
         val replyId = _state.value.replyToId
         _state.update {
-            it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
+            it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null, pendingAttachments = emptyList())
         }
         viewModelScope.launch {
 
-            repository.send(channelId, text, replyId)
+            repository.send(channelId, text, replyId, pending)
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message, input = text) }
+                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending) }
                 }
         }
     }

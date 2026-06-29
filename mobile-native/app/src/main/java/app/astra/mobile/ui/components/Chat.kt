@@ -636,12 +636,34 @@ fun ChatInputBar(
     sending: Boolean,
     onInput: (String) -> Unit,
     onSend: () -> Unit,
+    onAttach: (() -> Unit)? = null,
+    uploading: Boolean = false,
+    hasAttachments: Boolean = false,
 ) {
-    val canSend = text.isNotBlank() && !sending
+    val canSend = (text.isNotBlank() || hasAttachments) && !sending && !uploading
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+
+        if (onAttach != null) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.borderMid, CircleShape)
+                    .clickable(enabled = !uploading, onClick = onAttach),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (uploading) "…" else "+",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = astraColors.text2,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
 
         Input(
             value = text,

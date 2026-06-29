@@ -3,6 +3,7 @@ package app.astra.mobile.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextOverflow
@@ -133,6 +138,59 @@ private fun FileChip(att: Attachment) {
                 style = MaterialTheme.typography.labelSmall,
                 color = astraColors.text3,
             )
+        }
+    }
+}
+
+@Composable
+fun PendingAttachmentsBar(
+    attachments: List<Attachment>,
+    onRemove: (Attachment) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (attachments.isEmpty()) return
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        attachments.forEach { att ->
+            Box(Modifier.size(62.dp)) {
+                val thumbShape = RoundedCornerShape(10.dp)
+                if (att.isImage) {
+                    AsyncImage(
+                        model = att.url,
+                        contentDescription = att.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(thumbShape)
+                            .background(astraColors.raised)
+                            .border(1.dp, astraColors.borderMid, thumbShape),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(thumbShape)
+                            .background(astraColors.raised)
+                            .border(1.dp, astraColors.borderMid, thumbShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("📎", style = MaterialTheme.typography.titleMedium) }
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(2.dp)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .clickable { onRemove(att) },
+                    contentAlignment = Alignment.Center,
+                ) { Text("×", style = MaterialTheme.typography.labelLarge, color = Color.White) }
+            }
         }
     }
 }

@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSnappy
@@ -411,6 +412,7 @@ data class ChatRow(
     val reactions: List<ReactionChip> = emptyList(),
     val replyAuthor: String? = null,
     val replyContent: String? = null,
+    val attachments: List<Attachment> = emptyList(),
 )
 
 @Composable

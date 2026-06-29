@@ -12,4 +12,8 @@ interface UploadApi {
     @Multipart
     @POST("api/upload")
     suspend fun upload(@Part file: MultipartBody.Part): ApiEnvelope<UploadResponse>
+
+    @Multipart
+    @POST("api/upload")
+    suspend fun uploadMany(@Part files: List<MultipartBody.Part>): ApiEnvelope<UploadResponse>
 }

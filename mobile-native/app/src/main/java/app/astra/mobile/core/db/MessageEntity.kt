@@ -22,4 +22,5 @@ data class MessageEntity(
     val edited: Boolean = false,
     val pinned: Boolean = false,
     val reactionsJson: String? = null,
+    val attachmentsJson: String? = null,
 )

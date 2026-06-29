@@ -4,7 +4,11 @@ import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.db.MessageDao
 import app.astra.mobile.core.db.MessageEntity
+import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.core.model.toDto
+import app.astra.mobile.core.model.toModel
 import app.astra.mobile.core.network.ChannelApi
+import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
 import app.astra.mobile.core.network.dto.ReactRequest
@@ -61,9 +65,9 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
 
-    override suspend fun send(channelId: String, content: String, replyToId: String?): Result<ChannelMessage> = try {
+    override suspend fun send(channelId: String, content: String, replyToId: String?, attachments: List<Attachment>): Result<ChannelMessage> = try {
         val uid = tokenStore.currentUserId()
-        val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId)).data
+        val dto = channelApi.send(channelId, SendChannelRequest(content, replyToId, attachments.map { it.toDto() })).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
         messageDao.upsert(dto.toEntity(channelId, json))
         Result.success(dto.toDomain(uid))
@@ -205,6 +209,7 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     reactions = reactions.toDomain(currentUserId),
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,
+    attachments = attachments.map { it.toModel() },
 )
 
 private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =
@@ -223,11 +228,15 @@ private fun ChannelMessageDto.toEntity(channelId: String, json: Json) = MessageE
     edited = edited,
     pinned = pinned,
     reactionsJson = if (reactions.isEmpty()) null else json.encodeToString(reactions),
+    attachmentsJson = if (attachments.isEmpty()) null else json.encodeToString(attachments),
 )
 
 private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMessage {
     val reactions = reactionsJson?.let {
         runCatching { json.decodeFromString<List<ReactionDto>>(it).toDomain(uid) }.getOrNull()
+    } ?: emptyList()
+    val attachments = attachmentsJson?.let {
+        runCatching { json.decodeFromString<List<AttachmentDto>>(it).map { a -> a.toModel() } }.getOrNull()
     } ?: emptyList()
     return ChannelMessage(
         id = id,
@@ -241,5 +250,6 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
         reactions = reactions,
         replyToAuthor = replyToAuthor,
         replyToContent = replyToContent,
+        attachments = attachments,
     )
 }

@@ -77,6 +77,7 @@ fun ChannelChatScreen(
                                     reactions = m.reactions.map { ReactionChip(it.emoji, it.count, it.mine) },
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,
+                                    attachments = m.attachments,
                                 )
                             }
                         }

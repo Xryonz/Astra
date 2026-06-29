@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -101,11 +102,13 @@ fun MessageBubble(
     reactions: List<ReactionChip> = emptyList(),
     replyAuthor: String? = null,
     replyContent: String? = null,
+    attachments: List<Attachment> = emptyList(),
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onReply: (() -> Unit)? = null,
     onTogglePin: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
+    onOpenImage: ((List<Attachment>, Int) -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
     val shape = RoundedCornerShape(14.dp)
@@ -181,9 +184,6 @@ fun MessageBubble(
                             translationX = (1f - enter.value) * (-22f).dp.toPx() + swipeX.value
                         }
                         .widthIn(max = bubbleMaxDp)
-                        .clip(shape)
-                        .background(astraColors.raised)
-                        .border(1.dp, astraColors.borderMid, shape)
                         .then(
                             if (onReply != null) {
                                 Modifier.pointerInput(Unit) {
@@ -221,74 +221,94 @@ fun MessageBubble(
                             } else {
                                 Modifier
                             },
-                        )
-                        .drawWithContent {
-                            drawContent()
-                            val p = sweepA.value
-                            if (p > 0f && p < 1f) {
-                                val x = (p * 2f - 1f) * size.width
-                                drawRect(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(Color.Transparent, glow, Color.Transparent),
-                                        start = Offset(x - size.width * 0.5f, 0f),
-                                        end = Offset(x + size.width * 0.5f, size.height),
-                                    ),
-                                    blendMode = BlendMode.Screen,
-                                )
-                            }
-                        }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    if (pinned) {
-                        Text(
-                            text = "📌 fixado",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = astraColors.accent,
+                    if (attachments.isNotEmpty()) {
+                        MessageAttachments(
+                            attachments = attachments,
+                            maxWidth = bubbleMaxDp,
+                            onOpenImage = { imgs, idx -> onOpenImage?.invoke(imgs, idx) },
                         )
-                        Spacer(Modifier.height(2.dp))
                     }
-                    if (replyContent != null) {
+                    val showBubble = content.isNotBlank() || replyContent != null || pinned || reactions.isNotEmpty()
+                    if (showBubble) {
                         Column(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(astraColors.base)
-                                .widthIn(max = 260.dp)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                .clip(shape)
+                                .background(astraColors.raised)
+                                .border(1.dp, astraColors.borderMid, shape)
+                                .drawWithContent {
+                                    drawContent()
+                                    val p = sweepA.value
+                                    if (p > 0f && p < 1f) {
+                                        val x = (p * 2f - 1f) * size.width
+                                        drawRect(
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(Color.Transparent, glow, Color.Transparent),
+                                                start = Offset(x - size.width * 0.5f, 0f),
+                                                end = Offset(x + size.width * 0.5f, size.height),
+                                            ),
+                                            blendMode = BlendMode.Screen,
+                                        )
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text(
-                                text = "↩ ${replyAuthor ?: "mensagem"}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = astraColors.accent,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = replyContent,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = astraColors.text1.copy(alpha = 0.6f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            if (pinned) {
+                                Text(
+                                    text = "📌 fixado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = astraColors.accent,
+                                )
+                                Spacer(Modifier.height(2.dp))
+                            }
+                            if (replyContent != null) {
+                                Column(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(astraColors.base)
+                                        .widthIn(max = 260.dp)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                ) {
+                                    Text(
+                                        text = "↩ ${replyAuthor ?: "mensagem"}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = astraColors.accent,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = replyContent,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = astraColors.text1.copy(alpha = 0.6f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
+                            }
+                            if (content.isNotBlank()) {
+                                Text(
+                                    text = content,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontSize = (17 * prefs.fontSize.scale).sp,
+                                    color = astraColors.text1,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                            if (edited) {
+                                Text(
+                                    text = "editado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = astraColors.text1.copy(alpha = 0.55f),
+                                )
+                            }
+                            MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 6.dp))
                         }
-                        Spacer(Modifier.height(4.dp))
                     }
-                    Text(
-                        text = content,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontSize = (17 * prefs.fontSize.scale).sp,
-                        color = astraColors.text1,
-                        textAlign = TextAlign.Center,
-                    )
-                    if (edited) {
-                        Text(
-                            text = "editado",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontStyle = FontStyle.Italic,
-                            color = astraColors.text1.copy(alpha = 0.55f),
-                        )
-                    }
-                    MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 6.dp))
                 }
                 if (hasMenu) {
                     MessageActionsMenu(
@@ -450,38 +470,48 @@ fun ChatMessageList(
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        reverseLayout = true,
-        contentPadding = PaddingValues(vertical = 10.dp),
-    ) {
-        items(rows.asReversed(), key = { it.id }) { row ->
-            val isNew = remember(row.id) {
-                val n = row.id !in animated
-                animated.add(row.id)
-                n
-            }
+    var lightbox by remember { mutableStateOf<Pair<List<Attachment>, Int>?>(null) }
 
-            MessageBubble(
-                mine = row.mine,
-                authorName = row.authorName,
-                authorAvatar = row.authorAvatar,
-                content = row.content,
-                animateIn = isNew,
-                sweep = isNew && shownOnce,
-                grouped = row.id in groupedIds,
-                edited = row.edited,
-                pinned = row.pinned,
-                reactions = row.reactions,
-                replyAuthor = row.replyAuthor,
-                replyContent = row.replyContent,
-                onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
-                onDelete = if (row.mine) ({ onDelete(row) }) else null,
-                onReply = { onReply(row) },
-                onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
-                onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
-            )
+    Box(modifier) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            reverseLayout = true,
+            contentPadding = PaddingValues(vertical = 10.dp),
+        ) {
+            items(rows.asReversed(), key = { it.id }) { row ->
+                val isNew = remember(row.id) {
+                    val n = row.id !in animated
+                    animated.add(row.id)
+                    n
+                }
+
+                MessageBubble(
+                    mine = row.mine,
+                    authorName = row.authorName,
+                    authorAvatar = row.authorAvatar,
+                    content = row.content,
+                    animateIn = isNew,
+                    sweep = isNew && shownOnce,
+                    grouped = row.id in groupedIds,
+                    edited = row.edited,
+                    pinned = row.pinned,
+                    reactions = row.reactions,
+                    replyAuthor = row.replyAuthor,
+                    replyContent = row.replyContent,
+                    attachments = row.attachments,
+                    onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
+                    onDelete = if (row.mine) ({ onDelete(row) }) else null,
+                    onReply = { onReply(row) },
+                    onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
+                    onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
+                    onOpenImage = { imgs, idx -> lightbox = imgs to idx },
+                )
+            }
+        }
+
+        lightbox?.let { (imgs, idx) ->
+            Lightbox(images = imgs, startIndex = idx, onDismiss = { lightbox = null })
         }
     }
 }

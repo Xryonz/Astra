@@ -11,7 +11,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-// Um unico DataStore de preferencias pro app inteiro.
 private val Context.dataStore by preferencesDataStore(name = "astra_prefs")
 
 @Module

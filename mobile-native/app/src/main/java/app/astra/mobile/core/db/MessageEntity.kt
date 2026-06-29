@@ -4,13 +4,6 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/**
- * Linha de mensagem cacheada (DM ou canal). `conversationId` e a chave da "sala"
- * (id da conversa de DM OU id do canal) — o cache nao distingue, e o repo que sabe.
- * `mine` NAO e guardado: depende do user logado, entao e computado na leitura
- * comparando `authorId` com o userId atual. `createdAt` e ISO-8601, que ordena
- * lexicograficamente = cronologicamente.
- */
 @Entity(
     tableName = "messages",
     indices = [Index(value = ["conversationId", "createdAt"])],
@@ -25,8 +18,7 @@ data class MessageEntity(
     val createdAt: String?,
     val replyToAuthor: String? = null,
     val replyToContent: String? = null,
-    // Campos so de canal — DM deixa o default. reactionsJson = List<ReactionDto>
-    // serializada (mine e recomputado na leitura via uid).
+
     val edited: Boolean = false,
     val pinned: Boolean = false,
     val reactionsJson: String? = null,

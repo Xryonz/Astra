@@ -19,12 +19,8 @@ import androidx.compose.ui.unit.dp
 import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 
-// Skeletons via RikkaUI Skeleton (Shimmer): uma varredura de luz percorre cada
-// placeholder. Tamanho/forma vêm do modifier; a animação, do componente.
-
 private val Shimmer = SkeletonAnimation.Shimmer
 
-/** Lista generica: linhas com (opcional) avatar + 2 barras de texto. */
 @Composable
 fun ListSkeleton(rows: Int = 8, avatar: Boolean = true, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().padding(top = 6.dp)) {
@@ -56,7 +52,6 @@ fun ListSkeleton(rows: Int = 8, avatar: Boolean = true, modifier: Modifier = Mod
     }
 }
 
-/** Historico de chat: bolhas alternadas (esquerda/direita) de larguras variadas. */
 @Composable
 fun MessageListSkeleton(modifier: Modifier = Modifier) {
     val widths = listOf(180, 120, 240, 90, 160, 210, 130)

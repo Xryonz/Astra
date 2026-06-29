@@ -32,7 +32,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
-        ignoreUnknownKeys = true // backend pode mandar campos que o cliente ignora
+        ignoreUnknownKeys = true
         explicitNulls = false
     }
 
@@ -49,7 +49,7 @@ object NetworkModule {
     ): OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(authInterceptor)
         .addInterceptor(logging())
-        .authenticator(authenticator) // refresh transparente no 401
+        .authenticator(authenticator)
         .build()
 
     @Provides
@@ -99,10 +99,6 @@ object NetworkModule {
     @Singleton
     fun provideInvitesApi(retrofit: Retrofit): InvitesApi = retrofit.create(InvitesApi::class.java)
 
-    /**
-     * RefreshApi roda num client SEPARADO e pelado (sem AuthInterceptor nem
-     * Authenticator) pra que o /refresh nunca dispare outro ciclo de refresh.
-     */
     @Provides
     @Singleton
     fun provideRefreshApi(json: Json): RefreshApi {

@@ -12,8 +12,6 @@ interface VoiceApi {
     @POST("api/voice/token")
     suspend fun token(@Body body: VoiceTokenRequest): ApiEnvelope<VoiceTokenData>
 
-    // { data: { [channelId]: [userId, ...] } } — quem esta em cada canal voice agora.
-    // channelIds = ids separados por virgula (max 64 no backend).
     @GET("api/voice/presence")
     suspend fun presence(@Query("channelIds") channelIds: String): ApiEnvelope<Map<String, List<String>>>
 }

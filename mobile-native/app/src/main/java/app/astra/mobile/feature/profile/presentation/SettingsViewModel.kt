@@ -26,6 +26,5 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // logout flipa isLoggedIn -> NavHost volta pro login sozinho.
     fun logout() = viewModelScope.launch { authRepository.logout() }
 }

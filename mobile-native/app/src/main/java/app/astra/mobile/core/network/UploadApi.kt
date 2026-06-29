@@ -8,7 +8,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 
 interface UploadApi {
-    // multipart, campo "files" (a rota aceita ate 10; mandamos 1 por vez).
+
     @Multipart
     @POST("api/upload")
     suspend fun upload(@Part file: MultipartBody.Part): ApiEnvelope<UploadResponse>

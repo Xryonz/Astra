@@ -20,18 +20,15 @@ interface ServerApi {
     @POST("api/servers")
     suspend fun create(@Body body: CreateServerRequest): ApiEnvelope<ServerDto>
 
-    // Edita nome/icone (so dono/admin no backend; 403 se nao for).
     @PATCH("api/servers/{id}")
     suspend fun update(@Path("id") id: String, @Body body: UpdateServerRequest): ApiEnvelope<ServerDto>
 
     @GET("api/servers/{id}/members")
     suspend fun members(@Path("id") serverId: String): ApiEnvelope<List<ServerMemberDto>>
 
-    // { data: { [channelId]: lastReadAtISO } }
     @GET("api/reads/channels")
     suspend fun channelReads(): ApiEnvelope<Map<String, String>>
 
-    // Cria canal (owner ou MANAGE_CHANNELS no backend).
     @POST("api/servers/{serverId}/channels")
     suspend fun createChannel(
         @Path("serverId") serverId: String,

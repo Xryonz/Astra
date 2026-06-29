@@ -82,7 +82,7 @@ fun ServerEditScreen(
                     .padding(horizontal = 26.dp, vertical = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // ── Icone (tocavel) ──
+
                 val shape = RoundedCornerShape(22.dp)
                 Box(
                     modifier = Modifier
@@ -137,7 +137,7 @@ fun ServerEditScreen(
                 )
 
                 Spacer(Modifier.height(22.dp))
-                // Visibilidade no diretorio publico (Descobrir) — switch.
+
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("Constelacao publica", style = MaterialTheme.typography.titleSmall, color = astraColors.text1)

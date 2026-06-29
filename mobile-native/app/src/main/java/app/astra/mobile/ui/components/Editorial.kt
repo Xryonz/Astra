@@ -25,10 +25,6 @@ import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.delay
 
-/**
- * Reveal — entrada editorial: fade + lift, com delay pra stagger.
- * Espelha o <Reveal> do web (fade + translateY).
- */
 @Composable
 fun Reveal(
     delayMillis: Int = 0,
@@ -49,7 +45,6 @@ fun Reveal(
     ) { content() }
 }
 
-/** Marginalia — mono, uppercase, tracking largo, terciario. (ed-marg/ed-label) */
 @Composable
 fun MarginaliaLabel(
     text: String,
@@ -69,7 +64,6 @@ fun MarginaliaLabel(
     )
 }
 
-/** Numeral romano — serif italic accent. (ed-roman) */
 @Composable
 fun RomanNumeral(
     text: String,
@@ -86,7 +80,6 @@ fun RomanNumeral(
     )
 }
 
-/** Hairline — divisor de 1px. accent=true vira gradiente prata (ed-hr-accent). */
 @Composable
 fun HairlineRule(
     modifier: Modifier = Modifier,

@@ -35,13 +35,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        // Sem Scaffold: o CosmicBackground de cada tela pinta edge-to-edge
-        // (atras da status/nav bar). As telas aplicam statusBarsPadding/
-        // navigationBarsPadding no conteudo (Home e EditorialTopBar).
+
         setContent {
             AstraTheme {
-                // ToastHost no topo de tudo (dentro do tema -> tem RikkaTheme).
-                // BottomCenter levantado pra nao colidir com a BottomUserBar.
+
                 val toastState = rememberToastHostState()
                 CompositionLocalProvider(LocalToastHostState provides toastState) {
                     Box(Modifier.fillMaxSize()) {
@@ -59,16 +56,12 @@ class MainActivity : ComponentActivity() {
         handleDeepLink(intent)
     }
 
-    // launchMode=singleTask -> o deep link com o app aberto cai aqui.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleDeepLink(intent)
     }
 
-    // OAuth Google: o backend redireciona pro deep link
-    //   sucesso -> astra://auth/callback#refresh=<token>
-    //   falha   -> astra://login?error=<code>
     private fun handleDeepLink(intent: Intent?) {
         val data = intent?.data ?: return
         if (data.scheme != "astra") return
@@ -80,7 +73,7 @@ class MainActivity : ComponentActivity() {
                     ?: return
                 val token = Uri.decode(refresh)
                 lifecycleScope.launch {
-                    // Sucesso: isLoggedIn vira true -> AstraApp navega pra Home sozinho.
+
                     authRepository.completeGoogleLogin(token).onFailure { e ->
                         Toast.makeText(this@MainActivity, e.message ?: "Falha no login com Google", Toast.LENGTH_LONG).show()
                     }

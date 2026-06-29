@@ -66,7 +66,6 @@ fun ProfileEditScreen(
     val state by viewModel.state.collectAsState()
     val ctx = LocalContext.current
 
-    // Photo Picker do Android (sem permissao). Le os bytes e manda pro VM.
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         readImageBytes(ctx, uri)?.let { (bytes, mime, _) -> viewModel.uploadAvatar(bytes, mime) }
     }
@@ -90,7 +89,7 @@ fun ProfileEditScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 26.dp, vertical = 18.dp),
             ) {
-                // ── Preview do cartao: banner (imagem ou cor) + avatar tocavel ──
+
                 val bannerColor = parseHexColor(state.bannerColor) ?: astraColors.overlay
                 Box(
                     modifier = Modifier
@@ -107,7 +106,7 @@ fun ProfileEditScreen(
                             contentScale = ContentScale.Crop,
                         )
                     }
-                    // Scrim pra legibilidade do nome.
+
                     Box(
                         Modifier
                             .matchParentSize()
@@ -164,7 +163,7 @@ fun ProfileEditScreen(
                 }
 
                 Spacer(Modifier.height(14.dp))
-                // ── Acoes de imagem ──
+
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     UploadChip(
                         label = "Trocar foto",
@@ -196,7 +195,6 @@ fun ProfileEditScreen(
                     Modifier.padding(top = 8.dp),
                 )
 
-                // ── Status (persiste na hora) ──
                 Spacer(Modifier.height(22.dp))
                 MarginaliaLabel("status")
                 Spacer(Modifier.height(10.dp))
@@ -255,7 +253,6 @@ fun ProfileEditScreen(
     }
 }
 
-/** Botao-pilula editorial pra disparar o picker; vira spinner enquanto sobe. */
 @Composable
 private fun UploadChip(
     label: String,
@@ -281,7 +278,6 @@ private fun UploadChip(
     }
 }
 
-/** "#RRGGBB" -> Color. Invalido/vazio -> null (usa fallback). */
 private fun parseHexColor(raw: String): Color? {
     val h = raw.trim().removePrefix("#")
     if (h.length != 6) return null

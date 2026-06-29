@@ -6,7 +6,7 @@ data class ProfileEditUiState(
     val loading: Boolean = true,
     val displayName: String = "",
     val username: String = "",
-    // Status persiste na hora (endpoint proprio), fora do SALVAR/dirty.
+
     val status: UserStatus = UserStatus.ONLINE,
     val avatarUrl: String = "",
     val bannerUrl: String = "",

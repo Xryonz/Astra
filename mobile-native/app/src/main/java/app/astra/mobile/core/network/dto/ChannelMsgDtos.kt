@@ -2,8 +2,6 @@ package app.astra.mobile.core.network.dto
 
 import kotlinx.serialization.Serializable
 
-// Mensagem de canal — shape de GET messages, POST e do evento new_message.
-// Campos extras (reactions, replyTo, mentions, pinned, poll, authorColor...) caem no ignoreUnknownKeys.
 @Serializable
 data class ChannelMessageDto(
     val id: String,
@@ -18,7 +16,6 @@ data class ChannelMessageDto(
     val author: MsgAuthorDto? = null,
 )
 
-// Resumo de reacao: { emoji, count, users[] }. mine = uid esta em users.
 @Serializable
 data class ReactionDto(
     val emoji: String,
@@ -26,15 +23,12 @@ data class ReactionDto(
     val users: List<String> = emptyList(),
 )
 
-// Resposta REST do toggle de reacao: { action, reactions[] }. Aplicada de forma
-// otimista no cache (o socket reaction_update reaplica o mesmo resumo).
 @Serializable
 data class ReactResultDto(
     val action: String = "",
     val reactions: List<ReactionDto> = emptyList(),
 )
 
-// Evento socket reaction_update: { messageId, channelId, reactions[] }.
 @Serializable
 data class ReactionUpdateDto(
     val messageId: String,
@@ -42,7 +36,6 @@ data class ReactionUpdateDto(
     val reactions: List<ReactionDto> = emptyList(),
 )
 
-// GET /api/channels/:id/messages -> { data: { items, nextCursor, hasMore } }
 @Serializable
 data class ChannelMessagesPageDto(
     val items: List<ChannelMessageDto> = emptyList(),

@@ -41,7 +41,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Avatar circular com ring sutil; fallback = inicial em prata. */
 @Composable
 fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size: Int = 46) {
     val mod = modifier
@@ -62,18 +61,14 @@ fun AstraAvatar(url: String?, name: String, modifier: Modifier = Modifier, size:
     }
 }
 
-// ── Constelacao animada — 7 estrelas ligadas por linha que se "acende" em
-//    sequencia (espelha ConstellationEmpty do web). A linha desenha
-//    progressivamente via PathMeasure; as estrelas dao pop escalonado. ──
 private val ConstellationStars = listOf(
     Offset(20f, 75f), Offset(50f, 40f), Offset(80f, 55f), Offset(110f, 25f),
     Offset(125f, 65f), Offset(95f, 85f), Offset(55f, 80f),
 )
 private val ConstellationRadii = listOf(2.0f, 2.5f, 1.8f, 2.2f, 1.8f, 2.0f, 1.5f)
-// Ordem da polilinha: percorre as estrelas e fecha de volta na primeira.
+
 private val ConstellationPath = listOf(0, 1, 2, 3, 4, 5, 6, 0)
 
-/** Grafico de constelacao (140x100). Anima 1x ao aparecer. */
 @Composable
 fun ConstellationGraphic(modifier: Modifier = Modifier) {
     val p = remember { Animatable(0f) }
@@ -102,7 +97,6 @@ fun ConstellationGraphic(modifier: Modifier = Modifier) {
     }
 }
 
-/** Estado vazio editorial: constelacao + linha serif + dica marginalia. */
 @Composable
 fun EmptyState(line: String, hint: String, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -121,11 +115,6 @@ fun EmptyState(line: String, hint: String, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Loader orbital — 3 dots brilhantes em orbita de um centro vazio
- * (espelha o OrbitSpinner do web; substitui o antigo CircularProgressIndicator).
- * Tudo num Canvas: 6 draws/frame, compositor-friendly.
- */
 @Composable
 fun CosmicSpinner(modifier: Modifier = Modifier, diameter: Int = 30) {
     val inf = rememberInfiniteTransition(label = "orbit")
@@ -141,7 +130,7 @@ fun CosmicSpinner(modifier: Modifier = Modifier, diameter: Int = 30) {
         for (i in 0..2) {
             val a = angle + i * (2f * PI.toFloat() / 3f)
             val pt = Offset(c.x + r * cos(a), c.y + r * sin(a))
-            drawCircle(accent, dot * 2.4f, pt, alpha = 0.18f) // glow
+            drawCircle(accent, dot * 2.4f, pt, alpha = 0.18f)
             drawCircle(accent, dot, pt)
         }
     }

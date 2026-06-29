@@ -20,7 +20,6 @@ class JoinServerViewModel @Inject constructor(
     private val _state = MutableStateFlow(JoinServerUiState())
     val state = _state.asStateFlow()
 
-    // Entrou -> a tela navega pros canais do servidor: (serverId, serverName).
     private val _joined = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 1)
     val joined = _joined.asSharedFlow()
 
@@ -53,7 +52,6 @@ class JoinServerViewModel @Inject constructor(
         }
     }
 
-    // Aceita link completo (.../invite/CODE, .../i/CODE) ou o codigo cru.
     private fun extractCode(raw: String): String {
         var s = raw.trim().substringBefore('?').substringBefore('#').trimEnd('/')
         if (s.contains('/')) s = s.substringAfterLast('/')

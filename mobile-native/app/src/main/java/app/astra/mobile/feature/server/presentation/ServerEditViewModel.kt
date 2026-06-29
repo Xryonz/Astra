@@ -25,7 +25,6 @@ class ServerEditViewModel @Inject constructor(
 
     init { load() }
 
-    // Acha a Constelacao na lista (GET /api/servers ja traz nome + icone).
     private fun load() {
         viewModelScope.launch {
             repository.servers()
@@ -52,7 +51,6 @@ class ServerEditViewModel @Inject constructor(
 
     fun onPublic(v: Boolean) = _state.update { it.copy(isPublic = v, saved = false, error = null) }
 
-    // Icone -> data URI (comprime/reescala; GIF anima). Preenche; SALVAR persiste.
     fun uploadIcon(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingIcon = true, error = null, saved = false) }
         viewModelScope.launch {

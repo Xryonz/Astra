@@ -21,7 +21,6 @@ class FriendsViewModel @Inject constructor(
     private val _state = MutableStateFlow(FriendsUiState())
     val state = _state.asStateFlow()
 
-    // Evento one-shot: pedido enviado -> a tela fecha o dialog.
     private val _added = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val added = _added.asSharedFlow()
 
@@ -30,7 +29,7 @@ class FriendsViewModel @Inject constructor(
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            // 3 chamadas em paralelo (Discord-tier).
+
             val f = async { repo.friends() }
             val inc = async { repo.incoming() }
             val out = async { repo.outgoing() }
@@ -41,7 +40,7 @@ class FriendsViewModel @Inject constructor(
                     friends = fr.getOrDefault(emptyList()),
                     incoming = ir.getOrDefault(emptyList()),
                     outgoing = or.getOrDefault(emptyList()),
-                    // So mostra erro se TUDO falhou (ex: offline).
+
                     error = if (fr.isFailure && ir.isFailure && or.isFailure) {
                         fr.exceptionOrNull()?.message ?: "Erro ao carregar"
                     } else null,

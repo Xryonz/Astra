@@ -23,13 +23,6 @@ import app.astra.mobile.ui.theme.astraColors
 
 enum class AstraButtonVariant { Primary, Ghost }
 
-/**
- * Botao do app. Raio 8dp (menos arredondado, a pedido). Primary = accent
- * solido; Ghost = so borda. loading troca o texto por spinner e desabilita.
- *
- * Compose puro (Box clicavel) — um "unstyled button" e exatamente isso, sem
- * depender de lib externa.
- */
 @Composable
 fun AstraButton(
     text: String,

@@ -66,7 +66,7 @@ fun UserProfileScreen(
                     val v = state.view!!
                     val p = v.profile
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        // ── Banner ──
+
                         val bannerColor = parseHexColor(p.bannerColor) ?: astraColors.overlay
                         Box(Modifier.fillMaxWidth().height(120.dp).background(bannerColor)) {
                             if (!p.bannerUrl.isNullOrBlank()) {
@@ -79,7 +79,6 @@ fun UserProfileScreen(
                             }
                         }
 
-                        // ── Avatar (sobrepoe o banner) + infos ──
                         Column(
                             modifier = Modifier
                                 .offset(y = (-42).dp)

@@ -32,10 +32,6 @@ import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 
-/**
- * Input editorial compartilhado (Login + Register): label mono em cima, texto
- * flush, underline que acende no foco. Sem chrome — type-first.
- */
 @Composable
 fun EditorialField(
     value: String,
@@ -94,7 +90,6 @@ fun EditorialField(
     }
 }
 
-/** Caixa de erro suave (fundo danger 10%), compartilhada nas telas de auth. */
 @Composable
 fun AuthErrorBox(message: String) {
     Box(

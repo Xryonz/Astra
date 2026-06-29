@@ -12,7 +12,6 @@ data class Friend(
     val customStatus: String?,
 )
 
-// Pedido de amizade (recebido ou enviado — mesmo formato, contexto na tela).
 data class FriendRequest(
     val friendshipId: String,
     val userId: String,

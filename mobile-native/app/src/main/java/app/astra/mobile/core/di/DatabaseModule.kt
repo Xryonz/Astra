@@ -19,7 +19,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AstraDatabase =
         Room.databaseBuilder(context, AstraDatabase::class.java, "astra.db")
-            // Cache descartavel: mudou o schema -> dropa tudo e rebusca da rede.
+
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 

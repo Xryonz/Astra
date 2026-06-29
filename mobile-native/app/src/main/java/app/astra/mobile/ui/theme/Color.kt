@@ -4,10 +4,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// ── Tokens "DARK OBSIDIAN" / Astra cosmic (espelha apps/web/src/index.css) ──
-// Accent = prata-estelar (#d4d8e0), nao mais o ambar antigo.
-
-// Backgrounds — deep midnight blue-black, do mais fundo ao mais elevado
 val Void = Color(0xFF06060E)
 val Base = Color(0xFF09091A)
 val Raised = Color(0xFF0F0F24)
@@ -15,32 +11,24 @@ val Overlay = Color(0xFF15152E)
 val HoverBg = Color(0xFF1C1C38)
 val ActiveBg = Color(0xFF22223F)
 
-// Accent — cold silver / starlight
 val Accent = Color(0xFFD4D8E0)
 val AccentH = Color(0xFFE8EBF0)
-val AccentDim = Color(0x1AD4D8E0)   // rgba(.10) — fills sutis
-val AccentGlow = Color(0x33D4D8E0)  // rgba(.20) — glows
+val AccentDim = Color(0x1AD4D8E0)
+val AccentGlow = Color(0x33D4D8E0)
 
-// Text — 3 niveis (text2/text3 clareados: legiveis em luz alta sem achatar a hierarquia)
 val Text1 = Color(0xFFF0EDFF)
 val Text2 = Color(0xFFB4B2D6)
 val Text3 = Color(0xFF8E8BB0)
 val TextInv = Color(0xFF09091A)
 
-// Borders — color-mix(accent X%, #1a1a25) pre-computado
-val BorderDim = Color(0xFF363741)    // 15%
-val BorderMid = Color(0xFF494A54)    // 25%
-val BorderBright = Color(0xFF646670) // 40%
+val BorderDim = Color(0xFF363741)
+val BorderMid = Color(0xFF494A54)
+val BorderBright = Color(0xFF646670)
 
-// Semantic
 val Danger = Color(0xFFE07A7A)
 val Success = Color(0xFF6FCFA0)
 val Warning = Color(0xFFE8B86D)
 
-/**
- * Tokens editoriais que o ColorScheme do Material3 nao cobre (6 camadas de
- * fundo, 3 niveis de texto, variacoes do accent). Acesso via [astraColors].
- */
 @Immutable
 data class AstraColors(
     val void: Color,

@@ -22,11 +22,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.astraColors
 
-/**
- * Linha de opcao com superficie + borda destacada (nao so texto). Padrao unico
- * pra qualquer "opcao" tocavel do app — choosers, menus, seletores, listas de
- * canal. selected pinta a borda em accent. leading/trailing opcionais.
- */
 @Composable
 fun OptionRow(
     title: String,

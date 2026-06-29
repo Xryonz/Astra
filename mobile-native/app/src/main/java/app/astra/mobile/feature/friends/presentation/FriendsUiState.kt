@@ -12,7 +12,7 @@ data class FriendsUiState(
     val incoming: List<FriendRequest> = emptyList(),
     val outgoing: List<FriendRequest> = emptyList(),
     val error: String? = null,
-    // Dialog "adicionar amigo"
+
     val adding: Boolean = false,
     val addError: String? = null,
 )

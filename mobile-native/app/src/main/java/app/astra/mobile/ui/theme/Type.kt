@@ -11,9 +11,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.astra.mobile.R
 
-// ── Fontes editoriais do Astra (.ttf em res/font) ──────────────
-// DM Sans e variable: 1 arquivo, peso via FontVariation (API 26+; em 24/25
-// cai pro peso default, degradacao aceitavel).
 @OptIn(ExperimentalTextApi::class)
 private fun dmSansWeight(weight: Int, fw: FontWeight) =
     Font(R.font.dm_sans, fw, variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
@@ -25,23 +22,18 @@ val DmSans = FontFamily(
     dmSansWeight(600, FontWeight.SemiBold),
 )
 
-// Serif display — titulos editoriais (regular + italic)
 val DmSerif = FontFamily(
     Font(R.font.dm_serif_display, FontWeight.Normal),
     Font(R.font.dm_serif_display_italic, FontWeight.Normal, FontStyle.Italic),
 )
 
-// Mono — marginalia, labels small-caps, timestamps
 val DmMono = FontFamily(
     Font(R.font.dm_mono, FontWeight.Normal),
     Font(R.font.dm_mono_medium, FontWeight.Medium),
 )
 
-// Script — flourish "Astra" (wordmark)
 val GreatVibes = FontFamily(Font(R.font.great_vibes, FontWeight.Normal))
 
-// Material3 Typography: serif nos titulos/headlines, sans no corpo/labels.
-// Telas que usam MaterialTheme.typography.* ja herdam a tipografia editorial.
 val AstraTypography = Typography(
     displayLarge = TextStyle(fontFamily = DmSerif, fontWeight = FontWeight.Normal, fontSize = 40.sp, lineHeight = 44.sp),
     displayMedium = TextStyle(fontFamily = DmSerif, fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 38.sp),

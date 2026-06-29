@@ -127,7 +127,6 @@ fun AccountScreen(
 
                 Spacer(Modifier.height(22.dp))
 
-                // ── Senha ──
                 MarginaliaLabel("senha")
                 Spacer(Modifier.height(8.dp))
                 when {
@@ -206,7 +205,6 @@ private fun ReadOnlyField(label: String, value: String, mono: Boolean = false) {
     }
 }
 
-/** Pill bordado (acao secundaria). accent=true preenche com a cor de acento. */
 @Composable
 private fun PillButton(label: String, onClick: () -> Unit, accent: Boolean = false) {
     Box(

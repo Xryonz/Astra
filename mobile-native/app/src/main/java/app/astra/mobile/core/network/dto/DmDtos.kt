@@ -2,8 +2,6 @@ package app.astra.mobile.core.network.dto
 
 import kotlinx.serialization.Serializable
 
-// GET /api/dm -> { data: [ { id, otherUser, lastMessage, updatedAt } ] }
-// updatedAt e o resto sao ignorados (ignoreUnknownKeys).
 @Serializable
 data class ConversationDto(
     val id: String,
@@ -11,7 +9,6 @@ data class ConversationDto(
     val lastMessage: LastMessageDto? = null,
 )
 
-// lastMessage no GET /api/dm e a row crua (sem author). preview + createdAt + senderId.
 @Serializable
 data class LastMessageDto(
     val content: String = "",
@@ -19,15 +16,12 @@ data class LastMessageDto(
     val createdAt: String? = null,
 )
 
-// GET /api/reads/dm -> { [conversationId]: { mine, other } } (ISO ou null).
 @Serializable
 data class DmReadDto(
     val mine: String? = null,
     val other: String? = null,
 )
 
-// Mensagem de DM — shape de GET messages, POST message E do evento new_dm.
-// Campos extras (attachments, replyTo, expiresAt, edited...) caem no ignoreUnknownKeys.
 @Serializable
 data class DmMessageDto(
     val id: String,
@@ -47,7 +41,6 @@ data class MsgAuthorDto(
     val avatarUrl: String? = null,
 )
 
-// Snapshot do pai citado numa resposta (canal + DM): { id, content, authorName, authorAvatar }.
 @Serializable
 data class ReplyToDto(
     val id: String,
@@ -56,7 +49,6 @@ data class ReplyToDto(
     val authorAvatar: String? = null,
 )
 
-// GET /api/dm/:id/messages -> { data: { items, nextCursor, hasMore } }
 @Serializable
 data class MessagesPageDto(
     val items: List<DmMessageDto> = emptyList(),
@@ -64,7 +56,6 @@ data class MessagesPageDto(
     val hasMore: Boolean = false,
 )
 
-// POST /api/dm/open -> { data: { conversationId, otherUser } }
 @Serializable
 data class OpenDmDto(
     val conversationId: String,

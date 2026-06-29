@@ -2,10 +2,9 @@ package app.astra.mobile.core.network.dto
 
 import kotlinx.serialization.Serializable
 
-// POST /api/voice/token { roomKind, roomId } -> { token, url, roomName, identity }
 @Serializable
 data class VoiceTokenRequest(
-    val roomKind: String, // "channel" | "dm"
+    val roomKind: String,
     val roomId: String,
 )
 

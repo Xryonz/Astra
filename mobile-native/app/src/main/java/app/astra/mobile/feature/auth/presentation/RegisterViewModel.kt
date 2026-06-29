@@ -23,8 +23,6 @@ class RegisterViewModel @Inject constructor(
     fun onEmail(v: String) = _state.update { it.copy(email = v, error = null) }
     fun onPassword(v: String) = _state.update { it.copy(password = v, error = null) }
 
-    // Sucesso nao navega aqui: salvar o token faz isLoggedIn virar true e o
-    // NavHost reage sozinho. So tratamos loading + erro.
     fun submit() {
         if (_state.value.loading) return
         _state.update { it.copy(loading = true, error = null) }

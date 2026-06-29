@@ -14,14 +14,12 @@ data class ChannelMessage(
     val replyToContent: String? = null,
 )
 
-// mine = o usuario atual reagiu com esse emoji (pra destacar o chip).
 data class MessageReaction(
     val emoji: String,
     val count: Int,
     val mine: Boolean,
 )
 
-// Evento de digitacao (typing=false = parou). username so vem no start.
 data class TypingUser(
     val userId: String,
     val username: String,

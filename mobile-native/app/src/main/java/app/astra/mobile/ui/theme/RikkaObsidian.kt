@@ -3,24 +3,17 @@ package app.astra.mobile.ui.theme
 import androidx.compose.ui.graphics.Color
 import zed.rainxch.rikkaui.foundation.RikkaColors
 
-/**
- * Paleta RikkaUI mapeada na identidade obsidian/prata do Astra (espelha
- * [AstraColors]). O [zed.rainxch.rikkaui.foundation.RikkaTheme] que envolve o app
- * provê isto — todo componente RikkaUI (Input, etc.) herda essas cores.
- *
- * Tokens sem par (borderSubtle, scrim) e estados de interação usam os defaults.
- */
 val ObsidianRikkaColors = RikkaColors(
-    background = Raised,            // fill de inputs/fields
+    background = Raised,
     onBackground = Text1,
-    surface = Overlay,             // cards, dialogs, popovers, sheets
+    surface = Overlay,
     onSurface = Text1,
-    primary = Accent,              // prata-estelar — ações principais
+    primary = Accent,
     onPrimary = TextInv,
     secondary = HoverBg,
     onSecondary = Text1,
     muted = Base,
-    onMuted = Text3,               // placeholder/legenda
+    onMuted = Text3,
     destructive = Danger,
     onDestructive = Color.White,
     warning = Warning,
@@ -28,7 +21,7 @@ val ObsidianRikkaColors = RikkaColors(
     success = Success,
     onSuccess = TextInv,
     border = BorderMid,
-    ring = Accent,                 // anel de foco (Glow do Input) = prata
+    ring = Accent,
     inverseSurface = Text1,
     onInverseSurface = Void,
     primaryTinted = AccentDim,

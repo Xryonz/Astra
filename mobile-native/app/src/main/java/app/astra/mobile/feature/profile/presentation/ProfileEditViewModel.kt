@@ -41,7 +41,6 @@ class ProfileEditViewModel @Inject constructor(
         bannerColor = p.bannerColor.orEmpty(), origBannerColor = p.bannerColor.orEmpty(),
     )
 
-    // Status: persiste na hora (endpoint proprio). Otimista no state.
     fun onStatus(v: UserStatus) {
         if (v == _state.value.status) return
         _state.update { it.copy(status = v) }
@@ -52,8 +51,6 @@ class ProfileEditViewModel @Inject constructor(
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }
     fun onBannerColor(v: String) = _state.update { it.copy(bannerColor = v, saved = false, error = null) }
 
-    // Avatar -> data URI (comprime e reescala; GIF anima). Preenche o campo;
-    // o SALVAR persiste. Preview atualiza na hora.
     fun uploadAvatar(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingAvatar = true, error = null, saved = false) }
         viewModelScope.launch {
@@ -63,7 +60,6 @@ class ProfileEditViewModel @Inject constructor(
         }
     }
 
-    // Banner -> data URI (mais largo; animado ok).
     fun uploadBanner(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingBanner = true, error = null, saved = false) }
         viewModelScope.launch {
@@ -73,7 +69,6 @@ class ProfileEditViewModel @Inject constructor(
         }
     }
 
-    // "" limpa o banner no backend (volta pra constelacao-assinatura do nome).
     fun removeBanner() = _state.update { it.copy(bannerUrl = "", saved = false, error = null) }
 
     fun save() {

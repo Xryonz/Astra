@@ -6,10 +6,7 @@ import app.astra.mobile.feature.channel.domain.model.TypingUser
 import kotlinx.coroutines.flow.Flow
 
 interface ChannelRepository {
-    /**
-     * SSOT: a UI observa o cache (Room). Enquanto coletado, dreno os eventos do
-     * socket (new/deleted/edited/reaction/pinned) pra dentro do Room.
-     */
+
     fun observeMessages(channelId: String): Flow<List<ChannelMessage>>
     suspend fun messages(channelId: String, cursor: String?): Result<ChannelMessagesPage>
     suspend fun send(channelId: String, content: String, replyToId: String? = null): Result<ChannelMessage>

@@ -5,11 +5,6 @@ import coil.map.Mapper
 import coil.request.Options
 import java.nio.ByteBuffer
 
-/**
- * Ensina o Coil a exibir data URIs base64 (avatar/banner/icone, igual web):
- * data:image/...;base64,XXXX -> ByteBuffer (o ByteBufferFetcher embutido pega).
- * Animado (GIF) anima via decoder ja registrado.
- */
 class DataUriMapper : Mapper<String, ByteBuffer> {
     override fun map(data: String, options: Options): ByteBuffer? {
         if (!data.startsWith("data:")) return null
@@ -21,10 +16,6 @@ class DataUriMapper : Mapper<String, ByteBuffer> {
     }
 }
 
-/**
- * URL relativa do backend (/uploads/x.webp — anexos de chat) -> URL absoluta.
- * Sem isso o Coil nao acha o host.
- */
 class RelativeUrlMapper(private val base: String) : Mapper<String, String> {
     override fun map(data: String, options: Options): String? =
         if (data.startsWith("/")) base.trimEnd('/') + data else null

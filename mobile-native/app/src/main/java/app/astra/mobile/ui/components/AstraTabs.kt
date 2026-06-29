@@ -18,11 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.astraColors
 
-/**
- * Abas segmentadas (pill) no estilo editorial — container arredondado com o
- * segmento ativo destacado em accent. Mesma ideia do Tabs do shadcn, em
- * Compose puro. counts opcional mostra "(N)" por aba.
- */
 @Composable
 fun AstraTabs(
     tabs: List<String>,

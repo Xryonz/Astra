@@ -20,8 +20,6 @@ interface FriendsApi {
     @GET("api/friends/outgoing")
     suspend fun outgoing(): ApiEnvelope<List<FriendRequestDto>>
 
-    // Sem tipo de retorno = ignora o corpo (a resposta varia: pending/accepted).
-    // 404 = usuario nao encontrado; 400 = voce mesmo. Viram HttpException.
     @POST("api/friends/request")
     suspend fun sendRequest(@Body body: SendFriendRequest)
 

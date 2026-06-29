@@ -77,7 +77,7 @@ class DmRepositoryImpl @Inject constructor(
         val uid = tokenStore.currentUserId()
         val page = dmApi.messages(conversationId, cursor, PAGE_SIZE).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
-        // SSOT: grava no Room; a UI le pelo observeMessages.
+
         messageDao.upsert(page.items.map { it.toEntity(conversationId) })
         Result.success(
             MessagesPage(
@@ -125,7 +125,7 @@ class DmRepositoryImpl @Inject constructor(
             ),
         )
     } catch (e: HttpException) {
-        // 404/400 trazem mensagem amigavel ("Usuario nao encontrado") no body.
+
         val msg = e.response()?.errorBody()?.string()?.let {
             runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
         }
@@ -143,7 +143,7 @@ class DmRepositoryImpl @Inject constructor(
     override fun observeMessages(conversationId: String): Flow<List<DmMessage>> = flow {
         val uid = tokenStore.currentUserId()
         coroutineScope {
-            // new_dm -> grava no Room (a msg que eu enviei tambem ecoa aqui; upsert dedupa por id).
+
             launch {
                 socketManager.newDm.collect { raw ->
                     val dto = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull()
@@ -152,13 +152,13 @@ class DmRepositoryImpl @Inject constructor(
                     }
                 }
             }
-            // dm_deleted -> remove do Room.
+
             launch {
                 socketManager.dmDeleted.collect { (id, conv) ->
                     if (conv == conversationId) messageDao.deleteById(id)
                 }
             }
-            // Fonte da verdade: as linhas do Room mapeadas pro dominio (mine via uid atual).
+
             emitAll(messageDao.observe(conversationId).map { rows -> rows.map { it.toDm(uid) } })
         }
     }
@@ -173,7 +173,6 @@ class DmRepositoryImpl @Inject constructor(
     override fun stopTyping(conversationId: String) = socketManager.stopDmTyping(conversationId)
 }
 
-// Conversa sem otherUser (usuario sumiu) e descartada — nao da pra renderizar.
 private fun ConversationDto.toDomain(uid: String?): Conversation? {
     val u = otherUser ?: return null
     return Conversation(
@@ -198,7 +197,6 @@ private fun DmMessageDto.toDomain(currentUserId: String?) = DmMessage(
     replyToContent = replyTo?.content,
 )
 
-// DTO -> linha do cache. authorId = senderId (mine e computado na leitura).
 private fun DmMessageDto.toEntity(conversationId: String) = MessageEntity(
     id = id,
     conversationId = conversationId,
@@ -211,7 +209,6 @@ private fun DmMessageDto.toEntity(conversationId: String) = MessageEntity(
     replyToContent = replyTo?.content,
 )
 
-// Linha do cache -> dominio. mine = autor sou eu (uid atual).
 private fun MessageEntity.toDm(uid: String?) = DmMessage(
     id = id,
     content = content,

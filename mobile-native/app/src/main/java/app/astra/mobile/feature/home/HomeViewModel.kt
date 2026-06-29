@@ -38,11 +38,9 @@ class HomeViewModel @Inject constructor(
     private val _state = MutableStateFlow(HomeUiState())
     val state = _state.asStateFlow()
 
-    // Evento one-shot: DM aberta pelo FAB -> a tela navega pro chat.
     private val _opened = MutableSharedFlow<OpenedConversation>(extraBufferCapacity = 1)
     val opened = _opened.asSharedFlow()
 
-    // Evento one-shot: constelacao criada -> a tela entra nela.
     private val _serverCreated = MutableSharedFlow<Server>(extraBufferCapacity = 1)
     val serverCreated = _serverCreated.asSharedFlow()
 
@@ -54,7 +52,7 @@ class HomeViewModel @Inject constructor(
     fun load() {
         _state.update { it.copy(loading = true) }
         viewModelScope.launch {
-            // Servidores + conversas + leituras (DM + canal) + perfil, em paralelo.
+
             val serversD = async { serverRepository.servers() }
             val convD = async { dmRepository.conversations() }
             val readsD = async { dmRepository.dmReads() }
@@ -69,19 +67,16 @@ class HomeViewModel @Inject constructor(
             val me = meD.await().getOrNull()
             val myId = myIdD.await()
 
-            // Nao-lido: ultima msg nao foi minha E e mais nova que minha ultima leitura.
             val unread = conversations
                 .filter { c ->
                     !c.lastFromMe && c.lastMessageAt?.let { last -> reads[c.id]?.let { last > it } ?: true } ?: false
                 }
                 .map { it.id }.toSet()
 
-            // Canais nao-lidos (todas as Constelacoes) -> dot no painel inline.
             val channelUnread = servers.flatMap { it.channels }
                 .filter { ch -> ch.lastMessageAt?.let { last -> chReads[ch.id]?.let { last > it } ?: true } ?: false }
                 .map { it.id }.toSet()
 
-            // Canais de voz (vem aninhados em servers) -> 1 chamada de presence -> salas com gente.
             val voiceChannels = servers.flatMap { s -> s.channels.filter { it.isVoice }.map { s to it } }
             val activeVoice = if (voiceChannels.isEmpty()) {
                 emptyList()
@@ -117,14 +112,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Rail: seleciona a Constelacao (mostra canais no painel) ou null (volta aos Sussurros).
     fun selectServer(id: String?) = _state.update { it.copy(selectedServerId = id) }
 
-    // Tap numa orbita -> some o dot na hora.
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
 
-    // Voltou pra Home (ON_RESUME) -> reflete edicoes de perfil no bottom bar.
-    // me() le o cache, que o updateProfile ja atualizou no SALVAR -> sem rede.
     fun refreshProfile() {
         viewModelScope.launch {
             userRepository.me().onSuccess { me ->
@@ -145,7 +136,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Voltou pra Home -> recarrega o rail (pega icone/nome de servidor editado).
     fun refreshServers() {
         viewModelScope.launch {
             serverRepository.servers().onSuccess { servers ->
@@ -154,9 +144,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // ── Criar canal (painel inline) ──
-    // Chama o repo e recarrega os servers (reflete no painel). Falha vira
-    // manageError -> a tela mostra um Toast e limpa.
     private suspend fun reloadServers() {
         serverRepository.servers().onSuccess { servers -> _state.update { it.copy(servers = servers) } }
     }
@@ -171,11 +158,8 @@ class HomeViewModel @Inject constructor(
         manage { serverRepository.createChannel(serverId, name, isVoice) }
     fun clearManageError() = _state.update { it.copy(manageError = null) }
 
-    // Tap na DM -> some o dot na hora.
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
 
-    // Forja constelacao (isGroup=false) ou aglomerado (true). Ao criar,
-    // recarrega so a lista de servidores (rail aparece na hora) e entra nela.
     fun createServer(name: String, isGroup: Boolean) {
         if (_state.value.creating || name.isBlank()) return
         _state.update { it.copy(creating = true, createError = null) }
@@ -192,10 +176,8 @@ class HomeViewModel @Inject constructor(
 
     fun clearCreateError() = _state.update { it.copy(createError = null) }
 
-    // logout flipa isLoggedIn -> AstraApp volta pro login sozinho.
     fun logout() = viewModelScope.launch { authRepository.logout() }
 
-    // new_dm de outra pessoa ao vivo -> marca nao-lido.
     private fun observeIncoming() {
         viewModelScope.launch {
             dmRepository.incomingConversations().collect { convId ->

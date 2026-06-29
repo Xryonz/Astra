@@ -26,7 +26,6 @@ class UserRepositoryImpl @Inject constructor(
     private val json: Json,
 ) : UserRepository {
 
-    // Cache em memoria do proprio perfil (espelha o authStore.user do web).
     private var cached: Profile? = null
 
     override suspend fun me(forceRefresh: Boolean): Result<Profile> {
@@ -91,7 +90,7 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun setStatus(status: UserStatus): Result<Unit> {
         return try {
             api.setStatus(SetStatusRequest(status.name))
-            // me() nao devolve status; refletimos a escolha no cache pra Home/Edit.
+
             cached = cached?.copy(status = status)
             Result.success(Unit)
         } catch (e: Exception) {

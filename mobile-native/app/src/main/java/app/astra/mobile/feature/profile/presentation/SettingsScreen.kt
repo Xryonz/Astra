@@ -47,7 +47,6 @@ fun SettingsScreen(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             EditorialTopBar(title = "Configuracoes", marginalia = "conta e preferencias", onBack = onBack)
 
-            // Cabecalho de identidade
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -96,7 +95,6 @@ fun SettingsScreen(
     }
 }
 
-/** Linha de configuracao: titulo serif + sublabel + chevron. onClick null = desabilitada. */
 @Composable
 private fun SettingsRow(title: String, sub: String, onClick: (() -> Unit)?) {
     val enabled = onClick != null

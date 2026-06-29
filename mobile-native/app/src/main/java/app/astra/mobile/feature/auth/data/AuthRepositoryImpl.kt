@@ -73,7 +73,7 @@ class AuthRepositoryImpl @Inject constructor(
                 tokenStore.setUserId(data.user.id)
                 Result.success(data.user.toDomain())
             } else {
-                // 409/400 mandam { error } amigavel no corpo; parseError le isso.
+
                 Result.failure(ApiException(parseError(resp.errorBody()?.string(), resp.code())))
             }
         } catch (e: IOException) {
@@ -85,11 +85,11 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun completeGoogleLogin(refreshToken: String): Result<Unit> {
         return try {
-            // Troca o refresh do deep link por access + novo refresh (rotaciona).
+
             val data = refreshApi.refresh("Bearer $refreshToken").data
                 ?: return Result.failure(ApiException("Resposta invalida do servidor"))
             tokenStore.save(data.accessToken, data.refreshToken)
-            // userId pra deteccao de dono etc — decodificado do JWT (sem chamada extra).
+
             userIdFromJwt(data.accessToken)?.let { tokenStore.setUserId(it) }
             Result.success(Unit)
         } catch (e: IOException) {
@@ -99,7 +99,6 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    // Le o claim userId do payload do JWT (base64url). Falha -> null.
     private fun userIdFromJwt(accessToken: String): String? = runCatching {
         val payload = accessToken.split(".")[1]
         val bytes = android.util.Base64.decode(
@@ -111,11 +110,10 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout() {
         tokenStore.clear()
-        // Zera o cache local de mensagens pra nao vazar pra proxima conta.
+
         messageDao.clearAll()
     }
 
-    // Le a mensagem amigavel do backend; se nao der, cai num fallback por status.
     private fun parseError(raw: String?, code: Int): String {
         val fromBody = raw?.let {
             runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
@@ -136,6 +134,5 @@ private fun UserDto.toDomain() = AuthUser(
     avatarUrl = avatarUrl,
 )
 
-// So o claim que precisamos do payload do JWT (ignoreUnknownKeys cobre jti/iat/exp).
 @Serializable
 private data class JwtPayload(val userId: String? = null)

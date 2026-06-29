@@ -20,15 +20,15 @@ data class ChannelChatUiState(
     val input: String = "",
     val sending: Boolean = false,
     val error: String? = null,
-    // id da mensagem em edicao (null = compondo nova). Reusa o input.
+
     val editingId: String? = null,
-    // alvo de resposta (null = sem responder). author/preview alimentam o banner.
+
     val replyToId: String? = null,
     val replyToAuthor: String? = null,
     val replyToPreview: String? = null,
-    // usernames digitando agora (exclui voce — o server nao ecoa pro emissor).
+
     val typingUsers: List<String> = emptyList(),
-    // mensagens fixadas (carregadas sob demanda pro sheet de Fixadas).
+
     val pinned: List<ChannelMessage> = emptyList(),
 )
 
@@ -52,8 +52,6 @@ class ChannelChatViewModel @Inject constructor(
         observeTyping()
     }
 
-    // SSOT: a tela so observa o cache (Room). new/deleted/edited/reaction/pinned
-    // o repo dreno pro banco; o historico (loadHistory) tambem grava nele.
     private fun observeMessages() {
         viewModelScope.launch {
             repository.observeMessages(channelId).collect { msgs ->
@@ -88,9 +86,6 @@ class ChannelChatViewModel @Inject constructor(
         }
     }
 
-    // ── Digitando ────────────────────────────────────────────────
-    // typingNames: userId -> username (stop nao traz username). Expira em 6s
-    // caso o evento de stop se perca.
     private val typingNames = linkedMapOf<String, String>()
     private val typingExpiry = mutableMapOf<String, Job>()
 
@@ -115,7 +110,6 @@ class ChannelChatViewModel @Inject constructor(
 
     private fun pushTyping() = _state.update { it.copy(typingUsers = typingNames.values.toList()) }
 
-    // Emite typing_start na 1a tecla, reinicia o timer de stop (3s sem digitar).
     private var typingSent = false
     private var typingStopJob: Job? = null
     private fun handleTyping(value: String) {
@@ -135,13 +129,11 @@ class ChannelChatViewModel @Inject constructor(
         handleTyping(value)
     }
 
-    // Long-press "Editar" -> entra em modo edicao reusando o input.
     fun startEdit(messageId: String, content: String) =
         _state.update { it.copy(editingId = messageId, input = content, error = null) }
 
     fun cancelEdit() = _state.update { it.copy(editingId = null, input = "") }
 
-    // Responder: guarda o alvo (cancela edicao se estava editando).
     fun startReply(messageId: String, author: String, preview: String) =
         _state.update {
             it.copy(replyToId = messageId, replyToAuthor = author, replyToPreview = preview, editingId = null)
@@ -152,7 +144,7 @@ class ChannelChatViewModel @Inject constructor(
 
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
-            // Sucesso: o repo ja removeu do Room -> a lista atualiza pelo observeMessages.
+
             repository.delete(channelId, messageId)
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
         }
@@ -166,7 +158,7 @@ class ChannelChatViewModel @Inject constructor(
         if (editing != null) {
             _state.update { it.copy(sending = true, input = "", editingId = null, error = null) }
             viewModelScope.launch {
-                // Sucesso: o socket message_edited aplica no Room -> a lista atualiza sozinha.
+
                 repository.edit(channelId, editing, text)
                     .onSuccess { _state.update { it.copy(sending = false) } }
                     .onFailure { e ->
@@ -180,7 +172,7 @@ class ChannelChatViewModel @Inject constructor(
             it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
         }
         viewModelScope.launch {
-            // Sucesso: o repo grava no Room -> aparece pelo observeMessages.
+
             repository.send(channelId, text, replyId)
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->

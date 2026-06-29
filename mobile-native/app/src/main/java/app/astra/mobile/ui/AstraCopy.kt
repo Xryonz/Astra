@@ -1,21 +1,9 @@
 package app.astra.mobile.ui
 
-/**
- * Astra — vocabulario central do app (espelho de apps/web/src/lib/copy.ts).
- *
- * Strings expostas pro usuario ficam aqui. Ponto unico pra:
- *  - Rebranding (mexe num lugar so)
- *  - Consistencia de tom (espacial/editorial)
- *
- * Metafora -> conceito Discord-like:
- *  constelacao=servidor, orbita=canal, estrela=membro/amigo,
- *  sussurro=DM, cometa=thread, coordenada=id.
- */
 object AstraCopy {
 
     const val BRAND = "Astra"
 
-    // Nomes de entidades
     object Noun {
         const val app = "Astra"
         const val server = "constelacao"
@@ -39,7 +27,6 @@ object AstraCopy {
         const val coordinate = "coordenada"
     }
 
-    // CTAs e acoes
     object Action {
         const val createServer = "Forjar constelacao"
         const val joinServer = "Orbitar constelacao"
@@ -54,7 +41,6 @@ object AstraCopy {
         const val logout = "Sair do Astra"
     }
 
-    // Descricoes explicativas (microcopy de "(servidor)" etc)
     object Desc {
         const val constelacao = "Servidor — espaco da sua comunidade"
         const val aglomerado = "Grupo privado — sem convite publico"
@@ -65,7 +51,6 @@ object AstraCopy {
         const val sussurro = "Mensagem privada 1-a-1"
     }
 
-    // Empty states (titulo + dica)
     data class Empty(val title: String, val hint: String)
     object Empties {
         val noServers = Empty("Seu ceu ainda esta vazio", "Crie ou entre numa constelacao.")
@@ -76,7 +61,6 @@ object AstraCopy {
         val noThreads = Empty("Sem cometas por aqui", "Responda numa mensagem pra abrir um.")
     }
 
-    // Labels de status (presenca)
     fun statusLabel(raw: String): String = when (raw.uppercase()) {
         "ONLINE" -> "Brilhando"
         "IDLE" -> "Distante"
@@ -85,7 +69,6 @@ object AstraCopy {
         else -> "Apagada"
     }
 
-    // Toasts / feedbacks
     object Toast {
         const val serverCreated = "Constelacao acesa."
         const val serverDeleted = "Constelacao extinta."

@@ -8,7 +8,7 @@ data class DmChatUiState(
     val input: String = "",
     val sending: Boolean = false,
     val error: String? = null,
-    // alvo de resposta (null = sem responder).
+
     val replyToId: String? = null,
     val replyToAuthor: String? = null,
     val replyToPreview: String? = null,

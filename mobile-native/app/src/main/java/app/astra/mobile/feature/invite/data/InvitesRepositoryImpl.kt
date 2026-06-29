@@ -46,7 +46,7 @@ class InvitesRepositoryImpl @Inject constructor(
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
         Result.success(dto.toServer())
     } catch (e: HttpException) {
-        // 403 grupo/banido, 409 ja e membro, 404 invalido — backend manda { error }.
+
         Result.failure(ApiException(errorMsg(e) ?: "Nao foi possivel entrar no servidor"))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))

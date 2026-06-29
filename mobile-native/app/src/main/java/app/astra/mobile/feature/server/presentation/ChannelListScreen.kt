@@ -121,7 +121,7 @@ fun ChannelListScreen(
 
 @Composable
 private fun ChannelRow(channel: Channel, unread: Boolean, onClick: () -> Unit) {
-    // Texto abre o chat; voz entra na chamada. Ambos clicaveis.
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -161,8 +161,6 @@ private fun CenterBox(content: @Composable BoxScope.() -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center, content = content)
 }
 
-// Link /i/:code = pagina OG da API que redireciona pro /invite/:code do site
-// (mesmo link que o web compartilha). Abre o share sheet do Android.
 private fun shareInvite(context: Context, code: String) {
     val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
     val send = Intent(Intent.ACTION_SEND).apply {

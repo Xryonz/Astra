@@ -57,9 +57,6 @@ import io.livekit.android.compose.ui.ScaleType
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.Room
 
-// Room e constante durante a call (mesmo EGL/renderer). Passa via local estavel
-// pra NAO entrar como parametro instavel em ParticipantTile — assim o tile pode
-// pular recomposicao quando so o "isSpeaking" de outro participante muda.
 private val LocalCallRoom = staticCompositionLocalOf<Room?> { null }
 
 @Composable
@@ -76,7 +73,6 @@ fun CallScreen(
         if (granted) viewModel.join() else viewModel.permissionDenied()
     }
 
-    // Mic e obrigatorio ANTES de entrar (foreground service type=microphone exige).
     LaunchedEffect(Unit) {
         if (hasPermission(ctx, Manifest.permission.RECORD_AUDIO)) viewModel.join()
         else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -91,7 +87,6 @@ fun CallScreen(
         else camLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // Screenshare: dialogo de captura do sistema -> resultData -> LiveKit.
     val screenLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -117,7 +112,7 @@ fun CallScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            // Cabecalho cosmico
+
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
                 MarginaliaLabel("chamada de voz")
                 Spacer(Modifier.height(4.dp))
@@ -304,7 +299,6 @@ private fun ControlBar(
     }
 }
 
-/** Pill toggle: preenchido (activeColor) quando ligado, contornado quando desligado. */
 @Composable
 private fun CallToggle(
     label: String,

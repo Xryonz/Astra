@@ -11,7 +11,6 @@ data class FriendUserDto(
     val customStatus: String? = null,
 )
 
-// GET /api/friends
 @Serializable
 data class FriendDto(
     val friendshipId: String,
@@ -20,7 +19,6 @@ data class FriendDto(
     val since: String? = null,
 )
 
-// GET /api/friends/requests e /outgoing (user pode vir null se o registro sumiu).
 @Serializable
 data class FriendRequestDto(
     val friendshipId: String,

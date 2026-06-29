@@ -7,19 +7,13 @@ import okhttp3.Response
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Injeta "Authorization: Bearer <access>" em toda request.
- * runBlocking e aceitavel aqui: o OkHttp roda interceptors fora da main thread.
- * Refresh automatico no 401 vive no TokenAuthenticator.
- */
 @Singleton
 class AuthInterceptor @Inject constructor(
     private val tokenStore: TokenStore,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
-        // Request que ja traz Authorization proprio (ex: /refresh com o refresh
-        // token) passa intacta.
+
         if (original.header("Authorization") != null) return chain.proceed(original)
 
         val token = runBlocking { tokenStore.currentAccess() }

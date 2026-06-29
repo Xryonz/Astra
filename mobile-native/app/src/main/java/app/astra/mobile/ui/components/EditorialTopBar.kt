@@ -24,10 +24,6 @@ import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
-/**
- * Top bar editorial reutilizavel: chevron de voltar (serif) + titulo serif com
- * marginalia opcional em cima + slot de acao a direita.
- */
 @Composable
 fun EditorialTopBar(
     title: String,
@@ -73,7 +69,6 @@ fun EditorialTopBar(
     }
 }
 
-/** Acao de cabecalho: glifo grande clicavel (ex: "+"). */
 @Composable
 fun TopBarAction(glyph: String, onClick: () -> Unit, color: androidx.compose.ui.graphics.Color = astraColors.accent) {
     Text(

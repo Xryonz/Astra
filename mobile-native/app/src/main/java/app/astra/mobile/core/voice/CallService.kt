@@ -15,11 +15,6 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import app.astra.mobile.MainActivity
 
-/**
- * Foreground service de chamada (type=microphone). Sem ele o Android 14+ corta
- * o audio quando o app vai pra background. So mostra a notificacao persistente;
- * o audio em si roda no LiveKit (VoiceManager). start/stop sao chamados de la.
- */
 class CallService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null

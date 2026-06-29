@@ -80,17 +80,10 @@ import zed.rainxch.rikkaui.components.ui.alertdialog.AlertDialogHeader
 import zed.rainxch.rikkaui.components.ui.input.Input
 import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 
-/** Emojis de reacao rapida no long-press (espelha o quick-react do web). */
 val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
 
-/** Chip de reacao numa mensagem: emoji + contagem; mine destaca a borda. */
 data class ReactionChip(val emoji: String, val count: Int, val mine: Boolean)
 
-/**
- * Bolha de mensagem compartilhada (DM + canal). Entrada com slide direcional
- * (do lado do autor) + overshoot elastico; mensagem nova (sweep=true) ganha um
- * "starlight sweep" prata por cima. Espelha dmMsgIn + msgStarlightSweep do web.
- */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun MessageBubble(
@@ -126,15 +119,10 @@ fun MessageBubble(
     }
     val glow = astraColors.accentGlow
 
-    // Long-press abre o menu (reagir / responder / fixar / editar / apagar).
     val hasMenu = onEdit != null || onDelete != null || onReply != null ||
         onTogglePin != null || onToggleReaction != null
     var menuOpen by remember { mutableStateOf(false) }
 
-    // Swipe-to-reply: arrasta a bolha pra DIREITA (mesma direcao pra todas as
-    // mensagens). Passando do limite dispara onReply com haptic; a bolha volta
-    // com mola. swipeX so e lido dentro de graphicsLayer (deferido) -> o arraste
-    // nao recompoe a lista a cada frame.
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -310,7 +298,6 @@ fun MessageBubble(
     }
 }
 
-/** Chips de reacao reutilizados pela bolha (DM) e pela linha plana (canal). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MessageReactions(
@@ -349,7 +336,6 @@ private fun MessageReactions(
     }
 }
 
-/** Menu de long-press (reagir/responder/fixar/editar/apagar). Bolha + linha plana. */
 @Composable
 private fun MessageActionsMenu(
     expanded: Boolean,
@@ -406,7 +392,6 @@ private fun MessageActionsMenu(
     }
 }
 
-/** Linha de chat agnostica de modelo (DM e canal mapeiam pra isto). */
 data class ChatRow(
     val id: String,
     val mine: Boolean,
@@ -420,11 +405,6 @@ data class ChatRow(
     val replyContent: String? = null,
 )
 
-/**
- * Lista de mensagens (reverseLayout, mais nova embaixo). Cada msg desliza ao
- * aparecer pela 1a vez; o "sweep" prata so dispara em msg que chega DEPOIS da
- * carga inicial (shownOnce), pra nao varrer o historico inteiro de uma vez.
- */
 @Composable
 fun ChatMessageList(
     rows: List<ChatRow>,
@@ -442,9 +422,6 @@ fun ChatMessageList(
     var shownOnce by remember { mutableStateOf(false) }
     LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) shownOnce = true }
 
-    // Auto-follow: quando a msg mais nova muda, desce pro fim SE ela e minha
-    // (acabei de enviar) OU eu ja estava perto do fim. Nao puxa quem le o
-    // historico la em cima. reverseLayout: indice 0 = fim (mais nova).
     val listState = rememberLazyListState()
     val newest = rows.lastOrNull()
     LaunchedEffect(newest?.id) {
@@ -475,7 +452,7 @@ fun ChatMessageList(
                 animated.add(row.id)
                 n
             }
-            // Editar/apagar so na propria msg; reagir vale pra qualquer uma (canal).
+
             MessageBubble(
                 mine = row.mine,
                 authorName = row.authorName,
@@ -499,7 +476,6 @@ fun ChatMessageList(
     }
 }
 
-/** Banner acima do composer enquanto edita uma mensagem (input vira o texto dela). */
 @Composable
 fun EditingBanner(onCancel: () -> Unit) {
     Row(
@@ -517,7 +493,6 @@ fun EditingBanner(onCancel: () -> Unit) {
     }
 }
 
-/** Banner acima do composer enquanto responde a uma mensagem. */
 @Composable
 fun ReplyBanner(author: String, preview: String, onCancel: () -> Unit) {
     Row(
@@ -544,7 +519,6 @@ fun ReplyBanner(author: String, preview: String, onCancel: () -> Unit) {
     }
 }
 
-/** Linha "fulano esta digitando..." acima do composer. Vazio = nao renderiza. */
 @Composable
 fun TypingIndicator(names: List<String>) {
     if (names.isEmpty()) return
@@ -562,7 +536,6 @@ fun TypingIndicator(names: List<String>) {
     )
 }
 
-/** Lista de mensagens fixadas (autor + conteudo). items vazio = "nada fixado". */
 @Composable
 fun PinnedMessagesDialog(open: Boolean, items: List<Pair<String, String>>, onDismiss: () -> Unit) {
     AstraDialog(
@@ -594,10 +567,6 @@ fun PinnedMessagesDialog(open: Boolean, items: List<Pair<String, String>>, onDis
     }
 }
 
-/**
- * Confirmacao de apagar mensagem (compartilhada DM + canal). RikkaUI AlertDialog
- * com FadeScale — fica composto sempre; `open` dirige a entrada/saida animada.
- */
 @Composable
 fun DeleteMessageDialog(open: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     RAlertDialog(
@@ -621,7 +590,6 @@ fun DeleteMessageDialog(open: Boolean, onConfirm: () -> Unit, onDismiss: () -> U
     }
 }
 
-/** Composer cosmico: pill input + botao enviar circular. Enter envia, Shift+Enter quebra linha. */
 @Composable
 fun ChatInputBar(
     text: String,
@@ -634,14 +602,13 @@ fun ChatInputBar(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Input RikkaUI: borda com Glow prata no foco (anel pulsa pra fora).
-        // Cores herdadas do RikkaTheme obsidian (ring/focusedBorder = accent).
+
         Input(
             value = text,
             onValueChange = onInput,
             modifier = Modifier
                 .weight(1f)
-                // Enter (teclado fisico) envia; Shift+Enter quebra linha.
+
                 .onPreviewKeyEvent { e ->
                     if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
                         onSend(); true

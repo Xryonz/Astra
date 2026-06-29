@@ -56,8 +56,6 @@ class CallViewModel @Inject constructor(
 
     private val members = MutableStateFlow<Map<String, ServerMember>>(emptyMap())
 
-    // Junta o estado bruto do LiveKit (identities + quem fala/mic) com os nomes
-    // reais vindos de /members.
     val state: StateFlow<CallUiState> =
         combine(voiceManager.state, members) { vs, mem ->
             CallUiState(
@@ -99,7 +97,6 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    // Room pra alimentar o VideoTrackView (EGL/renderer). Estavel durante a call.
     val room: Room? get() = voiceManager.activeRoom
 
     fun join() = voiceManager.join("channel", channelId, channelName)

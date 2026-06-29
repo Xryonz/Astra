@@ -40,17 +40,15 @@ import javax.inject.Singleton
 
 enum class CallStatus { Idle, Connecting, Connected, Error }
 
-// identity = userId (LiveKit usa req.userId como identity). Nome/avatar sao
-// resolvidos na camada de cima (CallViewModel via /members).
 data class CallParticipant(
     val identity: String,
     val isLocal: Boolean,
     val isSpeaking: Boolean,
     val micEnabled: Boolean,
     val cameraEnabled: Boolean = false,
-    // Track da camera (null = sem video). Renderizada via VideoTrackView.
+
     val videoTrack: VideoTrack? = null,
-    // Track de compartilhamento de tela (null = nao esta compartilhando).
+
     val screenTrack: VideoTrack? = null,
 )
 
@@ -65,16 +63,6 @@ data class VoiceState(
     val error: String? = null,
 )
 
-/**
- * Chamada de voz unica do app (espelha apps/web/src/store/voiceStore.ts).
- *
- * Fluxo: POST /api/voice/token -> LiveKit.create -> room.connect(url, token)
- * -> setMicrophoneEnabled(true). O audio remoto toca sozinho (o SDK gerencia
- * playback). CallService mantem a call viva com o app em background.
- *
- * M6b: expoe a lista de participantes (quem fala / mic) e deafen (setVolume 0
- * em todas as tracks remotas). M6c/M6d: camera/tela.
- */
 @Singleton
 class VoiceManager @Inject constructor(
     @ApplicationContext private val appContext: Context,
@@ -87,7 +75,6 @@ class VoiceManager @Inject constructor(
     private val _state = MutableStateFlow(VoiceState())
     val state: StateFlow<VoiceState> = _state.asStateFlow()
 
-    // Room ativa — VideoTrackView precisa dela (EGL/renderer). Estavel durante a call.
     val activeRoom: Room? get() = room
 
     fun join(roomKind: String, roomId: String, channelName: String) {
@@ -101,12 +88,9 @@ class VoiceManager @Inject constructor(
                 val r = LiveKit.create(appContext, options = roomOptions())
                 room = r
                 observe(r)
-                // Timeout defensivo: em rede que bloqueia UDP — ou no emulador, onde
-                // o WebRTC costuma travar — o connect fica pendurado ate o timeout
-                // interno (30s+). Limitamos pra falhar rapido e com mensagem clara.
+
                 withTimeout(CONNECT_TIMEOUT_MS) { r.connect(data.url, data.token) }
-                // Mic pos-connect: se a permissao/rota de audio falhar, ENTRA MUDO
-                // em vez de derrubar a call inteira (espelha o voiceStore do web).
+
                 try {
                     r.localParticipant.setMicrophoneEnabled(true)
                 } catch (micErr: Exception) {
@@ -150,7 +134,6 @@ class VoiceManager @Inject constructor(
         }
     }
 
-    // Camera e opcional (entra mudo de video). UI pede permissao CAMERA antes.
     fun toggleCamera() {
         val r = room ?: return
         scope.launch {
@@ -164,9 +147,6 @@ class VoiceManager @Inject constructor(
         }
     }
 
-    // Screenshare: o resultData vem do dialogo MediaProjection (pedido na UI).
-    // O LiveKit roda o proprio foreground service (type mediaProjection) usando
-    // a notificacao passada aqui — a lib ja declara o service no manifesto dela.
     fun startScreenShare(resultData: Intent) {
         val r = room ?: return
         scope.launch {
@@ -195,9 +175,6 @@ class VoiceManager @Inject constructor(
         }
     }
 
-    // Screenshare "gamer": 60fps + bitrate alto, simulcast OFF (1 camada full,
-    // evita troca de layer/flicker — mesma escolha do web). Codec fica VP8
-    // (default): VP9/AV1 derrubam frame no encode mobile.
     private fun roomOptions() = RoomOptions(
         screenShareTrackPublishDefaults = VideoTrackPublishDefaults(
             videoEncoding = VideoEncoding(maxBitrate = SCREEN_MAX_BITRATE, maxFps = SCREEN_FPS),
@@ -226,8 +203,6 @@ class VoiceManager @Inject constructor(
             .build()
     }
 
-    // Deafen estilo Discord: silencia todo mundo (setVolume 0) E corta seu mic.
-    // Undeafen restaura o volume e reativa o mic.
     fun toggleDeafen() {
         val r = room ?: return
         scope.launch {
@@ -245,7 +220,6 @@ class VoiceManager @Inject constructor(
         }
     }
 
-    // Permissao de mic negada na UI: nao tem como entrar (FGS type=microphone exige).
     fun setError(message: String) {
         cleanup()
         _state.value = VoiceState(status = CallStatus.Error, error = message)
@@ -256,13 +230,11 @@ class VoiceManager @Inject constructor(
         eventsJob = scope.launch {
             r.events.collect { event ->
                 if (event is RoomEvent.Disconnected) {
-                    // Servidor/rede derrubou: solta a room sem cancelar este
-                    // coletor de dentro dele mesmo.
+
                     releaseRoom()
                     _state.value = VoiceState()
                 } else {
-                    // Qualquer outro evento (entrou/saiu/falou/mutou/publicou track)
-                    // -> rebuild barato da lista. Listas de call sao pequenas.
+
                     refreshParticipants(r)
                 }
             }
@@ -270,7 +242,7 @@ class VoiceManager @Inject constructor(
     }
 
     private fun refreshParticipants(r: Room) {
-        // Reaplica deafen pra pegar tracks que acabaram de chegar.
+
         if (_state.value.deafened) applyDeafen(r, true)
         val list = snapshot(r)
         val localMic = list.firstOrNull { it.isLocal }?.micEnabled ?: _state.value.micEnabled

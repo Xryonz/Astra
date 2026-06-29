@@ -54,8 +54,7 @@ fun ChannelChatScreen(
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    // So mostra skeleton se NAO tem cache ainda; com cache (Room),
-                    // a lista aparece na hora e o REST atualiza por baixo.
+
                     state.loading && state.messages.isEmpty() -> MessageListSkeleton()
                     state.messages.isEmpty() -> Text(
                         text = "Silencio nesta orbita — solte a primeira transmissao",
@@ -64,8 +63,7 @@ fun ChannelChatScreen(
                         modifier = Modifier.align(Alignment.Center),
                     )
                     else -> {
-                        // So re-mapeia quando as mensagens mudam — digitar no input
-                        // (mesmo state) nao re-aloca a lista inteira.
+
                         val rows = remember(state.messages) {
                             state.messages.map { m ->
                                 ChatRow(

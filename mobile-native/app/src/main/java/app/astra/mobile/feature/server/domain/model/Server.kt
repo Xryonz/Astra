@@ -17,10 +17,9 @@ data class Channel(
     val name: String,
     val isVoice: Boolean,
     val lastMessageAt: String? = null,
-    val categoryId: String? = null, // null = sem categoria (mostrado no topo)
+    val categoryId: String? = null,
 )
 
-// Categoria de canal (agrupa orbitas). position ja vem ordenado do backend.
 data class Category(
     val id: String,
     val name: String,

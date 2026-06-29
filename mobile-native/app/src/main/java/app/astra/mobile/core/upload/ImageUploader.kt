@@ -14,12 +14,6 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Sobe uma imagem pro POST /api/upload e devolve a URL publica.
- * Generico — usado por avatar, banner e icone de constelacao. GIF/WebP
- * animado e preservado pelo backend (nao transcoda). Limites de tamanho
- * (5/8MB) sao checados no call site, antes de chamar isso.
- */
 @Singleton
 class ImageUploader @Inject constructor(
     private val api: UploadApi,

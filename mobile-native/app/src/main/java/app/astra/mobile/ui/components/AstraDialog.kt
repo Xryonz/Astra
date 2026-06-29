@@ -16,17 +16,6 @@ import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.dialog.Dialog
 import zed.rainxch.rikkaui.components.ui.dialog.DialogAnimation
 
-/**
- * Dialog editorial do Astra sobre o RikkaUI Dialog (FadeScale): anima a entrada
- * E a saida (some com fade+scale ao tocar fora/Esc), ao contrario do AlertDialog
- * do Material que sumia seco. Fica composto sempre; `open` dirige a animacao.
- *
- * O card ja vem com bg (overlay), borda e padding do RikkaTheme. Aqui so empilho
- * titulo + conteudo (slot) + rodape de acoes. Pra um dialog so de fechar (ex:
- * lista de fixadas), passe confirmText="Fechar", onConfirm=onDismiss, dismissText=null.
- *
- * @param confirmEnabled desabilita o botao de confirmar (ex: enquanto carrega).
- */
 @Composable
 fun AstraDialog(
     open: Boolean,
@@ -42,7 +31,7 @@ fun AstraDialog(
         open = open,
         onDismiss = onDismiss,
         animation = DialogAnimation.FadeScale,
-        // Margem lateral: o card nao encosta nas bordas da tela.
+
         modifier = Modifier.padding(horizontal = 20.dp),
     ) {
         Text(

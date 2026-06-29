@@ -12,7 +12,7 @@ data class AccountUiState(
     val saving: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
-    // Troca de senha (form expansivel)
+
     val pwOpen: Boolean = false,
     val curPw: String = "",
     val newPw: String = "",

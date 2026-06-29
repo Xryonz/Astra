@@ -3,7 +3,6 @@ package app.astra.mobile.core.network.dto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-// GET /api/invites/:code -> preview publico do servidor por tras do convite.
 @Serializable
 data class InvitePreviewDto(
     val id: String,

@@ -5,10 +5,6 @@ import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.feature.auth.domain.model.AuthUser
 import javax.inject.Inject
 
-/**
- * Validacao barata no cliente (campo vazio) antes de gastar uma request.
- * A validacao real (formato de email, credenciais) e do backend.
- */
 class LoginUseCase @Inject constructor(
     private val repository: AuthRepository,
 ) {

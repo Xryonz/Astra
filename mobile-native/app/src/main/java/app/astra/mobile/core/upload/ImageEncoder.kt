@@ -8,15 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 
-/**
- * Codifica uma imagem como data URI base64 — o mesmo formato que o app web
- * usa pra avatar/banner/icone (readAsDataURL). Passa na validacao do backend
- * (que so aceita data:image/ ou hosts allowlisted) e exibe sem depender de URL.
- *
- * Foto -> reescala + recomprime JPEG (fica pequeno, ~dezenas de KB).
- * GIF   -> manda inteiro (recomprimir mataria a animacao); rejeita se passar
- *          do limite. Roda fora da main thread.
- */
 object ImageEncoder {
     suspend fun toDataUri(
         bytes: ByteArray,
@@ -60,5 +51,5 @@ object ImageEncoder {
         return Bitmap.createScaledBitmap(bmp, w, h, true)
     }
 
-    private const val TARGET_BYTES = 1_500_000 // ~1.5MB de bytes brutos -> data URI bem abaixo dos limites
+    private const val TARGET_BYTES = 1_500_000
 }

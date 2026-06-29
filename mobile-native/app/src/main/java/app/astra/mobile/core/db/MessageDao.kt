@@ -5,11 +5,6 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Acesso ao cache de mensagens. `observe` devolve um Flow — a UI re-renderiza
- * sozinha quando o cache muda (socket/REST escrevem, a tela so observa). Upsert
- * porque a mesma mensagem pode chegar pelo historico (REST) e pelo socket.
- */
 @Dao
 interface MessageDao {
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY createdAt ASC")
@@ -24,7 +19,6 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    // Updates pontuais pros eventos ao vivo de canal (sem reescrever a linha toda).
     @Query("UPDATE messages SET content = :content, edited = 1 WHERE id = :id")
     suspend fun applyEdit(id: String, content: String)
 
@@ -37,7 +31,6 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun clearConversation(conversationId: String)
 
-    // Logout: zera o cache pra mensagens nao vazarem pra proxima conta.
     @Query("DELETE FROM messages")
     suspend fun clearAll()
 }

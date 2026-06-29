@@ -82,7 +82,7 @@ private object Routes {
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}"
-    // name encodado na query (%20 etc.) pra suportar espacos/acentos no display name.
+
     fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
     fun channelChat(id: String, name: String) = "channel/$id?name=${Uri.encode(name)}"
@@ -96,16 +96,13 @@ fun AstraApp() {
     val loggedIn by sessionViewModel.isLoggedIn.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
-        // App por baixo: so monta quando ja sabemos o login (evita flicker de rota).
+
         if (loggedIn != null) {
             val nav = rememberNavController()
             NavHost(
                 navController = nav,
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
-                // Transicoes espelham o PageTransition do web (motion/react): fade +
-                // slide-x curto na curva EaseSpring (0.16,1,0.3,1), exit rapido. Sem
-                // scale (blur/scale animado repinta a tela inteira por frame = jank).
-                // Avanca = entra da direita; volta = entra da esquerda, atual sai pra direita.
+
                 enterTransition = { fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { it / 8 } },
                 exitTransition = { fadeOut(tween(240, easing = EaseOutSoft)) },
                 popEnterTransition = { fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { -it / 8 } },
@@ -225,8 +222,6 @@ fun AstraApp() {
                 }
             }
 
-            // Login salva token -> isLoggedIn vira true; logout -> false.
-            // Aqui reagimos e trocamos de rota limpando a backstack (popUpTo(0)).
             LaunchedEffect(loggedIn) {
                 val target = if (loggedIn == true) Routes.HOME else Routes.LOGIN
                 if (nav.currentDestination?.route != target) {
@@ -235,8 +230,6 @@ fun AstraApp() {
             }
         }
 
-        // Splash por cima: cobre a montagem/carga inicial e some com fade depois de
-        // ~1.8s, revelando o app ja pronto por baixo (entretem enquanto carrega).
         var splashGone by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
             delay(1800)
@@ -254,7 +247,7 @@ fun AstraApp() {
 
 @Composable
 private fun SplashScreen() {
-    // Glow do wordmark respira (pulsa) enquanto o app carrega por baixo.
+
     val inf = rememberInfiniteTransition(label = "splash")
     val pulse by inf.animateFloat(
         initialValue = 0f,
@@ -269,7 +262,7 @@ private fun SplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Reveal {
-                // Wordmark em Great Vibes com glow prata pulsando (textShadow do web).
+
                 Text(
                     text = "Astra",
                     style = TextStyle(

@@ -17,11 +17,11 @@ data class ChannelListUiState(
     val loading: Boolean = true,
     val channels: List<Channel> = emptyList(),
     val error: String? = null,
-    // channelIds com mensagem nova nao-lida (dot na lista).
+
     val unread: Set<String> = emptySet(),
-    // codigo do convite deste servidor (pro botao Convidar). null = sem acesso.
+
     val inviteCode: String? = null,
-    // sou o dono? libera a engrenagem de editar a Constelacao.
+
     val isOwner: Boolean = false,
 )
 
@@ -43,8 +43,6 @@ class ChannelListViewModel @Inject constructor(
         observeActivity()
     }
 
-    // GET /api/servers ja traz os canais aninhados (com lastMessageAt) — junta
-    // com /reads/channels pra marcar o que esta nao-lido.
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
@@ -67,10 +65,8 @@ class ChannelListViewModel @Inject constructor(
         }
     }
 
-    // Clicou no canal -> some o dot na hora (e o chat marca lido no servidor).
     fun markSeen(channelId: String) = _state.update { it.copy(unread = it.unread - channelId) }
 
-    // channel_activity ao vivo: so marca canais desta tela.
     private fun observeActivity() {
         viewModelScope.launch {
             repository.channelActivity().collect { chId ->

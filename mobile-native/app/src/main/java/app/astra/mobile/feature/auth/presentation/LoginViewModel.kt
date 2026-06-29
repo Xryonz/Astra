@@ -21,8 +21,6 @@ class LoginViewModel @Inject constructor(
     fun onEmail(value: String) = _state.update { it.copy(email = value, error = null) }
     fun onPassword(value: String) = _state.update { it.copy(password = value, error = null) }
 
-    // Sucesso nao navega aqui: salvar o token faz isLoggedIn virar true e o
-    // NavHost reage sozinho. So precisamos tratar loading + erro.
     fun submit() {
         if (_state.value.loading) return
         _state.update { it.copy(loading = true, error = null) }
@@ -31,7 +29,7 @@ class LoginViewModel @Inject constructor(
             login(s.email, s.password).onFailure { e ->
                 _state.update { it.copy(loading = false, error = e.message ?: "Erro inesperado") }
             }
-            // onSuccess: deixa loading=true; a tela ja vai ser trocada pela home.
+
         }
     }
 }

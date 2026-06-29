@@ -12,11 +12,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Gate de sessao no topo da app. isLoggedIn = null enquanto o DataStore ainda
- * nao respondeu — evita o flash da tela de login num cold start ja autenticado.
- * Tambem orquestra o socket: conecta ao logar, desconecta ao sair.
- */
 @HiltViewModel
 class SessionViewModel @Inject constructor(
     repository: AuthRepository,

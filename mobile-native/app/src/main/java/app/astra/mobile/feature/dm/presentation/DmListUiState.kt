@@ -8,6 +8,6 @@ data class DmListUiState(
     val error: String? = null,
     val opening: Boolean = false,
     val openError: String? = null,
-    // conversationIds com mensagem nova nao-lida (dot na lista).
+
     val unread: Set<String> = emptySet(),
 )

@@ -22,12 +22,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-// ── StarField — atmosfera cosmica em 3 camadas (espelha apps/web StarField) ──
-//  Layer 1: 70 mini-estrelas com drift global lento (1 offset pra todas).
-//  Layer 2: 14 estrelas que piscam (twinkle) seamless via sin(angulo).
-//  Layer 3: meteoros raros caindo na diagonal esquerda-baixo.
-// Tudo num unico Canvas — ~87 draws/frame, trivial pra GPU.
-
 private fun lcg(seed: Int): () -> Float {
     var s = seed
     return {
@@ -58,17 +52,17 @@ private val METEORS: List<MeteorDef> = buildList {
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) {
     val inf = rememberInfiniteTransition(label = "starfield")
-    // Drift global elptico (90s). angulo 0..2pi -> sin/cos continuos no seam.
+
     val drift by inf.animateFloat(
         0f, (2 * PI).toFloat(),
         infiniteRepeatable(tween(90_000, easing = LinearEasing)), label = "drift",
     )
-    // Twinkle: angulo 0..2pi (5s). freq inteiro -> loop sem salto.
+
     val tau by inf.animateFloat(
         0f, (2 * PI).toFloat(),
         infiniteRepeatable(tween(5_000, easing = LinearEasing)), label = "tau",
     )
-    // Meteoros: 0..1 (24s). cada um visivel so 12% do proprio ciclo.
+
     val meteorT by inf.animateFloat(
         0f, 1f,
         infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "meteor",
@@ -80,12 +74,10 @@ fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) 
         val dx = sin(drift) * 14.dp.toPx()
         val dy = (cos(drift) - 1f) * 9.dp.toPx()
 
-        // Layer 1 — mini-stars
         BG_STARS.forEach { s ->
             drawCircle(color, s.r.dp.toPx(), Offset(s.x * w + dx, s.y * h + dy), alpha = 0.34f)
         }
 
-        // Layer 2 — twinkles (glow + nucleo)
         TWINKLES.forEach { t ->
             val a = 0.25f + 0.7f * ((sin(tau * t.freq + t.phase) + 1f) / 2f)
             val c = Offset(t.x * w + dx, t.y * h + dy)
@@ -93,7 +85,6 @@ fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) 
             drawCircle(color, t.r.dp.toPx(), c, alpha = a)
         }
 
-        // Layer 3 — meteoros raros
         METEORS.forEach { m ->
             val local = (meteorT + m.stagger) % 1f
             if (local < 0.12f) {
@@ -110,7 +101,6 @@ fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) 
     }
 }
 
-/** Fundo cosmico reutilizavel: void + StarField atras do conteudo. */
 @Composable
 fun CosmicBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     Box(modifier.fillMaxSize().background(astraColors.void)) {

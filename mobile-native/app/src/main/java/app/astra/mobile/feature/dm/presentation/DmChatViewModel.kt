@@ -33,8 +33,6 @@ class DmChatViewModel @Inject constructor(
         observeTyping()
     }
 
-    // SSOT: a tela so observa o cache (Room). new_dm/dm_deleted o repo dreno pro
-    // banco; o historico (loadHistory) tambem grava no banco. Sem mutar lista na mao.
     private fun observeMessages() {
         viewModelScope.launch {
             repository.observeMessages(conversationId).collect { msgs ->
@@ -56,7 +54,6 @@ class DmChatViewModel @Inject constructor(
         handleTyping(value)
     }
 
-    // ── Digitando (espelha o do canal, com dm_typing_*) ──────────
     private val typingNames = linkedMapOf<String, String>()
     private val typingExpiry = mutableMapOf<String, Job>()
 
@@ -103,7 +100,7 @@ class DmChatViewModel @Inject constructor(
 
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
-            // Sucesso: o repo ja removeu do Room -> a lista atualiza pelo observeMessages.
+
             repository.delete(conversationId, messageId)
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
         }
@@ -118,11 +115,11 @@ class DmChatViewModel @Inject constructor(
             it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
         }
         viewModelScope.launch {
-            // Sucesso: o repo grava a msg no Room -> aparece pelo observeMessages.
+
             repository.send(conversationId, text, replyId)
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
-                    // devolve o texto pro campo pra nao perder o que foi digitado
+
                     _state.update { it.copy(sending = false, error = e.message, input = text) }
                 }
         }

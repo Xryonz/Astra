@@ -21,7 +21,6 @@ class DmListViewModel @Inject constructor(
     private val _state = MutableStateFlow(DmListUiState())
     val state = _state.asStateFlow()
 
-    // Evento one-shot: conversa aberta -> a tela navega pro chat.
     private val _opened = MutableSharedFlow<OpenedConversation>(extraBufferCapacity = 1)
     val opened = _opened.asSharedFlow()
 
@@ -47,10 +46,8 @@ class DmListViewModel @Inject constructor(
         }
     }
 
-    // Clicou na conversa -> some o dot na hora (o chat marca lido no servidor).
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
 
-    // new_dm de outra pessoa enquanto na lista -> marca nao-lido.
     private fun observeIncoming() {
         viewModelScope.launch {
             repository.incomingConversations().collect { convId ->

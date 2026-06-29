@@ -122,13 +122,12 @@ fun HomeScreen(
     var showDialog by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    // Criar: o dropdown do "+" (servidor/grupo/convite) leva ao dialog de forjar.
+
     var showForge by remember { mutableStateOf(false) }
     var forgeAsGroup by remember { mutableStateOf(false) }
-    // Sheet do perfil (sobe de baixo ao tocar no bottom bar).
+
     var profileSheet by remember { mutableStateOf(false) }
 
-    // DM aberta pelo FAB -> navega pro chat e fecha o dialog.
     LaunchedEffect(Unit) {
         viewModel.opened.collect { conv ->
             showDialog = false
@@ -136,7 +135,6 @@ fun HomeScreen(
         }
     }
 
-    // Constelacao forjada -> fecha o dialog e abre ela inline (painel de canais).
     LaunchedEffect(Unit) {
         viewModel.serverCreated.collect { srv ->
             showForge = false
@@ -144,7 +142,6 @@ fun HomeScreen(
         }
     }
 
-    // Voltou pra Home (ex: depois de editar o perfil) -> atualiza o bottom bar.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -157,7 +154,6 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Erro de criar canal -> Toast (RikkaUI Scale, vermelho) e limpa.
     val toastState = LocalToastHostState.current
     LaunchedEffect(state.manageError) {
         state.manageError?.let {
@@ -187,8 +183,6 @@ fun HomeScreen(
                     onJoinInvite = onOpenJoin,
                 )
 
-            // Painel sobreposto ao rail: canto arredondado no topo-esquerda +
-            // hairline, fundo translucido (o starfield vaza atras da lista).
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -201,7 +195,7 @@ fun HomeScreen(
                 targetState = selected,
                 modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
-                    // Painel novo desliza da esquerda + fade suave; o antigo esvanece devagar.
+
                     (slideInHorizontally(tween(520, easing = EaseSpring)) { w -> -w / 4 } + fadeIn(tween(420)))
                         .togetherWith(fadeOut(tween(260)))
                 },
@@ -230,7 +224,6 @@ fun HomeScreen(
                     }
                 }
 
-                // Corpo: faixa "na voz" + lista de DMs.
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     Column(Modifier.fillMaxSize()) {
                         if (state.activeVoice.isNotEmpty() && query.isBlank()) {
@@ -334,8 +327,6 @@ fun HomeScreen(
             }
             }
 
-            // Sobrepoe TODO o rodape (inclusive parte do rail), cantos
-            // arredondados em cima dando efeito de card sobreposto (Discord).
             BottomUserBar(
                 modifier = Modifier.align(Alignment.BottomCenter),
                 name = state.myName,
@@ -383,8 +374,6 @@ fun HomeScreen(
     )
 }
 
-
-// ── Dialog de forjar (nome) — serve servidor e grupo ──
 @Composable
 private fun ForgeDialog(
     open: Boolean,
@@ -428,7 +417,6 @@ private fun ForgeDialog(
     }
 }
 
-// ── Rail de servidores (esquerda) ───────────────────────────────
 @Composable
 private fun ServerRail(
     servers: List<Server>,
@@ -446,15 +434,14 @@ private fun ServerRail(
         modifier = Modifier
             .width(72.dp)
             .fillMaxHeight()
-            // Transparente: o fundo cosmico/StarField vaza inteiro atras do rail.
-            // O separador agora e o canto arredondado + hairline do painel sobreposto.
+
             .verticalScroll(rememberScrollState())
-            // bottom grande: o bottom bar sobrepoe o rodape do rail.
+
             .padding(top = 14.dp, bottom = 92.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Sparkles = Sussurros (DMs). Ativo quando nenhuma Constelacao selecionada.
+
         RailTile(active = selectedServerId == null, onClick = onSelectDms) {
             Icon(
                 Lucide.Sparkles,
@@ -482,9 +469,6 @@ private fun ServerRail(
     }
 }
 
-// "+" do rail: clicar abre um dropdown (mesmo estilo do menu de segurar um
-// servidor) com criar servidor / grupo / entrar com convite — no lugar do
-// bottom sheet, economizando um passo. Ancora no proprio tile, abre a direita.
 @Composable
 private fun RailAddMenu(
     onCreateServer: () -> Unit,
@@ -533,7 +517,7 @@ private fun RailAddMenu(
 @Composable
 private fun RailTile(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    // Box full-width pra ancorar o indicador na borda esquerda do rail (Discord).
+
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         if (active) {
             Box(
@@ -569,7 +553,7 @@ private fun RailServer(
 ) {
     val shape = RoundedCornerShape(16.dp)
     var menuOpen by remember { mutableStateOf(false) }
-    // Box full-width pra ancorar o indicador ativo na borda esquerda (Discord).
+
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         if (active) {
             Box(
@@ -586,7 +570,7 @@ private fun RailServer(
                 .clip(shape)
                 .background(if (active) astraColors.accentDim else astraColors.raised)
                 .border(1.dp, if (active) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, shape)
-                // Tap = seleciona (canais inline). Segurar = menu de opcoes.
+
                 .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true }),
             contentAlignment = Alignment.Center,
         ) {
@@ -605,8 +589,7 @@ private fun RailServer(
                     color = astraColors.accent,
                 )
             }
-            // Menu ancorado ao botao (nao ao rail) -> abre a direita dele, com
-            // folga da borda da tela, em vez de colado na lateral do celular.
+
             ServerRailMenu(
                 expanded = menuOpen,
                 serverName = server.name,
@@ -620,8 +603,6 @@ private fun RailServer(
     }
 }
 
-// Menu de long-press (estilo do print): card sem escurecer a tela, titulo +
-// divisoria + linhas (rotulo a esquerda, icone a direita). Ciente de dono.
 @Composable
 private fun ServerRailMenu(
     expanded: Boolean,
@@ -635,8 +616,7 @@ private fun ServerRailMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
-        // x: largura do botao (48) + folga -> o card encosta na direita do tile.
-        // y: sobe pro topo do menu alinhar com o topo do botao (anchor.bottom - 48).
+
         offset = DpOffset(x = 56.dp, y = (-48).dp),
         modifier = Modifier.background(astraColors.overlay),
     ) {
@@ -670,7 +650,6 @@ private fun ServerRailMenu(
     }
 }
 
-// Linha do menu: rotulo a esquerda, icone a direita (paridade com o print).
 @Composable
 private fun MenuRow(
     label: String,
@@ -689,9 +668,6 @@ private fun MenuRow(
     }
 }
 
-// ── Painel de canais inline (substitui os Sussurros quando ha Constelacao) ──
-// Layout do print: capa (icone full-color) -> nome + n. membros + convidar/editar
-// -> orbitas em linhas flat. Canais entram em cascata (Reveal).
 @Composable
 private fun ServerChannelsPanel(
     server: Server,
@@ -703,7 +679,7 @@ private fun ServerChannelsPanel(
     onCreateChannel: (name: String, isVoice: Boolean) -> Unit,
 ) {
     val context = LocalContext.current
-    // Criar canal (so dono): dialog aberto por estado.
+
     var showCreateChannel by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
@@ -730,7 +706,7 @@ private fun ServerChannelsPanel(
                     server.channels,
                     key = { _, ch -> ch.id },
                 ) { i, ch ->
-                    // Cascata: cada item entra com leve atraso (cap em 12 pra nao arrastar).
+
                     Reveal(delayMillis = i.coerceAtMost(12) * 42, durationMillis = 620, distance = 18f) {
                         ChannelRowFlat(
                             channel = ch,
@@ -751,7 +727,6 @@ private fun ServerChannelsPanel(
     )
 }
 
-// Capa (icone como banner full-color, sem escurecer) + nome + contagem + acoes.
 @Composable
 private fun ServerPanelHeader(
     server: Server,
@@ -777,7 +752,7 @@ private fun ServerPanelHeader(
                     ),
                 )
             }
-            // Scrim curtinho so na base pra encostar no fundo (sem escurecer a capa).
+
             Box(
                 Modifier.matchParentSize().background(
                     Brush.verticalGradient(0.65f to Color.Transparent, 1f to base),
@@ -817,8 +792,6 @@ private fun ServerPanelHeader(
     }
 }
 
-// Linha de orbita flat (estilo Discord): # / 🔊 + nome, sem borda. Nao-lido fica
-// mais claro com dot; voz mostra rotulo.
 @Composable
 private fun ChannelRowFlat(
     channel: Channel,
@@ -854,7 +827,6 @@ private fun ChannelRowFlat(
     }
 }
 
-// ── Criar canal: nome + tipo (texto/voz) ──
 @Composable
 private fun CreateChannelDialog(
     open: Boolean,
@@ -883,7 +855,6 @@ private fun CreateChannelDialog(
     }
 }
 
-// ── Busca + Adicionar amigos ────────────────────────────────────
 @Composable
 private fun SearchAddRow(
     searchOpen: Boolean,
@@ -894,7 +865,7 @@ private fun SearchAddRow(
 ) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Botao de busca circular
+
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -912,7 +883,7 @@ private fun SearchAddRow(
                 )
             }
             Spacer(Modifier.width(10.dp))
-            // Pill "Adicionar amigos"
+
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -952,7 +923,6 @@ private fun SearchAddRow(
     }
 }
 
-// ── Card de canal de voz ativo (faixa horizontal) ───────────────
 @Composable
 private fun VoiceRoomCard(room: ActiveVoiceRoom, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
@@ -982,11 +952,9 @@ private fun VoiceRoomCard(room: ActiveVoiceRoom, onClick: () -> Unit) {
     }
 }
 
-// ── Linha de conversa ───────────────────────────────────────────
 @Composable
 private fun DmRow(c: Conversation, unread: Boolean, showDivider: Boolean, onClick: () -> Unit) {
-    // Toque -> fundo raised some assim que solta (sem ripple). Selecao persistente
-    // nao se aplica: tocar navega pra fora da lista.
+
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     Column {
@@ -1028,17 +996,11 @@ private fun DmRow(c: Conversation, unread: Boolean, showDivider: Boolean, onClic
                 }
             }
         }
-        // Hairline indentada (comeca depois do avatar), estilo Discord.
+
         if (showDivider) HairlineRule(Modifier.padding(start = 66.dp, top = 2.dp))
     }
 }
 
-// ── Barra de perfil (rodape) — modelo user-panel do Discord ──────
-// Sobrepoe TODO o rodape (inclusive parte do rail), cantos arredondados
-// em cima dando efeito de card sobreposto. Fundo base solido — o banner do
-// user vive so no sheet de perfil (nao distrai/gasta bateria na barra fixa).
-// Sem dot no avatar, sem botao de sair (sair vive nas Configuracoes).
-// Avatar -> perfil; nome -> status; sino + engrenagem.
 @Composable
 private fun BottomUserBar(
     modifier: Modifier = Modifier,
@@ -1064,8 +1026,7 @@ private fun BottomUserBar(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Avatar + nome + status = um toque -> abre o sheet de perfil.
-            // (status nao e mais escolhido direto daqui; vive no sheet.)
+
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -1109,7 +1070,6 @@ private fun BottomUserBar(
     }
 }
 
-/** Botao de icone circular (sino/engrenagem) do bottom bar. */
 @Composable
 private fun CircleIconBtn(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -1129,7 +1089,6 @@ private fun CircleIconBtn(
     }
 }
 
-// Hex "#rrggbb" -> Color. Invalido/nulo = null (cai pro fundo base).
 private fun parseHexColor(raw: String?): Color? {
     if (raw.isNullOrBlank()) return null
     val h = raw.trim().removePrefix("#")
@@ -1139,10 +1098,6 @@ private fun parseHexColor(raw: String?): Color? {
 
 private fun statusLabel(s: UserStatus): String = AstraCopy.statusLabel(s.name)
 
-// ── Sheet de perfil (sobe alto) — banner + identidade + secoes em card ──
-// Status e indicador read-only; configurar status vive no Editar perfil.
-// Sem tabs/wishlist por decisao do user; secoes: Sobre (bio + membro desde) e
-// Constelacoes. Conteudo rola dentro do sheet (skipPartiallyExpanded = abre alto).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileSheet(
@@ -1182,7 +1137,7 @@ private fun ProfileSheet(
                 .navigationBarsPadding()
                 .padding(bottom = 18.dp),
         ) {
-            // Banner do card + scrim.
+
             Box(Modifier.fillMaxWidth().height(120.dp)) {
                 if (!banner.isNullOrBlank()) {
                     AsyncImage(
@@ -1200,7 +1155,7 @@ private fun ProfileSheet(
                     ),
                 )
             }
-            // Identidade: avatar + nome + @username/pronomes + status (read-only).
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1237,7 +1192,6 @@ private fun ProfileSheet(
                 }
             }
 
-            // ── Sobre: bio + membro desde ──
             if (!bio.isNullOrBlank() || member != null) {
                 Spacer(Modifier.height(16.dp))
                 ProfileCard(Modifier.padding(horizontal = 18.dp)) {
@@ -1259,7 +1213,6 @@ private fun ProfileSheet(
                 }
             }
 
-            // ── Constelacoes: servidores que o user participa ──
             if (servers.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 ProfileCard(Modifier.padding(horizontal = 18.dp)) {
@@ -1284,7 +1237,6 @@ private fun ProfileSheet(
     }
 }
 
-// Card de secao do perfil: superficie raised + hairline (estetica editorial).
 @Composable
 private fun ProfileCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -1298,7 +1250,6 @@ private fun ProfileCard(modifier: Modifier = Modifier, content: @Composable Colu
     )
 }
 
-// Tile de constelacao (icone ou inicial) + nome curto, na secao Constelacoes.
 @Composable
 private fun ConstellationChip(server: Server) {
     val shape = RoundedCornerShape(14.dp)
@@ -1341,7 +1292,6 @@ private fun ConstellationChip(server: Server) {
     }
 }
 
-// ISO -> "membro desde 8 de dez. de 2021" (pt-BR). Falha de parse = null.
 private fun memberSince(iso: String?): String? {
     if (iso.isNullOrBlank()) return null
     return runCatching {
@@ -1351,7 +1301,6 @@ private fun memberSince(iso: String?): String? {
     }.getOrNull()
 }
 
-// Share sheet do convite (/i/:code = pagina OG que redireciona pro /invite/:code).
 private fun shareServerInvite(context: Context, code: String) {
     val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
     val send = Intent(Intent.ACTION_SEND).apply {
@@ -1360,7 +1309,6 @@ private fun shareServerInvite(context: Context, code: String) {
     }
     context.startActivity(Intent.createChooser(send, "Compartilhar convite"))
 }
-
 
 @Composable
 private fun NewConversationDialog(
@@ -1402,7 +1350,6 @@ private fun NewConversationDialog(
     }
 }
 
-// ISO -> "agora / 5m / 3h / 2d / 3 sem / 5 mês". Falha de parse = vazio.
 private fun relativeShort(iso: String?): String {
     if (iso.isNullOrBlank()) return ""
     return try {

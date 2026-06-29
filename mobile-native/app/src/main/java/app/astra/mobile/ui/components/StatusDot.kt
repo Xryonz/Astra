@@ -25,15 +25,6 @@ fun statusColor(status: UserStatus): Color = when (status) {
     UserStatus.INVISIBLE, UserStatus.OFFLINE -> StatusGray
 }
 
-/**
- * Indicador de status — formas iguais ao StatusDot.tsx do web:
- *  ONLINE  -> circulo cheio verde
- *  IDLE    -> lua crescente (amarelo com recorte)
- *  DND     -> vermelho com traco no meio
- *  INVISIBLE/OFFLINE -> anel oco cinza
- *
- * `bordered` desenha um anel da cor do fundo em volta (pra assentar sobre avatar).
- */
 @Composable
 fun StatusDot(
     status: UserStatus,

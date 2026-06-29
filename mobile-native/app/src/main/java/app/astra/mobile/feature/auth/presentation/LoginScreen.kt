@@ -75,8 +75,6 @@ fun LoginScreen(
     )
 }
 
-// Abre o fluxo OAuth do Google numa Custom Tab. O backend redireciona pro deep
-// link astra://auth/callback#refresh=<token>, capturado no MainActivity.
 private fun openGoogleAuth(context: Context) {
     val url = BuildConfig.BASE_URL + "api/auth/google?platform=mobile"
     runCatching {
@@ -94,7 +92,7 @@ private fun LoginContent(
     onGoToRegister: () -> Unit,
 ) {
     CosmicBackground {
-        // Glow prata suave atras do form (espelha o radial accent-dim do web)
+
         Box(
             Modifier
                 .align(Alignment.Center)
@@ -114,7 +112,7 @@ private fun LoginContent(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start,
         ) {
-            // Wordmark
+
             Reveal {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = "✦", color = astraColors.accent, fontSize = 18.sp)
@@ -125,7 +123,6 @@ private fun LoginContent(
 
             Spacer(Modifier.height(44.dp))
 
-            // Secao: numeral + marginalia
             Reveal(delayMillis = 90) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     RomanNumeral("I.", fontSize = 22.sp)
@@ -225,7 +222,6 @@ private fun LoginContent(
 
             Spacer(Modifier.height(20.dp))
 
-            // Divisor "ou" + login com Google (deep link astra:// pelo backend).
             Reveal(delayMillis = 420) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { HairlineRule() }

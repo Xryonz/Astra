@@ -6,10 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.astra.mobile.ui.theme.astraColors
 
-/**
- * Switch do app — Material3 com cores editoriais (accent quando ligado).
- * Mesma ideia dos primitivos shadcn, sem dep externa.
- */
 @Composable
 fun AstraSwitch(
     checked: Boolean,

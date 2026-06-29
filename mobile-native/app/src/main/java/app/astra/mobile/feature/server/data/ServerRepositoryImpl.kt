@@ -68,7 +68,7 @@ class ServerRepositoryImpl @Inject constructor(
         if (channelIds.isEmpty()) Result.success(emptyMap())
         else Result.success(voiceApi.presence(channelIds.joinToString(",")).data.orEmpty())
     } catch (e: Exception) {
-        // Presence e best-effort (faixa some se falhar) — nao quebra a home.
+
         Result.failure(ApiException("Falha ao carregar presenca de voz"))
     }
 
@@ -112,7 +112,6 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(apiError(e, "Nao foi possivel criar o canal"))
     }
 
-    // Le a mensagem amigavel do backend; senao cai no fallback.
     private fun apiError(e: Exception, fallback: String): ApiException = when (e) {
         is HttpException -> {
             val msg = e.response()?.errorBody()?.string()?.let {

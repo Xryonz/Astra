@@ -3,13 +3,12 @@ package app.astra.mobile.core.network.dto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-// GET /api/servers -> { data: [ { id, name, iconUrl, channels[], _count:{members} } ] }
 @Serializable
 data class ServerDto(
     val id: String,
     val name: String,
     val iconUrl: String? = null,
-    val ownerId: String? = null, // GET /api/servers ja devolve (select * em servers)
+    val ownerId: String? = null,
     val inviteCode: String? = null,
     val isPublic: Boolean = false,
     val channels: List<ChannelDto> = emptyList(),
@@ -21,11 +20,11 @@ data class ServerDto(
 data class ChannelDto(
     val id: String,
     val name: String,
-    val type: String = "TEXT", // TEXT | VOICE
+    val type: String = "TEXT",
     val isPrivate: Boolean = false,
-    val categoryId: String? = null, // null = sem categoria
+    val categoryId: String? = null,
     val position: Int = 0,
-    val lastMessageAt: String? = null, // ISO; null = canal sem mensagens
+    val lastMessageAt: String? = null,
 )
 
 @Serializable
@@ -41,7 +40,6 @@ data class ServerCountDto(val members: Int = 0)
 @Serializable
 data class CreateServerRequest(val name: String, val isGroup: Boolean = false)
 
-// PATCH /api/servers/:id — campos null omitidos (explicitNulls=false).
 @Serializable
 data class UpdateServerRequest(
     val name: String? = null,
@@ -49,12 +47,9 @@ data class UpdateServerRequest(
     val isPublic: Boolean? = null,
 )
 
-// POST /api/servers/:id/channels — cria canal (type TEXT|VOICE).
 @Serializable
 data class CreateChannelRequest(val name: String, val type: String = "TEXT")
 
-// GET /api/servers/:id/members -> { data: [ { userId, user:{username,displayName,avatarUrl} } ] }
-// (ignora role/nameColor/roles[] etc via ignoreUnknownKeys)
 @Serializable
 data class ServerMemberDto(
     val userId: String,

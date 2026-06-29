@@ -28,17 +28,6 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Conexao Socket.io unica do app (espelha apps/web/src/lib/socket.ts).
- * - auth.token = access token JWT (mesmo do REST)
- * - heartbeat 30s pra manter presenca viva no Redis
- * - a lib reconecta sozinha (reconnection=true); cada (re)handshake le o token
- *   atual do TokenStore. Se o handshake recusa por token expirado, refrescamos
- *   o token e deixamos a proxima tentativa automatica usa-lo (sem connect manual,
- *   pra nao competir com a auto-reconexao).
- * - re-join das conversas abertas ao (re)conectar: as rooms sao do servidor e
- *   se perdem na queda.
- */
 @Singleton
 class SocketManager @Inject constructor(
     private val tokenStore: TokenStore,
@@ -49,7 +38,6 @@ class SocketManager @Inject constructor(
     private var options: IO.Options? = null
     private var heartbeat: Job? = null
 
-    // Conversas/canais abertos — re-emitidos como join a cada (re)conexao.
     private val activeRooms = ConcurrentHashMap.newKeySet<String>()
     private val activeChannels = ConcurrentHashMap.newKeySet<String>()
 
@@ -59,41 +47,33 @@ class SocketManager @Inject constructor(
     private val _state = MutableStateFlow(ConnectionState.Disconnected)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
 
-    // Eventos de DM (JSON cru — a data layer parseia). replay=0: quem nao esta
-    // ouvindo na hora perde (so o chat aberto importa).
     private val _newDm = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val newDm: SharedFlow<String> = _newDm.asSharedFlow()
 
     private val _dmDeleted = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 16)
     val dmDeleted: SharedFlow<Pair<String, String>> = _dmDeleted.asSharedFlow()
 
-    // Mensagens de canal (new_message) e delete (message_deleted: messageId, channelId).
     private val _newChannelMessage = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val newChannelMessage: SharedFlow<String> = _newChannelMessage.asSharedFlow()
 
     private val _channelMessageDeleted = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 16)
     val channelMessageDeleted: SharedFlow<Pair<String, String>> = _channelMessageDeleted.asSharedFlow()
 
-    // message_edited (messageId, content, channelId).
     private val _channelMessageEdited = MutableSharedFlow<Triple<String, String, String>>(extraBufferCapacity = 16)
     val channelMessageEdited: SharedFlow<Triple<String, String, String>> = _channelMessageEdited.asSharedFlow()
 
-    // reaction_update (JSON cru: messageId, channelId, reactions[]).
     private val _channelReactionUpdate = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val channelReactionUpdate: SharedFlow<String> = _channelReactionUpdate.asSharedFlow()
 
-    // message_pinned (messageId, channelId, pinned).
     private val _channelMessagePinned = MutableSharedFlow<Triple<String, String, Boolean>>(extraBufferCapacity = 16)
     val channelMessagePinned: SharedFlow<Triple<String, String, Boolean>> = _channelMessagePinned.asSharedFlow()
 
-    // Digitando — chave por userId (o evento de stop nao traz username).
     private val _channelTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
     val channelTyping: SharedFlow<TypingEvent> = _channelTyping.asSharedFlow()
 
     private val _dmTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
     val dmTyping: SharedFlow<TypingEvent> = _dmTyping.asSharedFlow()
 
-    // channel_activity {channelId, lastMessageAt} -> emite o channelId (nao-lido ao vivo).
     private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
 
@@ -121,7 +101,7 @@ class SocketManager @Inject constructor(
             Log.d(TAG, "conectado id=${s.id()}")
             _state.value = ConnectionState.Connected
             startHeartbeat()
-            // re-entra nas conversas/canais abertos (rooms se perdem na queda)
+
             activeRooms.forEach { s.emit("join_dm", it) }
             activeChannels.forEach { s.emit("join_channel", it) }
         }
@@ -134,7 +114,7 @@ class SocketManager @Inject constructor(
             val msg = args.firstOrNull()?.toString().orEmpty()
             Log.w(TAG, "connect_error: $msg")
             _state.value = ConnectionState.Disconnected
-            // Handshake recusou: se for token, refresca. A lib segue reconectando.
+
             if (msg.contains("TOKEN", true) || msg.contains("AUTH", true)) {
                 refreshTokenForReconnect()
             }
@@ -200,8 +180,6 @@ class SocketManager @Inject constructor(
             (args.firstOrNull() as? JSONObject)?.let { _channelActivity.tryEmit(it.optString("channelId")) }
         }
 
-        // A cada tentativa automatica, manda o token atual do TokenStore (pode
-        // ter rotacionado via REST/Authenticator ou pelo refresh abaixo).
         s.io().on(Manager.EVENT_RECONNECT_ATTEMPT) {
             val fresh = runBlocking { tokenStore.currentAccess() }
             if (fresh != null) options?.auth = mapOf("token" to fresh)
@@ -211,9 +189,6 @@ class SocketManager @Inject constructor(
         s.connect()
     }
 
-    // Refresca o token (cooldown 10s pra nao queimar refresh tokens em loop).
-    // Nao chama connect(): a auto-reconexao da lib pega o token novo no proximo
-    // reconnect_attempt.
     private fun refreshTokenForReconnect() {
         val now = System.currentTimeMillis()
         if (refreshing || now - lastRefreshAtMs < REFRESH_COOLDOWN_MS) return
@@ -226,8 +201,6 @@ class SocketManager @Inject constructor(
         }
     }
 
-    // Refresh serializado pelo mesmo Mutex do HTTP (TokenRefresher) — nao corre
-    // contra o Authenticator nem desloga na rotacao do refresh token.
     private suspend fun tryRefresh(): String? =
         tokenRefresher.refresh(tokenStore.currentAccess())
 
@@ -287,7 +260,6 @@ class SocketManager @Inject constructor(
     }
 }
 
-// userId chaveia (stop nao traz username); username so vem preenchido no typing=true.
 data class TypingEvent(
     val userId: String,
     val username: String,

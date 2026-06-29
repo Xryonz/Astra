@@ -57,6 +57,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
@@ -94,6 +95,7 @@ data class ReactionChip(val emoji: String, val count: Int, val mine: Boolean)
 fun MessageBubble(
     mine: Boolean,
     authorName: String,
+    authorAvatar: String?,
     content: String,
     animateIn: Boolean,
     sweep: Boolean,
@@ -136,22 +138,25 @@ fun MessageBubble(
         onTogglePin != null || onToggleReaction != null
     var menuOpen by remember { mutableStateOf(false) }
 
-    // Swipe-to-reply: arrasta a bolha no sentido do autor (recebida ->, minha <-,
-    // sempre pra dentro da tela). Passando do limite dispara onReply com haptic; a
-    // bolha volta com mola. swipeX so e lido dentro de graphicsLayer (deferido) ->
-    // o arraste nao recompoe a lista a cada frame.
+    // Swipe-to-reply: arrasta a bolha pra DIREITA (mesma direcao pra todas as
+    // mensagens). Passando do limite dispara onReply com haptic; a bolha volta
+    // com mola. swipeX so e lido dentro de graphicsLayer (deferido) -> o arraste
+    // nao recompoe a lista a cada frame.
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
-    val maxDragPx = with(density) { 64.dp.toPx() }
-    val thresholdPx = with(density) { 44.dp.toPx() }
+    val maxDragPx = with(density) { 56.dp.toPx() }
+    val thresholdPx = with(density) { 40.dp.toPx() }
     val swipeX = remember { Animatable(0f) }
+    // Bolha mais larga: cap em ~88% da tela (aproveita mais espaco que os 300dp
+    // antigos). Mensagens curtas continuam encolhendo; so o teto cresceu.
+    val bubbleMaxDp = (LocalConfiguration.current.screenWidthDp * 0.88f).dp
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 3.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
     ) {
-        Box(contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
+        Box(contentAlignment = Alignment.CenterStart) {
             // Seta de responder, revelada conforme o arraste passa do limite.
             if (onReply != null) {
                 Text(
@@ -168,13 +173,13 @@ fun MessageBubble(
                         .padding(horizontal = 10.dp),
                 )
             }
-            Column(
+            Row(
                 modifier = Modifier
                     .graphicsLayer {
                         alpha = enter.value
                         translationX = (1f - enter.value) * fromX.dp.toPx() + swipeX.value
                     }
-                    .widthIn(max = 300.dp)
+                    .widthIn(max = bubbleMaxDp)
                     .clip(shape)
                     .background(bg)
                     .border(1.dp, borderColor, shape)
@@ -185,10 +190,8 @@ fun MessageBubble(
                                 detectHorizontalDragGestures(
                                     onDragStart = { triggered = false },
                                     onHorizontalDrag = { change, dx ->
-                                        val next = swipeX.value + dx
-                                        val clamped =
-                                            if (mine) next.coerceIn(-maxDragPx, 0f)
-                                            else next.coerceIn(0f, maxDragPx)
+                                        // Sempre pra direita: so aceita arraste positivo.
+                                        val clamped = (swipeX.value + dx).coerceIn(0f, maxDragPx)
                                         change.consume()
                                         scope.launch { swipeX.snapTo(clamped) }
                                         if (!triggered && abs(clamped) >= thresholdPx) {
@@ -234,8 +237,16 @@ fun MessageBubble(
                             )
                         }
                     }
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Top,
             ) {
+                // Avatar do autor DENTRO da bolha: recebida = avatar a esquerda,
+                // minha = avatar a direita (espelhado). Bolha + icone como uma coisa so.
+                if (!mine) {
+                    AstraAvatar(authorAvatar, authorName, size = 34)
+                    Spacer(Modifier.width(9.dp))
+                }
+                Column(Modifier.weight(1f, fill = false)) {
                 if (pinned) {
                     Text(
                         text = "📌 fixado",
@@ -287,6 +298,11 @@ fun MessageBubble(
                     )
                 }
                 MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 6.dp))
+                }
+                if (mine) {
+                    Spacer(Modifier.width(9.dp))
+                    AstraAvatar(authorAvatar, authorName, size = 34)
+                }
             }
 
             if (hasMenu) {
@@ -406,6 +422,7 @@ data class ChatRow(
     val id: String,
     val mine: Boolean,
     val authorName: String,
+    val authorAvatar: String? = null,
     val content: String,
     val edited: Boolean = false,
     val pinned: Boolean = false,
@@ -463,6 +480,7 @@ fun ChatMessageList(
             MessageBubble(
                 mine = row.mine,
                 authorName = row.authorName,
+                authorAvatar = row.authorAvatar,
                 content = row.content,
                 animateIn = isNew,
                 sweep = isNew && shownOnce,

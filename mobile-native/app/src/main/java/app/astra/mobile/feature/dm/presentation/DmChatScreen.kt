@@ -62,6 +62,7 @@ fun DmChatScreen(
                                     id = m.id,
                                     mine = m.mine,
                                     authorName = m.authorName,
+                                    authorAvatar = m.authorAvatar,
                                     content = m.content,
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,

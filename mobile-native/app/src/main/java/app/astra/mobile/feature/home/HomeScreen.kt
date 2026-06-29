@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Link
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageSquarePlus
@@ -110,6 +111,7 @@ fun HomeScreen(
     onOpenChannel: (id: String, name: String) -> Unit,
     onOpenServerEdit: (serverId: String) -> Unit,
     onOpenJoin: () -> Unit,
+    onOpenDiscover: () -> Unit,
     onOpenDm: (id: String, name: String) -> Unit,
     onOpenDms: () -> Unit,
     onOpenFriends: () -> Unit,
@@ -181,6 +183,7 @@ fun HomeScreen(
                     onCreateServer = { forgeAsGroup = false; showForge = true },
                     onCreateGroup = { forgeAsGroup = true; showForge = true },
                     onJoinInvite = onOpenJoin,
+                    onDiscover = onOpenDiscover,
                 )
 
             Box(
@@ -428,6 +431,7 @@ private fun ServerRail(
     onCreateServer: () -> Unit,
     onCreateGroup: () -> Unit,
     onJoinInvite: () -> Unit,
+    onDiscover: () -> Unit,
 ) {
     val context = LocalContext.current
     Column(
@@ -465,6 +469,7 @@ private fun ServerRail(
             onCreateServer = onCreateServer,
             onCreateGroup = onCreateGroup,
             onJoinInvite = onJoinInvite,
+            onDiscover = onDiscover,
         )
     }
 }
@@ -474,6 +479,7 @@ private fun RailAddMenu(
     onCreateServer: () -> Unit,
     onCreateGroup: () -> Unit,
     onJoinInvite: () -> Unit,
+    onDiscover: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
     var menuOpen by remember { mutableStateOf(false) }
@@ -508,6 +514,8 @@ private fun RailAddMenu(
                     MenuRow("Criar grupo", Lucide.Users) { menuOpen = false; onCreateGroup() }
                     HairlineRule()
                     MenuRow("Entrar com convite", Lucide.Link) { menuOpen = false; onJoinInvite() }
+                    HairlineRule()
+                    MenuRow("Descobrir", Lucide.Compass) { menuOpen = false; onDiscover() }
                 }
             }
         }

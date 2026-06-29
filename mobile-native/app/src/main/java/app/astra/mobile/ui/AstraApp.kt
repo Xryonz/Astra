@@ -48,6 +48,7 @@ import androidx.navigation.navArgument
 import app.astra.mobile.feature.auth.presentation.LoginScreen
 import app.astra.mobile.feature.auth.presentation.RegisterScreen
 import app.astra.mobile.feature.channel.presentation.ChannelChatScreen
+import app.astra.mobile.feature.discover.presentation.DiscoverScreen
 import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
@@ -81,6 +82,7 @@ private object Routes {
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
     const val JOIN = "join"
+    const val DISCOVER = "discover"
     const val SERVER_EDIT = "server/{serverId}/edit"
     fun serverEdit(id: String) = "server/$id/edit"
     const val CHANNELS = "channels/{serverId}?name={name}"
@@ -124,6 +126,7 @@ fun AstraApp() {
                         onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
                         onOpenServerEdit = { id -> nav.navigate(Routes.serverEdit(id)) },
                         onOpenJoin = { nav.navigate(Routes.JOIN) },
+                        onOpenDiscover = { nav.navigate(Routes.DISCOVER) },
                         onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
                         onOpenDms = { nav.navigate(Routes.DMS) },
                         onOpenFriends = { nav.navigate(Routes.FRIENDS) },
@@ -174,6 +177,16 @@ fun AstraApp() {
                         onJoined = { id, name ->
                             nav.navigate(Routes.channels(id, name)) {
                                 popUpTo(Routes.JOIN) { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable(Routes.DISCOVER) {
+                    DiscoverScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenServer = { id, name ->
+                            nav.navigate(Routes.channels(id, name)) {
+                                popUpTo(Routes.DISCOVER) { inclusive = true }
                             }
                         },
                     )

@@ -1,5 +1,7 @@
 package app.astra.mobile.feature.dm.domain.model
 
+import app.astra.mobile.core.model.Attachment
+
 data class DmMessage(
     val id: String,
     val content: String,
@@ -9,6 +11,7 @@ data class DmMessage(
     val mine: Boolean,
     val replyToAuthor: String? = null,
     val replyToContent: String? = null,
+    val attachments: List<Attachment> = emptyList(),
 )
 
 data class MessagesPage(

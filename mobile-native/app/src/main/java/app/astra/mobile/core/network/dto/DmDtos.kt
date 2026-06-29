@@ -31,6 +31,7 @@ data class DmMessageDto(
     val createdAt: String? = null,
     val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
+    val attachments: List<AttachmentDto> = emptyList(),
 )
 
 @Serializable
@@ -66,4 +67,8 @@ data class OpenDmDto(
 data class OpenDmRequest(val username: String)
 
 @Serializable
-data class SendDmRequest(val content: String, val replyToId: String? = null)
+data class SendDmRequest(
+    val content: String,
+    val replyToId: String? = null,
+    val attachments: List<AttachmentDto> = emptyList(),
+)

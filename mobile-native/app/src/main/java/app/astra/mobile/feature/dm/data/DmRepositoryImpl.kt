@@ -4,12 +4,17 @@ import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.db.MessageDao
 import app.astra.mobile.core.db.MessageEntity
+import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.core.model.toDto
+import app.astra.mobile.core.model.toModel
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.dto.ApiError
+import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.SendDmRequest
+import kotlinx.serialization.encodeToString
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.dm.domain.DmRepository
 import app.astra.mobile.feature.dm.domain.model.Conversation
@@ -78,7 +83,7 @@ class DmRepositoryImpl @Inject constructor(
         val page = dmApi.messages(conversationId, cursor, PAGE_SIZE).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
 
-        messageDao.upsert(page.items.map { it.toEntity(conversationId) })
+        messageDao.upsert(page.items.map { it.toEntity(conversationId, json) })
         Result.success(
             MessagesPage(
                 messages = page.items.map { it.toDomain(uid) },
@@ -92,11 +97,11 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
 
-    override suspend fun send(conversationId: String, content: String, replyToId: String?): Result<DmMessage> = try {
+    override suspend fun send(conversationId: String, content: String, replyToId: String?, attachments: List<Attachment>): Result<DmMessage> = try {
         val uid = tokenStore.currentUserId()
-        val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId)).data
+        val dto = dmApi.send(conversationId, SendDmRequest(content, replyToId, attachments.map { it.toDto() })).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
-        messageDao.upsert(dto.toEntity(conversationId))
+        messageDao.upsert(dto.toEntity(conversationId, json))
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
@@ -148,7 +153,7 @@ class DmRepositoryImpl @Inject constructor(
                 socketManager.newDm.collect { raw ->
                     val dto = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull()
                     if (dto != null && dto.conversationId == conversationId) {
-                        messageDao.upsert(dto.toEntity(conversationId))
+                        messageDao.upsert(dto.toEntity(conversationId, json))
                     }
                 }
             }
@@ -159,7 +164,7 @@ class DmRepositoryImpl @Inject constructor(
                 }
             }
 
-            emitAll(messageDao.observe(conversationId).map { rows -> rows.map { it.toDm(uid) } })
+            emitAll(messageDao.observe(conversationId).map { rows -> rows.map { it.toDm(uid, json) } })
         }
     }
 
@@ -195,9 +200,10 @@ private fun DmMessageDto.toDomain(currentUserId: String?) = DmMessage(
     mine = senderId == currentUserId,
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,
+    attachments = attachments.map { it.toModel() },
 )
 
-private fun DmMessageDto.toEntity(conversationId: String) = MessageEntity(
+private fun DmMessageDto.toEntity(conversationId: String, json: Json) = MessageEntity(
     id = id,
     conversationId = conversationId,
     authorId = senderId,
@@ -207,15 +213,22 @@ private fun DmMessageDto.toEntity(conversationId: String) = MessageEntity(
     createdAt = createdAt,
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,
+    attachmentsJson = if (attachments.isEmpty()) null else json.encodeToString(attachments),
 )
 
-private fun MessageEntity.toDm(uid: String?) = DmMessage(
-    id = id,
-    content = content,
-    authorName = authorName,
-    authorAvatar = authorAvatar,
-    createdAt = createdAt,
-    mine = authorId != null && authorId == uid,
-    replyToAuthor = replyToAuthor,
-    replyToContent = replyToContent,
-)
+private fun MessageEntity.toDm(uid: String?, json: Json): DmMessage {
+    val atts = attachmentsJson?.let {
+        runCatching { json.decodeFromString<List<AttachmentDto>>(it).map { a -> a.toModel() } }.getOrNull()
+    } ?: emptyList()
+    return DmMessage(
+        id = id,
+        content = content,
+        authorName = authorName,
+        authorAvatar = authorAvatar,
+        createdAt = createdAt,
+        mine = authorId != null && authorId == uid,
+        replyToAuthor = replyToAuthor,
+        replyToContent = replyToContent,
+        attachments = atts,
+    )
+}

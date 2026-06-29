@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.dm.domain
 
+import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 import app.astra.mobile.feature.dm.domain.model.MessagesPage
@@ -14,7 +15,7 @@ interface DmRepository {
 
     suspend fun messages(conversationId: String, cursor: String?): Result<MessagesPage>
 
-    suspend fun send(conversationId: String, content: String, replyToId: String? = null): Result<DmMessage>
+    suspend fun send(conversationId: String, content: String, replyToId: String? = null, attachments: List<Attachment> = emptyList()): Result<DmMessage>
 
     suspend fun delete(conversationId: String, messageId: String): Result<Unit>
 

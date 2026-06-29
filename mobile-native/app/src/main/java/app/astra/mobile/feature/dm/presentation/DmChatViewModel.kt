@@ -3,6 +3,10 @@ package app.astra.mobile.feature.dm.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.astra.mobile.core.model.Attachment
+import app.astra.mobile.core.model.toModel
+import app.astra.mobile.core.upload.ImageUploader
+import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.dm.domain.DmRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -16,6 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class DmChatViewModel @Inject constructor(
     private val repository: DmRepository,
+    private val imageUploader: ImageUploader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -53,6 +58,21 @@ class DmChatViewModel @Inject constructor(
         _state.update { it.copy(input = value) }
         handleTyping(value)
     }
+
+    fun attachImages(files: List<UploadFile>) {
+        if (files.isEmpty()) return
+        _state.update { it.copy(uploading = true, error = null) }
+        viewModelScope.launch {
+            imageUploader.uploadMany(files)
+                .onSuccess { dtos ->
+                    _state.update { it.copy(uploading = false, pendingAttachments = it.pendingAttachments + dtos.map { d -> d.toModel() }) }
+                }
+                .onFailure { e -> _state.update { it.copy(uploading = false, error = e.message) } }
+        }
+    }
+
+    fun removeAttachment(att: Attachment) =
+        _state.update { it.copy(pendingAttachments = it.pendingAttachments - att) }
 
     private val typingNames = linkedMapOf<String, String>()
     private val typingExpiry = mutableMapOf<String, Job>()
@@ -108,19 +128,20 @@ class DmChatViewModel @Inject constructor(
 
     fun send() {
         val text = _state.value.input.trim()
-        if (text.isEmpty() || _state.value.sending) return
+        val pending = _state.value.pendingAttachments
+        if ((text.isEmpty() && pending.isEmpty()) || _state.value.sending || _state.value.uploading) return
         stopTypingNow()
         val replyId = _state.value.replyToId
         _state.update {
-            it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null)
+            it.copy(sending = true, input = "", error = null, replyToId = null, replyToAuthor = null, replyToPreview = null, pendingAttachments = emptyList())
         }
         viewModelScope.launch {
 
-            repository.send(conversationId, text, replyId)
+            repository.send(conversationId, text, replyId, pending)
                 .onSuccess { _state.update { it.copy(sending = false) } }
                 .onFailure { e ->
 
-                    _state.update { it.copy(sending = false, error = e.message, input = text) }
+                    _state.update { it.copy(sending = false, error = e.message, input = text, pendingAttachments = pending) }
                 }
         }
     }

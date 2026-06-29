@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.dm.presentation
 
+import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.feature.dm.domain.model.DmMessage
 
 data class DmChatUiState(
@@ -13,4 +14,7 @@ data class DmChatUiState(
     val replyToAuthor: String? = null,
     val replyToPreview: String? = null,
     val typingUsers: List<String> = emptyList(),
+
+    val pendingAttachments: List<Attachment> = emptyList(),
+    val uploading: Boolean = false,
 )

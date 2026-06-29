@@ -1,12 +1,4 @@
-/**
- * Feed + prefs do user. Hook único pra centro de notifs (bell).
- *
- *  - useNotificationFeed(): infinite list paginada, sync via socket 'notification'
- *  - useNotificationCount(): só badge unread (poll/cached)
- *  - useNotificationPrefs(): GET + PATCH com optimistic update
- *
- * Socket 'notification' incrementa cache local sem refetch.
- */
+
 import { useEffect } from 'react'
 import {
   useInfiniteQuery, useMutation, useQuery, useQueryClient,
@@ -40,9 +32,6 @@ export interface NotificationPrefs {
   quietEnd:   number | null
 }
 
-// ── Feed (paginated) ────────────────────────────────────────────
-// Socket sync foi movido pra useNotificationCount (que monta com o sino,
-// sempre vivo). Antes só atualizava feed quando popover estava aberto.
 export function useNotificationFeed() {
   return useInfiniteQuery<FeedPage>({
     queryKey: ['notifications', 'feed'],
@@ -58,13 +47,9 @@ export function useNotificationFeed() {
   })
 }
 
-// ── Badge count ─────────────────────────────────────────────────
 export function useNotificationCount() {
   const queryClient = useQueryClient()
 
-  // Sync via socket: feed listener antes ficava em useNotificationFeed (só
-  // monta quando popover abre). Aqui o badge fica vivo enquanto o sino tá
-  // na tela — evento 'notifications_read' sempre fecha o badge no momento.
   useEffect(() => {
     let sock: ReturnType<typeof getSocket>
     try { sock = getSocket() } catch { return }
@@ -116,11 +101,10 @@ export function useNotificationCount() {
     queryKey: ['notifications', 'unread'],
     queryFn:  async () => (await api.get('/api/notifications/unread')).data.data,
     staleTime: 30_000,
-    refetchInterval: 60_000, // safety net
+    refetchInterval: 60_000,
   })
 }
 
-// ── Mark read ───────────────────────────────────────────────────
 export function useMarkRead() {
   const qc = useQueryClient()
   return useMutation({
@@ -167,7 +151,6 @@ export function useMarkAllRead() {
   })
 }
 
-// ── Prefs ───────────────────────────────────────────────────────
 export function useNotificationPrefs() {
   return useQuery<{ prefs: NotificationPrefs; defaults: NotificationPrefs }>({
     queryKey: ['notifications', 'prefs'],

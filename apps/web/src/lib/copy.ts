@@ -1,15 +1,7 @@
-/**
- * Astra — vocabulário central do app.
- *
- * Strings expostas pro usuário ficam centralizadas aqui. Facilita:
- *  - Rebranding (mexe num lugar só)
- *  - i18n no futuro
- *  - Consistência de tom (espacial/editorial)
- */
+
 
 export const BRAND = 'Astra'
 
-// ── Nomes de entidades ────────────────────────────────────────
 export const NOUN = {
   app:          'Astra',
   server:       'constelação',
@@ -33,7 +25,6 @@ export const NOUN = {
   coordinate:   'coordenada',
 } as const
 
-// ── CTAs e ações ──────────────────────────────────────────────
 export const ACTION = {
   createServer:  'Forjar constelação',
   joinServer:    'Orbitar constelação',
@@ -48,9 +39,6 @@ export const ACTION = {
   logout:        'Sair da Astra',
 } as const
 
-// ── Descrições explicativas (microcopy de "(servidor)" etc) ───
-// Aparecem embaixo de CTAs primários e em tooltips secundários,
-// pra usuário entender o termo cósmico = conceito Discord-like.
 export const DESC = {
   constelacao: 'Servidor — espaço da sua comunidade',
   aglomerado:  'Grupo privado — sem convite público',
@@ -61,7 +49,6 @@ export const DESC = {
   sussurro:    'Mensagem privada 1-a-1',
 } as const
 
-// ── Empty states ──────────────────────────────────────────────
 export const EMPTY = {
   noServers:     { title: 'Seu céu ainda está vazio', hint: 'Crie ou entre numa constelação.' },
   noDMs:         { title: 'Nenhuma estrela à vista', hint: 'Convide alguém pra começar.' },
@@ -71,7 +58,6 @@ export const EMPTY = {
   noThreads:     { title: 'Sem cometas por aqui', hint: 'Responda numa mensagem pra abrir um.' },
 } as const
 
-// ── Status display ────────────────────────────────────────────
 export const STATUS_LABEL: Record<string, string> = {
   ONLINE:    'Brilhando',
   IDLE:      'Distante',
@@ -80,7 +66,6 @@ export const STATUS_LABEL: Record<string, string> = {
   OFFLINE:   'Apagada',
 }
 
-// ── Toasts (sucesso e erro) ───────────────────────────────────
 export const TOAST = {
   serverCreated:  'Constelação acesa.',
   serverDeleted:  'Constelação extinta.',

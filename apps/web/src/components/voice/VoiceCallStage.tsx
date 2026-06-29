@@ -1,22 +1,4 @@
-/**
- * VoiceCallStage — vista expandida da chamada (Discord-style).
- *
- * Estrutura:
- *   ┌─────────────────────────────────────────┐
- *   │  Header: status + room name             │
- *   ├─────────────────────────────────────────┤
- *   │  [Screen share — full width]            │
- *   │  ┌────┐ ┌────┐ ┌────┐ ┌────┐            │
- *   │  │tile│ │tile│ │tile│ │tile│            │
- *   │  └────┘ └────┘ └────┘ └────┘            │
- *   ├─────────────────────────────────────────┤
- *   │  Volume slider                          │
- *   │  [Mic][Deafen][Screen][Minimizar][Sair] │
- *   └─────────────────────────────────────────┘
- *
- * Vibe Astra: hairline borders, --accent subtle pulse no speaking,
- * mono pra tech info, serif display pros nomes, tokens consistentes.
- */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -54,13 +36,10 @@ export function VoiceCallStage({ onMinimize }: Props) {
   const localShare = participants.find((p) => p.isLocal)?.isScreenSharing ?? false
   const localCam   = participants.find((p) => p.isLocal)?.isCameraEnabled ?? false
 
-  // Grid responsivo baseado em quantos participantes
-  // (excluindo o screen sharer da grid principal quando há screen ativo)
   const tiles = screenSharer
     ? participants.filter((p) => p.identity !== screenSharer.identity)
     : participants
 
-  // Tiles menores: mais colunas por padrão pra cada um ocupar menos área
   const gridCols =
     tiles.length === 1 ? 'grid-cols-1 max-w-md mx-auto'
     : tiles.length === 2 ? 'grid-cols-2 max-w-2xl mx-auto'
@@ -76,14 +55,14 @@ export function VoiceCallStage({ onMinimize }: Props) {
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className="fixed inset-0 z-70 flex flex-col bg-(--void) overflow-hidden"
     >
-      {/* Ambiente: aura âmbar suave no topo — profundidade sem custo de animação. */}
+      {}
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-1/2 pointer-events-none opacity-60"
         style={{ background: 'radial-gradient(55% 100% at 50% 0%, var(--accent-glow), transparent 72%)' }}
       />
 
-      {/* ─── Header ─── */}
+      {}
       <motion.header
         initial={{ y: -16, opacity: 0 }}
         animate={{ y: 0,   opacity: 1 }}
@@ -123,9 +102,9 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </div>
       )}
 
-      {/* ─── Main area ─── */}
+      {}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-[640px]:landscape:p-2 flex flex-col gap-4 max-[640px]:landscape:gap-2">
-        {/* Screen share — full width row */}
+        {}
         {screenSharer && (
           <ScreenShareTile
             participant={screenSharer}
@@ -133,9 +112,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
           />
         )}
 
-        {/* Participant tiles grid — auto-rows-fr faz as linhas dividirem a
-            altura igualmente e os tiles PREENCHEREM (estilo Discord); antes
-            os tiles aspect-video boiavam com vão morto entre eles. */}
+        {}
         <div className={cn('grid gap-3 sm:gap-4 flex-1 min-h-0 auto-rows-fr', gridCols)}>
           <AnimatePresence initial={false}>
             {tiles.map((p, i) => (
@@ -153,7 +130,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </div>
       </div>
 
-      {/* ─── Volume slider strip ─── */}
+      {}
       <motion.div
         initial={{ y: 16, opacity: 0 }}
         animate={{ y: 0,  opacity: 1 }}
@@ -193,7 +170,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
         </span>
       </motion.div>
 
-      {/* ─── Controls bar ─── */}
+      {}
       <motion.footer
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0,  opacity: 1 }}
@@ -226,8 +203,7 @@ export function VoiceCallStage({ onMinimize }: Props) {
           {localCam ? <VideoOff className="size-5" /> : <Video className="size-5" />}
         </ControlButton>
 
-        {/* Screen share só faz sentido em desktop (mobile não suporta
-            getDisplayMedia na maioria dos browsers) — esconde no md:flex. */}
+        {}
         <div className="hidden md:contents">
           <ControlButton
             label={localShare ? t('voice.stopShare') : t('voice.share')}
@@ -250,15 +226,11 @@ export function VoiceCallStage({ onMinimize }: Props) {
   )
 }
 
-// ─── Participant tile ────────────────────────────────────────
-
-// Extrai cor sólida do bannerColor (hex puro OU primeiro stop de um gradient).
-// Fallback: --accent token.
 function ringColorFrom(bannerColor: string | null | undefined): string {
   if (!bannerColor) return 'var(--accent)'
-  // Hex puro
+
   if (/^#[0-9a-fA-F]{6}$/.test(bannerColor)) return bannerColor
-  // Primeira cor de um linear-gradient
+
   const m = bannerColor.match(/#[0-9a-fA-F]{6}/)
   if (m) return m[0]
   return 'var(--accent)'
@@ -282,10 +254,6 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
   const videoRef    = useRef<HTMLVideoElement>(null)
   const lkParticipant = participant.participant
 
-  // Video element fica SEMPRE montado (display:hidden quando câmera off).
-  // useEffect só depende de lkParticipant — sync interno detecta on/off
-  // via track events e attach/detach incrementalmente. Antes a dep
-  // [cameraOn] re-rodava o effect a cada toggle → rebinda listeners.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -335,14 +303,14 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
           : 'border-(--border-mid)',
       )}
     >
-      {/* Gradient backdrop (deterministic per user) */}
+      {}
       <div
         aria-hidden
         className="absolute inset-0 opacity-25 mix-blend-overlay"
         style={{ background: userGradient(participant.identity) }}
       />
 
-      {/* Speaking pulse ring (subtle, accent) */}
+      {}
       {speaking && (
         <motion.div
           aria-hidden
@@ -353,9 +321,7 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
         />
       )}
 
-      {/* Câmera ligada: vídeo cobre o tile. Senão: avatar centralizado.
-          videoRef SEMPRE montado (com display none quando off) — evita
-          attach race condition entre mount/unmount do <video>. */}
+      {}
       <video
         ref={videoRef}
         autoPlay
@@ -389,7 +355,7 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
         </div>
       )}
 
-      {/* Top-left: qualidade de conexão (sempre) + stats quando ligado */}
+      {}
       <div className="absolute top-1.5 left-1.5 z-10">
         {showStats ? (
           <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm flex items-center gap-1.5 text-[9px] font-mono text-white">
@@ -406,14 +372,14 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
         )}
       </div>
 
-      {/* Top-right: mic indicator */}
+      {}
       {muted && (
         <span className="absolute top-1.5 right-1.5 size-6 rounded-full bg-(--danger)/15 border border-(--danger)/40 grid place-items-center backdrop-blur-sm">
           <MicOff className="size-3 text-(--danger)" />
         </span>
       )}
 
-      {/* Bottom overlay: name */}
+      {}
       <div className="absolute bottom-0 left-0 right-0 px-2.5 py-1.5 bg-linear-to-t from-black/75 via-black/40 to-transparent flex items-center gap-2">
         <span
           className="text-xs font-(family-name:--font-display) text-white truncate flex-1 drop-shadow-md"
@@ -431,8 +397,6 @@ function ParticipantTile({ participant, user, index, volume, onVolume, showStats
     </motion.div>
   )
 }
-
-// ─── Per-person volume (popover slider no tile remoto) ────────
 
 function TileVolume({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const { t } = useTranslation()
@@ -469,14 +433,10 @@ function TileVolume({ value, onChange }: { value: number; onChange: (v: number) 
   )
 }
 
-// ─── Screen share tile ────────────────────────────────────────
-
 function ScreenShareTile({ participant, user }: { participant: CallParticipantInfo; user?: UserMini }) {
   const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement>(null)
-  // Ref do LK Participant é estável entre snapshots (snapshot reusa o mesmo
-  // objeto p). Antes a dep [participant] (CallParticipantInfo recriado a cada
-  // ActiveSpeakersChanged) disparava detach+attach a cada fala → flicker.
+
   const lkParticipant = participant.participant
 
   useEffect(() => {
@@ -517,9 +477,7 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
   const displayName = user?.displayName ?? participant.identity.slice(0, 8)
 
   return (
-    // Sem motion.layout aqui — quando outros tiles entravam/saíam, o
-    // layout animation re-medida disparava reflow no video element →
-    // flicker visível. Fade-in só na 1ª render é suficiente.
+
     <div
       className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-(--accent) shadow-[0_8px_32px_-8px_var(--accent-glow)] bg-black anim-fade-in"
     >
@@ -532,7 +490,7 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
         className="w-full h-full object-contain"
       />
       <div className="absolute top-2 left-2 flex items-center gap-1.5">
-        {/* Pill AO VIVO (estilo Discord LIVE) — vermelha, dot pulsando. */}
+        {}
         <span className="px-2 py-0.5 rounded-md bg-(--danger) text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
           <span className="size-1.5 rounded-full bg-white animate-pulse" />
           {t('voice.liveBadge')}
@@ -545,8 +503,6 @@ function ScreenShareTile({ participant, user }: { participant: CallParticipantIn
     </div>
   )
 }
-
-// ─── Configurações da call (dispositivos + modo qualidade) ────
 
 function CallSettings() {
   const { t } = useTranslation()
@@ -565,10 +521,9 @@ function CallSettings() {
       const devs = await navigator.mediaDevices.enumerateDevices()
       setMics(devs.filter((d) => d.kind === 'audioinput'))
       setSpeakers(devs.filter((d) => d.kind === 'audiooutput'))
-    } catch { /* sem permissão / não suportado */ }
+    } catch { }
   }
 
-  // noiseFilter é um toggle boolean — Krisp = true, Nenhum = false.
   const setNoise = (want: boolean) => { if (want !== noiseFilter) toggleNoiseFilter() }
 
   const selectCls  = 'w-full mt-1 px-2 py-1.5 text-xs bg-(--raised) border border-(--border-mid) rounded-lg text-(--text-1) outline-none focus:border-(--accent) cursor-pointer'
@@ -576,7 +531,7 @@ function CallSettings() {
 
   const renderBody = () => (
     <>
-      {/* Dispositivos */}
+      {}
       <div>
         <label className={labelCls}>{t('voice.microphone')}</label>
         <select value={audioInputId ?? ''} onChange={(e) => void setAudioInput(e.target.value)} className={selectCls}>
@@ -595,7 +550,7 @@ function CallSettings() {
         </div>
       )}
 
-      {/* Supressão de ruído */}
+      {}
       <div>
         <span className={labelCls}>{t('voice.noiseSection')}</span>
         <div className="flex gap-2 mt-1.5">
@@ -604,7 +559,7 @@ function CallSettings() {
         </div>
       </div>
 
-      {/* Qualidade da transmissão */}
+      {}
       <div>
         <span className={labelCls}>{t('voice.streamQuality')}</span>
         <div className="flex gap-2 mt-1.5">
@@ -614,7 +569,7 @@ function CallSettings() {
         <p className="text-[10px] text-(--text-3) m-0 mt-1.5">{t('voice.streamQualityHint')}</p>
       </div>
 
-      {/* Estatísticas */}
+      {}
       <label className="flex items-center justify-between gap-3 cursor-pointer">
         <span className={labelCls}>{t('voice.statsSection')}</span>
         <Switch checked={showStats} onCheckedChange={() => toggleStats()} />
@@ -636,7 +591,7 @@ function CallSettings() {
 
   return (
     <>
-      {/* Desktop: popover ancorado no botão */}
+      {}
       <div className="hidden md:contents">
         <Popover onOpenChange={(o) => { if (o) void loadDevices() }}>
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -646,7 +601,7 @@ function CallSettings() {
         </Popover>
       </div>
 
-      {/* Mobile: bottom sheet (estilo Discord) */}
+      {}
       <div className="contents md:hidden">
         <Sheet onOpenChange={(o) => { if (o) void loadDevices() }}>
           <SheetTrigger asChild>{trigger}</SheetTrigger>
@@ -677,8 +632,6 @@ function QualityChip({ active, onClick, title, sub }: { active: boolean; onClick
     </button>
   )
 }
-
-// ─── Control button (bottom toolbar) ──────────────────────────
 
 function ControlButton({ label, onClick, children, danger, active, primary }: {
   label: string
@@ -714,8 +667,6 @@ function ControlButton({ label, onClick, children, danger, active, primary }: {
     </Tooltip>
   )
 }
-
-// ─── Helper: gradient backdrop deterministic per identity ─────
 
 function qualityColor(q: string): string {
   return q === 'excellent' ? 'var(--success)'

@@ -2,11 +2,6 @@ import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { MessageWithAuthor, PaginatedResponse } from '@astra/types'
 
-/**
- * Fetcher da primeira página de mensagens — compartilhado entre o
- * useInfiniteQuery do MessageList e o prefetch da Sidebar (mesma queryKey
- * + mesmo fetcher = cache hit garantido).
- */
 export async function fetchMessagesPage(
   channelId: string, cursor?: string,
 ): Promise<PaginatedResponse<MessageWithAuthor>> {
@@ -16,12 +11,6 @@ export async function fetchMessagesPage(
   return res.data.data as PaginatedResponse<MessageWithAuthor>
 }
 
-/**
- * Prefetch no touchstart/mouseenter do item de canal: o dedo encosta
- * ~100ms antes do click disparar — a request sai nesse vão e o canal
- * abre com as mensagens já chegando (ou já em cache).
- * No-op se a query já está fresh (React Query dedupa).
- */
 export function prefetchChannelMessages(qc: QueryClient, channelId: string): void {
   void qc.prefetchInfiniteQuery({
     queryKey: ['messages', channelId],

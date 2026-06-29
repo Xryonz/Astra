@@ -13,13 +13,6 @@ import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import { SectionHeader, Row } from './_shared'
 
-/**
- * Aparência: cor de destaque + fundo. Aplica direto no DOM via applyTheme,
- * persiste no localStorage. Sem botão "Salvar" — feedback é instantâneo.
- *
- * Sync server: PATCH /api/profile/preferences debounced (600ms). Erro silencioso
- * — local já está aplicado, sync server eventualmente refaz.
- */
 export default function AppearanceSection() {
   const { t } = useTranslation()
   const [accentId, setAccentId] = useState(() =>

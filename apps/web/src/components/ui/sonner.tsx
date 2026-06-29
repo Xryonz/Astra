@@ -1,10 +1,4 @@
-/**
- * Sonner toaster wrapper — estilo editorial.
- *
- * Custom icons via lucide pra match do resto do site.
- * Fonte display no title, body no description, hairline border, sem rounded.
- * Left border accent colorido por variant — vibe de "marca de margem" editorial.
- */
+
 import { Toaster as SonnerToaster, toast } from 'sonner'
 import { CheckCircle2, AlertCircle, Info, Loader2, AlertTriangle } from 'lucide-react'
 
@@ -42,7 +36,7 @@ export function Toaster() {
           cancelButton: 'bg-(--raised) text-(--text-2) px-3 py-1 text-xs',
           closeButton:  'bg-(--raised) border-(--border) text-(--text-3) hover:text-(--accent)',
           icon:         'shrink-0',
-          // Border-left accent — "marca de margem" editorial
+
           error:   'border-l-(--danger)',
           success: 'border-l-(--success)',
           info:    'border-l-(--accent)',

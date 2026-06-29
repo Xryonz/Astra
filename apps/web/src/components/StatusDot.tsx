@@ -11,7 +11,6 @@ export const STATUS_META: Record<UserStatus, { label: string; color: string; des
   OFFLINE:   { label: 'Offline',      color: '#6b7280', description: 'Sem conexão' },
 }
 
-/** i18n key por status — label traduzido (STATUS_META mantém só a cor canônica). */
 export const STATUS_LABEL_KEY: Record<UserStatus, string> = {
   ONLINE:    'status.online',
   IDLE:      'status.idle',
@@ -29,13 +28,6 @@ interface StatusDotProps {
   className?:   string
 }
 
-/**
- * Indicador de status — SVG inline puro.
- *  ONLINE  → bolinha cheia verde
- *  IDLE    → lua crescente (amarelo com recorte da cor do fundo)
- *  DND     → vermelho com traço no meio
- *  INVISIBLE/OFFLINE → anel oco cinza
- */
 export default function StatusDot({
   status,
   size = 12,

@@ -16,10 +16,6 @@ interface AuthState {
   logout:         () => void
 }
 
-// accessToken nunca persiste (XSS-safe; revive via refresh em cold load).
-// user + isAuthenticated persistem em localStorage — sobrevivem a tab discard
-// que o Chrome faz pra liberar RAM durante jogos fullscreen. Sem isso o
-// usuário voltava deslogado mesmo com refresh válido em mão.
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({

@@ -4,19 +4,6 @@ import data from '@emoji-mart/data'
 import { useEmojiMap } from '@/hooks/useServerEmojis'
 import { resolveApiUrl } from '@/lib/api'
 
-/**
- * Full emoji picker via emoji-mart. Estilizado pra casar com o tema editorial:
- *  - tira o padding default do popover do mart
- *  - cor de fundo via var(--overlay) — herda do tema escolhido
- *  - fecha ao clicar fora
- *
- * Custom emojis: lê do ServerEmojiContext (se houver Provider acima na árvore).
- * Renderiza como categoria "Astra" no topo do picker. Quando clicados, retornam
- * `:nome:` (shortcode) pra ser inserido no input — o renderInline já substitui
- * por <img> no chat (ver MessageItem.tsx).
- *
- * Posicionamento é responsabilidade do parent (passa `anchor` style props).
- */
 interface FullEmojiPickerProps {
   onPick:  (emoji: string) => void
   onClose: () => void
@@ -27,9 +14,6 @@ export default function FullEmojiPicker({ onPick, onClose, className }: FullEmoj
   const wrapRef  = useRef<HTMLDivElement>(null)
   const emojiMap = useEmojiMap()
 
-  // Constrói categoria custom no formato esperado pelo emoji-mart.
-  // emoji-mart faz cache do `custom` por instância — useMemo evita
-  // rebuild a cada render.
   const customCategories = useMemo(() => {
     if (emojiMap.size === 0) return undefined
     const emojis = Array.from(emojiMap.values()).map((e) => ({
@@ -45,7 +29,7 @@ export default function FullEmojiPicker({ onPick, onClose, className }: FullEmoj
     const handler = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) onClose()
     }
-    // Defer para evitar fechar imediatamente pelo clique que abriu
+
     const t = setTimeout(() => document.addEventListener('mousedown', handler), 50)
     return () => { clearTimeout(t); document.removeEventListener('mousedown', handler) }
   }, [onClose])
@@ -56,8 +40,7 @@ export default function FullEmojiPicker({ onPick, onClose, className }: FullEmoj
         data={data}
         custom={customCategories}
         onEmojiSelect={(e: { native?: string; id?: string; name?: string }) => {
-          // Custom emoji: emoji-mart entrega { id, name } (sem `native`).
-          // Inserimos `:nome:` pro renderInline substituir por <img> no chat.
+
           if (e.native) { onPick(e.native); onClose(); return }
           const id = e.id ?? e.name
           if (id) { onPick(`:${id}:`); onClose() }

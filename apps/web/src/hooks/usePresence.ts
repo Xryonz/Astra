@@ -5,16 +5,11 @@ import { useAuthStore } from '@/store/authStore'
 import { api } from '@/lib/api'
 import type { UserStatus } from '@/components/StatusDot'
 
-/**
- * Liga listener global de presence_update no socket + busca status inicial do user.
- * Monta uma única vez no App root.
- */
 export function usePresenceListener() {
   const setMyStatusStore = usePresenceStore((s) => s.setMyStatus)
   const setOther         = usePresenceStore((s) => s.setOther)
   const myId             = useAuthStore((s) => s.user?.id)
 
-  // Seed status do próprio user (pega do GET /profile/:id, inclui INVISIBLE pq é self)
   useEffect(() => {
     if (!myId) return
     let cancel = false
@@ -26,7 +21,6 @@ export function usePresenceListener() {
     return () => { cancel = true }
   }, [myId, setMyStatusStore])
 
-  // Socket listener pra presence_update
   useEffect(() => {
     if (!myId) return
     let sock: ReturnType<typeof getSocket>
@@ -46,7 +40,6 @@ export function usePresenceListener() {
   }, [myId, setMyStatusStore, setOther])
 }
 
-/** Emite mudança de status. Backend persiste + broadcasta. */
 export function setMyStatus(status: UserStatus) {
   try {
     getSocket().emit('set_status', status)

@@ -68,7 +68,7 @@ export default function InvitePage() {
     <div className="min-h-screen flex items-center justify-center px-6 py-12 font-(family-name:--font-body) relative overflow-hidden">
       <div className="ed-grain" aria-hidden />
 
-      {/* Ambient glow */}
+      {}
       <div
         className="fixed pointer-events-none"
         style={{
@@ -79,7 +79,7 @@ export default function InvitePage() {
       />
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Vertical label */}
+        {}
         <div className="absolute -left-12 top-4 hidden sm:block">
           <Reveal delay={0.1}>
             <span className="ed-marg-vertical">Cap. III · Convite</span>
@@ -87,7 +87,7 @@ export default function InvitePage() {
         </div>
 
         <div className="border border-(--border-mid) bg-(--overlay) shadow-2xl overflow-hidden text-center">
-          {/* Banner do servidor — custom ou constelação-assinatura do nome */}
+          {}
           {server && !loading && (
             <Reveal delay={0.02}>
               {server.bannerUrl

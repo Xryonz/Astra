@@ -1,7 +1,4 @@
-/**
- * Slider — shadcn-style sobre @radix-ui/react-slider.
- * Trilho hairline, thumb accent quadrado (editorial, sem rounded).
- */
+
 import * as React from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { cn } from '@/lib/utils'

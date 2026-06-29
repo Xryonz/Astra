@@ -1,14 +1,4 @@
-/**
- * CosmicOnboarding — tour-relâmpago de 3 slides apresentando o léxico
- * Astra (constelação, órbita, cometa, sussurro) na primeira visita.
- *
- * Comportamento:
- *  - Lê localStorage 'astra:onboarded' — se true, não renderiza nada.
- *  - Fecha (skip ou finalizar) seta a flag e dispensa pra sempre.
- *  - Não bloqueia funcionalidade: user pode pular com Esc ou X.
- *
- * Mantém visual editorial-dark: glassmorphism + serif display + accent prata.
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -67,9 +57,7 @@ export function CosmicOnboarding() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) dismiss() }}>
       <DialogContent className="max-w-[460px]! gap-0 p-0 overflow-hidden">
         <div className="px-7 pt-8 pb-6">
-          {/* layoutId no container do ícone: Motion morfa posição/tamanho
-              entre slides (spring). Icon interno usa AnimatePresence pra
-              fade cross-content sem layout-shift. */}
+          {}
           <motion.div
             layoutId="cosmic-onboarding-icon"
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
@@ -111,7 +99,7 @@ export function CosmicOnboarding() {
           </AnimatePresence>
         </div>
 
-        {/* Footer: progresso (3 dots) + ações */}
+        {}
         <div className="flex items-center justify-between px-7 py-4 border-t border-(--border) bg-(--raised)/40">
           <div className="flex items-center gap-1.5">
             {SLIDES.map((_, i) => (

@@ -14,11 +14,11 @@ export default function RegisterPage() {
 
       <div className="ed-grain" aria-hidden="true" />
 
-      {/* ── LEFT panel ──────────────────────────────────────── */}
+      {}
       <aside className="relative hidden lg:flex flex-1 border-r border-(--border) bg-(--base) overflow-hidden">
         <div className="ed-vignette" aria-hidden="true" />
 
-        {/* Ambient orbs */}
+        {}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[
             { w: 500, h: 500, top: '-15%', left: '-10%', delay: '0s',  dur: '16s', strength: 'glow' },
@@ -49,7 +49,7 @@ export default function RegisterPage() {
           }}
         />
 
-        {/* Vertical label */}
+        {}
         <div className="absolute top-12 left-12 z-10">
           <Reveal delay={0.1}>
             <span className="ed-marg-vertical">Cap. II · Criar</span>
@@ -96,7 +96,7 @@ export default function RegisterPage() {
         </div>
       </aside>
 
-      {/* ── RIGHT — form chamber ────────────────────────────── */}
+      {}
       <main className="relative w-full lg:max-w-130 flex items-center justify-center px-8 lg:px-16 py-12 overflow-y-auto">
 
         <div

@@ -1,18 +1,10 @@
-/**
- * Som + Notification API local quando chega notif via socket.
- *
- *  - Som por tipo (mention/dm/reaction/reply) com fallback WebAudio beep
- *  - Respeita prefs.sounds + prefs.desktop + flag silent (DND/quiet)
- *  - Só dispara desktop notification se janela sem foco
- *  - Toca tudo via socket 'notification' (caminho novo); legacy 'mention'/'new_dm' continuam só pro caso de payload sem prefs
- */
+
 import { useEffect, useRef } from 'react'
 import i18n from '@/i18n'
 import { getSocket } from '@/lib/socket'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationPrefs, type NotificationType } from '@/hooks/useNotifications'
 
-// ── Sons ────────────────────────────────────────────────────────
 const SOUND_BY_TYPE: Record<NotificationType, string> = {
   mention:  '/notification-mention.mp3',
   dm:       '/notification-dm.mp3',
@@ -20,19 +12,11 @@ const SOUND_BY_TYPE: Record<NotificationType, string> = {
   reply:    '/notification-soft.mp3',
 }
 
-/**
- * Sons distintos por tipo via WebAudio (sem deps externas, sem assets).
- * Cada tipo tem timbre + envelope próprio pra ser reconhecível sem olhar.
- *   mention  — 2 notas (A5 → E5), urgente
- *   dm       — sino metálico (tri + sub) C5
- *   reply    — clique soft (square envelope curto) G4
- *   reaction — pluck (triangle decay rápido) E5
- */
 type Synth = (ctx: AudioContext) => void
 
 const SYNTH_BY_TYPE: Record<NotificationType, Synth> = {
   mention: (ctx) => {
-    // Dois beeps rápidos descendentes
+
     const playNote = (freq: number, start: number, dur: number) => {
       const osc  = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -49,7 +33,7 @@ const SYNTH_BY_TYPE: Record<NotificationType, Synth> = {
     playNote(660, 0.10, 0.14)
   },
   dm: (ctx) => {
-    // Sino: triangle fundamental + sub oitava abaixo, decay lento
+
     const osc1 = ctx.createOscillator()
     const osc2 = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -75,7 +59,7 @@ const SYNTH_BY_TYPE: Record<NotificationType, Synth> = {
     const osc  = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.type = 'triangle'
-    // Pluck: pitch starts ligeiro acima e cai
+
     osc.frequency.setValueAtTime(720, ctx.currentTime)
     osc.frequency.exponentialRampToValueAtTime(659, ctx.currentTime + 0.18)
     gain.gain.setValueAtTime(0.07, ctx.currentTime)
@@ -89,7 +73,7 @@ function playFallbackSynth(type: NotificationType) {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
     SYNTH_BY_TYPE[type](ctx)
-    // Fecha context após o som — evita leak de AudioContext (browser limita ~6).
+
     setTimeout(() => ctx.close().catch(() => {}), 700)
   } catch {}
 }
@@ -127,13 +111,11 @@ function showLocalNotification(title: string, body: string, icon?: string, url?:
   } catch {}
 }
 
-// ── Hook ────────────────────────────────────────────────────────
 export function useInAppNotifications() {
   const userId = useAuthStore((s) => s.user?.id)
   const { data: prefsData } = useNotificationPrefs()
   const focusedRef = useRef<boolean>(typeof document !== 'undefined' ? document.hasFocus() : true)
 
-  // ref pra prefs frescas dentro do listener sem rebind socket
   const prefsRef = useRef(prefsData?.prefs)
   useEffect(() => { prefsRef.current = prefsData?.prefs }, [prefsData])
 
@@ -163,15 +145,13 @@ export function useInAppNotifications() {
       silent?: boolean
     }) => {
       const prefs = prefsRef.current
-      // silent flag (DND/quiet hours) suprime som+banner mas feed ainda recebe
+
       if (p.silent) return
 
-      // Som — respeita pref + se localStorage flag de "global mute"
       const soundsAllowed = prefs ? prefs.sounds : true
       const localMute = localStorage.getItem('astra-sound') === '0'
       if (soundsAllowed && !localMute) playPing(p.type)
 
-      // Banner — só se janela sem foco
       const desktopAllowed = prefs ? prefs.desktop : true
       if (desktopAllowed && !focusedRef.current) {
         const { authorName, preview, channelName, serverName } = p.payload

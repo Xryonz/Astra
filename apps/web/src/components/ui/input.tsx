@@ -1,11 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-/**
- * Input — shadcn editorial.
- * Tokens: --raised/40 background, --border-mid border, --accent on focus.
- * rounded-lg pra suavizar (menos "quadrado") sem virar slate genérico.
- */
 const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, type, ...props }, ref) => (
     <input

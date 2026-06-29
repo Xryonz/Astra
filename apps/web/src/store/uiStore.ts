@@ -1,30 +1,26 @@
 import { create } from 'zustand'
 
 interface UIState {
-  /** Mobile drawer aberto (sidebar slide-in) */
+
   mobileSidebarOpen: boolean
   openMobileSidebar:  () => void
   closeMobileSidebar: () => void
   toggleMobileSidebar: () => void
 
-  /** Command palette (Cmd+K) */
   commandPaletteOpen: boolean
   openCommandPalette:   () => void
   closeCommandPalette:  () => void
   toggleCommandPalette: () => void
 
-  /** Right-side members + threads panel (visible em servidor, não em DM) */
   rightPanelOpen: boolean
   rightPanelTab:  'members' | 'threads'
   openRightPanel:  (tab?: 'members'|'threads') => void
   closeRightPanel: () => void
   setRightPanelTab: (tab: 'members'|'threads') => void
 
-  /** Voice call stage (fullscreen expansion do PiP) */
   voiceStageOpen: boolean
   setVoiceStageOpen: (open: boolean) => void
 
-  /** Sheet "Mais" da bottom nav mobile (profile/settings/logout) */
   mobileMoreOpen: boolean
   setMobileMoreOpen: (open: boolean) => void
 }

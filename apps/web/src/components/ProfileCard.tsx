@@ -1,19 +1,4 @@
-/**
- * ProfileCard — rebuild minimalista (overhaul 2026-06-02).
- *
- * Estrutura:
- *  - Banner (imagem ou gradient fallback)
- *  - Hero (avatar overlap, nome, pronouns, emoji, handle, status)
- *  - Custom status quote
- *  - Bio plain text
- *  - Membro desde
- *  - Botão Mensagem (se não-self)
- *
- * Features dropadas: banner borders (7), banner position/zoom, bio markdown,
- * auto-contrast, guestbook, mutual servers, chips/selos.
- *
- * Dados legados preservados no DB — só não renderizamos mais aqui.
- */
+
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -42,7 +27,7 @@ interface ProfileCardProps {
 interface PublicUser {
   id:                string
   username:          string
-  /** Coordenada Astra (AAAA-BB) — só presente no /me próprio. */
+
   coordinate?:       string
   displayName:       string
   avatarUrl:         string | null
@@ -61,7 +46,6 @@ interface PublicUser {
   effectiveStatus?:  UserStatus
 }
 
-// Deterministic color por user.id — mesma família dos fallback gradients.
 const PALETTE = ['#c9a96e','#7c6fc4','#6fa8c9','#c97c6e','#6ec98a']
 function userColor(id: string) {
   let h = 0
@@ -105,7 +89,7 @@ export default function ProfileCard({ userId, onClose }: ProfileCardProps) {
       const { conversationId, otherUser } = res.data.data
       navigate('/app/dm', { state: { conversationId, otherUser } })
     } catch {
-      // erros tratados no axios interceptor + toast global
+
     }
     onClose()
   }

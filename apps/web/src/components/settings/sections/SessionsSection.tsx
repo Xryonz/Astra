@@ -19,10 +19,6 @@ interface Session {
   ip:         string | null
 }
 
-/**
- * Parser leve de User-Agent — não precisamos da biblioteca completa.
- * Identifica família OS + browser pra ícone + label legível.
- */
 function parseUA(ua: string | null, unknownLabel: string): { label: string; isMobile: boolean } {
   if (!ua) return { label: unknownLabel, isMobile: false }
   const isMobile = /Mobile|Android|iPhone|iPad/i.test(ua)
@@ -77,8 +73,7 @@ export default function SessionsSection() {
 
   const others = sessions.length > 1
     ? sessions.filter((s) => {
-        // Sem ID do current refresh do server, heurística: a mais recente
-        // (maior lastUsedAt) provavelmente é a atual.
+
         const newest = [...sessions].sort((a, b) =>
           new Date(b.lastUsedAt ?? b.createdAt).getTime() -
           new Date(a.lastUsedAt ?? a.createdAt).getTime(),
@@ -106,7 +101,7 @@ export default function SessionsSection() {
             {sessions.map((s, i) => {
               const parsed = parseUA(s.userAgent, t('settings.sessions.unknownDevice'))
               const lastUsed = s.lastUsedAt ?? s.createdAt
-              const isCurrent = i === 0  // assumindo ordenado por lastUsedAt desc
+              const isCurrent = i === 0
               return (
                 <li
                   key={s.id}

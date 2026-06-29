@@ -1,10 +1,4 @@
-/**
- * FriendsPage — editorial polish.
- *
- * Header serif renaissance com Reveal stagger; lista hairline shadcn-style;
- * context menu (right-click) por amigo com ações DM/mencionar/remover.
- * Acesso via /app/friends.
- */
+
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -29,7 +23,6 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/PullToRefreshIndicator'
 import { cn } from '@/lib/utils'
 
-// presence enum → chave i18n (friends.presence.*)
 const PRESENCE_KEY: Record<string, string> = {
   ONLINE: 'online', IDLE: 'idle', DND: 'dnd', OFFLINE: 'offline', INVISIBLE: 'offline',
 }
@@ -52,7 +45,7 @@ export default function FriendsPage() {
       <PullToRefreshIndicator pull={pull} refreshing={refreshing} />
       <div className="ed-vignette" />
 
-      {/* Coluna central — sem rótulos verticais nem capítulo (modo minimalista) */}
+      {}
       <div className="grid grid-cols-12 gap-6 px-6 sm:px-10 lg:px-16 py-12 max-w-6xl mx-auto relative">
         <div className="col-span-12 md:col-start-2 md:col-span-10">
           <header className="mb-10">
@@ -79,7 +72,7 @@ export default function FriendsPage() {
           <FriendsPanel />
         </div>
 
-        {/* Margem direita — aside */}
+        {}
         <div className="hidden lg:flex col-span-1 col-start-12 items-end pb-12">
           <Reveal delay={1.0}>
             <p className="ed-aside max-w-[16ch]">
@@ -92,10 +85,6 @@ export default function FriendsPage() {
   )
 }
 
-/**
- * FriendsPanel — sub-abas (Amigos/Pendentes/Adicionar) + listas, sem o header
- * editorial. Usado solto na FriendsPage e embutido na aba "Amigos" da home.
- */
 export function FriendsPanel() {
   const { t }         = useTranslation()
   const [tab, setTab] = useState<'friends' | 'pending' | 'add'>('friends')
@@ -410,7 +399,6 @@ function AddFriendForm() {
   const [msg,   setMsg]         = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const send = useSendFriendRequest()
 
-  // Normaliza coordenada pra UPPERCASE em tempo real (formato AAAA-BB)
   const onChange = (raw: string) => {
     setMsg(null)
     if (mode === 'coordinate') {
@@ -448,7 +436,7 @@ function AddFriendForm() {
   return (
     <Reveal delay={0.05}>
       <form onSubmit={submit} className="space-y-3 max-w-[44ch]">
-        {/* Tabs username/coord */}
+        {}
         <div className="flex gap-1 border-b border-(--border) -mb-px">
           <button
             type="button"

@@ -33,18 +33,12 @@ export default function DMPage() {
   const [activeDM, setActiveDM] = useState<ActiveDM | null>(navState ?? null)
   const [replyingTo, setReplyingTo] = useState<MessageWithAuthor | null>(null)
 
-  // Quando navegamos para /app/dm com state (ex: vindo de FriendsPage)
-  // sincroniza activeDM. Re-sync se conversationId muda.
   useEffect(() => {
     if (navState && navState.conversationId !== activeDM?.conversationId) {
       setActiveDM(navState)
     }
   }, [navState?.conversationId])
 
-  // Deep link /app/dm/:id — push notification, app shortcut ou reload
-  // abrem direto a conversa certa. Resolve o otherUser pela mesma query
-  // (e cache) do DMList. URL é a fonte canônica: voltar pra /app/dm sem
-  // state fecha a conversa (back do Android volta pra lista).
   const deepId = (useParams()['*'] ?? '').split('/')[0] || null
   const { data: deepConvs } = useQuery<{ id: string; otherUser: ActiveDM['otherUser'] }[]>({
     queryKey: ['dm-list'],
@@ -62,10 +56,8 @@ export default function DMPage() {
     if (conv) setActiveDM({ conversationId: conv.id, otherUser: conv.otherUser })
   }, [deepId, deepConvs, navState, activeDM?.conversationId])
 
-  // Reset reply ao trocar de conversa
   useEffect(() => { setReplyingTo(null) }, [activeDM?.conversationId])
 
-  // Optimistic message callbacks (same pattern as AppPage)
   const addOptimisticRef     = useRef<((msg: OptimisticMessage) => void) | null>(null)
   const removeOptimisticRef  = useRef<((id: string) => void) | null>(null)
   const confirmOptimisticRef = useRef<((id: string, msg: MessageWithAuthor) => void) | null>(null)
@@ -94,8 +86,7 @@ export default function DMPage() {
   return (
     <div className="flex h-full w-full font-(family-name:--font-body) anim-fade-in">
 
-      {/* ── Home: lista de DMs + abas (Mensagens/Amigos) + sino ───────────
-          Desktop: sempre visível. Mobile: visível só quando nenhuma DM ativa. */}
+      {}
       <aside
         className={cn(
           'w-full md:w-70 shrink-0 h-full bg-(--base) border-r border-(--border) flex flex-col anim-fade-left',
@@ -106,14 +97,13 @@ export default function DMPage() {
           activeDMId={activeDM?.conversationId ?? null}
           onSelectDM={(dm) => {
             setActiveDM(dm)
-            // URL canônica /app/dm/:id — back do Android volta pra lista
+
             navigate(`/app/dm/${dm.conversationId}`, { state: dm })
           }}
         />
       </aside>
 
-      {/* ── Chat area ──────────────────────────────────────
-          Desktop: sempre visível. Mobile: visível só quando DM ativa. */}
+      {}
       <div
         className={cn(
           'flex-1 min-w-0 flex flex-col',
@@ -122,12 +112,12 @@ export default function DMPage() {
       >
         {activeDM ? (
           <>
-            {/* DM header */}
+            {}
             <div
               key={activeDM.conversationId + '-hdr'}
               className="h-14 px-4 sm:px-6 flex items-center gap-3 border-b border-(--border) bg-(--base) shrink-0 anim-fade-up"
             >
-              {/* Back-to-list mobile-only */}
+              {}
               <button
                 onClick={() => { setActiveDM(null); navigate('/app/dm') }}
                 className="md:hidden size-11 flex items-center justify-center border border-(--border) text-(--text-2) hover:border-(--accent) hover:text-(--accent) transition-[color,border-color,transform] duration-150 active:scale-95 cursor-pointer shrink-0"
@@ -181,7 +171,7 @@ export default function DMPage() {
             />
           </>
         ) : (
-          /* Empty state — asymmetric serif renaissance editorial */
+
           <div className="flex-1 relative overflow-hidden">
             <div className="ed-vignette" />
 

@@ -21,14 +21,10 @@ interface PollCardProps {
   channelId: string
   messageId: string
   poll:      PollData
-  /** Se for o autor da mensagem, pode encerrar */
+
   canClose:  boolean
 }
 
-/**
- * Card de poll inline na mensagem. Vote toggle → POST /vote.
- * Atualiza optimisticamente; socket vai confirmar via `poll_updated`.
- */
 export default function PollCard({ channelId, messageId, poll, canClose }: PollCardProps) {
   const { t } = useTranslation()
   const me = useAuthStore((s) => s.user)
@@ -36,7 +32,6 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
   const [local, setLocal] = useState<PollData>(poll)
   const [voting, setVoting] = useState<string | null>(null)
 
-  // Sync com props quando socket emite update
   useEffect(() => { setLocal(poll) }, [poll])
 
   const totalVotes = useMemo(
@@ -52,13 +47,12 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
     if (closed || voting || !me) return
     setVoting(optionId)
 
-    // Optimistic update
     setLocal((prev) => {
       const isVoting = !prev.options.find((o) => o.id === optionId)!.votes.includes(me.id)
       return {
         ...prev,
         options: prev.options.map((o) => {
-          // Single-vote: tira voto de outras opções primeiro
+
           if (!prev.allowMultiple && o.id !== optionId) {
             return { ...o, votes: o.votes.filter((u) => u !== me.id) }
           }
@@ -78,7 +72,7 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
     try {
       await api.post(`/api/channels/${channelId}/polls/${messageId}/vote`, { optionId })
     } catch {
-      // Reverte ao receber socket de updated, ou ignora silenciosamente
+
     } finally {
       setVoting(null)
     }
@@ -133,7 +127,7 @@ export default function PollCard({ channelId, messageId, poll, canClose }: PollC
                   (closed || voting !== null) && 'cursor-default opacity-90',
                 )}
               >
-                {/* fill bar */}
+                {}
                 <div
                   className={cn(
                     'absolute inset-y-0 left-0 transition-all duration-300 ease-out',

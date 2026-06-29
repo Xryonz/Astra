@@ -1,14 +1,4 @@
-/**
- * LatencyOverlay — HUD canto inferior-direito com p50/p95/p99 do round-trip
- * de envio de mensagens (fonte: lib/latencyProbe).
- *
- * Toggle: Ctrl+Shift+L (não conflita com atalhos do app).
- * Persistência: localStorage 'astra:dev:latency' = '1' → começa visível
- * (útil pra deixar ligado durante sessão de tuning).
- *
- * Não bloqueia produção: pode ficar montado sempre, é só cosmético e
- * lê do ring buffer já existente.
- */
+
 import { useEffect, useState } from 'react'
 import { latencySummary } from '@/lib/latencyProbe'
 
@@ -21,7 +11,6 @@ export function LatencyOverlay() {
   })
   const [s, setS] = useState(() => latencySummary())
 
-  // Toggle Ctrl+Shift+L (ou Cmd+Shift+L)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
@@ -37,8 +26,6 @@ export function LatencyOverlay() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Tick a cada 1s enquanto aberto — sem requestAnimationFrame
-  // (HUD muda devagar; 1Hz é suficiente e barato).
   useEffect(() => {
     if (!open) return
     const id = window.setInterval(() => setS(latencySummary()), 1000)
@@ -82,7 +69,7 @@ export function LatencyOverlay() {
 }
 
 function Row({ label, value }: { label: string; value: number }) {
-  // Tint pelo p50 alvo: <80ms verde, 80-150 normal, >150 alerta
+
   const color = value < 80 ? 'var(--success)' : value > 150 ? 'var(--warning)' : 'var(--text-1)'
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>

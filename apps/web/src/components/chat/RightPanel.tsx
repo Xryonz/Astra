@@ -47,24 +47,23 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
 
   return (
     <>
-      {/* Backdrop mobile só */}
+      {}
       <div
         onClick={close}
         className="md:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm anim-fade-in"
       />
 
-      {/* Aside fixo à direita — coluna inline em desktop, drawer em mobile */}
+      {}
       <aside
         className={cn(
-          // md:h-full (não h-screen-safe): no desktop é flex child do shell;
-          // no mobile a altura vem do fixed top-0/bottom-0.
+
           'shrink-0 md:h-full border-l border-(--border) bg-(--base) flex flex-col z-50',
           'w-72 sm:w-80',
-          // Mobile: drawer fixed à direita; Desktop: estático na flex-row do AppPage
+
           'fixed top-0 right-0 bottom-0 md:static md:top-auto md:right-auto md:bottom-auto',
         )}
       >
-        {/* Header */}
+        {}
         <div className="h-12 px-3 flex items-center gap-2 border-b border-(--border) shrink-0">
           <h3
             className="text-sm m-0 font-medium tracking-tight text-foreground truncate flex-1"
@@ -116,7 +115,6 @@ function MembersList({ serverId, onPickUser }: { serverId: string; onPickUser: (
     enabled:  !!serverId,
   })
 
-  // Bulk fetch presence pra todos os members
   useEffect(() => {
     if (members.length === 0) return
     const ids = members.map((m) => m.userId).join(',')
@@ -176,9 +174,6 @@ function MembersList({ serverId, onPickUser }: { serverId: string; onPickUser: (
     [t('rightPanel.offline'), offline,        null],
   ]
 
-  // Achata as seções numa lista linear (header + members intercalados) pra
-  // virtualizar: servidor com 500 membros monta só ~25 linhas no DOM em vez
-  // de 500. Cada linha vira um item do virtualizer.
   type Row =
     | { kind: 'header'; title: string; count: number; icon: React.ReactNode }
     | { kind: 'member'; m: Member; status: UserStatus }
@@ -205,7 +200,7 @@ function VirtualMembers({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    // headers ~30px, members ~40px — measureElement corrige o real depois
+
     estimateSize: (i) => (rows[i].kind === 'header' ? 30 : 40),
     overscan: 8,
   })
@@ -271,7 +266,6 @@ function ThreadsList({ channelId }: { channelId: string }) {
     enabled:  !!channelId,
   })
 
-  // Socket: refresh quando alguém cria thread no canal
   useEffect(() => {
     let sock: ReturnType<typeof getSocket>
     try { sock = getSocket() } catch { return }

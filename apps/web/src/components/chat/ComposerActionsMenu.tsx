@@ -1,12 +1,4 @@
-/**
- * Menu de "extras" do composer: GIF, Emoji, Enquete, Mensagem efêmera.
- *
- * Trigger: Sparkle (editorial, 1 ponta). Click → painel desliza de baixo pra cima
- * com lista vertical de ações. Click fora ou Esc fecha.
- *
- * Pra TTL (mensagem efêmera), o painel troca pra um sub-menu inline com as
- * durações — escolher um valor fecha o painel e seta ttlSeconds.
- */
+
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -20,12 +12,12 @@ export interface ComposerActionsMenuProps {
   onEmoji:      () => void
   onPoll:       () => void
   onTtlChange:  (secs: number) => void
-  /** Esconde item "Enquete" — usado no DMInput (DM 1:1 não tem polls) */
+
   hidePoll?:    boolean
-  /** Anexar arquivo — só aparece no mobile (desktop tem o clipe exposto) */
+
   onAttach?:    () => void
   attachDisabled?: boolean
-  /** Abrir a câmera direto (input capture) — só mobile */
+
   onCamera?:    () => void
 }
 
@@ -54,7 +46,6 @@ export function ComposerActionsMenu({
   const ref = useRef<HTMLDivElement>(null)
   const TTL_OPTIONS = buildTtlOptions(t)
 
-  // Click fora + Esc fecham
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
@@ -145,9 +136,7 @@ export function ComposerActionsMenu({
                 <span className="ed-marg">{t('chat.composer.extras')}</span>
               </header>
               <div className="flex flex-col">
-                {/* Mobile-only (sm:hidden): no desktop o clipe fica exposto
-                    na row; aqui ele vive dentro do "+" — composer Discord-style
-                    libera largura pro campo de texto. */}
+                {}
                 {onCamera && !attachDisabled && (
                   <MenuItem
                     className="sm:hidden"

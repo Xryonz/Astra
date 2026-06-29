@@ -1,7 +1,4 @@
-/**
- * Cria server ou grupo. Modal com pop-from-origin animation
- * (popOrigin = posição do botão clicado).
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -28,7 +25,6 @@ export function CreateServerDialog({ open, onClose, mode, popOrigin, onCreated }
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
 
-  // Reset ao fechar (UX: abrir de novo começa limpo)
   useEffect(() => { if (!open) { setName(''); setError('') } }, [open])
 
   const createServer = useMutation({

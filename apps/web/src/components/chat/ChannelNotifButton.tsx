@@ -1,7 +1,4 @@
-/**
- * Bell icon no channel header → dropdown 3-state pra mode de notif.
- * Lê/grava via useChannelNotifPref (React Query). Optimistic update.
- */
+
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Bell, BellOff, AtSign, Check } from 'lucide-react'
@@ -28,7 +25,6 @@ export default function ChannelNotifButton({ channelId }: Props) {
   const set     = useSetChannelNotifPref()
   const OPTIONS = buildOptions(t)
 
-  // Ícone reflete o modo atual
   const Icon = current === 'mute' ? BellOff : current === 'mentions' ? AtSign : Bell
   const title =
     current === 'mute'     ? t('notif.stateMuted')
@@ -39,8 +35,7 @@ export default function ChannelNotifButton({ channelId }: Props) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          // Desktop only — no mobile estas opções vivem dentro do menu "⋯"
-          // (ChannelNotifMenuItems), deixando o header com 2 ações.
+
           className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
           aria-label={title}
           title={title}
@@ -68,11 +63,6 @@ export default function ChannelNotifButton({ channelId }: Props) {
   )
 }
 
-/**
- * Itens planos pro menu "⋯" do header mobile (submenu aninhado é ruim no
- * touch). Renderiza separador + label + as 3 opções com check no modo atual.
- * Deve viver dentro de um <DropdownMenuContent>.
- */
 export function ChannelNotifMenuItems({ channelId }: Props) {
   const { t }   = useTranslation()
   const current = useChannelNotifPref(channelId)

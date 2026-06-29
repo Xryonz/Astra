@@ -15,14 +15,14 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen flex font-(family-name:--font-body) overflow-hidden">
 
-      {/* Grain — paper feel */}
+      {}
       <div className="ed-grain" aria-hidden="true" />
 
-      {/* ── LEFT — editorial title panel (desktop only) ─────── */}
+      {}
       <aside className="relative hidden lg:flex flex-1 border-r border-(--border) bg-(--base) overflow-hidden">
         <div className="ed-vignette" aria-hidden="true" />
 
-        {/* Ambient orbs */}
+        {}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[
             { w: 520, h: 520, top: '-18%', left: '-22%', delay: '0s',  dur: '14s', strength: 'glow' },
@@ -42,7 +42,7 @@ export default function LoginPage() {
           ))}
         </div>
 
-        {/* Editorial grid mask */}
+        {}
         <div
           className="absolute inset-0 pointer-events-none opacity-30"
           style={{
@@ -80,10 +80,10 @@ export default function LoginPage() {
 
       </aside>
 
-      {/* ── RIGHT — sign-in chamber ────────────────────────── */}
+      {}
       <main className="relative w-full lg:max-w-130 flex items-center justify-center px-8 lg:px-16 py-12">
 
-        {/* Soft accent glow behind form */}
+        {}
         <div
           className="absolute pointer-events-none"
           style={{
@@ -93,7 +93,7 @@ export default function LoginPage() {
           }}
         />
 
-        {/* Top-right marginalia */}
+        {}
         <div className="absolute top-10 right-10 flex items-baseline gap-3">
           <span className="ed-marg">Page</span>
           <span className="font-(family-name:--font-display) text-(--text-2) text-sm italic">i</span>

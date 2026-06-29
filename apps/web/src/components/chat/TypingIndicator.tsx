@@ -7,7 +7,7 @@ interface TypingUser { userId: string; username: string }
 
 interface Props {
   channelId?:      string
-  conversationId?: string  // DM scope: ouve dm_user_typing/dm_user_stopped_typing
+  conversationId?: string
 }
 
 export default function TypingIndicator({ channelId, conversationId }: Props) {
@@ -59,7 +59,7 @@ export default function TypingIndicator({ channelId, conversationId }: Props) {
       display: 'flex', alignItems: 'center', gap: 7,
       animation: 'fadeUp 0.2s var(--ease-spring) both',
     }}>
-      {/* Animated dots */}
+      {}
       <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
         <span className="t-dot" />
         <span className="t-dot" />

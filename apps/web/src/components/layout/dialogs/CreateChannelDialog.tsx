@@ -1,6 +1,4 @@
-/**
- * Cria canal (TEXT ou VOICE) dentro de um server.
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -28,8 +26,6 @@ export function CreateChannelDialog({ open, onClose, serverId }: Props) {
 
   useEffect(() => { if (!open) { setName(''); setType('TEXT'); setError('') } }, [open])
 
-  // Backend exige /^[a-z0-9-]+$/. Convertemos input do user pro slug válido
-  // em tempo real (lowercase, acentos removidos, espaços → hífen, demais → '').
   const toSlug = (s: string) =>
     s
       .normalize('NFD').replace(/\p{Diacritic}/gu, '')

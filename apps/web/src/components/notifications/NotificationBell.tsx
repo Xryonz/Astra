@@ -1,9 +1,4 @@
-/**
- * Sino com badge + popover do centro de notificações.
- *
- * Layout editorial: ícone sutil, badge no canto, popover ancorado
- * com lista scrollable + filtros + mark-all-read.
- */
+
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -37,8 +32,6 @@ export function NotificationBell() {
   const { data: count } = useNotificationCount()
   const unread = count?.count ?? 0
 
-  // Shake + badge pop quando unread sobe.
-  // shakeKey re-trigger animation reset via key change.
   const [shakeKey, setShakeKey] = useState(0)
   const prevUnreadRef = useRef(unread)
   useEffect(() => {
@@ -46,7 +39,6 @@ export function NotificationBell() {
     prevUnreadRef.current = unread
   }, [unread])
 
-  // Click-outside fecha
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
@@ -62,8 +54,7 @@ export function NotificationBell() {
   }, [open])
 
   return (
-    // Mobile NÃO tem este sino — lá as notificações abrem pela tab "Avisos"
-    // do bottom nav (MobileNotificationsSheet). Dois sinos era redundante.
+
     <div ref={wrapRef} className="relative hidden md:block">
       <button
         type="button"
@@ -113,8 +104,7 @@ function BellIcon() {
 
 export function NotificationCenter({
   onClose,
-  // Default = popover ancorado no sino (desktop). Mobile passa classes de
-  // preenchimento do bottom sheet (MobileNotificationsSheet).
+
   className = 'absolute right-0 mt-2 w-95 max-h-130 rounded-xl border border-border bg-background shadow-2xl z-50',
 }: {
   onClose: () => void
@@ -147,7 +137,7 @@ export function NotificationCenter({
         </button>
       </header>
 
-      {/* Tabs filtro */}
+      {}
       <div className="flex gap-1 px-3 py-2 border-b border-border overflow-x-auto">
         {(['all', 'mention', 'dm', 'reply', 'reaction'] as const).map((f) => (
           <button

@@ -1,9 +1,4 @@
-/**
- * Mapa lang → loader (dynamic import). Compartilhado entre o Web Worker
- * (highlighter.worker) e o fallback main-thread (highlighter.ts). Cada
- * `() => import(...)` vira um chunk separado: a grammar só baixa quando
- * alguém abre um code block daquela linguagem.
- */
+
 export const LANG_LOADERS: Record<string, () => Promise<any>> = {
   js:         () => import('@shikijs/langs/javascript'),
   javascript: () => import('@shikijs/langs/javascript'),
@@ -45,7 +40,6 @@ export const LANG_LOADERS: Record<string, () => Promise<any>> = {
   svelte:     () => import('@shikijs/langs/svelte'),
 }
 
-/** Verifica se uma lang é suportada (checagem barata, sem baixar grammar). */
 export function isSupportedLang(lang: string): boolean {
   return lang.toLowerCase() in LANG_LOADERS
 }

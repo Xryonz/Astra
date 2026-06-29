@@ -1,11 +1,4 @@
-/**
- * DMInput — composer rico pra DMs.
- *
- * Features: anexos (drag/paste/click), GIF, emoji, voz, mensagem efêmera,
- * reply, drag-and-drop. Sem mentions/poll/bot (não fazem sentido em DM 1:1).
- *
- * Layout: shadcn-style hairline border, focus accent.
- */
+
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, X, CornerDownRight, Paperclip, File as FileIcon, Mic, Square, Play } from 'lucide-react'
@@ -56,7 +49,7 @@ interface DMInputProps {
   onCancelReply?:      () => void
   onOptimisticMessage: (msg: OptimisticMessage) => void
   onOptimisticFailed:  (id: string) => void
-  /** Confirma a otimista pela resposta do POST — não depende do eco socket */
+
   onOptimisticConfirmed?: (optimisticId: string, msg: MessageWithAuthor) => void
 }
 
@@ -80,7 +73,6 @@ export default function DMInput({
   const fileRef   = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
-  // ─── Audio recorder (mesmo padrão do MessageInput) ───────────
   const recorder = useAudioRecorder(async (att) => {
     const optimisticId = nextId()
     const optimisticMsg: OptimisticMessage = {
@@ -173,10 +165,9 @@ export default function DMInput({
       replyTo:     replyToSnapshot,
     } as any
     onOptimisticMessage(optimisticMsg)
-    hapticLight()  // toque seco no "enviou" — no-op no web
+    hapticLight()
     onCancelReply?.()
 
-    // Texto puro (sem anexo/reply/ttl) pode ir pra outbox se offline.
     const canQueue =
       attachmentsToSend.length === 0 && !replyToSnapshot && (!ttlSeconds || ttlSeconds <= 0)
 
@@ -236,15 +227,12 @@ export default function DMInput({
     if (files.length > 0) { e.preventDefault(); handleFiles(files) }
   }
 
-  // Foco auto quando inicia reply
   useEffect(() => {
     if (replyingTo) inputRef.current?.focus()
   }, [replyingTo?.id])
 
   const canSend = (content.trim().length > 0 || attachments.length > 0) && !uploading
 
-  // Mesmo padrão do MessageInput: mobile com campo vazio = botão vira MIC
-  // (hold-to-record); com texto, morpha pra seta de enviar.
   const holdMic = useHoldToRecord(recorder)
   const micMode = (!canSend && !recorder.isActive) || holdMic.isHolding
 
@@ -259,7 +247,7 @@ export default function DMInput({
         if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files)
       }}
     >
-      {/* Drag overlay */}
+      {}
       {dragOver && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-(--accent-dim)/90 border-2 border-dashed border-(--accent) pointer-events-none">
           <div className="text-center">
@@ -287,7 +275,7 @@ export default function DMInput({
         onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files) }}
       />
 
-      {/* Attachment chips */}
+      {}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {attachments.map((a, i) => (
@@ -327,7 +315,7 @@ export default function DMInput({
         </p>
       )}
 
-      {/* GIF picker */}
+      {}
       {gifOpen && (
         <Suspense fallback={null}>
           <GifPicker
@@ -338,7 +326,7 @@ export default function DMInput({
         </Suspense>
       )}
 
-      {/* Emoji picker — popover acima do composer */}
+      {}
       {emojiOpen && (
         <div className="absolute bottom-16 left-4 z-40">
           <Suspense fallback={null}>
@@ -353,7 +341,7 @@ export default function DMInput({
         </div>
       )}
 
-      {/* Reply banner */}
+      {}
       {replyingTo && (
         <div className="flex items-center gap-3 mb-2 px-3 py-2 border border-(--border-mid) bg-(--raised)/50 anim-fade-up">
           <CornerDownRight className="size-3.5 text-(--accent) shrink-0" />
@@ -374,15 +362,15 @@ export default function DMInput({
         </div>
       )}
 
-      {/* Composer row — pill input com radius suave */}
+      {}
       <div className={cn(
-        // Pill mobile com glow âmbar no focus (mesmo redesign do MessageInput)
+
         'flex items-center gap-0.5 sm:gap-1.5 min-h-12 sm:min-h-10 px-1.5 sm:px-2 py-1 rounded-3xl sm:rounded-xl border border-(--border-mid) bg-(--raised)/55 sm:bg-(--raised)/40',
         'focus-within:border-(--accent)/80 sm:focus-within:border-(--accent) focus-within:bg-(--raised)/75 sm:focus-within:bg-(--raised)/60',
         'focus-within:shadow-[0_6px_22px_-10px_var(--accent-glow)] sm:focus-within:shadow-none sm:focus-within:ring-2 sm:focus-within:ring-(--accent)/15',
         'transition-[border-color,background-color,box-shadow] duration-200',
       )}>
-        {/* Attach — desktop only; no mobile vive dentro do "+" (extras) */}
+        {}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
@@ -398,12 +386,12 @@ export default function DMInput({
           <Paperclip className="size-4" />
         </button>
 
-        {/* Menu de extras (sem poll em DM) */}
+        {}
         <ComposerActionsMenu
           ttlSeconds={ttlSeconds}
           onGif={() => setGifOpen(true)}
           onEmoji={() => setEmojiOpen(true)}
-          onPoll={() => { /* não-op em DM — passamos handler vazio */ }}
+          onPoll={() => { }}
           onTtlChange={(s) => setTtlSeconds(s)}
           hidePoll
           onAttach={() => fileRef.current?.click()}
@@ -411,7 +399,7 @@ export default function DMInput({
           onCamera={() => cameraRef.current?.click()}
         />
 
-        {/* Mic trigger desktop — no mobile o mic é o botão de ação (hold). */}
+        {}
         {recorder.state === 'idle' && (
           <button
             type="button"
@@ -424,7 +412,7 @@ export default function DMInput({
           </button>
         )}
 
-        {/* TTL indicator chip */}
+        {}
         {ttlSeconds > 0 && (
           <button
             onClick={() => setTtlSeconds(0)}
@@ -464,8 +452,7 @@ export default function DMInput({
           />
         )}
 
-        {/* Cancel + Pause/Resume ao lado da seta durante gravação.
-            No hold-to-record não aparecem (solta envia, desliza ← cancela). */}
+        {}
         {recorder.isActive && recorder.state !== 'uploading' && !holdMic.isHolding && (
           <>
             <button

@@ -1,16 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-/**
- * Skeleton — shimmer editorial.
- *
- * Sweep gradient via keyframe `shimmer` (definido em index.css) entre
- * --raised → --hover → --raised. Mais cinematográfico que pulse opacity
- * e adapta a qualquer paleta de tema que o usuário escolha.
- *
- * Use Tailwind pra width/height/rounded — esse primitive só aplica
- * a textura. Ex: `<Skeleton className="size-9 rounded-full" />`.
- */
 function Skeleton({ className, style, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div

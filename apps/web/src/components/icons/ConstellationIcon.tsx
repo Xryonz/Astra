@@ -1,4 +1,4 @@
-/** Glyph custom: 4 pontos conectados — "constelação". Lucide não tem. */
+
 export function ConstellationIcon({ className }: { className?: string }) {
   return (
     <svg

@@ -1,14 +1,4 @@
-/**
- * Reveal — wrapper que faz fade + rise quando o elemento monta.
- *
- * CSS-only: usa animation keyframe `reveal-rise` (definido em index.css)
- * com --reveal-distance custom property. Sem custo de motion lib runtime —
- * o browser compositor cuida sozinho. GPU-direct, zero JS observers.
- *
- * Trade-off vs motion: não tem viewport-detection (anima no mount, não
- * quando entra no viewport). 99% dos usos na Astra são mount-time
- * (página abrindo), então CSS é estritamente melhor aqui.
- */
+
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
@@ -37,10 +27,6 @@ export function Reveal({
   )
 }
 
-/**
- * Stagger — pai que escalona filhos. Cada child entra em Reveal
- * com delay incremental.
- */
 interface StaggerProps {
   initialDelay?: number
   step?:         number

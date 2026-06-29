@@ -1,7 +1,4 @@
-/**
- * Slash commands — transformações client-side aplicadas no `content` antes de mandar.
- * Retorna o content transformado ou null se não for command/sem match.
- */
+
 import i18n from '@/i18n'
 
 interface SlashCommand {
@@ -10,7 +7,6 @@ interface SlashCommand {
   transform: (args: string) => string
 }
 
-// description vem do i18n (slash.<name>) — resolvida em listSlashCommands().
 const COMMANDS: { name: string; transform: (args: string) => string }[] = [
   { name: 'me',        transform: (args) => args.trim() ? `*${args.trim()}*` : '' },
   { name: 'shrug',     transform: (args) => `¯\\_(ツ)_/¯${args ? ' ' + args.trim() : ''}` },
@@ -26,11 +22,6 @@ export function listSlashCommands(): ReadonlyArray<SlashCommand> {
   return COMMANDS.map((c) => ({ ...c, description: i18n.t(`slash.${c.name}`) }))
 }
 
-/**
- * Se `text` for um slash command suportado, retorna o resultado transformado.
- * Senão retorna null (caller manda o texto raw).
- * `/astra` (e legado `/umbra`) é tratado em outro lugar (bot) — não conflita.
- */
 export function applySlashCommand(text: string): string | null {
   const m = text.match(/^\/([a-z]+)(?:\s+(.*))?$/i)
   if (!m) return null

@@ -17,7 +17,6 @@ import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import type { MessageWithAuthor, Attachment } from '@astra/types'
 
-// Lazy: pickers pesados (emoji-mart ~300KB, giphy w/ network) só carregam ao abrir
 const GifPicker       = lazy(() => import('@/components/chat/GifPicker'))
 const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
 const PollComposer    = lazy(() => import('@/components/chat/PollComposer'))
@@ -57,8 +56,7 @@ interface MessageInputProps {
   onCancelReply?:      () => void
   onOptimisticMessage: (msg: OptimisticMessage) => void
   onOptimisticFailed:  (id: string) => void
-  /** Confirma a otimista pelo ACK/response — NÃO depende do eco de
-      broadcast (que se perde em reconexão e deixava "enviando" preso). */
+
   onOptimisticConfirmed?: (optimisticId: string, msg: MessageWithAuthor) => void
 }
 
@@ -82,7 +80,7 @@ export default function MessageInput({
   const [gifOpen,     setGifOpen]     = useState(false)
   const [emojiOpen,   setEmojiOpen]   = useState(false)
   const [pollOpen,    setPollOpen]    = useState(false)
-  // ttlSeconds: 0 = sem TTL (permanente). Opções comuns: 1h, 6h, 24h, 7d
+
   const [ttlSeconds,  setTtlSeconds]  = useState<number>(0)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -90,12 +88,6 @@ export default function MessageInput({
   const cameraRef = useRef<HTMLInputElement>(null)
   const { startTyping, stopTyping } = useTyping(channelId)
 
-  // ─── Audio recorder ──────────────────────────────────────────
-  // Estado mora aqui (sobe da UI antiga). Send arrow finaliza, Square
-  // pausa/retoma, X cancela. Bug do botão de áudio "não funcionar"
-  // era UX: tinha 2 ações (square=enviar, X=cancelar) dentro do
-  // recorder, e a seta principal não atuava no áudio. Agora a seta é
-  // a única ação de "enviar" — texto OU áudio, conforme estado.
   const recorder = useAudioRecorder(async (att) => {
     const optimisticId = nextOptimisticId()
     const optimisticMsg: OptimisticMessage = {
@@ -237,7 +229,6 @@ export default function MessageInput({
       return
     }
 
-    // /lembre <texto> em <duração> — POST API, não envia msg (gera reminder)
     const rem = parseReminderCommand(trimmed)
     if (rem) {
       setContent('')
@@ -252,11 +243,10 @@ export default function MessageInput({
       return
     }
 
-    // Slash commands client-side (/me /shrug /tableflip /flip /unflip /spoiler)
     const transformed = applySlashCommand(trimmed)
     if (transformed !== null) {
       if (!transformed) {
-        // Command vazio sem args (ex: "/me" sem texto) — não envia
+
         setContent('')
         stopTyping()
         return
@@ -290,19 +280,15 @@ export default function MessageInput({
       replyTo: replyToSnapshot,
     } as any
     onOptimisticMessage(optimisticMsg)
-    hapticLight()  // toque seco no "enviou" — no-op no web
+    hapticLight()
     onCancelReply?.()
     probeStart(optimisticId)
 
-    // FAST PATH: texto puro, sem anexos/reply/TTL → socket direto
-    // (poupa ~30-50ms do handshake HTTP). Casos complexos caem no POST.
     const canFastSend =
       attachmentsToSend.length === 0 &&
       !replyToSnapshot &&
       (!ttlSeconds || ttlSeconds <= 0)
 
-    // Offline + texto puro: enfileira já (sem esperar timeout de rede) e
-    // mantém a otimista como pendente. Dispara no próximo 'online'.
     if (canFastSend && !navigator.onLine) {
       void enqueueOutbox({
         id: optimisticId, kind: 'channel', targetId: channelId, content: trimmed, createdAt: Date.now(),
@@ -314,13 +300,11 @@ export default function MessageInput({
     if (canFastSend) {
       const r = await fastSendText(channelId, trimmed, optimisticId)
       if (r.ok) {
-        // Confirma direto pelo ACK (msg real) — o eco de broadcast vira
-        // redundância idempotente em vez de única fonte de verdade.
+
         if (r.msg) onOptimisticConfirmed?.(optimisticId, r.msg as MessageWithAuthor)
         return
       }
-      // Fast path falhou (timeout/disconnect/erro) → cai pro HTTP abaixo.
-      // Mantém optimistic visível; HTTP completa ou marca como failed.
+
     }
 
     try {
@@ -334,8 +318,7 @@ export default function MessageInput({
       const real = res.data?.data
       if (real?.id) onOptimisticConfirmed?.(optimisticId, real)
     } catch (err: any) {
-      // Sem resposta = falha de rede (caiu no meio do envio). Texto puro vai
-      // pra outbox e fica pendente — dispara quando a rede voltar.
+
       if (!err?.response && canFastSend) {
         void enqueueOutbox({
           id: optimisticId, kind: 'channel', targetId: channelId, content: trimmed, createdAt: Date.now(),
@@ -377,10 +360,6 @@ export default function MessageInput({
 
   const canSend = (content.trim().length > 0 || attachments.length > 0) && !muted && !uploading
 
-  // Norma WhatsApp (mobile): campo vazio = botão vira MIC (segura grava,
-  // solta envia, desliza ← cancela); com texto, morpha pra seta de enviar.
-  // isHolding mantém o micMode durante a gravação segurada — sem isso os
-  // touch handlers desmontariam no meio do gesto.
   const holdMic = useHoldToRecord(recorder)
   const micMode = (!canSend && !recorder.isActive && !muted) || holdMic.isHolding
   const mins    = Math.ceil(muteSeconds / 60)
@@ -407,7 +386,7 @@ export default function MessageInput({
         if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files)
       }}
     >
-      {/* Drag overlay */}
+      {}
       {dragOver && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-(--accent-dim)/90 border-2 border-dashed border-(--accent) pointer-events-none">
           <div className="text-center">
@@ -418,7 +397,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Hidden file input */}
+      {}
       <input
         ref={fileRef}
         type="file"
@@ -427,8 +406,7 @@ export default function MessageInput({
         onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files) }}
       />
 
-      {/* Hidden camera input — item "Câmera" do "+" abre direto a câmera
-          (capture=environment). Só mobile usa; no desktop nem aparece. */}
+      {}
       <input
         ref={cameraRef}
         type="file"
@@ -438,7 +416,7 @@ export default function MessageInput({
         onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files) }}
       />
 
-      {/* Attachment chips */}
+      {}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {attachments.map((a, i) => (
@@ -482,7 +460,7 @@ export default function MessageInput({
         </p>
       )}
 
-      {/* GIF picker — popover acima do input (só monta quando aberto) */}
+      {}
       {gifOpen && (
         <Suspense fallback={null}>
           <GifPicker
@@ -493,7 +471,7 @@ export default function MessageInput({
         </Suspense>
       )}
 
-      {/* Poll composer — dialog */}
+      {}
       {pollOpen && (
         <Suspense fallback={null}>
           <PollComposer
@@ -504,7 +482,7 @@ export default function MessageInput({
         </Suspense>
       )}
 
-      {/* Emoji picker — popover acima do composer (só monta quando aberto) */}
+      {}
       {emojiOpen && (
         <div className="absolute bottom-16 left-6 z-40">
           <Suspense fallback={null}>
@@ -519,7 +497,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Mention autocomplete — editorial popover */}
+      {}
       {mentionQuery !== null && suggestions.length > 0 && (
         <div className="absolute bottom-full left-6 right-6 mb-2 z-50 bg-(--overlay) border border-(--border-mid) p-2 shadow-2xl">
           <div className="flex items-center gap-2 mb-2 px-2">
@@ -561,7 +539,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Mute banner — editorial */}
+      {}
       {muted && (
         <div className="flex items-start gap-3 mb-3 px-4 py-3 border border-(--danger)/40 bg-(--danger)/5">
           <VolumeX className="size-4 text-(--danger) shrink-0 mt-0.5" />
@@ -574,7 +552,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Reply banner */}
+      {}
       {replyingTo && (
         <div className="flex items-center gap-3 mb-2 px-3 py-2 border border-(--border-mid) bg-(--raised)/50 anim-fade-up">
           <CornerDownRight className="size-3.5 text-(--accent) shrink-0" />
@@ -598,15 +576,10 @@ export default function MessageInput({
         </div>
       )}
 
-      {/* Composer row — pill input com radius suave.
-          Mobile: 48px de altura mínima (norma de toque Material/WhatsApp)
-          e foco indicado só pela borda — ring extra ficava poluído na tela
-          pequena. Desktop mantém o ring suave. */}
+      {}
       <div
         className={cn(
-          // Mobile: pill cheia (rounded-3xl) com glow âmbar suave no focus —
-          // é o componente mais usado do app, merece presença. Desktop
-          // mantém o retângulo discreto de sempre.
+
           'flex items-center gap-0.5 sm:gap-1.5 min-h-12 sm:min-h-10 px-1.5 sm:px-2 py-1 rounded-3xl sm:rounded-xl border border-(--border-mid) bg-(--raised)/55 sm:bg-(--raised)/40',
           'focus-within:border-(--accent)/80 sm:focus-within:border-(--accent) focus-within:bg-(--raised)/75 sm:focus-within:bg-(--raised)/60',
           'focus-within:shadow-[0_6px_22px_-10px_var(--accent-glow)] sm:focus-within:shadow-none sm:focus-within:ring-2 sm:focus-within:ring-(--accent)/15',
@@ -614,15 +587,14 @@ export default function MessageInput({
           muted && 'opacity-50',
         )}
       >
-        {/* Attach */}
+        {}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={muted || uploading || attachments.length >= MAX_ATTACHMENTS}
           aria-label={t('chat.composer.attach')}
           title={t('chat.composer.attach')}
           className={cn(
-            // hidden sm:flex — no mobile o anexo vive dentro do "+" (extras),
-            // Discord-style: menos botões disputando largura com o textarea.
+
             'shrink-0 size-8 hidden sm:flex items-center justify-center cursor-pointer transition-colors duration-200',
             muted || uploading || attachments.length >= MAX_ATTACHMENTS
               ? 'text-(--text-3) opacity-50 cursor-default'
@@ -632,7 +604,7 @@ export default function MessageInput({
           <Paperclip className="size-4" />
         </button>
 
-        {/* Menu de extras: Anexo (mobile) / GIF / Emoji / Enquete / Efêmera */}
+        {}
         <ComposerActionsMenu
           disabled={muted}
           ttlSeconds={ttlSeconds}
@@ -645,8 +617,7 @@ export default function MessageInput({
           onCamera={() => cameraRef.current?.click()}
         />
 
-        {/* Mic trigger desktop — no mobile o mic é o botão de ação à direita
-            (hold-to-record). Só visível quando idle; recording UI assume a row. */}
+        {}
         {recorder.state === 'idle' && (
           <button
             type="button"
@@ -663,7 +634,7 @@ export default function MessageInput({
           </button>
         )}
 
-        {/* TTL indicator chip — clicável só pra status visual */}
+        {}
         {ttlSeconds > 0 && (
           <button
             onClick={() => setTtlSeconds(0)}
@@ -675,10 +646,10 @@ export default function MessageInput({
           </button>
         )}
 
-        {/* Vertical hairline separator */}
+        {}
         <span className="h-5 w-px bg-(--border) shrink-0" aria-hidden />
 
-        {/* Center: textarea OU UI de gravação (bars + timer) */}
+        {}
         {recorder.isActive ? (
           <RecordingDisplay
             state={recorder.state}
@@ -706,9 +677,7 @@ export default function MessageInput({
           />
         )}
 
-        {/* Durante gravação: Cancel + Pause/Resume ao lado da seta.
-            No hold-to-record (isHolding) NÃO aparecem — soltar envia,
-            deslizar pra esquerda cancela. */}
+        {}
         {recorder.isActive && recorder.state !== 'uploading' && !holdMic.isHolding && (
           <>
             <button
@@ -732,12 +701,10 @@ export default function MessageInput({
           </>
         )}
 
-        {/* Botão de ação — norma WhatsApp no mobile: campo vazio = MIC
-            (segura grava · solta envia · desliza ← cancela); com texto,
-            morpha pra seta. Desktop: seta sempre (mic próprio à esquerda). */}
+        {}
         <motion.button
           onClick={() => {
-            if (holdMic.consumeTouch()) return // touch já tratou (hold/tap)
+            if (holdMic.consumeTouch()) return
             if (recorder.isActive && recorder.state !== 'uploading') {
               recorder.finalize()
             } else if (canSend) {

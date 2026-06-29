@@ -22,10 +22,6 @@ interface MessageMobileActionsProps {
   onCreateThread?: () => void
 }
 
-/**
- * Bottom sheet de ações pra mensagem em mobile — disparado por long-press.
- * Sem hover. Toque grande pra dedo.
- */
 export default function MessageMobileActions({
   open, onClose, isMine, isPinned, isBookmarked, authorName, contentPreview,
   onPickEmoji, onReply, onEdit, onTogglePin, onToggleBookmark, onDelete, onCopy, onCreateThread,
@@ -33,7 +29,6 @@ export default function MessageMobileActions({
   const { t } = useTranslation()
   const QUICK = ['👍','❤️','😂','😮','😢','🔥']
 
-  // Feedback tátil no long-press que abriu o sheet (no-op no web)
   useEffect(() => { if (open) hapticMedium() }, [open])
 
   const wrap = (fn?: () => void) => () => { fn?.(); onClose() }
@@ -50,7 +45,7 @@ export default function MessageMobileActions({
           </SheetDescription>
         </div>
 
-        {/* Reações rápidas */}
+        {}
         <div className="flex justify-between gap-2 px-5 py-4 border-b border-(--border)">
           {QUICK.map((e) => (
             <button
@@ -62,7 +57,7 @@ export default function MessageMobileActions({
           ))}
         </div>
 
-        {/* Lista de ações */}
+        {}
         <ul className="flex flex-col py-2">
           <ActionRow icon={<Smile className="size-4" />}  label={t('msgActions.moreEmojis')}   onClick={wrap(onPickEmoji)} />
           <ActionRow icon={<Reply className="size-4" />}  label={t('msgActions.reply')}     onClick={wrap(onReply)} />

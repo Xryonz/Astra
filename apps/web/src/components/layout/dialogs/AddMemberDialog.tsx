@@ -1,6 +1,4 @@
-/**
- * Convida user via username pra um server/grupo.
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'

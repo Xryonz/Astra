@@ -3,16 +3,11 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import StatusDot, { STATUS_LABEL_KEY, type UserStatus } from '@/components/StatusDot'
 import { FONT_FAMILY, type DisplayFont } from './profileFonts'
 
-/**
- * Hero do perfil — avatar + nome + pronouns + emoji + handle + status.
- * Avatar overlapping no banner (-mt-12).
- * Tudo opcional exceto displayName/username.
- */
 interface Props {
   avatarUrl?:        string | null
   displayName:       string
   username:          string
-  /** Quando passada, renderiza a coord abaixo do handle. ProfileCard só passa pro próprio user. */
+
   coordinate?:       string
   pronouns?:         string | null
   statusEmoji?:      string | null
@@ -31,8 +26,7 @@ export function ProfileHero({
 
   return (
     <>
-      {/* Avatar — sobrepõe o banner.
-          Quando coordinate presente (isSelf) → renderiza orbit ring assinatura. */}
+      {}
       <div className="relative inline-block -mt-12 mb-3">
         {coordinate && <OrbitRing color={accentColor} />}
         <Avatar
@@ -56,7 +50,7 @@ export function ProfileHero({
         )}
       </div>
 
-      {/* Name + pronouns + emoji */}
+      {}
       <div className="flex items-baseline gap-2 flex-wrap mb-1">
         <h2
           className="text-2xl m-0 leading-tight wrap-break-word"
@@ -87,7 +81,7 @@ export function ProfileHero({
         {statusEmoji && <span className="text-xl leading-none self-center">{statusEmoji}</span>}
       </div>
 
-      {/* Handle + status */}
+      {}
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-mono text-(--text-3) tracking-wide">@{username}</span>
         {effectiveStatus && !isBot && (
@@ -101,19 +95,14 @@ export function ProfileHero({
         )}
       </div>
 
-      {/* Coordenada — só renderiza pra própria pessoa */}
+      {}
       {coordinate && <CoordinateChip coord={coordinate} accentColor={accentColor} />}
     </>
   )
 }
 
-/**
- * OrbitRing — círculo tracejado girando ao redor do avatar.
- * Signature visual reservada só pro avatar próprio (isSelf).
- * SVG, GPU-only animation (transform), reduced-motion respeitado via CSS class.
- */
 function OrbitRing({ color }: { color: string }) {
-  // Diâmetro 116 = avatar 96 (size-24) + margem de 10 cada lado
+
   const size = 116
   const r    = (size - 4) / 2
   return (
@@ -139,16 +128,13 @@ function OrbitRing({ color }: { color: string }) {
   )
 }
 
-/**
- * Chip da coordenada Astra. Clica → copia pra clipboard + toast.
- */
 function CoordinateChip({ coord, accentColor }: { coord: string; accentColor: string }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(coord)
       const { toast } = await import('@/components/ui/sonner')
       toast.success('Coordenada copiada.')
-    } catch { /* ignora — clipboard pode estar bloqueado em iframe */ }
+    } catch { }
   }
   return (
     <button

@@ -6,7 +6,6 @@ import { registerNativePush } from '@/lib/pushNative'
 
 type PushState = 'unsupported' | 'denied' | 'unsubscribed' | 'subscribed' | 'loading' | 'server-disabled'
 
-/** Lê a permissão FCM no app nativo e mapeia pro PushState. */
 async function nativePermState(): Promise<PushState> {
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
@@ -44,12 +43,8 @@ export function usePushNotifications() {
   const [state, setState] = useState<PushState>('loading')
   const navigate = useNavigate()
 
-  // Verifica suporte + state inicial. Checa também enabled server-side
-  // (VAPID configurado) antes de mostrar "Ativar" — sem isso o user clica,
-  // recebe erro de subscribe e fica frustrado.
   useEffect(() => {
-    // App nativo: push é FCM (não Web Push). Lê a permissão do device.
-    // O token já é registrado no login (registerNativePush em App.tsx).
+
     if (isNative) {
       void nativePermState().then(setState)
       return
@@ -60,7 +55,7 @@ export function usePushNotifications() {
     if (Notification.permission === 'denied') { setState('denied'); return }
     (async () => {
       try {
-        // Server tem VAPID configurado?
+
         const r = await api.get('/api/push/vapid-public-key')
         if (!r.data?.data?.enabled || !r.data?.data?.publicKey) {
           setState('server-disabled')
@@ -77,7 +72,6 @@ export function usePushNotifications() {
     })()
   }, [])
 
-  // Recebe navigate + reply vindos do SW (push click + actionable)
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     const onMsg = async (e: MessageEvent) => {
@@ -104,7 +98,7 @@ export function usePushNotifications() {
 
   const subscribe = useCallback(async () => {
     setState('loading')
-    // App nativo: pede permissão + registra o token FCM.
+
     if (isNative) {
       await registerNativePush()
       const s = await nativePermState()
@@ -118,7 +112,6 @@ export function usePushNotifications() {
       const reg = await getRegistration()
       if (!reg) { setState('unsupported'); return false }
 
-      // Pega a public key do backend
       const r = await api.get('/api/push/vapid-public-key')
       const pub = r.data?.data?.publicKey as string | null
       if (!pub) { console.warn('[Push] backend sem VAPID key'); setState('unsupported'); return false }
@@ -144,8 +137,7 @@ export function usePushNotifications() {
   }, [])
 
   const unsubscribe = useCallback(async () => {
-    // App nativo: a permissão é gerida pelo Android (não dá pra revogar por
-    // código). O usuário desativa por canal nas configs de notificação do SO.
+
     if (isNative) return
     setState('loading')
     try {

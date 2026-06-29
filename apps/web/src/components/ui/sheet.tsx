@@ -8,9 +8,6 @@ const SheetTrigger = DialogPrimitive.Trigger
 const SheetPortal  = DialogPrimitive.Portal
 const SheetClose   = DialogPrimitive.Close
 
-// Animações via classes nativas v4 (.sheet-overlay, .sheet-content-*) que
-// reagem ao data-state do Radix. Substitui tailwindcss-animate v3 (não
-// funciona em Tailwind v4 sem o plugin carregado).
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>

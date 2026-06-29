@@ -1,6 +1,4 @@
-/**
- * Rename server/grupo.
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,7 +24,6 @@ export function EditServerDialog({ open, onClose, target }: Props) {
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
 
-  // Sincroniza com target ao abrir
   useEffect(() => {
     if (open && target) { setName(target.name); setError('') }
   }, [open, target])

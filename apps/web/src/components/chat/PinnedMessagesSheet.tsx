@@ -6,15 +6,6 @@ import { api } from '@/lib/api'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import type { MessageWithAuthor } from '@astra/types'
 
-/**
- * Popover de mensagens fixadas. Antes era um Sheet (off-canvas direita),
- * trocamos por popover ancorado tipo dropdown — mais leve, menos disruptivo
- * que um drawer. Mesmo API (open/onClose) pra não quebrar callers.
- *
- * Posicionamento: fixed no canto superior direito da viewport, sob o header
- * (top-16). Funciona bem em desktop e mobile. Em mobile o popover ocupa
- * quase a largura toda; em desktop, max-w-md.
- */
 interface Props {
   channelId:   string
   channelName: string
@@ -26,7 +17,6 @@ export default function PinnedMessagesSheet({ channelId, channelName, open, onCl
   const { t, i18n } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
 
-  // Fecha ao clicar fora
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {

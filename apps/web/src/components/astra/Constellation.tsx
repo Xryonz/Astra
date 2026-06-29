@@ -1,25 +1,15 @@
-/**
- * Constellation — renderiza a constelação-assinatura de um nome como SVG.
- *
- * Mesmo nome = mesmo desenho, sempre (ver lib/constellation.ts). Usos:
- * banner default do servidor, fundo do ícone default, página de convite.
- *
- * Cor: herda currentColor — o pai controla via text-(--accent) etc.
- * animated: twinkle sutil de opacidade (compositor-only, barato).
- */
+
 import { memo, useMemo } from 'react'
 import { generateConstellation } from '@/lib/constellation'
 
 interface Props {
   name:      string
-  /** 1 estrela por membro (clamp 1–28). Sem isso: 5–9 via hash do nome. */
+
   stars?:    number
   className?: string
   animated?: boolean
 }
 
-// memo: o pai (Sidebar) re-renderiza com presença/unread a cada tick —
-// o SVG só re-gera quando nome ou nº de membros mudam de verdade.
 export const Constellation = memo(function Constellation({ name, stars: starCount, className, animated = false }: Props) {
   const { stars, edges, dust } = useMemo(
     () => generateConstellation(name, starCount),
@@ -34,12 +24,12 @@ export const Constellation = memo(function Constellation({ name, stars: starCoun
         `}</style>
       )}
 
-      {/* Poeira de fundo */}
+      {}
       {dust.map((d, i) => (
         <circle key={`d${i}`} cx={d.x} cy={d.y} r={d.r} fill="currentColor" opacity={0.25} />
       ))}
 
-      {/* Traçado */}
+      {}
       {edges.map((e, i) => (
         <line
           key={`e${i}`}
@@ -49,7 +39,7 @@ export const Constellation = memo(function Constellation({ name, stars: starCoun
         />
       ))}
 
-      {/* Estrelas (alfa ganha halo) */}
+      {}
       {stars.map((s, i) => (
         <g key={`s${i}`}>
           {s.alpha && <circle cx={s.x} cy={s.y} r={s.r * 2.2} fill="currentColor" opacity={0.15} />}
@@ -65,10 +55,6 @@ export const Constellation = memo(function Constellation({ name, stars: starCoun
   )
 })
 
-/**
- * ConstellationBanner — banner default de servidor: gradiente do void com
- * a constelação do nome em âmbar. Usado quando não há banner custom.
- */
 export function ConstellationBanner({ name, stars, className }: { name: string; stars?: number; className?: string }) {
   return (
     <div

@@ -1,9 +1,4 @@
-/**
- * Sheet "Salvos" — pasta pessoal de bookmarks.
- *
- * Cada item mostra snapshot da msg (autor + preview) + note editável + remover.
- * Lazy-loaded pelo caller (rare interaction).
- */
+
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'

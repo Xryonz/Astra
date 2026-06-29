@@ -16,7 +16,6 @@ export default function RegisterForm() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [searchParams] = useSearchParams()
 
-  // Pré-preencher email + lock se veio do flow "Google → email não registrado"
   const prefilledEmail = searchParams.get('email') ?? ''
   const fromGoogle     = searchParams.get('from') === 'google'
 

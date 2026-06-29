@@ -1,7 +1,4 @@
-/**
- * ProfileBadges — chips de insígnias no perfil. Globais (Pioneiro/Bot,
- * derivadas) + de servidor (concedidas pelo dono). Tooltip com descrição.
- */
+
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'

@@ -1,8 +1,4 @@
-/**
- * MessageListSkeleton — mensagens fake com avatar + nome + 1-3 linhas.
- * Larguras variam pra parecer mais natural (não enfileira retângulos iguais).
- * Estrutura column-reverse pra empilhar de baixo pra cima (como chat real).
- */
+
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface MessageListSkeletonProps {

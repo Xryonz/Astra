@@ -1,13 +1,4 @@
-/**
- * DMList — lista de conversas DM em estilo editorial.
- *
- * Antes: CSS inline com magic numbers, avatares circulares tintados,
- * preview cinza padrão.
- *
- * Agora: hairline list shadcn-style, tipografia mista (serif display +
- * mono timestamp + body preview), presence dot minimal, "Diga olá!" em
- * italic accent quando vazia, context menu (right-click) por item.
- */
+
 import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -74,14 +65,12 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
 
   const { ref: ptrRef, pull, refreshing } = usePullToRefresh<HTMLDivElement>(() => refetch())
 
-  // App nativo: long-press no ícone mostra as 3 DMs mais recentes
   useEffect(() => {
     setDmShortcuts(conversations.slice(0, 3).map((c) => ({
       id: c.id, title: c.otherUser.displayName,
     })))
   }, [conversations])
 
-  // Real-time: invalida lista quando chega DM nova
   useEffect(() => {
     let socket: ReturnType<typeof getSocket>
     try { socket = getSocket() } catch { return }
@@ -92,7 +81,7 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
 
   const markRead = useMutation({
     mutationFn: async (convId: string) =>
-      api.post(`/api/dm/${convId}/read`).catch(() => {/* endpoint pode não existir, ignora */}),
+      api.post(`/api/dm/${convId}/read`).catch(() => {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dm-list'] }),
   })
 
@@ -127,11 +116,6 @@ export default function DMList({ activeDMId, onSelectDM }: DMListProps) {
   )
 }
 
-/**
- * Memoizado + subscreve presence apenas do otherUserId.
- * Antes: presenceMap inteira no parent → cada tick de presence (qualquer user)
- * re-renderizava todos os itens. Agora cada item ouve só sua chave.
- */
 const ConversationItem = memo(function ConversationItem({
   conv, isActive, delay, onSelect, onMarkRead,
 }: {
@@ -143,9 +127,9 @@ const ConversationItem = memo(function ConversationItem({
 }) {
   const { t, i18n } = useTranslation()
   const dateLocale  = i18n.language === 'pt' ? ptBR : enUS
-  // Selector fino — Zustand só notifica este item quando a presence DESTE user mudar
+
   const presence = usePresenceStore((s) => s.others[conv.otherUser.id] ?? 'OFFLINE')
-  // Context menu por item — Editorial
+
   const items: EditorialMenuItem[] = useMemo(() => [
     { kind: 'label', label: conv.otherUser.displayName },
     { kind: 'item', icon: <MessageCircle className="size-3.5" />, label: t('dm.menuOpen'), onSelect },
@@ -169,7 +153,7 @@ const ConversationItem = memo(function ConversationItem({
               : 'hover:bg-(--raised)/40 hover:border-(--border-bright)',
           )}
         >
-          {/* Avatar híbrido: foto se tem, senão fallback editorial (sem tinta colorida) */}
+          {}
           <div className="relative shrink-0">
             <Avatar className="size-9 border border-(--border-mid)">
               {conv.otherUser.avatarUrl && (
@@ -188,7 +172,7 @@ const ConversationItem = memo(function ConversationItem({
             />
           </div>
 
-          {/* Info */}
+          {}
           <div className="flex-1 min-w-0 leading-tight">
             <div className="flex items-baseline justify-between gap-2">
               <span

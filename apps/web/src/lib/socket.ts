@@ -5,10 +5,6 @@ let socket: Socket | null = null
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null
 let unsubAuth: (() => void) | null = null
 
-// Lista de canais + DMs que o client se juntou. Reemitida em todo
-// 'connect' pra reconciliar com o server depois de reconnect (server
-// perde state quando socket cai → user parava de receber new_message
-// até trocar de canal manualmente).
 const joinedChannels = new Set<string>()
 const joinedDMs      = new Set<string>()
 
@@ -17,15 +13,6 @@ export function trackLeave(channelId: string) { joinedChannels.delete(channelId)
 export function trackJoinDM(conversationId: string) { joinedDMs.add(conversationId) }
 export function trackLeaveDM(conversationId: string) { joinedDMs.delete(conversationId) }
 
-/**
- * Fast-path de envio: emite 'fast_send_text' direto pelo socket persistente
- * (evita HTTP handshake do POST). Server faz validação, INSERT, broadcast.
- * Timeout 5s pra evitar promise pendurada — fallback fica com caller.
- *
- * Retorno: { ok, error?, code?, msg? }
- *   - ok=true:  servidor processou e broadcast já saiu; msg vem com IDs reais
- *   - ok=false: erro de validação/mute/spam/rede; caller deve cair pra POST
- */
 export interface FastSendResult { ok: boolean; error?: string; code?: string; msg?: unknown }
 
 export function fastSendText(
@@ -76,14 +63,10 @@ export function connectSocket(): Socket {
 
   socket.on('connect', () => {
     if (import.meta.env.DEV) console.log('[Socket] Conectado:', socket?.id)
-    // Heartbeat: presença no Redis (TTL 60s, renova a cada 30s).
-    // Para anterior se reconnect disparou 'connect' de novo — antes acumulava
-    // N intervals (memory leak crescente em rede instável).
+
     stopHeartbeat()
     heartbeatInterval = setInterval(() => socket?.emit('heartbeat'), 30_000)
-    // Re-join canais conhecidos. Server perde join state em disconnect →
-    // sem isso, user ficava num "canal fantasma" sem receber new_message
-    // até trocar de canal manualmente.
+
     for (const channelId of joinedChannels) {
       socket?.emit('join_channel', channelId)
     }
@@ -101,9 +84,6 @@ export function connectSocket(): Socket {
     console.error('[Socket] Erro de conexão:', err.message)
   })
 
-  // Token rotaciona a cada /refresh (15min). Atualiza auth.token in-place
-  // pro próximo reconnect — antes o socket continuava com token velho e
-  // entrava em loop de connect_error quando expirava.
   unsubAuth?.()
   unsubAuth = useAuthStore.subscribe((s, prev) => {
     if (s.accessToken && s.accessToken !== prev.accessToken && socket) {
@@ -114,12 +94,6 @@ export function connectSocket(): Socket {
   return socket
 }
 
-/**
- * Cutuca o socket pra reconectar JÁ. O socket.io reconecta sozinho, mas
- * depois do Android congelar o WebView em background ele pode levar o
- * delay inteiro (até 5s) pra perceber. Chamado quando a rede volta —
- * encurta a janela "voltei mas ainda sem realtime". No-op se já conectado.
- */
 export function reconnectSocketNow(): void {
   if (socket && !socket.connected) socket.connect()
 }

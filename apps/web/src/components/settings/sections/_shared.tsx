@@ -1,10 +1,6 @@
 import { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-/**
- * SectionHeader — título grande + descrição cinza + hairline.
- * Respira mais em telas grandes (mb-10 lg).
- */
 export function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
     <header className="mb-8 sm:mb-10 pb-5 sm:pb-6 border-b border-(--border)">
@@ -23,10 +19,6 @@ export function SectionHeader({ title, description }: { title: string; descripti
   )
 }
 
-/**
- * Row — bloco de subsetting (label + hint acima, content abaixo).
- * Padding generoso (py-6) + gap-3 entre label e content pra não ficar "pressionado".
- */
 export function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-3 py-5 sm:py-6 border-b border-(--border) last:border-b-0">
@@ -39,9 +31,6 @@ export function Row({ label, hint, children }: { label: string; hint?: string; c
   )
 }
 
-/**
- * SaveStatus — indicador '✓ Salvo' / 'Salvando…' / erro.
- */
 export function SaveStatus({ status, error }: { status: 'idle' | 'saving' | 'saved' | 'error'; error?: string }) {
   const { t } = useTranslation()
   if (status === 'idle') return null

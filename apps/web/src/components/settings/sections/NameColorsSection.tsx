@@ -16,10 +16,6 @@ const NAME_COLOR_PRESETS = [
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
-/**
- * Cor do seu nome em cada servidor. Cargo do servidor sobrescreve (ver Cargos).
- * Esta cor é só o "fallback pessoal" quando você não tem cargo colorido.
- */
 export default function NameColorsSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()

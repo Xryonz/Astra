@@ -1,8 +1,4 @@
-/**
- * Per-channel notification preference: 'all' | 'mentions' | 'mute'.
- * Sem row no backend = 'all' (default). Cliente cacheia tudo em uma
- * Map<channelId, mode> via React Query.
- */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
@@ -41,7 +37,7 @@ export function useSetChannelNotifPref() {
       return { channelId, mode }
     },
     onMutate: async ({ channelId, mode }) => {
-      // Optimistic — UI já mostra mudança antes do server confirmar
+
       const prev = qc.getQueryData<Map<string, ChannelNotifMode>>(['channel-notif-prefs'])
       const next = new Map(prev ?? [])
       if (mode === 'all') next.delete(channelId)

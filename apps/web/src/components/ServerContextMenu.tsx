@@ -17,16 +17,6 @@ interface ServerContextMenuProps {
   onClose: () => void
 }
 
-/**
- * Menu de contexto (right-click) ancorado em (x, y).
- *
- * Usa DropdownMenu do ShadCN com um trigger invisível posicionado no
- * ponto do clique. Radix cuida de:
- *   - posicionamento (flip se sair da tela)
- *   - fechar em outside click
- *   - fechar em Escape
- *   - foco/aria
- */
 export default function ServerContextMenu({ x, y, items, onClose }: ServerContextMenuProps) {
   return (
     <DropdownMenu open onOpenChange={(o: boolean) => !o && onClose()} modal={false}>

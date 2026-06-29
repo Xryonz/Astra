@@ -3,10 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Download, Trash2 } from 'lucide-react'
 import { SectionHeader, Row } from './_shared'
 
-/**
- * Dados pessoais — export/import/delete.
- * Placeholder enquanto endpoints não existem (LGPD/GDPR — fase M).
- */
 export default function DataSection() {
   const { t } = useTranslation()
   return (

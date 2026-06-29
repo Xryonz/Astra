@@ -26,7 +26,7 @@ export default function MentionBanner({ onNavigate }: MentionBannerProps) {
       const id = `mention-${Date.now()}-${Math.random()}`
       setQueue((prev) => [...prev, { ...payload, id }])
 
-      // Auto-dismiss after 6 seconds
+
       setTimeout(() => {
         setQueue((prev) => prev.filter((m) => m.id !== id))
       }, 6000)

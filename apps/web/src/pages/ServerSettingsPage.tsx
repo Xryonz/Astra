@@ -51,7 +51,6 @@ interface ServerBadge {
 type SectionId = 'overview' | 'channels' | 'emojis' | 'members' | 'roles' | 'badges' | 'bans'
 interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'geral' | 'comunidade'; show: boolean }
 
-// chaves de permissão — label/desc vêm do i18n (srv.perms.<KEY>.label/desc)
 const PERM_OPTIONS = ['MANAGE_SERVER', 'MANAGE_ROLES', 'MANAGE_CHANNELS', 'KICK_MEMBERS', 'BAN_MEMBERS', 'MANAGE_MESSAGES', 'MENTION_EVERYONE'] as const
 
 const MAX_ICON_BYTES   = 5 * 1024 * 1024
@@ -74,20 +73,15 @@ export default function ServerSettingsPage() {
   const [kickTarget,   setKickTarget]   = useState<Member | null>(null)
   const prompt = usePrompt()
 
-  // Navegação por seção (espelha o SettingsPage): desktop = sidebar à
-  // esquerda; mobile = drill-down de cards. mobileOpen null = home de cards.
   const [section,    setSection]    = useState<SectionId>('overview')
   const [mobileOpen, setMobileOpen] = useState<SectionId | null>(null)
   const pickSection = (id: SectionId) => { setSection(id); setMobileOpen(id) }
 
-  // Back nativo (Android): seção aberta no mobile recua pros cards em vez
-  // de sair do server settings inteiro. Consistente com o SettingsPage.
   useEffect(() => {
     if (mobileOpen === null) return
     return registerBackHandler(() => { setMobileOpen(null); return true })
   }, [mobileOpen])
 
-  // Server data
   const { data: servers = [] } = useQuery<ServerWithChannels[]>({
     queryKey: ['servers'],
     queryFn:  async () => (await api.get('/api/servers')).data.data,
@@ -105,7 +99,6 @@ export default function ServerSettingsPage() {
     }
   }, [server?.id])
 
-  // Members
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ['members', serverId],
     queryFn:  async () => (await api.get(`/api/servers/${serverId}/members`)).data.data,
@@ -172,7 +165,6 @@ export default function ServerSettingsPage() {
   const [showInviteFriends, setShowInviteFriends] = useState(false)
   const confirm = useConfirm()
 
-  // Regenera inviteCode: invalida link antigo, atualiza cache de servers
   const regenerateInvite = useMutation({
     mutationFn: async () => (await api.post(`/api/servers/${serverId}/regenerate-invite`)).data.data,
     onSuccess: () => {
@@ -194,7 +186,7 @@ export default function ServerSettingsPage() {
 
   const copyInvite = () => {
     if (!server) return
-    // App nativo: share sheet do OS. Web: clipboard como antes.
+
     shareInvite(server.inviteCode)
       .then((mode) => { if (mode === 'copied') toast.success(t('srv.toast.linkCopied')) })
       .catch(() => toast.error(t('srv.toast.copyFailed')))
@@ -236,10 +228,9 @@ export default function ServerSettingsPage() {
   const groupLabel = { geral: t('srv.groups.geral'), comunidade: t('srv.groups.comunidade') } as const
 
   return (
-    // h-full: vive DENTRO do shell do AppPage (tab bar + notch já descontados).
-    // Espelha o SettingsPage: sidebar no desktop, drill-down de cards no mobile.
+
     <main className="flex-1 min-w-0 flex h-full font-(family-name:--font-body) overflow-hidden">
-      {/* ─── Sidebar (md+) ─── */}
+      {}
       <aside className="hidden md:flex w-60 lg:w-64 shrink-0 border-r border-(--border) bg-(--raised)/30 flex-col overflow-hidden">
         <header className="h-16 px-4 flex items-center gap-2.5 border-b border-(--border) shrink-0">
           <button
@@ -292,10 +283,10 @@ export default function ServerSettingsPage() {
         </ScrollArea>
       </aside>
 
-      {/* ─── Conteúdo ─── */}
+      {}
       <section className="flex-1 overflow-y-auto relative">
         <div className="sticky top-0 z-10 backdrop-blur bg-(--base)/90 border-b border-(--border)">
-          {/* Mobile header: home (back ao servidor) ou seção (back aos cards) */}
+          {}
           <div className="md:hidden flex items-center gap-2 px-4 py-3">
             {mobileOpen === null ? (
               <>
@@ -321,7 +312,7 @@ export default function ServerSettingsPage() {
           </div>
         </div>
 
-        {/* Mobile: home de cards agrupados */}
+        {}
         {mobileOpen === null && (
           <div className="md:hidden max-w-xl mx-auto px-4 py-5 pb-safe space-y-6">
             {(['geral', 'comunidade'] as const).map((grp) => {
@@ -345,8 +336,7 @@ export default function ServerSettingsPage() {
           </div>
         )}
 
-        {/* Conteúdo: mobile = seção desliza ao abrir (cards somem, sem flash da
-            seção anterior); desktop = seção fixa que troca com slide. */}
+        {}
         {(() => {
           const sectionContent = (
             <>
@@ -578,7 +568,7 @@ export default function ServerSettingsPage() {
 
             {error && <p className="text-xs text-(--danger)">{error}</p>}
 
-            {/* ── Zona de perigo (só dono) ─────────────────── */}
+            {}
             {isOwner && (
               <>
                 <Separator className="my-5" />
@@ -666,8 +656,7 @@ export default function ServerSettingsPage() {
           )
           return (
             <>
-              {/* Mobile: seção entra deslizando quando aberta; cards (acima)
-                  somem ao abrir, então não há flash da seção anterior. */}
+              {}
               <div className="md:hidden">
                 <AnimatePresence mode="wait">
                   {mobileOpen !== null && (
@@ -684,7 +673,7 @@ export default function ServerSettingsPage() {
                   )}
                 </AnimatePresence>
               </div>
-              {/* Desktop: seção fixa, troca com slide horizontal. */}
+              {}
               <div className="hidden md:block max-w-3xl mx-auto px-8 py-10 pb-safe">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -703,7 +692,7 @@ export default function ServerSettingsPage() {
         })()}
       </section>
 
-      {/* Confirm kick */}
+      {}
       <Dialog open={!!kickTarget} onOpenChange={(o: boolean) => !o && setKickTarget(null)}>
         <DialogContent className="max-w-95!">
           <DialogHeader>
@@ -719,7 +708,7 @@ export default function ServerSettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Convite por amigo — dialog com lista filtrada */}
+      {}
       <InviteFriendsDialog
         open={showInviteFriends}
         onClose={() => setShowInviteFriends(false)}
@@ -728,7 +717,7 @@ export default function ServerSettingsPage() {
         currentMemberUserIds={new Set(members.map((m) => m.userId))}
       />
 
-      {/* Confirm delete server */}
+      {}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="max-w-95! text-center">
           <div className="flex justify-center mb-1">
@@ -805,7 +794,7 @@ function MemberRow({ member, serverId, currentUserId, isOwnerSelf, isAdminSelf, 
         <p className="text-[11px] font-mono text-(--text-3) m-0 truncate">@{member.user.username}</p>
       </div>
 
-      {/* OWNER row: nunca tem ações disponíveis — esconde o trigger pra não mostrar dropdown vazio */}
+      {}
       {!isOwner && (canChangeRole || canKick || isOwnerSelf) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1142,7 +1131,6 @@ function MemberRolesPopover({ serverId, memberId, currentRoleIds, onClose }: {
   )
 }
 
-// ─── EmojisSection ────────────────────────────────────────────
 function EmojisSection({ serverId }: { serverId: string }) {
   const { t } = useTranslation()
   const { data: emojis = [], isLoading } = useServerEmojis(serverId)
@@ -1243,7 +1231,6 @@ function EmojisSection({ serverId }: { serverId: string }) {
   )
 }
 
-// ─── BansSection ──────────────────────────────────────────────
 interface BanRow {
   id: string; userId: string; bannedById: string; reason: string|null; createdAt: string
   user: { id: string; username: string; displayName: string; avatarUrl: string|null }
@@ -1296,7 +1283,6 @@ function BansSection({ serverId }: { serverId: string }) {
   )
 }
 
-// ─── ChannelsVisibilitySection ───────────────────────────────
 function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; channels: Array<{ id: string; name: string; type?: string }> }) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId]   = useState<string | null>(channels[0]?.id ?? null)
@@ -1474,7 +1460,7 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
       </div>
       </div>
 
-      {/* Dialog criar canal */}
+      {}
       <Dialog open={createOpen} onOpenChange={(o: boolean) => { if (!o) { setCreateOpen(false); setNewName(''); setCreateErr('') } }}>
         <DialogContent className="max-w-95!">
           <DialogHeader>
@@ -1540,9 +1526,6 @@ function ChannelsVisibilitySection({ serverId, channels }: { serverId: string; c
   )
 }
 
-// ─── BadgesSection ────────────────────────────────────────────
-// Gerenciador de insígnias: dono cria badge (emoji+nome+cor+desc) e
-// concede a membros. As concessões aparecem no perfil de cada um.
 function BadgesSection({ serverId, members }: { serverId: string; members: Member[] }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -1583,7 +1566,7 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
 
   return (
     <section className="space-y-6">
-      {/* Criar */}
+      {}
       <div className="border border-(--border) bg-(--raised)/30 rounded-2xl p-4 space-y-3">
         <p className="ed-label">{t('srv.badges.create')}</p>
         <div className="flex gap-2 items-center flex-wrap">
@@ -1609,7 +1592,7 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
         </Button>
       </div>
 
-      {/* Existentes */}
+      {}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <span className="ed-label">{t('srv.badges.serverBadges')}</span>
@@ -1653,7 +1636,6 @@ function BadgesSection({ serverId, members }: { serverId: string; members: Membe
   )
 }
 
-// Dialog de concessão: lista de membros com toggle (concede/revoga na hora).
 function GrantBadgeDialog({ serverId, badge, members, onClose }: {
   serverId: string; badge: ServerBadge; members: Member[]; onClose: () => void
 }) {
@@ -1733,13 +1715,6 @@ function GrantBadgeDialog({ serverId, badge, members, onClose }: {
   )
 }
 
-// ──────────────────────────────────────────────────────────────
-// InviteFriendsDialog — picker editorial com search + lista de amigos.
-//
-// Filtra amigos que JÁ são membros (não dá pra convidar quem já está).
-// Mutation otimista: ao clicar adiciona, mostra "✓ Convidado" no item,
-// invalida ['members', serverId] pra refletir.
-// ──────────────────────────────────────────────────────────────
 interface Friend {
   friendshipId: string
   user: { id: string; username: string; displayName: string; avatarUrl: string|null }

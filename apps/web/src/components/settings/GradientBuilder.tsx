@@ -1,13 +1,4 @@
-/**
- * GradientBuilder — pickas duas cores + ângulo, gera linear-gradient.
- *
- * Vibe Nitro: user escolhe início + fim, vê preview em tempo real.
- * Output: `linear-gradient(${angle}deg, ${c1}, ${c2})` — string CSS válida,
- * compatível com BANNER_COLOR_RE do schema (até 4 stops).
- *
- * Parsing: aceita string entrada, se for gradient extrai angle + stops;
- * se for hex puro, usa como c1 e duplica em c2.
- */
+
 import { useEffect, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 import { motion, AnimatePresence } from 'motion/react'
@@ -19,7 +10,7 @@ import { cn } from '@/lib/utils'
 interface Props {
   value:    string
   onChange: (v: string) => void
-  /** Altura do preview em px. Default 56. */
+
   previewH?: number
 }
 
@@ -30,7 +21,6 @@ interface ParsedGradient {
   c3?:   string
 }
 
-// Regex pra extrair angle + cores de "linear-gradient(135deg, #abc, #def)"
 const GRADIENT_RE = /^linear-gradient\(\s*(-?\d{1,3})deg\s*,\s*(#[0-9a-fA-F]{6})\s*,\s*(#[0-9a-fA-F]{6})(?:\s*,\s*(#[0-9a-fA-F]{6}))?\s*\)$/
 
 function parse(value: string): ParsedGradient {
@@ -43,11 +33,11 @@ function parse(value: string): ParsedGradient {
       c3:    m[4]?.toLowerCase(),
     }
   }
-  // Hex puro → usa como cor única (duplica pra valer como gradient)
+
   if (/^#[0-9a-fA-F]{6}$/.test(value)) {
     return { angle: 135, c1: value.toLowerCase(), c2: value.toLowerCase() }
   }
-  // Default
+
   return { angle: 135, c1: '#c9a96e', c2: '#7c6fc4' }
 }
 
@@ -61,7 +51,6 @@ export function GradientBuilder({ value, onChange, previewH = 56 }: Props) {
   const [activeStop, setActiveStop] = useState<'c1' | 'c2' | 'c3'>('c1')
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  // Re-parse quando value externo muda (ex: trocou preset)
   useEffect(() => {
     setState(parse(value))
   }, [value])
@@ -76,14 +65,14 @@ export function GradientBuilder({ value, onChange, previewH = 56 }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Preview */}
+      {}
       <motion.div
         layout
         className="w-full rounded-xl border border-(--border-mid) shadow-inner"
         style={{ height: previewH, background: build(state) }}
       />
 
-      {/* Color stops */}
+      {}
       <div className="flex items-center gap-2 flex-wrap">
         <ColorStopButton
           label="Início"
@@ -126,7 +115,7 @@ export function GradientBuilder({ value, onChange, previewH = 56 }: Props) {
         )}
       </div>
 
-      {/* Angle slider */}
+      {}
       <div className="flex items-center gap-3">
         <span className="text-[11px] font-mono text-(--text-3) shrink-0 w-14">Ângulo</span>
         <Slider
@@ -140,7 +129,7 @@ export function GradientBuilder({ value, onChange, previewH = 56 }: Props) {
         <span className="text-[11px] font-mono text-(--text-2) tabular-nums shrink-0 w-10 text-right">{state.angle}°</span>
       </div>
 
-      {/* Picker collapsible */}
+      {}
       <AnimatePresence initial={false}>
         {pickerOpen && (
           <motion.div

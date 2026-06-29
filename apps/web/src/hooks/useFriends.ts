@@ -1,6 +1,4 @@
-/**
- * Hook pra friends/requests/outgoing + actions (request, accept, remove).
- */
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 

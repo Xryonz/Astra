@@ -61,7 +61,7 @@ export default function NotificationsSection() {
         description={t('settings.notifications.description')}
       />
 
-      {/* ── Push (device) ─────────────────────────────────── */}
+      {}
       <Row label={t('settings.notifications.push')} hint={t('settings.notifications.pushHint')}>
         {state === 'unsupported' && (
           <div className="border border-(--border) bg-(--raised)/40 p-3 text-sm text-(--text-3)">
@@ -121,7 +121,7 @@ export default function NotificationsSection() {
         )}
       </Row>
 
-      {/* ── Tipos ────────────────────────────────────────── */}
+      {}
       <Row label={t('settings.notifications.types')} hint={t('settings.notifications.typesHint')}>
         {!prefs ? (
           <div className="flex items-center gap-2 text-xs text-(--text-3)">
@@ -137,7 +137,7 @@ export default function NotificationsSection() {
         )}
       </Row>
 
-      {/* ── Som ──────────────────────────────────────────── */}
+      {}
       <Row label={t('settings.notifications.sound')} hint={t('settings.notifications.soundHint')}>
         {prefs && (
           <div className="flex gap-2 flex-wrap">
@@ -163,7 +163,7 @@ export default function NotificationsSection() {
         )}
       </Row>
 
-      {/* ── Quiet hours ──────────────────────────────────── */}
+      {}
       <Row
         label={t('settings.notifications.quiet')}
         hint={t('settings.notifications.quietHint')}

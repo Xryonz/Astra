@@ -1,15 +1,4 @@
-/**
- * FreezeFrame — mostra o 1º frame de uma imagem (congela GIF/WebP animado)
- * até live=true, quando troca pro <img> vivo.
- *
- * Por quê: 15 ícones de servidor animando ao mesmo tempo na strip derrete
- * bateria. Norma Discord: anima só no hover/ativo. GIF não tem "pause" —
- * o truque é desenhar o frame atual num canvas no onload (= frame 0).
- *
- * Cross-origin: NÃO seta crossOrigin — desenhar imagem tainted no canvas
- * é permitido (só leitura de volta é bloqueada, e nunca lemos). Se a
- * imagem falhar, cai pro <img> normal (anima sempre — degradação suave).
- */
+
 import { useEffect, useRef, useState } from 'react'
 
 interface Props {

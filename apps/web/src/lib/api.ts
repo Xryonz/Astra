@@ -5,7 +5,7 @@ import { saveRefreshNative, loadRefreshNative, clearRefreshNative } from '@/lib/
 
 const API_URL = (import.meta as any).env?.VITE_API_URL ?? ''
 export const apiBaseUrl = API_URL
-/** Resolve uma URL relativa (ex. "/uploads/abc.png") pro endpoint do backend. */
+
 export const resolveApiUrl = (url: string) =>
   url.startsWith('http') || url.startsWith('data:') ? url : `${API_URL}${url}`
 
@@ -13,40 +13,27 @@ const REFRESH_KEY = 'astra-refresh'
 export const getStoredRefreshToken = () => localStorage.getItem(REFRESH_KEY) || null
 export const setStoredRefreshToken = (token: string) => {
   localStorage.setItem(REFRESH_KEY, token)
-  void saveRefreshNative(token)   // espelha no keystore seguro (no-op no web)
+  void saveRefreshNative(token)
 }
 export const clearStoredRefreshToken = () => {
   localStorage.removeItem(REFRESH_KEY)
   void clearRefreshNative()
 }
 
-/**
- * Boot nativo: se o localStorage da WebView perdeu o refresh token mas o
- * keystore ainda tem, restaura no localStorage ANTES do bootstrapAuth ler.
- * É o que evita o "forçado a relogar" em cold start no Android.
- */
 export async function hydrateRefreshFromNative(): Promise<void> {
   if (getStoredRefreshToken()) return
   const native = await loadRefreshNative()
-  if (native) localStorage.setItem(REFRESH_KEY, native) // sem re-espelhar
+  if (native) localStorage.setItem(REFRESH_KEY, native)
 }
 
 export const api = axios.create({ baseURL: API_URL })
 
-// ── Interceptor de request: injeta access token ──────────────
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// ── Singleton refresh ────────────────────────────────────────
-// Single-flight promise compartilhada entre o interceptor de axios E
-// useVisibilityRefresh. Antes cada um tinha seu próprio lock — quando
-// visibilitychange e refetchOnWindowFocus disparavam ao mesmo tempo (voltando
-// do jogo), os dois caminhos POSTavam /refresh com o MESMO refresh-token,
-// o servidor (atomic claim) só aceita o primeiro, o segundo recebia 401 →
-// logout cascata. Centralizando aqui, o segundo caller espera o primeiro.
 const REFRESH_TIMEOUT_MS = 8000
 
 interface RefreshResult { accessToken: string; refreshToken: string }
@@ -74,7 +61,6 @@ export function refreshSession(): Promise<RefreshResult> {
   return refreshInFlight
 }
 
-// ── Interceptor de response: renova token automaticamente ────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -88,8 +74,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        // Só desloga se servidor respondeu 401 (refresh inválido/expirado).
-        // Network error, timeout, 5xx → mantém sessão; user tenta de novo.
+
         const refreshStatus = (refreshError as { response?: { status?: number } })?.response?.status
         if (refreshStatus === 401) {
           clearStoredRefreshToken()

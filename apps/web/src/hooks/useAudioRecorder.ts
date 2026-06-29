@@ -1,16 +1,4 @@
-/**
- * useAudioRecorder — controla MediaRecorder + analyser, stateless UI.
- *
- * API:
- *  - state: 'idle' | 'recording' | 'paused' | 'uploading'
- *  - elapsed: ms desde start (somando pauses, exclui pauses internos)
- *  - bars: array com amplitude visual (16 bins)
- *  - start(): pede mic + começa
- *  - pause()/resume(): pausa/retoma sem perder buffer
- *  - finalize(): para gravação + upload + entrega Attachment
- *  - cancel(): para gravação, descarta tudo
- *  - error: mensagem se falhou
- */
+
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import type { Attachment } from '@astra/types'
@@ -30,7 +18,7 @@ export function useAudioRecorder(onRecorded: (att: Attachment) => void) {
   const chunksRef    = useRef<Blob[]>([])
   const streamRef    = useRef<MediaStream | null>(null)
   const startTsRef   = useRef<number>(0)
-  /** Total ms acumulados antes do pause atual. Usado pra elapsed correto. */
+
   const accumMsRef   = useRef<number>(0)
   const rafRef       = useRef<number | null>(null)
   const audioCtxRef  = useRef<AudioContext | null>(null)
@@ -57,7 +45,7 @@ export function useAudioRecorder(onRecorded: (att: Attachment) => void) {
     const totalMs = accumMsRef.current + (startTsRef.current ? now - startTsRef.current : 0)
     setElapsed(totalMs)
     if (totalMs >= MAX_DURATION_MS) {
-      // hard-stop ao bater o cap
+
       recorderRef.current?.stop()
       return
     }
@@ -117,7 +105,7 @@ export function useAudioRecorder(onRecorded: (att: Attachment) => void) {
       chunksRef.current = []
       rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       rec.onstop = async () => {
-        // Soma o que faltava do segmento atual (caso não estava pausado)
+
         if (startTsRef.current) {
           accumMsRef.current += Date.now() - startTsRef.current
           startTsRef.current = 0
@@ -133,10 +121,10 @@ export function useAudioRecorder(onRecorded: (att: Attachment) => void) {
         const durationS  = Math.round(accumMsRef.current / 1000)
         const finalChunks = chunksRef.current.slice()
         cleanup()
-        // upload usa a blob; chunks já zeradas em cleanup, então criamos antes
+
         const finalBlob = new Blob(finalChunks, { type: rec.mimeType || 'audio/webm' })
         await upload(finalBlob, durationS)
-        // referência simbólica pra agradar TS sobre `blob`
+
         void blob
       }
       rec.start(100)
@@ -157,7 +145,7 @@ export function useAudioRecorder(onRecorded: (att: Attachment) => void) {
     if (state !== 'recording' || !recorderRef.current) return
     if (recorderRef.current.state !== 'recording') return
     recorderRef.current.pause()
-    // Soma elapsed do segmento atual no acumulador
+
     if (startTsRef.current) {
       accumMsRef.current += Date.now() - startTsRef.current
       startTsRef.current = 0

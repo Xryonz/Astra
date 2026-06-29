@@ -1,12 +1,4 @@
-/**
- * VoiceMessage — player de áudio renderizado em MessageItem.
- *
- * O recorder (start/stop/pause) virou hook em `useAudioRecorder` + UI em
- * `RecordingDisplay`. Este arquivo agora hospeda só o player.
- *
- * Nome do arquivo mantido (VoiceRecorder.tsx) por convivência — os imports
- * existentes de `VoiceMessage` continuam funcionando.
- */
+
 import { useRef, useState } from 'react'
 import { resolveApiUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -17,8 +9,6 @@ export function VoiceMessage({ url, duration }: { url: string; duration?: number
   const [total,   setTotal]   = useState(duration ?? 0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Barras decorativas determinísticas pela URL — parecem estáveis e
-  // não rerenderizam a cada tick.
   const bars = (() => {
     let seed = 0
     for (const c of url) seed = (seed * 31 + c.charCodeAt(0)) >>> 0

@@ -6,7 +6,7 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { handleOAuthCallback } = useAuth()
-  // StrictMode roda useEffect 2x em dev. Guard previne double-call.
+
   const ranRef = useRef(false)
 
   useEffect(() => {
@@ -19,8 +19,6 @@ export default function OAuthCallbackPage() {
       return
     }
 
-    // Backend redireciona com #refresh=<token> (hash fragment).
-    // Hash fragment não vai pro server e não fica em access logs.
     const hash = window.location.hash.replace(/^#/, '')
     const params = new URLSearchParams(hash)
     const refreshToken = params.get('refresh')
@@ -30,7 +28,6 @@ export default function OAuthCallbackPage() {
       return
     }
 
-    // Limpa hash da URL imediatamente após extrair (não fica no histórico)
     window.history.replaceState(null, '', window.location.pathname)
 
     handleOAuthCallback(refreshToken)

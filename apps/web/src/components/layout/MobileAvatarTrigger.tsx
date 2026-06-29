@@ -1,8 +1,4 @@
-/**
- * MobileAvatarTrigger — hamburguer no header mobile (estilo Discord).
- * Tap = abre a sidebar (drawer com servers + canais). Visível só em mobile
- * (md:hidden). A foto do user agora vive só na barra de perfil de baixo.
- */
+
 import { useTranslation } from 'react-i18next'
 import { Menu } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'

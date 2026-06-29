@@ -4,18 +4,6 @@ import { connectSocket } from '@/lib/socket'
 import { getStoredRefreshToken, setStoredRefreshToken, clearStoredRefreshToken, api } from '@/lib/api'
 import { applyTheme } from '@/lib/theme'
 
-/**
- * Em cold load, tenta restaurar sessão usando refreshToken de localStorage.
- *
- * Refresh token (localStorage) é a fonte de verdade — persiste mesmo quando
- * sessionStorage é limpo (fechou browser, nova aba). Se POST /refresh OK,
- * busca user em /me e reativa auth completo. Antes o bootstrap dava early-
- * return em !isAuthenticated (sessionStorage), o que quebrava auto-login
- * em qualquer reabrir de navegador.
- *
- * Dedup em nível de módulo: refresh é rotacionado a cada uso, então
- * chamar 2x em paralelo (StrictMode) quebraria a segunda chamada.
- */
 let inFlight: Promise<boolean> | null = null
 
 export function bootstrapAuth(): Promise<boolean> {
@@ -45,7 +33,6 @@ async function doBootstrap(): Promise<boolean> {
     const newRefresh = refreshData.data.refreshToken
     setStoredRefreshToken(newRefresh)
 
-    // Se sessionStorage ainda tem o user (mesma aba) usa direto; senão GET /me.
     const cachedUser = useAuthStore.getState().user
     if (cachedUser) {
       useAuthStore.getState().setAuth(cachedUser, newAccess)
@@ -56,12 +43,11 @@ async function doBootstrap(): Promise<boolean> {
       useAuthStore.getState().setAuth(meData.data.user, newAccess)
     }
 
-    try { connectSocket() } catch { /* ignore */ }
+    try { connectSocket() } catch { }
     void syncPreferencesFromServer()
     return true
   } catch (e) {
-    // Só limpa sessão em 401. Network/timeout/5xx mantém user logado
-    // e o app rodando — interceptor refaz refresh quando voltar online.
+
     const status = (e as { response?: { status?: number } })?.response?.status
     if (status === 401) {
       clearStoredRefreshToken()
@@ -71,9 +57,6 @@ async function doBootstrap(): Promise<boolean> {
   }
 }
 
-// ── Preferências cross-device ─────────────────────────────────
-// Fluxo: GET /preferences. Se server tem accent/bg → aplica (vence localStorage).
-// Se server vazio → push localStorage como 1ª sync. Idempotente.
 async function syncPreferencesFromServer() {
   try {
     const { data } = await api.get('/api/profile/preferences')
@@ -87,7 +70,7 @@ async function syncPreferencesFromServer() {
         bg     ?? localStorage.getItem('astra-bg')     ?? localStorage.getItem('umbra-bg')     ?? 'void',
       )
     } else {
-      // 1º login: server vazio, empurra o que está local.
+
       const localAccent = localStorage.getItem('astra-accent') ?? localStorage.getItem('umbra-accent')
       const localBg     = localStorage.getItem('astra-bg')     ?? localStorage.getItem('umbra-bg')
       if (localAccent || localBg) {
@@ -96,5 +79,5 @@ async function syncPreferencesFromServer() {
         })
       }
     }
-  } catch { /* sem internet / endpoint 404 — fica com local mesmo */ }
+  } catch { }
 }

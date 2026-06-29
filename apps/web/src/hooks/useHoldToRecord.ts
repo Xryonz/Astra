@@ -1,11 +1,4 @@
-/**
- * useHoldToRecord — norma WhatsApp pro mic do composer mobile:
- * SEGURAR grava · SOLTAR envia · DESLIZAR PRA ESQUERDA cancela.
- * Tap rápido (<250ms) só mostra a dica — evita gravação acidental.
- *
- * Desktop não passa por aqui (lá o mic é clique/toggle, como sempre foi);
- * consumeTouch() deixa o caller suprimir o click sintético pós-touch.
- */
+
 import { useRef, useState, useCallback } from 'react'
 import { toast } from '@/components/ui/sonner'
 import { hapticLight, hapticMedium } from '@/lib/haptics'
@@ -58,7 +51,7 @@ export function useHoldToRecord(recorder: RecorderControls) {
   const onTouchEnd = useCallback(() => {
     clearTimer()
     if (recording.current && !canceled.current) {
-      recorder.finalize() // soltou = envia
+      recorder.finalize()
     } else if (!recording.current && !canceled.current) {
       toast('Segure para gravar o áudio')
     }
@@ -74,7 +67,6 @@ export function useHoldToRecord(recorder: RecorderControls) {
     setIsHolding(false)
   }, [recorder])
 
-  /** true se o último gesto foi touch — caller ignora o onClick sintético */
   const consumeTouch = useCallback(() => {
     const t = touched.current
     touched.current = false

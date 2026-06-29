@@ -1,10 +1,4 @@
-/**
- * UserFooter — rodapé da Sidebar com avatar, nome, status e ações.
- *
- * Extraído do Sidebar (overhaul 2026-06-02). Self-contained:
- * pull state direto das stores/hooks, só recebe callback pra abrir
- * o ProfileCard (parent controla esse state pra evitar duplicação).
- */
+
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Settings as SettingsIcon, LogOut } from 'lucide-react'

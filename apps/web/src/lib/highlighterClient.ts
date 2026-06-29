@@ -1,10 +1,4 @@
-/**
- * Cliente do highlighter — fala com o Web Worker (highlighter.worker) e
- * cai pro fallback main-thread (highlighter.ts) se o worker não existir
- * ou falhar (WebView muito antigo).
- *
- * Uso no CodeBlock: highlightCode(code, lang) → Promise<html | null>.
- */
+
 import { isSupportedLang } from './shikiLangs'
 
 export { isSupportedLang }
@@ -28,7 +22,7 @@ function getWorker(): Worker | null {
       else p.resolve(html)
     }
     worker.onerror = () => {
-      // Worker morreu — marca quebrado e rejeita os pendentes pro fallback assumir.
+
       workerBroken = true
       for (const [, p] of pending) p.reject(new Error('worker error'))
       pending.clear()
@@ -64,7 +58,7 @@ export async function highlightCode(code: string, lang: string): Promise<string 
         w.postMessage({ id, code, lang: norm })
       })
     } catch {
-      // cai pro fallback main-thread
+
     }
   }
   return fallbackMainThread(code, norm)

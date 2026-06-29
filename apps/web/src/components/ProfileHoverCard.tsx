@@ -1,13 +1,4 @@
-/**
- * ProfileHoverCard — mini-card em hover de @mentions/avatares.
- *
- * Compartilha ProfileHero + ProfileBanner com ProfileCard pra consistência
- * visual. Fetch lazy: query só dispara quando hover abre (delay 350ms Radix).
- *
- * Uso:
- *   <ProfileHoverCard username="maria"><span>@maria</span></ProfileHoverCard>
- *   <ProfileHoverCard userId="abc"><Avatar/></ProfileHoverCard>
- */
+
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -52,7 +43,7 @@ function userColor(id: string) {
 const FALLBACK = 'linear-gradient(135deg,#1a1a2e,#16213e)'
 
 interface Props {
-  /** Use username OU userId — não os dois. */
+
   username?: string
   userId?:   string
   children:  React.ReactNode
@@ -114,8 +105,7 @@ export function ProfileHoverCard({ username, userId, children, side = 'top', ali
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Banner — h-36 (vs h-48 do card cheio). Alto o bastante pra
-              constelação/imagem não cortar no preview. */}
+          {}
           <div className="relative h-36 overflow-hidden">
             <ProfileBanner
               bannerUrl={data?.bannerUrl}
@@ -168,27 +158,22 @@ export function ProfileHoverCard({ username, userId, children, side = 'top', ali
   )
 }
 
-/**
- * Skeleton inline do hover — reproduz silhueta do ProfileHero (avatar
- * overlap + nome + handle + bio + botão) pra evitar layout shift e
- * spinner desbalanceado no canto.
- */
 function HoverCardSkeleton() {
   return (
     <div className="animate-pulse">
-      {/* Avatar circle — sobrepõe banner mantendo proporção do ProfileHero real */}
+      {}
       <div
         className="size-24 rounded-full -mt-12 mb-3 border-4 bg-(--raised)"
         style={{ borderColor: 'var(--overlay)' }}
       />
-      {/* Nome */}
+      {}
       <div className="h-6 w-40 rounded bg-(--raised) mb-2" />
-      {/* Handle + status */}
+      {}
       <div className="h-3 w-28 rounded bg-(--raised) mb-3" />
-      {/* Bio 2 linhas */}
+      {}
       <div className="h-3 w-full rounded bg-(--raised) mb-1.5" />
       <div className="h-3 w-2/3 rounded bg-(--raised) mb-3" />
-      {/* Botão DM */}
+      {}
       <div className="h-9 w-full rounded-lg bg-(--raised) mt-2" />
     </div>
   )

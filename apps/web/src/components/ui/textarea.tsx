@@ -3,10 +3,6 @@ import { cn } from '@/lib/utils'
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
-/**
- * Textarea — shadcn editorial.
- * rounded-lg pra suavizar. Focus ring com --accent. resize-none por default.
- */
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => (
     <textarea

@@ -1,7 +1,4 @@
-/**
- * Barra discreta "Sem conexão" — aparece quando a rede cai e some sozinha
- * quando volta. Slide suave do topo. Só renderiza algo quando offline.
- */
+
 import { WifiOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'

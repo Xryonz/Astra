@@ -1,10 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-/**
- * Kbd — atalho de teclado editorial. Mono font, hairline border, tiny.
- * Uso: <Kbd>⌘</Kbd> <Kbd>K</Kbd>
- */
 const Kbd = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(
   ({ className, ...props }, ref) => (
     <kbd

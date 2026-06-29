@@ -1,16 +1,4 @@
-/**
- * MobileProfileBar — barra fixa no bottom (md:hidden), modelo user-panel do
- * Discord:
- *
- *   [avatar] DisplayName ............... [rail]
- *            • Status
- *
- * Esquerda (flex-1): toque → sheet "Mais" (perfil/config/sair).
- * Direita: botão constelação → abre o drawer da rail de servidores.
- *
- * Posição: fixed bottom + safe-area. Conteúdo das pages tem pb-16.
- * z-30 — abaixo de modais/sheets (40+), acima do conteúdo.
- */
+
 import { useTranslation } from 'react-i18next'
 import { ConstellationIcon } from '@/components/icons/ConstellationIcon'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -34,13 +22,13 @@ export default function MobileProfileBar() {
     <nav
       aria-label={t('nav.mobileBarAria')}
       className={cn(
-        // astra-bottom-nav: escondida via CSS quando o teclado abre (.astra-kb-open)
+
         'astra-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-30',
         'border-t border-(--border) bg-(--base) pb-safe',
       )}
     >
       <div className="h-16 px-2.5 flex items-center gap-2">
-        {/* Perfil — abre sheet Mais (conta) */}
+        {}
         <button
           type="button"
           onClick={() => { hapticLight(); setMoreOpen(true) }}
@@ -65,7 +53,7 @@ export default function MobileProfileBar() {
           </div>
         </button>
 
-        {/* Constelação — abre o drawer da rail de servidores */}
+        {}
         <button
           type="button"
           onClick={() => { hapticLight(); openSidebar() }}

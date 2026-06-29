@@ -1,14 +1,4 @@
-/**
- * ProfileSection — Identidade do perfil (Discord-style split).
- *
- * Só campos de PERFIL: avatar, pronomes, status (emoji + texto),
- * bio (com markdown). Nome e username ficam em Conta (AccountSection).
- *
- * Personalização visual (banner, tema, fonte, cor) mora em
- * CustomizationSection.tsx — outra entrada do nav.
- *
- * Auto-save 800ms debounced.
- */
+
 import { useRef, useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -198,7 +188,6 @@ export default function ProfileSection() {
   )
 }
 
-// ─── CustomStatusEditor (server-synced) ─────────────────────
 function CustomStatusEditor() {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
@@ -207,7 +196,6 @@ function CustomStatusEditor() {
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Debounce 600ms — autoSave em onChange
   useEffect(() => {
     if (text === ((user as any)?.customStatus ?? '')) return
     if (timerRef.current) clearTimeout(timerRef.current)

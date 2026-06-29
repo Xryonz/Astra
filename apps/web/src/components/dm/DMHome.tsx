@@ -1,11 +1,4 @@
-/**
- * DMHome — coluna de "home" estilo Discord: abas [Mensagens | Amigos] + sino,
- * com a lista de DMs ou o painel de amigos embaixo.
- *
- * Usada na aside da DMPage e como tela padrão do app (ChannelView sem canal).
- * Header editorial minimalista: abas sublinhadas + sino (mobile dispara o
- * sheet de notificações; desktop usa o popover do NotificationBell).
- */
+
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
@@ -35,7 +28,7 @@ export default function DMHome({ activeDMId, onSelectDM }: Props) {
 
   return (
     <div className="h-full min-h-0 flex flex-col">
-      {/* Header: abas Mensagens|Amigos + sino */}
+      {}
       <header className="h-14 px-3 flex items-center gap-1 border-b border-(--border) shrink-0">
         {([
           { id: 'messages', label: t('dm.title') },
@@ -57,7 +50,7 @@ export default function DMHome({ activeDMId, onSelectDM }: Props) {
         ))}
 
         <div className="ml-auto flex items-center">
-          {/* Mobile: abre o sheet de notificações */}
+          {}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event('astra:open-notifications'))}
@@ -71,12 +64,12 @@ export default function DMHome({ activeDMId, onSelectDM }: Props) {
               </span>
             )}
           </button>
-          {/* Desktop: popover do sino */}
+          {}
           <NotificationBell />
         </div>
       </header>
 
-      {/* Corpo */}
+      {}
       {tab === 'messages' ? (
         <DMList activeDMId={activeDMId} onSelectDM={onSelectDM} />
       ) : (

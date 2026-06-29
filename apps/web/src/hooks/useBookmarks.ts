@@ -1,9 +1,4 @@
-/**
- * Bookmarks (mensagens salvas).
- *  - useBookmarkList(): infinite list pra sheet "Salvos"
- *  - useToggleBookmark(): cria/remove com optimistic update
- *  - useIsBookmarked(targetId, kind): boolean derivado da list cache
- */
+
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
@@ -44,12 +39,11 @@ export function useBookmarkList() {
   })
 }
 
-// Cache lookup só dos IDs salvos pra is-bookmarked check sem hit network
 export function useBookmarkIndex() {
   return useQuery<Set<string>>({
     queryKey: ['bookmarks', 'index'],
     queryFn: async () => {
-      // Pega só primeira página (30 mais recentes) — bookmarks antigos não precisam pinar ícone
+
       const res = await api.get('/api/bookmarks?limit=100')
       const ids = new Set<string>()
       for (const b of res.data.data.items as BookmarkItem[]) {
@@ -75,7 +69,7 @@ export function useToggleBookmark() {
         const res = await api.post('/api/bookmarks', { targetId, kind })
         return res.data.data as BookmarkItem
       }
-      // Para delete, precisamos do bookmarkId. Se não vier, busca via index.
+
       const res = await api.get('/api/bookmarks?limit=100')
       const found = (res.data.data.items as BookmarkItem[]).find(
         (b) => b.targetId === targetId && b.kind === kind,

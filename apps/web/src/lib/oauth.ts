@@ -2,12 +2,6 @@ import { api, setStoredRefreshToken } from '@/lib/api'
 import { connectSocket } from '@/lib/socket'
 import { useAuthStore } from '@/store/authStore'
 
-/**
- * Completa o login OAuth a partir do refresh token entregue pelo backend
- * (hash fragment no web, deep link astra:// no app nativo).
- * Module-level pra ser chamável fora de React (listener appUrlOpen do
- * Capacitor) — useAuth.handleOAuthCallback delega pra cá.
- */
 export async function completeOAuthLogin(refreshToken: string): Promise<void> {
   setStoredRefreshToken(refreshToken)
   const refreshRes = await api.post('/api/auth/refresh', {}, {

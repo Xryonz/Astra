@@ -1,12 +1,4 @@
-/**
- * CustomizationSection — Personalização do perfil (Discord-style split).
- *
- * Separado de ProfileSection: ProfileSection cuida da identidade
- * (nome, username, bio, avatar, pronomes, status); aqui é estético
- * (banner, tema, fonte, cores, borda).
- *
- * Auto-save 800ms só pros campos próprios.
- */
+
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -20,7 +12,6 @@ import { cn } from '@/lib/utils'
 import { UpdateProfileSchema, type DisplayFont } from '@astra/types'
 import { SectionHeader, Row, SaveStatus } from './_shared'
 
-// ─── DATA ────────────────────────────────────────────────────
 type GradientPreset = { id: string; label: string; value: string }
 
 const BANNER_GRADIENTS: GradientPreset[] = [
@@ -69,7 +60,6 @@ const DISPLAY_FONT_OPTIONS: { id: DisplayFont; label: string; family: string; pr
 
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
-// ─── COMPONENT ───────────────────────────────────────────────
 export default function CustomizationSection() {
   const { t }       = useTranslation()
   const user        = useAuthStore((s) => s.user)
@@ -111,7 +101,6 @@ export default function CustomizationSection() {
     e.target.value = ''
   }
 
-  // Validação live via zod (subset desta seção)
   const errors = useMemo(() => {
     const candidate = {
       bannerUrl:       bannerUrl    || null,
@@ -181,7 +170,7 @@ export default function CustomizationSection() {
         description={t('settings.customization.description')}
       />
 
-      {/* ═══ Banner ═══ */}
+      {}
       <Row label={t('settings.customization.banner')} hint={t('settings.customization.bannerHint')}>
         <div className="flex flex-col gap-5">
           <BannerPreview
@@ -198,7 +187,7 @@ export default function CustomizationSection() {
               <TabsTrigger value="ajuste" disabled={!bannerUrl || bannerImgErr}>{t('settings.customization.tabAdjust')}</TabsTrigger>
             </TabsList>
 
-            {/* FUNDO */}
+            {}
             <TabsContent value="fundo" className="mt-6 flex flex-col gap-6">
               <div className="flex items-center gap-2 flex-wrap">
                 <Button type="button" variant="outline" onClick={() => bannerFileRef.current?.click()} className="gap-2">
@@ -259,7 +248,7 @@ export default function CustomizationSection() {
 
             </TabsContent>
 
-            {/* AJUSTE */}
+            {}
             <TabsContent value="ajuste" className="mt-6">
               {bannerUrl && !bannerImgErr ? (
                 <div className="flex flex-col gap-3">
@@ -285,7 +274,7 @@ export default function CustomizationSection() {
         </div>
       </Row>
 
-      {/* ═══ Profile theme ═══ */}
+      {}
       <Row label={t('settings.customization.theme')} hint={t('settings.customization.themeHint')}>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-6 sm:grid-cols-10 gap-1">
@@ -327,7 +316,7 @@ export default function CustomizationSection() {
         )}
       </Row>
 
-      {/* ═══ Display font ═══ */}
+      {}
       <Row label={t('settings.customization.font')} hint={t('settings.customization.fontHint')}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {DISPLAY_FONT_OPTIONS.map((f) => (
@@ -359,7 +348,6 @@ export default function CustomizationSection() {
   )
 }
 
-// ─── BannerPreview ──────────────────────────────────────────
 function BannerPreview({
   bannerUrl, fallbackBg, positionY, scale, onImgError,
 }: {
@@ -391,7 +379,6 @@ function BannerPreview({
   )
 }
 
-// ─── BannerPositioner ───────────────────────────────────────
 function BannerPositioner({
   bannerUrl, positionY, scale, onChange, onReset,
 }: {

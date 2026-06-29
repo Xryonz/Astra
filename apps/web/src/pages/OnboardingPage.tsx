@@ -1,9 +1,4 @@
-/**
- * OnboardingPage — primeira tela após criar a conta. Personaliza o perfil
- * (avatar, nome, pronomes) antes de entrar no app. Marca onboardedAt ao
- * concluir/pular, então só aparece uma vez. Acesso: redirect de /app quando
- * onboardedAt é null (ver RequireOnboarded em App.tsx).
- */
+
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'

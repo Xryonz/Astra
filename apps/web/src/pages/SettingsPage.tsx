@@ -37,7 +37,6 @@ type SectionId =
   | 'data'
   | 'wishing'
 
-// label = chave i18n (settings.nav.*); resolvida com t() no render.
 interface NavItem { id: SectionId; label: string; icon: React.ReactNode; group: 'pessoal' | 'app' | 'privacidade' | 'comunidade' }
 
 const NAV: NavItem[] = [
@@ -54,15 +53,6 @@ const NAV: NavItem[] = [
   { id: 'data',          label: 'settings.nav.data',          icon: <Database className="size-3.5" />,  group: 'privacidade' },
 ]
 
-/**
- * SettingsPage com sidebar editorial.
- *
- * Layout:
- *  - md+: sidebar fixa esquerda com nav agrupada
- *  - mobile (<md): sidebar escondida, nav vira <Select> no topo do conteúdo
- *
- * URL hash (#profile) sincronizado pra deep-link / back-forward.
- */
 export default function SettingsPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -71,26 +61,17 @@ export default function SettingsPage() {
   const hashSection = location.hash.slice(1)
   const validHash = NAV.some((n) => n.id === hashSection) ? (hashSection as SectionId) : null
   const [section, setSection] = useState<SectionId>(validHash ?? 'account')
-  // Mobile: drill-down. null = home (cards agrupados); set = seção aberta.
-  // Deep-link via hash abre direto a seção. Desktop ignora (usa só `section`).
+
   const [mobileOpen, setMobileOpen] = useState<SectionId | null>(validHash)
   const pickSection = (id: SectionId) => { setSection(id); setMobileOpen(id) }
 
-  // Navegação externa por hash troca a seção mesmo com a página JÁ montada.
-  // Ex: estar em /app/settings e tocar "Perfil" (→ redirect /app/settings#profile)
-  // ou "Wishing Star" (#wishing): a rota /app/settings não remonta, então o
-  // initializer do useState não roda de novo — sem isso a seção ficava presa.
-  // Só dispara em location.hash (replaceState abaixo NÃO mexe no useLocation),
-  // então cliques internos não caem aqui e não há ping-pong.
   useEffect(() => {
     const h = location.hash.slice(1)
     if (h && NAV.some((n) => n.id === h)) {
       setSection(h as SectionId)
       setMobileOpen(h as SectionId)
     } else {
-      // Navegou pra /app/settings SEM hash estando numa secao (ex: tocar
-      // "Configuracoes" vindo do perfil): volta pra home de cards no mobile,
-      // senao a secao anterior (perfil) ficava por cima.
+
       setMobileOpen(null)
     }
   }, [location.hash])
@@ -101,9 +82,6 @@ export default function SettingsPage() {
     }
   }, [section, location.pathname])
 
-  // Back nativo (Android): com uma seção aberta no mobile, recua pros cards
-  // em vez de sair das configurações inteiras. Home aberta / desktop não
-  // registra → o back cai no history normal e deixa a tela.
   useEffect(() => {
     if (mobileOpen === null) return
     return registerBackHandler(() => { setMobileOpen(null); return true })
@@ -130,7 +108,7 @@ export default function SettingsPage() {
 
   return (
     <main className="flex-1 flex h-full font-(family-name:--font-body) overflow-hidden">
-      {/* ─── Sidebar (md+) ─── */}
+      {}
       <aside className="hidden md:flex w-60 lg:w-64 shrink-0 border-r border-(--border) bg-(--raised)/30 flex-col overflow-hidden">
         <header className="h-14 px-4 flex items-center gap-2 border-b border-(--border) shrink-0">
           <button
@@ -190,13 +168,13 @@ export default function SettingsPage() {
         </ScrollArea>
       </aside>
 
-      {/* ─── Content ─── */}
+      {}
       <section className="flex-1 overflow-y-auto relative">
         <div className="ed-vignette" aria-hidden />
 
-        {/* Sticky header: breadcrumb (desktop) ou back + select (mobile) */}
+        {}
         <div className="sticky top-0 z-10 backdrop-blur bg-(--base)/90 border-b border-(--border)">
-          {/* Mobile header: home (X + título) ou seção aberta (voltar + título) */}
+          {}
           <div className="md:hidden flex items-center gap-2 px-4 py-3">
             {mobileOpen === null ? (
               <>
@@ -227,7 +205,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Desktop breadcrumb */}
+          {}
           <div className="hidden md:block">
             <div className="max-w-3xl mx-auto px-6 sm:px-10 lg:px-12 py-3.5">
               <Breadcrumb>
@@ -249,8 +227,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Mobile: push entre home-cards (esquerda) e seção (direita) — um
-            AnimatePresence só, sem flash da seção anterior. */}
+        {}
         <div className="md:hidden">
           <AnimatePresence mode="wait" initial={false}>
             {mobileOpen === null ? (
@@ -278,7 +255,7 @@ export default function SettingsPage() {
           </AnimatePresence>
         </div>
 
-        {/* Desktop: seção sempre visível, troca com slide horizontal. */}
+        {}
         <div className="hidden md:block max-w-3xl mx-auto px-8 lg:px-12 py-12 lg:py-16 pb-safe relative">
           <AnimatePresence mode="wait">
             <motion.div
@@ -297,8 +274,6 @@ export default function SettingsPage() {
   )
 }
 
-// ─── Mobile: lista de seções em cards agrupados (estilo app nativo, ──────
-//     vestido com a Astra: hairline, âmbar, mono nos rótulos). ──────────
 function MobileSettingsList({ onPick }: { onPick: (id: SectionId) => void }) {
   const { t } = useTranslation()
   return (

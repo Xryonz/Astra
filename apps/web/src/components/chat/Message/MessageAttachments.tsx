@@ -1,12 +1,4 @@
-/**
- * MessageAttachments — anexos da mensagem (imagens, áudios, arquivos).
- *
- * - Imagens: grid responsivo (1/2/3+ cols), click abre Lightbox via onOpenImage
- * - Áudios: VoiceMessage player
- * - Outros: link de download com size + mime
- *
- * Extraído de MessageItem (overhaul Fase 4d).
- */
+
 import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { File as FileIcon, Download } from 'lucide-react'
@@ -36,7 +28,7 @@ function fmtBytes(b: number) {
 
 function isImageAttachment(a: { type?: string; name?: string; url?: string }) {
   if (a.type?.startsWith('image/')) return true
-  // Fallback: detecta por extensão se mime veio vazio/errado
+
   const target = a.url || a.name || ''
   return /\.(png|jpe?g|gif|webp|avif|svg|bmp|heic|heif)(\?|#|$)/i.test(target)
 }
@@ -46,13 +38,10 @@ function ImageTile({ att, onOpen, fullWidth }: { att: Attachment; onOpen: () => 
   const [errored, setErrored] = useState(false)
   const [loaded, setLoaded]   = useState(false)
   const src = resolveApiUrl(att.url)
-  // Placeholder borrado do blurhash (instantâneo) + aspect-ratio reservando
-  // o espaço certo: a lista não "pula" quando a foto real chega.
+
   const blurUrl = useMemo(() => (att.blurhash ? blurhashToDataURL(att.blurhash) : null), [att.blurhash])
   const aspect  = fullWidth && att.width && att.height ? `${att.width} / ${att.height}` : undefined
-  // "Sized": a caixa tem altura definida antes da imagem carregar (square
-  // sempre; fullWidth só com dimensões). Sem isso (GIF/legado), a imagem
-  // dirige a própria altura como antes.
+
   const sized = !fullWidth || (!!att.width && !!att.height)
   if (errored) {
     return (
@@ -69,8 +58,7 @@ function ImageTile({ att, onOpen, fullWidth }: { att: Attachment; onOpen: () => 
       </a>
     )
   }
-  // fullWidth=true (1 imagem só): mostra na proporção real, completa, com altura
-  // generosa. fullWidth=false (>=2): grid items cropam pra alinhar visualmente.
+
   return (
     <button
       onClick={onOpen}
@@ -81,7 +69,7 @@ function ImageTile({ att, onOpen, fullWidth }: { att: Attachment; onOpen: () => 
         fullWidth ? 'block w-full' : 'aspect-square',
       )}
     >
-      {/* Placeholder borrado: aparece na hora, some quando a real carrega */}
+      {}
       {blurUrl && !loaded && (
         <img
           src={blurUrl}

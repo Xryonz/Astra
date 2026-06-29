@@ -51,23 +51,20 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   const [collapsed,       setCollapsed]       = useState<boolean>(() => {
     const stored = localStorage.getItem('astra-sidebar-collapsed')
     if (stored !== null) return stored === '1'
-    // Default colapsado em mobile (< 768px)
+
     return typeof window !== 'undefined' && window.innerWidth < 768
   })
   const mobileOpen    = useUIStore((s) => s.mobileSidebarOpen)
   const closeMobile   = useUIStore((s) => s.closeMobileSidebar)
   const location      = useLocation()
 
-  // Desktop: abrir uma DM colapsa a coluna de canais (rail | lista | conversa),
-  // focando no chat — norma Discord. `collapsed` é a preferência manual do user.
   const onDMRoute          = location.pathname.startsWith('/app/dm')
   const forceCollapse      = onDMRoute
   const effectiveCollapsed = collapsed || forceCollapse
-  // Dialogs: parent controla apenas open + target. Cada dialog componente
-  // gerencia próprio form state + mutation.
+
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createMode,      setCreateMode]      = useState<'server' | 'group'>('server')
-  /** Posição do clique no botão "Criar…" — modal usa pra animar saindo dele. */
+
   const [popOrigin, setPopOrigin] = useState<{ x: number; y: number } | null>(null)
   const [ctxMenu,         setCtxMenu]         = useState<CtxMenu | null>(null)
   const [showAddMember,   setShowAddMember]   = useState(false)
@@ -82,8 +79,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   const { data: servers = [], isLoading: serversLoading } = useQuery<ServerWithChannels[]>({
     queryKey: ['servers'],
     queryFn: async () => (await api.get('/api/servers')).data.data,
-    // Servidores mudam só por ação explícita (criar/sair/renomear) → invalidação
-    // manual cobre. 5min de staleTime corta refetch automático em background.
+
     staleTime: 5 * 60_000,
   })
 
@@ -91,9 +87,6 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     if (servers.length && !activeServerId) setActiveServerId(servers[0].id)
   }, [servers, activeServerId])
 
-  // Mutations: create/edit/delete server + invite + create channel
-  // foram movidos pros respectivos dialog components. Sobram aqui só as
-  // ações que NÃO têm dialog próprio (leave, rename/delete channel inline).
   const leaveServer = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/servers/${id}/leave`),
     onSuccess: () => {
@@ -119,7 +112,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
 
   const handleChannelAreaContextMenu = useCallback((e: React.MouseEvent) => {
     if (!activeServerId || !canManageChannels) return
-    // Só abre menu se clicou no fundo (não num botão de canal)
+
     const target = e.target as HTMLElement
     if (target.closest('button')) return
     e.preventDefault(); e.stopPropagation()
@@ -131,15 +124,9 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     setCtxMenu({ x: e.clientX, y: e.clientY, server, isOwner: server.ownerId === user?.id })
   }, [user?.id])
 
-  /**
-   * Tap em server icon (mobile + desktop): troca o server ativo.
-   * No mobile, se já tem channel selecionada nesse server, navega pra ela e
-   * fecha o drawer; senão (server sem canais OU recém-trocado) auto-pick
-   * do primeiro canal disponível pra não deixar o user "no escuro".
-   */
   const handleServerIconTap = useCallback((s: ServerWithChannels) => {
     setActiveServerId(s.id)
-    // Mobile only: auto-navigate + close drawer
+
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
       const firstCh = s.channels?.find((c) => c.type === 'TEXT') ?? s.channels?.[0]
       if (firstCh) onSelectChannel(firstCh.id, firstCh.name, s.id)
@@ -152,7 +139,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     const items: ContextMenuItem[] = []
     if (!menu.server.isGroup) {
       items.push({
-        // No app nativo abre o share sheet do OS; no web copia (lib/native).
+
         icon: '🔗', label: isNative ? t('sidebar.shareInvite') : t('sidebar.copyInvite'),
         onClick: () => { void shareInvite(menu.server.inviteCode) },
       })
@@ -166,10 +153,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         icon: '✏️', label: t('sidebar.rename', { kind }),
         onClick: () => { setEditServerId(menu.server.id); setShowEditModal(true) },
       })
-      // Adicionar membro por @username (invite/:username — NAO exige amizade).
-      // Antes so aparecia pra grupo; liberado pra servidor tambem. Gate de dono
-      // ja garantido pelo if (menu.isOwner) acima. Opt-out de "convite por
-      // estranhos" fica pra config de acessibilidade futura.
+
       items.push({ icon: '👥', label: t('sidebar.addMember'), onClick: () => { setActiveServerId(menu.server.id); setShowAddMember(true) } })
       items.push({ icon: '🗑️', label: t('sidebar.delete', { kind }), danger: true, onClick: () => { setDeleteServerId(menu.server.id); setShowDeleteModal(true) } })
     } else {
@@ -179,21 +163,16 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   }
 
   const activeServer   = servers.find((s) => s.id === activeServerId)
-  // Mostra TEXT + VOICE (ChannelButton já trata ícone por tipo)
+
   const channels       = activeServer?.channels ?? []
   const isGroup        = activeServer?.isGroup ?? false
 
-  // Voice presence: polling de quem está em cada canal voice do server ativo
   const voiceChannelIds = useMemo(
     () => channels.filter((c) => c.type === 'VOICE').map((c) => c.id),
     [channels],
   )
   const voicePresence = useVoiceChannelPresence(voiceChannelIds)
 
-  // Source-of-truth LOCAL pro canal que VOCÊ está conectado.
-  // Polling do server demora ~10s e LiveKit tem cache server-side — sem isso,
-  // você se conecta e some das avatar-rows por 5-15s. Aqui pegamos do client
-  // LiveKit imediatamente; o polling completa pra outros canais.
   const voice = useVoiceCall()
   const localActive = useMemo(() => {
     const parsed = parseRoomName(voice.roomName)
@@ -211,7 +190,6 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     return base
   }, [voicePresence.data, localActive])
 
-  // Avatar lookup batch — uma query única pra todas as identities visíveis
   const allVoiceIdentities = useMemo(
     () => Object.values(presenceByChannel).flat(),
     [presenceByChannel],
@@ -230,16 +208,11 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
 
   return (
     <>
-      {/* Backdrop mobile — atrás do drawer.
-          Stagger: backdrop 80ms atrás do drawer pra criar "drawer leads" feel. */}
+      {}
       {mobileOpen && (
         <div
           onClick={closeMobile}
-          // Para acima da tab bar (above-mobile-nav) — norma Discord: as tabs
-          // continuam visíveis e clicáveis com o drawer aberto.
-          // Sem backdrop-blur: o WebView Android tem bug de composição com
-          // backdrop-filter em fixed (conteúdo borrado vaza por cima do
-          // drawer opaco). Dim sólido resolve e é a norma Discord.
+
           className="md:hidden fixed top-0 left-0 right-0 above-mobile-nav z-40 bg-black/70"
           style={{ animation: 'fadeIn 0.36s ease-out 0.08s both' }}
         />
@@ -248,16 +221,9 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
       <div
         className={cn(
           'flex shrink-0 z-50',
-          // Desktop: estático na grid normal, ocupa altura cheia, largura natural
+
           'md:relative md:translate-x-0 md:transition-none md:h-full md:w-auto',
-          // Mobile: drawer slide-in da esquerda. 85vw garante que o flex row
-          // (strip 64px + canais ~) preenche a largura sem cortar/sobra.
-          // above-mobile-nav: termina acima da tab bar (norma Discord).
-          // bg opaco no container: garante que NADA atrás vaza, mesmo se um
-          // filho não pintar a área toda durante a transição.
-          // pt: faixa preta no topo (status bar / edge-to-edge Android) — empurra
-          // rail + header "Constelações" juntos pra baixo, simétrico, longe da
-          // quina. Knob: aumentar o 3rem desce mais (zona do polegar). md zera.
+
           'fixed top-0 left-0 above-mobile-nav w-[85vw] max-w-105 transition-transform border-r border-(--border) bg-(--void) md:bg-(--base) pt-[max(3rem,calc(env(safe-area-inset-top)+0.5rem))] md:pt-0',
           mobileOpen
             ? 'translate-x-0 duration-320 [transition-timing-function:cubic-bezier(0.34,1.32,0.55,1)]'
@@ -265,10 +231,9 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         )}
       >
 
-        {/* ── Server strip ─────────────────────────────────── */}
+        {}
         <div className="w-16 h-full bg-background border-r border-border flex flex-col items-center py-3 gap-1.5 overflow-y-auto shrink-0">
-          {/* Mobile: DM + Friends shortcuts já estão na bottom nav. Escondemos
-              aqui pra evitar duplicação. Desktop mantém. */}
+          {}
           <div className="hidden md:contents">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -305,9 +270,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             <div className="w-7 h-px bg-border my-0.5" />
           </div>
 
-          {/* ── Ações (topo, estilo Discord) — criar servidor/grupo e
-              descobrir. Ficam ACIMA dos servidores: preenchem o rail e dão
-              alvos fáceis de tocar no mobile. ── */}
+          {}
           <StripButton
             title={t('sidebar.createServer')}
             icon={<Plus className="size-5" />}
@@ -361,12 +324,10 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             </>
           )}
 
-          {/* spacer empurra toggle pro fundo */}
+          {}
           <div className="flex-1" />
 
-          {/* Colapsar painel é conceito de desktop — no mobile o drawer
-              inteiro fecha, então o botão só confundia. Em DM/home o painel já
-              colapsa por contexto, então o toggle some (nada pra expandir). */}
+          {}
           {!forceCollapse && (
             <div className="hidden md:contents">
               <StripButton
@@ -384,26 +345,22 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
           )}
         </div>
 
-        {/* ── Channel panel ─────────────────────────────────── */}
+        {}
         <div
           className={cn(
-            // min-w-0 força flex item a respeitar w-0 (sem ele, conteúdo interno
-            // empurra o painel e estoura scrollbar horizontal no viewport durante
-            // a transição de collapse). overflow-hidden já corta visualmente.
+
             'h-full bg-muted border-r border-border flex flex-col overflow-hidden transition-[width] duration-300 ease-(--ease-spring) min-w-0',
-            // Mobile: ocupa o resto da largura (após strip 64px). Desktop: w-55 ou colapsa.
+
             'flex-1 md:flex-none',
             effectiveCollapsed ? 'md:w-0 md:border-r-0' : 'md:w-55'
           )}
         >
-          {/* Mobile-only header: avatar (abre Mais) + título + X (fecha sidebar) */}
+          {}
           <MobileSidebarHeader onClose={closeMobile} />
 
           {activeServer && (
             <div className="relative shrink-0 border-b border-(--border) overflow-hidden">
-              {/* Banner: custom (anima sempre — é 1 só) ou a constelação-
-                  assinatura gerada do nome. Custom ganha a constelação
-                  discreta no canto — a assinatura nunca some. */}
+              {}
               {activeServer.bannerUrl ? (
                 <>
                   <img
@@ -426,7 +383,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
                 />
               )}
 
-              {/* Scrim + nome sobre a base do banner */}
+              {}
               <div className="absolute inset-x-0 bottom-0 px-4 pt-6 pb-2 flex items-center gap-2.5 bg-gradient-to-t from-black/75 to-transparent">
                 {isGroup && <Users className="size-3.5 text-(--text-2) shrink-0" />}
                 <h2
@@ -457,8 +414,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             onContextMenu={handleChannelAreaContextMenu}
           >
             {channels.length > 0 ? (
-              /* Topo-ancorado (norma Discord): canais colados no banner,
-                 sem vão flutuante — lista curta ou longa, mesmo layout. */
+
               <div>
                 <div className="px-3 mb-1.5">
                   <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-mono">
@@ -493,8 +449,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
             ) : null}
           </div>
 
-          {/* UserFooter: mobile inteiro vive na sheet "Mais" (bottom nav).
-              Em mobile escondemos pra não duplicar. Desktop mantém. */}
+          {}
           <div className="hidden md:contents">
             <UserFooter onProfileClick={() => setShowOwnProfile(true)} />
           </div>
@@ -527,7 +482,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
         <ProfileCard userId={user.id} onClose={() => setShowOwnProfile(false)} />
       )}
 
-      {/* ── Dialogs ────────────────────────────────────── */}
+      {}
       <CreateServerDialog
         open={showCreateModal}
         onClose={() => { setShowCreateModal(false); setPopOrigin(null) }}
@@ -560,8 +515,6 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   )
 }
 
-// ─── Small reusable components ────────────────────────────────
-
 function ServerIcon({ server, isActive, index, isGroup = false, onClick, onContextMenu }: {
   server: ServerWithChannels
   isActive: boolean
@@ -570,12 +523,9 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
   onClick: () => void
   onContextMenu: (e: React.MouseEvent) => void
 }) {
-  // Ícone animado (GIF/WebP) só anima no hover/ativo — 15 GIFs simultâneos
-  // na strip derretem bateria (norma Discord). FreezeFrame congela o resto.
+
   const [hovered, setHovered] = useState(false)
 
-  // Long-press abre o menu (mobile). Sintetiza coords da posição do toque
-  // pra ServerContextMenu (posicionada manualmente em x,y) cair certo.
   const longPress = useLongPress((e) => {
     const point = 'touches' in e
       ? { x: e.changedTouches?.[0]?.clientX ?? e.touches?.[0]?.clientX ?? 0,
@@ -588,7 +538,7 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
     <Tooltip>
       <TooltipTrigger asChild>
         <div className="relative shrink-0 group/server">
-          {/* Rail indicator à esquerda — cresce no active, encolhe no hover */}
+          {}
           <span
             aria-hidden
             className={cn(
@@ -627,7 +577,7 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
               />
             ) : (
               <>
-                {/* Constelação-assinatura atrás das iniciais no default */}
+                {}
                 <Constellation
                   name={server.name}
                   stars={server._count?.members}
@@ -649,7 +599,7 @@ function ServerIcon({ server, isActive, index, isGroup = false, onClick, onConte
 function StripButton({ title, icon, onClick }: {
   title:   string
   icon:    React.ReactNode
-  /** Recebe coords do clique em viewport pra animação anchored (modal sai do botão). */
+
   onClick: (origin: { x: number; y: number }) => void
 }) {
   const [bursts, setBursts] = useState<number[]>([])
@@ -673,7 +623,7 @@ function StripButton({ title, icon, onClick }: {
           className="size-10 shrink-0 rounded-2xl border border-dashed border-(--border) bg-transparent text-(--text-3) cursor-pointer flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-(--ease-spring) hover:bg-(--accent-dim) hover:border-(--accent) hover:text-(--accent) hover:scale-105 active:scale-90 active:duration-100 relative overflow-visible"
         >
           {icon}
-          {/* Burst ring(s) — múltiplos cliques rápidos sobrepoem ondas */}
+          {}
           {bursts.map((id) => (
             <span
               key={id}
@@ -715,22 +665,19 @@ function ChannelButton({
 
   const handleClick = () => {
     if (isVoice) {
-      // Click em canal de voz: entrar na call. Não navega.
+
       if (!cfg.data?.enabled) return
-      if (inThis) return // já está conectado
+      if (inThis) return
       voice.join('channel', channel.id)
     } else {
       onClick()
     }
   }
 
-  // Prefetch no touchstart (mobile) / mouseenter (desktop): a request das
-  // mensagens sai ~100ms antes do click completar — canal abre quente.
   const handlePrefetch = () => {
     if (!isVoice && !isActive) prefetchChannelMessages(qc, channel.id)
   }
 
-  // Itens do context menu (right-click) — varia por perm + tipo
   const menuItems: EditorialMenuItem[] = [
     { kind: 'label', label: `${isVoice ? t('sidebar.voiceLabel') : '#'} ${channel.name}` },
   ]
@@ -805,17 +752,13 @@ function ChannelButton({
       disabled={isVoice && !cfg.data?.enabled}
       title={isVoice && !cfg.data?.enabled ? t('sidebar.callsNotConfigured') : undefined}
       className={cn(
-        // Transição explícita de cores em 150ms (era transition-all 300ms —
-        // seleção de canal parecia lenta) + press tátil rápido.
-        // min-h-11 mobile: row de canal com 44px de alvo (norma touch);
-        // desktop volta pra densidade compacta.
+
         'group w-full flex items-center gap-2.5 px-3 py-1.5 min-h-11 md:min-h-0 border-l-2 rounded-r-lg cursor-pointer text-left relative transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98] active:duration-100 disabled:opacity-50 disabled:cursor-not-allowed',
         isActive || inThis
           ? 'border-(--accent) bg-(--accent-dim)'
           : 'border-transparent bg-transparent hover:border-(--border-bright) hover:bg-(--raised)/40'
       )}
-      // Stagger com teto de 0.25s: lista grande não fica "pingando" item
-      // por item (20 canais levavam 0.8s até o último aparecer).
+
       style={{ animation: `fadeLeft 0.25s var(--ease-spring) ${Math.min(index * 0.03, 0.25)}s both` }}
     >
       {isVoice ? (
@@ -863,10 +806,6 @@ function ChannelButton({
   )
 }
 
-/**
- * VoiceParticipantsRow — chip mini com avatares de quem está num canal voice.
- * Sub-row indented sob o ChannelButton. Lookup batch vem de cima (userMap).
- */
 function VoiceParticipantsRow({
   identities, userMap,
 }: {
@@ -905,21 +844,10 @@ function VoiceParticipantsRow({
   )
 }
 
-/**
- * MobileSidebarHeader — header mobile-only do channel panel.
- *
- * Esquerda: avatar do user → abre sheet "Mais" (perfil/settings/sair)
- * Centro:   título "Constelações" (serif)
- * Direita:  X → fecha a sidebar (returna o user pra app)
- *
- * Substitui o burger Menu em headers — agora o trigger pra abrir/fechar e
- * o acesso ao perfil moram aqui dentro, alinhado com a bottom nav.
- */
 function MobileSidebarHeader({ onClose }: { onClose: () => void }) {
   return (
     <header className="md:hidden h-14 px-3 flex items-center gap-2 border-b border-(--border) bg-(--base) shrink-0">
-      {/* Espaçador pra manter "Constelações" centralizado (balanceia o X).
-          A foto do user vive só na barra de perfil de baixo. */}
+      {}
       <span className="size-10 shrink-0" aria-hidden />
       <h2
         className="flex-1 text-base m-0 font-normal tracking-tight text-foreground text-center truncate"

@@ -8,20 +8,13 @@ interface ConstellationEmptyProps {
   className?:  string
 }
 
-/**
- * Empty state ilustrado com SVG de constelação.
- *
- * 7 pontos ligados por linhas finas que se "acendem" em sequência via
- * stroke-dasharray. Reforça identidade Astra exatamente quando o usuário
- * pensa na ausência (lista vazia).
- */
 export default function ConstellationEmpty({
   title, description, cta, className,
 }: ConstellationEmptyProps) {
   return (
     <div className={`flex flex-col items-center text-center gap-4 py-12 px-6 ${className ?? ''}`}>
       <svg width="140" height="100" viewBox="0 0 140 100" fill="none" aria-hidden>
-        {/* Linhas — desenhadas com stroke-dasharray animado */}
+        {}
         <motion.polyline
           points="20,75 50,40 80,55 110,25 125,65 95,85 55,80 20,75"
           stroke="var(--accent)"
@@ -33,7 +26,7 @@ export default function ConstellationEmpty({
           animate={{ strokeDashoffset: 0 }}
           transition={{ duration: 2, ease: 'easeOut' }}
         />
-        {/* 7 estrelas */}
+        {}
         {[
           { x: 20,  y: 75, r: 2.0 },
           { x: 50,  y: 40, r: 2.5 },

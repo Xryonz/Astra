@@ -1,7 +1,4 @@
-/**
- * DiscoverPage — diretório de constelações públicas. Busca por nome, lista
- * por nº de membros, entra direto (sem convite). Acesso via /app/discover.
- */
+
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'

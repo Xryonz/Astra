@@ -4,14 +4,6 @@ interface AstraLogoProps {
   animated?: boolean
 }
 
-/**
- * Logo da Astra — usa /logo-transparent.svg.
- *
- * Hack pra fundo preto sumir: `mix-blend-mode: lighten` sobre BG dark.
- * Pixel preto ∨ BG dark = BG dark ("transparente" visualmente).
- *
- * Favicon (tab) continua usando /favicon.svg raw — com fundo.
- */
 export default function AstraLogo({ size = 40, style, animated = true }: AstraLogoProps) {
   const inner = Math.round(size * 0.95)
   return (

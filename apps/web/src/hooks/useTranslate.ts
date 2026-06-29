@@ -1,8 +1,4 @@
-/**
- * Tradução de mensagens via Claude Haiku.
- * Cache local na Query cache: chave = ['translate', messageId, targetLang].
- * Server-side já cacheia em Redis 24h, então hits são baratos.
- */
+
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 

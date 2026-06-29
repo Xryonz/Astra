@@ -1,11 +1,4 @@
-/**
- * Estado de conexão — nativo (@capacitor/network) + web (window online/offline).
- *
- * Por quê os dois: no app nativo o Network plugin reporta o estado real do
- * rádio (Wi-Fi/celular caiu), mais confiável que navigator.onLine no WebView.
- * No web, os eventos do window bastam. Quando a rede VOLTA, cutuca o socket
- * pra reconectar na hora em vez de esperar o backoff.
- */
+
 import { useEffect, useState } from 'react'
 import { isNative } from '@/lib/native'
 import { reconnectSocketNow } from '@/lib/socket'
@@ -21,13 +14,11 @@ export function useOnlineStatus(): boolean {
       setOnline(isOnline)
       if (isOnline) {
         reconnectSocketNow()
-        // Drena as mensagens compostas offline. Um tiquinho depois pro socket
-        // reconectar primeiro — aí o eco de cada envio reconcilia a otimista.
+
         setTimeout(() => void flushOutbox(), 600)
       }
     }
 
-    // Flush no mount: pode haver mensagens de uma sessão offline anterior.
     if (navigator.onLine) void flushOutbox()
 
     if (isNative) {

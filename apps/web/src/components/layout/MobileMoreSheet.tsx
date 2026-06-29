@@ -1,7 +1,4 @@
-/**
- * MobileMoreSheet — sheet acionada pela tab "Mais" da MobileBottomNav.
- * Atalhos rápidos: perfil, configurações, sair. Estilo editorial-dark.
- */
+
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -32,8 +29,6 @@ export default function MobileMoreSheet() {
 
   const close = () => setOpen(false)
 
-  // Back físico do Android dispara Escape (ver native.ts) — fecha o sheet
-  // em vez de navegar pra trás com ele aberto.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
@@ -72,7 +67,7 @@ export default function MobileMoreSheet() {
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
+          {}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -82,7 +77,7 @@ export default function MobileMoreSheet() {
             className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
           />
 
-          {/* Sheet */}
+          {}
           <motion.aside
             role="dialog"
             data-state="open"
@@ -93,7 +88,7 @@ export default function MobileMoreSheet() {
             transition={{ type: 'spring', stiffness: 360, damping: 30 }}
             className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-(--base) border-t border-(--border) rounded-t-2xl pb-safe overflow-hidden"
           >
-            {/* Drag handle */}
+            {}
             <div className="pt-2 pb-1.5 flex justify-center">
               <span className="block w-10 h-1 rounded-full bg-(--border-mid)" />
             </div>

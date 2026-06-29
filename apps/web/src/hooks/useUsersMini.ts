@@ -1,9 +1,4 @@
-/**
- * useUsersMini — lookup batch de avatar/displayName por user id.
- *
- * Usado pra renderizar listas de participantes (voice presence, mentions, etc)
- * sem N+1 requests. Cache 60s; chave estável via sort.
- */
+
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 

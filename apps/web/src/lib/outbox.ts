@@ -1,16 +1,4 @@
-/**
- * Outbox — fila persistente (IndexedDB) de mensagens de TEXTO compostas sem
- * internet. Some o "não consegue enviar offline": a mensagem fica visível
- * como pendente (sobrevive a reload) e dispara sozinha quando a rede volta.
- *
- * Escopo: só texto puro. Anexo precisa de upload (rede) e reply/ttl têm
- * semântica que não vale a pena persistir — esses mantêm o fluxo normal.
- *
- * Reconciliação: cada item guarda o optimisticId como `id`. No flush, o POST
- * vai com clientNonce = id; o servidor faz broadcast 'new_message' com esse
- * nonce e o MessageList/DMChat removem a otimista pelo MESMO caminho de um
- * envio normal (dedup por clientNonce). Zero lógica de dedup nova.
- */
+
 import { api } from '@/lib/api'
 
 export interface OutboxAuthor {
@@ -18,9 +6,9 @@ export interface OutboxAuthor {
   avatarUrl: string | null; displayFont?: string
 }
 export interface OutboxItem {
-  id:        string             // optimisticId (= clientNonce)
+  id:        string
   kind:      'channel' | 'dm'
-  targetId:  string             // channelId ou conversationId
+  targetId:  string
   content:   string
   createdAt: number
   author:    OutboxAuthor
@@ -56,11 +44,11 @@ async function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => ID
 }
 
 export async function enqueueOutbox(item: OutboxItem): Promise<void> {
-  try { await tx('readwrite', (s) => s.put(item)) } catch { /* IDB indisponível — best effort */ }
+  try { await tx('readwrite', (s) => s.put(item)) } catch { }
 }
 
 export async function removeOutbox(id: string): Promise<void> {
-  try { await tx('readwrite', (s) => s.delete(id)) } catch { /* noop */ }
+  try { await tx('readwrite', (s) => s.delete(id)) } catch { }
 }
 
 export async function getOutbox(): Promise<OutboxItem[]> {
@@ -74,11 +62,6 @@ export async function getOutboxFor(kind: 'channel' | 'dm', targetId: string): Pr
 
 let flushing = false
 
-/**
- * Drena a fila mandando cada item via HTTP (com clientNonce). Sucesso ou
- * rejeição do servidor (4xx) → remove. Falha de rede → para e tenta no
- * próximo 'online'. Idempotente: nunca roda dois flushes ao mesmo tempo.
- */
 export async function flushOutbox(): Promise<void> {
   if (flushing) return
   flushing = true
@@ -93,8 +76,8 @@ export async function flushOutbox(): Promise<void> {
         await api.post(url, { content: it.content, clientNonce: it.id })
         await removeOutbox(it.id)
       } catch (e: any) {
-        if (e?.response) await removeOutbox(it.id)  // servidor rejeitou — não retentar pra sempre
-        else break                                   // ainda offline — para o flush
+        if (e?.response) await removeOutbox(it.id)
+        else break
       }
     }
   } finally {

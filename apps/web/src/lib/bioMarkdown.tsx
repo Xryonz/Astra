@@ -1,19 +1,4 @@
-/**
- * bioMarkdown — micro-renderer pra bio do perfil.
- *
- * Suporta um subset minimal de markdown editorial:
- *   **bold**
- *   *italic*
- *   `code`
- *   [text](url)         — só http(s), https → external
- *   \n                  — break de linha
- *
- * Por que não usar `react-markdown`? Bio é 300 chars max. react-markdown
- * pesa ~50KB. Render manual é ~1KB e cobre 100% do que faz sentido em bio.
- *
- * Segurança: URLs validadas regex (só http/https). Sem HTML inline.
- * Texto nu sempre escapado (passa como children React, não dangerouslySetInnerHTML).
- */
+
 import * as React from 'react'
 
 const URL_RE = /^https?:\/\/[^\s]+$/i
@@ -32,10 +17,9 @@ function tokenize(input: string): Token[] {
   const len = input.length
 
   while (i < len) {
-    // Break de linha
+
     if (input[i] === '\n') { tokens.push({ kind: 'br' }); i++; continue }
 
-    // **bold**
     if (input[i] === '*' && input[i+1] === '*') {
       const end = input.indexOf('**', i + 2)
       if (end !== -1) {
@@ -44,7 +28,6 @@ function tokenize(input: string): Token[] {
       }
     }
 
-    // *italic*
     if (input[i] === '*') {
       const end = input.indexOf('*', i + 1)
       if (end !== -1) {
@@ -53,7 +36,6 @@ function tokenize(input: string): Token[] {
       }
     }
 
-    // `code`
     if (input[i] === '`') {
       const end = input.indexOf('`', i + 1)
       if (end !== -1) {
@@ -62,7 +44,6 @@ function tokenize(input: string): Token[] {
       }
     }
 
-    // [text](url)
     if (input[i] === '[') {
       const close = input.indexOf(']', i + 1)
       if (close !== -1 && input[close+1] === '(') {
@@ -78,14 +59,13 @@ function tokenize(input: string): Token[] {
       }
     }
 
-    // Texto comum — consome até próximo trigger char
     let j = i
     while (j < len && !'*`[\n'.includes(input[j])) j++
     if (j > i) {
       tokens.push({ kind: 'text', value: input.slice(i, j) })
       i = j
     } else {
-      // Char trigger isolado — emite como texto puro pra evitar loop
+
       tokens.push({ kind: 'text', value: input[i] })
       i++
     }

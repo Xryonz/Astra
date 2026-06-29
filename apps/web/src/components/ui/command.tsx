@@ -1,7 +1,4 @@
-/**
- * Command — shadcn-style sobre `cmdk`.
- * Combo: arrow-keys nav nativa + filtering opcional + estilo editorial.
- */
+
 import * as React from 'react'
 import { Command as CommandPrimitive } from 'cmdk'
 import { Search } from 'lucide-react'
@@ -24,10 +21,10 @@ const Command = React.forwardRef<
 Command.displayName = 'Command'
 
 interface CommandDialogProps extends React.ComponentProps<typeof Dialog> {
-  /** Aria title — sempre obrigatório, fica sr-only */
+
   title?:       string
   description?: string
-  /** Largura do dialog. Default max-w-2xl */
+
   className?: string
 }
 

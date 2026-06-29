@@ -1,10 +1,4 @@
-/**
- * Store global de chamada de voz (Zustand).
- *
- * livekit-client é importado APENAS via `loadLK()` quando o user entra numa call.
- * No boot do app, esse store é só metadata (state, participants vazio).
- * Isso tira ~120KB gzip do main bundle pra um path que talvez nunca ocorra.
- */
+
 import { create } from 'zustand'
 import i18n from '@/i18n'
 import type {
@@ -24,7 +18,7 @@ export interface CallParticipantInfo {
   isMicEnabled:    boolean
   isScreenSharing: boolean
   isCameraEnabled: boolean
-  /** Qualidade de conexão LiveKit: excellent | good | poor | lost | unknown */
+
   connectionQuality: string
   participant:     Participant
 }
@@ -35,7 +29,7 @@ interface VoiceState {
   participants: CallParticipantInfo[]
   error:        string | null
   deafened:     boolean
-  /** Volume master 0–1 — aplicado em todos os <audio> remotos */
+
   volume:       number
 
   join:         (kind: 'channel' | 'dm', id: string) => Promise<void>
@@ -45,21 +39,21 @@ interface VoiceState {
   toggleCamera: () => Promise<void>
   toggleDeafen: () => void
   setVolume:    (v: number) => void
-  /** Volume por pessoa (identity → 0..1). Multiplica o volume master. */
+
   participantVolumes: Record<string, number>
   setParticipantVolume: (identity: string, v: number) => void
-  /** Krisp (supressão de ruído por IA). Aplicado na track do mic. */
+
   noiseFilter: boolean
   toggleNoiseFilter: () => void
-  /** Overlay de stats (qualidade/resolução) por tile. */
+
   showStats: boolean
   toggleStats: () => void
-  /** Dispositivos de áudio escolhidos (deviceId) — null = padrão do sistema. */
+
   audioInputId:  string | null
   audioOutputId: string | null
   setAudioInput:  (id: string) => Promise<void>
   setAudioOutput: (id: string) => Promise<void>
-  /** Modo de transmissão: 'motion' (fluidez/jogo) | 'detail' (nitidez/texto). */
+
   screenQuality: 'motion' | 'detail'
   setScreenQuality: (q: 'motion' | 'detail') => void
 }
@@ -85,7 +79,7 @@ function loadParticipantVolumes(): Record<string, number> {
 
 const NOISE_FILTER_KEY = 'astra-noise-filter'
 function loadNoiseFilter(): boolean {
-  try { return localStorage.getItem(NOISE_FILTER_KEY) !== '0' } catch { return true } // default ON
+  try { return localStorage.getItem(NOISE_FILTER_KEY) !== '0' } catch { return true }
 }
 
 const DEV_IN_KEY = 'astra-voice-in'
@@ -98,8 +92,6 @@ function loadScreenQuality(): 'motion' | 'detail' {
   try { return localStorage.getItem(SCREEN_Q_KEY) === 'detail' ? 'detail' : 'motion' } catch { return 'motion' }
 }
 
-// Mensagens humanas pros erros mais comuns de getUserMedia / LiveKit. Sem
-// isso o user vê "NotAllowedError" cru e não sabe o que fazer.
 function humanizeMediaError(err: any): string | null {
   const name = err?.name ?? err?.error?.name
   const msg  = String(err?.message ?? '').toLowerCase()
@@ -121,10 +113,8 @@ function humanizeMediaError(err: any): string | null {
   return null
 }
 
-// Singleton — única conexão por aba
 let activeRoom: Room | null = null
 
-// LiveKit namespace cache. null antes do primeiro join.
 type LKNs = typeof import('livekit-client')
 let lkNs: LKNs | null = null
 async function loadLK(): Promise<LKNs> {
@@ -132,9 +122,6 @@ async function loadLK(): Promise<LKNs> {
   return lkNs
 }
 
-// Krisp: supressão de ruído por IA (só LiveKit Cloud). Liga/desliga o
-// processor na track do microfone local. Dynamic import pra não pesar o
-// bundle. Silencioso se o browser/WebView não suportar.
 async function applyMicNoiseFilter(enabled: boolean): Promise<void> {
   if (!activeRoom || !lkNs) return
   const pub = activeRoom.localParticipant.getTrackPublication(lkNs.Track.Source.Microphone)
@@ -196,8 +183,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     if (activeRoom && lkNs) {
       const participants = snapshot(activeRoom, lkNs.Track)
       set({ participants })
-      // PiP só vale a pena com vídeo na call (câmera/screen share) —
-      // sair do app com vídeo rolando encolhe pro quadro flutuante.
+
       setPipEnabled(participants.some((p) => p.isCameraEnabled || p.isScreenSharing))
     }
   }
@@ -207,8 +193,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     setCallActive(false)
     set({ state: 'idle', roomName: null, participants: [], error: null })
   }
-  // Aplica master × volume-por-pessoa em cada <audio> remoto (tagueado com a
-  // identidade). Fonte única de verdade — chamado de setVolume/Deafen/PerPerson.
+
   const applyAudioVolumes = () => {
     const { volume, deafened, participantVolumes } = get()
     document.querySelectorAll<HTMLAudioElement>('audio[data-astra-voice]').forEach((a) => {
@@ -249,30 +234,16 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         const tokenRes = await api.post('/api/voice/token', { roomKind: kind, roomId: id })
         const { token, url } = tokenRes.data.data
 
-        // adaptiveStream OFF: pra screen share, ele pausava/retomava a
-        // layer alta baseado em visibilidade do <video> remoto → flicker
-        // visível em tile pequeno ou troca de aba. Em calls pequenas a
-        // economia de banda não compensa.
-        // dynacast continua ON — publisher-side, escala simulcast layers
-        // pela demanda agregada dos subscribers.
         const room = new Room({
           adaptiveStream: false,
           dynacast:       true,
-          // Limpeza de captura: o trio que WhatsApp/Discord ligam por
-          // padrão — eco, ruído de fundo e ganho automático.
+
           audioCaptureDefaults: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl:  true,
           },
-          // Voz a 48kbps (preset music) em vez dos ~32k default — mais
-          // corpo na voz. dtx (silêncio não transmite) + red (pacotes
-          // redundantes) explícitos pra resiliência em wifi/4G oscilando.
-          //
-          // videoCodec vp9: ~30% melhor compressão que o default (vp8) — tela
-          // e câmera mais nítidas no mesmo bitrate. backupCodec: publica também
-          // h264 pra subscribers que não decodificam vp9 (Safari antigo etc).
-          // AV1 ficaria ~50% melhor mas o encode derruba frame em device fraco.
+
           publishDefaults: {
             audioPreset: lk.AudioPresets.music,
             dtx: true,
@@ -284,17 +255,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         bindRoomEvents(RoomEvent, room, refresh, handleDisc)
         await room.connect(url, token)
 
-        // Mic habilitado pós-connect — se permissão negada (NotAllowedError no
-        // mobile / browser bloqueou), entra mudo e o user pode reativar depois
-        // via botão. Antes a exception derrubava a call inteira.
         try {
           await room.localParticipant.setMicrophoneEnabled(true)
         } catch (micErr: any) {
           console.warn('[voice] mic permission denied/error — entrando mudo:', micErr?.message)
         }
 
-        // Dispositivos salvos (mic/alto-falante) — aplica antes do Krisp pra
-        // o filtro pegar a track certa.
         const savedIn  = get().audioInputId
         const savedOut = get().audioOutputId
         if (savedIn)  { try { await room.switchActiveDevice('audioinput',  savedIn)  } catch {} }
@@ -302,9 +268,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
         activeRoom = room
         void applyMicNoiseFilter(get().noiseFilter)
-        // Foreground service: call de áudio sobrevive com o app em background
+
         setCallActive(true)
-        playCallJoin()  // "blip" de conectado — entrou na call
+        playCallJoin()
         set({
           state:        'connected',
           roomName:     room.name,
@@ -319,7 +285,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
     leave: async () => {
       if (!activeRoom) { set({ state: 'idle' }); return }
-      playCallLeave()  // "blip" descendente — saiu da call
+      playCallLeave()
       set({ state: 'disconnecting' })
       try { await activeRoom.disconnect() } catch {}
       activeRoom = null
@@ -350,8 +316,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       if (sharing) {
         try { await lp.setScreenShareEnabled(false) } catch {}
       } else {
-        // Detecta screen-share não-suportado (mobile, certos webviews) ANTES
-        // de pedir permissão pra dar erro humano em vez de NotAllowedError.
+
         if (typeof navigator === 'undefined' ||
             !navigator.mediaDevices ||
             !('getDisplayMedia' in navigator.mediaDevices)) {
@@ -359,21 +324,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
           return
         }
         try {
-          // ── 1080p60 estável ──────────────────────────────────
-          //  - resolution.frameRate: 60 vai no getDisplayMedia (browser
-          //    pede 60fps ao OS). Sem isso, default = 30fps.
-          //  - publishOptions.videoEncoding.maxFramerate: 60 informa o
-          //    encoder. Sem ambos sincronizados, o encoder pode capear em 30.
-          //  - simulcast OFF pra screen: 1 camada full bitrate em vez de
-          //    3 camadas, evita layers switching → flicker visual.
-          //  - audio: true → o picker do browser mostra "compartilhar áudio"
-          //    (aba/sistema). LiveKit publica o áudio da tela como track
-          //    separada (ScreenShareAudio) e os outros ouvem — watch party.
-          //  - contentHint: ainda não tipado em options.d.ts; aplicado direto
-          //    na MediaStreamTrack após publish (vê hook abaixo).
-          // Modo qualidade: motion (fluidez/jogo, 60fps 8Mbps) vs detail
-          // (nitidez/texto, 30fps 5Mbps). contentHint diz ao encoder o que
-          // priorizar — fluidez (smearing ok) ou nitidez por frame.
+
           const detail = get().screenQuality === 'detail'
           const fps    = detail ? 30 : 60
           const pub = await lp.setScreenShareEnabled(
@@ -403,8 +354,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         if (on) {
           await lp.setCameraEnabled(false)
         } else {
-          // 720p @ 30fps padrão LiveKit — suficiente pra webcam, baixo CPU.
-          // dynacast escala pra baixo quando tile do subscriber é pequeno.
+
           await lp.setCameraEnabled(true)
         }
         set({ error: null })
@@ -447,7 +397,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       try { localStorage.setItem(DEV_IN_KEY, id) } catch {}
       if (activeRoom) {
         try { await activeRoom.switchActiveDevice('audioinput', id) } catch (e: any) { console.warn('[voice] troca de mic:', e?.message) }
-        void applyMicNoiseFilter(get().noiseFilter) // a track foi recriada
+        void applyMicNoiseFilter(get().noiseFilter)
       }
     },
 
@@ -474,5 +424,4 @@ export function parseRoomName(name: string | null): { kind: 'channel' | 'dm'; id
   return null
 }
 
-// Silenciar warning unused — tipos importados são usados via parâmetros tipados.
 export type _UnusedKeepTypes = ConnectionStateT

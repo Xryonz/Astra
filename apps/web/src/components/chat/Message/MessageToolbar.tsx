@@ -1,11 +1,4 @@
-/**
- * MessageToolbar — toolbar de hover sobre a mensagem.
- *
- * Botões: reagir, responder, criar thread, salvar/bookmark,
- * fixar/pin, editar (mine), apagar (mine, danger).
- *
- * Extraído de MessageItem (overhaul Fase 4d).
- */
+
 import { useTranslation } from 'react-i18next'
 import {
   Smile, Reply, MessageSquarePlus, Bookmark, BookmarkCheck,

@@ -1,11 +1,4 @@
-/**
- * useVoiceCall — wrapper fino sobre voiceStore (Zustand).
- *
- * Antes era useState por instância → cada componente tinha seu próprio state
- * e join() em um não notificava os outros. Agora todo mundo lê o mesmo store.
- *
- * Mantém a mesma API pra não quebrar callsites.
- */
+
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useVoiceStore, parseRoomName as parseRoomNameImpl, type CallState, type CallParticipantInfo } from '@/store/voiceStore'
@@ -25,12 +18,6 @@ export function useVoiceConfig() {
   })
 }
 
-/**
- * useVoiceChannelPresence — polling de quem está em cada canal voice.
- *
- * Retorna `{ [channelId]: identities[] }`. Refresh a cada 10s; tab oculta pausa.
- * Server cacheia 5s — pico de RPS pequeno mesmo com muitos clients.
- */
 export function useVoiceChannelPresence(channelIds: string[]) {
   const sortedKey = [...channelIds].sort().join(',')
   return useQuery<Record<string, string[]>>({
@@ -48,7 +35,7 @@ export function useVoiceChannelPresence(channelIds: string[]) {
 }
 
 export function useVoiceCall() {
-  // Subscribe direto no store — qualquer mudança re-renderiza
+
   const state        = useVoiceStore((s) => s.state)
   const roomName     = useVoiceStore((s) => s.roomName)
   const participants = useVoiceStore((s) => s.participants)

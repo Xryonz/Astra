@@ -20,7 +20,6 @@ export default function AccountSection() {
   const queryClient = useQueryClient()
   const { logout }  = useAuth()
 
-  // ── Identidade (Discord: nome + username vivem em Conta) — auto-save 800ms ──
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [username,    setUsername]    = useState(user?.username ?? '')
   const [saveStatus,  setSaveStatus]  = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -67,8 +66,7 @@ export default function AccountSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayName, username])
 
-  // ── Troca de senha ──
-  const hasPassword = user?.hasPassword !== false // undefined (sessão antiga) = assume que tem
+  const hasPassword = user?.hasPassword !== false
   const [pwOpen, setPwOpen]   = useState(false)
   const [curPw,  setCurPw]    = useState('')
   const [newPw,  setNewPw]    = useState('')
@@ -84,7 +82,6 @@ export default function AccountSection() {
     onError: (e: any) => toast.error(e?.response?.data?.error ?? t('settings.account.passwordChangeError')),
   })
 
-  // ── App lock (só no app nativo com biometria) ──
   const [bioAvailable, setBioAvailable] = useState(false)
   const [lockOn, setLockOn] = useState(isAppLockEnabled())
   useEffect(() => { void isBiometricAvailable().then(setBioAvailable) }, [])

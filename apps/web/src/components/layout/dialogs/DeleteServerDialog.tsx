@@ -1,6 +1,4 @@
-/**
- * Confirma exclusão de server/grupo. Destrutivo — sem volta.
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -17,7 +15,7 @@ interface Props {
   open:       boolean
   onClose:    () => void
   target:     Target | null
-  onDeleted:  (id: string) => void  // parent limpa activeServerId se bater
+  onDeleted:  (id: string) => void
 }
 
 export function DeleteServerDialog({ open, onClose, target, onDeleted }: Props) {

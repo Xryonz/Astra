@@ -1,21 +1,4 @@
-/**
- * useConfirm — substitui window.confirm() por AlertDialog editorial.
- *
- * Setup:
- *   <ConfirmProvider>
- *     <App />
- *   </ConfirmProvider>
- *
- * Uso:
- *   const confirm = useConfirm()
- *   const ok = await confirm({
- *     title: 'Excluir mensagem?',
- *     description: 'Esta ação é permanente.',
- *     confirmLabel: 'Excluir',
- *     destructive: true,
- *   })
- *   if (ok) { ... }
- */
+
 import * as React from 'react'
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
@@ -55,11 +38,10 @@ const ConfirmCtx = React.createContext<ConfirmFn | null>(null)
 const PromptCtx  = React.createContext<PromptFn | null>(null)
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
-  // Confirm state
+
   const [opts, setOpts] = React.useState<ConfirmOpts | null>(null)
   const resolverRef = React.useRef<((value: boolean) => void) | null>(null)
 
-  // Prompt state
   const [pOpts, setPOpts] = React.useState<PromptOpts | null>(null)
   const [pValue, setPValue] = React.useState('')
   const pResolverRef = React.useRef<((value: string | null) => void) | null>(null)
@@ -96,7 +78,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       <PromptCtx.Provider value={prompt}>
         {children}
 
-        {/* AlertDialog (confirm) */}
+        {}
         <AlertDialog open={!!opts} onOpenChange={(o) => { if (!o) close(false) }}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -117,7 +99,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Dialog com input (prompt) */}
+        {}
         <Dialog open={!!pOpts} onOpenChange={(o) => { if (!o) closeP(null) }}>
           <DialogContent className="max-w-95!">
             <DialogHeader>

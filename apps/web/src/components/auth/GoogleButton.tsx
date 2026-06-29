@@ -3,8 +3,7 @@ import { openGoogleLogin } from '@/lib/native'
 
 export default function GoogleButton() {
   const { t } = useTranslation()
-  // No app nativo abre Custom Tab (Google bloqueia OAuth em WebView);
-  // no web é o redirect de sempre. Lógica em lib/native.ts.
+
   const handleClick = () => { void openGoogleLogin() }
 
   return (

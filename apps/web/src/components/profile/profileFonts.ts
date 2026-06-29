@@ -1,8 +1,4 @@
-/**
- * Map de fonts custom pro displayName do perfil.
- * 8 opções editorial-friendly. Cada font cai pra próxima fonte do stack
- * se a primeira não estiver instalada — funciona em qualquer OS.
- */
+
 export type DisplayFont =
   | 'serif' | 'sans' | 'mono' | 'rounded'
   | 'condensed' | 'handwriting' | 'gothic' | 'modern'

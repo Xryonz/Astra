@@ -1,14 +1,4 @@
-/**
- * Botão "📞 Chamar" no header de DM.
- *
- * Click → emit socket 'dm_call_invite' + entra na call.
- * Outro lado vê IncomingCallModal e aceita/recusa.
- *
- * Estados:
- *   - cfg desabilitada → disabled + tooltip
- *   - já em call dessa mesma DM → mostra "Em chamada"
- *   - já em outra call → disabled
- */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PhoneCall, PhoneOff } from 'lucide-react'
@@ -31,7 +21,6 @@ export function DMCallButton({ conversationId, otherUserId, otherDisplayName }: 
   const inThis  = parsed?.kind === 'dm' && parsed.id === conversationId
   const inOther = voice.state !== 'idle' && !inThis
 
-  // Quando outro user aceita, entra na call
   useEffect(() => {
     if (!ringing) return
     let sock: ReturnType<typeof getSocket>
@@ -55,7 +44,6 @@ export function DMCallButton({ conversationId, otherUserId, otherDisplayName }: 
     }
   }, [ringing, conversationId, voice])
 
-  // Auto-cancela ring após 30s
   useEffect(() => {
     if (!ringing) return
     const t = setTimeout(() => setRinging(false), 30_000)

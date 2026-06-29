@@ -13,8 +13,6 @@ import StarField from '@/components/astra/StarField'
 import SplashScreen from '@/components/astra/SplashScreen'
 import { OfflineBanner } from '@/components/OfflineBanner'
 
-// Rotas grandes vão lazy — usuário não-logado nunca carrega AppPage, e vice-versa.
-// Splitting por rota é a otimização de maior impacto pro bundle inicial.
 const LoginPage         = lazy(() => import('@/pages/LoginPage'))
 const RegisterPage      = lazy(() => import('@/pages/RegisterPage'))
 const AppPage           = lazy(() => import('@/pages/AppPage'))
@@ -32,9 +30,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/app" replace />
 }
 
-// Força o onboarding em contas NOVAS. Redireciona só quando onboardedAt é
-// null EXPLÍCITO (resposta do register). undefined = user em cache de versão
-// antiga (pré-feature) → tratado como já-onboarded, não incomoda quem já usa.
 function RequireOnboarded({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (user && user.onboardedAt === null) return <Navigate to="/onboarding" replace />
@@ -43,34 +38,27 @@ function RequireOnboarded({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const [booted, setBooted] = useState(false)
-  // App lock (biometria): começa trancado se o user ativou. Web: sempre livre.
+
   const [locked, setLocked] = useState(isAppLockEnabled)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   useEffect(() => {
-    // Hidrata o refresh token do keystore nativo ANTES do bootstrap — se a
-    // WebView limpou o localStorage, restaura daqui e evita relogin forçado.
+
     void (async () => {
-      try { await hydrateRefreshFromNative() } catch { /* segue */ }
-      try { await bootstrapAuth() } catch { /* bootstrap já trata 401 */ }
+      try { await hydrateRefreshFromNative() } catch { }
+      try { await bootstrapAuth() } catch { }
       setBooted(true)
     })()
   }, [])
 
-  // Push nativo (FCM): registra o device quando autenticado. No-op no web.
   useEffect(() => {
     if (isAuthenticated) void registerNativePush()
   }, [isAuthenticated])
 
-  // Pede a digital assim que o app abre trancado
   useEffect(() => {
     if (locked) void verifyAppLock().then((ok) => { if (ok) setLocked(false) })
   }, [locked])
 
-  // Re-trancar ao voltar do background: o lock no boot frio não bastava —
-  // minimizar e voltar 1h depois (app vivo) abria destrancado. Só re-tranca
-  // se passou da carência (30s): alternar app rápido pra copiar um código
-  // não deve pedir digital toda hora.
   useEffect(() => {
     if (!isAppLockEnabled()) return
     const GRACE_MS = 30_000
@@ -78,15 +66,13 @@ export default function App() {
     let remove: (() => void) | undefined
     void import('@capacitor/app').then(async ({ App }) => {
       const handle = await App.addListener('appStateChange', ({ isActive }) => {
-        // O diálogo de biometria pausa/resume o app — ignora pra não
-        // re-trancar logo depois de desbloquear.
+
         if (isVerifyingAppLock()) return
         if (!isActive) {
-          if (!bgAt) bgAt = Date.now() // marca só a 1ª saída (Android dispara várias)
+          if (!bgAt) bgAt = Date.now()
           return
         }
-        // Voltou ao foreground: decide UMA vez e consome o bgAt. Sem zerar,
-        // resumes repetidos do Android re-trancavam logo após o desbloqueio.
+
         const away = bgAt ? Date.now() - bgAt : 0
         bgAt = 0
         if (away > GRACE_MS) setLocked(true)
@@ -96,7 +82,6 @@ export default function App() {
     return () => remove?.()
   }, [])
 
-  // Refresh proativo quando a aba volta após >5min — evita 401 na 1ª request
   useVisibilityRefresh()
 
   if (!booted) return <SplashScreen />

@@ -25,9 +25,7 @@ const AvatarImage = React.forwardRef<
     ref={ref}
     className={cn('aspect-square h-full w-full object-cover', className)}
     referrerPolicy="no-referrer"
-    // loading="lazy": navegador só baixa qd avatar entra perto do viewport.
-    // decoding="async": decodifica fora do main thread → não bloqueia paint.
-    // Ambos overridáveis via props se algum lugar precisar de eager (ex.: above-the-fold).
+
     loading="lazy"
     decoding="async"
     {...props}

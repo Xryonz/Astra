@@ -5,13 +5,6 @@ interface OrbitSpinnerProps {
   className?: string
 }
 
-/**
- * Loader orbital — 3 dots brilhantes em órbita de um centro vazio.
- * Substitui o Spinner editorial padrão em React Query pending states.
- *
- * Performance: 1 div + 3 spans animados via transform/opacity.
- * Sem layout thrashing, totalmente em compositor layer.
- */
 export default function OrbitSpinner({ size = 28, className }: OrbitSpinnerProps) {
   const radius = size / 2 - 3
   const dotSize = Math.max(2, Math.round(size / 14))

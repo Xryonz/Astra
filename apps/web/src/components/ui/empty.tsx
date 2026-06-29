@@ -1,11 +1,4 @@
-/**
- * Empty — primitive editorial para empty states.
- * Centraliza padrão: rótulo mono + título serif + descrição body.
- *
- * Mount com fade-up suave via CSS (sem motion lib — empty states aparecem
- * em vários lugares, melhor evitar custo de runtime motion). Spring-soft
- * easing → vibe editorial.
- */
+
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 

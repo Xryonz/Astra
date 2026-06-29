@@ -1,9 +1,4 @@
-/**
- * Dialogs da mensagem — criar thread, confirmar delete, editar texto.
- *
- * Extraídos de MessageItem (overhaul Fase 4d). Cada um self-contained,
- * controlado por open + callbacks do parent.
- */
+
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -13,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
-// ── Create Thread ────────────────────────────────────────────
 export function CreateThreadDialog({ open, onClose, onCreate }: {
   open:    boolean
   onClose: () => void
@@ -59,7 +53,6 @@ export function CreateThreadDialog({ open, onClose, onCreate }: {
   )
 }
 
-// ── Delete Confirm ───────────────────────────────────────────
 export function DeleteConfirm({ open, onConfirm, onCancel }: {
   open:      boolean
   onConfirm: () => void
@@ -85,7 +78,6 @@ export function DeleteConfirm({ open, onConfirm, onCancel }: {
   )
 }
 
-// ── Edit Modal ───────────────────────────────────────────────
 export function EditModal({ open, content, onSave, onClose }: {
   open:    boolean
   content: string

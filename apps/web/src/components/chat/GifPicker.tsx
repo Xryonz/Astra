@@ -27,10 +27,6 @@ function useDebounce<T>(v: T, ms = 350) {
   return out
 }
 
-/**
- * Tenor GIF picker — popover acima do MessageInput.
- * Trending por default, busca conforme digita.
- */
 export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
   const { t } = useTranslation()
   const [q, setQ] = useState('')
@@ -38,10 +34,8 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
   const inputRef  = useRef<HTMLInputElement>(null)
   const rootRef   = useRef<HTMLDivElement>(null)
 
-  // Foco no input quando abre
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
 
-  // Esc fecha
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -49,7 +43,6 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  // Click fora fecha
   useEffect(() => {
     if (!open) return
     const onClick = (e: MouseEvent) => {
@@ -59,7 +52,6 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
     return () => document.removeEventListener('mousedown', onClick)
   }, [open, onClose])
 
-  // Tenor enabled check
   const { data: enabled } = useQuery<boolean>({
     queryKey: ['gif-enabled'],
     queryFn:  async () => (await api.get('/api/gif/enabled')).data?.data?.enabled ?? false,
@@ -67,7 +59,6 @@ export default function GifPicker({ open, onClose, onPick }: GifPickerProps) {
     enabled:   open,
   })
 
-  // Featured ou search
   const isSearch = debounced.trim().length >= 2
   const { data: results = [], isFetching, isError } = useQuery<GifResult[]>({
     queryKey: ['gifs', isSearch ? debounced : '__featured'],

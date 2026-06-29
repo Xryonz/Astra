@@ -1,15 +1,4 @@
-/**
- * CommandPalette — migrado para shadcn Command (cmdk).
- *
- * Ganhos vs versão anterior:
- *  - Arrow keys nav nativa (↑/↓ entre seções, ↵ executa)
- *  - Filtering local trivial (mas mantemos backend search via API)
- *  - Animação de seleção fluida
- *  - Acessibilidade ARIA out-of-the-box
- *
- * Mantém: debounce 220ms, busca no backend (mensagens/canais/users/servers),
- * navegação via state + close.
- */
+
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -71,14 +60,14 @@ export default function CommandPalette() {
       title={t('cmd.title')}
       description={t('cmd.desc')}
     >
-      {/* cmdk filtering off (delegado ao backend). Arrow-keys nav segue funcionando */}
+      {}
       <CommandInput
         value={q}
         onValueChange={setQ}
         placeholder={t('cmd.placeholder')}
       />
       <CommandList>
-        {/* Hints quando ainda não digitou o suficiente */}
+        {}
         {q.length < 2 && (
           <div className="px-5 py-10 text-center text-(--text-3) text-sm">
             <p className="m-0 mb-1">{t('cmd.minCharsPre')} <strong className="text-(--text-2)">{t('cmd.minCharsStrong')}</strong></p>
@@ -181,7 +170,7 @@ export default function CommandPalette() {
         )}
       </CommandList>
 
-      {/* Footer com atalhos */}
+      {}
       <div className="border-t border-(--border) px-4 py-2 flex items-center gap-3 text-marg text-(--text-3) font-mono">
         <span><CommandShortcut className="ml-0">↑↓</CommandShortcut> {t('cmd.navigate')}</span>
         <span><CommandShortcut className="ml-0">↵</CommandShortcut> {t('cmd.open')}</span>

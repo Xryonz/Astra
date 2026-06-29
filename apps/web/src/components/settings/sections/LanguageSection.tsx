@@ -3,11 +3,6 @@ import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from './_shared'
 
-/**
- * LanguageSection — seletor de idioma. EN e PT funcionam; o resto está
- * listado como "em breve" (honesto: não finge traduzir o que não traduzimos).
- * Trocar o idioma reflete na hora nas telas já migradas (ex: este nav).
- */
 const LANGS: Array<{ code: string; native: string; sub: string; available: boolean }> = [
   { code: 'en', native: 'English',   sub: 'English',  available: true },
   { code: 'pt', native: 'Português', sub: 'Brasil',   available: true },

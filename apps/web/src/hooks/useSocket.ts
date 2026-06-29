@@ -12,7 +12,6 @@ interface ChannelHandlers {
   onPollUpdated?:    (p: { messageId: string; channelId: string; poll: unknown }) => void
 }
 
-// Backwards-compat: aceita callback simples ou objeto com handlers
 export function useChannel(
   channelId: string | null,
   handlersOrOnNew: ChannelHandlers | ((msg: MessageWithAuthor) => void),
@@ -35,7 +34,7 @@ export function useChannel(
     socket.emit('join_channel', channelId)
 
     const onNew  = (msg: MessageWithAuthor & { clientNonce?: string }) => {
-      // Mede round-trip se a msg é eco da minha própria (tem clientNonce que enviei).
+
       probeEnd(msg.clientNonce)
       ref.current.onNewMessage(msg)
     }
@@ -75,8 +74,7 @@ export function useDMTyping(conversationId: string | null) {
 
 function useTypingFor(scope: 'channel' | 'dm', id: string | null) {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Throttle: emite no máx 1x por 1.5s. Sem isso, cada keystroke dispara
-  // socket emit → backpressure e CPU desperdiçada server-side.
+
   const lastEmitRef = useRef<number>(0)
   const startEv = scope === 'channel' ? 'typing_start' : 'dm_typing_start'
   const stopEv  = scope === 'channel' ? 'typing_stop'  : 'dm_typing_stop'
@@ -96,14 +94,14 @@ function useTypingFor(scope: 'channel' | 'dm', id: string | null) {
         socket.emit(stopEv, id)
         lastEmitRef.current = 0
       }, 3000)
-    } catch {/* socket não conectado */}
+    } catch {}
   }
 
   const stopTyping = () => {
     if (!id) return
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     lastEmitRef.current = 0
-    try { getSocket().emit(stopEv, id) } catch {/* socket não conectado */}
+    try { getSocket().emit(stopEv, id) } catch {}
   }
 
   return { startTyping, stopTyping }

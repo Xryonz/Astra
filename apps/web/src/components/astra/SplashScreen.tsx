@@ -3,19 +3,8 @@ import { motion } from 'motion/react'
 import AstraLogo from '@/components/AstraLogo'
 import { isNative } from '@/lib/native'
 
-/**
- * Splash mostrado durante bootstrapAuth() — antes do app montar.
- *
- * Intro minimalista estilo Discord: só o logo Astra centralizado no void,
- * com entrada sutil (fade + scale) e respiro lento. Sem texto, sem dots
- * orbitando — handoff limpo a partir do mesmo logo do splash nativo.
- *
- * No app nativo: esconde o splash do Capacitor ao montar (handoff).
- * Fade out controlado pelo parent via prop `visible`.
- */
 export default function SplashScreen({ visible = true }: { visible?: boolean }) {
-  // Esconde o splash nativo assim que o web está pronto pra assumir
-  // (launchAutoHide: false no capacitor.config — fallback de 4s em native.ts).
+
   useEffect(() => {
     if (!isNative) return
     void import('@capacitor/splash-screen')

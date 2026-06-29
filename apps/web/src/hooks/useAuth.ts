@@ -35,7 +35,7 @@ export function useAuth() {
     try {
       await api.post('/api/auth/logout', { refreshToken })
     } catch {
-      // Mesmo com erro, limpa estado local
+
     } finally {
       clearStoredRefreshToken()
       clearOfflineCache()
@@ -46,8 +46,6 @@ export function useAuth() {
     }
   }, [clearAuth, navigate])
 
-  // Após callback OAuth, o backend redirecionou com #refresh=<token> na hash.
-  // Lógica em lib/oauth.ts — compartilhada com o deep link do app nativo.
   const handleOAuthCallback = useCallback(
     (refreshToken: string) => completeOAuthLogin(refreshToken),
     [],

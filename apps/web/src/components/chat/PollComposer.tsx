@@ -25,10 +25,6 @@ const buildDurationOptions = (t: TFunction): { label: string; value: number | nu
   { label: t('poll.dur7d'),   value: 168 },
 ]
 
-/**
- * Dialog pra criar enquete. POST /api/channels/:id/polls cria a msg-poll;
- * socket entrega ao MessageList via new_message normal.
- */
 export default function PollComposer({ open, onClose, channelId }: PollComposerProps) {
   const { t } = useTranslation()
   const DURATION_OPTIONS = buildDurationOptions(t)

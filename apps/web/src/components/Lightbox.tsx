@@ -12,10 +12,6 @@ interface LightboxProps {
   onNavigate?: (idx: number) => void
 }
 
-/**
- * Lightbox minimalista pra preview de imagens. ESC fecha, setas navegam,
- * clique fora fecha. Sem overlay pesado — editorial.
- */
 export default function Lightbox({ images, index, onClose, onNavigate }: LightboxProps) {
   const { t } = useTranslation()
   const current = images[index]
@@ -55,7 +51,7 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
       onClick={onClose}
       className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 sm:p-8 anim-fade-in"
     >
-      {/* Header bar */}
+      {}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-4 z-10">
         <div className="flex flex-col">
           <span className="ed-marg text-white/60">{index + 1} / {images.length}</span>
@@ -83,7 +79,7 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
         </div>
       </div>
 
-      {/* Prev */}
+      {}
       {hasPrev && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate?.(index - 1) }}
@@ -94,7 +90,7 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
         </button>
       )}
 
-      {/* Image */}
+      {}
       <img
         src={src}
         alt={current.name}
@@ -103,7 +99,7 @@ export default function Lightbox({ images, index, onClose, onNavigate }: Lightbo
         className="max-w-full max-h-[85vh] object-contain cursor-default anim-fade-up"
       />
 
-      {/* Next */}
+      {}
       {hasNext && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate?.(index + 1) }}

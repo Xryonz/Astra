@@ -1,19 +1,4 @@
-/**
- * IncomingCallModal — PiP de chamada recebida (bottom-right, draggable).
- *
- * Diferente do modal antigo que tomava tela cheia: agora é um card flutuante
- * com mesma vibe do VoiceCallPanel — você pode continuar usando o app.
- *
- *  - Escuta socket 'dm_call_invite' (chega no user-room)
- *  - Avatar do caller + nome + countdown visual + Aceitar/Recusar
- *  - Ring tone leve (3 beeps loop) via WebAudio
- *  - Auto-dismiss em 30s sem resposta
- *  - Draggable (motion drag + localStorage persistence)
- *  - z-60 → sobre Sidebar (z-50) e PiP (que não coexiste com incoming)
- *
- * Aceitar → join('dm', convId) + emit 'dm_call_accept'
- * Recusar → emit 'dm_call_reject'
- */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -84,12 +69,10 @@ export function IncomingCallModal() {
   const ringRef    = useRef<ReturnType<typeof setInterval> | null>(null)
   const tickRef    = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Motion drag values
   const initialPos = useMemo(loadPos, [])
   const x = useMotionValue(initialPos.x)
   const y = useMotionValue(initialPos.y)
 
-  // Avatar lookup do caller (não vem no socket, busca via API)
   const { data: caller } = useQuery<CallerLookup | null>({
     queryKey: ['voice', 'incoming-caller', incoming?.fromUserId],
     queryFn: async () => {
@@ -111,7 +94,7 @@ export function IncomingCallModal() {
     try { sock = getSocket() } catch { return }
 
     const onInvite = (p: { conversationId: string; fromUserId: string; fromUsername: string; fromDisplayName: string }) => {
-      // Já tô em call → ignora
+
       if (voice.state !== 'idle') return
       const expiresAt = Date.now() + RING_DURATION_MS
       setIncoming({ ...p, expiresAt })
@@ -187,12 +170,12 @@ export function IncomingCallModal() {
           transition={{ type: 'spring', stiffness: 360, damping: 28 }}
           className="fixed bottom-safe right-safe z-60 w-60 sm:w-72 rounded-2xl bg-(--overlay) border-2 border-(--accent)/60 shadow-[0_18px_56px_-12px_var(--accent-glow)] backdrop-blur-md overflow-hidden select-none touch-none"
         >
-          {/* Drag handle visual */}
+          {}
           <div className="absolute top-1 left-1/2 -translate-x-1/2 text-(--text-3)/40 pointer-events-none">
             <GripHorizontal className="size-3" />
           </div>
 
-          {/* Header com indicador pulsante */}
+          {}
           <header className="px-3.5 pt-3 pb-2 border-b border-(--border) flex items-center gap-2.5 cursor-grab active:cursor-grabbing">
             <motion.span
               aria-hidden
@@ -208,7 +191,7 @@ export function IncomingCallModal() {
             </span>
           </header>
 
-          {/* Body: avatar grande + nome em destaque */}
+          {}
           <div className="px-4 py-4 flex items-center gap-3">
             <motion.div
               animate={{ scale: [1, 1.06, 1] }}
@@ -240,7 +223,7 @@ export function IncomingCallModal() {
             </div>
           </div>
 
-          {/* Progress bar (countdown visual) */}
+          {}
           <div className="px-3.5 pb-2">
             <div className="h-1 rounded-full bg-(--raised) overflow-hidden">
               <motion.div
@@ -251,7 +234,7 @@ export function IncomingCallModal() {
             </div>
           </div>
 
-          {/* Buttons */}
+          {}
           <footer
             className="px-3 pb-3 pt-1 flex items-center gap-2"
             onPointerDown={(e) => e.stopPropagation()}

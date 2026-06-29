@@ -1,7 +1,4 @@
-/**
- * Indicador visual do pull-to-refresh — ✦ que gira conforme o puxão e roda
- * sozinho enquanto atualiza. Posicionado absoluto no topo do container.
- */
+
 import { Sparkles } from 'lucide-react'
 
 export function PullToRefreshIndicator({ pull, refreshing }: { pull: number; refreshing: boolean }) {

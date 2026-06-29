@@ -6,10 +6,6 @@ interface Props {
   lang: string
 }
 
-/**
- * CodeBlock — async render com Shiki.
- * Mostra fallback monospace plain enquanto highlighter carrega.
- */
 export default function CodeBlock({ code, lang }: Props) {
   const [html, setHtml] = useState<string | null>(null)
 
@@ -19,7 +15,6 @@ export default function CodeBlock({ code, lang }: Props) {
 
     if (!normLang) { setHtml(null); return }
 
-    // Highlight roda no Web Worker (não trava o scroll); fallback p/ plain.
     highlightCode(code, normLang)
       .then((out) => { if (!cancelled) setHtml(out) })
       .catch(() => { if (!cancelled) setHtml(null) })

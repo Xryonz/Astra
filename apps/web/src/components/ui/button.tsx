@@ -4,9 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  // transition explícita (não `transition-all`): cores em 150ms, transform
-  // em 100ms — press precisa responder ≤100ms pra não parecer travado.
-  // active:scale-[0.97] dá o feedback tátil que faltava em todo botão.
+
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,border-color,opacity,box-shadow,transform] duration-150 active:scale-[0.97] active:duration-100 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 cursor-pointer",
   {
     variants: {

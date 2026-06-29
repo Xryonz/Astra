@@ -63,7 +63,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true)
   const [optimisticMsgs, setOptimisticMsgs] = useState<OptimisticMessage[]>([])
 
-  // Register optimistic callbacks for DMInput to call
   const addOptimistic = useCallback((msg: OptimisticMessage) => {
     setOptimisticMsgs((prev) => [...prev, { ...msg, isPending: true }])
     setShouldScrollToBottom(true)
@@ -72,10 +71,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
     setOptimisticMsgs((prev) => prev.filter((m) => m.optimisticId !== optimisticId))
   }, [])
 
-  // Confirma pela RESPOSTA do POST (remoção exata por optimisticId) — o eco
-  // 'new_dm' do socket vira redundância. Antes a remoção era só heurística
-  // (autor+conteúdo+5s) via broadcast: se ele se perdia, a otimista ficava
-  // presa em "enviando" e a real aparecia duplicada no refetch.
   const confirmOptimistic = useCallback((optimisticId: string, msg: MessageWithAuthor) => {
     setOptimisticMsgs((prev) => prev.filter((o) => o.optimisticId !== optimisticId))
     queryClient.setQueryData(['dm-messages', conversationId], (old: any) => {
@@ -91,9 +86,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
     onRegisterOptimistic(addOptimistic, removeOptimistic, confirmOptimistic)
   }, [onRegisterOptimistic, addOptimistic, removeOptimistic, confirmOptimistic])
 
-  // Fetch profile theme do parceiro (cache compartilhado com ProfileCard).
-  // Usado pra tingir o welcome header com a estética dele.
-  // staleTime alto — theme muda raramente, vale fazer cache agressivo.
   const partnerProfile = useQuery<{ user: { profileTheme?: string | null; bannerColor?: string | null } }>({
     queryKey: ['profile', otherUser.id],
     queryFn:  async () => (await api.get(`/api/profile/${otherUser.id}`)).data.data,
@@ -120,7 +112,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
   const confirmedMessages = data?.pages.slice().reverse().flatMap((p) => p.items) ?? []
   const allMessages       = [...confirmedMessages, ...optimisticMsgs]
 
-  // Read receipts: marca como lido ao entrar/receber + lê quando outro leu
   const { otherReads, markRead } = useDMReads()
   const otherLastReadAt = otherReads[conversationId]
     ? new Date(otherReads[conversationId]!).getTime()
@@ -131,7 +122,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
     return () => clearTimeout(t)
   }, [conversationId, allMessages.length, markRead])
 
-  // Join DM socket room
   useEffect(() => {
     let socket: ReturnType<typeof getSocket>
     try { socket = getSocket() } catch { return }
@@ -143,13 +133,12 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
     }
   }, [conversationId])
 
-  // Real-time new messages
   useEffect(() => {
     let socket: ReturnType<typeof getSocket>
     try { socket = getSocket() } catch { return }
 
     const onNewDM = (msg: MessageWithAuthor) => {
-      // Remove matching optimistic
+
       setOptimisticMsgs((prev) =>
         prev.filter((o) => !(
           o.author.id === msg.author.id &&
@@ -181,8 +170,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
     bottomRef.current?.scrollIntoView()
   }, [conversationId])
 
-  // Hidrata mensagens compostas offline (outbox) como pendentes — sobrevivem
-  // a reload; o flush as envia e o eco reconcilia pelo clientNonce.
   useEffect(() => {
     let cancelled = false
     void getOutboxFor('dm', conversationId).then((items) => {
@@ -230,14 +217,14 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
         </div>
       )}
 
-      {/* Welcome header — tingido com profileTheme do parceiro (se houver) */}
+      {}
       {!hasNextPage && (
         <div style={{
           padding: '2.5rem 20px 1.5rem', textAlign: 'center',
           animation: 'fadeUp 0.35s var(--ease-spring) both',
           position: 'relative', overflow: 'hidden',
         }}>
-          {/* Wash de tema dele atrás do conteúdo. Mask top-only fade */}
+          {}
           {partnerTheme && (
             <div
               aria-hidden
@@ -281,10 +268,10 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
         </div>
       )}
 
-      {/* Messages */}
+      {}
       <div style={{ display: 'flex', flexDirection: 'column', padding: '0 0 8px' }}>
         {(() => {
-          // Index do último envio meu — pra colar "Visto" só nele
+
           const lastMineIdx = (() => {
             for (let i = allMessages.length - 1; i >= 0; i--) {
               if (allMessages[i].author.id === currentUser?.id) return i
@@ -326,7 +313,6 @@ export default function DMChat({ conversationId, otherUser, onRegisterOptimistic
   )
 }
 
-// ── Individual DM message row (flat, estilo Discord) ─────────────
 function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen, onReply }: {
   message:   MessageWithAuthor
   isMine:    boolean
@@ -359,7 +345,7 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Avatar à esquerda — escondido quando agrupado; gutter mostra a hora no hover */}
+      {}
       {!grouped ? (
         <div style={{
           width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
@@ -382,7 +368,7 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
         </div>
       )}
 
-      {/* Coluna de conteúdo — largura cheia, alinhada à esquerda */}
+      {}
       <div className="flex-1 min-w-0">
         {!grouped && (
           <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">
@@ -397,7 +383,7 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
           </div>
         )}
 
-        {/* Reply preview */}
+        {}
         {replyTo && (
           <div className="flex items-center gap-2 mb-1 max-w-full text-(--text-3)">
             <CornerDownRight className="size-3 text-(--accent)/70 shrink-0" />
@@ -410,14 +396,14 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
           </div>
         )}
 
-        {/* Texto — flat, sem bubble */}
+        {}
         {content && (
           <div className="text-body leading-normal text-foreground wrap-break-word m-0">
             {content}
           </div>
         )}
 
-        {/* Anexos */}
+        {}
         {attachments && attachments.length > 0 && (
           <div className={`flex flex-wrap gap-2 ${content ? 'mt-1.5' : ''}`} style={{ maxWidth: '100%' }}>
             {attachments.map((a, i) => (
@@ -446,7 +432,7 @@ function DMMessage({ message, isMine, grouped, isPending, color, delay, showSeen
         )}
       </div>
 
-      {/* Responder no hover */}
+      {}
       {hovered && !isPending && onReply && (
         <button
           onClick={() => onReply(message)}

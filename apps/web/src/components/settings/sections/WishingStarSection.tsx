@@ -1,11 +1,4 @@
-/**
- * WishingStar — input pra sugerir o que mudar no Astra + lista global pública.
- *
- *  - Input texto puro (sem markdown render — preserva quebras)
- *  - 4-500 chars, rate-limit server-side (3 a cada 10min)
- *  - Lista paginada (cursor) com avatar do autor + tempo relativo
- *  - Estética: chip ✦ no header, hairline rows estilo editorial
- */
+
 import { useState, useRef, FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -99,7 +92,7 @@ export default function WishingStarSection() {
         description={t('settings.wishing.description')}
       />
 
-      {/* ───── Form ───── */}
+      {}
       <form onSubmit={submit} className="mb-10">
         <div className="relative">
           <textarea
@@ -138,7 +131,7 @@ export default function WishingStarSection() {
         </div>
       </form>
 
-      {/* ───── Lista global ───── */}
+      {}
       <header className="mb-4 flex items-baseline gap-2">
         <Sparkles className="size-3.5 text-(--accent)" />
         <h3 className="text-sm m-0 font-medium font-(family-name:--font-display)">{t('settings.wishing.skyNow')}</h3>

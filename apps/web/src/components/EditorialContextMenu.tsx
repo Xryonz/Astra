@@ -1,21 +1,4 @@
-/**
- * EditorialContextMenu — wrapper de alto-nível sobre ContextMenu shadcn.
- *
- * Aceita um array de `items` (com suporte a separator/submenu/destructive)
- * e renderiza tudo. Trigger é qualquer children — o usuário right-click neles.
- *
- * Antes: tínhamos `ServerContextMenu` (manualmente posicionado em x,y).
- * Agora: Radix já trata posicionamento, flip, escape, outside-click.
- *
- * Uso:
- *   <EditorialContextMenu items={[
- *     { kind: 'item', icon: <Pin />, label: 'Fixar', onSelect: () => {} },
- *     { kind: 'separator' },
- *     { kind: 'item', icon: <Trash />, label: 'Excluir', destructive: true, onSelect: () => {} },
- *   ]}>
- *     <div>conteúdo clicável com botão direito</div>
- *   </EditorialContextMenu>
- */
+
 import * as React from 'react'
 import {
   ContextMenu,
@@ -60,13 +43,9 @@ export type EditorialMenuItem =
 interface Props {
   items:    EditorialMenuItem[]
   children: React.ReactNode
-  /** Pra desabilitar o menu inteiro (ex: sem permissão) */
+
   disabled?: boolean
-  /**
-   * Long-press → contextmenu bridge pra mobile.
-   * Default: true. Passe `false` quando o consumer já tem long-press próprio
-   * (ex: MessageItem abre action sheet customizado) — evita disparar 2x.
-   */
+
   mobileBridge?: boolean
 }
 
@@ -115,15 +94,6 @@ export function EditorialContextMenu({ items, children, disabled, mobileBridge =
   )
 }
 
-/**
- * TouchLongPressBridge — segura touch por LONG_PRESS_MS e dispara um
- * `contextmenu` sintético na posição do toque. Radix ContextMenu (que ouve
- * `contextmenu` nativo) então abre o menu posicionado corretamente.
- *
- * Por que: Radix ContextMenu não suporta touch nativamente, e iOS/Android
- * só disparam `contextmenu` em alguns casos (não em <button>, p.ex.).
- * Esse bridge garante paridade desktop/mobile sem mexer em cada consumer.
- */
 const TouchLongPressBridge = React.forwardRef<HTMLElement, { children: React.ReactNode }>(
   function TouchLongPressBridge({ children, ...rest }, ref) {
     const timer    = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -164,7 +134,7 @@ const TouchLongPressBridge = React.forwardRef<HTMLElement, { children: React.Rea
     }
     const handleTouchEnd = () => clear()
     const handleContextMenu = (e: React.MouseEvent) => {
-      // Se o long-press já abriu o menu (dispatch sintético), não deixar o nativo abrir de novo.
+
       if (fired.current) {
         e.preventDefault()
         e.stopPropagation()

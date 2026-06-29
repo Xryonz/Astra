@@ -1,8 +1,4 @@
-/**
- * RecordingDisplay — UI no lugar do textarea durante gravação de áudio.
- * Mostra waveform + timer. Sem botões (controles ficam no composer row).
- * Reaproveitado por MessageInput e DMInput.
- */
+
 import { cn } from '@/lib/utils'
 
 interface Props {

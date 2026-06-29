@@ -3,28 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { getSocket } from '@/lib/socket'
 
-/**
- * Hook único pra unread state:
- *  - lastReadByChannel: pega do GET /api/reads/channels (1x na montagem)
- *  - lastMessageAtByChannel: atualizado via socket 'channel_activity' + mark-read local
- *  - hasUnread(channelId, lastMessageAt): compara as duas datas
- *
- * Chama `markRead(channelId)` quando user entra num canal — POST /channels/:id/read
- * + atualiza estado local optimisticamente.
- */
 export function useUnread() {
-  // GET /api/reads/channels — { [channelId]: lastReadAt ISO }
+
   const { data: reads = {} } = useQuery<Record<string, string>>({
     queryKey: ['reads', 'channels'],
     queryFn:  async () => (await api.get('/api/reads/channels')).data.data,
     staleTime: 30_000,
   })
 
-  // Mapa em memória atualizado via socket + mark-read local
   const [readsOverride, setReadsOverride] = useState<Record<string, string>>({})
   const [activity, setActivity] = useState<Record<string, string>>({})
 
-  // Atalho que mescla reads do server com overrides locais (locais ganham)
   const effectiveReads = { ...reads, ...readsOverride }
 
   useEffect(() => {
@@ -44,10 +33,6 @@ export function useUnread() {
     try { await api.post(`/api/channels/${channelId}/read`) } catch {}
   }, [])
 
-  /**
-   * Tem unread? Considera o "mais recente" entre lastMessageAt (passado pelo
-   * caller, vindo da query inicial de channels) e o registrado por socket.
-   */
   const hasUnread = useCallback((channelId: string, lastMessageAt: string | null | undefined): boolean => {
     if (!lastMessageAt && !activity[channelId]) return false
     const lastMsg = Math.max(
@@ -62,10 +47,6 @@ export function useUnread() {
   return { hasUnread, markRead }
 }
 
-/**
- * Hook pra DM read receipts. Retorna lastReadByOther (timestamp ISO) por
- * conversationId. Atualiza via socket 'dm_read' do outro lado.
- */
 export function useDMReads(): {
   myReads:    Record<string, string | null>
   otherReads: Record<string, string | null>
@@ -80,7 +61,6 @@ export function useDMReads(): {
   const [myReads,    setMyReads]    = useState<Record<string, string | null>>({})
   const [otherReads, setOtherReads] = useState<Record<string, string | null>>({})
 
-  // Sync inicial quando query carrega
   const seededRef = useRef(false)
   useEffect(() => {
     if (!initial || seededRef.current) return
@@ -100,7 +80,7 @@ export function useDMReads(): {
     try { socket = getSocket() } catch { return }
 
     const onRead = (p: { conversationId: string; lastReadAt: string }) => {
-      // 'dm_read' chega no user-room do OUTRO lado da conv (o leitor é a contraparte)
+
       setOtherReads((prev) => ({ ...prev, [p.conversationId]: p.lastReadAt }))
     }
     socket.on('dm_read', onRead)

@@ -1,10 +1,5 @@
 import { useRef, useCallback } from 'react'
 
-/**
- * Long-press detector pra touch + mouse.
- * Dispara `onLongPress` se segurar `ms` (default 500).
- * Cancela se mover mais que `moveThreshold` px (default 8) — evita disparar em scroll.
- */
 export function useLongPress(onLongPress: (e: React.TouchEvent | React.MouseEvent) => void, {
   ms = 500,
   moveThreshold = 8,
@@ -27,7 +22,7 @@ export function useLongPress(onLongPress: (e: React.TouchEvent | React.MouseEven
     timer.current = setTimeout(() => {
       fired.current = true
       onLongPress(e)
-      // dá um haptic em mobile se disponível
+
       if ('vibrate' in navigator) try { (navigator as any).vibrate?.(8) } catch {}
     }, ms)
   }, [onLongPress, ms])
@@ -51,7 +46,7 @@ export function useLongPress(onLongPress: (e: React.TouchEvent | React.MouseEven
     onMouseMove:   move,
     onMouseUp:     clear,
     onMouseLeave:  clear,
-    /** Use no onContextMenu pra suprimir menu nativo se o long-press já disparou */
+
     didFire: () => fired.current,
   }
 }

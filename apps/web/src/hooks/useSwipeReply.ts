@@ -1,16 +1,9 @@
-/**
- * useSwipeReply — arrasta a mensagem pra DIREITA pra responder (norma
- * WhatsApp). A esquerda ficou pro gesto de abrir o drawer, então os
- * dois não brigam.
- *
- * Performance: transform aplicado direto no DOM (zero re-render por frame,
- * compositor-only). Haptic ao armar o limiar; dispara onTrigger ao soltar.
- */
+
 import { useRef, useCallback } from 'react'
 import { hapticLight } from '@/lib/haptics'
 
-const THRESHOLD = 56 // px arrastados pra armar o reply
-const MAX_PULL  = 72 // deslocamento visual máximo (resistência)
+const THRESHOLD = 56
+const MAX_PULL  = 72
 
 export function useSwipeReply(onTrigger: (() => void) | undefined) {
   const start      = useRef<{ x: number; y: number } | null>(null)
@@ -32,7 +25,7 @@ export function useSwipeReply(onTrigger: (() => void) | undefined) {
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!onTrigger) return
-    // Code blocks etc. têm scroll horizontal próprio — não disputar o gesto
+
     if ((e.target as Element).closest('pre')) return
     const t = e.touches[0]
     start.current      = { x: t.clientX, y: t.clientY }
@@ -46,7 +39,7 @@ export function useSwipeReply(onTrigger: (() => void) | undefined) {
     const t  = e.touches[0]
     const dx = t.clientX - start.current.x
     const dy = t.clientY - start.current.y
-    // Decide a direção UMA vez, nos primeiros px — depois trava
+
     if (horizontal.current === null) {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
       horizontal.current = Math.abs(dx) > Math.abs(dy) * 1.4 && dx > 0

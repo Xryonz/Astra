@@ -1,27 +1,13 @@
-/**
- * latencyProbe — instrumenta round-trip de envio de mensagem.
- *
- * Fluxo medido: cliente chama probeStart(nonce) ao iniciar POST →
- * server processa e emite 'new_message' com mesmo clientNonce →
- * useSocket handler chama probeEnd(nonce) ao receber de volta.
- *
- * Mantém ring buffer dos últimos N samples pra p50/p95. Expõe em
- * dev via window.__astraLatency.summary().
- *
- * Em prod, samples ainda são coletados (custo zero, ~Float64 por
- * sample) mas nada é loggado por padrão. Use o summary manualmente
- * pra debug ad-hoc.
- */
+
 const STARTS = new Map<string, number>()
-const STARTS_CAP = 100  // teto pra impedir vazamento se probeEnd nunca for chamado (msg falhou)
+const STARTS_CAP = 100
 const RING_SIZE = 200
 const samples: number[] = []
 let ringIdx = 0
 
 export function probeStart(nonce: string): void {
   if (!nonce) return
-  // Evita vazamento: ao estourar o teto, descarta a entry mais antiga
-  // (Map mantém ordem de inserção, então iterator.next() = oldest).
+
   if (STARTS.size >= STARTS_CAP) {
     const oldest = STARTS.keys().next().value
     if (oldest !== undefined) STARTS.delete(oldest)
@@ -59,7 +45,6 @@ export function latencySummary(): { count: number; p50: number; p95: number; p99
   }
 }
 
-// Dev: expor pra console (window.__astraLatency.summary() em DevTools).
 if (typeof window !== 'undefined') {
   ;(window as unknown as { __astraLatency: { summary: typeof latencySummary } }).__astraLatency = {
     summary: latencySummary,

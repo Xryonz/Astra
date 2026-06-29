@@ -1,12 +1,4 @@
-/**
- * MessageReactions — chips de reactions sob a mensagem.
- *
- * Cada chip: emoji + count, com glow accent quando user reagiu.
- * Punch animation no click: pulse 1→1.22→1 + ring glow accent
- * expandindo. Re-triggerable via state com timestamp key.
- *
- * Extraído de MessageItem (overhaul Fase 4d).
- */
+
 import { memo, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuthStore } from '@/store/authStore'
@@ -30,7 +22,7 @@ export const MessageReactions = memo(function MessageReactions({ reactions, onRe
   if (!reactions?.length) return null
 
   const handleClick = (emoji: string) => {
-    hapticLight()  // tátil no app nativo; no-op no web
+    hapticLight()
     setPunchKey(emoji + ':' + Date.now())
     onReact(emoji)
   }

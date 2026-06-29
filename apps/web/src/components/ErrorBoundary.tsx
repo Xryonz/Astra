@@ -1,9 +1,4 @@
-/**
- * ErrorBoundary global — pega crashes no render tree e mostra fallback editorial.
- * Reporta pro Sentry se configurado. Botão de "tentar novamente" remonta a árvore.
- *
- * Não pega: erros em event handlers (handle inline) nem em async (use try/catch).
- */
+
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { sentry } from '@/lib/sentry'
 

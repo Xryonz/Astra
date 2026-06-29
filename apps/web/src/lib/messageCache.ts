@@ -1,17 +1,10 @@
-/**
- * Cache offline de mensagens: a 1ª página (≈50 mais recentes) de cada
- * canal vive no IndexedDB. Abrir um canal sem rede mostra o histórico
- * recente; com rede, hydrate entra STALE e revalida por trás.
- *
- * IndexedDB cru (sem dep): localStorage não comporta o volume — uma
- * página de mensagens com anexos passa fácil de 100KB.
- */
+
 import type { QueryClient } from '@tanstack/react-query'
 
 const DB_NAME    = 'astra-offline'
 const STORE      = 'messages-first-page'
 const DB_VERSION = 1
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // 7 dias
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
 interface CachedEntry { page: unknown; savedAt: number }
 
@@ -34,7 +27,7 @@ export async function saveFirstPage(channelId: string, page: unknown): Promise<v
     const db = await openDb()
     const entry: CachedEntry = { page, savedAt: Date.now() }
     db.transaction(STORE, 'readwrite').objectStore(STORE).put(entry, channelId)
-  } catch { /* IDB indisponível (modo privado etc) — sem cache, sem crash */ }
+  } catch { }
 }
 
 export async function getCachedFirstPage(channelId: string): Promise<unknown | null> {
@@ -58,11 +51,6 @@ export async function clearMessageCache(): Promise<void> {
   } catch {}
 }
 
-/**
- * Persiste a 1ª página sempre que uma query ['messages', id] atualiza
- * com sucesso (fetch ou socket). Throttle de 2s por canal — socket pode
- * disparar em rajada. Ligado 1x no main.tsx junto do setupOfflineCache.
- */
 export function setupMessageCache(qc: QueryClient): void {
   const lastWrite = new Map<string, number>()
   qc.getQueryCache().subscribe((event) => {
@@ -79,15 +67,11 @@ export function setupMessageCache(qc: QueryClient): void {
   })
 }
 
-/**
- * Hidrata um canal a partir do IDB se o cache em memória está vazio.
- * updatedAt: 0 = entra STALE → refetch imediato por trás quando online.
- */
 export async function hydrateChannelFromCache(qc: QueryClient, channelId: string): Promise<void> {
   if (qc.getQueryData(['messages', channelId])) return
   const page = await getCachedFirstPage(channelId)
   if (!page) return
-  if (qc.getQueryData(['messages', channelId])) return // fetch ganhou a corrida
+  if (qc.getQueryData(['messages', channelId])) return
   qc.setQueryData(
     ['messages', channelId],
     { pages: [page], pageParams: [undefined] },

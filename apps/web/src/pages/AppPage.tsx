@@ -30,10 +30,6 @@ import MentionBanner from '@/components/chat/MentionBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import type { MessageWithAuthor } from '@astra/types'
 
-// Lazy: páginas pesadas + componentes raros (settings, command palette, painéis com sheets)
-// Carregam só quando o user de fato navega/abre.
-// VoiceCallPanel/IncomingCallModal: carregam só quando voice tá configurado
-// — economia de ~30KB no bundle inicial.
 const VoiceCallPanel    = lazy(() => import('@/components/voice/VoiceCallPanel').then((m) => ({ default: m.VoiceCallPanel })))
 const IncomingCallModal = lazy(() => import('@/components/voice/IncomingCallModal').then((m) => ({ default: m.IncomingCallModal })))
 const DMPage              = lazy(() => import('@/pages/DMPage'))
@@ -63,10 +59,8 @@ function ChannelView() {
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [replyingTo, setReplyingTo]     = useState<MessageWithAuthor | null>(null)
 
-  // Reset reply target ao trocar de canal
   useEffect(() => { setReplyingTo(null) }, [activeChannel?.id])
 
-  // Sync state quando location.state muda (Sidebar hoisted navega via state)
   useEffect(() => {
     if (locationState && locationState.id !== activeChannel?.id) {
       setActiveChannel(locationState)
@@ -92,14 +86,10 @@ function ChannelView() {
   const handleOptimisticFailed    = useCallback((id: string) => removeOptimisticRef.current?.(id), [])
   const handleOptimisticConfirmed = useCallback((id: string, msg: MessageWithAuthor) => confirmOptimisticRef.current?.(id, msg), [])
 
-  // When a mention notification is clicked, navigate to the mentioned channel
   const handleMentionNavigate = useCallback((channelId: string, channelName: string, serverId: string) => {
     setActiveChannel({ id: channelId, name: channelName, serverId })
   }, [])
 
-  // Atalhos desktop (norma Discord): Alt+↑/↓ navega entre canais de texto
-  // do servidor atual; Esc marca o canal como lido. Mesma query/cache do
-  // Sidebar — custo zero de rede.
   const navigate = useViewTransitionNavigate()
   const unread   = useUnread()
   const { data: kbServers } = useQuery<ServerWithChannels[]>({
@@ -121,7 +111,7 @@ function ChannelView() {
         const next = chans[(idx + dir + chans.length) % chans.length]
         navigate('/app', { state: { id: next.id, name: next.name, serverId: activeChannel.serverId } })
       }
-      // Esc marca lido — só quando não há overlay (Radix fecha com Esc antes)
+
       if (e.key === 'Escape' && !document.querySelector('[role="dialog"][data-state="open"]')) {
         unread.markRead(activeChannel.id)
       }
@@ -135,12 +125,12 @@ function ChannelView() {
       <div className="flex-1 flex flex-col min-w-0">
         {activeChannel ? (
           <>
-            {/* Chat header — minimal, hairline bottom border */}
+            {}
             <header
               key={activeChannel.id + '-hdr'}
               className="shrink-0 h-14 px-3 sm:px-5 flex items-center gap-2 border-b border-(--border) bg-(--base)"
             >
-              {/* Mobile trigger: avatar abre sidebar */}
+              {}
               <MobileAvatarTrigger className="-ml-1" />
 
               <span className="text-(--text-3) text-sm font-mono">#</span>
@@ -151,7 +141,7 @@ function ChannelView() {
                 {activeChannel.name}
               </h2>
 
-              {/* Right cluster: search · members · pinned */}
+              {}
               <div className="ml-auto flex items-center gap-0.5 shrink-0">
                 <button
                   onClick={openCommandPalette}
@@ -161,7 +151,7 @@ function ChannelView() {
                 >
                   <Search className="size-4" />
                 </button>
-                {/* Desktop: 3 botões expostos */}
+                {}
                 <button
                   onClick={() => openRightPanel('members')}
                   className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
@@ -188,7 +178,7 @@ function ChannelView() {
                 </button>
                 <ChannelNotifButton channelId={activeChannel.id} />
 
-                {/* Mobile: dropdown com Pin / Bookmark / Members */}
+                {}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -208,7 +198,7 @@ function ChannelView() {
                     <DropdownMenuItem onSelect={() => setBookmarksOpen(true)}>
                       <Bookmark className="size-3.5" /> {t('chat.header.saved')}
                     </DropdownMenuItem>
-                    {/* Notificações do canal — no desktop é o sino próprio */}
+                    {}
                     <ChannelNotifMenuItems channelId={activeChannel.id} />
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -257,17 +247,17 @@ function ChannelView() {
             </ServerEmojiProvider>
           </>
         ) : (
-          /* Tela padrão = home de DMs (lista + abas Mensagens/Amigos + sino). */
+
           <Suspense fallback={<div className="flex-1 min-w-0 h-full" />}>
             <DMPage />
           </Suspense>
         )}
       </div>
 
-      {/* Global mention notification banner */}
+      {}
       <MentionBanner onNavigate={handleMentionNavigate} />
 
-      {/* Right panel (members + threads) — só faz sentido com canal ativo */}
+      {}
       {activeChannel && (
         <Suspense fallback={null}>
           <RightPanel serverId={activeChannel.serverId} channelId={activeChannel.id} />
@@ -283,11 +273,9 @@ export default function AppPage() {
   const activeId = (location.state as ActiveChannel | null)?.id ?? null
   const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette)
 
-  // Global presence socket listener + in-app sound/desktop notif
   usePresenceListener()
   useInAppNotifications()
 
-  // Cmd+K / Ctrl+K abre command palette globalmente
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -299,9 +287,6 @@ export default function AppPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [toggleCommandPalette])
 
-  // Prefetch das telas que o user quase sempre abre depois — só quando a
-  // thread fica ociosa (requestIdleCallback), pra não competir com o load
-  // inicial do chat. Aquecer o chunk = navegação instantânea no 1º clique.
   useEffect(() => {
     const ric = (window as any).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1200))
     const id = ric(() => {
@@ -314,9 +299,6 @@ export default function AppPage() {
     return () => { if (cancel) cancel(id); else clearTimeout(id) }
   }, [])
 
-  // Scroll-to-top: tocar na aba já ativa (bottom nav) rola a lista visível
-  // pro topo. Um listener só — apenas a lista montada na rota atual existe
-  // no DOM, então rolar todos os containers casados é inofensivo.
   useEffect(() => {
     const onTop = () => {
       document.querySelectorAll('[data-radix-scroll-area-viewport], .astra-scrollable')
@@ -326,9 +308,6 @@ export default function AppPage() {
     return () => window.removeEventListener('astra:scroll-top', onTop)
   }, [])
 
-  // Mobile: swipe pra ESQUERDA abre o drawer de constelações.
-  // Direita ficou pro swipe-to-reply das mensagens — sem briga de gesto.
-  // Listeners passivos + leitura via getState(): zero re-render por toque.
   useEffect(() => {
     if (!window.matchMedia('(pointer: coarse)').matches) return
     let start: { x: number; y: number } | null = null
@@ -336,7 +315,7 @@ export default function AppPage() {
       start = null
       if (window.innerWidth >= 768) return
       if (useUIStore.getState().mobileSidebarOpen) return
-      // Áreas com gesto/scroll próprio não disputam
+
       if ((e.target as Element).closest('pre, input, textarea, [role="dialog"]')) return
       const t = e.touches[0]
       start = { x: t.clientX, y: t.clientY }
@@ -346,7 +325,7 @@ export default function AppPage() {
       const t  = e.touches[0]
       const dx = t.clientX - start.x
       const dy = t.clientY - start.y
-      if (dx > 0 || Math.abs(dy) > 48) { start = null; return } // scroll/reply
+      if (dx > 0 || Math.abs(dy) > 48) { start = null; return }
       if (dx < -64 && -dx > Math.abs(dy) * 1.8) {
         start = null
         useUIStore.getState().openMobileSidebar()
@@ -363,8 +342,7 @@ export default function AppPage() {
 
   return (
     <div className="astra-shell flex h-screen-safe overflow-hidden font-(family-name:--font-body) pb-16 md:pb-0">
-      {/* A11y skip-link: invisível até receber foco (Tab). Pula sidebar/header
-          pra usuários de teclado/screen reader irem direto pro conteúdo. */}
+      {}
       <a
         href="#astra-main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-9999 focus:px-3 focus:py-2 focus:rounded-lg focus:bg-(--accent) focus:text-(--text-inv) focus:text-sm focus:font-medium focus:shadow-3"
@@ -372,7 +350,7 @@ export default function AppPage() {
         Pular para o conteúdo
       </a>
 
-      {/* Sidebar mounted once — sobrevive entre rotas, sem re-mount/animation bug */}
+      {}
       <Sidebar
         activeChannelId={activeId}
         onSelectChannel={(id, name, serverId) =>
@@ -380,8 +358,7 @@ export default function AppPage() {
         }
       />
 
-      {/* `display: contents` deixa o flex parent enxergar o PageTransition direto
-          (não cria flex item adicional). Suportado em todos browsers modernos. */}
+      {}
       <main id="astra-main" tabIndex={-1} className="contents">
         <Suspense fallback={<div className="flex-1 min-w-0 h-full" />}>
           <AnimatePresence mode="wait" initial={false}>
@@ -402,23 +379,23 @@ export default function AppPage() {
         <CommandPalette />
       </Suspense>
 
-      {/* Voice call panel + incoming modal — lazy (-30kb no bundle inicial) */}
+      {}
       <Suspense fallback={null}>
         <VoiceCallPanel />
         <IncomingCallModal />
       </Suspense>
 
-      {/* Mobile-only: barra de perfil no bottom + sheets Mais/notificações */}
+      {}
       <MobileProfileBar />
       <MobileMoreSheet />
       <MobileNotificationsSheet />
 
-      {/* Tour 1x: léxico cósmico de Astra (skip permanente após dispensar) */}
+      {}
       <Suspense fallback={null}>
         <CosmicOnboarding />
       </Suspense>
 
-      {/* Dev overlay: p50/p95 de round-trip de envio. Toggle Ctrl+Shift+L. */}
+      {}
       <Suspense fallback={null}>
         <LatencyOverlay />
       </Suspense>

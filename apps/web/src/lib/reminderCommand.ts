@@ -1,19 +1,10 @@
-/**
- * Parser do slash `/lembre`.
- *
- * Formatos aceitos:
- *   /lembre <texto> em <duração>     → reminder pra si mesmo
- *   /lembre @user <texto> em <duração> → reminder pra outro (futuro)
- *
- * Duração: "10m", "2h", "1d", "30min", "1h30m", "2d12h"
- * Retorna { content, durationMs } ou null se não bater.
- */
+
 const DURATION_PART_RE = /(\d+)\s*(d|h|m|min|s)/gi
 
 export interface ReminderCmd {
   content:    string
   durationMs: number
-  // futuro: targetUsername?: string
+
 }
 
 export function parseReminderCommand(text: string): ReminderCmd | null {
@@ -38,7 +29,7 @@ export function parseReminderCommand(text: string): ReminderCmd | null {
   }
   DURATION_PART_RE.lastIndex = 0
   if (!matched) return null
-  // Min 1min, max 1 ano
+
   if (total < 60_000 || total > 365 * 86_400_000) return null
   return { content, durationMs: total }
 }

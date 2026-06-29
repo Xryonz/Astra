@@ -1,14 +1,4 @@
-/**
- * VoiceCallPanel — PiP minimalista quando estamos numa chamada mas vendo outra coisa.
- *
- *  - Floating bottom-right, draggable (motion drag + localStorage persistence)
- *  - z-60 → sempre por cima do Sidebar (z-50) e modais regulares
- *  - Quick controls: mute, deafen, sair, expandir
- *  - Expandir → renderiza VoiceCallStage (fullscreen tile grid)
- *
- * Vibe Astra: hairline border, --accent subtle pulse no speaking,
- * mono pra status, serif display pro room name.
- */
+
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
@@ -43,7 +33,6 @@ export function VoiceCallPanel() {
   const expanded    = useUIStore((s) => s.voiceStageOpen)
   const setExpanded = useUIStore((s) => s.setVoiceStageOpen)
 
-  // Motion values pra position persistente
   const initialPos = useMemo(loadPos, [])
   const x = useMotionValue(initialPos.x)
   const y = useMotionValue(initialPos.y)
@@ -60,14 +49,14 @@ export function VoiceCallPanel() {
 
   return (
     <>
-      {/* ─── PiP draggable ─── */}
+      {}
       <AnimatePresence>
         {!expanded && (
           <motion.div
             drag
             dragMomentum={false}
             dragElastic={0.1}
-            // Constraints calculadas via window: pode arrastar até as bordas
+
             dragConstraints={{
               left:   -(window.innerWidth  - 320),
               top:    -(window.innerHeight - 280),
@@ -80,16 +69,15 @@ export function VoiceCallPanel() {
             animate={{ opacity: 1, scale: 1   }}
             exit={{    opacity: 0, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-            // bottom-right anchor + z-60 (acima do Sidebar z-50)
-            // Mobile: compacto (w-48), safe-area-aware. Desktop: w-60.
+
             className="fixed bottom-safe right-safe z-60 w-48 sm:w-60 rounded-2xl bg-(--overlay) border border-(--border-mid) shadow-[0_18px_56px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md overflow-hidden select-none touch-none"
           >
-            {/* Drag handle bar (visualmente óbvio onde grabar) */}
+            {}
             <div className="absolute top-1 left-1/2 -translate-x-1/2 text-(--text-3)/40 pointer-events-none">
               <GripHorizontal className="size-3" />
             </div>
 
-            {/* Header */}
+            {}
             <header className="px-3 pt-2.5 pb-2 border-b border-(--border) flex items-center gap-2 cursor-grab active:cursor-grabbing">
               <motion.span
                 aria-hidden
@@ -98,9 +86,7 @@ export function VoiceCallPanel() {
                 className="size-2 rounded-full bg-(--success) shrink-0"
               />
               <div className="flex-1 min-w-0 leading-tight">
-                {/* Active speaker: quando alguém remoto fala, prioriza nome dele
-                    no header. Antes só status genérico — user não sabia quem
-                    falou sem expandir. */}
+                {}
                 {(() => {
                   const activeSpeaker = participants.find((p) => p.isSpeaking && !p.isLocal)
                   const speakerName = activeSpeaker
@@ -149,7 +135,7 @@ export function VoiceCallPanel() {
               </p>
             )}
 
-            {/* Stacked avatars */}
+            {}
             <div className="px-3 py-2 flex items-center gap-2">
               <div className="flex -space-x-2">
                 {participants.slice(0, 6).map((p) => {
@@ -205,7 +191,7 @@ export function VoiceCallPanel() {
               </div>
             </div>
 
-            {/* Volume bar mini */}
+            {}
             <div className="px-3 pb-1.5 flex items-center gap-2">
               <div className="flex-1 h-1 rounded-full bg-(--raised) overflow-hidden">
                 <motion.div
@@ -220,7 +206,7 @@ export function VoiceCallPanel() {
               </span>
             </div>
 
-            {/* Quick controls */}
+            {}
             <footer
               className="px-2 py-1.5 border-t border-(--border) flex items-center justify-center gap-1.5"
               onPointerDown={(e) => e.stopPropagation()}
@@ -249,14 +235,14 @@ export function VoiceCallPanel() {
         )}
       </AnimatePresence>
 
-      {/* ─── Stage (fullscreen) ─── */}
+      {}
       <AnimatePresence>
         {expanded && (
           <VoiceCallStage onMinimize={() => setExpanded(false)} />
         )}
       </AnimatePresence>
 
-      {/* Áudio remoto auto-attached */}
+      {}
       <RemoteAudioElements />
     </>
   )
@@ -302,14 +288,10 @@ function QuickBtn({ label, onClick, children, danger, active, primary }: {
   )
 }
 
-// ─── Remote audio element manager ────────────────────────────
-
 function RemoteAudioElements() {
   const { participants, volume, deafened, participantVolumes, audioOutputId } = useVoiceCall()
   const refs = useRef<Map<string, HTMLAudioElement>>(new Map())
 
-  // Alto-falante escolhido → setSinkId em cada <audio> (só onde suportado;
-  // WebView Android normalmente ignora e usa a saída padrão).
   useEffect(() => {
     if (!audioOutputId) return
     for (const el of refs.current.values()) {
@@ -332,15 +314,12 @@ function RemoteAudioElements() {
           el.autoplay = true
           ;(el as any).playsInline = true
           el.setAttribute('data-astra-voice', '1')
-          // identidade no elemento → applyAudioVolumes() (store) sabe a quem
-          // aplicar o volume-por-pessoa sem depender do React.
+
           el.setAttribute('data-voice-identity', p.identity)
           document.body.appendChild(el)
           refs.current.set(key, el)
         }
-        // Re-aplica volume + deafened TODA hora — track.attach pode disparar reset
-        // do muted/volume internamente; sincronizamos sempre. Antes só atribuíamos
-        // no primeiro append, e o deafen revertia em ~1s no próximo ActiveSpeakersChanged.
+
         el.volume = Math.max(0, Math.min(1, pvol))
         el.muted  = deafened
         try { track.attach(el) } catch {}

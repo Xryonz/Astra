@@ -79,10 +79,6 @@ function formatTime(d: string, t: TFunction, lang: string) {
   return format(date, t('chat.message.dateFormat'), { locale: lang === 'pt' ? ptBR : enUS })
 }
 
-// ─── Clickable Avatar ─────────────────────────────────────────
-// CSS-only tactile feedback: hover:scale-105 + active:scale-95.
-// Antes era motion.div com spring → caro pra renderizar em listas longas
-// (cada msg paga overhead de motion). CSS transition é GPU compositor direto.
 function Avatar({ src, name, color, size = 36, isBot, onClick }: {
   src?: string | null; name: string; color: string
   size?: number; isBot?: boolean
@@ -182,8 +178,6 @@ function BotBadge() {
   )
 }
 
-/** Aplica custom emojis :nome: num node de texto (substitui por <img>).
- *  Se o map é vazio, retorna o texto original num único span. */
 function applyCustomEmojis(text: string, emojiMap: Map<string, ServerEmoji>, keyPrefix: string): React.ReactNode {
   if (emojiMap.size === 0) return text
   const re = /:([a-z0-9_]{2,32}):/gi
@@ -216,9 +210,8 @@ function applyCustomEmojis(text: string, emojiMap: Map<string, ServerEmoji>, key
   return <>{out}</>
 }
 
-/** Inline-level markdown: bold, italic, strike, spoiler, code, link, mention. */
 function renderInline(text: string, keyPrefix: string, emojiMap: Map<string, ServerEmoji>): React.ReactNode[] {
-  // Ordem importa — regex de delimitadores não-conflitantes
+
   const re = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|\|\|[^|\n]+\|\||`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+\)|@[a-z0-9_]+)/gi
   return text.split(re).map((part, i) => {
     const key = `${keyPrefix}-${i}`
@@ -248,7 +241,6 @@ function renderInline(text: string, keyPrefix: string, emojiMap: Map<string, Ser
         </code>
       )
 
-    // [texto](url) link
     const linkMatch = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/)
     if (linkMatch) {
       const [, label, url] = linkMatch
@@ -284,7 +276,6 @@ function renderInline(text: string, keyPrefix: string, emojiMap: Map<string, Ser
   }).filter(Boolean)
 }
 
-/** Spoiler: blur até clicar */
 function SpoilerSpan({ children }: { children: React.ReactNode }) {
   const [revealed, setRevealed] = useState(false)
   return (
@@ -302,10 +293,8 @@ function SpoilerSpan({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Extrai blocos triple-backtick (```lang\ncode\n```) e renderiza com CodeBlock.
- *  Resto vai pra block-level renderer. */
 function renderContent(text: string, emojiMap: Map<string, ServerEmoji>): React.ReactNode {
-  // Split por code fence preservando os blocos
+
   const parts = text.split(/(```[a-z0-9]*\n[\s\S]*?\n?```)/gi)
   return parts.map((part, i) => {
     const fence = part.match(/^```([a-z0-9]*)\n([\s\S]*?)\n?```$/i)
@@ -317,13 +306,11 @@ function renderContent(text: string, emojiMap: Map<string, ServerEmoji>): React.
   })
 }
 
-/** Block-level: headings, quotes, lists. Recursivo via renderInline. */
 function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.ReactNode {
   const lines = text.split('\n')
   return lines.map((line, idx) => {
     const key = `l-${idx}`
 
-    // # heading (até ###)
     const h = line.match(/^(#{1,3})\s+(.+)$/)
     if (h) {
       const level = h[1].length as 1 | 2 | 3
@@ -339,7 +326,6 @@ function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.R
       )
     }
 
-    // > quote
     if (line.startsWith('> ')) {
       return (
         <div
@@ -351,7 +337,6 @@ function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.R
       )
     }
 
-    // - list / * list
     const li = line.match(/^[-*]\s+(.+)$/)
     if (li) {
       return (
@@ -362,7 +347,6 @@ function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.R
       )
     }
 
-    // numbered list
     const oli = line.match(/^(\d+)\.\s+(.+)$/)
     if (oli) {
       return (
@@ -373,13 +357,11 @@ function renderBlocks(text: string, emojiMap: Map<string, ServerEmoji>): React.R
       )
     }
 
-    // Linha vazia = quebra visual
     if (line.trim() === '') return <br key={key} />
 
     return <div key={key}>{renderInline(line, key, emojiMap)}</div>
   })
 }
-
 
 function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
   const { t } = useTranslation()
@@ -422,7 +404,6 @@ function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose
   )
 }
 
-// ─── Main component ───────────────────────────────────────────
 function MessageItemImpl({
   message, grouped, delay = 0, isPending = false, roleColor = null,
   onEdit, onDelete, onReact, onReply,
@@ -434,7 +415,6 @@ function MessageItemImpl({
   const toggleBookmark = useToggleBookmark()
   const emojiMap       = useEmojiMap()
 
-  // Auto-hide quando msg efêmera expira (server limpa via worker; aqui só visual)
   const expiresAt = (message as any).expiresAt as string | null | undefined
   const [expired, setExpired] = useState(() => {
     if (!expiresAt) return false
@@ -458,14 +438,13 @@ function MessageItemImpl({
   const [showCreateThread,  setShowCreateThread]   = useState(false)
   const [showEditHistory,   setShowEditHistory]    = useState(false)
   const [lightboxIdx,       setLightboxIdx]        = useState<number | null>(null)
-  // ProfileCard state
+
   const [profileUserId,     setProfileUserId]      = useState<string | null>(null)
 
   const longPress = useLongPress(() => {
     if (!isPending && !isBot) setShowMobileActions(true)
   }, { ms: 480 })
 
-  // Swipe pra direita = responder (norma WhatsApp; esquerda é do drawer)
   const swipe = useSwipeReply(
     onReply && !isPending ? () => onReply(message) : undefined,
   )
@@ -477,15 +456,11 @@ function MessageItemImpl({
   const parsedColor = parseColor(roleColor ?? (message as any).authorColor, fallback)
   const reactions   = (message as any).reactions as Reaction[] ?? []
 
-  // Opens the profile card
   const handleAvatarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
     setProfileUserId(author.id)
   }
 
-  // Optimistic: aplica o toggle no cache ANTES do POST.
-  // Socket 'reaction_update' chega depois e substitui (idempotente).
-  // Rollback via invalidate se POST falhar.
   const handleReact = async (emoji: string) => {
     const userId = currentUser?.id
     if (!userId) return
@@ -521,7 +496,7 @@ function MessageItemImpl({
     try {
       await api.post(`/api/channels/${chId}/messages/${message.id}/react`, { emoji })
     } catch {
-      // Server rejeitou — refetch pra reconciliar
+
       qc.invalidateQueries({ queryKey: ['messages', chId] })
     }
     onReact?.(message.id, emoji)
@@ -529,7 +504,7 @@ function MessageItemImpl({
 
   const handleEdit = async (newContent: string) => {
     const chId = (message as any).channelId
-    // Optimistic edit
+
     qc.setQueryData(['messages', chId], (old: any) => {
       if (!old) return old
       return {
@@ -554,7 +529,7 @@ function MessageItemImpl({
   const handleDeleteConfirmed = async () => {
     setShowDeleteConfirm(false)
     const chId = (message as any).channelId
-    // Optimistic: remove do cache imediato
+
     qc.setQueryData(['messages', chId], (old: any) => {
       if (!old) return old
       return {
@@ -578,7 +553,7 @@ function MessageItemImpl({
   const handleTogglePin = async (newPinned: boolean) => {
     const chId = (message as any).channelId
     const url  = `/api/channels/${chId}/messages/${message.id}/pin`
-    // Optimistic flip
+
     qc.setQueryData(['messages', chId], (old: any) => {
       if (!old) return old
       return {
@@ -605,7 +580,6 @@ function MessageItemImpl({
     try { await api.post(url, { parentMessageId: message.id, name }) } catch {}
   }
 
-  // Itens do right-click — coerentes com o toolbar mas mais completos
   const ctxItems: EditorialMenuItem[] = []
   if (!isPending && !isBot) {
     ctxItems.push({ kind: 'item', icon: <Smile className="size-3.5" />, label: t('msgActions.react'),     onSelect: () => setShowEmoji(true) })
@@ -657,8 +631,7 @@ function MessageItemImpl({
       <div
         className={cn(
           'flex gap-4 relative transition-[border-color,background-color,opacity] duration-150 border-l-2 select-none md:select-auto',
-          // py-(--msg-density-py) respeita data-density do <html>
-          // (compact 0.2rem / comfortable 0.5rem / spacious 0.85rem).
+
           grouped ? 'pl-4 pr-3' : 'pl-4 pr-3 pt-3 pb-1 mt-2',
           hovered ? 'border-(--accent) bg-(--raised)/40' : 'border-transparent bg-transparent',
           isPending ? 'opacity-60' : 'opacity-100'
@@ -762,7 +735,7 @@ function MessageItemImpl({
               </span>
             )}
 
-            {/* Reply quote (parent message preview) */}
+            {}
             {(message as any).replyTo && (
               <div className="flex items-center gap-2 mb-1.5 text-[12px] text-(--text-3) border-l-2 border-(--accent)/50 pl-2 max-w-full">
                 <CornerDownRight className="size-3 shrink-0 text-(--accent)/70" />
@@ -802,7 +775,7 @@ function MessageItemImpl({
             )}
           </div>
 
-          {/* Poll card (se mensagem é uma enquete) */}
+          {}
           {(message as any).poll && (
             <PollCard
               channelId={(message as any).channelId}
@@ -840,9 +813,7 @@ function MessageItemImpl({
         onCopy={() => navigator.clipboard.writeText(content).catch(() => {})}
       />
 
-      {/* Dialogs renderizam só quando abertos — antes ficavam montados em
-          TODAS as N msgs visíveis (3 dialogs × 20 msgs = 60 árvores Radix
-          ociosas). Agora paga só na hora do click. */}
+      {}
       {showCreateThread && (
         <CreateThreadDialog
           open={showCreateThread}
@@ -868,7 +839,7 @@ function MessageItemImpl({
         />
       )}
 
-      {/* Profile card — shown when avatar or name is clicked */}
+      {}
       {profileUserId && (
         <ProfileCard
           userId={profileUserId}
@@ -876,7 +847,7 @@ function MessageItemImpl({
         />
       )}
 
-      {/* Lightbox */}
+      {}
       {lightboxIdx !== null && (() => {
         const all = ((message as any).attachments ?? []) as Array<{ url: string; type: string; name: string; size: number }>
         const images = all.filter((a) => a.type.startsWith('image/'))
@@ -895,8 +866,5 @@ function MessageItemImpl({
   )
 }
 
-// Memo: MessageList renderiza N mensagens; sem memo qualquer re-render
-// (typing, scroll, query refetch) re-renderiza todo MessageItem.
-// Default shallow compare — message ref é estável pela cache do React Query.
 const MessageItem = memo(MessageItemImpl)
 export default MessageItem

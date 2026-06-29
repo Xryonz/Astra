@@ -14,14 +14,13 @@ import { MessageListSkeleton } from '@/components/skeletons/MessageListSkeleton'
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import type { MessageWithAuthor } from '@astra/types'
 
-// Optimistic messages have this extra field
 type OptimisticMessage = MessageWithAuthor & { optimisticId?: string; isPending?: boolean }
 
 interface MessageListProps {
   channelId:   string
   channelName: string
   serverId?:   string
-  // Exposed so AppPage can wire up MessageInput callbacks
+
   onRegisterOptimistic: (
     add:     (msg: OptimisticMessage) => void,
     remove:  (id: string) => void,
@@ -40,7 +39,6 @@ export default function MessageList({
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true)
   const [optimisticMsgs, setOptimisticMsgs] = useState<OptimisticMessage[]>([])
 
-  // Register callbacks so AppPage can pass them to MessageInput
   const addOptimistic = useCallback((msg: OptimisticMessage) => {
     setOptimisticMsgs((prev) => [...prev, { ...msg, isPending: true }])
     setShouldScrollToBottom(true)
@@ -50,17 +48,11 @@ export default function MessageList({
     setOptimisticMsgs((prev) => prev.filter((m) => m.optimisticId !== optimisticId))
   }, [])
 
-  // Registro movido pra depois do handleNewMessage (precisa dele pro confirm)
-
-  // Reset optimistic messages when switching channels.
-  // Virtualizer cuida do scroll-to-bottom via useLayoutEffect abaixo.
   useEffect(() => {
     setOptimisticMsgs([])
     setShouldScrollToBottom(true)
   }, [channelId])
 
-  // Hidrata mensagens compostas offline (outbox) como pendentes — sobrevivem
-  // a reload. O flush as envia; o eco reconcilia pelo clientNonce.
   useEffect(() => {
     let cancelled = false
     void getOutboxFor('channel', channelId).then((items) => {
@@ -80,41 +72,34 @@ export default function MessageList({
     data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading,
   } = useInfiniteQuery({
     queryKey: ['messages', channelId],
-    // Fetcher compartilhado com prefetchChannelMessages (Sidebar touchstart)
+
     queryFn: ({ pageParam }) => fetchMessagesPage(channelId, pageParam as string | undefined),
     getNextPageParam: (p) => p.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
   })
 
-  // Offline: sem nada em memória, hidrata a 1ª página do IndexedDB
-  // (entra stale → revalida por trás se houver rede).
   useEffect(() => {
     void hydrateChannelFromCache(queryClient, channelId)
   }, [queryClient, channelId])
 
-  // Members + topColor pra colorir nome do autor pelo role mais alto
   const { data: membersData = [] } = useQuery<Array<{ userId: string; topColor: string|null }>>({
     queryKey: ['members', serverId],
     queryFn:  async () => (await api.get(`/api/servers/${serverId}/members`)).data.data,
     enabled:  !!serverId,
     staleTime: 30_000,
   })
-  // Map é referencialmente estável enquanto membersData não muda → evita
-  // recriação a cada render do MessageList (que dispararia mismatch em filhos).
+
   const colorByUser = useMemo(() => {
     const m = new Map<string, string>()
     for (const x of membersData) if (x.topColor) m.set(x.userId, x.topColor)
     return m
   }, [membersData])
 
-  // Achata as pages só quando elas mudam — não a cada socket tick que mexe em outro state.
   const confirmedMessages = useMemo(
     () => data?.pages.slice().reverse().flatMap((p) => p.items) ?? [],
     [data?.pages],
   )
 
-  // When a real message arrives via socket, remove its matching optimistic version.
-  // Dedup exato via clientNonce; fallback heurístico só pra payloads legados sem nonce.
   const handleNewMessage = useCallback((msg: MessageWithAuthor & { clientNonce?: string|null }) => {
     setOptimisticMsgs((prev) => {
       if (msg.clientNonce) return prev.filter((o) => o.optimisticId !== msg.clientNonce)
@@ -131,16 +116,13 @@ export default function MessageList({
     queryClient.setQueryData(['messages', channelId], (old: any) => {
       if (!old) return old
       const [first, ...rest] = old.pages
-      // Deduplicate — don't add if already in cache (e.g. from previous render)
+
       if (first.items.some((m: MessageWithAuthor) => m.id === msg.id)) return old
       return { ...old, pages: [{ ...first, items: [...first.items, msg] }, ...rest] }
     })
     setShouldScrollToBottom(true)
   }, [channelId, queryClient])
 
-  // Registra callbacks pro MessageInput (via AppPage). confirm injeta o
-  // clientNonce e reusa handleNewMessage — remoção exata da otimista +
-  // dedup por id (o eco de broadcast que chegar depois vira no-op).
   useEffect(() => {
     onRegisterOptimistic(
       addOptimistic,
@@ -149,7 +131,6 @@ export default function MessageList({
     )
   }, [onRegisterOptimistic, addOptimistic, removeOptimistic, handleNewMessage])
 
-  // Edit: update matching item in cache, keep position
   const handleMessageEdited = useCallback(
     (p: { messageId: string; content: string; edited: boolean }) => {
       queryClient.setQueryData(['messages', channelId], (old: any) => {
@@ -168,7 +149,6 @@ export default function MessageList({
     [channelId, queryClient],
   )
 
-  // Delete: filter out item from all pages
   const handleMessageDeleted = useCallback(
     (p: { messageId: string }) => {
       queryClient.setQueryData(['messages', channelId], (old: any) => {
@@ -185,7 +165,6 @@ export default function MessageList({
     [channelId, queryClient],
   )
 
-  // Pin: toggle pinned flag in cache + invalidate pinned list
   const handleMessagePinned = useCallback(
     (p: { messageId: string; pinned: boolean }) => {
       queryClient.setQueryData(['messages', channelId], (old: any) => {
@@ -205,7 +184,6 @@ export default function MessageList({
     [channelId, queryClient],
   )
 
-  // Reactions: substitui o array de reactions da mensagem alvo
   const handleReactionUpdate = useCallback(
     (p: { messageId: string; reactions: Array<{ emoji: string; count: number; users: string[] }> }) => {
       queryClient.setQueryData(['messages', channelId], (old: any) => {
@@ -224,7 +202,6 @@ export default function MessageList({
     [channelId, queryClient],
   )
 
-  // Poll vote/close: atualiza poll inline na mensagem-poll alvo
   const handlePollUpdated = useCallback(
     (p: { messageId: string; poll: unknown }) => {
       queryClient.setQueryData(['messages', channelId], (old: any) => {
@@ -252,45 +229,30 @@ export default function MessageList({
     onPollUpdated:    handlePollUpdated,
   })
 
-  // Mark-as-read: ao montar/trocar canal (1.5s debounce pra evitar spam em
-  // navegação rápida) + a cada nova msg recebida enquanto canal tá ativo.
   const { markRead } = useUnread()
   useEffect(() => {
     const t = setTimeout(() => { void markRead(channelId) }, 1500)
     return () => clearTimeout(t)
   }, [channelId, confirmedMessages.length, markRead])
 
-  // Merge confirmed + optimistic — sem map de authorColor (movido pro
-  // MessageItem, recebe colorByUser como prop). Evita iterar N msgs a cada
-  // mudança. Ref de cada msg fica idêntica à do cache → memo do MessageItem
-  // bate até em renders por socket events de outras msgs.
   const allMessages = useMemo<MessageWithAuthor[]>(
     () => [...confirmedMessages, ...optimisticMsgs],
     [confirmedMessages, optimisticMsgs],
   )
 
-  // ── Virtualização ─────────────────────────────────────────
-  // Renderiza só ~20 mensagens visíveis em vez das ~500 que podem estar carregadas.
-  // estimateSize: 84px é a média grosseira; useVirtualizer mede o real depois com
-  // ResizeObserver via measureElement, então a estimativa só importa pro tamanho
-  // inicial do scrollbar — não atrapalha se errar.
   const virtualizer = useVirtualizer({
     count: allMessages.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 100,  // média mais realista (84 era otimista demais)
-    overscan: 5,              // 5 acima/baixo é suficiente; 8 inflava DOM em scroll rápido
+    estimateSize: () => 100,
+    overscan: 5,
     getItemKey: (i) => (allMessages[i] as OptimisticMessage).optimisticId ?? allMessages[i].id,
   })
 
-  // Auto-scroll pro fim quando user manda msg ou abre canal.
-  // useLayoutEffect = scroll imediato ANTES do paint (evita "salta" visual).
   useLayoutEffect(() => {
     if (!shouldScrollToBottom || allMessages.length === 0) return
     virtualizer.scrollToIndex(allMessages.length - 1, { align: 'end' })
   }, [allMessages.length, shouldScrollToBottom, virtualizer])
 
-  // Teclado nativo abriu: se estava perto do fim, gruda no fim de novo —
-  // o resize do WebView deixava a última mensagem atrás do composer.
   useEffect(() => {
     const onKb = () => {
       const el = scrollRef.current
@@ -302,7 +264,6 @@ export default function MessageList({
     return () => window.removeEventListener('astra:kb-shown', onKb)
   }, [virtualizer, allMessages.length])
 
-  // Infinite scroll — IntersectionObserver no sentinel topo
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -319,8 +280,6 @@ export default function MessageList({
 
   if (isLoading) return <MessageListSkeleton />
 
-
-  // Empty state — fora do virtualizer (não tem linhas pra virtualizar)
   if (allMessages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -345,12 +304,9 @@ export default function MessageList({
 
   const items = virtualizer.getVirtualItems()
 
-  // astra-smooth-scroll: behavior smooth + overscroll contain.
-  // astra-feed-scroll: declara scroll-timeline --astra-feed pro
-  // parallax do StarField consumir (em SPA, body não scrolla).
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto astra-smooth-scroll astra-feed-scroll">
-      {/* Sentinel topo: dispara fetchNextPage qd visível */}
+      {}
       <div ref={topRef} className="h-1" />
 
       {isFetchingNextPage && (
@@ -374,7 +330,7 @@ export default function MessageList({
         </div>
       )}
 
-      {/* Inner container do virtualizer — height total simulado por absolute children */}
+      {}
       <div
         className="relative px-3 pb-2"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -397,9 +353,7 @@ export default function MessageList({
                 left:     0,
                 right:    0,
                 transform: `translateY(${row.start}px)`,
-                // Isola o layout de cada row: emoji/imagem carregando numa
-                // mensagem não força re-layout das vizinhas. Sem `paint`
-                // (cliparia hover cards que escapam do row).
+
                 contain:  'layout',
               }}
             >

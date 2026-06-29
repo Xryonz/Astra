@@ -13,7 +13,7 @@ export default function AccessibilitySection() {
   const toggleHaptics = (on: boolean) => {
     setHapticsEnabled(on)
     setHaptics(on)
-    if (on) hapticMedium() // confirma com um toque ao ligar
+    if (on) hapticMedium()
   }
 
   return (

@@ -129,23 +129,23 @@ fun MessageBubble(
     val maxDragPx = with(density) { 56.dp.toPx() }
     val thresholdPx = with(density) { 40.dp.toPx() }
     val swipeX = remember { Animatable(0f) }
-    val bubbleMaxDp = (LocalConfiguration.current.screenWidthDp * 0.82f).dp
+    val bubbleMaxDp = (LocalConfiguration.current.screenWidthDp * 0.86f).dp
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 10.dp, end = 10.dp, top = if (grouped) 1.dp else 8.dp, bottom = 1.dp),
+            .padding(start = 10.dp, end = 10.dp, top = if (grouped) 2.dp else 10.dp, bottom = 1.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Box(Modifier.width(38.dp)) {
-            if (!grouped) AstraAvatar(authorAvatar, authorName, size = 34)
+        Box(Modifier.width(46.dp)) {
+            if (!grouped) AstraAvatar(authorAvatar, authorName, size = 42)
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(10.dp))
         Column {
             if (!grouped) {
                 Text(
                     text = authorName,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     color = astraColors.accent,
                     modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
                 )
@@ -229,7 +229,7 @@ fun MessageBubble(
                                 )
                             }
                         }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     if (pinned) {
@@ -268,6 +268,7 @@ fun MessageBubble(
                     Text(
                         text = content,
                         style = MaterialTheme.typography.bodyLarge,
+                        fontSize = 17.sp,
                         color = astraColors.text1,
                         textAlign = TextAlign.Center,
                     )

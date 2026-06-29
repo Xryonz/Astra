@@ -61,6 +61,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,6 +100,7 @@ fun MessageBubble(
     content: String,
     animateIn: Boolean,
     sweep: Boolean,
+    grouped: Boolean = false,
     edited: Boolean = false,
     pinned: Boolean = false,
     reactions: List<ReactionChip> = emptyList(),
@@ -110,15 +112,7 @@ fun MessageBubble(
     onTogglePin: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
 ) {
-    val bg = if (mine) astraColors.accent else astraColors.raised
-    val fg = if (mine) astraColors.textInv else astraColors.text1
-    // Borda que destaca a bolha. Ponto unico -> futura personalizacao troca so aqui.
-    val borderColor = if (mine) Color.Black.copy(alpha = 0.18f) else astraColors.borderMid
-    val shape = RoundedCornerShape(
-        topStart = 16.dp, topEnd = 16.dp,
-        bottomStart = if (mine) 16.dp else 5.dp,
-        bottomEnd = if (mine) 5.dp else 16.dp,
-    )
+    val shape = RoundedCornerShape(14.dp)
     val enter = remember { Animatable(if (animateIn) 0f else 1f) }
     val sweepA = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -130,7 +124,6 @@ fun MessageBubble(
             sweepA.animateTo(1f, tween(900, delayMillis = 120, easing = EaseOutSoft))
         }
     }
-    val fromX = if (mine) 26f else -26f
     val glow = astraColors.accentGlow
 
     // Long-press abre o menu (reagir / responder / fixar / editar / apagar).
@@ -148,174 +141,170 @@ fun MessageBubble(
     val maxDragPx = with(density) { 56.dp.toPx() }
     val thresholdPx = with(density) { 40.dp.toPx() }
     val swipeX = remember { Animatable(0f) }
-    // Bolha mais larga: cap em ~88% da tela (aproveita mais espaco que os 300dp
-    // antigos). Mensagens curtas continuam encolhendo; so o teto cresceu.
-    val bubbleMaxDp = (LocalConfiguration.current.screenWidthDp * 0.88f).dp
+    val bubbleMaxDp = (LocalConfiguration.current.screenWidthDp * 0.82f).dp
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp),
-        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 10.dp, end = 10.dp, top = if (grouped) 1.dp else 8.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Box(contentAlignment = Alignment.CenterStart) {
-            // Seta de responder, revelada conforme o arraste passa do limite.
-            if (onReply != null) {
+        Box(Modifier.width(38.dp)) {
+            if (!grouped) AstraAvatar(authorAvatar, authorName, size = 34)
+        }
+        Spacer(Modifier.width(8.dp))
+        Column {
+            if (!grouped) {
                 Text(
-                    text = "↩",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = authorName,
+                    style = MaterialTheme.typography.labelMedium,
                     color = astraColors.accent,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
+                )
+            }
+            Box(contentAlignment = Alignment.CenterStart) {
+                if (onReply != null) {
+                    Text(
+                        text = "↩",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = astraColors.accent,
+                        modifier = Modifier
+                            .graphicsLayer {
+                                val p = (abs(swipeX.value) / thresholdPx).coerceIn(0f, 1f)
+                                alpha = p
+                                scaleX = 0.5f + 0.5f * p
+                                scaleY = 0.5f + 0.5f * p
+                            }
+                            .padding(horizontal = 10.dp),
+                    )
+                }
+                Column(
                     modifier = Modifier
                         .graphicsLayer {
-                            val p = (abs(swipeX.value) / thresholdPx).coerceIn(0f, 1f)
-                            alpha = p
-                            scaleX = 0.5f + 0.5f * p
-                            scaleY = 0.5f + 0.5f * p
+                            alpha = enter.value
+                            translationX = (1f - enter.value) * (-22f).dp.toPx() + swipeX.value
                         }
-                        .padding(horizontal = 10.dp),
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .graphicsLayer {
-                        alpha = enter.value
-                        translationX = (1f - enter.value) * fromX.dp.toPx() + swipeX.value
-                    }
-                    .widthIn(max = bubbleMaxDp)
-                    .clip(shape)
-                    .background(bg)
-                    .border(1.dp, borderColor, shape)
-                    .then(
-                        if (onReply != null) {
-                            Modifier.pointerInput(mine) {
-                                var triggered = false
-                                detectHorizontalDragGestures(
-                                    onDragStart = { triggered = false },
-                                    onHorizontalDrag = { change, dx ->
-                                        // Sempre pra direita: so aceita arraste positivo.
-                                        val clamped = (swipeX.value + dx).coerceIn(0f, maxDragPx)
-                                        change.consume()
-                                        scope.launch { swipeX.snapTo(clamped) }
-                                        if (!triggered && abs(clamped) >= thresholdPx) {
-                                            triggered = true
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        if (triggered) onReply()
-                                        scope.launch {
-                                            swipeX.animateTo(
-                                                0f,
-                                                spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
-                                            )
-                                        }
-                                    },
-                                    onDragCancel = { scope.launch { swipeX.animateTo(0f, spring()) } },
+                        .widthIn(max = bubbleMaxDp)
+                        .clip(shape)
+                        .background(astraColors.raised)
+                        .border(1.dp, astraColors.borderMid, shape)
+                        .then(
+                            if (onReply != null) {
+                                Modifier.pointerInput(Unit) {
+                                    var triggered = false
+                                    detectHorizontalDragGestures(
+                                        onDragStart = { triggered = false },
+                                        onHorizontalDrag = { change, dx ->
+                                            val clamped = (swipeX.value + dx).coerceIn(0f, maxDragPx)
+                                            change.consume()
+                                            scope.launch { swipeX.snapTo(clamped) }
+                                            if (!triggered && abs(clamped) >= thresholdPx) {
+                                                triggered = true
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            if (triggered) onReply()
+                                            scope.launch {
+                                                swipeX.animateTo(
+                                                    0f,
+                                                    spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
+                                                )
+                                            }
+                                        },
+                                        onDragCancel = { scope.launch { swipeX.animateTo(0f, spring()) } },
+                                    )
+                                }
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .then(
+                            if (hasMenu) {
+                                Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .drawWithContent {
+                            drawContent()
+                            val p = sweepA.value
+                            if (p > 0f && p < 1f) {
+                                val x = (p * 2f - 1f) * size.width
+                                drawRect(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(Color.Transparent, glow, Color.Transparent),
+                                        start = Offset(x - size.width * 0.5f, 0f),
+                                        end = Offset(x + size.width * 0.5f, size.height),
+                                    ),
+                                    blendMode = BlendMode.Screen,
                                 )
                             }
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .then(
-                        if (hasMenu) {
-                            Modifier.combinedClickable(onClick = {}, onLongClick = { menuOpen = true })
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .drawWithContent {
-                        drawContent()
-                        val p = sweepA.value
-                        if (p > 0f && p < 1f) {
-                            val x = (p * 2f - 1f) * size.width
-                            drawRect(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(Color.Transparent, glow, Color.Transparent),
-                                    start = Offset(x - size.width * 0.5f, 0f),
-                                    end = Offset(x + size.width * 0.5f, size.height),
-                                ),
-                                blendMode = BlendMode.Screen,
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (pinned) {
+                        Text(
+                            text = "📌 fixado",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = astraColors.accent,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                    }
+                    if (replyContent != null) {
+                        Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(astraColors.base)
+                                .widthIn(max = 260.dp)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = "↩ ${replyAuthor ?: "mensagem"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = astraColors.accent,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = replyContent,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = astraColors.text1.copy(alpha = 0.6f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
+                        Spacer(Modifier.height(4.dp))
                     }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                // Avatar do autor DENTRO da bolha: recebida = avatar a esquerda,
-                // minha = avatar a direita (espelhado). Bolha + icone como uma coisa so.
-                if (!mine) {
-                    AstraAvatar(authorAvatar, authorName, size = 34)
-                    Spacer(Modifier.width(9.dp))
-                }
-                Column(Modifier.weight(1f, fill = false)) {
-                if (pinned) {
                     Text(
-                        text = "📌 fixado",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (mine) fg.copy(alpha = 0.7f) else astraColors.accent,
+                        text = content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = astraColors.text1,
+                        textAlign = TextAlign.Center,
                     )
-                    Spacer(Modifier.height(2.dp))
-                }
-                // Quote da mensagem respondida (caixinha no topo da bolha).
-                if (replyContent != null) {
-                    Column(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (mine) Color.Black.copy(alpha = 0.13f) else astraColors.base)
-                            .widthIn(max = 272.dp)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    ) {
+                    if (edited) {
                         Text(
-                            text = "↩ ${replyAuthor ?: "mensagem"}",
+                            text = "editado",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (mine) fg.copy(alpha = 0.8f) else astraColors.accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = replyContent,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = fg.copy(alpha = 0.6f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            fontStyle = FontStyle.Italic,
+                            color = astraColors.text1.copy(alpha = 0.55f),
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
+                    MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 6.dp))
                 }
-                if (!mine) {
-                    Text(
-                        text = authorName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = astraColors.accent,
+                if (hasMenu) {
+                    MessageActionsMenu(
+                        expanded = menuOpen,
+                        onDismiss = { menuOpen = false },
+                        pinned = pinned,
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                        onReply = onReply,
+                        onTogglePin = onTogglePin,
+                        onToggleReaction = onToggleReaction,
                     )
                 }
-                Text(text = content, style = MaterialTheme.typography.bodyLarge, color = fg)
-                if (edited) {
-                    Text(
-                        text = "editado",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontStyle = FontStyle.Italic,
-                        color = fg.copy(alpha = 0.55f),
-                    )
-                }
-                MessageReactions(reactions, onToggleReaction, Modifier.padding(top = 6.dp))
-                }
-                if (mine) {
-                    Spacer(Modifier.width(9.dp))
-                    AstraAvatar(authorAvatar, authorName, size = 34)
-                }
-            }
-
-            if (hasMenu) {
-                MessageActionsMenu(
-                    expanded = menuOpen,
-                    onDismiss = { menuOpen = false },
-                    pinned = pinned,
-                    onEdit = onEdit,
-                    onDelete = onDelete,
-                    onReply = onReply,
-                    onTogglePin = onTogglePin,
-                    onToggleReaction = onToggleReaction,
-                )
             }
         }
     }
@@ -464,6 +453,16 @@ fun ChatMessageList(
         }
     }
 
+    val groupedIds = remember(rows) {
+        buildSet {
+            for (i in 1 until rows.size) {
+                if (rows[i - 1].mine == rows[i].mine && rows[i - 1].authorName == rows[i].authorName) {
+                    add(rows[i].id)
+                }
+            }
+        }
+    }
+
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -484,6 +483,7 @@ fun ChatMessageList(
                 content = row.content,
                 animateIn = isNew,
                 sweep = isNew && shownOnce,
+                grouped = row.id in groupedIds,
                 edited = row.edited,
                 pinned = row.pinned,
                 reactions = row.reactions,

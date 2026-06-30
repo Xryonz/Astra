@@ -223,6 +223,7 @@ fun HomeScreen(
                             onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
                             onQuery = { query = it },
                             onAddFriends = onOpenFriends,
+                            onNew = { showDialog = true },
                         )
                     }
                 }
@@ -870,13 +871,14 @@ private fun SearchAddRow(
     onToggleSearch: () -> Unit,
     onQuery: (String) -> Unit,
     onAddFriends: () -> Unit,
+    onNew: () -> Unit,
 ) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
 
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(astraColors.raised)
                     .border(1.dp, if (searchOpen) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, CircleShape)
@@ -895,7 +897,7 @@ private fun SearchAddRow(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
+                    .height(48.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(astraColors.raised)
                     .border(1.dp, astraColors.border, RoundedCornerShape(12.dp))
@@ -915,6 +917,24 @@ private fun SearchAddRow(
                     text = "Adicionar estrelas",
                     style = MaterialTheme.typography.titleSmall,
                     color = astraColors.text1,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.accentDim)
+                    .border(1.dp, astraColors.accent.copy(alpha = 0.5f), CircleShape)
+                    .clickable(onClick = onNew),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Lucide.Plus,
+                    contentDescription = "Novo sussurro",
+                    tint = astraColors.accent,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -1043,7 +1063,7 @@ private fun BottomUserBar(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 42)
+                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 48)
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

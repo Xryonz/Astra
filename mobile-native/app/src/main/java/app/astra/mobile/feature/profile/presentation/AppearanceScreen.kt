@@ -50,16 +50,12 @@ import app.astra.mobile.ui.theme.astraColors
 import app.astra.mobile.ui.theme.bgOption
 
 @Composable
-fun AppearanceScreen(
-    onBack: () -> Unit,
+fun AppearanceSection(
     viewModel: PreferencesViewModel = hiltViewModel(),
 ) {
     val prefs = LocalAppPrefs.current
 
-    CosmicBackground {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            EditorialTopBar(title = "Aparencia", marginalia = "tema, fonte e densidade", onBack = onBack)
-
+    Column(Modifier.fillMaxWidth()) {
             Spacer(Modifier.height(8.dp))
             MarginaliaLabel("— previa", Modifier.padding(start = 22.dp, bottom = 8.dp))
             PreviewBubbles(prefs.fontSize, prefs.density)
@@ -99,7 +95,6 @@ fun AppearanceScreen(
             )
             Spacer(Modifier.height(28.dp))
         }
-    }
 }
 
 @Composable

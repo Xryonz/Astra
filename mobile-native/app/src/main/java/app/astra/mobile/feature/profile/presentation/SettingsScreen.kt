@@ -38,8 +38,7 @@ import app.astra.mobile.ui.theme.astraColors
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAccount: () -> Unit,
-    onOpenProfile: () -> Unit,
-    onOpenAppearance: () -> Unit,
+    onOpenPersonalization: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onOpenSessions: () -> Unit,
     onOpenData: () -> Unit,
@@ -74,11 +73,10 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             MarginaliaLabel("— pessoal", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SettingsRow("Conta", "nome, username, senha", onOpenAccount)
-            SettingsRow("Perfil", "bio, pronomes, banner", onOpenProfile)
+            SettingsRow("Personalizacao", "perfil, tema, fonte e banner", onOpenPersonalization)
 
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— app", Modifier.padding(start = 22.dp, bottom = 8.dp))
-            SettingsRow("Aparencia", "tema, fonte e densidade", onOpenAppearance)
             SettingsRow("Cor do nome", "sua cor por servidor", onOpenNameColors)
             SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
             SettingsRow("Notificacoes", "em breve", onClick = null)

@@ -56,9 +56,8 @@ import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
-import app.astra.mobile.feature.profile.presentation.AppearanceScreen
 import app.astra.mobile.feature.profile.presentation.DataScreen
-import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
+import app.astra.mobile.feature.profile.presentation.PersonalizationScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.UserProfileScreen
 import app.astra.mobile.feature.namecolors.presentation.NameColorsScreen
@@ -77,8 +76,7 @@ private object Routes {
     const val HOME = "home"
     const val SETTINGS = "settings"
     const val ACCOUNT = "settings/account"
-    const val PROFILE_EDIT = "settings/profile"
-    const val APPEARANCE = "settings/appearance"
+    const val PERSONALIZATION = "settings/personalization"
     const val ACCESSIBILITY = "settings/accessibility"
     const val SESSIONS = "settings/sessions"
     const val DATA = "settings/data"
@@ -139,7 +137,7 @@ fun AstraApp() {
                         onOpenDms = { nav.navigate(Routes.DMS) },
                         onOpenFriends = { nav.navigate(Routes.FRIENDS) },
                         onOpenSettings = { nav.navigate(Routes.SETTINGS) },
-                        onOpenProfile = { nav.navigate(Routes.PROFILE_EDIT) },
+                        onOpenProfile = { nav.navigate(Routes.PERSONALIZATION) },
                         onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
                     )
                 }
@@ -162,8 +160,7 @@ fun AstraApp() {
                     SettingsScreen(
                         onBack = { nav.popBackStack() },
                         onOpenAccount = { nav.navigate(Routes.ACCOUNT) },
-                        onOpenProfile = { nav.navigate(Routes.PROFILE_EDIT) },
-                        onOpenAppearance = { nav.navigate(Routes.APPEARANCE) },
+                        onOpenPersonalization = { nav.navigate(Routes.PERSONALIZATION) },
                         onOpenAccessibility = { nav.navigate(Routes.ACCESSIBILITY) },
                         onOpenSessions = { nav.navigate(Routes.SESSIONS) },
                         onOpenData = { nav.navigate(Routes.DATA) },
@@ -186,14 +183,11 @@ fun AstraApp() {
                 composable(Routes.NAME_COLORS) {
                     NameColorsScreen(onBack = { nav.popBackStack() })
                 }
-                composable(Routes.APPEARANCE) {
-                    AppearanceScreen(onBack = { nav.popBackStack() })
+                composable(Routes.PERSONALIZATION) {
+                    PersonalizationScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.ACCESSIBILITY) {
                     AccessibilityScreen(onBack = { nav.popBackStack() })
-                }
-                composable(Routes.PROFILE_EDIT) {
-                    ProfileEditScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.JOIN) {
                     JoinServerScreen(

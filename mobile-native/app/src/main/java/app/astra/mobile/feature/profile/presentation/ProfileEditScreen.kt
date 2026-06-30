@@ -72,8 +72,7 @@ import coil.compose.AsyncImage
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProfileEditScreen(
-    onBack: () -> Unit,
+fun ProfileEditSection(
     viewModel: ProfileEditViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -87,21 +86,16 @@ fun ProfileEditScreen(
     }
     val imageRequest = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
-    CosmicBackground {
-        Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Perfil", marginalia = "como te veem", onBack = onBack)
+    if (state.loading) {
+        Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
+        return
+    }
 
-            if (state.loading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
-                return@Column
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 26.dp, vertical = 18.dp),
-            ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 26.dp, vertical = 18.dp),
+    ) {
 
                 val bannerColor = parseHexColor(state.bannerColor) ?: astraColors.overlay
                 val hasBanner = state.bannerUrl.isNotBlank()
@@ -350,8 +344,6 @@ fun ProfileEditScreen(
                 }
                 Spacer(Modifier.height(24.dp))
             }
-        }
-    }
 }
 
 @Composable

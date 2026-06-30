@@ -271,13 +271,14 @@ fun AstraApp() {
         val splashEnter = remember { Animatable(0f) }
         val splashExit = remember { Animatable(0f) }
         LaunchedEffect(Unit) {
+            delay(1000) // tela vazia 1s: deixa o device carregar o app antes de animar (sem travar)
             if (reduceMotion) {
                 splashEnter.snapTo(1f)
-                delay(800)
+                delay(700)
                 splashExit.animateTo(1f, tween(220, easing = EaseOutSoft))
             } else {
                 splashEnter.animateTo(1f, tween(640, easing = EaseOutSoft))
-                delay(820)
+                delay(780)
                 splashExit.animateTo(1f, tween(560, easing = EaseOutSoft))
             }
             splashVisible = false

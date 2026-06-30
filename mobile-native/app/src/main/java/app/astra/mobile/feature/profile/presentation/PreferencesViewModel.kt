@@ -17,4 +17,7 @@ class PreferencesViewModel @Inject constructor(
     fun setHaptics(v: Boolean) { viewModelScope.launch { store.setHaptics(v) } }
     fun setFontSize(v: FontSizePref) { viewModelScope.launch { store.setFontSize(v) } }
     fun setDensity(v: DensityPref) { viewModelScope.launch { store.setDensity(v) } }
+    fun setAccent(id: String) { viewModelScope.launch { store.setAccent(id) } }
+    fun setBg(id: String) { viewModelScope.launch { store.setBg(id) } }
+    fun setTheme(accentId: String, bgId: String) { viewModelScope.launch { store.setTheme(accentId, bgId) } }
 }

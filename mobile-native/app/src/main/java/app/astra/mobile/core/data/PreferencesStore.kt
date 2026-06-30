@@ -36,6 +36,8 @@ data class AppPrefs(
     val haptics: Boolean = true,
     val fontSize: FontSizePref = FontSizePref.MD,
     val density: DensityPref = DensityPref.COMFORTABLE,
+    val accentId: String = "white",
+    val bgId: String = "void",
 )
 
 @Singleton
@@ -46,6 +48,8 @@ class PreferencesStore @Inject constructor(
     private val hapticsKey = booleanPreferencesKey("haptics")
     private val fontSizeKey = stringPreferencesKey("font_size")
     private val densityKey = stringPreferencesKey("density")
+    private val accentKey = stringPreferencesKey("accent_id")
+    private val bgKey = stringPreferencesKey("bg_id")
 
     val prefs: Flow<AppPrefs> = dataStore.data.map { p ->
         AppPrefs(
@@ -53,6 +57,8 @@ class PreferencesStore @Inject constructor(
             haptics = p[hapticsKey] ?: true,
             fontSize = FontSizePref.from(p[fontSizeKey]),
             density = DensityPref.from(p[densityKey]),
+            accentId = p[accentKey] ?: "white",
+            bgId = p[bgKey] ?: "void",
         )
     }
 
@@ -60,4 +66,10 @@ class PreferencesStore @Inject constructor(
     suspend fun setHaptics(v: Boolean) = dataStore.edit { it[hapticsKey] = v }
     suspend fun setFontSize(v: FontSizePref) = dataStore.edit { it[fontSizeKey] = v.id }
     suspend fun setDensity(v: DensityPref) = dataStore.edit { it[densityKey] = v.id }
+    suspend fun setAccent(id: String) = dataStore.edit { it[accentKey] = id }
+    suspend fun setBg(id: String) = dataStore.edit { it[bgKey] = id }
+    suspend fun setTheme(accentId: String, bgId: String) = dataStore.edit {
+        it[accentKey] = accentId
+        it[bgKey] = bgId
+    }
 }

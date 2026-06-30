@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val prefs by preferencesStore.prefs.collectAsState(initial = AppPrefs())
-            AstraTheme {
+            AstraTheme(accentId = prefs.accentId, bgId = prefs.bgId) {
 
                 val toastState = rememberToastHostState()
                 CompositionLocalProvider(

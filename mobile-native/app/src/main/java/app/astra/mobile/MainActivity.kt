@@ -14,9 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import app.astra.mobile.core.crash.CrashReporter
+import app.astra.mobile.core.crash.CrashScreen
 import app.astra.mobile.core.data.AppPrefs
 import app.astra.mobile.core.data.PreferencesStore
 import app.astra.mobile.feature.auth.domain.AuthRepository
@@ -52,7 +57,15 @@ class MainActivity : ComponentActivity() {
                     LocalAppPrefs provides prefs,
                 ) {
                     Box(Modifier.fillMaxSize()) {
-                        AstraApp()
+                        var crash by remember { mutableStateOf(CrashReporter.read(this@MainActivity)) }
+                        if (crash != null) {
+                            CrashScreen(
+                                trace = crash!!,
+                                onDismiss = { CrashReporter.clear(this@MainActivity); crash = null },
+                            )
+                        } else {
+                            AstraApp()
+                        }
                         ToastHost(
                             hostState = toastState,
                             modifier = Modifier.navigationBarsPadding().padding(bottom = 72.dp),

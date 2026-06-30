@@ -2,6 +2,7 @@ package app.astra.mobile
 
 import android.app.Application
 import android.os.Build
+import app.astra.mobile.core.crash.CrashReporter
 import app.astra.mobile.core.upload.DataUriMapper
 import app.astra.mobile.core.upload.RelativeUrlMapper
 import coil.ImageLoader
@@ -12,6 +13,12 @@ import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
 class AstraApplication : Application(), ImageLoaderFactory {
+
+    override fun onCreate() {
+        super.onCreate()
+        CrashReporter.install(this)
+    }
+
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .components {
 

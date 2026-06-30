@@ -1,7 +1,6 @@
 package app.astra.mobile.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -29,12 +28,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.MarginaliaLabel
-import app.astra.mobile.ui.components.Reveal
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.GreatVibes
@@ -274,23 +273,33 @@ fun AstraApp() {
             }
         }
 
-        var splashGone by remember { mutableStateOf(false) }
+        var splashVisible by remember { mutableStateOf(true) }
+        val splashEnter = remember { Animatable(0f) }
+        val splashExit = remember { Animatable(0f) }
         LaunchedEffect(Unit) {
-            delay(1800)
-            splashGone = true
+            if (reduceMotion) {
+                splashEnter.snapTo(1f)
+                delay(800)
+                splashExit.animateTo(1f, tween(220, easing = EaseOutSoft))
+            } else {
+                splashEnter.animateTo(1f, tween(640, easing = EaseOutSoft))
+                delay(820)
+                splashExit.animateTo(1f, tween(560, easing = EaseOutSoft))
+            }
+            splashVisible = false
         }
-        AnimatedVisibility(
-            visible = !splashGone,
-            enter = EnterTransition.None,
-            exit = fadeOut(tween(520, easing = EaseOutSoft)),
-        ) {
-            SplashScreen()
+        if (splashVisible) {
+            SplashScreen(
+                textAlpha = splashEnter.value * (1f - splashExit.value),
+                textScale = 0.92f + 0.08f * splashEnter.value + 0.06f * splashExit.value,
+                overlayAlpha = 1f - splashExit.value,
+            )
         }
     }
 }
 
 @Composable
-private fun SplashScreen() {
+private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float) {
 
     val inf = rememberInfiniteTransition(label = "splash")
     val pulseAnim by inf.animateFloat(
@@ -300,14 +309,13 @@ private fun SplashScreen() {
         label = "glow",
     )
     val pulse = if (LocalAppPrefs.current.reduceMotion) 0f else pulseAnim
-    CosmicBackground {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Reveal {
-
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = overlayAlpha }) {
+        CosmicBackground {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     text = "Astra",
                     style = TextStyle(
@@ -320,6 +328,11 @@ private fun SplashScreen() {
                             blurRadius = 34f + 30f * pulse,
                         ),
                     ),
+                    modifier = Modifier.graphicsLayer {
+                        alpha = textAlpha
+                        scaleX = textScale
+                        scaleY = textScale
+                    },
                 )
             }
         }

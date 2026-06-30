@@ -40,8 +40,8 @@ class ProfileEditViewModel @Inject constructor(
         pronouns = p.pronouns.orEmpty(), origPronouns = p.pronouns.orEmpty(),
         bannerColor = p.bannerColor.orEmpty(), origBannerColor = p.bannerColor.orEmpty(),
         profileTheme = p.profileTheme.orEmpty(), origProfileTheme = p.profileTheme.orEmpty(),
-        bannerPositionY = p.bannerPositionY, origBannerPositionY = p.bannerPositionY,
-        bannerScale = p.bannerScale, origBannerScale = p.bannerScale,
+        bannerPositionY = p.bannerPositionY.coerceIn(0, 100), origBannerPositionY = p.bannerPositionY.coerceIn(0, 100),
+        bannerScale = p.bannerScale.coerceIn(50, 200), origBannerScale = p.bannerScale.coerceIn(50, 200),
         displayFont = p.displayFont, origDisplayFont = p.displayFont,
     )
 

@@ -252,7 +252,7 @@ fun ProfileEditScreen(
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
-                            value = state.bannerScale.toFloat(),
+                            value = state.bannerScale.toFloat().coerceIn(50f, 200f),
                             onValueChange = { viewModel.onBannerScale(it.toInt()) },
                             valueRange = 50f..200f,
                             modifier = Modifier.weight(1f),

@@ -57,9 +57,12 @@ import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
 import app.astra.mobile.feature.profile.presentation.AppearanceScreen
+import app.astra.mobile.feature.profile.presentation.DataScreen
 import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.UserProfileScreen
+import app.astra.mobile.feature.sessions.presentation.SessionsScreen
+import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.voice.presentation.CallScreen
@@ -76,6 +79,9 @@ private object Routes {
     const val PROFILE_EDIT = "settings/profile"
     const val APPEARANCE = "settings/appearance"
     const val ACCESSIBILITY = "settings/accessibility"
+    const val SESSIONS = "settings/sessions"
+    const val DATA = "settings/data"
+    const val WISHING = "settings/wishing"
     const val FRIENDS = "friends"
     const val USER_PROFILE = "user/{userId}?name={name}"
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
@@ -157,10 +163,22 @@ fun AstraApp() {
                         onOpenProfile = { nav.navigate(Routes.PROFILE_EDIT) },
                         onOpenAppearance = { nav.navigate(Routes.APPEARANCE) },
                         onOpenAccessibility = { nav.navigate(Routes.ACCESSIBILITY) },
+                        onOpenSessions = { nav.navigate(Routes.SESSIONS) },
+                        onOpenData = { nav.navigate(Routes.DATA) },
+                        onOpenWishing = { nav.navigate(Routes.WISHING) },
                     )
                 }
                 composable(Routes.ACCOUNT) {
                     AccountScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.SESSIONS) {
+                    SessionsScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.DATA) {
+                    DataScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.WISHING) {
+                    WishingScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.APPEARANCE) {
                     AppearanceScreen(onBack = { nav.popBackStack() })

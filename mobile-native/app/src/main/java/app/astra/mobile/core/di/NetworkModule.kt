@@ -11,11 +11,13 @@ import app.astra.mobile.core.network.InvitesApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
+import app.astra.mobile.core.network.SessionApi
 import app.astra.mobile.core.network.TokenAuthenticator
 import app.astra.mobile.core.network.TranslateApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
+import app.astra.mobile.core.network.WishApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -113,6 +115,14 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideInvitesApi(retrofit: Retrofit): InvitesApi = retrofit.create(InvitesApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSessionApi(retrofit: Retrofit): SessionApi = retrofit.create(SessionApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideWishApi(retrofit: Retrofit): WishApi = retrofit.create(WishApi::class.java)
 
     @Provides
     @Singleton

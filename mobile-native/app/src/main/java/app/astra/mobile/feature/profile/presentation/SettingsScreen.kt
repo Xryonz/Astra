@@ -41,6 +41,9 @@ fun SettingsScreen(
     onOpenProfile: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenAccessibility: () -> Unit,
+    onOpenSessions: () -> Unit,
+    onOpenData: () -> Unit,
+    onOpenWishing: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -74,9 +77,18 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— app", Modifier.padding(start = 22.dp, bottom = 8.dp))
-            SettingsRow("Aparencia", "fonte e densidade do chat", onOpenAppearance)
+            SettingsRow("Aparencia", "tema, fonte e densidade", onOpenAppearance)
             SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
             SettingsRow("Notificacoes", "em breve", onClick = null)
+
+            Spacer(Modifier.height(20.dp))
+            MarginaliaLabel("— conta e seguranca", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            SettingsRow("Sessoes", "dispositivos conectados", onOpenSessions)
+            SettingsRow("Dados e privacidade", "exportar ou apagar conta", onOpenData)
+
+            Spacer(Modifier.height(20.dp))
+            MarginaliaLabel("— comunidade", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            SettingsRow("Estrela dos desejos", "sugira ideias pro Astra", onOpenWishing)
 
             Spacer(Modifier.height(20.dp))
             val logoutShape = RoundedCornerShape(14.dp)

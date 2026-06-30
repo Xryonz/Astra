@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.astra.mobile.feature.namecolors.presentation.NameColorsSection
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.HairlineRule
@@ -26,7 +27,7 @@ fun PersonalizationScreen(onBack: () -> Unit) {
                 .imePadding()
                 .verticalScroll(rememberScrollState()),
         ) {
-            EditorialTopBar(title = "Personalizacao", marginalia = "perfil e aparencia", onBack = onBack)
+            EditorialTopBar(title = "Personalização", marginalia = "seu perfil e o app", onBack = onBack)
 
             MarginaliaLabel("— perfil", Modifier.padding(start = 22.dp, top = 8.dp))
             ProfileEditSection()
@@ -35,7 +36,14 @@ fun PersonalizationScreen(onBack: () -> Unit) {
             HairlineRule(Modifier.padding(horizontal = 22.dp))
             Spacer(Modifier.height(20.dp))
 
-            MarginaliaLabel("— aparencia", Modifier.padding(start = 22.dp, bottom = 4.dp))
+            MarginaliaLabel("— cor do nome", Modifier.padding(start = 22.dp, bottom = 4.dp))
+            NameColorsSection()
+
+            Spacer(Modifier.height(12.dp))
+            HairlineRule(Modifier.padding(horizontal = 22.dp))
+            Spacer(Modifier.height(20.dp))
+
+            MarginaliaLabel("— aparência", Modifier.padding(start = 22.dp, bottom = 4.dp))
             AppearanceSection()
 
             Spacer(Modifier.height(28.dp))

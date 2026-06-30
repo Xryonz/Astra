@@ -41,28 +41,23 @@ import zed.rainxch.rikkaui.components.ui.input.Input
 import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 
 @Composable
-fun NameColorsScreen(
-    onBack: () -> Unit,
+fun NameColorsSection(
     viewModel: NameColorsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
 
-    CosmicBackground {
-        Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Cor do nome", marginalia = "sua cor em cada servidor", onBack = onBack)
-
-            when {
-                state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
-                state.servers.isEmpty() -> Text(
-                    "Voce ainda nao esta em nenhum servidor.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = astraColors.text3,
-                    modifier = Modifier.padding(22.dp),
-                )
-                else -> Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+    when {
+        state.loading -> Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
+        state.servers.isEmpty() -> Text(
+            "Voce ainda nao esta em nenhum servidor.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = astraColors.text3,
+            modifier = Modifier.padding(22.dp),
+        )
+        else -> Column(
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
                     state.servers.forEach { s ->
                         ServerColorCard(
                             server = s,
@@ -82,8 +77,6 @@ fun NameColorsScreen(
                     Spacer(Modifier.height(20.dp))
                 }
             }
-        }
-    }
 }
 
 @Composable

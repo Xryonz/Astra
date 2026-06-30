@@ -3,6 +3,7 @@ package app.astra.mobile.feature.channel.domain
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
+import app.astra.mobile.feature.channel.domain.model.MessageEdit
 import app.astra.mobile.feature.channel.domain.model.TypingUser
 import kotlinx.coroutines.flow.Flow
 
@@ -22,6 +23,7 @@ interface ChannelRepository {
     suspend fun pin(channelId: String, messageId: String, pinned: Boolean): Result<Unit>
     suspend fun pinnedMessages(channelId: String): Result<List<ChannelMessage>>
     suspend fun markRead(channelId: String): Result<Unit>
+    suspend fun editHistory(channelId: String, messageId: String): Result<List<MessageEdit>>
     suspend fun createPoll(channelId: String, question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?): Result<Unit>
     suspend fun votePoll(channelId: String, messageId: String, optionId: String): Result<Unit>
     suspend fun closePoll(channelId: String, messageId: String): Result<Unit>

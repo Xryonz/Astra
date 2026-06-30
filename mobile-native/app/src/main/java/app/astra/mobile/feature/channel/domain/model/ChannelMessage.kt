@@ -40,6 +40,11 @@ data class MessageReaction(
     val mine: Boolean,
 )
 
+data class MessageEdit(
+    val content: String,
+    val editedAt: String?,
+)
+
 data class TypingUser(
     val userId: String,
     val username: String,

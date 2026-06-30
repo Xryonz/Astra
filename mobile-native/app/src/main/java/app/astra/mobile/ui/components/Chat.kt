@@ -116,6 +116,7 @@ fun MessageBubble(
     onOpenImage: ((List<Attachment>, Int) -> Unit)? = null,
     onVotePoll: ((String) -> Unit)? = null,
     onClosePoll: (() -> Unit)? = null,
+    onHistory: (() -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
     val shape = RoundedCornerShape(14.dp)
@@ -133,7 +134,7 @@ fun MessageBubble(
     val glow = astraColors.accentGlow
 
     val hasMenu = onEdit != null || onDelete != null || onReply != null ||
-        onTogglePin != null || onToggleReaction != null || onTranslate != null
+        onTogglePin != null || onToggleReaction != null || onTranslate != null || onHistory != null
     var menuOpen by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
@@ -361,6 +362,7 @@ fun MessageBubble(
                         onTogglePin = onTogglePin,
                         onToggleReaction = onToggleReaction,
                         onTranslate = onTranslate,
+                        onHistory = onHistory,
                     )
                 }
             }
@@ -417,6 +419,7 @@ private fun MessageActionsMenu(
     onTogglePin: (() -> Unit)?,
     onToggleReaction: ((String) -> Unit)?,
     onTranslate: (() -> Unit)? = null,
+    onHistory: (() -> Unit)? = null,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         if (onToggleReaction != null) {
@@ -446,6 +449,12 @@ private fun MessageActionsMenu(
             DropdownMenuItem(
                 text = { Text("Traduzir", color = astraColors.text1) },
                 onClick = { onDismiss(); onTranslate() },
+            )
+        }
+        if (onHistory != null) {
+            DropdownMenuItem(
+                text = { Text("Historico de edicoes", color = astraColors.text1) },
+                onClick = { onDismiss(); onHistory() },
             )
         }
         if (onTogglePin != null) {
@@ -501,6 +510,7 @@ fun ChatMessageList(
     onTranslate: (ChatRow) -> Unit = {},
     onVotePoll: (ChatRow, String) -> Unit = { _, _ -> },
     onClosePoll: (ChatRow) -> Unit = {},
+    onHistory: (ChatRow) -> Unit = {},
 ) {
     val animated = remember { mutableSetOf<String>() }
     var shownOnce by remember { mutableStateOf(false) }
@@ -567,6 +577,7 @@ fun ChatMessageList(
                     onOpenImage = { imgs, idx -> lightbox = imgs to idx },
                     onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
                     onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
+                    onHistory = if (row.edited) ({ onHistory(row) }) else null,
                 )
             }
         }

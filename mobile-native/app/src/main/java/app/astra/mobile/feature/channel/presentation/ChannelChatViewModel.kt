@@ -10,6 +10,7 @@ import app.astra.mobile.core.upload.ImageUploader
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
+import app.astra.mobile.feature.channel.domain.model.MessageEdit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +42,9 @@ data class ChannelChatUiState(
 
     val translations: Map<String, String> = emptyMap(),
     val translatingIds: Set<String> = emptySet(),
+
+    val editHistory: List<MessageEdit>? = null,
+    val editHistoryLoading: Boolean = false,
 )
 
 @HiltViewModel
@@ -91,6 +95,17 @@ class ChannelChatViewModel @Inject constructor(
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
         }
     }
+
+    fun loadEditHistory(messageId: String) {
+        _state.update { it.copy(editHistoryLoading = true, editHistory = null) }
+        viewModelScope.launch {
+            repository.editHistory(channelId, messageId)
+                .onSuccess { list -> _state.update { it.copy(editHistoryLoading = false, editHistory = list) } }
+                .onFailure { e -> _state.update { it.copy(editHistoryLoading = false, error = e.message) } }
+        }
+    }
+
+    fun closeEditHistory() = _state.update { it.copy(editHistory = null, editHistoryLoading = false) }
 
     fun loadPinned() {
         viewModelScope.launch {

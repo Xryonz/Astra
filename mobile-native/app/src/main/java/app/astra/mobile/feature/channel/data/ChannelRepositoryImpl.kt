@@ -23,6 +23,7 @@ import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
+import app.astra.mobile.feature.channel.domain.model.MessageEdit
 import app.astra.mobile.feature.channel.domain.model.MessageReaction
 import app.astra.mobile.feature.channel.domain.model.Poll
 import app.astra.mobile.feature.channel.domain.model.PollOption
@@ -209,6 +210,16 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao marcar como lido"))
+    }
+
+    override suspend fun editHistory(channelId: String, messageId: String): Result<List<MessageEdit>> = try {
+        val list = channelApi.edits(channelId, messageId).data.orEmpty()
+            .map { MessageEdit(it.content, it.editedAt) }
+        Result.success(list)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao carregar historico"))
     }
 
     override suspend fun createPoll(channelId: String, question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?): Result<Unit> = try {

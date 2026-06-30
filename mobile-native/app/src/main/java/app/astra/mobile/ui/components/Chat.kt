@@ -93,6 +93,7 @@ fun MessageBubble(
     mine: Boolean,
     authorName: String,
     authorAvatar: String?,
+    authorColor: String? = null,
     content: String,
     animateIn: Boolean,
     sweep: Boolean,
@@ -160,10 +161,16 @@ fun MessageBubble(
         Spacer(Modifier.width(10.dp))
         Column {
             if (!grouped) {
+                val nameColor = remember(authorColor) { parseNameColor(authorColor) }
+                val baseStyle = MaterialTheme.typography.labelLarge
                 Text(
                     text = authorName,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = astraColors.accent,
+                    style = if (nameColor is NameColor.Gradient) baseStyle.copy(brush = nameColor.brush) else baseStyle,
+                    color = when (nameColor) {
+                        is NameColor.Solid -> nameColor.color
+                        is NameColor.Gradient -> Color.Unspecified
+                        null -> astraColors.accent
+                    },
                     modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
                 )
             }
@@ -467,6 +474,7 @@ data class ChatRow(
     val mine: Boolean,
     val authorName: String,
     val authorAvatar: String? = null,
+    val authorColor: String? = null,
     val content: String,
     val edited: Boolean = false,
     val pinned: Boolean = false,
@@ -536,6 +544,7 @@ fun ChatMessageList(
                     mine = row.mine,
                     authorName = row.authorName,
                     authorAvatar = row.authorAvatar,
+                    authorColor = row.authorColor,
                     content = row.content,
                     animateIn = isNew,
                     sweep = isNew && shownOnce,

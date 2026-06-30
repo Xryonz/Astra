@@ -14,6 +14,7 @@ data class MessageEntity(
     val authorId: String?,
     val authorName: String,
     val authorAvatar: String?,
+    val authorColor: String? = null,
     val content: String,
     val createdAt: String?,
     val replyToAuthor: String? = null,

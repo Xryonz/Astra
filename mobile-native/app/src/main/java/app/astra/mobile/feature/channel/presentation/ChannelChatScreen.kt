@@ -104,6 +104,7 @@ fun ChannelChatScreen(
                                     mine = m.mine,
                                     authorName = m.authorName,
                                     authorAvatar = m.authorAvatar,
+                                    authorColor = m.authorColor,
                                     content = m.content,
                                     edited = m.edited,
                                     pinned = m.pinned,

@@ -7,6 +7,7 @@ data class ChannelMessage(
     val content: String,
     val authorName: String,
     val authorAvatar: String?,
+    val authorColor: String? = null,
     val createdAt: String?,
     val mine: Boolean,
     val edited: Boolean = false,

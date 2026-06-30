@@ -8,6 +8,7 @@ data class ChannelMessageDto(
     val content: String = "",
     val authorId: String,
     val channelId: String,
+    val authorColor: String? = null,
     val createdAt: String? = null,
     val edited: Boolean = false,
     val pinned: Boolean = false,

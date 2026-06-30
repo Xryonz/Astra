@@ -44,6 +44,7 @@ fun SettingsScreen(
     onOpenSessions: () -> Unit,
     onOpenData: () -> Unit,
     onOpenWishing: () -> Unit,
+    onOpenNameColors: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -78,6 +79,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— app", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SettingsRow("Aparencia", "tema, fonte e densidade", onOpenAppearance)
+            SettingsRow("Cor do nome", "sua cor por servidor", onOpenNameColors)
             SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
             SettingsRow("Notificacoes", "em breve", onClick = null)
 

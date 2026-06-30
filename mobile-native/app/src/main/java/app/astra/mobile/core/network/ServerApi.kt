@@ -4,6 +4,8 @@ import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
+import app.astra.mobile.core.network.dto.MyColorRequest
+import app.astra.mobile.core.network.dto.MyColorResponse
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
@@ -22,6 +24,9 @@ interface ServerApi {
 
     @PATCH("api/servers/{id}")
     suspend fun update(@Path("id") id: String, @Body body: UpdateServerRequest): ApiEnvelope<ServerDto>
+
+    @PATCH("api/servers/{id}/my-color")
+    suspend fun setMyColor(@Path("id") serverId: String, @Body body: MyColorRequest): ApiEnvelope<MyColorResponse>
 
     @GET("api/servers/{id}/members")
     suspend fun members(@Path("id") serverId: String): ApiEnvelope<List<ServerMemberDto>>

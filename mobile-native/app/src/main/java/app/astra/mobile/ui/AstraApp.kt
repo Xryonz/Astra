@@ -61,6 +61,7 @@ import app.astra.mobile.feature.profile.presentation.DataScreen
 import app.astra.mobile.feature.profile.presentation.ProfileEditScreen
 import app.astra.mobile.feature.profile.presentation.SettingsScreen
 import app.astra.mobile.feature.profile.presentation.UserProfileScreen
+import app.astra.mobile.feature.namecolors.presentation.NameColorsScreen
 import app.astra.mobile.feature.sessions.presentation.SessionsScreen
 import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
@@ -82,6 +83,7 @@ private object Routes {
     const val SESSIONS = "settings/sessions"
     const val DATA = "settings/data"
     const val WISHING = "settings/wishing"
+    const val NAME_COLORS = "settings/name-colors"
     const val FRIENDS = "friends"
     const val USER_PROFILE = "user/{userId}?name={name}"
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
@@ -166,6 +168,7 @@ fun AstraApp() {
                         onOpenSessions = { nav.navigate(Routes.SESSIONS) },
                         onOpenData = { nav.navigate(Routes.DATA) },
                         onOpenWishing = { nav.navigate(Routes.WISHING) },
+                        onOpenNameColors = { nav.navigate(Routes.NAME_COLORS) },
                     )
                 }
                 composable(Routes.ACCOUNT) {
@@ -179,6 +182,9 @@ fun AstraApp() {
                 }
                 composable(Routes.WISHING) {
                     WishingScreen(onBack = { nav.popBackStack() })
+                }
+                composable(Routes.NAME_COLORS) {
+                    NameColorsScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.APPEARANCE) {
                     AppearanceScreen(onBack = { nav.popBackStack() })

@@ -11,6 +11,7 @@ data class ServerDto(
     val ownerId: String? = null,
     val inviteCode: String? = null,
     val isPublic: Boolean = false,
+    val isGroup: Boolean = false,
     val channels: List<ChannelDto> = emptyList(),
     val categories: List<CategoryDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,

@@ -15,4 +15,8 @@ data class Profile(
     val createdAt: String?,
 
     val status: UserStatus = UserStatus.ONLINE,
+    val profileTheme: String? = null,
+    val bannerPositionY: Int = 50,
+    val bannerScale: Int = 100,
+    val displayFont: String = "serif",
 )

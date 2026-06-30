@@ -20,6 +20,10 @@ data class ProfileUserDto(
     val hasPassword: Boolean = true,
     val createdAt: String? = null,
     val effectiveStatus: String? = null,
+    val profileTheme: String? = null,
+    val bannerPositionY: Int? = null,
+    val bannerScale: Int? = null,
+    val displayFont: String? = null,
 )
 
 @Serializable
@@ -46,6 +50,10 @@ data class UpdateProfileRequest(
     val bannerUrl: String? = null,
     val bannerColor: String? = null,
     val pronouns: String? = null,
+    val profileTheme: String? = null,
+    val bannerPositionY: Int? = null,
+    val bannerScale: Int? = null,
+    val displayFont: String? = null,
 )
 
 @Serializable

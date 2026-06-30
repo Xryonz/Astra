@@ -23,10 +23,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +42,8 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.displayFontFamily
+import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
 
@@ -65,6 +70,12 @@ fun UserProfileScreen(
                 state.view != null -> {
                     val v = state.view!!
                     val p = v.profile
+                    val themeBrush = remember(p.profileTheme) { parseGradientBrush(p.profileTheme) }
+                    Box(Modifier.fillMaxSize()) {
+                    if (themeBrush != null) {
+                        Box(Modifier.matchParentSize().background(themeBrush))
+                        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.5f)))
+                    }
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
 
                         val bannerColor = parseHexColor(p.bannerColor) ?: astraColors.overlay
@@ -73,8 +84,14 @@ fun UserProfileScreen(
                                 AsyncImage(
                                     model = p.bannerUrl,
                                     contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            scaleX = p.bannerScale / 100f
+                                            scaleY = p.bannerScale / 100f
+                                        },
                                     contentScale = ContentScale.Crop,
+                                    alignment = BiasAlignment(0f, (p.bannerPositionY / 50f - 1f).coerceIn(-1f, 1f)),
                                 )
                             }
                         }
@@ -102,6 +119,7 @@ fun UserProfileScreen(
                             Text(
                                 text = p.displayName,
                                 style = MaterialTheme.typography.headlineSmall,
+                                fontFamily = displayFontFamily(p.displayFont),
                                 color = astraColors.text1,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -139,6 +157,7 @@ fun UserProfileScreen(
 
                             Spacer(Modifier.height(60.dp))
                         }
+                    }
                     }
                 }
             }

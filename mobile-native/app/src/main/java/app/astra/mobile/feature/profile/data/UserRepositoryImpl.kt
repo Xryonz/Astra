@@ -65,10 +65,17 @@ class UserRepositoryImpl @Inject constructor(
         bannerUrl: String?,
         bannerColor: String?,
         pronouns: String?,
+        profileTheme: String?,
+        bannerPositionY: Int?,
+        bannerScale: Int?,
+        displayFont: String?,
     ): Result<Profile> {
         return try {
             val data = api.updateProfile(
-                UpdateProfileRequest(displayName, username, bio, avatarUrl, bannerUrl, bannerColor, pronouns),
+                UpdateProfileRequest(
+                    displayName, username, bio, avatarUrl, bannerUrl, bannerColor, pronouns,
+                    profileTheme, bannerPositionY, bannerScale, displayFont,
+                ),
             ).data ?: return Result.failure(ApiException("Resposta vazia do servidor"))
             val p = data.user.toDomain()
             cached = p
@@ -130,6 +137,10 @@ private fun ProfileUserDto.toDomain() = Profile(
     statusEmoji = statusEmoji,
     hasPassword = hasPassword,
     createdAt = createdAt,
+    profileTheme = profileTheme,
+    bannerPositionY = bannerPositionY ?: 50,
+    bannerScale = bannerScale ?: 100,
+    displayFont = displayFont ?: "serif",
 )
 
 private fun MutualServerDto.toDomain() = MutualServer(id, name, iconUrl, isGroup, role)

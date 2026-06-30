@@ -39,6 +39,10 @@ class ProfileEditViewModel @Inject constructor(
         bio = p.bio.orEmpty(), origBio = p.bio.orEmpty(),
         pronouns = p.pronouns.orEmpty(), origPronouns = p.pronouns.orEmpty(),
         bannerColor = p.bannerColor.orEmpty(), origBannerColor = p.bannerColor.orEmpty(),
+        profileTheme = p.profileTheme.orEmpty(), origProfileTheme = p.profileTheme.orEmpty(),
+        bannerPositionY = p.bannerPositionY, origBannerPositionY = p.bannerPositionY,
+        bannerScale = p.bannerScale, origBannerScale = p.bannerScale,
+        displayFont = p.displayFont, origDisplayFont = p.displayFont,
     )
 
     fun onStatus(v: UserStatus) {
@@ -50,6 +54,10 @@ class ProfileEditViewModel @Inject constructor(
     fun onBio(v: String) = _state.update { it.copy(bio = v, saved = false, error = null) }
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }
     fun onBannerColor(v: String) = _state.update { it.copy(bannerColor = v, saved = false, error = null) }
+    fun onProfileTheme(v: String) = _state.update { it.copy(profileTheme = v, saved = false, error = null) }
+    fun onBannerPositionY(v: Int) = _state.update { it.copy(bannerPositionY = v.coerceIn(0, 100), saved = false, error = null) }
+    fun onBannerScale(v: Int) = _state.update { it.copy(bannerScale = v.coerceIn(50, 200), saved = false, error = null) }
+    fun onDisplayFont(v: String) = _state.update { it.copy(displayFont = v, saved = false, error = null) }
 
     fun uploadAvatar(bytes: ByteArray, mime: String) {
         _state.update { it.copy(uploadingAvatar = true, error = null, saved = false) }
@@ -82,6 +90,10 @@ class ProfileEditViewModel @Inject constructor(
                 bannerUrl = s.bannerUrl.takeIf { it != s.origBannerUrl },
                 bannerColor = s.bannerColor.takeIf { it != s.origBannerColor },
                 pronouns = s.pronouns.takeIf { it != s.origPronouns },
+                profileTheme = s.profileTheme.takeIf { it != s.origProfileTheme },
+                bannerPositionY = s.bannerPositionY.takeIf { it != s.origBannerPositionY },
+                bannerScale = s.bannerScale.takeIf { it != s.origBannerScale },
+                displayFont = s.displayFont.takeIf { it != s.origDisplayFont },
             )
                 .onSuccess { p -> _state.update { applyProfile(it, p).copy(saved = true, saving = false) } }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.message) } }

@@ -18,6 +18,10 @@ interface UserRepository {
         bannerUrl: String? = null,
         bannerColor: String? = null,
         pronouns: String? = null,
+        profileTheme: String? = null,
+        bannerPositionY: Int? = null,
+        bannerScale: Int? = null,
+        displayFont: String? = null,
     ): Result<Profile>
 
     suspend fun changePassword(current: String, new: String): Result<Unit>

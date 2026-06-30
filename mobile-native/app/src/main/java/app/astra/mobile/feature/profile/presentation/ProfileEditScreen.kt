@@ -6,9 +6,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,14 +27,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -49,15 +57,20 @@ import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
+import app.astra.mobile.ui.components.DisplayFontOptions
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.OptionRow
+import app.astra.mobile.ui.components.ProfileGradients
 import app.astra.mobile.ui.components.StatusDot
+import app.astra.mobile.ui.components.displayFontFamily
+import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileEditScreen(
     onBack: () -> Unit,
@@ -91,19 +104,35 @@ fun ProfileEditScreen(
             ) {
 
                 val bannerColor = parseHexColor(state.bannerColor) ?: astraColors.overlay
+                val hasBanner = state.bannerUrl.isNotBlank()
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(bannerColor),
+                        .background(bannerColor)
+                        .pointerInput(hasBanner) {
+                            if (!hasBanner) return@pointerInput
+                            detectVerticalDragGestures { change, dy ->
+                                change.consume()
+                                val deltaPct = -dy / size.height * 100f
+                                val cur = viewModel.state.value.bannerPositionY
+                                viewModel.onBannerPositionY((cur + deltaPct).toInt())
+                            }
+                        },
                 ) {
-                    if (state.bannerUrl.isNotBlank()) {
+                    if (hasBanner) {
                         AsyncImage(
                             model = state.bannerUrl,
                             contentDescription = null,
-                            modifier = Modifier.matchParentSize(),
+                            modifier = Modifier
+                                .matchParentSize()
+                                .graphicsLayer {
+                                    scaleX = state.bannerScale / 100f
+                                    scaleY = state.bannerScale / 100f
+                                },
                             contentScale = ContentScale.Crop,
+                            alignment = BiasAlignment(0f, (state.bannerPositionY / 50f - 1f).coerceIn(-1f, 1f)),
                         )
                     }
 
@@ -144,6 +173,7 @@ fun ProfileEditScreen(
                             Text(
                                 text = state.displayName,
                                 style = MaterialTheme.typography.titleMedium,
+                                fontFamily = displayFontFamily(state.displayFont),
                                 color = Color.White,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -215,6 +245,77 @@ fun ProfileEditScreen(
                     label = "cor do banner (sem imagem)", placeholder = "#1a1a2e",
                     enabled = !state.saving, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next,
                 )
+
+                if (state.bannerUrl.isNotBlank()) {
+                    Spacer(Modifier.height(20.dp))
+                    MarginaliaLabel("zoom do banner")
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Slider(
+                            value = state.bannerScale.toFloat(),
+                            onValueChange = { viewModel.onBannerScale(it.toInt()) },
+                            valueRange = 50f..200f,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "${state.bannerScale}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = astraColors.text3,
+                        )
+                    }
+                    MarginaliaLabel("arraste o banner acima pra reposicionar")
+                }
+
+                Spacer(Modifier.height(22.dp))
+                MarginaliaLabel("fonte do nome")
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    DisplayFontOptions.forEach { (id, label) ->
+                        val active = state.displayFont == id
+                        val shape = RoundedCornerShape(12.dp)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(shape)
+                                .background(if (active) astraColors.accentDim else astraColors.raised)
+                                .border(1.dp, if (active) astraColors.accent else astraColors.border, shape)
+                                .clickable { viewModel.onDisplayFont(id) }
+                                .padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = "Aa",
+                                fontFamily = displayFontFamily(id),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (active) astraColors.accent else astraColors.text1,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(label, style = MaterialTheme.typography.labelSmall, color = astraColors.text3)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(22.dp))
+                MarginaliaLabel("tema do perfil")
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ThemeSwatch(brush = null, active = state.profileTheme.isBlank()) { viewModel.onProfileTheme("") }
+                    ProfileGradients.forEach { (_, css) ->
+                        ThemeSwatch(
+                            brush = parseGradientBrush(css),
+                            active = state.profileTheme == css,
+                        ) { viewModel.onProfileTheme(css) }
+                    }
+                }
+
                 Spacer(Modifier.height(20.dp))
                 EditorialField(
                     value = state.pronouns, onValue = viewModel::onPronouns,
@@ -275,6 +376,29 @@ private fun UploadChip(
         } else {
             Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
         }
+    }
+}
+
+@Composable
+private fun ThemeSwatch(brush: Brush?, active: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = Modifier
+            .size(54.dp)
+            .clip(shape)
+            .then(if (brush != null) Modifier.background(brush) else Modifier.background(astraColors.base))
+            .border(
+                width = if (active) 2.5.dp else 1.dp,
+                color = if (active) astraColors.accent else astraColors.border,
+                shape = shape,
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (brush == null && !active) {
+            Text("nenhum", style = MaterialTheme.typography.labelSmall, color = astraColors.text3)
+        }
+        if (active) Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
     }
 }
 

@@ -61,9 +61,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.mobile.core.model.Attachment
@@ -86,6 +90,19 @@ import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 val QuickReactions = listOf("👍", "❤️", "😂", "🔥", "🎉", "😮")
 
 data class ReactionChip(val emoji: String, val count: Int, val mine: Boolean)
+
+private val MentionRegex = Regex("@[a-z0-9_]+", RegexOption.IGNORE_CASE)
+
+/** Destaca tokens @username (formato literal do backend) na cor de destaque. */
+fun mentionAnnotated(text: String, accent: Color) = buildAnnotatedString {
+    var last = 0
+    for (m in MentionRegex.findAll(text)) {
+        if (m.range.first > last) append(text.substring(last, m.range.first))
+        withStyle(SpanStyle(color = accent, fontWeight = FontWeight.Medium)) { append(m.value) }
+        last = m.range.last + 1
+    }
+    if (last < text.length) append(text.substring(last))
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -314,8 +331,9 @@ fun MessageBubble(
                                 Spacer(Modifier.height(4.dp))
                             }
                             if (content.isNotBlank()) {
+                                val accent = astraColors.accent
                                 Text(
-                                    text = content,
+                                    text = remember(content, accent) { mentionAnnotated(content, accent) },
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontSize = (17 * prefs.fontSize.scale).sp,
                                     color = astraColors.text1,

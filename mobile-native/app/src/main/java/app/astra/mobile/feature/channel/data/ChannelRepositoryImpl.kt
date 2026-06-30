@@ -10,16 +10,22 @@ import app.astra.mobile.core.model.toModel
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ChannelMessageDto
+import app.astra.mobile.core.network.dto.CreatePollRequest
 import app.astra.mobile.core.network.dto.EditChannelRequest
+import app.astra.mobile.core.network.dto.PollDto
+import app.astra.mobile.core.network.dto.PollUpdateDto
 import app.astra.mobile.core.network.dto.ReactRequest
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReactionUpdateDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
+import app.astra.mobile.core.network.dto.VoteRequest
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.channel.domain.ChannelRepository
 import app.astra.mobile.feature.channel.domain.model.ChannelMessage
 import app.astra.mobile.feature.channel.domain.model.ChannelMessagesPage
 import app.astra.mobile.feature.channel.domain.model.MessageReaction
+import app.astra.mobile.feature.channel.domain.model.Poll
+import app.astra.mobile.feature.channel.domain.model.PollOption
 import app.astra.mobile.feature.channel.domain.model.TypingUser
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -155,6 +161,15 @@ class ChannelRepositoryImpl @Inject constructor(
                 }
             }
 
+            launch {
+                socketManager.channelPollUpdate.collect { raw ->
+                    val dto = runCatching { json.decodeFromString<PollUpdateDto>(raw) }.getOrNull()
+                    if (dto != null && dto.channelId == channelId) {
+                        messageDao.applyPoll(dto.messageId, json.encodeToString(dto.poll))
+                    }
+                }
+            }
+
             emitAll(messageDao.observe(channelId).map { rows -> rows.map { it.toChannelMessage(uid, json) } })
         }
     }
@@ -195,7 +210,53 @@ class ChannelRepositoryImpl @Inject constructor(
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao marcar como lido"))
     }
+
+    override suspend fun createPoll(channelId: String, question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?): Result<Unit> = try {
+        val dto = channelApi.createPoll(channelId, CreatePollRequest(question, options, allowMultiple, durationHours)).data
+            ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+        messageDao.upsert(dto.toEntity(channelId, json))
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao criar enquete"))
+    }
+
+    override suspend fun votePoll(channelId: String, messageId: String, optionId: String): Result<Unit> = try {
+        val result = channelApi.votePoll(channelId, messageId, VoteRequest(optionId)).data
+        if (result != null) messageDao.applyPoll(messageId, json.encodeToString(result.poll))
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao votar"))
+    }
+
+    override suspend fun closePoll(channelId: String, messageId: String): Result<Unit> = try {
+        val result = channelApi.closePoll(channelId, messageId).data
+        if (result != null) messageDao.applyPoll(messageId, json.encodeToString(result.poll))
+        Result.success(Unit)
+    } catch (e: IOException) {
+        Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao encerrar enquete"))
+    }
 }
+
+private fun PollDto.toDomain(currentUserId: String?) = Poll(
+    question = question,
+    options = options.map { o ->
+        PollOption(
+            id = o.id,
+            text = o.text,
+            votes = o.votes.size,
+            mine = currentUserId != null && currentUserId in o.votes,
+        )
+    },
+    allowMultiple = allowMultiple,
+    expiresAt = expiresAt,
+    closed = closed,
+)
 
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     id = id,
@@ -210,6 +271,7 @@ private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     replyToAuthor = replyTo?.authorName,
     replyToContent = replyTo?.content,
     attachments = attachments.map { it.toModel() },
+    poll = poll?.toDomain(currentUserId),
 )
 
 private fun List<ReactionDto>.toDomain(uid: String?): List<MessageReaction> =
@@ -229,6 +291,7 @@ private fun ChannelMessageDto.toEntity(channelId: String, json: Json) = MessageE
     pinned = pinned,
     reactionsJson = if (reactions.isEmpty()) null else json.encodeToString(reactions),
     attachmentsJson = if (attachments.isEmpty()) null else json.encodeToString(attachments),
+    pollJson = poll?.let { json.encodeToString(it) },
 )
 
 private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMessage {
@@ -238,6 +301,9 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
     val attachments = attachmentsJson?.let {
         runCatching { json.decodeFromString<List<AttachmentDto>>(it).map { a -> a.toModel() } }.getOrNull()
     } ?: emptyList()
+    val poll = pollJson?.let {
+        runCatching { json.decodeFromString<PollDto>(it).toDomain(uid) }.getOrNull()
+    }
     return ChannelMessage(
         id = id,
         content = content,
@@ -251,5 +317,6 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
         replyToAuthor = replyToAuthor,
         replyToContent = replyToContent,
         attachments = attachments,
+        poll = poll,
     )
 }

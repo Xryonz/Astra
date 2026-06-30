@@ -3,10 +3,13 @@ package app.astra.mobile.core.network
 import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.ChannelMessagesPageDto
+import app.astra.mobile.core.network.dto.CreatePollRequest
 import app.astra.mobile.core.network.dto.EditChannelRequest
+import app.astra.mobile.core.network.dto.PollUpdateDto
 import app.astra.mobile.core.network.dto.ReactRequest
 import app.astra.mobile.core.network.dto.ReactResultDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
+import app.astra.mobile.core.network.dto.VoteRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -60,4 +63,23 @@ interface ChannelApi {
 
     @POST("api/channels/{cid}/read")
     suspend fun markRead(@Path("cid") channelId: String)
+
+    @POST("api/channels/{cid}/polls")
+    suspend fun createPoll(
+        @Path("cid") channelId: String,
+        @Body body: CreatePollRequest,
+    ): ApiEnvelope<ChannelMessageDto>
+
+    @POST("api/channels/{cid}/polls/{mid}/vote")
+    suspend fun votePoll(
+        @Path("cid") channelId: String,
+        @Path("mid") messageId: String,
+        @Body body: VoteRequest,
+    ): ApiEnvelope<PollUpdateDto>
+
+    @POST("api/channels/{cid}/polls/{mid}/close")
+    suspend fun closePoll(
+        @Path("cid") channelId: String,
+        @Path("mid") messageId: String,
+    ): ApiEnvelope<PollUpdateDto>
 }

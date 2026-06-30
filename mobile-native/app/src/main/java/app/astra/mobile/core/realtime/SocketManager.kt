@@ -68,6 +68,9 @@ class SocketManager @Inject constructor(
     private val _channelMessagePinned = MutableSharedFlow<Triple<String, String, Boolean>>(extraBufferCapacity = 16)
     val channelMessagePinned: SharedFlow<Triple<String, String, Boolean>> = _channelMessagePinned.asSharedFlow()
 
+    private val _channelPollUpdate = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val channelPollUpdate: SharedFlow<String> = _channelPollUpdate.asSharedFlow()
+
     private val _channelTyping = MutableSharedFlow<TypingEvent>(extraBufferCapacity = 64)
     val channelTyping: SharedFlow<TypingEvent> = _channelTyping.asSharedFlow()
 
@@ -148,6 +151,9 @@ class SocketManager @Inject constructor(
         }
         s.on("reaction_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _channelReactionUpdate.tryEmit(it.toString()) }
+        }
+        s.on("poll_updated") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _channelPollUpdate.tryEmit(it.toString()) }
         }
         s.on("message_pinned") { args ->
             (args.firstOrNull() as? JSONObject)?.let {

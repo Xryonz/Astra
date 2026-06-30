@@ -169,6 +169,27 @@ class ChannelChatViewModel @Inject constructor(
         }
     }
 
+    fun votePoll(messageId: String, optionId: String) {
+        viewModelScope.launch {
+            repository.votePoll(channelId, messageId, optionId)
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun closePoll(messageId: String) {
+        viewModelScope.launch {
+            repository.closePoll(channelId, messageId)
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun createPoll(question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?) {
+        viewModelScope.launch {
+            repository.createPoll(channelId, question, options, allowMultiple, durationHours)
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
     fun addAttachment(att: Attachment) =
         _state.update { it.copy(pendingAttachments = it.pendingAttachments + att) }
 

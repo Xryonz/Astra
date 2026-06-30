@@ -15,6 +15,22 @@ data class ChannelMessage(
     val replyToAuthor: String? = null,
     val replyToContent: String? = null,
     val attachments: List<Attachment> = emptyList(),
+    val poll: Poll? = null,
+)
+
+data class Poll(
+    val question: String,
+    val options: List<PollOption>,
+    val allowMultiple: Boolean,
+    val expiresAt: String?,
+    val closed: Boolean,
+)
+
+data class PollOption(
+    val id: String,
+    val text: String,
+    val votes: Int,
+    val mine: Boolean,
 )
 
 data class MessageReaction(

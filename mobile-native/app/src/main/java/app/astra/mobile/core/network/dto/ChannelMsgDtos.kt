@@ -15,6 +15,7 @@ data class ChannelMessageDto(
     val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
+    val poll: PollDto? = null,
 )
 
 @Serializable

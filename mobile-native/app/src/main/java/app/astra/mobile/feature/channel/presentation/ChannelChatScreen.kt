@@ -38,6 +38,9 @@ import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MessageListSkeleton
 import app.astra.mobile.ui.components.PendingAttachmentsBar
 import app.astra.mobile.ui.components.PinnedMessagesDialog
+import app.astra.mobile.ui.components.PollComposer
+import app.astra.mobile.ui.components.PollOptionUi
+import app.astra.mobile.ui.components.PollUi
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TopBarAction
@@ -56,6 +59,7 @@ fun ChannelChatScreen(
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var pinnedOpen by remember { mutableStateOf(false) }
     var gifOpen by remember { mutableStateOf(false) }
+    var pollOpen by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -108,6 +112,15 @@ fun ChannelChatScreen(
                                     replyContent = m.replyToContent,
                                     attachments = m.attachments,
                                     translation = state.translations[m.id],
+                                    poll = m.poll?.let { p ->
+                                        PollUi(
+                                            question = p.question,
+                                            options = p.options.map { o -> PollOptionUi(o.id, o.text, o.votes, o.mine) },
+                                            allowMultiple = p.allowMultiple,
+                                            expiresAt = p.expiresAt,
+                                            closed = p.closed,
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -122,6 +135,8 @@ fun ChannelChatScreen(
                             onTogglePin = { viewModel.togglePin(it.id, !it.pinned) },
                             onToggleReaction = { row, emoji -> viewModel.toggleReaction(row.id, emoji) },
                             onTranslate = { viewModel.translate(it.id, it.content) },
+                            onVotePoll = { row, optionId -> viewModel.votePoll(row.id, optionId) },
+                            onClosePoll = { viewModel.closePoll(it.id) },
                         )
                     }
                 }
@@ -159,8 +174,18 @@ fun ChannelChatScreen(
                 onSend = viewModel::send,
                 onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onGif = { gifOpen = true },
+                onPoll = { pollOpen = true },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
+            )
+        }
+
+        if (pollOpen) {
+            PollComposer(
+                onCreate = { question, options, allowMultiple, durationHours ->
+                    viewModel.createPoll(question, options, allowMultiple, durationHours)
+                },
+                onClose = { pollOpen = false },
             )
         }
 

@@ -104,6 +104,8 @@ fun MessageBubble(
     replyContent: String? = null,
     attachments: List<Attachment> = emptyList(),
     translation: String? = null,
+    poll: PollUi? = null,
+    canClosePoll: Boolean = false,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onReply: (() -> Unit)? = null,
@@ -111,6 +113,8 @@ fun MessageBubble(
     onToggleReaction: ((String) -> Unit)? = null,
     onTranslate: (() -> Unit)? = null,
     onOpenImage: ((List<Attachment>, Int) -> Unit)? = null,
+    onVotePoll: ((String) -> Unit)? = null,
+    onClosePoll: (() -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
     val shape = RoundedCornerShape(14.dp)
@@ -233,7 +237,17 @@ fun MessageBubble(
                             onOpenImage = { imgs, idx -> onOpenImage?.invoke(imgs, idx) },
                         )
                     }
-                    val showBubble = content.isNotBlank() || replyContent != null || pinned || reactions.isNotEmpty()
+                    if (poll != null) {
+                        PollCard(
+                            poll = poll,
+                            maxWidth = bubbleMaxDp,
+                            canClose = canClosePoll,
+                            onVote = { optionId -> onVotePoll?.invoke(optionId) },
+                            onClose = { onClosePoll?.invoke() },
+                        )
+                    }
+                    val showBubble = poll == null &&
+                        (content.isNotBlank() || replyContent != null || pinned || reactions.isNotEmpty())
                     if (showBubble) {
                         Column(
                             modifier = Modifier
@@ -461,6 +475,7 @@ data class ChatRow(
     val replyContent: String? = null,
     val attachments: List<Attachment> = emptyList(),
     val translation: String? = null,
+    val poll: PollUi? = null,
 )
 
 @Composable
@@ -476,6 +491,8 @@ fun ChatMessageList(
     onTogglePin: (ChatRow) -> Unit = {},
     onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
     onTranslate: (ChatRow) -> Unit = {},
+    onVotePoll: (ChatRow, String) -> Unit = { _, _ -> },
+    onClosePoll: (ChatRow) -> Unit = {},
 ) {
     val animated = remember { mutableSetOf<String>() }
     var shownOnce by remember { mutableStateOf(false) }
@@ -530,13 +547,17 @@ fun ChatMessageList(
                     replyContent = row.replyContent,
                     attachments = row.attachments,
                     translation = row.translation,
-                    onEdit = if (row.mine && canEdit) ({ onEdit(row) }) else null,
+                    poll = row.poll,
+                    canClosePoll = row.poll != null && row.mine,
+                    onEdit = if (row.mine && canEdit && row.poll == null) ({ onEdit(row) }) else null,
                     onDelete = if (row.mine) ({ onDelete(row) }) else null,
                     onReply = { onReply(row) },
                     onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
                     onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
-                    onTranslate = if (row.content.isNotBlank()) ({ onTranslate(row) }) else null,
+                    onTranslate = if (row.content.isNotBlank() && row.poll == null) ({ onTranslate(row) }) else null,
                     onOpenImage = { imgs, idx -> lightbox = imgs to idx },
+                    onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
+                    onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
                 )
             }
         }
@@ -669,6 +690,7 @@ fun ChatInputBar(
     onSend: () -> Unit,
     onAttach: (() -> Unit)? = null,
     onGif: (() -> Unit)? = null,
+    onPoll: (() -> Unit)? = null,
     uploading: Boolean = false,
     hasAttachments: Boolean = false,
 ) {
@@ -712,6 +734,24 @@ fun ChatInputBar(
                     text = "GIF",
                     style = MaterialTheme.typography.labelLarge,
                     color = astraColors.text2,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+
+        if (onPoll != null) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.borderMid, CircleShape)
+                    .clickable(onClick = onPoll),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "📊",
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
             Spacer(Modifier.width(8.dp))

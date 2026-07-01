@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -492,6 +493,10 @@ private fun MessageActionsMenu(
     }
 }
 
+// @Immutable: ChatRow e recriado a cada update (nunca mutado no lugar), entao a
+// promessa e verdadeira. Sem isso, as List<> internas o marcam instavel e as
+// lambdas por-item (que capturam row) nao memoizam -> MessageBubble nunca da skip.
+@Immutable
 data class ChatRow(
     val id: String,
     val mine: Boolean,
@@ -527,6 +532,8 @@ fun ChatMessageList(
     onHistory: (ChatRow) -> Unit = {},
 ) {
     val animated = remember { mutableSetOf<String>() }
+    // Poda: mantem so os ids ainda carregados, senao o set cresce sem limite.
+    LaunchedEffect(rows) { animated.retainAll(rows.mapTo(HashSet(rows.size)) { it.id }) }
     var shownOnce by remember { mutableStateOf(false) }
     LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) shownOnce = true }
 

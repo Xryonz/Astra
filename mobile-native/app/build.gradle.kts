@@ -66,6 +66,22 @@ android {
 }
 
 dependencies {
+    // Alinha o Compose core (ui/foundation/animation/runtime) com o que a RikkaUI
+    // arrasta em runtime (androidx compose 1.10.0 via org.jetbrains.compose). Sem isso o
+    // compile fica no 1.7.5 do BOM e o runtime no 1.10.0 -> NoSuchMethodError (ex: FlowRow,
+    // cuja assinatura mudou entre 1.7 e 1.10). material3 segue no 1.3.1 do BOM (= runtime).
+    constraints {
+        val composeCore = "1.10.0"
+        implementation("androidx.compose.ui:ui:$composeCore")
+        implementation("androidx.compose.ui:ui-graphics:$composeCore")
+        implementation("androidx.compose.ui:ui-tooling-preview:$composeCore")
+        implementation("androidx.compose.ui:ui-tooling:$composeCore")
+        implementation("androidx.compose.foundation:foundation:$composeCore")
+        implementation("androidx.compose.foundation:foundation-layout:$composeCore")
+        implementation("androidx.compose.animation:animation:$composeCore")
+        implementation("androidx.compose.runtime:runtime:$composeCore")
+    }
+
     // Core + lifecycle
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

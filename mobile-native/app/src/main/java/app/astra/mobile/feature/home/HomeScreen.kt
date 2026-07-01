@@ -2,10 +2,14 @@ package app.astra.mobile.feature.home
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -43,8 +47,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -66,6 +68,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -77,20 +80,22 @@ import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Link
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageSquarePlus
+import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
+import com.composables.icons.lucide.X
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
-import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.HairlineRule
@@ -104,11 +109,6 @@ import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
 
@@ -175,11 +175,10 @@ fun HomeScreen(
         else state.dms.filter { it.otherName.contains(query.trim(), ignoreCase = true) }
     }
 
-    // Fonte do blur: tudo que a Home desenha vira backdrop fosco do ProfileSheet.
-    val hazeState = rememberHazeState()
+    val reduceMotion = LocalAppPrefs.current.reduceMotion
 
     CosmicBackground {
-        Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
+        Box(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize().statusBarsPadding()) {
                 val selected = state.servers.find { it.id == state.selectedServerId }
                 ServerRail(
@@ -352,7 +351,13 @@ fun HomeScreen(
         }
     }
 
-    if (profileSheet) {
+    AnimatedVisibility(
+        visible = profileSheet,
+        enter = if (reduceMotion) fadeIn(tween(120))
+                else slideInVertically(tween(400, easing = EaseSpring)) { it } + fadeIn(tween(240)),
+        exit = if (reduceMotion) fadeOut(tween(90))
+               else slideOutVertically(tween(300, easing = EaseSpring)) { it } + fadeOut(tween(200)),
+    ) {
         ProfileSheet(
             name = state.myName,
             username = state.myUsername,
@@ -364,7 +369,6 @@ fun HomeScreen(
             createdAt = state.myCreatedAt,
             status = state.myStatus,
             servers = state.servers,
-            hazeState = hazeState,
             onEditProfile = { profileSheet = false; onOpenProfile() },
             onDismiss = { profileSheet = false },
         )
@@ -1149,45 +1153,21 @@ private fun ProfileSheet(
     createdAt: String?,
     status: UserStatus,
     servers: List<Server>,
-    hazeState: HazeState,
     onEditProfile: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val member = memberSince(createdAt)
-    // Hoistado: astraColors e getter @Composable, nao pode ser lido dentro do bloco haze.
-    val overlayColor = astraColors.overlay
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color.Transparent,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = null,
-    ) {
+    // Tela cheia opaca estilo Discord (cobre a Home). Botao voltar fecha.
+    BackHandler(onBack = onDismiss)
+    CosmicBackground {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .hazeEffect(hazeState) {
-                    // Vidro fosco: borra a Home atras + escurece com o tom overlay.
-                    // Ajustaveis no device: blurRadius (intensidade) e alpha do tint.
-                    blurRadius = 24.dp
-                    backgroundColor = overlayColor
-                    tints = listOf(HazeTint(overlayColor.copy(alpha = 0.5f)))
-                    noiseFactor = 0f
-                }
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(bottom = 18.dp),
+                .padding(bottom = 24.dp),
         ) {
-            // Drag handle manual (Haze exige dragHandle=null + container transparente).
-            Box(
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 10.dp, bottom = 2.dp)
-                    .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(astraColors.borderMid),
-            )
-
+            Box(Modifier.fillMaxWidth()) {
             ProfileHero(
                 bannerUrl = banner,
                 bannerColor = parseHexColor(bannerColor) ?: astraColors.raised,
@@ -1210,13 +1190,43 @@ private fun ProfileSheet(
                     else -> astraColors.text3
                 },
             )
+                // X pra fechar, sobre o banner (Discord).
+                Box(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(start = 12.dp, top = 8.dp)
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.32f))
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Lucide.X, contentDescription = "Fechar", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
 
             Spacer(Modifier.height(18.dp))
-            AstraButton(
-                text = "Editar perfil",
-                onClick = onEditProfile,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-            )
+            // Botao Editar estilo Discord: pilula larga + lapis, na cor ambar (pele Umbra).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(astraColors.accent)
+                    .clickable(onClick = onEditProfile),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Lucide.Pencil, contentDescription = null, tint = astraColors.textInv, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Editar perfil",
+                    color = astraColors.textInv,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                )
+            }
 
             if (!bio.isNullOrBlank() || member != null) {
                 Spacer(Modifier.height(16.dp))

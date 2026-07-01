@@ -86,7 +86,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— comunidade", Modifier.padding(start = 22.dp, bottom = 8.dp))
-            SettingsRow("Estrela dos desejos", "sugira ideias pro Astra", onOpenWishing)
+            SettingsRow("Estrela Cadente", "sugira ideias pro Astra", onOpenWishing)
 
             Spacer(Modifier.height(20.dp))
             val logoutShape = RoundedCornerShape(14.dp)

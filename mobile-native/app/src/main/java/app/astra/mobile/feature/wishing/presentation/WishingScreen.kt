@@ -49,7 +49,7 @@ fun WishingScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding()) {
-            EditorialTopBar(title = "Estrela dos desejos", marginalia = "pendure um pedido no ceu", onBack = onBack)
+            EditorialTopBar(title = "Estrela Cadente", marginalia = "pendure um pedido no ceu", onBack = onBack)
 
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(8.dp))

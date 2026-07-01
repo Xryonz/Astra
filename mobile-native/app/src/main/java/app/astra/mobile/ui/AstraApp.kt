@@ -150,6 +150,15 @@ fun AstraApp() {
                         navArgument("userId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
+                    // Card de perfil "cobrindo a tela" vindo da direita (estilo Discord).
+                    enterTransition = {
+                        if (reduceMotion) fadeIn(tween(120, easing = EaseOutSoft))
+                        else slideInHorizontally(tween(380, easing = EaseSpring)) { it } + fadeIn(tween(260, easing = EaseOutSoft))
+                    },
+                    popExitTransition = {
+                        if (reduceMotion) fadeOut(tween(90, easing = EaseOutSoft))
+                        else slideOutHorizontally(tween(340, easing = EaseSpring)) { it } + fadeOut(tween(240, easing = EaseOutSoft))
+                    },
                 ) {
                     UserProfileScreen(onBack = { nav.popBackStack() })
                 }

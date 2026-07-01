@@ -20,9 +20,11 @@ import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.RemoteAudioTrack
 import io.livekit.android.room.track.Track
+import io.livekit.android.room.track.VideoCodec
 import io.livekit.android.room.track.VideoEncoding
 import io.livekit.android.room.track.VideoTrack
 import io.livekit.android.room.track.screencapture.ScreenCaptureParams
+import livekit.org.webrtc.RtpParameters
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -176,9 +178,15 @@ class VoiceManager @Inject constructor(
     }
 
     private fun roomOptions() = RoomOptions(
+        // Screenshare: fps > tudo. H264 usa o encoder de HARDWARE do device (sustenta
+        // 60fps sem engasgar, ao contrario do VP8 por software); MAINTAIN_FRAMERATE faz
+        // o congestion-control derrubar RESOLUCAO antes de fps; simulcast off = camada
+        // unica em qualidade cheia; bitrate/fps altos. Validar codec no device real.
         screenShareTrackPublishDefaults = VideoTrackPublishDefaults(
             videoEncoding = VideoEncoding(maxBitrate = SCREEN_MAX_BITRATE, maxFps = SCREEN_FPS),
+            videoCodec = VideoCodec.H264.codecName,
             simulcast = false,
+            degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE,
         ),
     )
 

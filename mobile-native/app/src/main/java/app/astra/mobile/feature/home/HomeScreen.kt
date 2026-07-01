@@ -1190,6 +1190,13 @@ private fun ProfileSheet(
                 },
             )
 
+            Spacer(Modifier.height(18.dp))
+            AstraButton(
+                text = "Editar perfil",
+                onClick = onEditProfile,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+            )
+
             if (!bio.isNullOrBlank() || member != null) {
                 Spacer(Modifier.height(16.dp))
                 ProfileCard(Modifier.padding(horizontal = 18.dp)) {
@@ -1225,12 +1232,7 @@ private fun ProfileSheet(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
-            AstraButton(
-                text = "Editar perfil",
-                onClick = onEditProfile,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-            )
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

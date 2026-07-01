@@ -38,6 +38,7 @@ import app.astra.mobile.core.data.FontSizePref
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.FlowRowCompat
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.AccentOption
 import app.astra.mobile.ui.theme.AccentOptions
@@ -207,11 +208,7 @@ private fun PresetCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AccentRow(selected: String, onSelect: (String) -> Unit) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    FlowRowCompat(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
         AccentOptions.forEach { opt -> AccentSwatch(opt, opt.id == selected) { onSelect(opt.id) } }
     }
 }

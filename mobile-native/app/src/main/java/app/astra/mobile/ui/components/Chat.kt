@@ -396,11 +396,7 @@ private fun MessageReactions(
     modifier: Modifier = Modifier,
 ) {
     if (reactions.isEmpty()) return
-    FlowRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
+    FlowRowCompat(modifier = modifier, horizontalSpacing = 4.dp, verticalSpacing = 4.dp) {
         reactions.forEach { r ->
             val chipShape = RoundedCornerShape(10.dp)
             Row(

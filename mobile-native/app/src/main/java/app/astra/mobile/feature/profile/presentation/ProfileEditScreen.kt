@@ -60,6 +60,7 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DisplayFontOptions
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.FlowRowCompat
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.OptionRow
 import app.astra.mobile.ui.components.ProfileGradients
@@ -296,11 +297,7 @@ fun ProfileEditSection(
                 Spacer(Modifier.height(22.dp))
                 MarginaliaLabel("tema do perfil")
                 Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                FlowRowCompat(modifier = Modifier.fillMaxWidth()) {
                     ThemeSwatch(brush = null, active = state.profileTheme.isBlank()) { viewModel.onProfileTheme("") }
                     ProfileGradients.forEach { (_, css) ->
                         ThemeSwatch(

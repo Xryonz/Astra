@@ -97,6 +97,7 @@ import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.OptionRow
+import app.astra.mobile.ui.components.ProfileHero
 import app.astra.mobile.ui.components.Reveal
 import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.theme.DmSerif
@@ -1166,59 +1167,28 @@ private fun ProfileSheet(
                 .padding(bottom = 18.dp),
         ) {
 
-            Box(Modifier.fillMaxWidth().height(120.dp)) {
-                if (!banner.isNullOrBlank()) {
-                    AsyncImage(
-                        model = banner,
-                        contentDescription = null,
-                        modifier = Modifier.matchParentSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Box(Modifier.matchParentSize().background(parseHexColor(bannerColor) ?: astraColors.raised))
-                }
-                Box(
-                    Modifier.matchParentSize().background(
-                        Brush.verticalGradient(listOf(Color.Transparent, base.copy(alpha = 0.85f))),
-                    ),
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AstraAvatar(url = avatar, name = name.ifBlank { "?" }, size = 60)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = name.ifBlank { "Astra" },
-                        fontFamily = DmSerif,
-                        fontSize = 24.sp,
-                        color = astraColors.text1,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = buildString {
-                            if (username.isNotBlank()) append("@$username")
-                            if (!pronouns.isNullOrBlank()) {
-                                if (isNotEmpty()) append("  ·  ")
-                                append(pronouns)
-                            }
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = astraColors.text3,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StatusDot(status, size = 8.dp)
-                        Spacer(Modifier.width(6.dp))
-                        MarginaliaLabel(statusLabel(status))
+            ProfileHero(
+                bannerUrl = banner,
+                bannerColor = parseHexColor(bannerColor) ?: astraColors.raised,
+                bannerPositionY = 50,
+                bannerScale = 100,
+                avatarUrl = avatar,
+                displayName = name.ifBlank { "Astra" },
+                displayFont = DmSerif,
+                subtitle = buildString {
+                    if (username.isNotBlank()) append("@$username")
+                    if (!pronouns.isNullOrBlank()) {
+                        if (isNotEmpty()) append("  ·  ")
+                        append(pronouns)
                     }
-                }
-            }
+                },
+                statusColor = when (status) {
+                    UserStatus.ONLINE -> astraColors.success
+                    UserStatus.IDLE -> astraColors.warning
+                    UserStatus.DND -> astraColors.danger
+                    else -> astraColors.text3
+                },
+            )
 
             if (!bio.isNullOrBlank() || member != null) {
                 Spacer(Modifier.height(16.dp))

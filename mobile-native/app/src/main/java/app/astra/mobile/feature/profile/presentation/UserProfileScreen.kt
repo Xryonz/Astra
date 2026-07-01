@@ -42,6 +42,7 @@ import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
+import app.astra.mobile.ui.components.ProfileHero
 import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.theme.astraColors
@@ -78,62 +79,22 @@ fun UserProfileScreen(
                     }
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
 
-                        val bannerColor = parseHexColor(p.bannerColor) ?: astraColors.overlay
-                        Box(Modifier.fillMaxWidth().height(120.dp).background(bannerColor)) {
-                            if (!p.bannerUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = p.bannerUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer {
-                                            scaleX = p.bannerScale / 100f
-                                            scaleY = p.bannerScale / 100f
-                                        },
-                                    contentScale = ContentScale.Crop,
-                                    alignment = BiasAlignment(0f, (p.bannerPositionY / 50f - 1f).coerceIn(-1f, 1f)),
-                                )
-                            }
-                        }
+                        ProfileHero(
+                            bannerUrl = p.bannerUrl,
+                            bannerColor = parseHexColor(p.bannerColor) ?: astraColors.overlay,
+                            bannerPositionY = p.bannerPositionY,
+                            bannerScale = p.bannerScale,
+                            avatarUrl = p.avatarUrl,
+                            displayName = p.displayName,
+                            displayFont = displayFontFamily(p.displayFont),
+                            subtitle = buildString {
+                                append("@${p.username}")
+                                if (!p.pronouns.isNullOrBlank()) append("  ·  ${p.pronouns}")
+                            },
+                            statusColor = presenceColor(v.presence),
+                        )
 
-                        Column(
-                            modifier = Modifier
-                                .offset(y = (-42).dp)
-                                .padding(horizontal = 22.dp),
-                        ) {
-                            Box {
-                                AstraAvatar(p.avatarUrl, p.displayName, size = 84)
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(astraColors.void)
-                                        .padding(3.dp)
-                                        .clip(CircleShape)
-                                        .background(presenceColor(v.presence)),
-                                )
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                text = p.displayName,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontFamily = displayFontFamily(p.displayFont),
-                                color = astraColors.text1,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text = buildString {
-                                    append("@${p.username}")
-                                    if (!p.pronouns.isNullOrBlank()) append("  ·  ${p.pronouns}")
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = astraColors.text3,
-                            )
-
+                        Column(Modifier.padding(horizontal = 22.dp)) {
                             if (!p.bio.isNullOrBlank()) {
                                 Spacer(Modifier.height(16.dp))
                                 MarginaliaLabel("sobre")

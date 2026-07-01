@@ -104,6 +104,11 @@ import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
 import coil.compose.AsyncImage
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
 
@@ -170,8 +175,11 @@ fun HomeScreen(
         else state.dms.filter { it.otherName.contains(query.trim(), ignoreCase = true) }
     }
 
+    // Fonte do blur: tudo que a Home desenha vira backdrop fosco do ProfileSheet.
+    val hazeState = rememberHazeState()
+
     CosmicBackground {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
             Row(Modifier.fillMaxSize().statusBarsPadding()) {
                 val selected = state.servers.find { it.id == state.selectedServerId }
                 ServerRail(
@@ -356,6 +364,7 @@ fun HomeScreen(
             createdAt = state.myCreatedAt,
             status = state.myStatus,
             servers = state.servers,
+            hazeState = hazeState,
             onEditProfile = { profileSheet = false; onOpenProfile() },
             onDismiss = { profileSheet = false },
         )
@@ -1140,32 +1149,44 @@ private fun ProfileSheet(
     createdAt: String?,
     status: UserStatus,
     servers: List<Server>,
+    hazeState: HazeState,
     onEditProfile: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val base = astraColors.base
     val member = memberSince(createdAt)
+    // Hoistado: astraColors e getter @Composable, nao pode ser lido dentro do bloco haze.
+    val overlayColor = astraColors.overlay
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = astraColors.overlay,
+        containerColor = Color.Transparent,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {
-            Box(
-                Modifier
-                    .padding(top = 10.dp)
-                    .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(astraColors.borderMid),
-            )
-        },
+        dragHandle = null,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .hazeEffect(hazeState) {
+                    // Vidro fosco: borra a Home atras + escurece com o tom overlay.
+                    // Ajustaveis no device: blurRadius (intensidade) e alpha do tint.
+                    blurRadius = 24.dp
+                    backgroundColor = overlayColor
+                    tints = listOf(HazeTint(overlayColor.copy(alpha = 0.5f)))
+                    noiseFactor = 0f
+                }
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(bottom = 18.dp),
         ) {
+            // Drag handle manual (Haze exige dragHandle=null + container transparente).
+            Box(
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 10.dp, bottom = 2.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(astraColors.borderMid),
+            )
 
             ProfileHero(
                 bannerUrl = banner,

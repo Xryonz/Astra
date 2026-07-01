@@ -13,7 +13,9 @@ plugins {
 
 android {
     namespace = "app.astra.mobile"
-    compileSdk = 35
+    // 36 exigido transitivamente (androidx.activity 1.12 / navigationevent via Haze).
+    // targetSdk segue 35 de proposito: compileSdk nao muda comportamento de runtime.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.astra.mobile"
@@ -96,6 +98,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.lucide.icons) // icones Lucide (mesma familia do web)
+    implementation(libs.haze) // blur/vidro-fosco (backdrop do ProfileSheet, estilo iOS)
     implementation(libs.androidx.browser) // Custom Tabs (OAuth Google)
     implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (tokens)
     implementation(libs.rikkaui.components) // RikkaUI: componentes (Input, Dialog, Avatar...); ejeta p/ copy-paste ao customizar

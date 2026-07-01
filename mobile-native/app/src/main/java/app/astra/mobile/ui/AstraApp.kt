@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +33,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.EaseSpring
@@ -304,32 +304,32 @@ private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float
         label = "glow",
     )
     val pulse = if (LocalAppPrefs.current.reduceMotion) 0f else pulseAnim
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = overlayAlpha }) {
-        CosmicBackground {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = "Astra",
-                    style = TextStyle(
-                        fontFamily = GreatVibes,
-                        fontSize = 76.sp,
-                        color = astraColors.accent,
-                        shadow = Shadow(
-                            astraColors.accentGlow.copy(alpha = 0.4f + 0.5f * pulse),
-                            Offset(0f, 6f),
-                            blurRadius = 34f + 30f * pulse,
-                        ),
-                    ),
-                    modifier = Modifier.graphicsLayer {
-                        alpha = textAlpha
-                        scaleX = textScale
-                        scaleY = textScale
-                    },
-                )
-            }
-        }
+    // Fundo liso (sem StarField animado) durante o cold-start: canvas a 60fps aqui
+    // competia por frames e causava o travamento. O starfield segue nas telas reais.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = overlayAlpha }
+            .background(astraColors.void),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Astra",
+            style = TextStyle(
+                fontFamily = GreatVibes,
+                fontSize = 76.sp,
+                color = astraColors.accent,
+                shadow = Shadow(
+                    astraColors.accentGlow.copy(alpha = 0.4f + 0.5f * pulse),
+                    Offset(0f, 6f),
+                    blurRadius = 34f + 30f * pulse,
+                ),
+            ),
+            modifier = Modifier.graphicsLayer {
+                alpha = textAlpha
+                scaleX = textScale
+                scaleY = textScale
+            },
+        )
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import app.astra.mobile.ui.components.ConstellationGraphic
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -322,6 +323,17 @@ private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float
             .background(astraColors.void),
         contentAlignment = Alignment.Center,
     ) {
+        // Constelacao se desenhando atras do nome (one-shot). So compoe depois do 1s
+        // vazio (textAlpha > 0), preservando o anti-jank do cold-start.
+        if (textAlpha > 0.01f) {
+            ConstellationGraphic(
+                modifier = Modifier.graphicsLayer {
+                    alpha = textAlpha * 0.45f
+                    scaleX = 1.85f
+                    scaleY = 1.85f
+                },
+            )
+        }
         Text(
             text = "Astra",
             style = TextStyle(

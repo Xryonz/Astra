@@ -69,7 +69,7 @@ import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

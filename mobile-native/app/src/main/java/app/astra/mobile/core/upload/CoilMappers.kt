@@ -1,8 +1,8 @@
 package app.astra.mobile.core.upload
 
 import android.util.Base64
-import coil.map.Mapper
-import coil.request.Options
+import coil3.map.Mapper
+import coil3.request.Options
 import java.nio.ByteBuffer
 
 class DataUriMapper : Mapper<String, ByteBuffer> {

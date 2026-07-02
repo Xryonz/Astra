@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin

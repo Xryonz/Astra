@@ -36,7 +36,7 @@ import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.model.isAudio
 import app.astra.mobile.core.model.isImage
 import app.astra.mobile.ui.theme.astraColors
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 
 @Composable
 fun MessageAttachments(

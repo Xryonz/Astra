@@ -108,7 +108,7 @@ import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.EaseSpring
 import app.astra.mobile.ui.theme.astraColors
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
 

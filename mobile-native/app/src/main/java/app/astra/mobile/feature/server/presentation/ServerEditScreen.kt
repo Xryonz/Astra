@@ -51,7 +51,7 @@ import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 
 @Composable
 fun ServerEditScreen(

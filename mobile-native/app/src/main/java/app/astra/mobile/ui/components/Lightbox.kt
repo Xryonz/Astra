@@ -24,7 +24,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.ui.theme.EaseOutSoft
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 
 @Composable

@@ -123,6 +123,7 @@ dependencies {
     // Imagens + storage local
     implementation(libs.coil.compose)
     implementation(libs.coil.gif) // decoder GIF/WebP animado (avatar/banner animados)
+    implementation(libs.coil.network.okhttp) // coil3: core nao traz rede -> fetcher OkHttp
     implementation(libs.androidx.datastore.preferences)
 
     // Banco local — Room (cache de mensagens, base do offline-first). KSP gera o impl.

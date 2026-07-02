@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -103,6 +104,77 @@ fun mentionAnnotated(text: String, accent: Color) = buildAnnotatedString {
         last = m.range.last + 1
     }
     if (last < text.length) append(text.substring(last))
+}
+
+// Code blocks: ```bloco``` vira caixa mono; `inline` vira span mono. Sem highlight
+// de sintaxe (fora de escopo) — so tipografia, como o chat do Discord basico.
+private val CodeBlockRegex = Regex("```[a-zA-Z0-9]*\\n?([\\s\\S]*?)```")
+private val InlineTokenRegex = Regex("(`[^`\\n]+`)|(@[a-z0-9_]+)", RegexOption.IGNORE_CASE)
+
+private sealed interface MsgSeg {
+    data class Plain(val value: String) : MsgSeg
+    data class Code(val value: String) : MsgSeg
+}
+
+private fun splitCodeSegments(text: String): List<MsgSeg> = buildList {
+    var last = 0
+    for (m in CodeBlockRegex.findAll(text)) {
+        if (m.range.first > last) add(MsgSeg.Plain(text.substring(last, m.range.first).trim('\n')))
+        add(MsgSeg.Code(m.groupValues[1].trim('\n')))
+        last = m.range.last + 1
+    }
+    if (last < text.length) add(MsgSeg.Plain(text.substring(last).trim('\n')))
+}
+
+/** Mencoes em destaque + `inline code` mono num mesmo texto. */
+private fun inlineAnnotated(text: String, accent: Color, codeBg: Color) = buildAnnotatedString {
+    var last = 0
+    for (m in InlineTokenRegex.findAll(text)) {
+        if (m.range.first > last) append(text.substring(last, m.range.first))
+        if (m.value.startsWith("`")) {
+            withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = codeBg)) {
+                append(m.value.trim('`'))
+            }
+        } else {
+            withStyle(SpanStyle(color = accent, fontWeight = FontWeight.Medium)) { append(m.value) }
+        }
+        last = m.range.last + 1
+    }
+    if (last < text.length) append(text.substring(last))
+}
+
+@Composable
+fun MessageContent(content: String, fontSizeSp: Float, modifier: Modifier = Modifier) {
+    val accent = astraColors.accent
+    val codeBg = astraColors.raised
+    val segments = remember(content) { splitCodeSegments(content) }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        segments.forEachIndexed { i, seg ->
+            if (i > 0) Spacer(Modifier.height(6.dp))
+            when (seg) {
+                is MsgSeg.Plain -> if (seg.value.isNotBlank()) Text(
+                    text = remember(seg.value, accent, codeBg) { inlineAnnotated(seg.value, accent, codeBg) },
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontSize = fontSizeSp.sp,
+                    color = astraColors.text1,
+                    textAlign = TextAlign.Center,
+                )
+                is MsgSeg.Code -> Text(
+                    text = seg.value,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = (fontSizeSp * 0.82f).sp,
+                    color = astraColors.text1,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(astraColors.raised)
+                        .border(1.dp, astraColors.border, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -332,14 +404,7 @@ fun MessageBubble(
                                 Spacer(Modifier.height(4.dp))
                             }
                             if (content.isNotBlank()) {
-                                val accent = astraColors.accent
-                                Text(
-                                    text = remember(content, accent) { mentionAnnotated(content, accent) },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontSize = (17 * prefs.fontSize.scale).sp,
-                                    color = astraColors.text1,
-                                    textAlign = TextAlign.Center,
-                                )
+                                MessageContent(content, fontSizeSp = 17f * prefs.fontSize.scale)
                             }
                             if (translation != null) {
                                 Spacer(Modifier.height(6.dp))

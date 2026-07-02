@@ -57,7 +57,7 @@ private val METEORS: List<MeteorDef> = buildList {
 
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = astraColors.accent) {
-    if (LocalAppPrefs.current.reduceMotion) {
+    if (!LocalAppPrefs.current.starsOn) {
         StarFieldStatic(modifier, color)
         return
     }
@@ -169,11 +169,11 @@ private fun AuroraShader(color: Color, modifier: Modifier = Modifier) {
 
 @Composable
 fun CosmicBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    val reduceMotion = LocalAppPrefs.current.reduceMotion
+    val auroraOn = LocalAppPrefs.current.auroraOn
     Box(modifier.fillMaxSize().background(astraColors.void)) {
-        // Aurora so em Android 13+ (RuntimeShader) e com animacao ligada. Senao,
-        // fallback = void + StarField de sempre (nada regride).
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceMotion) {
+        // Aurora so em Android 13+ (RuntimeShader) e com o toggle ligado (que ja
+        // inclui o mestre reduceMotion). Senao, fallback = void + StarField.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && auroraOn) {
             AuroraShader(astraColors.accent)
         }
         StarField()

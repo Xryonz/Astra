@@ -38,7 +38,16 @@ data class AppPrefs(
     val density: DensityPref = DensityPref.COMFORTABLE,
     val accentId: String = "white",
     val bgId: String = "void",
-)
+    // Toggles especificos de animacao (so valem quando o mestre reduceMotion esta off).
+    val animAurora: Boolean = true,
+    val animStars: Boolean = true,
+    val animTransitions: Boolean = true,
+) {
+    // Efetivo = mestre desligado E o toggle especifico ligado.
+    val auroraOn: Boolean get() = !reduceMotion && animAurora
+    val starsOn: Boolean get() = !reduceMotion && animStars
+    val transitionsOn: Boolean get() = !reduceMotion && animTransitions
+}
 
 @Singleton
 class PreferencesStore @Inject constructor(
@@ -50,6 +59,9 @@ class PreferencesStore @Inject constructor(
     private val densityKey = stringPreferencesKey("density")
     private val accentKey = stringPreferencesKey("accent_id")
     private val bgKey = stringPreferencesKey("bg_id")
+    private val animAuroraKey = booleanPreferencesKey("anim_aurora")
+    private val animStarsKey = booleanPreferencesKey("anim_stars")
+    private val animTransitionsKey = booleanPreferencesKey("anim_transitions")
 
     val prefs: Flow<AppPrefs> = dataStore.data.map { p ->
         AppPrefs(
@@ -59,11 +71,17 @@ class PreferencesStore @Inject constructor(
             density = DensityPref.from(p[densityKey]),
             accentId = p[accentKey] ?: "white",
             bgId = p[bgKey] ?: "void",
+            animAurora = p[animAuroraKey] ?: true,
+            animStars = p[animStarsKey] ?: true,
+            animTransitions = p[animTransitionsKey] ?: true,
         )
     }
 
     suspend fun setReduceMotion(v: Boolean) = dataStore.edit { it[reduceMotionKey] = v }
     suspend fun setHaptics(v: Boolean) = dataStore.edit { it[hapticsKey] = v }
+    suspend fun setAnimAurora(v: Boolean) = dataStore.edit { it[animAuroraKey] = v }
+    suspend fun setAnimStars(v: Boolean) = dataStore.edit { it[animStarsKey] = v }
+    suspend fun setAnimTransitions(v: Boolean) = dataStore.edit { it[animTransitionsKey] = v }
     suspend fun setFontSize(v: FontSizePref) = dataStore.edit { it[fontSizeKey] = v.id }
     suspend fun setDensity(v: DensityPref) = dataStore.edit { it[densityKey] = v.id }
     suspend fun setAccent(id: String) = dataStore.edit { it[accentKey] = id }

@@ -104,7 +104,8 @@ private object Routes {
 fun AstraApp() {
     val sessionViewModel: SessionViewModel = hiltViewModel()
     val loggedIn by sessionViewModel.isLoggedIn.collectAsState()
-    val reduceMotion = LocalAppPrefs.current.reduceMotion
+    val reduceMotion = LocalAppPrefs.current.reduceMotion // mestre (usado no splash)
+    val transitionsOn = LocalAppPrefs.current.transitionsOn // toggle de transicoes de tela
 
     Box(Modifier.fillMaxSize()) {
 
@@ -114,10 +115,10 @@ fun AstraApp() {
                 navController = nav,
                 startDestination = if (loggedIn == true) Routes.HOME else Routes.LOGIN,
 
-                enterTransition = { if (reduceMotion) fadeIn(tween(120, easing = EaseOutSoft)) else fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { it / 8 } },
-                exitTransition = { fadeOut(tween(if (reduceMotion) 90 else 240, easing = EaseOutSoft)) },
-                popEnterTransition = { if (reduceMotion) fadeIn(tween(120, easing = EaseOutSoft)) else fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { -it / 8 } },
-                popExitTransition = { if (reduceMotion) fadeOut(tween(90, easing = EaseOutSoft)) else fadeOut(tween(260, easing = EaseOutSoft)) + slideOutHorizontally(tween(340, easing = EaseSpring)) { it / 8 } },
+                enterTransition = { if (!transitionsOn) fadeIn(tween(120, easing = EaseOutSoft)) else fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { it / 8 } },
+                exitTransition = { fadeOut(tween(if (!transitionsOn) 90 else 240, easing = EaseOutSoft)) },
+                popEnterTransition = { if (!transitionsOn) fadeIn(tween(120, easing = EaseOutSoft)) else fadeIn(tween(360, easing = EaseOutSoft)) + slideInHorizontally(tween(380, easing = EaseSpring)) { -it / 8 } },
+                popExitTransition = { if (!transitionsOn) fadeOut(tween(90, easing = EaseOutSoft)) else fadeOut(tween(260, easing = EaseOutSoft)) + slideOutHorizontally(tween(340, easing = EaseSpring)) { it / 8 } },
             ) {
                 composable(Routes.LOGIN) {
                     LoginScreen(onGoToRegister = { nav.navigate(Routes.REGISTER) })
@@ -153,11 +154,11 @@ fun AstraApp() {
                     ),
                     // Card de perfil "cobrindo a tela" vindo da direita (estilo Discord).
                     enterTransition = {
-                        if (reduceMotion) fadeIn(tween(120, easing = EaseOutSoft))
+                        if (!transitionsOn) fadeIn(tween(120, easing = EaseOutSoft))
                         else slideInHorizontally(tween(380, easing = EaseSpring)) { it } + fadeIn(tween(260, easing = EaseOutSoft))
                     },
                     popExitTransition = {
-                        if (reduceMotion) fadeOut(tween(90, easing = EaseOutSoft))
+                        if (!transitionsOn) fadeOut(tween(90, easing = EaseOutSoft))
                         else slideOutHorizontally(tween(340, easing = EaseSpring)) { it } + fadeOut(tween(240, easing = EaseOutSoft))
                     },
                 ) {

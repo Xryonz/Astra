@@ -15,6 +15,9 @@ class PreferencesViewModel @Inject constructor(
 ) : ViewModel() {
     fun setReduceMotion(v: Boolean) { viewModelScope.launch { store.setReduceMotion(v) } }
     fun setHaptics(v: Boolean) { viewModelScope.launch { store.setHaptics(v) } }
+    fun setAnimAurora(v: Boolean) { viewModelScope.launch { store.setAnimAurora(v) } }
+    fun setAnimStars(v: Boolean) { viewModelScope.launch { store.setAnimStars(v) } }
+    fun setAnimTransitions(v: Boolean) { viewModelScope.launch { store.setAnimTransitions(v) } }
     fun setFontSize(v: FontSizePref) { viewModelScope.launch { store.setFontSize(v) } }
     fun setDensity(v: DensityPref) { viewModelScope.launch { store.setDensity(v) } }
     fun setAccent(id: String) { viewModelScope.launch { store.setAccent(id) } }

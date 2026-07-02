@@ -175,7 +175,7 @@ fun HomeScreen(
         else state.dms.filter { it.otherName.contains(query.trim(), ignoreCase = true) }
     }
 
-    val reduceMotion = LocalAppPrefs.current.reduceMotion
+    val transitionsOn = LocalAppPrefs.current.transitionsOn
 
     CosmicBackground {
         Box(Modifier.fillMaxSize()) {
@@ -353,9 +353,9 @@ fun HomeScreen(
 
     AnimatedVisibility(
         visible = profileSheet,
-        enter = if (reduceMotion) fadeIn(tween(120))
+        enter = if (!transitionsOn) fadeIn(tween(120))
                 else slideInVertically(tween(400, easing = EaseSpring)) { it } + fadeIn(tween(240)),
-        exit = if (reduceMotion) fadeOut(tween(90))
+        exit = if (!transitionsOn) fadeOut(tween(90))
                else slideOutVertically(tween(300, easing = EaseSpring)) { it } + fadeOut(tween(200)),
     ) {
         ProfileSheet(

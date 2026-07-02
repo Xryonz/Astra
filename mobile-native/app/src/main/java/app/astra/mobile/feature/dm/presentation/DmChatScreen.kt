@@ -3,15 +3,21 @@ package app.astra.mobile.feature.dm.presentation
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,9 +26,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Phone
+import com.composables.icons.lucide.PhoneOff
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.gif.presentation.GifPicker
@@ -46,11 +57,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun DmChatScreen(
     onBack: () -> Unit,
+    onJoinCall: (conversationId: String, name: String) -> Unit = { _, _ -> },
     viewModel: DmChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var gifOpen by remember { mutableStateOf(false) }
+
+    // Outro lado aceitou a ligacao -> entra na sala.
+    LaunchedEffect(Unit) {
+        viewModel.joinCall.collect { onJoinCall(viewModel.conversationId, viewModel.otherName) }
+    }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -69,7 +86,30 @@ fun DmChatScreen(
 
     CosmicBackground {
         Column(Modifier.fillMaxSize().imePadding().edgeSwipeBack(onBack)) {
-            EditorialTopBar(title = viewModel.otherName, marginalia = "sussurro", onBack = onBack)
+            EditorialTopBar(
+                title = viewModel.otherName,
+                marginalia = if (state.ringing) "chamando..." else "sussurro",
+                onBack = onBack,
+                trailing = {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (state.ringing) astraColors.accentDim else Color.Transparent)
+                            .clickable {
+                                if (state.ringing) viewModel.cancelCall() else viewModel.startCall()
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (state.ringing) Lucide.PhoneOff else Lucide.Phone,
+                            contentDescription = if (state.ringing) "Cancelar ligação" else "Ligar",
+                            tint = astraColors.accent,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                },
+            )
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {

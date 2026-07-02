@@ -80,6 +80,17 @@ class SocketManager @Inject constructor(
     private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
 
+    // Ligacao em DM — protocolo do web (socket.ts): invite/accept/reject relayados
+    // pro user alvo; o backend valida o membership da conversa.
+    private val _dmCallInvite = MutableSharedFlow<DmCallInvite>(extraBufferCapacity = 8)
+    val dmCallInvite: SharedFlow<DmCallInvite> = _dmCallInvite.asSharedFlow()
+
+    private val _dmCallAccept = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val dmCallAccept: SharedFlow<String> = _dmCallAccept.asSharedFlow()
+
+    private val _dmCallReject = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val dmCallReject: SharedFlow<String> = _dmCallReject.asSharedFlow()
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = runBlocking { tokenStore.currentAccess() } ?: return
@@ -162,6 +173,25 @@ class SocketManager @Inject constructor(
                 )
             }
         }
+        s.on("dm_call_invite") { args ->
+            (args.firstOrNull() as? JSONObject)?.let {
+                _dmCallInvite.tryEmit(
+                    DmCallInvite(
+                        conversationId = it.optString("conversationId"),
+                        fromUserId = it.optString("fromUserId"),
+                        fromDisplayName = it.optString("fromDisplayName")
+                            .ifBlank { it.optString("fromUsername") }
+                            .ifBlank { "Alguém" },
+                    ),
+                )
+            }
+        }
+        s.on("dm_call_accept") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _dmCallAccept.tryEmit(it.optString("conversationId")) }
+        }
+        s.on("dm_call_reject") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _dmCallReject.tryEmit(it.optString("conversationId")) }
+        }
         s.on("user_typing") { args ->
             (args.firstOrNull() as? JSONObject)?.let {
                 _channelTyping.tryEmit(TypingEvent(it.optString("userId"), it.optString("username"), it.optString("channelId"), true))
@@ -222,6 +252,21 @@ class SocketManager @Inject constructor(
 
     fun startTyping(channelId: String) { socket?.emit("typing_start", channelId) }
     fun stopTyping(channelId: String) { socket?.emit("typing_stop", channelId) }
+
+    private fun callPayload(conversationId: String, toUserId: String) =
+        JSONObject().put("conversationId", conversationId).put("toUserId", toUserId)
+
+    fun sendDmCallInvite(conversationId: String, toUserId: String) {
+        socket?.emit("dm_call_invite", callPayload(conversationId, toUserId))
+    }
+
+    fun sendDmCallAccept(conversationId: String, toUserId: String) {
+        socket?.emit("dm_call_accept", callPayload(conversationId, toUserId))
+    }
+
+    fun sendDmCallReject(conversationId: String, toUserId: String) {
+        socket?.emit("dm_call_reject", callPayload(conversationId, toUserId))
+    }
     fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }
     fun stopDmTyping(conversationId: String) { socket?.emit("dm_typing_stop", conversationId) }
 
@@ -271,4 +316,10 @@ data class TypingEvent(
     val username: String,
     val room: String,
     val typing: Boolean,
+)
+
+data class DmCallInvite(
+    val conversationId: String,
+    val fromUserId: String,
+    val fromDisplayName: String,
 )

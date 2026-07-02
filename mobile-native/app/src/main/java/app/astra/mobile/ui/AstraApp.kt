@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +68,8 @@ import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.voice.presentation.CallScreen
+import app.astra.mobile.feature.voice.presentation.IncomingCallViewModel
+import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.session.SessionViewModel
 import android.net.Uri
 import kotlinx.coroutines.delay
@@ -95,13 +98,13 @@ private object Routes {
     fun serverEdit(id: String) = "server/$id/edit"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
-    const val CALL = "call/{channelId}?name={name}&serverId={serverId}"
+    const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
 
     fun dmChat(id: String, name: String) = "dm/$id?name=${Uri.encode(name)}"
     fun channels(id: String, name: String) = "channels/$id?name=${Uri.encode(name)}"
     fun channelChat(id: String, name: String) = "channel/$id?name=${Uri.encode(name)}"
-    fun call(id: String, name: String, serverId: String) =
-        "call/$id?name=${Uri.encode(name)}&serverId=$serverId"
+    fun call(id: String, name: String, serverId: String, kind: String = "channel") =
+        "call/$id?name=${Uri.encode(name)}&serverId=$serverId&kind=$kind"
 }
 
 @Composable
@@ -265,6 +268,7 @@ fun AstraApp() {
                         navArgument("channelId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                         navArgument("serverId") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("kind") { type = NavType.StringType; defaultValue = "channel" },
                     ),
                 ) {
                     CallScreen(onLeave = { nav.popBackStack() })
@@ -282,7 +286,10 @@ fun AstraApp() {
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
                 ) {
-                    DmChatScreen(onBack = { nav.popBackStack() })
+                    DmChatScreen(
+                        onBack = { nav.popBackStack() },
+                        onJoinCall = { id, name -> nav.navigate(Routes.call(id, name, "", kind = "dm")) },
+                    )
                 }
             }
 
@@ -290,6 +297,30 @@ fun AstraApp() {
                 val target = if (loggedIn == true) Routes.HOME else Routes.LOGIN
                 if (nav.currentDestination?.route != target) {
                     nav.navigate(target) { popUpTo(0) { inclusive = true } }
+                }
+            }
+
+            // Ligacao recebida (DM): modal global — toca em qualquer tela do app.
+            val incomingVm: IncomingCallViewModel = hiltViewModel()
+            val incoming by incomingVm.incoming.collectAsState()
+            incoming?.let { inv ->
+                AstraDialog(
+                    open = true,
+                    onDismiss = { incomingVm.reject() },
+                    title = "Ligação de ${inv.fromDisplayName}",
+                    confirmText = "Atender",
+                    onConfirm = {
+                        incomingVm.accept()?.let {
+                            nav.navigate(Routes.call(it.conversationId, it.fromDisplayName, "", kind = "dm"))
+                        }
+                    },
+                    dismissText = "Recusar",
+                ) {
+                    Text(
+                        "Sussurro chamando você pra uma conversa de voz.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = astraColors.text2,
+                    )
                 }
             }
         }

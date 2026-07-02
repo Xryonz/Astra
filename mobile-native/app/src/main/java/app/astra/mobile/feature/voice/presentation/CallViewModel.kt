@@ -52,6 +52,8 @@ class CallViewModel @Inject constructor(
 
     private val channelId: String = savedStateHandle["channelId"] ?: ""
     private val serverId: String = savedStateHandle["serverId"] ?: ""
+    // "channel" (canal de voz) ou "dm" (ligacao em sussurro); mesma rota, backend valida os dois.
+    private val kind: String = savedStateHandle["kind"] ?: "channel"
     val channelName: String = savedStateHandle["name"] ?: "Canal de voz"
 
     private val members = MutableStateFlow<Map<String, ServerMember>>(emptyMap())
@@ -70,7 +72,13 @@ class CallViewModel @Inject constructor(
                     val m = mem[p.identity]
                     CallParticipantUi(
                         identity = p.identity,
-                        name = m?.name ?: if (p.isLocal) "Voce" else "Participante",
+                        // Em DM nao ha members de servidor: o unico remoto e o outro
+                        // lado da conversa, cujo nome veio na rota (channelName).
+                        name = m?.name ?: when {
+                            p.isLocal -> "Voce"
+                            kind == "dm" -> channelName
+                            else -> "Participante"
+                        },
                         avatarUrl = m?.avatarUrl,
                         isLocal = p.isLocal,
                         isSpeaking = p.isSpeaking,
@@ -99,7 +107,7 @@ class CallViewModel @Inject constructor(
 
     val room: Room? get() = voiceManager.activeRoom
 
-    fun join() = voiceManager.join("channel", channelId, channelName)
+    fun join() = voiceManager.join(kind, channelId, channelName)
     fun toggleMic() = voiceManager.toggleMic()
     fun toggleCamera() = voiceManager.toggleCamera()
     fun toggleDeafen() = voiceManager.toggleDeafen()

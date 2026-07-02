@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.invite.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.InvitesApi
 import app.astra.mobile.core.network.dto.ApiError
@@ -37,6 +38,8 @@ class InvitesRepositoryImpl @Inject constructor(
         Result.failure(ApiException(errorMsg(e) ?: "Convite invalido ou expirado"))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar o convite"))
     }
@@ -50,6 +53,8 @@ class InvitesRepositoryImpl @Inject constructor(
         Result.failure(ApiException(errorMsg(e) ?: "Nao foi possivel entrar no servidor"))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Nao foi possivel entrar no servidor"))
     }

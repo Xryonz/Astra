@@ -1,5 +1,6 @@
 package app.astra.mobile.core.translate
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.TranslateApi
 import app.astra.mobile.core.network.dto.ApiError
@@ -30,6 +31,8 @@ class Translator @Inject constructor(
                 Result.failure(ApiException(msg ?: "Traducao indisponivel"))
             } catch (e: IOException) {
                 Result.failure(ApiException("Sem conexao com o servidor"))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(ApiException("Erro na traducao"))
             }

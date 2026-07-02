@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.dm.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.db.MessageDao
@@ -53,12 +54,16 @@ class DmRepositoryImpl @Inject constructor(
         Result.success(env.data.orEmpty().mapNotNull { it.toDomain(uid) })
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar conversas"))
     }
 
     override suspend fun dmReads(): Result<Map<String, String?>> = try {
         Result.success(dmApi.dmReads().data.orEmpty().mapValues { it.value.mine })
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar leituras"))
     }
@@ -66,6 +71,8 @@ class DmRepositoryImpl @Inject constructor(
     override suspend fun markRead(conversationId: String): Result<Unit> = try {
         dmApi.markRead(conversationId)
         Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao marcar como lido"))
     }
@@ -93,6 +100,8 @@ class DmRepositoryImpl @Inject constructor(
         )
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
@@ -105,6 +114,8 @@ class DmRepositoryImpl @Inject constructor(
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao enviar"))
     }
@@ -115,6 +126,8 @@ class DmRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao apagar"))
     }
@@ -137,6 +150,8 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException(msg ?: "Nao foi possivel abrir a conversa"))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Nao foi possivel abrir a conversa"))
     }

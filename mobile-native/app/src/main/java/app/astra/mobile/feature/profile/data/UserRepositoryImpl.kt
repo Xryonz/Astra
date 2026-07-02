@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.profile.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ApiError
@@ -36,6 +37,8 @@ class UserRepositoryImpl @Inject constructor(
             val p = data.user.toDomain()
             cached = p
             Result.success(p)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(mapError(e))
         }
@@ -52,6 +55,8 @@ class UserRepositoryImpl @Inject constructor(
                     mutual = data.mutualServers.map { it.toDomain() },
                 ),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(mapError(e))
         }
@@ -80,6 +85,8 @@ class UserRepositoryImpl @Inject constructor(
             val p = data.user.toDomain()
             cached = p
             Result.success(p)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(mapError(e))
         }
@@ -89,6 +96,8 @@ class UserRepositoryImpl @Inject constructor(
         return try {
             api.changePassword(ChangePasswordRequest(current, new))
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(mapError(e))
         }
@@ -100,6 +109,8 @@ class UserRepositoryImpl @Inject constructor(
 
             cached = cached?.copy(status = status)
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(mapError(e))
         }

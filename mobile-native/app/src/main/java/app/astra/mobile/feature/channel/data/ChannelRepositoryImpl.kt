@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.channel.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.db.MessageDao
@@ -68,6 +69,8 @@ class ChannelRepositoryImpl @Inject constructor(
         )
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar mensagens"))
     }
@@ -80,6 +83,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(dto.toDomain(uid))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao enviar"))
     }
@@ -91,6 +96,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao editar"))
     }
@@ -101,6 +108,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao apagar"))
     }
@@ -116,6 +125,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao reagir"))
     }
@@ -191,6 +202,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Sem permissao pra fixar"))
     }
@@ -201,6 +214,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(list)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar fixadas"))
     }
@@ -208,6 +223,8 @@ class ChannelRepositoryImpl @Inject constructor(
     override suspend fun markRead(channelId: String): Result<Unit> = try {
         channelApi.markRead(channelId)
         Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao marcar como lido"))
     }
@@ -218,6 +235,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(list)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar historico"))
     }
@@ -229,6 +248,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao criar enquete"))
     }
@@ -239,6 +260,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao votar"))
     }
@@ -249,6 +272,8 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao encerrar enquete"))
     }

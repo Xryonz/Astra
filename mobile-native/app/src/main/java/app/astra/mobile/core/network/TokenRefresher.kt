@@ -1,5 +1,6 @@
 package app.astra.mobile.core.network
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.data.TokenStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,6 +27,8 @@ class TokenRefresher @Inject constructor(
 
             if (e.code() == 401) tokenStore.clear()
             return@withLock null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
 
             return@withLock null

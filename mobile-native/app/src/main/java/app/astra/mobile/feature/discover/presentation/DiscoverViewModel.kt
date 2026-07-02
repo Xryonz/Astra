@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.discover.presentation
 
+import kotlinx.coroutines.CancellationException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.network.DiscoverApi
@@ -65,6 +66,8 @@ class DiscoverViewModel @Inject constructor(
                 } else {
                     _state.update { it.copy(joiningId = null, error = "Nao foi possivel entrar") }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _state.update { it.copy(joiningId = null, error = "Sem conexao com o servidor") }
             }

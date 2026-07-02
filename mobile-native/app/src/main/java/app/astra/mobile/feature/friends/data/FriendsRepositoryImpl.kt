@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.friends.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.FriendsApi
 import app.astra.mobile.core.network.dto.ApiError
@@ -43,6 +44,8 @@ class FriendsRepositoryImpl @Inject constructor(
     private suspend fun <T> guard(block: suspend () -> T): Result<T> =
         try {
             Result.success(block())
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(mapError(e))
         }

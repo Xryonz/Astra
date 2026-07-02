@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.server.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.VoiceApi
@@ -35,6 +36,8 @@ class ServerRepositoryImpl @Inject constructor(
         Result.success(env.data.orEmpty().map { it.toDomain() })
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar servidores"))
     }
@@ -52,6 +55,8 @@ class ServerRepositoryImpl @Inject constructor(
         )
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar membros"))
     }
@@ -60,6 +65,8 @@ class ServerRepositoryImpl @Inject constructor(
         Result.success(serverApi.channelReads().data.orEmpty())
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Falha ao carregar leituras"))
     }
@@ -67,6 +74,8 @@ class ServerRepositoryImpl @Inject constructor(
     override suspend fun voicePresence(channelIds: List<String>): Result<Map<String, List<String>>> = try {
         if (channelIds.isEmpty()) Result.success(emptyMap())
         else Result.success(voiceApi.presence(channelIds.joinToString(",")).data.orEmpty())
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
 
         Result.failure(ApiException("Falha ao carregar presenca de voz"))
@@ -85,6 +94,8 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(ApiException(msg ?: "Nao foi possivel criar o servidor"))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Nao foi possivel criar o servidor"))
     }
@@ -100,6 +111,8 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(ApiException(msg ?: "Nao foi possivel salvar a constelacao"))
     } catch (e: IOException) {
         Result.failure(ApiException("Sem conexao com o servidor"))
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(ApiException("Nao foi possivel salvar a constelacao"))
     }
@@ -108,6 +121,8 @@ class ServerRepositoryImpl @Inject constructor(
         val type = if (isVoice) "VOICE" else "TEXT"
         serverApi.createChannel(serverId, CreateChannelRequest(name.trim(), type))
         Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(apiError(e, "Nao foi possivel criar o canal"))
     }

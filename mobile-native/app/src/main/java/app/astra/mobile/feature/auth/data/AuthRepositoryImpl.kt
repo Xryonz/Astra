@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.auth.data
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.db.MessageDao
@@ -46,6 +47,8 @@ class AuthRepositoryImpl @Inject constructor(
             }
         } catch (e: IOException) {
             Result.failure(ApiException("Sem conexao com o servidor"))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(ApiException("Erro inesperado"))
         }
@@ -78,6 +81,8 @@ class AuthRepositoryImpl @Inject constructor(
             }
         } catch (e: IOException) {
             Result.failure(ApiException("Sem conexao com o servidor"))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(ApiException("Erro inesperado"))
         }
@@ -94,6 +99,8 @@ class AuthRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: IOException) {
             Result.failure(ApiException("Sem conexao com o servidor"))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(ApiException("Nao foi possivel entrar com o Google"))
         }

@@ -1,5 +1,6 @@
 package app.astra.mobile.core.upload
 
+import kotlinx.coroutines.CancellationException
 import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.dto.ApiError
@@ -35,6 +36,8 @@ class ImageUploader @Inject constructor(
                 Result.failure(ApiException(msg ?: "Falha no upload"))
             } catch (e: IOException) {
                 Result.failure(ApiException("Sem conexao com o servidor"))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(ApiException("Falha no upload"))
             }
@@ -57,6 +60,8 @@ class ImageUploader @Inject constructor(
                 Result.failure(ApiException(msg ?: "Falha no upload"))
             } catch (e: IOException) {
                 Result.failure(ApiException("Sem conexao com o servidor"))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(ApiException("Falha no upload"))
             }

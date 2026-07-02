@@ -19,4 +19,6 @@ data class Profile(
     val bannerPositionY: Int = 50,
     val bannerScale: Int = 100,
     val displayFont: String = "serif",
+    // null = nunca viu o onboarding cosmico (gate compartilhado com o web).
+    val onboardedAt: String? = null,
 )

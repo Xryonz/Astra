@@ -114,10 +114,14 @@ class HomeViewModel @Inject constructor(
                     myPronouns = me?.pronouns,
                     myCreatedAt = me?.createdAt,
                     myStatus = me?.status ?: UserStatus.ONLINE,
+                    needsOnboarding = me != null && me.onboardedAt == null,
                 )
             }
         }
     }
+
+    // One-shot: a Home consome antes de navegar pro onboarding (sem loop).
+    fun consumeOnboarding() = _state.update { it.copy(needsOnboarding = false) }
 
     fun selectServer(id: String?) = _state.update { it.copy(selectedServerId = id) }
 

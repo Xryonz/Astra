@@ -56,6 +56,7 @@ import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsFeedScreen
+import app.astra.mobile.feature.onboarding.presentation.OnboardingScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsSettingsScreen
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
@@ -85,6 +86,7 @@ private object Routes {
     const val ACCESSIBILITY = "settings/accessibility"
     const val NOTIFICATIONS = "settings/notifications"
     const val NOTIF_FEED = "notifications"
+    const val ONBOARDING = "onboarding"
     const val SESSIONS = "settings/sessions"
     const val DATA = "settings/data"
     const val WISHING = "settings/wishing"
@@ -148,8 +150,12 @@ fun AstraApp() {
                         onOpenSettings = { nav.navigate(Routes.SETTINGS) },
                         onOpenProfile = { nav.navigate(Routes.PERSONALIZATION) },
                         onOpenNotifications = { nav.navigate(Routes.NOTIF_FEED) },
+                        onOpenOnboarding = { nav.navigate(Routes.ONBOARDING) },
                         onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
                     )
+                }
+                composable(Routes.ONBOARDING) {
+                    OnboardingScreen(onDone = { nav.popBackStack() })
                 }
                 composable(Routes.NOTIF_FEED) {
                     NotificationsFeedScreen(

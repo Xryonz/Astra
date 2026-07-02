@@ -15,4 +15,8 @@ interface AuthApi {
 
     @POST("api/auth/register")
     suspend fun register(@Body body: RegisterRequest): Response<ApiEnvelope<AuthData>>
+
+    // Marca o onboarding cosmico como visto (idempotente no backend).
+    @POST("api/auth/onboarded")
+    suspend fun markOnboarded()
 }

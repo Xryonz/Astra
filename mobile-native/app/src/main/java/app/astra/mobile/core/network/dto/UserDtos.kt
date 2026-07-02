@@ -24,6 +24,7 @@ data class ProfileUserDto(
     val bannerPositionY: Int? = null,
     val bannerScale: Int? = null,
     val displayFont: String? = null,
+    val onboardedAt: String? = null,
 )
 
 @Serializable

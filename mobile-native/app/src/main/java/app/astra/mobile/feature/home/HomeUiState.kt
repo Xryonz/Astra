@@ -43,4 +43,7 @@ data class HomeUiState(
     val manageError: String? = null,
 
     val unreadNotifs: Int = 0,
+
+    // true 1x quando o me() chega sem onboardedAt -> Home dispara o onboarding.
+    val needsOnboarding: Boolean = false,
 )

@@ -152,6 +152,7 @@ private fun ProfileUserDto.toDomain() = Profile(
     bannerPositionY = bannerPositionY ?: 50,
     bannerScale = bannerScale ?: 100,
     displayFont = displayFont ?: "serif",
+    onboardedAt = onboardedAt,
 )
 
 private fun MutualServerDto.toDomain() = MutualServer(id, name, iconUrl, isGroup, role)

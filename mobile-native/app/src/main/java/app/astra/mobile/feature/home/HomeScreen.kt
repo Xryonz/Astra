@@ -125,6 +125,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenOnboarding: () -> Unit,
     onJoinVoice: (channelId: String, name: String, serverId: String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -149,6 +150,14 @@ fun HomeScreen(
         viewModel.serverCreated.collect { srv ->
             showForge = false
             viewModel.selectServer(srv.id)
+        }
+    }
+
+    // Conta que nunca viu o onboarding cosmico (gate compartilhado com o web).
+    LaunchedEffect(state.needsOnboarding) {
+        if (state.needsOnboarding) {
+            viewModel.consumeOnboarding()
+            onOpenOnboarding()
         }
     }
 

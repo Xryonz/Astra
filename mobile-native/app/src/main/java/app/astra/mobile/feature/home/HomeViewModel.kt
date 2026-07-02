@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.NotificationsApi
+import app.astra.mobile.core.push.PushRegistrar
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.auth.domain.AuthRepository
@@ -33,7 +34,10 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
     private val notificationsApi: NotificationsApi,
+    private val pushRegistrar: PushRegistrar,
 ) : ViewModel() {
+
+    fun registerPush() = pushRegistrar.register()
 
     val socketState: StateFlow<ConnectionState> = socketManager.state
 

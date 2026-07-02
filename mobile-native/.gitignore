@@ -11,3 +11,6 @@
 *.keystore
 !debug.keystore
 .kotlin/
+
+# Firebase (por-dev, contem ids do projeto)
+app/google-services.json

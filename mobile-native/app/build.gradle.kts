@@ -135,9 +135,21 @@ dependencies {
     // Realtime — Socket.io client (protocolo Engine.io, fala com o server v4)
     implementation(libs.socketio.client)
 
+    // Push — FCM (notificacao com o app fechado). O plugin google-services so e
+    // aplicado se o google-services.json existir (fim do arquivo); sem ele o app
+    // compila e roda normal, so sem push (PushRegistrar checa FirebaseApp vazio).
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+
     // Voz/video — LiveKit Android (WebRTC nativo). Mesmo backend /api/voice/token do web.
     implementation(libs.livekit.android)
     // VideoTrackView (render de video no Compose, cuida do EGL/SurfaceView/lifecycle)
     implementation(libs.livekit.android.compose)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+}
+
+// FCM: aplica o google-services so quando o json do projeto Firebase do user
+// estiver na pasta (guia em docs/PUSH-FCM.md). Sem o json, o plugin quebraria o build.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

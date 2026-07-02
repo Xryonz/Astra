@@ -3,6 +3,7 @@ package app.astra.mobile.feature.home
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -148,6 +149,23 @@ fun HomeScreen(
         viewModel.serverCreated.collect { srv ->
             showForge = false
             viewModel.selectServer(srv.id)
+        }
+    }
+
+    // Push: pede POST_NOTIFICATIONS (13+) uma vez na Home logada e registra o token
+    // FCM. Sem google-services.json o registerPush e no-op (nada quebra).
+    val context = LocalContext.current
+    val pushLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) viewModel.registerPush() }
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val ok = androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.POST_NOTIFICATIONS,
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (ok) viewModel.registerPush() else pushLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.registerPush()
         }
     }
 

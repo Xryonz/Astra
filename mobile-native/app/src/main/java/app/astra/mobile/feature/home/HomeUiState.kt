@@ -41,4 +41,6 @@ data class HomeUiState(
     val createError: String? = null,
 
     val manageError: String? = null,
+
+    val unreadNotifs: Int = 0,
 )

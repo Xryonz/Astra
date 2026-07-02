@@ -54,6 +54,7 @@ import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
+import app.astra.mobile.feature.notifications.presentation.NotificationsFeedScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsSettingsScreen
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
@@ -79,6 +80,7 @@ private object Routes {
     const val PERSONALIZATION = "settings/personalization"
     const val ACCESSIBILITY = "settings/accessibility"
     const val NOTIFICATIONS = "settings/notifications"
+    const val NOTIF_FEED = "notifications"
     const val SESSIONS = "settings/sessions"
     const val DATA = "settings/data"
     const val WISHING = "settings/wishing"
@@ -139,7 +141,15 @@ fun AstraApp() {
                         onOpenFriends = { nav.navigate(Routes.FRIENDS) },
                         onOpenSettings = { nav.navigate(Routes.SETTINGS) },
                         onOpenProfile = { nav.navigate(Routes.PERSONALIZATION) },
+                        onOpenNotifications = { nav.navigate(Routes.NOTIF_FEED) },
                         onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
+                    )
+                }
+                composable(Routes.NOTIF_FEED) {
+                    NotificationsFeedScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
+                        onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
                     )
                 }
                 composable(Routes.FRIENDS) {

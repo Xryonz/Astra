@@ -123,6 +123,7 @@ fun HomeScreen(
     onOpenFriends: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenProfile: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onJoinVoice: (channelId: String, name: String, serverId: String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -156,6 +157,7 @@ fun HomeScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshProfile()
                 viewModel.refreshServers()
+                viewModel.refreshNotifications()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -346,7 +348,8 @@ fun HomeScreen(
                 status = state.myStatus,
                 onOpenSheet = { profileSheet = true },
                 onSettings = onOpenSettings,
-                onBell = {},
+                onBell = onOpenNotifications,
+                notifDot = state.unreadNotifs > 0,
             )
         }
     }
@@ -1052,6 +1055,7 @@ private fun BottomUserBar(
     onOpenSheet: () -> Unit,
     onSettings: () -> Unit,
     onBell: () -> Unit,
+    notifDot: Boolean = false,
 ) {
     val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
     Box(
@@ -1105,7 +1109,18 @@ private fun BottomUserBar(
                 }
             }
             Spacer(Modifier.width(8.dp))
-            CircleIconBtn(Lucide.Bell, "Notificacoes", onBell)
+            Box {
+                CircleIconBtn(Lucide.Bell, "Notificacoes", onBell)
+                if (notifDot) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(astraColors.accent),
+                    )
+                }
+            }
             Spacer(Modifier.width(8.dp))
             CircleIconBtn(Lucide.Settings, "Configuracoes", onSettings)
         }

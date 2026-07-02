@@ -3,6 +3,7 @@ package app.astra.mobile.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
 import app.astra.mobile.feature.auth.domain.AuthRepository
@@ -31,6 +32,7 @@ class HomeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
+    private val notificationsApi: NotificationsApi,
 ) : ViewModel() {
 
     val socketState: StateFlow<ConnectionState> = socketManager.state
@@ -46,6 +48,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         load()
+        refreshNotifications()
         observeIncoming()
     }
 
@@ -115,6 +118,15 @@ class HomeViewModel @Inject constructor(
     fun selectServer(id: String?) = _state.update { it.copy(selectedServerId = id) }
 
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
+
+    fun refreshNotifications() {
+        viewModelScope.launch {
+            try {
+                val count = notificationsApi.unread().data?.count ?: 0
+                _state.update { it.copy(unreadNotifs = count) }
+            } catch (_: Exception) {}
+        }
+    }
 
     fun refreshProfile() {
         viewModelScope.launch {

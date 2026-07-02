@@ -41,6 +41,17 @@
                 <data android:scheme="astra" android:host="auth" />
                 <data android:scheme="astra" android:host="login" />
             </intent-filter>
+            <!-- Convite compartilhado (/i/CODE). Sem autoVerify (sem assetlinks no
+                 Railway): Android oferece "Abrir com Astra" no chooser. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="umbra-api-production.up.railway.app"
+                    android:pathPrefix="/i/" />
+            </intent-filter>
         </activity>
 
         <!-- Mantem a chamada viva com o app em background (Android 14+ exige type) -->

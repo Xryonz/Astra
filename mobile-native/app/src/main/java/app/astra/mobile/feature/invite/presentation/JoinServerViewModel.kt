@@ -1,5 +1,6 @@
 package app.astra.mobile.feature.invite.presentation
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.feature.invite.domain.InvitesRepository
@@ -15,6 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class JoinServerViewModel @Inject constructor(
     private val repository: InvitesRepository,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(JoinServerUiState())
@@ -22,6 +24,15 @@ class JoinServerViewModel @Inject constructor(
 
     private val _joined = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 1)
     val joined = _joined.asSharedFlow()
+
+    init {
+        // Deep link /i/CODE: chega com o codigo pronto -> preview automatico.
+        val initial: String = savedStateHandle["code"] ?: ""
+        if (initial.isNotBlank()) {
+            setCode(initial)
+            loadPreview()
+        }
+    }
 
     fun setCode(value: String) = _state.update {
         it.copy(code = value, previewError = null, joinError = null)

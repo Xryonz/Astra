@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.crash.CrashReporter
 import app.astra.mobile.core.crash.CrashScreen
 import app.astra.mobile.core.data.AppPrefs
@@ -87,6 +88,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleDeepLink(intent: Intent?) {
         val data = intent?.data ?: return
+
+        // Convite: https://<api>/i/CODE (link do share). Entrega pro AstraApp via bus.
+        if (data.pathSegments.firstOrNull() == "i") {
+            data.pathSegments.getOrNull(1)?.takeIf { it.isNotBlank() }?.let {
+                DeepLinkBus.pendingInviteCode.value = it
+            }
+            return
+        }
+
         if (data.scheme != "astra") return
         when (data.host) {
             "auth" -> {

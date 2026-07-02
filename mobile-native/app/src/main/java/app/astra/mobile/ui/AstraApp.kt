@@ -67,6 +67,7 @@ import app.astra.mobile.feature.sessions.presentation.SessionsScreen
 import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
+import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.feature.voice.presentation.IncomingCallViewModel
 import app.astra.mobile.ui.components.AstraDialog
@@ -92,7 +93,7 @@ private object Routes {
     fun userProfile(id: String, name: String) = "user/$id?name=${Uri.encode(name)}"
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
-    const val JOIN = "join"
+    const val JOIN = "join?code={code}"
     const val DISCOVER = "discover"
     const val SERVER_EDIT = "server/{serverId}/edit"
     fun serverEdit(id: String) = "server/$id/edit"
@@ -105,6 +106,8 @@ private object Routes {
     fun channelChat(id: String, name: String) = "channel/$id?name=${Uri.encode(name)}"
     fun call(id: String, name: String, serverId: String, kind: String = "channel") =
         "call/$id?name=${Uri.encode(name)}&serverId=$serverId&kind=$kind"
+    fun join(code: String? = null) =
+        if (code.isNullOrBlank()) "join" else "join?code=${Uri.encode(code)}"
 }
 
 @Composable
@@ -137,7 +140,7 @@ fun AstraApp() {
                     HomeScreen(
                         onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
                         onOpenServerEdit = { id -> nav.navigate(Routes.serverEdit(id)) },
-                        onOpenJoin = { nav.navigate(Routes.JOIN) },
+                        onOpenJoin = { nav.navigate(Routes.join()) },
                         onOpenDiscover = { nav.navigate(Routes.DISCOVER) },
                         onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
                         onOpenDms = { nav.navigate(Routes.DMS) },
@@ -212,7 +215,10 @@ fun AstraApp() {
                 composable(Routes.ACCESSIBILITY) {
                     AccessibilityScreen(onBack = { nav.popBackStack() })
                 }
-                composable(Routes.JOIN) {
+                composable(
+                    route = Routes.JOIN,
+                    arguments = listOf(navArgument("code") { type = NavType.StringType; defaultValue = "" }),
+                ) {
                     JoinServerScreen(
                         onBack = { nav.popBackStack() },
                         onJoined = { id, name ->
@@ -297,6 +303,16 @@ fun AstraApp() {
                 val target = if (loggedIn == true) Routes.HOME else Routes.LOGIN
                 if (nav.currentDestination?.route != target) {
                     nav.navigate(target) { popUpTo(0) { inclusive = true } }
+                }
+            }
+
+            // Deep link de convite (/i/CODE): consome quando logado e abre o preview.
+            val pendingInvite by DeepLinkBus.pendingInviteCode.collectAsState()
+            LaunchedEffect(pendingInvite, loggedIn) {
+                val code = pendingInvite ?: return@LaunchedEffect
+                if (loggedIn == true) {
+                    DeepLinkBus.pendingInviteCode.value = null
+                    nav.navigate(Routes.join(code))
                 }
             }
 

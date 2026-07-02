@@ -9,6 +9,7 @@ import app.astra.mobile.core.network.FriendsApi
 import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.InvitesApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.NotificationsApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.SessionApi
@@ -119,6 +120,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideSessionApi(retrofit: Retrofit): SessionApi = retrofit.create(SessionApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNotificationsApi(retrofit: Retrofit): NotificationsApi = retrofit.create(NotificationsApi::class.java)
 
     @Provides
     @Singleton

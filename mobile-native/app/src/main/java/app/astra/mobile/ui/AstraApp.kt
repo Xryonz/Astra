@@ -54,6 +54,7 @@ import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
+import app.astra.mobile.feature.notifications.presentation.NotificationsSettingsScreen
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
 import app.astra.mobile.feature.profile.presentation.DataScreen
@@ -77,6 +78,7 @@ private object Routes {
     const val ACCOUNT = "settings/account"
     const val PERSONALIZATION = "settings/personalization"
     const val ACCESSIBILITY = "settings/accessibility"
+    const val NOTIFICATIONS = "settings/notifications"
     const val SESSIONS = "settings/sessions"
     const val DATA = "settings/data"
     const val WISHING = "settings/wishing"
@@ -170,10 +172,14 @@ fun AstraApp() {
                         onOpenAccount = { nav.navigate(Routes.ACCOUNT) },
                         onOpenPersonalization = { nav.navigate(Routes.PERSONALIZATION) },
                         onOpenAccessibility = { nav.navigate(Routes.ACCESSIBILITY) },
+                        onOpenNotifications = { nav.navigate(Routes.NOTIFICATIONS) },
                         onOpenSessions = { nav.navigate(Routes.SESSIONS) },
                         onOpenData = { nav.navigate(Routes.DATA) },
                         onOpenWishing = { nav.navigate(Routes.WISHING) },
                     )
+                }
+                composable(Routes.NOTIFICATIONS) {
+                    NotificationsSettingsScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.ACCOUNT) {
                     AccountScreen(onBack = { nav.popBackStack() })

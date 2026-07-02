@@ -40,6 +40,7 @@ fun SettingsScreen(
     onOpenAccount: () -> Unit,
     onOpenPersonalization: () -> Unit,
     onOpenAccessibility: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onOpenSessions: () -> Unit,
     onOpenData: () -> Unit,
     onOpenWishing: () -> Unit,
@@ -77,7 +78,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— app", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
-            SettingsRow("Notificacoes", "em breve", onClick = null)
+            SettingsRow("Notificações", "menções, sussurros e horário silencioso", onOpenNotifications)
 
             Spacer(Modifier.height(20.dp))
             MarginaliaLabel("— conta e seguranca", Modifier.padding(start = 22.dp, bottom = 8.dp))

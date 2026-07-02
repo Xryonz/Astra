@@ -103,6 +103,7 @@ dependencies {
     implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (tokens)
     implementation(libs.rikkaui.components) // RikkaUI: componentes (Input, Dialog, Avatar...); ejeta p/ copy-paste ao customizar
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.leakcanary.android) // caca memory leaks em runtime (so debug)
 
     // DI — Hilt (via KSP)
     implementation(libs.hilt.android)

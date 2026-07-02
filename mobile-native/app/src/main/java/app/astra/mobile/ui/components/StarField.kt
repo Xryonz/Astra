@@ -1,5 +1,8 @@
 package app.astra.mobile.ui.components
 
+import android.graphics.RuntimeShader
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -12,9 +15,11 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.LocalAppPrefs
@@ -120,9 +125,57 @@ private fun StarFieldStatic(modifier: Modifier = Modifier, color: Color = astraC
     }
 }
 
+// Aurora AGSL: duas fitas de luz ambar bem sutis que derivam na horizontal,
+// concentradas no topo e sumindo pra baixo. Alpha baixo (~0.14) pra nao competir
+// com o conteudo. Roda por-pixel no GPU (barato: uns poucos sin/smoothstep).
+private const val AURORA_AGSL = """
+uniform float2 iResolution;
+uniform float iTime;
+uniform float3 accent;
+
+half4 main(float2 fragCoord) {
+    float2 uv = fragCoord / iResolution;
+    float t = iTime;
+    float b1 = sin(uv.x * 2.2 + t * 0.6) * 0.10;
+    float b2 = sin(uv.x * 3.7 - t * 0.4 + 1.7) * 0.07;
+    float ribbon = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - (0.26 + b1))))
+                 + (1.0 - smoothstep(0.0, 0.05, abs(uv.y - (0.48 + b2)))) * 0.7;
+    float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
+    float intensity = ribbon * fall * 0.14;
+    float3 col = accent * intensity;
+    return half4(col, intensity);
+}
+"""
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun AuroraShader(color: Color, modifier: Modifier = Modifier) {
+    val shader = remember { RuntimeShader(AURORA_AGSL) }
+    val brush = remember(shader) { ShaderBrush(shader) }
+    val inf = rememberInfiniteTransition(label = "aurora")
+    val time by inf.animateFloat(
+        0f, 62.8f,
+        infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "aurora-t",
+    )
+    val r = color.red; val g = color.green; val b = color.blue
+    Canvas(modifier.fillMaxSize()) {
+        // Fase de desenho (como o StarField): le o time animado sem recompor.
+        shader.setFloatUniform("iResolution", size.width, size.height)
+        shader.setFloatUniform("accent", r, g, b)
+        shader.setFloatUniform("iTime", time)
+        drawRect(brush)
+    }
+}
+
 @Composable
 fun CosmicBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val reduceMotion = LocalAppPrefs.current.reduceMotion
     Box(modifier.fillMaxSize().background(astraColors.void)) {
+        // Aurora so em Android 13+ (RuntimeShader) e com animacao ligada. Senao,
+        // fallback = void + StarField de sempre (nada regride).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceMotion) {
+            AuroraShader(astraColors.accent)
+        }
         StarField()
         content()
     }

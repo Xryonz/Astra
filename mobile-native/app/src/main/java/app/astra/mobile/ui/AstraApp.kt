@@ -12,6 +12,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import app.astra.mobile.ui.components.ConstellationGraphic
+import app.astra.mobile.ui.components.CosmicBackdrop
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -121,7 +122,10 @@ fun AstraApp() {
     val reduceMotion = LocalAppPrefs.current.reduceMotion // mestre (usado no splash)
     val transitionsOn = LocalAppPrefs.current.transitionsOn // toggle de transicoes de tela
 
-    Box(Modifier.fillMaxSize()) {
+    // Ceu global: 1 aurora + 1 starfield + 1 sensor pro app inteiro (era 1 por
+    // tela — transicoes animavam 2 shaders/canvas full-screen ao mesmo tempo).
+    // As telas sao transparentes e deslizam sobre o ceu parado.
+    CosmicBackdrop(interactive = true) {
 
         if (loggedIn != null) {
             val nav = rememberNavController()

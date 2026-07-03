@@ -100,6 +100,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraDialog
+import app.astra.mobile.ui.components.CosmicBackdrop
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.HairlineRule
@@ -1220,7 +1221,9 @@ private fun ProfileSheet(
     val member = memberSince(createdAt)
     // Tela cheia opaca estilo Discord (cobre a Home). Botao voltar fecha.
     BackHandler(onBack = onDismiss)
-    CosmicBackground(interactive = true) {
+    // Backdrop proprio (opaco): este sheet COBRE a Home; o shim transparente
+    // do CosmicBackground deixaria a Home aparecer atras.
+    CosmicBackdrop(interactive = true) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

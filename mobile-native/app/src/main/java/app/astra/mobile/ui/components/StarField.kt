@@ -237,7 +237,9 @@ float vnoise(float2 p) {
 float fbm(float2 p) {
     float v = 0.0;
     float a = 0.5;
-    for (int k = 0; k < 4; k++) {
+    // 3 oitavas (era 4): -25% de ALU por pixel, diferenca visual imperceptivel
+    // no alpha ~0.16 em que a aurora vive.
+    for (int k = 0; k < 3; k++) {
         v += a * vnoise(p);
         p *= 2.0;
         a *= 0.5;
@@ -303,7 +305,10 @@ private fun AuroraShader(
     val touchMod = if (interactive) {
         Modifier.pointerInput(Unit) {
             awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
+                // So toques que NINGUEM consumiu (area vazia): com o backdrop
+                // global atras do app todo, sem isso todo scroll/click acenderia
+                // o glow atras do conteudo.
+                val down = awaitFirstDown(requireUnconsumed = true)
                 val w = size.width.toFloat().coerceAtLeast(1f)
                 val h = size.height.toFloat().coerceAtLeast(1f)
                 touchUv.value = Offset(down.position.x / w, down.position.y / h)
@@ -341,8 +346,12 @@ private fun AuroraShader(
     }
 }
 
+// Fundo cosmico REAL: uma unica instancia global no AstraApp, atras do NavHost
+// (1 shader + 1 starfield + 1 sensor pro app todo; transicoes de tela deslizam
+// o conteudo sobre o ceu parado, estilo Discord/iOS). Overlays que cobrem tudo
+// (ex.: ProfileSheet) usam este direto pra ficarem opacos.
 @Composable
-fun CosmicBackground(
+fun CosmicBackdrop(
     modifier: Modifier = Modifier,
     interactive: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
@@ -360,4 +369,17 @@ fun CosmicBackground(
         StarField(tilt = tilt)
         content()
     }
+}
+
+// Compat: as telas continuam usando CosmicBackground como container, mas o ceu
+// agora e global (CosmicBackdrop no AstraApp) — aqui e so um Box transparente.
+// `interactive` e ignorado: o toque reativo vive no backdrop global.
+@Suppress("UNUSED_PARAMETER")
+@Composable
+fun CosmicBackground(
+    modifier: Modifier = Modifier,
+    interactive: Boolean = false,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(modifier.fillMaxSize(), content = content)
 }

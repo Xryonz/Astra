@@ -91,7 +91,7 @@ private fun LoginContent(
     onGoogle: () -> Unit,
     onGoToRegister: () -> Unit,
 ) {
-    CosmicBackground {
+    CosmicBackground(interactive = true) {
 
         Box(
             Modifier

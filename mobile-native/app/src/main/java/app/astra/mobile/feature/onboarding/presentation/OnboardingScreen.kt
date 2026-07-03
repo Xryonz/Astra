@@ -90,7 +90,7 @@ fun OnboardingScreen(
     // Voltar navega entre slides; no primeiro, conclui (nao escapa sem marcar).
     BackHandler { if (page > 0) page-- else finish() }
 
-    CosmicBackground {
+    CosmicBackground(interactive = true) {
         Column(
             Modifier
                 .fillMaxSize()

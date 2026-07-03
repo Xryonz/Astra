@@ -78,7 +78,7 @@ private fun RegisterContent(
     onSubmit: () -> Unit,
     onGoToLogin: () -> Unit,
 ) {
-    CosmicBackground {
+    CosmicBackground(interactive = true) {
         Box(
             Modifier
                 .align(Alignment.Center)

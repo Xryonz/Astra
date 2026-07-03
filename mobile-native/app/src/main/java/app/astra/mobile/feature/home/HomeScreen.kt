@@ -1201,7 +1201,7 @@ private fun ProfileSheet(
     val member = memberSince(createdAt)
     // Tela cheia opaca estilo Discord (cobre a Home). Botao voltar fecha.
     BackHandler(onBack = onDismiss)
-    CosmicBackground {
+    CosmicBackground(interactive = true) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

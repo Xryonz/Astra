@@ -32,6 +32,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.lucide.ChartColumn
+import com.composables.icons.lucide.Film
+import com.composables.icons.lucide.Image
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Smile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -691,6 +698,23 @@ fun ChatMessageList(
 }
 
 @Composable
+private fun ComposerOption(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        leadingIcon = {
+            Icon(icon, contentDescription = null, tint = astraColors.accent, modifier = Modifier.size(18.dp))
+        },
+        text = { Text(label, color = astraColors.text1) },
+        enabled = enabled,
+        onClick = onClick,
+    )
+}
+
+@Composable
 fun EditingBanner(onCancel: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 4.dp),
@@ -829,59 +853,42 @@ fun ChatInputBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
 
-        if (onAttach != null) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.borderMid, CircleShape)
-                    .clickable(enabled = !uploading, onClick = onAttach),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (uploading) "…" else "+",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = astraColors.text2,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-        }
-
-        if (onGif != null) {
-            Box(
-                modifier = Modifier
-                    .height(46.dp)
-                    .clip(CircleShape)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.borderMid, CircleShape)
-                    .clickable(onClick = onGif)
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "GIF",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = astraColors.text2,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-        }
-
-        if (onPoll != null) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.borderMid, CircleShape)
-                    .clickable(onClick = onPoll),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "📊",
-                    style = MaterialTheme.typography.titleMedium,
-                )
+        // Um botao so: "+" abre menu flutuante com as opcoes (Fotos/GIF/Enquete/
+        // Emoji) pra nao poluir a linha do composer. Abre pra cima (composer no
+        // rodape, o DropdownMenu flipa sozinho).
+        val hasOptions = onAttach != null || onGif != null || onPoll != null || onEmoji != null
+        if (hasOptions) {
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(if (menuOpen) astraColors.accentDim else astraColors.raised)
+                        .border(1.dp, astraColors.borderMid, CircleShape)
+                        .clickable { menuOpen = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (uploading) "…" else "+",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (menuOpen) astraColors.accent else astraColors.text2,
+                    )
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (onAttach != null) {
+                        ComposerOption(Lucide.Image, "Fotos", enabled = !uploading) { menuOpen = false; onAttach() }
+                    }
+                    if (onGif != null) {
+                        ComposerOption(Lucide.Film, "GIF") { menuOpen = false; onGif() }
+                    }
+                    if (onPoll != null) {
+                        ComposerOption(Lucide.ChartColumn, "Enquete") { menuOpen = false; onPoll() }
+                    }
+                    if (onEmoji != null) {
+                        ComposerOption(Lucide.Smile, "Emoji") { menuOpen = false; onEmoji() }
+                    }
+                }
             }
             Spacer(Modifier.width(8.dp))
         }
@@ -901,23 +908,6 @@ fun ChatInputBar(
             singleLine = false,
             animation = InputAnimation.Glow,
         )
-        if (onEmoji != null) {
-            Spacer(Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(astraColors.raised)
-                    .border(1.dp, astraColors.borderMid, CircleShape)
-                    .clickable(onClick = onEmoji),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "🙂",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-        }
         Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier

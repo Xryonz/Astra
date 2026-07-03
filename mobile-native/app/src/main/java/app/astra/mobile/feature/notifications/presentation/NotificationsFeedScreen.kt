@@ -32,6 +32,7 @@ import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
@@ -66,13 +67,17 @@ fun NotificationsFeedScreen(
 
             when {
                 state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CosmicSpinner() }
-                state.items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                state.items.isEmpty() && state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        state.error ?: "Céu quieto por enquanto.",
+                        state.error!!,
                         style = MaterialTheme.typography.bodyMedium,
                         color = astraColors.text3,
                     )
                 }
+                state.items.isEmpty() -> EmptyState(
+                    line = "Céu quieto por enquanto",
+                    hint = "mencoes e novidades pousam aqui",
+                )
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(state.items, key = { it.id }) { n ->
                         NotificationRowItem(n) {

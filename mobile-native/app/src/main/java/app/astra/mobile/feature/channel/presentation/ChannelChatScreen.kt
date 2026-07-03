@@ -43,6 +43,7 @@ import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.MessageListSkeleton
 import app.astra.mobile.ui.components.PendingAttachmentsBar
@@ -98,11 +99,9 @@ fun ChannelChatScreen(
                 when {
 
                     state.loading && state.messages.isEmpty() -> MessageListSkeleton()
-                    state.messages.isEmpty() -> Text(
-                        text = "Silencio nesta orbita — solte a primeira transmissao",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = astraColors.text2,
-                        modifier = Modifier.align(Alignment.Center),
+                    state.messages.isEmpty() -> EmptyState(
+                        line = "Silencio nesta orbita",
+                        hint = "solte a primeira transmissao",
                     )
                     else -> {
 

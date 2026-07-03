@@ -45,6 +45,7 @@ import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
+import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MessageListSkeleton
 import app.astra.mobile.ui.components.PendingAttachmentsBar
@@ -125,11 +126,9 @@ fun DmChatScreen(
                 when {
 
                     state.loading && state.messages.isEmpty() -> MessageListSkeleton()
-                    state.messages.isEmpty() -> Text(
-                        text = "Diga oi 👋",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = astraColors.text2,
-                        modifier = Modifier.align(Alignment.Center),
+                    state.messages.isEmpty() -> EmptyState(
+                        line = "Silencio cosmico",
+                        hint = "diga oi 👋",
                     )
                     else -> {
 

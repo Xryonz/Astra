@@ -33,6 +33,7 @@ import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
@@ -107,11 +108,9 @@ fun WishingScreen(
 
                 when {
                     state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }
-                    state.items.isEmpty() -> Text(
-                        "O ceu esta vazio. Seja o primeiro a sonhar.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = astraColors.text3,
-                        modifier = Modifier.padding(horizontal = 22.dp),
+                    state.items.isEmpty() -> EmptyState(
+                        line = "O ceu esta vazio",
+                        hint = "seja o primeiro a sonhar",
                     )
                     else -> Column(
                         Modifier.padding(horizontal = 18.dp),

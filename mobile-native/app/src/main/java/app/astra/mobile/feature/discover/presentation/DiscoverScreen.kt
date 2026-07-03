@@ -32,6 +32,7 @@ import app.astra.mobile.core.network.dto.DiscoverServerDto
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.theme.DmSerif
@@ -70,7 +71,10 @@ fun DiscoverScreen(
                 when {
                     s.loading && s.servers.isEmpty() -> Center("Varrendo o ceu…")
                     s.error != null -> Center(s.error!!)
-                    s.servers.isEmpty() -> Center("Nenhuma constelacao publica ainda.")
+                    s.servers.isEmpty() -> EmptyState(
+                        line = "Nenhuma constelacao publica",
+                        hint = "seja o primeiro a fundar uma",
+                    )
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),

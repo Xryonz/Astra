@@ -101,6 +101,7 @@ import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraDialog
 import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
 import app.astra.mobile.ui.components.MarginaliaLabel
@@ -322,10 +323,12 @@ fun HomeScreen(
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                             when {
                                 state.loading -> ListSkeleton(avatar = true)
+                                dms.isEmpty() && query.isBlank() -> EmptyState(
+                                    line = AstraCopy.Empties.noDMs.title,
+                                    hint = "toque em Adicionar estrelas",
+                                )
                                 dms.isEmpty() -> Text(
-                                    text = if (query.isBlank())
-                                        "${AstraCopy.Empties.noDMs.title} — toque em Adicionar estrelas."
-                                    else "Nada encontrado.",
+                                    text = "Nada encontrado.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = astraColors.text3,
                                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
@@ -762,11 +765,9 @@ private fun ServerChannelsPanel(
             onAddChannel = if (isOwner) ({ showCreateChannel = true }) else null,
         )
         if (server.channels.isEmpty()) {
-            Text(
-                text = "Nenhuma orbita visivel nesta constelacao.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = astraColors.text3,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            EmptyState(
+                line = "Nenhuma orbita visivel",
+                hint = "as orbitas desta constelacao pousam aqui",
             )
         } else {
             LazyColumn(

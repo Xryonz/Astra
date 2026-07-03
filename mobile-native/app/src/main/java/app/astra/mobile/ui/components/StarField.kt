@@ -265,12 +265,14 @@ half4 main(float2 fragCoord) {
     float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
     float aur = (c1 + c2) * fall * 0.16;
 
+    // Efeito de toque COMPACTO (pedido do user): glow ~do tamanho do dedo e
+    // anel que expande pouco (~9% da tela) e morre rapido (~0.6s).
     float2 asp = float2(iResolution.x / iResolution.y, 1.0);
     float dT = distance(uv * asp, touchPos * asp);
-    float fx = touchGlow * exp(-dT * 9.0) * 0.30;
+    float fx = touchGlow * exp(-dT * 28.0) * 0.30;
     if (rippleAge >= 0.0) {
-        float r = rippleAge * 0.5;
-        fx += exp(-abs(dT - r) * 30.0) * exp(-rippleAge * 2.6) * 0.35;
+        float r = rippleAge * 0.16;
+        fx += exp(-abs(dT - r) * 60.0) * exp(-rippleAge * 4.5) * 0.35;
     }
 
     float a = min(aur + fx, 0.30);

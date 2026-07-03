@@ -47,6 +47,9 @@ data class HomeUiState(
     // true 1x quando o me() chega sem onboardedAt -> Home dispara o onboarding.
     val needsOnboarding: Boolean = false,
 
+    // true 1x quando o me() chega sem emailVerifiedAt -> tela de codigo.
+    val needsEmailVerify: Boolean = false,
+
     // Conta Google sem senha -> overlay obrigatorio de criar senha.
     val needsPassword: Boolean = false,
     val pwSaving: Boolean = false,

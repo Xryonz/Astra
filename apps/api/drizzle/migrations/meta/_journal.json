@@ -134,6 +134,13 @@
       "when": 1786500000000,
       "tag": "0018_badges",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786600000000,
+      "tag": "0019_email_verification",
+      "breakpoints": true
     }
   ]
 }

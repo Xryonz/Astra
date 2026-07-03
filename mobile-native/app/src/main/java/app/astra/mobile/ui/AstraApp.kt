@@ -60,6 +60,7 @@ import app.astra.mobile.feature.home.HomeScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsFeedScreen
 import app.astra.mobile.feature.onboarding.presentation.OnboardingScreen
+import app.astra.mobile.feature.verifyemail.presentation.VerifyEmailScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsSettingsScreen
 import app.astra.mobile.feature.profile.presentation.AccessibilityScreen
 import app.astra.mobile.feature.profile.presentation.AccountScreen
@@ -99,6 +100,7 @@ private object Routes {
     const val DMS = "dms"
     const val DM_CHAT = "dm/{conversationId}?name={name}"
     const val JOIN = "join?code={code}"
+    const val VERIFY_EMAIL = "verify-email"
     const val DISCOVER = "discover"
     const val SERVER_EDIT = "server/{serverId}/edit"
     fun serverEdit(id: String) = "server/$id/edit"
@@ -157,11 +159,15 @@ fun AstraApp() {
                         onOpenProfile = { nav.navigate(Routes.PERSONALIZATION) },
                         onOpenNotifications = { nav.navigate(Routes.NOTIF_FEED) },
                         onOpenOnboarding = { nav.navigate(Routes.ONBOARDING) },
+                        onOpenVerifyEmail = { nav.navigate(Routes.VERIFY_EMAIL) },
                         onJoinVoice = { channelId, name, serverId -> nav.navigate(Routes.call(channelId, name, serverId)) },
                     )
                 }
                 composable(Routes.ONBOARDING) {
                     OnboardingScreen(onDone = { nav.popBackStack() })
+                }
+                composable(Routes.VERIFY_EMAIL) {
+                    VerifyEmailScreen(onDone = { nav.popBackStack() })
                 }
                 composable(Routes.NOTIF_FEED) {
                     NotificationsFeedScreen(

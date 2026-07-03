@@ -166,6 +166,7 @@ private fun ProfileUserDto.toDomain() = Profile(
     bannerScale = bannerScale ?: 100,
     displayFont = displayFont ?: "serif",
     onboardedAt = onboardedAt,
+    emailVerifiedAt = emailVerifiedAt,
 )
 
 private fun MutualServerDto.toDomain() = MutualServer(id, name, iconUrl, isGroup, role)

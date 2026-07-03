@@ -40,6 +40,7 @@ import { startRetentionWorker }          from './lib/retentionWorker'
 import pushRouter                        from './routes/push'
 import { initPush }                      from './lib/push'
 import { initFcm }                       from './lib/fcm'
+import { initMailer }                    from './lib/mailer'
 import gifRouter                         from './routes/gif'
 import { rolesRouter }                   from './routes/roles'
 import { bansRouter }                    from './routes/bans'
@@ -208,4 +209,5 @@ httpServer.listen(env.PORT, async () => {
   logger.info('Reminders', 'Worker iniciado (30s)')
   initPush()
   void initFcm()
+  initMailer()
 })

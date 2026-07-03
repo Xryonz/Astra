@@ -36,6 +36,10 @@ const EnvSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
 
 
+  GMAIL_USER:         z.string().optional(),
+  GMAIL_APP_PASSWORD: z.string().optional(),
+
+
   GIPHY_API_KEY: z.string().optional(),
 
 

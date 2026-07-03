@@ -46,6 +46,11 @@ export const users = pgTable('User', {
   preferences:  text('preferences'),
 
   onboardedAt:  timestamp('onboardedAt', { precision: 3 }),
+
+  emailVerifiedAt:    timestamp('emailVerifiedAt', { precision: 3 }),
+  emailCode:          text('emailCode'),
+  emailCodeExpiresAt: timestamp('emailCodeExpiresAt', { precision: 3 }),
+
   createdAt:    timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt:    timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 })

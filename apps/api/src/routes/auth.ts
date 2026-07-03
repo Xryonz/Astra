@@ -15,7 +15,8 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
-import { RegisterSchema, LoginSchema, ChangePasswordSchema, SetPasswordSchema } from '@astra/types'
+import { RegisterSchema, LoginSchema, ChangePasswordSchema, SetPasswordSchema, VerifyEmailSchema } from '@astra/types'
+import { isMailEnabled, sendVerificationCode } from '../lib/mailer'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from '../lib/coordinate'
 
@@ -40,6 +41,13 @@ const userSafeColumns = {
   statusEmoji:     users.statusEmoji,
   displayFont:     users.displayFont,
   onboardedAt:     users.onboardedAt,
+  emailVerifiedAt: users.emailVerifiedAt,
+}
+
+const EMAIL_CODE_TTL_MS = 15 * 60 * 1000
+
+function newEmailCode() {
+  return String(Math.floor(100000 + Math.random() * 900000))
 }
 
 function extractRefreshToken(req: Request): string | undefined {
@@ -67,13 +75,24 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 12)
     const newUserId = createId()
+
+    // Verificação de email: com mailer configurado, a conta nasce NÃO
+    // verificada e recebe um código de 6 dígitos; sem mailer, nasce verificada
+    // (não trava o registro antes do GMAIL_* estar na Railway).
+    const emailCode = isMailEnabled() ? newEmailCode() : null
+
     const [user] = await db.insert(users)
       .values({
         id: newUserId,
         email, username, displayName, passwordHash,
         coordinate: generateCoordinate(newUserId),
+        emailVerifiedAt:    emailCode ? null : new Date(),
+        emailCode,
+        emailCodeExpiresAt: emailCode ? new Date(Date.now() + EMAIL_CODE_TTL_MS) : null,
       })
       .returning(userSafeColumns)
+
+    if (emailCode) sendVerificationCode(email, emailCode).catch(() => {})
 
     const { token: accessToken } = generateAccessToken(user.id)
     const { refreshToken }       = await createRefreshToken(user.id, {
@@ -213,6 +232,62 @@ router.post(
 )
 
 router.post(
+  '/email/verify',
+  requireAuth,
+  authLimiter,
+  validate(VerifyEmailSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = req.body
+    const [user] = await db.select({
+      emailVerifiedAt:    users.emailVerifiedAt,
+      emailCode:          users.emailCode,
+      emailCodeExpiresAt: users.emailCodeExpiresAt,
+    }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
+    if (user.emailVerifiedAt) return res.json({ data: { verified: true } })
+    if (!user.emailCode || user.emailCode !== code) {
+      return res.status(400).json({ error: 'Código incorreto' })
+    }
+    if (!user.emailCodeExpiresAt || user.emailCodeExpiresAt < new Date()) {
+      return res.status(400).json({ error: 'Código expirado — peça um novo' })
+    }
+    await db.update(users)
+      .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
+      .where(eq(users.id, req.userId!))
+    res.json({ data: { verified: true } })
+  })
+)
+
+router.post(
+  '/email/resend',
+  requireAuth,
+  authLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const [user] = await db.select({
+      email:           users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
+    }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
+    if (user.emailVerifiedAt) return res.json({ data: { verified: true } })
+
+    // Mailer caiu/foi desligado depois do registro: não deixa a conta presa.
+    if (!isMailEnabled()) {
+      await db.update(users)
+        .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
+        .where(eq(users.id, req.userId!))
+      return res.json({ data: { verified: true } })
+    }
+
+    const code = newEmailCode()
+    await db.update(users)
+      .set({ emailCode: code, emailCodeExpiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS) })
+      .where(eq(users.id, req.userId!))
+    sendVerificationCode(user.email, code).catch(() => {})
+    res.json({ data: { sent: true } })
+  })
+)
+
+router.post(
   '/password/set',
   requireAuth,
   authLimiter,
@@ -276,6 +351,11 @@ router.get(
         return res.redirect(`${loginUrl}?error=oauth`)
       }
       try {
+        // Logar via Google PROVA a posse do email — carimba se ainda não tinha.
+        await db.update(users)
+          .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
+          .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
+
         const { refreshToken } = await createRefreshToken(user.id, {
           userAgent: req.header('user-agent') ?? undefined,
           ip:        req.ip,

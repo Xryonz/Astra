@@ -21,4 +21,6 @@ data class Profile(
     val displayFont: String = "serif",
     // null = nunca viu o onboarding cosmico (gate compartilhado com o web).
     val onboardedAt: String? = null,
+    // null = email ainda nao confirmado -> tela de codigo (contas antigas vem carimbadas).
+    val emailVerifiedAt: String? = null,
 )

@@ -134,6 +134,7 @@ fun HomeScreen(
     onOpenProfile: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenOnboarding: () -> Unit,
+    onOpenVerifyEmail: () -> Unit,
     onJoinVoice: (channelId: String, name: String, serverId: String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -166,6 +167,14 @@ fun HomeScreen(
         if (state.needsOnboarding) {
             viewModel.consumeOnboarding()
             onOpenOnboarding()
+        }
+    }
+
+    // Email ainda nao confirmado (registro novo) -> tela de codigo por cima.
+    LaunchedEffect(state.needsEmailVerify) {
+        if (state.needsEmailVerify) {
+            viewModel.consumeEmailVerify()
+            onOpenVerifyEmail()
         }
     }
 

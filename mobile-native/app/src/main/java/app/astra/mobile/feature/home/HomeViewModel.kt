@@ -115,6 +115,7 @@ class HomeViewModel @Inject constructor(
                     myCreatedAt = me?.createdAt,
                     myStatus = me?.status ?: UserStatus.ONLINE,
                     needsOnboarding = me != null && me.onboardedAt == null,
+                    needsEmailVerify = me != null && me.emailVerifiedAt == null,
                     needsPassword = me != null && !me.hasPassword,
                 )
             }
@@ -123,6 +124,8 @@ class HomeViewModel @Inject constructor(
 
     // One-shot: a Home consome antes de navegar pro onboarding (sem loop).
     fun consumeOnboarding() = _state.update { it.copy(needsOnboarding = false) }
+
+    fun consumeEmailVerify() = _state.update { it.copy(needsEmailVerify = false) }
 
     // Cria a primeira senha (conta Google). Validacao espelha o SetPasswordSchema.
     fun setPassword(pw: String, confirm: String) {

@@ -80,6 +80,11 @@ export const SetPasswordSchema = z.object({
 })
 export type SetPasswordInput = z.infer<typeof SetPasswordSchema>
 
+export const VerifyEmailSchema = z.object({
+  code: z.string().length(6, 'Código de 6 dígitos'),
+})
+export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>
+
 export const CreateServerSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório').max(100, 'Máximo 100 caracteres'),
   iconUrl: z.string().url().optional(),

@@ -30,6 +30,11 @@ data class RegisterRequest(
 )
 
 @Serializable
+data class VerifyEmailRequest(
+    val code: String,
+)
+
+@Serializable
 data class AuthData(
     val user: UserDto,
     val accessToken: String,

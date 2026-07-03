@@ -35,6 +35,8 @@ export interface PushPayload {
   channelId?: string
 
   dmConvId?:  string
+
+  sender?: string
 }
 
 export async function sendPush(userId: string, payload: PushPayload) {

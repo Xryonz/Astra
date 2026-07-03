@@ -362,6 +362,7 @@ export function createMessagesRouter(io: SocketServer) {
                   icon:  author.avatarUrl ?? undefined,
                   actionable: true,
                   channelId,
+                  sender: author.displayName,
                 },
               }).catch(() => {})
             }

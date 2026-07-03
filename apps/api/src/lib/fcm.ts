@@ -41,23 +41,23 @@ export async function sendFcmToUser(userId: string, payload: PushPayload): Promi
 
   await Promise.allSettled(rows.map(async (row) => {
     try {
+      // Data-only: o app SEMPRE monta a notificacao (foreground e background),
+      // o que permite MessagingStyle + responder direto da notificacao. Com
+      // notification-block o sistema exibia sozinho e o app nem rodava.
       await messaging!.send({
         token: row.token,
-        notification: { title: payload.title, body: payload.body },
         data: {
-          url:       payload.url ?? '/app',
-          channelId: payload.channelId ?? '',
-          dmConvId:  payload.dmConvId ?? '',
+          title:        payload.title,
+          body:         payload.body,
+          url:          payload.url ?? '/app',
+          channelId:    payload.channelId ?? '',
+          dmConvId:     payload.dmConvId ?? '',
+          icon:         payload.icon ?? '',
+          tag:          payload.tag ?? '',
+          sender:       payload.sender ?? '',
+          notifChannel: channelId,
         },
-        android: {
-          priority: 'high',
-          notification: {
-            channelId,
-            icon:  'ic_stat_astra',
-            color: '#c9a96e',
-            tag:   payload.tag,
-          },
-        },
+        android: { priority: 'high' },
       })
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? ''

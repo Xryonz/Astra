@@ -300,6 +300,7 @@ export function createDMRouter(io: SocketServer) {
                 url:   `/app/dm/${conversationId}`,
                 tag:   `dm-${conversationId}`,
                 icon:  author?.avatarUrl ?? undefined,
+                sender: author?.displayName ?? 'Alguém',
               },
             }).catch(() => {})
           } catch (err) {

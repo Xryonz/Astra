@@ -115,6 +115,7 @@ class HomeViewModel @Inject constructor(
                     myCreatedAt = me?.createdAt,
                     myStatus = me?.status ?: UserStatus.ONLINE,
                     needsOnboarding = me != null && me.onboardedAt == null,
+                    needsPassword = me != null && !me.hasPassword,
                 )
             }
         }
@@ -122,6 +123,28 @@ class HomeViewModel @Inject constructor(
 
     // One-shot: a Home consome antes de navegar pro onboarding (sem loop).
     fun consumeOnboarding() = _state.update { it.copy(needsOnboarding = false) }
+
+    // Cria a primeira senha (conta Google). Validacao espelha o SetPasswordSchema.
+    fun setPassword(pw: String, confirm: String) {
+        if (_state.value.pwSaving) return
+        val error = when {
+            pw.length < 8 -> "Minimo 8 caracteres"
+            !pw.any { it.isUpperCase() } -> "Precisa de ao menos uma letra maiuscula"
+            !pw.any { it.isDigit() } -> "Precisa de ao menos um numero"
+            pw != confirm -> "As senhas nao coincidem"
+            else -> null
+        }
+        if (error != null) {
+            _state.update { it.copy(pwError = error) }
+            return
+        }
+        _state.update { it.copy(pwSaving = true, pwError = null) }
+        viewModelScope.launch {
+            userRepository.setPassword(pw)
+                .onSuccess { _state.update { it.copy(pwSaving = false, needsPassword = false) } }
+                .onFailure { e -> _state.update { it.copy(pwSaving = false, pwError = e.message ?: "Nao foi possivel salvar") } }
+        }
+    }
 
     fun selectServer(id: String?) = _state.update { it.copy(selectedServerId = id) }
 

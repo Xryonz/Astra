@@ -26,5 +26,8 @@ interface UserRepository {
 
     suspend fun changePassword(current: String, new: String): Result<Unit>
 
+    // Primeira senha de conta Google (sem senha); backend rejeita se ja tem.
+    suspend fun setPassword(new: String): Result<Unit>
+
     suspend fun setStatus(status: UserStatus): Result<Unit>
 }

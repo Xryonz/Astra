@@ -15,7 +15,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
-import { RegisterSchema, LoginSchema, ChangePasswordSchema } from '@astra/types'
+import { RegisterSchema, LoginSchema, ChangePasswordSchema, SetPasswordSchema } from '@astra/types'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from '../lib/coordinate'
 
@@ -209,6 +209,27 @@ router.post(
     const passwordHash = await bcrypt.hash(newPassword, 12)
     await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
     res.json({ message: 'Senha alterada' })
+  })
+)
+
+router.post(
+  '/password/set',
+  requireAuth,
+  authLimiter,
+  validate(SetPasswordSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { newPassword } = req.body
+    const [user] = await db.select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
+    if (user.passwordHash) {
+      return res.status(400).json({ error: 'Sua conta já tem senha. Use a troca de senha.' })
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12)
+    await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
+    res.json({ message: 'Senha criada' })
   })
 )
 

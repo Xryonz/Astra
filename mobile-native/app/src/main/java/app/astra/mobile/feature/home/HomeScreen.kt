@@ -100,8 +100,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraDialog
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import app.astra.mobile.ui.components.AuthErrorBox
 import app.astra.mobile.ui.components.CosmicBackdrop
 import app.astra.mobile.ui.components.CosmicBackground
+import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
@@ -410,6 +414,15 @@ fun HomeScreen(
         )
     }
 
+    // Conta Google sem senha: overlay OBRIGATORIO (back nao fecha) ate criar uma.
+    if (state.needsPassword) {
+        CreatePasswordGate(
+            saving = state.pwSaving,
+            error = state.pwError,
+            onSubmit = viewModel::setPassword,
+        )
+    }
+
     NewConversationDialog(
         open = showDialog,
         opening = state.opening,
@@ -426,6 +439,70 @@ fun HomeScreen(
         onConfirm = { name -> viewModel.createServer(name, forgeAsGroup) },
         onDismiss = { showForge = false; viewModel.clearCreateError() },
     )
+}
+
+// Tela-bloqueio de criar senha (conta Google). Sem escape: e requisito da conta.
+@Composable
+private fun CreatePasswordGate(
+    saving: Boolean,
+    error: String?,
+    onSubmit: (String, String) -> Unit,
+) {
+    BackHandler {}
+    var pw by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    CosmicBackdrop {
+        Column(
+            Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(horizontal = 26.dp),
+        ) {
+            Text(
+                text = "Crie uma senha",
+                fontFamily = DmSerif,
+                fontSize = 28.sp,
+                color = astraColors.text1,
+            )
+            Spacer(Modifier.height(6.dp))
+            MarginaliaLabel("sua conta entrou com o Google e ainda nao tem senha — crie uma pra garantir o acesso")
+            Spacer(Modifier.height(20.dp))
+            EditorialField(
+                value = pw, onValue = { pw = it },
+                label = "nova senha", placeholder = "8+ caracteres, 1 maiuscula, 1 numero",
+                enabled = !saving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Next,
+                password = true,
+            )
+            Spacer(Modifier.height(14.dp))
+            EditorialField(
+                value = confirm, onValue = { confirm = it },
+                label = "confirmar senha", placeholder = "••••••••",
+                enabled = !saving, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done,
+                onIme = { onSubmit(pw, confirm) }, password = true,
+            )
+            if (error != null) {
+                Spacer(Modifier.height(12.dp))
+                AuthErrorBox(error)
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(astraColors.accent)
+                    .clickable(enabled = !saving) { onSubmit(pw, confirm) },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (saving) "Salvando..." else "Criar senha",
+                    color = astraColors.textInv,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+        }
+    }
 }
 
 @Composable

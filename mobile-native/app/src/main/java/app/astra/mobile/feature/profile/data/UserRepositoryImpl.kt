@@ -5,6 +5,7 @@ import app.astra.mobile.core.ApiException
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
+import app.astra.mobile.core.network.dto.SetPasswordRequest
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetStatusRequest
@@ -95,6 +96,18 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun changePassword(current: String, new: String): Result<Unit> {
         return try {
             api.changePassword(ChangePasswordRequest(current, new))
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(mapError(e))
+        }
+    }
+
+    override suspend fun setPassword(new: String): Result<Unit> {
+        return try {
+            api.setPassword(SetPasswordRequest(new))
+            cached = cached?.copy(hasPassword = true)
             Result.success(Unit)
         } catch (e: CancellationException) {
             throw e

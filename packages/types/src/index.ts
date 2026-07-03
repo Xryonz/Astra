@@ -71,6 +71,15 @@ export const ChangePasswordSchema = z.object({
 })
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>
 
+export const SetPasswordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
+    .regex(/[0-9]/, 'Deve conter ao menos um número'),
+})
+export type SetPasswordInput = z.infer<typeof SetPasswordSchema>
+
 export const CreateServerSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório').max(100, 'Máximo 100 caracteres'),
   iconUrl: z.string().url().optional(),

@@ -3,6 +3,7 @@ package app.astra.mobile.core.network
 import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
+import app.astra.mobile.core.network.dto.SetPasswordRequest
 import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import app.astra.mobile.core.network.dto.UserWrapper
@@ -25,6 +26,10 @@ interface UserApi {
 
     @POST("api/auth/password")
     suspend fun changePassword(@Body body: ChangePasswordRequest)
+
+    // Cria a PRIMEIRA senha (contas Google sem senha); backend rejeita se ja tem.
+    @POST("api/auth/password/set")
+    suspend fun setPassword(@Body body: SetPasswordRequest)
 
     @PATCH("api/profile/status")
     suspend fun setStatus(@Body body: SetStatusRequest)

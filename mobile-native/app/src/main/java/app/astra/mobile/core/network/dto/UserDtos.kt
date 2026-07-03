@@ -64,4 +64,9 @@ data class ChangePasswordRequest(
 )
 
 @Serializable
+data class SetPasswordRequest(
+    val newPassword: String,
+)
+
+@Serializable
 data class SetStatusRequest(val status: String)

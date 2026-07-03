@@ -45,6 +45,7 @@ import app.astra.mobile.ui.components.ChatRow
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
+import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MessageListSkeleton
@@ -67,6 +68,7 @@ fun DmChatScreen(
     val state by viewModel.state.collectAsState()
     var deleteTarget by remember { mutableStateOf<ChatRow?>(null) }
     var gifOpen by remember { mutableStateOf(false) }
+    var emojiOpen by remember { mutableStateOf(false) }
 
     // Outro lado aceitou a ligacao -> entra na sala.
     LaunchedEffect(Unit) {
@@ -191,8 +193,19 @@ fun DmChatScreen(
                 onSend = viewModel::send,
                 onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onGif = { gifOpen = true },
+                onEmoji = { emojiOpen = true },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
+            )
+        }
+
+        if (emojiOpen) {
+            EmojiPickerSheet(
+                onPick = { emoji ->
+                    viewModel.onInput(state.input + emoji)
+                    emojiOpen = false
+                },
+                onClose = { emojiOpen = false },
             )
         }
 

@@ -43,6 +43,7 @@ import app.astra.mobile.ui.components.DeleteMessageDialog
 import app.astra.mobile.ui.components.edgeSwipeBack
 import app.astra.mobile.ui.components.EditingBanner
 import app.astra.mobile.ui.components.EditorialTopBar
+import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.MessageListSkeleton
@@ -70,6 +71,8 @@ fun ChannelChatScreen(
     var pinnedOpen by remember { mutableStateOf(false) }
     var gifOpen by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
+    var emojiOpen by remember { mutableStateOf(false) }
+    var reactionTarget by remember { mutableStateOf<ChatRow?>(null) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -143,6 +146,7 @@ fun ChannelChatScreen(
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
                             onTogglePin = { viewModel.togglePin(it.id, !it.pinned) },
                             onToggleReaction = { row, emoji -> viewModel.toggleReaction(row.id, emoji) },
+                            onMoreReactions = { reactionTarget = it },
                             onTranslate = { viewModel.translate(it.id, it.content) },
                             onVotePoll = { row, optionId -> viewModel.votePoll(row.id, optionId) },
                             onClosePoll = { viewModel.closePoll(it.id) },
@@ -185,6 +189,7 @@ fun ChannelChatScreen(
                 onAttach = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onGif = { gifOpen = true },
                 onPoll = { pollOpen = true },
+                onEmoji = { emojiOpen = true },
                 uploading = state.uploading,
                 hasAttachments = state.pendingAttachments.isNotEmpty(),
             )
@@ -196,6 +201,26 @@ fun ChannelChatScreen(
                     viewModel.createPoll(question, options, allowMultiple, durationHours)
                 },
                 onClose = { pollOpen = false },
+            )
+        }
+
+        if (emojiOpen) {
+            EmojiPickerSheet(
+                onPick = { emoji ->
+                    viewModel.onInput(state.input + emoji)
+                    emojiOpen = false
+                },
+                onClose = { emojiOpen = false },
+            )
+        }
+
+        reactionTarget?.let { target ->
+            EmojiPickerSheet(
+                onPick = { emoji ->
+                    viewModel.toggleReaction(target.id, emoji)
+                    reactionTarget = null
+                },
+                onClose = { reactionTarget = null },
             )
         }
 

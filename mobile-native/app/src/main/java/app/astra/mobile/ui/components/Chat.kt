@@ -202,6 +202,7 @@ fun MessageBubble(
     onReply: (() -> Unit)? = null,
     onTogglePin: (() -> Unit)? = null,
     onToggleReaction: ((String) -> Unit)? = null,
+    onMoreReactions: (() -> Unit)? = null,
     onTranslate: (() -> Unit)? = null,
     onOpenImage: ((List<Attachment>, Int) -> Unit)? = null,
     onVotePoll: ((String) -> Unit)? = null,
@@ -445,6 +446,7 @@ fun MessageBubble(
                         onReply = onReply,
                         onTogglePin = onTogglePin,
                         onToggleReaction = onToggleReaction,
+                        onMoreReactions = onMoreReactions,
                         onTranslate = onTranslate,
                         onHistory = onHistory,
                     )
@@ -498,6 +500,7 @@ private fun MessageActionsMenu(
     onReply: (() -> Unit)?,
     onTogglePin: (() -> Unit)?,
     onToggleReaction: ((String) -> Unit)?,
+    onMoreReactions: (() -> Unit)? = null,
     onTranslate: (() -> Unit)? = null,
     onHistory: (() -> Unit)? = null,
 ) {
@@ -514,6 +517,17 @@ private fun MessageActionsMenu(
                         modifier = Modifier
                             .clip(CircleShape)
                             .clickable { onDismiss(); onToggleReaction(e) }
+                            .padding(6.dp),
+                    )
+                }
+                if (onMoreReactions != null) {
+                    Text(
+                        text = "+",
+                        fontSize = 20.sp,
+                        color = astraColors.accent,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { onDismiss(); onMoreReactions() }
                             .padding(6.dp),
                     )
                 }
@@ -591,6 +605,7 @@ fun ChatMessageList(
     onReply: (ChatRow) -> Unit = {},
     onTogglePin: (ChatRow) -> Unit = {},
     onToggleReaction: (ChatRow, String) -> Unit = { _, _ -> },
+    onMoreReactions: ((ChatRow) -> Unit)? = null,
     onTranslate: (ChatRow) -> Unit = {},
     onVotePoll: (ChatRow, String) -> Unit = { _, _ -> },
     onClosePoll: (ChatRow) -> Unit = {},
@@ -659,6 +674,7 @@ fun ChatMessageList(
                     onReply = { onReply(row) },
                     onTogglePin = if (canPin) ({ onTogglePin(row) }) else null,
                     onToggleReaction = if (canReact) ({ emoji: String -> onToggleReaction(row, emoji) }) else null,
+                    onMoreReactions = if (canReact && onMoreReactions != null) ({ onMoreReactions(row) }) else null,
                     onTranslate = if (row.content.isNotBlank() && row.poll == null) ({ onTranslate(row) }) else null,
                     onOpenImage = { imgs, idx -> lightbox = imgs to idx },
                     onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
@@ -797,6 +813,7 @@ fun ChatInputBar(
     onAttach: (() -> Unit)? = null,
     onGif: (() -> Unit)? = null,
     onPoll: (() -> Unit)? = null,
+    onEmoji: (() -> Unit)? = null,
     uploading: Boolean = false,
     hasAttachments: Boolean = false,
 ) {
@@ -884,6 +901,23 @@ fun ChatInputBar(
             singleLine = false,
             animation = InputAnimation.Glow,
         )
+        if (onEmoji != null) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.borderMid, CircleShape)
+                    .clickable(onClick = onEmoji),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "🙂",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+        }
         Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier

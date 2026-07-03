@@ -102,6 +102,7 @@ dependencies {
     implementation(libs.androidx.browser) // Custom Tabs (OAuth Google)
     implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (tokens)
     implementation(libs.rikkaui.components) // RikkaUI: componentes (Input, Dialog, Avatar...); ejeta p/ copy-paste ao customizar
+    implementation(libs.androidx.emoji2.emojipicker) // grade oficial de emojis (busca + recentes), estilo Gboard
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.leakcanary.android) // caca memory leaks em runtime (so debug)
 

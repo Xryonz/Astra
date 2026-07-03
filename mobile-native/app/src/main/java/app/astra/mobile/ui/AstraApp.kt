@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -325,13 +327,19 @@ fun AstraApp() {
             // Ligacao recebida (DM): modal global — toca em qualquer tela do app.
             val incomingVm: IncomingCallViewModel = hiltViewModel()
             val incoming by incomingVm.incoming.collectAsState()
+            val hapticsOn = LocalAppPrefs.current.haptics
+            val haptic = LocalHapticFeedback.current
             incoming?.let { inv ->
                 AstraDialog(
                     open = true,
-                    onDismiss = { incomingVm.reject() },
+                    onDismiss = {
+                        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                        incomingVm.reject()
+                    },
                     title = "Ligação de ${inv.fromDisplayName}",
                     confirmText = "Atender",
                     onConfirm = {
+                        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         incomingVm.accept()?.let {
                             nav.navigate(Routes.call(it.conversationId, it.fromDisplayName, "", kind = "dm"))
                         }

@@ -801,6 +801,12 @@ fun ChatInputBar(
     hasAttachments: Boolean = false,
 ) {
     val canSend = (text.isNotBlank() || hasAttachments) && !sending && !uploading
+    val hapticsOn = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
+    val send = {
+        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+        onSend()
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -871,7 +877,7 @@ fun ChatInputBar(
 
                 .onPreviewKeyEvent { e ->
                     if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                        onSend(); true
+                        send(); true
                     } else false
                 },
             placeholder = "Mensagem",
@@ -885,7 +891,7 @@ fun ChatInputBar(
                 .clip(CircleShape)
                 .background(if (canSend) astraColors.accent else astraColors.raised)
                 .border(1.dp, if (canSend) Color.Transparent else astraColors.borderMid, CircleShape)
-                .clickable(enabled = canSend, onClick = onSend),
+                .clickable(enabled = canSend, onClick = send),
             contentAlignment = Alignment.Center,
         ) {
             Text(

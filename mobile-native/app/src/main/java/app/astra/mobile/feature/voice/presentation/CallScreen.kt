@@ -40,13 +40,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.core.voice.CallStatus
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
@@ -274,6 +277,8 @@ private fun ControlBar(
     onLeave: () -> Unit,
 ) {
     val live = status == CallStatus.Connected
+    val hapticsOn = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CallToggle("Microfone", active = micEnabled, enabled = live && !deafened, onClick = onToggleMic, modifier = Modifier.weight(1f))
@@ -291,7 +296,10 @@ private fun ControlBar(
                 .height(50.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(astraColors.danger)
-                .clickable(onClick = onLeave),
+                .clickable {
+                    if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    onLeave()
+                },
             contentAlignment = Alignment.Center,
         ) {
             Text("Sair", color = Color.White, style = MaterialTheme.typography.titleSmall)
@@ -308,6 +316,8 @@ private fun CallToggle(
     modifier: Modifier = Modifier,
     activeColor: Color = astraColors.accent,
 ) {
+    val hapticsOn = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
     val shape = RoundedCornerShape(12.dp)
     val bg = if (active) activeColor else astraColors.raised
     val fg = when {
@@ -321,7 +331,15 @@ private fun CallToggle(
             .clip(shape)
             .background(bg.copy(alpha = if (enabled) 1f else 0.4f))
             .border(1.dp, if (active) Color.Transparent else astraColors.borderMid, shape)
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled) {
+                if (hapticsOn) {
+                    haptic.performHapticFeedback(
+                        // Ligar algo = ToggleOn; o estado atual e o ANTES do clique.
+                        if (active) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn,
+                    )
+                }
+                onClick()
+            },
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = fg, fontSize = 14.sp)

@@ -28,7 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Lucide
@@ -49,6 +51,7 @@ import app.astra.mobile.ui.components.PendingAttachmentsBar
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.components.ReplyBanner
 import app.astra.mobile.ui.components.TypingIndicator
+import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -71,6 +74,8 @@ fun DmChatScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val hapticsOn = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(10),
     ) { uris ->
@@ -97,6 +102,11 @@ fun DmChatScreen(
                             .clip(CircleShape)
                             .background(if (state.ringing) astraColors.accentDim else Color.Transparent)
                             .clickable {
+                                if (hapticsOn) {
+                                    haptic.performHapticFeedback(
+                                        if (state.ringing) HapticFeedbackType.Reject else HapticFeedbackType.Confirm,
+                                    )
+                                }
                                 if (state.ringing) viewModel.cancelCall() else viewModel.startCall()
                             },
                         contentAlignment = Alignment.Center,

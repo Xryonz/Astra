@@ -14,8 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import app.astra.mobile.ui.components.AstraSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -114,16 +113,6 @@ private fun ToggleRow(
             Text(title, style = MaterialTheme.typography.titleMedium, color = astraColors.text1)
             MarginaliaLabel(sub)
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = astraColors.textInv,
-                checkedTrackColor = astraColors.accent,
-                uncheckedThumbColor = astraColors.text3,
-                uncheckedTrackColor = astraColors.raised,
-                uncheckedBorderColor = astraColors.borderMid,
-            ),
-        )
+        AstraSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

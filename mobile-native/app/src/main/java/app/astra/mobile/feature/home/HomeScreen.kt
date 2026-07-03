@@ -95,6 +95,8 @@ import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import app.astra.mobile.ui.LocalAppPrefs
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraDialog
@@ -570,6 +572,8 @@ private fun RailAddMenu(
 @Composable
 private fun RailTile(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
+    val hapticsOn = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
 
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         if (active) {
@@ -587,7 +591,10 @@ private fun RailTile(active: Boolean, onClick: () -> Unit, content: @Composable 
                 .clip(shape)
                 .background(if (active) astraColors.accentDim else astraColors.raised)
                 .border(1.dp, if (active) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, shape)
-                .clickable(onClick = onClick),
+                .clickable {
+                    if (hapticsOn && !active) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onClick()
+                },
             contentAlignment = Alignment.Center,
             content = { content() },
         )
@@ -606,6 +613,8 @@ private fun RailServer(
 ) {
     val shape = RoundedCornerShape(16.dp)
     var menuOpen by remember { mutableStateOf(false) }
+    val hapticsOn = LocalAppPrefs.current.haptics
+    val haptic = LocalHapticFeedback.current
 
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         if (active) {
@@ -624,7 +633,16 @@ private fun RailServer(
                 .background(if (active) astraColors.accentDim else astraColors.raised)
                 .border(1.dp, if (active) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, shape)
 
-                .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true }),
+                .combinedClickable(
+                    onClick = {
+                        if (hapticsOn && !active) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onClick()
+                    },
+                    onLongClick = {
+                        if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuOpen = true
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (!server.iconUrl.isNullOrBlank()) {

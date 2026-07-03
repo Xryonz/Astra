@@ -53,6 +53,16 @@
                     android:host="umbra-api-production.up.railway.app"
                     android:pathPrefix="/i/" />
             </intent-filter>
+            <!-- Direct Share: recebe texto/imagem compartilhado pra um Sussurro -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Mantem a chamada viva com o app em background (Android 14+ exige type) -->

@@ -36,6 +36,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.PhoneOff
+import android.net.Uri
+import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.gif.presentation.GifPicker
@@ -89,6 +91,20 @@ fun DmChatScreen(
                 }
             }
             viewModel.attachImages(files)
+        }
+    }
+
+    // Conteudo do Direct Share (texto vira rascunho, imagem vira anexo).
+    LaunchedEffect(Unit) {
+        val share = DeepLinkBus.pendingShare.value ?: return@LaunchedEffect
+        if (share.conversationId != viewModel.conversationId) return@LaunchedEffect
+        DeepLinkBus.pendingShare.value = null
+        share.text?.takeIf { it.isNotBlank() }?.let { viewModel.onInput(it) }
+        share.imageUri?.let { raw ->
+            val file = withContext(Dispatchers.IO) {
+                readImageBytes(context, Uri.parse(raw))?.let { (b, m, n) -> UploadFile(b, m, n) }
+            }
+            if (file != null) viewModel.attachImages(listOf(file))
         }
     }
 

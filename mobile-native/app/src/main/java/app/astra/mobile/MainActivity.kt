@@ -19,8 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.lifecycleScope
 import app.astra.mobile.core.deeplink.DeepLinkBus
+import app.astra.mobile.core.deeplink.PendingShare
+import app.astra.mobile.core.share.DmShortcuts
 import app.astra.mobile.core.crash.CrashReporter
 import app.astra.mobile.core.crash.CrashScreen
 import app.astra.mobile.core.data.AppPrefs
@@ -87,7 +90,35 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleDeepLink(intent: Intent?) {
-        val data = intent?.data ?: return
+        intent ?: return
+
+        // Direct Share: sistema entrega ACTION_SEND + EXTRA_SHORTCUT_ID do alvo.
+        if (intent.action == Intent.ACTION_SEND) {
+            val convId = DmShortcuts.conversationIdFrom(intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID))
+            if (convId != null) {
+                val stream = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                DeepLinkBus.pendingShare.value = PendingShare(
+                    conversationId = convId,
+                    name = null,
+                    text = intent.getStringExtra(Intent.EXTRA_TEXT),
+                    imageUri = stream?.toString(),
+                )
+            }
+            return
+        }
+
+        // Atalho do launcher (long-press no icone): intent explicito com extras.
+        if (intent.action == Intent.ACTION_VIEW && intent.hasExtra(DmShortcuts.EXTRA_CONV_ID)) {
+            DeepLinkBus.pendingShare.value = PendingShare(
+                conversationId = intent.getStringExtra(DmShortcuts.EXTRA_CONV_ID),
+                name = intent.getStringExtra(DmShortcuts.EXTRA_CONV_NAME),
+                text = null,
+                imageUri = null,
+            )
+            return
+        }
+
+        val data = intent.data ?: return
 
         // Convite: https://<api>/i/CODE (link do share). Entrega pro AstraApp via bus.
         if (data.pathSegments.firstOrNull() == "i") {

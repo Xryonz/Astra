@@ -324,6 +324,24 @@ fun AstraApp() {
                 }
             }
 
+            // Direct Share / atalho de conversa: abre o Sussurro; o conteudo
+            // compartilhado (texto/imagem) fica no bus ate a DmChatScreen consumir.
+            val pendingShare by DeepLinkBus.pendingShare.collectAsState()
+            LaunchedEffect(pendingShare, loggedIn) {
+                val share = pendingShare ?: return@LaunchedEffect
+                val convId = share.conversationId
+                if (convId == null) {
+                    DeepLinkBus.pendingShare.value = null
+                    return@LaunchedEffect
+                }
+                if (loggedIn == true) {
+                    nav.navigate(Routes.dmChat(convId, share.name ?: "Conversa")) { launchSingleTop = true }
+                    if (share.text == null && share.imageUri == null) {
+                        DeepLinkBus.pendingShare.value = null
+                    }
+                }
+            }
+
             // Ligacao recebida (DM): modal global — toca em qualquer tela do app.
             val incomingVm: IncomingCallViewModel = hiltViewModel()
             val incoming by incomingVm.incoming.collectAsState()

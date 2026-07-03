@@ -1,16 +1,20 @@
 package app.astra.mobile.feature.dm.presentation
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.model.toModel
 import app.astra.mobile.core.realtime.SocketManager
+import app.astra.mobile.core.share.DmShortcuts
 import app.astra.mobile.core.translate.Translator
 import app.astra.mobile.core.upload.ImageUploader
 import app.astra.mobile.core.upload.UploadFile
 import app.astra.mobile.feature.dm.domain.DmRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -27,6 +31,7 @@ class DmChatViewModel @Inject constructor(
     private val imageUploader: ImageUploader,
     private val translator: Translator,
     private val socketManager: SocketManager,
+    @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -52,7 +57,14 @@ class DmChatViewModel @Inject constructor(
         observeCallSignals()
         viewModelScope.launch {
             repository.conversations().onSuccess { list ->
-                otherUserId = list.find { it.id == conversationId }?.otherUserId
+                val conv = list.find { it.id == conversationId }
+                otherUserId = conv?.otherUserId
+                // Atalho dinamico (launcher + Direct Share) pra conversa aberta.
+                conv?.let {
+                    launch(Dispatchers.IO) {
+                        DmShortcuts.push(appContext, conversationId, it.otherName, it.otherAvatarUrl)
+                    }
+                }
             }
         }
     }

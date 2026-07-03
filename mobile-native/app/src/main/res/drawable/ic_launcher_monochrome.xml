@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Layer monochrome do icone adaptativo (Android 13+ "icones tematicos"):
+     o sistema tinge a silhueta com a cor do wallpaper. Mesma estrela do
+     ic_stat_astra, escalada pra zona segura (~52dp) do viewport de 108dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="2.2"
+        android:scaleY="2.2"
+        android:translateX="27.6"
+        android:translateY="27.6">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M12,2 C12.6,7 13.5,8.4 17,9.6 C13.5,10.8 12.6,12.2 12,17 C11.4,12.2 10.5,10.8 7,9.6 C10.5,8.4 11.4,7 12,2 Z M18.5,14 C18.8,16.2 19.2,16.8 21,17.4 C19.2,18 18.8,18.6 18.5,20.8 C18.2,18.6 17.8,18 16,17.4 C17.8,16.8 18.2,16.2 18.5,14 Z" />
+    </group>
+</vector>

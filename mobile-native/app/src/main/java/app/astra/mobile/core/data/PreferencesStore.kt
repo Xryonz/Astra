@@ -42,11 +42,14 @@ data class AppPrefs(
     val animAurora: Boolean = true,
     val animStars: Boolean = true,
     val animTransitions: Boolean = true,
+    val animSkyTouch: Boolean = true,
 ) {
     // Efetivo = mestre desligado E o toggle especifico ligado.
     val auroraOn: Boolean get() = !reduceMotion && animAurora
     val starsOn: Boolean get() = !reduceMotion && animStars
     val transitionsOn: Boolean get() = !reduceMotion && animTransitions
+    // Toque vive dentro do shader da aurora: sem aurora nao tem efeito.
+    val skyTouchOn: Boolean get() = auroraOn && animSkyTouch
 }
 
 @Singleton
@@ -62,6 +65,7 @@ class PreferencesStore @Inject constructor(
     private val animAuroraKey = booleanPreferencesKey("anim_aurora")
     private val animStarsKey = booleanPreferencesKey("anim_stars")
     private val animTransitionsKey = booleanPreferencesKey("anim_transitions")
+    private val animSkyTouchKey = booleanPreferencesKey("anim_sky_touch")
 
     val prefs: Flow<AppPrefs> = dataStore.data.map { p ->
         AppPrefs(
@@ -74,6 +78,7 @@ class PreferencesStore @Inject constructor(
             animAurora = p[animAuroraKey] ?: true,
             animStars = p[animStarsKey] ?: true,
             animTransitions = p[animTransitionsKey] ?: true,
+            animSkyTouch = p[animSkyTouchKey] ?: true,
         )
     }
 
@@ -82,6 +87,7 @@ class PreferencesStore @Inject constructor(
     suspend fun setAnimAurora(v: Boolean) = dataStore.edit { it[animAuroraKey] = v }
     suspend fun setAnimStars(v: Boolean) = dataStore.edit { it[animStarsKey] = v }
     suspend fun setAnimTransitions(v: Boolean) = dataStore.edit { it[animTransitionsKey] = v }
+    suspend fun setAnimSkyTouch(v: Boolean) = dataStore.edit { it[animSkyTouchKey] = v }
     suspend fun setFontSize(v: FontSizePref) = dataStore.edit { it[fontSizeKey] = v.id }
     suspend fun setDensity(v: DensityPref) = dataStore.edit { it[densityKey] = v.id }
     suspend fun setAccent(id: String) = dataStore.edit { it[accentKey] = id }

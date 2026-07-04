@@ -18,6 +18,7 @@ class PreferencesViewModel @Inject constructor(
     fun setAnimAurora(v: Boolean) { viewModelScope.launch { store.setAnimAurora(v) } }
     fun setAnimStars(v: Boolean) { viewModelScope.launch { store.setAnimStars(v) } }
     fun setAnimTransitions(v: Boolean) { viewModelScope.launch { store.setAnimTransitions(v) } }
+    fun setAnimSkyTouch(v: Boolean) { viewModelScope.launch { store.setAnimSkyTouch(v) } }
     fun setFontSize(v: FontSizePref) { viewModelScope.launch { store.setFontSize(v) } }
     fun setDensity(v: DensityPref) { viewModelScope.launch { store.setDensity(v) } }
     fun setAccent(id: String) { viewModelScope.launch { store.setAccent(id) } }

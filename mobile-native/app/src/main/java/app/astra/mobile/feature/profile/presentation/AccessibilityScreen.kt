@@ -67,6 +67,14 @@ fun AccessibilityScreen(
                     checked = prefs.animStars,
                     onCheckedChange = viewModel::setAnimStars,
                 )
+                if (prefs.animAurora) {
+                    ToggleRow(
+                        title = "Toque no ceu",
+                        sub = "Brilho + anel ao tocar no fundo vazio",
+                        checked = prefs.animSkyTouch,
+                        onCheckedChange = viewModel::setAnimSkyTouch,
+                    )
+                }
                 ToggleRow(
                     title = "Transicoes entre telas",
                     sub = "Deslizar ao navegar; off vira fade curto",

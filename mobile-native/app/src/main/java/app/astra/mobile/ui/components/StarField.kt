@@ -213,8 +213,8 @@ private fun StarFieldStatic(modifier: Modifier = Modifier, color: Color = astraC
 // Aurora AGSL v2: cortinas organicas por ruido fractal (FBM), nao mais senos.
 // O tempo anda num CIRCULO no espaco de ruido (cos/sin * raio), entao o loop de
 // 60s fecha perfeito sem salto. Ainda barato: value-noise ALU-only, sem textura.
-// Extras: tilt (parallax por sensor) desloca o uv; toque = glow enquanto pressiona
-// + anel que expande ao soltar (rippleAge < 0 desliga o branch).
+// Extras: tilt (parallax por sensor) desloca o uv; tap no fundo vazio = pulso de
+// glow + anel que expande (rippleAge < 0 desliga o branch).
 private const val AURORA_AGSL = """
 uniform float2 iResolution;
 uniform float iTime;
@@ -282,12 +282,21 @@ half4 main(float2 fragCoord) {
 
 private const val TIME_LOOP = 62.831853f // 20*PI: fecha o circulo do fbm E os sin
 
+// Estado do efeito de toque. Vive no CosmicBackdrop porque o GESTO e detectado
+// no Box pai (hit-path de toda a UI); o canvas da aurora fica atras do conteudo
+// e nunca receberia toques em telas cobertas por listas (chat, DMs, servidores).
+private class TouchFx {
+    val uv = mutableStateOf(Offset.Zero)
+    val glow = Animatable(0f)
+    val ripple = Animatable(3f)
+}
+
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 private fun AuroraShader(
     color: Color,
     tilt: State<Offset>,
-    interactive: Boolean,
+    fx: TouchFx,
     modifier: Modifier = Modifier,
 ) {
     val shader = remember { RuntimeShader(AURORA_AGSL) }
@@ -298,51 +307,17 @@ private fun AuroraShader(
         infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "aurora-t",
     )
 
-    // Toque: glow segue o dedo (Animatable sobe/desce), soltar dispara o anel.
-    // rippleAge anda 0->3s num Animatable proprio (sem depender do time que loopa).
-    val touchUv = remember { mutableStateOf(Offset.Zero) }
-    val glow = remember { Animatable(0f) }
-    val ripple = remember { Animatable(3f) }
-    val scope = rememberCoroutineScope()
-    val touchMod = if (interactive) {
-        Modifier.pointerInput(Unit) {
-            awaitEachGesture {
-                // So toques que NINGUEM consumiu (area vazia): com o backdrop
-                // global atras do app todo, sem isso todo scroll/click acenderia
-                // o glow atras do conteudo.
-                val down = awaitFirstDown(requireUnconsumed = true)
-                val w = size.width.toFloat().coerceAtLeast(1f)
-                val h = size.height.toFloat().coerceAtLeast(1f)
-                touchUv.value = Offset(down.position.x / w, down.position.y / h)
-                scope.launch { glow.animateTo(1f, tween(180)) }
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val pressed = event.changes.firstOrNull { it.pressed }
-                    if (pressed == null) break
-                    touchUv.value = Offset(pressed.position.x / w, pressed.position.y / h)
-                }
-                scope.launch { glow.animateTo(0f, tween(500)) }
-                scope.launch {
-                    ripple.snapTo(0f)
-                    ripple.animateTo(3f, tween(3000, easing = LinearEasing))
-                }
-            }
-        }
-    } else {
-        Modifier
-    }
-
     val r = color.red; val g = color.green; val b = color.blue
-    Canvas(modifier.fillMaxSize().then(touchMod)) {
+    Canvas(modifier.fillMaxSize()) {
         // Fase de desenho (como o StarField): le estados animados sem recompor.
         val tv = tilt.value
-        val age = ripple.value
+        val age = fx.ripple.value
         shader.setFloatUniform("iResolution", size.width, size.height)
         shader.setFloatUniform("accent", r, g, b)
         shader.setFloatUniform("iTime", time)
         shader.setFloatUniform("tilt", tv.x, tv.y)
-        shader.setFloatUniform("touchPos", touchUv.value.x, touchUv.value.y)
-        shader.setFloatUniform("touchGlow", glow.value)
+        shader.setFloatUniform("touchPos", fx.uv.value.x, fx.uv.value.y)
+        shader.setFloatUniform("touchGlow", fx.glow.value)
         shader.setFloatUniform("rippleAge", if (age >= 3f) -1f else age)
         drawRect(brush)
     }
@@ -362,11 +337,51 @@ fun CosmicBackdrop(
     val auroraShown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && prefs.auroraOn
     // Parallax so quando algo anima (respeita reduceMotion via getters starsOn/auroraOn).
     val tilt = rememberParallaxTilt(enabled = auroraShown || prefs.starsOn)
-    Box(modifier.fillMaxSize().background(astraColors.void)) {
+    val fx = remember { TouchFx() }
+    val scope = rememberCoroutineScope()
+    // Deteccao no Box PAI (esta no hit-path de toda tela, ao contrario do canvas
+    // atras do conteudo): "tap no vazio" = gesto que NENHUM filho consumiu (nao
+    // foi click, scroll nem campo de texto) e que nao arrastou alem do slop.
+    val touchMod = if (interactive && auroraShown && prefs.skyTouchOn) {
+        Modifier.pointerInput(Unit) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                if (down.isConsumed) return@awaitEachGesture
+                val slop = viewConfiguration.touchSlop
+                var tapped = false
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val ch = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (ch.isConsumed || event.changes.size > 1) break
+                    if ((ch.position - down.position).getDistance() > slop) break
+                    if (!ch.pressed) {
+                        tapped = true
+                        break
+                    }
+                }
+                if (!tapped) return@awaitEachGesture
+                val w = size.width.toFloat().coerceAtLeast(1f)
+                val h = size.height.toFloat().coerceAtLeast(1f)
+                fx.uv.value = Offset(down.position.x / w, down.position.y / h)
+                scope.launch {
+                    fx.glow.snapTo(0f)
+                    fx.glow.animateTo(1f, tween(90))
+                    fx.glow.animateTo(0f, tween(450))
+                }
+                scope.launch {
+                    fx.ripple.snapTo(0f)
+                    fx.ripple.animateTo(3f, tween(3000, easing = LinearEasing))
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
+    Box(modifier.fillMaxSize().background(astraColors.void).then(touchMod)) {
         // Aurora so em Android 13+ (RuntimeShader) e com o toggle ligado (que ja
         // inclui o mestre reduceMotion). Senao, fallback = void + StarField.
         if (auroraShown) {
-            AuroraShader(astraColors.accent, tilt = tilt, interactive = interactive)
+            AuroraShader(astraColors.accent, tilt = tilt, fx = fx)
         }
         StarField(tilt = tilt)
         content()

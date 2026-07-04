@@ -12,6 +12,7 @@ import app.astra.mobile.core.network.dto.RegisterRequest
 import app.astra.mobile.core.network.dto.UserDto
 import app.astra.mobile.feature.auth.domain.AuthRepository
 import app.astra.mobile.feature.auth.domain.model.AuthUser
+import app.astra.mobile.feature.profile.domain.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -27,6 +28,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val refreshApi: RefreshApi,
     private val tokenStore: TokenStore,
     private val messageDao: MessageDao,
+    private val userRepository: UserRepository,
     private val json: Json,
 ) : AuthRepository {
 
@@ -39,6 +41,7 @@ class AuthRepositoryImpl @Inject constructor(
             if (resp.isSuccessful) {
                 val data = resp.body()?.data
                     ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+                userRepository.clearCache()
                 tokenStore.save(data.accessToken, data.refreshToken)
                 tokenStore.setUserId(data.user.id)
                 Result.success(data.user.toDomain())
@@ -72,6 +75,7 @@ class AuthRepositoryImpl @Inject constructor(
             if (resp.isSuccessful) {
                 val data = resp.body()?.data
                     ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+                userRepository.clearCache()
                 tokenStore.save(data.accessToken, data.refreshToken)
                 tokenStore.setUserId(data.user.id)
                 Result.success(data.user.toDomain())
@@ -93,6 +97,7 @@ class AuthRepositoryImpl @Inject constructor(
 
             val data = refreshApi.refresh("Bearer $refreshToken").data
                 ?: return Result.failure(ApiException("Resposta invalida do servidor"))
+            userRepository.clearCache()
             tokenStore.save(data.accessToken, data.refreshToken)
 
             userIdFromJwt(data.accessToken)?.let { tokenStore.setUserId(it) }
@@ -117,7 +122,7 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout() {
         tokenStore.clear()
-
+        userRepository.clearCache()
         messageDao.clearAll()
     }
 

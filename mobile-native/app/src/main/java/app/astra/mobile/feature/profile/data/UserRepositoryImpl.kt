@@ -30,6 +30,10 @@ class UserRepositoryImpl @Inject constructor(
 
     private var cached: Profile? = null
 
+    override fun clearCache() {
+        cached = null
+    }
+
     override suspend fun me(forceRefresh: Boolean): Result<Profile> {
         cached?.let { if (!forceRefresh) return Result.success(it) }
         return try {

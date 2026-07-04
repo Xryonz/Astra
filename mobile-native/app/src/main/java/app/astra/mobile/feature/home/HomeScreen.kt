@@ -61,6 +61,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Link
@@ -231,8 +233,10 @@ fun HomeScreen(
                     servers = state.servers,
                     selectedServerId = state.selectedServerId,
                     myId = state.myId,
+                    mutedServers = state.mutedServers,
                     onSelectDms = { viewModel.selectServer(null) },
                     onSelectServer = { viewModel.selectServer(it) },
+                    onToggleMuteServer = { id, muted -> viewModel.setServerMuted(id, muted) },
                     onEditServer = onOpenServerEdit,
                     onCreateServer = { forgeAsGroup = false; showForge = true },
                     onCreateGroup = { forgeAsGroup = true; showForge = true },
@@ -377,6 +381,7 @@ fun HomeScreen(
                     server = srv,
                     isOwner = srv.ownerId != null && srv.ownerId == state.myId,
                     channelUnread = state.channelUnread,
+                    mutedChannels = state.mutedChannels,
                     onOpenChannel = { id, name -> viewModel.markChannelSeen(id); onOpenChannel(id, name) },
                     onJoinVoice = { id, name -> viewModel.markChannelSeen(id); onJoinVoice(id, name, srv.id) },
                     onEdit = { onOpenServerEdit(srv.id) },
@@ -562,8 +567,10 @@ private fun ServerRail(
     servers: List<Server>,
     selectedServerId: String?,
     myId: String?,
+    mutedServers: Set<String>,
     onSelectDms: () -> Unit,
     onSelectServer: (String) -> Unit,
+    onToggleMuteServer: (String, Boolean) -> Unit,
     onEditServer: (String) -> Unit,
     onCreateServer: () -> Unit,
     onCreateGroup: () -> Unit,
@@ -597,7 +604,9 @@ private fun ServerRail(
                 server = srv,
                 active = selectedServerId == srv.id,
                 isOwner = srv.ownerId != null && srv.ownerId == myId,
+                muted = srv.id in mutedServers,
                 onClick = { onSelectServer(srv.id) },
+                onToggleMute = { onToggleMuteServer(srv.id, srv.id !in mutedServers) },
                 onEdit = { onEditServer(srv.id) },
                 onInvite = { srv.inviteCode?.let { shareServerInvite(context, it) } },
             )
@@ -697,7 +706,9 @@ private fun RailServer(
     server: Server,
     active: Boolean,
     isOwner: Boolean,
+    muted: Boolean,
     onClick: () -> Unit,
+    onToggleMute: () -> Unit,
     onEdit: () -> Unit,
     onInvite: () -> Unit,
 ) {
@@ -756,8 +767,10 @@ private fun RailServer(
                 serverName = server.name,
                 isOwner = isOwner,
                 hasInvite = !server.inviteCode.isNullOrBlank(),
+                muted = muted,
                 onEdit = { menuOpen = false; onEdit() },
                 onInvite = { menuOpen = false; onInvite() },
+                onToggleMute = { menuOpen = false; onToggleMute() },
                 onDismiss = { menuOpen = false },
             )
         }
@@ -770,8 +783,10 @@ private fun ServerRailMenu(
     serverName: String,
     isOwner: Boolean,
     hasInvite: Boolean,
+    muted: Boolean,
     onEdit: () -> Unit,
     onInvite: () -> Unit,
+    onToggleMute: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     DropdownMenu(
@@ -791,6 +806,12 @@ private fun ServerRailMenu(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
+            HairlineRule()
+            MenuRow(
+                if (muted) "Reativar notificacoes" else "Silenciar constelacao",
+                if (muted) Lucide.Bell else Lucide.BellOff,
+                onToggleMute,
+            )
             if (isOwner || hasInvite) HairlineRule()
             if (isOwner) {
                 MenuRow("Editar constelacao", Lucide.Settings, onEdit)
@@ -798,14 +819,6 @@ private fun ServerRailMenu(
             if (isOwner && hasInvite) HairlineRule()
             if (hasInvite) {
                 MenuRow("Convidar", Lucide.UserPlus, onInvite)
-            }
-            if (!isOwner && !hasInvite) {
-                Text(
-                    text = "Sem acoes disponiveis",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = astraColors.text3,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                )
             }
         }
     }
@@ -834,6 +847,7 @@ private fun ServerChannelsPanel(
     server: Server,
     isOwner: Boolean,
     channelUnread: Set<String>,
+    mutedChannels: Set<String>,
     onOpenChannel: (String, String) -> Unit,
     onJoinVoice: (String, String) -> Unit,
     onEdit: () -> Unit,
@@ -870,6 +884,7 @@ private fun ServerChannelsPanel(
                         ChannelRowFlat(
                             channel = ch,
                             unread = ch.id in channelUnread,
+                            muted = ch.id in mutedChannels,
                         ) {
                             if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
                         }
@@ -955,13 +970,15 @@ private fun ServerPanelHeader(
 private fun ChannelRowFlat(
     channel: Channel,
     unread: Boolean,
+    muted: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 11.dp),
+            .padding(horizontal = 16.dp, vertical = 11.dp)
+            .alpha(if (muted) 0.55f else 1f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -978,7 +995,9 @@ private fun ChannelRowFlat(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (unread) {
+        if (muted) {
+            Icon(Lucide.BellOff, contentDescription = "Silenciado", tint = astraColors.text3, modifier = Modifier.size(13.dp))
+        } else if (unread) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
         } else if (channel.isVoice) {
             MarginaliaLabel("voz", color = astraColors.text3)

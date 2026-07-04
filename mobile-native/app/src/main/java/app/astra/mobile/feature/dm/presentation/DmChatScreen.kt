@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.PhoneOff
@@ -115,6 +117,21 @@ fun DmChatScreen(
                 marginalia = if (state.ringing) "chamando..." else "sussurro",
                 onBack = onBack,
                 trailing = {
+                    // Sino: silencia/reativa a conversa (icone cortado = mutada).
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable { viewModel.toggleMute() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (state.muted) Lucide.BellOff else Lucide.Bell,
+                            contentDescription = if (state.muted) "Reativar notificações" else "Silenciar conversa",
+                            tint = if (state.muted) astraColors.text3 else astraColors.accent,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .size(36.dp)

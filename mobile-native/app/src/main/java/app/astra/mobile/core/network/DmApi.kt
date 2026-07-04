@@ -12,6 +12,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -40,6 +41,12 @@ interface DmApi {
         @Path("cid") conversationId: String,
         @Path("mid") messageId: String,
     )
+
+    @PUT("api/dm/{id}/mute")
+    suspend fun mute(@Path("id") conversationId: String)
+
+    @DELETE("api/dm/{id}/mute")
+    suspend fun unmute(@Path("id") conversationId: String)
 
     @GET("api/reads/dm")
     suspend fun dmReads(): ApiEnvelope<Map<String, DmReadDto>>

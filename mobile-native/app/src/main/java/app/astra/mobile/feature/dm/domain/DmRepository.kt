@@ -32,5 +32,7 @@ interface DmRepository {
     suspend fun dmReads(): Result<Map<String, String?>>
     suspend fun markRead(conversationId: String): Result<Unit>
 
+    suspend fun setMuted(conversationId: String, muted: Boolean): Result<Unit>
+
     fun incomingConversations(): Flow<String>
 }

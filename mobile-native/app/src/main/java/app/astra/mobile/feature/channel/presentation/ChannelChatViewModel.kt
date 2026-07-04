@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.model.Attachment
 import app.astra.mobile.core.model.toModel
+import app.astra.mobile.core.network.NotificationsApi
+import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.translate.Translator
 import app.astra.mobile.core.upload.ImageUploader
 import app.astra.mobile.core.upload.UploadFile
@@ -45,6 +47,10 @@ data class ChannelChatUiState(
 
     val editHistory: List<MessageEdit>? = null,
     val editHistoryLoading: Boolean = false,
+
+    // Pref de notificacao DESTE canal: "all"/"mentions"/"mute"; null = herda do
+    // servidor (sem pref explicita).
+    val notifMode: String? = null,
 )
 
 @HiltViewModel
@@ -52,6 +58,7 @@ class ChannelChatViewModel @Inject constructor(
     private val repository: ChannelRepository,
     private val imageUploader: ImageUploader,
     private val translator: Translator,
+    private val notificationsApi: NotificationsApi,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -67,6 +74,32 @@ class ChannelChatViewModel @Inject constructor(
         observeMessages()
         loadHistory()
         observeTyping()
+        loadNotifPref()
+    }
+
+    private fun loadNotifPref() {
+        viewModelScope.launch {
+            try {
+                val mode = notificationsApi.channelNotifPrefs().data
+                    ?.firstOrNull { it.channelId == channelId }?.mode
+                _state.update { it.copy(notifMode = mode) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    // mode null = "padrao do servidor" (remove a pref explicita). Otimista:
+    // atualiza a UI antes da rede; erro reverte pro que o servidor conhecia.
+    fun setNotifMode(mode: String?) {
+        val previous = _state.value.notifMode
+        _state.update { it.copy(notifMode = mode) }
+        viewModelScope.launch {
+            try {
+                if (mode == null) notificationsApi.clearChannelNotifPref(channelId)
+                else notificationsApi.setChannelNotifPref(channelId, NotifModeRequest(mode))
+            } catch (_: Exception) {
+                _state.update { it.copy(notifMode = previous) }
+            }
+        }
     }
 
     private fun observeMessages() {

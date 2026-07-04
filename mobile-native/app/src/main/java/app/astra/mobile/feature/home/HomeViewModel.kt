@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.core.network.NotificationsApi
+import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.push.PushRegistrar
 import app.astra.mobile.core.realtime.ConnectionState
 import app.astra.mobile.core.realtime.SocketManager
@@ -50,6 +51,10 @@ class HomeViewModel @Inject constructor(
     private val _serverCreated = MutableSharedFlow<Server>(extraBufferCapacity = 1)
     val serverCreated = _serverCreated.asSharedFlow()
 
+    // Prefs explicitas por canal (modo por channelId), pro toggle de servidor
+    // saber quais canais herdam (sem pref propria) na hora de recalcular local.
+    private var channelPrefModes: Map<String, String> = emptyMap()
+
     init {
         load()
         refreshNotifications()
@@ -66,6 +71,8 @@ class HomeViewModel @Inject constructor(
             val chReadsD = async { serverRepository.channelReads() }
             val meD = async { userRepository.me() }
             val myIdD = async { tokenStore.currentUserId() }
+            val chPrefsD = async { runCatching { notificationsApi.channelNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
+            val svPrefsD = async { runCatching { notificationsApi.serverNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
 
             val servers = serversD.await().getOrDefault(emptyList())
             val conversations = convD.await().getOrDefault(emptyList())
@@ -74,15 +81,23 @@ class HomeViewModel @Inject constructor(
             val me = meD.await().getOrNull()
             val myId = myIdD.await()
 
+            channelPrefModes = chPrefsD.await().associate { it.channelId to it.mode }
+            val svModes = svPrefsD.await().associate { it.serverId to it.mode }
+            val mutedServers = svModes.filterValues { it == "mute" }.keys
+            val mutedChannels = servers.flatMap { s -> s.channels.map { ch -> s.id to ch.id } }
+                .filter { (sid, cid) -> (channelPrefModes[cid] ?: svModes[sid]) == "mute" }
+                .map { it.second }.toSet()
+            val mutedConvs = conversations.filter { it.muted }.map { it.id }.toSet()
+
             val unread = conversations
                 .filter { c ->
                     !c.lastFromMe && c.lastMessageAt?.let { last -> reads[c.id]?.let { last > it } ?: true } ?: false
                 }
-                .map { it.id }.toSet()
+                .map { it.id }.toSet() - mutedConvs
 
             val channelUnread = servers.flatMap { it.channels }
                 .filter { ch -> ch.lastMessageAt?.let { last -> chReads[ch.id]?.let { last > it } ?: true } ?: false }
-                .map { it.id }.toSet()
+                .map { it.id }.toSet() - mutedChannels
 
             val voiceChannels = servers.flatMap { s -> s.channels.filter { it.isVoice }.map { s to it } }
             val activeVoice = if (voiceChannels.isEmpty()) {
@@ -103,6 +118,9 @@ class HomeViewModel @Inject constructor(
                     dms = conversations,
                     unread = unread,
                     channelUnread = channelUnread,
+                    mutedServers = mutedServers,
+                    mutedChannels = mutedChannels,
+                    mutedConvs = mutedConvs,
                     activeVoice = activeVoice,
                     myId = myId,
                     myName = me?.displayName ?: "",
@@ -227,7 +245,33 @@ class HomeViewModel @Inject constructor(
     private fun observeIncoming() {
         viewModelScope.launch {
             dmRepository.incomingConversations().collect { convId ->
-                _state.update { it.copy(unread = it.unread + convId) }
+                _state.update {
+                    if (convId in it.mutedConvs) it else it.copy(unread = it.unread + convId)
+                }
+            }
+        }
+    }
+
+    // Silencia/reativa o servidor inteiro (canais COM pref propria nao mudam).
+    // Otimista: recalcula os sets locais na hora; erro reverte.
+    fun setServerMuted(serverId: String, muted: Boolean) {
+        val prev = _state.value
+        val srvChannelIds = prev.servers.firstOrNull { it.id == serverId }?.channels?.map { it.id }.orEmpty()
+        val inheriting = srvChannelIds.filter { channelPrefModes[it] == null }.toSet()
+        _state.update {
+            val mutedChannels = if (muted) it.mutedChannels + inheriting else it.mutedChannels - inheriting
+            it.copy(
+                mutedServers = if (muted) it.mutedServers + serverId else it.mutedServers - serverId,
+                mutedChannels = mutedChannels,
+                channelUnread = if (muted) it.channelUnread - mutedChannels else it.channelUnread,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                if (muted) notificationsApi.setServerNotifPref(serverId, NotifModeRequest("mute"))
+                else notificationsApi.clearServerNotifPref(serverId)
+            } catch (_: Exception) {
+                _state.update { it.copy(mutedServers = prev.mutedServers, mutedChannels = prev.mutedChannels) }
             }
         }
     }

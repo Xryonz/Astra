@@ -77,6 +77,15 @@ class DmRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Falha ao marcar como lido"))
     }
 
+    override suspend fun setMuted(conversationId: String, muted: Boolean): Result<Unit> = try {
+        if (muted) dmApi.mute(conversationId) else dmApi.unmute(conversationId)
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(ApiException("Falha ao silenciar conversa"))
+    }
+
     override fun incomingConversations(): Flow<String> = flow {
         val uid = tokenStore.currentUserId()
         socketManager.newDm.collect { raw ->
@@ -203,6 +212,7 @@ private fun ConversationDto.toDomain(uid: String?): Conversation? {
         preview = lastMessage?.content?.ifBlank { "Anexo" } ?: "Sem mensagens ainda",
         lastMessageAt = lastMessage?.createdAt,
         lastFromMe = lastMessage?.senderId != null && lastMessage.senderId == uid,
+        muted = muted,
     )
 }
 

@@ -7,6 +7,7 @@ data class ConversationDto(
     val id: String,
     val otherUser: UserDto? = null,
     val lastMessage: LastMessageDto? = null,
+    val muted: Boolean = false,
 )
 
 @Serializable

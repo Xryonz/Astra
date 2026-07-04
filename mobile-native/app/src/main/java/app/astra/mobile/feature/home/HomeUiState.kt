@@ -21,6 +21,11 @@ data class HomeUiState(
     val channelUnread: Set<String> = emptySet(),
     val activeVoice: List<ActiveVoiceRoom> = emptyList(),
 
+    // Silenciados (badges ignoram; canal efetivo = pref do canal > servidor).
+    val mutedServers: Set<String> = emptySet(),
+    val mutedChannels: Set<String> = emptySet(),
+    val mutedConvs: Set<String> = emptySet(),
+
     val selectedServerId: String? = null,
 
     val myId: String? = null,

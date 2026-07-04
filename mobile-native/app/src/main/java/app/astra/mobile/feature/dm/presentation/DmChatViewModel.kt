@@ -59,6 +59,7 @@ class DmChatViewModel @Inject constructor(
             repository.conversations().onSuccess { list ->
                 val conv = list.find { it.id == conversationId }
                 otherUserId = conv?.otherUserId
+                _state.update { it.copy(muted = conv?.muted == true) }
                 // Atalho dinamico (launcher + Direct Share) pra conversa aberta.
                 conv?.let {
                     launch(Dispatchers.IO) {
@@ -66,6 +67,16 @@ class DmChatViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    // Otimista: UI muda na hora; erro reverte.
+    fun toggleMute() {
+        val target = !_state.value.muted
+        _state.update { it.copy(muted = target) }
+        viewModelScope.launch {
+            repository.setMuted(conversationId, target)
+                .onFailure { _state.update { it.copy(muted = !target) } }
         }
     }
 

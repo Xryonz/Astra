@@ -3,9 +3,12 @@ package app.astra.mobile.feature.channel.presentation
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,10 +16,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.BellOff
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.Lucide
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -95,7 +108,10 @@ fun ChannelChatScreen(
                 title = "# ${viewModel.channelName}",
                 marginalia = "orbita de texto",
                 onBack = onBack,
-                trailing = { TopBarAction("📌", onClick = { viewModel.loadPinned(); pinnedOpen = true }) },
+                trailing = {
+                    NotifBellAction(mode = state.notifMode, onSelect = viewModel::setNotifMode)
+                    TopBarAction("📌", onClick = { viewModel.loadPinned(); pinnedOpen = true })
+                },
             )
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -316,4 +332,58 @@ private fun editRelTime(iso: String?): String {
             else -> "${sec / 2592000}mes atras"
         }
     }.getOrDefault("")
+}
+
+// Sino do canal: menu com os 3 modos + "padrao do servidor" (remove a pref
+// explicita e volta a herdar). Icone cortado quando silenciado.
+@Composable
+private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .clickable { open = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (mode == "mute") Lucide.BellOff else Lucide.Bell,
+                contentDescription = "Notificacoes do canal",
+                tint = if (mode == "mute") astraColors.text3 else astraColors.accent,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.background(astraColors.overlay),
+        ) {
+            NotifModeRow("Tudo", selected = mode == "all") { open = false; onSelect("all") }
+            NotifModeRow("So mencoes", selected = mode == "mentions") { open = false; onSelect("mentions") }
+            NotifModeRow("Silenciado", selected = mode == "mute") { open = false; onSelect("mute") }
+            NotifModeRow("Padrao do servidor", selected = mode == null) { open = false; onSelect(null) }
+        }
+    }
+}
+
+@Composable
+private fun NotifModeRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .width(232.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) astraColors.accent else astraColors.text1,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Icon(Lucide.Check, contentDescription = null, tint = astraColors.accent, modifier = Modifier.size(16.dp))
+        }
+    }
 }

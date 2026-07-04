@@ -35,11 +35,12 @@ class DmListViewModel @Inject constructor(
             val reads = repository.dmReads().getOrNull().orEmpty()
             repository.conversations()
                 .onSuccess { list ->
+                    val muted = list.filter { it.muted }.map { it.id }.toSet()
                     val unread = list
                         .filter { c ->
                             !c.lastFromMe && c.lastMessageAt?.let { last -> reads[c.id]?.let { last > it } ?: true } ?: false
                         }
-                        .map { it.id }.toSet()
+                        .map { it.id }.toSet() - muted
                     _state.update { it.copy(loading = false, conversations = list, unread = unread) }
                 }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Erro inesperado") } }
@@ -51,7 +52,10 @@ class DmListViewModel @Inject constructor(
     private fun observeIncoming() {
         viewModelScope.launch {
             repository.incomingConversations().collect { convId ->
-                _state.update { it.copy(unread = it.unread + convId) }
+                _state.update { s ->
+                    val isMuted = s.conversations.any { it.id == convId && it.muted }
+                    if (isMuted) s else s.copy(unread = s.unread + convId)
+                }
             }
         }
     }

@@ -8,4 +8,5 @@ data class Conversation(
     val preview: String,
     val lastMessageAt: String? = null,
     val lastFromMe: Boolean = false,
+    val muted: Boolean = false,
 )

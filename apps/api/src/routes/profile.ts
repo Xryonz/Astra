@@ -208,6 +208,7 @@ router.get(
       bannerBorder:    users.bannerBorder,
       bannerTextColor: users.bannerTextColor,
       pronouns: users.pronouns, statusEmoji: users.statusEmoji,
+      customStatus: users.customStatus,
       displayFont: users.displayFont,
       isBot: users.isBot,
       status: users.status,

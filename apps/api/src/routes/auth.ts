@@ -39,6 +39,7 @@ const userSafeColumns = {
   bannerTextColor: users.bannerTextColor,
   pronouns:        users.pronouns,
   statusEmoji:     users.statusEmoji,
+  customStatus:    users.customStatus,
   displayFont:     users.displayFont,
   onboardedAt:     users.onboardedAt,
   emailVerifiedAt: users.emailVerifiedAt,

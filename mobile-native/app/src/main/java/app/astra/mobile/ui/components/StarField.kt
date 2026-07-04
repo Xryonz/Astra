@@ -31,9 +31,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -308,7 +313,32 @@ private fun AuroraShader(
     )
 
     val r = color.red; val g = color.green; val b = color.blue
-    Canvas(modifier.fillMaxSize()) {
+    // MEIA RESOLUCAO: o AGSL custa por pixel. O canvas e MEDIDO na metade do
+    // tamanho e composto com scale 2x a partir de um buffer offscreen -> o
+    // shader calcula ~25% dos pixels. O upscale bilinear e invisivel aqui
+    // (aurora e gradiente desfocado); estrelas/conteudo seguem em res cheia.
+    // O shader e independente de resolucao (uv = fragCoord/iResolution), entao
+    // toque/tilt continuam alinhados com a tela sem ajuste.
+    Canvas(
+        modifier
+            .layout { measurable, constraints ->
+                val w = constraints.maxWidth
+                val h = constraints.maxHeight
+                val half = measurable.measure(
+                    Constraints.fixed((w / 2).coerceAtLeast(1), (h / 2).coerceAtLeast(1)),
+                )
+                layout(w, h) { half.place(0, 0) }
+            }
+            .graphicsLayer {
+                scaleX = 2f
+                scaleY = 2f
+                transformOrigin = TransformOrigin(0f, 0f)
+                // Sem Offscreen o RenderNode reexecutaria o draw ja transformado
+                // (= shader por pixel FINAL, ganho zero). Com ele, rasteriza no
+                // tamanho do layout e escala a textura.
+                compositingStrategy = CompositingStrategy.Offscreen
+            },
+    ) {
         // Fase de desenho (como o StarField): le estados animados sem recompor.
         val tv = tilt.value
         val age = fx.ripple.value

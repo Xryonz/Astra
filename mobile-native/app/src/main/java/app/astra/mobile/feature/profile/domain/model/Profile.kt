@@ -11,6 +11,8 @@ data class Profile(
     val bannerColor: String?,
     val pronouns: String?,
     val statusEmoji: String?,
+    // Recado (custom status): frase curta que aparece pros outros.
+    val customStatus: String? = null,
     val hasPassword: Boolean,
     val createdAt: String?,
 

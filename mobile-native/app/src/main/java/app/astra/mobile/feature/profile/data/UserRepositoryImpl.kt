@@ -163,6 +163,7 @@ private fun ProfileUserDto.toDomain() = Profile(
     bannerColor = bannerColor,
     pronouns = pronouns,
     statusEmoji = statusEmoji,
+    customStatus = customStatus,
     hasPassword = hasPassword,
     createdAt = createdAt,
     profileTheme = profileTheme,

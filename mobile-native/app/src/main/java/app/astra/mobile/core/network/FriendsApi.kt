@@ -1,12 +1,14 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.FriendDto
 import app.astra.mobile.core.network.dto.FriendRequestDto
 import app.astra.mobile.core.network.dto.SendFriendRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -28,4 +30,8 @@ interface FriendsApi {
 
     @DELETE("api/friends/{id}")
     suspend fun remove(@Path("id") id: String)
+
+    // Recado (custom status). Limpar = mandar "" (backend faz trim() || null).
+    @PATCH("api/friends/custom-status")
+    suspend fun setCustomStatus(@Body body: CustomStatusRequest)
 }

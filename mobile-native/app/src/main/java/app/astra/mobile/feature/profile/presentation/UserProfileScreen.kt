@@ -37,6 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.feature.friends.domain.model.Presence
 import app.astra.mobile.feature.profile.domain.model.MutualServer
 import app.astra.mobile.ui.components.AstraAvatar
+import app.astra.mobile.ui.components.BadgeChips
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
@@ -95,6 +96,21 @@ fun UserProfileScreen(
                         )
 
                         Column(Modifier.padding(horizontal = 22.dp)) {
+                            // Recado (custom status) logo abaixo do nome, estilo Discord.
+                            if (!p.customStatus.isNullOrBlank()) {
+                                Spacer(Modifier.height(14.dp))
+                                Text(
+                                    text = "“${p.customStatus}”",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = astraColors.text1,
+                                )
+                            }
+
+                            if (state.badges.isNotEmpty()) {
+                                Spacer(Modifier.height(14.dp))
+                                BadgeChips(state.badges)
+                            }
+
                             if (!p.bio.isNullOrBlank()) {
                                 Spacer(Modifier.height(16.dp))
                                 MarginaliaLabel("sobre")

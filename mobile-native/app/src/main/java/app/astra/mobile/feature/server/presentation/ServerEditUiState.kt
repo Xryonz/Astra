@@ -1,5 +1,20 @@
 package app.astra.mobile.feature.server.presentation
 
+data class ServerBadgeUi(
+    val id: String,
+    val name: String,
+    val icon: String,
+    val color: String?,
+    val description: String?,
+    val grantedUserIds: Set<String>,
+)
+
+data class BadgeMemberUi(
+    val userId: String,
+    val name: String,
+    val avatarUrl: String?,
+)
+
 data class ServerEditUiState(
     val loading: Boolean = true,
     val name: String = "",
@@ -12,6 +27,11 @@ data class ServerEditUiState(
     val saving: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
+
+    // Insignias do servidor (gestao: criar/apagar/conceder).
+    val badges: List<ServerBadgeUi> = emptyList(),
+    val members: List<BadgeMemberUi> = emptyList(),
+    val badgeError: String? = null,
 ) {
     val dirty: Boolean
         get() = name.trim() != origName || iconUrl != origIcon || isPublic != origPublic

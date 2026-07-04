@@ -3,7 +3,10 @@ package app.astra.mobile.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.data.TokenStore
+import app.astra.mobile.core.network.BadgesApi
+import app.astra.mobile.core.network.FriendsApi
 import app.astra.mobile.core.network.NotificationsApi
+import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.push.PushRegistrar
 import app.astra.mobile.core.realtime.ConnectionState
@@ -15,6 +18,7 @@ import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.ServerRepository
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.ui.components.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +39,8 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
     private val notificationsApi: NotificationsApi,
+    private val badgesApi: BadgesApi,
+    private val friendsApi: FriendsApi,
     private val pushRegistrar: PushRegistrar,
 ) : ViewModel() {
 
@@ -132,10 +138,36 @@ class HomeViewModel @Inject constructor(
                     myPronouns = me?.pronouns,
                     myCreatedAt = me?.createdAt,
                     myStatus = me?.status ?: UserStatus.ONLINE,
+                    myCustomStatus = me?.customStatus,
                     needsOnboarding = me != null && me.onboardedAt == null,
                     needsEmailVerify = me != null && me.emailVerifiedAt == null,
                     needsPassword = me != null && !me.hasPassword,
                 )
+            }
+
+            // Minhas badges: best-effort fora do caminho critico do load.
+            if (myId != null) {
+                launch {
+                    runCatching { badgesApi.userBadges(myId).data?.toUi() }.getOrNull()?.let { b ->
+                        _state.update { it.copy(myBadges = b) }
+                    }
+                }
+            }
+        }
+    }
+
+    // Recado (custom status). Otimista; sucesso re-hidrata o cache do me()
+    // pra proxima leitura nao voltar o valor antigo.
+    fun setCustomStatus(text: String) {
+        val newVal = text.trim().take(100)
+        val prev = _state.value.myCustomStatus
+        _state.update { it.copy(myCustomStatus = newVal.ifBlank { null }) }
+        viewModelScope.launch {
+            try {
+                friendsApi.setCustomStatus(CustomStatusRequest(newVal))
+                userRepository.me(forceRefresh = true)
+            } catch (_: Exception) {
+                _state.update { it.copy(myCustomStatus = prev) }
             }
         }
     }
@@ -194,6 +226,7 @@ class HomeViewModel @Inject constructor(
                         myPronouns = me.pronouns,
                         myCreatedAt = me.createdAt,
                         myStatus = me.status,
+                        myCustomStatus = me.customStatus,
                     )
                 }
             }

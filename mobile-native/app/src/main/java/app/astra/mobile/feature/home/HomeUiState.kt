@@ -3,6 +3,7 @@ package app.astra.mobile.feature.home
 import app.astra.mobile.feature.dm.domain.model.Conversation
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Server
+import app.astra.mobile.ui.components.BadgeUi
 
 data class ActiveVoiceRoom(
     val channelId: String,
@@ -38,6 +39,8 @@ data class HomeUiState(
     val myPronouns: String? = null,
     val myCreatedAt: String? = null,
     val myStatus: UserStatus = UserStatus.ONLINE,
+    val myCustomStatus: String? = null,
+    val myBadges: List<BadgeUi> = emptyList(),
 
     val opening: Boolean = false,
     val openError: String? = null,

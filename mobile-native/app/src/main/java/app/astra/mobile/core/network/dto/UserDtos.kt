@@ -17,6 +17,7 @@ data class ProfileUserDto(
     val bannerColor: String? = null,
     val pronouns: String? = null,
     val statusEmoji: String? = null,
+    val customStatus: String? = null,
     val hasPassword: Boolean = true,
     val createdAt: String? = null,
     val effectiveStatus: String? = null,

@@ -3,6 +3,7 @@ package app.astra.mobile.core.di
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.AuthInterceptor
+import app.astra.mobile.core.network.BadgesApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.FriendsApi
@@ -128,6 +129,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideWishApi(retrofit: Retrofit): WishApi = retrofit.create(WishApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideBadgesApi(retrofit: Retrofit): BadgesApi = retrofit.create(BadgesApi::class.java)
 
     @Provides
     @Singleton

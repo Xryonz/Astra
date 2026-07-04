@@ -141,6 +141,13 @@
       "when": 1786600000000,
       "tag": "0019_email_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786700000000,
+      "tag": "0020_mute_dm_server",
+      "breakpoints": true
     }
   ]
 }

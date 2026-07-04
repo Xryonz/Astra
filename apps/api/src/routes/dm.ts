@@ -76,6 +76,7 @@ export function createDMRouter(io: SocketServer) {
         otherUser:   usersById.get(c.userAId === userId ? c.userBId : c.userAId) ?? null,
         lastMessage: lastByConv.get(c.id) ?? null,
         updatedAt:   c.updatedAt,
+        muted:       (c.userAId === userId ? c.mutedByA : c.mutedByB) != null,
       }))
 
       res.json({ data: shaped })
@@ -210,6 +211,50 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
+  // Silenciar/dessilenciar a conversa (so o proprio lado). Preserva o
+  // updatedAt: mutar nao pode reordenar a lista de DMs.
+  router.put(
+    '/:conversationId/mute',
+    requireAuth,
+    asyncHandler(async (req: Request, res: Response) => {
+      const { conversationId } = req.params
+      const [conv] = await db.select().from(dmConversations)
+        .where(and(
+          eq(dmConversations.id, conversationId),
+          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+        ))
+        .limit(1)
+      if (!conv) return res.status(403).json({ error: 'Acesso negado' })
+
+      const patch = conv.userAId === req.userId
+        ? { mutedByA: new Date(), updatedAt: conv.updatedAt }
+        : { mutedByB: new Date(), updatedAt: conv.updatedAt }
+      await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
+      res.json({ data: { conversationId: conv.id, muted: true } })
+    })
+  )
+
+  router.delete(
+    '/:conversationId/mute',
+    requireAuth,
+    asyncHandler(async (req: Request, res: Response) => {
+      const { conversationId } = req.params
+      const [conv] = await db.select().from(dmConversations)
+        .where(and(
+          eq(dmConversations.id, conversationId),
+          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+        ))
+        .limit(1)
+      if (!conv) return res.status(403).json({ error: 'Acesso negado' })
+
+      const patch = conv.userAId === req.userId
+        ? { mutedByA: null, updatedAt: conv.updatedAt }
+        : { mutedByB: null, updatedAt: conv.updatedAt }
+      await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
+      res.json({ data: { conversationId: conv.id, muted: false } })
+    })
+  )
+
   router.post(
     '/:conversationId/messages',
     requireAuth,
@@ -282,6 +327,12 @@ export function createDMRouter(io: SocketServer) {
           try {
             await db.update(dmConversations).set({ updatedAt: new Date() })
               .where(eq(dmConversations.id, conversationId))
+
+            // Receptor silenciou a conversa: mensagem entra normal (socket ja
+            // emitiu), mas sem feed/push/badge.
+            const receiverMuted =
+              (conv.userAId === receiverId ? conv.mutedByA : conv.mutedByB) != null
+            if (receiverMuted) return
 
             await notify({
               io, userId: receiverId, actorId: req.userId!, type: 'dm',

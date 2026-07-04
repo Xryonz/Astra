@@ -288,6 +288,19 @@ export const channelNotifPrefs = pgTable('ChannelNotifPref', {
   uniqUserChannel: uniqueIndex('ChannelNotifPref_userId_channelId_key').on(t.userId, t.channelId),
 }))
 
+// Pref de notificacao por SERVIDOR (default dos canais sem pref propria):
+// canal explicito > servidor > 'all'. Mesmos modos do ChannelNotifPref.
+export const serverNotifPrefs = pgTable('ServerNotifPref', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+
+  mode:      text('mode').notNull().default('all'),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => ({
+  uniqUserServer: uniqueIndex('ServerNotifPref_userId_serverId_key').on(t.userId, t.serverId),
+}))
+
 export const messageEdits = pgTable('MessageEdit', {
   id:        text('id').primaryKey().$defaultFn(createId),
   messageId: text('messageId').notNull().references(() => messages.id, { onDelete: 'cascade' }),
@@ -314,6 +327,9 @@ export const dmConversations = pgTable('DMConversation', {
   userBId:      text('userBId').notNull().references(() => users.id, { onDelete: 'cascade' }),
   lastReadByA:  timestamp('lastReadByA', { precision: 3 }),
   lastReadByB:  timestamp('lastReadByB', { precision: 3 }),
+  // Silenciar DM: timestamp de quando cada lado mutou (null = nao mutado).
+  mutedByA:     timestamp('mutedByA', { precision: 3 }),
+  mutedByB:     timestamp('mutedByB', { precision: 3 }),
   createdAt:    timestamp('createdAt',   { precision: 3 }).notNull().defaultNow(),
   updatedAt:    timestamp('updatedAt',   { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => ({

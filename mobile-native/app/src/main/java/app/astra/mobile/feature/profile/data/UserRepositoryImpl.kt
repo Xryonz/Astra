@@ -164,6 +164,9 @@ private fun ProfileUserDto.toDomain() = Profile(
     pronouns = pronouns,
     statusEmoji = statusEmoji,
     customStatus = customStatus,
+    // Presenca escolhida (persistida no backend, restaurada no reconnect do
+    // socket): sem isso o status caia no default ONLINE a cada reabertura.
+    status = UserStatus.from(effectiveStatus),
     hasPassword = hasPassword,
     createdAt = createdAt,
     profileTheme = profileTheme,

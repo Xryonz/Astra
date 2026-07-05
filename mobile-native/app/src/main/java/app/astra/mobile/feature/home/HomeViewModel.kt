@@ -137,7 +137,9 @@ class HomeViewModel @Inject constructor(
                     myBio = me?.bio,
                     myPronouns = me?.pronouns,
                     myCreatedAt = me?.createdAt,
-                    myStatus = me?.status ?: UserStatus.ONLINE,
+                    // OFFLINE aqui = corrida (me() antes do socket registrar presenca);
+                    // pra voce mesmo isso vira ONLINE (nunca offline com o app aberto).
+                    myStatus = me?.status?.takeUnless { it == UserStatus.OFFLINE } ?: UserStatus.ONLINE,
                     myCustomStatus = me?.customStatus,
                     needsOnboarding = me != null && me.onboardedAt == null,
                     needsEmailVerify = me != null && me.emailVerifiedAt == null,
@@ -225,7 +227,7 @@ class HomeViewModel @Inject constructor(
                         myBio = me.bio,
                         myPronouns = me.pronouns,
                         myCreatedAt = me.createdAt,
-                        myStatus = me.status,
+                        myStatus = me.status.takeUnless { it == UserStatus.OFFLINE } ?: UserStatus.ONLINE,
                         myCustomStatus = me.customStatus,
                     )
                 }

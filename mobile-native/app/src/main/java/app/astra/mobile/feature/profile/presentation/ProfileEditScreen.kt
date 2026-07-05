@@ -36,13 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,18 +53,16 @@ import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
 import app.astra.mobile.ui.components.AstraButton
 import app.astra.mobile.ui.components.AuthErrorBox
+import app.astra.mobile.ui.components.ColorGradientPicker
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.DisplayFontOptions
 import app.astra.mobile.ui.components.EditorialField
 import app.astra.mobile.ui.components.EditorialTopBar
-import app.astra.mobile.ui.components.FlowRowCompat
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.components.OptionRow
-import app.astra.mobile.ui.components.ProfileGradients
 import app.astra.mobile.ui.components.StatusDot
 import app.astra.mobile.ui.components.displayFontFamily
-import app.astra.mobile.ui.components.parseGradientBrush
 import app.astra.mobile.ui.components.readImageBytes
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
@@ -285,15 +281,26 @@ fun ProfileEditSection(
                 Spacer(Modifier.height(22.dp))
                 MarginaliaLabel("tema do perfil")
                 Spacer(Modifier.height(8.dp))
-                FlowRowCompat(modifier = Modifier.fillMaxWidth()) {
-                    ThemeSwatch(brush = null, active = state.profileTheme.isBlank()) { viewModel.onProfileTheme("") }
-                    ProfileGradients.forEach { (_, css) ->
-                        ThemeSwatch(
-                            brush = parseGradientBrush(css),
-                            active = state.profileTheme == css,
-                        ) { viewModel.onProfileTheme(css) }
-                    }
+                val themeNone = state.profileTheme.isBlank()
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (themeNone) astraColors.accentDim else astraColors.raised)
+                        .border(1.dp, if (themeNone) astraColors.accent else astraColors.border, RoundedCornerShape(10.dp))
+                        .clickable { viewModel.onProfileTheme("") }
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                ) {
+                    Text(
+                        "nenhum",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (themeNone) astraColors.accent else astraColors.text2,
+                    )
                 }
+                Spacer(Modifier.height(10.dp))
+                ColorGradientPicker(
+                    initial = state.profileTheme,
+                    onChange = viewModel::onProfileTheme,
+                )
 
                 Spacer(Modifier.height(22.dp))
                 MarginaliaLabel("status")
@@ -374,29 +381,6 @@ private fun UploadChip(
         } else {
             Text(label, style = MaterialTheme.typography.titleSmall, color = astraColors.text1)
         }
-    }
-}
-
-@Composable
-private fun ThemeSwatch(brush: Brush?, active: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
-    Box(
-        modifier = Modifier
-            .size(54.dp)
-            .clip(shape)
-            .then(if (brush != null) Modifier.background(brush) else Modifier.background(astraColors.base))
-            .border(
-                width = if (active) 2.5.dp else 1.dp,
-                color = if (active) astraColors.accent else astraColors.border,
-                shape = shape,
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (brush == null && !active) {
-            Text("nenhum", style = MaterialTheme.typography.labelSmall, color = astraColors.text3)
-        }
-        if (active) Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
     }
 }
 

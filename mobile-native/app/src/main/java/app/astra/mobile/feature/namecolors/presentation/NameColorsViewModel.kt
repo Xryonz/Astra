@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-val NAME_COLOR_PRESETS = listOf(
-    "#c9a96e", "#9b7ac4", "#6aaeca", "#ca7a9b", "#6ec99b",
-    "#e07a7a", "#7ac4c4", "#c4c47a", "#c47aaa", "#7ac4a0",
-)
-
 private val HEX_RE = Regex("^#[0-9a-fA-F]{6}$")
+private val HEX6 = Regex("#[0-9a-fA-F]{6}")
+
+// Aceita cor solida (#rrggbb) ou linear-gradient(...) com >=2 hexes validos.
+private fun isValidColorCss(v: String): Boolean =
+    HEX_RE.matches(v) || (v.startsWith("linear-gradient") && HEX6.findAll(v).count() >= 2)
 
 data class NameColorServer(val id: String, val name: String, val isGroup: Boolean)
 
@@ -64,15 +64,13 @@ class NameColorsViewModel @Inject constructor(
         }
     }
 
-    fun pickPreset(hex: String) = _state.update { it.copy(chosen = hex, customHex = "", error = null) }
-
     fun onCustom(v: String) = _state.update { it.copy(customHex = v, error = null) }
 
     fun apply(serverId: String) {
         val st = _state.value
         val color = st.customHex.trim().ifBlank { st.chosen }.ifBlank { null }
-        if (color != null && !HEX_RE.matches(color)) {
-            _state.update { it.copy(error = "Use #RRGGBB (ex: #c9a96e)") }
+        if (color != null && !isValidColorCss(color)) {
+            _state.update { it.copy(error = "Cor invalida — confira o hex") }
             return
         }
         save(serverId, color)

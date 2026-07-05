@@ -32,13 +32,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.astra.mobile.ui.components.ColorGradientPicker
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.CosmicSpinner
 import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.astraColors
-import zed.rainxch.rikkaui.components.ui.input.Input
-import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 
 @Composable
 fun NameColorsSection(
@@ -63,12 +62,9 @@ fun NameColorsSection(
                             server = s,
                             expanded = state.expandedId == s.id,
                             applied = state.applied[s.id],
-                            chosen = state.chosen,
-                            customHex = state.customHex,
                             saving = state.savingId == s.id,
                             error = if (state.expandedId == s.id) state.error else null,
                             onToggle = { viewModel.toggleExpand(s.id) },
-                            onPreset = viewModel::pickPreset,
                             onCustom = viewModel::onCustom,
                             onApply = { viewModel.apply(s.id) },
                             onReset = { viewModel.reset(s.id) },
@@ -84,12 +80,9 @@ private fun ServerColorCard(
     server: NameColorServer,
     expanded: Boolean,
     applied: String?,
-    chosen: String,
-    customHex: String,
     saving: Boolean,
     error: String?,
     onToggle: () -> Unit,
-    onPreset: (String) -> Unit,
     onCustom: (String) -> Unit,
     onApply: () -> Unit,
     onReset: () -> Unit,
@@ -140,34 +133,10 @@ private fun ServerColorCard(
 
         AnimatedVisibility(visible = expanded) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 14.dp)) {
-                MarginaliaLabel("predefinidas")
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    NAME_COLOR_PRESETS.take(5).forEach { c -> PresetDot(c, active = customHex.isBlank() && chosen == c) { onPreset(c) } }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    NAME_COLOR_PRESETS.drop(5).forEach { c -> PresetDot(c, active = customHex.isBlank() && chosen == c) { onPreset(c) } }
-                }
-
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val preview = customHex.ifBlank { chosen }
-                    Box(
-                        Modifier.size(34.dp).clip(RoundedCornerShape(9.dp))
-                            .background(hexColor(preview) ?: astraColors.base)
-                            .border(1.dp, astraColors.border, RoundedCornerShape(9.dp)),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Input(
-                        value = customHex,
-                        onValueChange = onCustom,
-                        modifier = Modifier.weight(1f),
-                        placeholder = "#c9a96e",
-                        singleLine = true,
-                        animation = InputAnimation.Glow,
-                    )
-                }
+                ColorGradientPicker(
+                    initial = applied ?: "",
+                    onChange = onCustom,
+                )
 
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
@@ -181,21 +150,6 @@ private fun ServerColorCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PresetDot(hex: String, active: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(RoundedCornerShape(9.dp))
-            .background(hexColor(hex) ?: astraColors.base)
-            .border(if (active) 2.5.dp else 1.dp, if (active) astraColors.text1 else Color.White.copy(alpha = 0.12f), RoundedCornerShape(9.dp))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (active) Text("✓", color = Color.White, style = MaterialTheme.typography.labelMedium)
     }
 }
 

@@ -8,6 +8,7 @@ import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.EmojisApi
 import app.astra.mobile.core.network.FriendsApi
+import app.astra.mobile.core.network.SearchApi
 import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.InvitesApi
 import app.astra.mobile.core.network.DmApi
@@ -138,6 +139,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideEmojisApi(retrofit: Retrofit): EmojisApi = retrofit.create(EmojisApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSearchApi(retrofit: Retrofit): SearchApi = retrofit.create(SearchApi::class.java)
 
     @Provides
     @Singleton

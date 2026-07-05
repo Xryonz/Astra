@@ -57,6 +57,7 @@ import app.astra.mobile.feature.dm.presentation.DmChatScreen
 import app.astra.mobile.feature.dm.presentation.DmListScreen
 import app.astra.mobile.feature.friends.presentation.FriendsScreen
 import app.astra.mobile.feature.home.HomeScreen
+import app.astra.mobile.feature.search.SearchScreen
 import app.astra.mobile.feature.invite.presentation.JoinServerScreen
 import app.astra.mobile.feature.notifications.presentation.NotificationsFeedScreen
 import app.astra.mobile.feature.onboarding.presentation.OnboardingScreen
@@ -109,6 +110,7 @@ private object Routes {
     const val JOIN = "join?code={code}"
     const val VERIFY_EMAIL = "verify-email"
     const val DISCOVER = "discover"
+    const val SEARCH = "search"
     const val SERVER_EDIT = "server/{serverId}/edit"
     fun serverEdit(id: String) = "server/$id/edit"
     const val SERVER_OVERVIEW = "server/{serverId}/overview"
@@ -175,6 +177,7 @@ fun AstraApp() {
                         onOpenDiscover = { nav.navigate(Routes.DISCOVER) },
                         onOpenDm = { id, name -> nav.navigate(Routes.dmChat(id, name)) },
                         onOpenDms = { nav.navigate(Routes.DMS) },
+                        onOpenSearch = { nav.navigate(Routes.SEARCH) },
                         onOpenFriends = { nav.navigate(Routes.FRIENDS) },
                         onOpenSettings = { nav.navigate(Routes.SETTINGS) },
                         onOpenProfile = { nav.navigate(Routes.PERSONALIZATION) },
@@ -275,6 +278,14 @@ fun AstraApp() {
                                 popUpTo(Routes.DISCOVER) { inclusive = true }
                             }
                         },
+                    )
+                }
+                composable(Routes.SEARCH) {
+                    SearchScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenServer = { id, name -> nav.navigate(Routes.channels(id, name)) },
+                        onOpenChannel = { id, name -> nav.navigate(Routes.channelChat(id, name)) },
+                        onOpenUser = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
                     )
                 }
                 composable(

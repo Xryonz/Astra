@@ -135,6 +135,7 @@ fun HomeScreen(
     onOpenDiscover: () -> Unit,
     onOpenDm: (id: String, name: String) -> Unit,
     onOpenDms: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenFriends: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenProfile: () -> Unit,
@@ -146,8 +147,6 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
-    var searchOpen by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
 
     var showForge by remember { mutableStateOf(false) }
     var forgeAsGroup by remember { mutableStateOf(false) }
@@ -222,10 +221,7 @@ fun HomeScreen(
         }
     }
 
-    val dms = remember(state.dms, query) {
-        if (query.isBlank()) state.dms
-        else state.dms.filter { it.otherName.contains(query.trim(), ignoreCase = true) }
-    }
+    val dms = state.dms
 
     val transitionsOn = LocalAppPrefs.current.transitionsOn
 
@@ -280,10 +276,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(14.dp))
                     Reveal(delayMillis = 70) {
                         SearchAddRow(
-                            searchOpen = searchOpen,
-                            query = query,
-                            onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
-                            onQuery = { query = it },
+                            onSearch = onOpenSearch,
                             onAddFriends = onOpenFriends,
                             onNew = { showDialog = true },
                         )
@@ -292,7 +285,7 @@ fun HomeScreen(
 
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     Column(Modifier.fillMaxSize()) {
-                        if (state.activeVoice.isNotEmpty() && query.isBlank()) {
+                        if (state.activeVoice.isNotEmpty()) {
                             Spacer(Modifier.height(16.dp))
                             MarginaliaLabel("na voz", Modifier.padding(horizontal = 18.dp))
                             Spacer(Modifier.height(8.dp))
@@ -345,15 +338,9 @@ fun HomeScreen(
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                             when {
                                 state.loading -> ListSkeleton(avatar = true)
-                                dms.isEmpty() && query.isBlank() -> EmptyState(
+                                dms.isEmpty() -> EmptyState(
                                     line = AstraCopy.Empties.noDMs.title,
                                     hint = "toque em Adicionar estrelas",
-                                )
-                                dms.isEmpty() -> Text(
-                                    text = "Nada encontrado.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = astraColors.text3,
-                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
                                 )
                                 else -> LazyColumn(
                                     Modifier.fillMaxSize(),
@@ -1042,10 +1029,7 @@ private fun CreateChannelDialog(
 
 @Composable
 private fun SearchAddRow(
-    searchOpen: Boolean,
-    query: String,
-    onToggleSearch: () -> Unit,
-    onQuery: (String) -> Unit,
+    onSearch: () -> Unit,
     onAddFriends: () -> Unit,
     onNew: () -> Unit,
 ) {
@@ -1057,14 +1041,14 @@ private fun SearchAddRow(
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(astraColors.raised)
-                    .border(1.dp, if (searchOpen) astraColors.accent.copy(alpha = 0.5f) else astraColors.border, CircleShape)
-                    .clickable(onClick = onToggleSearch),
+                    .border(1.dp, astraColors.border, CircleShape)
+                    .clickable(onClick = onSearch),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Lucide.Search,
                     contentDescription = "Buscar",
-                    tint = if (searchOpen) astraColors.accent else astraColors.text2,
+                    tint = astraColors.text2,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -1113,16 +1097,6 @@ private fun SearchAddRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
-        }
-        if (searchOpen) {
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQuery,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar estrela", color = astraColors.text3) },
-            )
         }
     }
 }

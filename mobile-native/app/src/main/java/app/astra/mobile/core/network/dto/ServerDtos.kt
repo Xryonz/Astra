@@ -58,6 +58,17 @@ data class UpdateServerRequest(
 data class InviteCodeResponse(val inviteCode: String)
 
 @Serializable
+data class EmojiDto(
+    val id: String,
+    val serverId: String = "",
+    val name: String,
+    val url: String,
+)
+
+@Serializable
+data class RenameEmojiRequest(val name: String)
+
+@Serializable
 data class CreateChannelRequest(val name: String, val type: String = "TEXT")
 
 @Serializable

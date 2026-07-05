@@ -22,6 +22,7 @@ data class ServerSettingsUiState(
     val isOwner: Boolean = false,
     val canManageServer: Boolean = false,
     val canManageRoles: Boolean = false,
+    val canManageChannels: Boolean = false,
     val canBan: Boolean = false,
     val working: Boolean = false,
     // sair/excluir concluido -> a tela navega de volta pra Home.
@@ -66,6 +67,9 @@ class ServerSettingsViewModel @Inject constructor(
                         perms?.permissions.orEmpty().contains("MANAGE_SERVER"),
                     canManageRoles = perms?.isOwner == true ||
                         perms?.permissions.orEmpty().contains("MANAGE_ROLES"),
+                    canManageChannels = perms?.isOwner == true ||
+                        perms?.isAdmin == true ||
+                        perms?.permissions.orEmpty().contains("MANAGE_CHANNELS"),
                     canBan = perms?.isOwner == true ||
                         perms?.permissions.orEmpty().contains("BAN_MEMBERS"),
                 )

@@ -39,6 +39,36 @@ object ImageEncoder {
         }
     }
 
+    // Como toDataUri, mas devolve bytes crus (pra upload multipart, ex: emojis).
+    // GIF passa direto se couber no limite (preserva animacao); estatico vira JPEG.
+    suspend fun toUploadBytes(
+        bytes: ByteArray,
+        mime: String,
+        maxDimension: Int,
+        targetBytes: Int,
+        gifRawLimit: Int,
+    ): Result<Pair<ByteArray, String>> = withContext(Dispatchers.Default) {
+        val base = mime.substringBefore(';').trim().lowercase()
+        if (base == "image/gif") {
+            return@withContext if (bytes.size <= gifRawLimit) Result.success(bytes to "image/gif")
+            else Result.failure(ApiException("GIF muito grande — escolha um menor."))
+        }
+        try {
+            val src = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?: return@withContext Result.failure(ApiException("Imagem invalida."))
+            val scaled = scaleDown(src, maxDimension)
+            var quality = 85
+            var out = compress(scaled, quality)
+            while (out.size > targetBytes && quality > 40) {
+                quality -= 15
+                out = compress(scaled, quality)
+            }
+            Result.success(out to "image/jpeg")
+        } catch (e: Exception) {
+            Result.failure(ApiException("Nao foi possivel processar a imagem."))
+        }
+    }
+
     private fun compress(bmp: Bitmap, quality: Int): ByteArray =
         ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
 

@@ -58,6 +58,7 @@ fun ServerSettingsScreen(
     onOpenBadges: () -> Unit,
     onOpenRoles: () -> Unit,
     onOpenBans: () -> Unit,
+    onOpenEmojis: () -> Unit,
     viewModel: ServerSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -137,9 +138,14 @@ fun ServerSettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            if (state.canManageServer) {
+            if (state.canManageServer || state.canManageChannels) {
                 MarginaliaLabel("— geral", Modifier.padding(start = 22.dp, bottom = 8.dp))
-                HubRow("Visao geral", "icone, nome e visibilidade", onOpenOverview)
+                if (state.canManageServer) {
+                    HubRow("Visao geral", "icone, nome, banner e convite", onOpenOverview)
+                }
+                if (state.canManageChannels) {
+                    HubRow("Emojis", "emojis custom da constelacao", onOpenEmojis)
+                }
                 Spacer(Modifier.height(20.dp))
             }
 

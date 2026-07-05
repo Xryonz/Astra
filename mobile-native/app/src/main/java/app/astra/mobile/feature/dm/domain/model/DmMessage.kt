@@ -8,6 +8,7 @@ data class DmMessage(
     val authorId: String? = null,
     val authorName: String,
     val authorAvatar: String?,
+    val authorFont: String? = null,
     val createdAt: String?,
     val mine: Boolean,
     val replyToAuthor: String? = null,

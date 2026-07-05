@@ -191,6 +191,7 @@ fun MessageBubble(
     authorName: String,
     authorAvatar: String?,
     authorColor: String? = null,
+    authorFont: String? = null,
     content: String,
     animateIn: Boolean,
     sweep: Boolean,
@@ -272,6 +273,7 @@ fun MessageBubble(
                 Text(
                     text = authorName,
                     style = if (nameColor is NameColor.Gradient) baseStyle.copy(brush = nameColor.brush) else baseStyle,
+                    fontFamily = displayFontFamily(authorFont),
                     color = when (nameColor) {
                         is NameColor.Solid -> nameColor.color
                         is NameColor.Gradient -> Color.Unspecified
@@ -597,6 +599,7 @@ data class ChatRow(
     val authorName: String,
     val authorAvatar: String? = null,
     val authorColor: String? = null,
+    val authorFont: String? = null,
     val content: String,
     val edited: Boolean = false,
     val pinned: Boolean = false,
@@ -672,6 +675,7 @@ fun ChatMessageList(
                     authorName = row.authorName,
                     authorAvatar = row.authorAvatar,
                     authorColor = row.authorColor,
+                    authorFont = row.authorFont,
                     content = row.content,
                     animateIn = isNew,
                     sweep = isNew && shownOnce,

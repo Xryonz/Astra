@@ -176,6 +176,7 @@ fun DmChatScreen(
                                     authorId = m.authorId,
                                     authorName = m.authorName,
                                     authorAvatar = m.authorAvatar,
+                                    authorFont = m.authorFont,
                                     content = m.content,
                                     replyAuthor = m.replyToAuthor,
                                     replyContent = m.replyToContent,

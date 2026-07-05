@@ -609,8 +609,17 @@ private fun ServerRail(
             onCreateServer = onCreateServer,
             onCreateGroup = onCreateGroup,
             onJoinInvite = onJoinInvite,
-            onDiscover = onDiscover,
         )
+        // Descobrir tem tile proprio na base do rail (saiu do menu +): separa
+        // "orbitar algo que existe" de "forjar algo novo".
+        RailTile(active = false, onClick = onDiscover) {
+            Icon(
+                Lucide.Compass,
+                contentDescription = "Descobrir constelacoes",
+                tint = astraColors.accent,
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }
 
@@ -619,7 +628,6 @@ private fun RailAddMenu(
     onCreateServer: () -> Unit,
     onCreateGroup: () -> Unit,
     onJoinInvite: () -> Unit,
-    onDiscover: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
     var menuOpen by remember { mutableStateOf(false) }
@@ -638,7 +646,7 @@ private fun RailAddMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
                 offset = DpOffset(x = 56.dp, y = (-48).dp),
-                modifier = Modifier.background(astraColors.overlay),
+                modifier = Modifier.background(astraColors.raised),
             ) {
                 Column(Modifier.width(248.dp)) {
                     Text(
@@ -654,8 +662,6 @@ private fun RailAddMenu(
                     MenuRow("Criar grupo", Lucide.Users) { menuOpen = false; onCreateGroup() }
                     HairlineRule()
                     MenuRow("Entrar com convite", Lucide.Link) { menuOpen = false; onJoinInvite() }
-                    HairlineRule()
-                    MenuRow("Descobrir", Lucide.Compass) { menuOpen = false; onDiscover() }
                 }
             }
         }
@@ -788,7 +794,7 @@ private fun ServerRailMenu(
         onDismissRequest = onDismiss,
 
         offset = DpOffset(x = 56.dp, y = (-48).dp),
-        modifier = Modifier.background(astraColors.overlay),
+        modifier = Modifier.background(astraColors.raised),
     ) {
         Column(Modifier.width(248.dp)) {
             Text(
@@ -824,11 +830,14 @@ private fun MenuRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .background(if (pressed) astraColors.hover.copy(alpha = 0.5f) else Color.Transparent)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, color = astraColors.text1, modifier = Modifier.weight(1f))

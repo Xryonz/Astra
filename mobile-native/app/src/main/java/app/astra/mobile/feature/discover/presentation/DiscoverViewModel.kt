@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.dto.DiscoverServerDto
+import app.astra.mobile.feature.server.domain.ServerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,19 +28,30 @@ data class DiscoverUiState(
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val api: DiscoverApi,
+    private val serverRepo: ServerRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DiscoverUiState())
     val state = _state.asStateFlow()
 
     private var searchJob: Job? = null
+    // Ids das constelacoes que o user ja orbita: some da Descoberta (nao faz
+    // sentido "descobrir" o que voce ja entrou).
+    private var joinedIds: Set<String> = emptySet()
 
-    init { load(null) }
+    init {
+        viewModelScope.launch {
+            joinedIds = serverRepo.servers().getOrNull()?.mapTo(HashSet()) { it.id } ?: emptySet()
+            load(null)
+        }
+    }
 
     private fun load(q: String?) {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             runCatching { api.discover(q?.takeIf { s -> s.isNotBlank() }).data.orEmpty() }
-                .onSuccess { list -> _state.update { it.copy(loading = false, servers = list) } }
+                .onSuccess { list ->
+                    _state.update { it.copy(loading = false, servers = list.filterNot { s -> s.id in joinedIds }) }
+                }
                 .onFailure { _state.update { it.copy(loading = false, error = "Falha ao carregar a Descoberta") } }
         }
     }
@@ -59,10 +71,12 @@ class DiscoverViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 api.join(server.id)
-                _state.update { it.copy(joiningId = null, joined = server.id to server.name) }
+                joinedIds = joinedIds + server.id
+                _state.update { it.copy(joiningId = null, joined = server.id to server.name, servers = it.servers.filterNot { s -> s.id == server.id }) }
             } catch (e: HttpException) {
                 if (e.code() == 409) {
-                    _state.update { it.copy(joiningId = null, joined = server.id to server.name) }
+                    joinedIds = joinedIds + server.id
+                    _state.update { it.copy(joiningId = null, joined = server.id to server.name, servers = it.servers.filterNot { s -> s.id == server.id }) }
                 } else {
                     _state.update { it.copy(joiningId = null, error = "Nao foi possivel entrar") }
                 }

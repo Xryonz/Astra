@@ -67,6 +67,7 @@ import kotlinx.coroutines.withContext
 fun DmChatScreen(
     onBack: () -> Unit,
     onJoinCall: (conversationId: String, name: String) -> Unit = { _, _ -> },
+    onOpenProfile: (String, String) -> Unit = { _, _ -> },
     viewModel: DmChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -172,6 +173,7 @@ fun DmChatScreen(
                                 ChatRow(
                                     id = m.id,
                                     mine = m.mine,
+                                    authorId = m.authorId,
                                     authorName = m.authorName,
                                     authorAvatar = m.authorAvatar,
                                     content = m.content,
@@ -190,6 +192,7 @@ fun DmChatScreen(
                             onDelete = { deleteTarget = it },
                             onReply = { viewModel.startReply(it.id, it.authorName, it.content) },
                             onTranslate = { viewModel.translate(it.id, it.content) },
+                            onOpenProfile = onOpenProfile,
                         )
                     }
                 }

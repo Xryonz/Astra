@@ -219,6 +219,7 @@ private fun ConversationDto.toDomain(uid: String?): Conversation? {
 private fun DmMessageDto.toDomain(currentUserId: String?) = DmMessage(
     id = id,
     content = content,
+    authorId = senderId,
     authorName = author?.displayName ?: author?.username ?: "Alguem",
     authorAvatar = author?.avatarUrl,
     createdAt = createdAt,
@@ -248,6 +249,7 @@ private fun MessageEntity.toDm(uid: String?, json: Json): DmMessage {
     return DmMessage(
         id = id,
         content = content,
+        authorId = authorId,
         authorName = authorName,
         authorAvatar = authorAvatar,
         createdAt = createdAt,

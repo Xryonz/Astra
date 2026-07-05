@@ -372,7 +372,10 @@ fun AstraApp() {
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
                 ) {
-                    ChannelChatScreen(onBack = { nav.popBackStack() })
+                    ChannelChatScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                    )
                 }
                 composable(
                     route = Routes.CALL,
@@ -401,6 +404,7 @@ fun AstraApp() {
                     DmChatScreen(
                         onBack = { nav.popBackStack() },
                         onJoinCall = { id, name -> nav.navigate(Routes.call(id, name, "", kind = "dm")) },
+                        onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
                     )
                 }
             }

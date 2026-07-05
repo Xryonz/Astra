@@ -297,6 +297,7 @@ private fun PollDto.toDomain(currentUserId: String?) = Poll(
 private fun ChannelMessageDto.toDomain(currentUserId: String?) = ChannelMessage(
     id = id,
     content = content,
+    authorId = authorId,
     authorName = author?.displayName ?: author?.username ?: "Alguem",
     authorAvatar = author?.avatarUrl,
     authorColor = authorColor,
@@ -345,6 +346,7 @@ private fun MessageEntity.toChannelMessage(uid: String?, json: Json): ChannelMes
     return ChannelMessage(
         id = id,
         content = content,
+        authorId = authorId,
         authorName = authorName,
         authorAvatar = authorAvatar,
         authorColor = authorColor,

@@ -5,6 +5,7 @@ import app.astra.mobile.core.model.Attachment
 data class DmMessage(
     val id: String,
     val content: String,
+    val authorId: String? = null,
     val authorName: String,
     val authorAvatar: String?,
     val createdAt: String?,

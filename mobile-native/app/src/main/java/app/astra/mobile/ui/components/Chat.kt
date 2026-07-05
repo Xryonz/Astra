@@ -215,6 +215,7 @@ fun MessageBubble(
     onVotePoll: ((String) -> Unit)? = null,
     onClosePoll: (() -> Unit)? = null,
     onHistory: (() -> Unit)? = null,
+    onAuthorClick: (() -> Unit)? = null,
 ) {
     val prefs = LocalAppPrefs.current
     val shape = RoundedCornerShape(14.dp)
@@ -255,13 +256,19 @@ fun MessageBubble(
         verticalAlignment = Alignment.Top,
     ) {
         Box(Modifier.width(46.dp)) {
-            if (!grouped) AstraAvatar(authorAvatar, authorName, size = 42)
+            if (!grouped) {
+                val avatarMod = if (onAuthorClick != null) {
+                    Modifier.clip(CircleShape).clickable(onClick = onAuthorClick)
+                } else Modifier
+                Box(avatarMod) { AstraAvatar(authorAvatar, authorName, size = 42) }
+            }
         }
         Spacer(Modifier.width(10.dp))
         Column {
             if (!grouped) {
                 val nameColor = remember(authorColor) { parseNameColor(authorColor) }
                 val baseStyle = MaterialTheme.typography.labelLarge
+                val nameMod = Modifier.padding(start = 4.dp, bottom = 3.dp)
                 Text(
                     text = authorName,
                     style = if (nameColor is NameColor.Gradient) baseStyle.copy(brush = nameColor.brush) else baseStyle,
@@ -270,7 +277,7 @@ fun MessageBubble(
                         is NameColor.Gradient -> Color.Unspecified
                         null -> astraColors.accent
                     },
-                    modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
+                    modifier = if (onAuthorClick != null) nameMod.clickable(onClick = onAuthorClick) else nameMod,
                 )
             }
             Box(contentAlignment = Alignment.CenterStart) {
@@ -586,6 +593,7 @@ private fun MessageActionsMenu(
 data class ChatRow(
     val id: String,
     val mine: Boolean,
+    val authorId: String? = null,
     val authorName: String,
     val authorAvatar: String? = null,
     val authorColor: String? = null,
@@ -617,6 +625,7 @@ fun ChatMessageList(
     onVotePoll: (ChatRow, String) -> Unit = { _, _ -> },
     onClosePoll: (ChatRow) -> Unit = {},
     onHistory: (ChatRow) -> Unit = {},
+    onOpenProfile: ((String, String) -> Unit)? = null,
 ) {
     val animated = remember { mutableSetOf<String>() }
     // Poda: mantem so os ids ainda carregados, senao o set cresce sem limite.
@@ -687,6 +696,9 @@ fun ChatMessageList(
                     onVotePoll = if (row.poll != null) ({ optionId: String -> onVotePoll(row, optionId) }) else null,
                     onClosePoll = if (row.poll != null && row.mine) ({ onClosePoll(row) }) else null,
                     onHistory = if (row.edited) ({ onHistory(row) }) else null,
+                    onAuthorClick = row.authorId?.let { aid ->
+                        onOpenProfile?.let { open -> ({ open(aid, row.authorName) }) }
+                    },
                 )
             }
         }

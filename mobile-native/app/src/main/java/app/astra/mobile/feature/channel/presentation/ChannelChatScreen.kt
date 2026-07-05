@@ -77,6 +77,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ChannelChatScreen(
     onBack: () -> Unit,
+    onOpenProfile: (String, String) -> Unit = { _, _ -> },
     viewModel: ChannelChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -129,6 +130,7 @@ fun ChannelChatScreen(
                                 ChatRow(
                                     id = m.id,
                                     mine = m.mine,
+                                    authorId = m.authorId,
                                     authorName = m.authorName,
                                     authorAvatar = m.authorAvatar,
                                     authorColor = m.authorColor,
@@ -167,6 +169,7 @@ fun ChannelChatScreen(
                             onVotePoll = { row, optionId -> viewModel.votePoll(row.id, optionId) },
                             onClosePoll = { viewModel.closePoll(it.id) },
                             onHistory = { viewModel.loadEditHistory(it.id) },
+                            onOpenProfile = onOpenProfile,
                         )
                     }
                 }

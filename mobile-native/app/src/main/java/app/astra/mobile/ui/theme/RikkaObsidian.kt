@@ -6,7 +6,9 @@ import zed.rainxch.rikkaui.foundation.RikkaColors
 val ObsidianRikkaColors = RikkaColors(
     background = Raised,
     onBackground = Text1,
-    surface = Overlay,
+    // surface no tom do config (raised): dialogs/inputs da RikkaUI param de
+    // destoar do card de configuracoes. Inputs tem borda, entao nao somem.
+    surface = Raised,
     onSurface = Text1,
     primary = Accent,
     onPrimary = TextInv,

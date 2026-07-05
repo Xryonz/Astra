@@ -34,9 +34,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // Backend Astra existente (mesma URL do VITE_API_URL do app web,
-        // .env.production). O Railway mantem o nome antigo "umbra". Termina em "/".
-        buildConfigField("String", "BASE_URL", "\"https://umbra-api-production.up.railway.app/\"")
+        // Backend Astra self-host no Render (US East) + Neon (Postgres) + Upstash
+        // (Redis), migrado da Railway em 2026-07-05. Termina em "/".
+        buildConfigField("String", "BASE_URL", "\"https://astra-kwzc.onrender.com/\"")
     }
 
     signingConfigs {

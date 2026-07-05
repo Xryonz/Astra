@@ -50,7 +50,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="umbra-api-production.up.railway.app"
+                    android:host="astra-kwzc.onrender.com"
                     android:pathPrefix="/i/" />
             </intent-filter>
             <!-- Direct Share: recebe texto/imagem compartilhado pra um Sussurro -->

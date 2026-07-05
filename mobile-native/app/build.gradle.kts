@@ -67,6 +67,15 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
+        // So pra GERAR baseline profile (o plugin androidx.baselineprofile
+        // quebra o KSP na variante que ele cria, entao usamos o fluxo manual):
+        // release sem minify (regras saem com nomes reais; o R8 remapeia via
+        // mapping ao empacotar) + <profileable> no manifest overlay.
+        create("benchmark") {
+            initWith(getByName("release"))
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 
     compileOptions {
@@ -109,6 +118,12 @@ dependencies {
         implementation("androidx.compose.animation:animation:$composeCore")
         implementation("androidx.compose.runtime:runtime:$composeCore")
     }
+
+    // Baseline Profile: o :baselineprofile gera as regras no device e elas
+    // vivem em src/main/baseline-prof.txt (AGP empacota sozinho); o
+    // profileinstaller (explicito, antes vinha so transitivo) instala o
+    // profile no primeiro run = startup AOT.
+    implementation(libs.androidx.profileinstaller)
 
     // Core + lifecycle
     implementation(libs.androidx.core.ktx)

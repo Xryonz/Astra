@@ -19,7 +19,7 @@ export function isMailEnabled() { return transporter !== null }
 
 export async function sendVerificationCode(to: string, code: string) {
   if (!transporter) return
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: `"Astra" <${env.GMAIL_USER}>`,
     to,
     subject: `${code} é o seu código do Astra`,
@@ -29,5 +29,9 @@ export async function sendVerificationCode(to: string, code: string) {
       'Ele expira em 15 minutos.',
       'Se você não criou uma conta no Astra, ignore este email.',
     ].join('\n'),
+  })
+  // Diagnostico: prova o que o SMTP do Gmail respondeu (aceito/rejeitado/250).
+  console.log('[Mail] enviado:', {
+    accepted: info.accepted, rejected: info.rejected, response: info.response,
   })
 }

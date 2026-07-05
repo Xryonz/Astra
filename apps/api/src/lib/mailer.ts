@@ -1,37 +1,48 @@
-import nodemailer, { Transporter } from 'nodemailer'
 import { env } from './env'
 
-let transporter: Transporter | null = null
+// Envio via API HTTP do Brevo (nao SMTP): o Render bloqueia portas SMTP de
+// saida (465/587) -> nodemailer dava "Connection timeout". HTTPS passa pelo
+// firewall numa boa. Sem lib nova: fetch global (Node 20).
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email'
 
 export function initMailer() {
-  if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
-    console.warn('[Mail] GMAIL_USER/GMAIL_APP_PASSWORD ausentes — verificação de email desabilitada')
-    return
+  if (isMailEnabled()) {
+    console.log('[Mail] Brevo configurado')
+  } else {
+    console.warn('[Mail] BREVO_API_KEY/MAIL_FROM ausentes — verificação de email desabilitada')
   }
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD },
-  })
-  console.log('[Mail] Gmail configurado')
 }
 
-export function isMailEnabled() { return transporter !== null }
+export function isMailEnabled() {
+  return !!(env.BREVO_API_KEY && env.MAIL_FROM)
+}
 
 export async function sendVerificationCode(to: string, code: string) {
-  if (!transporter) return
-  const info = await transporter.sendMail({
-    from: `"Astra" <${env.GMAIL_USER}>`,
-    to,
-    subject: `${code} é o seu código do Astra`,
-    text: [
-      `Seu código de verificação do Astra: ${code}`,
-      '',
-      'Ele expira em 15 minutos.',
-      'Se você não criou uma conta no Astra, ignore este email.',
-    ].join('\n'),
+  if (!isMailEnabled()) return
+  const res = await fetch(BREVO_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'api-key':      env.BREVO_API_KEY!,
+      'content-type': 'application/json',
+      accept:         'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: 'Astra', email: env.MAIL_FROM },
+      to:     [{ email: to }],
+      subject: `${code} é o seu código do Astra`,
+      textContent: [
+        `Seu código de verificação do Astra: ${code}`,
+        '',
+        'Ele expira em 15 minutos.',
+        'Se você não criou uma conta no Astra, ignore este email.',
+      ].join('\n'),
+    }),
   })
-  // Diagnostico: prova o que o SMTP do Gmail respondeu (aceito/rejeitado/250).
-  console.log('[Mail] enviado:', {
-    accepted: info.accepted, rejected: info.rejected, response: info.response,
-  })
+  if (!res.ok) {
+    // Surge o motivo real (401 key errada, 400 remetente nao verificado...)
+    // pro .catch de quem chama logar. Corta o corpo pra nao poluir o log.
+    const body = await res.text().catch(() => '')
+    throw new Error(`Brevo ${res.status}: ${body.slice(0, 300)}`)
+  }
+  console.log('[Mail] enviado via Brevo ->', to)
 }

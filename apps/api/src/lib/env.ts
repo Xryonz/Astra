@@ -36,8 +36,10 @@ const EnvSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
 
 
-  GMAIL_USER:         z.string().optional(),
-  GMAIL_APP_PASSWORD: z.string().optional(),
+  // E-mail transacional via API HTTP do Brevo (SMTP e bloqueado no Render).
+  // MAIL_FROM = remetente verificado no Brevo (ex.: astrasuporte1@gmail.com).
+  BREVO_API_KEY: z.string().optional(),
+  MAIL_FROM:     z.string().email().optional(),
 
 
   GIPHY_API_KEY: z.string().optional(),

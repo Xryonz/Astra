@@ -20,13 +20,23 @@ de infra.
 A ordem importa: cria **Neon** e **Upstash** primeiro (eles geram as URLs que a
 API precisa), depois o **Render** apontando pra elas.
 
+> **REGIÃO — a regra de ouro do desempenho:** os TRÊS serviços (Render, Neon,
+> Upstash) têm que ficar na **mesma região dos EUA** — recomendo **US East**
+> (Virginia/Ohio). O que pesa não é a distância até o Brasil (o Render grátis
+> nem tem região no BR, e a Railway de hoje já é US → o ping pro usuário não
+> muda). O que pesa é **API e banco colados**: se o servidor fica nos EUA e o
+> banco em São Paulo, cada query atravessa o continente (~120ms POR query) e o
+> app fica lento de verdade. Mesma região = rápido.
+
 ---
 
 ## Passo 1 — Postgres no Neon
 
 1. Entra em **neon.tech** → cria conta (login com GitHub serve).
-2. **Create project** → nome `astra`, região **AWS São Paulo** (`sa-east-1`) pra
-   ping baixo.
+2. **Create project** → nome `astra`, região **US East** (`aws-us-east-1` /
+   Virginia) — a MESMA que você vai usar no Render (Passo 3). **Não** ponha em
+   São Paulo: o servidor fica nos EUA, e API+banco em regiões diferentes é o que
+   deixa lento (ver a regra de ouro lá em cima).
 3. Terminada a criação, abre **Connection string** → copia a URL que começa com
    `postgresql://...`. Ela já vem com `?sslmode=require` no fim — deixa assim.
    - Essa URL é o valor de **`DATABASE_URL`** lá no Render (Passo 3).
@@ -36,8 +46,9 @@ API precisa), depois o **Render** apontando pra elas.
 ## Passo 2 — Redis no Upstash
 
 1. Entra em **upstash.com** → cria conta (GitHub serve).
-2. **Create Database** (Redis) → nome `astra`, região mais perto do Brasil
-   disponível (us-east-1 costuma ser a mais próxima no free).
+2. **Create Database** (Redis) → nome `astra`, região **US East 1** (a MESMA do
+   Render e do Neon — Redis é chamado o tempo todo, então região diferente soma
+   latência em cada chamada).
 3. Na página do banco, procura a URL de conexão que começa com **`rediss://`**
    (com dois "s" = TLS). Copia.
    - Esse é o valor de **`REDIS_URL`** no Render.
@@ -59,6 +70,7 @@ API precisa), depois o **Render** apontando pra elas.
      ```
      npm run db:migrate && npm run start:api
      ```
+   - **Region:** **Ohio** ou **Virginia** (US East) — a MESMA do Neon/Upstash.
    - **Instance Type:** **Free**.
    - **Health Check Path:** `/health`
 4. Em **Environment** → adiciona a variável `NODE_VERSION` = `20` (garante Node 20).

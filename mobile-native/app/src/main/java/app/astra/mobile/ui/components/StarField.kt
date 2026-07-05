@@ -23,11 +23,15 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -287,6 +291,12 @@ half4 main(float2 fragCoord) {
 
 private const val TIME_LOOP = 62.831853f // 20*PI: fecha o circulo do fbm E os sin
 
+// Trilha do cometa (arrasto no ceu vazio): pontos recentes do dedo que a cauda
+// liga, esvaindo em ~0.5s. Vive no mesmo Box pai do gesto de toque.
+private const val TRAIL_LIFE_MS = 520L
+private const val TRAIL_MAX = 64
+private data class TrailPoint(val pos: Offset, val bornMs: Long)
+
 // Estado do efeito de toque. Vive no CosmicBackdrop porque o GESTO e detectado
 // no Box pai (hit-path de toda a UI); o canvas da aurora fica atras do conteudo
 // e nunca receberia toques em telas cobertas por listas (chat, DMs, servidores).
@@ -368,6 +378,7 @@ fun CosmicBackdrop(
     // Parallax so quando algo anima (respeita reduceMotion via getters starsOn/auroraOn).
     val tilt = rememberParallaxTilt(enabled = auroraShown || prefs.starsOn)
     val fx = remember { TouchFx() }
+    val trail = remember { mutableStateListOf<TrailPoint>() }
     val scope = rememberCoroutineScope()
     // Deteccao no Box PAI (esta no hit-path de toda tela, ao contrario do canvas
     // atras do conteudo): "tap no vazio" = gesto que NENHUM filho consumiu (nao
@@ -379,13 +390,27 @@ fun CosmicBackdrop(
                 if (down.isConsumed) return@awaitEachGesture
                 val slop = viewConfiguration.touchSlop
                 var tapped = false
+                var dragging = false
                 while (true) {
                     val event = awaitPointerEvent()
                     val ch = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (ch.isConsumed || event.changes.size > 1) break
-                    if ((ch.position - down.position).getDistance() > slop) break
+                    if (event.changes.size > 1) break
+                    if (!dragging) {
+                        if (ch.isConsumed) break
+                        if ((ch.position - down.position).getDistance() > slop) {
+                            // Virou arrasto no ceu vazio: abre a trilha do cometa.
+                            dragging = true
+                            val t = System.currentTimeMillis()
+                            trail.add(TrailPoint(down.position, t))
+                            trail.add(TrailPoint(ch.position, t))
+                        }
+                    } else {
+                        if (ch.isConsumed) break // um filho pegou (scroll) -> encerra
+                        trail.add(TrailPoint(ch.position, System.currentTimeMillis()))
+                        while (trail.size > TRAIL_MAX) trail.removeAt(0)
+                    }
                     if (!ch.pressed) {
-                        tapped = true
+                        if (!dragging) tapped = true
                         break
                     }
                 }
@@ -414,7 +439,47 @@ fun CosmicBackdrop(
             AuroraShader(astraColors.accent, tilt = tilt, fx = fx)
         }
         StarField(tilt = tilt)
+        CometTrail(trail, astraColors.accent)
         content()
+    }
+}
+
+// Cauda do cometa: liga os pontos recentes do dedo. Cada segmento pega alpha e
+// largura por IDADE (esvai em ~0.5s) e por POSICAO (cauda fina/apagada, cabeca
+// grossa/brilhante) + um ponto com glow na cabeca — estilo dos meteoros. O
+// ticker so gira enquanto ha pontos vivos (ceu parado = zero custo).
+@Composable
+private fun CometTrail(points: SnapshotStateList<TrailPoint>, color: Color) {
+    val active = points.isNotEmpty()
+    val frame = remember { mutableStateOf(0L) }
+    LaunchedEffect(active) {
+        if (!active) return@LaunchedEffect
+        while (points.isNotEmpty()) {
+            withFrameMillis { frame.value = it }
+            val now = System.currentTimeMillis()
+            points.removeAll { now - it.bornMs > TRAIL_LIFE_MS }
+        }
+    }
+    Canvas(Modifier.fillMaxSize()) {
+        frame.value // assina o frame: redesenha a cada quadro enquanto vivo
+        val now = System.currentTimeMillis()
+        val n = points.size
+        if (n == 0) return@Canvas
+        val last = n - 1
+        for (i in 1..last) {
+            val a = points[i]
+            val b = points[i - 1]
+            val ageF = (1f - (now - a.bornMs).toFloat() / TRAIL_LIFE_MS).coerceIn(0f, 1f)
+            if (ageF <= 0f) continue
+            val posF = if (last == 0) 1f else i.toFloat() / last
+            val alpha = ageF * (0.10f + 0.55f * posF)
+            val width = (0.8f + 2.4f * posF).dp.toPx() * ageF
+            drawLine(color, b.pos, a.pos, width, StrokeCap.Round, alpha = alpha)
+        }
+        val head = points[last]
+        val headF = (1f - (now - head.bornMs).toFloat() / TRAIL_LIFE_MS).coerceIn(0f, 1f)
+        drawCircle(color, 7.dp.toPx(), head.pos, alpha = headF * 0.18f)
+        drawCircle(color, 3.2.dp.toPx(), head.pos, alpha = headF)
     }
 }
 

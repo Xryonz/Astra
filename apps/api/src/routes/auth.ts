@@ -93,7 +93,8 @@ router.post(
       })
       .returning(userSafeColumns)
 
-    if (emailCode) sendVerificationCode(email, emailCode).catch(() => {})
+    if (emailCode) sendVerificationCode(email, emailCode).catch((e: any) =>
+      console.error('[Mail] envio falhou (register):', e?.response ?? e?.message ?? e))
 
     const { token: accessToken } = generateAccessToken(user.id)
     const { refreshToken }       = await createRefreshToken(user.id, {
@@ -283,7 +284,8 @@ router.post(
     await db.update(users)
       .set({ emailCode: code, emailCodeExpiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS) })
       .where(eq(users.id, req.userId!))
-    sendVerificationCode(user.email, code).catch(() => {})
+    sendVerificationCode(user.email, code).catch((e: any) =>
+      console.error('[Mail] envio falhou (resend):', e?.response ?? e?.message ?? e))
     res.json({ data: { sent: true } })
   })
 )

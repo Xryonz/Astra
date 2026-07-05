@@ -220,20 +220,8 @@ fun ProfileEditSection(
                     Modifier.padding(top = 8.dp),
                 )
 
-                Spacer(Modifier.height(22.dp))
-                MarginaliaLabel("status")
-                Spacer(Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
-                        OptionRow(
-                            title = AstraCopy.statusLabel(s.name),
-                            selected = s == state.status,
-                            leading = { StatusDot(s, size = 10.dp) },
-                            onClick = { viewModel.onStatus(s) },
-                        )
-                    }
-                }
-
+                // — banner: cor solida (sem imagem) + zoom/posicao (com imagem)
+                // logo abaixo do banner, pra ver o efeito na hora.
                 Spacer(Modifier.height(20.dp))
                 EditorialField(
                     value = state.bannerColor, onValue = viewModel::onBannerColor,
@@ -306,6 +294,27 @@ fun ProfileEditSection(
                         ) { viewModel.onProfileTheme(css) }
                     }
                 }
+
+                Spacer(Modifier.height(22.dp))
+                MarginaliaLabel("status")
+                Spacer(Modifier.height(10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
+                        OptionRow(
+                            title = AstraCopy.statusLabel(s.name),
+                            selected = s == state.status,
+                            leading = { StatusDot(s, size = 10.dp) },
+                            onClick = { viewModel.onStatus(s) },
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                EditorialField(
+                    value = state.customStatus, onValue = viewModel::onCustomStatus,
+                    label = "recado", placeholder = "no que voce ta pensando?",
+                    enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
+                )
 
                 Spacer(Modifier.height(20.dp))
                 EditorialField(

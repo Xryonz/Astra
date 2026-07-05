@@ -97,7 +97,6 @@ import app.astra.mobile.feature.profile.domain.model.UserStatus
 import app.astra.mobile.feature.server.domain.model.Channel
 import app.astra.mobile.feature.server.domain.model.Server
 import app.astra.mobile.ui.AstraCopy
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import app.astra.mobile.ui.LocalAppPrefs
@@ -111,7 +110,6 @@ import app.astra.mobile.ui.components.BadgeUi
 import app.astra.mobile.ui.components.CosmicBackdrop
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialField
-import app.astra.mobile.ui.components.EmojiPickerSheet
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
@@ -417,7 +415,6 @@ fun HomeScreen(
             badges = state.myBadges,
             servers = state.servers,
             onEditProfile = { profileSheet = false; onOpenProfile() },
-            onSaveStatus = viewModel::setCustomStatus,
             onDismiss = { profileSheet = false },
         )
     }
@@ -1313,13 +1310,9 @@ private fun ProfileSheet(
     badges: List<BadgeUi>,
     servers: List<Server>,
     onEditProfile: () -> Unit,
-    onSaveStatus: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val member = memberSince(createdAt)
-    var editingStatus by remember { mutableStateOf(false) }
-    var statusDraft by remember { mutableStateOf("") }
-    var emojiOpen by remember { mutableStateOf(false) }
     // Tela cheia opaca estilo Discord (cobre a Home). Botao voltar fecha.
     BackHandler(onBack = onDismiss)
     // Backdrop proprio (opaco): este sheet COBRE a Home; o shim transparente
@@ -1370,44 +1363,15 @@ private fun ProfileSheet(
                 }
             }
 
-            // Recado (custom status): tocar edita inline; emoji abre o picker.
-            Spacer(Modifier.height(14.dp))
-            if (!editingStatus) {
+            // Recado (custom status): so leitura aqui — editar e na Personalizacao.
+            if (!customStatus.isNullOrBlank()) {
+                Spacer(Modifier.height(14.dp))
                 Text(
-                    text = if (customStatus.isNullOrBlank()) "+ definir recado" else "“$customStatus”",
+                    text = "“$customStatus”",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (customStatus.isNullOrBlank()) astraColors.text3 else astraColors.text1,
-                    modifier = Modifier
-                        .padding(horizontal = 18.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { statusDraft = customStatus.orEmpty(); editingStatus = true }
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    color = astraColors.text1,
+                    modifier = Modifier.padding(horizontal = 18.dp),
                 )
-            } else {
-                Column(Modifier.padding(horizontal = 18.dp)) {
-                    EditorialField(
-                        value = statusDraft,
-                        onValue = { statusDraft = it.take(100) },
-                        label = "recado",
-                        placeholder = "o que anda pensando?",
-                        enabled = true,
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done,
-                        onIme = { onSaveStatus(statusDraft); editingStatus = false },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { emojiOpen = true }) { Text("😊 emoji", color = astraColors.text2) }
-                        Spacer(Modifier.weight(1f))
-                        if (!customStatus.isNullOrBlank()) {
-                            TextButton(onClick = { onSaveStatus(""); editingStatus = false }) {
-                                Text("limpar", color = astraColors.text3)
-                            }
-                        }
-                        TextButton(onClick = { onSaveStatus(statusDraft); editingStatus = false }) {
-                            Text("salvar", color = astraColors.accent)
-                        }
-                    }
-                }
             }
 
             if (badges.isNotEmpty()) {
@@ -1474,13 +1438,6 @@ private fun ProfileSheet(
             }
 
             Spacer(Modifier.height(24.dp))
-        }
-
-        if (emojiOpen) {
-            EmojiPickerSheet(
-                onPick = { statusDraft += it; emojiOpen = false },
-                onClose = { emojiOpen = false },
-            )
         }
     }
 }

@@ -2,11 +2,14 @@ package app.astra.mobile.feature.profile.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.astra.mobile.core.network.FriendsApi
+import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.upload.ImageEncoder
 import app.astra.mobile.feature.profile.domain.UserRepository
 import app.astra.mobile.feature.profile.domain.model.Profile
 import app.astra.mobile.feature.profile.domain.model.UserStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -16,6 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
     private val userRepository: UserRepository,
+    private val friendsApi: FriendsApi,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileEditUiState())
@@ -43,6 +47,7 @@ class ProfileEditViewModel @Inject constructor(
         bannerPositionY = p.bannerPositionY.coerceIn(0, 100), origBannerPositionY = p.bannerPositionY.coerceIn(0, 100),
         bannerScale = p.bannerScale.coerceIn(50, 200), origBannerScale = p.bannerScale.coerceIn(50, 200),
         displayFont = p.displayFont, origDisplayFont = p.displayFont,
+        customStatus = p.customStatus.orEmpty(), origCustomStatus = p.customStatus.orEmpty(),
     )
 
     fun onStatus(v: UserStatus) {
@@ -52,6 +57,7 @@ class ProfileEditViewModel @Inject constructor(
     }
 
     fun onBio(v: String) = _state.update { it.copy(bio = v, saved = false, error = null) }
+    fun onCustomStatus(v: String) = _state.update { it.copy(customStatus = v.take(128), saved = false, error = null) }
     fun onPronouns(v: String) = _state.update { it.copy(pronouns = v, saved = false, error = null) }
     fun onBannerColor(v: String) = _state.update { it.copy(bannerColor = v, saved = false, error = null) }
     fun onProfileTheme(v: String) = _state.update { it.copy(profileTheme = v, saved = false, error = null) }
@@ -84,6 +90,19 @@ class ProfileEditViewModel @Inject constructor(
         if (s.saving || !s.dirty) return
         _state.update { it.copy(saving = true, error = null, saved = false) }
         viewModelScope.launch {
+            // Recado tem endpoint proprio (nao vai no updateProfile). Salva antes;
+            // se falhar, para e nao mexe no resto.
+            val recado = s.customStatus.trim()
+            if (recado != s.origCustomStatus) {
+                try {
+                    friendsApi.setCustomStatus(CustomStatusRequest(recado))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _state.update { it.copy(saving = false, error = "Nao foi possivel salvar o recado") }
+                    return@launch
+                }
+            }
             userRepository.updateProfile(
                 bio = s.bio.takeIf { it != s.origBio },
                 avatarUrl = s.avatarUrl.takeIf { it != s.origAvatarUrl },
@@ -95,7 +114,9 @@ class ProfileEditViewModel @Inject constructor(
                 bannerScale = s.bannerScale.takeIf { it != s.origBannerScale },
                 displayFont = s.displayFont.takeIf { it != s.origDisplayFont },
             )
-                .onSuccess { p -> _state.update { applyProfile(it, p).copy(saved = true, saving = false) } }
+                // customStatus/orig fixados no valor salvo: o updateProfile nao
+                // retorna o recado, entao applyProfile(p) o zeraria.
+                .onSuccess { p -> _state.update { applyProfile(it, p).copy(saved = true, saving = false, customStatus = recado, origCustomStatus = recado) } }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.message) } }
         }
     }

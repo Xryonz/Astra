@@ -17,6 +17,9 @@ data class ProfileEditUiState(
     val bannerPositionY: Int = 50,
     val bannerScale: Int = 100,
     val displayFont: String = "serif",
+    // Recado (custom status): editado so aqui na Personalizacao (sai do ProfileSheet).
+    val customStatus: String = "",
+    val origCustomStatus: String = "",
     val origAvatarUrl: String = "",
     val origBannerUrl: String = "",
     val origBio: String = "",
@@ -36,5 +39,6 @@ data class ProfileEditUiState(
         get() = avatarUrl != origAvatarUrl || bannerUrl != origBannerUrl || bio != origBio ||
             pronouns != origPronouns || bannerColor != origBannerColor ||
             profileTheme != origProfileTheme || bannerPositionY != origBannerPositionY ||
-            bannerScale != origBannerScale || displayFont != origDisplayFont
+            bannerScale != origBannerScale || displayFont != origDisplayFont ||
+            customStatus != origCustomStatus
 }

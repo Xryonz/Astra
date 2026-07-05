@@ -57,6 +57,7 @@ fun ServerSettingsScreen(
     onOpenMembers: () -> Unit,
     onOpenBadges: () -> Unit,
     onOpenRoles: () -> Unit,
+    onOpenBans: () -> Unit,
     viewModel: ServerSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -149,6 +150,9 @@ fun ServerSettingsScreen(
             }
             if (state.canManageServer) {
                 HubRow("Insignias", "crie e conceda", onOpenBadges)
+            }
+            if (state.canBan) {
+                HubRow("Banimentos", "quem nao pode voltar", onOpenBans)
             }
 
             Spacer(Modifier.height(28.dp))

@@ -1,6 +1,7 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.BanDto
 import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.CreateChannelRequest
@@ -53,6 +54,12 @@ interface ServerApi {
 
     @POST("api/servers/{id}/bans")
     suspend fun banMember(@Path("id") serverId: String, @Body body: BanRequest)
+
+    @GET("api/servers/{id}/bans")
+    suspend fun bans(@Path("id") serverId: String): ApiEnvelope<List<BanDto>>
+
+    @DELETE("api/servers/{sid}/bans/{uid}")
+    suspend fun unban(@Path("sid") serverId: String, @Path("uid") userId: String)
 
     @DELETE("api/servers/{id}/leave")
     suspend fun leaveServer(@Path("id") serverId: String)

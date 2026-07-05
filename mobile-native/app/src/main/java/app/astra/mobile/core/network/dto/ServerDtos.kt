@@ -95,6 +95,15 @@ data class MemberRoleResponse(val id: String, val role: String)
 data class BanRequest(val userId: String, val reason: String? = null)
 
 @Serializable
+data class BanDto(
+    val id: String,
+    val userId: String,
+    val reason: String? = null,
+    val createdAt: String? = null,
+    val user: MemberUserDto,
+)
+
+@Serializable
 data class RoleDto(
     val id: String,
     val name: String,

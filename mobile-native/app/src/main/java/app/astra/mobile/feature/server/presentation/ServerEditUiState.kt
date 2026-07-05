@@ -27,11 +27,6 @@ data class ServerEditUiState(
     val saving: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
-
-    // Insignias do servidor (gestao: criar/apagar/conceder).
-    val badges: List<ServerBadgeUi> = emptyList(),
-    val members: List<BadgeMemberUi> = emptyList(),
-    val badgeError: String? = null,
 ) {
     val dirty: Boolean
         get() = name.trim() != origName || iconUrl != origIcon || isPublic != origPublic

@@ -61,18 +61,18 @@ fun ChannelListScreen(
                 marginalia = "orbitas",
                 onBack = onBack,
                 trailing = {
-                    if (state.isOwner) {
-                        Icon(
-                            Lucide.Settings,
-                            contentDescription = "Editar constelacao",
-                            tint = astraColors.accent,
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .clickable(onClick = onOpenEdit)
-                                .padding(6.dp)
-                                .size(20.dp),
-                        )
-                    }
+                    // Todo membro entra na config; as secoes internas e que sao
+                    // gated por permissao (membro comum ve Membros + Desorbitar).
+                    Icon(
+                        Lucide.Settings,
+                        contentDescription = "Configurar constelacao",
+                        tint = astraColors.accent,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(onClick = onOpenEdit)
+                            .padding(6.dp)
+                            .size(20.dp),
+                    )
                     val code = state.inviteCode
                     if (!code.isNullOrBlank()) {
                         Text(

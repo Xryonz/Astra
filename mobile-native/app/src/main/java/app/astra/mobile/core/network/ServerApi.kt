@@ -1,15 +1,20 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
+import app.astra.mobile.core.network.dto.MemberRoleRequest
+import app.astra.mobile.core.network.dto.MemberRoleResponse
 import app.astra.mobile.core.network.dto.MyColorRequest
 import app.astra.mobile.core.network.dto.MyColorResponse
+import app.astra.mobile.core.network.dto.MyPermsDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -30,6 +35,28 @@ interface ServerApi {
 
     @GET("api/servers/{id}/members")
     suspend fun members(@Path("id") serverId: String): ApiEnvelope<List<ServerMemberDto>>
+
+    @GET("api/servers/{id}/me")
+    suspend fun myPerms(@Path("id") serverId: String): ApiEnvelope<MyPermsDto>
+
+    @PATCH("api/servers/{sid}/members/{mid}")
+    suspend fun setMemberRole(
+        @Path("sid") serverId: String,
+        @Path("mid") memberId: String,
+        @Body body: MemberRoleRequest,
+    ): ApiEnvelope<MemberRoleResponse>
+
+    @DELETE("api/servers/{sid}/members/{mid}")
+    suspend fun kickMember(@Path("sid") serverId: String, @Path("mid") memberId: String)
+
+    @POST("api/servers/{id}/bans")
+    suspend fun banMember(@Path("id") serverId: String, @Body body: BanRequest)
+
+    @DELETE("api/servers/{id}/leave")
+    suspend fun leaveServer(@Path("id") serverId: String)
+
+    @DELETE("api/servers/{id}")
+    suspend fun deleteServer(@Path("id") serverId: String)
 
     @GET("api/reads/channels")
     suspend fun channelReads(): ApiEnvelope<Map<String, String>>

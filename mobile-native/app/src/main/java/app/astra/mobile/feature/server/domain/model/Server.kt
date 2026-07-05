@@ -16,6 +16,7 @@ data class Server(
     val inviteCode: String? = null,
     val ownerId: String? = null,
     val isPublic: Boolean = false,
+    val isGroup: Boolean = false,
 )
 
 data class Channel(

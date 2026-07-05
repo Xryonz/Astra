@@ -53,7 +53,10 @@ data class CreateChannelRequest(val name: String, val type: String = "TEXT")
 
 @Serializable
 data class ServerMemberDto(
+    val id: String = "",
     val userId: String,
+    val role: String = "MEMBER",
+    val nameColor: String? = null,
     val user: MemberUserDto,
 )
 
@@ -63,3 +66,19 @@ data class MemberUserDto(
     val displayName: String? = null,
     val avatarUrl: String? = null,
 )
+
+@Serializable
+data class MyPermsDto(
+    val isOwner: Boolean = false,
+    val isAdmin: Boolean = false,
+    val permissions: List<String> = emptyList(),
+)
+
+@Serializable
+data class MemberRoleRequest(val role: String)
+
+@Serializable
+data class MemberRoleResponse(val id: String, val role: String)
+
+@Serializable
+data class BanRequest(val userId: String, val reason: String? = null)

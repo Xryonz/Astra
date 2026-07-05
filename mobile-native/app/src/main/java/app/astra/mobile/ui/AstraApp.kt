@@ -71,7 +71,10 @@ import app.astra.mobile.feature.profile.presentation.UserProfileScreen
 import app.astra.mobile.feature.sessions.presentation.SessionsScreen
 import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
+import app.astra.mobile.feature.server.presentation.ServerBadgesScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
+import app.astra.mobile.feature.server.presentation.ServerMembersScreen
+import app.astra.mobile.feature.server.presentation.ServerSettingsScreen
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.feature.voice.presentation.CallScreen
 import app.astra.mobile.feature.voice.presentation.IncomingCallViewModel
@@ -104,6 +107,12 @@ private object Routes {
     const val DISCOVER = "discover"
     const val SERVER_EDIT = "server/{serverId}/edit"
     fun serverEdit(id: String) = "server/$id/edit"
+    const val SERVER_OVERVIEW = "server/{serverId}/overview"
+    fun serverOverview(id: String) = "server/$id/overview"
+    const val SERVER_MEMBERS = "server/{serverId}/members"
+    fun serverMembers(id: String) = "server/$id/members"
+    const val SERVER_BADGES = "server/{serverId}/badges"
+    fun serverBadges(id: String) = "server/$id/badges"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
@@ -274,8 +283,36 @@ fun AstraApp() {
                 composable(
                     route = Routes.SERVER_EDIT,
                     arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) { entry ->
+                    val serverId = entry.arguments?.getString("serverId").orEmpty()
+                    ServerSettingsScreen(
+                        onBack = { nav.popBackStack() },
+                        onClosed = { nav.popBackStack(Routes.HOME, false) },
+                        onOpenOverview = { nav.navigate(Routes.serverOverview(serverId)) },
+                        onOpenMembers = { nav.navigate(Routes.serverMembers(serverId)) },
+                        onOpenBadges = { nav.navigate(Routes.serverBadges(serverId)) },
+                    )
+                }
+                composable(
+                    route = Routes.SERVER_OVERVIEW,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
                 ) {
                     ServerEditScreen(onBack = { nav.popBackStack() })
+                }
+                composable(
+                    route = Routes.SERVER_MEMBERS,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    ServerMembersScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenProfile = { id, name -> nav.navigate(Routes.userProfile(id, name)) },
+                    )
+                }
+                composable(
+                    route = Routes.SERVER_BADGES,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    ServerBadgesScreen(onBack = { nav.popBackStack() })
                 }
                 composable(
                     route = Routes.CHANNEL_CHAT,

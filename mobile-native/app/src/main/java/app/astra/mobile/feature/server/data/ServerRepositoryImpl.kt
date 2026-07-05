@@ -147,6 +147,7 @@ private fun ServerDto.toDomain() = Server(
     inviteCode = inviteCode,
     ownerId = ownerId,
     isPublic = isPublic,
+    isGroup = isGroup,
     channels = channels.map {
         Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId)
     },

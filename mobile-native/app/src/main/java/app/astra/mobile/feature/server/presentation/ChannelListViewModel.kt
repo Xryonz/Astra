@@ -3,7 +3,6 @@ package app.astra.mobile.feature.server.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.astra.mobile.core.data.TokenStore
 import app.astra.mobile.feature.server.domain.ServerRepository
 import app.astra.mobile.feature.server.domain.model.Channel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,14 +20,11 @@ data class ChannelListUiState(
     val unread: Set<String> = emptySet(),
 
     val inviteCode: String? = null,
-
-    val isOwner: Boolean = false,
 )
 
 @HiltViewModel
 class ChannelListViewModel @Inject constructor(
     private val repository: ServerRepository,
-    private val tokenStore: TokenStore,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -47,7 +43,6 @@ class ChannelListViewModel @Inject constructor(
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val reads = repository.channelReads().getOrNull().orEmpty()
-            val myId = tokenStore.currentUserId()
             repository.servers()
                 .onSuccess { list ->
                     val server = list.find { it.id == serverId }
@@ -55,10 +50,9 @@ class ChannelListViewModel @Inject constructor(
                     val unread = channels
                         .filter { ch -> ch.lastMessageAt?.let { last -> reads[ch.id]?.let { last > it } ?: true } ?: false }
                         .map { it.id }.toSet()
-                    val isOwner = server?.ownerId != null && server.ownerId == myId
                     _state.update {
                         it.copy(loading = false, channels = channels, unread = unread,
-                            inviteCode = server?.inviteCode, isOwner = isOwner)
+                            inviteCode = server?.inviteCode)
                     }
                 }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Erro inesperado") } }

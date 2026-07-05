@@ -74,6 +74,7 @@ import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerBadgesScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.server.presentation.ServerMembersScreen
+import app.astra.mobile.feature.server.presentation.ServerRolesScreen
 import app.astra.mobile.feature.server.presentation.ServerSettingsScreen
 import app.astra.mobile.core.deeplink.DeepLinkBus
 import app.astra.mobile.feature.voice.presentation.CallScreen
@@ -113,6 +114,8 @@ private object Routes {
     fun serverMembers(id: String) = "server/$id/members"
     const val SERVER_BADGES = "server/{serverId}/badges"
     fun serverBadges(id: String) = "server/$id/badges"
+    const val SERVER_ROLES = "server/{serverId}/roles"
+    fun serverRoles(id: String) = "server/$id/roles"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
@@ -291,6 +294,7 @@ fun AstraApp() {
                         onOpenOverview = { nav.navigate(Routes.serverOverview(serverId)) },
                         onOpenMembers = { nav.navigate(Routes.serverMembers(serverId)) },
                         onOpenBadges = { nav.navigate(Routes.serverBadges(serverId)) },
+                        onOpenRoles = { nav.navigate(Routes.serverRoles(serverId)) },
                     )
                 }
                 composable(
@@ -313,6 +317,12 @@ fun AstraApp() {
                     arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
                 ) {
                     ServerBadgesScreen(onBack = { nav.popBackStack() })
+                }
+                composable(
+                    route = Routes.SERVER_ROLES,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    ServerRolesScreen(onBack = { nav.popBackStack() })
                 }
                 composable(
                     route = Routes.CHANNEL_CHAT,

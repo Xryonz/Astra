@@ -21,6 +21,7 @@ data class ServerSettingsUiState(
     val isGroup: Boolean = false,
     val isOwner: Boolean = false,
     val canManageServer: Boolean = false,
+    val canManageRoles: Boolean = false,
     val working: Boolean = false,
     // sair/excluir concluido -> a tela navega de volta pra Home.
     val closed: Boolean = false,
@@ -62,6 +63,8 @@ class ServerSettingsViewModel @Inject constructor(
                     canManageServer = perms?.isOwner == true ||
                         perms?.isAdmin == true ||
                         perms?.permissions.orEmpty().contains("MANAGE_SERVER"),
+                    canManageRoles = perms?.isOwner == true ||
+                        perms?.permissions.orEmpty().contains("MANAGE_ROLES"),
                 )
             }
         }

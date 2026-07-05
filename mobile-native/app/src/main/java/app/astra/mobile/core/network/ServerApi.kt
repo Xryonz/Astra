@@ -10,6 +10,8 @@ import app.astra.mobile.core.network.dto.MemberRoleResponse
 import app.astra.mobile.core.network.dto.MyColorRequest
 import app.astra.mobile.core.network.dto.MyColorResponse
 import app.astra.mobile.core.network.dto.MyPermsDto
+import app.astra.mobile.core.network.dto.RoleDto
+import app.astra.mobile.core.network.dto.RoleRequest
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
@@ -57,6 +59,37 @@ interface ServerApi {
 
     @DELETE("api/servers/{id}")
     suspend fun deleteServer(@Path("id") serverId: String)
+
+    // ---- Cargos ----
+    @GET("api/servers/{id}/roles")
+    suspend fun roles(@Path("id") serverId: String): ApiEnvelope<List<RoleDto>>
+
+    @POST("api/servers/{id}/roles")
+    suspend fun createRole(@Path("id") serverId: String, @Body body: RoleRequest): ApiEnvelope<RoleDto>
+
+    @PATCH("api/servers/{sid}/roles/{rid}")
+    suspend fun updateRole(
+        @Path("sid") serverId: String,
+        @Path("rid") roleId: String,
+        @Body body: RoleRequest,
+    ): ApiEnvelope<RoleDto>
+
+    @DELETE("api/servers/{sid}/roles/{rid}")
+    suspend fun deleteRole(@Path("sid") serverId: String, @Path("rid") roleId: String)
+
+    @POST("api/servers/{sid}/members/{mid}/roles/{rid}")
+    suspend fun assignRole(
+        @Path("sid") serverId: String,
+        @Path("mid") memberId: String,
+        @Path("rid") roleId: String,
+    )
+
+    @DELETE("api/servers/{sid}/members/{mid}/roles/{rid}")
+    suspend fun unassignRole(
+        @Path("sid") serverId: String,
+        @Path("mid") memberId: String,
+        @Path("rid") roleId: String,
+    )
 
     @GET("api/reads/channels")
     suspend fun channelReads(): ApiEnvelope<Map<String, String>>

@@ -56,6 +56,7 @@ fun ServerSettingsScreen(
     onOpenOverview: () -> Unit,
     onOpenMembers: () -> Unit,
     onOpenBadges: () -> Unit,
+    onOpenRoles: () -> Unit,
     viewModel: ServerSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -143,6 +144,9 @@ fun ServerSettingsScreen(
 
             MarginaliaLabel("— comunidade", Modifier.padding(start = 22.dp, bottom = 8.dp))
             HubRow("Membros", "estrelas desta constelacao", onOpenMembers)
+            if (state.canManageRoles) {
+                HubRow("Cargos", "papeis e permissoes", onOpenRoles)
+            }
             if (state.canManageServer) {
                 HubRow("Insignias", "crie e conceda", onOpenBadges)
             }

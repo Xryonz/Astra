@@ -58,6 +58,17 @@ data class ServerMemberDto(
     val role: String = "MEMBER",
     val nameColor: String? = null,
     val user: MemberUserDto,
+    val roles: List<MemberRoleDto> = emptyList(),
+    val topColor: String? = null,
+)
+
+@Serializable
+data class MemberRoleDto(
+    val id: String,
+    val name: String,
+    val color: String? = null,
+    val position: Int = 0,
+    val hoist: Boolean = false,
 )
 
 @Serializable
@@ -82,3 +93,21 @@ data class MemberRoleResponse(val id: String, val role: String)
 
 @Serializable
 data class BanRequest(val userId: String, val reason: String? = null)
+
+@Serializable
+data class RoleDto(
+    val id: String,
+    val name: String,
+    val color: String? = null,
+    val position: Int = 0,
+    val hoist: Boolean = false,
+    val permissions: List<String> = emptyList(),
+)
+
+@Serializable
+data class RoleRequest(
+    val name: String,
+    val color: String? = null,
+    val permissions: List<String> = emptyList(),
+    val hoist: Boolean = false,
+)

@@ -59,6 +59,7 @@ fun ServerSettingsScreen(
     onOpenRoles: () -> Unit,
     onOpenBans: () -> Unit,
     onOpenEmojis: () -> Unit,
+    onOpenChannels: () -> Unit,
     viewModel: ServerSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -144,6 +145,7 @@ fun ServerSettingsScreen(
                     HubRow("Visao geral", "icone, nome, banner e convite", onOpenOverview)
                 }
                 if (state.canManageChannels) {
+                    HubRow("Orbitas", "renomear, privar e apagar canais", onOpenChannels)
                     HubRow("Emojis", "emojis custom da constelacao", onOpenEmojis)
                 }
                 Spacer(Modifier.height(20.dp))

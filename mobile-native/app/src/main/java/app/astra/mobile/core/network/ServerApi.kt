@@ -4,7 +4,10 @@ import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.BanDto
 import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
+import app.astra.mobile.core.network.dto.ChannelVisibilityDto
+import app.astra.mobile.core.network.dto.ChannelVisibilityRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
+import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.InviteCodeResponse
 import app.astra.mobile.core.network.dto.MemberRoleRequest
@@ -110,4 +113,28 @@ interface ServerApi {
         @Path("serverId") serverId: String,
         @Body body: CreateChannelRequest,
     ): ApiEnvelope<ChannelDto>
+
+    // ---- Gestao de canal (MANAGE_CHANNELS) ----
+    @GET("api/servers/{sid}/channels/{cid}/visibility")
+    suspend fun channelVisibility(
+        @Path("sid") serverId: String,
+        @Path("cid") channelId: String,
+    ): ApiEnvelope<ChannelVisibilityDto>
+
+    @PATCH("api/servers/{sid}/channels/{cid}/visibility")
+    suspend fun setChannelVisibility(
+        @Path("sid") serverId: String,
+        @Path("cid") channelId: String,
+        @Body body: ChannelVisibilityRequest,
+    ): ApiEnvelope<ChannelVisibilityDto>
+
+    @PATCH("api/servers/{sid}/channels/{cid}")
+    suspend fun renameChannel(
+        @Path("sid") serverId: String,
+        @Path("cid") channelId: String,
+        @Body body: UpdateChannelNameRequest,
+    ): ApiEnvelope<ChannelDto>
+
+    @DELETE("api/servers/{sid}/channels/{cid}")
+    suspend fun deleteChannel(@Path("sid") serverId: String, @Path("cid") channelId: String)
 }

@@ -73,6 +73,7 @@ import app.astra.mobile.feature.wishing.presentation.WishingScreen
 import app.astra.mobile.feature.server.presentation.ChannelListScreen
 import app.astra.mobile.feature.server.presentation.ServerBadgesScreen
 import app.astra.mobile.feature.server.presentation.ServerBansScreen
+import app.astra.mobile.feature.server.presentation.ServerChannelsScreen
 import app.astra.mobile.feature.server.presentation.ServerEditScreen
 import app.astra.mobile.feature.server.presentation.ServerEmojisScreen
 import app.astra.mobile.feature.server.presentation.ServerMembersScreen
@@ -122,6 +123,8 @@ private object Routes {
     fun serverBans(id: String) = "server/$id/bans"
     const val SERVER_EMOJIS = "server/{serverId}/emojis"
     fun serverEmojis(id: String) = "server/$id/emojis"
+    const val SERVER_CHANNELS_MGMT = "server/{serverId}/channels-manage"
+    fun serverChannelsManage(id: String) = "server/$id/channels-manage"
     const val CHANNELS = "channels/{serverId}?name={name}"
     const val CHANNEL_CHAT = "channel/{channelId}?name={name}"
     const val CALL = "call/{channelId}?name={name}&serverId={serverId}&kind={kind}"
@@ -303,6 +306,7 @@ fun AstraApp() {
                         onOpenRoles = { nav.navigate(Routes.serverRoles(serverId)) },
                         onOpenBans = { nav.navigate(Routes.serverBans(serverId)) },
                         onOpenEmojis = { nav.navigate(Routes.serverEmojis(serverId)) },
+                        onOpenChannels = { nav.navigate(Routes.serverChannelsManage(serverId)) },
                     )
                 }
                 composable(
@@ -343,6 +347,12 @@ fun AstraApp() {
                     arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
                 ) {
                     ServerEmojisScreen(onBack = { nav.popBackStack() })
+                }
+                composable(
+                    route = Routes.SERVER_CHANNELS_MGMT,
+                    arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+                ) {
+                    ServerChannelsScreen(onBack = { nav.popBackStack() })
                 }
                 composable(
                     route = Routes.CHANNEL_CHAT,

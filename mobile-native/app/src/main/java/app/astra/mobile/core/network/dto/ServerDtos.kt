@@ -69,6 +69,21 @@ data class EmojiDto(
 data class RenameEmojiRequest(val name: String)
 
 @Serializable
+data class ChannelVisibilityDto(
+    val isPrivate: Boolean = false,
+    val roleIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class ChannelVisibilityRequest(
+    val isPrivate: Boolean,
+    val roleIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class UpdateChannelNameRequest(val name: String)
+
+@Serializable
 data class CreateChannelRequest(val name: String, val type: String = "TEXT")
 
 @Serializable

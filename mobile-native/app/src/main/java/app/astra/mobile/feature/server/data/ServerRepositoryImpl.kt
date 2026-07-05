@@ -163,7 +163,7 @@ private fun ServerDto.toDomain() = Server(
     description = description,
     messageRetentionDays = messageRetentionDays,
     channels = channels.map {
-        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId)
+        Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId, isPrivate = it.isPrivate)
     },
     categories = categories.map { Category(it.id, it.name, it.position) },
 )

@@ -28,6 +28,7 @@ data class Channel(
     val isVoice: Boolean,
     val lastMessageAt: String? = null,
     val categoryId: String? = null,
+    val isPrivate: Boolean = false,
 )
 
 data class Category(

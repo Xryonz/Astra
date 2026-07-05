@@ -3,6 +3,7 @@ import { Router } from 'express'
 import { pool } from '../db'
 import { redis } from '../lib/redis'
 import { env } from '../lib/env'
+import { isMailEnabled } from '../lib/mailer'
 import { logger } from '../lib/logger'
 import { renderMetrics, metricsContentType } from '../lib/metrics'
 
@@ -50,6 +51,7 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     uptimeS:   Math.round(process.uptime()),
     release:   env.RELEASE ?? null,
     voiceCfg:  !!env.LIVEKIT_URL,
+    mailCfg:   isMailEnabled(),
     checks:    { db, redis: rd },
   })
 })

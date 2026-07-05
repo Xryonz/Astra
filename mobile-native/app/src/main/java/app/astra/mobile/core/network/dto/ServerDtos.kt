@@ -8,6 +8,9 @@ data class ServerDto(
     val id: String,
     val name: String,
     val iconUrl: String? = null,
+    val bannerUrl: String? = null,
+    val description: String? = null,
+    val messageRetentionDays: Int? = null,
     val ownerId: String? = null,
     val inviteCode: String? = null,
     val isPublic: Boolean = false,
@@ -45,8 +48,14 @@ data class CreateServerRequest(val name: String, val isGroup: Boolean = false)
 data class UpdateServerRequest(
     val name: String? = null,
     val iconUrl: String? = null,
+    val bannerUrl: String? = null,
+    val description: String? = null,
+    val messageRetentionDays: Int? = null,
     val isPublic: Boolean? = null,
 )
+
+@Serializable
+data class InviteCodeResponse(val inviteCode: String)
 
 @Serializable
 data class CreateChannelRequest(val name: String, val type: String = "TEXT")

@@ -6,6 +6,7 @@ import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
+import app.astra.mobile.core.network.dto.InviteCodeResponse
 import app.astra.mobile.core.network.dto.MemberRoleRequest
 import app.astra.mobile.core.network.dto.MemberRoleResponse
 import app.astra.mobile.core.network.dto.MyColorRequest
@@ -32,6 +33,9 @@ interface ServerApi {
 
     @PATCH("api/servers/{id}")
     suspend fun update(@Path("id") id: String, @Body body: UpdateServerRequest): ApiEnvelope<ServerDto>
+
+    @POST("api/servers/{id}/regenerate-invite")
+    suspend fun regenerateInvite(@Path("id") serverId: String): ApiEnvelope<InviteCodeResponse>
 
     @PATCH("api/servers/{id}/my-color")
     suspend fun setMyColor(@Path("id") serverId: String, @Body body: MyColorRequest): ApiEnvelope<MyColorResponse>

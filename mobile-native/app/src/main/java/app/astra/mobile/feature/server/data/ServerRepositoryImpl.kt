@@ -100,8 +100,19 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(ApiException("Nao foi possivel criar o servidor"))
     }
 
-    override suspend fun updateServer(id: String, name: String?, iconUrl: String?, isPublic: Boolean?): Result<Server> = try {
-        val dto = serverApi.update(id, UpdateServerRequest(name = name, iconUrl = iconUrl, isPublic = isPublic)).data
+    override suspend fun updateServer(
+        id: String,
+        name: String?,
+        iconUrl: String?,
+        isPublic: Boolean?,
+        bannerUrl: String?,
+        description: String?,
+        messageRetentionDays: Int?,
+    ): Result<Server> = try {
+        val dto = serverApi.update(id, UpdateServerRequest(
+            name = name, iconUrl = iconUrl, isPublic = isPublic,
+            bannerUrl = bannerUrl, description = description, messageRetentionDays = messageRetentionDays,
+        )).data
             ?: return Result.failure(ApiException("Resposta invalida do servidor"))
         Result.success(dto.toDomain())
     } catch (e: HttpException) {
@@ -148,6 +159,9 @@ private fun ServerDto.toDomain() = Server(
     ownerId = ownerId,
     isPublic = isPublic,
     isGroup = isGroup,
+    bannerUrl = bannerUrl,
+    description = description,
+    messageRetentionDays = messageRetentionDays,
     channels = channels.map {
         Channel(id = it.id, name = it.name, isVoice = it.type == "VOICE", lastMessageAt = it.lastMessageAt, categoryId = it.categoryId)
     },

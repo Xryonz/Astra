@@ -8,7 +8,15 @@ interface ServerRepository {
     suspend fun servers(): Result<List<Server>>
     suspend fun createServer(name: String, isGroup: Boolean = false): Result<Server>
 
-    suspend fun updateServer(id: String, name: String?, iconUrl: String?, isPublic: Boolean?): Result<Server>
+    suspend fun updateServer(
+        id: String,
+        name: String? = null,
+        iconUrl: String? = null,
+        isPublic: Boolean? = null,
+        bannerUrl: String? = null,
+        description: String? = null,
+        messageRetentionDays: Int? = null,
+    ): Result<Server>
     suspend fun members(serverId: String): Result<List<ServerMember>>
 
     suspend fun channelReads(): Result<Map<String, String>>

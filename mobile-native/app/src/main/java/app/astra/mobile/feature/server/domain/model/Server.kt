@@ -17,6 +17,9 @@ data class Server(
     val ownerId: String? = null,
     val isPublic: Boolean = false,
     val isGroup: Boolean = false,
+    val bannerUrl: String? = null,
+    val description: String? = null,
+    val messageRetentionDays: Int? = null,
 )
 
 data class Channel(

@@ -81,7 +81,6 @@ import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Link
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.MessageSquarePlus
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Search
@@ -306,21 +305,6 @@ fun HomeScreen(
                         ) {
                             MarginaliaLabel("sussurros")
                             Spacer(Modifier.weight(1f))
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .clickable { showDialog = true },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Lucide.MessageSquarePlus,
-                                    contentDescription = "Iniciar sussurro",
-                                    tint = astraColors.accent,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                            Spacer(Modifier.width(4.dp))
                             Text(
                                 text = "ver todas",
                                 style = MaterialTheme.typography.labelMedium,

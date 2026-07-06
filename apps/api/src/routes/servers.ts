@@ -14,6 +14,21 @@ import { invalidateMembersCache } from '../lib/membersCache'
 
 export const serversRouter = Router()
 
+// Le categorias sem derrubar a request se a tabela ChannelCategory ainda nao
+// existir no banco (o boot ensureCategorySchema deve cria-la, mas nao dependemos
+// disso: categorias sao opcionais, uma constelacao sem elas so mostra canais soltos).
+async function safeCategoryRows(serverIds: string[]) {
+  if (serverIds.length === 0) return []
+  try {
+    return await db.select().from(channelCategories)
+      .where(inArray(channelCategories.serverId, serverIds))
+      .orderBy(asc(channelCategories.position))
+  } catch (e) {
+    console.warn('[servers] categorias indisponiveis:', (e as Error).message)
+    return []
+  }
+}
+
 async function listServersForUser(userId: string) {
 
   const myMemberships = await db.select({ serverId: serverMembers.serverId })
@@ -30,7 +45,7 @@ async function listServersForUser(userId: string) {
       .from(serverMembers)
       .where(inArray(serverMembers.serverId, serverIds))
       .groupBy(serverMembers.serverId),
-    db.select().from(channelCategories).where(inArray(channelCategories.serverId, serverIds)).orderBy(asc(channelCategories.position)),
+    safeCategoryRows(serverIds),
   ])
 
   const channelIds = chRows.map((c) => c.id)
@@ -79,7 +94,7 @@ async function serverWithChannelsAndCount(serverId: string) {
     db.select({ count: sql<number>`count(*)::int` })
       .from(serverMembers)
       .where(eq(serverMembers.serverId, serverId)),
-    db.select().from(channelCategories).where(eq(channelCategories.serverId, serverId)).orderBy(asc(channelCategories.position)),
+    safeCategoryRows([serverId]),
   ])
   return { ...srv, channels: chRows, categories: catRows, _count: { members: countRow?.count ?? 0 } }
 }
@@ -105,11 +120,18 @@ serversRouter.post(
         name, iconUrl, isGroup, ownerId: req.userId!,
       }).returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
-
-      const [cat] = await tx.insert(channelCategories).values({ name: 'Geral', serverId: s.id, position: 0 }).returning()
-      await tx.insert(channels).values({ name: 'geral', type: 'TEXT', serverId: s.id, categoryId: cat.id, position: 0 })
+      await tx.insert(channels).values({ name: 'geral', type: 'TEXT', serverId: s.id, position: 0 })
       return s
     })
+
+    // Categoria "Geral" e best-effort, FORA da transacao: se a tabela
+    // ChannelCategory ainda nao existir, criar a constelacao NAO pode falhar.
+    try {
+      const [cat] = await db.insert(channelCategories).values({ name: 'Geral', serverId: server.id, position: 0 }).returning()
+      await db.update(channels).set({ categoryId: cat.id }).where(eq(channels.serverId, server.id))
+    } catch (e) {
+      console.warn('[servers] categoria default pulada:', (e as Error).message)
+    }
 
     const full = await serverWithChannelsAndCount(server.id)
     res.status(201).json({ data: full })

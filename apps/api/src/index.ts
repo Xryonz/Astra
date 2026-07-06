@@ -59,6 +59,7 @@ import channelNotifPrefsRouter            from './routes/channelNotifPrefs'
 import { startReminderWorker }            from './lib/reminders'
 import { HttpError }                     from './lib/errors'
 import { logger }                        from './lib/logger'
+import { ensureCategorySchema }          from './db/ensureSchema'
 
 const app        = express()
 
@@ -201,6 +202,7 @@ process.on('uncaughtException', (e) => {
 
 httpServer.listen(env.PORT, async () => {
   logger.info('Astra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
+  await ensureCategorySchema()
   await initBot()
   logger.info('Bot', 'Pronto.')
   startRetentionWorker()

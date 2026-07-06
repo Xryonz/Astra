@@ -56,7 +56,16 @@ val ThemePresets = listOf(
 fun accentOption(id: String?): AccentOption = AccentOptions.firstOrNull { it.id == id } ?: AccentOptions[0]
 fun bgOption(id: String?): BgOption = BgOptions.firstOrNull { it.id == id } ?: BgOptions[0]
 
-/** Deriva accent + void/base/raised do par escolhido; demais tokens ficam fixos. */
+/** Sobe o brilho de uma cor por um passo fixo, preservando o tom base. Usado pra
+ *  derivar a rampa elevada (overlay/hover/active) a partir do raised do tema. */
+private fun lift(c: Color, amount: Float): Color = Color(
+    red = (c.red + amount).coerceAtMost(1f),
+    green = (c.green + amount).coerceAtMost(1f),
+    blue = (c.blue + amount).coerceAtMost(1f),
+    alpha = c.alpha,
+)
+
+/** Deriva accent + a rampa de fundo (void..active) do par escolhido. */
 fun buildAstraColors(accentId: String?, bgId: String?): AstraColors {
     val a = accentOption(accentId).value
     val bg = bgOption(bgId)
@@ -64,6 +73,12 @@ fun buildAstraColors(accentId: String?, bgId: String?): AstraColors {
         void = bg.voidC,
         base = lerp(bg.voidC, bg.raisedC, 0.4f),
         raised = bg.raisedC,
+        // Rampa elevada derivada do raised do TEMA (antes ficava fixa nos tokens
+        // default -> dialogs/inputs/hover da RikkaUI ficavam navy mesmo no AMOLED,
+        // pois surface=overlay e secondary=hover). Passo grayscale mantem o tom.
+        overlay = lift(bg.raisedC, 0.028f),
+        hover = lift(bg.raisedC, 0.055f),
+        active = lift(bg.raisedC, 0.085f),
         accent = a,
         accentH = lerp(a, Color.White, 0.18f),
         accentDim = a.copy(alpha = 0.10f),

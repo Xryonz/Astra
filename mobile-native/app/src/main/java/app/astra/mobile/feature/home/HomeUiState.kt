@@ -35,6 +35,7 @@ data class HomeUiState(
     val myAvatar: String? = null,
     val myBanner: String? = null,
     val myBannerColor: String? = null,
+    val myFont: String = "serif",
     val myBio: String? = null,
     val myPronouns: String? = null,
     val myCreatedAt: String? = null,

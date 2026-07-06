@@ -49,7 +49,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -110,6 +109,7 @@ import app.astra.mobile.ui.components.BadgeUi
 import app.astra.mobile.ui.components.CosmicBackdrop
 import app.astra.mobile.ui.components.CosmicBackground
 import app.astra.mobile.ui.components.EditorialField
+import app.astra.mobile.ui.components.displayFontFamily
 import app.astra.mobile.ui.components.EmptyState
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.ListSkeleton
@@ -412,6 +412,7 @@ fun HomeScreen(
             createdAt = state.myCreatedAt,
             status = state.myStatus,
             customStatus = state.myCustomStatus,
+            font = state.myFont,
             badges = state.myBadges,
             servers = state.servers,
             onEditProfile = { profileSheet = false; onOpenProfile() },
@@ -535,13 +536,15 @@ private fun ForgeDialog(
             style = MaterialTheme.typography.bodySmall,
             color = astraColors.text3,
         )
-        OutlinedTextField(
+        EditorialField(
             value = name,
-            onValueChange = { name = it },
-            singleLine = true,
+            onValue = { name = it },
+            label = if (isGroup) "nome do aglomerado" else "nome da constelacao",
+            placeholder = if (isGroup) "como vao chamar o grupo?" else "como vao chamar a constelacao?",
             enabled = !creating,
-            label = { Text(if (isGroup) "Nome do aglomerado" else "Nome da constelacao") },
-            modifier = Modifier.fillMaxWidth(),
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
+            onIme = { if (name.isNotBlank() && !creating) onConfirm(name) },
         )
         if (error != null) {
             Text(
@@ -1021,12 +1024,14 @@ private fun CreateChannelDialog(
         onConfirm = { onConfirm(name.trim(), isVoice) },
         confirmEnabled = name.isNotBlank(),
     ) {
-        OutlinedTextField(
+        EditorialField(
             value = name,
-            onValueChange = { name = it },
-            singleLine = true,
-            label = { Text("Nome do canal") },
-            modifier = Modifier.fillMaxWidth(),
+            onValue = { name = it },
+            label = "nome do canal",
+            placeholder = "geral",
+            enabled = true,
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
         )
         OptionRow(title = "Texto", selected = !isVoice, onClick = { isVoice = false })
         OptionRow(title = "Voz", selected = isVoice, onClick = { isVoice = true })
@@ -1307,6 +1312,7 @@ private fun ProfileSheet(
     createdAt: String?,
     status: UserStatus,
     customStatus: String?,
+    font: String,
     badges: List<BadgeUi>,
     servers: List<Server>,
     onEditProfile: () -> Unit,
@@ -1333,7 +1339,7 @@ private fun ProfileSheet(
                 bannerScale = 100,
                 avatarUrl = avatar,
                 displayName = name.ifBlank { "Astra" },
-                displayFont = DmSerif,
+                displayFont = displayFontFamily(font),
                 subtitle = buildString {
                     if (username.isNotBlank()) append("@$username")
                     if (!pronouns.isNullOrBlank()) {
@@ -1537,13 +1543,15 @@ private fun NewConversationDialog(
             style = MaterialTheme.typography.bodySmall,
             color = astraColors.text3,
         )
-        OutlinedTextField(
+        EditorialField(
             value = username,
-            onValueChange = { username = it },
-            singleLine = true,
+            onValue = { username = it },
+            label = "estrela",
+            placeholder = "@username",
             enabled = !opening,
-            label = { Text("@username") },
-            modifier = Modifier.fillMaxWidth(),
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
+            onIme = { if (username.isNotBlank() && !opening) onConfirm(username) },
         )
         if (error != null) {
             Text(

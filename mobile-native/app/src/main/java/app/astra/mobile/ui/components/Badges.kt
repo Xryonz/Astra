@@ -80,12 +80,12 @@ fun BadgeChips(badges: List<BadgeUi>, modifier: Modifier = Modifier) {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(if (open) astraColors.hover else astraColors.raised)
+                        .background(tint.copy(alpha = if (open) 0.30f else 0.16f))
                         .border(1.5.dp, tint.copy(alpha = 0.55f), CircleShape)
                         .clickable { detail = if (open) null else b },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(b.icon, fontSize = 18.sp)
+                    Text(b.icon, fontSize = 18.sp, color = tint)
                 }
                 if (open) {
                     Popup(

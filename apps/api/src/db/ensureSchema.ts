@@ -2,7 +2,7 @@ import { pool } from './index'
 import { logger } from '../lib/logger'
 
 // Guard idempotente de schema, rodado 1x no boot. Existe porque a tabela
-// ChannelCategory (+ Channel.categoryId) entrou no schema.ts mas nunca virou
+// ChannelCategory (+ Channel.categoryId + Channel.position) entrou no schema.ts mas nunca virou
 // migration/snapshot — o Neon ficou sem ela e criar constelacao dava 500.
 // DDL espelha o estilo do Drizzle (nomes de constraint/index iguais) pra um
 // futuro db:push nao ver drift. Tudo IF NOT EXISTS / duplicate_object -> no-op.
@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS "ChannelCategory" (
 );
 CREATE INDEX IF NOT EXISTS "ChannelCategory_serverId_idx" ON "ChannelCategory" ("serverId");
 ALTER TABLE "Channel" ADD COLUMN IF NOT EXISTS "categoryId" text;
+ALTER TABLE "Channel" ADD COLUMN IF NOT EXISTS "position" integer NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS "Channel_categoryId_idx" ON "Channel" ("categoryId");
 DO $$ BEGIN
 	ALTER TABLE "ChannelCategory" ADD CONSTRAINT "ChannelCategory_serverId_Server_id_fk"

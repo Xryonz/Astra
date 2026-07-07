@@ -39,7 +39,7 @@ data class CategoryDto(
 )
 
 @Serializable
-data class ServerCountDto(val members: Int = 0)
+data class ServerCountDto(val members: Int = 0, val online: Int = 0)
 
 @Serializable
 data class CreateServerRequest(val name: String, val isGroup: Boolean = false)

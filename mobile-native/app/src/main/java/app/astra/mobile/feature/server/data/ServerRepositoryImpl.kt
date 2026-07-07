@@ -164,6 +164,7 @@ private fun ServerDto.toDomain() = Server(
     name = name,
     iconUrl = iconUrl,
     memberCount = count?.members ?: 0,
+    onlineCount = count?.online ?: 0,
     inviteCode = inviteCode,
     ownerId = ownerId,
     isPublic = isPublic,

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
+import android.os.Build
 import android.util.Base64
 import app.astra.mobile.core.ApiException
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,7 @@ object ImageEncoder {
                 quality -= 15
                 out = compress(scaled, quality)
             }
-            Result.success("data:image/jpeg;base64," + Base64.encodeToString(out, Base64.NO_WRAP))
+            Result.success("data:image/webp;base64," + Base64.encodeToString(out, Base64.NO_WRAP))
         } catch (e: Exception) {
             Result.failure(ApiException("Nao foi possivel processar a imagem."))
         }
@@ -66,7 +67,7 @@ object ImageEncoder {
                 quality -= 15
                 out = compress(scaled, quality)
             }
-            Result.success(out to "image/jpeg")
+            Result.success(out to "image/webp")
         } catch (e: Exception) {
             Result.failure(ApiException("Nao foi possivel processar a imagem."))
         }
@@ -101,8 +102,16 @@ object ImageEncoder {
         }
     }
 
-    private fun compress(bmp: Bitmap, quality: Int): ByteArray =
-        ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
+    // WebP economiza ~25-35% vs JPEG na mesma qualidade. WEBP_LOSSY e API 30+;
+    // <30 cai no WEBP (deprecated, mesma codificacao lossy). minSdk do app e 24.
+    private fun compress(bmp: Bitmap, quality: Int): ByteArray {
+        val fmt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Bitmap.CompressFormat.WEBP_LOSSY
+        } else {
+            @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP
+        }
+        return ByteArrayOutputStream().also { bmp.compress(fmt, quality, it) }.toByteArray()
+    }
 
     private fun scaleDown(bmp: Bitmap, maxDim: Int): Bitmap {
         val largest = maxOf(bmp.width, bmp.height)

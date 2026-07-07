@@ -11,6 +11,7 @@ data class Server(
     val name: String,
     val iconUrl: String?,
     val memberCount: Int,
+    val onlineCount: Int = 0,
     val channels: List<Channel>,
     val categories: List<Category> = emptyList(),
     val inviteCode: String? = null,

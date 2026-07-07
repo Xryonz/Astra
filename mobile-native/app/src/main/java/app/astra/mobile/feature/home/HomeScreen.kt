@@ -940,9 +940,10 @@ private fun ServerPanelHeader(
     val base = astraColors.base
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(132.dp)) {
-            if (!server.iconUrl.isNullOrBlank()) {
+            // Banner do painel: usa o bannerUrl da constelacao (nao o icone).
+            if (!server.bannerUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = server.iconUrl,
+                    model = server.bannerUrl,
                     contentDescription = null,
                     modifier = Modifier.matchParentSize(),
                     contentScale = ContentScale.Crop,
@@ -974,7 +975,7 @@ private fun ServerPanelHeader(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                MarginaliaLabel("${server.memberCount} na constelacao")
+                MarginaliaLabel("${server.onlineCount} online")
             }
             if (!server.inviteCode.isNullOrBlank()) {
                 CircleIconBtn(Lucide.UserPlus, "Convidar", onInvite)

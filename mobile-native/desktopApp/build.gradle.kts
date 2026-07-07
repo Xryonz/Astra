@@ -17,6 +17,15 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+// jpackage/jlink quebram com caminho non-ASCII no Windows (o repo mora em
+// ".../Codigos e Loucuras/..."). Pra EMPACOTAR o .exe, redirecione o build deste
+// modulo pra um path sem acento:
+//   ./gradlew :desktopApp:createDistributable -Pastra.distDir=C:/astra-dist
+// Sem a flag, nada muda (build normal em build/).
+providers.gradleProperty("astra.distDir").orNull?.let {
+    layout.buildDirectory.set(file(it))
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17

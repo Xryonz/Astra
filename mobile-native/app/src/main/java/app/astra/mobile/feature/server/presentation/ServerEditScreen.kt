@@ -169,7 +169,7 @@ fun ServerEditScreen(
                 // ---- Banner ----
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("— banner")
+                    MarginaliaLabel("banner")
                     Spacer(Modifier.weight(1f))
                     if (state.bannerUrl.isNotBlank()) {
                         Text(
@@ -232,7 +232,7 @@ fun ServerEditScreen(
 
                 // ---- Retencao ----
                 Spacer(Modifier.height(22.dp))
-                MarginaliaLabel("— apagar mensagens antigas", Modifier.fillMaxWidth())
+                MarginaliaLabel("apagar mensagens antigas", Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     RETENTION_PRESETS.forEach { (days, label) ->
@@ -284,7 +284,7 @@ fun ServerEditScreen(
                     Spacer(Modifier.height(28.dp))
                     HairlineRule()
                     Spacer(Modifier.height(16.dp))
-                    MarginaliaLabel("— convite", Modifier.fillMaxWidth())
+                    MarginaliaLabel("convite", Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     val link = BuildConfig.BASE_URL.trimEnd('/') + "/i/" + code
                     val fieldShape = RoundedCornerShape(12.dp)

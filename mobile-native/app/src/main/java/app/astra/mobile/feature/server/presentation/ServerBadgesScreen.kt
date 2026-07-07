@@ -72,7 +72,7 @@ fun ServerBadgesScreen(
                     .padding(horizontal = 26.dp, vertical = 18.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("— insignias da constelacao")
+                    MarginaliaLabel("insignias da constelacao")
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "+ nova",
@@ -80,6 +80,7 @@ fun ServerBadgesScreen(
                         color = astraColors.accent,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, astraColors.borderMid, RoundedCornerShape(8.dp))
                             .clickable { createOpen = true }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     )

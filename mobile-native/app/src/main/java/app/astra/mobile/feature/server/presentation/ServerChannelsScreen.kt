@@ -201,7 +201,7 @@ private fun ChannelManageDialog(
 
             if (editing.isPrivate) {
                 Spacer(Modifier.height(14.dp))
-                MarginaliaLabel("— cargos com acesso")
+                MarginaliaLabel("cargos com acesso")
                 Spacer(Modifier.height(8.dp))
                 if (editing.loadingVisibility) {
                     MarginaliaLabel("carregando...")

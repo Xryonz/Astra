@@ -84,7 +84,7 @@ fun NotificationsSettingsScreen(
                     val p = state.prefs!!
 
                     Spacer(Modifier.height(8.dp))
-                    MarginaliaLabel("— tipos", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    MarginaliaLabel("tipos", Modifier.padding(start = 22.dp, bottom = 8.dp))
                     ToggleRow("Menções", "quando te citam numa órbita", p.mentions) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(mentions = v)) { it.copy(mentions = v) }
                     }
@@ -99,13 +99,13 @@ fun NotificationsSettingsScreen(
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    MarginaliaLabel("— som", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    MarginaliaLabel("som", Modifier.padding(start = 22.dp, bottom = 8.dp))
                     ToggleRow("Sons de notificação", "toca ao receber", p.sounds) { v ->
                         viewModel.toggle(UpdateNotificationPrefsRequest(sounds = v)) { it.copy(sounds = v) }
                     }
 
                     Spacer(Modifier.height(20.dp))
-                    MarginaliaLabel("— horário silencioso", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    MarginaliaLabel("horário silencioso", Modifier.padding(start = 22.dp, bottom = 8.dp))
                     QuietHoursCard(
                         start = p.quietStart,
                         end = p.quietEnd,
@@ -113,7 +113,7 @@ fun NotificationsSettingsScreen(
                     )
 
                     Spacer(Modifier.height(20.dp))
-                    MarginaliaLabel("— push", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                    MarginaliaLabel("push", Modifier.padding(start = 22.dp, bottom = 8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -32,7 +32,7 @@ fun DataScreen(onBack: () -> Unit) {
             EditorialTopBar(title = "Dados e privacidade", marginalia = "seus dados, suas regras", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("— seus dados", Modifier.padding(start = 22.dp, bottom = 10.dp))
+            MarginaliaLabel("seus dados", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
             Column(
                 Modifier.padding(horizontal = 18.dp),

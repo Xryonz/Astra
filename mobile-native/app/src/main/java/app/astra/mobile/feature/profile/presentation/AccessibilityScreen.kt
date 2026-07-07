@@ -43,7 +43,7 @@ fun AccessibilityScreen(
             EditorialTopBar(title = "Acessibilidade", marginalia = "movimento e vibracao", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("— movimento", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("movimento", Modifier.padding(start = 22.dp, bottom = 8.dp))
             ToggleRow(
                 title = "Reduzir animacoes",
                 sub = "Desliga TODAS de uma vez (mestre)",
@@ -54,7 +54,7 @@ fun AccessibilityScreen(
             // So aparecem quando o mestre esta off (senao ja esta tudo desligado).
             if (!prefs.reduceMotion) {
                 Spacer(Modifier.height(16.dp))
-                MarginaliaLabel("— efeitos especificos", Modifier.padding(start = 22.dp, bottom = 8.dp))
+                MarginaliaLabel("efeitos especificos", Modifier.padding(start = 22.dp, bottom = 8.dp))
                 ToggleRow(
                     title = "Aurora do fundo",
                     sub = "Brilho GPU atras do app (o mais pesado)",
@@ -84,7 +84,7 @@ fun AccessibilityScreen(
             }
 
             Spacer(Modifier.height(20.dp))
-            MarginaliaLabel("— toque", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("toque", Modifier.padding(start = 22.dp, bottom = 8.dp))
             ToggleRow(
                 title = "Vibracao",
                 sub = "Resposta tatil em gestos e acoes",

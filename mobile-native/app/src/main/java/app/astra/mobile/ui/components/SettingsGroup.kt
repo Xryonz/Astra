@@ -53,7 +53,7 @@ fun SettingsGroup(
 ) {
     Column(modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
         if (label != null) {
-            MarginaliaLabel("— $label", Modifier.padding(start = 4.dp, bottom = 8.dp))
+            MarginaliaLabel("$label", Modifier.padding(start = 4.dp, bottom = 8.dp))
         }
         val shape = RoundedCornerShape(16.dp)
         Column(

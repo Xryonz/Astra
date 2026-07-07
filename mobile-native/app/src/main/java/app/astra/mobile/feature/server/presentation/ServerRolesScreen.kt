@@ -96,7 +96,7 @@ fun ServerRolesScreen(
                     .padding(horizontal = 20.dp, vertical = 14.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MarginaliaLabel("— cargos da constelacao")
+                    MarginaliaLabel("cargos da constelacao")
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "+ novo",
@@ -104,6 +104,7 @@ fun ServerRolesScreen(
                         color = astraColors.accent,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, astraColors.borderMid, RoundedCornerShape(8.dp))
                             .clickable { creating = true }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
@@ -262,7 +263,7 @@ private fun RoleEditorDialog(
             }
 
             Spacer(Modifier.height(18.dp))
-            MarginaliaLabel("— permissoes")
+            MarginaliaLabel("permissoes")
             Spacer(Modifier.height(8.dp))
             PERM_OPTIONS.forEach { (key, label, desc) ->
                 val active = key in perms

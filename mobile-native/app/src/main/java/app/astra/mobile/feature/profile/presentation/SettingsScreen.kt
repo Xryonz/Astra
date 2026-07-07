@@ -35,7 +35,7 @@ import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
-// Cabecalho de secao da config (ex "— pessoal"): fonte maior e branca (text1) pra
+// Cabecalho de secao da config (ex "pessoal"): fonte maior e branca (text1) pra
 // leitura facil, no lugar do marginalia pequeno/cinza.
 @Composable
 private fun SectionHeader(text: String) {
@@ -85,22 +85,22 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionHeader("— pessoal")
+            SectionHeader("pessoal")
             SettingsRow("Conta", "nome, username, senha", onOpenAccount)
             SettingsRow("Personalização", "perfil, cor do nome, tema e banner", onOpenPersonalization)
 
             Spacer(Modifier.height(20.dp))
-            SectionHeader("— app")
+            SectionHeader("app")
             SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
             SettingsRow("Notificações", "menções, sussurros e horário silencioso", onOpenNotifications)
 
             Spacer(Modifier.height(20.dp))
-            SectionHeader("— conta e seguranca")
+            SectionHeader("conta e seguranca")
             SettingsRow("Sessoes", "dispositivos conectados", onOpenSessions)
             SettingsRow("Dados e privacidade", "exportar ou apagar conta", onOpenData)
 
             Spacer(Modifier.height(20.dp))
-            SectionHeader("— comunidade")
+            SectionHeader("comunidade")
             SettingsRow("Estrela Cadente", "sugira ideias pro Astra", onOpenWishing)
 
             Spacer(Modifier.height(20.dp))

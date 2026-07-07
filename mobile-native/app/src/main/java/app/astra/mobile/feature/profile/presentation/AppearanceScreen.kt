@@ -58,11 +58,11 @@ fun AppearanceSection(
 
     Column(Modifier.fillMaxWidth()) {
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("— previa", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("previa", Modifier.padding(start = 22.dp, bottom = 8.dp))
             PreviewBubbles(prefs.fontSize, prefs.density)
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("— tema rapido", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("tema rapido", Modifier.padding(start = 22.dp, bottom = 8.dp))
             PresetGrid(
                 selectedAccent = prefs.accentId,
                 selectedBg = prefs.bgId,
@@ -70,15 +70,15 @@ fun AppearanceSection(
             )
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("— cor de destaque", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("cor de destaque", Modifier.padding(start = 22.dp, bottom = 8.dp))
             AccentRow(selected = prefs.accentId, onSelect = viewModel::setAccent)
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("— fundo", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("fundo", Modifier.padding(start = 22.dp, bottom = 8.dp))
             BgList(selected = prefs.bgId, onSelect = viewModel::setBg)
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("— tamanho da fonte", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("tamanho da fonte", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SegmentedRow(
                 options = FontSizePref.entries,
                 selected = prefs.fontSize,
@@ -87,7 +87,7 @@ fun AppearanceSection(
             )
 
             Spacer(Modifier.height(22.dp))
-            MarginaliaLabel("— densidade das mensagens", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            MarginaliaLabel("densidade das mensagens", Modifier.padding(start = 22.dp, bottom = 8.dp))
             SegmentedRow(
                 options = DensityPref.entries,
                 selected = prefs.density,

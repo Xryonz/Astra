@@ -29,21 +29,21 @@ fun PersonalizationScreen(onBack: () -> Unit) {
         ) {
             EditorialTopBar(title = "Personalização", marginalia = "seu perfil e o app", onBack = onBack)
 
-            MarginaliaLabel("— perfil", Modifier.padding(start = 22.dp, top = 8.dp))
+            MarginaliaLabel("perfil", Modifier.padding(start = 22.dp, top = 8.dp))
             ProfileEditSection()
 
             Spacer(Modifier.height(12.dp))
             HairlineRule(Modifier.padding(horizontal = 22.dp))
             Spacer(Modifier.height(20.dp))
 
-            MarginaliaLabel("— cor do nome", Modifier.padding(start = 22.dp, bottom = 4.dp))
+            MarginaliaLabel("cor do nome", Modifier.padding(start = 22.dp, bottom = 4.dp))
             NameColorsSection()
 
             Spacer(Modifier.height(12.dp))
             HairlineRule(Modifier.padding(horizontal = 22.dp))
             Spacer(Modifier.height(20.dp))
 
-            MarginaliaLabel("— aparência", Modifier.padding(start = 22.dp, bottom = 4.dp))
+            MarginaliaLabel("aparência", Modifier.padding(start = 22.dp, bottom = 4.dp))
             AppearanceSection()
 
             Spacer(Modifier.height(28.dp))

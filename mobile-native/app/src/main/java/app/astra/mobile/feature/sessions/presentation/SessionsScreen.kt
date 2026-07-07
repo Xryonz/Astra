@@ -52,7 +52,7 @@ fun SessionsScreen(
             EditorialTopBar(title = "Sessoes", marginalia = "dispositivos conectados", onBack = onBack)
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("— sessoes ativas", Modifier.padding(start = 22.dp, bottom = 10.dp))
+            MarginaliaLabel("sessoes ativas", Modifier.padding(start = 22.dp, bottom = 10.dp))
 
             when {
                 state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CosmicSpinner() }

@@ -2,6 +2,9 @@
 agp = "9.2.0"
 kotlin = "2.3.21"
 ksp = "2.3.9"
+# Compose Multiplatform (desktop). O CMP mais recente e sempre compativel com o
+# Kotlin mais recente (min 2.1.0); nosso 2.3.21 serve. So o modulo :desktopApp usa.
+composeMultiplatform = "1.11.1"
 hilt = "2.60"
 hiltNavigationCompose = "1.2.0"
 coreKtx = "1.15.0"
@@ -94,3 +97,6 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 android-test = { id = "com.android.test", version.ref = "agp" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
+# Desktop (Compose Multiplatform, modulo :desktopApp)
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

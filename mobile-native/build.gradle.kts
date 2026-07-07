@@ -8,4 +8,7 @@ plugins {
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.android.test) apply false
+    // Desktop (Compose Multiplatform) — aplicados no :desktopApp.
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.jetbrains.compose) apply false
 }

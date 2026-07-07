@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 rootProject.name = "AstraMobile"
 include(":app")
 include(":baselineprofile")
+include(":desktopApp")

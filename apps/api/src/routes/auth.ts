@@ -197,13 +197,16 @@ router.get(
   '/me',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const [row] = await db.select({ ...userSafeColumns, passwordHash: users.passwordHash })
+    const [row] = await db.select({ ...userSafeColumns, status: users.status, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.id, req.userId!))
       .limit(1)
     if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
-    const { passwordHash, ...user } = row
-    res.json({ data: { user: { ...user, hasPassword: !!passwordHash } } })
+    const { passwordHash, status, ...user } = row
+    // effectiveStatus do PROPRIO perfil = o status escolhido/persistido (nao a
+    // presenca ao vivo). Sem isso o /me nao mandava status algum e o app caia no
+    // default a cada reabertura, "perdendo" a escolha (brilhando/eclipse/etc).
+    res.json({ data: { user: { ...user, hasPassword: !!passwordHash, effectiveStatus: status ?? 'ONLINE' } } })
   })
 )
 

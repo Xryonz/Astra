@@ -11,8 +11,36 @@ import { PERMS, getMemberPerms, filterVisibleChannels } from '../lib/permissions
 import { AUDIT, audit } from '../lib/audit'
 import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
+import { redis, presenceKeys } from '../lib/redis'
 
 export const serversRouter = Router()
+
+// Conta membros ONLINE por servidor via presenca ao vivo (Redis). Um unico MGET
+// pra todos os usuarios distintos -> 1 round-trip. Nunca derruba a request: se o
+// Redis falhar, devolve mapa vazio (o cliente cai em 0 online).
+async function onlineCountByServer(serverIds: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+  if (serverIds.length === 0) return result
+  try {
+    const memberRows = await db.select({ serverId: serverMembers.serverId, userId: serverMembers.userId })
+      .from(serverMembers)
+      .where(inArray(serverMembers.serverId, serverIds))
+    const uniqUserIds = [...new Set(memberRows.map((m) => m.userId))]
+    if (uniqUserIds.length === 0) return result
+    const values = await redis.mget(uniqUserIds.map((id) => presenceKeys.user(id)))
+    const online = new Set<string>()
+    uniqUserIds.forEach((id, i) => {
+      const v = values[i]
+      if (v && v !== 'INVISIBLE') online.add(id)
+    })
+    for (const m of memberRows) {
+      if (online.has(m.userId)) result.set(m.serverId, (result.get(m.serverId) ?? 0) + 1)
+    }
+  } catch (e) {
+    console.warn('[servers] online count indisponivel:', (e as Error).message)
+  }
+  return result
+}
 
 // Le categorias sem derrubar a request se a tabela ChannelCategory ainda nao
 // existir no banco (o boot ensureCategorySchema deve cria-la, mas nao dependemos
@@ -38,7 +66,7 @@ async function listServersForUser(userId: string) {
   const serverIds = myMemberships.map((m) => m.serverId)
   if (serverIds.length === 0) return []
 
-  const [srvRows, chRows, countRows, catRows] = await Promise.all([
+  const [srvRows, chRows, countRows, catRows, onlineByServer] = await Promise.all([
     db.select().from(servers).where(inArray(servers.id, serverIds)).orderBy(asc(servers.createdAt)),
     db.select().from(channels).where(inArray(channels.serverId, serverIds)).orderBy(asc(channels.position), asc(channels.createdAt)),
     db.select({ serverId: serverMembers.serverId, count: sql<number>`count(*)::int` })
@@ -46,6 +74,7 @@ async function listServersForUser(userId: string) {
       .where(inArray(serverMembers.serverId, serverIds))
       .groupBy(serverMembers.serverId),
     safeCategoryRows(serverIds),
+    onlineCountByServer(serverIds),
   ])
 
   const channelIds = chRows.map((c) => c.id)
@@ -82,21 +111,22 @@ async function listServersForUser(userId: string) {
     ...s,
     channels:   channelsByServer.get(s.id) ?? [],
     categories: catsByServer.get(s.id) ?? [],
-    _count:     { members: countByServer.get(s.id) ?? 0 },
+    _count:     { members: countByServer.get(s.id) ?? 0, online: onlineByServer.get(s.id) ?? 0 },
   }))
 }
 
 async function serverWithChannelsAndCount(serverId: string) {
   const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1)
   if (!srv) return null
-  const [chRows, [countRow], catRows] = await Promise.all([
+  const [chRows, [countRow], catRows, onlineMap] = await Promise.all([
     db.select().from(channels).where(eq(channels.serverId, serverId)).orderBy(asc(channels.position), asc(channels.createdAt)),
     db.select({ count: sql<number>`count(*)::int` })
       .from(serverMembers)
       .where(eq(serverMembers.serverId, serverId)),
     safeCategoryRows([serverId]),
+    onlineCountByServer([serverId]),
   ])
-  return { ...srv, channels: chRows, categories: catRows, _count: { members: countRow?.count ?? 0 } }
+  return { ...srv, channels: chRows, categories: catRows, _count: { members: countRow?.count ?? 0, online: onlineMap.get(serverId) ?? 0 } }
 }
 
 serversRouter.get(

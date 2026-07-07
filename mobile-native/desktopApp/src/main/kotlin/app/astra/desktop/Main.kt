@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import app.astra.shared.AstraShared
 
 // D0: hello obsidiana. Prova que o toolchain Compose Desktop builda e roda ao
 // lado do :app Android sem quebrar nada. A cara real (rail/sidebar/palco, aurora
@@ -50,7 +51,8 @@ private fun AstraDesktopHello() {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             BasicText("Astra", style = TextStyle(color = accent, fontSize = 44.sp, fontWeight = FontWeight.Light))
-            BasicText("desktop · obsidiana", style = TextStyle(color = dim, fontSize = 15.sp))
+            // VERSION vem do :shared -> prova que o desktop consome o modulo comum.
+            BasicText("desktop · v${AstraShared.VERSION}", style = TextStyle(color = dim, fontSize = 15.sp))
         }
     }
 }

@@ -32,6 +32,7 @@ java {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(compose.foundation)
 }

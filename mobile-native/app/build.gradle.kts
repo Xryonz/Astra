@@ -119,6 +119,11 @@ dependencies {
         implementation("androidx.compose.runtime:runtime:$composeCore")
     }
 
+    // Codigo comum com o :desktopApp (dominio/dados). Kotlin/JVM puro, sem
+    // android.* -> o app Android consome como jar. Dominio/DTOs/repos migram
+    // pra ca ao longo do D1.
+    implementation(project(":shared"))
+
     // Baseline Profile: o :baselineprofile gera as regras no device e elas
     // vivem em src/main/baseline-prof.txt (AGP empacota sozinho); o
     // profileinstaller (explicito, antes vinha so transitivo) instala o

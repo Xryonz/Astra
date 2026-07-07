@@ -11,6 +11,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.dialog.Dialog
@@ -24,6 +25,7 @@ fun AstraDialog(
     confirmText: String? = null,
     onConfirm: () -> Unit = {},
     confirmEnabled: Boolean = true,
+    confirmColor: Color = astraColors.accent,
     dismissText: String? = "Cancelar",
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -50,7 +52,7 @@ fun AstraDialog(
             }
             if (confirmText != null) {
                 TextButton(onClick = onConfirm, enabled = confirmEnabled) {
-                    Text(confirmText, color = astraColors.accent)
+                    Text(confirmText, color = confirmColor)
                 }
             }
         }

@@ -16,9 +16,11 @@ val AccentH = Color(0xFFE8EBF0)
 val AccentDim = Color(0x1AD4D8E0)
 val AccentGlow = Color(0x33D4D8E0)
 
-val Text1 = Color(0xFFF0EDFF)
-val Text2 = Color(0xFFB4B2D6)
-val Text3 = Color(0xFF8E8BB0)
+// Texto branco/neutro por padrao (o roxo antigo #F0EDFF puxava tom): hierarquia
+// por BRILHO (branco -> branco escuro -> cinza), nao por hue. Futuro: opcao no user.
+val Text1 = Color(0xFFF5F5F7)
+val Text2 = Color(0xFFC0C0C6)
+val Text3 = Color(0xFF8C8C94)
 val TextInv = Color(0xFF09091A)
 
 val BorderDim = Color(0xFF363741)

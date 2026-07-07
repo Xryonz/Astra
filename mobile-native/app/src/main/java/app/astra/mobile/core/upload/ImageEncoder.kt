@@ -2,10 +2,13 @@ package app.astra.mobile.core.upload
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.util.Base64
 import app.astra.mobile.core.ApiException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
 object ImageEncoder {
@@ -24,7 +27,7 @@ object ImageEncoder {
             }
         }
         try {
-            val src = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            val src = decodeOriented(bytes)
                 ?: return@withContext Result.failure(ApiException("Imagem invalida."))
             val scaled = scaleDown(src, maxDimension)
             var quality = 85
@@ -54,7 +57,7 @@ object ImageEncoder {
             else Result.failure(ApiException("GIF muito grande — escolha um menor."))
         }
         try {
-            val src = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            val src = decodeOriented(bytes)
                 ?: return@withContext Result.failure(ApiException("Imagem invalida."))
             val scaled = scaleDown(src, maxDimension)
             var quality = 85
@@ -66,6 +69,35 @@ object ImageEncoder {
             Result.success(out to "image/jpeg")
         } catch (e: Exception) {
             Result.failure(ApiException("Nao foi possivel processar a imagem."))
+        }
+    }
+
+    // Decodifica JA aplicando o EXIF orientation. BitmapFactory ignora esse
+    // metadata -> fotos de retrato (camera grava orientation=6/8) saiam deitadas.
+    private fun decodeOriented(bytes: ByteArray): Bitmap? {
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val orientation = try {
+            ExifInterface(ByteArrayInputStream(bytes))
+                .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        } catch (e: Exception) {
+            ExifInterface.ORIENTATION_NORMAL
+        }
+        val m = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> { m.postRotate(90f); m.postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_TRANSVERSE -> { m.postRotate(-90f); m.postScale(-1f, 1f) }
+            else -> return bmp
+        }
+        return try {
+            Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+                .also { if (it != bmp) bmp.recycle() }
+        } catch (e: OutOfMemoryError) {
+            bmp
         }
     }
 

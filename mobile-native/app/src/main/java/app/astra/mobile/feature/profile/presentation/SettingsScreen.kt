@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.astra.mobile.ui.AstraCopy
 import app.astra.mobile.ui.components.AstraAvatar
@@ -33,6 +34,19 @@ import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
+
+// Cabecalho de secao da config (ex "— pessoal"): fonte maior e branca (text1) pra
+// leitura facil, no lugar do marginalia pequeno/cinza.
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        fontFamily = DmSerif,
+        fontSize = 19.sp,
+        color = astraColors.text1,
+        modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 10.dp),
+    )
+}
 
 @Composable
 fun SettingsScreen(
@@ -71,22 +85,22 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            MarginaliaLabel("— pessoal", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            SectionHeader("— pessoal")
             SettingsRow("Conta", "nome, username, senha", onOpenAccount)
             SettingsRow("Personalização", "perfil, cor do nome, tema e banner", onOpenPersonalization)
 
             Spacer(Modifier.height(20.dp))
-            MarginaliaLabel("— app", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            SectionHeader("— app")
             SettingsRow("Acessibilidade", "movimento e vibracao", onOpenAccessibility)
             SettingsRow("Notificações", "menções, sussurros e horário silencioso", onOpenNotifications)
 
             Spacer(Modifier.height(20.dp))
-            MarginaliaLabel("— conta e seguranca", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            SectionHeader("— conta e seguranca")
             SettingsRow("Sessoes", "dispositivos conectados", onOpenSessions)
             SettingsRow("Dados e privacidade", "exportar ou apagar conta", onOpenData)
 
             Spacer(Modifier.height(20.dp))
-            MarginaliaLabel("— comunidade", Modifier.padding(start = 22.dp, bottom = 8.dp))
+            SectionHeader("— comunidade")
             SettingsRow("Estrela Cadente", "sugira ideias pro Astra", onOpenWishing)
 
             Spacer(Modifier.height(20.dp))

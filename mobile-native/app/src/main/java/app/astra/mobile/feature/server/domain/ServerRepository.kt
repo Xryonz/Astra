@@ -25,5 +25,7 @@ interface ServerRepository {
 
     suspend fun createChannel(serverId: String, name: String, isVoice: Boolean): Result<Unit>
 
+    suspend fun leaveServer(serverId: String): Result<Unit>
+
     fun channelActivity(): Flow<String>
 }

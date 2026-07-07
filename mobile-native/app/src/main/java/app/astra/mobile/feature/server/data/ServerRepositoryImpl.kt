@@ -138,6 +138,15 @@ class ServerRepositoryImpl @Inject constructor(
         Result.failure(apiError(e, "Nao foi possivel criar o canal"))
     }
 
+    override suspend fun leaveServer(serverId: String): Result<Unit> = try {
+        serverApi.leaveServer(serverId)
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(apiError(e, "Nao foi possivel sair da constelacao"))
+    }
+
     private fun apiError(e: Exception, fallback: String): ApiException = when (e) {
         is HttpException -> {
             val msg = e.response()?.errorBody()?.string()?.let {

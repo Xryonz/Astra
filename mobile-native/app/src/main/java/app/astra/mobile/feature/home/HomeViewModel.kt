@@ -259,6 +259,20 @@ class HomeViewModel @Inject constructor(
         manage { serverRepository.createChannel(serverId, name, isVoice) }
     fun clearManageError() = _state.update { it.copy(manageError = null) }
 
+    fun leaveServer(serverId: String) {
+        viewModelScope.launch {
+            serverRepository.leaveServer(serverId)
+                .onSuccess {
+                    // Se tava aberta, volta pros Sussurros; recarrega a rail.
+                    _state.update {
+                        it.copy(selectedServerId = if (it.selectedServerId == serverId) null else it.selectedServerId)
+                    }
+                    reloadServers()
+                }
+                .onFailure { e -> _state.update { it.copy(manageError = e.message ?: "Nao foi possivel sair") } }
+        }
+    }
+
     fun markSeen(conversationId: String) = _state.update { it.copy(unread = it.unread - conversationId) }
 
     fun createServer(name: String, isGroup: Boolean) {

@@ -81,7 +81,13 @@ fun DiscoverScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(s.servers, key = { it.id }) { srv ->
-                            DiscoverCard(srv, joining = s.joiningId == srv.id, onJoin = { viewModel.join(srv) })
+                            DiscoverCard(
+                                server = srv,
+                                joining = s.joiningId == srv.id,
+                                joined = srv.id in s.joinedIds,
+                                onJoin = { viewModel.join(srv) },
+                                onOpen = { onOpenServer(srv.id, srv.name) },
+                            )
                         }
                     }
                 }
@@ -91,7 +97,13 @@ fun DiscoverScreen(
 }
 
 @Composable
-private fun DiscoverCard(server: DiscoverServerDto, joining: Boolean, onJoin: () -> Unit) {
+private fun DiscoverCard(
+    server: DiscoverServerDto,
+    joining: Boolean,
+    joined: Boolean,
+    onJoin: () -> Unit,
+    onOpen: () -> Unit,
+) {
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
@@ -99,6 +111,7 @@ private fun DiscoverCard(server: DiscoverServerDto, joining: Boolean, onJoin: ()
             .clip(shape)
             .background(astraColors.raised)
             .border(1.dp, astraColors.border, shape)
+            .then(if (joined) Modifier.clickable(onClick = onOpen) else Modifier)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -126,20 +139,39 @@ private fun DiscoverCard(server: DiscoverServerDto, joining: Boolean, onJoin: ()
         }
         Spacer(Modifier.width(10.dp))
         val pill = RoundedCornerShape(12.dp)
-        Box(
-            modifier = Modifier
-                .clip(pill)
-                .background(if (joining) astraColors.raised else astraColors.accent)
-                .border(1.dp, if (joining) astraColors.borderMid else astraColors.accent, pill)
-                .clickable(enabled = !joining, onClick = onJoin)
-                .padding(horizontal = 16.dp, vertical = 9.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = if (joining) "…" else "Entrar",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (joining) astraColors.text3 else astraColors.textInv,
-            )
+        if (joined) {
+            // Ja e membro (o user pediu pra ver as proprias publicas): selo em vez
+            // de botao entrar; tocar o card abre a constelacao.
+            Box(
+                modifier = Modifier
+                    .clip(pill)
+                    .background(astraColors.raised)
+                    .border(1.dp, astraColors.accent.copy(alpha = 0.5f), pill)
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "voce ja esta",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = astraColors.accent,
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .clip(pill)
+                    .background(if (joining) astraColors.raised else astraColors.accent)
+                    .border(1.dp, if (joining) astraColors.borderMid else astraColors.accent, pill)
+                    .clickable(enabled = !joining, onClick = onJoin)
+                    .padding(horizontal = 16.dp, vertical = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (joining) "…" else "Entrar",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (joining) astraColors.text3 else astraColors.textInv,
+                )
+            }
         }
     }
 }

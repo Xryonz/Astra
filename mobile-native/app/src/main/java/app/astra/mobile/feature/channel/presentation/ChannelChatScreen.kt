@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Pin
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -111,7 +113,7 @@ fun ChannelChatScreen(
                 onBack = onBack,
                 trailing = {
                     NotifBellAction(mode = state.notifMode, onSelect = viewModel::setNotifMode)
-                    TopBarAction("📌", onClick = { viewModel.loadPinned(); pinnedOpen = true })
+                    TopBarAction(Lucide.Pin, "Mensagens fixadas", onClick = { viewModel.loadPinned(); pinnedOpen = true })
                 },
             )
 
@@ -348,6 +350,7 @@ private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
+                .border(1.dp, astraColors.borderMid, CircleShape)
                 .clickable { open = true },
             contentAlignment = Alignment.Center,
         ) {

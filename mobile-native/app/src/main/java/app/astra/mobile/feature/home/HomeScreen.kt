@@ -80,6 +80,7 @@ import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Link
+import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Plus
@@ -88,6 +89,7 @@ import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
+import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
 import app.astra.mobile.BuildConfig
 import app.astra.mobile.feature.dm.domain.model.Conversation
@@ -239,6 +241,7 @@ fun HomeScreen(
                     onCreateGroup = { forgeAsGroup = true; showForge = true },
                     onJoinInvite = onOpenJoin,
                     onDiscover = onOpenDiscover,
+                    onLeaveServer = { viewModel.leaveServer(it) },
                 )
 
             Box(
@@ -554,6 +557,7 @@ private fun ServerRail(
     onCreateGroup: () -> Unit,
     onJoinInvite: () -> Unit,
     onDiscover: () -> Unit,
+    onLeaveServer: (String) -> Unit,
 ) {
     val context = LocalContext.current
     Column(
@@ -587,6 +591,7 @@ private fun ServerRail(
                 onToggleMute = { onToggleMuteServer(srv.id, srv.id !in mutedServers) },
                 onEdit = { onEditServer(srv.id) },
                 onInvite = { srv.inviteCode?.let { shareServerInvite(context, it) } },
+                onLeave = { onLeaveServer(srv.id) },
             )
         }
         RailAddMenu(
@@ -641,11 +646,11 @@ private fun RailAddMenu(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
                     HairlineRule()
-                    MenuRow("Criar servidor", Lucide.Sparkles) { menuOpen = false; onCreateServer() }
+                    MenuRow("Criar servidor", Lucide.Sparkles, onClick = { menuOpen = false; onCreateServer() })
                     HairlineRule()
-                    MenuRow("Criar grupo", Lucide.Users) { menuOpen = false; onCreateGroup() }
+                    MenuRow("Criar grupo", Lucide.Users, onClick = { menuOpen = false; onCreateGroup() })
                     HairlineRule()
-                    MenuRow("Entrar com convite", Lucide.Link) { menuOpen = false; onJoinInvite() }
+                    MenuRow("Entrar com convite", Lucide.Link, onClick = { menuOpen = false; onJoinInvite() })
                 }
             }
         }
@@ -695,9 +700,11 @@ private fun RailServer(
     onToggleMute: () -> Unit,
     onEdit: () -> Unit,
     onInvite: () -> Unit,
+    onLeave: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
     var menuOpen by remember { mutableStateOf(false) }
+    var leaveConfirm by remember { mutableStateOf(false) }
     val hapticsOn = LocalAppPrefs.current.haptics
     val haptic = LocalHapticFeedback.current
 
@@ -755,9 +762,25 @@ private fun RailServer(
                 onEdit = { menuOpen = false; onEdit() },
                 onInvite = { menuOpen = false; onInvite() },
                 onToggleMute = { menuOpen = false; onToggleMute() },
+                onLeave = { menuOpen = false; leaveConfirm = true },
                 onDismiss = { menuOpen = false },
             )
         }
+    }
+
+    AstraDialog(
+        open = leaveConfirm,
+        onDismiss = { leaveConfirm = false },
+        title = "Sair da constelacao?",
+        confirmText = "Sair",
+        confirmColor = astraColors.danger,
+        onConfirm = { leaveConfirm = false; onLeave() },
+    ) {
+        Text(
+            text = "Voce vai deixar \"${server.name}\". Pra voltar, vai precisar de um novo convite.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = astraColors.text2,
+        )
     }
 }
 
@@ -771,6 +794,7 @@ private fun ServerRailMenu(
     onEdit: () -> Unit,
     onInvite: () -> Unit,
     onToggleMute: () -> Unit,
+    onLeave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     DropdownMenu(
@@ -804,6 +828,11 @@ private fun ServerRailMenu(
             if (hasInvite) {
                 MenuRow("Convidar", Lucide.UserPlus, onInvite)
             }
+            // Sair so pra quem NAO e dono (o dono precisa excluir/transferir).
+            if (!isOwner) {
+                HairlineRule()
+                MenuRow("Sair da constelacao", Lucide.LogOut, onLeave, color = astraColors.danger)
+            }
         }
     }
 }
@@ -813,6 +842,7 @@ private fun MenuRow(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
+    color: Color = astraColors.text1,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -824,8 +854,13 @@ private fun MenuRow(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = astraColors.text1, modifier = Modifier.weight(1f))
-        Icon(icon, contentDescription = null, tint = astraColors.text2, modifier = Modifier.size(20.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = color, modifier = Modifier.weight(1f))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (color == astraColors.text1) astraColors.text2 else color,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -868,12 +903,18 @@ private fun ServerChannelsPanel(
                 ) { i, ch ->
 
                     Reveal(delayMillis = i.coerceAtMost(12) * 42, durationMillis = 620, distance = 18f) {
-                        ChannelRowFlat(
-                            channel = ch,
-                            unread = ch.id in channelUnread,
-                            muted = ch.id in mutedChannels,
-                        ) {
-                            if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                        Column {
+                            ChannelRowFlat(
+                                channel = ch,
+                                unread = ch.id in channelUnread,
+                                muted = ch.id in mutedChannels,
+                            ) {
+                                if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
+                            }
+                            // Divisor entre orbitas: separa uma da outra ao mirar o toque.
+                            if (i < server.channels.lastIndex) {
+                                HairlineRule(Modifier.padding(horizontal = 16.dp))
+                            }
                         }
                     }
                 }
@@ -968,11 +1009,20 @@ private fun ChannelRowFlat(
             .alpha(if (muted) 0.55f else 1f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = if (channel.isVoice) "🔊" else "#",
-            style = MaterialTheme.typography.titleMedium,
-            color = if (channel.isVoice) astraColors.accent else astraColors.text3,
-        )
+        if (channel.isVoice) {
+            Icon(
+                Lucide.Volume2,
+                contentDescription = null,
+                tint = astraColors.accent,
+                modifier = Modifier.size(18.dp),
+            )
+        } else {
+            Text(
+                text = "#",
+                style = MaterialTheme.typography.titleMedium,
+                color = astraColors.text3,
+            )
+        }
         Spacer(Modifier.width(10.dp))
         Text(
             text = channel.name,
@@ -1346,6 +1396,7 @@ private fun ProfileSheet(
                         .size(34.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.32f))
+                        .border(1.dp, astraColors.borderMid, CircleShape)
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {

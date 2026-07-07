@@ -20,6 +20,9 @@ data class DiscoverUiState(
     val loading: Boolean = true,
     val query: String = "",
     val servers: List<DiscoverServerDto> = emptyList(),
+    // Ids das constelacoes que o user ja orbita: NAO some da lista (o user pediu pra
+    // ver as proprias publicas), mas ganha selo "voce ja esta" e nao tem botao entrar.
+    val joinedIds: Set<String> = emptySet(),
     val error: String? = null,
     val joiningId: String? = null,
     val joined: Pair<String, String>? = null,
@@ -34,13 +37,11 @@ class DiscoverViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     private var searchJob: Job? = null
-    // Ids das constelacoes que o user ja orbita: some da Descoberta (nao faz
-    // sentido "descobrir" o que voce ja entrou).
-    private var joinedIds: Set<String> = emptySet()
 
     init {
         viewModelScope.launch {
-            joinedIds = serverRepo.servers().getOrNull()?.mapTo(HashSet()) { it.id } ?: emptySet()
+            val ids = serverRepo.servers().getOrNull()?.mapTo(HashSet()) { it.id } ?: emptySet()
+            _state.update { it.copy(joinedIds = ids) }
             load(null)
         }
     }
@@ -50,7 +51,7 @@ class DiscoverViewModel @Inject constructor(
             _state.update { it.copy(loading = true, error = null) }
             runCatching { api.discover(q?.takeIf { s -> s.isNotBlank() }).data.orEmpty() }
                 .onSuccess { list ->
-                    _state.update { it.copy(loading = false, servers = list.filterNot { s -> s.id in joinedIds }) }
+                    _state.update { it.copy(loading = false, servers = list) }
                 }
                 .onFailure { _state.update { it.copy(loading = false, error = "Falha ao carregar a Descoberta") } }
         }
@@ -66,17 +67,15 @@ class DiscoverViewModel @Inject constructor(
     }
 
     fun join(server: DiscoverServerDto) {
-        if (_state.value.joiningId != null) return
+        if (_state.value.joiningId != null || server.id in _state.value.joinedIds) return
         _state.update { it.copy(joiningId = server.id, error = null) }
         viewModelScope.launch {
             try {
                 api.join(server.id)
-                joinedIds = joinedIds + server.id
-                _state.update { it.copy(joiningId = null, joined = server.id to server.name, servers = it.servers.filterNot { s -> s.id == server.id }) }
+                _state.update { it.copy(joiningId = null, joined = server.id to server.name, joinedIds = it.joinedIds + server.id) }
             } catch (e: HttpException) {
                 if (e.code() == 409) {
-                    joinedIds = joinedIds + server.id
-                    _state.update { it.copy(joiningId = null, joined = server.id to server.name, servers = it.servers.filterNot { s -> s.id == server.id }) }
+                    _state.update { it.copy(joiningId = null, joined = server.id to server.name, joinedIds = it.joinedIds + server.id) }
                 } else {
                     _state.update { it.copy(joiningId = null, error = "Nao foi possivel entrar") }
                 }

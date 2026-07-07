@@ -126,9 +126,12 @@ private fun DiscoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!server.description.isNullOrBlank()) {
+            // val local: server.description agora vem do :shared -> smart-cast
+            // entre modulos nao rola direto no acesso a propriedade.
+            val description = server.description
+            if (!description.isNullOrBlank()) {
                 Text(
-                    text = server.description,
+                    text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = astraColors.text2,
                     maxLines = 2,

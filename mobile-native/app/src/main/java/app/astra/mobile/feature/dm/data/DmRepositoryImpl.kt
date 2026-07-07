@@ -204,14 +204,17 @@ class DmRepositoryImpl @Inject constructor(
 
 private fun ConversationDto.toDomain(uid: String?): Conversation? {
     val u = otherUser ?: return null
+    // val local: lastMessage agora vem do :shared -> smart-cast entre modulos
+    // nao rola no acesso repetido a propriedade.
+    val last = lastMessage
     return Conversation(
         id = id,
         otherUserId = u.id,
         otherName = u.displayName ?: u.username,
         otherAvatarUrl = u.avatarUrl,
-        preview = lastMessage?.content?.ifBlank { "Anexo" } ?: "Sem mensagens ainda",
-        lastMessageAt = lastMessage?.createdAt,
-        lastFromMe = lastMessage?.senderId != null && lastMessage.senderId == uid,
+        preview = last?.content?.ifBlank { "Anexo" } ?: "Sem mensagens ainda",
+        lastMessageAt = last?.createdAt,
+        lastFromMe = last?.senderId != null && last.senderId == uid,
         muted = muted,
     )
 }

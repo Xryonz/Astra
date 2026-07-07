@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // REGRA: nada de android.* nem Compose aqui -> so tipos puros, rede, serializacao.
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -17,4 +18,9 @@ kotlin {
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    // DTOs de rede sao @Serializable puros -> so precisam do kotlinx.serialization.
+    api(libs.kotlinx.serialization.json)
 }

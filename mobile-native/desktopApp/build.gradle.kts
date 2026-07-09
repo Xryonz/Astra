@@ -59,6 +59,10 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
             packageVersion = "0.1.0"
+            windows {
+                // Logo do Astra (mesmo favicon.ico do site) no Astra.exe.
+                iconFile.set(project.file("icons/astra.ico"))
+            }
         }
     }
 }

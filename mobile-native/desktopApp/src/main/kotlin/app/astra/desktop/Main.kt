@@ -12,12 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
@@ -48,10 +45,12 @@ fun main() {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).
         var windowVisible by remember { mutableStateOf(true) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
+        // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
+        val appIcon = painterResource("astra-icon.png")
 
         Tray(
             state = rememberTrayState(),
-            icon = TrayIcon,
+            icon = appIcon,
             tooltip = "Astra",
             onAction = { windowVisible = true }, // duplo clique no icone reabre
             menu = {
@@ -64,6 +63,7 @@ fun main() {
         Window(
             onCloseRequest = { windowVisible = false },
             title = "Astra",
+            icon = appIcon,
             state = state,
             visible = windowVisible,
             undecorated = true, // frameless: a barra-titulo obsidiana e nossa
@@ -146,12 +146,3 @@ private val rikkaObsidian = RikkaColors(
     destructiveTinted = Color(0x26E07A7A),
     onDestructiveTinted = Obsidian.danger,
 )
-
-// Icone da bandeja desenhado na mao (sem asset): quadrado void + estrela accent.
-private object TrayIcon : Painter() {
-    override val intrinsicSize = Size(64f, 64f)
-    override fun DrawScope.onDraw() {
-        drawRoundRect(color = Color(0xFF06060E), cornerRadius = CornerRadius(16f, 16f))
-        drawCircle(color = Color(0xFFD4D8E0), radius = size.minDimension * 0.26f)
-    }
-}

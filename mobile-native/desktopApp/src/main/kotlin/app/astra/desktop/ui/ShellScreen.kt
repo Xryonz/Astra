@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -33,15 +34,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -63,6 +69,7 @@ import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
@@ -271,47 +278,108 @@ private fun Sidebar(
 @Composable
 private fun OrbitList(server: ServerDto?, activeChatId: String?, unread: Set<String>, onOpenChat: (ChatTarget) -> Unit) {
     if (server == null) return
+    // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
+    var collapsedCats by remember(server.id) { mutableStateOf(setOf<String>()) }
+    val catIds = server.categories.map { it.id }.toSet()
+    val loose = server.channels.filter { it.categoryId == null || it.categoryId !in catIds }.sortedBy { it.position }
+    val cats = server.categories.sortedBy { it.position }
+    val byCat = server.channels.groupBy { it.categoryId }
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-        items(server.channels, key = { it.id }) { ch ->
-            val interaction = remember { MutableInteractionSource() }
-            val hovered by interaction.collectIsHoveredAsState()
-            val active = ch.id == activeChatId
-            val isUnread = !active && ch.id in unread
-            val itemBg by animateColorAsState(
-                if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
-                tween(120),
-            )
-            Box(Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .clip(RoundedCornerShape(7.dp))
-                        .background(itemBg)
-                        .hoverable(interaction)
-                        // Orbita de voz nao abre chat (voz e fatia futura).
-                        .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BasicText(
-                        text = if (ch.type == "VOICE") "◉" else "#",
-                        style = TextStyle(color = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    BasicText(
-                        text = ch.name,
-                        style = TextStyle(
-                            color = if (active || hovered || isUnread) Obsidian.text1 else Obsidian.text2,
-                            fontSize = 13.sp,
-                            fontWeight = if (isUnread) FontWeight.Medium else FontWeight.Normal,
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+        items(loose, key = { it.id }) { ch ->
+            OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat)
+        }
+        cats.forEach { cat ->
+            val channels = byCat[cat.id].orEmpty().sortedBy { it.position }
+            item(key = "cat-${cat.id}") {
+                CategoryHeader(
+                    name = cat.name,
+                    collapsed = cat.id in collapsedCats,
+                    onToggle = {
+                        collapsedCats =
+                            if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
+                    },
+                )
+            }
+            // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
+            val visible =
+                if (cat.id in collapsedCats) channels.filter { it.id == activeChatId || it.id in unread }
+                else channels
+            items(visible, key = { it.id }) { ch ->
+                OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat)
             }
         }
+    }
+}
+
+@Composable
+private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    // Chevron gira ao colapsar (▾ -> ▸).
+    val rotation by animateFloatAsState(if (collapsed) -90f else 0f, tween(140))
+    val tint = if (hovered) Obsidian.text2 else Obsidian.text3
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp)
+            .padding(top = 10.dp, bottom = 2.dp)
+            .hoverable(interaction)
+            .clickable(interactionSource = interaction, indication = null, onClick = onToggle),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicText(
+            text = "▾",
+            style = TextStyle(color = tint, fontSize = 9.sp),
+            modifier = Modifier.graphicsLayer { rotationZ = rotation },
+        )
+        Spacer(Modifier.width(5.dp))
+        BasicText(
+            text = name.uppercase(),
+            style = TextStyle(color = tint, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun OrbitItem(ch: ChannelDto, active: Boolean, unread: Boolean, onOpenChat: (ChatTarget) -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val isUnread = !active && unread
+    val itemBg by animateColorAsState(
+        if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
+        tween(120),
+    )
+    Box(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(itemBg)
+                .hoverable(interaction)
+                // Orbita de voz nao abre chat (voz e fatia futura).
+                .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText(
+                text = if (ch.type == "VOICE") "◉" else "#",
+                style = TextStyle(color = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+            )
+            Spacer(Modifier.width(8.dp))
+            BasicText(
+                text = ch.name,
+                style = TextStyle(
+                    color = if (active || hovered || isUnread) Obsidian.text1 else Obsidian.text2,
+                    fontSize = 13.sp,
+                    fontWeight = if (isUnread) FontWeight.Medium else FontWeight.Normal,
+                ),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
     }
 }
 
@@ -342,8 +410,43 @@ private fun DmList(
         }
         return
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-        items(dms, key = { it.id }) { conv ->
+    // Estrutura Discord: busca no topo dos sussurros (filtro local por nome).
+    var query by remember { mutableStateOf("") }
+    val filtered = if (query.isBlank()) dms else dms.filter { c ->
+        val n = c.otherUser?.displayName ?: c.otherUser?.username ?: ""
+        n.contains(query.trim(), ignoreCase = true)
+    }
+    Column(Modifier.fillMaxSize()) {
+        BasicTextField(
+            value = query,
+            onValueChange = { query = it },
+            singleLine = true,
+            textStyle = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
+            cursorBrush = SolidColor(Obsidian.accent),
+            decorationBox = { inner ->
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Obsidian.base)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    if (query.isEmpty()) {
+                        BasicText("encontrar conversa", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                    }
+                    inner()
+                }
+            },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+        if (filtered.isEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                BasicText("nada encontrado", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            }
+            return@Column
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
+            items(filtered, key = { it.id }) { conv ->
             val u = conv.otherUser
             val name = u?.displayName ?: u?.username ?: "?"
             val interaction = remember { MutableInteractionSource() }
@@ -400,6 +503,7 @@ private fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+            }
             }
         }
     }

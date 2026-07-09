@@ -39,11 +39,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
+import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.shell.ChatTarget
+import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
@@ -51,6 +57,7 @@ import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
+import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
 // Shell desktop (fatia 2): rail 72 | sidebar 260 | palco | membros 240.
@@ -64,6 +71,19 @@ fun ShellScreen(session: Session) {
     }
     val state by vm.state.collectAsState()
 
+    val socket = remember { koin.get<DesktopSocket>() }
+    LaunchedEffect(Unit) { socket.connect() }
+
+    // ChatVm por alvo aberto; sai da sala/cancela o live ao trocar ou fechar.
+    val chat = state.chat
+    val chatVm = if (chat != null) {
+        val created = remember(chat) {
+            ChatVm(scope, chat, koin.get<ChannelApi>(), koin.get<DmApi>(), socket, koin.get<Json>(), session.userId)
+        }
+        DisposableEffect(chat) { onDispose { created.dispose() } }
+        created
+    } else null
+
     Row(Modifier.fillMaxSize().background(Obsidian.base)) {
         Rail(
             servers = state.servers,
@@ -74,11 +94,15 @@ fun ShellScreen(session: Session) {
             selection = state.selection,
             server = state.selectedServer,
             dms = state.dms,
+            activeChatId = chat?.id,
             meName = state.me?.displayName ?: state.me?.username ?: session.displayName,
             meAvatar = state.me?.avatarUrl,
+            onOpenChat = vm::openChat,
         )
         Stage(
             state.selectedServer,
+            chat = chat,
+            chatVm = chatVm,
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
             loading = state.loading,
@@ -167,8 +191,10 @@ private fun Sidebar(
     selection: Selection,
     server: ServerDto?,
     dms: List<ConversationDto>,
+    activeChatId: String?,
     meName: String,
     meAvatar: String?,
+    onOpenChat: (ChatTarget) -> Unit,
 ) {
     Column(Modifier.width(260.dp).fillMaxHeight().background(Obsidian.raised)) {
         // Header
@@ -186,7 +212,8 @@ private fun Sidebar(
         HairRule()
 
         Box(Modifier.weight(1f)) {
-            if (selection is Selection.Dms) DmList(dms) else OrbitList(server)
+            if (selection is Selection.Dms) DmList(dms, activeChatId, onOpenChat)
+            else OrbitList(server, activeChatId, onOpenChat)
         }
 
         // Painel do usuario (canto inferior esquerdo, estilo Discord)
@@ -195,7 +222,7 @@ private fun Sidebar(
             modifier = Modifier.fillMaxWidth().background(Obsidian.void.copy(alpha = 0.55f)).padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Avatar(meAvatar, meName, 30)
+            DesktopAvatar(meAvatar, meName, 30)
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
                 BasicText(
@@ -214,20 +241,22 @@ private fun Sidebar(
 }
 
 @Composable
-private fun OrbitList(server: ServerDto?) {
+private fun OrbitList(server: ServerDto?, activeChatId: String?, onOpenChat: (ChatTarget) -> Unit) {
     if (server == null) return
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         items(server.channels, key = { it.id }) { ch ->
             val interaction = remember { MutableInteractionSource() }
             val hovered by interaction.collectIsHoveredAsState()
+            val active = ch.id == activeChatId
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
                     .clip(RoundedCornerShape(7.dp))
-                    .background(if (hovered) Obsidian.hover else Color.Transparent)
+                    .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
                     .hoverable(interaction)
-                    .clickable { /* abrir orbita: proxima fatia (chat) */ }
+                    // Orbita de voz nao abre chat (voz e fatia futura).
+                    .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -238,7 +267,7 @@ private fun OrbitList(server: ServerDto?) {
                 Spacer(Modifier.width(8.dp))
                 BasicText(
                     text = ch.name,
-                    style = TextStyle(color = if (hovered) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
+                    style = TextStyle(color = if (active || hovered) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -247,7 +276,7 @@ private fun OrbitList(server: ServerDto?) {
 }
 
 @Composable
-private fun DmList(dms: List<ConversationDto>) {
+private fun DmList(dms: List<ConversationDto>, activeChatId: String?, onOpenChat: (ChatTarget) -> Unit) {
     if (dms.isEmpty()) {
         Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
             BasicText("nenhum sussurro ainda", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
@@ -260,18 +289,19 @@ private fun DmList(dms: List<ConversationDto>) {
             val name = u?.displayName ?: u?.username ?: "?"
             val interaction = remember { MutableInteractionSource() }
             val hovered by interaction.collectIsHoveredAsState()
+            val active = conv.id == activeChatId
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
                     .clip(RoundedCornerShape(7.dp))
-                    .background(if (hovered) Obsidian.hover else Color.Transparent)
+                    .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
                     .hoverable(interaction)
-                    .clickable { /* abrir conversa: proxima fatia (chat) */ }
+                    .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Avatar(u?.avatarUrl, name, 28)
+                DesktopAvatar(u?.avatarUrl, name, 28)
                 Spacer(Modifier.width(9.dp))
                 Column(Modifier.weight(1f)) {
                     BasicText(
@@ -298,6 +328,8 @@ private fun DmList(dms: List<ConversationDto>) {
 @Composable
 private fun Stage(
     server: ServerDto?,
+    chat: ChatTarget?,
+    chatVm: ChatVm?,
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
     loading: Boolean,
@@ -312,8 +344,13 @@ private fun Stage(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicText(
-                text = server?.let { "constelacao · ${it.name}" } ?: "sussurros",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                text = when {
+                    chat is ChatTarget.Channel -> "# ${chat.title}"
+                    chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
+                    server != null -> "constelacao · ${server.name}"
+                    else -> "sussurros"
+                },
+                style = TextStyle(color = if (chat != null) Obsidian.text1 else Obsidian.text3, fontSize = 13.sp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
@@ -338,6 +375,11 @@ private fun Stage(
             }
         }
         HairRule()
+
+        if (chat != null && chatVm != null) {
+            ChatView(chat, chatVm)
+            return@Column
+        }
 
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             when {
@@ -391,7 +433,7 @@ private fun MembersPanel(members: List<ServerMemberDto>) {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Avatar(m.user.avatarUrl, name, 26)
+                    DesktopAvatar(m.user.avatarUrl, name, 26)
                     Spacer(Modifier.width(9.dp))
                     BasicText(
                         text = name,
@@ -409,26 +451,4 @@ private fun MembersPanel(members: List<ServerMemberDto>) {
 @Composable
 private fun HairRule() {
     Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
-}
-
-@Composable
-private fun Avatar(url: String?, name: String, sizeDp: Int) {
-    Box(
-        modifier = Modifier.size(sizeDp.dp).clip(CircleShape).background(Obsidian.overlay),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (!url.isNullOrBlank()) {
-            AsyncImage(
-                model = url,
-                contentDescription = name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            BasicText(
-                text = name.take(1).uppercase(),
-                style = TextStyle(color = Obsidian.accent, fontSize = (sizeDp * 0.42f).sp),
-            )
-        }
-    }
 }

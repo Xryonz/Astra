@@ -18,4 +18,8 @@ object Obsidian {
     val borderDim = Color(0xFF363741)
     val borderMid = Color(0xFF494A54)
     val danger = Color(0xFFE07A7A)
+    val success = Color(0xFF6FCFA0)
+    val warning = Color(0xFFE8B86D)
+    val textInv = Color(0xFF09091A)
+    val active = Color(0xFF22223F)
 }

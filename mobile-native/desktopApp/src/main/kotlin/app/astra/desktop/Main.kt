@@ -34,6 +34,8 @@ import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
+import zed.rainxch.rikkaui.foundation.RikkaColors
+import zed.rainxch.rikkaui.foundation.RikkaTheme
 
 fun main() {
     startKoin { modules(appModule) }
@@ -76,20 +78,52 @@ fun main() {
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
 
-            Column(Modifier.fillMaxSize().background(Obsidian.void)) {
-                AstraTitleBar(state = state, onClose = { windowVisible = false })
-                Box(Modifier.fillMaxSize()) {
-                    val s = session
-                    if (s == null) {
-                        LoginScreen(repo = authRepo, onLoggedIn = { session = it })
-                    } else {
-                        ShellScreen(s)
+            // RikkaUI e CMP (foundation-only): mesmo tema do mobile, tokens obsidiana.
+            RikkaTheme(colors = rikkaObsidian) {
+                Column(Modifier.fillMaxSize().background(Obsidian.void)) {
+                    AstraTitleBar(state = state, onClose = { windowVisible = false })
+                    Box(Modifier.fillMaxSize()) {
+                        val s = session
+                        if (s == null) {
+                            LoginScreen(repo = authRepo, onLoggedIn = { session = it })
+                        } else {
+                            ShellScreen(s)
+                        }
                     }
                 }
             }
         }
     }
 }
+
+// Mapeamento RikkaColors identico ao AstraTheme do mobile (Theme.kt), com os
+// tokens obsidiana do desktop.
+private val rikkaObsidian = RikkaColors(
+    background = Obsidian.raised,
+    onBackground = Obsidian.text1,
+    surface = Obsidian.overlay,
+    onSurface = Obsidian.text1,
+    primary = Obsidian.accent,
+    onPrimary = Obsidian.textInv,
+    secondary = Obsidian.hover,
+    onSecondary = Obsidian.text1,
+    muted = Obsidian.base,
+    onMuted = Obsidian.text3,
+    destructive = Obsidian.danger,
+    onDestructive = Color.White,
+    warning = Obsidian.warning,
+    onWarning = Obsidian.textInv,
+    success = Obsidian.success,
+    onSuccess = Obsidian.textInv,
+    border = Obsidian.borderMid,
+    ring = Obsidian.accent,
+    inverseSurface = Obsidian.text1,
+    onInverseSurface = Obsidian.void,
+    primaryTinted = Obsidian.accentDim,
+    onPrimaryTinted = Obsidian.accent,
+    destructiveTinted = Color(0x26E07A7A),
+    onDestructiveTinted = Obsidian.danger,
+)
 
 // Icone da bandeja desenhado na mao (sem asset): quadrado void + estrela accent.
 private object TrayIcon : Painter() {

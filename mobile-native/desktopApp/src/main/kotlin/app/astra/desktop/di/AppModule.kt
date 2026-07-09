@@ -3,8 +3,10 @@ package app.astra.desktop.di
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.AuthInterceptor
+import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.DesktopTokenAuthenticator
 import app.astra.mobile.core.network.AuthApi
+import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
@@ -63,6 +65,8 @@ val appModule = module {
     single<ServerApi> { get<Retrofit>(named("authed")).create(ServerApi::class.java) }
     single<UserApi> { get<Retrofit>(named("authed")).create(UserApi::class.java) }
     single<DmApi> { get<Retrofit>(named("authed")).create(DmApi::class.java) }
+    single<ChannelApi> { get<Retrofit>(named("authed")).create(ChannelApi::class.java) }
 
+    single { DesktopSocket(get()) }
     single { AuthRepository(get(), get(), get()) }
 }

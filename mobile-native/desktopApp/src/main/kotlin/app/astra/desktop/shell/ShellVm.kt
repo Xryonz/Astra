@@ -40,6 +40,7 @@ data class ShellUiState(
     val selection: Selection = Selection.Dms,
     val members: List<ServerMemberDto> = emptyList(),
     val membersOpen: Boolean = true,
+    val chat: ChatTarget? = null,
 ) {
     val selectedServer: ServerDto?
         get() = (selection as? Selection.Server)?.let { sel -> servers.find { it.id == sel.id } }
@@ -95,10 +96,12 @@ class ShellVm(
     }
 
     fun select(selection: Selection) {
-        _state.update { it.copy(selection = selection, members = emptyList()) }
+        _state.update { it.copy(selection = selection, members = emptyList(), chat = null) }
         store.setUiPref("lastSelection", selection.encode())
         if (selection is Selection.Server) loadMembers(selection.id)
     }
+
+    fun openChat(target: ChatTarget) = _state.update { it.copy(chat = target) }
 
     fun toggleMembers() = _state.update { it.copy(membersOpen = !it.membersOpen) }
 

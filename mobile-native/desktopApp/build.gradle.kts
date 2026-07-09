@@ -44,6 +44,12 @@ dependencies {
     // Imagens: Coil3 e KMP, mesmos artefatos do Android rodam no desktop.
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    // Realtime: socket.io-client e Java puro (mesma lib do Android, mesmo backend).
+    implementation(libs.socketio.client)
+    // RikkaUI e Compose Multiplatform (foundation-only) -> componentes do mobile
+    // (Input, Dialog, ...) rodam identicos no desktop.
+    implementation(libs.rikkaui.foundation)
+    implementation(libs.rikkaui.components)
 }
 
 compose.desktop {

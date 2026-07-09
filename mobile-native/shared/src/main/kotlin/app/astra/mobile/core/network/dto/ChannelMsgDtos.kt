@@ -65,3 +65,18 @@ data class MessageEditDto(
 
 @Serializable
 data class ReactRequest(val emoji: String)
+
+// Payloads dos eventos de socket do backend (messages.ts).
+@Serializable
+data class MessageEditedEventDto(
+    val messageId: String,
+    val channelId: String,
+    val content: String = "",
+    val edited: Boolean = true,
+)
+
+@Serializable
+data class MessageDeletedEventDto(
+    val messageId: String,
+    val channelId: String,
+)

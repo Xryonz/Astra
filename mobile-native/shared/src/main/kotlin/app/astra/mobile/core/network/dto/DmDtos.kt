@@ -74,3 +74,10 @@ data class SendDmRequest(
     val replyToId: String? = null,
     val attachments: List<AttachmentDto> = emptyList(),
 )
+
+// Payload do evento de socket dm_deleted (dm.ts).
+@Serializable
+data class DmDeletedEventDto(
+    val messageId: String,
+    val conversationId: String,
+)

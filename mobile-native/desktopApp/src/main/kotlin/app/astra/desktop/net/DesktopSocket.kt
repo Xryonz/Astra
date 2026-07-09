@@ -15,7 +15,8 @@ import java.util.concurrent.ConcurrentHashMap
 // Socket.io do desktop — versao enxuta do SocketManager do Android (mesma lib
 // Java, mesmo protocolo do backend socket.ts). Chat: new_message/new_dm + salas
 // join_channel/join_dm. Acoes: message_edited/message_deleted/reaction_update/
-// dm_deleted. Typing/presenca/etc entram depois.
+// dm_deleted. Typing: user_typing/dm_user_typing (so chega pra quem esta na
+// sala). Unread: channel_activity (global via sala pessoal). Presenca depois.
 class DesktopSocket(private val store: SessionStore) {
     private var socket: Socket? = null
     private val channels = ConcurrentHashMap.newKeySet<String>()
@@ -38,6 +39,22 @@ class DesktopSocket(private val store: SessionStore) {
 
     private val _dmDeleted = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val dmDeleted: SharedFlow<String> = _dmDeleted.asSharedFlow()
+
+    private val _channelTyping = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val channelTyping: SharedFlow<String> = _channelTyping.asSharedFlow()
+
+    private val _channelTypingStopped = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val channelTypingStopped: SharedFlow<String> = _channelTypingStopped.asSharedFlow()
+
+    private val _dmTyping = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val dmTyping: SharedFlow<String> = _dmTyping.asSharedFlow()
+
+    private val _dmTypingStopped = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val dmTypingStopped: SharedFlow<String> = _dmTypingStopped.asSharedFlow()
+
+    // Novidade em canal de qualquer constelacao (vai pra sala pessoal user:{id}).
+    private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
 
     fun connect() {
         if (socket?.connected() == true) return
@@ -74,6 +91,21 @@ class DesktopSocket(private val store: SessionStore) {
         s.on("dm_deleted") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _dmDeleted.tryEmit(it.toString()) }
         }
+        s.on("user_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _channelTyping.tryEmit(it.toString()) }
+        }
+        s.on("user_stopped_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _channelTypingStopped.tryEmit(it.toString()) }
+        }
+        s.on("dm_user_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _dmTyping.tryEmit(it.toString()) }
+        }
+        s.on("dm_user_stopped_typing") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _dmTypingStopped.tryEmit(it.toString()) }
+        }
+        s.on("channel_activity") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _channelActivity.tryEmit(it.toString()) }
+        }
         s.io().on(io.socket.client.Manager.EVENT_RECONNECT_ATTEMPT) {
             // Token pode ter rotacionado (authenticator http) — usa o mais fresco.
             store.load()?.accessToken?.let { fresh -> opts.auth = mapOf("token" to fresh) }
@@ -101,6 +133,12 @@ class DesktopSocket(private val store: SessionStore) {
         dms.remove(id)
         socket?.emit("leave_dm", id)
     }
+
+    // Backend ignora typing de quem nao esta na sala (socket.rooms.has).
+    fun startTyping(channelId: String) { socket?.emit("typing_start", channelId) }
+    fun stopTyping(channelId: String) { socket?.emit("typing_stop", channelId) }
+    fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }
+    fun stopDmTyping(conversationId: String) { socket?.emit("dm_typing_stop", conversationId) }
 
     fun disconnect() {
         channels.clear()

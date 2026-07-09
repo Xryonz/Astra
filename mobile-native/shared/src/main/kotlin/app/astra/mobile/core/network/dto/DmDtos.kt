@@ -81,3 +81,11 @@ data class DmDeletedEventDto(
     val messageId: String,
     val conversationId: String,
 )
+
+// dm_user_typing traz username; dm_user_stopped_typing vem sem.
+@Serializable
+data class DmTypingEventDto(
+    val userId: String,
+    val username: String? = null,
+    val conversationId: String,
+)

@@ -66,12 +66,15 @@ import org.koin.core.context.GlobalContext
 fun ShellScreen(session: Session) {
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
+    val socket = remember { koin.get<DesktopSocket>() }
     val vm = remember {
-        ShellVm(scope, koin.get<ServerApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<SessionStore>())
+        ShellVm(
+            scope, koin.get<ServerApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<SessionStore>(),
+            socket, koin.get<Json>(), session.userId,
+        )
     }
     val state by vm.state.collectAsState()
 
-    val socket = remember { koin.get<DesktopSocket>() }
     LaunchedEffect(Unit) { socket.connect() }
 
     // ChatVm por alvo aberto; sai da sala/cancela o live ao trocar ou fechar.
@@ -95,6 +98,8 @@ fun ShellScreen(session: Session) {
             server = state.selectedServer,
             dms = state.dms,
             activeChatId = chat?.id,
+            unread = state.unread,
+            dmTyping = state.dmTyping,
             meName = state.me?.displayName ?: state.me?.username ?: session.displayName,
             meAvatar = state.me?.avatarUrl,
             onOpenChat = vm::openChat,
@@ -192,6 +197,8 @@ private fun Sidebar(
     server: ServerDto?,
     dms: List<ConversationDto>,
     activeChatId: String?,
+    unread: Set<String>,
+    dmTyping: Set<String>,
     meName: String,
     meAvatar: String?,
     onOpenChat: (ChatTarget) -> Unit,
@@ -212,8 +219,8 @@ private fun Sidebar(
         HairRule()
 
         Box(Modifier.weight(1f)) {
-            if (selection is Selection.Dms) DmList(dms, activeChatId, onOpenChat)
-            else OrbitList(server, activeChatId, onOpenChat)
+            if (selection is Selection.Dms) DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
+            else OrbitList(server, activeChatId, unread, onOpenChat)
         }
 
         // Painel do usuario (canto inferior esquerdo, estilo Discord)
@@ -241,42 +248,69 @@ private fun Sidebar(
 }
 
 @Composable
-private fun OrbitList(server: ServerDto?, activeChatId: String?, onOpenChat: (ChatTarget) -> Unit) {
+private fun OrbitList(server: ServerDto?, activeChatId: String?, unread: Set<String>, onOpenChat: (ChatTarget) -> Unit) {
     if (server == null) return
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         items(server.channels, key = { it.id }) { ch ->
             val interaction = remember { MutableInteractionSource() }
             val hovered by interaction.collectIsHoveredAsState()
             val active = ch.id == activeChatId
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
-                    .hoverable(interaction)
-                    // Orbita de voz nao abre chat (voz e fatia futura).
-                    .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BasicText(
-                    text = if (ch.type == "VOICE") "◉" else "#",
-                    style = TextStyle(color = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
-                )
-                Spacer(Modifier.width(8.dp))
-                BasicText(
-                    text = ch.name,
-                    style = TextStyle(color = if (active || hovered) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
+            val isUnread = !active && ch.id in unread
+            Box(Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
+                        .hoverable(interaction)
+                        // Orbita de voz nao abre chat (voz e fatia futura).
+                        .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BasicText(
+                        text = if (ch.type == "VOICE") "◉" else "#",
+                        style = TextStyle(color = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    BasicText(
+                        text = ch.name,
+                        style = TextStyle(
+                            color = if (active || hovered || isUnread) Obsidian.text1 else Obsidian.text2,
+                            fontSize = 13.sp,
+                            fontWeight = if (isUnread) FontWeight.Medium else FontWeight.Normal,
+                        ),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
             }
         }
     }
 }
 
+// Traco accent na borda esquerda do item — marca de nao-lida (estilo Discord,
+// tokens obsidiana).
 @Composable
-private fun DmList(dms: List<ConversationDto>, activeChatId: String?, onOpenChat: (ChatTarget) -> Unit) {
+private fun UnreadPill(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .width(3.dp)
+            .height(16.dp)
+            .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
+            .background(Obsidian.accent),
+    )
+}
+
+@Composable
+private fun DmList(
+    dms: List<ConversationDto>,
+    activeChatId: String?,
+    unread: Set<String>,
+    dmTyping: Set<String>,
+    onOpenChat: (ChatTarget) -> Unit,
+) {
     if (dms.isEmpty()) {
         Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
             BasicText("nenhum sussurro ainda", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
@@ -290,34 +324,53 @@ private fun DmList(dms: List<ConversationDto>, activeChatId: String?, onOpenChat
             val interaction = remember { MutableInteractionSource() }
             val hovered by interaction.collectIsHoveredAsState()
             val active = conv.id == activeChatId
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
-                    .hoverable(interaction)
-                    .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                DesktopAvatar(u?.avatarUrl, name, 28)
-                Spacer(Modifier.width(9.dp))
-                Column(Modifier.weight(1f)) {
-                    BasicText(
-                        text = name,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    val preview = conv.lastMessage?.content?.ifBlank { "anexo" }
-                    if (preview != null) {
+            val isUnread = !active && conv.id in unread
+            Box(Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
+                        .hoverable(interaction)
+                        .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DesktopAvatar(u?.avatarUrl, name, 28)
+                    Spacer(Modifier.width(9.dp))
+                    Column(Modifier.weight(1f)) {
                         BasicText(
-                            text = preview,
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            text = name,
+                            style = TextStyle(
+                                color = if (active || hovered || isUnread) Obsidian.text1 else Obsidian.text2,
+                                fontSize = 13.sp,
+                                fontWeight = if (isUnread) FontWeight.Medium else FontWeight.Normal,
+                            ),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
+                        if (conv.id in dmTyping) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TypingDots(Obsidian.accent, dotSize = 3.dp)
+                                Spacer(Modifier.width(5.dp))
+                                BasicText(
+                                    text = "digitando…",
+                                    style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
+                                )
+                            }
+                        } else {
+                            val preview = conv.lastMessage?.content?.ifBlank { "anexo" }
+                            if (preview != null) {
+                                BasicText(
+                                    text = preview,
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
                 }
+                if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
             }
         }
     }

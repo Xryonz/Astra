@@ -179,6 +179,22 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
 
         // Composer
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+            // Slot fixo: aparecer/sumir o "digitando…" nao pode pular o layout.
+            Box(Modifier.fillMaxWidth().height(16.dp)) {
+                if (state.typing.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TypingDots(Obsidian.accent)
+                        Spacer(Modifier.width(6.dp))
+                        val names = state.typing.values.toList()
+                        val label = when (names.size) {
+                            1 -> "${names[0]} esta digitando…"
+                            2 -> "${names[0]} e ${names[1]} estao digitando…"
+                            else -> "varias pessoas estao digitando…"
+                        }
+                        BasicText(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    }
+                }
+            }
             if (state.error != null) {
                 BasicText(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
                 Spacer(Modifier.height(6.dp))
@@ -210,7 +226,10 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
             }
             Input(
                 value = draft,
-                onValueChange = { draft = it.take(4000) },
+                onValueChange = {
+                    draft = it.take(4000)
+                    if (it.isNotBlank()) vm.typing()
+                },
                 placeholder = "mensagem em ${target.title}",
                 singleLine = false,
                 animation = InputAnimation.Glow,

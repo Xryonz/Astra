@@ -80,3 +80,18 @@ data class MessageDeletedEventDto(
     val messageId: String,
     val channelId: String,
 )
+
+// user_typing traz username; user_stopped_typing vem sem (mesmo shape serve).
+@Serializable
+data class ChannelTypingEventDto(
+    val userId: String,
+    val username: String? = null,
+    val channelId: String,
+)
+
+// channel_activity vai pra sala pessoal user:{id} de cada membro do servidor.
+@Serializable
+data class ChannelActivityEventDto(
+    val channelId: String,
+    val lastMessageAt: String? = null,
+)

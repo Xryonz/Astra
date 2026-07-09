@@ -4,8 +4,10 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.dto.ChannelMessageDto
+import app.astra.mobile.core.network.dto.ChannelTypingEventDto
 import app.astra.mobile.core.network.dto.DmDeletedEventDto
 import app.astra.mobile.core.network.dto.DmMessageDto
+import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
 import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
@@ -55,11 +57,19 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val sending: Boolean = false,
     val replyingTo: ChatMessage? = null,
+    // Quem esta digitando nesta conversa (userId -> nome exibido).
+    val typing: Map<String, String> = emptyMap(),
     val error: String? = null,
 )
 
 private const val PAGE = 50
 private const val FADE_OUT_MS = 340L
+
+// Reenvia typing_start a cada 3s enquanto digita; para apos 3s parado; quem
+// recebe expira o typing em 8s caso o stop se perca (socket caiu etc).
+private const val TYPING_RESEND_MS = 3_000L
+private const val TYPING_IDLE_MS = 3_000L
+private const val TYPING_EXPIRY_MS = 8_000L
 
 // Estado de UMA conversa aberta: historico + envio + acoes (responder/reagir/
 // editar/apagar) + eventos ao vivo (socket). Recriado por alvo (remember(target)
@@ -77,22 +87,23 @@ class ChatVm(
     val state = _state.asStateFlow()
 
     private var liveJob: Job? = null
+    private var typingIdleJob: Job? = null
+    private var lastTypingEmit = 0L
+    private val typingExpiry = mutableMapOf<String, Job>()
 
     init {
         load()
         listenLive()
-        when (target) {
-            is ChatTarget.Channel -> socket.joinChannel(target.id)
-            is ChatTarget.Dm -> socket.joinDm(target.id)
-        }
+        // Sala de DM e persistente (ShellVm entra em todas pra typing/unread na
+        // sidebar) — aqui so entra/sai de sala de canal.
+        if (target is ChatTarget.Channel) socket.joinChannel(target.id)
+        markRead()
     }
 
     fun dispose() {
         liveJob?.cancel()
-        when (target) {
-            is ChatTarget.Channel -> socket.leaveChannel(target.id)
-            is ChatTarget.Dm -> socket.leaveDm(target.id)
-        }
+        stopTypingEmit()
+        if (target is ChatTarget.Channel) socket.leaveChannel(target.id)
     }
 
     private fun load() {
@@ -119,6 +130,7 @@ class ChatVm(
         val content = text.trim()
         if (content.isEmpty() || _state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
+        stopTypingEmit()
         _state.update { it.copy(sending = true, error = null) }
         scope.launch {
             val result = runCatching {
@@ -140,6 +152,61 @@ class ChatVm(
                     }
                 }
                 .onFailure { _state.update { it.copy(sending = false, error = "Mensagem nao enviada") } }
+        }
+    }
+
+    // Chamado a cada tecla no composer: emite typing_start com throttle e agenda
+    // o typing_stop pra quando parar de digitar.
+    fun typing() {
+        val now = System.currentTimeMillis()
+        if (now - lastTypingEmit > TYPING_RESEND_MS) {
+            lastTypingEmit = now
+            when (target) {
+                is ChatTarget.Channel -> socket.startTyping(target.id)
+                is ChatTarget.Dm -> socket.startDmTyping(target.id)
+            }
+        }
+        typingIdleJob?.cancel()
+        typingIdleJob = scope.launch {
+            delay(TYPING_IDLE_MS)
+            stopTypingEmit()
+        }
+    }
+
+    private fun stopTypingEmit() {
+        typingIdleJob?.cancel()
+        if (lastTypingEmit == 0L) return
+        lastTypingEmit = 0
+        when (target) {
+            is ChatTarget.Channel -> socket.stopTyping(target.id)
+            is ChatTarget.Dm -> socket.stopDmTyping(target.id)
+        }
+    }
+
+    private fun userTyping(userId: String, username: String?) {
+        if (userId == myId) return
+        _state.update { it.copy(typing = it.typing + (userId to (username ?: "alguem"))) }
+        typingExpiry.remove(userId)?.cancel()
+        typingExpiry[userId] = scope.launch {
+            delay(TYPING_EXPIRY_MS)
+            userStoppedTyping(userId)
+        }
+    }
+
+    private fun userStoppedTyping(userId: String) {
+        typingExpiry.remove(userId)?.cancel()
+        _state.update { if (userId in it.typing) it.copy(typing = it.typing - userId) else it }
+    }
+
+    // Zera o "nao lida" desta conversa no backend (sidebar limpa localmente).
+    private fun markRead() {
+        scope.launch {
+            runCatching {
+                when (target) {
+                    is ChatTarget.Channel -> channelApi.markRead(target.id)
+                    is ChatTarget.Dm -> dmApi.markRead(target.id)
+                }
+            }
         }
     }
 
@@ -225,6 +292,18 @@ class ChatVm(
                             if (ev.channelId == target.id) setReactions(ev.messageId, ev.reactions)
                         }
                     }
+                    launch {
+                        socket.channelTyping.collect { raw ->
+                            val ev = decode<ChannelTypingEventDto>(raw) ?: return@collect
+                            if (ev.channelId == target.id) userTyping(ev.userId, ev.username)
+                        }
+                    }
+                    launch {
+                        socket.channelTypingStopped.collect { raw ->
+                            val ev = decode<ChannelTypingEventDto>(raw) ?: return@collect
+                            if (ev.channelId == target.id) userStoppedTyping(ev.userId)
+                        }
+                    }
                 }
                 is ChatTarget.Dm -> {
                     launch {
@@ -239,16 +318,32 @@ class ChatVm(
                             if (ev.conversationId == target.id) fadeOutAndRemove(ev.messageId)
                         }
                     }
+                    launch {
+                        socket.dmTyping.collect { raw ->
+                            val ev = decode<DmTypingEventDto>(raw) ?: return@collect
+                            if (ev.conversationId == target.id) userTyping(ev.userId, ev.username)
+                        }
+                    }
+                    launch {
+                        socket.dmTypingStopped.collect { raw ->
+                            val ev = decode<DmTypingEventDto>(raw) ?: return@collect
+                            if (ev.conversationId == target.id) userStoppedTyping(ev.userId)
+                        }
+                    }
                 }
             }
         }
     }
 
     private fun append(msg: ChatMessage) {
+        // Quem mandou mensagem obviamente parou de digitar.
+        userStoppedTyping(msg.authorId)
         _state.update {
             if (it.messages.any { m -> m.id == msg.id }) it
             else it.copy(messages = it.messages + msg)
         }
+        // Conversa aberta: o que chega ja nasce lido.
+        if (!msg.mine) markRead()
     }
 
     private fun setReactions(messageId: String, reactions: List<ReactionDto>) {

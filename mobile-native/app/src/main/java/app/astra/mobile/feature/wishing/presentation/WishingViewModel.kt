@@ -3,6 +3,7 @@ package app.astra.mobile.feature.wishing.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.astra.mobile.core.network.WishApi
+import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.PostWishRequest
 import app.astra.mobile.core.network.dto.WishDto
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import retrofit2.HttpException
 import javax.inject.Inject
 
 private const val PAGE = 20
@@ -29,6 +32,7 @@ data class WishingUiState(
 @HiltViewModel
 class WishingViewModel @Inject constructor(
     private val api: WishApi,
+    private val json: Json,
 ) : ViewModel() {
     private val _state = MutableStateFlow(WishingUiState())
     val state = _state.asStateFlow()
@@ -77,7 +81,14 @@ class WishingViewModel @Inject constructor(
                     _state.update { it.copy(posting = false, input = "") }
                     load()
                 }
-                .onFailure { _state.update { it.copy(posting = false, error = "Nao foi possivel pendurar o desejo") } }
+                .onFailure { e ->
+                    // Mostra a mensagem real do backend (ex: rate limit de 3 desejos
+                    // por 10min) em vez de um generico que parece bug.
+                    val msg = (e as? HttpException)?.response()?.errorBody()?.string()?.let {
+                        runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
+                    } ?: "Nao foi possivel pendurar o desejo"
+                    _state.update { it.copy(posting = false, error = msg) }
+                }
         }
     }
 }

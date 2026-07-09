@@ -358,6 +358,7 @@ fun HomeScreen(
                     isOwner = srv.ownerId != null && srv.ownerId == state.myId,
                     channelUnread = state.channelUnread,
                     mutedChannels = state.mutedChannels,
+                    voiceCounts = remember(state.activeVoice) { state.activeVoice.associate { it.channelId to it.count } },
                     onOpenChannel = { id, name -> viewModel.markChannelSeen(id); onOpenChannel(id, name) },
                     onJoinVoice = { id, name -> viewModel.markChannelSeen(id); onJoinVoice(id, name, srv.id) },
                     onEdit = { onOpenServerEdit(srv.id) },
@@ -870,6 +871,7 @@ private fun ServerChannelsPanel(
     isOwner: Boolean,
     channelUnread: Set<String>,
     mutedChannels: Set<String>,
+    voiceCounts: Map<String, Int> = emptyMap(),
     onOpenChannel: (String, String) -> Unit,
     onJoinVoice: (String, String) -> Unit,
     onEdit: () -> Unit,
@@ -908,6 +910,7 @@ private fun ServerChannelsPanel(
                                 channel = ch,
                                 unread = ch.id in channelUnread,
                                 muted = ch.id in mutedChannels,
+                                voiceCount = voiceCounts[ch.id] ?: 0,
                             ) {
                                 if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
                             }
@@ -1000,6 +1003,7 @@ private fun ChannelRowFlat(
     channel: Channel,
     unread: Boolean,
     muted: Boolean = false,
+    voiceCount: Int = 0,
     onClick: () -> Unit,
 ) {
     Row(
@@ -1035,6 +1039,12 @@ private fun ChannelRowFlat(
         )
         if (muted) {
             Icon(Lucide.BellOff, contentDescription = "Silenciado", tint = astraColors.text3, modifier = Modifier.size(13.dp))
+        } else if (channel.isVoice && voiceCount > 0) {
+            // Tem gente na chamada: dot verde + contagem, pra quem esta fora
+            // ver que a sala esta viva e querer entrar.
+            Box(Modifier.size(7.dp).clip(CircleShape).background(astraColors.success))
+            Spacer(Modifier.width(6.dp))
+            MarginaliaLabel(if (voiceCount == 1) "1 na chamada" else "$voiceCount na chamada", color = astraColors.success)
         } else if (unread) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(astraColors.accent))
         } else if (channel.isVoice) {

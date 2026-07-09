@@ -202,7 +202,26 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun selectServer(id: String?) = _state.update { it.copy(selectedServerId = id) }
+    fun selectServer(id: String?) {
+        _state.update { it.copy(selectedServerId = id) }
+        // Presenca de voz e carregada 1x no load(); re-busca ao abrir um painel
+        // pra "N na chamada" nas orbitas nao ficar velho.
+        if (id != null) refreshVoicePresence()
+    }
+
+    private fun refreshVoicePresence() {
+        viewModelScope.launch {
+            val voiceChannels = _state.value.servers.flatMap { s -> s.channels.filter { it.isVoice }.map { s to it } }
+            if (voiceChannels.isEmpty()) return@launch
+            val presence = serverRepository.voicePresence(voiceChannels.map { it.second.id })
+                .getOrNull() ?: return@launch
+            val activeVoice = voiceChannels.mapNotNull { (s, ch) ->
+                val n = presence[ch.id]?.size ?: 0
+                if (n == 0) null else ActiveVoiceRoom(ch.id, ch.name, s.id, s.name, n)
+            }
+            _state.update { it.copy(activeVoice = activeVoice) }
+        }
+    }
 
     fun markChannelSeen(channelId: String) = _state.update { it.copy(channelUnread = it.channelUnread - channelId) }
 

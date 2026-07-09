@@ -75,18 +75,23 @@ fun EditorialTopBar(
 
 @Composable
 fun TopBarAction(glyph: String, onClick: () -> Unit, color: androidx.compose.ui.graphics.Color = astraColors.accent) {
-    Text(
-        text = glyph,
-        fontFamily = DmSerif,
-        fontSize = 26.sp,
-        color = color,
+    // Box + Center: texto tem baseline/line-height, entao sem isso o glifo (ex "+")
+    // sai deslocado pra fora do circulo de 40dp.
+    Box(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
             .border(1.dp, astraColors.borderMid, CircleShape)
-            .clickable(onClick = onClick)
-            .padding(top = 4.dp),
-    )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = glyph,
+            fontFamily = DmSerif,
+            fontSize = 26.sp,
+            color = color,
+        )
+    }
 }
 
 // Variante com icone (Lucide) — mesmo formato do sino de notificacoes, pra acoes

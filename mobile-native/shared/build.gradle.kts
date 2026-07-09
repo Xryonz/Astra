@@ -23,4 +23,8 @@ java {
 dependencies {
     // DTOs de rede sao @Serializable puros -> so precisam do kotlinx.serialization.
     api(libs.kotlinx.serialization.json)
+    // Interfaces Retrofit (AuthApi, RefreshApi, ...) compartilhadas: Retrofit e
+    // JVM puro, roda igual no Android e no desktop. api() porque os consumidores
+    // enxergam tipos do Retrofit (Response) nas assinaturas.
+    api(libs.retrofit)
 }

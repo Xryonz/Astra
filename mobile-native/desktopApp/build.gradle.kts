@@ -35,6 +35,12 @@ dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(compose.foundation)
+    // Rede: mesmas libs do Android (Retrofit vem via :shared; aqui o wiring).
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.core)
+    // DI: Koin (Hilt nao roda fora do Android).
+    implementation(libs.koin.core)
 }
 
 compose.desktop {

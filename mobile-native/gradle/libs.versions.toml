@@ -5,6 +5,8 @@ ksp = "2.3.9"
 # Compose Multiplatform (desktop). O CMP mais recente e sempre compativel com o
 # Kotlin mais recente (min 2.1.0); nosso 2.3.21 serve. So o modulo :desktopApp usa.
 composeMultiplatform = "1.11.1"
+# DI do desktop (Hilt e Android-only). koin-core puro, sem codegen.
+koin = "4.1.0"
 hilt = "2.60"
 hiltNavigationCompose = "1.2.0"
 coreKtx = "1.15.0"
@@ -86,6 +88,8 @@ androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchm
 androidx-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "testExtJunit" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
+koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

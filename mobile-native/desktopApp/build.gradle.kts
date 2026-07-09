@@ -41,6 +41,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     // DI: Koin (Hilt nao roda fora do Android).
     implementation(libs.koin.core)
+    // Imagens: Coil3 e KMP, mesmos artefatos do Android rodam no desktop.
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 }
 
 compose.desktop {

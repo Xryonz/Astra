@@ -47,4 +47,22 @@ class SessionStore {
     fun clear() {
         file.delete()
     }
+
+    // Prefs de UI (ex: ultima constelacao/orbita aberta) — arquivo separado da
+    // sessao pra sobreviver a logout/refresh de token.
+    private val uiFile = File(dir, "ui.properties")
+
+    fun uiPref(key: String): String? {
+        if (!uiFile.exists()) return null
+        return runCatching {
+            Properties().apply { uiFile.inputStream().use { load(it) } }.getProperty(key)
+        }.getOrNull()
+    }
+
+    fun setUiPref(key: String, value: String?) {
+        dir.mkdirs()
+        val p = Properties().apply { if (uiFile.exists()) runCatching { uiFile.inputStream().use { load(it) } } }
+        if (value == null) p.remove(key) else p.setProperty(key, value)
+        runCatching { uiFile.outputStream().use { p.store(it, "Astra ui prefs") } }
+    }
 }

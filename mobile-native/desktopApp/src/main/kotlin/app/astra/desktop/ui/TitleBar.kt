@@ -1,5 +1,7 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -70,11 +72,12 @@ private fun TitleBarButton(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val bg by animateColorAsState(if (hovered) hoverColor else Color.Transparent, tween(120))
     Box(
         modifier = Modifier
             .width(46.dp)
             .fillMaxHeight()
-            .background(if (hovered) hoverColor else Color.Transparent)
+            .background(bg)
             .hoverable(interaction)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,

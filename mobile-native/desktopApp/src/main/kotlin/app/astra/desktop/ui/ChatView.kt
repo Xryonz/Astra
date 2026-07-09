@@ -133,6 +133,17 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
         prevCount = state.messages.size
     }
 
+    // Entrada fade+subida so pra mensagem NOVA: o historico entra sem animar e
+    // item reciclado pelo scroll nao re-anima (set de ids ja vistos).
+    val animatedIds = remember(target.id) { mutableSetOf<String>() }
+    var baselineDone by remember(target.id) { mutableStateOf(false) }
+    LaunchedEffect(state.loading) {
+        if (!state.loading) {
+            state.messages.forEach { animatedIds.add(it.id) }
+            baselineDone = true
+        }
+    }
+
     // Rola ate a origem da reply e da um flash rapido nela.
     fun jumpTo(id: String) {
         val idx = state.messages.indexOfFirst { it.id == id }
@@ -156,10 +167,15 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
                     itemsIndexed(state.messages, key = { _, m -> m.id }) { i, msg ->
+                        val enterAnim = remember(msg.id) {
+                            val fresh = animatedIds.add(msg.id)
+                            baselineDone && fresh
+                        }
                         MessageRow(
                             msg = msg,
                             // Reply quebra o agrupamento (a referencia precisa aparecer).
                             grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
+                            enterAnim = enterAnim,
                             isChannel = isChannel,
                             highlighted = msg.id == highlightId,
                             editing = msg.id == editingId,
@@ -250,6 +266,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
 private fun MessageRow(
     msg: ChatMessage,
     grouped: Boolean,
+    enterAnim: Boolean,
     isChannel: Boolean,
     highlighted: Boolean,
     editing: Boolean,
@@ -279,11 +296,18 @@ private fun MessageRow(
         },
         tween(150),
     )
+    // Mensagem nova entra com fade+subida (~150ms); as demais nascem prontas.
+    val enter = remember { Animatable(if (enterAnim) 0f else 1f) }
+    LaunchedEffect(Unit) { if (enterAnim) enter.animateTo(1f, tween(150)) }
 
     Box(
         Modifier
             .fillMaxWidth()
             .alpha(rowAlpha)
+            .graphicsLayer {
+                alpha = enter.value
+                translationY = (1f - enter.value) * 6.dp.toPx()
+            }
             .background(bg)
             .hoverable(interaction),
     ) {

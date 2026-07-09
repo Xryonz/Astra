@@ -1,22 +1,27 @@
 package app.astra.desktop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
@@ -62,6 +67,9 @@ fun main() {
             state = state,
             visible = windowVisible,
             undecorated = true, // frameless: a barra-titulo obsidiana e nossa
+            // Fundo da janela transparente so pra dar cantos arredondados ao
+            // conteudo (polish). Se custar fluidez no device, reverter os dois.
+            transparent = true,
         ) {
             // Coil global: data-URIs (avatares no banco) + URLs relativas /uploads.
             setSingletonImageLoaderFactory { ctx ->
@@ -78,9 +86,23 @@ fun main() {
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
 
+            // Cantos arredondados so com a janela solta; maximizada volta ao
+            // reto (senao sobra fresta transparente nos cantos da tela).
+            val rounded = state.placement == WindowPlacement.Floating
+            val windowShape = if (rounded) RoundedCornerShape(10.dp) else RectangleShape
+
             // RikkaUI e CMP (foundation-only): mesmo tema do mobile, tokens obsidiana.
             RikkaTheme(colors = rikkaObsidian) {
-                Column(Modifier.fillMaxSize().background(Obsidian.void)) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(windowShape)
+                        .background(Obsidian.void)
+                        .then(
+                            if (rounded) Modifier.border(1.dp, Obsidian.borderDim.copy(alpha = 0.6f), windowShape)
+                            else Modifier,
+                        ),
+                ) {
                     AstraTitleBar(state = state, onClose = { windowVisible = false })
                     Box(Modifier.fillMaxSize()) {
                         val s = session

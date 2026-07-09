@@ -1,5 +1,15 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -77,15 +87,15 @@ fun ShellScreen(session: Session) {
 
     LaunchedEffect(Unit) { socket.connect() }
 
-    // ChatVm por alvo aberto; sai da sala/cancela o live ao trocar ou fechar.
+    // ChatVm nasce DENTRO da pagina do AnimatedContent do palco: a conversa
+    // antiga continua renderizando durante o fade e o dispose so roda quando a
+    // pagina sai da composicao de vez.
     val chat = state.chat
-    val chatVm = if (chat != null) {
-        val created = remember(chat) {
-            ChatVm(scope, chat, koin.get<ChannelApi>(), koin.get<DmApi>(), socket, koin.get<Json>(), session.userId)
+    val createChatVm = remember {
+        { target: ChatTarget ->
+            ChatVm(scope, target, koin.get<ChannelApi>(), koin.get<DmApi>(), socket, koin.get<Json>(), session.userId)
         }
-        DisposableEffect(chat) { onDispose { created.dispose() } }
-        created
-    } else null
+    }
 
     Row(Modifier.fillMaxSize().background(Obsidian.base)) {
         Rail(
@@ -107,7 +117,7 @@ fun ShellScreen(session: Session) {
         Stage(
             state.selectedServer,
             chat = chat,
-            chatVm = chatVm,
+            createChatVm = createChatVm,
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
             loading = state.loading,
@@ -115,7 +125,11 @@ fun ShellScreen(session: Session) {
             onRetry = vm::load,
             modifier = Modifier.weight(1f),
         )
-        if (state.selection is Selection.Server && state.membersOpen) {
+        AnimatedVisibility(
+            visible = state.selection is Selection.Server && state.membersOpen,
+            enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
+            exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
+        ) {
             MembersPanel(state.members)
         }
     }
@@ -175,14 +189,21 @@ private fun Rail(
 private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // Pill morph: circulo -> quadrado arredondado no hover/ativo (assinatura da rail).
-    val shape = RoundedCornerShape(if (active || hovered) 14.dp else 22.dp)
+    // Pill morph: circulo -> quadrado arredondado no hover/ativo (assinatura da
+    // rail). Canto, fundo e borda transicionam (polish).
+    val corner by animateDpAsState(if (active || hovered) 14.dp else 22.dp, tween(140))
+    val shape = RoundedCornerShape(corner)
+    val bg by animateColorAsState(if (active) Obsidian.overlay else Obsidian.raised, tween(140))
+    val borderColor by animateColorAsState(
+        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+        tween(140),
+    )
     Box(
         modifier = Modifier
             .size(44.dp)
             .clip(shape)
-            .background(if (active) Obsidian.overlay else Obsidian.raised)
-            .border(1.dp, if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, shape)
+            .background(bg)
+            .border(1.dp, borderColor, shape)
             .hoverable(interaction)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -256,13 +277,17 @@ private fun OrbitList(server: ServerDto?, activeChatId: String?, unread: Set<Str
             val hovered by interaction.collectIsHoveredAsState()
             val active = ch.id == activeChatId
             val isUnread = !active && ch.id in unread
+            val itemBg by animateColorAsState(
+                if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
+                tween(120),
+            )
             Box(Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
                         .clip(RoundedCornerShape(7.dp))
-                        .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
+                        .background(itemBg)
                         .hoverable(interaction)
                         // Orbita de voz nao abre chat (voz e fatia futura).
                         .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
@@ -325,13 +350,17 @@ private fun DmList(
             val hovered by interaction.collectIsHoveredAsState()
             val active = conv.id == activeChatId
             val isUnread = !active && conv.id in unread
+            val itemBg by animateColorAsState(
+                if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
+                tween(120),
+            )
             Box(Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
                         .clip(RoundedCornerShape(7.dp))
-                        .background(if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent)
+                        .background(itemBg)
                         .hoverable(interaction)
                         .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
                         .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -382,7 +411,7 @@ private fun DmList(
 private fun Stage(
     server: ServerDto?,
     chat: ChatTarget?,
-    chatVm: ChatVm?,
+    createChatVm: (ChatTarget) -> ChatVm,
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
     loading: Boolean,
@@ -429,38 +458,47 @@ private fun Stage(
         }
         HairRule()
 
-        if (chat != null && chatVm != null) {
-            ChatView(chat, chatVm)
-            return@Column
-        }
-
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            when {
-                loading -> BasicText("carregando o ceu…", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
-                error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    BasicText(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
-                    Spacer(Modifier.height(10.dp))
-                    BasicText(
-                        "tentar de novo",
-                        style = TextStyle(color = Obsidian.accent, fontSize = 13.sp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
-                            .clickable(onClick = onRetry)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-                else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    BasicText(
-                        text = "✦",
-                        style = TextStyle(color = Obsidian.borderMid, fontSize = 40.sp),
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    BasicText(
-                        text = if (server != null) "escolha uma orbita — a conversa chega na proxima fatia"
-                        else "escolha um sussurro — a conversa chega na proxima fatia",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 13.sp),
-                    )
+        // Fade ao abrir/trocar conversa: a pagina antiga (com seu ChatVm) segue
+        // renderizando ate o fade acabar; o dispose roda no fim.
+        AnimatedContent(
+            targetState = chat,
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            modifier = Modifier.fillMaxSize(),
+        ) { target ->
+            if (target != null) {
+                val chatVm = remember { createChatVm(target) }
+                DisposableEffect(Unit) { onDispose { chatVm.dispose() } }
+                ChatView(target, chatVm)
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    when {
+                        loading -> BasicText("carregando o ceu…", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+                        error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            BasicText(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
+                            Spacer(Modifier.height(10.dp))
+                            BasicText(
+                                "tentar de novo",
+                                style = TextStyle(color = Obsidian.accent, fontSize = 13.sp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+                                    .clickable(onClick = onRetry)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
+                        }
+                        else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            BasicText(
+                                text = "✦",
+                                style = TextStyle(color = Obsidian.borderMid, fontSize = 40.sp),
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            BasicText(
+                                text = if (server != null) "escolha uma orbita — a conversa chega na proxima fatia"
+                                else "escolha um sussurro — a conversa chega na proxima fatia",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 13.sp),
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -77,6 +77,9 @@ playwright/.cache/
 .agents/
 CLAUDE.md
 
+# ── Docs pessoais: checkpoints/runbooks locais, não publicar ─
+docs/
+
 # ── OS ──────────────────────────────────────────────────────
 .DS_Store
 .AppleDouble

@@ -9,11 +9,17 @@ import dev.onvoid.webrtc.RTCAnswerOptions
 import dev.onvoid.webrtc.RTCConfiguration
 import dev.onvoid.webrtc.RTCIceCandidate
 import dev.onvoid.webrtc.RTCIceServer
+import dev.onvoid.webrtc.RTCOfferOptions
 import dev.onvoid.webrtc.RTCPeerConnection
 import dev.onvoid.webrtc.RTCPeerConnectionState
+import dev.onvoid.webrtc.RTCRtpTransceiverDirection
+import dev.onvoid.webrtc.RTCRtpTransceiverInit
 import dev.onvoid.webrtc.RTCSdpType
 import dev.onvoid.webrtc.RTCSessionDescription
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
+import dev.onvoid.webrtc.media.audio.AudioOptions
+import dev.onvoid.webrtc.media.audio.AudioTrack
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,11 +56,11 @@ sealed interface VoiceStatus {
     data object Closed : VoiceStatus
 }
 
-// V3 — OUVIR: alem do signaling da V2 (join + ping/pong + participantes), agora
-// negocia o subscriber PeerConnection. LiveKit e subscriber-primary: o SERVIDOR
-// manda o offer; a gente responde answer e troca ICE via trickle. Track de audio
-// remota toca sozinha no device de saida padrao (comportamento do WebRTC nativo)
-// — ouvir nao precisa de wiring extra. Falar = V4; transmissao 60fps = V5.
+// V3+V4 — OUVIR e FALAR. Subscriber PC (LiveKit e subscriber-primary: o SERVIDOR
+// manda o offer; a gente responde answer) + publisher PC (a gente manda o offer
+// DEPOIS do AddTrackRequest ser aceito — ordem do protocolo). ICE via trickle nos
+// dois alvos. Audio remoto toca sozinho no device padrao; mic sobe com AEC/NS/AGC
+// (AudioOptions). Transmissao de tela 60fps = V5.
 class VoiceEngine(
     private val scope: CoroutineScope,
     private val voiceApi: VoiceApi,
@@ -79,6 +85,18 @@ class VoiceEngine(
     private val pendingCandidates = mutableListOf<RTCIceCandidate>()
     private var subRemoteSet = false
     @Volatile private var audioLive = false
+
+    // Publisher PC (a gente -> server): mic na V4, tela na V5.
+    private var pub: RTCPeerConnection? = null
+    private val pubPendingCandidates = mutableListOf<RTCIceCandidate>()
+    private var pubRemoteSet = false
+    private var micTrack: AudioTrack? = null
+    private var micCid: String? = null
+    private var micSid: String? = null
+
+    // Mic comeca ligado ao entrar (padrao Discord); toggleMic() alterna.
+    private val _micOn = MutableStateFlow(true)
+    val micOn = _micOn.asStateFlow()
 
     fun connect(roomKind: String, roomId: String) {
         scope.launch {
@@ -136,11 +154,15 @@ class VoiceEngine(
                 others.clear()
                 res.join.otherParticipantsList.forEach { others[it.identity] = it.label() }
                 createSubscriber(res.join.iceServersList)
+                createPublisher(res.join.iceServersList)
+                publishMic()
                 startPing(res.join.pingInterval)
                 publishConnected()
             }
             LivekitRtc.SignalResponse.MessageCase.OFFER -> onServerOffer(res.offer.sdp)
+            LivekitRtc.SignalResponse.MessageCase.ANSWER -> onServerAnswer(res.answer.sdp)
             LivekitRtc.SignalResponse.MessageCase.TRICKLE -> onTrickle(res.trickle)
+            LivekitRtc.SignalResponse.MessageCase.TRACK_PUBLISHED -> onTrackPublished(res.trackPublished)
             LivekitRtc.SignalResponse.MessageCase.UPDATE -> {
                 res.update.participantsList.forEach { p ->
                     if (p.identity == myIdentity) return@forEach
@@ -156,40 +178,44 @@ class VoiceEngine(
                 _status.value = VoiceStatus.Closed
                 ws?.close(1000, "leave")
             }
-            // answer/track_published etc entram na V4 (publisher).
+            // speakers_changed/connection_quality etc entram na V6 (UI da sala).
             else -> Unit
         }
     }
 
     // ---- V3: subscriber PC (ouvir) -------------------------------------------
 
-    private fun createSubscriber(iceServers: List<LivekitRtc.ICEServer>) {
-        val config = RTCConfiguration().apply {
-            this.iceServers = iceServers.map { s ->
-                RTCIceServer().apply {
-                    urls = s.urlsList
-                    username = s.username
-                    password = s.credential
-                }
+    private fun rtcConfig(iceServers: List<LivekitRtc.ICEServer>) = RTCConfiguration().apply {
+        this.iceServers = iceServers.map { s ->
+            RTCIceServer().apply {
+                urls = s.urlsList
+                username = s.username
+                password = s.credential
             }
         }
-        sub = factory?.createPeerConnection(config, object : PeerConnectionObserver {
-            override fun onIceCandidate(candidate: RTCIceCandidate) {
-                // Formato do LiveKit: candidateInit em JSON (igual ao client-sdk-js).
-                val init = buildJsonObject {
-                    put("candidate", candidate.sdp)
-                    put("sdpMid", candidate.sdpMid)
-                    put("sdpMLineIndex", candidate.sdpMLineIndex)
-                }
-                val req = LivekitRtc.SignalRequest.newBuilder()
-                    .setTrickle(
-                        LivekitRtc.TrickleRequest.newBuilder()
-                            .setCandidateInit(init.toString())
-                            .setTarget(LivekitRtc.SignalTarget.SUBSCRIBER),
-                    )
-                    .build()
-                ws?.send(req.toByteArray().toByteString())
-            }
+    }
+
+    // Formato do LiveKit: candidateInit em JSON (igual ao client-sdk-js).
+    private fun sendTrickle(candidate: RTCIceCandidate, target: LivekitRtc.SignalTarget) {
+        val init = buildJsonObject {
+            put("candidate", candidate.sdp)
+            put("sdpMid", candidate.sdpMid)
+            put("sdpMLineIndex", candidate.sdpMLineIndex)
+        }
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setTrickle(
+                LivekitRtc.TrickleRequest.newBuilder()
+                    .setCandidateInit(init.toString())
+                    .setTarget(target),
+            )
+            .build()
+        ws?.send(req.toByteArray().toByteString())
+    }
+
+    private fun createSubscriber(iceServers: List<LivekitRtc.ICEServer>) {
+        sub = factory?.createPeerConnection(rtcConfig(iceServers), object : PeerConnectionObserver {
+            override fun onIceCandidate(candidate: RTCIceCandidate) =
+                sendTrickle(candidate, LivekitRtc.SignalTarget.SUBSCRIBER)
 
             override fun onConnectionChange(state: RTCPeerConnectionState) {
                 audioLive = state == RTCPeerConnectionState.CONNECTED
@@ -240,8 +266,6 @@ class VoiceEngine(
     }
 
     private fun onTrickle(trickle: LivekitRtc.TrickleRequest) {
-        // Publisher PC so existe na V4; por ora todo candidato util e do subscriber.
-        if (trickle.target != LivekitRtc.SignalTarget.SUBSCRIBER) return
         val init = runCatching { Json.parseToJsonElement(trickle.candidateInit).jsonObject }
             .getOrNull() ?: return
         val candidate = RTCIceCandidate(
@@ -249,9 +273,123 @@ class VoiceEngine(
             init["sdpMLineIndex"]?.jsonPrimitive?.int ?: 0,
             init["candidate"]?.jsonPrimitive?.content ?: return,
         )
-        synchronized(pendingCandidates) {
-            if (subRemoteSet) sub?.addIceCandidate(candidate) else pendingCandidates.add(candidate)
+        if (trickle.target == LivekitRtc.SignalTarget.SUBSCRIBER) {
+            synchronized(pendingCandidates) {
+                if (subRemoteSet) sub?.addIceCandidate(candidate) else pendingCandidates.add(candidate)
+            }
+        } else {
+            synchronized(pubPendingCandidates) {
+                if (pubRemoteSet) pub?.addIceCandidate(candidate) else pubPendingCandidates.add(candidate)
+            }
         }
+    }
+
+    // ---- V4: publisher PC (falar) --------------------------------------------
+
+    private fun createPublisher(iceServers: List<LivekitRtc.ICEServer>) {
+        pub = factory?.createPeerConnection(rtcConfig(iceServers), object : PeerConnectionObserver {
+            override fun onIceCandidate(candidate: RTCIceCandidate) =
+                sendTrickle(candidate, LivekitRtc.SignalTarget.PUBLISHER)
+        })
+    }
+
+    // Ordem do protocolo: AddTrackRequest primeiro; a track so entra no PC (e a
+    // negociacao so acontece) quando o server responde TrackPublished com o cid.
+    private fun publishMic() {
+        val f = factory ?: return
+        // Sem mic/permissao nao derruba a sala: segue so ouvindo.
+        val source = runCatching {
+            f.createAudioSource(AudioOptions().apply {
+                echoCancellation = true
+                noiseSuppression = true
+                autoGainControl = true
+                highpassFilter = true
+            })
+        }.getOrNull() ?: return
+        val cid = "mic-" + UUID.randomUUID().toString().take(8)
+        micCid = cid
+        micTrack = f.createAudioTrack(cid, source)
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setAddTrack(
+                LivekitRtc.AddTrackRequest.newBuilder()
+                    .setCid(cid)
+                    .setName("microphone")
+                    .setType(LivekitModels.TrackType.AUDIO)
+                    .setSource(LivekitModels.TrackSource.MICROPHONE),
+            )
+            .build()
+        ws?.send(req.toByteArray().toByteString())
+    }
+
+    private fun onTrackPublished(res: LivekitRtc.TrackPublishedResponse) {
+        if (res.cid != micCid) return
+        micSid = res.track.sid
+        val track = micTrack ?: return
+        val init = RTCRtpTransceiverInit().apply {
+            direction = RTCRtpTransceiverDirection.SEND_ONLY
+            streamIds = listOf(res.cid)
+        }
+        runCatching { pub?.addTransceiver(track, init) }.onFailure { return }
+        negotiatePublisher()
+    }
+
+    private fun negotiatePublisher() {
+        val pc = pub ?: return
+        pc.createOffer(
+            RTCOfferOptions(),
+            object : CreateSessionDescriptionObserver {
+                override fun onSuccess(desc: RTCSessionDescription) {
+                    pc.setLocalDescription(
+                        desc,
+                        object : SetSessionDescriptionObserver {
+                            override fun onSuccess() {
+                                val req = LivekitRtc.SignalRequest.newBuilder()
+                                    .setOffer(
+                                        LivekitRtc.SessionDescription.newBuilder()
+                                            .setType("offer")
+                                            .setSdp(desc.sdp),
+                                    )
+                                    .build()
+                                ws?.send(req.toByteArray().toByteString())
+                            }
+                            override fun onFailure(error: String) = Unit
+                        },
+                    )
+                }
+                override fun onFailure(error: String) = Unit
+            },
+        )
+    }
+
+    private fun onServerAnswer(sdp: String) {
+        val pc = pub ?: return
+        pc.setRemoteDescription(
+            RTCSessionDescription(RTCSdpType.ANSWER, sdp),
+            object : SetSessionDescriptionObserver {
+                override fun onSuccess() {
+                    synchronized(pubPendingCandidates) {
+                        pubRemoteSet = true
+                        pubPendingCandidates.forEach { pc.addIceCandidate(it) }
+                        pubPendingCandidates.clear()
+                    }
+                }
+                override fun onFailure(error: String) = Unit
+            },
+        )
+    }
+
+    // Mute local (track para de mandar frames) + aviso pro server (icone de mute
+    // aparece pros outros).
+    fun toggleMic() {
+        val track = micTrack ?: return
+        val on = !_micOn.value
+        track.isEnabled = on
+        _micOn.value = on
+        val sid = micSid ?: return
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setMute(LivekitRtc.MuteTrackRequest.newBuilder().setSid(sid).setMuted(!on))
+            .build()
+        ws?.send(req.toByteArray().toByteString())
     }
 
     // O servidor derruba quem fica mudo: ping no intervalo do JoinResponse.
@@ -286,6 +424,10 @@ class VoiceEngine(
         }
         ws?.close(1000, "leave")
         ws = null
+        runCatching { micTrack?.dispose() }
+        micTrack = null
+        runCatching { pub?.close() }
+        pub = null
         runCatching { sub?.close() }
         sub = null
         runCatching { factory?.dispose() }

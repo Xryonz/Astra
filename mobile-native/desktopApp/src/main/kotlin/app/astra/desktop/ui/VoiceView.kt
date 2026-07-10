@@ -2,8 +2,10 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -32,9 +34,8 @@ import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
 import org.koin.core.qualifier.named
 
-// Sala de voz — V3: signaling + subscriber PC; audio remoto ja toca no device
-// padrao. Falar (V4) e transmissao 60fps (V5) a caminho
-// (plano: docs/plans/2026-07-10-astra-voz-nativa.md).
+// Sala de voz — V3+V4: audio bidirecional (ouvir + falar com mute). Transmissao
+// de tela 60fps (V5) a caminho (plano: docs/plans/2026-07-10-astra-voz-nativa.md).
 @Composable
 fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
     val koin = GlobalContext.get()
@@ -65,23 +66,42 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
             Spacer(Modifier.height(6.dp))
             val audioLive = (status as? VoiceStatus.Connected)?.audioLive == true
             BasicText(
-                if (audioLive) "♪ canal de audio aberto — quem falar na sala, voce ouve"
-                else "abrindo canal de audio… (falar = V4, transmissao 60fps = V5)",
+                if (audioLive) "♪ canal de audio aberto — voz ao vivo nos dois sentidos"
+                else "abrindo canal de audio… (transmissao 60fps = V5)",
                 style = TextStyle(
                     color = if (audioLive) Obsidian.accent else Obsidian.text3,
                     fontSize = 11.sp,
                 ),
             )
             Spacer(Modifier.height(20.dp))
-            BasicText(
-                text = "sair da sala",
-                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
-                    .clickable(onClick = onLeave)
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-            )
+            val micOn by engine.micOn.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BasicText(
+                    text = if (micOn) "mutar mic" else "🔇 desmutar",
+                    style = TextStyle(
+                        color = if (micOn) Obsidian.text2 else Obsidian.danger,
+                        fontSize = 13.sp,
+                    ),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(
+                            1.dp,
+                            if (micOn) Obsidian.borderMid else Obsidian.danger,
+                            RoundedCornerShape(8.dp),
+                        )
+                        .clickable(onClick = engine::toggleMic)
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+                BasicText(
+                    text = "sair da sala",
+                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+                        .clickable(onClick = onLeave)
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+            }
         }
     }
 }

@@ -110,7 +110,17 @@ fun ShellScreen(session: Session) {
         }
     }
 
-    Row(Modifier.fillMaxSize().background(Obsidian.base)) {
+    Box(Modifier.fillMaxSize()) {
+        // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
+        // (graphicsLayer): so ela invalida por frame — os paineis translucidos
+        // por cima nao redesenham com o shader.
+        Box(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer {}
+                .auroraBackground(),
+        )
+        Row(Modifier.fillMaxSize()) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -145,6 +155,7 @@ fun ShellScreen(session: Session) {
         ) {
             MembersPanel(state.members)
         }
+        }
     }
 }
 
@@ -157,7 +168,8 @@ private fun Rail(
     onSelect: (Selection) -> Unit,
 ) {
     Column(
-        modifier = Modifier.width(72.dp).fillMaxHeight().background(Obsidian.void),
+        // Translucido: a aurora vaza sutil por baixo (0.85 mantem os icones legiveis).
+        modifier = Modifier.width(72.dp).fillMaxHeight().background(Obsidian.void.copy(alpha = 0.85f)),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(10.dp))
@@ -237,7 +249,7 @@ private fun Sidebar(
     meAvatar: String?,
     onOpenChat: (ChatTarget) -> Unit,
 ) {
-    Column(Modifier.width(260.dp).fillMaxHeight().background(Obsidian.raised)) {
+    Column(Modifier.width(260.dp).fillMaxHeight().background(Obsidian.raised.copy(alpha = 0.90f))) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
         // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
         // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
@@ -545,7 +557,8 @@ private fun Stage(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxHeight().background(Obsidian.base)) {
+    // 0.92: o palco e onde vive o texto — translucidez mais conservadora.
+    Column(modifier.fillMaxHeight().background(Obsidian.base.copy(alpha = 0.92f))) {
         // Top bar do palco
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -635,7 +648,7 @@ private fun Stage(
 
 @Composable
 private fun MembersPanel(members: List<ServerMemberDto>) {
-    Column(Modifier.width(240.dp).fillMaxHeight().background(Obsidian.raised)) {
+    Column(Modifier.width(240.dp).fillMaxHeight().background(Obsidian.raised.copy(alpha = 0.90f))) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             BasicText(
                 text = "membros — ${members.size}",

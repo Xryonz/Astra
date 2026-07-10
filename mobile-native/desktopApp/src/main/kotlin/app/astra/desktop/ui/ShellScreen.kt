@@ -46,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -106,15 +105,7 @@ fun ShellScreen(session: Session) {
         }
     }
 
-    // Divisorias com respiro: os paineis flutuam sobre o void, separados por
-    // gaps e com sombra propria (pedido do dono).
-    Row(
-        Modifier
-            .fillMaxSize()
-            .background(Obsidian.void)
-            .padding(top = 6.dp, end = 8.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    Row(Modifier.fillMaxSize().background(Obsidian.base)) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -241,13 +232,7 @@ private fun Sidebar(
     meAvatar: String?,
     onOpenChat: (ChatTarget) -> Unit,
 ) {
-    Column(
-        Modifier
-            .width(260.dp)
-            .fillMaxHeight()
-            .shadow(12.dp, RoundedCornerShape(10.dp))
-            .background(Obsidian.raised),
-    ) {
+    Column(Modifier.width(260.dp).fillMaxHeight().background(Obsidian.raised)) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
         // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
         // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
@@ -555,12 +540,7 @@ private fun Stage(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier
-            .fillMaxHeight()
-            .shadow(12.dp, RoundedCornerShape(10.dp))
-            .background(Obsidian.base),
-    ) {
+    Column(modifier.fillMaxHeight().background(Obsidian.base)) {
         // Top bar do palco
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -650,13 +630,7 @@ private fun Stage(
 
 @Composable
 private fun MembersPanel(members: List<ServerMemberDto>) {
-    Column(
-        Modifier
-            .width(240.dp)
-            .fillMaxHeight()
-            .shadow(12.dp, RoundedCornerShape(10.dp))
-            .background(Obsidian.raised),
-    ) {
+    Column(Modifier.width(240.dp).fillMaxHeight().background(Obsidian.raised)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             BasicText(
                 text = "membros — ${members.size}",

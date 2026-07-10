@@ -10,9 +10,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -26,9 +28,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -44,10 +48,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -77,12 +86,19 @@ import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReplyToDto
+import app.astra.shared.AstraShared
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import zed.rainxch.rikkaui.components.ui.input.Input
 import zed.rainxch.rikkaui.components.ui.input.InputAnimation
+import java.awt.Desktop
+import java.awt.datatransfer.DataFlavor
+import java.io.File
+import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -112,12 +128,34 @@ private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
     return java.time.Duration.between(a, b).toMinutes() < 5
 }
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChatView(target: ChatTarget, vm: ChatVm) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val isChannel = target is ChatTarget.Channel
+
+    // Drag&drop de arquivo do sistema: solta em qualquer lugar da conversa e o
+    // arquivo vira anexo pendente no composer.
+    var dragOver by remember { mutableStateOf(false) }
+    val dndTarget = remember(target.id) {
+        object : DragAndDropTarget {
+            override fun onEntered(event: DragAndDropEvent) { dragOver = true }
+            override fun onExited(event: DragAndDropEvent) { dragOver = false }
+            override fun onEnded(event: DragAndDropEvent) { dragOver = false }
+            override fun onDrop(event: DragAndDropEvent): Boolean {
+                dragOver = false
+                val files = runCatching {
+                    @Suppress("UNCHECKED_CAST")
+                    (event.awtTransferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<File>).orEmpty()
+                }.getOrDefault(emptyList())
+                if (files.isEmpty()) return false
+                vm.addFiles(files)
+                return true
+            }
+        }
+    }
 
     // Mensagem sendo editada inline / destacada pelo clique numa reply.
     var editingId by remember(target.id) { mutableStateOf<String?>(null) }
@@ -156,6 +194,11 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
         }
     }
 
+    Box(
+        Modifier
+            .fillMaxSize()
+            .dragAndDropTarget(shouldStartDragAndDrop = { true }, target = dndTarget),
+    ) {
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when {
@@ -215,6 +258,41 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                 BasicText(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
                 Spacer(Modifier.height(6.dp))
             }
+            // Anexos pendentes (drag&drop): chips com ✕ pra tirar antes de enviar.
+            if (state.pending.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    state.pending.forEachIndexed { i, pf ->
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Obsidian.raised)
+                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BasicText(
+                                if (pf.mime.startsWith("image/")) "🖼" else "📄",
+                                style = TextStyle(fontSize = 12.sp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            BasicText(
+                                pf.file.name,
+                                style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 180.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            BasicText(sizeLabel(pf.file.length()), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                            Spacer(Modifier.width(6.dp))
+                            HoverGlyph("✕") { vm.removePending(i) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
             state.replyingTo?.let { r ->
                 Row(
                     modifier = Modifier
@@ -236,7 +314,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
             }
             var draft by remember(target.id) { mutableStateOf("") }
             fun submit() {
-                if (draft.isBlank()) return
+                if (draft.isBlank() && state.pending.isEmpty()) return
                 vm.send(draft)
                 draft = ""
             }
@@ -259,6 +337,24 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                     },
             )
         }
+    }
+
+    // Overlay enquanto o arquivo esta sendo arrastado por cima da conversa.
+    if (dragOver) {
+        Box(
+            Modifier.fillMaxSize().background(Obsidian.void.copy(alpha = 0.72f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                BasicText("⇩", style = TextStyle(color = Obsidian.accent, fontSize = 34.sp))
+                Spacer(Modifier.height(8.dp))
+                BasicText(
+                    "solte pra anexar em ${target.title}",
+                    style = TextStyle(color = Obsidian.text1, fontSize = 14.sp),
+                )
+            }
+        }
+    }
     }
 }
 
@@ -403,7 +499,8 @@ private fun ContentBlock(
 ) {
     if (editing) {
         EditField(msg.content, onSaveEdit, onCancelEdit)
-    } else {
+    } else if (msg.content.isNotBlank() || msg.edited) {
+        // Mensagem so-anexo tem content vazio — sem linha em branco.
         BasicText(
             text = buildAnnotatedString {
                 append(msg.content)
@@ -413,6 +510,10 @@ private fun ContentBlock(
             },
             style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp),
         )
+    }
+    msg.attachments.forEach { att ->
+        Spacer(Modifier.height(4.dp))
+        AttachmentBlock(att)
     }
     if (msg.reactions.isNotEmpty()) {
         Spacer(Modifier.height(4.dp))
@@ -429,6 +530,61 @@ private fun ContentBlock(
             }
         }
     }
+}
+
+// Anexo na mensagem: imagem inline (Coil); resto vira chip que abre no navegador.
+@Composable
+private fun AttachmentBlock(att: AttachmentDto) {
+    if (att.type?.startsWith("image/") == true) {
+        AsyncImage(
+            model = att.url,
+            contentDescription = att.name,
+            modifier = Modifier
+                .widthIn(max = 320.dp)
+                .heightIn(max = 240.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Fit,
+        )
+    } else {
+        val src = remember { MutableInteractionSource() }
+        val hov by src.collectIsHoveredAsState()
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (hov) Obsidian.hover else Obsidian.raised)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .hoverable(src)
+                .clickable(interactionSource = src, indication = null) { openAttachment(att.url) }
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText("📄", style = TextStyle(fontSize = 14.sp))
+            Spacer(Modifier.width(7.dp))
+            Column {
+                BasicText(
+                    att.name ?: "arquivo",
+                    style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 220.dp),
+                )
+                att.size?.let {
+                    BasicText(sizeLabel(it), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                }
+            }
+        }
+    }
+}
+
+// Abre o anexo no navegador (URL relativa do backend vira absoluta).
+private fun openAttachment(url: String) {
+    val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
+    runCatching { Desktop.getDesktop().browse(URI(abs)) }
+}
+
+private fun sizeLabel(bytes: Long): String = when {
+    bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
+    bytes >= 1024 -> "${bytes / 1024} KB"
+    else -> "$bytes B"
 }
 
 @Composable

@@ -29,6 +29,8 @@ desugar = "2.1.2"
 lucide = "1.1.0"
 browser = "1.8.0"
 rikkaui = "0.3.0"
+# DPAPI do Windows via JNA (so :desktopApp) — sessao cifrada em repouso.
+jna = "5.14.0"
 errorprone = "2.36.0"
 haze = "1.7.2"
 leakcanary = "2.14"
@@ -77,6 +79,7 @@ desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", ver
 lucide-icons = { group = "com.composables", name = "icons-lucide-android", version.ref = "lucide" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 rikkaui-foundation = { group = "dev.rikkaui", name = "foundation", version.ref = "rikkaui" }
+jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }
 rikkaui-components = { group = "dev.rikkaui", name = "components", version.ref = "rikkaui" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorprone" }
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }

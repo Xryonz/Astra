@@ -50,6 +50,8 @@ dependencies {
     // (Input, Dialog, ...) rodam identicos no desktop.
     implementation(libs.rikkaui.foundation)
     implementation(libs.rikkaui.components)
+    // DPAPI (CryptProtectData) pro SessionStore — tokens cifrados em repouso.
+    implementation(libs.jna.platform)
 }
 
 compose.desktop {

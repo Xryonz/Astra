@@ -3,6 +3,8 @@ package app.astra.desktop.shell
 import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.UploadApi
+import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.ChannelTypingEventDto
 import app.astra.mobile.core.network.dto.DmDeletedEventDto
@@ -19,13 +21,20 @@ import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import app.astra.mobile.core.network.dto.SendDmRequest
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
+import java.nio.file.Files
 
 // Alvo do chat aberto no palco.
 sealed interface ChatTarget {
@@ -48,9 +57,13 @@ data class ChatMessage(
     val edited: Boolean = false,
     val reactions: List<ReactionDto> = emptyList(),
     val replyTo: ReplyToDto? = null,
+    val attachments: List<AttachmentDto> = emptyList(),
     // Marcada pra sumir: a UI anima o fade-out e o VM tira da lista em seguida.
     val deleting: Boolean = false,
 )
+
+// Arquivo solto no chat esperando o envio (upload acontece no send).
+data class PendingFile(val file: File, val mime: String)
 
 data class ChatUiState(
     val loading: Boolean = true,
@@ -59,6 +72,8 @@ data class ChatUiState(
     val replyingTo: ChatMessage? = null,
     // Quem esta digitando nesta conversa (userId -> nome exibido).
     val typing: Map<String, String> = emptyMap(),
+    // Anexos pendentes (drag&drop) que saem na proxima mensagem.
+    val pending: List<PendingFile> = emptyList(),
     val error: String? = null,
 )
 
@@ -71,6 +86,16 @@ private const val TYPING_RESEND_MS = 3_000L
 private const val TYPING_IDLE_MS = 3_000L
 private const val TYPING_EXPIRY_MS = 8_000L
 
+// Espelho dos limites do backend (upload.ts): rejeitar aqui evita queimar upload.
+private const val MAX_FILE_BYTES = 25L * 1024 * 1024
+private const val MAX_FILES = 10
+private val ALLOWED_MIMES = setOf(
+    "image/png", "image/jpeg", "image/gif", "image/webp", "image/avif",
+    "video/mp4", "video/webm", "video/quicktime",
+    "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm", "audio/mp4", "audio/x-m4a", "audio/aac",
+    "application/pdf", "text/plain", "application/zip", "application/json",
+)
+
 // Estado de UMA conversa aberta: historico + envio + acoes (responder/reagir/
 // editar/apagar) + eventos ao vivo (socket). Recriado por alvo (remember(target)
 // na composicao); o listener do socket morre junto do escopo.
@@ -79,6 +104,7 @@ class ChatVm(
     private val target: ChatTarget,
     private val channelApi: ChannelApi,
     private val dmApi: DmApi,
+    private val uploadApi: UploadApi,
     private val socket: DesktopSocket,
     private val json: Json,
     val myId: String?,
@@ -128,17 +154,43 @@ class ChatVm(
 
     fun send(text: String) {
         val content = text.trim()
-        if (content.isEmpty() || _state.value.sending) return
+        val pending = _state.value.pending
+        if ((content.isEmpty() && pending.isEmpty()) || _state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
         stopTypingEmit()
         _state.update { it.copy(sending = true, error = null) }
         scope.launch {
+            // Anexos sobem primeiro; a mensagem sai com as URLs devolvidas.
+            val attachments = if (pending.isEmpty()) emptyList() else {
+                val uploaded = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val parts = pending.map { pf ->
+                            MultipartBody.Part.createFormData(
+                                "files", pf.file.name,
+                                pf.file.readBytes().toRequestBody(pf.mime.toMediaTypeOrNull()),
+                            )
+                        }
+                        uploadApi.uploadMany(parts).data?.attachments.orEmpty()
+                    }.getOrNull()
+                }
+                if (uploaded.isNullOrEmpty()) {
+                    _state.update { it.copy(sending = false, error = "Nao deu pra subir o anexo") }
+                    return@launch
+                }
+                uploaded
+            }
             val result = runCatching {
                 when (target) {
                     is ChatTarget.Channel ->
-                        channelApi.send(target.id, SendChannelRequest(content, replyToId = replyToId)).data?.toChat()
+                        channelApi.send(
+                            target.id,
+                            SendChannelRequest(content, replyToId = replyToId, attachments = attachments),
+                        ).data?.toChat()
                     is ChatTarget.Dm ->
-                        dmApi.send(target.id, SendDmRequest(content, replyToId = replyToId)).data?.toChat()
+                        dmApi.send(
+                            target.id,
+                            SendDmRequest(content, replyToId = replyToId, attachments = attachments),
+                        ).data?.toChat()
                 }
             }
             result
@@ -147,11 +199,54 @@ class ChatVm(
                         it.copy(
                             sending = false,
                             replyingTo = null,
+                            pending = emptyList(),
                             messages = if (msg != null && it.messages.none { m -> m.id == msg.id }) it.messages + msg else it.messages,
                         )
                     }
                 }
                 .onFailure { _state.update { it.copy(sending = false, error = "Mensagem nao enviada") } }
+        }
+    }
+
+    // Arquivos soltos no chat: valida contra os limites do backend e enfileira.
+    fun addFiles(files: List<File>) {
+        var error: String? = null
+        val current = _state.value.pending.toMutableList()
+        for (f in files) {
+            if (current.size >= MAX_FILES) {
+                error = "Maximo de $MAX_FILES arquivos por mensagem"
+                break
+            }
+            if (!f.isFile) continue
+            if (f.length() > MAX_FILE_BYTES) {
+                error = "${f.name} passa de 25MB"
+                continue
+            }
+            val mime = mimeOf(f)
+            if (mime == null || mime !in ALLOWED_MIMES) {
+                error = "Tipo nao suportado: ${f.name}"
+                continue
+            }
+            current += PendingFile(f, mime)
+        }
+        _state.update { it.copy(pending = current, error = error) }
+    }
+
+    fun removePending(index: Int) {
+        _state.update { it.copy(pending = it.pending.filterIndexed { i, _ -> i != index }) }
+    }
+
+    private fun mimeOf(f: File): String? {
+        runCatching { Files.probeContentType(f.toPath()) }.getOrNull()?.let { return it }
+        return when (f.extension.lowercase()) {
+            "png" -> "image/png"; "jpg", "jpeg" -> "image/jpeg"; "gif" -> "image/gif"
+            "webp" -> "image/webp"; "avif" -> "image/avif"
+            "mp4" -> "video/mp4"; "webm" -> "video/webm"; "mov" -> "video/quicktime"
+            "mp3" -> "audio/mpeg"; "wav" -> "audio/wav"; "ogg" -> "audio/ogg"
+            "m4a" -> "audio/x-m4a"; "aac" -> "audio/aac"
+            "pdf" -> "application/pdf"; "txt" -> "text/plain"
+            "zip" -> "application/zip"; "json" -> "application/json"
+            else -> null
         }
     }
 
@@ -383,6 +478,7 @@ class ChatVm(
         createdAt = createdAt,
         mine = authorId == myId, edited = edited,
         reactions = reactions, replyTo = replyTo,
+        attachments = attachments,
     )
 
     private fun DmMessageDto.toChat() = ChatMessage(
@@ -391,5 +487,6 @@ class ChatVm(
         createdAt = createdAt,
         mine = senderId == myId,
         replyTo = replyTo,
+        attachments = attachments,
     )
 }

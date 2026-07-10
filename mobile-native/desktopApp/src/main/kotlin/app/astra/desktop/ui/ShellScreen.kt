@@ -69,6 +69,7 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
+import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
@@ -101,7 +102,11 @@ fun ShellScreen(session: Session) {
     val chat = state.chat
     val createChatVm = remember {
         { target: ChatTarget ->
-            ChatVm(scope, target, koin.get<ChannelApi>(), koin.get<DmApi>(), socket, koin.get<Json>(), session.userId)
+            ChatVm(
+                scope, target,
+                koin.get<ChannelApi>(), koin.get<DmApi>(), koin.get<UploadApi>(),
+                socket, koin.get<Json>(), session.userId,
+            )
         }
     }
 

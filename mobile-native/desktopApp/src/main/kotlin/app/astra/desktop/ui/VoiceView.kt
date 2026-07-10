@@ -32,8 +32,9 @@ import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
 import org.koin.core.qualifier.named
 
-// Sala de voz — V1 (sonda): mostra o status da conexao de signaling. Audio de
-// verdade chega nas fases V3/V4 (ver docs/plans/2026-07-10-astra-voz-nativa.md).
+// Sala de voz — V3: signaling + subscriber PC; audio remoto ja toca no device
+// padrao. Falar (V4) e transmissao 60fps (V5) a caminho
+// (plano: docs/plans/2026-07-10-astra-voz-nativa.md).
 @Composable
 fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
     val koin = GlobalContext.get()
@@ -62,9 +63,14 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
             }
             BasicText(label, style = TextStyle(color = color, fontSize = 13.sp))
             Spacer(Modifier.height(6.dp))
+            val audioLive = (status as? VoiceStatus.Connected)?.audioLive == true
             BasicText(
-                "audio (V3/V4) e transmissao 60fps (V5) chegam nas proximas fases",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                if (audioLive) "♪ canal de audio aberto — quem falar na sala, voce ouve"
+                else "abrindo canal de audio… (falar = V4, transmissao 60fps = V5)",
+                style = TextStyle(
+                    color = if (audioLive) Obsidian.accent else Obsidian.text3,
+                    fontSize = 11.sp,
+                ),
             )
             Spacer(Modifier.height(20.dp))
             BasicText(

@@ -2,7 +2,18 @@ package app.astra.desktop.voice
 
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
+import dev.onvoid.webrtc.CreateSessionDescriptionObserver
 import dev.onvoid.webrtc.PeerConnectionFactory
+import dev.onvoid.webrtc.PeerConnectionObserver
+import dev.onvoid.webrtc.RTCAnswerOptions
+import dev.onvoid.webrtc.RTCConfiguration
+import dev.onvoid.webrtc.RTCIceCandidate
+import dev.onvoid.webrtc.RTCIceServer
+import dev.onvoid.webrtc.RTCPeerConnection
+import dev.onvoid.webrtc.RTCPeerConnectionState
+import dev.onvoid.webrtc.RTCSdpType
+import dev.onvoid.webrtc.RTCSessionDescription
+import dev.onvoid.webrtc.SetSessionDescriptionObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,6 +23,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import livekit.LivekitModels
 import livekit.LivekitRtc
 import okhttp3.OkHttpClient
@@ -26,17 +43,18 @@ import okio.ByteString.Companion.toByteString
 sealed interface VoiceStatus {
     data object Connecting : VoiceStatus
 
-    // Join aceito e ping/pong mantendo a sessao viva. Audio chega na V3/V4;
-    // transmissao de tela (60fps minimo, requisito do dono) na V5.
-    data class Connected(val others: List<String>) : VoiceStatus
+    // Join aceito e ping/pong mantendo a sessao viva. audioLive = subscriber PC
+    // conectado (DTLS/RTP fluindo — audio remoto toca no device padrao).
+    data class Connected(val others: List<String>, val audioLive: Boolean = false) : VoiceStatus
     data class Failed(val reason: String) : VoiceStatus
     data object Closed : VoiceStatus
 }
 
-// V2 — SIGNALING REAL: fala o protocolo do LiveKit (SignalRequest/SignalResponse
-// em protobuf sobre WS). Parseia o JoinResponse, mantem ping/pong no intervalo
-// que o servidor pedir (a V1 caia por timeout) e acompanha quem entra/sai da
-// sala via ParticipantUpdate.
+// V3 — OUVIR: alem do signaling da V2 (join + ping/pong + participantes), agora
+// negocia o subscriber PeerConnection. LiveKit e subscriber-primary: o SERVIDOR
+// manda o offer; a gente responde answer e troca ICE via trickle. Track de audio
+// remota toca sozinha no device de saida padrao (comportamento do WebRTC nativo)
+// — ouvir nao precisa de wiring extra. Falar = V4; transmissao 60fps = V5.
 class VoiceEngine(
     private val scope: CoroutineScope,
     private val voiceApi: VoiceApi,
@@ -53,6 +71,14 @@ class VoiceEngine(
 
     // identity -> nome exibido dos outros participantes (ordem de chegada).
     private val others = linkedMapOf<String, String>()
+
+    // Subscriber PC (server -> a gente). Callbacks nativos chegam em threads do
+    // WebRTC e o signaling na thread do WS — dai o lock nos candidatos pendentes
+    // (trickle pode chegar antes do setRemoteDescription concluir).
+    private var sub: RTCPeerConnection? = null
+    private val pendingCandidates = mutableListOf<RTCIceCandidate>()
+    private var subRemoteSet = false
+    @Volatile private var audioLive = false
 
     fun connect(roomKind: String, roomId: String) {
         scope.launch {
@@ -109,9 +135,12 @@ class VoiceEngine(
                 myIdentity = res.join.participant.identity
                 others.clear()
                 res.join.otherParticipantsList.forEach { others[it.identity] = it.label() }
+                createSubscriber(res.join.iceServersList)
                 startPing(res.join.pingInterval)
                 publishConnected()
             }
+            LivekitRtc.SignalResponse.MessageCase.OFFER -> onServerOffer(res.offer.sdp)
+            LivekitRtc.SignalResponse.MessageCase.TRICKLE -> onTrickle(res.trickle)
             LivekitRtc.SignalResponse.MessageCase.UPDATE -> {
                 res.update.participantsList.forEach { p ->
                     if (p.identity == myIdentity) return@forEach
@@ -127,8 +156,101 @@ class VoiceEngine(
                 _status.value = VoiceStatus.Closed
                 ws?.close(1000, "leave")
             }
-            // offer/answer/trickle/track_published etc entram na V3/V4.
+            // answer/track_published etc entram na V4 (publisher).
             else -> Unit
+        }
+    }
+
+    // ---- V3: subscriber PC (ouvir) -------------------------------------------
+
+    private fun createSubscriber(iceServers: List<LivekitRtc.ICEServer>) {
+        val config = RTCConfiguration().apply {
+            this.iceServers = iceServers.map { s ->
+                RTCIceServer().apply {
+                    urls = s.urlsList
+                    username = s.username
+                    password = s.credential
+                }
+            }
+        }
+        sub = factory?.createPeerConnection(config, object : PeerConnectionObserver {
+            override fun onIceCandidate(candidate: RTCIceCandidate) {
+                // Formato do LiveKit: candidateInit em JSON (igual ao client-sdk-js).
+                val init = buildJsonObject {
+                    put("candidate", candidate.sdp)
+                    put("sdpMid", candidate.sdpMid)
+                    put("sdpMLineIndex", candidate.sdpMLineIndex)
+                }
+                val req = LivekitRtc.SignalRequest.newBuilder()
+                    .setTrickle(
+                        LivekitRtc.TrickleRequest.newBuilder()
+                            .setCandidateInit(init.toString())
+                            .setTarget(LivekitRtc.SignalTarget.SUBSCRIBER),
+                    )
+                    .build()
+                ws?.send(req.toByteArray().toByteString())
+            }
+
+            override fun onConnectionChange(state: RTCPeerConnectionState) {
+                audioLive = state == RTCPeerConnectionState.CONNECTED
+                if (joined) publishConnected()
+            }
+        })
+    }
+
+    // Server manda o offer (subscriber-primary); renegociacoes (alguem publicou
+    // track nova) chegam pelo mesmo caminho — a cadeia inteira se repete.
+    private fun onServerOffer(sdp: String) {
+        val pc = sub ?: return
+        pc.setRemoteDescription(
+            RTCSessionDescription(RTCSdpType.OFFER, sdp),
+            object : SetSessionDescriptionObserver {
+                override fun onSuccess() {
+                    synchronized(pendingCandidates) {
+                        subRemoteSet = true
+                        pendingCandidates.forEach { pc.addIceCandidate(it) }
+                        pendingCandidates.clear()
+                    }
+                    pc.createAnswer(
+                        RTCAnswerOptions(),
+                        object : CreateSessionDescriptionObserver {
+                            override fun onSuccess(desc: RTCSessionDescription) {
+                                pc.setLocalDescription(
+                                    desc,
+                                    object : SetSessionDescriptionObserver {
+                                        override fun onSuccess() = sendAnswer(desc.sdp)
+                                        override fun onFailure(error: String) = Unit
+                                    },
+                                )
+                            }
+                            override fun onFailure(error: String) = Unit
+                        },
+                    )
+                }
+                override fun onFailure(error: String) = Unit
+            },
+        )
+    }
+
+    private fun sendAnswer(sdp: String) {
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setAnswer(LivekitRtc.SessionDescription.newBuilder().setType("answer").setSdp(sdp))
+            .build()
+        ws?.send(req.toByteArray().toByteString())
+    }
+
+    private fun onTrickle(trickle: LivekitRtc.TrickleRequest) {
+        // Publisher PC so existe na V4; por ora todo candidato util e do subscriber.
+        if (trickle.target != LivekitRtc.SignalTarget.SUBSCRIBER) return
+        val init = runCatching { Json.parseToJsonElement(trickle.candidateInit).jsonObject }
+            .getOrNull() ?: return
+        val candidate = RTCIceCandidate(
+            init["sdpMid"]?.jsonPrimitive?.content,
+            init["sdpMLineIndex"]?.jsonPrimitive?.int ?: 0,
+            init["candidate"]?.jsonPrimitive?.content ?: return,
+        )
+        synchronized(pendingCandidates) {
+            if (subRemoteSet) sub?.addIceCandidate(candidate) else pendingCandidates.add(candidate)
         }
     }
 
@@ -148,7 +270,7 @@ class VoiceEngine(
     }
 
     private fun publishConnected() {
-        _status.value = VoiceStatus.Connected(others.values.toList())
+        _status.value = VoiceStatus.Connected(others.values.toList(), audioLive)
     }
 
     private fun LivekitModels.ParticipantInfo.label(): String = name.ifBlank { identity }
@@ -164,6 +286,8 @@ class VoiceEngine(
         }
         ws?.close(1000, "leave")
         ws = null
+        runCatching { sub?.close() }
+        sub = null
         runCatching { factory?.dispose() }
         factory = null
     }

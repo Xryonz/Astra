@@ -71,18 +71,25 @@ import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
+import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 
 // Shell desktop (fatia 2): rail 72 | sidebar 260 | palco | membros 240.
 // Compacto (decisao do dono); chat de verdade e a proxima fatia.
 @Composable
-fun ShellScreen(session: Session) {
+fun ShellScreen(
+    session: Session,
+    windowHidden: () -> Boolean,
+    notify: (String, String) -> Unit,
+) {
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
     val socket = remember { koin.get<DesktopSocket>() }
@@ -95,6 +102,31 @@ fun ShellScreen(session: Session) {
     val state by vm.state.collectAsState()
 
     LaunchedEffect(Unit) { socket.connect() }
+
+    // Toast na bandeja quando chega mensagem com a janela fechada/minimizada.
+    // DM tem autor+conteudo (salas todas joinadas); canal so tem o id do
+    // channel_activity -> notificacao generica com o nome da orbita.
+    val json = remember { koin.get<Json>() }
+    LaunchedEffect(Unit) {
+        launch {
+            socket.newDm.collect { raw ->
+                if (!windowHidden()) return@collect
+                val msg = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull() ?: return@collect
+                if (msg.senderId == session.userId) return@collect
+                if (vm.state.value.dms.any { it.id == msg.conversationId && it.muted }) return@collect
+                val name = msg.author?.displayName ?: msg.author?.username ?: "alguem"
+                notify(name, msg.content.ifBlank { "anexo" }.take(120))
+            }
+        }
+        launch {
+            socket.channelActivity.collect { raw ->
+                if (!windowHidden()) return@collect
+                val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
+                val ch = vm.state.value.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
+                notify("#${ch.name}", "nova mensagem")
+            }
+        }
+    }
 
     // ChatVm nasce DENTRO da pagina do AnimatedContent do palco: a conversa
     // antiga continua renderizando durante o fade e o dispose so roda quando a

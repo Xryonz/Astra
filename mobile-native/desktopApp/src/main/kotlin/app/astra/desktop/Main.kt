@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
@@ -47,9 +48,10 @@ fun main() {
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
         // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
         val appIcon = painterResource("astra-icon.png")
+        val trayState = rememberTrayState()
 
         Tray(
-            state = rememberTrayState(),
+            state = trayState,
             icon = appIcon,
             tooltip = "Astra",
             onAction = { windowVisible = true }, // duplo clique no icone reabre
@@ -109,7 +111,14 @@ fun main() {
                         if (s == null) {
                             LoginScreen(repo = authRepo, onLoggedIn = { session = it })
                         } else {
-                            ShellScreen(s)
+                            ShellScreen(
+                                session = s,
+                                // Toast da bandeja so quando o app nao esta na frente.
+                                windowHidden = { !windowVisible || state.isMinimized },
+                                notify = { title, body ->
+                                    trayState.sendNotification(Notification(title, body, Notification.Type.None))
+                                },
+                            )
                         }
                     }
                 }

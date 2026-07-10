@@ -10,6 +10,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -104,7 +106,15 @@ fun ShellScreen(session: Session) {
         }
     }
 
-    Row(Modifier.fillMaxSize().background(Obsidian.base)) {
+    // Divisorias com respiro: os paineis flutuam sobre o void, separados por
+    // gaps e com sombra propria (pedido do dono).
+    Row(
+        Modifier
+            .fillMaxSize()
+            .background(Obsidian.void)
+            .padding(top = 6.dp, end = 8.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -112,7 +122,7 @@ fun ShellScreen(session: Session) {
         )
         Sidebar(
             selection = state.selection,
-            server = state.selectedServer,
+            servers = state.servers,
             dms = state.dms,
             activeChatId = chat?.id,
             unread = state.unread,
@@ -222,7 +232,7 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
 @Composable
 private fun Sidebar(
     selection: Selection,
-    server: ServerDto?,
+    servers: List<ServerDto>,
     dms: List<ConversationDto>,
     activeChatId: String?,
     unread: Set<String>,
@@ -231,24 +241,46 @@ private fun Sidebar(
     meAvatar: String?,
     onOpenChat: (ChatTarget) -> Unit,
 ) {
-    Column(Modifier.width(260.dp).fillMaxHeight().background(Obsidian.raised)) {
-        // Header
-        Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
-            BasicText(
-                text = if (selection is Selection.Dms) "Sussurros" else server?.name ?: "",
-                style = TextStyle(
-                    color = Obsidian.text1, fontSize = 16.sp,
-                    fontFamily = FontFamily.Serif,
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        HairRule()
+    Column(
+        Modifier
+            .width(260.dp)
+            .fillMaxHeight()
+            .shadow(12.dp, RoundedCornerShape(10.dp))
+            .background(Obsidian.raised),
+    ) {
+        // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
+        // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
+        // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
+        // inteira de servers entra aqui, nao so o selecionado).
+        AnimatedContent(
+            targetState = selection,
+            transitionSpec = {
+                (fadeIn(tween(180)) + slideInHorizontally(tween(180)) { -it / 12 })
+                    .togetherWith(fadeOut(tween(120)))
+            },
+            modifier = Modifier.weight(1f),
+        ) { sel ->
+            val srv = (sel as? Selection.Server)?.let { s -> servers.find { it.id == s.id } }
+            Column(Modifier.fillMaxSize()) {
+                // Header
+                Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    BasicText(
+                        text = if (sel is Selection.Dms) "Sussurros" else srv?.name ?: "",
+                        style = TextStyle(
+                            color = Obsidian.text1, fontSize = 16.sp,
+                            fontFamily = FontFamily.Serif,
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                HairRule()
 
-        Box(Modifier.weight(1f)) {
-            if (selection is Selection.Dms) DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
-            else OrbitList(server, activeChatId, unread, onOpenChat)
+                Box(Modifier.weight(1f)) {
+                    if (sel is Selection.Dms) DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
+                    else OrbitList(srv, activeChatId, unread, onOpenChat)
+                }
+            }
         }
 
         // Painel do usuario (canto inferior esquerdo, estilo Discord)
@@ -523,7 +555,12 @@ private fun Stage(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxHeight().background(Obsidian.base)) {
+    Column(
+        modifier
+            .fillMaxHeight()
+            .shadow(12.dp, RoundedCornerShape(10.dp))
+            .background(Obsidian.base),
+    ) {
         // Top bar do palco
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -613,7 +650,13 @@ private fun Stage(
 
 @Composable
 private fun MembersPanel(members: List<ServerMemberDto>) {
-    Column(Modifier.width(240.dp).fillMaxHeight().background(Obsidian.raised)) {
+    Column(
+        Modifier
+            .width(240.dp)
+            .fillMaxHeight()
+            .shadow(12.dp, RoundedCornerShape(10.dp))
+            .background(Obsidian.raised),
+    ) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             BasicText(
                 text = "membros — ${members.size}",

@@ -170,17 +170,21 @@ fun ShellScreen(
             selection = state.selection,
             servers = state.servers,
             dms = state.dms,
-            activeChatId = chat?.id,
+            // Ids sao unicos: o "ativo" da sidebar cobre chat de texto OU sala de voz.
+            activeChatId = chat?.id ?: state.voiceChannel?.id,
             unread = state.unread,
             dmTyping = state.dmTyping,
             meName = state.me?.displayName ?: state.me?.username ?: session.displayName,
             meAvatar = state.me?.avatarUrl,
             hazeState = hazeState,
             onOpenChat = vm::openChat,
+            onOpenVoice = vm::openVoice,
         )
         Stage(
             state.selectedServer,
             chat = chat,
+            voiceChannel = state.voiceChannel,
+            onLeaveVoice = vm::leaveVoice,
             createChatVm = createChatVm,
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
@@ -298,6 +302,7 @@ private fun Sidebar(
     meAvatar: String?,
     hazeState: HazeState,
     onOpenChat: (ChatTarget) -> Unit,
+    onOpenVoice: (ChannelDto) -> Unit,
 ) {
     Column(Modifier.width(260.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
@@ -330,7 +335,7 @@ private fun Sidebar(
 
                 Box(Modifier.weight(1f)) {
                     if (sel is Selection.Dms) DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
-                    else OrbitList(srv, activeChatId, unread, onOpenChat)
+                    else OrbitList(srv, activeChatId, unread, onOpenChat, onOpenVoice)
                 }
             }
         }
@@ -360,7 +365,13 @@ private fun Sidebar(
 }
 
 @Composable
-private fun OrbitList(server: ServerDto?, activeChatId: String?, unread: Set<String>, onOpenChat: (ChatTarget) -> Unit) {
+private fun OrbitList(
+    server: ServerDto?,
+    activeChatId: String?,
+    unread: Set<String>,
+    onOpenChat: (ChatTarget) -> Unit,
+    onOpenVoice: (ChannelDto) -> Unit,
+) {
     if (server == null) return
     // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
     var collapsedCats by remember(server.id) { mutableStateOf(setOf<String>()) }
@@ -371,7 +382,7 @@ private fun OrbitList(server: ServerDto?, activeChatId: String?, unread: Set<Str
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         items(loose, key = { it.id }) { ch ->
-            OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat)
+            OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
         }
         cats.forEach { cat ->
             val channels = byCat[cat.id].orEmpty().sortedBy { it.position }
@@ -390,7 +401,7 @@ private fun OrbitList(server: ServerDto?, activeChatId: String?, unread: Set<Str
                 if (cat.id in collapsedCats) channels.filter { it.id == activeChatId || it.id in unread }
                 else channels
             items(visible, key = { it.id }) { ch ->
-                OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat)
+                OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
             }
         }
     }
@@ -427,7 +438,13 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
 }
 
 @Composable
-private fun OrbitItem(ch: ChannelDto, active: Boolean, unread: Boolean, onOpenChat: (ChatTarget) -> Unit) {
+private fun OrbitItem(
+    ch: ChannelDto,
+    active: Boolean,
+    unread: Boolean,
+    onOpenChat: (ChatTarget) -> Unit,
+    onOpenVoice: (ChannelDto) -> Unit,
+) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val isUnread = !active && unread
@@ -443,8 +460,11 @@ private fun OrbitItem(ch: ChannelDto, active: Boolean, unread: Boolean, onOpenCh
                 .clip(RoundedCornerShape(7.dp))
                 .background(itemBg)
                 .hoverable(interaction)
-                // Orbita de voz nao abre chat (voz e fatia futura).
-                .clickable(enabled = ch.type != "VOICE") { onOpenChat(ChatTarget.Channel(ch.id, ch.name)) }
+                // Orbita de voz abre a sala (sonda V1); texto abre o chat.
+                .clickable {
+                    if (ch.type == "VOICE") onOpenVoice(ch)
+                    else onOpenChat(ChatTarget.Channel(ch.id, ch.name))
+                }
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -599,6 +619,8 @@ private fun DmList(
 private fun Stage(
     server: ServerDto?,
     chat: ChatTarget?,
+    voiceChannel: ChannelDto?,
+    onLeaveVoice: () -> Unit,
     createChatVm: (ChatTarget) -> ChatVm,
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
@@ -616,12 +638,16 @@ private fun Stage(
         ) {
             BasicText(
                 text = when {
+                    voiceChannel != null -> "◉ ${voiceChannel.name}"
                     chat is ChatTarget.Channel -> "# ${chat.title}"
                     chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
                     server != null -> "constelacao · ${server.name}"
                     else -> "sussurros"
                 },
-                style = TextStyle(color = if (chat != null) Obsidian.text1 else Obsidian.text3, fontSize = 13.sp),
+                style = TextStyle(
+                    color = if (chat != null || voiceChannel != null) Obsidian.text1 else Obsidian.text3,
+                    fontSize = 13.sp,
+                ),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
@@ -646,6 +672,12 @@ private fun Stage(
             }
         }
         HairRule()
+
+        // Sala de voz ocupa o palco (V1); senao, chat/placeholder com fade.
+        if (voiceChannel != null) {
+            VoiceView(voiceChannel, onLeaveVoice)
+            return@Column
+        }
 
         // Fade ao abrir/trocar conversa: a pagina antiga (com seu ChatVm) segue
         // renderizando ate o fade acabar; o dispose roda no fim.

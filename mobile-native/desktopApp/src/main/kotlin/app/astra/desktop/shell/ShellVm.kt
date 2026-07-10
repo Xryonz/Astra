@@ -6,6 +6,7 @@ import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
+import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
@@ -48,6 +49,8 @@ data class ShellUiState(
     val members: List<ServerMemberDto> = emptyList(),
     val membersOpen: Boolean = true,
     val chat: ChatTarget? = null,
+    // Sala de voz aberta no palco (sonda V1; persistir em navegacao = V6).
+    val voiceChannel: ChannelDto? = null,
     // Ids (canal ou conversa) com mensagem que voce ainda nao viu.
     val unread: Set<String> = emptySet(),
     // Conversas DM com alguem digitando agora (sidebar mostra "digitando…").
@@ -141,7 +144,13 @@ class ShellVm(
     }
 
     // Abrir a conversa limpa a nao-lida local (o POST /read fica no ChatVm).
-    fun openChat(target: ChatTarget) = _state.update { it.copy(chat = target, unread = it.unread - target.id) }
+    // V1 da voz: abrir texto SAI da sala (chamada persistente/mini-dock = V6).
+    fun openChat(target: ChatTarget) =
+        _state.update { it.copy(chat = target, voiceChannel = null, unread = it.unread - target.id) }
+
+    fun openVoice(channel: ChannelDto) = _state.update { it.copy(voiceChannel = channel, chat = null) }
+
+    fun leaveVoice() = _state.update { it.copy(voiceChannel = null) }
 
     fun toggleMembers() = _state.update { it.copy(membersOpen = !it.membersOpen) }
 

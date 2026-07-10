@@ -54,6 +54,9 @@ dependencies {
     implementation(libs.jna.platform)
     // Vidro/blur real (backdrop) — haze e CMP, mesma lib do Android.
     implementation(libs.haze)
+    // Voz nativa (fase V1+): WebRTC pra JVM + natives do Windows por classifier.
+    implementation(libs.webrtc.java)
+    runtimeOnly("dev.onvoid.webrtc:webrtc-java:${libs.versions.webrtcJava.get()}:windows-x86_64")
 }
 
 compose.desktop {

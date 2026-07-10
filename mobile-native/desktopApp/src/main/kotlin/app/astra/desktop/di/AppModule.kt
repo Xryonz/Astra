@@ -12,6 +12,7 @@ import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.VoiceApi
 import app.astra.shared.AstraShared
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
@@ -78,6 +79,7 @@ val appModule = module {
     single<DmApi> { get<Retrofit>(named("authed")).create(DmApi::class.java) }
     single<ChannelApi> { get<Retrofit>(named("authed")).create(ChannelApi::class.java) }
     single<UploadApi> { get<Retrofit>(named("authed")).create(UploadApi::class.java) }
+    single<VoiceApi> { get<Retrofit>(named("authed")).create(VoiceApi::class.java) }
 
     single { DesktopSocket(get()) }
     single { AuthRepository(get(), get(), get()) }

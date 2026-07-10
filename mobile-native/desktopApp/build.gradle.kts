@@ -57,6 +57,15 @@ dependencies {
     // Voz nativa (fase V1+): WebRTC pra JVM + natives do Windows por classifier.
     implementation(libs.webrtc.java)
     runtimeOnly("dev.onvoid.webrtc:webrtc-java:${libs.versions.webrtcJava.get()}:windows-x86_64")
+    // Signaling do LiveKit: runtime do protobuf. As classes Java ficam
+    // COMMITADAS em src/main/java/livekit (geradas 1x na mao) porque o protoc,
+    // como o jpackage, nao engole o path com acento do repo. Pra regenerar
+    // (quando os .proto em src/main/proto mudarem): copiar os protos pra um
+    // dir ASCII (ex: C:/astra-dist/proto-tmp, com google/protobuf/timestamp
+    // e descriptor extraidos do jar do protobuf-java) e rodar:
+    //   protoc --proto_path=C:/astra-dist/proto-tmp --java_out=<saida> \
+    //     livekit_rtc.proto livekit_models.proto livekit_metrics.proto logger/options.proto
+    implementation(libs.protobuf.java)
 }
 
 compose.desktop {

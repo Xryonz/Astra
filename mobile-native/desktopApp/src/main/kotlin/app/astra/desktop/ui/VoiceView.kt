@@ -54,12 +54,18 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             val (label, color) = when (val s = status) {
                 VoiceStatus.Connecting -> "conectando ao sinal de voz…" to Obsidian.text3
-                VoiceStatus.SignalOk ->
-                    "sinal de voz OK — o audio chega nas proximas fases" to Obsidian.success
+                is VoiceStatus.Connected ->
+                    (if (s.others.isEmpty()) "conectado — so voce na sala"
+                     else "na sala: ${s.others.joinToString(", ")}") to Obsidian.success
                 is VoiceStatus.Failed -> s.reason to Obsidian.danger
                 VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
             }
             BasicText(label, style = TextStyle(color = color, fontSize = 13.sp))
+            Spacer(Modifier.height(6.dp))
+            BasicText(
+                "audio (V3/V4) e transmissao 60fps (V5) chegam nas proximas fases",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
             Spacer(Modifier.height(20.dp))
             BasicText(
                 text = "sair da sala",

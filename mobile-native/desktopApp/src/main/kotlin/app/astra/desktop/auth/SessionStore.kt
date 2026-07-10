@@ -5,6 +5,8 @@ import com.sun.jna.platform.win32.Crypt32Util
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.Properties
 
 data class Session(
@@ -16,9 +18,12 @@ data class Session(
 
 // Sessao persistida em %APPDATA%/Astra (pasta por-usuario do Windows; ~/.astra
 // no resto). Tokens cifrados em repouso com DPAPI (CryptProtectData amarra o
-// segredo a conta do Windows — mesmo esquema de senha do Chrome/Edge); fora do
-// Windows cai no arquivo plano. session.properties legado (texto plano) migra
-// pro cifrado no primeiro load e o arquivo antigo morre.
+// segredo a conta do Windows); fora do Windows cai no arquivo plano.
+//
+// Concorrencia: o AuthInterceptor chama load() em TODA request e o
+// authenticator chama save() no refresh — com cifra, leitura no meio de uma
+// escrita corrompe o decrypt. Por isso: cache em memoria (disco+DPAPI so uma
+// vez), lock nas mutacoes e escrita atomica (tmp + move).
 class SessionStore {
     private val dir: File = run {
         val appData = System.getenv("APPDATA")
@@ -27,8 +32,62 @@ class SessionStore {
     private val file = File(dir, "session.bin")
     private val legacyFile = File(dir, "session.properties")
 
+    private val lock = Any()
+
+    @Volatile
+    private var cache: Session? = null
+
+    @Volatile
+    private var loaded = false
+
     fun load(): Session? {
-        migrateLegacy()
+        if (loaded) return cache
+        synchronized(lock) {
+            if (loaded) return cache
+            migrateLegacy()
+            cache = readDisk()
+            loaded = true
+            return cache
+        }
+    }
+
+    fun save(s: Session) {
+        synchronized(lock) {
+            cache = s
+            loaded = true
+            // Disco e best-effort: se a cifra/escrita falhar, a sessao da
+            // execucao atual segue viva no cache (re-login so no proximo boot).
+            runCatching {
+                dir.mkdirs()
+                val p = Properties()
+                p.setProperty("accessToken", s.accessToken)
+                p.setProperty("refreshToken", s.refreshToken)
+                p.setProperty("userId", s.userId)
+                p.setProperty("displayName", s.displayName)
+                val out = ByteArrayOutputStream()
+                p.store(out, "Astra session")
+                val plain = out.toByteArray()
+                val cipher = if (Platform.isWindows()) Crypt32Util.cryptProtectData(plain) else plain
+                val tmp = File(dir, "session.bin.tmp")
+                tmp.writeBytes(cipher)
+                Files.move(
+                    tmp.toPath(), file.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE,
+                )
+            }
+        }
+    }
+
+    fun clear() {
+        synchronized(lock) {
+            cache = null
+            loaded = true
+            file.delete()
+            legacyFile.delete()
+        }
+    }
+
+    private fun readDisk(): Session? {
         if (!file.exists()) return null
         return runCatching {
             val raw = file.readBytes()
@@ -43,41 +102,25 @@ class SessionStore {
         }.getOrNull()
     }
 
-    fun save(s: Session) {
-        dir.mkdirs()
-        val p = Properties()
-        p.setProperty("accessToken", s.accessToken)
-        p.setProperty("refreshToken", s.refreshToken)
-        p.setProperty("userId", s.userId)
-        p.setProperty("displayName", s.displayName)
-        val out = ByteArrayOutputStream()
-        p.store(out, "Astra session")
-        val plain = out.toByteArray()
-        file.writeBytes(if (Platform.isWindows()) Crypt32Util.cryptProtectData(plain) else plain)
-    }
-
-    fun clear() {
-        file.delete()
-        legacyFile.delete()
-    }
-
-    // Sessao antiga em texto plano vira cifrada (sem re-login) e o plano some.
+    // Sessao antiga em texto plano vira cifrada (sem re-login). O arquivo plano
+    // SO morre depois do cifrado confirmado no disco — senao segura a sessao.
     private fun migrateLegacy() {
         if (!legacyFile.exists()) return
-        if (!file.exists()) {
-            runCatching {
-                val p = Properties().apply { legacyFile.inputStream().use { load(it) } }
-                save(
-                    Session(
-                        accessToken = p.getProperty("accessToken") ?: return@runCatching,
-                        refreshToken = p.getProperty("refreshToken") ?: return@runCatching,
-                        userId = p.getProperty("userId") ?: return@runCatching,
-                        displayName = p.getProperty("displayName") ?: "",
-                    ),
-                )
-            }
+        if (file.exists()) {
+            legacyFile.delete()
+            return
         }
-        legacyFile.delete()
+        val s = runCatching {
+            val p = Properties().apply { legacyFile.inputStream().use { load(it) } }
+            Session(
+                accessToken = p.getProperty("accessToken") ?: return,
+                refreshToken = p.getProperty("refreshToken") ?: return,
+                userId = p.getProperty("userId") ?: return,
+                displayName = p.getProperty("displayName") ?: "",
+            )
+        }.getOrNull() ?: return
+        save(s)
+        if (file.exists()) legacyFile.delete()
     }
 
     // Prefs de UI (ex: ultima constelacao/orbita aberta) — arquivo separado da

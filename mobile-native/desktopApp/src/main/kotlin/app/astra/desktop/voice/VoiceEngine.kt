@@ -12,13 +12,21 @@ import dev.onvoid.webrtc.RTCIceServer
 import dev.onvoid.webrtc.RTCOfferOptions
 import dev.onvoid.webrtc.RTCPeerConnection
 import dev.onvoid.webrtc.RTCPeerConnectionState
+import dev.onvoid.webrtc.RTCRtpEncodingParameters
+import dev.onvoid.webrtc.RTCRtpSender
+import dev.onvoid.webrtc.RTCRtpTransceiver
 import dev.onvoid.webrtc.RTCRtpTransceiverDirection
 import dev.onvoid.webrtc.RTCRtpTransceiverInit
 import dev.onvoid.webrtc.RTCSdpType
 import dev.onvoid.webrtc.RTCSessionDescription
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
+import dev.onvoid.webrtc.media.MediaType
 import dev.onvoid.webrtc.media.audio.AudioOptions
 import dev.onvoid.webrtc.media.audio.AudioTrack
+import dev.onvoid.webrtc.media.video.VideoDesktopSource
+import dev.onvoid.webrtc.media.video.VideoTrack
+import dev.onvoid.webrtc.media.video.desktop.DesktopSource
+import dev.onvoid.webrtc.media.video.desktop.ScreenCapturer
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,11 +64,12 @@ sealed interface VoiceStatus {
     data object Closed : VoiceStatus
 }
 
-// V3+V4 — OUVIR e FALAR. Subscriber PC (LiveKit e subscriber-primary: o SERVIDOR
-// manda o offer; a gente responde answer) + publisher PC (a gente manda o offer
-// DEPOIS do AddTrackRequest ser aceito — ordem do protocolo). ICE via trickle nos
-// dois alvos. Audio remoto toca sozinho no device padrao; mic sobe com AEC/NS/AGC
-// (AudioOptions). Transmissao de tela 60fps = V5.
+// V3+V4+V5 — OUVIR, FALAR e TRANSMITIR. Subscriber PC (LiveKit e subscriber-
+// primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
+// (a gente manda o offer DEPOIS do AddTrackRequest ser aceito — ordem do
+// protocolo). ICE via trickle nos dois alvos. Audio remoto toca sozinho no
+// device padrao; mic sobe com AEC/NS/AGC (AudioOptions); tela sobe a 60fps
+// (VideoDesktopSource + encodings maxFramerate/maxBitrate + H264 preferido).
 class VoiceEngine(
     private val scope: CoroutineScope,
     private val voiceApi: VoiceApi,
@@ -97,6 +106,21 @@ class VoiceEngine(
     // Mic comeca ligado ao entrar (padrao Discord); toggleMic() alterna.
     private val _micOn = MutableStateFlow(true)
     val micOn = _micOn.asStateFlow()
+
+    // Transmissao de tela (V5).
+    private var screenSource: VideoDesktopSource? = null
+    private var screenTrack: VideoTrack? = null
+    private var screenCid: String? = null
+    private var screenSender: RTCRtpSender? = null
+    private val _screenOn = MutableStateFlow(false)
+    val screenOn = _screenOn.asStateFlow()
+
+    private companion object {
+        // Requisito do dono: 60fps NO MINIMO na transmissao.
+        const val SCREEN_FPS = 60
+        // 1080p60 com folga (referencia: web tunado 60fps H264).
+        const val SCREEN_MAX_BITRATE = 8_000_000
+    }
 
     fun connect(roomKind: String, roomId: String) {
         scope.launch {
@@ -322,12 +346,20 @@ class VoiceEngine(
     }
 
     private fun onTrackPublished(res: LivekitRtc.TrackPublishedResponse) {
-        if (res.cid != micCid) return
-        micSid = res.track.sid
+        when (res.cid) {
+            micCid -> {
+                micSid = res.track.sid
+                attachMic(res.cid)
+            }
+            screenCid -> attachScreen(res.cid)
+        }
+    }
+
+    private fun attachMic(cid: String) {
         val track = micTrack ?: return
         val init = RTCRtpTransceiverInit().apply {
             direction = RTCRtpTransceiverDirection.SEND_ONLY
-            streamIds = listOf(res.cid)
+            streamIds = listOf(cid)
         }
         runCatching { pub?.addTransceiver(track, init) }.onFailure { return }
         negotiatePublisher()
@@ -378,6 +410,101 @@ class VoiceEngine(
         )
     }
 
+    // ---- V5: transmissao de tela — 60fps NO MINIMO (requisito do dono) --------
+
+    // Monitores disponiveis (id + titulo). Enumeracao pontual; capturer descartado.
+    fun screens(): List<DesktopSource> {
+        val cap = runCatching { ScreenCapturer() }.getOrNull() ?: return emptyList()
+        return try {
+            cap.desktopSources
+        } finally {
+            runCatching { cap.dispose() }
+        }
+    }
+
+    fun startScreenShare(source: DesktopSource? = null) {
+        if (_screenOn.value || factory == null) return
+        val target = source ?: screens().firstOrNull() ?: return
+        // 60fps na CAPTURA; resolucao capada em 1080p — o webrtc-java nao expoe
+        // degradationPreference, entao proteger o framerate = nao dar ao encoder
+        // mais pixels do que ele segura a 60.
+        val src = runCatching {
+            VideoDesktopSource().apply {
+                setSourceId(target.id, false)
+                setFrameRate(SCREEN_FPS)
+                setMaxFrameSize(1920, 1080)
+                start()
+            }
+        }.getOrNull() ?: return
+        screenSource = src
+        val cid = "screen-" + UUID.randomUUID().toString().take(8)
+        screenCid = cid
+        screenTrack = factory?.createVideoTrack(cid, src)
+        _screenOn.value = true
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setAddTrack(
+                LivekitRtc.AddTrackRequest.newBuilder()
+                    .setCid(cid)
+                    .setName("screen")
+                    .setType(LivekitModels.TrackType.VIDEO)
+                    .setSource(LivekitModels.TrackSource.SCREEN_SHARE)
+                    .setWidth(1920)
+                    .setHeight(1080)
+                    .addLayers(
+                        LivekitModels.VideoLayer.newBuilder()
+                            .setQuality(LivekitModels.VideoQuality.HIGH)
+                            .setWidth(1920)
+                            .setHeight(1080)
+                            .setBitrate(SCREEN_MAX_BITRATE),
+                    ),
+            )
+            .build()
+        ws?.send(req.toByteArray().toByteString())
+    }
+
+    private fun attachScreen(cid: String) {
+        val track = screenTrack ?: return
+        val init = RTCRtpTransceiverInit().apply {
+            direction = RTCRtpTransceiverDirection.SEND_ONLY
+            streamIds = listOf(cid)
+            sendEncodings = listOf(
+                RTCRtpEncodingParameters().apply {
+                    maxFramerate = SCREEN_FPS.toDouble()
+                    maxBitrate = SCREEN_MAX_BITRATE
+                },
+            )
+        }
+        val transceiver = runCatching { pub?.addTransceiver(track, init) }.getOrNull() ?: return
+        screenSender = transceiver.sender
+        preferH264(transceiver)
+        negotiatePublisher()
+    }
+
+    // H264 primeiro (paridade com o web tunado 60fps H264); rtx/red/fec continuam
+    // na lista — so reordena.
+    private fun preferH264(transceiver: RTCRtpTransceiver) {
+        runCatching {
+            val codecs = factory?.getRtpSenderCapabilities(MediaType.VIDEO)?.codecs ?: return
+            val (h264, rest) = codecs.partition { it.name.equals("H264", ignoreCase = true) }
+            if (h264.isNotEmpty()) transceiver.setCodecPreferences(h264 + rest)
+        }
+    }
+
+    fun stopScreenShare() {
+        if (!_screenOn.value) return
+        _screenOn.value = false
+        screenSender?.let { runCatching { pub?.removeTrack(it) } }
+        screenSender = null
+        runCatching { screenSource?.stop() }
+        runCatching { screenTrack?.dispose() }
+        runCatching { screenSource?.dispose() }
+        screenTrack = null
+        screenSource = null
+        screenCid = null
+        // m-line desativada na renegociacao => o server despublica a track.
+        negotiatePublisher()
+    }
+
     // Mute local (track para de mandar frames) + aviso pro server (icone de mute
     // aparece pros outros).
     fun toggleMic() {
@@ -424,6 +551,11 @@ class VoiceEngine(
         }
         ws?.close(1000, "leave")
         ws = null
+        runCatching { screenSource?.stop() }
+        runCatching { screenTrack?.dispose() }
+        runCatching { screenSource?.dispose() }
+        screenTrack = null
+        screenSource = null
         runCatching { micTrack?.dispose() }
         micTrack = null
         runCatching { pub?.close() }

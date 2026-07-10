@@ -34,6 +34,8 @@ val appModule = module {
             // Render free acorda em ate ~50s do sono; timeouts folgados no connect.
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            // Teto da chamada inteira (fila incluida): nada pendura pra sempre.
+            .callTimeout(75, TimeUnit.SECONDS)
             .build()
     }
 
@@ -49,7 +51,15 @@ val appModule = module {
     single<RefreshApi> { get<Retrofit>(named("plain")).create(RefreshApi::class.java) }
 
     single(named("authed")) {
-        get<OkHttpClient>(named("plain")).newBuilder()
+        // Cliente PROPRIO, nunca newBuilder() do plain: newBuilder compartilha o
+        // Dispatcher (5 requests/host). O boot dispara 5 chamadas autenticadas;
+        // com token vencido as 5 seguram os slots dentro do authenticator e o
+        // refresh (mesmo host) fica na fila pra sempre — deadlock do
+        // "carregando o ceu…". Dispatcher separado = refresh sempre anda.
+        OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(90, TimeUnit.SECONDS)
             .addInterceptor(AuthInterceptor(get()))
             .authenticator(DesktopTokenAuthenticator(get(), lazy { get<RefreshApi>() }))
             .build()

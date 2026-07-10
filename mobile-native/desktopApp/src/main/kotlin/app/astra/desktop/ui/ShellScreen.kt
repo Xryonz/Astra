@@ -78,6 +78,11 @@ import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
@@ -142,13 +147,16 @@ fun ShellScreen(
         }
     }
 
+    val hazeState = remember { HazeState() }
     Box(Modifier.fillMaxSize()) {
         // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
         // (graphicsLayer): so ela invalida por frame — os paineis translucidos
-        // por cima nao redesenham com o shader.
+        // por cima nao redesenham com o shader. hazeSource: sidebar/membros
+        // sao vidro de verdade (blur backdrop) por cima dela.
         Box(
             Modifier
                 .matchParentSize()
+                .hazeSource(hazeState)
                 .graphicsLayer {}
                 .auroraBackground(),
         )
@@ -167,6 +175,7 @@ fun ShellScreen(
             dmTyping = state.dmTyping,
             meName = state.me?.displayName ?: state.me?.username ?: session.displayName,
             meAvatar = state.me?.avatarUrl,
+            hazeState = hazeState,
             onOpenChat = vm::openChat,
         )
         Stage(
@@ -185,11 +194,19 @@ fun ShellScreen(
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
         ) {
-            MembersPanel(state.members)
+            MembersPanel(state.members, hazeState)
         }
         }
     }
 }
+
+// Vidro obsidiana: blur do fundo (aurora) + tint do painel por cima.
+private fun glassStyle(base: Color) = HazeStyle(
+    backgroundColor = base,
+    tint = HazeTint(base.copy(alpha = 0.78f)),
+    blurRadius = 24.dp,
+    noiseFactor = 0f,
+)
 
 // ---- Rail de constelacoes (72dp) ----
 
@@ -279,9 +296,10 @@ private fun Sidebar(
     dmTyping: Set<String>,
     meName: String,
     meAvatar: String?,
+    hazeState: HazeState,
     onOpenChat: (ChatTarget) -> Unit,
 ) {
-    Column(Modifier.width(260.dp).fillMaxHeight().background(Obsidian.raised.copy(alpha = 0.90f))) {
+    Column(Modifier.width(260.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
         // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
         // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
@@ -679,8 +697,8 @@ private fun Stage(
 // ---- Painel de membros (240dp) ----
 
 @Composable
-private fun MembersPanel(members: List<ServerMemberDto>) {
-    Column(Modifier.width(240.dp).fillMaxHeight().background(Obsidian.raised.copy(alpha = 0.90f))) {
+private fun MembersPanel(members: List<ServerMemberDto>, hazeState: HazeState) {
+    Column(Modifier.width(240.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             BasicText(
                 text = "membros — ${members.size}",

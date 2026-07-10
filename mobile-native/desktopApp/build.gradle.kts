@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.rikkaui.components)
     // DPAPI (CryptProtectData) pro SessionStore — tokens cifrados em repouso.
     implementation(libs.jna.platform)
+    // Vidro/blur real (backdrop) — haze e CMP, mesma lib do Android.
+    implementation(libs.haze)
 }
 
 compose.desktop {

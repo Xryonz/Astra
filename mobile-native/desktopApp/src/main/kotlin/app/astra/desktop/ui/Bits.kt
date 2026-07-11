@@ -22,6 +22,7 @@ import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +59,12 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
     }
 }
 
+// "Reduzir movimento" (Settings > Movimento): quando ligado, as animacoes de
+// fundo (aurora, cascata, pulsos) param. Provido no ShellScreen a partir do
+// DesktopPrefs; muda em tempo real. Modifiers @Composable (auroraBackground,
+// CascadeIn) e os pulsos leem daqui.
+val LocalReduceMotion = staticCompositionLocalOf { false }
+
 // Entrada em cascata (F6): itens de lista revelam um a um (fade + subida leve).
 // GPU-only (alpha/translation em graphicsLayer). So os primeiros CASCADE_MAX
 // indices animam — item que entra por scroll aparece pronto (LazyColumn recicla).
@@ -65,6 +72,11 @@ private const val CASCADE_MAX = 14
 
 @Composable
 fun CascadeIn(index: Int, listKey: Any?, content: @Composable () -> Unit) {
+    // Reduzir movimento: entra pronto, sem stagger.
+    if (LocalReduceMotion.current) {
+        content()
+        return
+    }
     val animate = index in 0 until CASCADE_MAX
     val enter = remember(listKey) { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(listKey) {
@@ -86,6 +98,13 @@ fun CascadeIn(index: Int, listKey: Any?, content: @Composable () -> Unit) {
 // Tres pontinhos em onda (bounce sequencial) — "digitando…" no chat e sidebar.
 @Composable
 fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
+    // Reduzir movimento: tres pontinhos parados (ainda comunica "digitando").
+    if (LocalReduceMotion.current) {
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            repeat(3) { Box(Modifier.size(dotSize).clip(CircleShape).background(color)) }
+        }
+        return
+    }
     val transition = rememberInfiniteTransition()
     Row(
         verticalAlignment = Alignment.CenterVertically,

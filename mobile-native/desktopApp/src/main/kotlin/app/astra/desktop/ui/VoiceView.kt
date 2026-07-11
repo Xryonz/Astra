@@ -255,14 +255,19 @@ private fun VoiceChip(label: String, speaking: Boolean) {
         tween(140),
     )
     // Halo que respira: alpha 0 quando calado, pulsa 0.10..0.22 enquanto fala.
-    val glow = if (speaking) {
-        val t = rememberInfiniteTransition()
-        t.animateFloat(
-            initialValue = 0.10f,
-            targetValue = 0.22f,
-            animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
-        ).value
-    } else 0f
+    // Reduzir movimento: halo fixo (ainda marca quem fala) em vez de pulsar.
+    val glow = when {
+        !speaking -> 0f
+        LocalReduceMotion.current -> 0.16f
+        else -> {
+            val t = rememberInfiniteTransition()
+            t.animateFloat(
+                initialValue = 0.10f,
+                targetValue = 0.22f,
+                animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
+            ).value
+        }
+    }
     Text(
         label,
         style = TextStyle(color = text, fontSize = 12.sp),

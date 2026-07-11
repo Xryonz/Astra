@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,7 @@ import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
@@ -104,6 +106,8 @@ fun ShellScreen(
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
     val socket = remember { koin.get<DesktopSocket>() }
+    val prefs = remember { koin.get<DesktopPrefs>() }
+    val prefState by prefs.state.collectAsState()
     val vm = remember {
         ShellVm(
             scope, koin.get<ServerApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<SessionStore>(),
@@ -111,6 +115,7 @@ fun ShellScreen(
         )
     }
     val state by vm.state.collectAsState()
+    var settingsOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { socket.connect() }
 
@@ -121,7 +126,7 @@ fun ShellScreen(
     LaunchedEffect(Unit) {
         launch {
             socket.newDm.collect { raw ->
-                if (!windowHidden()) return@collect
+                if (!windowHidden() || !prefs.state.value.notifyDms) return@collect
                 val msg = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull() ?: return@collect
                 if (msg.senderId == session.userId) return@collect
                 if (vm.state.value.dms.any { it.id == msg.conversationId && it.muted }) return@collect
@@ -131,7 +136,7 @@ fun ShellScreen(
         }
         launch {
             socket.channelActivity.collect { raw ->
-                if (!windowHidden()) return@collect
+                if (!windowHidden() || !prefs.state.value.notifyChannels) return@collect
                 val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
                 val ch = vm.state.value.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
                 notify("#${ch.name}", "nova mensagem")
@@ -153,6 +158,9 @@ fun ShellScreen(
         }
     }
 
+    // Reduzir movimento (Settings > Movimento) desce por CompositionLocal: aurora,
+    // cascata e pulsos leem daqui e param quando ligado.
+    CompositionLocalProvider(LocalReduceMotion provides prefState.reduceMotion) {
     Box(Modifier.fillMaxSize()) {
         // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
         // (graphicsLayer): so ela invalida por frame — os paineis translucidos
@@ -192,6 +200,7 @@ fun ShellScreen(
             onToggleMute = vm::toggleDmMute,
             onMarkRead = vm::markDmRead,
             onEditedProfile = vm::refreshMe,
+            onOpenSettings = { settingsOpen = true },
             onLogout = onLogout,
         )
         Stage(
@@ -216,6 +225,12 @@ fun ShellScreen(
             MembersPanel(state.members, session.userId, vm::startDm)
         }
         }
+
+        // Settings em takeover (Discord): cobre o shell inteiro por cima da aurora.
+        if (settingsOpen) {
+            SettingsScreen(me = state.me, prefs = prefs, onClose = { settingsOpen = false })
+        }
+    }
     }
 }
 
@@ -374,6 +389,7 @@ private fun Sidebar(
     onToggleMute: (ConversationDto) -> Unit,
     onMarkRead: (String) -> Unit,
     onEditedProfile: () -> Unit,
+    onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
     Column(Modifier.width(260.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
@@ -418,7 +434,13 @@ private fun Sidebar(
 
         // Rodape do usuario: cartao flutuante estilo Discord (bordas arredondadas
         // sobre a aurora). A propria borda do cartao ja separa da lista — sem HairRule.
-        UserFooter(me = me, fallbackName = meFallback, onEdited = onEditedProfile, onLogout = onLogout)
+        UserFooter(
+            me = me,
+            fallbackName = meFallback,
+            onEdited = onEditedProfile,
+            onOpenSettings = onOpenSettings,
+            onLogout = onLogout,
+        )
     }
 }
 
@@ -562,15 +584,18 @@ private fun OrbitItem(
 @Composable
 private fun UnreadPill(modifier: Modifier = Modifier) {
     // Pulso sutil (F6): o marcador "respira" devagar pra puxar o olho sem gritar.
-    val transition = rememberInfiniteTransition()
-    val glow by transition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = EaseOutSoft),
-            repeatMode = RepeatMode.Reverse,
-        ),
-    )
+    // Reduzir movimento: fica aceso e parado.
+    val glow = if (LocalReduceMotion.current) 1f else {
+        val transition = rememberInfiniteTransition()
+        transition.animateFloat(
+            initialValue = 0.55f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1400, easing = EaseOutSoft),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        ).value
+    }
     Box(
         modifier
             .width(3.dp)

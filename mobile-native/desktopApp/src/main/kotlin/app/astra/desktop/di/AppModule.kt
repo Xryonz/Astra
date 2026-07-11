@@ -5,6 +5,7 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.AuthInterceptor
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.DesktopTokenAuthenticator
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
@@ -85,4 +86,5 @@ val appModule = module {
 
     single { DesktopSocket(get()) }
     single { AuthRepository(get(), get(), get()) }
+    single { DesktopPrefs(get()) }
 }

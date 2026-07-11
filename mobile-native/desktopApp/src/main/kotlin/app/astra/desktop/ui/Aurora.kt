@@ -83,6 +83,9 @@ half4 main(float2 fragCoord) {
 // identico ao de uTime=AURORA_LOOP).
 private const val AURORA_LOOP = 62.831853f
 
+// Quadro estatico agradavel pro "reduzir movimento" (cortinas bem postas).
+private const val AURORA_STILL = 12f
+
 // Fundo chapado da paleta, caso o shader nao compile no runtime (typo de SkSL
 // nunca deve tirar o shell do ar — so tira o brilho).
 private val AURORA_FALLBACK = Color(0xFF06060E)
@@ -93,11 +96,18 @@ fun Modifier.auroraBackground(): Modifier {
         ?: return this.drawBehind { drawRect(AURORA_FALLBACK) }
     val builder = remember { RuntimeShaderBuilder(effect) }
     val windowInfo = LocalWindowInfo.current
+    val reduceMotion = LocalReduceMotion.current
     // Relogio de frames com PAUSA: janela sem foco = nenhum frame pedido (zero
     // CPU/GPU em segundo plano — guardrail do dono). O tempo acumula e ENROLA no
     // periodo do loop (AURORA_LOOP): mantem o dominio do ruido limitado (sem
     // estouro de precisao) e o giro fecha sem salto.
-    val timeSec by produceState(0f, windowInfo) {
+    // Reduzir movimento (Settings): congela num quadro fixo — aurora parada, sem
+    // pedir frame nenhum (a chave e restartar o produceState quando o pref muda).
+    val timeSec by produceState(0f, windowInfo, reduceMotion) {
+        if (reduceMotion) {
+            value = AURORA_STILL
+            return@produceState
+        }
         var acc = 0f
         while (true) {
             snapshotFlow { windowInfo.isWindowFocused }.first { it }

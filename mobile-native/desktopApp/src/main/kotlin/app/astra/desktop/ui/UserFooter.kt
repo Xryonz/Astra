@@ -97,12 +97,12 @@ fun UserFooter(
     me: ProfileUserDto?,
     fallbackName: String,
     onEdited: () -> Unit,
+    onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
     var profileOpen by remember { mutableStateOf(false) }
-    var gearHint by remember { mutableStateOf(false) }
 
     // Cartao flutuante estilo Discord: inset das bordas da sidebar, cantos
     // arredondados e borda fina — parece sobreposto ao painel, com a aurora
@@ -155,28 +155,7 @@ fun UserFooter(
             )
             Text(statusLabel(status), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         }
-        Box {
-            FooterIcon("⚙", danger = false, onClick = { gearHint = true })
-            if (gearHint) {
-                Popup(
-                    popupPositionProvider = AboveAnchor,
-                    onDismissRequest = { gearHint = false },
-                ) {
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Obsidian.overlay)
-                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                    ) {
-                        Text(
-                            "configuracoes — em breve",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                        )
-                    }
-                }
-            }
-        }
+        FooterIcon("⚙", danger = false, onClick = onOpenSettings)
         Spacer(Modifier.width(2.dp))
         FooterIcon("⏻", danger = true, onClick = onLogout)
     }

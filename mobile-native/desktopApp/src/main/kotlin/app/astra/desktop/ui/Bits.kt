@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicText
+import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -45,7 +45,7 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
                 contentScale = ContentScale.Crop,
             )
         } else {
-            BasicText(
+            Text(
                 text = name.take(1).uppercase(),
                 style = TextStyle(color = Obsidian.accent, fontSize = (sizeDp * 0.42f).sp),
             )

@@ -37,7 +37,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
+import app.astra.desktop.ui.theme.Text
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -202,7 +202,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when {
-                state.loading -> Center("abrindo a conversa…")
+                state.loading -> ChatSkeleton()
                 state.messages.isEmpty() -> Center("nada por aqui ainda — comece a conversa")
                 else -> LazyColumn(
                     state = listState,
@@ -250,12 +250,12 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                             2 -> "${names[0]} e ${names[1]} estao digitando…"
                             else -> "varias pessoas estao digitando…"
                         }
-                        BasicText(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                        Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
                     }
                 }
             }
             if (state.error != null) {
-                BasicText(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                Text(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
                 Spacer(Modifier.height(6.dp))
             }
             // Anexos pendentes (drag&drop): chips com ✕ pra tirar antes de enviar.
@@ -273,19 +273,19 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                                 .padding(horizontal = 8.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            BasicText(
+                            Text(
                                 if (pf.mime.startsWith("image/")) "🖼" else "📄",
                                 style = TextStyle(fontSize = 12.sp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            BasicText(
+                            Text(
                                 pf.file.name,
                                 style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = 180.dp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            BasicText(sizeLabel(pf.file.length()), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                            Text(sizeLabel(pf.file.length()), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                             Spacer(Modifier.width(6.dp))
                             HoverGlyph("✕") { vm.removePending(i) }
                         }
@@ -302,8 +302,8 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    BasicText("respondendo a ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-                    BasicText(
+                    Text("respondendo a ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    Text(
                         r.authorName,
                         style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
                     )
@@ -346,9 +346,9 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                BasicText("⇩", style = TextStyle(color = Obsidian.accent, fontSize = 34.sp))
+                Text("⇩", style = TextStyle(color = Obsidian.accent, fontSize = 34.sp))
                 Spacer(Modifier.height(8.dp))
-                BasicText(
+                Text(
                     "solte pra anexar em ${target.title}",
                     style = TextStyle(color = Obsidian.text1, fontSize = 14.sp),
                 )
@@ -418,7 +418,7 @@ private fun MessageRow(
                 // Calha do avatar: hora exata aparece no hover.
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
                     if (hovered) {
-                        BasicText(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                     }
                 }
                 Spacer(Modifier.width(10.dp))
@@ -433,12 +433,12 @@ private fun MessageRow(
                         ReplyRef(ref, onJumpTo)
                     }
                     Row(verticalAlignment = Alignment.Bottom) {
-                        BasicText(
+                        Text(
                             text = msg.authorName,
                             style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
                         )
                         Spacer(Modifier.width(8.dp))
-                        BasicText(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                     }
                     Spacer(Modifier.height(2.dp))
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit)
@@ -501,7 +501,7 @@ private fun ContentBlock(
         EditField(msg.content, onSaveEdit, onCancelEdit)
     } else if (msg.content.isNotBlank() || msg.edited) {
         // Mensagem so-anexo tem content vazio — sem linha em branco.
-        BasicText(
+        Text(
             text = buildAnnotatedString {
                 append(msg.content)
                 if (msg.edited) {
@@ -558,17 +558,17 @@ private fun AttachmentBlock(att: AttachmentDto) {
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText("📄", style = TextStyle(fontSize = 14.sp))
+            Text("📄", style = TextStyle(fontSize = 14.sp))
             Spacer(Modifier.width(7.dp))
             Column {
-                BasicText(
+                Text(
                     att.name ?: "arquivo",
                     style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 220.dp),
                 )
                 att.size?.let {
-                    BasicText(sizeLabel(it), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                    Text(sizeLabel(it), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                 }
             }
         }
@@ -619,7 +619,7 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
             },
     )
     Spacer(Modifier.height(2.dp))
-    BasicText("enter salva · esc cancela", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+    Text("enter salva · esc cancela", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
 }
 
 @Composable
@@ -641,9 +641,9 @@ private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Un
             .padding(horizontal = 7.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText(reaction.emoji, style = TextStyle(fontSize = 12.sp))
+        Text(reaction.emoji, style = TextStyle(fontSize = 12.sp))
         Spacer(Modifier.width(4.dp))
-        BasicText(
+        Text(
             "${reaction.count}",
             style = TextStyle(color = if (mine) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
         )
@@ -660,14 +660,14 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
             .padding(bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText("↩", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text("↩", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         Spacer(Modifier.width(5.dp))
-        BasicText(
+        Text(
             ref.authorName ?: "alguem",
             style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
         )
         Spacer(Modifier.width(6.dp))
-        BasicText(
+        Text(
             ref.content,
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             maxLines = 1,
@@ -721,7 +721,7 @@ private fun PillButton(glyph: String, onClick: () -> Unit, danger: Boolean = fal
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(glyph, style = TextStyle(fontSize = 13.sp, color = Obsidian.text2))
+        Text(glyph, style = TextStyle(fontSize = 13.sp, color = Obsidian.text2))
     }
 }
 
@@ -765,7 +765,7 @@ private fun EmojiCell(glyph: String, onClick: () -> Unit) {
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(glyph, style = TextStyle(fontSize = 15.sp, color = Obsidian.text1))
+        Text(glyph, style = TextStyle(fontSize = 15.sp, color = Obsidian.text1))
     }
 }
 
@@ -783,13 +783,13 @@ private fun HoverGlyph(glyph: String, onClick: () -> Unit) {
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(glyph, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text(glyph, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
     }
 }
 
 @Composable
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        BasicText(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+        Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
     }
 }

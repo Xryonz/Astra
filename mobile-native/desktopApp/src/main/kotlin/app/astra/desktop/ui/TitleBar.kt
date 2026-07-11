@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicText
+import app.astra.desktop.ui.theme.Text
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
+import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 
 // Barra-titulo obsidiana da janela frameless: arrasta a janela, minimiza,
@@ -47,9 +48,9 @@ fun WindowScope.AstraTitleBar(
                 .background(Obsidian.void),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText(
+            Text(
                 text = "Astra",
-                style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = FontFamily.Serif),
+                style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif),
                 modifier = Modifier.padding(start = 14.dp),
             )
             Spacer(Modifier.weight(1f))
@@ -82,7 +83,7 @@ private fun TitleBarButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(
+        Text(
             text = glyph,
             style = TextStyle(
                 color = if (hovered && hoverColor == Obsidian.danger) Obsidian.text1 else Obsidian.text2,

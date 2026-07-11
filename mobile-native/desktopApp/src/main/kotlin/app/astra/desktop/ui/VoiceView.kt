@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
+import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.RemoteVideo
 import app.astra.desktop.voice.VoiceEngine
@@ -78,9 +79,9 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        BasicText(
+        Text(
             text = "◉ ${channel.name}",
-            style = TextStyle(color = Obsidian.accent, fontSize = 20.sp, fontFamily = FontFamily.Serif),
+            style = TextStyle(color = Obsidian.accent, fontSize = 20.sp, fontFamily = DmSerif),
         )
         Spacer(Modifier.height(10.dp))
         val (label, color) = when (val s = status) {
@@ -89,10 +90,10 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }
-        BasicText(label, style = TextStyle(color = color, fontSize = 13.sp))
+        Text(label, style = TextStyle(color = color, fontSize = 13.sp))
         Spacer(Modifier.height(6.dp))
         val audioLive = (status as? VoiceStatus.Connected)?.audioLive == true
-        BasicText(
+        Text(
             when {
                 screenOn -> "📡 transmitindo tela a 60fps"
                 audioLive -> "♪ canal de audio aberto"
@@ -125,7 +126,7 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
                         Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(10.dp)),
                     )
                     Spacer(Modifier.height(6.dp))
-                    BasicText(
+                    Text(
                         "📡 transmissao de ${w.ownerLabel}",
                         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                     )
@@ -133,7 +134,7 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
                         Spacer(Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             videos.forEach { v ->
-                                BasicText(
+                                Text(
                                     v.ownerLabel,
                                     style = TextStyle(
                                         color = if (v === watching) Obsidian.accent else Obsidian.text3,
@@ -153,7 +154,7 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
 
         var screenChoices by remember { mutableStateOf<List<DesktopSource>?>(null) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BasicText(
+            Text(
                 text = if (micOn) "mutar mic" else "🔇 desmutar",
                 style = TextStyle(
                     color = if (micOn) Obsidian.text2 else Obsidian.danger,
@@ -170,7 +171,7 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
                     .padding(horizontal = 14.dp, vertical = 7.dp),
             )
             Box {
-                BasicText(
+                Text(
                     text = if (screenOn) "parar transmissao" else "transmitir tela",
                     style = TextStyle(
                         color = if (screenOn) Obsidian.danger else Obsidian.text2,
@@ -208,7 +209,7 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
                                 .padding(4.dp),
                         ) {
                             screens.forEachIndexed { i, s ->
-                                BasicText(
+                                Text(
                                     text = s.title.ifBlank { "tela ${i + 1}" },
                                     style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                                     modifier = Modifier
@@ -224,7 +225,7 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
                     }
                 }
             }
-            BasicText(
+            Text(
                 text = "sair da sala",
                 style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
                 modifier = Modifier
@@ -248,7 +249,7 @@ private fun VoiceChip(label: String, speaking: Boolean) {
         if (speaking) Obsidian.accent else Obsidian.text2,
         tween(140),
     )
-    BasicText(
+    Text(
         label,
         style = TextStyle(color = text, fontSize = 12.sp),
         modifier = Modifier

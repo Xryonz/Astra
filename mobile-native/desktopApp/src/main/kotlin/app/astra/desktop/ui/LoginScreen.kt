@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
+import app.astra.desktop.ui.theme.Text
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.Session
+import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import kotlinx.coroutines.launch
 
@@ -78,17 +79,17 @@ fun LoginScreen(
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                BasicText(
+                Text(
                     text = "Astra",
                     style = TextStyle(
                         color = Obsidian.text1,
                         fontSize = 64.sp,
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = DmSerif,
                         fontWeight = FontWeight.Light,
                     ),
                 )
                 Spacer(Modifier.height(10.dp))
-                BasicText(
+                Text(
                     text = "sua constelacao te espera",
                     style = TextStyle(color = Obsidian.text2, fontSize = 15.sp),
                 )
@@ -101,9 +102,9 @@ fun LoginScreen(
             contentAlignment = Alignment.Center,
         ) {
             Column(Modifier.width(360.dp)) {
-                BasicText(
+                Text(
                     text = "entrar",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = FontFamily.Serif),
+                    style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif),
                 )
                 Spacer(Modifier.height(18.dp))
                 EditorialField(
@@ -124,13 +125,13 @@ fun LoginScreen(
                 )
                 if (error != null) {
                     Spacer(Modifier.height(14.dp))
-                    BasicText(
+                    Text(
                         text = error!!,
                         style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
                     )
                 }
                 Spacer(Modifier.height(26.dp))
-                BasicText(
+                Text(
                     text = "ainda sem conta? crie pelo app ou pelo site",
                     style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
                 )
@@ -149,7 +150,7 @@ private fun EditorialField(
     onSubmit: (() -> Unit)? = null,
 ) {
     Column {
-        BasicText(
+        Text(
             text = label,
             style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
         )
@@ -208,7 +209,7 @@ private fun SubmitButton(text: String, enabled: Boolean, onClick: () -> Unit) {
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(
+        Text(
             text = text,
             style = TextStyle(
                 color = if (enabled) Obsidian.void else Obsidian.text3,

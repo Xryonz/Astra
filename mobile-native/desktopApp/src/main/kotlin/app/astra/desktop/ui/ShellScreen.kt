@@ -34,7 +34,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
+import app.astra.desktop.ui.theme.Text
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -65,6 +65,7 @@ import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
+import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
@@ -176,6 +177,7 @@ fun ShellScreen(
             dmTyping = state.dmTyping,
             meName = state.me?.displayName ?: state.me?.username ?: session.displayName,
             meAvatar = state.me?.avatarUrl,
+            loading = state.loading,
             hazeState = hazeState,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
@@ -230,7 +232,7 @@ private fun Rail(
             active = selection is Selection.Dms,
             onClick = { onSelect(Selection.Dms) },
         ) {
-            BasicText("✦", style = TextStyle(color = Obsidian.accent, fontSize = 20.sp))
+            Text("✦", style = TextStyle(color = Obsidian.accent, fontSize = 20.sp))
         }
         Spacer(Modifier.height(8.dp))
         HairRule()
@@ -252,9 +254,9 @@ private fun Rail(
                             contentScale = ContentScale.Crop,
                         )
                     } else {
-                        BasicText(
+                        Text(
                             text = srv.name.take(1).uppercase(),
-                            style = TextStyle(color = Obsidian.accent, fontSize = 17.sp, fontFamily = FontFamily.Serif),
+                            style = TextStyle(color = Obsidian.accent, fontSize = 17.sp, fontFamily = DmSerif),
                         )
                     }
                 }
@@ -300,6 +302,7 @@ private fun Sidebar(
     dmTyping: Set<String>,
     meName: String,
     meAvatar: String?,
+    loading: Boolean,
     hazeState: HazeState,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
@@ -321,11 +324,11 @@ private fun Sidebar(
             Column(Modifier.fillMaxSize()) {
                 // Header
                 Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
-                    BasicText(
+                    Text(
                         text = if (sel is Selection.Dms) "Sussurros" else srv?.name ?: "",
                         style = TextStyle(
                             color = Obsidian.text1, fontSize = 16.sp,
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = DmSerif,
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -334,8 +337,11 @@ private fun Sidebar(
                 HairRule()
 
                 Box(Modifier.weight(1f)) {
-                    if (sel is Selection.Dms) DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
-                    else OrbitList(srv, activeChatId, unread, onOpenChat, onOpenVoice)
+                    when {
+                        loading -> SidebarSkeleton()
+                        sel is Selection.Dms -> DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
+                        else -> OrbitList(srv, activeChatId, unread, onOpenChat, onOpenVoice)
+                    }
                 }
             }
         }
@@ -349,7 +355,7 @@ private fun Sidebar(
             DesktopAvatar(meAvatar, meName, 30)
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
-                BasicText(
+                Text(
                     text = meName,
                     style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.Medium),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -357,7 +363,7 @@ private fun Sidebar(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF7BC98A)))
                     Spacer(Modifier.width(5.dp))
-                    BasicText("brilhando", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    Text("brilhando", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
                 }
             }
         }
@@ -423,13 +429,13 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
             .clickable(interactionSource = interaction, indication = null, onClick = onToggle),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText(
+        Text(
             text = "▾",
             style = TextStyle(color = tint, fontSize = 9.sp),
             modifier = Modifier.graphicsLayer { rotationZ = rotation },
         )
         Spacer(Modifier.width(5.dp))
-        BasicText(
+        Text(
             text = name.uppercase(),
             style = TextStyle(color = tint, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
             maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -468,12 +474,12 @@ private fun OrbitItem(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText(
+            Text(
                 text = if (ch.type == "VOICE") "◉" else "#",
                 style = TextStyle(color = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
             )
             Spacer(Modifier.width(8.dp))
-            BasicText(
+            Text(
                 text = ch.name,
                 style = TextStyle(
                     color = if (active || hovered || isUnread) Obsidian.text1 else Obsidian.text2,
@@ -510,7 +516,7 @@ private fun DmList(
 ) {
     if (dms.isEmpty()) {
         Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-            BasicText("nenhum sussurro ainda", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            Text("nenhum sussurro ainda", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
         }
         return
     }
@@ -536,7 +542,7 @@ private fun DmList(
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                 ) {
                     if (query.isEmpty()) {
-                        BasicText("encontrar conversa", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                        Text("encontrar conversa", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
                     }
                     inner()
                 }
@@ -545,7 +551,7 @@ private fun DmList(
         )
         if (filtered.isEmpty()) {
             Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                BasicText("nada encontrado", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                Text("nada encontrado", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
             }
             return@Column
         }
@@ -576,7 +582,7 @@ private fun DmList(
                     DesktopAvatar(u?.avatarUrl, name, 28)
                     Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
-                        BasicText(
+                        Text(
                             text = name,
                             style = TextStyle(
                                 color = if (active || hovered || isUnread) Obsidian.text1 else Obsidian.text2,
@@ -589,7 +595,7 @@ private fun DmList(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 TypingDots(Obsidian.accent, dotSize = 3.dp)
                                 Spacer(Modifier.width(5.dp))
-                                BasicText(
+                                Text(
                                     text = "digitando…",
                                     style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
                                 )
@@ -597,7 +603,7 @@ private fun DmList(
                         } else {
                             val preview = conv.lastMessage?.content?.ifBlank { "anexo" }
                             if (preview != null) {
-                                BasicText(
+                                Text(
                                     text = preview,
                                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                                     maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -636,7 +642,7 @@ private fun Stage(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BasicText(
+            Text(
                 text = when {
                     voiceChannel != null -> "◉ ${voiceChannel.name}"
                     chat is ChatTarget.Channel -> "# ${chat.title}"
@@ -664,7 +670,7 @@ private fun Stage(
                         .clickable(onClick = onToggleMembers),
                     contentAlignment = Alignment.Center,
                 ) {
-                    BasicText(
+                    Text(
                         "☰",
                         style = TextStyle(color = if (membersOpen) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
                     )
@@ -693,11 +699,11 @@ private fun Stage(
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {
-                        loading -> BasicText("carregando o ceu…", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+                        loading -> ChatSkeleton()
                         error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            BasicText(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
+                            Text(error, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
                             Spacer(Modifier.height(10.dp))
-                            BasicText(
+                            Text(
                                 "tentar de novo",
                                 style = TextStyle(color = Obsidian.accent, fontSize = 13.sp),
                                 modifier = Modifier
@@ -708,12 +714,12 @@ private fun Stage(
                             )
                         }
                         else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            BasicText(
+                            Text(
                                 text = "✦",
                                 style = TextStyle(color = Obsidian.borderMid, fontSize = 40.sp),
                             )
                             Spacer(Modifier.height(10.dp))
-                            BasicText(
+                            Text(
                                 text = if (server != null) "escolha uma orbita — a conversa chega na proxima fatia"
                                 else "escolha um sussurro — a conversa chega na proxima fatia",
                                 style = TextStyle(color = Obsidian.text3, fontSize = 13.sp),
@@ -732,7 +738,7 @@ private fun Stage(
 private fun MembersPanel(members: List<ServerMemberDto>, hazeState: HazeState) {
     Column(Modifier.width(240.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
-            BasicText(
+            Text(
                 text = "membros — ${members.size}",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
             )
@@ -747,7 +753,7 @@ private fun MembersPanel(members: List<ServerMemberDto>, hazeState: HazeState) {
                 ) {
                     DesktopAvatar(m.user.avatarUrl, name, 26)
                     Spacer(Modifier.width(9.dp))
-                    BasicText(
+                    Text(
                         text = name,
                         style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,

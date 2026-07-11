@@ -19,77 +19,69 @@ import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
 
 // Aurora viva em SkSL (Skia RuntimeEffect) — a assinatura visual do desktop.
-// NEBULOSA FLUIDA (decisao do dono): ruido dobrado sobre si mesmo (domain
-// warping) faz nuvens cosmicas se enrolarem devagar, sutis, so ambiente. Paleta
-// obsidiana escura; texto soberano (paineis translucidos/vidro por cima).
-// PERF: custo = (octaves fbm) x (niveis de warp). Aqui 4 octaves + warp de 2
-// niveis (5 fbm/pixel). Se pesar em GPU integrada, baixar OCTAVES pra 3 ou o
-// warp pra 1 nivel sao os diais. O relogio pausa sem foco (zero custo em bg).
+// PORTA DA AURORA DO MOBILE (StarField.kt AURORA_AGSL; AGSL e SkSL sao o mesmo
+// dialeto do Skia). Cortinas organicas por ruido fractal (FBM), prata sobre o
+// void. O TEMPO ANDA NUM CIRCULO no espaco de ruido (cos/sin * raio), entao o
+// loop fecha PERFEITO sem salto — corrige o "cortada" do nebula anterior (tempo
+// linear crescia sem fim -> dominio do ruido estourava a precisao do float e a
+// animacao travava). Tilt/toque do mobile ficaram de fora (sao de celular:
+// acelerometro/dedo). PERF: value-noise ALU-only, 3 oitavas, 2 cortinas.
 private val AURORA_SKSL = """
 uniform float uTime;
 uniform float2 uSize;
 
-// Ruido de valor com interpolacao suave (base de tudo).
-float hash(float2 p) {
-    p = fract(p * float2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
+float hashn(float2 p) {
+    return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
 }
-float noise(float2 p) {
+float vnoise(float2 p) {
     float2 i = floor(p);
     float2 f = fract(p);
     float2 u = f * f * (3.0 - 2.0 * f);
-    float a = hash(i + float2(0.0, 0.0));
-    float b = hash(i + float2(1.0, 0.0));
-    float c = hash(i + float2(0.0, 1.0));
-    float d = hash(i + float2(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    return mix(mix(hashn(i), hashn(i + float2(1.0, 0.0)), u.x),
+               mix(hashn(i + float2(0.0, 1.0)), hashn(i + float2(1.0, 1.0)), u.x), u.y);
 }
-// Ruido fractal (soma de octaves) — da a textura de nuvem.
 float fbm(float2 p) {
     float v = 0.0;
-    float amp = 0.5;
-    for (int i = 0; i < 4; i++) {
-        v += amp * noise(p);
+    float a = 0.5;
+    for (int k = 0; k < 3; k++) {
+        v += a * vnoise(p);
         p *= 2.0;
-        amp *= 0.5;
+        a *= 0.5;
     }
     return v;
+}
+float curtain(float2 uv, float yC, float seed, float2 flow) {
+    float n = fbm(float2(uv.x * 2.6 + seed, seed * 3.1) + flow);
+    float d = uv.y - (yC + (n - 0.5) * 0.30);
+    float body = exp(-abs(d) * (d < 0.0 ? 26.0 : 9.0));
+    float rays = 0.55 + 0.45 * fbm(float2(uv.x * 7.0 - seed, 2.7 + seed) + flow * 1.4);
+    return body * rays * (0.5 + n);
 }
 
 half4 main(float2 fragCoord) {
     float2 uv = fragCoord / uSize;
-    // Corrige a proporcao pra nuvem nao esticar em telas largas.
-    float2 p = uv * float2(uSize.x / uSize.y, 1.0) * 2.2;
-    float t = uTime * 0.035; // deriva bem lenta
+    // Tempo em CIRCULO -> loop sem emenda (a chave do "sem salto" do mobile).
+    float ang = uTime * 0.1;
+    float2 flow1 = float2(cos(ang), sin(ang)) * 1.6;
+    float2 flow2 = float2(cos(ang * 2.0 + 2.1), sin(ang * 2.0 + 2.1)) * 1.1;
+    float c1 = curtain(uv, 0.24, 0.0, flow1);
+    float c2 = curtain(uv, 0.46, 5.3, flow2) * 0.6;
+    float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
+    float aur = (c1 + c2) * fall * 0.16;
 
-    // Domain warping: o campo se distorce por outro campo (2 niveis) — e isso
-    // que faz a fumaca "se enrolar" em vez de so escorrer reto.
-    float2 q = float2(fbm(p + float2(0.0, t)),
-                      fbm(p + float2(5.2, 1.3 - t)));
-    float2 r = float2(fbm(p + 3.0 * q + float2(1.7, 9.2) + 0.12 * t),
-                      fbm(p + 3.0 * q + float2(8.3, 2.8) - 0.10 * t));
-    float f = fbm(p + 2.6 * r);
-
-    // Onde ha nuvem (densidade) e como a cor varia pelo campo distorcido.
-    float density = smoothstep(0.32, 0.98, f);
-    float3 silver = float3(0.56, 0.60, 0.72);
-    float3 purple = float3(0.42, 0.37, 0.60);
-    float3 amber  = float3(0.78, 0.65, 0.44);
-    float3 neb = mix(purple, silver, clamp(q.x * 0.6 + 0.5, 0.0, 1.0));
-    neb = mix(neb, amber, clamp(r.y * 0.55, 0.0, 1.0));
-
-    // Base quase preta-azulada + nuvem somada BEM baixo (sutil, decisao do dono).
-    float3 col = float3(0.022, 0.023, 0.052);
-    col += neb * density * 0.15;
-    // Fiapos brilhantes nas cristas do campo (vida sem levantar o brilho geral).
-    col += silver * pow(density, 3.0) * 0.05;
-
-    float vig = smoothstep(1.30, 0.32, length(uv - float2(0.5, 0.45)));
-    col *= mix(0.70, 1.0, vig);
+    // Prata (Obsidian.accent #D4D8E0) somada sobre o void; opaco (o desktop
+    // desenha a aurora como fundo inteiro, nao como overlay transparente).
+    float3 accent = float3(0.831, 0.847, 0.878);
+    float3 col = float3(0.024, 0.024, 0.055) + accent * min(aur, 0.30);
     return half4(col, 1.0);
 }
 """
+
+// Periodo do loop: ang = uTime*0.1 fecha o circulo em uTime = 2*PI/0.1 = 20*PI.
+// flow2 usa ang*2 -> fecha 2 voltas no mesmo intervalo. Enrolar o tempo do
+// desktop nesse periodo torna o loop imperceptivel (o quadro em uTime=0 e
+// identico ao de uTime=AURORA_LOOP).
+private const val AURORA_LOOP = 62.831853f
 
 // Fundo chapado da paleta, caso o shader nao compile no runtime (typo de SkSL
 // nunca deve tirar o shell do ar — so tira o brilho).
@@ -102,8 +94,9 @@ fun Modifier.auroraBackground(): Modifier {
     val builder = remember { RuntimeShaderBuilder(effect) }
     val windowInfo = LocalWindowInfo.current
     // Relogio de frames com PAUSA: janela sem foco = nenhum frame pedido (zero
-    // CPU/GPU em segundo plano — guardrail do dono). O tempo acumula, entao a
-    // aurora retoma de onde parou em vez de pular.
+    // CPU/GPU em segundo plano — guardrail do dono). O tempo acumula e ENROLA no
+    // periodo do loop (AURORA_LOOP): mantem o dominio do ruido limitado (sem
+    // estouro de precisao) e o giro fecha sem salto.
     val timeSec by produceState(0f, windowInfo) {
         var acc = 0f
         while (true) {
@@ -112,6 +105,7 @@ fun Modifier.auroraBackground(): Modifier {
             while (windowInfo.isWindowFocused) {
                 withFrameNanos { now ->
                     acc += (now - last) / 1_000_000_000f
+                    if (acc >= AURORA_LOOP) acc -= AURORA_LOOP
                     last = now
                     value = acc
                 }

@@ -56,6 +56,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.auth.Session
@@ -168,6 +170,7 @@ fun ShellScreen(
             servers = state.servers,
             selection = state.selection,
             onSelect = vm::select,
+            onLeaveServer = vm::leaveServer,
         )
         Sidebar(
             selection = state.selection,
@@ -183,6 +186,8 @@ fun ShellScreen(
             hazeState = hazeState,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
+            onToggleMute = vm::toggleDmMute,
+            onMarkRead = vm::markDmRead,
             onEditedProfile = vm::refreshMe,
             onLogout = onLogout,
         )
@@ -226,6 +231,7 @@ private fun Rail(
     servers: List<ServerDto>,
     selection: Selection,
     onSelect: (Selection) -> Unit,
+    onLeaveServer: (String) -> Unit,
 ) {
     Column(
         // Translucido: a aurora vaza sutil por baixo (0.85 mantem os icones legiveis).
@@ -247,6 +253,54 @@ private fun Rail(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(servers, key = { it.id }) { srv ->
+                // Botao direito na constelacao: sair (com confirmacao) (F4).
+                var confirmLeave by remember(srv.id) { mutableStateOf(false) }
+                EditorialContextMenu(entries = {
+                    listOf(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })
+                }) {
+                if (confirmLeave) {
+                    Popup(
+                        onDismissRequest = { confirmLeave = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        Column(
+                            Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Obsidian.overlay)
+                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                                .padding(14.dp),
+                        ) {
+                            Text(
+                                "sair de ${srv.name}?",
+                                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "ficar",
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(7.dp))
+                                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
+                                        .clickable { confirmLeave = false }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                                Text(
+                                    "sair",
+                                    style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(7.dp))
+                                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
+                                        .clickable {
+                                            confirmLeave = false
+                                            onLeaveServer(srv.id)
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                    }
+                }
                 RailItem(
                     active = (selection as? Selection.Server)?.id == srv.id,
                     onClick = { onSelect(Selection.Server(srv.id)) },
@@ -264,6 +318,7 @@ private fun Rail(
                             style = TextStyle(color = Obsidian.accent, fontSize = 17.sp, fontFamily = DmSerif),
                         )
                     }
+                }
                 }
             }
         }
@@ -311,6 +366,8 @@ private fun Sidebar(
     hazeState: HazeState,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
+    onToggleMute: (ConversationDto) -> Unit,
+    onMarkRead: (String) -> Unit,
     onEditedProfile: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -346,7 +403,8 @@ private fun Sidebar(
                 Box(Modifier.weight(1f)) {
                     when {
                         loading -> SidebarSkeleton()
-                        sel is Selection.Dms -> DmList(dms, activeChatId, unread, dmTyping, onOpenChat)
+                        sel is Selection.Dms ->
+                            DmList(dms, onToggleMute, onMarkRead, activeChatId, unread, dmTyping, onOpenChat)
                         else -> OrbitList(srv, activeChatId, unread, onOpenChat, onOpenVoice)
                     }
                 }
@@ -498,6 +556,8 @@ private fun UnreadPill(modifier: Modifier = Modifier) {
 @Composable
 private fun DmList(
     dms: List<ConversationDto>,
+    onToggleMute: (ConversationDto) -> Unit,
+    onMarkRead: (String) -> Unit,
     activeChatId: String?,
     unread: Set<String>,
     dmTyping: Set<String>,
@@ -556,6 +616,17 @@ private fun DmList(
                 if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
                 tween(120),
             )
+            // Botao direito: mutar/desmutar + marcar como lida (F4).
+            EditorialContextMenu(entries = {
+                buildList {
+                    add(
+                        MenuEntry.Item(if (conv.muted) "desmutar sussurro" else "mutar sussurro") {
+                            onToggleMute(conv)
+                        },
+                    )
+                    if (isUnread) add(MenuEntry.Item("marcar como lida") { onMarkRead(conv.id) })
+                }
+            }) {
             Box(Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier
@@ -602,6 +673,7 @@ private fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+            }
             }
             }
         }

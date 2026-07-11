@@ -158,6 +158,42 @@ class ShellVm(
     fun openChat(target: ChatTarget) =
         _state.update { it.copy(chat = target, voiceChannel = null, unread = it.unread - target.id) }
 
+    // Menu de botao direito (F4) ------------------------------------------------
+
+    fun toggleDmMute(conv: ConversationDto) {
+        scope.launch {
+            val ok = runCatching {
+                if (conv.muted) dmApi.unmute(conv.id) else dmApi.mute(conv.id)
+            }.isSuccess
+            if (ok) {
+                _state.update { st ->
+                    st.copy(dms = st.dms.map { if (it.id == conv.id) it.copy(muted = !conv.muted) else it })
+                }
+            }
+        }
+    }
+
+    fun markDmRead(conversationId: String) {
+        scope.launch { runCatching { dmApi.markRead(conversationId) } }
+        _state.update { it.copy(unread = it.unread - conversationId) }
+    }
+
+    fun leaveServer(id: String) {
+        scope.launch {
+            runCatching { serverApi.leaveServer(id) }.onSuccess {
+                _state.update { st ->
+                    val leaving = (st.selection as? Selection.Server)?.id == id
+                    st.copy(
+                        servers = st.servers.filterNot { it.id == id },
+                        selection = if (leaving) Selection.Dms else st.selection,
+                        chat = if (leaving) null else st.chat,
+                        voiceChannel = if (leaving) null else st.voiceChannel,
+                    )
+                }
+            }
+        }
+    }
+
     // "Enviar sussurro" do card de perfil: abre/cria a conversa e ja cai nela.
     fun startDm(username: String, title: String) {
         scope.launch {

@@ -72,6 +72,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -134,6 +136,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
     val isChannel = target is ChatTarget.Channel
 
     // Drag&drop de arquivo do sistema: solta em qualquer lugar da conversa e o
@@ -214,24 +217,46 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             val fresh = animatedIds.add(msg.id)
                             baselineDone && fresh
                         }
-                        MessageRow(
-                            msg = msg,
-                            // Reply quebra o agrupamento (a referencia precisa aparecer).
-                            grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
-                            enterAnim = enterAnim,
-                            isChannel = isChannel,
-                            highlighted = msg.id == highlightId,
-                            editing = msg.id == editingId,
-                            myId = vm.myId,
-                            onReply = { vm.startReply(msg) },
-                            onReact = { emoji -> vm.react(msg.id, emoji) },
-                            onStartEdit = { editingId = msg.id },
-                            onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
-                            onCancelEdit = { editingId = null },
-                            onDelete = { vm.delete(msg.id) },
-                            onJumpTo = { id -> jumpTo(id) },
-                            onStartDm = onStartDm,
-                        )
+                        // Botao direito: mesmas acoes da pill de hover (F4).
+                        EditorialContextMenu(entries = {
+                            buildList {
+                                add(MenuEntry.Item("responder") { vm.startReply(msg) })
+                                if (isChannel) {
+                                    add(MenuEntry.EmojiSub("reagir", QUICK_EMOJIS) { e -> vm.react(msg.id, e) })
+                                }
+                                if (msg.content.isNotBlank()) {
+                                    add(
+                                        MenuEntry.Item("copiar texto") {
+                                            clipboard.setText(AnnotatedString(msg.content))
+                                        },
+                                    )
+                                }
+                                if (msg.mine) {
+                                    add(MenuEntry.Separator)
+                                    if (isChannel) add(MenuEntry.Item("editar") { editingId = msg.id })
+                                    add(MenuEntry.Item("apagar", danger = true) { vm.delete(msg.id) })
+                                }
+                            }
+                        }) {
+                            MessageRow(
+                                msg = msg,
+                                // Reply quebra o agrupamento (a referencia precisa aparecer).
+                                grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
+                                enterAnim = enterAnim,
+                                isChannel = isChannel,
+                                highlighted = msg.id == highlightId,
+                                editing = msg.id == editingId,
+                                myId = vm.myId,
+                                onReply = { vm.startReply(msg) },
+                                onReact = { emoji -> vm.react(msg.id, emoji) },
+                                onStartEdit = { editingId = msg.id },
+                                onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
+                                onCancelEdit = { editingId = null },
+                                onDelete = { vm.delete(msg.id) },
+                                onJumpTo = { id -> jumpTo(id) },
+                                onStartDm = onStartDm,
+                            )
+                        }
                     }
                 }
             }

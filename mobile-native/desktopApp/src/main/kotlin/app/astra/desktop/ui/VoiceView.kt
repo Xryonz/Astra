@@ -1,6 +1,10 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -238,7 +242,8 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
     }
 }
 
-// Pill de participante; acende ambar enquanto fala (SpeakersChanged).
+// Pill de participante; acende ambar e pulsa um halo enquanto fala
+// (SpeakersChanged). O pulso so anima quando speaking = true (sem custo parado).
 @Composable
 private fun VoiceChip(label: String, speaking: Boolean) {
     val border by animateColorAsState(
@@ -249,11 +254,21 @@ private fun VoiceChip(label: String, speaking: Boolean) {
         if (speaking) Obsidian.accent else Obsidian.text2,
         tween(140),
     )
+    // Halo que respira: alpha 0 quando calado, pulsa 0.10..0.22 enquanto fala.
+    val glow = if (speaking) {
+        val t = rememberInfiniteTransition()
+        t.animateFloat(
+            initialValue = 0.10f,
+            targetValue = 0.22f,
+            animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
+        ).value
+    } else 0f
     Text(
         label,
         style = TextStyle(color = text, fontSize = 12.sp),
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
+            .background(Obsidian.accent.copy(alpha = glow))
             .border(1.dp, border, RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 5.dp),
     )

@@ -3,8 +3,12 @@ package app.astra.desktop.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -32,6 +36,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
@@ -68,6 +73,7 @@ import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
@@ -433,29 +439,41 @@ private fun OrbitList(
     val cats = server.categories.sortedBy { it.position }
     val byCat = server.channels.groupBy { it.categoryId }
 
+    // Cascata (F6): a posicao corrida na lista decide o atraso de entrada.
+    // Os indices sao computados no escopo do DSL (sincrono e deterministico);
+    // as lambdas dos itens so capturam constantes.
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-        items(loose, key = { it.id }) { ch ->
-            OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
+        itemsIndexed(loose, key = { _, ch -> ch.id }) { i, ch ->
+            CascadeIn(i, server.id) {
+                OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
+            }
         }
+        var offset = loose.size
         cats.forEach { cat ->
             val channels = byCat[cat.id].orEmpty().sortedBy { it.position }
+            val headerRow = offset
             item(key = "cat-${cat.id}") {
-                CategoryHeader(
-                    name = cat.name,
-                    collapsed = cat.id in collapsedCats,
-                    onToggle = {
-                        collapsedCats =
-                            if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
-                    },
-                )
+                CascadeIn(headerRow, server.id) {
+                    CategoryHeader(
+                        name = cat.name,
+                        collapsed = cat.id in collapsedCats,
+                        onToggle = {
+                            collapsedCats =
+                                if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
+                        },
+                    )
+                }
             }
             // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
             val visible =
                 if (cat.id in collapsedCats) channels.filter { it.id == activeChatId || it.id in unread }
                 else channels
-            items(visible, key = { it.id }) { ch ->
-                OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
+            itemsIndexed(visible, key = { _, ch -> ch.id }) { i, ch ->
+                CascadeIn(headerRow + 1 + i, server.id) {
+                    OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
+                }
             }
+            offset = headerRow + 1 + visible.size
         }
     }
 }
@@ -544,11 +562,22 @@ private fun OrbitItem(
 // tokens obsidiana).
 @Composable
 private fun UnreadPill(modifier: Modifier = Modifier) {
+    // Pulso sutil (F6): o marcador "respira" devagar pra puxar o olho sem gritar.
+    val transition = rememberInfiniteTransition()
+    val glow by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = EaseOutSoft),
+            repeatMode = RepeatMode.Reverse,
+        ),
+    )
     Box(
         modifier
             .width(3.dp)
             .height(16.dp)
             .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
+            .graphicsLayer { alpha = glow }
             .background(Obsidian.accent),
     )
 }
@@ -605,7 +634,7 @@ private fun DmList(
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-            items(filtered, key = { it.id }) { conv ->
+            itemsIndexed(filtered, key = { _, c -> c.id }) { cascadeRow, conv ->
             val u = conv.otherUser
             val name = u?.displayName ?: u?.username ?: "?"
             val interaction = remember { MutableInteractionSource() }
@@ -616,7 +645,8 @@ private fun DmList(
                 if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
                 tween(120),
             )
-            // Botao direito: mutar/desmutar + marcar como lida (F4).
+            // Cascata no boot (F6) + botao direito: mutar/desmutar + marcar lida (F4).
+            CascadeIn(cascadeRow, Unit) {
             EditorialContextMenu(entries = {
                 buildList {
                     add(
@@ -673,6 +703,7 @@ private fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+            }
             }
             }
             }
@@ -812,21 +843,23 @@ private fun MembersPanel(
         }
         HairRule()
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-            items(members, key = { it.userId }) { m ->
+            itemsIndexed(members, key = { _, m -> m.userId }) { i, m ->
                 val name = m.user.displayName ?: m.user.username
-                // Linha inteira clicavel: abre o card de perfil (F3).
-                ProfileAnchor(m.userId, isMe = m.userId == myId, onStartDm = onStartDm) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        DesktopAvatar(m.user.avatarUrl, name, 26)
-                        Spacer(Modifier.width(9.dp))
-                        Text(
-                            text = name,
-                            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
+                // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3).
+                CascadeIn(i, members.size) {
+                    ProfileAnchor(m.userId, isMe = m.userId == myId, onStartDm = onStartDm) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            DesktopAvatar(m.user.avatarUrl, name, 26)
+                            Spacer(Modifier.width(9.dp))
+                            Text(
+                                text = name,
+                                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }

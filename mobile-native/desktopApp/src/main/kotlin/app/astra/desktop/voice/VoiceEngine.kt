@@ -13,6 +13,7 @@ import dev.onvoid.webrtc.RTCOfferOptions
 import dev.onvoid.webrtc.RTCPeerConnection
 import dev.onvoid.webrtc.RTCPeerConnectionState
 import dev.onvoid.webrtc.RTCRtpEncodingParameters
+import dev.onvoid.webrtc.RTCRtpReceiver
 import dev.onvoid.webrtc.RTCRtpSender
 import dev.onvoid.webrtc.RTCRtpTransceiver
 import dev.onvoid.webrtc.RTCRtpTransceiverDirection
@@ -20,6 +21,7 @@ import dev.onvoid.webrtc.RTCRtpTransceiverInit
 import dev.onvoid.webrtc.RTCSdpType
 import dev.onvoid.webrtc.RTCSessionDescription
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
+import dev.onvoid.webrtc.media.MediaStream
 import dev.onvoid.webrtc.media.MediaType
 import dev.onvoid.webrtc.media.audio.AudioOptions
 import dev.onvoid.webrtc.media.audio.AudioTrack
@@ -59,10 +61,19 @@ sealed interface VoiceStatus {
 
     // Join aceito e ping/pong mantendo a sessao viva. audioLive = subscriber PC
     // conectado (DTLS/RTP fluindo — audio remoto toca no device padrao).
-    data class Connected(val others: List<String>, val audioLive: Boolean = false) : VoiceStatus
+    data class Connected(
+        val others: List<VoiceParticipant>,
+        val audioLive: Boolean = false,
+        val mySpeaking: Boolean = false,
+    ) : VoiceStatus
     data class Failed(val reason: String) : VoiceStatus
     data object Closed : VoiceStatus
 }
+
+data class VoiceParticipant(val identity: String, val label: String, val speaking: Boolean)
+
+// Transmissao de outro participante (track de video remota; render no VoiceView).
+class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: VideoTrack)
 
 // V3+V4+V5 — OUVIR, FALAR e TRANSMITIR. Subscriber PC (LiveKit e subscriber-
 // primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
@@ -82,10 +93,19 @@ class VoiceEngine(
     private var factory: PeerConnectionFactory? = null
     private var pingJob: Job? = null
     private var myIdentity: String? = null
+    private var mySid: String? = null
+    @Volatile private var mySpeaking = false
     private var joined = false
 
-    // identity -> nome exibido dos outros participantes (ordem de chegada).
-    private val others = linkedMapOf<String, String>()
+    // identity -> outro participante (ordem de chegada). speaking vem por sid
+    // (SpeakersChanged fala em sid, nao identity).
+    private class Remote(val sid: String, val label: String, var speaking: Boolean = false)
+    private val others = linkedMapOf<String, Remote>()
+
+    // Transmissoes remotas (video). Track de audio remota nao entra aqui: toca
+    // sozinha no device padrao.
+    private val _remoteVideos = MutableStateFlow<List<RemoteVideo>>(emptyList())
+    val remoteVideos = _remoteVideos.asStateFlow()
 
     // Subscriber PC (server -> a gente). Callbacks nativos chegam em threads do
     // WebRTC e o signaling na thread do WS — dai o lock nos candidatos pendentes
@@ -175,8 +195,9 @@ class VoiceEngine(
             LivekitRtc.SignalResponse.MessageCase.JOIN -> {
                 joined = true
                 myIdentity = res.join.participant.identity
+                mySid = res.join.participant.sid
                 others.clear()
-                res.join.otherParticipantsList.forEach { others[it.identity] = it.label() }
+                res.join.otherParticipantsList.forEach { others[it.identity] = it.remote() }
                 createSubscriber(res.join.iceServersList)
                 createPublisher(res.join.iceServersList)
                 publishMic()
@@ -192,9 +213,18 @@ class VoiceEngine(
                     if (p.identity == myIdentity) return@forEach
                     if (p.state == LivekitModels.ParticipantInfo.State.DISCONNECTED) {
                         others.remove(p.identity)
+                        _remoteVideos.value = _remoteVideos.value.filterNot { it.ownerSid == p.sid }
                     } else {
-                        others[p.identity] = p.label()
+                        // Preserva speaking: UPDATE nao fala de voz ativa.
+                        others[p.identity] = p.remote(others[p.identity]?.speaking ?: false)
                     }
+                }
+                if (joined) publishConnected()
+            }
+            LivekitRtc.SignalResponse.MessageCase.SPEAKERS_CHANGED -> {
+                res.speakersChanged.speakersList.forEach { sp ->
+                    if (sp.sid == mySid) mySpeaking = sp.active
+                    else others.values.find { it.sid == sp.sid }?.speaking = sp.active
                 }
                 if (joined) publishConnected()
             }
@@ -244,6 +274,22 @@ class VoiceEngine(
             override fun onConnectionChange(state: RTCPeerConnectionState) {
                 audioLive = state == RTCPeerConnectionState.CONNECTED
                 if (joined) publishConnected()
+            }
+
+            // Track de video remota = transmissao de alguem. O LiveKit nomeia o
+            // MediaStream como "participantSid|trackSid" — dai sai o dono.
+            override fun onAddTrack(receiver: RTCRtpReceiver, streams: Array<MediaStream>) {
+                val track = receiver.track as? VideoTrack ?: return
+                val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|') ?: return
+                val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissao"
+                _remoteVideos.value = _remoteVideos.value + RemoteVideo(ownerSid, label, track)
+            }
+
+            override fun onRemoveTrack(receiver: RTCRtpReceiver) {
+                val gone = runCatching { receiver.track?.id }.getOrNull() ?: return
+                _remoteVideos.value = _remoteVideos.value.filterNot { v ->
+                    runCatching { v.track.id == gone }.getOrDefault(true)
+                }
             }
         })
     }
@@ -535,10 +581,15 @@ class VoiceEngine(
     }
 
     private fun publishConnected() {
-        _status.value = VoiceStatus.Connected(others.values.toList(), audioLive)
+        _status.value = VoiceStatus.Connected(
+            others.map { (identity, r) -> VoiceParticipant(identity, r.label, r.speaking) },
+            audioLive,
+            mySpeaking,
+        )
     }
 
-    private fun LivekitModels.ParticipantInfo.label(): String = name.ifBlank { identity }
+    private fun LivekitModels.ParticipantInfo.remote(speaking: Boolean = false) =
+        Remote(sid, name.ifBlank { identity }, speaking)
 
     fun dispose() {
         pingJob?.cancel()
@@ -551,6 +602,7 @@ class VoiceEngine(
         }
         ws?.close(1000, "leave")
         ws = null
+        _remoteVideos.value = emptyList()
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }

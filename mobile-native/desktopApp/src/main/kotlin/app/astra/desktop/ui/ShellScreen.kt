@@ -76,6 +76,7 @@ import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
+import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
@@ -95,6 +96,7 @@ fun ShellScreen(
     session: Session,
     windowHidden: () -> Boolean,
     notify: (String, String) -> Unit,
+    onLogout: () -> Unit,
 ) {
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
@@ -175,12 +177,14 @@ fun ShellScreen(
             activeChatId = chat?.id ?: state.voiceChannel?.id,
             unread = state.unread,
             dmTyping = state.dmTyping,
-            meName = state.me?.displayName ?: state.me?.username ?: session.displayName,
-            meAvatar = state.me?.avatarUrl,
+            me = state.me,
+            meFallback = session.displayName,
             loading = state.loading,
             hazeState = hazeState,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
+            onEditedProfile = vm::refreshMe,
+            onLogout = onLogout,
         )
         Stage(
             state.selectedServer,
@@ -300,12 +304,14 @@ private fun Sidebar(
     activeChatId: String?,
     unread: Set<String>,
     dmTyping: Set<String>,
-    meName: String,
-    meAvatar: String?,
+    me: ProfileUserDto?,
+    meFallback: String,
     loading: Boolean,
     hazeState: HazeState,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
+    onEditedProfile: () -> Unit,
+    onLogout: () -> Unit,
 ) {
     Column(Modifier.width(260.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
@@ -346,27 +352,9 @@ private fun Sidebar(
             }
         }
 
-        // Painel do usuario (canto inferior esquerdo, estilo Discord)
+        // Rodape do usuario (F2): avatar com anel + status, perfil no clique.
         HairRule()
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Obsidian.void.copy(alpha = 0.55f)).padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DesktopAvatar(meAvatar, meName, 30)
-            Spacer(Modifier.width(9.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = meName,
-                    style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF7BC98A)))
-                    Spacer(Modifier.width(5.dp))
-                    Text("brilhando", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-                }
-            }
-        }
+        UserFooter(me = me, fallbackName = meFallback, onEdited = onEditedProfile, onLogout = onLogout)
     }
 }
 
@@ -767,6 +755,6 @@ private fun MembersPanel(members: List<ServerMemberDto>, hazeState: HazeState) {
 // ---- Pecinhas ----
 
 @Composable
-private fun HairRule() {
+fun HairRule() {
     Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
 }

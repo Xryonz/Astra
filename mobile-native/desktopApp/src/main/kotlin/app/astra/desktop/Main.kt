@@ -118,6 +118,10 @@ fun main() {
                                 notify = { title, body ->
                                     trayState.sendNotification(Notification(title, body, Notification.Type.None))
                                 },
+                                onLogout = {
+                                    authRepo.logout()
+                                    session = null
+                                },
                             )
                         }
                     }

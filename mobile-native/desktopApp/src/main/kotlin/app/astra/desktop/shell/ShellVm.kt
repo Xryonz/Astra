@@ -83,6 +83,15 @@ class ShellVm(
         listenRealtime()
     }
 
+    // Recarrega so o proprio perfil (pos-edicao no card do rodape).
+    fun refreshMe() {
+        scope.launch {
+            runCatching { userApi.me().data?.user }.getOrNull()?.let { u ->
+                _state.update { it.copy(me = u) }
+            }
+        }
+    }
+
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch {

@@ -11,6 +11,7 @@ import app.astra.mobile.core.network.dto.DmDeletedEventDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
+import app.astra.mobile.core.network.dto.GifResultDto
 import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
 import app.astra.mobile.core.network.dto.MsgAuthorDto
@@ -205,6 +206,46 @@ class ChatVm(
                     }
                 }
                 .onFailure { _state.update { it.copy(sending = false, error = "Mensagem nao enviada") } }
+        }
+    }
+
+    // GIF (F5): vai como anexo de URL direta (mesmo formato do mobile) — sem upload.
+    fun sendGif(gif: GifResultDto) {
+        if (_state.value.sending) return
+        val replyToId = _state.value.replyingTo?.id
+        _state.update { it.copy(sending = true, error = null) }
+        scope.launch {
+            val att = AttachmentDto(
+                url = gif.full,
+                type = "image/gif",
+                name = gif.title.ifBlank { "gif" } + ".gif",
+                size = gif.size,
+                width = gif.width,
+                height = gif.height,
+            )
+            val result = runCatching {
+                when (target) {
+                    is ChatTarget.Channel -> channelApi.send(
+                        target.id,
+                        SendChannelRequest("", replyToId = replyToId, attachments = listOf(att)),
+                    ).data?.toChat()
+                    is ChatTarget.Dm -> dmApi.send(
+                        target.id,
+                        SendDmRequest("", replyToId = replyToId, attachments = listOf(att)),
+                    ).data?.toChat()
+                }
+            }
+            result
+                .onSuccess { msg ->
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            replyingTo = null,
+                            messages = if (msg != null && it.messages.none { m -> m.id == msg.id }) it.messages + msg else it.messages,
+                        )
+                    }
+                }
+                .onFailure { _state.update { it.copy(sending = false, error = "GIF nao enviado") } }
         }
     }
 

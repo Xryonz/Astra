@@ -8,6 +8,7 @@ import app.astra.desktop.net.DesktopTokenAuthenticator
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
@@ -80,6 +81,7 @@ val appModule = module {
     single<ChannelApi> { get<Retrofit>(named("authed")).create(ChannelApi::class.java) }
     single<UploadApi> { get<Retrofit>(named("authed")).create(UploadApi::class.java) }
     single<VoiceApi> { get<Retrofit>(named("authed")).create(VoiceApi::class.java) }
+    single<GifApi> { get<Retrofit>(named("authed")).create(GifApi::class.java) }
 
     single { DesktopSocket(get()) }
     single { AuthRepository(get(), get(), get()) }

@@ -69,6 +69,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import app.astra.desktop.ui.theme.DmMono
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -197,6 +201,11 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
         }
     }
 
+    // Lightbox (F5): imagem clicada abre no visualizador interno.
+    var lightboxUrl by remember { mutableStateOf<String?>(null) }
+    lightboxUrl?.let { Lightbox(it) { lightboxUrl = null } }
+
+    androidx.compose.runtime.CompositionLocalProvider(LocalOpenImage provides { url -> lightboxUrl = url }) {
     Box(
         Modifier
             .fillMaxSize()
@@ -344,24 +353,29 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                 vm.send(draft)
                 draft = ""
             }
-            Input(
-                value = draft,
-                onValueChange = {
-                    draft = it.take(4000)
-                    if (it.isNotBlank()) vm.typing()
-                },
-                placeholder = "mensagem em ${target.title}",
-                singleLine = false,
-                animation = InputAnimation.Glow,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // Enter envia; Shift+Enter quebra linha (convencao desktop).
-                    .onPreviewKeyEvent { e ->
-                        if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                            submit(); true
-                        } else false
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Input(
+                    value = draft,
+                    onValueChange = {
+                        draft = it.take(4000)
+                        if (it.isNotBlank()) vm.typing()
                     },
-            )
+                    placeholder = "mensagem em ${target.title}",
+                    singleLine = false,
+                    animation = InputAnimation.Glow,
+                    modifier = Modifier
+                        .weight(1f)
+                        // Enter envia; Shift+Enter quebra linha (convencao desktop).
+                        .onPreviewKeyEvent { e ->
+                            if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
+                                submit(); true
+                            } else false
+                        },
+                )
+                Spacer(Modifier.width(8.dp))
+                // GIF direto do composer (F5): escolher = enviar.
+                GifButton(onPick = vm::sendGif)
+            }
         }
     }
 
@@ -380,6 +394,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                 )
             }
         }
+    }
     }
     }
 }
@@ -531,15 +546,34 @@ private fun ContentBlock(
         EditField(msg.content, onSaveEdit, onCancelEdit)
     } else if (msg.content.isNotBlank() || msg.edited) {
         // Mensagem so-anexo tem content vazio — sem linha em branco.
-        Text(
-            text = buildAnnotatedString {
-                append(msg.content)
-                if (msg.edited) {
-                    withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
+        // ```bloco``` vira caixa mono (F5); `inline` vira span mono; o resto e
+        // o caminho rapido de sempre.
+        val segments = remember(msg.content) { parseSegments(msg.content) }
+        if (segments.size == 1 && segments[0] is Seg.Txt) {
+            Text(
+                text = buildAnnotatedString {
+                    appendInlineCoded(msg.content)
+                    if (msg.edited) {
+                        withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
+                    }
+                },
+                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp),
+            )
+        } else {
+            segments.forEachIndexed { i, seg ->
+                if (i > 0) Spacer(Modifier.height(4.dp))
+                when (seg) {
+                    is Seg.Txt -> Text(
+                        text = buildAnnotatedString { appendInlineCoded(seg.s) },
+                        style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp),
+                    )
+                    is Seg.Code -> CodeBox(seg)
                 }
-            },
-            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp),
-        )
+            }
+            if (msg.edited) {
+                Text("(editado)", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+            }
+        }
     }
     msg.attachments.forEach { att ->
         Spacer(Modifier.height(4.dp))
@@ -562,17 +596,20 @@ private fun ContentBlock(
     }
 }
 
-// Anexo na mensagem: imagem inline (Coil); resto vira chip que abre no navegador.
+// Anexo na mensagem: imagem inline (Coil) abre no lightbox; resto vira chip
+// que abre no navegador.
 @Composable
 private fun AttachmentBlock(att: AttachmentDto) {
     if (att.type?.startsWith("image/") == true) {
+        val openImage = LocalOpenImage.current
         AsyncImage(
             model = att.url,
             contentDescription = att.name,
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .heightIn(max = 240.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { openImage(att.url) },
             contentScale = ContentScale.Fit,
         )
     } else {
@@ -609,6 +646,95 @@ private fun AttachmentBlock(att: AttachmentDto) {
 private fun openAttachment(url: String) {
     val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
     runCatching { Desktop.getDesktop().browse(URI(abs)) }
+}
+
+// ---- Code blocks (F5) ----
+
+private sealed interface Seg {
+    data class Txt(val s: String) : Seg
+    data class Code(val lang: String?, val s: String) : Seg
+}
+
+// Divide o conteudo em texto e blocos ```cercados``` (cerca sem par vira texto).
+private fun parseSegments(content: String): List<Seg> {
+    if ("```" !in content) return listOf(Seg.Txt(content))
+    val out = mutableListOf<Seg>()
+    var i = 0
+    while (true) {
+        val start = content.indexOf("```", i)
+        if (start < 0) {
+            if (i < content.length) out += Seg.Txt(content.substring(i))
+            break
+        }
+        val end = content.indexOf("```", start + 3)
+        if (end < 0) {
+            out += Seg.Txt(content.substring(i))
+            break
+        }
+        if (start > i) out += Seg.Txt(content.substring(i, start).trim('\n'))
+        val inner = content.substring(start + 3, end)
+        val nl = inner.indexOf('\n')
+        val lang = if (nl > 0) {
+            inner.substring(0, nl).trim().takeIf { it.isNotBlank() && it.length <= 20 && ' ' !in it }
+        } else {
+            null
+        }
+        val code = if (lang != null) inner.substring(nl + 1) else inner
+        out += Seg.Code(lang, code.trim('\n'))
+        i = end + 3
+    }
+    return out.filter { it !is Seg.Txt || it.s.isNotBlank() }
+}
+
+// `inline code` vira span DM Mono com fundo.
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(s: String) {
+    var i = 0
+    while (true) {
+        val a = s.indexOf('`', i)
+        val b = if (a >= 0) s.indexOf('`', a + 1) else -1
+        if (a < 0 || b < 0) {
+            append(s.substring(i))
+            return
+        }
+        append(s.substring(i, a))
+        withStyle(SpanStyle(fontFamily = DmMono, background = Obsidian.base, fontSize = 12.sp)) {
+            append(s.substring(a + 1, b))
+        }
+        i = b + 1
+    }
+}
+
+@Composable
+private fun CodeBox(code: Seg.Code) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.base)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp)),
+    ) {
+        SelectionContainer {
+            Text(
+                code.s,
+                style = TextStyle(
+                    color = Obsidian.text2,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    fontFamily = DmMono,
+                ),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .padding(top = if (code.lang != null) 8.dp else 0.dp),
+            )
+        }
+        code.lang?.let {
+            Text(
+                it,
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                modifier = Modifier.align(Alignment.TopEnd).padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+    }
 }
 
 private fun sizeLabel(bytes: Long): String = when {

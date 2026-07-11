@@ -197,6 +197,7 @@ fun ShellScreen(
             loading = state.loading,
             error = state.error,
             onRetry = vm::load,
+            onStartDm = vm::startDm,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
@@ -204,7 +205,7 @@ fun ShellScreen(
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
         ) {
-            MembersPanel(state.members, hazeState)
+            MembersPanel(state.members, session.userId, vm::startDm, hazeState)
         }
         }
     }
@@ -621,6 +622,7 @@ private fun Stage(
     loading: Boolean,
     error: String?,
     onRetry: () -> Unit,
+    onStartDm: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // 0.92: o palco e onde vive o texto — translucidez mais conservadora.
@@ -683,7 +685,7 @@ private fun Stage(
             if (target != null) {
                 val chatVm = remember { createChatVm(target) }
                 DisposableEffect(Unit) { onDispose { chatVm.dispose() } }
-                ChatView(target, chatVm)
+                ChatView(target, chatVm, onStartDm)
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {
@@ -723,7 +725,12 @@ private fun Stage(
 // ---- Painel de membros (240dp) ----
 
 @Composable
-private fun MembersPanel(members: List<ServerMemberDto>, hazeState: HazeState) {
+private fun MembersPanel(
+    members: List<ServerMemberDto>,
+    myId: String?,
+    onStartDm: (String, String) -> Unit,
+    hazeState: HazeState,
+) {
     Column(Modifier.width(240.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
@@ -735,17 +742,20 @@ private fun MembersPanel(members: List<ServerMemberDto>, hazeState: HazeState) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
             items(members, key = { it.userId }) { m ->
                 val name = m.user.displayName ?: m.user.username
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    DesktopAvatar(m.user.avatarUrl, name, 26)
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        text = name,
-                        style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
+                // Linha inteira clicavel: abre o card de perfil (F3).
+                ProfileAnchor(m.userId, isMe = m.userId == myId, onStartDm = onStartDm) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        DesktopAvatar(m.user.avatarUrl, name, 26)
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            text = name,
+                            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }

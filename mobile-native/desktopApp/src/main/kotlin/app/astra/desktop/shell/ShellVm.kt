@@ -10,6 +10,7 @@ import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
+import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
@@ -156,6 +157,27 @@ class ShellVm(
     // V1 da voz: abrir texto SAI da sala (chamada persistente/mini-dock = V6).
     fun openChat(target: ChatTarget) =
         _state.update { it.copy(chat = target, voiceChannel = null, unread = it.unread - target.id) }
+
+    // "Enviar sussurro" do card de perfil: abre/cria a conversa e ja cai nela.
+    fun startDm(username: String, title: String) {
+        scope.launch {
+            val conv = runCatching { dmApi.open(OpenDmRequest(username)).data }.getOrNull() ?: return@launch
+            if (_state.value.dms.none { it.id == conv.conversationId }) {
+                // Conversa nova: recarrega a lista e entra na sala dela (typing/new_dm).
+                val dms = runCatching { dmApi.conversations().data.orEmpty() }
+                    .getOrDefault(_state.value.dms)
+                dms.forEach { socket.joinDm(it.id) }
+                _state.update { it.copy(dms = dms) }
+            }
+            _state.update {
+                it.copy(
+                    selection = Selection.Dms,
+                    chat = ChatTarget.Dm(conv.conversationId, title),
+                    voiceChannel = null,
+                )
+            }
+        }
+    }
 
     fun openVoice(channel: ChannelDto) = _state.update { it.copy(voiceChannel = channel, chat = null) }
 

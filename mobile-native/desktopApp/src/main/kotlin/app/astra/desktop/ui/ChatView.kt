@@ -130,7 +130,7 @@ private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun ChatView(target: ChatTarget, vm: ChatVm) {
+fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -230,6 +230,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm) {
                             onCancelEdit = { editingId = null },
                             onDelete = { vm.delete(msg.id) },
                             onJumpTo = { id -> jumpTo(id) },
+                            onStartDm = onStartDm,
                         )
                     }
                 }
@@ -374,6 +375,7 @@ private fun MessageRow(
     onCancelEdit: () -> Unit,
     onDelete: () -> Unit,
     onJumpTo: (String) -> Unit,
+    onStartDm: (String, String) -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -426,7 +428,10 @@ private fun MessageRow(
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit)
                 }
             } else {
-                DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
+                // Clique no avatar abre o card de perfil (F3).
+                ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
+                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     msg.replyTo?.let { ref ->

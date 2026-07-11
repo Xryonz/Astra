@@ -151,6 +151,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                         Text(
                             "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
                             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            modifier = Modifier.widthIn(max = 460.dp),
                         )
                     }
                     SettingsTab.MOTION -> Column {
@@ -162,6 +163,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                         Text(
                             "bom pra economizar em maquina fraca ou se o movimento incomodar. muda na hora.",
                             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            modifier = Modifier.widthIn(max = 460.dp),
                         )
                     }
                 }
@@ -315,6 +317,9 @@ private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> U
 private fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
+            // Norma desktop: nao esticar pela largura toda do palco — cartao
+            // compacto alinhado a esquerda (valores de padding/raio vem do mobile).
+            .widthIn(max = 460.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))

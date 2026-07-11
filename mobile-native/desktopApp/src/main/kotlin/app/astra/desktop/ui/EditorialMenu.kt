@@ -128,7 +128,9 @@ private fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
     ) {
         Column(
             Modifier
-                .widthIn(min = 176.dp)
+                // Abraca o conteudo (min menor + teto): item curto nao vira barra
+                // esticada. Textos do menu sao de 1 linha (< max), sem quebra.
+                .widthIn(min = 150.dp, max = 260.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))

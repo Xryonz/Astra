@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -11,7 +12,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.platform.LocalWindowInfo
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -95,24 +95,28 @@ fun Modifier.auroraBackground(): Modifier {
     val effect = remember { runCatching { RuntimeEffect.makeForShader(AURORA_SKSL.trimIndent()) }.getOrNull() }
         ?: return this.drawBehind { drawRect(AURORA_FALLBACK) }
     val builder = remember { RuntimeShaderBuilder(effect) }
-    val windowInfo = LocalWindowInfo.current
     val reduceMotion = LocalReduceMotion.current
-    // Relogio de frames com PAUSA: janela sem foco = nenhum frame pedido (zero
-    // CPU/GPU em segundo plano — guardrail do dono). O tempo acumula e ENROLA no
-    // periodo do loop (AURORA_LOOP): mantem o dominio do ruido limitado (sem
-    // estouro de precisao) e o giro fecha sem salto.
+    // Gate por VISIBILIDADE (nao foco): rememberUpdatedState pra ler o valor mais
+    // fresco dentro do loop sem reiniciar o produceState (o que zeraria o tempo).
+    val active = rememberUpdatedState(LocalWindowActive.current)
+    // Relogio de frames com PAUSA: minimizada/na bandeja = nenhum frame pedido
+    // (zero CPU/GPU em segundo plano — guardrail do dono). Enquanto VISIVEL segue
+    // animando, mesmo com um popup/menu focavel aberto por cima (era o "cortada"
+    // de vez em quando: gatear por foco congelava a cada menu). O tempo acumula e
+    // ENROLA no periodo do loop (AURORA_LOOP): mantem o dominio do ruido limitado
+    // (sem estouro de precisao) e o giro fecha sem salto.
     // Reduzir movimento (Settings): congela num quadro fixo — aurora parada, sem
     // pedir frame nenhum (a chave e restartar o produceState quando o pref muda).
-    val timeSec by produceState(0f, windowInfo, reduceMotion) {
+    val timeSec by produceState(0f, reduceMotion) {
         if (reduceMotion) {
             value = AURORA_STILL
             return@produceState
         }
         var acc = 0f
         while (true) {
-            snapshotFlow { windowInfo.isWindowFocused }.first { it }
+            snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
-            while (windowInfo.isWindowFocused) {
+            while (active.value) {
                 withFrameNanos { now ->
                     acc += (now - last) / 1_000_000_000f
                     if (acc >= AURORA_LOOP) acc -= AURORA_LOOP

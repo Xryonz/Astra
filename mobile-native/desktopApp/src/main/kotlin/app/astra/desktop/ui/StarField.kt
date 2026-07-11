@@ -5,13 +5,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.Obsidian
 import kotlinx.coroutines.flow.first
@@ -34,17 +34,33 @@ private fun lcg(seed: Int): () -> Float {
 }
 
 private class BgStar(val x: Float, val y: Float, val r: Float)
-private class Twinkle(val x: Float, val y: Float, val r: Float, val freq: Float, val phase: Float)
+// Twinkle carrega tambem um WANDER proprio (orbita lenta e individual): e o que
+// da a sensacao de "fundo vivo" no desktop, ja que o tilt do celular saiu.
+// wSpeed em rad/s (periodo ~16..30s), fases desencontram o movimento de cada uma.
+private class Twinkle(
+    val x: Float, val y: Float, val r: Float, val freq: Float, val phase: Float,
+    val wSpeed: Float, val wPhaseX: Float, val wPhaseY: Float,
+)
 private class Meteor(val startX: Float, val stagger: Float, val mx: Float)
 
 private val BG_STARS: List<BgStar> = buildList {
     val rnd = lcg(424242)
     repeat(70) { add(BgStar(rnd(), rnd(), if (rnd() > 0.5f) 1.4f else 1.0f)) }
 }
+// Periodos do wander: SO divisores de STAR_LOOP (360) pra orbita fechar sem
+// salto no wrap (18|20|24|30|36 -> 360/p inteiro). Lentos (18..36s) = calmo.
+private val WANDER_PERIODS = floatArrayOf(18f, 20f, 24f, 30f, 36f)
 private val TWINKLES: List<Twinkle> = buildList {
     val rnd = lcg(99883)
     repeat(14) {
-        add(Twinkle(rnd(), rnd(), 1.5f + rnd() * 1.0f, (1 + (rnd() * 3f).toInt()).toFloat(), rnd() * 6.2832f))
+        val p = WANDER_PERIODS[(rnd() * WANDER_PERIODS.size).toInt().coerceIn(0, WANDER_PERIODS.size - 1)]
+        add(
+            Twinkle(
+                rnd(), rnd(), 1.5f + rnd() * 1.0f,
+                (1 + (rnd() * 3f).toInt()).toFloat(), rnd() * 6.2832f,
+                (2f * PI.toFloat()) / p, rnd() * 6.2832f, rnd() * 6.2832f,
+            ),
+        )
     }
 }
 private val METEORS: List<Meteor> = buildList {
@@ -57,24 +73,25 @@ private val METEORS: List<Meteor> = buildList {
 private const val DRIFT_PERIOD = 90f
 private const val TWINKLE_PERIOD = 5f
 private const val METEOR_PERIOD = 24f
-private const val STAR_LOOP = 360f // multiplo dos tres periodos: enrola sem salto
+private const val STAR_LOOP = 360f // multiplo dos periodos (drift/twinkle/meteoro/wander): enrola sem salto
+private const val WANDER_DP = 9f // amplitude da orbita individual das twinkles (perceptivel, calmo)
 
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     val reduceMotion = LocalReduceMotion.current
-    val windowInfo = LocalWindowInfo.current
-    // Mesmo relogio da aurora: pausa sem foco; reduzir movimento congela em 0
-    // (campo estatico, sem drift/piscar/meteoros).
-    val time by produceState(0f, windowInfo, reduceMotion) {
+    // Mesmo relogio/gate da aurora: pausa quando minimizada (nao quando so perde
+    // o foco pra um popup); reduzir movimento congela em 0 (campo estatico).
+    val active = rememberUpdatedState(LocalWindowActive.current)
+    val time by produceState(0f, reduceMotion) {
         if (reduceMotion) {
             value = 0f
             return@produceState
         }
         var acc = 0f
         while (true) {
-            snapshotFlow { windowInfo.isWindowFocused }.first { it }
+            snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
-            while (windowInfo.isWindowFocused) {
+            while (active.value) {
                 withFrameNanos { now ->
                     acc += (now - last) / 1_000_000_000f
                     if (acc >= STAR_LOOP) acc -= STAR_LOOP
@@ -99,9 +116,14 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
         }
 
         val tau = time * (2f * PI.toFloat() / TWINKLE_PERIOD)
+        val wander = WANDER_DP.dp.toPx()
         TWINKLES.forEach { t ->
             val a = 0.25f + 0.7f * ((sin(tau * t.freq + t.phase) + 1f) / 2f)
-            val c = Offset(t.x * w + dx, t.y * h + dy)
+            // Orbita propria (elipse): X e Y na mesma velocidade angular, fases
+            // distintas -> cada estrela vagueia devagar num caminho unico.
+            val wx = sin(time * t.wSpeed + t.wPhaseX) * wander
+            val wy = cos(time * t.wSpeed + t.wPhaseY) * wander * 0.7f
+            val c = Offset(t.x * w + dx + wx, t.y * h + dy + wy)
             drawCircle(color, t.r.dp.toPx() * 2.4f, c, alpha = a * 0.16f) // brilho
             drawCircle(color, t.r.dp.toPx(), c, alpha = a)
         }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import app.astra.desktop.di.appModule
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.ui.AstraTitleBar
+import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.ShellScreen
 import app.astra.desktop.ui.theme.Obsidian
@@ -106,6 +108,12 @@ fun main() {
                         ),
                 ) {
                     AstraTitleBar(state = state, onClose = { windowVisible = false })
+                    // Ativa = visivel & nao minimizada: aurora/estrelas so pedem
+                    // frame quando ativa (poupam na bandeja) SEM congelar quando um
+                    // popup rouba o foco (isso e visibilidade, nao foco).
+                    CompositionLocalProvider(
+                        LocalWindowActive provides (windowVisible && !state.isMinimized),
+                    ) {
                     Box(Modifier.fillMaxSize()) {
                         val s = session
                         if (s == null) {
@@ -124,6 +132,7 @@ fun main() {
                                 },
                             )
                         }
+                    }
                     }
                 }
             }

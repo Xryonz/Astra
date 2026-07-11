@@ -65,6 +65,14 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
 // CascadeIn) e os pulsos leem daqui.
 val LocalReduceMotion = staticCompositionLocalOf { false }
 
+// Janela "ativa" = visivel E nao minimizada (provido no Main a partir do estado
+// da janela). Aurora e estrelas gastam frame SO quando ativa — na bandeja/
+// minimizada param (guardrail do dono). IMPORTANTE: e diferente de "focada".
+// Popups focaveis do desktop (menu de botao direito, dialogs) roubam o foco da
+// janela, entao gatear por FOCO congelava a aurora toda vez que abria um menu
+// (o "cortada de vez em quando"). Visibilidade nao pisca com popup -> sem corte.
+val LocalWindowActive = staticCompositionLocalOf { true }
+
 // Entrada em cascata (F6): itens de lista revelam um a um (fade + subida leve).
 // GPU-only (alpha/translation em graphicsLayer). So os primeiros CASCADE_MAX
 // indices animam — item que entra por scroll aparece pronto (LazyColumn recicla).

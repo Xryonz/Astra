@@ -104,8 +104,17 @@ fun UserFooter(
     var profileOpen by remember { mutableStateOf(false) }
     var gearHint by remember { mutableStateOf(false) }
 
+    // Cartao flutuante estilo Discord: inset das bordas da sidebar, cantos
+    // arredondados e borda fina — parece sobreposto ao painel, com a aurora
+    // vazando por baixo (translucido).
     Row(
-        modifier = Modifier.fillMaxWidth().background(Obsidian.void.copy(alpha = 0.55f)).padding(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.void.copy(alpha = 0.46f))
+            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {

@@ -88,11 +88,6 @@ import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
@@ -158,20 +153,23 @@ fun ShellScreen(
         }
     }
 
-    val hazeState = remember { HazeState() }
     Box(Modifier.fillMaxSize()) {
         // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
         // (graphicsLayer): so ela invalida por frame — os paineis translucidos
-        // por cima nao redesenham com o shader. hazeSource: sidebar/membros
-        // sao vidro de verdade (blur backdrop) por cima dela.
+        // por cima nao redesenham com o shader.
         Box(
             Modifier
                 .matchParentSize()
-                .hazeSource(hazeState)
                 .graphicsLayer {}
                 .auroraBackground(),
         )
-        Row(Modifier.fillMaxSize()) {
+        // Paineis = cartoes flutuantes (estilo mobile): gap entre eles + cantos
+        // arredondados deixam a aurora respirar nas juntas (impressao de
+        // sobreposicao). Margem externa de 8dp separa do titulo/bordas da janela.
+        Row(
+            Modifier.fillMaxSize().padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -189,7 +187,6 @@ fun ShellScreen(
             me = state.me,
             meFallback = session.displayName,
             loading = state.loading,
-            hazeState = hazeState,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
             onToggleMute = vm::toggleDmMute,
@@ -216,19 +213,22 @@ fun ShellScreen(
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
         ) {
-            MembersPanel(state.members, session.userId, vm::startDm, hazeState)
+            MembersPanel(state.members, session.userId, vm::startDm)
         }
         }
     }
 }
 
-// Vidro obsidiana: blur do fundo (aurora) + tint do painel por cima.
-private fun glassStyle(base: Color) = HazeStyle(
-    backgroundColor = base,
-    tint = HazeTint(base.copy(alpha = 0.78f)),
-    blurRadius = 24.dp,
-    noiseFactor = 0f,
-)
+// Cartao translucido do shell (estilo mobile): cantos arredondados + fundo baixo
+// (a aurora vaza por baixo) + borda fina. O gap entre cartoes na Row vira a
+// "linha arredondada" que da a sensacao de sobreposicao.
+private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
+    val shape = RoundedCornerShape(14.dp)
+    return this
+        .clip(shape)
+        .background(bg.copy(alpha = alpha))
+        .border(1.dp, Obsidian.borderMid.copy(alpha = 0.5f), shape)
+}
 
 // ---- Rail de constelacoes (72dp) ----
 
@@ -240,8 +240,8 @@ private fun Rail(
     onLeaveServer: (String) -> Unit,
 ) {
     Column(
-        // Translucido: a aurora vaza sutil por baixo (0.85 mantem os icones legiveis).
-        modifier = Modifier.width(72.dp).fillMaxHeight().background(Obsidian.void.copy(alpha = 0.85f)),
+        // Cartao translucido: a aurora vaza por baixo (estilo mobile).
+        modifier = Modifier.width(72.dp).fillMaxHeight().panelCard(Obsidian.void, 0.34f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(10.dp))
@@ -369,7 +369,6 @@ private fun Sidebar(
     me: ProfileUserDto?,
     meFallback: String,
     loading: Boolean,
-    hazeState: HazeState,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
     onToggleMute: (ConversationDto) -> Unit,
@@ -377,7 +376,7 @@ private fun Sidebar(
     onEditedProfile: () -> Unit,
     onLogout: () -> Unit,
 ) {
-    Column(Modifier.width(260.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
+    Column(Modifier.width(260.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
         // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
         // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
@@ -417,8 +416,8 @@ private fun Sidebar(
             }
         }
 
-        // Rodape do usuario (F2): avatar com anel + status, perfil no clique.
-        HairRule()
+        // Rodape do usuario: cartao flutuante estilo Discord (bordas arredondadas
+        // sobre a aurora). A propria borda do cartao ja separa da lista — sem HairRule.
         UserFooter(me = me, fallbackName = meFallback, onEdited = onEditedProfile, onLogout = onLogout)
     }
 }
@@ -728,8 +727,9 @@ private fun Stage(
     onStartDm: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 0.92: o palco e onde vive o texto — translucidez mais conservadora.
-    Column(modifier.fillMaxHeight().background(Obsidian.base.copy(alpha = 0.92f))) {
+    // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
+    // os outros paineis pra leitura (aurora aparece, mas nao briga com a mensagem).
+    Column(modifier.fillMaxHeight().panelCard(Obsidian.base, 0.32f)) {
         // Top bar do palco
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -832,9 +832,8 @@ private fun MembersPanel(
     members: List<ServerMemberDto>,
     myId: String?,
     onStartDm: (String, String) -> Unit,
-    hazeState: HazeState,
 ) {
-    Column(Modifier.width(240.dp).fillMaxHeight().hazeEffect(hazeState, glassStyle(Obsidian.raised))) {
+    Column(Modifier.width(240.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
                 text = "membros — ${members.size}",

@@ -171,6 +171,9 @@ fun ShellScreen(
                 .graphicsLayer {}
                 .auroraBackground(),
         )
+        // Estrelas (fieis ao mobile) entre a aurora e os paineis: fixas + piscar
+        // + meteoros. Camada propria (transparente) — a aurora aparece por baixo.
+        StarField(Modifier.matchParentSize())
         // Paineis = cartoes flutuantes (estilo mobile): gap entre eles + cantos
         // arredondados deixam a aurora respirar nas juntas (impressao de
         // sobreposicao). Margem externa de 8dp separa do titulo/bordas da janela.

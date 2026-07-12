@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,13 +96,23 @@ fun main() {
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
 
+            // Tema do usuario (Settings > Aparencia): aplica o par accent/fundo nos
+            // tokens reativos do Obsidian -> o app inteiro recolore ao vivo.
+            val prefs = remember { koin.get<DesktopPrefs>() }
+            val prefState by prefs.state.collectAsState()
+            LaunchedEffect(prefState.accentId, prefState.bgId) {
+                Obsidian.apply(prefState.accentId, prefState.bgId)
+            }
+
             // Cantos arredondados so com a janela solta E translucida; maximizada
             // ou opaca volta ao reto (senao sobra fresta/canto preto).
             val rounded = transparentWindow && state.placement == WindowPlacement.Floating
             val windowShape = if (rounded) RoundedCornerShape(10.dp) else RectangleShape
 
             // RikkaUI e CMP (foundation-only): mesmo tema do mobile, tokens obsidiana.
-            RikkaTheme(colors = rikkaObsidian) {
+            // Reconstruido AQUI (nao top-level) pra ler os tokens reativos do Obsidian
+            // -> os componentes RikkaUI recolorem junto quando o tema muda.
+            RikkaTheme(colors = obsidianRikkaColors()) {
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -145,8 +157,9 @@ fun main() {
 }
 
 // Mapeamento RikkaColors identico ao AstraTheme do mobile (Theme.kt), com os
-// tokens obsidiana do desktop.
-private val rikkaObsidian = RikkaColors(
+// tokens obsidiana do desktop. Funcao (nao val) pra ler os tokens reativos DENTRO
+// da composicao -> recolore quando o tema muda.
+private fun obsidianRikkaColors() = RikkaColors(
     background = Obsidian.raised,
     onBackground = Obsidian.text1,
     surface = Obsidian.overlay,

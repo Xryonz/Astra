@@ -79,6 +79,13 @@ val LocalWindowActive = staticCompositionLocalOf { true }
 data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = 0)
 val LocalRenderPrefs = staticCompositionLocalOf { RenderPrefs() }
 
+// Aparencia do CHAT (Settings > Aparencia): multiplicador do tamanho da fonte das
+// mensagens + respiro entre elas (topDp/groupedTopDp). Provido no ChatView a partir
+// do DesktopPrefs; ContentBlock le a fonte e MessageRow o espacamento.
+val LocalMsgFontScale = staticCompositionLocalOf { 1f }
+data class MsgDensity(val topDp: Int = 10, val groupedTopDp: Int = 2)
+val LocalMsgDensity = staticCompositionLocalOf { MsgDensity() }
+
 // Entrada em cascata (F6): itens de lista revelam um a um (fade + subida leve).
 // GPU-only (alpha/translation em graphicsLayer). So os primeiros CASCADE_MAX
 // indices animam — item que entra por scroll aparece pronto (LazyColumn recicla).

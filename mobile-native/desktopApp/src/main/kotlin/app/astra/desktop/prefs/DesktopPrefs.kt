@@ -40,6 +40,25 @@ enum class ScreenQuality(
     }
 }
 
+// Tamanho da fonte das mensagens (multiplicador). Espelha o FontSizePref do mobile.
+enum class FontSizePref(val key: String, val label: String, val scale: Float) {
+    SM("sm", "Pequena", 0.9f), MD("md", "Padrao", 1.0f), LG("lg", "Grande", 1.12f), XL("xl", "Maior", 1.25f);
+    companion object {
+        fun from(raw: String?) = entries.find { it.key == raw } ?: MD
+    }
+}
+
+// Densidade das mensagens: respiro entre mensagens (topDp) e entre agrupadas
+// (groupedTopDp). Espelha o DensityPref do mobile.
+enum class DensityPref(val key: String, val label: String, val topDp: Int, val groupedTopDp: Int) {
+    COMPACT("compact", "Compacta", 5, 1),
+    COMFORTABLE("comfortable", "Confortavel", 10, 2),
+    SPACIOUS("spacious", "Espacosa", 16, 4);
+    companion object {
+        fun from(raw: String?) = entries.find { it.key == raw } ?: COMFORTABLE
+    }
+}
+
 // Preferencias LOCAIS do desktop (nao vao pro backend): movimento, toasts da
 // bandeja e agora DESEMPENHO/GRAFICOS. Persistem no ui.properties (mesmo arquivo
 // da ultima selecao, que sobrevive a logout). StateFlow pra UI e shell reagirem
@@ -61,6 +80,11 @@ class DesktopPrefs(private val store: SessionStore) {
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
         // de criacao da janela). Opaca = mais nitido/leve.
         val windowTransparent: Boolean = true,
+        // --- Aparencia ---
+        val accentId: String = "white",
+        val bgId: String = "void",
+        val fontSize: FontSizePref = FontSizePref.MD,
+        val density: DensityPref = DensityPref.COMFORTABLE,
         // --- Voz & Transmissao ---
         val screenQuality: ScreenQuality = ScreenQuality.HIGH_1080_60,
         // Processamento do microfone (aplica ao ENTRAR na proxima sala de voz).
@@ -89,6 +113,10 @@ class DesktopPrefs(private val store: SessionStore) {
         starsEnabled = store.uiPref("starsEnabled") != "0",
         uiFps = UiFps.from(store.uiPref("uiFps")),
         windowTransparent = store.uiPref("windowTransparent") != "0",
+        accentId = store.uiPref("accentId") ?: "white",
+        bgId = store.uiPref("bgId") ?: "void",
+        fontSize = FontSizePref.from(store.uiPref("fontSize")),
+        density = DensityPref.from(store.uiPref("density")),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
@@ -145,6 +173,32 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setScreenQuality(v: ScreenQuality) {
         store.setUiPref("screenQuality", v.key)
         _state.update { it.copy(screenQuality = v) }
+    }
+
+    fun setAccent(id: String) {
+        store.setUiPref("accentId", id)
+        _state.update { it.copy(accentId = id) }
+    }
+
+    fun setBg(id: String) {
+        store.setUiPref("bgId", id)
+        _state.update { it.copy(bgId = id) }
+    }
+
+    fun setTheme(accentId: String, bgId: String) {
+        store.setUiPref("accentId", accentId)
+        store.setUiPref("bgId", bgId)
+        _state.update { it.copy(accentId = accentId, bgId = bgId) }
+    }
+
+    fun setFontSize(v: FontSizePref) {
+        store.setUiPref("fontSize", v.key)
+        _state.update { it.copy(fontSize = v) }
+    }
+
+    fun setDensity(v: DensityPref) {
+        store.setUiPref("density", v.key)
+        _state.update { it.copy(density = v) }
     }
 
     fun setMicNoiseSuppression(v: Boolean) {

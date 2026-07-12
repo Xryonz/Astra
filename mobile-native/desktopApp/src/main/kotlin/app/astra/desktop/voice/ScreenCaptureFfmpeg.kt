@@ -2,8 +2,10 @@ package app.astra.desktop.voice
 
 import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinReg
+import dev.onvoid.webrtc.media.FourCC
 import dev.onvoid.webrtc.media.video.CustomVideoSource
 import dev.onvoid.webrtc.media.video.NativeI420Buffer
+import dev.onvoid.webrtc.media.video.VideoBufferConverter
 import dev.onvoid.webrtc.media.video.VideoFrame
 import java.io.BufferedInputStream
 import java.io.File
@@ -25,9 +27,20 @@ import java.util.concurrent.TimeUnit
 class ScreenCaptureFfmpeg(
     private val ffmpegPath: String,
     private val source: CustomVideoSource,
+    // Tee do preview local: recebe (argb, w, h) a ~15fps. O webrtc-java NAO entrega
+    // frames de CustomVideoSource pro sink da track local, entao o auto-preview
+    // (Discord) sai daqui, direto da captura — nao do sink da track.
+    private val onPreview: ((ByteArray, Int, Int) -> Unit)? = null,
 ) {
     private var process: Process? = null
     @Volatile private var running = false
+
+    // Preview: throttle + 2 buffers ARGB reaproveitados (o UI copia no makeRaster,
+    // entao 2 dao folga de sobra a 15fps sem alocar 8MB por frame). So a thread de
+    // captura toca nestes campos.
+    private var lastPreviewNs = 0L
+    private val argbBufs = arrayOf(ByteArray(0), ByteArray(0))
+    private var argbIdx = 0
 
     fun start(outputIdx: Int, width: Int, height: Int, fps: Int): Boolean {
         forceIntegratedGpu(ffmpegPath) // Optimus: sem isso, ddagrab da "output not supported"
@@ -97,6 +110,7 @@ class ScreenCaptureFfmpeg(
             copyPlane(src, 0, w, buffer.dataY, buffer.strideY, w, h)
             copyPlane(src, ySize, cW, buffer.dataU, buffer.strideU, cW, cH)
             copyPlane(src, ySize + cSize, cW, buffer.dataV, buffer.strideV, cW, cH)
+            emitPreview(buffer, w, h)
             VideoFrame(buffer, System.nanoTime())
         } catch (t: Throwable) {
             runCatching { buffer.release() }
@@ -106,6 +120,23 @@ class ScreenCaptureFfmpeg(
             source.pushFrame(frame)
         } finally {
             runCatching { frame.release() }
+        }
+    }
+
+    // Converte o MESMO buffer I420 (antes de virar VideoFrame) pra ARGB e entrega
+    // pra UI. Throttle ~15fps: preview nao precisa de 60, e a conversao/copia sai
+    // do caminho quente da transmissao. Alterna 2 buffers pra nao alocar por frame.
+    private fun emitPreview(buffer: NativeI420Buffer, w: Int, h: Int) {
+        val cb = onPreview ?: return
+        val now = System.nanoTime()
+        if (now - lastPreviewNs < PREVIEW_INTERVAL_NS) return
+        lastPreviewNs = now
+        val need = w * h * 4
+        val dst = argbBufs[argbIdx].let { if (it.size == need) it else ByteArray(need).also { b -> argbBufs[argbIdx] = b } }
+        argbIdx = argbIdx xor 1
+        runCatching {
+            VideoBufferConverter.convertFromI420(buffer, dst, FourCC.ABGR)
+            cb(dst, w, h)
         }
     }
 
@@ -119,6 +150,9 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
+        // Preview a ~15fps (66ms). A transmissao segue no framerate cheio do ddagrab.
+        private const val PREVIEW_INTERVAL_NS = 66_000_000L
+
         // Preferencia de GPU por-exe (HKCU) = "power saving" (integrada). No Optimus
         // isso faz o ffmpeg rodar na iGPU que DE FATO scaneia o monitor -> a
         // duplicacao funciona. Em PC de 1 GPU e inofensivo. Best-effort (nunca

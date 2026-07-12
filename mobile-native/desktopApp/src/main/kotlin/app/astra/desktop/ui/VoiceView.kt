@@ -56,6 +56,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.voice.ScreenPreview
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceStatus
 import app.astra.mobile.core.network.VoiceApi
@@ -97,6 +98,7 @@ fun VoiceView(
     val micOn by engine.micOn.collectAsState()
     val videos by engine.remoteVideos.collectAsState()
     val localScreen by engine.localScreen.collectAsState()
+    val localPreview by engine.localPreview.collectAsState()
     val screenStats by engine.screenStats.collectAsState()
 
     Column(
@@ -156,14 +158,17 @@ fun VoiceView(
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                     watching?.let { w ->
                         // Destaque: borda accent no video em foco.
-                        RemoteVideoView(
-                            w.track,
-                            Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-                        )
+                        val stageMod = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        val lp = localPreview
+                        // Minha tela = preview direto da captura (o sink da track local
+                        // nao entrega frames do CustomVideoSource). Sem tee (fallback
+                        // GDI) cai pro sink da track.
+                        if (w.isMe && lp != null) LocalPreviewView(lp, stageMod)
+                        else RemoteVideoView(w.track, stageMod)
                         Spacer(Modifier.height(6.dp))
                         // Na MINHA transmissao mostro os fps reais (envio + captura) e
                         // o motivo se o WebRTC degradou — e como saber se bateu 60.
@@ -422,6 +427,27 @@ private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
     val f = frame
     if (f != null) {
         Image(f, contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit)
+    } else {
+        Box(modifier)
+    }
+}
+
+// Auto-preview da MINHA tela: os frames vem direto da captura (ScreenPreview, ARGB
+// cru) porque o sink da track local nao dispara pra CustomVideoSource. makeRaster
+// copia os bytes; cada ScreenPreview novo (~15fps) recompoe e redesenha.
+@Composable
+private fun LocalPreviewView(preview: ScreenPreview, modifier: Modifier = Modifier) {
+    val image = remember(preview) {
+        runCatching {
+            SkiaImage.makeRaster(
+                ImageInfo(preview.width, preview.height, ColorType.RGBA_8888, ColorAlphaType.OPAQUE),
+                preview.argb,
+                preview.width * 4,
+            ).toComposeImageBitmap()
+        }.getOrNull()
+    }
+    if (image != null) {
+        Image(image, contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit)
     } else {
         Box(modifier)
     }

@@ -88,6 +88,11 @@ class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: Video
 // degradando framerate (default de conteudo de tela e manter resolucao).
 data class ScreenStats(val captureFps: Int, val sendFps: Int, val limit: String)
 
+// Frame do auto-preview local (Discord): ARGB cru + dimensoes. Vem direto da
+// captura (ScreenCaptureFfmpeg), NAO do sink da track — o webrtc-java nao entrega
+// frames de CustomVideoSource pra sink local. A UI faz makeRaster disto.
+class ScreenPreview(val argb: ByteArray, val width: Int, val height: Int)
+
 // V3+V4+V5 — OUVIR, FALAR e TRANSMITIR. Subscriber PC (LiveKit e subscriber-
 // primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
 // (a gente manda o offer DEPOIS do AddTrackRequest ser aceito — ordem do
@@ -156,6 +161,11 @@ class VoiceEngine(
     // (igual Discord). Track local aceita sink como remota; some ao parar.
     private val _localScreen = MutableStateFlow<VideoTrack?>(null)
     val localScreen = _localScreen.asStateFlow()
+
+    // Frames do auto-preview (caminho ffmpeg). Null = sem preview direto (ex.:
+    // fallback GDI) -> a UI cai pro sink da track.
+    private val _localPreview = MutableStateFlow<ScreenPreview?>(null)
+    val localPreview = _localPreview.asStateFlow()
 
     // Metricas da transmissao (poll a cada ~1.5s enquanto compartilho).
     private val _screenStats = MutableStateFlow<ScreenStats?>(null)
@@ -502,7 +512,9 @@ class VoiceEngine(
         val ffPath = FfmpegLocator.path ?: return null
         val outIdx = source?.let { s -> screens().indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
         val custom = CustomVideoSource()
-        val cap = ScreenCaptureFfmpeg(ffPath, custom)
+        val cap = ScreenCaptureFfmpeg(ffPath, custom) { argb, w, h ->
+            _localPreview.value = ScreenPreview(argb, w, h)
+        }
         if (!cap.start(outIdx, q.width, q.height, q.fps)) {
             cap.stop()
             runCatching { custom.dispose() }
@@ -658,6 +670,7 @@ class VoiceEngine(
         if (!_screenOn.value) return
         _screenOn.value = false
         _localScreen.value = null
+        _localPreview.value = null
         statsJob?.cancel()
         _screenStats.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
@@ -730,6 +743,7 @@ class VoiceEngine(
         ws = null
         _remoteVideos.value = emptyList()
         _localScreen.value = null
+        _localPreview.value = null
         ffmpegCap?.stop()
         ffmpegCap = null
         runCatching { customSource?.dispose() }

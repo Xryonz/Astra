@@ -223,7 +223,7 @@ fun VoiceView(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        tiles.forEach { ParticipantTile(it, Modifier.width(116.dp)) }
+                        tiles.forEach { ParticipantTile(it, Modifier.width(148.dp)) }
                     }
                 }
             }
@@ -423,7 +423,7 @@ private fun ParticipantGrid(tiles: List<Tile>) {
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        tiles.forEach { ParticipantTile(it, Modifier.width(140.dp)) }
+        tiles.forEach { ParticipantTile(it, Modifier.width(164.dp)) }
     }
 }
 
@@ -465,7 +465,7 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
             .padding(vertical = 16.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
             if (tile.speaking) {
                 Box(
                     Modifier.fillMaxSize()
@@ -473,7 +473,7 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
                         .background(Obsidian.accent.copy(alpha = 0.22f * ring)),
                 )
             }
-            DesktopAvatar(tile.avatarUrl, tile.label, 54)
+            DesktopAvatar(tile.avatarUrl, tile.label, 62)
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

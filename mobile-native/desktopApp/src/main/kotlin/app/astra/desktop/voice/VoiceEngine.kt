@@ -93,6 +93,13 @@ data class ScreenStats(val captureFps: Int, val sendFps: Int, val limit: String)
 // frames de CustomVideoSource pra sink local. A UI faz makeRaster disto.
 class ScreenPreview(val argb: ByteArray, val width: Int, val height: Int)
 
+// Deteccao de fala por NIVEL DE AUDIO (getStats) — independe do speakers_changed do
+// servidor (que nao chega no nosso WS hand-rolled). Nivel 0..1; voz ativa passa do
+// threshold. Hangover segura o "falando" um tico apos cair (anti-flicker).
+private const val SPEAK_THRESHOLD = 0.03
+private const val SPEAK_POLL_MS = 200L
+private const val SPEAK_HANGOVER_MS = 400L
+
 // V3+V4+V5 — OUVIR, FALAR e TRANSMITIR. Subscriber PC (LiveKit e subscriber-
 // primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
 // (a gente manda o offer DEPOIS do AddTrackRequest ser aceito — ordem do
@@ -115,11 +122,15 @@ class VoiceEngine(
     private var mySid: String? = null
     @Volatile private var mySpeaking = false
     private var joined = false
+    private var speakingJob: Job? = null
+    @Volatile private var mySpeakUntil = 0L
 
     // identity -> outro participante (ordem de chegada). speaking vem por sid
     // (SpeakersChanged fala em sid, nao identity).
-    private class Remote(val sid: String, val label: String, var speaking: Boolean = false)
+    private class Remote(val sid: String, val label: String, var speaking: Boolean = false, var speakUntil: Long = 0)
     private val others = linkedMapOf<String, Remote>()
+    // Receiver do audio remoto por dono (ownerSid) — pra medir o nivel de fala de cada um.
+    private val remoteAudioReceivers = linkedMapOf<String, RTCRtpReceiver>()
 
     // Transmissoes remotas (video). Track de audio remota nao entra aqui: toca
     // sozinha no device padrao.
@@ -240,6 +251,7 @@ class VoiceEngine(
                 createSubscriber(res.join.iceServersList)
                 createPublisher(res.join.iceServersList)
                 publishMic()
+                startSpeakingPoll()
                 startPing(res.join.pingInterval)
                 publishConnected()
             }
@@ -252,18 +264,12 @@ class VoiceEngine(
                     if (p.identity == myIdentity) return@forEach
                     if (p.state == LivekitModels.ParticipantInfo.State.DISCONNECTED) {
                         others.remove(p.identity)
+                        remoteAudioReceivers.remove(p.sid)
                         _remoteVideos.value = _remoteVideos.value.filterNot { it.ownerSid == p.sid }
                     } else {
                         // Preserva speaking: UPDATE nao fala de voz ativa.
                         others[p.identity] = p.remote(others[p.identity]?.speaking ?: false)
                     }
-                }
-                if (joined) publishConnected()
-            }
-            LivekitRtc.SignalResponse.MessageCase.SPEAKERS_CHANGED -> {
-                res.speakersChanged.speakersList.forEach { sp ->
-                    if (sp.sid == mySid) mySpeaking = sp.active
-                    else others.values.find { it.sid == sp.sid }?.speaking = sp.active
                 }
                 if (joined) publishConnected()
             }
@@ -318,13 +324,21 @@ class VoiceEngine(
             // Track de video remota = transmissao de alguem. O LiveKit nomeia o
             // MediaStream como "participantSid|trackSid" — dai sai o dono.
             override fun onAddTrack(receiver: RTCRtpReceiver, streams: Array<MediaStream>) {
-                val track = receiver.track as? VideoTrack ?: return
                 val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|') ?: return
-                val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissao"
-                _remoteVideos.value = _remoteVideos.value + RemoteVideo(ownerSid, label, track)
+                when (val track = receiver.track) {
+                    is VideoTrack -> {
+                        val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissao"
+                        _remoteVideos.value = _remoteVideos.value + RemoteVideo(ownerSid, label, track)
+                    }
+                    // Audio remoto toca sozinho no device padrao; guardamos o receiver so
+                    // pra medir o nivel de fala (inchada do card de quem fala).
+                    is AudioTrack -> remoteAudioReceivers[ownerSid] = receiver
+                    else -> Unit
+                }
             }
 
             override fun onRemoveTrack(receiver: RTCRtpReceiver) {
+                remoteAudioReceivers.entries.removeIf { it.value == receiver }
                 val gone = runCatching { receiver.track?.id }.getOrNull() ?: return
                 _remoteVideos.value = _remoteVideos.value.filterNot { v ->
                     runCatching { v.track.id == gone }.getOrDefault(true)
@@ -661,6 +675,54 @@ class VoiceEngine(
         _screenStats.value = ScreenStats(capture, send, limit)
     }
 
+    // Poll de fala por nivel de audio (getStats): meu mic (MEDIA_SOURCE do publisher)
+    // + cada audio remoto (INBOUND_RTP do receiver). Independe do speakers_changed do
+    // servidor. Hangover segura o "falando" ~400ms apos cair (anti-flicker) — a
+    // inchada do card reage a isso.
+    private fun startSpeakingPoll() {
+        speakingJob?.cancel()
+        speakingJob = scope.launch {
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                // Medicoes (async; atualizam os *SpeakUntil quando o callback volta).
+                if (_micOn.value) pub?.let { pc ->
+                    runCatching { pc.getStats { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) mySpeakUntil = System.currentTimeMillis() + SPEAK_HANGOVER_MS } }
+                } else mySpeakUntil = 0L
+                sub?.let { pc ->
+                    remoteAudioReceivers.entries.toList().forEach { (sid, recv) ->
+                        runCatching { pc.getStats(recv) { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) markRemoteSpeak(sid) } }
+                    }
+                }
+                // Aplica (com base no que ja voltou dos ciclos anteriores).
+                var changed = false
+                val meSpeak = now < mySpeakUntil
+                if (meSpeak != mySpeaking) { mySpeaking = meSpeak; changed = true }
+                runCatching {
+                    others.values.toList().forEach { r ->
+                        val sp = now < r.speakUntil
+                        if (r.speaking != sp) { r.speaking = sp; changed = true }
+                    }
+                }
+                if (changed && joined) publishConnected()
+                delay(SPEAK_POLL_MS)
+            }
+        }
+    }
+
+    private fun markRemoteSpeak(sid: String) {
+        runCatching { others.values.find { it.sid == sid }?.speakUntil = System.currentTimeMillis() + SPEAK_HANGOVER_MS }
+    }
+
+    private fun audioLevelOf(report: RTCStatsReport): Double {
+        var lvl = 0.0
+        report.stats.values.forEach { s ->
+            if (s.type == RTCStatsType.MEDIA_SOURCE || s.type == RTCStatsType.INBOUND_RTP) {
+                (s.attributes["audioLevel"] as? Number)?.let { lvl = maxOf(lvl, it.toDouble()) }
+            }
+        }
+        return lvl
+    }
+
     // H264 primeiro (paridade com o web tunado 60fps H264); rtx/red/fec continuam
     // na lista — so reordena.
     private fun preferH264(transceiver: RTCRtpTransceiver) {
@@ -751,6 +813,7 @@ class VoiceEngine(
     fun dispose() {
         pingJob?.cancel()
         statsJob?.cancel()
+        speakingJob?.cancel()
         // Despedida educada: o servidor libera o slot na hora em vez de esperar timeout.
         runCatching {
             val leave = LivekitRtc.SignalRequest.newBuilder()
@@ -761,6 +824,7 @@ class VoiceEngine(
         ws?.close(1000, "leave")
         ws = null
         _remoteVideos.value = emptyList()
+        remoteAudioReceivers.clear()
         _localScreen.value = null
         _localPreview.value = null
         ffmpegCap?.stop()

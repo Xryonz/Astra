@@ -1,5 +1,7 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URI
+import java.util.zip.ZipFile
 
 // :desktopApp — cliente desktop do Astra (Compose Multiplatform / JVM).
 // D0: so abre uma janela obsidiana. O codigo compartilhado (dominio/dados/UI)
@@ -72,23 +74,24 @@ dependencies {
 // grande e fica FORA do git. Num clone limpo: `./gradlew :desktopApp:fetchFfmpeg`
 // antes de empacotar (o createDistributable ja depende dele). Build lgpl (sem os
 // codecs GPL) porque so usamos captura+escala, nao encoders.
+// Paths resolvidos no topo (receiver Project); o lambda da task so ve estas vals.
+val ffmpegOut = project.file("appResources/windows/ffmpeg.exe")
+val ffmpegZip = layout.buildDirectory.file("ffmpeg-dl.zip").get().asFile
+val ffmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
 val fetchFfmpeg = tasks.register("fetchFfmpeg") {
-    val out = project.file("appResources/windows/ffmpeg.exe")
-    outputs.file(out)
-    onlyIf { !out.exists() }
+    outputs.file(ffmpegOut)
+    onlyIf { !ffmpegOut.exists() }
     doLast {
-        val url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
-        val zip = layout.buildDirectory.file("ffmpeg-dl.zip").get().asFile
-        zip.parentFile.mkdirs()
+        ffmpegZip.parentFile.mkdirs()
         logger.lifecycle("Baixando ffmpeg (ddagrab) ...")
-        uri(url).toURL().openStream().use { i -> zip.outputStream().use { i.copyTo(it) } }
-        out.parentFile.mkdirs()
-        java.util.zip.ZipFile(zip).use { zf ->
+        URI(ffmpegUrl).toURL().openStream().use { i -> ffmpegZip.outputStream().use { i.copyTo(it) } }
+        ffmpegOut.parentFile.mkdirs()
+        ZipFile(ffmpegZip).use { zf ->
             val e = zf.entries().asSequence().first { it.name.endsWith("bin/ffmpeg.exe") }
-            zf.getInputStream(e).use { i -> out.outputStream().use { i.copyTo(it) } }
+            zf.getInputStream(e).use { i -> ffmpegOut.outputStream().use { i.copyTo(it) } }
         }
-        zip.delete()
-        logger.lifecycle("ffmpeg.exe -> ${out.length() / 1024 / 1024} MB")
+        ffmpegZip.delete()
+        logger.lifecycle("ffmpeg.exe -> ${ffmpegOut.length() / 1024 / 1024} MB")
     }
 }
 tasks.matching { it.name == "createDistributable" || it.name == "packageDistributionForCurrentOS" }

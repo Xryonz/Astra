@@ -309,37 +309,37 @@ fun VoiceView(
 // vivo) e — futuro — o cancelador de ruido Krisp. Presets = os 4 do ScreenQuality.
 @Composable
 private fun CallSettingsPanel(current: ScreenQuality, onPick: (ScreenQuality) -> Unit) {
+    val is1080 = current.width >= 1920
+    val is60 = current.fps >= 60
+    // 2 eixos (resolucao x fluidez) -> os 4 presets ScreenQuality por baixo.
+    fun choose(res1080: Boolean, fps60: Boolean) = when {
+        res1080 && fps60 -> ScreenQuality.HIGH_1080_60
+        !res1080 && fps60 -> ScreenQuality.SMOOTH_720_60
+        res1080 && !fps60 -> ScreenQuality.CRISP_1080_30
+        else -> ScreenQuality.LIGHT_720_30
+    }
     Column(
         Modifier
             .width(232.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
-            .padding(6.dp),
+            .padding(8.dp),
     ) {
-        PanelHeader("Transmissao")
-        ScreenQuality.entries.forEach { q ->
-            val on = q == current
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(7.dp))
-                    .clickable { onPick(q) }
-                    .padding(horizontal = 10.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (on) "●" else "○",
-                    style = TextStyle(color = if (on) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    q.label,
-                    style = TextStyle(color = if (on) Obsidian.text1 else Obsidian.text2, fontSize = 12.sp),
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
+        PanelHeader("Resolucao")
+        CallSegmented(
+            options = listOf("1080p" to true, "720p" to false),
+            selected = is1080,
+            onPick = { r -> onPick(choose(r, is60)) },
+        )
+        Spacer(Modifier.height(8.dp))
+        PanelHeader("Fluidez")
+        CallSegmented(
+            options = listOf("60fps" to true, "30fps" to false),
+            selected = is60,
+            onPick = { f -> onPick(choose(is1080, f)) },
+        )
+        Spacer(Modifier.height(10.dp))
         PanelHeader("Microfone")
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
@@ -362,6 +362,39 @@ private fun PanelHeader(text: String) {
         style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
     )
+}
+
+// Pilulas segmentadas (um eixo). Ativa = accent; muda na hora.
+@Composable
+private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPick: (T) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.base)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        options.forEach { (label, value) ->
+            val on = value == selected
+            val bg by animateColorAsState(
+                if (on) Obsidian.accent.copy(alpha = 0.16f) else Obsidian.base.copy(alpha = 0f),
+                tween(140),
+            )
+            Box(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(bg)
+                    .border(1.dp, if (on) Obsidian.accent.copy(alpha = 0.5f) else Obsidian.borderDim.copy(alpha = 0f), RoundedCornerShape(6.dp))
+                    .clickable { onPick(value) }
+                    .padding(vertical = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = TextStyle(color = if (on) Obsidian.accent else Obsidian.text2, fontSize = 12.sp))
+            }
+        }
+    }
 }
 
 // Uma transmissao no palco: minha tela (auto-preview) OU de outro participante.

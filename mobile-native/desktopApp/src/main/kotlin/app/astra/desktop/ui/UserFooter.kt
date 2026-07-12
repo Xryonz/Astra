@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +51,9 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.LogOut
+import com.composables.icons.lucide.Settings
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
@@ -155,14 +159,14 @@ fun UserFooter(
             )
             Text(statusLabel(status), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         }
-        FooterIcon("⚙", danger = false, onClick = onOpenSettings)
+        FooterIcon(Lucide.Settings, danger = false, onClick = onOpenSettings)
         Spacer(Modifier.width(2.dp))
-        FooterIcon("⏻", danger = true, onClick = onLogout)
+        FooterIcon(Lucide.LogOut, danger = true, onClick = onLogout)
     }
 }
 
 @Composable
-private fun FooterIcon(glyph: String, danger: Boolean, onClick: () -> Unit) {
+private fun FooterIcon(icon: ImageVector, danger: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val color by animateColorAsState(
@@ -181,7 +185,7 @@ private fun FooterIcon(glyph: String, danger: Boolean, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, style = TextStyle(color = color, fontSize = 14.sp))
+        LIcon(icon, tint = color, size = 15.dp)
     }
 }
 

@@ -59,6 +59,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.Circle
+import com.composables.icons.lucide.CircleDot
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
@@ -155,7 +160,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                             .clickable(onClick = onClose),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("✕", style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
+                        LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp)
                     }
                 }
                 Spacer(Modifier.height(20.dp))
@@ -391,9 +396,10 @@ private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect:
                     .padding(horizontal = 14.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    if (active) "◉" else "○",
-                    style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+                LIcon(
+                    if (active) Lucide.CircleDot else Lucide.Circle,
+                    tint = if (active) Obsidian.accent else Obsidian.text3,
+                    size = 15.dp,
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
@@ -679,7 +685,7 @@ private fun AccentRow(selected: String, onSelect: (String) -> Unit) {
                     .clickable { onSelect(opt.id) },
                 contentAlignment = Alignment.Center,
             ) {
-                if (active) Text("✓", style = TextStyle(color = check, fontSize = 14.sp))
+                if (active) LIcon(Lucide.Check, tint = check, size = 15.dp)
             }
         }
     }
@@ -713,7 +719,7 @@ private fun BgList(selected: String, onSelect: (String) -> Unit) {
                     style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
                     modifier = Modifier.weight(1f),
                 )
-                if (active) Text("✓", style = TextStyle(color = Obsidian.accent, fontSize = 14.sp))
+                if (active) LIcon(Lucide.Check, tint = Obsidian.accent, size = 15.dp)
             }
         }
     }

@@ -48,6 +48,8 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
+import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Lucide
 import app.astra.desktop.ui.theme.Text
 import kotlin.math.roundToInt
 
@@ -216,7 +218,7 @@ private fun EmojiSubRow(sub: MenuEntry.EmojiSub, dismiss: () -> Unit) {
                 style = TextStyle(color = if (rowHovered) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
                 modifier = Modifier.weight(1f),
             )
-            Text("▸", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            LIcon(Lucide.ChevronRight, tint = Obsidian.text3, size = 13.dp)
         }
         if (open) {
             Popup(popupPositionProvider = SubmenuBeside) {

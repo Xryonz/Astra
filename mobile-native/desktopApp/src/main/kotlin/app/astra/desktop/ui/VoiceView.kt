@@ -50,7 +50,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Mic
+import com.composables.icons.lucide.MicOff
+import com.composables.icons.lucide.PhoneOff
+import com.composables.icons.lucide.ScreenShare
+import com.composables.icons.lucide.Settings
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -234,13 +241,13 @@ fun VoiceView(
         var settingsOpen by remember { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CallIconButton(
-                symbol = if (micOn) "🎤" else "🔇",
+                icon = if (micOn) Lucide.Mic else Lucide.MicOff,
                 tone = if (micOn) CallTone.Normal else CallTone.Danger,
                 onClick = engine::toggleMic,
             )
             Box {
                 CallIconButton(
-                    symbol = "🖥",
+                    icon = Lucide.ScreenShare,
                     tone = if (screenOn) CallTone.Active else CallTone.Normal,
                     onClick = {
                         if (screenOn) {
@@ -284,7 +291,7 @@ fun VoiceView(
             }
             Box {
                 CallIconButton(
-                    symbol = "⚙",
+                    icon = Lucide.Settings,
                     tone = if (settingsOpen) CallTone.Active else CallTone.Normal,
                     onClick = { settingsOpen = !settingsOpen },
                 )
@@ -300,7 +307,7 @@ fun VoiceView(
                     }
                 }
             }
-            CallIconButton(symbol = "✕", tone = CallTone.Danger, onClick = onLeave)
+            CallIconButton(icon = Lucide.PhoneOff, tone = CallTone.Danger, onClick = onLeave)
         }
     }
 }
@@ -345,7 +352,7 @@ private fun CallSettingsPanel(current: ScreenQuality, onPick: (ScreenQuality) ->
             Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("🎙", style = TextStyle(fontSize = 12.sp))
+            LIcon(Lucide.Mic, tint = Obsidian.text3, size = 14.dp)
             Spacer(Modifier.width(8.dp))
             Column {
                 Text("Krisp — cancelar ruido", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
@@ -403,10 +410,11 @@ private data class StageStream(val label: String, val track: VideoTrack, val isM
 // Tom do botao de call (borda + simbolo): normal, ativo (accent) ou perigo.
 private enum class CallTone { Normal, Active, Danger }
 
-// Botao minimalista de call (Discord): so o simbolo, circulo com borda que troca
-// de cor pelo estado. Sem texto.
+// Botao minimalista de call (Discord): so o icone, circulo com borda que troca
+// de cor pelo estado. Sem texto. Icone Lucide monocromatico -> o tint AGORA pega
+// no glifo (antes, com emoji colorido, so a borda carregava o estado).
 @Composable
-private fun CallIconButton(symbol: String, tone: CallTone, onClick: () -> Unit) {
+private fun CallIconButton(icon: ImageVector, tone: CallTone, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val border by animateColorAsState(
@@ -433,7 +441,7 @@ private fun CallIconButton(symbol: String, tone: CallTone, onClick: () -> Unit) 
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(symbol, style = TextStyle(color = fg, fontSize = 16.sp))
+        LIcon(icon, tint = fg, size = 20.dp)
     }
 }
 
@@ -511,7 +519,7 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (tile.muted) {
-                Text("🔇", style = TextStyle(fontSize = 11.sp))
+                LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp)
                 Spacer(Modifier.width(4.dp))
             }
             Text(

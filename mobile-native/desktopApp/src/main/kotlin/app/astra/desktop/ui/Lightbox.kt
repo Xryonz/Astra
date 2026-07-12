@@ -45,8 +45,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.graphics.vector.ImageVector
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
 import app.astra.shared.AstraShared
 import coil3.compose.AsyncImage
 import java.awt.Desktop
@@ -141,7 +144,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                     clipboard.setText(AnnotatedString(abs))
                     copied = true
                 }
-                LightboxAction("✕", onClose)
+                LightboxAction(Lucide.X, onClose)
             }
         }
     }
@@ -159,4 +162,20 @@ private fun LightboxAction(label: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
+}
+
+// Variante so-icone (fechar) — mesmo cartao, glifo Lucide no lugar do texto.
+@Composable
+private fun LightboxAction(icon: ImageVector, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(Obsidian.raised.copy(alpha = 0.85f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(icon, tint = Obsidian.text2, size = 14.dp)
+    }
 }

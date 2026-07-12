@@ -46,6 +46,9 @@ dependencies {
     // Imagens: Coil3 e KMP, mesmos artefatos do Android rodam no desktop.
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    // Icones Lucide (mesma lib/versao do :app Android) — variante -jvm. Os ~1.7k
+    // ImageVectors ficam sob com.composables.icons.lucide.* (igual ao mobile).
+    implementation(libs.lucide.icons.jvm)
     // Realtime: socket.io-client e Java puro (mesma lib do Android, mesmo backend).
     implementation(libs.socketio.client)
     // RikkaUI e Compose Multiplatform (foundation-only) -> componentes do mobile

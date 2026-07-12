@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.ui.theme.EaseOutStd
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -35,6 +38,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
+
+// Icone Lucide tingido. O desktop NAO tem material (sem Icon()), entao renderiza
+// o ImageVector via foundation.Image + ColorFilter.tint. Substitui os glifos/emoji
+// que faziam papel de icone de chrome; a marca ✦ do Astra fica de fora (e
+// identidade, nao icone). Mesma lib/versao do :app Android (com.composables.icons.lucide).
+@Composable
+fun LIcon(
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    tint: Color = Obsidian.text2,
+    size: Dp = 16.dp,
+) {
+    Image(
+        imageVector = icon,
+        contentDescription = null,
+        modifier = modifier.size(size),
+        colorFilter = ColorFilter.tint(tint),
+    )
+}
 
 // Avatar circular com fallback de inicial — usado no shell e no chat.
 @Composable

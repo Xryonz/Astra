@@ -86,6 +86,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.lucide.Download
+import com.composables.icons.lucide.FileImage
+import com.composables.icons.lucide.FileText
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Minus
+import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.Reply
+import com.composables.icons.lucide.SmilePlus
+import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.X
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.shell.ChatTarget
@@ -294,9 +306,10 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                                 .padding(horizontal = 8.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                if (pf.mime.startsWith("image/")) "🖼" else "📄",
-                                style = TextStyle(fontSize = 12.sp),
+                            LIcon(
+                                if (pf.mime.startsWith("image/")) Lucide.FileImage else Lucide.FileText,
+                                tint = Obsidian.text3,
+                                size = 14.dp,
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
@@ -308,7 +321,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             Spacer(Modifier.width(6.dp))
                             Text(sizeLabel(pf.file.length()), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                             Spacer(Modifier.width(6.dp))
-                            HoverGlyph("✕") { vm.removePending(i) }
+                            HoverGlyph(Lucide.X) { vm.removePending(i) }
                         }
                     }
                 }
@@ -329,7 +342,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                         style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
                     )
                     Spacer(Modifier.weight(1f))
-                    HoverGlyph("✕") { vm.cancelReply() }
+                    HoverGlyph(Lucide.X) { vm.cancelReply() }
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -372,7 +385,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("⇩", style = TextStyle(color = Obsidian.accent, fontSize = 34.sp))
+                LIcon(Lucide.Download, tint = Obsidian.accent, size = 34.dp)
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "solte pra anexar em ${target.title}",
@@ -613,7 +626,7 @@ private fun AttachmentBlock(att: AttachmentDto) {
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("📄", style = TextStyle(fontSize = 14.sp))
+            LIcon(Lucide.FileText, tint = Obsidian.text2, size = 15.dp)
             Spacer(Modifier.width(7.dp))
             Column {
                 Text(
@@ -804,7 +817,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
             .padding(bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("↩", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        LIcon(Lucide.Reply, tint = Obsidian.text3, size = 13.dp)
         Spacer(Modifier.width(5.dp))
         Text(
             ref.authorName ?: "alguem",
@@ -839,15 +852,15 @@ private fun ActionPill(
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .padding(2.dp),
     ) {
-        PillButton("↩", onReply)
-        if (canReact) PillButton("😊", onReact)
-        if (canEdit) PillButton("✏", onEdit)
-        if (canDelete) PillButton("🗑", onDelete, danger = true)
+        PillButton(Lucide.Reply, onReply)
+        if (canReact) PillButton(Lucide.SmilePlus, onReact)
+        if (canEdit) PillButton(Lucide.Pencil, onEdit)
+        if (canDelete) PillButton(Lucide.Trash2, onDelete, danger = true)
     }
 }
 
 @Composable
-private fun PillButton(glyph: String, onClick: () -> Unit, danger: Boolean = false) {
+private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean = false) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
@@ -865,7 +878,7 @@ private fun PillButton(glyph: String, onClick: () -> Unit, danger: Boolean = fal
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, style = TextStyle(fontSize = 13.sp, color = Obsidian.text2))
+        LIcon(icon, tint = if (danger && hov) Obsidian.danger else Obsidian.text2, size = 15.dp)
     }
 }
 
@@ -883,7 +896,7 @@ private fun ReactionPicker(onPick: (String) -> Unit) {
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             QUICK_EMOJIS.forEach { e -> EmojiCell(e) { onPick(e) } }
-            EmojiCell(if (expanded) "−" else "+") { expanded = !expanded }
+            EmojiCell(if (expanded) Lucide.Minus else Lucide.Plus) { expanded = !expanded }
         }
         if (expanded) {
             Spacer(Modifier.height(4.dp))
@@ -913,9 +926,28 @@ private fun EmojiCell(glyph: String, onClick: () -> Unit) {
     }
 }
 
+// Variante so-icone (ex.: +/- pra expandir a grade) — o glifo emoji e conteudo,
+// mas o toggle de expandir e chrome, entao vira Lucide.
+@Composable
+private fun EmojiCell(icon: ImageVector, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (hov) Obsidian.hover else Color.Transparent)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(icon, tint = Obsidian.text2, size = 16.dp)
+    }
+}
+
 // Botao-glifo pequeno (ex.: fechar a reply bar).
 @Composable
-private fun HoverGlyph(glyph: String, onClick: () -> Unit) {
+private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
@@ -927,7 +959,7 @@ private fun HoverGlyph(glyph: String, onClick: () -> Unit) {
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        LIcon(icon, tint = Obsidian.text3, size = 12.dp)
     }
 }
 

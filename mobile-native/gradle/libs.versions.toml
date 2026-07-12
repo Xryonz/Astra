@@ -82,6 +82,7 @@ livekit-android = { group = "io.livekit", name = "livekit-android", version.ref 
 livekit-android-compose = { group = "io.livekit", name = "livekit-android-compose-components", version.ref = "livekitCompose" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 lucide-icons = { group = "com.composables", name = "icons-lucide-android", version.ref = "lucide" }
+lucide-icons-jvm = { group = "com.composables", name = "icons-lucide", version.ref = "lucide" } # KMP root -> resolve a variante -jvm no desktopApp
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 rikkaui-foundation = { group = "dev.rikkaui", name = "foundation", version.ref = "rikkaui" }
 jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }

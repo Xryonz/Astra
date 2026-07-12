@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -77,6 +78,11 @@ import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Hash
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Users
+import com.composables.icons.lucide.Volume2
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
@@ -606,9 +612,10 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
             .clickable(interactionSource = interaction, indication = null, onClick = onToggle),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "▾",
-            style = TextStyle(color = tint, fontSize = 9.sp),
+        LIcon(
+            Lucide.ChevronDown,
+            tint = tint,
+            size = 13.dp,
             modifier = Modifier.graphicsLayer { rotationZ = rotation },
         )
         Spacer(Modifier.width(5.dp))
@@ -651,9 +658,10 @@ private fun OrbitItem(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = if (ch.type == "VOICE") "◉" else "#",
-                style = TextStyle(color = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+            LIcon(
+                if (ch.type == "VOICE") Lucide.Volume2 else Lucide.Hash,
+                tint = if (ch.type == "VOICE") Obsidian.accent else Obsidian.text3,
+                size = 15.dp,
             )
             Spacer(Modifier.width(8.dp))
             Text(
@@ -853,10 +861,19 @@ private fun Stage(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val leadIcon = when {
+                voiceChannel != null -> Lucide.Volume2
+                chat is ChatTarget.Channel -> Lucide.Hash
+                else -> null
+            }
+            if (leadIcon != null) {
+                LIcon(leadIcon, tint = Obsidian.text1, size = 15.dp)
+                Spacer(Modifier.width(7.dp))
+            }
             Text(
                 text = when {
-                    voiceChannel != null -> "◉ ${voiceChannel.name}"
-                    chat is ChatTarget.Channel -> "# ${chat.title}"
+                    voiceChannel != null -> voiceChannel.name
+                    chat is ChatTarget.Channel -> chat.title
                     chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
                     server != null -> "constelacao · ${server.name}"
                     else -> "sussurros"
@@ -881,9 +898,10 @@ private fun Stage(
                         .clickable(onClick = onToggleMembers),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        "☰",
-                        style = TextStyle(color = if (membersOpen) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+                    LIcon(
+                        Lucide.Users,
+                        tint = if (membersOpen) Obsidian.accent else Obsidian.text3,
+                        size = 15.dp,
                     )
                 }
             }

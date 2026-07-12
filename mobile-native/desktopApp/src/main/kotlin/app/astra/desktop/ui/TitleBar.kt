@@ -23,8 +23,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowPlacement
@@ -32,6 +32,11 @@ import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowState
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
+import com.composables.icons.lucide.Copy
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Minus
+import com.composables.icons.lucide.Square
+import com.composables.icons.lucide.X
 
 // Barra-titulo obsidiana da janela frameless: arrasta a janela, minimiza,
 // maximiza/restaura e fecha — estilo Discord, pele Astra.
@@ -54,20 +59,20 @@ fun WindowScope.AstraTitleBar(
                 modifier = Modifier.padding(start = 14.dp),
             )
             Spacer(Modifier.weight(1f))
-            TitleBarButton("–") { state.isMinimized = true }
-            TitleBarButton(if (state.placement == WindowPlacement.Maximized) "❐" else "□") {
+            TitleBarButton(Lucide.Minus) { state.isMinimized = true }
+            TitleBarButton(if (state.placement == WindowPlacement.Maximized) Lucide.Copy else Lucide.Square) {
                 state.placement =
                     if (state.placement == WindowPlacement.Maximized) WindowPlacement.Floating
                     else WindowPlacement.Maximized
             }
-            TitleBarButton("✕", hoverColor = Obsidian.danger, onClick = onClose)
+            TitleBarButton(Lucide.X, hoverColor = Obsidian.danger, onClick = onClose)
         }
     }
 }
 
 @Composable
 private fun TitleBarButton(
-    glyph: String,
+    icon: ImageVector,
     hoverColor: Color = Obsidian.hover,
     onClick: () -> Unit,
 ) {
@@ -83,12 +88,10 @@ private fun TitleBarButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = glyph,
-            style = TextStyle(
-                color = if (hovered && hoverColor == Obsidian.danger) Obsidian.text1 else Obsidian.text2,
-                fontSize = 13.sp,
-            ),
+        LIcon(
+            icon = icon,
+            tint = if (hovered && hoverColor == Obsidian.danger) Obsidian.text1 else Obsidian.text2,
+            size = 15.dp,
         )
     }
 }

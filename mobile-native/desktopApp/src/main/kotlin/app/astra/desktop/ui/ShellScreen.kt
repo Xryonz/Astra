@@ -79,6 +79,7 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Hash
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Users
@@ -239,6 +240,8 @@ fun ShellScreen(
             error = state.error,
             onRetry = vm::load,
             onStartDm = vm::startDm,
+            showDiscover = state.selection is Selection.Discover,
+            onDiscoverJoined = vm::refreshServersAndSelect,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
@@ -294,6 +297,7 @@ private fun Rail(
         HairRule()
         Spacer(Modifier.height(8.dp))
         LazyColumn(
+            modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -367,6 +371,17 @@ private fun Rail(
                 }
             }
         }
+        // Bussola (Descobrir) fixada no rodape da rail — padrao Discord.
+        Spacer(Modifier.height(8.dp))
+        HairRule()
+        Spacer(Modifier.height(8.dp))
+        RailItem(
+            active = selection is Selection.Discover,
+            onClick = { onSelect(Selection.Discover) },
+        ) {
+            LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp)
+        }
+        Spacer(Modifier.height(10.dp))
     }
 }
 
@@ -438,7 +453,11 @@ private fun Sidebar(
                 // Header
                 Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
                     Text(
-                        text = if (sel is Selection.Dms) "Sussurros" else srv?.name ?: "",
+                        text = when {
+                            sel is Selection.Dms -> "Sussurros"
+                            sel is Selection.Discover -> "Descobrir"
+                            else -> srv?.name ?: ""
+                        },
                         style = TextStyle(
                             color = Obsidian.text1, fontSize = 16.sp,
                             fontFamily = DmSerif,
@@ -454,6 +473,13 @@ private fun Sidebar(
                         loading -> SidebarSkeleton()
                         sel is Selection.Dms ->
                             DmList(dms, onToggleMute, onMarkRead, activeChatId, unread, dmTyping, onOpenChat)
+                        sel is Selection.Discover ->
+                            Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    "busque e entre em constelacoes publicas no palco ao lado.",
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
+                                )
+                            }
                         else -> OrbitList(
                             srv, activeChatId, unread, members, voicePresence, myId, myVoiceChannelId,
                             onOpenChat, onOpenVoice,
@@ -851,11 +877,18 @@ private fun Stage(
     error: String?,
     onRetry: () -> Unit,
     onStartDm: (String, String) -> Unit,
+    showDiscover: Boolean,
+    onDiscoverJoined: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
     // os outros paineis pra leitura (aurora aparece, mas nao briga com a mensagem).
     Column(modifier.fillMaxHeight().panelCard(Obsidian.base, 0.32f)) {
+        // Descobrir ocupa o palco inteiro (tem cabecalho + busca proprios).
+        if (showDiscover) {
+            DiscoverView(onDiscoverJoined, Modifier.fillMaxSize())
+            return@Column
+        }
         // Top bar do palco
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),

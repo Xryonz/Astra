@@ -28,16 +28,21 @@ import kotlinx.serialization.json.Json
 // Selecao persistida como string ("dms" | "server:<id>") no ui.properties.
 sealed interface Selection {
     data object Dms : Selection
+    data object Discover : Selection
     data class Server(val id: String) : Selection
 
     fun encode(): String = when (this) {
         is Dms -> "dms"
+        is Discover -> "discover"
         is Server -> "server:$id"
     }
 
     companion object {
-        fun decode(raw: String?): Selection =
-            if (raw != null && raw.startsWith("server:")) Server(raw.removePrefix("server:")) else Dms
+        fun decode(raw: String?): Selection = when {
+            raw == "discover" -> Discover
+            raw != null && raw.startsWith("server:") -> Server(raw.removePrefix("server:"))
+            else -> Dms
+        }
     }
 }
 
@@ -157,6 +162,7 @@ class ShellVm(
             val saved = Selection.decode(store.uiPref("lastSelection"))
             val selection = when (saved) {
                 is Selection.Server -> if (servers.any { it.id == saved.id }) saved else Selection.Dms
+                Selection.Discover -> Selection.Discover
                 Selection.Dms -> Selection.Dms
             }
 
@@ -239,6 +245,25 @@ class ShellVm(
                     voiceChannel = null,
                 )
             }
+        }
+    }
+
+    // Entrou numa constelacao pela Descoberta: recarrega a lista de servidores e
+    // ja cai nela (vira a selecao ativa, como se tivesse clicado na rail).
+    fun refreshServersAndSelect(serverId: String) {
+        scope.launch {
+            val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
+            _state.update {
+                it.copy(
+                    servers = servers,
+                    selection = Selection.Server(serverId),
+                    chat = null,
+                    voiceChannel = null,
+                    members = emptyList(),
+                )
+            }
+            store.setUiPref("lastSelection", Selection.Server(serverId).encode())
+            loadMembers(serverId)
         }
     }
 

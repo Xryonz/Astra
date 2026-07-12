@@ -82,6 +82,7 @@ import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
@@ -110,8 +111,8 @@ fun ShellScreen(
     val prefState by prefs.state.collectAsState()
     val vm = remember {
         ShellVm(
-            scope, koin.get<ServerApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<SessionStore>(),
-            socket, koin.get<Json>(), session.userId,
+            scope, koin.get<ServerApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
+            koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
         )
     }
     val state by vm.state.collectAsState()
@@ -198,6 +199,10 @@ fun ShellScreen(
             me = state.me,
             meFallback = session.displayName,
             loading = state.loading,
+            members = state.members,
+            voicePresence = state.voicePresence,
+            myId = session.userId,
+            myVoiceChannelId = state.voiceChannel?.id,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
             onToggleMute = vm::toggleDmMute,
@@ -212,6 +217,8 @@ fun ShellScreen(
             voiceChannel = state.voiceChannel,
             onLeaveVoice = vm::leaveVoice,
             createChatVm = createChatVm,
+            members = state.members,
+            me = state.me,
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
             loading = state.loading,
@@ -387,6 +394,10 @@ private fun Sidebar(
     me: ProfileUserDto?,
     meFallback: String,
     loading: Boolean,
+    members: List<ServerMemberDto>,
+    voicePresence: Map<String, List<String>>,
+    myId: String?,
+    myVoiceChannelId: String?,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
     onToggleMute: (ConversationDto) -> Unit,
@@ -429,7 +440,10 @@ private fun Sidebar(
                         loading -> SidebarSkeleton()
                         sel is Selection.Dms ->
                             DmList(dms, onToggleMute, onMarkRead, activeChatId, unread, dmTyping, onOpenChat)
-                        else -> OrbitList(srv, activeChatId, unread, onOpenChat, onOpenVoice)
+                        else -> OrbitList(
+                            srv, activeChatId, unread, members, voicePresence, myId, myVoiceChannelId,
+                            onOpenChat, onOpenVoice,
+                        )
                     }
                 }
             }
@@ -452,6 +466,10 @@ private fun OrbitList(
     server: ServerDto?,
     activeChatId: String?,
     unread: Set<String>,
+    members: List<ServerMemberDto>,
+    voicePresence: Map<String, List<String>>,
+    myId: String?,
+    myVoiceChannelId: String?,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
 ) {
@@ -469,7 +487,10 @@ private fun OrbitList(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         itemsIndexed(loose, key = { _, ch -> ch.id }) { i, ch ->
             CascadeIn(i, server.id) {
-                OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
+                OrbitEntry(
+                    ch, ch.id == activeChatId, ch.id in unread,
+                    members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                )
             }
         }
         var offset = loose.size
@@ -494,11 +515,65 @@ private fun OrbitList(
                 else channels
             itemsIndexed(visible, key = { _, ch -> ch.id }) { i, ch ->
                 CascadeIn(headerRow + 1 + i, server.id) {
-                    OrbitItem(ch, ch.id == activeChatId, ch.id in unread, onOpenChat, onOpenVoice)
+                    OrbitEntry(
+                        ch, ch.id == activeChatId, ch.id in unread,
+                        members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                    )
                 }
             }
             offset = headerRow + 1 + visible.size
         }
+    }
+}
+
+// Orbita + (se for de voz) a lista de quem esta na sala logo abaixo, indentada
+// — estilo Discord, pra quem esta de fora saber que tem gente na call.
+@Composable
+private fun OrbitEntry(
+    ch: ChannelDto,
+    active: Boolean,
+    unread: Boolean,
+    members: List<ServerMemberDto>,
+    voicePresence: Map<String, List<String>>,
+    myId: String?,
+    myVoiceChannelId: String?,
+    onOpenChat: (ChatTarget) -> Unit,
+    onOpenVoice: (ChannelDto) -> Unit,
+) {
+    OrbitItem(ch, active, unread, onOpenChat, onOpenVoice)
+    if (ch.type != "VOICE") return
+    // Presenca do poll + eu otimista (aparece na hora que entro, sem esperar o
+    // proximo ciclo de ~5s do backend).
+    val ids = remember(voicePresence, ch.id, myVoiceChannelId, myId) {
+        val base = voicePresence[ch.id].orEmpty()
+        if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base else base
+    }
+    ids.forEach { uid ->
+        val user = members.find { it.userId == uid }?.user
+        VoicePresenceRow(
+            avatarUrl = user?.avatarUrl,
+            name = user?.displayName ?: user?.username ?: "…",
+            isMe = uid == myId,
+        )
+    }
+}
+
+@Composable
+private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
+    Row(
+        // Indentado sob o nome do canal (alinha o avatar ~onde fica o glifo ◉).
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 26.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DesktopAvatar(avatarUrl, name, 20)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = name,
+            style = TextStyle(color = if (isMe) Obsidian.text2 else Obsidian.text3, fontSize = 12.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -747,6 +822,8 @@ private fun Stage(
     voiceChannel: ChannelDto?,
     onLeaveVoice: () -> Unit,
     createChatVm: (ChatTarget) -> ChatVm,
+    members: List<ServerMemberDto>,
+    me: ProfileUserDto?,
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
     loading: Boolean,
@@ -802,7 +879,7 @@ private fun Stage(
 
         // Sala de voz ocupa o palco (V1); senao, chat/placeholder com fade.
         if (voiceChannel != null) {
-            VoiceView(voiceChannel, onLeaveVoice)
+            VoiceView(voiceChannel, members, me, onLeaveVoice)
             return@Column
         }
 

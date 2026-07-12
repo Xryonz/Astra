@@ -5,6 +5,7 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
@@ -56,6 +57,9 @@ data class ShellUiState(
     val unread: Set<String> = emptySet(),
     // Conversas DM com alguem digitando agora (sidebar mostra "digitando…").
     val dmTyping: Set<String> = emptySet(),
+    // Quem esta em cada canal de voz (channelId -> userIds), via poll ~5s do
+    // /voice/presence. Alimenta a lista de presenca sob o canal na sidebar.
+    val voicePresence: Map<String, List<String>> = emptyMap(),
 ) {
     val selectedServer: ServerDto?
         get() = (selection as? Selection.Server)?.let { sel -> servers.find { it.id == sel.id } }
@@ -68,6 +72,7 @@ class ShellVm(
     private val serverApi: ServerApi,
     private val userApi: UserApi,
     private val dmApi: DmApi,
+    private val voiceApi: VoiceApi,
     private val store: SessionStore,
     private val socket: DesktopSocket,
     private val json: Json,
@@ -82,6 +87,28 @@ class ShellVm(
     init {
         load()
         listenRealtime()
+        pollVoicePresence()
+    }
+
+    // Presenca de voz: nao ha evento de socket (backend so tem o REST com cache
+    // de 5s) — entao poll simples enquanto uma constelacao esta aberta. Pega os
+    // canais de voz do servidor selecionado; DMs = limpa. Latencia ~5-10s (cache
+    // do servidor + intervalo); aceitavel pro "quem esta na sala".
+    private fun pollVoicePresence() {
+        scope.launch {
+            while (true) {
+                val voiceIds = _state.value.selectedServer
+                    ?.channels?.filter { it.type == "VOICE" }?.map { it.id }.orEmpty()
+                if (voiceIds.isNotEmpty()) {
+                    val pres = runCatching { voiceApi.presence(voiceIds.joinToString(",")).data.orEmpty() }
+                        .getOrDefault(emptyMap())
+                    _state.update { if (it.voicePresence != pres) it.copy(voicePresence = pres) else it }
+                } else if (_state.value.voicePresence.isNotEmpty()) {
+                    _state.update { it.copy(voicePresence = emptyMap()) }
+                }
+                delay(5_000)
+            }
+        }
     }
 
     // Recarrega so o proprio perfil (pos-edicao no card do rodape).

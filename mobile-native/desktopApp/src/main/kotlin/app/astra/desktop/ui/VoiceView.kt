@@ -10,15 +10,22 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +45,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -49,6 +57,8 @@ import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceStatus
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
+import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.ServerMemberDto
 import dev.onvoid.webrtc.media.FourCC
 import dev.onvoid.webrtc.media.video.VideoBufferConverter
 import dev.onvoid.webrtc.media.video.VideoTrack
@@ -66,7 +76,12 @@ import org.koin.core.qualifier.named
 // palco de video remoto e speaking indicators
 // (plano: docs/plans/2026-07-10-astra-voz-nativa.md).
 @Composable
-fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
+fun VoiceView(
+    channel: ChannelDto,
+    members: List<ServerMemberDto>,
+    me: ProfileUserDto?,
+    onLeave: () -> Unit,
+) {
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
     val engine = remember(channel.id) {
@@ -108,49 +123,71 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
                 fontSize = 11.sp,
             ),
         )
-        Spacer(Modifier.height(12.dp))
-        (status as? VoiceStatus.Connected)?.let { s ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                VoiceChip("voce", s.mySpeaking)
-                s.others.forEach { VoiceChip(it.label, it.speaking) }
+        Spacer(Modifier.height(14.dp))
+
+        // Palco = grid de tiles (Discord): cada participante e um cartao com
+        // avatar, nome, anel ambar ao falar e icone de mudo. Quem transmite tela
+        // vira o video grande no topo e os tiles descem pra uma faixa embaixo.
+        val connected = status as? VoiceStatus.Connected
+        val avatarByUser = remember(members) { members.associate { it.userId to it.user.avatarUrl } }
+        val tiles = remember(connected, me, micOn, avatarByUser) {
+            buildList {
+                if (connected != null) {
+                    add(Tile("voce", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
+                    connected.others.forEach { p ->
+                        add(Tile(p.label, p.speaking, avatarByUser[p.identity], isMe = false, muted = false))
+                    }
+                }
             }
         }
 
-        // Palco: transmissao de outro participante (se houver mais de uma, abas).
         var watching by remember { mutableStateOf<RemoteVideo?>(null) }
         LaunchedEffect(videos) { if (videos.none { it === watching }) watching = videos.firstOrNull() }
-        Box(
-            Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            watching?.let { w ->
+
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
+            if (videos.isEmpty()) {
+                // Sem transmissao: grid centralizado no palco.
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                    ParticipantGrid(tiles)
+                }
+            } else {
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    RemoteVideoView(
-                        w.track,
-                        Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(10.dp)),
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "📡 transmissao de ${w.ownerLabel}",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                    )
-                    if (videos.size > 1) {
-                        Spacer(Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            videos.forEach { v ->
-                                Text(
-                                    v.ownerLabel,
-                                    style = TextStyle(
-                                        color = if (v === watching) Obsidian.accent else Obsidian.text3,
-                                        fontSize = 11.sp,
-                                    ),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .clickable { watching = v }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                                )
+                    watching?.let { w ->
+                        RemoteVideoView(
+                            w.track,
+                            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "📡 transmissao de ${w.ownerLabel}",
+                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                        )
+                        if (videos.size > 1) {
+                            Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                videos.forEach { v ->
+                                    Text(
+                                        v.ownerLabel,
+                                        style = TextStyle(
+                                            color = if (v === watching) Obsidian.accent else Obsidian.text3,
+                                            fontSize = 11.sp,
+                                        ),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable { watching = v }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    )
+                                }
                             }
                         }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    // Faixa de tiles menores sob o video (rolagem horizontal se lotar).
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        tiles.forEach { ParticipantTile(it, Modifier.width(92.dp)) }
                     }
                 }
             }
@@ -242,41 +279,84 @@ fun VoiceView(channel: ChannelDto, onLeave: () -> Unit) {
     }
 }
 
-// Pill de participante; acende ambar e pulsa um halo enquanto fala
-// (SpeakersChanged). O pulso so anima quando speaking = true (sem custo parado).
+// Um participante no palco. muted so e conhecido pra mim (o engine nao expoe o
+// mute dos outros ainda) — nos outros o icone fica de fora.
+private data class Tile(
+    val label: String,
+    val speaking: Boolean,
+    val avatarUrl: String?,
+    val isMe: Boolean,
+    val muted: Boolean,
+)
+
+// Grid que quebra linha sozinho (FlowRow), centralizado.
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun VoiceChip(label: String, speaking: Boolean) {
-    val border by animateColorAsState(
-        if (speaking) Obsidian.accent else Obsidian.borderMid,
-        tween(140),
-    )
-    val text by animateColorAsState(
-        if (speaking) Obsidian.accent else Obsidian.text2,
-        tween(140),
-    )
-    // Halo que respira: alpha 0 quando calado, pulsa 0.10..0.22 enquanto fala.
-    // Reduzir movimento: halo fixo (ainda marca quem fala) em vez de pulsar.
-    val glow = when {
-        !speaking -> 0f
-        LocalReduceMotion.current -> 0.16f
+private fun ParticipantGrid(tiles: List<Tile>) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        tiles.forEach { ParticipantTile(it, Modifier.width(116.dp)) }
+    }
+}
+
+// Cartao: avatar grande centralizado + nome; anel/halo ambar pulsa ao falar
+// (respeita reduzir movimento — fica aceso e parado). Layout estavel: o halo
+// vive num Box de tamanho fixo, entao falar nao empurra o tile.
+@Composable
+private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
+    val ring = when {
+        !tile.speaking -> 0f
+        LocalReduceMotion.current -> 1f
         else -> {
             val t = rememberInfiniteTransition()
             t.animateFloat(
-                initialValue = 0.10f,
-                targetValue = 0.22f,
-                animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
+                initialValue = 0.5f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
             ).value
         }
     }
-    Text(
-        label,
-        style = TextStyle(color = text, fontSize = 12.sp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(Obsidian.accent.copy(alpha = glow))
-            .border(1.dp, border, RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+    val borderColor by animateColorAsState(
+        if (tile.speaking) Obsidian.accent.copy(alpha = ring) else Obsidian.borderDim,
+        tween(140),
     )
+    Column(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(Obsidian.raised.copy(alpha = 0.5f))
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .padding(vertical = 16.dp, horizontal = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+            if (tile.speaking) {
+                Box(
+                    Modifier.fillMaxSize()
+                        .clip(CircleShape)
+                        .background(Obsidian.accent.copy(alpha = 0.22f * ring)),
+                )
+            }
+            DesktopAvatar(tile.avatarUrl, tile.label, 54)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (tile.muted) {
+                Text("🔇", style = TextStyle(fontSize = 11.sp))
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(
+                tile.label,
+                style = TextStyle(
+                    color = if (tile.speaking) Obsidian.accent else Obsidian.text2,
+                    fontSize = 12.sp,
+                ),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 // Renderiza a track remota: sink nativo -> I420 -> RGBA -> ImageBitmap por frame.

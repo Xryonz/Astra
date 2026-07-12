@@ -76,8 +76,6 @@ import app.astra.desktop.ui.theme.DmMono
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -88,10 +86,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.ui.theme.Obsidian
+import org.koin.core.context.GlobalContext
 import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReplyToDto
@@ -140,8 +140,10 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
     val isChannel = target is ChatTarget.Channel
+    // Aparencia do chat (Settings > Aparencia): tamanho da fonte + densidade.
+    val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
+    val prefState by prefs.state.collectAsState()
 
     // Drag&drop de arquivo do sistema: solta em qualquer lugar da conversa e o
     // arquivo vira anexo pendente no composer.
@@ -205,7 +207,11 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
     var lightboxUrl by remember { mutableStateOf<String?>(null) }
     lightboxUrl?.let { Lightbox(it) { lightboxUrl = null } }
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalOpenImage provides { url -> lightboxUrl = url }) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalOpenImage provides { url -> lightboxUrl = url },
+        LocalMsgFontScale provides prefState.fontSize.scale,
+        LocalMsgDensity provides MsgDensity(prefState.density.topDp, prefState.density.groupedTopDp),
+    ) {
     Box(
         Modifier
             .fillMaxSize()
@@ -226,46 +232,26 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             val fresh = animatedIds.add(msg.id)
                             baselineDone && fresh
                         }
-                        // Botao direito: mesmas acoes da pill de hover (F4).
-                        EditorialContextMenu(entries = {
-                            buildList {
-                                add(MenuEntry.Item("responder") { vm.startReply(msg) })
-                                if (isChannel) {
-                                    add(MenuEntry.EmojiSub("reagir", QUICK_EMOJIS) { e -> vm.react(msg.id, e) })
-                                }
-                                if (msg.content.isNotBlank()) {
-                                    add(
-                                        MenuEntry.Item("copiar texto") {
-                                            clipboard.setText(AnnotatedString(msg.content))
-                                        },
-                                    )
-                                }
-                                if (msg.mine) {
-                                    add(MenuEntry.Separator)
-                                    if (isChannel) add(MenuEntry.Item("editar") { editingId = msg.id })
-                                    add(MenuEntry.Item("apagar", danger = true) { vm.delete(msg.id) })
-                                }
-                            }
-                        }) {
-                            MessageRow(
-                                msg = msg,
-                                // Reply quebra o agrupamento (a referencia precisa aparecer).
-                                grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
-                                enterAnim = enterAnim,
-                                isChannel = isChannel,
-                                highlighted = msg.id == highlightId,
-                                editing = msg.id == editingId,
-                                myId = vm.myId,
-                                onReply = { vm.startReply(msg) },
-                                onReact = { emoji -> vm.react(msg.id, emoji) },
-                                onStartEdit = { editingId = msg.id },
-                                onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
-                                onCancelEdit = { editingId = null },
-                                onDelete = { vm.delete(msg.id) },
-                                onJumpTo = { id -> jumpTo(id) },
-                                onStartDm = onStartDm,
-                            )
-                        }
+                        // Sem menu de botao direito aqui: o dono preferiu so a
+                        // pill de hover nas mensagens.
+                        MessageRow(
+                            msg = msg,
+                            // Reply quebra o agrupamento (a referencia precisa aparecer).
+                            grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
+                            enterAnim = enterAnim,
+                            isChannel = isChannel,
+                            highlighted = msg.id == highlightId,
+                            editing = msg.id == editingId,
+                            myId = vm.myId,
+                            onReply = { vm.startReply(msg) },
+                            onReact = { emoji -> vm.react(msg.id, emoji) },
+                            onStartEdit = { editingId = msg.id },
+                            onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
+                            onCancelEdit = { editingId = null },
+                            onDelete = { vm.delete(msg.id) },
+                            onJumpTo = { id -> jumpTo(id) },
+                            onStartDm = onStartDm,
+                        )
                     }
                 }
             }
@@ -449,11 +435,12 @@ private fun MessageRow(
             .background(bg)
             .hoverable(interaction),
     ) {
+        val dens = LocalMsgDensity.current
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = if (grouped) 1.dp else 4.dp)
-                .padding(top = if (grouped) 0.dp else 6.dp),
+                .padding(horizontal = 14.dp)
+                .padding(top = if (grouped) dens.groupedTopDp.dp else dens.topDp.dp, bottom = 2.dp),
             verticalAlignment = Alignment.Top,
         ) {
             if (grouped) {
@@ -542,6 +529,7 @@ private fun ContentBlock(
     onSaveEdit: (String) -> Unit,
     onCancelEdit: () -> Unit,
 ) {
+    val scale = LocalMsgFontScale.current
     if (editing) {
         EditField(msg.content, onSaveEdit, onCancelEdit)
     } else if (msg.content.isNotBlank() || msg.edited) {
@@ -557,7 +545,7 @@ private fun ContentBlock(
                         withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
                     }
                 },
-                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp),
+                style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
             )
         } else {
             segments.forEachIndexed { i, seg ->
@@ -565,7 +553,7 @@ private fun ContentBlock(
                 when (seg) {
                     is Seg.Txt -> Text(
                         text = buildAnnotatedString { appendInlineCoded(seg.s) },
-                        style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp),
+                        style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
                     )
                     is Seg.Code -> CodeBox(seg)
                 }

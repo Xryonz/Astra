@@ -548,21 +548,26 @@ private fun OrbitEntry(
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
 ) {
-    OrbitItem(ch, active, unread, onOpenChat, onOpenVoice)
-    if (ch.type != "VOICE") return
-    // Presenca do poll + eu otimista (aparece na hora que entro, sem esperar o
-    // proximo ciclo de ~5s do backend).
-    val ids = remember(voicePresence, ch.id, myVoiceChannelId, myId) {
-        val base = voicePresence[ch.id].orEmpty()
-        if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base else base
-    }
-    ids.forEach { uid ->
-        val user = members.find { it.userId == uid }?.user
-        VoicePresenceRow(
-            avatarUrl = user?.avatarUrl,
-            name = user?.displayName ?: user?.username ?: "…",
-            isMe = uid == myId,
-        )
+    // Column: o CascadeIn envolve isto num Box (empilha) — sem a Column, a lista
+    // de presenca ficaria SOBRE o canal em vez de abaixo. Empilha na vertical.
+    Column(Modifier.fillMaxWidth()) {
+        OrbitItem(ch, active, unread, onOpenChat, onOpenVoice)
+        if (ch.type == "VOICE") {
+            // Presenca do poll + eu otimista (aparece na hora que entro, sem
+            // esperar o proximo ciclo de ~5s do backend).
+            val ids = remember(voicePresence, ch.id, myVoiceChannelId, myId) {
+                val base = voicePresence[ch.id].orEmpty()
+                if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base else base
+            }
+            ids.forEach { uid ->
+                val user = members.find { it.userId == uid }?.user
+                VoicePresenceRow(
+                    avatarUrl = user?.avatarUrl,
+                    name = user?.displayName ?: user?.username ?: "…",
+                    isMe = uid == myId,
+                )
+            }
+        }
     }
 }
 

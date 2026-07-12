@@ -138,6 +138,11 @@ class VoiceEngine(
     private val _screenOn = MutableStateFlow(false)
     val screenOn = _screenOn.asStateFlow()
 
+    // Auto-preview: a MINHA track de tela pra eu ver o que estou transmitindo
+    // (igual Discord). Track local aceita sink como remota; some ao parar.
+    private val _localScreen = MutableStateFlow<VideoTrack?>(null)
+    val localScreen = _localScreen.asStateFlow()
+
     // Preset ativo da transmissao (Settings > Voz). Capturado da pref no
     // startScreenShare; TrackPublished/attachScreen leem daqui. Default = 1080p60
     // (requisito original do dono: 60fps no minimo).
@@ -491,6 +496,7 @@ class VoiceEngine(
         val cid = "screen-" + UUID.randomUUID().toString().take(8)
         screenCid = cid
         screenTrack = factory?.createVideoTrack(cid, src)
+        _localScreen.value = screenTrack // preview local ja com os frames da captura
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
@@ -544,6 +550,7 @@ class VoiceEngine(
     fun stopScreenShare() {
         if (!_screenOn.value) return
         _screenOn.value = false
+        _localScreen.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
         screenSender = null
         runCatching { screenSource?.stop() }
@@ -608,6 +615,7 @@ class VoiceEngine(
         ws?.close(1000, "leave")
         ws = null
         _remoteVideos.value = emptyList()
+        _localScreen.value = null
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }

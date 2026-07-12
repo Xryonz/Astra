@@ -11,6 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +56,6 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
-import app.astra.desktop.voice.RemoteVideo
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceStatus
 import app.astra.mobile.core.network.VoiceApi
@@ -94,41 +96,31 @@ fun VoiceView(
     val screenOn by engine.screenOn.collectAsState()
     val micOn by engine.micOn.collectAsState()
     val videos by engine.remoteVideos.collectAsState()
+    val localScreen by engine.localScreen.collectAsState()
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // Header enxuto (Discord-like: pouco texto).
         Text(
             text = "◉ ${channel.name}",
-            style = TextStyle(color = Obsidian.accent, fontSize = 20.sp, fontFamily = DmSerif),
+            style = TextStyle(color = Obsidian.accent, fontSize = 18.sp, fontFamily = DmSerif),
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(4.dp))
         val (label, color) = when (val s = status) {
-            VoiceStatus.Connecting -> "conectando ao sinal de voz…" to Obsidian.text3
+            VoiceStatus.Connecting -> "conectando…" to Obsidian.text3
             is VoiceStatus.Connected -> "conectado" to Obsidian.success
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }
-        Text(label, style = TextStyle(color = color, fontSize = 13.sp))
-        Spacer(Modifier.height(6.dp))
-        val audioLive = (status as? VoiceStatus.Connected)?.audioLive == true
-        Text(
-            when {
-                screenOn -> "📡 transmitindo tela a 60fps"
-                audioLive -> "♪ canal de audio aberto"
-                else -> "abrindo canal de audio…"
-            },
-            style = TextStyle(
-                color = if (audioLive || screenOn) Obsidian.accent else Obsidian.text3,
-                fontSize = 11.sp,
-            ),
-        )
+        Text(label, style = TextStyle(color = color, fontSize = 11.sp))
         Spacer(Modifier.height(14.dp))
 
-        // Palco = grid de tiles (Discord): cada participante e um cartao com
-        // avatar, nome, anel ambar ao falar e icone de mudo. Quem transmite tela
-        // vira o video grande no topo e os tiles descem pra uma faixa embaixo.
+        // Palco. Sem transmissao (minha nem de outros) = grid de tiles. Com
+        // transmissao = video grande em DESTAQUE + faixa de tiles embaixo. A MINHA
+        // tela entra como stream tambem (auto-preview Discord) e vem PRIMEIRO ->
+        // ao transmitir, ja vejo em destaque o que estou compartilhando.
         val connected = status as? VoiceStatus.Connected
         val avatarByUser = remember(members) { members.associate { it.userId to it.user.avatarUrl } }
         val tiles = remember(connected, me, micOn, avatarByUser) {
@@ -142,48 +134,63 @@ fun VoiceView(
             }
         }
 
-        var watching by remember { mutableStateOf<RemoteVideo?>(null) }
-        LaunchedEffect(videos) { if (videos.none { it === watching }) watching = videos.firstOrNull() }
+        val streams = remember(localScreen, videos) {
+            buildList {
+                localScreen?.let { add(StageStream("sua tela", it, isMe = true)) }
+                videos.forEach { add(StageStream(it.ownerLabel, it.track, isMe = false)) }
+            }
+        }
+        var watchingTrack by remember { mutableStateOf<VideoTrack?>(null) }
+        LaunchedEffect(streams) {
+            if (streams.none { it.track === watchingTrack }) watchingTrack = streams.firstOrNull()?.track
+        }
+        val watching = streams.find { it.track === watchingTrack }
 
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
-            if (videos.isEmpty()) {
-                // Sem transmissao: grid centralizado no palco.
+            if (streams.isEmpty()) {
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
                     ParticipantGrid(tiles)
                 }
             } else {
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                     watching?.let { w ->
+                        // Destaque: borda accent no video em foco.
                         RemoteVideoView(
                             w.track,
-                            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "📡 transmissao de ${w.ownerLabel}",
+                            if (w.isMe) "voce esta transmitindo" else "transmissao de ${w.label}",
                             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                         )
-                        if (videos.size > 1) {
-                            Spacer(Modifier.height(4.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                videos.forEach { v ->
+                        // Abas so quando ha mais de uma transmissao (a minha + de outros).
+                        if (streams.size > 1) {
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                streams.forEach { s ->
+                                    val on = s.track === watchingTrack
                                     Text(
-                                        v.ownerLabel,
+                                        s.label,
                                         style = TextStyle(
-                                            color = if (v === watching) Obsidian.accent else Obsidian.text3,
+                                            color = if (on) Obsidian.accent else Obsidian.text3,
                                             fontSize = 11.sp,
                                         ),
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable { watching = v }
-                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .border(1.dp, if (on) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(999.dp))
+                                            .clickable { watchingTrack = s.track }
+                                            .padding(horizontal = 10.dp, vertical = 4.dp),
                                     )
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    // Faixa de tiles menores sob o video (rolagem horizontal se lotar).
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -194,48 +201,27 @@ fun VoiceView(
             }
         }
 
+        // Controles minimalistas (Discord): botoes de simbolo com borda, sem texto.
         var screenChoices by remember { mutableStateOf<List<DesktopSource>?>(null) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = if (micOn) "mutar mic" else "🔇 desmutar",
-                style = TextStyle(
-                    color = if (micOn) Obsidian.text2 else Obsidian.danger,
-                    fontSize = 13.sp,
-                ),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(
-                        1.dp,
-                        if (micOn) Obsidian.borderMid else Obsidian.danger,
-                        RoundedCornerShape(8.dp),
-                    )
-                    .clickable(onClick = engine::toggleMic)
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CallIconButton(
+                symbol = if (micOn) "🎤" else "🔇",
+                tone = if (micOn) CallTone.Normal else CallTone.Danger,
+                onClick = engine::toggleMic,
             )
             Box {
-                Text(
-                    text = if (screenOn) "parar transmissao" else "transmitir tela",
-                    style = TextStyle(
-                        color = if (screenOn) Obsidian.danger else Obsidian.text2,
-                        fontSize = 13.sp,
-                    ),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(
-                            1.dp,
-                            if (screenOn) Obsidian.danger else Obsidian.borderMid,
-                            RoundedCornerShape(8.dp),
-                        )
-                        .clickable {
-                            if (screenOn) {
-                                engine.stopScreenShare()
-                            } else {
-                                val screens = engine.screens()
-                                if (screens.size <= 1) engine.startScreenShare(screens.firstOrNull())
-                                else screenChoices = screens
-                            }
+                CallIconButton(
+                    symbol = "🖥",
+                    tone = if (screenOn) CallTone.Active else CallTone.Normal,
+                    onClick = {
+                        if (screenOn) {
+                            engine.stopScreenShare()
+                        } else {
+                            val screens = engine.screens()
+                            if (screens.size <= 1) engine.startScreenShare(screens.firstOrNull())
+                            else screenChoices = screens
                         }
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                    },
                 )
                 // Mais de um monitor: escolher qual transmitir.
                 screenChoices?.let { screens ->
@@ -267,16 +253,48 @@ fun VoiceView(
                     }
                 }
             }
-            Text(
-                text = "sair da sala",
-                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
-                    .clickable(onClick = onLeave)
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-            )
+            CallIconButton(symbol = "✕", tone = CallTone.Danger, onClick = onLeave)
         }
+    }
+}
+
+// Uma transmissao no palco: minha tela (auto-preview) OU de outro participante.
+private data class StageStream(val label: String, val track: VideoTrack, val isMe: Boolean)
+
+// Tom do botao de call (borda + simbolo): normal, ativo (accent) ou perigo.
+private enum class CallTone { Normal, Active, Danger }
+
+// Botao minimalista de call (Discord): so o simbolo, circulo com borda que troca
+// de cor pelo estado. Sem texto.
+@Composable
+private fun CallIconButton(symbol: String, tone: CallTone, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val border by animateColorAsState(
+        when (tone) {
+            CallTone.Danger -> Obsidian.danger
+            CallTone.Active -> Obsidian.accent
+            CallTone.Normal -> Obsidian.borderMid
+        },
+        tween(140),
+    )
+    val fg = when (tone) {
+        CallTone.Danger -> Obsidian.danger
+        CallTone.Active -> Obsidian.accent
+        CallTone.Normal -> Obsidian.text2
+    }
+    val bg by animateColorAsState(if (hovered) Obsidian.hover else Obsidian.raised.copy(alpha = 0.4f), tween(140))
+    Box(
+        Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .border(1.dp, border, CircleShape)
+            .hoverable(interaction)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(symbol, style = TextStyle(color = fg, fontSize = 16.sp))
     }
 }
 

@@ -177,6 +177,10 @@ class VoiceEngine(
     // (requisito original do dono: 60fps no minimo).
     private var screenQ: ScreenQuality = ScreenQuality.HIGH_1080_60
 
+    // Ultima fonte transmitida — pra reiniciar a captura no MESMO monitor quando o
+    // dono troca a qualidade ao vivo pelo gear da call.
+    private var lastScreenSource: DesktopSource? = null
+
     fun connect(roomKind: String, roomId: String) {
         scope.launch {
             val nativesOk = withContext(Dispatchers.IO) {
@@ -545,6 +549,7 @@ class VoiceEngine(
     fun startScreenShare(source: DesktopSource? = null) {
         if (_screenOn.value) return
         val f = factory ?: return
+        lastScreenSource = source
         screenQ = prefs.state.value.screenQuality
         val q = screenQ
 
@@ -687,6 +692,20 @@ class VoiceEngine(
         screenCid = null
         // m-line desativada na renegociacao => o server despublica a track.
         negotiatePublisher()
+    }
+
+    // Troca a qualidade/fluidez da transmissao ao vivo (gear da call): persiste a
+    // pref e, se ja estou transmitindo, reinicia a captura no MESMO monitor com o
+    // novo preset (o ffmpeg e spawnado com w/h/fps assados -> so reiniciando muda).
+    fun setScreenQuality(q: ScreenQuality) {
+        prefs.setScreenQuality(q)
+        if (!_screenOn.value) return
+        val src = lastScreenSource
+        stopScreenShare()
+        scope.launch {
+            delay(350) // deixa a renegociacao do stop assentar antes de republicar
+            startScreenShare(src)
+        }
     }
 
     // Mute local (track para de mandar frames) + aviso pro server (icone de mute

@@ -2,9 +2,13 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -44,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -54,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.ScreenPreview
@@ -93,6 +99,8 @@ fun VoiceView(
             .also { it.connect("channel", channel.id) }
     }
     DisposableEffect(channel.id) { onDispose { engine.dispose() } }
+    val prefs = remember { koin.get<DesktopPrefs>() }
+    val prefState by prefs.state.collectAsState()
     val status by engine.status.collectAsState()
     val screenOn by engine.screenOn.collectAsState()
     val micOn by engine.micOn.collectAsState()
@@ -215,7 +223,7 @@ fun VoiceView(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        tiles.forEach { ParticipantTile(it, Modifier.width(92.dp)) }
+                        tiles.forEach { ParticipantTile(it, Modifier.width(116.dp)) }
                     }
                 }
             }
@@ -223,6 +231,7 @@ fun VoiceView(
 
         // Controles minimalistas (Discord): botoes de simbolo com borda, sem texto.
         var screenChoices by remember { mutableStateOf<List<DesktopSource>?>(null) }
+        var settingsOpen by remember { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CallIconButton(
                 symbol = if (micOn) "🎤" else "🔇",
@@ -273,9 +282,86 @@ fun VoiceView(
                     }
                 }
             }
+            Box {
+                CallIconButton(
+                    symbol = "⚙",
+                    tone = if (settingsOpen) CallTone.Active else CallTone.Normal,
+                    onClick = { settingsOpen = !settingsOpen },
+                )
+                if (settingsOpen) {
+                    Popup(
+                        onDismissRequest = { settingsOpen = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        CallSettingsPanel(
+                            current = prefState.screenQuality,
+                            onPick = { engine.setScreenQuality(it) },
+                        )
+                    }
+                }
+            }
             CallIconButton(symbol = "✕", tone = CallTone.Danger, onClick = onLeave)
         }
     }
+}
+
+// Config da call (gear): escolher qualidade + fluidez da transmissao (aplica ao
+// vivo) e — futuro — o cancelador de ruido Krisp. Presets = os 4 do ScreenQuality.
+@Composable
+private fun CallSettingsPanel(current: ScreenQuality, onPick: (ScreenQuality) -> Unit) {
+    Column(
+        Modifier
+            .width(232.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
+            .padding(6.dp),
+    ) {
+        PanelHeader("Transmissao")
+        ScreenQuality.entries.forEach { q ->
+            val on = q == current
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(7.dp))
+                    .clickable { onPick(q) }
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (on) "●" else "○",
+                    style = TextStyle(color = if (on) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    q.label,
+                    style = TextStyle(color = if (on) Obsidian.text1 else Obsidian.text2, fontSize = 12.sp),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        PanelHeader("Microfone")
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("🎙", style = TextStyle(fontSize = 12.sp))
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text("Krisp — cancelar ruido", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                Text("em breve", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PanelHeader(text: String) {
+    Text(
+        text.uppercase(),
+        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
+        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+    )
 }
 
 // Uma transmissao no palco: minha tela (auto-preview) OU de outro participante.
@@ -337,7 +423,7 @@ private fun ParticipantGrid(tiles: List<Tile>) {
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        tiles.forEach { ParticipantTile(it, Modifier.width(116.dp)) }
+        tiles.forEach { ParticipantTile(it, Modifier.width(140.dp)) }
     }
 }
 
@@ -362,8 +448,17 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
         if (tile.speaking) Obsidian.accent.copy(alpha = ring) else Obsidian.borderDim,
         tween(140),
     )
+    // Inchada ao falar: o card cresce ~4% com mola suave (escala VISUAL via
+    // graphicsLayer -> nao empurra os vizinhos; cresce por cima). Reduzir movimento
+    // = fica maior parado, sem animar.
+    val swell by animateFloatAsState(
+        targetValue = if (tile.speaking) 1.04f else 1f,
+        animationSpec = if (LocalReduceMotion.current) snap()
+            else spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+    )
     Column(
         modifier
+            .graphicsLayer { scaleX = swell; scaleY = swell }
             .clip(RoundedCornerShape(14.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, borderColor, RoundedCornerShape(14.dp))

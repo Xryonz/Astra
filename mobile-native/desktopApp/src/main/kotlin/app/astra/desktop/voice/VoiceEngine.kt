@@ -27,8 +27,8 @@ import dev.onvoid.webrtc.RTCStatsType
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
 import dev.onvoid.webrtc.media.MediaStream
 import dev.onvoid.webrtc.media.MediaType
-import dev.onvoid.webrtc.media.audio.AudioOptions
 import dev.onvoid.webrtc.media.audio.AudioTrack
+import dev.onvoid.webrtc.media.audio.CustomAudioSource
 import dev.onvoid.webrtc.media.video.CustomVideoSource
 import dev.onvoid.webrtc.media.video.VideoDesktopSource
 import dev.onvoid.webrtc.media.video.VideoTrack
@@ -96,7 +96,7 @@ class ScreenPreview(val argb: ByteArray, val width: Int, val height: Int)
 // Deteccao de fala por NIVEL DE AUDIO (getStats) — independe do speakers_changed do
 // servidor (que nao chega no nosso WS hand-rolled). Nivel 0..1; voz ativa passa do
 // threshold. Hangover segura o "falando" um tico apos cair (anti-flicker).
-private const val SPEAK_THRESHOLD = 0.03
+private const val SPEAK_THRESHOLD = 0.015
 private const val SPEAK_POLL_MS = 200L
 private const val SPEAK_HANGOVER_MS = 400L
 
@@ -104,8 +104,9 @@ private const val SPEAK_HANGOVER_MS = 400L
 // primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
 // (a gente manda o offer DEPOIS do AddTrackRequest ser aceito — ordem do
 // protocolo). ICE via trickle nos dois alvos. Audio remoto toca sozinho no
-// device padrao; mic sobe com AEC/NS/AGC (AudioOptions); tela sobe a 60fps
-// (VideoDesktopSource + encodings maxFramerate/maxBitrate + H264 preferido).
+// device padrao (ADM de hardware); mic sobe via Java Sound (MicCapture ->
+// CustomAudioSource.pushAudio — o Core Audio do webrtc-java quebra a captura);
+// tela sobe a 60fps (DXGI ffmpeg / GDI + encodings maxFramerate/maxBitrate + H264).
 class VoiceEngine(
     private val scope: CoroutineScope,
     private val voiceApi: VoiceApi,
@@ -150,6 +151,8 @@ class VoiceEngine(
     private val pubPendingCandidates = mutableListOf<RTCIceCandidate>()
     private var pubRemoteSet = false
     private var micTrack: AudioTrack? = null
+    private var micSource: CustomAudioSource? = null
+    private var micCapture: MicCapture? = null
     private var micCid: String? = null
     private var micSid: String? = null
 
@@ -196,6 +199,10 @@ class VoiceEngine(
         scope.launch {
             val nativesOk = withContext(Dispatchers.IO) {
                 // UnsatisfiedLinkError e Error, nao Exception — catch amplo aqui.
+                // Factory padrao = ADM de hardware pro PLAYOUT (ouvir os outros toca
+                // sozinho no device padrao). A CAPTURA do mic NAO usa esse ADM (ele
+                // quebra nesse caminho): vem do MicCapture (Java Sound) via
+                // CustomAudioSource. UnsatisfiedLinkError e Error -> catch amplo.
                 try {
                     factory = PeerConnectionFactory()
                     true
@@ -420,20 +427,19 @@ class VoiceEngine(
     // negociacao so acontece) quando o server responde TrackPublished com o cid.
     private fun publishMic() {
         val f = factory ?: return
-        // Sem mic/permissao nao derruba a sala: segue so ouvindo. Processamento
-        // vem das prefs (Settings > Voz); highpass acompanha a supressao de ruido.
-        val ap = prefs.state.value
-        val source = runCatching {
-            f.createAudioSource(AudioOptions().apply {
-                echoCancellation = ap.micEchoCancel
-                noiseSuppression = ap.micNoiseSuppression
-                autoGainControl = ap.micAutoGain
-                highpassFilter = ap.micNoiseSuppression
-            })
-        }.getOrNull() ?: return
+        // Captura o mic por Java Sound (MicCapture) e empurra o PCM num
+        // CustomAudioSource — o Core Audio do webrtc-java quebra a captura anexado ao
+        // factory ("Start recording failed"); Java Sound abre o mic por outro caminho
+        // e roda em qualquer maquina. Sem AEC/NS por ora (raw; Krisp fica pra fase
+        // propria). Sem mic nao derruba a sala: segue so ouvindo.
+        val source = runCatching { CustomAudioSource() }.getOrNull() ?: return
         val cid = "mic-" + UUID.randomUUID().toString().take(8)
         micCid = cid
+        micSource = source
         micTrack = f.createAudioTrack(cid, source)
+        val cap = MicCapture(source) { level -> onMicLevel(level) }
+        micCapture = cap
+        cap.start() // false = sem dispositivo de captura; a track fica muda, mas nao trava
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
                 LivekitRtc.AddTrackRequest.newBuilder()
@@ -675,19 +681,16 @@ class VoiceEngine(
         _screenStats.value = ScreenStats(capture, send, limit)
     }
 
-    // Poll de fala por nivel de audio (getStats): meu mic (MEDIA_SOURCE do publisher)
-    // + cada audio remoto (INBOUND_RTP do receiver). Independe do speakers_changed do
-    // servidor. Hangover segura o "falando" ~400ms apos cair (anti-flicker) — a
-    // inchada do card reage a isso.
+    // Fala: a MINHA vem do RMS do mic (onMicLevel -> mySpeakUntil); a dos OUTROS vem
+    // do getStats do audio remoto (INBOUND_RTP audioLevel). Independe do
+    // speakers_changed do servidor. Hangover segura o "falando" ~400ms apos cair
+    // (anti-flicker) — a inchada do card reage a isso.
     private fun startSpeakingPoll() {
         speakingJob?.cancel()
         speakingJob = scope.launch {
             while (isActive) {
                 val now = System.currentTimeMillis()
-                // Medicoes (async; atualizam os *SpeakUntil quando o callback volta).
-                if (_micOn.value) pub?.let { pc ->
-                    runCatching { pc.getStats { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) mySpeakUntil = System.currentTimeMillis() + SPEAK_HANGOVER_MS } }
-                } else mySpeakUntil = 0L
+                if (!_micOn.value) mySpeakUntil = 0L // mudo => nao "fala"
                 sub?.let { pc ->
                     remoteAudioReceivers.entries.toList().forEach { (sid, recv) ->
                         runCatching { pc.getStats(recv) { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) markRemoteSpeak(sid) } }
@@ -713,12 +716,18 @@ class VoiceEngine(
         runCatching { others.values.find { it.sid == sid }?.speakUntil = System.currentTimeMillis() + SPEAK_HANGOVER_MS }
     }
 
+    // RMS do meu mic (0..1) por bloco de 10ms (thread do MicCapture) -> fala.
+    private fun onMicLevel(level: Float) {
+        if (_micOn.value && level > SPEAK_THRESHOLD) {
+            mySpeakUntil = System.currentTimeMillis() + SPEAK_HANGOVER_MS
+        }
+    }
+
+    // audioLevel (0..1) de qualquer stat que reporte — usado pro nivel dos remotos.
     private fun audioLevelOf(report: RTCStatsReport): Double {
         var lvl = 0.0
         report.stats.values.forEach { s ->
-            if (s.type == RTCStatsType.MEDIA_SOURCE || s.type == RTCStatsType.INBOUND_RTP) {
-                (s.attributes["audioLevel"] as? Number)?.let { lvl = maxOf(lvl, it.toDouble()) }
-            }
+            (s.attributes["audioLevel"] as? Number)?.let { lvl = maxOf(lvl, it.toDouble()) }
         }
         return lvl
     }
@@ -836,8 +845,12 @@ class VoiceEngine(
         runCatching { screenSource?.dispose() }
         screenTrack = null
         screenSource = null
+        runCatching { micCapture?.stop() }
+        micCapture = null
         runCatching { micTrack?.dispose() }
         micTrack = null
+        runCatching { micSource?.dispose() }
+        micSource = null
         runCatching { pub?.close() }
         pub = null
         runCatching { sub?.close() }

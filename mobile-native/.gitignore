@@ -15,3 +15,6 @@
 # Firebase (por-dev, contem ids do projeto)
 app/google-services.json
 keystore.properties
+
+# ffmpeg empacotado (captura DXGI 60fps) — grande, baixado via :desktopApp:fetchFfmpeg
+desktopApp/appResources/windows/ffmpeg.exe

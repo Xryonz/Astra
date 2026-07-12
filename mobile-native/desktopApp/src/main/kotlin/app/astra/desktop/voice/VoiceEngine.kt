@@ -29,8 +29,10 @@ import dev.onvoid.webrtc.media.MediaStream
 import dev.onvoid.webrtc.media.MediaType
 import dev.onvoid.webrtc.media.audio.AudioOptions
 import dev.onvoid.webrtc.media.audio.AudioTrack
+import dev.onvoid.webrtc.media.video.CustomVideoSource
 import dev.onvoid.webrtc.media.video.VideoDesktopSource
 import dev.onvoid.webrtc.media.video.VideoTrack
+import dev.onvoid.webrtc.media.video.VideoTrackSource
 import dev.onvoid.webrtc.media.video.desktop.DesktopSource
 import dev.onvoid.webrtc.media.video.desktop.ScreenCapturer
 import java.util.UUID
@@ -139,8 +141,11 @@ class VoiceEngine(
     private val _micOn = MutableStateFlow(true)
     val micOn = _micOn.asStateFlow()
 
-    // Transmissao de tela (V5).
+    // Transmissao de tela (V5). screenSource = capturador GDI (fallback); quando o
+    // caminho rapido (ffmpeg DXGI) pega, a fonte e a customSource + ffmpegCap.
     private var screenSource: VideoDesktopSource? = null
+    private var customSource: CustomVideoSource? = null
+    private var ffmpegCap: ScreenCaptureFfmpeg? = null
     private var screenTrack: VideoTrack? = null
     private var screenCid: String? = null
     private var screenSender: RTCRtpSender? = null
@@ -490,14 +495,29 @@ class VoiceEngine(
         }
     }
 
-    fun startScreenShare(source: DesktopSource? = null) {
-        if (_screenOn.value || factory == null) return
-        val target = source ?: screens().firstOrNull() ?: return
-        // Preset da pref (Settings > Voz). fps na CAPTURA; resolucao capada no
-        // preset — o webrtc-java nao expoe degradationPreference, entao proteger o
-        // framerate = nao dar ao encoder mais pixels do que ele segura no fps alvo.
-        screenQ = prefs.state.value.screenQuality
-        val q = screenQ
+    // Caminho rapido (ffmpeg DXGI). Retorna a fonte se os frames COMECARAM a fluir;
+    // null = indisponivel/falhou nesta maquina (o chamador tenta o GDI).
+    private fun startFastCapture(source: DesktopSource?, q: ScreenQuality): VideoTrackSource? {
+        if (factory == null) return null
+        val ffPath = FfmpegLocator.path ?: return null
+        val outIdx = source?.let { s -> screens().indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
+        val custom = CustomVideoSource()
+        val cap = ScreenCaptureFfmpeg(ffPath, custom)
+        if (!cap.start(outIdx, q.width, q.height, q.fps)) {
+            cap.stop()
+            runCatching { custom.dispose() }
+            return null
+        }
+        customSource = custom
+        ffmpegCap = cap
+        return custom
+    }
+
+    // Fallback GDI (VideoDesktopSource): roda em qualquer maquina, ~20-30fps. fps
+    // na captura; resolucao capada no preset (o webrtc-java nao expoe
+    // degradationPreference, entao nao dar ao encoder mais pixels do que segura).
+    private fun startGdiCapture(source: DesktopSource?, q: ScreenQuality): VideoTrackSource? {
+        val target = source ?: screens().firstOrNull() ?: return null
         val src = runCatching {
             VideoDesktopSource().apply {
                 setSourceId(target.id, false)
@@ -505,11 +525,27 @@ class VoiceEngine(
                 setMaxFrameSize(q.width, q.height)
                 start()
             }
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return null
         screenSource = src
+        return src
+    }
+
+    fun startScreenShare(source: DesktopSource? = null) {
+        if (_screenOn.value) return
+        val f = factory ?: return
+        screenQ = prefs.state.value.screenQuality
+        val q = screenQ
+
+        // Caminho RAPIDO: ffmpeg ddagrab (DXGI) empurrando frames num CustomVideoSource
+        // — o equivalente desktop da captura de hardware que o mobile ganha do
+        // MediaProjection. Se falhar nesta maquina, FALLBACK pro GDI (VideoDesktopSource,
+        // ~20-30fps) — assim roda em todo PC, so muda o fps.
+        val trackSource: VideoTrackSource? = startFastCapture(source, q) ?: startGdiCapture(source, q)
+        if (trackSource == null) return
+
         val cid = "screen-" + UUID.randomUUID().toString().take(8)
         screenCid = cid
-        screenTrack = factory?.createVideoTrack(cid, src)
+        screenTrack = f.createVideoTrack(cid, trackSource)
         _localScreen.value = screenTrack // preview local ja com os frames da captura
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -626,6 +662,10 @@ class VoiceEngine(
         _screenStats.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
         screenSender = null
+        ffmpegCap?.stop()
+        ffmpegCap = null
+        runCatching { customSource?.dispose() }
+        customSource = null
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }
@@ -690,6 +730,10 @@ class VoiceEngine(
         ws = null
         _remoteVideos.value = emptyList()
         _localScreen.value = null
+        ffmpegCap?.stop()
+        ffmpegCap = null
+        runCatching { customSource?.dispose() }
+        customSource = null
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }

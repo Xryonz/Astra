@@ -68,6 +68,32 @@ dependencies {
     implementation(libs.protobuf.java)
 }
 
+// Baixa o ffmpeg.exe (com ddagrab) pro appResources se faltar — o binario e
+// grande e fica FORA do git. Num clone limpo: `./gradlew :desktopApp:fetchFfmpeg`
+// antes de empacotar (o createDistributable ja depende dele). Build lgpl (sem os
+// codecs GPL) porque so usamos captura+escala, nao encoders.
+val fetchFfmpeg = tasks.register("fetchFfmpeg") {
+    val out = project.file("appResources/windows/ffmpeg.exe")
+    outputs.file(out)
+    onlyIf { !out.exists() }
+    doLast {
+        val url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
+        val zip = layout.buildDirectory.file("ffmpeg-dl.zip").get().asFile
+        zip.parentFile.mkdirs()
+        logger.lifecycle("Baixando ffmpeg (ddagrab) ...")
+        uri(url).toURL().openStream().use { i -> zip.outputStream().use { i.copyTo(it) } }
+        out.parentFile.mkdirs()
+        java.util.zip.ZipFile(zip).use { zf ->
+            val e = zf.entries().asSequence().first { it.name.endsWith("bin/ffmpeg.exe") }
+            zf.getInputStream(e).use { i -> out.outputStream().use { i.copyTo(it) } }
+        }
+        zip.delete()
+        logger.lifecycle("ffmpeg.exe -> ${out.length() / 1024 / 1024} MB")
+    }
+}
+tasks.matching { it.name == "createDistributable" || it.name == "packageDistributionForCurrentOS" }
+    .configureEach { dependsOn(fetchFfmpeg) }
+
 compose.desktop {
     application {
         mainClass = "app.astra.desktop.MainKt"
@@ -75,6 +101,11 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
             packageVersion = "0.1.0"
+            // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
+            // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
+            // System.getProperty("compose.application.resources.dir"). O binario e
+            // gitignored (grande) — quem for buildar roda `:desktopApp:fetchFfmpeg`.
+            appResourcesRootDir.set(project.file("appResources"))
             windows {
                 // Logo do Astra (mesmo favicon.ico do site) no Astra.exe.
                 iconFile.set(project.file("icons/astra.ico"))

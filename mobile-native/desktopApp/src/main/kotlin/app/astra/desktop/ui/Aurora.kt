@@ -9,9 +9,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import app.astra.desktop.ui.theme.Obsidian
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -30,7 +30,9 @@ import org.jetbrains.skia.RuntimeShaderBuilder
 // mais caro. SkSL exige bound de loop constante -> a contagem entra no source e
 // recompila-se uma variante por nivel. Normaliza-se por (1-0.5^oct) pra aurora
 // manter o mesmo brilho em qualquer qualidade (senao LOW fica visivelmente mais
-// escura, parece bug). accent prata #D4D8E0 sobre o void.
+// escura, parece bug). accent + void ENTRAM COMO UNIFORMS (uAccent/uVoid) pra a
+// aurora seguir o tema de Aparencia ao vivo — antes eram cravados (#D4D8E0 sobre
+// #06060E) e nao recoloriam. So o octaves recompila; cor troca por uniform (barato).
 private fun auroraSksl(octaves: Int): String {
     // Normaliza pela soma de amplitudes da qualidade ALTA (3 oitavas) -> HIGH fica
     // IDENTICA a aurora ja validada (inv=1.0) e as qualidades menores so sobem o
@@ -40,6 +42,8 @@ private fun auroraSksl(octaves: Int): String {
     return """
 uniform float uTime;
 uniform float2 uSize;
+uniform float3 uAccent;
+uniform float3 uVoid;
 
 float hashn(float2 p) {
     return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
@@ -80,8 +84,7 @@ half4 main(float2 fragCoord) {
     float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
     float aur = (c1 + c2) * fall * 0.16;
 
-    float3 accent = float3(0.831, 0.847, 0.878);
-    float3 col = float3(0.024, 0.024, 0.055) + accent * min(aur, 0.30);
+    float3 col = uVoid + uAccent * min(aur, 0.30);
     return half4(col, 1.0);
 }
 """
@@ -96,17 +99,17 @@ private const val AURORA_LOOP = 62.831853f
 // Quadro estatico agradavel pro "reduzir movimento" (cortinas bem postas).
 private const val AURORA_STILL = 12f
 
-// Fundo chapado da paleta, caso o shader nao compile no runtime (typo de SkSL
-// nunca deve tirar o shell do ar — so tira o brilho).
-private val AURORA_FALLBACK = Color(0xFF06060E)
-
 @Composable
 fun Modifier.auroraBackground(): Modifier {
     val render = LocalRenderPrefs.current
+    // Cor do tema (Aparencia): a aurora glow no accent sobre o void escolhido.
+    // Ler aqui torna o modifier reativo — troca de tema recompoe e repinta.
+    val accent = Obsidian.accent
+    val voidC = Obsidian.void
     // Recompila so quando a qualidade (octaves) muda — barato, raro.
     val effect = remember(render.auroraOctaves) {
         runCatching { RuntimeEffect.makeForShader(auroraSksl(render.auroraOctaves).trimIndent()) }.getOrNull()
-    } ?: return this.drawBehind { drawRect(AURORA_FALLBACK) }
+    } ?: return this.drawBehind { drawRect(voidC) } // shader falhou -> void chapado do tema
     val builder = remember(effect) { RuntimeShaderBuilder(effect) }
     val reduceMotion = LocalReduceMotion.current
     // Gate por VISIBILIDADE (nao foco): rememberUpdatedState pra ler o valor mais
@@ -153,6 +156,8 @@ fun Modifier.auroraBackground(): Modifier {
     return drawBehind {
         builder.uniform("uTime", timeSec)
         builder.uniform("uSize", size.width, size.height)
+        builder.uniform("uAccent", accent.red, accent.green, accent.blue)
+        builder.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
         // Skia Shader nao e o Shader do Compose -> desenha direto no canvas nativo.
         paint.shader = builder.makeShader()
         drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }

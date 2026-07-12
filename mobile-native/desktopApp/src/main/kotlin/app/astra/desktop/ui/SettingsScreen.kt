@@ -126,9 +126,14 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                 }
             }
 
-            // Conteudo da secao
+            // Conteudo da secao — coluna capada (~720) estilo Discord: nao esparrama
+            // pelo palco todo (o "enxuto" que o dono pediu). O Box segura a coluna
+            // encostada a esquerda; os controles leem como uma coluna so em vez de
+            // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
+            Box(Modifier.weight(1f).fillMaxHeight()) {
             Column(
-                Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
+                Modifier.align(Alignment.TopStart).widthIn(max = 720.dp).fillMaxWidth()
+                    .fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = 28.dp, vertical = 22.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -177,6 +182,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                     SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                     SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                 }
+            }
             }
         }
     }
@@ -264,8 +270,12 @@ private fun PasswordForm(hasPassword: Boolean) {
 private fun PasswordField(placeholder: String, value: String, onChange: (String) -> Unit) {
     Box(
         Modifier
+            // Campo de formulario (~420), NAO a coluna toda. A ordem importa:
+            // widthIn ANTES de fillMaxWidth — invertido, o fillMaxWidth fixava a
+            // largura no pai e o cap de 360 era reconstrangido de volta (era o bug
+            // do input de senha esticando pelo eixo X inteiro).
+            .widthIn(max = 420.dp)
             .fillMaxWidth()
-            .widthIn(max = 360.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
@@ -356,7 +366,7 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 // Lista de opcao unica (radio) — pra escolhas com rotulos longos (presets).
 @Composable
 private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
-    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth()) {
         options.forEach { (label, value) ->
             val active = value == selected
             val interaction = remember { MutableInteractionSource() }
@@ -442,7 +452,7 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 // Rotulo + subtitulo + um controle embaixo (usado com o SegmentedRow).
 @Composable
 private fun LabeledControl(title: String, sub: String, content: @Composable () -> Unit) {
-    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(title, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
         Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         Spacer(Modifier.height(8.dp))
@@ -485,9 +495,8 @@ private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSele
 private fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
-            // Norma desktop: nao esticar pela largura toda do palco — cartao
-            // compacto alinhado a esquerda (valores de padding/raio vem do mobile).
-            .widthIn(max = 460.dp)
+            // Preenche a coluna capada (~720, estilo Discord): interruptor grudado
+            // na ponta direita. Quem limita a largura agora e a coluna, nao a linha.
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))
@@ -570,7 +579,7 @@ private fun FieldLabel(text: String) {
 @Composable
 private fun AppearancePreview(fontSize: FontSizePref, density: DensityPref) {
     val samples = listOf("Bora marcar a call?", "fechou, 21h entao")
-    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth()) {
         samples.forEachIndexed { i, text ->
             if (i > 0) Spacer(Modifier.height((density.groupedTopDp + 2).dp))
             Box(
@@ -589,7 +598,7 @@ private fun AppearancePreview(fontSize: FontSizePref, density: DensityPref) {
 @Composable
 private fun PresetGrid(selAccent: String, selBg: String, onPick: (ThemePreset) -> Unit) {
     Column(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ThemePresets.chunked(2).forEach { pair ->
@@ -650,7 +659,7 @@ private fun PresetCard(preset: ThemePreset, active: Boolean, onClick: () -> Unit
 @Composable
 private fun AccentRow(selected: String, onSelect: (String) -> Unit) {
     FlowRow(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -679,7 +688,7 @@ private fun AccentRow(selected: String, onSelect: (String) -> Unit) {
 @Composable
 private fun BgList(selected: String, onSelect: (String) -> Unit) {
     Column(
-        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         BgOptions.forEach { opt ->

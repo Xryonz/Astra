@@ -39,7 +39,8 @@ class ScreenCaptureFfmpeg(
     // entao 2 dao folga de sobra a 15fps sem alocar 8MB por frame). So a thread de
     // captura toca nestes campos.
     private var lastPreviewNs = 0L
-    private val argbBufs = arrayOf(ByteArray(0), ByteArray(0))
+    private var fullArgb = ByteArray(0)                       // scratch res cheia (cap thread)
+    private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida ja reduzida (2 buffers)
     private var argbIdx = 0
 
     fun start(outputIdx: Int, width: Int, height: Int, fps: Int): Boolean {
@@ -131,12 +132,39 @@ class ScreenCaptureFfmpeg(
         val now = System.nanoTime()
         if (now - lastPreviewNs < PREVIEW_INTERVAL_NS) return
         lastPreviewNs = now
-        val need = w * h * 4
-        val dst = argbBufs[argbIdx].let { if (it.size == need) it else ByteArray(need).also { b -> argbBufs[argbIdx] = b } }
+        // Reduz pra no maximo PREVIEW_MAX_W de largura: o preview nao precisa da
+        // resolucao cheia, e um ImageBitmap ~4x menor deixa makeRaster + upload de
+        // textura muito mais leve (era isso que tirava a fluidez). Nearest basta.
+        val scale = if (w > PREVIEW_MAX_W) PREVIEW_MAX_W.toDouble() / w else 1.0
+        val pw = (w * scale).toInt() and 1.inv()
+        val ph = (h * scale).toInt() and 1.inv()
+        if (pw < 2 || ph < 2) return
+        val fullNeed = w * h * 4
+        if (fullArgb.size != fullNeed) fullArgb = ByteArray(fullNeed)
+        val outNeed = pw * ph * 4
+        val dst = argbBufs[argbIdx].let { if (it.size == outNeed) it else ByteArray(outNeed).also { b -> argbBufs[argbIdx] = b } }
         argbIdx = argbIdx xor 1
         runCatching {
-            VideoBufferConverter.convertFromI420(buffer, dst, FourCC.ABGR)
-            cb(dst, w, h)
+            VideoBufferConverter.convertFromI420(buffer, fullArgb, FourCC.ABGR)
+            if (pw == w && ph == h) System.arraycopy(fullArgb, 0, dst, 0, outNeed)
+            else downscaleArgb(fullArgb, w, h, dst, pw, ph)
+            cb(dst, pw, ph)
+        }
+    }
+
+    // Nearest-neighbor ARGB — barato, roda na thread de captura fora do caminho da
+    // transmissao. Pra preview a qualidade nearest e suficiente.
+    private fun downscaleArgb(src: ByteArray, sw: Int, sh: Int, dst: ByteArray, dw: Int, dh: Int) {
+        var di = 0
+        for (y in 0 until dh) {
+            val srow = (y * sh / dh) * sw * 4
+            for (x in 0 until dw) {
+                val si = srow + (x * sw / dw) * 4
+                dst[di++] = src[si]
+                dst[di++] = src[si + 1]
+                dst[di++] = src[si + 2]
+                dst[di++] = src[si + 3]
+            }
         }
     }
 
@@ -150,8 +178,10 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
-        // Preview a ~15fps (66ms). A transmissao segue no framerate cheio do ddagrab.
-        private const val PREVIEW_INTERVAL_NS = 66_000_000L
+        // Preview a ~24fps (42ms). A transmissao segue no framerate cheio do ddagrab.
+        private const val PREVIEW_INTERVAL_NS = 42_000_000L
+        // Largura maxima do preview (mantem aspecto). Preview -> nao precisa de 1080p.
+        private const val PREVIEW_MAX_W = 960
 
         // Preferencia de GPU por-exe (HKCU) = "power saving" (integrada). No Optimus
         // isso faz o ffmpeg rodar na iGPU que DE FATO scaneia o monitor -> a

@@ -22,6 +22,8 @@ import dev.onvoid.webrtc.RTCRtpTransceiverDirection
 import dev.onvoid.webrtc.RTCRtpTransceiverInit
 import dev.onvoid.webrtc.RTCSdpType
 import dev.onvoid.webrtc.RTCSessionDescription
+import dev.onvoid.webrtc.RTCStatsReport
+import dev.onvoid.webrtc.RTCStatsType
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
 import dev.onvoid.webrtc.media.MediaStream
 import dev.onvoid.webrtc.media.MediaType
@@ -76,6 +78,13 @@ data class VoiceParticipant(val identity: String, val label: String, val speakin
 
 // Transmissao de outro participante (track de video remota; render no VoiceView).
 class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: VideoTrack)
+
+// Metricas da MINHA transmissao (poll de getStats). captureFps = fps que o
+// capturer de tela produz; sendFps = fps que sai codificado; limit = por que o
+// WebRTC degradou (none/cpu/bandwidth/other). captureFps baixo = gargalo na
+// CAPTURA (nao da pra trocar o metodo nesta lib); sendFps < captureFps = encoder
+// degradando framerate (default de conteudo de tela e manter resolucao).
+data class ScreenStats(val captureFps: Int, val sendFps: Int, val limit: String)
 
 // V3+V4+V5 — OUVIR, FALAR e TRANSMITIR. Subscriber PC (LiveKit e subscriber-
 // primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
@@ -142,6 +151,11 @@ class VoiceEngine(
     // (igual Discord). Track local aceita sink como remota; some ao parar.
     private val _localScreen = MutableStateFlow<VideoTrack?>(null)
     val localScreen = _localScreen.asStateFlow()
+
+    // Metricas da transmissao (poll a cada ~1.5s enquanto compartilho).
+    private val _screenStats = MutableStateFlow<ScreenStats?>(null)
+    val screenStats = _screenStats.asStateFlow()
+    private var statsJob: Job? = null
 
     // Preset ativo da transmissao (Settings > Voz). Capturado da pref no
     // startScreenShare; TrackPublished/attachScreen leem daqui. Default = 1080p60
@@ -535,6 +549,63 @@ class VoiceEngine(
         screenSender = transceiver.sender
         preferH264(transceiver)
         negotiatePublisher()
+        // Reforca os encodings no sender ja negociado (o init nem sempre carrega
+        // maxBitrate/maxFramerate pela munge do SDP) + comeca a medir os fps.
+        scope.launch {
+            delay(1200)
+            reinforceScreenSender()
+            startScreenStats()
+        }
+    }
+
+    // Re-aplica maxFramerate/maxBitrate direto no sender (via setParameters) — jeito
+    // confiavel de garantir que o teto vale, ja que init encodings as vezes se perde.
+    private fun reinforceScreenSender() {
+        val sender = screenSender ?: return
+        runCatching {
+            val params = sender.parameters ?: return
+            params.encodings?.firstOrNull()?.apply {
+                active = true
+                maxFramerate = screenQ.fps.toDouble()
+                maxBitrate = screenQ.bitrate
+                scaleResolutionDownBy = 1.0
+            }
+            sender.parameters = params
+        }
+    }
+
+    // Poll de getStats no sender da tela: expoe fps de captura e de envio + o motivo
+    // da degradacao. E como saber SE bateu 60 e, se nao, ONDE travou (captura/cpu/banda).
+    private fun startScreenStats() {
+        statsJob?.cancel()
+        statsJob = scope.launch {
+            while (isActive && _screenOn.value) {
+                val pc = pub
+                val sender = screenSender
+                if (pc != null && sender != null) {
+                    runCatching { pc.getStats(sender) { report -> parseScreenStats(report) } }
+                }
+                delay(1500)
+            }
+        }
+    }
+
+    private fun parseScreenStats(report: RTCStatsReport) {
+        var capture = 0
+        var send = 0
+        var limit = "none"
+        report.stats.values.forEach { s ->
+            val a = s.attributes
+            when (s.type) {
+                RTCStatsType.MEDIA_SOURCE -> (a["framesPerSecond"] as? Number)?.let { capture = it.toInt() }
+                RTCStatsType.OUTBOUND_RTP -> {
+                    (a["framesPerSecond"] as? Number)?.let { send = it.toInt() }
+                    (a["qualityLimitationReason"] as? String)?.let { limit = it }
+                }
+                else -> Unit
+            }
+        }
+        _screenStats.value = ScreenStats(capture, send, limit)
     }
 
     // H264 primeiro (paridade com o web tunado 60fps H264); rtx/red/fec continuam
@@ -551,6 +622,8 @@ class VoiceEngine(
         if (!_screenOn.value) return
         _screenOn.value = false
         _localScreen.value = null
+        statsJob?.cancel()
+        _screenStats.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
         screenSender = null
         runCatching { screenSource?.stop() }
@@ -605,6 +678,7 @@ class VoiceEngine(
 
     fun dispose() {
         pingJob?.cancel()
+        statsJob?.cancel()
         // Despedida educada: o servidor libera o slot na hora em vez de esperar timeout.
         runCatching {
             val leave = LivekitRtc.SignalRequest.newBuilder()

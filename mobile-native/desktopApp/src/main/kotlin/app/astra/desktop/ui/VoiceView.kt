@@ -97,6 +97,7 @@ fun VoiceView(
     val micOn by engine.micOn.collectAsState()
     val videos by engine.remoteVideos.collectAsState()
     val localScreen by engine.localScreen.collectAsState()
+    val screenStats by engine.screenStats.collectAsState()
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
@@ -164,10 +165,24 @@ fun VoiceView(
                                 .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
                         )
                         Spacer(Modifier.height(6.dp))
-                        Text(
-                            if (w.isMe) "voce esta transmitindo" else "transmissao de ${w.label}",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                        )
+                        // Na MINHA transmissao mostro os fps reais (envio + captura) e
+                        // o motivo se o WebRTC degradou — e como saber se bateu 60.
+                        val st = screenStats
+                        val txt = when {
+                            !w.isMe -> "transmissao de ${w.label}"
+                            st == null -> "voce esta transmitindo"
+                            else -> buildString {
+                                append("transmitindo · envio ${st.sendFps}fps · captura ${st.captureFps}fps")
+                                if (st.limit != "none" && st.limit.isNotBlank()) append(" · limite: ${st.limit}")
+                            }
+                        }
+                        val txtColor = when {
+                            !w.isMe || st == null -> Obsidian.text3
+                            st.sendFps >= 50 -> Obsidian.success
+                            st.sendFps >= 1 -> Obsidian.warning
+                            else -> Obsidian.text3
+                        }
+                        Text(txt, style = TextStyle(color = txtColor, fontSize = 11.sp))
                         // Abas so quando ha mais de uma transmissao (a minha + de outros).
                         if (streams.size > 1) {
                             Spacer(Modifier.height(6.dp))

@@ -26,7 +26,18 @@ import org.jetbrains.skia.RuntimeShaderBuilder
 // linear crescia sem fim -> dominio do ruido estourava a precisao do float e a
 // animacao travava). Tilt/toque do mobile ficaram de fora (sao de celular:
 // acelerometro/dedo). PERF: value-noise ALU-only, 3 oitavas, 2 cortinas.
-private val AURORA_SKSL = """
+// octaves = qualidade (Settings > Desempenho): mais oitavas = ruido mais rico e
+// mais caro. SkSL exige bound de loop constante -> a contagem entra no source e
+// recompila-se uma variante por nivel. Normaliza-se por (1-0.5^oct) pra aurora
+// manter o mesmo brilho em qualquer qualidade (senao LOW fica visivelmente mais
+// escura, parece bug). accent prata #D4D8E0 sobre o void.
+private fun auroraSksl(octaves: Int): String {
+    // Normaliza pela soma de amplitudes da qualidade ALTA (3 oitavas) -> HIGH fica
+    // IDENTICA a aurora ja validada (inv=1.0) e as qualidades menores so sobem o
+    // brilho pra bater (senao LOW ficaria escura, parece bug).
+    val ref = 1.0 - Math.pow(0.5, 3.0)
+    val inv = ref / (1.0 - Math.pow(0.5, octaves.toDouble()))
+    return """
 uniform float uTime;
 uniform float2 uSize;
 
@@ -43,12 +54,12 @@ float vnoise(float2 p) {
 float fbm(float2 p) {
     float v = 0.0;
     float a = 0.5;
-    for (int k = 0; k < 3; k++) {
+    for (int k = 0; k < $octaves; k++) {
         v += a * vnoise(p);
         p *= 2.0;
         a *= 0.5;
     }
-    return v;
+    return v * $inv;
 }
 float curtain(float2 uv, float yC, float seed, float2 flow) {
     float n = fbm(float2(uv.x * 2.6 + seed, seed * 3.1) + flow);
@@ -69,13 +80,12 @@ half4 main(float2 fragCoord) {
     float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
     float aur = (c1 + c2) * fall * 0.16;
 
-    // Prata (Obsidian.accent #D4D8E0) somada sobre o void; opaco (o desktop
-    // desenha a aurora como fundo inteiro, nao como overlay transparente).
     float3 accent = float3(0.831, 0.847, 0.878);
     float3 col = float3(0.024, 0.024, 0.055) + accent * min(aur, 0.30);
     return half4(col, 1.0);
 }
 """
+}
 
 // Periodo do loop: ang = uTime*0.1 fecha o circulo em uTime = 2*PI/0.1 = 20*PI.
 // flow2 usa ang*2 -> fecha 2 voltas no mesmo intervalo. Enrolar o tempo do
@@ -92,13 +102,20 @@ private val AURORA_FALLBACK = Color(0xFF06060E)
 
 @Composable
 fun Modifier.auroraBackground(): Modifier {
-    val effect = remember { runCatching { RuntimeEffect.makeForShader(AURORA_SKSL.trimIndent()) }.getOrNull() }
-        ?: return this.drawBehind { drawRect(AURORA_FALLBACK) }
-    val builder = remember { RuntimeShaderBuilder(effect) }
+    val render = LocalRenderPrefs.current
+    // Recompila so quando a qualidade (octaves) muda — barato, raro.
+    val effect = remember(render.auroraOctaves) {
+        runCatching { RuntimeEffect.makeForShader(auroraSksl(render.auroraOctaves).trimIndent()) }.getOrNull()
+    } ?: return this.drawBehind { drawRect(AURORA_FALLBACK) }
+    val builder = remember(effect) { RuntimeShaderBuilder(effect) }
     val reduceMotion = LocalReduceMotion.current
     // Gate por VISIBILIDADE (nao foco): rememberUpdatedState pra ler o valor mais
     // fresco dentro do loop sem reiniciar o produceState (o que zeraria o tempo).
     val active = rememberUpdatedState(LocalWindowActive.current)
+    // Teto de FPS (Settings > Desempenho): limita a taxa de REDESENHO do shader
+    // (emitir menos 'value' = menos invocacoes por segundo). O tempo acumula em
+    // toda frame (acc), so a emissao e afinada — a velocidade da animacao nao muda.
+    val fpsCap = rememberUpdatedState(render.fpsCap)
     // Relogio de frames com PAUSA: minimizada/na bandeja = nenhum frame pedido
     // (zero CPU/GPU em segundo plano — guardrail do dono). Enquanto VISIVEL segue
     // animando, mesmo com um popup/menu focavel aberto por cima (era o "cortada"
@@ -113,6 +130,7 @@ fun Modifier.auroraBackground(): Modifier {
             return@produceState
         }
         var acc = 0f
+        var lastEmit = 0L
         while (true) {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
@@ -121,7 +139,12 @@ fun Modifier.auroraBackground(): Modifier {
                     acc += (now - last) / 1_000_000_000f
                     if (acc >= AURORA_LOOP) acc -= AURORA_LOOP
                     last = now
-                    value = acc
+                    val cap = fpsCap.value
+                    val minInterval = if (cap <= 0) 0L else 1_000_000_000L / cap
+                    if (minInterval == 0L || now - lastEmit >= minInterval) {
+                        lastEmit = now
+                        value = acc
+                    }
                 }
             }
         }

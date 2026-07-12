@@ -39,9 +39,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -53,7 +55,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -67,7 +71,7 @@ import org.koin.core.context.GlobalContext
 private enum class SettingsTab(val label: String, val sub: String) {
     ACCOUNT("Conta", "email e senha"),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja"),
-    MOTION("Movimento", "animacoes de fundo"),
+    PERFORMANCE("Desempenho", "graficos, animacoes, fps"),
 }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
@@ -154,18 +158,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                             modifier = Modifier.widthIn(max = 460.dp),
                         )
                     }
-                    SettingsTab.MOTION -> Column {
-                        ToggleRow(
-                            "Reduzir movimento", "congela a aurora e desliga cascatas e pulsos",
-                            prefState.reduceMotion, prefs::setReduceMotion,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "bom pra economizar em maquina fraca ou se o movimento incomodar. muda na hora.",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                            modifier = Modifier.widthIn(max = 460.dp),
-                        )
-                    }
+                    SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                 }
             }
         }
@@ -310,6 +303,92 @@ private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> U
             ),
         )
         Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+    }
+}
+
+// Aba Desempenho: kill-switch gamer no topo, depois os controles finos (que ele
+// sobrepoe — ficam esmaecidos com o modo ligado). Graficos + fps + transparencia.
+@Composable
+private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    ToggleRow(
+        "Modo desempenho",
+        "desliga aurora + estrelas e reduz animacoes de uma vez — pra jogar ou transmitir",
+        p.performanceMode, prefs::setPerformanceMode,
+    )
+    Spacer(Modifier.height(6.dp))
+
+    // Controles finos: o modo desempenho ja sobrepoe, entao esmaece quando ligado
+    // (continuam clicaveis — sao a tua preferencia fora do modo desempenho).
+    Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
+        ToggleRow("Aurora", "fundo animado em shader", p.auroraEnabled, prefs::setAuroraEnabled)
+        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU") {
+            SegmentedRow(
+                listOf("Alta" to AuroraQuality.HIGH, "Media" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
+                p.auroraQuality, prefs::setAuroraQuality,
+            )
+        }
+        ToggleRow("Estrelas", "campo de estrelas + meteoros sobre a aurora", p.starsEnabled, prefs::setStarsEnabled)
+        LabeledControl("FPS das animacoes", "teto de quadros do fundo (livre segue o monitor)") {
+            SegmentedRow(
+                listOf("Livre" to UiFps.FREE, "60" to UiFps.CAP60, "30" to UiFps.CAP30),
+                p.uiFps, prefs::setUiFps,
+            )
+        }
+        ToggleRow("Reduzir movimento", "congela a aurora e desliga cascatas e pulsos", p.reduceMotion, prefs::setReduceMotion)
+    }
+
+    Spacer(Modifier.height(6.dp))
+    ToggleRow(
+        "Janela translucida",
+        "cantos arredondados + fundo vazando; opaca = mais nitido e leve",
+        p.windowTransparent, prefs::setWindowTransparent,
+    )
+    Text(
+        "a transparencia da janela so aplica ao reiniciar o app.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+}
+
+// Rotulo + subtitulo + um controle embaixo (usado com o SegmentedRow).
+@Composable
+private fun LabeledControl(title: String, sub: String, content: @Composable () -> Unit) {
+    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(title, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+        Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Spacer(Modifier.height(8.dp))
+        content()
+    }
+}
+
+// Segmentado obsidiana: pilulas numa trilha; a ativa acende ambar.
+@Composable
+private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.void.copy(alpha = 0.55f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        options.forEach { (label, value) ->
+            val active = value == selected
+            val bg by animateColorAsState(if (active) Obsidian.accent else Color.Transparent, tween(140))
+            val fg by animateColorAsState(if (active) Obsidian.textInv else Obsidian.text2, tween(140))
+            Text(
+                label,
+                style = TextStyle(
+                    color = fg, fontSize = 12.sp,
+                    fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                ),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(bg)
+                    .clickable { onSelect(value) }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+        }
     }
 }
 

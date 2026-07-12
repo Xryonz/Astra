@@ -82,12 +82,16 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     // Mesmo relogio/gate da aurora: pausa quando minimizada (nao quando so perde
     // o foco pra um popup); reduzir movimento congela em 0 (campo estatico).
     val active = rememberUpdatedState(LocalWindowActive.current)
+    // Teto de FPS (Settings > Desempenho): mesmo throttle da aurora — limita a
+    // taxa de redesenho sem mexer na velocidade (acc acumula sempre).
+    val fpsCap = rememberUpdatedState(LocalRenderPrefs.current.fpsCap)
     val time by produceState(0f, reduceMotion) {
         if (reduceMotion) {
             value = 0f
             return@produceState
         }
         var acc = 0f
+        var lastEmit = 0L
         while (true) {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
@@ -96,7 +100,12 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
                     acc += (now - last) / 1_000_000_000f
                     if (acc >= STAR_LOOP) acc -= STAR_LOOP
                     last = now
-                    value = acc
+                    val cap = fpsCap.value
+                    val minInterval = if (cap <= 0) 0L else 1_000_000_000L / cap
+                    if (minInterval == 0L || now - lastEmit >= minInterval) {
+                        lastEmit = now
+                        value = acc
+                    }
                 }
             }
         }

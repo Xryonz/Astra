@@ -29,6 +29,7 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.di.appModule
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.LoginScreen
@@ -48,6 +49,9 @@ fun main() {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).
         var windowVisible by remember { mutableStateOf(true) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
+        // Transparencia e param de CRIACAO da janela -> le a pref UMA vez no boot
+        // (Settings > Desempenho avisa "aplica ao reiniciar"). Opaca = mais leve.
+        val transparentWindow = remember { GlobalContext.get().get<DesktopPrefs>().state.value.windowTransparent }
         // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
@@ -72,8 +76,8 @@ fun main() {
             visible = windowVisible,
             undecorated = true, // frameless: a barra-titulo obsidiana e nossa
             // Fundo da janela transparente so pra dar cantos arredondados ao
-            // conteudo (polish). Se custar fluidez no device, reverter os dois.
-            transparent = true,
+            // conteudo (polish). Toggle em Settings > Desempenho (aplica ao reiniciar).
+            transparent = transparentWindow,
         ) {
             // Coil global: data-URIs (avatares no banco) + URLs relativas /uploads.
             setSingletonImageLoaderFactory { ctx ->
@@ -90,9 +94,9 @@ fun main() {
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
 
-            // Cantos arredondados so com a janela solta; maximizada volta ao
-            // reto (senao sobra fresta transparente nos cantos da tela).
-            val rounded = state.placement == WindowPlacement.Floating
+            // Cantos arredondados so com a janela solta E translucida; maximizada
+            // ou opaca volta ao reto (senao sobra fresta/canto preto).
+            val rounded = transparentWindow && state.placement == WindowPlacement.Floating
             val windowShape = if (rounded) RoundedCornerShape(10.dp) else RectangleShape
 
             // RikkaUI e CMP (foundation-only): mesmo tema do mobile, tokens obsidiana.

@@ -159,22 +159,30 @@ fun ShellScreen(
         }
     }
 
-    // Reduzir movimento (Settings > Movimento) desce por CompositionLocal: aurora,
-    // cascata e pulsos leem daqui e param quando ligado.
-    CompositionLocalProvider(LocalReduceMotion provides prefState.reduceMotion) {
+    // Desempenho (Settings): reduzir movimento + prefs de render descem por
+    // CompositionLocal. auroraOn/starsOn/reduceMotionEff ja aplicam o modo
+    // desempenho (kill-switch) por cima dos toggles individuais.
+    CompositionLocalProvider(
+        LocalReduceMotion provides prefState.reduceMotionEff,
+        LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
+    ) {
     Box(Modifier.fillMaxSize()) {
         // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
         // (graphicsLayer): so ela invalida por frame — os paineis translucidos
-        // por cima nao redesenham com o shader.
-        Box(
-            Modifier
-                .matchParentSize()
-                .graphicsLayer {}
-                .auroraBackground(),
-        )
+        // por cima nao redesenham com o shader. Desligada = void chapado (0 shader).
+        if (prefState.auroraOn) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .graphicsLayer {}
+                    .auroraBackground(),
+            )
+        } else {
+            Box(Modifier.matchParentSize().background(Obsidian.void))
+        }
         // Estrelas (fieis ao mobile) entre a aurora e os paineis: fixas + piscar
         // + meteoros. Camada propria (transparente) — a aurora aparece por baixo.
-        StarField(Modifier.matchParentSize())
+        if (prefState.starsOn) StarField(Modifier.matchParentSize())
         // Paineis = cartoes flutuantes (estilo mobile): gap entre eles + cantos
         // arredondados deixam a aurora respirar nas juntas (impressao de
         // sobreposicao). Margem externa de 8dp separa do titulo/bordas da janela.

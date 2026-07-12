@@ -73,6 +73,12 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 // (o "cortada de vez em quando"). Visibilidade nao pisca com popup -> sem corte.
 val LocalWindowActive = staticCompositionLocalOf { true }
 
+// Prefs de RENDER das animacoes de fundo (Settings > Desempenho), desacopladas
+// dos enums de prefs: octaves do FBM da aurora e teto de FPS (0 = livre). O
+// ShellScreen mapeia AuroraQuality/UiFps -> isto e provee; Aurora/StarField leem.
+data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = 0)
+val LocalRenderPrefs = staticCompositionLocalOf { RenderPrefs() }
+
 // Entrada em cascata (F6): itens de lista revelam um a um (fade + subida leve).
 // GPU-only (alpha/translation em graphicsLayer). So os primeiros CASCADE_MAX
 // indices animam — item que entra por scroll aparece pronto (LazyColumn recicla).

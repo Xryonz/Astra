@@ -190,11 +190,17 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 })
 
 process.on('unhandledRejection', (r) => {
+  // NÃO derruba o processo. Uma promise rejeitada sem catch em qualquer canto
+  // (ex.: um comando de cache) não deve tirar a API inteira do ar — foi isso que
+  // causou a queda do Upstash capado (um refreshPresence fire-and-forget). Loga +
+  // reporta e segue; o request que a originou falha isolado, o servidor sobrevive.
   logger.error('UnhandledRejection', String(r), r)
   sentry.captureException(r)
-  process.exit(1)
 })
 process.on('uncaughtException', (e) => {
+  // Exceção SÍNCRONA não capturada = o processo pode estar em estado indefinido,
+  // então sair (e deixar o Render reiniciar) é o certo. Diferente de uma promise
+  // rejeitada, que é localizada e recuperável.
   logger.error('UncaughtException', String(e), e)
   sentry.captureException(e)
   process.exit(1)

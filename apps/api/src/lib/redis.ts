@@ -60,7 +60,30 @@ export async function isUserOnline(userId: string): Promise<boolean> {
   }
 }
 
+// Cache EM PROCESSO do resultado de isTokenBlacklisted. Esse check rodava um
+// comando Redis em TODA request autenticada (auth.ts) — de longe o maior
+// consumidor da quota do Upstash (o que estourou os 500k). Com um TTL curto,
+// leituras repetidas do mesmo jti (o caso comum: um usuário faz N requests com o
+// mesmo token) viram 1 comando a cada BLACKLIST_CACHE_MS. blacklistToken atualiza
+// o cache local na hora -> logout instantâneo nesta instância (no free tier é 1
+// instância só). Miss propaga a revogação em no máx BLACKLIST_CACHE_MS (aceitável:
+// o access token já tem exp curto próprio).
+const BLACKLIST_CACHE_MS = 30_000
+const BLACKLIST_CACHE_MAX = 10_000
+const blacklistCache = new Map<string, { revoked: boolean; exp: number }>()
+
+function rememberBlacklist(jti: string, revoked: boolean, ttlMs: number): void {
+  // Poda preguiçosa: só quando o mapa cresce, varre e tira os expirados (evita
+  // vazamento de memória em uptime longo sem precisar de um timer).
+  if (blacklistCache.size > BLACKLIST_CACHE_MAX) {
+    const now = Date.now()
+    for (const [k, v] of blacklistCache) if (v.exp <= now) blacklistCache.delete(k)
+  }
+  blacklistCache.set(jti, { revoked, exp: Date.now() + ttlMs })
+}
+
 export async function blacklistToken(jti: string, expiresInSeconds: number): Promise<void> {
+  rememberBlacklist(jti, true, expiresInSeconds * 1000) // logout instantâneo local
   try { await redis.setex(`blacklist:token:${jti}`, expiresInSeconds, '1') } catch { /* best-effort */ }
 }
 
@@ -69,8 +92,12 @@ export async function blacklistToken(jti: string, expiresInSeconds: number): Pro
 // um token revogado ainda vale até expirar sozinho (TTL curto). Blacklist é
 // best-effort por design (o token já tem exp curto próprio).
 export async function isTokenBlacklisted(jti: string): Promise<boolean> {
+  const cached = blacklistCache.get(jti)
+  if (cached && cached.exp > Date.now()) return cached.revoked
   try {
-    return (await redis.exists(`blacklist:token:${jti}`)) === 1
+    const revoked = (await redis.exists(`blacklist:token:${jti}`)) === 1
+    rememberBlacklist(jti, revoked, BLACKLIST_CACHE_MS)
+    return revoked
   } catch {
     return false
   }

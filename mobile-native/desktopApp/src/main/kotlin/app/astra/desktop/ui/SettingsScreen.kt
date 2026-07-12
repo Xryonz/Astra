@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -72,6 +73,7 @@ private enum class SettingsTab(val label: String, val sub: String) {
     ACCOUNT("Conta", "email e senha"),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja"),
     PERFORMANCE("Desempenho", "graficos, animacoes, fps"),
+    VOICE("Voz", "microfone e transmissao"),
 }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
@@ -159,6 +161,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                         )
                     }
                     SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
+                    SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                 }
             }
         }
@@ -303,6 +306,78 @@ private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> U
             ),
         )
         Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+    }
+}
+
+// Aba Voz: qualidade da transmissao de tela (presets) + processamento do mic.
+@Composable
+private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "vale ao iniciar a transmissao. o padrao 1080p60 e o minimo que combinamos.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    RadioList(
+        ScreenQuality.entries.map { it.label to it },
+        p.screenQuality, prefs::setScreenQuality,
+    )
+
+    Spacer(Modifier.height(22.dp))
+    Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(10.dp))
+    ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
+    ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic", p.micEchoCancel, prefs::setMicEchoCancel)
+    ToggleRow("Ganho automatico", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "as opcoes de microfone valem na proxima vez que voce entrar numa sala.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+}
+
+// Lista de opcao unica (radio) — pra escolhas com rotulos longos (presets).
+@Composable
+private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
+    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+        options.forEach { (label, value) ->
+            val active = value == selected
+            val interaction = remember { MutableInteractionSource() }
+            val hovered by interaction.collectIsHoveredAsState()
+            val bg by animateColorAsState(
+                when {
+                    active -> Obsidian.active
+                    hovered -> Obsidian.hover
+                    else -> Obsidian.raised.copy(alpha = 0.5f)
+                },
+                tween(120),
+            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 3.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(bg)
+                    .border(1.dp, if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, RoundedCornerShape(10.dp))
+                    .hoverable(interaction)
+                    .clickable { onSelect(value) }
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (active) "◉" else "○",
+                    style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    label,
+                    style = TextStyle(color = if (active) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
+                )
+            }
+        }
     }
 }
 

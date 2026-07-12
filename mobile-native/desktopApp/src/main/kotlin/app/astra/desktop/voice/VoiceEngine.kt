@@ -1,5 +1,7 @@
 package app.astra.desktop.voice
 
+import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.ScreenQuality
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
 import dev.onvoid.webrtc.CreateSessionDescriptionObserver
@@ -85,6 +87,7 @@ class VoiceEngine(
     private val scope: CoroutineScope,
     private val voiceApi: VoiceApi,
     private val wsClient: OkHttpClient,
+    private val prefs: DesktopPrefs,
 ) {
     private val _status = MutableStateFlow<VoiceStatus>(VoiceStatus.Connecting)
     val status = _status.asStateFlow()
@@ -135,12 +138,10 @@ class VoiceEngine(
     private val _screenOn = MutableStateFlow(false)
     val screenOn = _screenOn.asStateFlow()
 
-    private companion object {
-        // Requisito do dono: 60fps NO MINIMO na transmissao.
-        const val SCREEN_FPS = 60
-        // 1080p60 com folga (referencia: web tunado 60fps H264).
-        const val SCREEN_MAX_BITRATE = 8_000_000
-    }
+    // Preset ativo da transmissao (Settings > Voz). Capturado da pref no
+    // startScreenShare; TrackPublished/attachScreen leem daqui. Default = 1080p60
+    // (requisito original do dono: 60fps no minimo).
+    private var screenQ: ScreenQuality = ScreenQuality.HIGH_1080_60
 
     fun connect(roomKind: String, roomId: String) {
         scope.launch {
@@ -367,13 +368,15 @@ class VoiceEngine(
     // negociacao so acontece) quando o server responde TrackPublished com o cid.
     private fun publishMic() {
         val f = factory ?: return
-        // Sem mic/permissao nao derruba a sala: segue so ouvindo.
+        // Sem mic/permissao nao derruba a sala: segue so ouvindo. Processamento
+        // vem das prefs (Settings > Voz); highpass acompanha a supressao de ruido.
+        val ap = prefs.state.value
         val source = runCatching {
             f.createAudioSource(AudioOptions().apply {
-                echoCancellation = true
-                noiseSuppression = true
-                autoGainControl = true
-                highpassFilter = true
+                echoCancellation = ap.micEchoCancel
+                noiseSuppression = ap.micNoiseSuppression
+                autoGainControl = ap.micAutoGain
+                highpassFilter = ap.micNoiseSuppression
             })
         }.getOrNull() ?: return
         val cid = "mic-" + UUID.randomUUID().toString().take(8)
@@ -471,14 +474,16 @@ class VoiceEngine(
     fun startScreenShare(source: DesktopSource? = null) {
         if (_screenOn.value || factory == null) return
         val target = source ?: screens().firstOrNull() ?: return
-        // 60fps na CAPTURA; resolucao capada em 1080p — o webrtc-java nao expoe
-        // degradationPreference, entao proteger o framerate = nao dar ao encoder
-        // mais pixels do que ele segura a 60.
+        // Preset da pref (Settings > Voz). fps na CAPTURA; resolucao capada no
+        // preset — o webrtc-java nao expoe degradationPreference, entao proteger o
+        // framerate = nao dar ao encoder mais pixels do que ele segura no fps alvo.
+        screenQ = prefs.state.value.screenQuality
+        val q = screenQ
         val src = runCatching {
             VideoDesktopSource().apply {
                 setSourceId(target.id, false)
-                setFrameRate(SCREEN_FPS)
-                setMaxFrameSize(1920, 1080)
+                setFrameRate(q.fps)
+                setMaxFrameSize(q.width, q.height)
                 start()
             }
         }.getOrNull() ?: return
@@ -494,14 +499,14 @@ class VoiceEngine(
                     .setName("screen")
                     .setType(LivekitModels.TrackType.VIDEO)
                     .setSource(LivekitModels.TrackSource.SCREEN_SHARE)
-                    .setWidth(1920)
-                    .setHeight(1080)
+                    .setWidth(q.width)
+                    .setHeight(q.height)
                     .addLayers(
                         LivekitModels.VideoLayer.newBuilder()
                             .setQuality(LivekitModels.VideoQuality.HIGH)
-                            .setWidth(1920)
-                            .setHeight(1080)
-                            .setBitrate(SCREEN_MAX_BITRATE),
+                            .setWidth(q.width)
+                            .setHeight(q.height)
+                            .setBitrate(q.bitrate),
                     ),
             )
             .build()
@@ -515,8 +520,8 @@ class VoiceEngine(
             streamIds = listOf(cid)
             sendEncodings = listOf(
                 RTCRtpEncodingParameters().apply {
-                    maxFramerate = SCREEN_FPS.toDouble()
-                    maxBitrate = SCREEN_MAX_BITRATE
+                    maxFramerate = screenQ.fps.toDouble()
+                    maxBitrate = screenQ.bitrate
                 },
             )
         }

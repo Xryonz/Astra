@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.RemoteVideo
@@ -85,7 +86,7 @@ fun VoiceView(
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
     val engine = remember(channel.id) {
-        VoiceEngine(scope, koin.get<VoiceApi>(), koin.get<OkHttpClient>(named("plain")))
+        VoiceEngine(scope, koin.get<VoiceApi>(), koin.get<OkHttpClient>(named("plain")), koin.get<DesktopPrefs>())
             .also { it.connect("channel", channel.id) }
     }
     DisposableEffect(channel.id) { onDispose { engine.dispose() } }

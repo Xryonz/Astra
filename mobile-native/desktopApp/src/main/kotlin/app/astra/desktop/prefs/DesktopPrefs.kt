@@ -24,6 +24,22 @@ enum class UiFps(val key: String, val cap: Int) {
     }
 }
 
+// Presets da transmissao de tela (Settings > Voz). Default = 1080p60 (o requisito
+// original do dono: 60fps no minimo); os 30fps sao opt-in pra pouca banda. bitrate
+// em bits/s. Aplica ao INICIAR a transmissao.
+enum class ScreenQuality(
+    val key: String, val label: String,
+    val width: Int, val height: Int, val fps: Int, val bitrate: Int,
+) {
+    HIGH_1080_60("h108060", "1080p 60fps — alta", 1920, 1080, 60, 8_000_000),
+    SMOOTH_720_60("s72060", "720p 60fps — fluida", 1280, 720, 60, 4_000_000),
+    CRISP_1080_30("c108030", "1080p 30fps — nitida", 1920, 1080, 30, 6_000_000),
+    LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000);
+    companion object {
+        fun from(raw: String?) = entries.find { it.key == raw } ?: HIGH_1080_60
+    }
+}
+
 // Preferencias LOCAIS do desktop (nao vao pro backend): movimento, toasts da
 // bandeja e agora DESEMPENHO/GRAFICOS. Persistem no ui.properties (mesmo arquivo
 // da ultima selecao, que sobrevive a logout). StateFlow pra UI e shell reagirem
@@ -45,6 +61,12 @@ class DesktopPrefs(private val store: SessionStore) {
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
         // de criacao da janela). Opaca = mais nitido/leve.
         val windowTransparent: Boolean = true,
+        // --- Voz & Transmissao ---
+        val screenQuality: ScreenQuality = ScreenQuality.HIGH_1080_60,
+        // Processamento do microfone (aplica ao ENTRAR na proxima sala de voz).
+        val micNoiseSuppression: Boolean = true,
+        val micEchoCancel: Boolean = true,
+        val micAutoGain: Boolean = true,
     ) {
         // Flags EFETIVAS que o shell consome: o modo desempenho sobrepoe.
         val auroraOn: Boolean get() = auroraEnabled && !performanceMode
@@ -67,6 +89,10 @@ class DesktopPrefs(private val store: SessionStore) {
         starsEnabled = store.uiPref("starsEnabled") != "0",
         uiFps = UiFps.from(store.uiPref("uiFps")),
         windowTransparent = store.uiPref("windowTransparent") != "0",
+        screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
+        micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
+        micEchoCancel = store.uiPref("micEchoCancel") != "0",
+        micAutoGain = store.uiPref("micAutoGain") != "0",
     )
 
     private fun persist(key: String, on: Boolean) = store.setUiPref(key, if (on) "1" else "0")
@@ -114,5 +140,25 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setWindowTransparent(v: Boolean) {
         persist("windowTransparent", v)
         _state.update { it.copy(windowTransparent = v) }
+    }
+
+    fun setScreenQuality(v: ScreenQuality) {
+        store.setUiPref("screenQuality", v.key)
+        _state.update { it.copy(screenQuality = v) }
+    }
+
+    fun setMicNoiseSuppression(v: Boolean) {
+        persist("micNoiseSuppression", v)
+        _state.update { it.copy(micNoiseSuppression = v) }
+    }
+
+    fun setMicEchoCancel(v: Boolean) {
+        persist("micEchoCancel", v)
+        _state.update { it.copy(micEchoCancel = v) }
+    }
+
+    fun setMicAutoGain(v: Boolean) {
+        persist("micAutoGain", v)
+        _state.update { it.copy(micAutoGain = v) }
     }
 }

@@ -42,7 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +60,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -118,36 +119,53 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 @Composable
 private fun RotatingStarsLogo(reduceMotion: Boolean) {
     val accent = Obsidian.accent
-    val angle = if (reduceMotion) 0f else {
+    val twoPi = (2.0 * PI).toFloat()
+    // reduceMotion: fase fixa (anel parado, mas ainda com frente/tras).
+    val phase = if (reduceMotion) 0.9f else {
         val t = rememberInfiniteTransition(label = "orbit")
         t.animateFloat(
             initialValue = 0f,
-            targetValue = 360f,
+            targetValue = twoPi,
             animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing)),
-            label = "angle",
+            label = "phase",
         ).value
     }
-    Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-        // Estrelas num anel que gira em volta do planeta (o logo fica parado).
-        Canvas(Modifier.size(150.dp).graphicsLayer { rotationZ = angle }) {
-            val radius = size.minDimension / 2f * 0.86f
-            val count = 10
-            repeat(count) { i ->
-                val a = (i.toFloat() / count) * (2.0 * Math.PI).toFloat()
-                val p = Offset(center.x + radius * cos(a), center.y + radius * sin(a))
-                val big = i % 3 == 0
-                drawCircle(
-                    color = accent.copy(alpha = if (big) 0.95f else 0.4f),
-                    radius = if (big) 3.dp.toPx() else 1.6.dp.toPx(),
-                    center = p,
-                )
-            }
+    val count = 14
+    val tilt = (-12.0 * PI / 180.0).toFloat()
+    // Anel de Saturno: elipse achatada; sin(theta) > 0 = lado perto (na frente
+    // do planeta), <= 0 = lado longe (atras). Cada canvas desenha so um lado.
+    fun DrawScope.drawRing(front: Boolean) {
+        val half = size.minDimension / 2f
+        val rx = half * 0.92f
+        val ry = half * 0.30f
+        repeat(count) { i ->
+            val theta = phase + i * (twoPi / count)
+            val depth = sin(theta)
+            if ((depth > 0f) != front) return@repeat
+            val ex = rx * cos(theta)
+            val ey = ry * depth
+            val p = Offset(
+                center.x + ex * cos(tilt) - ey * sin(tilt),
+                center.y + ex * sin(tilt) + ey * cos(tilt),
+            )
+            // Paralaxe: perto = maior e mais brilhante; longe = menor e apagado.
+            val t01 = (depth + 1f) / 2f
+            val lead = i % 5 == 0
+            drawCircle(
+                color = accent.copy(alpha = 0.30f + 0.70f * t01),
+                radius = (1.3f + 2.1f * t01).dp.toPx() * (if (lead) 1.35f else 1f),
+                center = p,
+            )
         }
+    }
+    Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(150.dp)) { drawRing(front = false) }
         Image(
             painter = painterResource("astra-icon.png"),
             contentDescription = null,
             modifier = Modifier.size(78.dp),
         )
+        Canvas(Modifier.size(150.dp)) { drawRing(front = true) }
     }
 }
 

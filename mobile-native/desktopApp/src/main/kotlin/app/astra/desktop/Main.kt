@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,7 @@ import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
@@ -32,10 +34,13 @@ import app.astra.desktop.di.appModule
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.update.UpdateService
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.ShellScreen
+import app.astra.desktop.ui.UpdateBanner
+import app.astra.desktop.ui.UpdaterGate
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.shared.AstraShared
 import coil3.ImageLoader
@@ -58,6 +63,14 @@ fun main() {
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
 
+        // Auto-update: gate de boot (janelinha estilo Discord) so no app instalado;
+        // dev/IDE pula direto pro app. Tema aplicado ja aqui -> o gate (logo +
+        // estrelas orbitando) sai no accent que o usuario escolheu.
+        val updater = remember { GlobalContext.get().get<UpdateService>() }
+        val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
+        LaunchedEffect(Unit) { Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId) }
+        var gateDone by remember { mutableStateOf(!updater.installed) }
+
         Tray(
             state = trayState,
             icon = appIcon,
@@ -69,6 +82,30 @@ fun main() {
                 Item("Sair", onClick = ::exitApplication)
             },
         )
+
+        // Gate de update primeiro: verifica a versao (logo + estrelas girando) e,
+        // se houver nova, baixa com barra de progresso; senao segue pro app. So
+        // enquanto nao terminou (gateDone) — depois some e o app abre normal.
+        if (!gateDone) {
+            val gateState = rememberWindowState(
+                width = 380.dp,
+                height = 470.dp,
+                position = WindowPosition(Alignment.Center),
+            )
+            Window(
+                onCloseRequest = { gateDone = true },
+                title = "Astra",
+                icon = appIcon,
+                state = gateState,
+                undecorated = true,
+                transparent = true,
+                resizable = false,
+                alwaysOnTop = true,
+            ) {
+                UpdaterGate(updater, bootPrefs.reduceMotionEff, onDone = { gateDone = true })
+            }
+            return@application
+        }
 
         Window(
             onCloseRequest = { windowVisible = false },
@@ -148,6 +185,9 @@ fun main() {
                                 },
                             )
                         }
+                        // Banner de update (topo): lembrete quando adiado ("depois")
+                        // ou achado na checagem manual — conduz o mesmo mini-fluxo.
+                        UpdateBanner(updater)
                     }
                     }
                 }

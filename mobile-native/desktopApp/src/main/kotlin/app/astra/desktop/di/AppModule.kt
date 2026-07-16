@@ -6,6 +6,7 @@ import app.astra.desktop.net.AuthInterceptor
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.DesktopTokenAuthenticator
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.update.UpdateService
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DiscoverApi
@@ -89,4 +90,6 @@ val appModule = module {
     single { DesktopSocket(get()) }
     single { AuthRepository(get(), get(), get()) }
     single { DesktopPrefs(get()) }
+    // Auto-update DIY (zip-swap via GitHub Releases). So Json — o resto e java.base.
+    single { UpdateService(get()) }
 }

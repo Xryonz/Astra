@@ -85,12 +85,16 @@ import app.astra.desktop.ui.theme.ThemePreset
 import app.astra.desktop.ui.theme.ThemePresets
 import app.astra.desktop.ui.theme.accentOption
 import app.astra.desktop.ui.theme.bgOption
+import app.astra.desktop.update.UpdateService
+import app.astra.desktop.update.UpdateState
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetPasswordRequest
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import zed.rainxch.rikkaui.components.ui.progress.Progress
+import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
 
 private enum class SettingsTab(val label: String, val sub: String) {
     ACCOUNT("Conta", "email e senha"),
@@ -98,6 +102,7 @@ private enum class SettingsTab(val label: String, val sub: String) {
     APPEARANCE("Aparencia", "cores, fonte, densidade"),
     PERFORMANCE("Desempenho", "graficos, animacoes, fps"),
     VOICE("Voz", "microfone e transmissao"),
+    ABOUT("Sobre", "versao e atualizacoes"),
 }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
@@ -209,6 +214,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
+                        SettingsTab.ABOUT -> AboutSection()
                     }
                 }
             }
@@ -236,6 +242,94 @@ private fun AccountSection(me: ProfileUserDto?) {
     }
     Spacer(Modifier.height(12.dp))
     PasswordForm(hasPassword = me?.hasPassword != false)
+}
+
+// Aba Sobre: versao atual + auto-update (checagem manual, progresso e reinicio).
+// O gate de boot ja verifica sozinho; aqui e o controle manual + fallback.
+@Composable
+private fun AboutSection() {
+    val updater = remember { GlobalContext.get().get<UpdateService>() }
+    val st by updater.state.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    ReadRow("versao", updater.currentVersion)
+    Spacer(Modifier.height(22.dp))
+
+    if (!updater.installed) {
+        Text(
+            "atualizacoes automaticas so no app instalado (isto e um build de dev).",
+            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+        return
+    }
+
+    Text("atualizacoes", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "o Astra verifica sozinho ao abrir. voce tambem pode procurar agora.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(14.dp))
+
+    when (val s = st) {
+        is UpdateState.Checking -> AboutStatus("procurando atualizacoes…")
+        is UpdateState.UpToDate -> AboutStatus("voce esta na ultima versao")
+        is UpdateState.Available -> {
+            AboutStatus("nova versao ${s.version} disponivel")
+            Spacer(Modifier.height(10.dp))
+            AboutButton("baixar e reiniciar", accent = true) { scope.launch { updater.downloadAndStage(s) } }
+        }
+        is UpdateState.Downloading -> {
+            AboutStatus("baixando ${s.version}… ${(s.progress * 100).toInt()}%")
+            Spacer(Modifier.height(10.dp))
+            Progress(
+                s.progress,
+                Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+                Obsidian.accent,
+                Obsidian.overlay,
+                6.dp,
+                ProgressAnimation.Spring,
+            )
+        }
+        is UpdateState.Ready -> {
+            AboutStatus("${s.version} baixada — reinicie pra aplicar")
+            Spacer(Modifier.height(10.dp))
+            AboutButton("reiniciar agora", accent = true) { updater.restartToInstall() }
+        }
+        is UpdateState.Failed -> {
+            AboutStatus(s.reason)
+            if (s.releaseUrl != null) {
+                Spacer(Modifier.height(10.dp))
+                AboutButton("abrir pagina do release", accent = false) {
+                    runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(s.releaseUrl)) }
+                }
+            }
+        }
+        else -> {}
+    }
+
+    Spacer(Modifier.height(16.dp))
+    AboutButton("procurar atualizacoes", accent = false) { scope.launch { updater.check(silent = false) } }
+}
+
+@Composable
+private fun AboutStatus(text: String) {
+    Text(text, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
+}
+
+@Composable
+private fun AboutButton(label: String, accent: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 @Composable

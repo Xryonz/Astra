@@ -33,6 +33,11 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
+// via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
+// Bumpar aqui (1 lugar) a cada release.
+val astraVersion = "0.1.0"
+
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
@@ -100,13 +105,26 @@ val fetchFfmpeg = tasks.register("fetchFfmpeg") {
 tasks.matching { it.name == "createDistributable" || it.name == "packageDistributionForCurrentOS" }
     .configureEach { dependsOn(fetchFfmpeg) }
 
+// Zipa o app-image (pasta Astra/) pro asset do GitHub Release que o auto-update
+// baixa. Rodar junto do empacote (mesmo path ASCII do jpackage):
+//   ./gradlew :desktopApp:zipDistributable -Pastra.distDir=C:/astra-dist
+// Saida: <buildDir>/Astra-<versao>-win-x64.zip
+tasks.register<Zip>("zipDistributable") {
+    dependsOn("createDistributable")
+    from(layout.buildDirectory.dir("compose/binaries/main/app"))
+    archiveFileName.set("Astra-$astraVersion-win-x64.zip")
+    destinationDirectory.set(layout.buildDirectory)
+}
+
 compose.desktop {
     application {
         mainClass = "app.astra.desktop.MainKt"
+        // Versao embutida pro auto-update ler em runtime (System.getProperty).
+        jvmArgs += "-Dastra.version=$astraVersion"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
-            packageVersion = "0.1.0"
+            packageVersion = astraVersion
             // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
             // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
             // System.getProperty("compose.application.resources.dir"). O binario e

@@ -1,5 +1,16 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -33,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -114,22 +126,40 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
         Spacer(Modifier.height(14.dp))
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (tab) {
-                FriendsTab.FRIENDS -> FriendsList(
-                    loading, friends,
-                    onMessage = { u -> onStartDm(u.username, u.displayName ?: u.username) },
-                    onRemove = { id -> act { api.remove(id) } },
-                )
-                FriendsTab.PENDING -> PendingLists(
-                    incoming, outgoing,
-                    onAccept = { id -> act { api.accept(id) } },
-                    onDrop = { id -> act { api.remove(id) } },
-                )
-                FriendsTab.ADD -> AddFriend { req, done ->
-                    scope.launch {
-                        val r = runCatching { api.sendRequest(req) }
-                        done(r.isSuccess, (r.exceptionOrNull() as? HttpException)?.code())
-                        reload()
+            // Troca de aba: cross-fade + deslize leve. Reduzir movimento = corte seco.
+            val reduce = LocalReduceMotion.current
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    if (reduce) {
+                        fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                    } else {
+                        (fadeIn(tween(200)) + slideInHorizontally(tween(200)) { it / 18 })
+                            .togetherWith(fadeOut(tween(120)))
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                label = "friendsTab",
+            ) { current ->
+                Box(Modifier.fillMaxSize()) {
+                    when (current) {
+                        FriendsTab.FRIENDS -> FriendsList(
+                            loading, friends,
+                            onMessage = { u -> onStartDm(u.username, u.displayName ?: u.username) },
+                            onRemove = { id -> act { api.remove(id) } },
+                        )
+                        FriendsTab.PENDING -> PendingLists(
+                            incoming, outgoing,
+                            onAccept = { id -> act { api.accept(id) } },
+                            onDrop = { id -> act { api.remove(id) } },
+                        )
+                        FriendsTab.ADD -> AddFriend { req, done ->
+                            scope.launch {
+                                val r = runCatching { api.sendRequest(req) }
+                                done(r.isSuccess, (r.exceptionOrNull() as? HttpException)?.code())
+                                reload()
+                            }
+                        }
                     }
                 }
             }
@@ -182,8 +212,11 @@ private fun FriendsList(
                     )
                 }
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp)) {
-                    items(items, key = { it.friendshipId }) { f ->
-                        FriendRow(f, onMessage = { onMessage(f.user) }, onRemove = { onRemove(f.friendshipId) })
+                    itemsIndexed(items, key = { _, f -> f.friendshipId }) { i, f ->
+                        // Cascata de entrada: linhas revelam uma a uma.
+                        CascadeIn(i, Unit) {
+                            FriendRow(f, onMessage = { onMessage(f.user) }, onRemove = { onRemove(f.friendshipId) })
+                        }
                     }
                 }
             }
@@ -203,11 +236,23 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
     ) {
         Box {
             DesktopAvatar(f.user.avatarUrl, name, 40)
+            // Pulso de presenca: so ONLINE respira (0.85↔1.0, ~1.4s). Leitura do
+            // state dentro do graphicsLayer = frame sem recomposicao.
+            val pulse = if (!LocalReduceMotion.current && f.presence.uppercase() == "ONLINE") {
+                rememberInfiniteTransition(label = "presencePulse").animateFloat(
+                    initialValue = 0.85f, targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                    label = "presencePulse",
+                )
+            } else null
             StatusDot(
                 userStatus(f.presence),
                 bordered = true,
                 size = 13.dp,
-                modifier = Modifier.align(Alignment.BottomEnd),
+                modifier = Modifier.align(Alignment.BottomEnd).graphicsLayer {
+                    val v = pulse?.value ?: 1f
+                    alpha = v; scaleX = v; scaleY = v
+                },
             )
         }
         Spacer(Modifier.width(12.dp))
@@ -254,12 +299,14 @@ private fun PendingLists(
         if (incoming.isEmpty()) {
             item { Muted("nada por aqui") }
         } else {
-            items(incoming, key = { it.friendshipId }) { p ->
-                PendingRow(p, trailing = {
-                    RowIconButton(Lucide.Check, tint = Obsidian.accent) { onAccept(p.friendshipId) }
-                    Spacer(Modifier.width(4.dp))
-                    RowIconButton(Lucide.X, tint = Obsidian.danger) { onDrop(p.friendshipId) }
-                })
+            itemsIndexed(incoming, key = { _, p -> p.friendshipId }) { i, p ->
+                CascadeIn(i, Unit) {
+                    PendingRow(p, trailing = {
+                        RowIconButton(Lucide.Check, tint = Obsidian.accent) { onAccept(p.friendshipId) }
+                        Spacer(Modifier.width(4.dp))
+                        RowIconButton(Lucide.X, tint = Obsidian.danger) { onDrop(p.friendshipId) }
+                    })
+                }
             }
         }
         item {
@@ -269,19 +316,22 @@ private fun PendingLists(
         if (outgoing.isEmpty()) {
             item { Muted("nenhum enviado") }
         } else {
-            items(outgoing, key = { it.friendshipId }) { p ->
-                PendingRow(p, trailing = {
-                    val src = remember { MutableInteractionSource() }
-                    Text(
-                        "cancelar",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
-                        modifier = Modifier
-                            .clickScale(src)
-                            .clip(RoundedCornerShape(7.dp))
-                            .clickable(interactionSource = src, indication = null) { onDrop(p.friendshipId) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                })
+            itemsIndexed(outgoing, key = { _, p -> p.friendshipId }) { i, p ->
+                // Continua a cascata depois dos recebidos (+1 do header).
+                CascadeIn(incoming.size + 1 + i, Unit) {
+                    PendingRow(p, trailing = {
+                        val src = remember { MutableInteractionSource() }
+                        Text(
+                            "cancelar",
+                            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                            modifier = Modifier
+                                .clickScale(src)
+                                .clip(RoundedCornerShape(7.dp))
+                                .clickable(interactionSource = src, indication = null) { onDrop(p.friendshipId) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    })
+                }
             }
         }
     }

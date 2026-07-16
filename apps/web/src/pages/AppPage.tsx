@@ -153,10 +153,10 @@ function ChannelView() {
                 </button>
                 {}
                 <button
-                  onClick={() => openRightPanel('members')}
+                  onClick={() => openRightPanel()}
                   className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label={t('chat.header.membersThreads')}
-                  title={t('chat.header.membersThreads')}
+                  aria-label={t('rightPanel.members')}
+                  title={t('rightPanel.members')}
                 >
                   <UsersIcon className="size-4" />
                 </button>
@@ -189,8 +189,8 @@ function ChannelView() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => openRightPanel('members')}>
-                      <UsersIcon className="size-3.5" /> {t('chat.header.membersThreads')}
+                    <DropdownMenuItem onSelect={() => openRightPanel()}>
+                      <UsersIcon className="size-3.5" /> {t('rightPanel.members')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setPinnedOpen(true)}>
                       <Pin className="size-3.5" /> {t('chat.header.pinned')}
@@ -260,7 +260,7 @@ function ChannelView() {
       {}
       {activeChannel && (
         <Suspense fallback={null}>
-          <RightPanel serverId={activeChannel.serverId} channelId={activeChannel.id} />
+          <RightPanel serverId={activeChannel.serverId} />
         </Suspense>
       )}
     </div>

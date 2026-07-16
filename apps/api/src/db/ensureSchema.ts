@@ -28,11 +28,28 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 `
 
+// Remocao da feature de threads (2026-07-12): a tabela Thread + Message.threadId
+// sairam do schema.ts; aqui garantimos o DROP no banco de prod, porque o Render
+// NAO roda migration no deploy (mesmo motivo do CATEGORY_DDL). Idempotente
+// (IF EXISTS -> no-op apos a 1a vez). As mensagens que eram respostas de thread
+// viram mensagens normais do canal (nao se perde conteudo; so a associacao).
+const THREADS_DROP_DDL = `
+DROP INDEX IF EXISTS "Message_threadId_idx";
+ALTER TABLE "Message" DROP COLUMN IF EXISTS "threadId";
+DROP TABLE IF EXISTS "Thread";
+`
+
 export async function ensureCategorySchema(): Promise<void> {
   try {
     await pool.query(CATEGORY_DDL)
     logger.info('Schema', 'ChannelCategory garantida (idempotente).')
   } catch (e) {
     logger.error('Schema', 'Falha ao garantir ChannelCategory', e as Error)
+  }
+  try {
+    await pool.query(THREADS_DROP_DDL)
+    logger.info('Schema', 'Threads removida (idempotente).')
+  } catch (e) {
+    logger.error('Schema', 'Falha ao remover threads', e as Error)
   }
 }

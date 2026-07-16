@@ -225,25 +225,11 @@ export const channelRolePerms = pgTable('ChannelRolePerm', {
   byRole:          index('ChannelRolePerm_roleId_idx').on(t.roleId),
 }))
 
-export const threads = pgTable('Thread', {
-  id:              text('id').primaryKey().$defaultFn(createId),
-  channelId:       text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
-  parentMessageId: text('parentMessageId').notNull(),
-  name:            text('name').notNull(),
-  createdById:     text('createdById').notNull().references(() => users.id),
-  createdAt:       timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
-  updatedAt:       timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (t) => ({
-  byChannel: index('Thread_channelId_idx').on(t.channelId),
-  byParent:  index('Thread_parentMessageId_idx').on(t.parentMessageId),
-}))
-
 export const messages = pgTable('Message', {
   id:          text('id').primaryKey().$defaultFn(createId),
   content:     text('content').notNull(),
   authorId:    text('authorId').notNull().references(() => users.id, { onDelete: 'cascade' }),
   channelId:   text('channelId').notNull().references(() => channels.id, { onDelete: 'cascade' }),
-  threadId:    text('threadId'),
   replyToId:   text('replyToId'),
   authorColor: text('authorColor'),
 
@@ -263,7 +249,6 @@ export const messages = pgTable('Message', {
   byAuthor:         index('Message_authorId_idx').on(t.authorId),
   byChannelPinned:  index('Message_channelId_pinned_idx').on(t.channelId, t.pinned),
   byReplyTo:        index('Message_replyToId_idx').on(t.replyToId),
-  byThread:         index('Message_threadId_idx').on(t.threadId),
   byExpires:        index('Message_expiresAt_idx').on(t.expiresAt),
 }))
 

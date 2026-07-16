@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Smile, Reply, Pencil, Pin, PinOff, Trash2, Copy, MessageSquarePlus, Bookmark, BookmarkCheck } from 'lucide-react'
+import { Smile, Reply, Pencil, Pin, PinOff, Trash2, Copy, Bookmark, BookmarkCheck } from 'lucide-react'
 import { hapticLight, hapticMedium } from '@/lib/haptics'
 
 interface MessageMobileActionsProps {
@@ -19,12 +19,11 @@ interface MessageMobileActionsProps {
   onToggleBookmark?: () => void
   onDelete?:   () => void
   onCopy?:     () => void
-  onCreateThread?: () => void
 }
 
 export default function MessageMobileActions({
   open, onClose, isMine, isPinned, isBookmarked, authorName, contentPreview,
-  onPickEmoji, onReply, onEdit, onTogglePin, onToggleBookmark, onDelete, onCopy, onCreateThread,
+  onPickEmoji, onReply, onEdit, onTogglePin, onToggleBookmark, onDelete, onCopy,
 }: MessageMobileActionsProps) {
   const { t } = useTranslation()
   const QUICK = ['👍','❤️','😂','😮','😢','🔥']
@@ -61,9 +60,6 @@ export default function MessageMobileActions({
         <ul className="flex flex-col py-2">
           <ActionRow icon={<Smile className="size-4" />}  label={t('msgActions.moreEmojis')}   onClick={wrap(onPickEmoji)} />
           <ActionRow icon={<Reply className="size-4" />}  label={t('msgActions.reply')}     onClick={wrap(onReply)} />
-          {onCreateThread && (
-            <ActionRow icon={<MessageSquarePlus className="size-4" />} label={t('msgActions.threadShort')} onClick={wrap(onCreateThread)} />
-          )}
           <ActionRow
             icon={isPinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
             label={isPinned ? t('msgActions.unpin') : t('msgActions.pin')}

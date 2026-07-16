@@ -1,7 +1,7 @@
 
 import { useTranslation } from 'react-i18next'
 import {
-  Smile, Reply, MessageSquarePlus, Bookmark, BookmarkCheck,
+  Smile, Reply, Bookmark, BookmarkCheck,
   Pin, PinOff, Pencil, Trash2,
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
@@ -13,7 +13,6 @@ interface Props {
   isBookmarked?:     boolean
   onPickEmoji:       () => void
   onReply?:          () => void
-  onCreateThread?:   () => void
   onEdit?:           () => void
   onDelete?:         () => void
   onTogglePin?:      () => void
@@ -21,7 +20,7 @@ interface Props {
 }
 
 export function MessageToolbar({
-  isMine, isPinned, isBookmarked, onPickEmoji, onReply, onCreateThread,
+  isMine, isPinned, isBookmarked, onPickEmoji, onReply,
   onEdit, onDelete, onTogglePin, onToggleBookmark,
 }: Props) {
   const { t } = useTranslation()
@@ -29,9 +28,6 @@ export function MessageToolbar({
     <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-3 animate-in fade-in-0 zoom-in-95 duration-150">
       <ToolBtn title={t('msgActions.react')} onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
       {onReply && <ToolBtn title={t('msgActions.reply')} onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
-      {onCreateThread && (
-        <ToolBtn title={t('msgActions.thread')} onClick={onCreateThread}><MessageSquarePlus className="size-3.5" /></ToolBtn>
-      )}
       {onToggleBookmark && (
         <ToolBtn title={isBookmarked ? t('msgActions.removeSaved') : t('msgActions.save')} onClick={onToggleBookmark}>
           {isBookmarked ? <BookmarkCheck className="size-3.5 text-(--accent)" /> : <Bookmark className="size-3.5" />}

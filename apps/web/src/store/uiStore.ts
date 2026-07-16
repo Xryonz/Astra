@@ -13,10 +13,8 @@ interface UIState {
   toggleCommandPalette: () => void
 
   rightPanelOpen: boolean
-  rightPanelTab:  'members' | 'threads'
-  openRightPanel:  (tab?: 'members'|'threads') => void
+  openRightPanel:  () => void
   closeRightPanel: () => void
-  setRightPanelTab: (tab: 'members'|'threads') => void
 
   voiceStageOpen: boolean
   setVoiceStageOpen: (open: boolean) => void
@@ -37,10 +35,8 @@ export const useUIStore = create<UIState>((set) => ({
   toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
 
   rightPanelOpen: false,
-  rightPanelTab:  'members',
-  openRightPanel:  (tab) => set({ rightPanelOpen: true, ...(tab ? { rightPanelTab: tab } : {}) }),
+  openRightPanel:  () => set({ rightPanelOpen: true }),
   closeRightPanel: () => set({ rightPanelOpen: false }),
-  setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
 
   voiceStageOpen: false,
   setVoiceStageOpen: (open) => set({ voiceStageOpen: open }),

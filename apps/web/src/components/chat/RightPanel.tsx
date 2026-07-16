@@ -1,15 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Crown, Shield, Hash, X, Users as UsersIcon, MessagesSquare } from 'lucide-react'
+import { Crown, Shield, X, Users as UsersIcon } from 'lucide-react'
 import { api } from '@/lib/api'
-import { getSocket } from '@/lib/socket'
 import { useUIStore } from '@/store/uiStore'
 import { usePresenceStore } from '@/store/presenceStore'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Empty, EmptyIcon, EmptyLabel, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
@@ -24,22 +20,14 @@ interface Member {
   roles?: Array<{ id: string; name: string; color: string|null; position: number; hoist: boolean }>
   topColor?: string | null
 }
-interface Thread {
-  id: string; name: string; channelId: string; parentMessageId: string; createdAt: string
-  createdBy: { id: string; displayName: string; avatarUrl: string|null }
-}
-
 interface RightPanelProps {
   serverId: string
-  channelId: string
 }
 
-export default function RightPanel({ serverId, channelId }: RightPanelProps) {
+export default function RightPanel({ serverId }: RightPanelProps) {
   const { t }   = useTranslation()
   const open    = useUIStore((s) => s.rightPanelOpen)
   const close   = useUIStore((s) => s.closeRightPanel)
-  const tab     = useUIStore((s) => s.rightPanelTab)
-  const setTab  = useUIStore((s) => s.setRightPanelTab)
 
   const [profileId, setProfileId] = useState<string | null>(null)
 
@@ -69,7 +57,7 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
             className="text-sm m-0 font-medium tracking-tight text-foreground truncate flex-1"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {tab === 'members' ? t('rightPanel.members') : t('rightPanel.comets')}
+            {t('rightPanel.members')}
           </h3>
           <button
             onClick={close}
@@ -81,20 +69,9 @@ export default function RightPanel({ serverId, channelId }: RightPanelProps) {
           </button>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as 'members'|'threads')} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-4 mt-3 w-auto self-start">
-            <TabsTrigger value="members">{t('rightPanel.members')}</TabsTrigger>
-            <TabsTrigger value="threads" title={t('rightPanel.cometsTitle')}>{t('rightPanel.comets')}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="members" className="flex-1 min-h-0 mt-3">
-            <MembersList serverId={serverId} onPickUser={(id) => setProfileId(id)} />
-          </TabsContent>
-
-          <TabsContent value="threads" className="flex-1 overflow-y-auto px-2 mt-3">
-            <ThreadsList channelId={channelId} />
-          </TabsContent>
-        </Tabs>
+        <div className="flex-1 min-h-0 mt-3">
+          <MembersList serverId={serverId} onPickUser={(id) => setProfileId(id)} />
+        </div>
       </aside>
 
       {profileId && <ProfileCard userId={profileId} onClose={() => setProfileId(null)} />}
@@ -255,125 +232,3 @@ function VirtualMembers({
   )
 }
 
-function ThreadsList({ channelId }: { channelId: string }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [activeThread, setActiveThread] = useState<Thread | null>(null)
-
-  const { data: threads = [], isLoading } = useQuery<Thread[]>({
-    queryKey: ['threads', channelId],
-    queryFn:  async () => (await api.get(`/api/channels/${channelId}/threads`)).data.data,
-    enabled:  !!channelId,
-  })
-
-  useEffect(() => {
-    let sock: ReturnType<typeof getSocket>
-    try { sock = getSocket() } catch { return }
-    const onCreated = (p: { channelId: string }) => {
-      if (p.channelId === channelId) queryClient.invalidateQueries({ queryKey: ['threads', channelId] })
-    }
-    sock.on('thread_created', onCreated)
-    return () => { sock.off('thread_created', onCreated) }
-  }, [channelId, queryClient])
-
-  if (activeThread) {
-    return <ThreadView thread={activeThread} onBack={() => setActiveThread(null)} />
-  }
-
-  return (
-    <div className="flex flex-col gap-2 pb-4">
-      <div className="px-3 pt-1 pb-2 flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-(--text-3) font-medium" title={t('rightPanel.activeCometsTitle')}>{t('rightPanel.activeComets')}</span>
-        <span className="text-[10px] font-mono text-(--text-3) ml-auto">{threads.length}</span>
-      </div>
-
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-(--text-3)">
-          <Spinner size={14} /> {t('common.loading')}
-        </div>
-      )}
-
-      {!isLoading && threads.length === 0 && (
-        <Empty className="py-8">
-          <EmptyIcon><MessagesSquare className="size-6" /></EmptyIcon>
-          <EmptyLabel>{t('rightPanel.emptyThreadsLabel')}</EmptyLabel>
-          <EmptyTitle>{t('rightPanel.emptyThreadsTitle')}</EmptyTitle>
-          <EmptyDescription>
-            {t('rightPanel.emptyThreadsDescPre')} <Hash className="size-3 inline align-middle" /> {t('rightPanel.emptyThreadsDescPost')}
-          </EmptyDescription>
-        </Empty>
-      )}
-
-      <ul className="flex flex-col">
-        {threads.map((th) => (
-          <li key={th.id}>
-            <button
-              onClick={() => setActiveThread(th)}
-              className="w-full flex items-start gap-2.5 px-3 py-2 text-left border-l-2 border-transparent hover:border-(--accent) hover:bg-(--raised)/40 transition-colors cursor-pointer"
-            >
-              <Hash className="size-3.5 text-(--text-3) mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-(--text-1) m-0 truncate" style={{ fontFamily: 'var(--font-display)' }}>{th.name}</p>
-                <p className="text-[11px] text-(--text-3) m-0 truncate font-mono">{t('rightPanel.byAuthor', { name: th.createdBy.displayName })}</p>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function ThreadView({ thread, onBack }: { thread: Thread; onBack: () => void }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [draft, setDraft] = useState('')
-
-  const { data, isLoading } = useQuery<{ items: any[]; hasMore: boolean; nextCursor: string|null }>({
-    queryKey: ['thread-messages', thread.id],
-    queryFn:  async () => (await api.get(`/api/threads/${thread.id}/messages`)).data.data,
-  })
-
-  const send = useMutation({
-    mutationFn: async () => (await api.post(`/api/threads/${thread.id}/messages`, { content: draft })).data.data,
-    onSuccess: () => { setDraft(''); queryClient.invalidateQueries({ queryKey: ['thread-messages', thread.id] }) },
-  })
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-(--border) flex items-center gap-2">
-        <button onClick={onBack} className="text-xs text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer">{t('rightPanel.back')}</button>
-        <span className="text-sm flex-1 truncate" style={{ fontFamily: 'var(--font-display)' }}>{thread.name}</span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-2">
-        {isLoading && (
-          <div className="flex items-center gap-2 py-2 text-sm text-(--text-3)">
-            <Spinner size={12} /> {t('common.loading')}
-          </div>
-        )}
-        {data?.items.length === 0 && (
-          <p className="text-sm text-(--text-3) italic">{t('rightPanel.startThread')}</p>
-        )}
-        {data?.items.map((m: any) => (
-          <div key={m.id} className="border-l-2 border-(--border) pl-2.5 py-0.5">
-            <div className="text-[11px] font-mono text-(--text-3)">{m.author.displayName}</div>
-            <div className="text-sm text-(--text-1) wrap-break-word">{m.content}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t border-(--border) p-2 flex gap-2">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && draft.trim()) { e.preventDefault(); send.mutate() } }}
-          placeholder={t('rightPanel.threadPlaceholder')}
-        />
-        <Button onClick={() => draft.trim() && send.mutate()} disabled={!draft.trim() || send.isPending} size="sm">
-          {send.isPending ? '…' : t('common.send')}
-        </Button>
-      </div>
-    </div>
-  )
-}

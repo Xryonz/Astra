@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { ptBR, enUS } from 'date-fns/locale'
-import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, MessageSquarePlus, Bookmark, BookmarkCheck, Copy } from 'lucide-react'
+import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, Bookmark, BookmarkCheck, Copy } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { ProfileHoverCard } from '@/components/ProfileHoverCard'
 import { toast } from '@/components/ui/sonner'
@@ -29,7 +29,7 @@ import { MessageReactions, type Reaction } from './Message/MessageReactions'
 import { MessageAttachments } from './Message/MessageAttachments'
 import { MessageToolbar } from './Message/MessageToolbar'
 import {
-  CreateThreadDialog, DeleteConfirm, EditModal,
+  DeleteConfirm, EditModal,
 } from './Message/MessageDialogs'
 type ParsedColor =
   | { type: 'solid';    value: string }
@@ -435,7 +435,6 @@ function MessageItemImpl({
   const [showEdit,          setShowEdit]           = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm]  = useState(false)
   const [showMobileActions, setShowMobileActions]  = useState(false)
-  const [showCreateThread,  setShowCreateThread]   = useState(false)
   const [showEditHistory,   setShowEditHistory]    = useState(false)
   const [lightboxIdx,       setLightboxIdx]        = useState<number | null>(null)
 
@@ -575,16 +574,10 @@ function MessageItemImpl({
     }
   }
 
-  const handleCreateThread = async (name: string) => {
-    const url = `/api/channels/${(message as any).channelId}/threads`
-    try { await api.post(url, { parentMessageId: message.id, name }) } catch {}
-  }
-
   const ctxItems: EditorialMenuItem[] = []
   if (!isPending && !isBot) {
     ctxItems.push({ kind: 'item', icon: <Smile className="size-3.5" />, label: t('msgActions.react'),     onSelect: () => setShowEmoji(true) })
     ctxItems.push({ kind: 'item', icon: <Reply className="size-3.5" />, label: t('msgActions.reply'), onSelect: () => onReply?.(message) })
-    ctxItems.push({ kind: 'item', icon: <MessageSquarePlus className="size-3.5" />, label: t('msgActions.createThread'), onSelect: () => setShowCreateThread(true) })
     ctxItems.push({ kind: 'separator' })
     if (content) ctxItems.push({
       kind: 'item', icon: <Copy className="size-3.5" />, label: t('msgActions.copyText'),
@@ -656,7 +649,6 @@ function MessageItemImpl({
             isBookmarked={isBookmarked}
             onPickEmoji={() => setShowEmoji((v) => !v)}
             onReply={onReply ? () => onReply(message) : undefined}
-            onCreateThread={() => setShowCreateThread(true)}
             onEdit={isMine ? () => setShowEdit(true) : undefined}
             onDelete={isMine ? () => setShowDeleteConfirm(true) : undefined}
             onTogglePin={() => handleTogglePin(!(message as any).pinned)}
@@ -805,22 +797,12 @@ function MessageItemImpl({
         contentPreview={content}
         onPickEmoji={() => setShowEmoji(true)}
         onReply={() => onReply?.(message)}
-        onCreateThread={() => setShowCreateThread(true)}
         onEdit={isMine ? () => setShowEdit(true) : undefined}
         onTogglePin={() => handleTogglePin(!(message as any).pinned)}
         onToggleBookmark={() => toggleBookmark.mutate({ targetId: message.id, kind: 'message', action: isBookmarked ? 'delete' : 'create' })}
         onDelete={isMine ? () => setShowDeleteConfirm(true) : undefined}
         onCopy={() => navigator.clipboard.writeText(content).catch(() => {})}
       />
-
-      {}
-      {showCreateThread && (
-        <CreateThreadDialog
-          open={showCreateThread}
-          onClose={() => setShowCreateThread(false)}
-          onCreate={handleCreateThread}
-        />
-      )}
 
       {showEdit && (
         <EditModal

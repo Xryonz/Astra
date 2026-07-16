@@ -5,53 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-
-export function CreateThreadDialog({ open, onClose, onCreate }: {
-  open:    boolean
-  onClose: () => void
-  onCreate: (name: string) => Promise<void> | void
-}) {
-  const { t } = useTranslation()
-  const [name,   setName]   = useState('')
-  const [saving, setSaving] = useState(false)
-  useEffect(() => { if (!open) setName('') }, [open])
-
-  const submit = async () => {
-    if (!name.trim()) return
-    setSaving(true)
-    try { await onCreate(name.trim()); onClose() } finally { setSaving(false) }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o: boolean) => !o && onClose()}>
-      <DialogContent className="max-w-95!">
-        <DialogHeader>
-          <DialogTitle>{t('msgDialog.threadTitle')}</DialogTitle>
-          <DialogDescription>{t('msgDialog.threadDesc')}</DialogDescription>
-        </DialogHeader>
-        <Input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter')  { e.preventDefault(); submit() }
-            if (e.key === 'Escape') onClose()
-          }}
-          placeholder={t('msgDialog.threadPlaceholder')}
-          maxLength={80}
-        />
-        <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button onClick={submit} disabled={!name.trim() || saving}>
-            {saving ? t('msgDialog.creating') : t('msgDialog.create')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 export function DeleteConfirm({ open, onConfirm, onCancel }: {
   open:      boolean

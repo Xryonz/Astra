@@ -32,7 +32,6 @@ import { createReactionsRouter }         from './routes/reactions'
 import { createPollsRouter }             from './routes/polls'
 import { createReadsRouter }             from './routes/reads'
 import { createDMRouter }                from './routes/dm'
-import { createThreadsRouter }           from './routes/threads'
 import searchRouter                      from './routes/search'
 import discoverRouter                    from './routes/discover'
 import uploadRouter, { UPLOAD_DIR }      from './routes/upload'
@@ -121,7 +120,6 @@ app.use('/api/channels/:channelId/messages', createMessagesRouter(io))
 app.use('/api/channels/:channelId/polls',    createPollsRouter(io))
 app.use('/api',                              createReadsRouter(io))
 app.use('/api/dm', createDMRouter(io))
-app.use('/api', createThreadsRouter(io))
 app.use('/api/search', searchRouter)
 app.use('/api/discover', discoverRouter)
 app.use('/api/upload', uploadRouter)

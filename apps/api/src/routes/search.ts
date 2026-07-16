@@ -41,7 +41,6 @@ router.get(
               ilike(messages.content, like),
               inArray(channels.serverId, serverIds),
               isNull(messages.deletedAt),
-              isNull(messages.threadId),
             ))
             .orderBy(desc(messages.createdAt))
             .limit(20)

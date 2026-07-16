@@ -132,7 +132,6 @@ export function createMessagesRouter(io: SocketServer) {
       const conditions = [
         eq(messages.channelId, channelId),
         isNull(messages.deletedAt),
-        isNull(messages.threadId),
         or(isNull(messages.expiresAt), gt(messages.expiresAt, now))!,
       ]
       if (parsedCursor) {

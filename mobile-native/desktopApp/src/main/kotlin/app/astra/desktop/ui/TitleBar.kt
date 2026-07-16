@@ -83,9 +83,10 @@ private fun TitleBarButton(
         modifier = Modifier
             .width(46.dp)
             .fillMaxHeight()
+            .clickScale(interaction)
             .background(bg)
             .hoverable(interaction)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         LIcon(

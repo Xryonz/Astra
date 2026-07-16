@@ -434,11 +434,12 @@ private fun CallIconButton(icon: ImageVector, tone: CallTone, onClick: () -> Uni
     Box(
         Modifier
             .size(46.dp)
+            .clickScale(interaction)
             .clip(CircleShape)
             .background(bg)
             .border(1.dp, border, CircleShape)
             .hoverable(interaction)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         LIcon(icon, tint = fg, size = 20.dp)

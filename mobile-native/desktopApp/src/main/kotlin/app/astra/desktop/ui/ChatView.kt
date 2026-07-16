@@ -866,6 +866,7 @@ private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean =
     Box(
         modifier = Modifier
             .size(26.dp)
+            .clickScale(src)
             .clip(RoundedCornerShape(6.dp))
             .background(
                 when {

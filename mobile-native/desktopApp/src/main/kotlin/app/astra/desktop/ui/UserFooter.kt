@@ -180,9 +180,10 @@ private fun FooterIcon(icon: ImageVector, danger: Boolean, onClick: () -> Unit) 
     Box(
         Modifier
             .size(26.dp)
+            .clickScale(interaction)
             .clip(RoundedCornerShape(6.dp))
             .hoverable(interaction)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         LIcon(icon, tint = color, size = 15.dp)

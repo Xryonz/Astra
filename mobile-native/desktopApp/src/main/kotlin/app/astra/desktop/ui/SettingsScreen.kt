@@ -1,8 +1,13 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -144,7 +149,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         tab.label,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif),
+                        style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif),
                         modifier = Modifier.weight(1f),
                     )
                     // Fechar (ESC tambem, via foco no shell) volta pro shell.
@@ -165,27 +170,37 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                 }
                 Spacer(Modifier.height(20.dp))
 
-                when (tab) {
-                    SettingsTab.ACCOUNT -> AccountSection(me)
-                    SettingsTab.NOTIFICATIONS -> Column {
-                        ToggleRow(
-                            "Sussurros (DMs)", "avisa quando chega mensagem privada",
-                            prefState.notifyDms, prefs::setNotifyDms,
-                        )
-                        ToggleRow(
-                            "Atividade de canal", "avisa nova mensagem nas constelacoes",
-                            prefState.notifyChannels, prefs::setNotifyChannels,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                            modifier = Modifier.widthIn(max = 460.dp),
-                        )
+                // Troca de secao com fade + leve zoom (decisao do dono).
+                AnimatedContent(
+                    targetState = tab,
+                    transitionSpec = {
+                        (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f))
+                            .togetherWith(fadeOut(tween(120)))
+                    },
+                    label = "settingsSection",
+                ) { current ->
+                    when (current) {
+                        SettingsTab.ACCOUNT -> AccountSection(me)
+                        SettingsTab.NOTIFICATIONS -> Column {
+                            ToggleRow(
+                                "Sussurros (DMs)", "avisa quando chega mensagem privada",
+                                prefState.notifyDms, prefs::setNotifyDms,
+                            )
+                            ToggleRow(
+                                "Atividade de canal", "avisa nova mensagem nas constelacoes",
+                                prefState.notifyChannels, prefs::setNotifyChannels,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                modifier = Modifier.widthIn(max = 460.dp),
+                            )
+                        }
+                        SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
+                        SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
+                        SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                     }
-                    SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
-                    SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
-                    SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                 }
             }
             }
@@ -201,7 +216,7 @@ private fun AccountSection(me: ProfileUserDto?) {
     Spacer(Modifier.height(22.dp))
     Text(
         if (me?.hasPassword == false) "definir senha" else "trocar senha",
-        style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+        style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
     )
     Spacer(Modifier.height(4.dp))
     if (me?.hasPassword == false) {
@@ -320,10 +335,11 @@ private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> U
     Column(
         Modifier
             .fillMaxWidth()
+            .clickScale(interaction)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .hoverable(interaction)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 9.dp),
     ) {
         Text(
@@ -341,7 +357,7 @@ private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> U
 // Aba Voz: qualidade da transmissao de tela (presets) + processamento do mic.
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))
+    Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
         "vale ao iniciar a transmissao. o padrao 1080p60 e o minimo que combinamos.",
@@ -354,8 +370,8 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         p.screenQuality, prefs::setScreenQuality,
     )
 
-    Spacer(Modifier.height(22.dp))
-    Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))
+    SettingsDivider()
+    Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
     ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic", p.micEchoCancel, prefs::setMicEchoCancel)
@@ -481,6 +497,7 @@ private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSele
             val active = value == selected
             val bg by animateColorAsState(if (active) Obsidian.accent else Color.Transparent, tween(140))
             val fg by animateColorAsState(if (active) Obsidian.textInv else Obsidian.text2, tween(140))
+            val pillSrc = remember { MutableInteractionSource() }
             Text(
                 label,
                 style = TextStyle(
@@ -488,9 +505,10 @@ private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSele
                     fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                 ),
                 modifier = Modifier
+                    .clickScale(pillSrc)
                     .clip(RoundedCornerShape(8.dp))
                     .background(bg)
-                    .clickable { onSelect(value) }
+                    .clickable(interactionSource = pillSrc, indication = null) { onSelect(value) }
                     .padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }
@@ -551,19 +569,19 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     FieldLabel("previa")
     AppearancePreview(p.fontSize, p.density)
 
-    Spacer(Modifier.height(20.dp))
+    SettingsDivider()
     FieldLabel("tema rapido")
     PresetGrid(p.accentId, p.bgId) { prefs.setTheme(it.accentId, it.bgId) }
 
-    Spacer(Modifier.height(20.dp))
+    SettingsDivider()
     FieldLabel("cor de destaque")
     AccentRow(p.accentId, prefs::setAccent)
 
-    Spacer(Modifier.height(20.dp))
+    SettingsDivider()
     FieldLabel("fundo")
     BgList(p.bgId, prefs::setBg)
 
-    Spacer(Modifier.height(14.dp))
+    SettingsDivider()
     LabeledControl("Tamanho da fonte", "das mensagens no chat") {
         SegmentedRow(FontSizePref.entries.map { it.label to it }, p.fontSize, prefs::setFontSize)
     }
@@ -571,6 +589,14 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         SegmentedRow(DensityPref.entries.map { it.label to it }, p.density, prefs::setDensity)
     }
     Spacer(Modifier.height(20.dp))
+}
+
+// Linha separadora entre grupos de configuracao (legibilidade — pedido do dono).
+@Composable
+private fun SettingsDivider() {
+    Spacer(Modifier.height(8.dp))
+    HairRule()
+    Spacer(Modifier.height(16.dp))
 }
 
 @Composable

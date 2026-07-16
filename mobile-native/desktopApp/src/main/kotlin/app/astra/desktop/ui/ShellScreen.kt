@@ -13,6 +13,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
@@ -254,7 +256,12 @@ fun ShellScreen(
         }
 
         // Settings em takeover (Discord): cobre o shell inteiro por cima da aurora.
-        if (settingsOpen) {
+        // Entra/sai com fade + leve zoom (decisao do dono) — GPU-only, ~180ms.
+        AnimatedVisibility(
+            visible = settingsOpen,
+            enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f),
+            exit = fadeOut(tween(140)) + scaleOut(tween(140), targetScale = 0.98f),
+        ) {
             SettingsScreen(me = state.me, prefs = prefs, onClose = { settingsOpen = false })
         }
     }
@@ -401,11 +408,12 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
     Box(
         modifier = Modifier
             .size(44.dp)
+            .clickScale(interaction)
             .clip(shape)
             .background(bg)
             .border(1.dp, borderColor, shape)
             .hoverable(interaction)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

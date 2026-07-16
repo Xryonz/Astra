@@ -3,11 +3,16 @@ package app.astra.desktop.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.ui.theme.EaseOutStd
 import kotlinx.coroutines.delay
@@ -38,6 +43,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
+
+// Feedback tatil de clique (decisao do dono): o alvo encolhe pra ~0.96 enquanto
+// pressionado e volta com mola ao soltar. GPU-only (graphicsLayer scale). Reduzir
+// movimento -> sem escala. Reaproveita o MESMO InteractionSource que o componente
+// ja usa pro hover; pra funcionar, o clickable precisa receber esse source
+// (clickable(interactionSource = it, indication = null, ...)). Aplique cedo na
+// cadeia (antes de clip/background) pra escala envolver o visual inteiro.
+@Composable
+fun Modifier.clickScale(
+    interactionSource: MutableInteractionSource,
+    pressedScale: Float = 0.96f,
+): Modifier {
+    val reduce = LocalReduceMotion.current
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && !reduce) pressedScale else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+        label = "clickScale",
+    )
+    return graphicsLayer { scaleX = scale; scaleY = scale }
+}
 
 // Icone Lucide tingido. O desktop NAO tem material (sem Icon()), entao renderiza
 // o ImageVector via foundation.Image + ColorFilter.tint. Substitui os glifos/emoji

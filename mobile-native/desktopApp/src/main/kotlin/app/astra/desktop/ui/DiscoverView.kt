@@ -3,6 +3,7 @@ package app.astra.desktop.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -200,13 +201,15 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, onJoin: () -> U
                     style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
                 )
                 Spacer(Modifier.weight(1f))
+                val joinSrc = remember { MutableInteractionSource() }
                 Text(
                     if (joining) "entrando…" else "entrar",
                     style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
                     modifier = Modifier
+                        .clickScale(joinSrc)
                         .clip(RoundedCornerShape(8.dp))
                         .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                        .clickable(enabled = !joining, onClick = onJoin)
+                        .clickable(interactionSource = joinSrc, indication = null, enabled = !joining, onClick = onJoin)
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                 )
             }

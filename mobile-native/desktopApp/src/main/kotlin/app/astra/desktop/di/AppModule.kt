@@ -11,6 +11,7 @@ import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.ServerApi
@@ -86,6 +87,7 @@ val appModule = module {
     single<VoiceApi> { get<Retrofit>(named("authed")).create(VoiceApi::class.java) }
     single<GifApi> { get<Retrofit>(named("authed")).create(GifApi::class.java) }
     single<DiscoverApi> { get<Retrofit>(named("authed")).create(DiscoverApi::class.java) }
+    single<FriendApi> { get<Retrofit>(named("authed")).create(FriendApi::class.java) }
 
     single { DesktopSocket(get()) }
     single { AuthRepository(get(), get(), get()) }

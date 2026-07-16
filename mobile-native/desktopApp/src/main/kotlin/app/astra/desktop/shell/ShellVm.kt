@@ -56,6 +56,8 @@ data class ShellUiState(
     val members: List<ServerMemberDto> = emptyList(),
     val membersOpen: Boolean = true,
     val chat: ChatTarget? = null,
+    // "Amigos" aberto no palco (area dos sussurros) — some ao abrir uma conversa.
+    val friendsOpen: Boolean = false,
     // Sala de voz aberta no palco (sonda V1; persistir em navegacao = V6).
     val voiceChannel: ChannelDto? = null,
     // Ids (canal ou conversa) com mensagem que voce ainda nao viu.
@@ -185,10 +187,13 @@ class ShellVm(
         // entrada. Re-clicar o mesmo servidor mantem a conversa aberta (as
         // mensagens novas ja chegam pelo socket ao vivo — nada pra recarregar).
         if (_state.value.selection == selection) return
-        _state.update { it.copy(selection = selection, members = emptyList(), chat = null) }
+        _state.update { it.copy(selection = selection, members = emptyList(), chat = null, friendsOpen = false) }
         store.setUiPref("lastSelection", selection.encode())
         if (selection is Selection.Server) loadMembers(selection.id)
     }
+
+    // "Amigos" no topo dos sussurros: ocupa o palco (fecha conversa/voz).
+    fun openFriends() = _state.update { it.copy(friendsOpen = true, chat = null, voiceChannel = null) }
 
     // Abrir a conversa limpa a nao-lida local (o POST /read fica no ChatVm).
     // V1 da voz: abrir texto SAI da sala (chamada persistente/mini-dock = V6).
@@ -196,7 +201,7 @@ class ShellVm(
         // Mesma conversa ja aberta: nao recria o ChatVm (evitaria recarregar tudo
         // + replay do fade). As mensagens novas ja chegam pelo socket em tempo real.
         if (_state.value.chat == target) return
-        _state.update { it.copy(chat = target, voiceChannel = null, unread = it.unread - target.id) }
+        _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id) }
     }
 
     // Menu de botao direito (F4) ------------------------------------------------
@@ -251,6 +256,7 @@ class ShellVm(
                     selection = Selection.Dms,
                     chat = ChatTarget.Dm(conv.conversationId, title),
                     voiceChannel = null,
+                    friendsOpen = false,
                 )
             }
         }
@@ -275,7 +281,7 @@ class ShellVm(
         }
     }
 
-    fun openVoice(channel: ChannelDto) = _state.update { it.copy(voiceChannel = channel, chat = null) }
+    fun openVoice(channel: ChannelDto) = _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
 
     fun leaveVoice() = _state.update { it.copy(voiceChannel = null) }
 

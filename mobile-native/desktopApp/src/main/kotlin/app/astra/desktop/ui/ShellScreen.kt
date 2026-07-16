@@ -227,6 +227,8 @@ fun ShellScreen(
             onEditedProfile = vm::refreshMe,
             onOpenSettings = { settingsOpen = true },
             onLogout = onLogout,
+            friendsOpen = state.friendsOpen,
+            onOpenFriends = vm::openFriends,
         )
         Stage(
             state.selectedServer,
@@ -244,6 +246,7 @@ fun ShellScreen(
             onStartDm = vm::startDm,
             showDiscover = state.selection is Selection.Discover,
             onDiscoverJoined = vm::refreshServersAndSelect,
+            showFriends = state.selection is Selection.Dms && state.friendsOpen,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
@@ -442,6 +445,8 @@ private fun Sidebar(
     onEditedProfile: () -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
+    friendsOpen: Boolean,
+    onOpenFriends: () -> Unit,
 ) {
     Column(Modifier.width(260.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
@@ -479,8 +484,10 @@ private fun Sidebar(
                 Box(Modifier.weight(1f)) {
                     when {
                         loading -> SidebarSkeleton()
-                        sel is Selection.Dms ->
+                        sel is Selection.Dms -> Column(Modifier.fillMaxSize()) {
+                            FriendsNavRow(active = friendsOpen, onClick = onOpenFriends)
                             DmList(dms, onToggleMute, onMarkRead, activeChatId, unread, dmTyping, onOpenChat)
+                        }
                         sel is Selection.Discover ->
                             Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {
                                 Text(
@@ -887,11 +894,17 @@ private fun Stage(
     onStartDm: (String, String) -> Unit,
     showDiscover: Boolean,
     onDiscoverJoined: (String) -> Unit,
+    showFriends: Boolean,
     modifier: Modifier = Modifier,
 ) {
     // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
     // os outros paineis pra leitura (aurora aparece, mas nao briga com a mensagem).
     Column(modifier.fillMaxHeight().panelCard(Obsidian.base, 0.32f)) {
+        // Amigos ocupa o palco inteiro (cabecalho + abas proprios).
+        if (showFriends) {
+            FriendsView(onStartDm, Modifier.fillMaxSize())
+            return@Column
+        }
         // Descobrir ocupa o palco inteiro (tem cabecalho + busca proprios).
         if (showDiscover) {
             DiscoverView(onDiscoverJoined, Modifier.fillMaxSize())
@@ -1048,4 +1061,39 @@ private fun MembersPanel(
 @Composable
 fun HairRule() {
     Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+}
+
+// Botao "Amigos" no topo dos sussurros (padrao Discord) — abre a tela de amigos
+// no palco. Ativo = destaque ambar.
+@Composable
+private fun FriendsNavRow(active: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val bg by animateColorAsState(
+        if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
+        tween(120),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bg)
+            .hoverable(interaction)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LIcon(Lucide.Users, tint = if (active) Obsidian.accent else Obsidian.text3, size = 16.dp)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "Amigos",
+            style = TextStyle(
+                color = if (active || hovered) Obsidian.text1 else Obsidian.text2,
+                fontSize = 13.sp,
+                fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+            ),
+        )
+    }
 }

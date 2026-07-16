@@ -7,9 +7,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URI
+import java.time.Duration
 import java.util.zip.ZipInputStream
 import kotlin.system.exitProcess
 
@@ -17,8 +18,9 @@ import kotlin.system.exitProcess
 // releases do GitHub, compara semver com a versao embutida (-Dastra.version),
 // baixa o .zip do app-image novo com progresso, descompacta num staging ao lado
 // e — no "reiniciar" — solta um .bat que espera o app fechar, troca a pasta
-// (rename quase-atomico e reversivel) e reabre. So java.base (HttpURLConnection),
-// pra nao depender de modulo jlink extra no app empacotado.
+// (rename quase-atomico e reversivel) e reabre. Usa OkHttp (o MESMO cliente HTTPS
+// do app, que ja funciona no empacotado) — o HttpURLConnection falhava a conexao
+// no JRE do jpackage e o gate mostrava "nao deu pra verificar" toda vez.
 //
 // Convencao de release (o dono segue ao publicar):
 //   tag  : desktop-v<versao>        ex: desktop-v0.2.0
@@ -59,7 +61,7 @@ private data class GhAsset(
 
 private data class Staged(val appRoot: File, val newRoot: File, val stagingDir: File)
 
-class UpdateService(private val json: Json) {
+class UpdateService(private val json: Json, private val http: OkHttpClient) {
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state = _state.asStateFlow()
 
@@ -78,7 +80,9 @@ class UpdateService(private val json: Json) {
         if (!installed) { _state.value = UpdateState.Idle; return@withContext }
         _state.value = UpdateState.Checking
         val release = runCatching { fetchLatest() }.getOrElse {
-            _state.value = if (silent) UpdateState.Idle else UpdateState.Failed("sem conexao com o GitHub", null)
+            // Gate (silent): se nao deu pra checar, assume "atualizado" e segue sem
+            // susto. Checagem manual (Settings) mostra o erro de verdade.
+            _state.value = if (silent) UpdateState.UpToDate else UpdateState.Failed("sem conexao com o GitHub", null)
             return@withContext
         }
         // Sem releases publicadas ainda (404) = nada mais novo que agora.
@@ -100,16 +104,17 @@ class UpdateService(private val json: Json) {
     }
 
     private fun fetchLatest(): GhRelease? {
-        val conn = URI.create(RELEASES_URL).toURL().openConnection() as HttpURLConnection
-        conn.setRequestProperty("Accept", "application/vnd.github+json")
-        conn.setRequestProperty("User-Agent", "Astra-Desktop")
-        // Curto: e a checagem do boot (gate). Offline -> falha rapido e o app segue.
-        conn.connectTimeout = 6_000
-        conn.readTimeout = 8_000
-        if (conn.responseCode == 404) return null // repo sem releases ainda
-        if (conn.responseCode != 200) error("HTTP ${conn.responseCode}")
-        val body = conn.inputStream.bufferedReader().use { it.readText() }
-        return json.decodeFromString<GhRelease>(body)
+        val req = Request.Builder()
+            .url(RELEASES_URL)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Astra-Desktop")
+            .build()
+        http.newCall(req).execute().use { resp ->
+            if (resp.code == 404) return null // repo sem releases ainda
+            if (!resp.isSuccessful) error("HTTP ${resp.code}")
+            val body = resp.body?.string() ?: error("resposta vazia")
+            return json.decodeFromString<GhRelease>(body)
+        }
     }
 
     // semver simples: a > b por campo (major.minor.patch). Campos nao-numericos = 0.
@@ -157,22 +162,28 @@ class UpdateService(private val json: Json) {
     }
 
     private fun download(url: String, dest: File, expected: Long, onProgress: (Float) -> Unit) {
-        val conn = URI.create(url).toURL().openConnection() as HttpURLConnection
-        conn.setRequestProperty("User-Agent", "Astra-Desktop")
-        conn.connectTimeout = 30_000
-        conn.readTimeout = 60_000
-        conn.instanceFollowRedirects = true // asset do GitHub -> 302 pro storage
-        val total = if (expected > 0) expected else conn.contentLengthLong
-        conn.inputStream.use { input ->
-            dest.outputStream().buffered().use { out ->
-                val buf = ByteArray(64 * 1024)
-                var read = 0L
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    out.write(buf, 0, n)
-                    read += n
-                    if (total > 0) onProgress((read.toFloat() / total).coerceIn(0f, 1f))
+        // Download grande (~150MB): sem teto de chamada (callTimeout), so read timeout.
+        // OkHttp segue o 302 do asset pro storage (objects.githubusercontent) sozinho.
+        val client = http.newBuilder()
+            .callTimeout(Duration.ZERO)
+            .readTimeout(Duration.ofSeconds(60))
+            .build()
+        val req = Request.Builder().url(url).header("User-Agent", "Astra-Desktop").build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) error("HTTP ${resp.code}")
+            val bodyRes = resp.body ?: error("sem corpo")
+            val total = if (expected > 0) expected else bodyRes.contentLength()
+            bodyRes.byteStream().use { input ->
+                dest.outputStream().buffered().use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    var read = 0L
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        read += n
+                        if (total > 0) onProgress((read.toFloat() / total).coerceIn(0f, 1f))
+                    }
                 }
             }
         }

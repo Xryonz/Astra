@@ -72,7 +72,8 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     val st by updater.state.collectAsState()
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) { updater.check(silent = false) }
+    // Gate silencioso: falha de rede vira "atualizado" e segue (sem "nao deu").
+    LaunchedEffect(Unit) { updater.check(silent = true) }
     // Resolucao: atualizado/falha seguem pro app; pronto -> reinicia e instala.
     LaunchedEffect(st) {
         when (st) {
@@ -106,7 +107,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
                     GateAvailable(s, onUpdate = { scope.launch { updater.downloadAndStage(s) } }, onLater = onDone)
                 is UpdateState.Downloading -> GateDownloading(s)
                 is UpdateState.Ready -> GateStatus("reiniciando pra aplicar…")
-                is UpdateState.Failed -> GateStatus("nao deu pra verificar")
+                is UpdateState.Failed -> GateStatus(s.reason)
                 is UpdateState.UpToDate -> GateStatus("voce esta na ultima versao")
                 else -> GateStatus("verificando atualizacoes…")
             }

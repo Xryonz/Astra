@@ -430,14 +430,16 @@ class VoiceEngine(
         // Captura o mic por Java Sound (MicCapture) e empurra o PCM num
         // CustomAudioSource — o Core Audio do webrtc-java quebra a captura anexado ao
         // factory ("Start recording failed"); Java Sound abre o mic por outro caminho
-        // e roda em qualquer maquina. Sem AEC/NS por ora (raw; Krisp fica pra fase
-        // propria). Sem mic nao derruba a sala: segue so ouvindo.
+        // e roda em qualquer maquina. O MicCapture passa cada bloco pelo APM do WebRTC
+        // (NS + high-pass + AGC, saida 48k mono) conforme as prefs de Voz — sem isso a
+        // voz saia "robo com ruido". Sem mic nao derruba a sala: segue so ouvindo.
         val source = runCatching { CustomAudioSource() }.getOrNull() ?: return
         val cid = "mic-" + UUID.randomUUID().toString().take(8)
         micCid = cid
         micSource = source
         micTrack = f.createAudioTrack(cid, source)
-        val cap = MicCapture(source) { level -> onMicLevel(level) }
+        val p = prefs.state.value
+        val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel) { level -> onMicLevel(level) }
         micCapture = cap
         cap.start() // false = sem dispositivo de captura; a track fica muda, mas nao trava
         val req = LivekitRtc.SignalRequest.newBuilder()

@@ -181,6 +181,10 @@ class ShellVm(
     }
 
     fun select(selection: Selection) {
+        // Ja nesta aba: nao reseta chat/membros nem re-dispara a animacao de
+        // entrada. Re-clicar o mesmo servidor mantem a conversa aberta (as
+        // mensagens novas ja chegam pelo socket ao vivo — nada pra recarregar).
+        if (_state.value.selection == selection) return
         _state.update { it.copy(selection = selection, members = emptyList(), chat = null) }
         store.setUiPref("lastSelection", selection.encode())
         if (selection is Selection.Server) loadMembers(selection.id)
@@ -188,8 +192,12 @@ class ShellVm(
 
     // Abrir a conversa limpa a nao-lida local (o POST /read fica no ChatVm).
     // V1 da voz: abrir texto SAI da sala (chamada persistente/mini-dock = V6).
-    fun openChat(target: ChatTarget) =
+    fun openChat(target: ChatTarget) {
+        // Mesma conversa ja aberta: nao recria o ChatVm (evitaria recarregar tudo
+        // + replay do fade). As mensagens novas ja chegam pelo socket em tempo real.
+        if (_state.value.chat == target) return
         _state.update { it.copy(chat = target, voiceChannel = null, unread = it.unread - target.id) }
+    }
 
     // Menu de botao direito (F4) ------------------------------------------------
 

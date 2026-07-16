@@ -52,6 +52,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -114,13 +115,21 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
     Box(
         Modifier
             .fillMaxSize()
-            .background(Obsidian.base.copy(alpha = 0.97f))
             .focusRequester(focus)
             .focusable()
             .onPreviewKeyEvent { e ->
                 if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
             },
     ) {
+        // Fundo proprio do takeover: aurora viva (ou void chapado) cobre o shell
+        // por baixo — senao o palco (Descobrir/chat) vaza atras das secoes. Um veu
+        // por cima segura a leitura sem matar a aurora ("aparencia abranja tudo").
+        if (prefState.auroraOn) {
+            Box(Modifier.matchParentSize().graphicsLayer {}.auroraBackground())
+        } else {
+            Box(Modifier.matchParentSize().background(Obsidian.void))
+        }
+        Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.82f)))
         Row(Modifier.fillMaxSize()) {
             // Nav das secoes
             Column(

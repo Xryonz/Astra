@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -65,10 +66,18 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.ChartColumn
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
+import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.Key
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Mail
+import com.composables.icons.lucide.Palette
+import com.composables.icons.lucide.User
+import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
@@ -96,13 +105,13 @@ import org.koin.core.context.GlobalContext
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
 
-private enum class SettingsTab(val label: String, val sub: String) {
-    ACCOUNT("Conta", "email e senha"),
-    NOTIFICATIONS("Notificacoes", "avisos na bandeja"),
-    APPEARANCE("Aparencia", "cores, fonte, densidade"),
-    PERFORMANCE("Desempenho", "graficos, animacoes, fps"),
-    VOICE("Voz", "microfone e transmissao"),
-    ABOUT("Sobre", "versao e atualizacoes"),
+private enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
+    ACCOUNT("Conta", "email e senha", Lucide.User),
+    NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
+    APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
+    PERFORMANCE("Desempenho", "graficos, animacoes, fps", Lucide.ChartColumn),
+    VOICE("Voz", "microfone e transmissao", Lucide.Volume2),
+    ABOUT("Sobre", "versao e atualizacoes", Lucide.Info),
 }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
@@ -146,7 +155,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                     modifier = Modifier.padding(start = 8.dp, bottom = 14.dp),
                 )
                 SettingsTab.entries.forEach { t ->
-                    NavRow(t.label, t.sub, active = t == tab) { tab = t }
+                    NavRow(t.icon, t.label, t.sub, active = t == tab) { tab = t }
                 }
             }
 
@@ -230,14 +239,18 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
 
 @Composable
 private fun AccountSection(me: ProfileUserDto?) {
-    ReadRow("email", me?.email ?: "—")
+    ReadRow(Lucide.Mail, me?.email ?: "—")
     Spacer(Modifier.height(8.dp))
-    ReadRow("usuario", me?.let { "@${it.username}" } ?: "—")
+    ReadRow(Lucide.User, me?.let { "@${it.username}" } ?: "—")
     Spacer(Modifier.height(22.dp))
-    Text(
-        if (me?.hasPassword == false) "definir senha" else "trocar senha",
-        style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        LIcon(Lucide.Key, tint = Obsidian.text2, size = 16.dp)
+        Spacer(Modifier.width(9.dp))
+        Text(
+            if (me?.hasPassword == false) "definir senha" else "trocar senha",
+            style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
+        )
+    }
     Spacer(Modifier.height(4.dp))
     if (me?.hasPassword == false) {
         Text(
@@ -432,15 +445,25 @@ private fun ReadRow(label: String, value: String) {
     }
 }
 
+// Variante com icone Lucide no lugar do rotulo (Conta: envelope no email, pessoa no usuario).
 @Composable
-private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> Unit) {
+private fun ReadRow(icon: ImageVector, value: String) {
+    Row(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        LIcon(icon, tint = Obsidian.text3, size = 16.dp)
+        Spacer(Modifier.width(12.dp))
+        Text(value, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+    }
+}
+
+@Composable
+private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val bg by animateColorAsState(
         if (active) Obsidian.active else if (hovered) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent,
         tween(120),
     )
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
             .clickScale(interaction)
@@ -449,16 +472,25 @@ private fun NavRow(label: String, sub: String, active: Boolean, onClick: () -> U
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            style = TextStyle(
-                color = if (active || hovered) Obsidian.text1 else Obsidian.text2,
-                fontSize = 13.sp,
-                fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
-            ),
+        LIcon(
+            icon,
+            tint = if (active || hovered) Obsidian.text1 else Obsidian.text3,
+            size = 16.dp,
         )
-        Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        Spacer(Modifier.width(11.dp))
+        Column {
+            Text(
+                label,
+                style = TextStyle(
+                    color = if (active || hovered) Obsidian.text1 else Obsidian.text2,
+                    fontSize = 13.sp,
+                    fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                ),
+            )
+            Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        }
     }
 }
 

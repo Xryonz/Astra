@@ -154,14 +154,8 @@ serversRouter.post(
       return s
     })
 
-    // Categoria "Geral" e best-effort, FORA da transacao: se a tabela
-    // ChannelCategory ainda nao existir, criar a constelacao NAO pode falhar.
-    try {
-      const [cat] = await db.insert(channelCategories).values({ name: 'Geral', serverId: server.id, position: 0 }).returning()
-      await db.update(channels).set({ categoryId: cat.id }).where(eq(channels.serverId, server.id))
-    } catch (e) {
-      console.warn('[servers] categoria default pulada:', (e as Error).message)
-    }
+    // Sem categoria default: a constelacao nasce so com o canal "geral" solto
+    // (decisao do dono). Categorias ("tabelas") sao criadas depois, na mao.
 
     const full = await serverWithChannelsAndCount(server.id)
     res.status(201).json({ data: full })

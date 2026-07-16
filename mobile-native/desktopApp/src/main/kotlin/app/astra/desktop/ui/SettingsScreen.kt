@@ -193,6 +193,10 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                     },
                     label = "settingsSection",
                 ) { current ->
+                    // Cada secao emite varios filhos DIRETO. Sem esta Column o
+                    // container do AnimatedContent os empilha no mesmo Y (era o bug
+                    // dos "textos sobrepostos"). A Column relaya em vertical.
+                    Column(Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me)
                         SettingsTab.NOTIFICATIONS -> Column {
@@ -215,6 +219,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                         SettingsTab.ABOUT -> AboutSection()
+                    }
                     }
                 }
             }

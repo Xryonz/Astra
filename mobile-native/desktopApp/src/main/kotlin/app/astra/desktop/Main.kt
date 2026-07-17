@@ -47,10 +47,40 @@ import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
+import kotlinx.coroutines.flow.MutableStateFlow
+import java.io.IOException
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import kotlin.concurrent.thread
 import zed.rainxch.rikkaui.foundation.RikkaColors
 import zed.rainxch.rikkaui.foundation.RikkaTheme
 
+// Instancia unica: lock por ServerSocket no loopback. Se ja tem Astra rodando (a
+// porta esta ocupada), sinaliza o processo existente pra aparecer e ESTE sai — sem
+// dois apps na bandeja. O primeiro escuta e traz a janela pra frente ao ser tocado.
+object SingleInstance {
+    private const val PORT = 47821
+    val activate = MutableStateFlow(0)
+    private var server: ServerSocket? = null
+
+    // true = somos a instancia primaria; false = ja tem uma (sinalizamos, hora de sair).
+    fun acquireOrSignal(): Boolean = try {
+        server = ServerSocket(PORT, 1, InetAddress.getLoopbackAddress()).also { s ->
+            thread(isDaemon = true, name = "astra-single-instance") {
+                while (!s.isClosed) runCatching { s.accept().close(); activate.value++ }
+            }
+        }
+        true
+    } catch (e: IOException) {
+        runCatching { Socket(InetAddress.getLoopbackAddress(), PORT).use { } }
+        false
+    }
+}
+
 fun main() {
+    // Segundo processo: pede pro Astra aberto aparecer e encerra aqui mesmo.
+    if (!SingleInstance.acquireOrSignal()) return
     startKoin { modules(appModule) }
     application {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).
@@ -62,6 +92,15 @@ fun main() {
         // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
+
+        // Outro processo tentou abrir o Astra -> traz esta janela (a unica) pra frente.
+        val activate by SingleInstance.activate.collectAsState()
+        LaunchedEffect(activate) {
+            if (activate > 0) {
+                windowVisible = true
+                state.isMinimized = false
+            }
+        }
 
         // Auto-update: gate de boot (janelinha estilo Discord) so no app instalado;
         // dev/IDE pula direto pro app. Tema aplicado ja aqui -> o gate (logo +

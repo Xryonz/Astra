@@ -430,7 +430,9 @@ private fun CreateServerButton(onCreateServer: (name: String, isGroup: Boolean) 
             ) {
                 Column(
                     Modifier
-                        .widthIn(min = 170.dp)
+                        // max obrigatorio: sem ele o fillMaxWidth das linhas estica o
+                        // card pra largura da janela inteira (o Popup da constraint cheia).
+                        .widthIn(min = 170.dp, max = 230.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(Obsidian.overlay)
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))

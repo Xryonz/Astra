@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
 import { AccessToken, RoomServiceClient } from 'livekit-server-sdk'
 import { db } from '../db'
-import { dmConversations, channels } from '../db/schema'
+import { dmConversations, channels, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -66,8 +66,19 @@ router.post('/token', requireAuth, validate(TokenSchema), asyncHandler(async (re
   const roomName = `${roomKind}:${roomId}`
   const identity = req.userId!
 
+  // Nome + avatar viajam no token pro LiveKit: assim os participantes carregam
+  // identidade humana (nome real + foto) em vez do id cru — funciona em call de
+  // servidor E de DM, no web e no nativo (que le participant.name/metadata).
+  const [u] = await db.select({
+    username:    users.username,
+    displayName: users.displayName,
+    avatarUrl:   users.avatarUrl,
+  }).from(users).where(eq(users.id, identity)).limit(1)
+
   const at = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, {
     identity,
+    name: u?.displayName || u?.username || identity,
+    metadata: JSON.stringify({ avatarUrl: u?.avatarUrl ?? null, username: u?.username ?? null }),
     ttl: '6h',
   })
   at.addGrant({

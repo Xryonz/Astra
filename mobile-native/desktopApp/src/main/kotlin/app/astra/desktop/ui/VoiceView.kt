@@ -146,7 +146,9 @@ fun VoiceView(
                 if (connected != null) {
                     add(Tile("voce", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
                     connected.others.forEach { p ->
-                        add(Tile(p.label, p.speaking, avatarByUser[p.identity], isMe = false, muted = false))
+                        // Foto: primeiro a do token (metadata) — vale em DM tb; se faltar,
+                        // cai na lista de membros do servidor.
+                        add(Tile(p.label, p.speaking, p.avatarUrl ?: avatarByUser[p.identity], isMe = false, muted = false))
                     }
                 }
             }

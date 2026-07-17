@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -76,7 +77,7 @@ sealed interface VoiceStatus {
     data object Closed : VoiceStatus
 }
 
-data class VoiceParticipant(val identity: String, val label: String, val speaking: Boolean)
+data class VoiceParticipant(val identity: String, val label: String, val speaking: Boolean, val avatarUrl: String? = null)
 
 // Transmissao de outro participante (track de video remota; render no VoiceView).
 class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: VideoTrack)
@@ -128,7 +129,7 @@ class VoiceEngine(
 
     // identity -> outro participante (ordem de chegada). speaking vem por sid
     // (SpeakersChanged fala em sid, nao identity).
-    private class Remote(val sid: String, val label: String, var speaking: Boolean = false, var speakUntil: Long = 0)
+    private class Remote(val sid: String, val label: String, val avatarUrl: String? = null, var speaking: Boolean = false, var speakUntil: Long = 0)
     private val others = linkedMapOf<String, Remote>()
     // Receiver do audio remoto por dono (ownerSid) — pra medir o nivel de fala de cada um.
     private val remoteAudioReceivers = linkedMapOf<String, RTCRtpReceiver>()
@@ -812,14 +813,23 @@ class VoiceEngine(
 
     private fun publishConnected() {
         _status.value = VoiceStatus.Connected(
-            others.map { (identity, r) -> VoiceParticipant(identity, r.label, r.speaking) },
+            others.map { (identity, r) -> VoiceParticipant(identity, r.label, r.speaking, r.avatarUrl) },
             audioLive,
             mySpeaking,
         )
     }
 
     private fun LivekitModels.ParticipantInfo.remote(speaking: Boolean = false) =
-        Remote(sid, name.ifBlank { identity }, speaking)
+        Remote(sid, name.ifBlank { identity }, avatarFromMetadata(metadata), speaking)
+
+    // O backend embute {avatarUrl, username} no metadata do token. Le a foto pra
+    // exibir no palco da call sem depender da lista de membros (funciona em DM tb).
+    private fun avatarFromMetadata(metadata: String?): String? {
+        if (metadata.isNullOrBlank()) return null
+        return runCatching {
+            Json.parseToJsonElement(metadata).jsonObject["avatarUrl"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+    }
 
     fun dispose() {
         pingJob?.cancel()

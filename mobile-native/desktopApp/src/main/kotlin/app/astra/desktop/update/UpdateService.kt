@@ -4,12 +4,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
+import java.net.UnknownHostException
 import java.time.Duration
 import java.util.zip.ZipInputStream
 import kotlin.system.exitProcess
@@ -26,7 +25,12 @@ import kotlin.system.exitProcess
 //   tag  : desktop-v<versao>        ex: desktop-v0.2.0
 //   asset: Astra-<versao>-win-x64.zip  (contem a pasta Astra/ do createDistributable)
 
-private const val RELEASES_URL = "https://api.github.com/repos/Xryonz/Astra/releases/latest"
+// Checagem SEM a API do GitHub (api.github.com tem rate-limit anonimo de 60/h por
+// IP: varios boots/checagens + amigos no mesmo IP/CGNAT estouravam -> 403 -> falso
+// "sem conexao"). github.com/<repo>/releases/latest responde 302 pra .../tag/<tag>
+// e a pagina web NAO tem esse limite; da tag monta-se o zip por convencao.
+private const val REPO = "Xryonz/Astra"
+private const val LATEST_PAGE = "https://github.com/$REPO/releases/latest"
 
 sealed interface UpdateState {
     data object Idle : UpdateState
@@ -44,24 +48,17 @@ sealed interface UpdateState {
     data class Failed(val reason: String, val releaseUrl: String?) : UpdateState
 }
 
-@Serializable
-private data class GhRelease(
-    @SerialName("tag_name") val tagName: String = "",
-    val body: String? = null,
-    @SerialName("html_url") val htmlUrl: String = "",
-    val assets: List<GhAsset> = emptyList(),
-)
-
-@Serializable
-private data class GhAsset(
-    val name: String = "",
-    @SerialName("browser_download_url") val browserDownloadUrl: String = "",
-    val size: Long = 0,
+// Resolvida so pela tag (via redirect). notes/size ficam de fora: sem a API nao ha
+// como obte-los, e nenhum dos dois e essencial (o download usa o contentLength).
+private data class ResolvedRelease(
+    val version: String,
+    val downloadUrl: String,
+    val releaseUrl: String,
 )
 
 private data class Staged(val appRoot: File, val newRoot: File, val stagingDir: File)
 
-class UpdateService(private val json: Json, private val http: OkHttpClient) {
+class UpdateService(private val http: OkHttpClient) {
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state = _state.asStateFlow()
 
@@ -79,42 +76,62 @@ class UpdateService(private val json: Json, private val http: OkHttpClient) {
     suspend fun check(silent: Boolean) = withContext(Dispatchers.IO) {
         if (!installed) { _state.value = UpdateState.Idle; return@withContext }
         _state.value = UpdateState.Checking
-        val release = runCatching { fetchLatest() }.getOrElse {
-            // Gate (silent): se nao deu pra checar, assume "atualizado" e segue sem
-            // susto. Checagem manual (Settings) mostra o erro de verdade.
-            _state.value = if (silent) UpdateState.UpToDate else UpdateState.Failed("sem conexao com o GitHub", null)
+        val release = try {
+            fetchLatest()
+        } catch (e: Exception) {
+            // Rede caiu de verdade. No gate (silent) nao assusta: assume "atualizado"
+            // e segue. Manual (Settings) mostra a causa REAL — sem o falso "sem
+            // conexao" que o rate-limit da API (60/h/IP) disparava antes.
+            _state.value = if (silent) UpdateState.UpToDate
+            else UpdateState.Failed(failureReason(e), LATEST_PAGE)
             return@withContext
         }
-        // Sem releases publicadas ainda (404) = nada mais novo que agora.
-        if (release == null) { _state.value = UpdateState.UpToDate; return@withContext }
-        val latest = release.tagName.removePrefix("desktop-").removePrefix("v").trim()
-        val asset = release.assets.firstOrNull { it.name.endsWith(".zip", true) && it.name.contains("win", true) }
-            ?: release.assets.firstOrNull { it.name.endsWith(".zip", true) }
-        if (asset == null || latest.isBlank() || !isNewer(latest, currentVersion)) {
+        // Sem release publicada, ou nao ha nada mais novo que agora.
+        if (release == null || !isNewer(release.version, currentVersion)) {
             _state.value = UpdateState.UpToDate
             return@withContext
         }
         _state.value = UpdateState.Available(
-            version = latest,
-            notes = release.body?.trim().orEmpty(),
-            downloadUrl = asset.browserDownloadUrl,
-            size = asset.size,
-            releaseUrl = release.htmlUrl,
+            version = release.version,
+            notes = "", // checagem sem API -> sem release notes (nao essencial)
+            downloadUrl = release.downloadUrl,
+            size = 0L, // desconhecido sem API; o download usa o contentLength da resposta
+            releaseUrl = release.releaseUrl,
         )
     }
 
-    private fun fetchLatest(): GhRelease? {
+    // Le so o Location do 302 de github.com/<repo>/releases/latest (sem seguir o
+    // redirect) -> extrai a tag -> monta a URL do zip por convencao. Null = sem
+    // release publicada (200/sem Location) ou tag inesperada.
+    private fun fetchLatest(): ResolvedRelease? {
+        val noRedirect = http.newBuilder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
         val req = Request.Builder()
-            .url(RELEASES_URL)
-            .header("Accept", "application/vnd.github+json")
+            .url(LATEST_PAGE)
             .header("User-Agent", "Astra-Desktop")
             .build()
-        http.newCall(req).execute().use { resp ->
-            if (resp.code == 404) return null // repo sem releases ainda
-            if (!resp.isSuccessful) error("HTTP ${resp.code}")
-            val body = resp.body?.string() ?: error("resposta vazia")
-            return json.decodeFromString<GhRelease>(body)
-        }
+        val location = noRedirect.newCall(req).execute().use { it.header("Location") }
+            ?: return null
+        // .../releases/tag/desktop-v0.1.0 -> "desktop-v0.1.0"
+        val tag = location.substringAfter("/releases/tag/", "").substringBefore('?').trim('/')
+        if (tag.isBlank()) return null
+        val version = tag.removePrefix("desktop-").removePrefix("v").trim()
+        if (version.isBlank()) return null
+        return ResolvedRelease(
+            version = version,
+            downloadUrl = "https://github.com/$REPO/releases/download/$tag/Astra-$version-win-x64.zip",
+            releaseUrl = "https://github.com/$REPO/releases/tag/$tag",
+        )
+    }
+
+    // Causa legivel da falha da checagem manual. Sem o rate-limit da API no meio,
+    // sobra so o caso real (rede) — a mensagem finalmente bate com o que houve.
+    private fun failureReason(e: Throwable): String = when (e) {
+        is UnknownHostException -> "sem internet"
+        is IOException -> "sem conexao com o GitHub"
+        else -> "nao deu pra verificar agora"
     }
 
     // semver simples: a > b por campo (major.minor.patch). Campos nao-numericos = 0.

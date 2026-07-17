@@ -94,5 +94,5 @@ val appModule = module {
     single { DesktopPrefs(get()) }
     // Auto-update DIY (zip-swap via GitHub Releases). Usa o OkHttp "plain" (mesmo
     // HTTPS que ja funciona no app) — o HttpURLConnection falhava no JRE empacotado.
-    single { UpdateService(get(), get(named("plain"))) }
+    single { UpdateService(get(named("plain"))) }
 }

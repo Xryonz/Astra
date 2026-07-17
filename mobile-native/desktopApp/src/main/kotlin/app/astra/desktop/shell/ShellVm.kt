@@ -9,6 +9,9 @@ import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
+import app.astra.mobile.core.network.dto.CreateCategoryRequest
+import app.astra.mobile.core.network.dto.CreateChannelRequest
+import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
@@ -278,6 +281,48 @@ class ShellVm(
             }
             store.setUiPref("lastSelection", Selection.Server(serverId).encode())
             loadMembers(serverId)
+        }
+    }
+
+    // Gestao de canais/categorias (dono da constelacao). Cada acao bate na API e
+    // recarrega so a lista de servidores (mantem selecao/chat). Sem otimismo: o
+    // reload traz o estado real (posicao/id vindos do backend).
+    fun createChannel(serverId: String, name: String, type: String, categoryId: String?) {
+        scope.launch {
+            val ok = runCatching {
+                serverApi.createChannel(serverId, CreateChannelRequest(name, type, categoryId))
+            }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    fun createCategory(serverId: String, name: String) {
+        scope.launch {
+            val ok = runCatching { serverApi.createCategory(serverId, CreateCategoryRequest(name)) }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    fun renameCategory(serverId: String, categoryId: String, name: String) {
+        scope.launch {
+            val ok = runCatching {
+                serverApi.updateCategory(serverId, categoryId, UpdateCategoryRequest(name = name))
+            }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    fun deleteCategory(serverId: String, categoryId: String) {
+        scope.launch {
+            val ok = runCatching { serverApi.deleteCategory(serverId, categoryId) }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    private fun reloadServers() {
+        scope.launch {
+            val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrNull() ?: return@launch
+            _state.update { it.copy(servers = servers) }
         }
     }
 

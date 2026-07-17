@@ -3,6 +3,7 @@ package app.astra.desktop.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
@@ -63,9 +64,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -229,6 +235,10 @@ fun ShellScreen(
             onLogout = onLogout,
             friendsOpen = state.friendsOpen,
             onOpenFriends = vm::openFriends,
+            onCreateChannel = vm::createChannel,
+            onCreateCategory = vm::createCategory,
+            onRenameCategory = vm::renameCategory,
+            onDeleteCategory = vm::deleteCategory,
         )
         Stage(
             state.selectedServer,
@@ -447,7 +457,14 @@ private fun Sidebar(
     onLogout: () -> Unit,
     friendsOpen: Boolean,
     onOpenFriends: () -> Unit,
+    onCreateChannel: (serverId: String, name: String, type: String, categoryId: String?) -> Unit,
+    onCreateCategory: (serverId: String, name: String) -> Unit,
+    onRenameCategory: (serverId: String, categoryId: String, name: String) -> Unit,
+    onDeleteCategory: (serverId: String, categoryId: String) -> Unit,
 ) {
+    // Dialogo de nome (nova orbita / nova categoria / renomear) — centralizado na
+    // janela. So o dono da constelacao dispara pelos menus de botao direito.
+    var chanDialog by remember { mutableStateOf<ChanDialog?>(null) }
     Column(Modifier.width(260.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
         // Transicao ao trocar na rail (sussurros <-> constelacao): header + lista
         // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
@@ -464,20 +481,34 @@ private fun Sidebar(
             val srv = (sel as? Selection.Server)?.let { s -> servers.find { it.id == s.id } }
             Column(Modifier.fillMaxSize()) {
                 // Header
-                Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
-                    Text(
-                        text = when {
-                            sel is Selection.Dms -> "Sussurros"
-                            sel is Selection.Discover -> "Descobrir"
-                            else -> srv?.name ?: ""
-                        },
-                        style = TextStyle(
-                            color = Obsidian.text1, fontSize = 16.sp,
-                            fontFamily = DmSerif,
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                val header = @Composable {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
+                        Text(
+                            text = when {
+                                sel is Selection.Dms -> "Sussurros"
+                                sel is Selection.Discover -> "Descobrir"
+                                else -> srv?.name ?: ""
+                            },
+                            style = TextStyle(
+                                color = Obsidian.text1, fontSize = 16.sp,
+                                fontFamily = DmSerif,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                // Botao direito no cabecalho da constelacao (so o dono): criar orbita
+                // solta ou uma categoria nova.
+                if (srv != null && srv.ownerId == myId) {
+                    EditorialContextMenu(entries = {
+                        listOf(
+                            MenuEntry.Item("criar órbita") { chanDialog = ChanDialog.NewChannel(srv.id, null) },
+                            MenuEntry.Item("criar categoria") { chanDialog = ChanDialog.NewCategory(srv.id) },
+                        )
+                    }) { header() }
+                } else {
+                    header()
                 }
                 HairRule()
 
@@ -498,6 +529,9 @@ private fun Sidebar(
                         else -> OrbitList(
                             srv, activeChatId, unread, members, voicePresence, myId, myVoiceChannelId,
                             onOpenChat, onOpenVoice,
+                            onNewChannelInCat = { catId -> srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } },
+                            onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
+                            onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
                         )
                     }
                 }
@@ -514,6 +548,37 @@ private fun Sidebar(
             onLogout = onLogout,
         )
     }
+
+    when (val d = chanDialog) {
+        is ChanDialog.NewChannel -> EditorialInputDialog(
+            title = "nova órbita",
+            placeholder = "nome-da-orbita",
+            initial = "",
+            confirmLabel = "criar",
+            channelType = true,
+            onDismiss = { chanDialog = null },
+            onConfirm = { name, type -> onCreateChannel(d.serverId, name, type, d.categoryId) },
+        )
+        is ChanDialog.NewCategory -> EditorialInputDialog(
+            title = "nova categoria",
+            placeholder = "nome da categoria",
+            initial = "",
+            confirmLabel = "criar",
+            channelType = false,
+            onDismiss = { chanDialog = null },
+            onConfirm = { name, _ -> onCreateCategory(d.serverId, name) },
+        )
+        is ChanDialog.RenameCategory -> EditorialInputDialog(
+            title = "renomear categoria",
+            placeholder = "nome da categoria",
+            initial = d.current,
+            confirmLabel = "salvar",
+            channelType = false,
+            onDismiss = { chanDialog = null },
+            onConfirm = { name, _ -> onRenameCategory(d.serverId, d.categoryId, name) },
+        )
+        null -> Unit
+    }
 }
 
 @Composable
@@ -527,9 +592,14 @@ private fun OrbitList(
     myVoiceChannelId: String?,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
+    onNewChannelInCat: (categoryId: String) -> Unit,
+    onRenameCat: (categoryId: String, current: String) -> Unit,
+    onDeleteCat: (categoryId: String) -> Unit,
 ) {
     if (server == null) return
     // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
+    // So o dono ganha os menus de gestao (botao direito na categoria).
+    val isOwner = server.ownerId == myId
     var collapsedCats by remember(server.id) { mutableStateOf(setOf<String>()) }
     val catIds = server.categories.map { it.id }.toSet()
     val loose = server.channels.filter { it.categoryId == null || it.categoryId !in catIds }.sortedBy { it.position }
@@ -554,14 +624,28 @@ private fun OrbitList(
             val headerRow = offset
             item(key = "cat-${cat.id}") {
                 CascadeIn(headerRow, server.id) {
-                    CategoryHeader(
-                        name = cat.name,
-                        collapsed = cat.id in collapsedCats,
-                        onToggle = {
-                            collapsedCats =
-                                if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
-                        },
-                    )
+                    val head = @Composable {
+                        CategoryHeader(
+                            name = cat.name,
+                            collapsed = cat.id in collapsedCats,
+                            onToggle = {
+                                collapsedCats =
+                                    if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
+                            },
+                        )
+                    }
+                    if (isOwner) {
+                        EditorialContextMenu(entries = {
+                            listOf(
+                                MenuEntry.Item("criar órbita aqui") { onNewChannelInCat(cat.id) },
+                                MenuEntry.Separator,
+                                MenuEntry.Item("renomear categoria") { onRenameCat(cat.id, cat.name) },
+                                MenuEntry.Item("excluir categoria", danger = true) { onDeleteCat(cat.id) },
+                            )
+                        }) { head() }
+                    } else {
+                        head()
+                    }
                 }
             }
             // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
@@ -666,6 +750,173 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+// ---- Criacao de orbita/categoria (dono) ----
+
+private sealed interface ChanDialog {
+    data class NewChannel(val serverId: String, val categoryId: String?) : ChanDialog
+    data class NewCategory(val serverId: String) : ChanDialog
+    data class RenameCategory(val serverId: String, val categoryId: String, val current: String) : ChanDialog
+}
+
+// Nome de orbita segue a regra do backend (^[a-z0-9-]+$): sanitiza ao vivo pra
+// dar o mesmo feedback do Discord (espaco vira hifen, acento/simbolo some).
+private fun sanitizeChannel(s: String): String =
+    s.lowercase().replace(Regex("\\s+"), "-").replace(Regex("[^a-z0-9-]"), "").take(50)
+
+// Centraliza o dialogo na JANELA (ignora a ancora) — modal flutuante estilo Discord.
+private object CenterInWindow : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset(
+        x = ((windowSize.width - popupContentSize.width) / 2).coerceAtLeast(0),
+        y = ((windowSize.height - popupContentSize.height) / 2).coerceAtLeast(0),
+    )
+}
+
+@Composable
+private fun EditorialInputDialog(
+    title: String,
+    placeholder: String,
+    initial: String,
+    confirmLabel: String,
+    channelType: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, type: String) -> Unit,
+) {
+    var text by remember { mutableStateOf(initial) }
+    var type by remember { mutableStateOf("TEXT") }
+    val valid = text.trim().isNotEmpty()
+    Popup(
+        popupPositionProvider = CenterInWindow,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        val entered = remember { MutableTransitionState(false).apply { targetState = true } }
+        AnimatedVisibility(
+            visibleState = entered,
+            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.96f),
+        ) {
+            Column(
+                Modifier
+                    .width(300.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Obsidian.overlay)
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
+                    .padding(18.dp),
+            ) {
+                Text(title, style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif))
+                Spacer(Modifier.height(14.dp))
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = if (channelType) sanitizeChannel(it) else it.take(50) },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    cursorBrush = SolidColor(Obsidian.accent),
+                    decorationBox = { inner ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Obsidian.base)
+                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (channelType) {
+                                LIcon(Lucide.Hash, tint = Obsidian.text3, size = 14.dp)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Box(Modifier.weight(1f)) {
+                                if (text.isEmpty()) {
+                                    Text(placeholder, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+                                }
+                                inner()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (channelType) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TypeChip("texto", Lucide.Hash, type == "TEXT") { type = "TEXT" }
+                        TypeChip("voz", Lucide.Volume2, type == "VOICE") { type = "VOICE" }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Spacer(Modifier.weight(1f))
+                    DialogButton(label = "cancelar", accent = false, enabled = true) { onDismiss() }
+                    DialogButton(label = confirmLabel, accent = true, enabled = valid) {
+                        onDismiss()
+                        onConfirm(text.trim(), type)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypeChip(label: String, icon: ImageVector, active: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val bg by animateColorAsState(
+        if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent, tween(120),
+    )
+    val border by animateColorAsState(
+        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, tween(120),
+    )
+    val fg = if (active) Obsidian.text1 else Obsidian.text3
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(bg)
+            .border(1.dp, border, RoundedCornerShape(8.dp))
+            .hoverable(interaction)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LIcon(icon, tint = fg, size = 14.dp)
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = TextStyle(color = fg, fontSize = 12.sp))
+    }
+}
+
+@Composable
+private fun DialogButton(label: String, accent: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val fg = when {
+        !enabled -> Obsidian.text3.copy(alpha = 0.5f)
+        accent -> Obsidian.accent
+        else -> Obsidian.text3
+    }
+    val border by animateColorAsState(
+        when {
+            !enabled -> Obsidian.borderDim.copy(alpha = 0.5f)
+            accent -> Obsidian.accent.copy(alpha = if (hovered) 0.9f else 0.55f)
+            hovered -> Obsidian.borderMid
+            else -> Obsidian.borderDim
+        },
+        tween(120),
+    )
+    Text(
+        label,
+        style = TextStyle(color = fg, fontSize = 12.sp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, border, RoundedCornerShape(8.dp))
+            .hoverable(interaction)
+            .clickable(enabled = enabled, interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
 }
 
 @Composable

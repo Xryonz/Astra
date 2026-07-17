@@ -6,7 +6,10 @@ import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ChannelVisibilityDto
 import app.astra.mobile.core.network.dto.ChannelVisibilityRequest
+import app.astra.mobile.core.network.dto.CategoryDto
+import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
+import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.InviteCodeResponse
@@ -137,4 +140,21 @@ interface ServerApi {
 
     @DELETE("api/servers/{sid}/channels/{cid}")
     suspend fun deleteChannel(@Path("sid") serverId: String, @Path("cid") channelId: String)
+
+    // ---- Categorias (MANAGE_CHANNELS) ----
+    @POST("api/servers/{sid}/categories")
+    suspend fun createCategory(
+        @Path("sid") serverId: String,
+        @Body body: CreateCategoryRequest,
+    ): ApiEnvelope<CategoryDto>
+
+    @PATCH("api/servers/{sid}/categories/{cid}")
+    suspend fun updateCategory(
+        @Path("sid") serverId: String,
+        @Path("cid") categoryId: String,
+        @Body body: UpdateCategoryRequest,
+    ): ApiEnvelope<CategoryDto>
+
+    @DELETE("api/servers/{sid}/categories/{cid}")
+    suspend fun deleteCategory(@Path("sid") serverId: String, @Path("cid") categoryId: String)
 }

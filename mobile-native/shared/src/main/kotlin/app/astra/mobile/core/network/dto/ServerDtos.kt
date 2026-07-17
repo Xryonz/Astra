@@ -84,7 +84,17 @@ data class ChannelVisibilityRequest(
 data class UpdateChannelNameRequest(val name: String)
 
 @Serializable
-data class CreateChannelRequest(val name: String, val type: String = "TEXT")
+data class CreateChannelRequest(
+    val name: String,
+    val type: String = "TEXT",
+    val categoryId: String? = null,
+)
+
+@Serializable
+data class CreateCategoryRequest(val name: String)
+
+@Serializable
+data class UpdateCategoryRequest(val name: String? = null, val position: Int? = null)
 
 @Serializable
 data class ServerMemberDto(

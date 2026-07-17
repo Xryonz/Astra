@@ -645,16 +645,27 @@ channelsRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
     const { name, type } = req.body
+    const categoryId = (req.body as { categoryId?: string | null }).categoryId
 
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.memberId) return res.status(403).json({ error: 'Você não é membro' })
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão pra criar canais' })
 
-    const [channel] = await db.insert(channels).values({ name, type, serverId }).returning()
+    if (categoryId) {
+      const [cat] = await db.select({ id: channelCategories.id })
+        .from(channelCategories)
+        .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
+        .limit(1)
+      if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
+    }
+
+    const [channel] = await db.insert(channels)
+      .values({ name, type, serverId, ...(categoryId ? { categoryId } : {}) })
+      .returning()
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_CREATE,
-      targetId: channel.id, metadata: { name, type },
+      targetId: channel.id, metadata: { name, type, categoryId },
     })
     res.status(201).json({ data: channel })
   })

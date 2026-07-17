@@ -102,6 +102,7 @@ export const CreateChannelSchema = z.object({
     .max(50, 'Máximo 50 caracteres')
     .regex(/^[a-z0-9-]+$/, 'Apenas letras minúsculas, números e hífens'),
   type: z.enum(['TEXT', 'VOICE']).default('TEXT'),
+  categoryId: z.string().nullable().optional(),
 })
 
 const SafeUrlSchema = z.string().min(1).max(2048).refine(

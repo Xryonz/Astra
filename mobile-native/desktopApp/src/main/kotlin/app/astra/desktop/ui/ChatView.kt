@@ -3,13 +3,18 @@ package app.astra.desktop.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -59,8 +64,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -73,6 +82,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import app.astra.desktop.ui.theme.DmMono
+import app.astra.desktop.ui.theme.DmSerif
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -120,6 +130,9 @@ import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
@@ -233,7 +246,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
         Box(Modifier.weight(1f)) {
             when {
                 state.loading -> ChatSkeleton()
-                state.messages.isEmpty() -> Center("nada por aqui ainda — comece a conversa")
+                state.messages.isEmpty() -> EmptyChatStar()
                 else -> LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
@@ -968,5 +981,104 @@ private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+    }
+}
+
+// ---- Empty state: estrela flutuando no vazio ----
+
+// Poeira estelar: posicoes fixas ("aleatorio" na mao) + fase propria pra cada
+// ponto derivar/cintilar fora de sincronia. r em dp.
+private data class Dust(val fx: Float, val fy: Float, val off: Float, val r: Float)
+
+private val DUST = listOf(
+    Dust(0.16f, 0.24f, 0.0f, 1.4f),
+    Dust(0.82f, 0.18f, 1.1f, 1.0f),
+    Dust(0.90f, 0.58f, 2.2f, 1.6f),
+    Dust(0.10f, 0.66f, 3.3f, 1.1f),
+    Dust(0.30f, 0.88f, 4.4f, 1.3f),
+    Dust(0.72f, 0.92f, 5.2f, 1.0f),
+    Dust(0.55f, 0.06f, 2.8f, 1.2f),
+)
+
+// Estrela de 5 pontas (ponta pra cima): raio externo/interno alternando —
+// mesma matematica polar do RotatingStarsLogo do gate.
+private fun starPath(cx: Float, cy: Float, outer: Float, inner: Float): Path {
+    val p = Path()
+    repeat(10) { i ->
+        val r = if (i % 2 == 0) outer else inner
+        val a = -PI / 2 + i * (PI / 5.0)
+        val x = cx + r * cos(a).toFloat()
+        val y = cy + r * sin(a).toFloat()
+        if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+    }
+    p.close()
+    return p
+}
+
+private fun DrawScope.drawDust(phase: Float, color: Color) {
+    DUST.forEach { d ->
+        // Micro-deriva eliptica + cintilada de alpha, cada ponto fora de fase.
+        val dx = sin(phase + d.off) * 3.dp.toPx()
+        val dy = cos(phase + d.off) * 2.dp.toPx()
+        val a = 0.18f + 0.14f * sin(phase * 3f + d.off)
+        drawCircle(
+            color = color.copy(alpha = a),
+            radius = d.r.dp.toPx(),
+            center = Offset(size.width * d.fx + dx, size.height * d.fy + dy),
+        )
+    }
+}
+
+// Empty-state do chat: estrela ambar com "?" flutuando no vazio (bob senoidal),
+// halo respirando em sincronia e poeira estelar derivando atras. GPU-only
+// (graphicsLayer + draw). Reduzir movimento -> tudo parado, ainda visivel.
+@Composable
+private fun EmptyChatStar() {
+    val accent = Obsidian.accent
+    // Um driver de fase pra tudo (bob/halo = 2x, cintilada = 3x): harmonicas
+    // inteiras de um loop linear 0..2π fecham o ciclo sem emenda.
+    val phase = if (LocalReduceMotion.current) 0f else {
+        val t = rememberInfiniteTransition(label = "voidFloat")
+        t.animateFloat(
+            initialValue = 0f,
+            targetValue = (2.0 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(6400, easing = LinearEasing)),
+            label = "phase",
+        ).value
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
+                // Poeira NAO acompanha o bob — camada de tras, da profundidade.
+                Canvas(Modifier.fillMaxSize()) { drawDust(phase, accent) }
+                // Estrela + "?" bobam juntos como uma unidade (periodo ~3.2s).
+                Box(
+                    Modifier
+                        .size(96.dp)
+                        .graphicsLayer { translationY = sin(phase * 2f) * 7.dp.toPx() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        // Halo respirando em sincronia com o bob (alpha 0.10..0.22).
+                        val halo = 0.16f + 0.06f * sin(phase * 2f)
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(accent.copy(alpha = halo), Color.Transparent),
+                            ),
+                            radius = size.minDimension / 2f,
+                        )
+                        val outer = size.minDimension * 0.30f
+                        drawPath(starPath(center.x, center.y, outer, outer * 0.44f), accent)
+                    }
+                    // "?" serifado no miolo (pentagono interno da estrela).
+                    Text("?", style = TextStyle(color = Obsidian.text3, fontSize = 14.sp, fontFamily = DmSerif))
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "nada por aqui ainda — comece a conversa",
+                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            )
+        }
     }
 }

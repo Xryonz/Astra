@@ -11,6 +11,7 @@ import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
+import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
@@ -315,6 +316,28 @@ class ShellVm(
                 )
             }
             saveLocation()
+        }
+    }
+
+    // Cria constelacao (ou grupo) pelo "+" da rail: cria, recarrega a lista e ja
+    // cai na nova (vira a selecao ativa).
+    fun createServer(name: String, isGroup: Boolean) {
+        scope.launch {
+            val created = runCatching { serverApi.create(CreateServerRequest(name, isGroup)).data }.getOrNull() ?: return@launch
+            val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
+            _state.update {
+                it.copy(
+                    servers = servers,
+                    selection = Selection.Server(created.id),
+                    chat = null,
+                    voiceChannel = null,
+                    friendsOpen = false,
+                    members = emptyList(),
+                )
+            }
+            store.setUiPref("lastSelection", Selection.Server(created.id).encode())
+            saveLocation()
+            loadMembers(created.id)
         }
     }
 

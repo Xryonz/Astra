@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -210,6 +211,7 @@ fun ShellScreen(
             selection = state.selection,
             onSelect = vm::select,
             onLeaveServer = vm::leaveServer,
+            onCreateServer = vm::createServer,
         )
         Sidebar(
             selection = state.selection,
@@ -300,6 +302,7 @@ private fun Rail(
     selection: Selection,
     onSelect: (Selection) -> Unit,
     onLeaveServer: (String) -> Unit,
+    onCreateServer: (name: String, isGroup: Boolean) -> Unit,
 ) {
     Column(
         // Cartao translucido: a aurora vaza por baixo (estilo mobile).
@@ -391,6 +394,9 @@ private fun Rail(
                 }
             }
         }
+        // "+" criar constelacao ou grupo (padrao Discord).
+        Spacer(Modifier.height(8.dp))
+        CreateServerButton(onCreateServer)
         // Bussola (Descobrir) fixada no rodape da rail — padrao Discord.
         Spacer(Modifier.height(8.dp))
         HairRule()
@@ -403,6 +409,92 @@ private fun Rail(
         }
         Spacer(Modifier.height(10.dp))
     }
+}
+
+// "+" da rail: abre um mini-menu (constelacao / grupo) e, ao escolher, um dialogo
+// de nome. Reaproveita o EditorialInputDialog (mesmo do criar canal).
+@Composable
+private fun CreateServerButton(onCreateServer: (name: String, isGroup: Boolean) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    // null = fechado; false = constelacao; true = grupo.
+    var kind by remember { mutableStateOf<Boolean?>(null) }
+    Box {
+        RailItem(active = false, onClick = { menuOpen = true }) {
+            Text("+", style = TextStyle(color = Obsidian.accent, fontSize = 22.sp))
+        }
+        if (menuOpen) {
+            Popup(
+                popupPositionProvider = RailMenuBeside,
+                onDismissRequest = { menuOpen = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .widthIn(min = 170.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                        .padding(4.dp),
+                ) {
+                    CreateMenuRow(glyph = "✦", label = "criar constelação") { menuOpen = false; kind = false }
+                    CreateMenuRow(icon = Lucide.Users, label = "criar grupo") { menuOpen = false; kind = true }
+                }
+            }
+        }
+    }
+    kind?.let { g ->
+        EditorialInputDialog(
+            title = if (g) "novo grupo" else "nova constelação",
+            placeholder = if (g) "nome do grupo" else "nome da constelação",
+            initial = "",
+            confirmLabel = "criar",
+            channelType = false,
+            onDismiss = { kind = null },
+            onConfirm = { name, _ -> onCreateServer(name, g) },
+        )
+    }
+}
+
+@Composable
+private fun CreateMenuRow(
+    label: String,
+    glyph: String? = null,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val bg by animateColorAsState(if (hovered) Obsidian.hover else Color.Transparent, tween(100))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(bg)
+            .hoverable(interaction)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when {
+            glyph != null -> Text(glyph, style = TextStyle(color = Obsidian.accent, fontSize = 14.sp))
+            icon != null -> LIcon(icon, tint = Obsidian.accent, size = 14.dp)
+        }
+        Spacer(Modifier.width(9.dp))
+        Text(label, style = TextStyle(color = if (hovered) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp))
+    }
+}
+
+// Menu do "+" aparece a DIREITA do botao da rail (a rail e estreita, na borda esq).
+private object RailMenuBeside : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset(
+        x = (anchorBounds.right + 8).coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0),
+        y = anchorBounds.top.coerceAtMost(windowSize.height - popupContentSize.height).coerceAtLeast(0),
+    )
 }
 
 @Composable

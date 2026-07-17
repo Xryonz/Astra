@@ -393,10 +393,10 @@ private fun Rail(
                 }
                 }
             }
+            // "+" colado logo abaixo do ultimo servidor (rola junto com a lista,
+            // nao fica preso no rodape da rail).
+            item(key = "create-server") { CreateServerButton(onCreateServer) }
         }
-        // "+" criar constelacao ou grupo (padrao Discord).
-        Spacer(Modifier.height(8.dp))
-        CreateServerButton(onCreateServer)
         // Bussola (Descobrir) fixada no rodape da rail — padrao Discord.
         Spacer(Modifier.height(8.dp))
         HairRule()

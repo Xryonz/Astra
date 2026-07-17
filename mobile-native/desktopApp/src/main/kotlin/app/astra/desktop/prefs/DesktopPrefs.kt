@@ -91,6 +91,10 @@ class DesktopPrefs(private val store: SessionStore) {
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,
+        // Dispositivos da call (nome exato; null = padrao do sistema). Entrada =
+        // mic (Java Sound); saida = alto-falante (ADM do WebRTC).
+        val audioInput: String? = null,
+        val audioOutput: String? = null,
     ) {
         // Flags EFETIVAS que o shell consome: o modo desempenho sobrepoe.
         val auroraOn: Boolean get() = auroraEnabled && !performanceMode
@@ -121,6 +125,8 @@ class DesktopPrefs(private val store: SessionStore) {
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
         micAutoGain = store.uiPref("micAutoGain") != "0",
+        audioInput = store.uiPref("audioInput")?.ifBlank { null },
+        audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
     )
 
     private fun persist(key: String, on: Boolean) = store.setUiPref(key, if (on) "1" else "0")
@@ -214,5 +220,15 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setMicAutoGain(v: Boolean) {
         persist("micAutoGain", v)
         _state.update { it.copy(micAutoGain = v) }
+    }
+
+    fun setAudioInput(v: String?) {
+        store.setUiPref("audioInput", v ?: "")
+        _state.update { it.copy(audioInput = v) }
+    }
+
+    fun setAudioOutput(v: String?) {
+        store.setUiPref("audioOutput", v ?: "")
+        _state.update { it.copy(audioOutput = v) }
     }
 }

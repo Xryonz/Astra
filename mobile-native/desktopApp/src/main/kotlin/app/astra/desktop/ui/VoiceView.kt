@@ -47,11 +47,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
@@ -307,6 +310,12 @@ fun VoiceView(
                         CallSettingsPanel(
                             current = prefState.screenQuality,
                             onPick = { engine.setScreenQuality(it) },
+                            inputs = remember { engine.inputDevices() },
+                            outputs = remember { engine.outputDevices() },
+                            selectedInput = prefState.audioInput,
+                            selectedOutput = prefState.audioOutput,
+                            onPickInput = { engine.setInputDevice(it) },
+                            onPickOutput = { engine.setOutputDevice(it) },
                         )
                     }
                 }
@@ -319,7 +328,16 @@ fun VoiceView(
 // Config da call (gear): escolher qualidade + fluidez da transmissao (aplica ao
 // vivo) e — futuro — o cancelador de ruido Krisp. Presets = os 4 do ScreenQuality.
 @Composable
-private fun CallSettingsPanel(current: ScreenQuality, onPick: (ScreenQuality) -> Unit) {
+private fun CallSettingsPanel(
+    current: ScreenQuality,
+    onPick: (ScreenQuality) -> Unit,
+    inputs: List<String>,
+    outputs: List<String>,
+    selectedInput: String?,
+    selectedOutput: String?,
+    onPickInput: (String?) -> Unit,
+    onPickOutput: (String?) -> Unit,
+) {
     val is1080 = current.width >= 1920
     val is60 = current.fps >= 60
     // 2 eixos (resolucao x fluidez) -> os 4 presets ScreenQuality por baixo.
@@ -350,6 +368,12 @@ private fun CallSettingsPanel(current: ScreenQuality, onPick: (ScreenQuality) ->
             selected = is60,
             onPick = { f -> onPick(choose(is1080, f)) },
         )
+        Spacer(Modifier.height(10.dp))
+        PanelHeader("Entrada (microfone)")
+        DeviceSelect(inputs, selectedInput, onPickInput)
+        Spacer(Modifier.height(8.dp))
+        PanelHeader("Saida (som)")
+        DeviceSelect(outputs, selectedOutput, onPickOutput)
         Spacer(Modifier.height(10.dp))
         PanelHeader("Microfone")
         Row(
@@ -404,6 +428,79 @@ private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPic
             ) {
                 Text(label, style = TextStyle(color = if (on) Obsidian.accent else Obsidian.text2, fontSize = 12.sp))
             }
+        }
+    }
+}
+
+// Seletor de dispositivo de audio (entrada/saida): mostra o atual e abre a lista
+// num popup. "Padrao do sistema" = null (primeiro/default do WebRTC/Java Sound).
+@Composable
+private fun DeviceSelect(options: List<String>, selected: String?, onPick: (String?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.base)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .clickable { open = true }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                selected ?: "Padrao do sistema",
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            LIcon(Lucide.ChevronDown, tint = Obsidian.text3, size = 14.dp)
+        }
+        if (open) {
+            Popup(
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .width(212.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                        .padding(4.dp),
+                ) {
+                    DeviceRow("Padrao do sistema", selected == null) { onPick(null); open = false }
+                    options.forEach { d -> DeviceRow(d, d == selected) { onPick(d); open = false } }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val bg by animateColorAsState(if (hovered) Obsidian.hover else Color.Transparent, tween(100))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(bg)
+            .hoverable(interaction)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (active) {
+            Spacer(Modifier.width(6.dp))
+            LIcon(Lucide.Check, tint = Obsidian.accent, size = 13.dp)
         }
     }
 }

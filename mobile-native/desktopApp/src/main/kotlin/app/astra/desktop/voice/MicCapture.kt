@@ -26,6 +26,8 @@ class MicCapture(
     private val noiseSuppress: Boolean,
     private val autoGain: Boolean,
     private val echoCancel: Boolean,
+    // Dispositivo de entrada (nome do Mixer; null = padrao do sistema).
+    private val inputDeviceName: String? = null,
     private val onLevel: (Float) -> Unit,
 ) {
     private var line: TargetDataLine? = null
@@ -42,14 +44,11 @@ class MicCapture(
         val inBytes = inFrames * channels * 2
         println("[MicCapture] formato do mic: ${rate}Hz ${channels}ch -> APM -> 48000Hz 1ch")
 
-        val l = runCatching {
-            (AudioSystem.getLine(DataLine.Info(TargetDataLine::class.java, format)) as TargetDataLine).apply {
-                // Buffer folgado (~200ms): pausa de GC nao derruba amostra (o picote
-                // que tambem soa robotico). Antes eram so 40ms.
-                open(format, inBytes * 20)
-                start()
-            }
-        }.getOrNull() ?: return false
+        // Buffer folgado (~200ms): pausa de GC nao derruba amostra (o picote que soa
+        // robotico). Tenta o device escolhido; se falhar, cai no padrao do sistema.
+        val l = acquireLine(inputDeviceName, format, inBytes * 20)
+            ?: (if (inputDeviceName != null) acquireLine(null, format, inBytes * 20) else null)
+            ?: return false
         line = l
 
         // APM: NS (alto) + high-pass sempre + AGC conforme a pref. AEC so tem efeito
@@ -99,6 +98,15 @@ class MicCapture(
         return true
     }
 
+    // Abre a TargetDataLine no Mixer escolhido (ou padrao) e ja liga. Null = falhou.
+    private fun acquireLine(deviceName: String?, format: AudioFormat, bufBytes: Int): TargetDataLine? = runCatching {
+        val info = DataLine.Info(TargetDataLine::class.java, format)
+        val mi = deviceName?.let { n -> AudioSystem.getMixerInfo().firstOrNull { it.name == n } }
+        val l = if (mi != null) AudioSystem.getMixer(mi).getLine(info) as TargetDataLine
+        else AudioSystem.getLine(info) as TargetDataLine
+        l.apply { open(format, bufBytes); start() }
+    }.getOrNull()
+
     fun stop() {
         running = false
         runCatching { line?.stop() }
@@ -130,4 +138,16 @@ class MicCapture(
             AudioFormat(44100f, 16, 2, true, false),
         )
     }
+}
+
+// Enumera dispositivos de ENTRADA (mic) via Java Sound — nomes pro seletor da call.
+// A SAIDA (alto-falante) vem do ADM do WebRTC (VoiceEngine.outputDevices()).
+object AudioDevices {
+    fun inputs(): List<String> = runCatching {
+        AudioSystem.getMixerInfo().filter { mi ->
+            runCatching {
+                AudioSystem.getMixer(mi).targetLineInfo.any { it.lineClass == TargetDataLine::class.java }
+            }.getOrDefault(false)
+        }.map { it.name }.distinct()
+    }.getOrDefault(emptyList())
 }

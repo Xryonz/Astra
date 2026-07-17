@@ -27,6 +27,7 @@ import dev.onvoid.webrtc.RTCStatsType
 import dev.onvoid.webrtc.SetSessionDescriptionObserver
 import dev.onvoid.webrtc.media.MediaStream
 import dev.onvoid.webrtc.media.MediaType
+import dev.onvoid.webrtc.media.audio.AudioDeviceModule
 import dev.onvoid.webrtc.media.audio.AudioTrack
 import dev.onvoid.webrtc.media.audio.CustomAudioSource
 import dev.onvoid.webrtc.media.video.CustomVideoSource
@@ -119,6 +120,8 @@ class VoiceEngine(
 
     private var ws: WebSocket? = null
     private var factory: PeerConnectionFactory? = null
+    // ADM explicito: controla o PLAYOUT (ouvir os outros) + escolha do device de saida.
+    private var adm: AudioDeviceModule? = null
     private var pingJob: Job? = null
     private var myIdentity: String? = null
     private var mySid: String? = null
@@ -205,7 +208,7 @@ class VoiceEngine(
                 // quebra nesse caminho): vem do MicCapture (Java Sound) via
                 // CustomAudioSource. UnsatisfiedLinkError e Error -> catch amplo.
                 try {
-                    factory = PeerConnectionFactory()
+                    factory = createFactory()
                     true
                 } catch (t: Throwable) {
                     false
@@ -246,6 +249,53 @@ class VoiceEngine(
                 },
             )
         }
+    }
+
+    // Factory com ADM explicito: o ADM default nao estava tocando o audio remoto
+    // nesta maquina (voce nao ouvia ninguem, mas te ouviam). Escolhe a saida da
+    // pref (ou a 1a). Se o caminho do ADM explodir, cai no factory padrao pra pelo
+    // menos ENTRAR na sala (mesmo comportamento de antes).
+    private fun createFactory(): PeerConnectionFactory {
+        val module = runCatching {
+            AudioDeviceModule().also { m ->
+                val outName = prefs.state.value.audioOutput
+                val devs = m.playoutDevices
+                (devs.firstOrNull { it.name == outName } ?: devs.firstOrNull())?.let { m.setPlayoutDevice(it) }
+            }
+        }.getOrNull()
+        adm = module
+        return runCatching {
+            if (module != null) PeerConnectionFactory(module) else PeerConnectionFactory()
+        }.getOrElse {
+            runCatching { module?.dispose() }
+            adm = null
+            PeerConnectionFactory()
+        }
+    }
+
+    // Dispositivos pro seletor da call. Saida = ADM (WebRTC); entrada = Java Sound.
+    fun outputDevices(): List<String> = runCatching { adm?.playoutDevices?.map { it.name } }.getOrNull().orEmpty()
+    fun inputDevices(): List<String> = AudioDevices.inputs()
+
+    // Troca a SAIDA ao vivo (ADM) + persiste. name null = primeiro/padrao.
+    fun setOutputDevice(name: String?) {
+        prefs.setAudioOutput(name)
+        val m = adm ?: return
+        runCatching {
+            val devs = m.playoutDevices
+            (devs.firstOrNull { it.name == name } ?: devs.firstOrNull())?.let { m.setPlayoutDevice(it) }
+        }
+    }
+
+    // Troca a ENTRADA ao vivo: persiste + reabre so a captura (mesma track/source).
+    fun setInputDevice(name: String?) {
+        prefs.setAudioInput(name)
+        val src = micSource ?: return
+        runCatching { micCapture?.stop() }
+        val p = prefs.state.value
+        val cap = MicCapture(src, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, name) { level -> onMicLevel(level) }
+        micCapture = cap
+        cap.start()
     }
 
     private fun handleSignal(res: LivekitRtc.SignalResponse) {
@@ -440,7 +490,7 @@ class VoiceEngine(
         micSource = source
         micTrack = f.createAudioTrack(cid, source)
         val p = prefs.state.value
-        val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel) { level -> onMicLevel(level) }
+        val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput) { level -> onMicLevel(level) }
         micCapture = cap
         cap.start() // false = sem dispositivo de captura; a track fica muda, mas nao trava
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -869,5 +919,8 @@ class VoiceEngine(
         sub = null
         runCatching { factory?.dispose() }
         factory = null
+        // O factory e dono do ADM (foi passado no construtor) — nao dispomos de novo
+        // pra nao arriscar double-free nativo; so soltamos a referencia.
+        adm = null
     }
 }

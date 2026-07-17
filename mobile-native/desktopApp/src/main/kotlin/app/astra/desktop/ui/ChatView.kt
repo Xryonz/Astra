@@ -118,7 +118,6 @@ import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.shared.AstraShared
-import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import zed.rainxch.rikkaui.components.ui.input.Input
@@ -616,8 +615,8 @@ private fun ContentBlock(
 private fun AttachmentBlock(att: AttachmentDto) {
     if (att.type?.startsWith("image/") == true) {
         val openImage = LocalOpenImage.current
-        AsyncImage(
-            model = att.url,
+        AstraImage(
+            url = att.url,
             contentDescription = att.name,
             modifier = Modifier
                 .widthIn(max = 320.dp)

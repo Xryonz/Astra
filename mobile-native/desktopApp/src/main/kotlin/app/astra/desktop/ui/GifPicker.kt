@@ -46,7 +46,6 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.dto.GifResultDto
-import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
@@ -169,8 +168,8 @@ private fun GifPanel(onPick: (GifResultDto) -> Unit) {
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(results, key = { it.id }) { g ->
-                    AsyncImage(
-                        model = g.preview,
+                    AstraImage(
+                        url = g.preview,
                         contentDescription = g.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier

@@ -51,7 +51,6 @@ import app.astra.desktop.ui.theme.Text
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
 import app.astra.shared.AstraShared
-import coil3.compose.AsyncImage
 import java.awt.Desktop
 import java.net.URI
 
@@ -108,8 +107,8 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                 },
             contentAlignment = Alignment.Center,
         ) {
-            AsyncImage(
-                model = abs,
+            AstraImage(
+                url = abs,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier

@@ -18,8 +18,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -53,7 +51,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -85,8 +82,6 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
-import app.astra.desktop.ui.theme.AccentOptions
-import app.astra.desktop.ui.theme.BgOptions
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -143,7 +138,10 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
         } else {
             Box(Modifier.matchParentSize().background(Obsidian.void))
         }
-        Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.82f)))
+        // Estrelas + veu mais leve: o fundo do takeover fica igual ao resto do app
+        // (aurora viva atras), so com veu o bastante pra manter a leitura.
+        if (prefState.starsOn) StarField(Modifier.matchParentSize())
+        Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.5f)))
         Row(Modifier.fillMaxSize()) {
             // Nav das secoes
             Column(
@@ -701,25 +699,17 @@ private fun Toggle(on: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-// Aba Aparencia (paridade com o mobile): tema rapido (presets), cor de destaque,
-// fundo, tamanho da fonte e densidade. accent/fundo aplicam AO VIVO no app inteiro
-// (Obsidian reativo); fonte/densidade valem no chat.
+// Aba Aparencia: tema pronto (presets) + tamanho da fonte e densidade. O preset
+// aplica AO VIVO no app inteiro (Obsidian reativo). Ajuste fino de accent/fundo
+// avulso saiu (por ora so temas prontos); volta no futuro como tema editavel.
 @Composable
 private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     FieldLabel("previa")
     AppearancePreview(p.fontSize, p.density)
 
     SettingsDivider()
-    FieldLabel("tema rapido")
+    FieldLabel("tema")
     PresetGrid(p.accentId, p.bgId) { prefs.setTheme(it.accentId, it.bgId) }
-
-    SettingsDivider()
-    FieldLabel("cor de destaque")
-    AccentRow(p.accentId, prefs::setAccent)
-
-    SettingsDivider()
-    FieldLabel("fundo")
-    BgList(p.bgId, prefs::setBg)
 
     SettingsDivider()
     LabeledControl("Tamanho da fonte", "das mensagens no chat") {
@@ -827,66 +817,3 @@ private fun PresetCard(preset: ThemePreset, active: Boolean, onClick: () -> Unit
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AccentRow(selected: String, onSelect: (String) -> Unit) {
-    FlowRow(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        AccentOptions.forEach { opt ->
-            val active = opt.id == selected
-            val check = if (opt.value.luminance() > 0.5f) Color(0xFF09091A) else Color.White
-            Box(
-                Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(opt.value)
-                    .border(
-                        if (active) 2.5.dp else 1.dp,
-                        if (active) Obsidian.text1 else Color.White.copy(alpha = 0.12f),
-                        RoundedCornerShape(9.dp),
-                    )
-                    .clickable { onSelect(opt.id) },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (active) LIcon(Lucide.Check, tint = check, size = 15.dp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun BgList(selected: String, onSelect: (String) -> Unit) {
-    Column(
-        Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        BgOptions.forEach { opt ->
-            val active = opt.id == selected
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (active) Obsidian.accentDim else Obsidian.raised.copy(alpha = 0.5f))
-                    .border(1.dp, if (active) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(10.dp))
-                    .clickable { onSelect(opt.id) }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier.size(width = 34.dp, height = 22.dp).clip(RoundedCornerShape(6.dp))
-                        .background(opt.voidC).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(6.dp)),
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    opt.label,
-                    style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
-                    modifier = Modifier.weight(1f),
-                )
-                if (active) LIcon(Lucide.Check, tint = Obsidian.accent, size = 15.dp)
-            }
-        }
-    }
-}

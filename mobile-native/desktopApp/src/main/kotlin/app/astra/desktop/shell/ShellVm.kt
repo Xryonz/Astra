@@ -171,17 +171,49 @@ class ShellVm(
                 Selection.Dms -> Selection.Dms
             }
 
+            // Restaura tambem o que estava ABERTO ao fechar (canal/DM/amigos), pra
+            // cair de volta no que estava fazendo. NAO reconecta voz (entrar numa
+            // call sozinho ao abrir seria agressivo). Alvo que sumiu = ignora.
+            val savedChat = store.uiPref("lastChat")
+            var restoredChat: ChatTarget? = null
+            var restoredFriends = false
+            var finalSelection = selection
+            when {
+                savedChat == "friends" -> { restoredFriends = true; finalSelection = Selection.Dms }
+                savedChat?.startsWith("channel:") == true -> {
+                    val id = savedChat.removePrefix("channel:")
+                    val srv = servers.find { s -> s.channels.any { it.id == id } }
+                    val ch = srv?.channels?.find { it.id == id }
+                    if (srv != null && ch != null && ch.type != "VOICE") {
+                        restoredChat = ChatTarget.Channel(ch.id, ch.name)
+                        finalSelection = Selection.Server(srv.id)
+                    }
+                }
+                savedChat?.startsWith("dm:") == true -> {
+                    val id = savedChat.removePrefix("dm:")
+                    val conv = dms.find { it.id == id }
+                    if (conv != null) {
+                        val title = conv.otherUser?.displayName ?: conv.otherUser?.username ?: "sussurro"
+                        restoredChat = ChatTarget.Dm(conv.id, title)
+                        finalSelection = Selection.Dms
+                    }
+                }
+            }
+
             _state.update {
                 it.copy(
                     loading = false,
                     me = meD.await(),
                     servers = servers,
                     dms = dms,
-                    selection = selection,
-                    unread = (unreadChannels + unreadDms).toSet(),
+                    selection = finalSelection,
+                    chat = restoredChat,
+                    friendsOpen = restoredFriends,
+                    unread = (unreadChannels + unreadDms).toSet() - setOfNotNull(restoredChat?.id),
                 )
             }
-            if (selection is Selection.Server) loadMembers(selection.id)
+            store.setUiPref("lastSelection", finalSelection.encode())
+            if (finalSelection is Selection.Server) loadMembers(finalSelection.id)
         }
     }
 
@@ -192,11 +224,29 @@ class ShellVm(
         if (_state.value.selection == selection) return
         _state.update { it.copy(selection = selection, members = emptyList(), chat = null, friendsOpen = false) }
         store.setUiPref("lastSelection", selection.encode())
+        saveLocation()
         if (selection is Selection.Server) loadMembers(selection.id)
     }
 
     // "Amigos" no topo dos sussurros: ocupa o palco (fecha conversa/voz).
-    fun openFriends() = _state.update { it.copy(friendsOpen = true, chat = null, voiceChannel = null) }
+    fun openFriends() {
+        _state.update { it.copy(friendsOpen = true, chat = null, voiceChannel = null) }
+        saveLocation()
+    }
+
+    // Persiste ONDE o usuario esta (canal/DM/amigos) pra restaurar no proximo boot.
+    // Voz NAO entra: nao auto-reconecta call. Le o estado JA atualizado.
+    private fun saveLocation() {
+        val st = _state.value
+        val c = st.chat
+        val enc = when {
+            st.friendsOpen -> "friends"
+            c is ChatTarget.Channel -> "channel:${c.id}"
+            c is ChatTarget.Dm -> "dm:${c.id}"
+            else -> ""
+        }
+        store.setUiPref("lastChat", enc)
+    }
 
     // Abrir a conversa limpa a nao-lida local (o POST /read fica no ChatVm).
     // V1 da voz: abrir texto SAI da sala (chamada persistente/mini-dock = V6).
@@ -205,6 +255,7 @@ class ShellVm(
         // + replay do fade). As mensagens novas ja chegam pelo socket em tempo real.
         if (_state.value.chat == target) return
         _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id) }
+        saveLocation()
     }
 
     // Menu de botao direito (F4) ------------------------------------------------
@@ -239,6 +290,7 @@ class ShellVm(
                         voiceChannel = if (leaving) null else st.voiceChannel,
                     )
                 }
+                saveLocation()
             }
         }
     }
@@ -262,6 +314,7 @@ class ShellVm(
                     friendsOpen = false,
                 )
             }
+            saveLocation()
         }
     }
 
@@ -280,6 +333,7 @@ class ShellVm(
                 )
             }
             store.setUiPref("lastSelection", Selection.Server(serverId).encode())
+            saveLocation()
             loadMembers(serverId)
         }
     }
@@ -326,7 +380,11 @@ class ShellVm(
         }
     }
 
-    fun openVoice(channel: ChannelDto) = _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
+    fun openVoice(channel: ChannelDto) {
+        // Voz nao e restaurada no boot: limpa o lastChat (saveLocation le chat=null).
+        _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
+        saveLocation()
+    }
 
     fun leaveVoice() = _state.update { it.copy(voiceChannel = null) }
 

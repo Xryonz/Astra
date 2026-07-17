@@ -276,7 +276,9 @@ fun VoiceView(
                         ) {
                             screens.forEachIndexed { i, s ->
                                 Text(
-                                    text = s.title.ifBlank { "tela ${i + 1}" },
+                                    // s.title vem do webrtc-java (Java, pode ser null) — sem o
+                                    // ?: dava NPE "isBlank on null" ao abrir o seletor de tela.
+                                    text = (s.title ?: "").ifBlank { "tela ${i + 1}" },
                                     style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))

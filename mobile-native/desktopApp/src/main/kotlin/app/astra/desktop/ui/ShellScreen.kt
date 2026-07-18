@@ -72,6 +72,8 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.geometry.Offset
@@ -148,7 +150,7 @@ fun ShellScreen(
     val prefState by prefs.state.collectAsState()
     val vm = remember {
         ShellVm(
-            scope, koin.get<ServerApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
+            scope, koin.get<ServerApi>(), koin.get<ChannelApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
             koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
         )
     }
@@ -281,6 +283,9 @@ fun ShellScreen(
             onRenameCategory = vm::renameCategory,
             onDeleteCategory = vm::deleteCategory,
             onReorderChannels = vm::reorderChannel,
+            onRenameChannel = vm::renameChannel,
+            onDeleteChannel = vm::deleteChannel,
+            onMarkChannelRead = vm::markChannelRead,
         )
         Stage(
             state.selectedServer,
@@ -817,6 +822,9 @@ private fun Sidebar(
     onRenameCategory: (serverId: String, categoryId: String, name: String) -> Unit,
     onDeleteCategory: (serverId: String, categoryId: String) -> Unit,
     onReorderChannels: (serverId: String, orderedIds: List<String>) -> Unit,
+    onRenameChannel: (serverId: String, channelId: String, name: String) -> Unit,
+    onDeleteChannel: (serverId: String, channelId: String) -> Unit,
+    onMarkChannelRead: (channelId: String) -> Unit,
 ) {
     // Dialogo de nome (nova orbita / nova categoria / renomear) — centralizado na
     // janela. So o dono da constelacao dispara pelos menus de botao direito.
@@ -889,6 +897,9 @@ private fun Sidebar(
                             onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
                             onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
                             onReorderChannels = { ids -> srv?.let { onReorderChannels(it.id, ids) } },
+                            onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
+                            onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
+                            onMarkChannelRead = onMarkChannelRead,
                         )
                     }
                 }
@@ -934,7 +945,75 @@ private fun Sidebar(
             onDismiss = { chanDialog = null },
             onConfirm = { name, _ -> onRenameCategory(d.serverId, d.categoryId, name) },
         )
+        is ChanDialog.RenameChannel -> EditorialInputDialog(
+            title = "renomear órbita",
+            placeholder = "nome-da-orbita",
+            initial = d.current,
+            confirmLabel = "salvar",
+            channelType = true,
+            onDismiss = { chanDialog = null },
+            onConfirm = { name, _ -> onRenameChannel(d.serverId, d.channelId, name) },
+        )
+        is ChanDialog.DeleteChannel -> ConfirmDialog(
+            text = "excluir #${d.name}? apaga as mensagens dela — nao da pra desfazer.",
+            confirmLabel = "excluir",
+            onDismiss = { chanDialog = null },
+            onConfirm = { onDeleteChannel(d.serverId, d.channelId) },
+        )
         null -> Unit
+    }
+}
+
+// Confirmacao destrutiva centralizada (mesma casca do EditorialInputDialog).
+@Composable
+private fun ConfirmDialog(
+    text: String,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Popup(
+        popupPositionProvider = CenterInWindow,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        val entered = remember { MutableTransitionState(false).apply { targetState = true } }
+        AnimatedVisibility(
+            visibleState = entered,
+            enter = fadeIn(tween(140)) + scaleIn(tween(160), initialScale = 0.96f),
+        ) {
+            Column(
+                Modifier
+                    .width(300.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Obsidian.overlay)
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
+                    .padding(18.dp),
+            ) {
+                Text(text, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 18.sp))
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Text(
+                        "cancelar",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onDismiss() }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        confirmLabel,
+                        style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Obsidian.danger, RoundedCornerShape(8.dp))
+                            .clickable { onDismiss(); onConfirm() }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -953,6 +1032,9 @@ private fun OrbitList(
     onRenameCat: (categoryId: String, current: String) -> Unit,
     onDeleteCat: (categoryId: String) -> Unit,
     onReorderChannels: (orderedIds: List<String>) -> Unit,
+    onOpenChannelRename: (channelId: String, current: String) -> Unit,
+    onOpenChannelDelete: (channelId: String, name: String) -> Unit,
+    onMarkChannelRead: (channelId: String) -> Unit,
 ) {
     if (server == null) return
     // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
@@ -966,6 +1048,8 @@ private fun OrbitList(
     val looseIds = loose.map { it.id }
     // Estado do drag de reordenacao (uma instancia por constelacao aberta).
     val drag = remember(server.id) { ChannelDragState() }
+    // Acoes do botao-direito da orbita (serverId ja embutido nas lambdas de cima).
+    val chMenu = ChannelMenu(isOwner, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete)
 
     // Cascata (F6): a posicao corrida na lista decide o atraso de entrada.
     // Os indices sao computados no escopo do DSL (sincrono e deterministico);
@@ -978,6 +1062,7 @@ private fun OrbitList(
                     ch, ch.id == activeChatId, ch.id in unread,
                     members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
                     dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels) else null,
+                    menu = chMenu,
                 )
             }
         }
@@ -1025,6 +1110,7 @@ private fun OrbitList(
                         // Reordena so quando aberta (indice do visivel == indice real).
                         dragCtx = if (isOwner && !collapsed)
                             ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels) else null,
+                        menu = chMenu,
                     )
                 }
             }
@@ -1200,11 +1286,26 @@ private fun OrbitEntry(
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
     dragCtx: ChannelDragCtx? = null,
+    menu: ChannelMenu,
 ) {
+    val clipboard = LocalClipboardManager.current
     // Column: o CascadeIn envolve isto num Box (empilha) — sem a Column, a lista
     // de presenca ficaria SOBRE o canal em vez de abaixo. Empilha na vertical.
     Column(Modifier.fillMaxWidth()) {
-        OrbitItem(ch, active, unread, onOpenChat, onOpenVoice, dragCtx)
+        // Botao direito na orbita: marcar lido / copiar ID (todos) + renomear/excluir (dono).
+        EditorialContextMenu(entries = {
+            buildList {
+                if (unread) add(MenuEntry.Item("marcar como lido") { menu.onMarkRead(ch.id) })
+                add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(ch.id)) })
+                if (menu.isOwner) {
+                    add(MenuEntry.Separator)
+                    add(MenuEntry.Item("renomear") { menu.onRename(ch.id, ch.name) })
+                    add(MenuEntry.Item("excluir órbita", danger = true) { menu.onDelete(ch.id, ch.name) })
+                }
+            }
+        }) {
+            OrbitItem(ch, active, unread, onOpenChat, onOpenVoice, dragCtx)
+        }
         if (ch.type == "VOICE") {
             // Presenca do poll + eu otimista (aparece na hora que entro, sem
             // esperar o proximo ciclo de ~5s do backend).
@@ -1283,7 +1384,18 @@ private sealed interface ChanDialog {
     data class NewChannel(val serverId: String, val categoryId: String?) : ChanDialog
     data class NewCategory(val serverId: String) : ChanDialog
     data class RenameCategory(val serverId: String, val categoryId: String, val current: String) : ChanDialog
+    data class RenameChannel(val serverId: String, val channelId: String, val current: String) : ChanDialog
+    data class DeleteChannel(val serverId: String, val channelId: String, val name: String) : ChanDialog
 }
+
+// Botao direito que agrupa as acoes de uma orbita, montado no OrbitList (ja sabe
+// se e dono) e passado adiante pro OrbitEntry. serverId ja fica embutido nas lambdas.
+private class ChannelMenu(
+    val isOwner: Boolean,
+    val onMarkRead: (channelId: String) -> Unit,
+    val onRename: (channelId: String, current: String) -> Unit,
+    val onDelete: (channelId: String, name: String) -> Unit,
+)
 
 // Nome de orbita segue a regra do backend (^[a-z0-9-]+$): sanitiza ao vivo pra
 // dar o mesmo feedback do Discord (espaco vira hifen, acento/simbolo some).

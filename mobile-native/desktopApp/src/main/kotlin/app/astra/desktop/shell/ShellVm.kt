@@ -2,6 +2,7 @@ package app.astra.desktop.shell
 
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
+import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
@@ -13,6 +14,7 @@ import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.MoveChannelRequest
+import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
@@ -82,6 +84,7 @@ data class ShellUiState(
 class ShellVm(
     private val scope: CoroutineScope,
     private val serverApi: ServerApi,
+    private val channelApi: ChannelApi,
     private val userApi: UserApi,
     private val dmApi: DmApi,
     private val voiceApi: VoiceApi,
@@ -444,6 +447,34 @@ class ShellVm(
                 if (oldPos[id] != np) runCatching { serverApi.moveChannel(serverId, id, MoveChannelRequest(np)) }
             }
             reloadServers()
+        }
+    }
+
+    // ---- Menu de canal (botao direito na orbita) ----
+    // Marcar lido: qualquer membro. Renomear/excluir: so o dono (a UI gateia).
+    fun markChannelRead(channelId: String) {
+        scope.launch { runCatching { channelApi.markRead(channelId) } }
+        _state.update { it.copy(unread = it.unread - channelId) }
+    }
+
+    fun renameChannel(serverId: String, channelId: String, name: String) {
+        scope.launch {
+            val ok = runCatching {
+                serverApi.renameChannel(serverId, channelId, UpdateChannelNameRequest(name))
+            }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    fun deleteChannel(serverId: String, channelId: String) {
+        scope.launch {
+            runCatching { serverApi.deleteChannel(serverId, channelId) }.onSuccess {
+                _state.update { st ->
+                    val gone = (st.chat as? ChatTarget.Channel)?.id == channelId
+                    st.copy(chat = if (gone) null else st.chat)
+                }
+                reloadServers()
+            }
         }
     }
 

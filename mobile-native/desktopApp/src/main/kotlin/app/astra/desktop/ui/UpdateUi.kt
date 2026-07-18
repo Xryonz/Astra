@@ -71,14 +71,27 @@ import kotlin.math.sin
 @Composable
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
-    val scope = rememberCoroutineScope()
+
+    // Tempo minimo de tela: mesmo com a checagem instantanea, o gate fica no ar
+    // ~2.6s pra a animacao de carregamento (planeta + estrelas orbitando) ser
+    // vista inteira antes de cair no app. So conta pro caminho "atualizado".
+    val gateStart = remember { System.currentTimeMillis() }
+    suspend fun holdThenDone() {
+        val minMs = 2600L
+        val left = minMs - (System.currentTimeMillis() - gateStart)
+        if (left > 0) delay(left)
+        onDone()
+    }
 
     // Gate silencioso: falha de rede vira "atualizado" e segue (sem "nao deu").
     LaunchedEffect(Unit) { updater.check(silent = true) }
-    // Resolucao: atualizado/falha seguem pro app; pronto -> reinicia e instala.
+    // Resolucao TOTALMENTE automatica: achou versao nova -> baixa sozinho (sem
+    // clique) -> quando pronto, reinicia e instala. Atualizado/falha seguem pro
+    // app. Basta ter QUALQUER versao instalada: o resto anda sem GitHub na mao.
     LaunchedEffect(st) {
-        when (st) {
-            is UpdateState.UpToDate -> { delay(800); onDone() }
+        when (val s = st) {
+            is UpdateState.Available -> updater.downloadAndStage(s)
+            is UpdateState.UpToDate -> holdThenDone()
             is UpdateState.Failed -> { delay(1300); onDone() }
             is UpdateState.Ready -> { delay(700); updater.restartToInstall() }
             else -> {}
@@ -104,8 +117,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             Text("Astra", style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif))
             Spacer(Modifier.height(8.dp))
             when (val s = st) {
-                is UpdateState.Available ->
-                    GateAvailable(s, onUpdate = { scope.launch { updater.downloadAndStage(s) } }, onLater = onDone)
+                is UpdateState.Available -> GateStatus("nova versao ${s.version} — baixando…")
                 is UpdateState.Downloading -> GateDownloading(s)
                 is UpdateState.Ready -> GateStatus("reiniciando pra aplicar…")
                 is UpdateState.Failed -> GateStatus(s.reason)
@@ -172,28 +184,6 @@ private fun RotatingStarsLogo(reduceMotion: Boolean) {
 @Composable
 private fun GateStatus(text: String) {
     Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-}
-
-@Composable
-private fun GateAvailable(s: UpdateState.Available, onUpdate: () -> Unit, onLater: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        GateStatus("nova versao ${s.version} disponivel")
-        if (s.notes.isNotBlank()) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                s.notes,
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp),
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 300.dp),
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PillButton("depois", accent = false, onClick = onLater)
-            PillButton("atualizar agora", accent = true, onClick = onUpdate)
-        }
-    }
 }
 
 @Composable

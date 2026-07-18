@@ -118,6 +118,7 @@ import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Volume2
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
@@ -142,6 +143,11 @@ fun ShellScreen(
     windowHidden: () -> Boolean,
     notify: (String, String) -> Unit,
     onLogout: () -> Unit,
+    searchOpen: Boolean = false,
+    onCloseSearch: () -> Unit = {},
+    notifOpen: Boolean = false,
+    onCloseNotif: () -> Unit = {},
+    onNotifUnread: (Int) -> Unit = {},
 ) {
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
@@ -164,6 +170,17 @@ fun ShellScreen(
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
     LaunchedEffect(Unit) { socket.connect() }
+
+    // Badge do sino: poll da contagem de nao-lidas a cada 30s; qualquer leitura no
+    // painel bumpa o tick -> refetch imediato. Barato (uma linha no backend).
+    var notifRefresh by remember { mutableStateOf(0) }
+    LaunchedEffect(notifRefresh) {
+        while (true) {
+            val c = runCatching { koin.get<NotificationApi>().unread().data?.count }.getOrNull() ?: 0
+            onNotifUnread(c)
+            delay(30_000)
+        }
+    }
 
     // Toast na bandeja quando chega mensagem com a janela fechada/minimizada.
     // DM tem autor+conteudo (salas todas joinadas); canal so tem o id do
@@ -351,6 +368,44 @@ fun ShellScreen(
                     vm.select(Selection.Dms)
                     vm.openChat(ChatTarget.Dm(cid, title))
                 },
+            )
+        }
+
+        // Busca-A (lupa no titlebar): palette dedicada com abas. Fade+zoom sutil.
+        AnimatedVisibility(
+            visible = searchOpen,
+            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f),
+            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f),
+        ) {
+            SearchOverlay(
+                currentServerId = state.selectedServer?.id,
+                onClose = onCloseSearch,
+                onOpenChannel = { sid, cid, name ->
+                    vm.select(Selection.Server(sid))
+                    vm.openChat(ChatTarget.Channel(cid, name))
+                },
+                onWhisper = { username, title -> vm.startDm(username, title) },
+            )
+        }
+
+        // Notificacoes-A (sino no titlebar): dropdown topo-direita. Fade+zoom sutil.
+        AnimatedVisibility(
+            visible = notifOpen,
+            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f),
+            exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f),
+        ) {
+            NotifPanel(
+                onClose = onCloseNotif,
+                onOpenChannel = { sid, cid, name ->
+                    vm.select(Selection.Server(sid))
+                    vm.openChat(ChatTarget.Channel(cid, name))
+                },
+                onOpenDm = { cid, title ->
+                    vm.select(Selection.Dms)
+                    vm.openChat(ChatTarget.Dm(cid, title))
+                },
+                onOpenServer = { sid -> vm.select(Selection.Server(sid)) },
+                onAfterRead = { notifRefresh++ },
             )
         }
     }

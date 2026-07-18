@@ -171,6 +171,11 @@ fun main() {
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
+            // Overlays disparados pelo titlebar (lupa/sino) mas renderizados no
+            // shell (onde vive o vm de navegacao). Estado hasteado aqui no meio.
+            var searchOpen by remember { mutableStateOf(false) }
+            var notifOpen by remember { mutableStateOf(false) }
+            var notifUnread by remember { mutableStateOf(0) }
 
             // Tema do usuario (Settings > Aparencia): aplica o par accent/fundo nos
             // tokens reativos do Obsidian -> o app inteiro recolore ao vivo.
@@ -199,7 +204,14 @@ fun main() {
                             else Modifier,
                         ),
                 ) {
-                    AstraTitleBar(state = state, onClose = { windowVisible = false })
+                    AstraTitleBar(
+                        state = state,
+                        onClose = { windowVisible = false },
+                        showActions = session != null,
+                        notifUnread = notifUnread,
+                        onOpenSearch = { searchOpen = true },
+                        onOpenNotifications = { notifOpen = !notifOpen },
+                    )
                     // Ativa = visivel & nao minimizada: aurora/estrelas so pedem
                     // frame quando ativa (poupam na bandeja) SEM congelar quando um
                     // popup rouba o foco (isso e visibilidade, nao foco).
@@ -222,6 +234,11 @@ fun main() {
                                     authRepo.logout()
                                     session = null
                                 },
+                                searchOpen = searchOpen,
+                                onCloseSearch = { searchOpen = false },
+                                notifOpen = notifOpen,
+                                onCloseNotif = { notifOpen = false },
+                                onNotifUnread = { notifUnread = it },
                             )
                         }
                         // Banner de update (topo): lembrete quando adiado ("depois")

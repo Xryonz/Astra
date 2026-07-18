@@ -77,7 +77,9 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -260,8 +262,8 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             val fresh = animatedIds.add(msg.id)
                             baselineDone && fresh
                         }
-                        // Sem menu de botao direito aqui: o dono preferiu so a
-                        // pill de hover nas mensagens.
+                        // Pill de hover + menu de botao direito (as duas rotas
+                        // pras mesmas acoes; o menu tem copiar texto/ID/fixar).
                         MessageRow(
                             msg = msg,
                             // Reply quebra o agrupamento (a referencia precisa aparecer).
@@ -277,6 +279,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             onSaveEdit = { text -> vm.edit(msg.id, text); editingId = null },
                             onCancelEdit = { editingId = null },
                             onDelete = { vm.delete(msg.id) },
+                            onPin = { vm.pin(msg.id) },
                             onJumpTo = { id -> jumpTo(id) },
                             onStartDm = onStartDm,
                         )
@@ -433,6 +436,7 @@ private fun MessageRow(
     onSaveEdit: (String) -> Unit,
     onCancelEdit: () -> Unit,
     onDelete: () -> Unit,
+    onPin: () -> Unit,
     onJumpTo: (String) -> Unit,
     onStartDm: (String, String) -> Unit,
 ) {
@@ -443,6 +447,7 @@ private fun MessageRow(
     val pillInteraction = remember { MutableInteractionSource() }
     val pillHovered by pillInteraction.collectIsHoveredAsState()
     var pickerOpen by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
 
     val rowAlpha by animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS))
     val bg by animateColorAsState(
@@ -457,6 +462,23 @@ private fun MessageRow(
     val enter = remember { Animatable(if (enterAnim) 0f else 1f) }
     LaunchedEffect(Unit) { if (enterAnim) enter.animateTo(1f, tween(150)) }
 
+    EditorialContextMenu(entries = {
+        buildList {
+            add(MenuEntry.Item("responder") { onReply() })
+            if (isChannel) add(MenuEntry.EmojiSub("reagir", QUICK_EMOJIS) { onReact(it) })
+            add(MenuEntry.Separator)
+            if (msg.content.isNotBlank()) {
+                add(MenuEntry.Item("copiar texto") { clipboard.setText(AnnotatedString(msg.content)) })
+            }
+            add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(msg.id)) })
+            if (isChannel) add(MenuEntry.Item("fixar mensagem") { onPin() })
+            if (isChannel && msg.mine) add(MenuEntry.Item("editar") { onStartEdit() })
+            if (msg.mine) {
+                add(MenuEntry.Separator)
+                add(MenuEntry.Item("excluir", danger = true) { onDelete() })
+            }
+        }
+    }) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -548,6 +570,7 @@ private fun MessageRow(
                 ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
             }
         }
+    }
     }
 }
 

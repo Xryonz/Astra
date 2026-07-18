@@ -395,6 +395,15 @@ class ChatVm(
         }
     }
 
+    // Fixa no canal (so canais tem pinned; backend exige ser autor/dono/MANAGE).
+    fun pin(messageId: String) {
+        val channelId = (target as? ChatTarget.Channel)?.id ?: return
+        scope.launch {
+            runCatching { channelApi.pin(channelId, messageId) }
+                .onFailure { _state.update { it.copy(error = "Nao deu pra fixar") } }
+        }
+    }
+
     private fun listenLive() {
         liveJob = scope.launch {
             when (target) {

@@ -65,7 +65,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChartColumn
-import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Info

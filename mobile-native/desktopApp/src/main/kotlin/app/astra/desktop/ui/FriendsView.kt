@@ -56,7 +56,6 @@ import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.dto.FriendDto
 import app.astra.mobile.core.network.dto.FriendRequestDto
 import app.astra.mobile.core.network.dto.SendFriendRequest
-import com.composables.icons.lucide.AtSign
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Inbox
 import com.composables.icons.lucide.Lucide

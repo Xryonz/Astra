@@ -19,6 +19,22 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+// Estabilidade + relatorios do compilador Compose.
+composeCompiler {
+    // SEMPRE: trata os DTOs imutaveis do :shared (e data classes de item de lista)
+    // como estaveis -> Compose pula por equals estrutural, menos recomposicao em
+    // listas. Ver compose_stability.conf. Zero mudanca de runtime.
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
+
+    // Profiler de recomposicao (build-time), gated pra nao pesar o build normal:
+    //   ./gradlew :desktopApp:compileKotlin -PcomposeReports --rerun-tasks
+    // Le em build/compose_reports/*-composables.txt e *-classes.txt.
+    if (providers.gradleProperty("composeReports").isPresent) {
+        reportsDestination.set(layout.buildDirectory.dir("compose_reports"))
+        metricsDestination.set(layout.buildDirectory.dir("compose_metrics"))
+    }
+}
+
 // jpackage/jlink quebram com caminho non-ASCII no Windows (o repo mora em
 // ".../Codigos e Loucuras/..."). Pra EMPACOTAR o .exe, redirecione o build deste
 // modulo pra um path sem acento:

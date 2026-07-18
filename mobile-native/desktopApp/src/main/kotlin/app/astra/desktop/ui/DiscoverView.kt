@@ -138,7 +138,7 @@ fun DiscoverView(onJoined: (String) -> Unit, modifier: Modifier = Modifier) {
         when {
             loading && results.isEmpty() -> Center("procurando constelacoes…")
             error != null && results.isEmpty() -> Center(error!!)
-            results.isEmpty() -> Center(if (query.isBlank()) "nenhuma constelacao publica ainda" else "nada encontrado")
+            results.isEmpty() -> EmptyHint(if (query.isBlank()) "nenhuma constelacao publica ainda" else "nada encontrado")
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 240.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

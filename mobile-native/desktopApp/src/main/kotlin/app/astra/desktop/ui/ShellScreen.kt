@@ -1744,9 +1744,7 @@ private fun DmList(
     onOpenChat: (ChatTarget) -> Unit,
 ) {
     if (dms.isEmpty()) {
-        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-            Text("nenhum sussurro ainda", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-        }
+        EmptyHint("nenhum sussurro ainda")
         return
     }
     val clipboard = LocalClipboardManager.current
@@ -1985,18 +1983,7 @@ private fun Stage(
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                             )
                         }
-                        else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "✦",
-                                style = TextStyle(color = Obsidian.borderMid, fontSize = 40.sp),
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Text(
-                                text = if (server != null) "escolha uma orbita — a conversa chega na proxima fatia"
-                                else "escolha um sussurro — a conversa chega na proxima fatia",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 13.sp),
-                            )
-                        }
+                        else -> EmptyStage(isServer = server != null)
                     }
                 }
             }

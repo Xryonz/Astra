@@ -200,7 +200,7 @@ private fun FriendsList(
 ) {
     when {
         loading && items.isEmpty() -> Center("carregando amigos…")
-        items.isEmpty() -> Center("nenhum amigo ainda — adicione pela aba Adicionar")
+        items.isEmpty() -> EmptyHint("nenhum amigo ainda — adicione pela aba Adicionar")
         else -> {
             val online = items.count { presenceRank(it.presence) < 3 }
             Column(Modifier.fillMaxSize()) {
@@ -289,7 +289,7 @@ private fun PendingLists(
     onDrop: (String) -> Unit,
 ) {
     if (incoming.isEmpty() && outgoing.isEmpty()) {
-        Center("nenhum pedido pendente")
+        EmptyHint("nenhum pedido pendente")
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp)) {

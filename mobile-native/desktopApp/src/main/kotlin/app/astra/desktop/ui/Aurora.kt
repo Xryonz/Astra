@@ -69,23 +69,46 @@ float fbm(float2 p) {
 float curtain(float2 uv, float yC, float seed, float2 flow) {
     float n = fbm(float2(uv.x * 2.6 + seed, seed * 3.1) + flow);
     float d = uv.y - (yC + (n - 0.5) * 0.30);
-    float body = exp(-abs(d) * (d < 0.0 ? 26.0 : 9.0));
-    float rays = 0.55 + 0.45 * fbm(float2(uv.x * 7.0 - seed, 2.7 + seed) + flow * 1.4);
+    // Borda superior mais dura (34 vs 26) -> cortina com contorno definido.
+    float body = exp(-abs(d) * (d < 0.0 ? 34.0 : 10.0));
+    // Estrias verticais crispadas: o MESMO fbm de raios, re-shapeado por
+    // smoothstep (contraste alto) — definicao sem custo extra de ruido.
+    float r = fbm(float2(uv.x * 11.0 - seed, 2.7 + seed) + flow * 1.6);
+    float rays = 0.30 + 0.70 * smoothstep(0.30, 0.78, r);
     return body * rays * (0.5 + n);
 }
 
 half4 main(float2 fragCoord) {
     float2 uv = fragCoord / uSize;
     // Tempo em CIRCULO -> loop sem emenda (a chave do "sem salto" do mobile).
+    // Todo termo temporal usa multiplos INTEIROS de ang -> fecha no periodo.
     float ang = uTime * 0.1;
     float2 flow1 = float2(cos(ang), sin(ang)) * 1.6;
     float2 flow2 = float2(cos(ang * 2.0 + 2.1), sin(ang * 2.0 + 2.1)) * 1.1;
     float c1 = curtain(uv, 0.24, 0.0, flow1);
     float c2 = curtain(uv, 0.46, 5.3, flow2) * 0.6;
     float fall = 1.0 - smoothstep(0.05, 0.9, uv.y);
-    float aur = (c1 + c2) * fall * 0.16;
+    float aur = (c1 + c2) * fall * 0.22;
 
-    float3 col = uVoid + uAccent * min(aur, 0.30);
+    // Bandas de luz diagonais varrendo as cortinas. Posicao oscila com
+    // sin(ang*N) (periodico); so exp/abs, custo ~zero de ALU.
+    float beam1 = exp(-abs(uv.x * 0.8 - uv.y * 0.45 - 0.18 - 0.45 * sin(ang * 2.0 + 0.7)) * 5.5);
+    float beam2 = exp(-abs(uv.x * 0.6 + uv.y * 0.55 - 0.45 - 0.50 * sin(ang * 3.0 + 3.9)) * 7.0) * 0.6;
+    float beams = beam1 + beam2;
+    aur *= 1.0 + 0.45 * beams;
+    aur += beams * fall * 0.02;
+
+    // Respiracao: pulso global lento (periodo = AURORA_LOOP/3 ~ 21s).
+    aur *= 0.85 + 0.15 * sin(ang * 3.0 + 0.9);
+
+    // Variacao sutil do accent pelo campo: intensidade (+-12%, pre-clamp) e
+    // calor (+-6% nos canais do PROPRIO accent — nenhuma cor nova). 1 fbm
+    // extra de baixa frequencia (5 chamadas fbm no total).
+    float wf = fbm(uv * float2(1.3, 2.0) + flow1 * 0.35 + float2(7.7, 3.3));
+    aur *= 0.88 + 0.24 * wf;
+    float3 acc = uAccent * mix(float3(0.94, 0.99, 1.05), float3(1.06, 1.00, 0.94), wf);
+
+    float3 col = uVoid + acc * min(aur, 0.30);
     return half4(col, 1.0);
 }
 """

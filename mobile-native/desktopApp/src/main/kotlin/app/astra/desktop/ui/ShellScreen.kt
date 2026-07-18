@@ -530,6 +530,7 @@ private fun Rail(
     onDeleteServer: (String) -> Unit,
     onCreateServer: (name: String, isGroup: Boolean) -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
     Column(
         // Cartao translucido: a aurora vaza por baixo (estilo mobile).
         modifier = Modifier.width(72.dp).fillMaxHeight().panelCard(Obsidian.void, 0.34f),
@@ -557,8 +558,15 @@ private fun Rail(
                 var confirmDelete by remember(srv.id) { mutableStateOf(false) }
                 val isOwner = srv.ownerId == myId
                 EditorialContextMenu(entries = {
-                    if (isOwner) listOf(MenuEntry.Item("excluir constelacao", danger = true) { confirmDelete = true })
-                    else listOf(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })
+                    buildList {
+                        srv.inviteCode?.let { code ->
+                            add(MenuEntry.Item("copiar convite") { clipboard.setText(AnnotatedString(code)) })
+                        }
+                        add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(srv.id)) })
+                        add(MenuEntry.Separator)
+                        if (isOwner) add(MenuEntry.Item("excluir constelacao", danger = true) { confirmDelete = true })
+                        else add(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })
+                    }
                 }) {
                 if (confirmLeave) {
                     Popup(
@@ -1046,8 +1054,9 @@ private fun OrbitList(
 ) {
     if (server == null) return
     // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
-    // So o dono ganha os menus de gestao (botao direito na categoria).
+    // Todos veem copiar ID / marcar lida na categoria; so o dono ganha gestao.
     val isOwner = server.ownerId == myId
+    val clipboard = LocalClipboardManager.current
     var collapsedCats by remember(server.id) { mutableStateOf(setOf<String>()) }
     val catIds = server.categories.map { it.id }.toSet()
     val loose = server.channels.filter { it.categoryId == null || it.categoryId !in catIds }.sortedBy { it.position }
@@ -1090,18 +1099,21 @@ private fun OrbitList(
                             },
                         )
                     }
-                    if (isOwner) {
-                        EditorialContextMenu(entries = {
-                            listOf(
-                                MenuEntry.Item("criar órbita aqui") { onNewChannelInCat(cat.id) },
-                                MenuEntry.Separator,
-                                MenuEntry.Item("renomear categoria") { onRenameCat(cat.id, cat.name) },
-                                MenuEntry.Item("excluir categoria", danger = true) { onDeleteCat(cat.id) },
-                            )
-                        }) { head() }
-                    } else {
-                        head()
-                    }
+                    val catUnread = channels.any { it.id in unread }
+                    EditorialContextMenu(entries = {
+                        buildList {
+                            if (catUnread) add(MenuEntry.Item("marcar categoria como lida") {
+                                channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
+                            })
+                            add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(cat.id)) })
+                            if (isOwner) {
+                                add(MenuEntry.Separator)
+                                add(MenuEntry.Item("criar órbita aqui") { onNewChannelInCat(cat.id) })
+                                add(MenuEntry.Item("renomear categoria") { onRenameCat(cat.id, cat.name) })
+                                add(MenuEntry.Item("excluir categoria", danger = true) { onDeleteCat(cat.id) })
+                            }
+                        }
+                    }) { head() }
                 }
             }
             // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
@@ -1682,6 +1694,7 @@ private fun DmList(
         }
         return
     }
+    val clipboard = LocalClipboardManager.current
     // Estrutura Discord: busca no topo dos sussurros (filtro local por nome).
     var query by remember { mutableStateOf("") }
     val filtered = if (query.isBlank()) dms else dms.filter { c ->
@@ -1739,6 +1752,7 @@ private fun DmList(
                         },
                     )
                     if (isUnread) add(MenuEntry.Item("marcar como lida") { onMarkRead(conv.id) })
+                    u?.id?.let { uid -> add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(uid)) }) }
                 }
             }) {
             Box(Modifier.fillMaxWidth()) {

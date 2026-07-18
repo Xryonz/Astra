@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -107,7 +109,19 @@ fun UserFooter(
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
     var profileOpen by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
 
+    // Botao direito no rodape: abrir perfil / copiar ID / configuracoes / sair.
+    // "definir status" fica pra fatia do submenu generico + API de status.
+    EditorialContextMenu(entries = {
+        buildList {
+            add(MenuEntry.Item("abrir perfil") { profileOpen = true })
+            me?.let { add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(it.id)) }) }
+            add(MenuEntry.Item("configuracoes") { onOpenSettings() })
+            add(MenuEntry.Separator)
+            add(MenuEntry.Item("sair", danger = true) { onLogout() })
+        }
+    }) {
     // Cartao flutuante estilo Discord: inset das bordas da sidebar, cantos
     // arredondados e borda fina — parece sobreposto ao painel, com a aurora
     // vazando por baixo (translucido).
@@ -162,6 +176,7 @@ fun UserFooter(
         FooterIcon(Lucide.Settings, danger = false, onClick = onOpenSettings)
         Spacer(Modifier.width(2.dp))
         FooterIcon(Lucide.LogOut, danger = true, onClick = onLogout)
+    }
     }
 }
 

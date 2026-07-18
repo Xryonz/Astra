@@ -83,6 +83,11 @@ data class ChannelVisibilityRequest(
 @Serializable
 data class UpdateChannelNameRequest(val name: String)
 
+// Reordenar canal (drag na sidebar): so a posicao. O backend (PATCH .../channels/:cid)
+// aceita name/categoryId/position; aqui so mexemos em position dentro da mesma secao.
+@Serializable
+data class MoveChannelRequest(val position: Int)
+
 @Serializable
 data class CreateChannelRequest(
     val name: String,

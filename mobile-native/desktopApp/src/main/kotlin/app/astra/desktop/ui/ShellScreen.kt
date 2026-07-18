@@ -59,6 +59,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -241,6 +248,7 @@ fun ShellScreen(
             onCreateCategory = vm::createCategory,
             onRenameCategory = vm::renameCategory,
             onDeleteCategory = vm::deleteCategory,
+            onReorderChannels = vm::reorderChannel,
         )
         Stage(
             state.selectedServer,
@@ -555,6 +563,7 @@ private fun Sidebar(
     onCreateCategory: (serverId: String, name: String) -> Unit,
     onRenameCategory: (serverId: String, categoryId: String, name: String) -> Unit,
     onDeleteCategory: (serverId: String, categoryId: String) -> Unit,
+    onReorderChannels: (serverId: String, orderedIds: List<String>) -> Unit,
 ) {
     // Dialogo de nome (nova orbita / nova categoria / renomear) — centralizado na
     // janela. So o dono da constelacao dispara pelos menus de botao direito.
@@ -626,6 +635,7 @@ private fun Sidebar(
                             onNewChannelInCat = { catId -> srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } },
                             onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
                             onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
+                            onReorderChannels = { ids -> srv?.let { onReorderChannels(it.id, ids) } },
                         )
                     }
                 }
@@ -689,6 +699,7 @@ private fun OrbitList(
     onNewChannelInCat: (categoryId: String) -> Unit,
     onRenameCat: (categoryId: String, current: String) -> Unit,
     onDeleteCat: (categoryId: String) -> Unit,
+    onReorderChannels: (orderedIds: List<String>) -> Unit,
 ) {
     if (server == null) return
     // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
@@ -699,16 +710,21 @@ private fun OrbitList(
     val loose = server.channels.filter { it.categoryId == null || it.categoryId !in catIds }.sortedBy { it.position }
     val cats = server.categories.sortedBy { it.position }
     val byCat = server.channels.groupBy { it.categoryId }
+    val looseIds = loose.map { it.id }
+    // Estado do drag de reordenacao (uma instancia por constelacao aberta).
+    val drag = remember(server.id) { ChannelDragState() }
 
     // Cascata (F6): a posicao corrida na lista decide o atraso de entrada.
     // Os indices sao computados no escopo do DSL (sincrono e deterministico);
     // as lambdas dos itens so capturam constantes.
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         itemsIndexed(loose, key = { _, ch -> ch.id }) { i, ch ->
             CascadeIn(i, server.id) {
                 OrbitEntry(
                     ch, ch.id == activeChatId, ch.id in unread,
                     members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                    dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels) else null,
                 )
             }
         }
@@ -743,18 +759,153 @@ private fun OrbitList(
                 }
             }
             // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
+            val collapsed = cat.id in collapsedCats
+            val channelIds = channels.map { it.id }
             val visible =
-                if (cat.id in collapsedCats) channels.filter { it.id == activeChatId || it.id in unread }
+                if (collapsed) channels.filter { it.id == activeChatId || it.id in unread }
                 else channels
             itemsIndexed(visible, key = { _, ch -> ch.id }) { i, ch ->
                 CascadeIn(headerRow + 1 + i, server.id) {
                     OrbitEntry(
                         ch, ch.id == activeChatId, ch.id in unread,
                         members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                        // Reordena so quando aberta (indice do visivel == indice real).
+                        dragCtx = if (isOwner && !collapsed)
+                            ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels) else null,
                     )
                 }
             }
             offset = headerRow + 1 + visible.size
+        }
+    }
+    ChannelDragBubble(drag)
+    }
+}
+
+// ---- Drag pra reordenar canais (so o dono). Estilo "bolha leve": a orbita vira um
+// circulo flutuante que segue o cursor; ao soltar, faz fade e o canal reaparece na
+// nova posicao. Reorder dentro da MESMA secao (soltos, ou de uma categoria). ----
+
+private class ChannelDragState {
+    var id by mutableStateOf<String?>(null)
+    var name by mutableStateOf("")
+    var isVoice by mutableStateOf(false)
+    var section by mutableStateOf<String?>(null)
+    var fromIndex by mutableStateOf(-1)
+    var targetIndex by mutableStateOf(-1)
+    var windowPos by mutableStateOf(Offset.Zero)
+    var fadingOut by mutableStateOf(false)
+    val dragging: Boolean get() = id != null && !fadingOut
+    fun reset() {
+        id = null; name = ""; isVoice = false; section = null
+        fromIndex = -1; targetIndex = -1; fadingOut = false
+    }
+}
+
+private class ChannelDragCtx(
+    val state: ChannelDragState,
+    val section: String,
+    val index: Int,
+    val sectionSize: Int,
+    val orderedIds: List<String>,
+    val onReorder: (List<String>) -> Unit,
+)
+
+// Long-press pega a orbita; o arrasto move a bolha (windowPos) e calcula o slot alvo
+// pela distancia percorrida / altura do item. Soltar reordena a secao. Chamado SEMPRE
+// (ctx nulo = no-op) pra nao variar a contagem de composables entre recomposicoes.
+@Composable
+private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier {
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var itemH by remember { mutableStateOf(1f) }
+    if (ctx == null) return this
+    val d = ctx.state
+    return this
+        .onGloballyPositioned { coords = it; itemH = it.size.height.toFloat().coerceAtLeast(1f) }
+        .pointerInput(ch.id, ctx.section, ctx.index, ctx.sectionSize) {
+            var accY = 0f
+            detectDragGesturesAfterLongPress(
+                onDragStart = { pos ->
+                    accY = 0f
+                    d.reset()
+                    d.id = ch.id
+                    d.name = ch.name
+                    d.isVoice = ch.type == "VOICE"
+                    d.section = ctx.section
+                    d.fromIndex = ctx.index
+                    d.targetIndex = ctx.index
+                    coords?.let { c -> d.windowPos = c.localToWindow(pos) }
+                },
+                onDrag = { change, delta ->
+                    change.consume()
+                    accY += delta.y
+                    coords?.let { c -> d.windowPos = c.localToWindow(change.position) }
+                    d.targetIndex = (ctx.index + (accY / itemH).roundToInt()).coerceIn(0, ctx.sectionSize - 1)
+                },
+                onDragEnd = {
+                    if (d.id == ch.id && d.targetIndex in 0 until ctx.sectionSize && d.targetIndex != d.fromIndex) {
+                        val list = ctx.orderedIds.toMutableList()
+                        list.add(d.targetIndex, list.removeAt(d.fromIndex))
+                        ctx.onReorder(list)
+                    }
+                    if (d.id == ch.id) d.fadingOut = true // dispara o fade da bolha
+                },
+                onDragCancel = { if (d.id == ch.id) d.reset() },
+            )
+        }
+}
+
+// A bolha flutuante (Popup em coords de janela). Fade-in ao pegar, fade-out ao soltar;
+// o reset vem no fim do fade pra bolha nao sumir seca.
+@Composable
+private fun ChannelDragBubble(d: ChannelDragState) {
+    if (d.id == null) return
+    val alpha by animateFloatAsState(if (d.fadingOut) 0f else 1f, tween(130), label = "dragBubble")
+    LaunchedEffect(d.fadingOut) { if (d.fadingOut) { delay(150); d.reset() } }
+    val pos = d.windowPos
+    val name = d.name
+    val voice = d.isVoice
+    Popup(
+        popupPositionProvider = remember(pos) {
+            object : PopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowSize: IntSize,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize,
+                ): IntOffset = IntOffset(
+                    (pos.x - popupContentSize.width / 2f).roundToInt(),
+                    (pos.y - popupContentSize.height / 2f).roundToInt(),
+                )
+            }
+        },
+        properties = PopupProperties(focusable = false),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.graphicsLayer { this.alpha = alpha },
+        ) {
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Obsidian.overlay)
+                    .border(1.dp, Obsidian.accent.copy(alpha = 0.6f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                LIcon(if (voice) Lucide.Volume2 else Lucide.Hash, tint = Obsidian.accent, size = 20.dp)
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                name,
+                style = TextStyle(color = Obsidian.text1, fontSize = 11.sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .widthIn(max = 140.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Obsidian.raised)
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
+            )
         }
     }
 }
@@ -772,11 +923,12 @@ private fun OrbitEntry(
     myVoiceChannelId: String?,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
+    dragCtx: ChannelDragCtx? = null,
 ) {
     // Column: o CascadeIn envolve isto num Box (empilha) — sem a Column, a lista
     // de presenca ficaria SOBRE o canal em vez de abaixo. Empilha na vertical.
     Column(Modifier.fillMaxWidth()) {
-        OrbitItem(ch, active, unread, onOpenChat, onOpenVoice)
+        OrbitItem(ch, active, unread, onOpenChat, onOpenVoice, dragCtx)
         if (ch.type == "VOICE") {
             // Presenca do poll + eu otimista (aparece na hora que entro, sem
             // esperar o proximo ciclo de ~5s do backend).
@@ -1020,6 +1172,7 @@ private fun OrbitItem(
     unread: Boolean,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
+    dragCtx: ChannelDragCtx? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -1028,7 +1181,15 @@ private fun OrbitItem(
         if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
         tween(120),
     )
-    Box(Modifier.fillMaxWidth()) {
+    val dSt = dragCtx?.state
+    // A orbita arrastada fica esmaecida no lugar (a bolha e a copia "levantada").
+    val lifted = dSt != null && dSt.dragging && dSt.id == ch.id
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .channelDrag(ch, dragCtx)
+            .graphicsLayer { alpha = if (lifted) 0.35f else 1f },
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1061,6 +1222,21 @@ private fun OrbitItem(
             )
         }
         if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+        // Marca de insercao do drag: linha accent no topo (subindo) ou na base
+        // (descendo) da orbita que esta no slot alvo — nunca na propria arrastada.
+        if (dSt != null && dragCtx != null && dSt.dragging &&
+            dSt.section == dragCtx.section && dSt.id != ch.id && dSt.targetIndex == dragCtx.index
+        ) {
+            Box(
+                Modifier
+                    .align(if (dSt.targetIndex > dSt.fromIndex) Alignment.BottomCenter else Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(Obsidian.accent),
+            )
+        }
     }
 }
 

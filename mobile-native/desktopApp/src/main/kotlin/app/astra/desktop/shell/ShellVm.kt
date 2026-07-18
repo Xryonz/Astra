@@ -12,6 +12,7 @@ import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
+import app.astra.mobile.core.network.dto.MoveChannelRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
@@ -393,6 +394,37 @@ class ShellVm(
         scope.launch {
             val ok = runCatching { serverApi.deleteCategory(serverId, categoryId) }.isSuccess
             if (ok) reloadServers()
+        }
+    }
+
+    // Reordena canais DENTRO de uma secao (soltos, ou de uma categoria) via drag.
+    // orderedIds = nova ordem dos ids da secao. Preserva os VALORES de position ja
+    // existentes, so permutando quem fica com qual (nao reindexa pra 0-base, pra nao
+    // colidir com a position das outras secoes). Otimista: reposiciona local na hora;
+    // persiste PATCHando so os que mudaram; reload reconcilia. So o dono chega aqui
+    // (a UI so habilita o drag pro dono).
+    fun reorderChannel(serverId: String, orderedIds: List<String>) {
+        scope.launch {
+            val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
+            val ids = orderedIds.toSet()
+            // Os valores de position atuais da secao, em ordem crescente, viram os
+            // "slots" que serao redistribuidos na nova ordem.
+            val slots = srv0.channels.filter { it.id in ids }.map { it.position }.sorted()
+            if (slots.size != orderedIds.size) return@launch
+            val newPos = orderedIds.mapIndexed { i, id -> id to slots[i] }.toMap()
+            val oldPos = srv0.channels.associate { it.id to it.position }
+
+            _state.update { st ->
+                st.copy(servers = st.servers.map { srv ->
+                    if (srv.id != serverId) srv
+                    else srv.copy(channels = srv.channels.map { ch -> newPos[ch.id]?.let { ch.copy(position = it) } ?: ch })
+                })
+            }
+            orderedIds.forEach { id ->
+                val np = newPos.getValue(id)
+                if (oldPos[id] != np) runCatching { serverApi.moveChannel(serverId, id, MoveChannelRequest(np)) }
+            }
+            reloadServers()
         }
     }
 

@@ -10,6 +10,7 @@ import app.astra.mobile.core.network.dto.CategoryDto
 import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
+import app.astra.mobile.core.network.dto.MoveChannelRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.InviteCodeResponse
@@ -136,6 +137,13 @@ interface ServerApi {
         @Path("sid") serverId: String,
         @Path("cid") channelId: String,
         @Body body: UpdateChannelNameRequest,
+    ): ApiEnvelope<ChannelDto>
+
+    @PATCH("api/servers/{sid}/channels/{cid}")
+    suspend fun moveChannel(
+        @Path("sid") serverId: String,
+        @Path("cid") channelId: String,
+        @Body body: MoveChannelRequest,
     ): ApiEnvelope<ChannelDto>
 
     @DELETE("api/servers/{sid}/channels/{cid}")

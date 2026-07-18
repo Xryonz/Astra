@@ -8,6 +8,7 @@ import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
+import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.CreateCategoryRequest
@@ -316,6 +317,20 @@ class ShellVm(
                 }
                 saveLocation()
             }
+        }
+    }
+
+    // Expulsar / banir (so o dono na UI; backend exige permissao). Recarrega a
+    // lista de membros pra sumir com quem saiu.
+    fun kickMember(serverId: String, userId: String) {
+        scope.launch {
+            runCatching { serverApi.kickMember(serverId, userId) }.onSuccess { loadMembers(serverId) }
+        }
+    }
+
+    fun banMember(serverId: String, userId: String) {
+        scope.launch {
+            runCatching { serverApi.banMember(serverId, BanRequest(userId)) }.onSuccess { loadMembers(serverId) }
         }
     }
 

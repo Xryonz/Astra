@@ -311,7 +311,15 @@ fun ShellScreen(
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
         ) {
-            MembersPanel(state.members, session.userId, vm::startDm)
+            MembersPanel(
+                members = state.members,
+                myId = session.userId,
+                serverId = state.selectedServer?.id,
+                isOwner = state.selectedServer?.ownerId == session.userId,
+                onStartDm = vm::startDm,
+                onKick = { uid -> state.selectedServer?.id?.let { vm.kickMember(it, uid) } },
+                onBan = { uid -> state.selectedServer?.id?.let { vm.banMember(it, uid) } },
+            )
         }
         }
 
@@ -1933,8 +1941,13 @@ private fun Stage(
 private fun MembersPanel(
     members: List<ServerMemberDto>,
     myId: String?,
+    serverId: String?,
+    isOwner: Boolean,
     onStartDm: (String, String) -> Unit,
+    onKick: (String) -> Unit,
+    onBan: (String) -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
     Column(Modifier.width(240.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
@@ -1946,20 +1959,34 @@ private fun MembersPanel(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
             itemsIndexed(members, key = { _, m -> m.userId }) { i, m ->
                 val name = m.user.displayName ?: m.user.username
-                // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3).
+                val isMe = m.userId == myId
+                // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3)
+                // + botao direito = menu (sussurro/copiar ID; expulsar/banir do dono).
                 CascadeIn(i, members.size) {
-                    ProfileAnchor(m.userId, isMe = m.userId == myId, onStartDm = onStartDm) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            DesktopAvatar(m.user.avatarUrl, name, 26)
-                            Spacer(Modifier.width(9.dp))
-                            Text(
-                                text = name,
-                                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                    EditorialContextMenu(entries = {
+                        buildList {
+                            if (!isMe) add(MenuEntry.Item("sussurro") { onStartDm(m.user.username, name) })
+                            add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(m.userId)) })
+                            if (isOwner && !isMe && serverId != null) {
+                                add(MenuEntry.Separator)
+                                add(MenuEntry.Item("expulsar", danger = true) { onKick(m.userId) })
+                                add(MenuEntry.Item("banir", danger = true) { onBan(m.userId) })
+                            }
+                        }
+                    }) {
+                        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                DesktopAvatar(m.user.avatarUrl, name, 26)
+                                Spacer(Modifier.width(9.dp))
+                                Text(
+                                    text = name,
+                                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }

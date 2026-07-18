@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -17,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -41,6 +44,7 @@ import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.ShellScreen
 import app.astra.desktop.ui.UpdateBanner
 import app.astra.desktop.ui.UpdaterGate
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.shared.AstraShared
 import coil3.ImageLoader
@@ -218,7 +222,20 @@ fun main() {
                     CompositionLocalProvider(
                         LocalWindowActive provides (windowVisible && !state.isMinimized),
                     ) {
-                    Box(Modifier.fillMaxSize()) {
+                    // Entrada do Astra: um reveal unico (uma vez por abertura) quando o
+                    // conteudo aparece depois do gate — a aurora acende e o app sobe
+                    // com fade + escala sutil. GPU-only (graphicsLayer), ~520ms.
+                    val reveal = remember { Animatable(0f) }
+                    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(520, easing = EaseOutStd)) }
+                    Box(
+                        Modifier.fillMaxSize().graphicsLayer {
+                            alpha = reveal.value
+                            translationY = (1f - reveal.value) * 12.dp.toPx()
+                            val sc = 0.99f + 0.01f * reveal.value
+                            scaleX = sc
+                            scaleY = sc
+                        },
+                    ) {
                         val s = session
                         if (s == null) {
                             LoginScreen(repo = authRepo, onLoggedIn = { session = it })

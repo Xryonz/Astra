@@ -62,6 +62,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.geometry.Offset
@@ -144,6 +154,12 @@ fun ShellScreen(
     }
     val state by vm.state.collectAsState()
     var settingsOpen by remember { mutableStateOf(false) }
+    // Ctrl+K = quick-switcher (pular pra canal/sussurro). Foco na raiz garante que o
+    // atalho dispara mesmo sem nada clicado; onPreviewKeyEvent na raiz ve a tecla
+    // antes de qualquer campo de texto filho.
+    var paletteOpen by remember { mutableStateOf(false) }
+    val rootFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
     LaunchedEffect(Unit) { socket.connect() }
 
@@ -193,7 +209,17 @@ fun ShellScreen(
         LocalReduceMotion provides prefState.reduceMotionEff,
         LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
     ) {
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .focusRequester(rootFocus)
+            .focusable()
+            .onPreviewKeyEvent { e ->
+                if (e.type == KeyEventType.KeyDown && e.isCtrlPressed && e.key == Key.K) {
+                    paletteOpen = true; true
+                } else false
+            },
+    ) {
         // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
         // (graphicsLayer): so ela invalida por frame — os paineis translucidos
         // por cima nao redesenham com o shader. Desligada = void chapado (0 shader).
@@ -293,6 +319,27 @@ fun ShellScreen(
         ) {
             SettingsScreen(me = state.me, prefs = prefs, onClose = { settingsOpen = false })
         }
+
+        // Ctrl+K: quick-switcher em takeover (fade + leve zoom, como o settings).
+        AnimatedVisibility(
+            visible = paletteOpen,
+            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f),
+            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f),
+        ) {
+            CommandPalette(
+                servers = state.servers,
+                dms = state.dms,
+                onClose = { paletteOpen = false },
+                onOpenChannel = { sid, cid, name ->
+                    vm.select(Selection.Server(sid))
+                    vm.openChat(ChatTarget.Channel(cid, name))
+                },
+                onOpenDm = { cid, title ->
+                    vm.select(Selection.Dms)
+                    vm.openChat(ChatTarget.Dm(cid, title))
+                },
+            )
+        }
     }
     }
 }
@@ -306,6 +353,156 @@ private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
         .clip(shape)
         .background(bg.copy(alpha = alpha))
         .border(1.dp, Obsidian.borderMid.copy(alpha = 0.5f), shape)
+}
+
+// ---- Ctrl+K quick-switcher: pular pra qualquer canal/sussurro pelo teclado ----
+private data class QuickResult(
+    val kind: String, // "channel" | "dm"
+    val id: String,
+    val title: String,
+    val subtitle: String, // nome da constelacao (canal) ou "sussurro" (dm)
+    val voice: Boolean,
+    val serverId: String?, // navegacao do canal
+)
+
+@Composable
+private fun CommandPalette(
+    servers: List<ServerDto>,
+    dms: List<ConversationDto>,
+    onClose: () -> Unit,
+    onOpenChannel: (serverId: String, channelId: String, name: String) -> Unit,
+    onOpenDm: (convId: String, title: String) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var sel by remember { mutableStateOf(0) }
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { searchFocus.requestFocus() } }
+
+    val all = remember(servers, dms) {
+        buildList {
+            servers.forEach { s ->
+                s.channels.sortedBy { it.position }.forEach { c ->
+                    add(QuickResult("channel", c.id, c.name, s.name, c.type == "VOICE", s.id))
+                }
+            }
+            dms.forEach { d ->
+                val t = d.otherUser?.displayName ?: d.otherUser?.username ?: "sussurro"
+                add(QuickResult("dm", d.id, t, "sussurro", false, null))
+            }
+        }
+    }
+    val results = remember(all, query) {
+        val q = query.trim()
+        (if (q.isBlank()) all else all.filter { it.title.contains(q, true) || it.subtitle.contains(q, true) }).take(50)
+    }
+    LaunchedEffect(results.size) { if (sel >= results.size) sel = 0 }
+
+    fun choose(r: QuickResult) {
+        if (r.kind == "channel" && r.serverId != null) onOpenChannel(r.serverId, r.id, r.title)
+        else onOpenDm(r.id, r.title)
+        onClose()
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Obsidian.void.copy(alpha = 0.55f))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Column(
+            Modifier
+                .padding(top = 96.dp)
+                .width(520.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
+                // Clique no painel nao fecha (so o scrim fecha).
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                // Setas/Enter/Esc: o preview do painel ve a tecla antes do campo (que
+                // fica focado), entao navega a lista; letras caem no campo (retorna false).
+                .onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (e.key) {
+                        Key.Escape -> { onClose(); true }
+                        Key.DirectionDown -> { if (results.isNotEmpty()) sel = (sel + 1) % results.size; true }
+                        Key.DirectionUp -> { if (results.isNotEmpty()) sel = (sel - 1 + results.size) % results.size; true }
+                        Key.Enter -> { results.getOrNull(sel)?.let { choose(it) }; true }
+                        else -> false
+                    }
+                }
+                .padding(12.dp),
+        ) {
+            BasicTextField(
+                value = query,
+                onValueChange = { query = it; sel = 0 },
+                singleLine = true,
+                textStyle = TextStyle(color = Obsidian.text1, fontSize = 15.sp),
+                cursorBrush = SolidColor(Obsidian.accent),
+                modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
+                decorationBox = { inner ->
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) {
+                        if (query.isEmpty()) {
+                            Text(
+                                "pular pra um canal ou sussurro…",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 15.sp),
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+            Spacer(Modifier.height(8.dp))
+            if (results.isEmpty()) {
+                Text(
+                    "nada encontrado",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    modifier = Modifier.padding(vertical = 14.dp),
+                )
+            } else {
+                LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    itemsIndexed(results, key = { _, r -> r.kind + r.id }) { i, r ->
+                        PaletteRow(r, i == sel) { choose(r) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaletteRow(r: QuickResult, active: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) Obsidian.active else if (hov) Obsidian.hover else Color.Transparent)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (r.kind == "dm") {
+            Text("@", style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text3, fontSize = 14.sp))
+        } else {
+            LIcon(
+                if (r.voice) Lucide.Volume2 else Lucide.Hash,
+                tint = if (active) Obsidian.accent else Obsidian.text3,
+                size = 15.dp,
+            )
+        }
+        Spacer(Modifier.width(9.dp))
+        Text(
+            r.title,
+            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(r.subtitle, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), maxLines = 1)
+    }
 }
 
 // ---- Rail de constelacoes (72dp) ----

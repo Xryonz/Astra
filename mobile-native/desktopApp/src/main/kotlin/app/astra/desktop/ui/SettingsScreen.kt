@@ -146,11 +146,12 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
             // Nav das secoes
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     "configuracoes",
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
-                    modifier = Modifier.padding(start = 8.dp, bottom = 14.dp),
+                    modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
                 SettingsTab.entries.forEach { t ->
                     NavRow(t.icon, t.label, t.sub, active = t == tab) { tab = t }
@@ -461,12 +462,24 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
         if (active) Obsidian.active else if (hovered) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent,
         tween(120),
     )
+    // Borda cinza sutil pra o topico se destacar do fundo (senao "some" na aurora):
+    // repouso = borderDim apagado, hover = borderMid, ativo = accent. Cada secao le
+    // como um item clicavel mesmo parada.
+    val border by animateColorAsState(
+        when {
+            active -> Obsidian.accent.copy(alpha = 0.45f)
+            hovered -> Obsidian.borderMid
+            else -> Obsidian.borderDim.copy(alpha = 0.55f)
+        },
+        tween(120),
+    )
     Row(
         Modifier
             .fillMaxWidth()
             .clickScale(interaction)
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
+            .border(1.dp, border, RoundedCornerShape(8.dp))
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 9.dp),

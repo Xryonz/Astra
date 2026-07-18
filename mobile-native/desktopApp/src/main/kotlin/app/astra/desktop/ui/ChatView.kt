@@ -1069,8 +1069,8 @@ private fun EmptyChatStar() {
                         val outer = size.minDimension * 0.30f
                         drawPath(starPath(center.x, center.y, outer, outer * 0.44f), accent)
                     }
-                    // "?" serifado no miolo — ponto focal: maior e bem destacado.
-                    Text("?", style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif))
+                    // "?" serifado no miolo, PRETO — vazado sobre o ambar da estrela.
+                    Text("?", style = TextStyle(color = Color.Black, fontSize = 26.sp, fontFamily = DmSerif))
                 }
             }
             Spacer(Modifier.height(12.dp))

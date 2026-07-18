@@ -297,6 +297,25 @@ class ShellVm(
         }
     }
 
+    // Excluir a constelacao (so o dono). Mesma limpeza de estado do leave; a UI so
+    // oferece isso quando ownerId == meu id.
+    fun deleteServer(id: String) {
+        scope.launch {
+            runCatching { serverApi.deleteServer(id) }.onSuccess {
+                _state.update { st ->
+                    val gone = (st.selection as? Selection.Server)?.id == id
+                    st.copy(
+                        servers = st.servers.filterNot { it.id == id },
+                        selection = if (gone) Selection.Dms else st.selection,
+                        chat = if (gone) null else st.chat,
+                        voiceChannel = if (gone) null else st.voiceChannel,
+                    )
+                }
+                saveLocation()
+            }
+        }
+    }
+
     // "Enviar sussurro" do card de perfil: abre/cria a conversa e ja cai nela.
     fun startDm(username: String, title: String) {
         scope.launch {

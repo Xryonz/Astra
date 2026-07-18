@@ -7,7 +7,11 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -216,8 +220,10 @@ fun ShellScreen(
         Rail(
             servers = state.servers,
             selection = state.selection,
+            myId = session.userId,
             onSelect = vm::select,
             onLeaveServer = vm::leaveServer,
+            onDeleteServer = vm::deleteServer,
             onCreateServer = vm::createServer,
         )
         Sidebar(
@@ -308,8 +314,10 @@ private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
 private fun Rail(
     servers: List<ServerDto>,
     selection: Selection,
+    myId: String?,
     onSelect: (Selection) -> Unit,
     onLeaveServer: (String) -> Unit,
+    onDeleteServer: (String) -> Unit,
     onCreateServer: (name: String, isGroup: Boolean) -> Unit,
 ) {
     Column(
@@ -333,10 +341,14 @@ private fun Rail(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(servers, key = { it.id }) { srv ->
-                // Botao direito na constelacao: sair (com confirmacao) (F4).
+                // Botao direito na constelacao: dono exclui (apaga pra todos); membro
+                // sai. Ambos com confirmacao (F4).
                 var confirmLeave by remember(srv.id) { mutableStateOf(false) }
+                var confirmDelete by remember(srv.id) { mutableStateOf(false) }
+                val isOwner = srv.ownerId == myId
                 EditorialContextMenu(entries = {
-                    listOf(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })
+                    if (isOwner) listOf(MenuEntry.Item("excluir constelacao", danger = true) { confirmDelete = true })
+                    else listOf(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })
                 }) {
                 if (confirmLeave) {
                     Popup(
@@ -374,6 +386,50 @@ private fun Rail(
                                         .clickable {
                                             confirmLeave = false
                                             onLeaveServer(srv.id)
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                if (confirmDelete) {
+                    Popup(
+                        onDismissRequest = { confirmDelete = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        Column(
+                            Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Obsidian.overlay)
+                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                                .padding(14.dp),
+                        ) {
+                            Text(
+                                "excluir ${srv.name}? apaga a constelacao pra todos — nao da pra desfazer.",
+                                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                                modifier = Modifier.widthIn(max = 240.dp),
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "cancelar",
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(7.dp))
+                                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
+                                        .clickable { confirmDelete = false }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                                Text(
+                                    "excluir",
+                                    style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(7.dp))
+                                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
+                                        .clickable {
+                                            confirmDelete = false
+                                            onDeleteServer(srv.id)
                                         }
                                         .padding(horizontal = 12.dp, vertical = 6.dp),
                                 )
@@ -855,13 +911,27 @@ private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier
         }
 }
 
-// A bolha flutuante (Popup em coords de janela). Fade-in ao pegar, fade-out ao soltar;
-// o reset vem no fim do fade pra bolha nao sumir seca.
+// A bolha flutuante (Popup em coords de janela, segue o cursor 1:1 — sem inercia).
+// Entrada = "gota" que coalesce (comeca alongada na vertical e assenta redonda, com
+// leve overshoot da mola); saida = "esparrama" (achata na horizontal e some), e so
+// entao reseta. Tudo em graphicsLayer com leitura DIFERIDA (scaleX/scaleY/alpha lidos
+// dentro do lambda de draw) -> so a camada re-renderiza por frame, sem recompor: leve.
 @Composable
 private fun ChannelDragBubble(d: ChannelDragState) {
     if (d.id == null) return
-    val alpha by animateFloatAsState(if (d.fadingOut) 0f else 1f, tween(130), label = "dragBubble")
-    LaunchedEffect(d.fadingOut) { if (d.fadingOut) { delay(150); d.reset() } }
+    val reduce = LocalReduceMotion.current
+    val enter = remember(d.id) { Animatable(0f) } // 0=sem bolha ..1=formada
+    val splat = remember(d.id) { Animatable(0f) } // 0=inteira ..1=esparramada
+    LaunchedEffect(d.id) {
+        if (reduce) enter.snapTo(1f)
+        else enter.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium))
+    }
+    LaunchedEffect(d.fadingOut) {
+        if (d.fadingOut) {
+            if (reduce) splat.snapTo(1f) else splat.animateTo(1f, tween(170, easing = FastOutLinearInEasing))
+            d.reset()
+        }
+    }
     val pos = d.windowPos
     val name = d.name
     val voice = d.isVoice
@@ -881,13 +951,20 @@ private fun ChannelDragBubble(d: ChannelDragState) {
         },
         properties = PopupProperties(focusable = false),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.graphicsLayer { this.alpha = alpha },
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 Modifier
                     .size(48.dp)
+                    .graphicsLayer {
+                        // Leitura diferida (draw-phase): nao recompoe, so re-desenha a camada.
+                        val e = enter.value
+                        val ec = e.coerceIn(0f, 1f)
+                        val squash = (1f - ec) * 0.22f // gota: alongada vertical no comeco
+                        val x = splat.value
+                        scaleX = e * (1f - squash) * (1f + 0.55f * x) // esparrama = achata p/ fora
+                        scaleY = e * (1f + squash) * (1f - 0.5f * x)
+                        alpha = ec * (1f - x)
+                    }
                     .clip(CircleShape)
                     .background(Obsidian.overlay)
                     .border(1.dp, Obsidian.accent.copy(alpha = 0.6f), CircleShape),
@@ -896,11 +973,13 @@ private fun ChannelDragBubble(d: ChannelDragState) {
                 LIcon(if (voice) Lucide.Volume2 else Lucide.Hash, tint = Obsidian.accent, size = 20.dp)
             }
             Spacer(Modifier.height(5.dp))
+            // O nome so faz fade junto (nao esparrama — texto esticado fica estranho).
             Text(
                 name,
                 style = TextStyle(color = Obsidian.text1, fontSize = 11.sp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
+                    .graphicsLayer { alpha = enter.value.coerceIn(0f, 1f) * (1f - splat.value) }
                     .widthIn(max = 140.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(Obsidian.raised)
@@ -963,6 +1042,9 @@ private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
             text = name,
             style = TextStyle(color = if (isMe) Obsidian.text2 else Obsidian.text3, fontSize = 12.sp),
             maxLines = 1, overflow = TextOverflow.Ellipsis,
+            // weight = ellipsiza no espaco que sobra (nome grande virava "..." vazando
+            // e a linha ficava cortada na borda da sidebar).
+            modifier = Modifier.weight(1f),
         )
     }
 }

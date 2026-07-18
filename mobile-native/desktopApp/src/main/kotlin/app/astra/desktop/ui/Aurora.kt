@@ -17,6 +17,7 @@ import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
+import org.jetbrains.skia.Shader
 
 // Aurora viva em SkSL (Skia RuntimeEffect) — a assinatura visual do desktop.
 // PORTA DA AURORA DO MOBILE (StarField.kt AURORA_AGSL; AGSL e SkSL sao o mesmo
@@ -153,13 +154,29 @@ fun Modifier.auroraBackground(): Modifier {
         }
     }
     val paint = remember { Paint() }
+    // Guarda o shader que ESTE modifier criou no ultimo frame, pra fecha-lo na mao
+    // antes de criar o proximo (ver CORTE 2 abaixo). Array de 1 = celula mutavel
+    // barata que sobrevive entre frames sem recompor.
+    val lastShader = remember { arrayOfNulls<Shader>(1) }
     return drawBehind {
+        // CORTE 1 (ao redimensionar): num frame da transicao a janela reporta 0 ->
+        // uv = fragCoord/0 = NaN -> half4 com NaN -> quadro preto. Sem tamanho
+        // valido, pinta so o void do tema e sai (nada de shader).
+        if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@drawBehind }
         builder.uniform("uTime", timeSec)
         builder.uniform("uSize", size.width, size.height)
         builder.uniform("uAccent", accent.red, accent.green, accent.blue)
         builder.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
+        // CORTE 2 (parado/idle): makeShader() aloca um Shader Skia NATIVO por frame.
+        // Sem fechar, eles so somem quando o GC roda o cleaner num lote -> engasgo
+        // periodico que parecia a aurora "cortando" do nada. Fecho o do frame
+        // anterior (a celula ainda segura 1 ref; o SkPaint tem a dele) ANTES de
+        // trocar -> liberacao deterministica, sem surto de GC.
+        lastShader[0]?.close()
+        val shader = builder.makeShader()
+        lastShader[0] = shader
         // Skia Shader nao e o Shader do Compose -> desenha direto no canvas nativo.
-        paint.shader = builder.makeShader()
+        paint.shader = shader
         drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
     }
 }

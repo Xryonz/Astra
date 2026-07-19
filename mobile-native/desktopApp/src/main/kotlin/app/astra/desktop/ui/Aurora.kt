@@ -157,6 +157,20 @@ half4 main(float2 fragCoord) {
     float over = max(aur - knee, 0.0);
     float lum = min(aur, knee) + (ceiling - knee) * (1.0 - exp(-over / (ceiling - knee)));
     float3 col = uVoid + acc * lum;
+
+    // CORTE 7 (banding): com fundo PRETO PURO a aurora inteira vive entre 0 e
+    // ~0.25, ou seja nos 64 primeiros valores de 256 de um display de 8 bits. Um
+    // gradiente suave espremido em 64 degraus vira FAIXAS chapadas de borda dura,
+    // e quando o campo deriva o contorno de cada faixa salta de posicao de uma vez
+    // — a luz muda em placas que nao acompanham a cortina. Independe de oitavas,
+    // por isso sobrevivia em qualidade ALTA.
+    //
+    // Dither: meio degrau (1/255) de ruido branco por pixel antes da quantizacao.
+    // O degrau vira transicao granulada, que o olho integra como gradiente. O hash
+    // usa fragCoord CRU e sem tempo: padrao fixo na tela (dither temporal ficaria
+    // fervendo) e a perda de precisao do sin em coordenada grande aqui e util —
+    // queremos ruido branco mesmo.
+    col += (hashn(fragCoord) - 0.5) / 255.0;
     return half4(col, 1.0);
 }
 """

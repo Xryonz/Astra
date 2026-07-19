@@ -103,7 +103,7 @@ fun UserFooter(
     me: ProfileUserDto?,
     fallbackName: String,
     onEdited: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSettings: (SettingsTab) -> Unit,
     onLogout: () -> Unit,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
@@ -118,7 +118,7 @@ fun UserFooter(
         buildList {
             add(MenuEntry.Item("abrir perfil") { profileOpen = true })
             me?.let { add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(it.id)) }) }
-            add(MenuEntry.Item("configuracoes") { onOpenSettings() })
+            add(MenuEntry.Item("configuracoes") { onOpenSettings(SettingsTab.ACCOUNT) })
             add(MenuEntry.Separator)
             add(MenuEntry.Item("sair", danger = true) { confirmLogout = true })
         }
@@ -143,7 +143,10 @@ fun UserFooter(
                     .clip(CircleShape)
                     .border(2.dp, ring, CircleShape)
                     .padding(2.dp)
-                    .clickable(onClick = { profileOpen = true }),
+                    // Clicar no avatar vai direto pra aba Perfil das configuracoes:
+                    // e la que se edita de verdade (avatar, banner, tema, fonte). O
+                    // card so de leitura continua no botao direito > "abrir perfil".
+                    .clickable(onClick = { onOpenSettings(SettingsTab.PROFILE) }),
             ) {
                 DesktopAvatar(me?.avatarUrl, name, 30)
             }
@@ -174,7 +177,7 @@ fun UserFooter(
             )
             Text(statusLabel(status), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         }
-        FooterIcon(Lucide.Settings, danger = false, onClick = onOpenSettings)
+        FooterIcon(Lucide.Settings, danger = false, onClick = { onOpenSettings(SettingsTab.ACCOUNT) })
         Spacer(Modifier.width(2.dp))
         FooterIcon(Lucide.LogOut, danger = true, onClick = { confirmLogout = true })
     }

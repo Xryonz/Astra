@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -75,12 +76,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChartColumn
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Info
@@ -137,7 +140,9 @@ import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.sin
 
-private enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
+// Publico (era private): entra na assinatura do SettingsScreen e do UserFooter —
+// clicar no avatar do rodape abre as configuracoes JA no Perfil.
+enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
     SESSIONS("Sessoes", "onde sua conta esta logada", Lucide.LogOut),
@@ -157,8 +162,9 @@ fun SettingsScreen(
     prefs: DesktopPrefs,
     onClose: () -> Unit,
     onProfileSaved: () -> Unit = {},
+    initialTab: SettingsTab = SettingsTab.ACCOUNT,
 ) {
-    var tab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
+    var tab by remember(initialTab) { mutableStateOf(initialTab) }
     val prefState by prefs.state.collectAsState()
     // Rascunho do perfil VIVE AQUI (nao dentro da secao): a previa e IRMA da
     // secao, nao filha — hoisted, ela reage a cada tecla. Reseta quando o `me`
@@ -205,12 +211,23 @@ fun SettingsScreen(
             // encostada a esquerda; os controles leem como uma coluna so em vez de
             // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-            // Larga o bastante pra previa caber AO LADO da coluna capada (720) sem
-            // encostar; senao ela empilha embaixo. Sobre = so a aba sem previa.
-            val wide = maxWidth > 1080.dp
+            // Sobre/Sessoes nao tem previa.
             val showPreview = tab != SettingsTab.ABOUT && tab != SettingsTab.SESSIONS
+            // Previa SEMPRE fixa no topo-direita (decisao do dono), em toda aba: ela
+            // nao rola junto, entao o efeito do que se mexe fica a vista mesmo
+            // editando o rodape do formulario. Empilhada no fim, como era, a previa
+            // do Perfil (a aba mais alta) so aparecia depois de rolar tudo — uma
+            // previa ao vivo que ninguem ve nao e previa.
+            // PISO de 700dp: abaixo disso nao ha largura pra duas colunas (a de
+            // conteudo ficaria com menos de 300dp e os controles quebrariam), entao
+            // volta a empilhar embaixo em vez de espremer as duas.
+            val pinned = showPreview && maxWidth > 700.dp
+            // Com a previa fixa, a coluna de conteudo encolhe pra nao correr por
+            // baixo dela: 300 da previa + 32 do respiro na borda + 44 de vao.
+            val contentMax =
+                if (pinned) minOf(720.dp, (maxWidth - 376.dp).coerceAtLeast(300.dp)) else 720.dp
             Column(
-                Modifier.align(Alignment.TopStart).widthIn(max = 720.dp).fillMaxWidth()
+                Modifier.align(Alignment.TopStart).widthIn(max = contentMax).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = 28.dp, vertical = 22.dp),
             ) {
@@ -279,17 +296,20 @@ fun SettingsScreen(
                     }
                 }
 
-                // Janela estreita: a previa nao cabe ao lado -> empilha embaixo,
-                // separada por um fio.
-                if (!wide && showPreview) {
+                // Janela abaixo do piso: a previa nao cabe ao lado -> empilha
+                // embaixo, separada por um fio.
+                if (!pinned && showPreview) {
                     SettingsDivider()
                     SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = 420.dp).fillMaxWidth())
                 }
             }
-                // Janela larga: previa como card fixo no vazio a direita (nao rola
-                // junto; ancorado ao centro-direita do palco).
-                if (wide && showPreview) {
-                    SettingsPreview(tab, me, prefState, draft, Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).width(300.dp))
+                // Previa como card fixo no topo-direita: nao rola junto, fica ao lado
+                // dos controles desde o primeiro campo.
+                if (pinned) {
+                    SettingsPreview(
+                        tab, me, prefState, draft,
+                        Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(300.dp),
+                    )
                 }
             }
         }
@@ -637,6 +657,7 @@ private fun costVerdict(gpu: Float, cpu: Float): String {
 @Composable
 private fun VoicePreview(p: DesktopPrefs.Prefs) {
     Column(Modifier.fillMaxWidth()) {
+        var testing by remember { mutableStateOf(false) }
         val q = p.screenQuality
         Column(
             Modifier.fillMaxWidth()
@@ -669,7 +690,14 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
         ) {
             Text("seu microfone", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
             Spacer(Modifier.height(10.dp))
-            MicMeter()
+            // O medidor so abre o microfone quando VOCE manda testar. Antes ele
+            // abria sozinho ao entrar na aba e ficava gravando em segundo plano
+            // enquanto a previa vivesse — barulho de privacidade por nada.
+            MicMeter(testing)
+            Spacer(Modifier.height(10.dp))
+            AboutButton(if (testing) "parar teste" else "testar microfone", accent = !testing) {
+                testing = !testing
+            }
             Spacer(Modifier.height(8.dp))
             Text(
                 if (p.micNoiseSuppression) "supressao de ruido: ligada" else "supressao de ruido: desligada",
@@ -680,14 +708,20 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
 }
 
 // Medidor de nivel do mic: abre um TargetDataLine (Java Sound) numa thread
-// daemon enquanto a previa vive, le o RMS dos samples e move as barras.
-// onDispose fecha a linha (troca de aba / fecha configuracoes). Best-effort:
-// sem mic ou em uso -> mostra aviso, nao quebra.
+// daemon ENQUANTO O TESTE ESTA LIGADO, le o RMS dos samples e move as barras.
+// onDispose fecha a linha (parar o teste / troca de aba / fecha configuracoes).
+// Best-effort: sem mic ou em uso -> mostra aviso, nao quebra.
 @Composable
-private fun MicMeter() {
+private fun MicMeter(active: Boolean) {
     var level by remember { mutableFloatStateOf(0f) }
     var available by remember { mutableStateOf(true) }
-    DisposableEffect(Unit) {
+    DisposableEffect(active) {
+        if (!active) {
+            // Teste desligado: barras zeradas (cinza) e nenhuma linha aberta.
+            level = 0f
+            available = true
+            return@DisposableEffect onDispose { }
+        }
         val running = AtomicBoolean(true)
         var line: TargetDataLine? = null
         val worker = thread(isDaemon = true, name = "astra-mic-preview") {
@@ -726,13 +760,16 @@ private fun MicMeter() {
         return
     }
     val lvl by animateFloatAsState(level, tween(90), label = "micLvl")
-    // Cor por qualidade do sinal: verde = bom (forte), amarelo = medio, vermelho
-    // = ruim (baixo demais pra te ouvir bem). Mesma escala de 3 cores do CostBar.
+    // Termometro de qualidade, nao alarme: CINZA parado (teste desligado ou
+    // silencio — antes ficava vermelho o tempo todo, como se algo estivesse
+    // errado), AMBAR quando o sinal e fraco demais pra te ouvirem bem, VERDE
+    // quando esta bom. Ambar = warning (fixo) e nao accent: com o tema branco
+    // padrao o accent e quase cinza e a faixa do meio some.
     // Anima a troca de cor pra nao piscar seco entre faixas.
     val meterColor by animateColorAsState(
         when {
-            lvl < 0.24f -> Obsidian.danger
-            lvl < 0.52f -> Obsidian.accent
+            lvl < 0.10f -> Obsidian.text3
+            lvl < 0.45f -> Obsidian.warning
             else -> Obsidian.success
         },
         tween(220),
@@ -875,12 +912,12 @@ private fun ProfileSection(
         }
     }
     Spacer(Modifier.height(14.dp))
-    FieldLabel("ou um gradiente")
-    GradientGrid(draft.bannerColor) { onChange(draft.copy(bannerColor = it)) }
+    FieldLabel("ou uma cor")
+    ColorPickerButton(draft.bannerColor) { onChange(draft.copy(bannerColor = it)) }
 
     SettingsDivider()
     FieldLabel("fundo do cartao")
-    GradientGrid(draft.profileTheme) { onChange(draft.copy(profileTheme = it)) }
+    ColorPickerButton(draft.profileTheme) { onChange(draft.copy(profileTheme = it)) }
 
     SettingsDivider()
     FieldLabel("fonte do seu nome")
@@ -899,7 +936,7 @@ private fun ProfileSection(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
             if (draft.customStatus.isEmpty()) {
-                Text("no que voce esta?", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+                Text("Como foi seu dia?", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
             }
             BasicTextField(
                 value = draft.customStatus,
@@ -1007,6 +1044,146 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
 
 // Grade dos gradientes prontos (mesma lista do web). Cada pastilha pinta o
 // proprio gradiente — o que voce ve e o que salva.
+@Composable
+private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val hov = remember { MutableInteractionSource() }
+    val h by hov.collectIsHoveredAsState()
+    Box {
+        Row(
+            Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(9.dp))
+                .background(if (h) Obsidian.hover else Obsidian.raised)
+                .border(
+                    1.dp,
+                    if (open) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                    RoundedCornerShape(9.dp),
+                )
+                .hoverable(hov)
+                .clickable { open = !open }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp, 22.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .drawBehind {
+                        drawRect(bannerBrush(selected, size.width, size.height, Obsidian.overlay))
+                    }
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(5.dp)),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                colorLabel(selected),
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, fontFamily = DmMono),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            LIcon(Lucide.ChevronDown, tint = Obsidian.text3, size = 14.dp)
+        }
+        if (open) {
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = IntOffset(0, 44),
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .width(390.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+                        .padding(14.dp),
+                ) {
+                    FieldLabel("codigo hex")
+                    HexField(selected, onPick)
+                    Spacer(Modifier.height(14.dp))
+                    HairRule()
+                    Spacer(Modifier.height(14.dp))
+                    FieldLabel("gradientes")
+                    Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                        GradientGrid(selected) { onPick(it); open = false }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Campo de cor solida. Grava no MESMO campo do gradiente ("#rrggbb" e um valor
+// valido pro bannerBrush e pro web/mobile), entao escolher um gradiente depois
+// simplesmente sobrescreve. So aplica quando fecham 6 digitos: teclar no meio
+// nao deve pintar um valor pela metade.
+@Composable
+private fun HexField(selected: String?, onPick: (String) -> Unit) {
+    // Se o valor de fora e um gradiente, o campo comeca vazio (nao ha hex que o
+    // represente). Rechaveia quando o valor muda por fora (ex.: clicou num
+    // gradiente da grade logo abaixo).
+    var text by remember(selected) {
+        mutableStateOf(selected?.trim()?.takeIf { it.startsWith("#") }?.removePrefix("#").orEmpty())
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("#", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = DmMono))
+        Spacer(Modifier.width(6.dp))
+        Box(Modifier.weight(1f)) {
+            if (text.isEmpty()) {
+                Text(
+                    "c9a96e",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = DmMono),
+                )
+            }
+            BasicTextField(
+                value = text,
+                onValueChange = { raw ->
+                    val clean = raw.filter { it.isDigit() || it.lowercaseChar() in 'a'..'f' }
+                        .lowercase().take(6)
+                    text = clean
+                    if (clean.length == 6) onPick("#$clean")
+                },
+                singleLine = true,
+                textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmMono),
+                cursorBrush = SolidColor(Obsidian.accent),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        // Amostra do que esta digitado — so ganha cor com o hex completo.
+        Box(
+            Modifier
+                .size(22.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .drawBehind {
+                    val css = if (text.length == 6) "#$text" else null
+                    drawRect(bannerBrush(css, size.width, size.height, Obsidian.overlay))
+                }
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(5.dp)),
+        )
+    }
+}
+
+// Rotulo da pastilha: nome do gradiente conhecido, o proprio hex, ou um aviso
+// generico pra um CSS que veio de outro cliente e nao esta na lista.
+private fun colorLabel(css: String?): String {
+    val raw = css?.trim().orEmpty()
+    if (raw.isEmpty()) return "padrao"
+    BANNER_GRADIENTS.find { it.css == raw }?.let { return it.label.lowercase() }
+    return if (raw.startsWith("#")) raw.lowercase() else "gradiente proprio"
+}
+
 @Composable
 private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
     Column(

@@ -14,16 +14,20 @@ object DesktopShortcut {
         thread(isDaemon = true, name = "astra-shortcut") {
             runCatching {
                 val exe = currentExePath() ?: return@runCatching
-                val desktop = File(System.getProperty("user.home"), "Desktop")
-                if (!desktop.isDirectory) return@runCatching
-                val lnk = File(desktop, "Astra.lnk")
-                if (lnk.exists()) return@runCatching
-
                 fun q(s: String) = s.replace("'", "''")
                 val workDir = File(exe).parent ?: return@runCatching
+                // A pasta e resolvida PELO POWERSHELL, nao por user.home + "Desktop":
+                // com o OneDrive ligado (padrao no Windows 11) a area de trabalho vira
+                // %USERPROFILE%\OneDrive\Desktop e a pasta antiga nem existe — o palpite
+                // falhava calado e o atalho nunca era criado. GetFolderPath('Desktop')
+                // devolve o caminho real, redirecionado ou nao.
                 // WScript.Shell (COM) via PowerShell cria o .lnk — sem lib nativa extra.
                 val ps = buildString {
-                    append("\$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${q(lnk.absolutePath)}'); ")
+                    append("\$d = [Environment]::GetFolderPath('Desktop'); ")
+                    append("if (-not \$d) { exit }; ")
+                    append("\$lnk = Join-Path \$d 'Astra.lnk'; ")
+                    append("if (Test-Path \$lnk) { exit }; ")
+                    append("\$s = (New-Object -ComObject WScript.Shell).CreateShortcut(\$lnk); ")
                     append("\$s.TargetPath = '${q(exe)}'; ")
                     append("\$s.WorkingDirectory = '${q(workDir)}'; ")
                     append("\$s.IconLocation = '${q(exe)}'; ")

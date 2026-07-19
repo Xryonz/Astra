@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -50,6 +51,8 @@ fun AstraImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    // Enquadramento (banner do perfil usa BiasAlignment pra posicao vertical).
+    alignment: Alignment = Alignment.Center,
 ) {
     val reduce = LocalReduceMotion.current
     var anim by remember(url) { mutableStateOf(url?.let { AnimatedImageStore.cached(it) }) }
@@ -79,6 +82,7 @@ fun AstraImage(
             bitmap = a.frames[idx.coerceIn(0, a.frames.lastIndex)],
             contentDescription = contentDescription,
             modifier = modifier,
+            alignment = alignment,
             contentScale = contentScale,
         )
     } else {
@@ -86,6 +90,7 @@ fun AstraImage(
             model = url,
             contentDescription = contentDescription,
             modifier = modifier,
+            alignment = alignment,
             contentScale = contentScale,
         )
     }

@@ -161,6 +161,9 @@ fun ShellScreen(
     }
     val state by vm.state.collectAsState()
     var settingsOpen by remember { mutableStateOf(false) }
+    // Aba em que o takeover abre: a engrenagem cai em Conta, o avatar do rodape
+    // cai em Perfil.
+    var settingsTab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
     // Ctrl+K = quick-switcher (pular pra canal/sussurro). Foco na raiz garante que o
     // atalho dispara mesmo sem nada clicado; onPreviewKeyEvent na raiz ve a tecla
     // antes de qualquer campo de texto filho.
@@ -301,7 +304,7 @@ fun ShellScreen(
             onToggleMute = vm::toggleDmMute,
             onMarkRead = vm::markDmRead,
             onEditedProfile = vm::refreshMe,
-            onOpenSettings = { settingsOpen = true },
+            onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
             onLogout = onLogout,
             friendsOpen = state.friendsOpen,
             onOpenFriends = vm::openFriends,
@@ -363,6 +366,7 @@ fun ShellScreen(
             SettingsScreen(
                 me = state.me,
                 prefs = prefs,
+                initialTab = settingsTab,
                 onClose = { settingsOpen = false },
                 // Salvou o perfil -> re-hidrata o `me` do shell (rodape, chat e a
                 // propria previa passam a ler o valor novo).
@@ -961,7 +965,7 @@ private fun Sidebar(
     onToggleMute: (ConversationDto) -> Unit,
     onMarkRead: (String) -> Unit,
     onEditedProfile: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSettings: (SettingsTab) -> Unit,
     onLogout: () -> Unit,
     friendsOpen: Boolean,
     onOpenFriends: () -> Unit,

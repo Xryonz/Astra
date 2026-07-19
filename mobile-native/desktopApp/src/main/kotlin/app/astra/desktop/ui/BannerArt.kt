@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
-import coil3.compose.AsyncImage
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -129,8 +128,11 @@ fun ProfileBanner(
             .drawBehind { drawRect(bannerBrush(css, size.width, size.height, fallback)) },
     ) {
         if (!imageUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = imageUrl,
+            // AstraImage e nao AsyncImage: o Coil no JVM so pinta o 1o frame, entao
+            // banner em gif/webp animado ficava parado. O AstraImage decodifica os
+            // frames pelo Skiko e roda a animacao (estatico cai no Coil, sem custo).
+            AstraImage(
+                url = imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 // bias -1 = topo, 0 = centro, +1 = base.

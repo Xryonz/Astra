@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -154,7 +155,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
             // pelo palco todo (o "enxuto" que o dono pediu). O Box segura a coluna
             // encostada a esquerda; os controles leem como uma coluna so em vez de
             // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
-            Box(Modifier.weight(1f).fillMaxHeight()) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
             Column(
                 Modifier.align(Alignment.TopStart).widthIn(max = 720.dp).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
@@ -223,8 +224,65 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                     }
                 }
             }
+                // Previa ao vivo no vazio a direita (so quando ha largura pra nao
+                // brigar com a coluna capada de 720).
+                if (maxWidth > 1060.dp && (tab == SettingsTab.ACCOUNT || tab == SettingsTab.NOTIFICATIONS)) {
+                    SettingsPreview(tab, me, Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).width(280.dp))
+                }
             }
         }
+    }
+}
+
+// Previa ao vivo (lado direito das configs): Conta = card do teu perfil real;
+// Notificacoes = exemplo de aviso. Preenche o vazio com funcao, nao enfeite.
+@Composable
+private fun SettingsPreview(tab: SettingsTab, me: ProfileUserDto?, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text("PREVIA", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        Spacer(Modifier.height(10.dp))
+        when (tab) {
+            SettingsTab.ACCOUNT -> AccountPreviewCard(me)
+            SettingsTab.NOTIFICATIONS -> NotifPreviewCard()
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun AccountPreviewCard(me: ProfileUserDto?) {
+    val name = me?.displayName ?: me?.username ?: "voce"
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Obsidian.raised.copy(alpha = 0.5f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
+            .padding(18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        DesktopAvatar(me?.avatarUrl, name, 56)
+        Spacer(Modifier.height(10.dp))
+        Text(name, style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))
+        me?.username?.let {
+            Text("@$it", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        }
+    }
+}
+
+@Composable
+private fun NotifPreviewCard() {
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+            .padding(13.dp),
+    ) {
+        Text("Astra", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        Spacer(Modifier.height(5.dp))
+        Text("novo sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+        Spacer(Modifier.height(2.dp))
+        Text("e assim que um aviso aparece na bandeja.", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
     }
 }
 

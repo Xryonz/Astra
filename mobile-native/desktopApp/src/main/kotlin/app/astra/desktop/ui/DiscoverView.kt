@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -146,8 +146,12 @@ fun DiscoverView(onJoined: (String) -> Unit, modifier: Modifier = Modifier) {
                 contentPadding = PaddingValues(bottom = 12.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(results, key = { it.id }) { s ->
-                    DiscoverCard(s, joining = joining == s.id, onJoin = { join(s.id) })
+                itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
+                    // Cascata de entrada ao carregar/buscar (re-dispara quando o
+                    // conjunto muda de tamanho). GPU-only (fade + leve subida).
+                    CascadeIn(i, results.size) {
+                        DiscoverCard(s, joining = joining == s.id, onJoin = { join(s.id) })
+                    }
                 }
             }
         }

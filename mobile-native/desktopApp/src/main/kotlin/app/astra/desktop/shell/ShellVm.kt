@@ -4,6 +4,7 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
@@ -15,6 +16,7 @@ import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.MoveChannelRequest
+import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
@@ -70,6 +72,9 @@ data class ShellUiState(
     val voiceChannel: ChannelDto? = null,
     // Ids (canal ou conversa) com mensagem que voce ainda nao viu.
     val unread: Set<String> = emptySet(),
+    // Canais/constelacoes silenciados (mode "mute" no backend de notif prefs).
+    val mutedChannels: Set<String> = emptySet(),
+    val mutedServers: Set<String> = emptySet(),
     // Conversas DM com alguem digitando agora (sidebar mostra "digitando…").
     val dmTyping: Set<String> = emptySet(),
     // Quem esta em cada canal de voz (channelId -> userIds), via poll ~5s do
@@ -89,6 +94,7 @@ class ShellVm(
     private val userApi: UserApi,
     private val dmApi: DmApi,
     private val voiceApi: VoiceApi,
+    private val notifApi: NotificationApi,
     private val store: SessionStore,
     private val socket: DesktopSocket,
     private val json: Json,
@@ -102,6 +108,7 @@ class ShellVm(
 
     init {
         load()
+        loadNotifPrefs()
         listenRealtime()
         pollVoicePresence()
     }
@@ -462,6 +469,46 @@ class ShellVm(
             }
             reloadServers()
         }
+    }
+
+    // ---- Silenciar (notif prefs): backend channelNotifPrefs.ts, mode "mute" ----
+    private fun loadNotifPrefs() {
+        scope.launch {
+            val ch = async { runCatching { notifApi.channelNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
+            val sv = async { runCatching { notifApi.serverNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
+            val mutedCh = ch.await().filter { it.mode == "mute" }.map { it.channelId }.toSet()
+            val mutedSv = sv.await().filter { it.mode == "mute" }.map { it.serverId }.toSet()
+            _state.update { it.copy(mutedChannels = mutedCh, mutedServers = mutedSv) }
+        }
+    }
+
+    fun toggleChannelMute(channelId: String) {
+        val muted = channelId in _state.value.mutedChannels
+        _state.update { it.copy(mutedChannels = if (muted) it.mutedChannels - channelId else it.mutedChannels + channelId) }
+        scope.launch {
+            runCatching {
+                if (muted) notifApi.clearChannelNotifPref(channelId)
+                else notifApi.setChannelNotifPref(channelId, NotifModeRequest("mute"))
+            }
+        }
+    }
+
+    fun toggleServerMute(serverId: String) {
+        val muted = serverId in _state.value.mutedServers
+        _state.update { it.copy(mutedServers = if (muted) it.mutedServers - serverId else it.mutedServers + serverId) }
+        scope.launch {
+            runCatching {
+                if (muted) notifApi.clearServerNotifPref(serverId)
+                else notifApi.setServerNotifPref(serverId, NotifModeRequest("mute"))
+            }
+        }
+    }
+
+    // Marca todos os canais nao-lidos da constelacao como lidos (menu da rail / vazio).
+    fun markServerRead(serverId: String) {
+        val srv = _state.value.servers.find { it.id == serverId } ?: return
+        val unread = _state.value.unread
+        srv.channels.forEach { if (it.id in unread) markChannelRead(it.id) }
     }
 
     // ---- Menu de canal (botao direito na orbita) ----

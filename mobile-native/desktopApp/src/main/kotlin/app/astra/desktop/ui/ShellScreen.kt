@@ -156,7 +156,7 @@ fun ShellScreen(
     val vm = remember {
         ShellVm(
             scope, koin.get<ServerApi>(), koin.get<ChannelApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
-            koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
+            koin.get<NotificationApi>(), koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
         )
     }
     val state by vm.state.collectAsState()
@@ -273,10 +273,13 @@ fun ShellScreen(
             servers = state.servers,
             selection = state.selection,
             myId = session.userId,
+            mutedServers = state.mutedServers,
             onSelect = vm::select,
             onLeaveServer = vm::leaveServer,
             onDeleteServer = vm::deleteServer,
             onCreateServer = vm::createServer,
+            onToggleServerMute = vm::toggleServerMute,
+            onMarkServerRead = vm::markServerRead,
         )
         Sidebar(
             selection = state.selection,
@@ -310,6 +313,8 @@ fun ShellScreen(
             onRenameChannel = vm::renameChannel,
             onDeleteChannel = vm::deleteChannel,
             onMarkChannelRead = vm::markChannelRead,
+            mutedChannels = state.mutedChannels,
+            onToggleChannelMute = vm::toggleChannelMute,
         )
         Stage(
             state.selectedServer,
@@ -640,10 +645,13 @@ private fun Rail(
     servers: List<ServerDto>,
     selection: Selection,
     myId: String?,
+    mutedServers: Set<String>,
     onSelect: (Selection) -> Unit,
     onLeaveServer: (String) -> Unit,
     onDeleteServer: (String) -> Unit,
     onCreateServer: (name: String, isGroup: Boolean) -> Unit,
+    onToggleServerMute: (String) -> Unit,
+    onMarkServerRead: (String) -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
     Column(
@@ -677,6 +685,8 @@ private fun Rail(
                         srv.inviteCode?.let { code ->
                             add(MenuEntry.Item("copiar convite") { clipboard.setText(AnnotatedString(code)) })
                         }
+                        add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelacao" else "silenciar constelacao") { onToggleServerMute(srv.id) })
+                        add(MenuEntry.Item("marcar tudo como lido") { onMarkServerRead(srv.id) })
                         add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(srv.id)) })
                         add(MenuEntry.Separator)
                         if (isOwner) add(MenuEntry.Item("excluir constelacao", danger = true) { confirmDelete = true })
@@ -956,6 +966,8 @@ private fun Sidebar(
     onRenameChannel: (serverId: String, channelId: String, name: String) -> Unit,
     onDeleteChannel: (serverId: String, channelId: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
+    mutedChannels: Set<String>,
+    onToggleChannelMute: (channelId: String) -> Unit,
 ) {
     // Dialogo de nome (nova orbita / nova categoria / renomear) — centralizado na
     // janela. So o dono da constelacao dispara pelos menus de botao direito.
@@ -995,12 +1007,19 @@ private fun Sidebar(
                 }
                 // Botao direito no cabecalho da constelacao (so o dono): criar orbita
                 // solta ou uma categoria nova.
-                if (srv != null && srv.ownerId == myId) {
+                if (srv != null) {
+                    val isOwnerHere = srv.ownerId == myId
                     EditorialContextMenu(entries = {
-                        listOf(
-                            MenuEntry.Item("criar órbita") { chanDialog = ChanDialog.NewChannel(srv.id, null) },
-                            MenuEntry.Item("criar categoria") { chanDialog = ChanDialog.NewCategory(srv.id) },
-                        )
+                        buildList {
+                            add(MenuEntry.Item("marcar tudo como lido") {
+                                srv.channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
+                            })
+                            if (isOwnerHere) {
+                                add(MenuEntry.Separator)
+                                add(MenuEntry.Item("criar órbita") { chanDialog = ChanDialog.NewChannel(srv.id, null) })
+                                add(MenuEntry.Item("criar categoria") { chanDialog = ChanDialog.NewCategory(srv.id) })
+                            }
+                        }
                     }) { header() }
                 } else {
                     header()
@@ -1031,6 +1050,8 @@ private fun Sidebar(
                             onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
                             onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
                             onMarkChannelRead = onMarkChannelRead,
+                            mutedChannels = mutedChannels,
+                            onToggleChannelMute = onToggleChannelMute,
                         )
                     }
                 }
@@ -1166,6 +1187,8 @@ private fun OrbitList(
     onOpenChannelRename: (channelId: String, current: String) -> Unit,
     onOpenChannelDelete: (channelId: String, name: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
+    mutedChannels: Set<String>,
+    onToggleChannelMute: (channelId: String) -> Unit,
 ) {
     if (server == null) return
     // Estrutura Discord: orbitas soltas primeiro, depois categorias colapsaveis.
@@ -1181,7 +1204,7 @@ private fun OrbitList(
     // Estado do drag de reordenacao (uma instancia por constelacao aberta).
     val drag = remember(server.id) { ChannelDragState() }
     // Acoes do botao-direito da orbita (serverId ja embutido nas lambdas de cima).
-    val chMenu = ChannelMenu(isOwner, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete)
+    val chMenu = ChannelMenu(isOwner, mutedChannels, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute)
 
     // Cascata (F6): a posicao corrida na lista decide o atraso de entrada.
     // Os indices sao computados no escopo do DSL (sincrono e deterministico);
@@ -1441,6 +1464,7 @@ private fun OrbitEntry(
         EditorialContextMenu(entries = {
             buildList {
                 if (unread) add(MenuEntry.Item("marcar como lido") { menu.onMarkRead(ch.id) })
+                add(MenuEntry.Item(if (ch.id in menu.mutedChannels) "reativar órbita" else "silenciar órbita") { menu.onToggleMute(ch.id) })
                 add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(ch.id)) })
                 if (menu.isOwner) {
                     add(MenuEntry.Separator)
@@ -1543,9 +1567,11 @@ private sealed interface ChanDialog {
 // se e dono) e passado adiante pro OrbitEntry. serverId ja fica embutido nas lambdas.
 private class ChannelMenu(
     val isOwner: Boolean,
+    val mutedChannels: Set<String>,
     val onMarkRead: (channelId: String) -> Unit,
     val onRename: (channelId: String, current: String) -> Unit,
     val onDelete: (channelId: String, name: String) -> Unit,
+    val onToggleMute: (channelId: String) -> Unit,
 )
 
 // Nome de orbita segue a regra do backend (^[a-z0-9-]+$): sanitiza ao vivo pra

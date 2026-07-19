@@ -13,6 +13,8 @@ data class ApiEnvelope<T>(
 data class ApiError(
     val error: String? = null,
     val code: String? = null,
+    // Quanto falta pra sair do silenciamento (429 MUTED/SPAM_MUTED).
+    val secondsLeft: Int? = null,
 )
 
 @Serializable

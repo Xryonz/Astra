@@ -4,6 +4,7 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.UploadApi
+import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ChannelMessageDto
 import app.astra.mobile.core.network.dto.ChannelTypingEventDto
@@ -34,6 +35,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.HttpException
 import java.io.File
 import java.nio.file.Files
 
@@ -205,7 +207,28 @@ class ChatVm(
                         )
                     }
                 }
-                .onFailure { _state.update { it.copy(sending = false, error = "Mensagem nao enviada") } }
+                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "Mensagem nao enviada")) } }
+        }
+    }
+
+    // Motivo REAL da falha. O backend responde { error, code, secondsLeft } — e
+    // trocar tudo isso por um texto fixo foi o que transformou "estou silenciado
+    // ha 4 minutos" num misterio: o anti-spam devolve 429 MUTED e a UI so dizia
+    // "Mensagem nao enviada". Sem corpo legivel, cai no codigo HTTP.
+    private fun sendError(t: Throwable, fallback: String): String {
+        val http = t as? HttpException ?: return "$fallback — sem conexao"
+        val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
+            ?.let { runCatching { json.decodeFromString<ApiError>(it) }.getOrNull() }
+        if (parsed?.code == "MUTED" || parsed?.code == "SPAM_MUTED") {
+            val s = parsed.secondsLeft ?: 0
+            val falta = if (s >= 60) "${s / 60}min" else "${s}s"
+            return if (s > 0) "Voce esta silenciado — faltam $falta" else "Voce esta silenciado neste servidor"
+        }
+        parsed?.error?.takeIf { it.isNotBlank() }?.let { return it }
+        return when (http.code()) {
+            403 -> "Sem permissao pra falar aqui"
+            404 -> "Esta orbita nao existe mais"
+            else -> "$fallback (erro ${http.code()})"
         }
     }
 
@@ -245,7 +268,7 @@ class ChatVm(
                         )
                     }
                 }
-                .onFailure { _state.update { it.copy(sending = false, error = "GIF nao enviado") } }
+                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "GIF nao enviado")) } }
         }
     }
 

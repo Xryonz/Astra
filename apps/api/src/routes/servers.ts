@@ -12,6 +12,7 @@ import { AUDIT, audit } from '../lib/audit'
 import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
+import { unmuteUser } from '../lib/spamDetector'
 
 export const serversRouter = Router()
 
@@ -344,6 +345,33 @@ serversRouter.patch(
 
     await db.update(serverMembers).set({ role }).where(eq(serverMembers.id, memberId))
     res.json({ data: { id: memberId, role } })
+  })
+)
+
+// Destravar quem o anti-spam silenciou. O unmuteUser existe desde sempre mas
+// NENHUMA rota o chamava: uma vez auto-silenciado nao havia saida, so esperar o
+// prazo. Alcada = dono ou MANAGE_MESSAGES (e moderacao de mensagem).
+// Precisa vir ANTES do DELETE '/:serverId/members/:memberId', senao o Express
+// casa a rota mais generica primeiro e 'mute' viraria um memberId.
+serversRouter.delete(
+  '/:serverId/members/:memberId/mute',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serverId, memberId } = req.params
+
+    const requester = await getMemberPerms(req.userId!, serverId)
+    if (!requester.memberId) return res.status(403).json({ error: 'Você não é membro' })
+    if (!requester.isOwner && !requester.permissions.has(PERMS.MANAGE_MESSAGES))
+      return res.status(403).json({ error: 'Sem permissão para remover o silenciamento' })
+
+    const [target] = await db.select({ userId: serverMembers.userId })
+      .from(serverMembers)
+      .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId)))
+      .limit(1)
+    if (!target) return res.status(404).json({ error: 'Membro não encontrado' })
+
+    await unmuteUser(target.userId, serverId)
+    res.json({ data: { memberId, muted: false } })
   })
 )
 

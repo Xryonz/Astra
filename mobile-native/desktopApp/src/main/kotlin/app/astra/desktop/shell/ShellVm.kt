@@ -443,12 +443,11 @@ class ShellVm(
     fun reorderChannel(serverId: String, orderedIds: List<String>) {
         scope.launch {
             val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
-            val ids = orderedIds.toSet()
-            // Os valores de position atuais da secao, em ordem crescente, viram os
-            // "slots" que serao redistribuidos na nova ordem.
-            val slots = srv0.channels.filter { it.id in ids }.map { it.position }.sorted()
-            if (slots.size != orderedIds.size) return@launch
-            val newPos = orderedIds.mapIndexed { i, id -> id to slots[i] }.toMap()
+            // Posicao = INDICE na nova ordem (0,1,2...). Robusto mesmo quando os canais
+            // tem position igual/0 (nascem sem position distinta): o metodo antigo
+            // permutava os VALORES atuais e, com todos = 0, dava sempre "sem mudanca"
+            // -> nenhum moveChannel era enviado e o reload voltava a ordem (o bug).
+            val newPos = orderedIds.mapIndexed { i, id -> id to i }.toMap()
             val oldPos = srv0.channels.associate { it.id to it.position }
 
             _state.update { st ->

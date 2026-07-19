@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -660,8 +660,19 @@ channelsRouter.post(
       if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
     }
 
+    // Position incremental dentro do grupo (categoria ou soltos) -> canais nascem
+    // com position DISTINTA. Sem isto ficavam todos em 0 e o reordenar nao tinha o
+    // que permutar; e um canal novo entrava no topo em vez de no fim.
+    const [{ maxPos } = { maxPos: -1 }] = await db
+      .select({ maxPos: sql<number>`COALESCE(MAX(${channels.position}), -1)::int` })
+      .from(channels)
+      .where(and(
+        eq(channels.serverId, serverId),
+        categoryId ? eq(channels.categoryId, categoryId) : isNull(channels.categoryId),
+      ))
+
     const [channel] = await db.insert(channels)
-      .values({ name, type, serverId, ...(categoryId ? { categoryId } : {}) })
+      .values({ name, type, serverId, position: (maxPos ?? -1) + 1, ...(categoryId ? { categoryId } : {}) })
       .returning()
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_CREATE,

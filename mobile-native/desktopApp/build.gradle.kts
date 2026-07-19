@@ -52,7 +52,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.1"
+val astraVersion = "0.1.2"
 
 dependencies {
     implementation(project(":shared"))
@@ -137,6 +137,14 @@ compose.desktop {
         mainClass = "app.astra.desktop.MainKt"
         // Versao embutida pro auto-update ler em runtime (System.getProperty).
         jvmArgs += "-Dastra.version=$astraVersion"
+        // Profiler RUNTIME (JFR), gated pra nunca vazar pro pacote: rodar
+        //   ./gradlew :desktopApp:run -Pjfr
+        // Usar o app ~2min (aurora, rolar chat, entrar em call, transmitir) e fechar;
+        // gera astra-profile.jfr (dumponexit) na pasta do modulo. Analiso com o
+        // `jfr` CLI (ExecutionSample = CPU; ObjectAllocation = alocacao).
+        if (providers.gradleProperty("jfr").isPresent) {
+            jvmArgs += "-XX:StartFlightRecording=duration=120s,filename=astra-profile.jfr,settings=profile,dumponexit=true"
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"

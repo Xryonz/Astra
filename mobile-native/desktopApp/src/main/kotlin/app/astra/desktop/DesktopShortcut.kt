@@ -26,8 +26,15 @@ object DesktopShortcut {
                     append("\$d = [Environment]::GetFolderPath('Desktop'); ")
                     append("if (-not \$d) { exit }; ")
                     append("\$lnk = Join-Path \$d 'Astra.lnk'; ")
-                    append("if (Test-Path \$lnk) { exit }; ")
-                    append("\$s = (New-Object -ComObject WScript.Shell).CreateShortcut(\$lnk); ")
+                    append("\$w = New-Object -ComObject WScript.Shell; ")
+                    // REPARA em vez de desistir: antes era `if (Test-Path) { exit }`,
+                    // entao um atalho errado (ou de uma instalacao antiga, noutra
+                    // pasta) ficava pra sempre — a versao nova via "ja existe" e nao
+                    // corrigia nada. Agora so sai cedo se o alvo ja for este exe.
+                    append("if (Test-Path \$lnk) { ")
+                    append("if (\$w.CreateShortcut(\$lnk).TargetPath -eq '${q(exe)}') { exit } ")
+                    append("}; ")
+                    append("\$s = \$w.CreateShortcut(\$lnk); ")
                     append("\$s.TargetPath = '${q(exe)}'; ")
                     append("\$s.WorkingDirectory = '${q(workDir)}'; ")
                     append("\$s.IconLocation = '${q(exe)}'; ")
@@ -41,8 +48,13 @@ object DesktopShortcut {
     }
 
     // jpackage seta "jpackage.app-path" com o caminho do launcher (Astra.exe). E a
-    // fonte confiavel; o fallback (comando do processo) apontaria pro java do runtime.
+    // UNICA fonte confiavel.
+    //
+    // O fallback pro comando do processo foi removido: num run de desenvolvimento
+    // (./gradlew :desktopApp:run) ele devolve o java.exe do JDK, que passa num teste
+    // de ".exe" e criava no Desktop um atalho apontando pro java — e, por causa do
+    // antigo "se ja existe, desiste", esse atalho quebrado sobrevivia a instalacao
+    // seguinte. Sem app empacotado nao ha atalho pra criar; entao nao cria nenhum.
     private fun currentExePath(): String? =
-        System.getProperty("jpackage.app-path")
-            ?: ProcessHandle.current().info().command().orElse(null)?.takeIf { it.endsWith(".exe", true) }
+        System.getProperty("jpackage.app-path")?.takeIf { it.endsWith(".exe", true) }
 }

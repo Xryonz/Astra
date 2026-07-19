@@ -2,7 +2,13 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,6 +24,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,9 +43,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +61,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -81,6 +91,7 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
+import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -94,10 +105,19 @@ import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetPasswordRequest
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.sound.sampled.AudioFormat
+import javax.sound.sampled.AudioSystem
+import javax.sound.sampled.DataLine
+import javax.sound.sampled.TargetDataLine
+import kotlin.concurrent.thread
+import kotlin.math.PI
+import kotlin.math.sin
 
 private enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
@@ -156,6 +176,10 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
             // encostada a esquerda; os controles leem como uma coluna so em vez de
             // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
+            // Larga o bastante pra previa caber AO LADO da coluna capada (720) sem
+            // encostar; senao ela empilha embaixo. Sobre = so a aba sem previa.
+            val wide = maxWidth > 1080.dp
+            val showPreview = tab != SettingsTab.ABOUT
             Column(
                 Modifier.align(Alignment.TopStart).widthIn(max = 720.dp).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
@@ -223,66 +247,410 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                     }
                     }
                 }
+
+                // Janela estreita: a previa nao cabe ao lado -> empilha embaixo,
+                // separada por um fio.
+                if (!wide && showPreview) {
+                    SettingsDivider()
+                    SettingsPreview(tab, me, prefState, Modifier.widthIn(max = 420.dp).fillMaxWidth())
+                }
             }
-                // Previa ao vivo no vazio a direita (so quando ha largura pra nao
-                // brigar com a coluna capada de 720).
-                if (maxWidth > 1060.dp && (tab == SettingsTab.ACCOUNT || tab == SettingsTab.NOTIFICATIONS)) {
-                    SettingsPreview(tab, me, Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).width(280.dp))
+                // Janela larga: previa como card fixo no vazio a direita (nao rola
+                // junto; ancorado ao centro-direita do palco).
+                if (wide && showPreview) {
+                    SettingsPreview(tab, me, prefState, Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).width(300.dp))
                 }
             }
         }
     }
 }
 
-// Previa ao vivo (lado direito das configs): Conta = card do teu perfil real;
-// Notificacoes = exemplo de aviso. Preenche o vazio com funcao, nao enfeite.
+// Previa ao vivo (lado das configs). Cada aba mostra o efeito real do que se
+// mexe: Conta = teu perfil como os OUTROS veem; Notificacoes = aviso deslizando
+// na bandeja; Aparencia = mini-janela no tema/fonte/densidade; Desempenho =
+// medidor de custo GPU/CPU; Voz = moldura da transmissao + nivel do mic ao vivo.
 @Composable
-private fun SettingsPreview(tab: SettingsTab, me: ProfileUserDto?, modifier: Modifier = Modifier) {
+private fun SettingsPreview(
+    tab: SettingsTab,
+    me: ProfileUserDto?,
+    p: DesktopPrefs.Prefs,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier) {
-        Text("PREVIA", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-        Spacer(Modifier.height(10.dp))
+        FieldLabel("previa")
         when (tab) {
             SettingsTab.ACCOUNT -> AccountPreviewCard(me)
-            SettingsTab.NOTIFICATIONS -> NotifPreviewCard()
-            else -> Unit
+            SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
+            SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
+            SettingsTab.PERFORMANCE -> CostMeter(p)
+            SettingsTab.VOICE -> VoicePreview(p)
+            SettingsTab.ABOUT -> Unit
         }
     }
 }
 
+// --- Conta: espelha o ProfilePopupCard (o card que os outros abrem no teu
+// avatar), so que alimentado pelo teu proprio perfil. Muda de verdade quando
+// voce troca avatar/status/bio nas outras telas. ---
 @Composable
 private fun AccountPreviewCard(me: ProfileUserDto?) {
-    val name = me?.displayName ?: me?.username ?: "voce"
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Obsidian.raised.copy(alpha = 0.5f))
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-            .padding(18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        DesktopAvatar(me?.avatarUrl, name, 56)
-        Spacer(Modifier.height(10.dp))
-        Text(name, style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif))
-        me?.username?.let {
-            Text("@$it", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-        }
-    }
-}
-
-@Composable
-private fun NotifPreviewCard() {
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Obsidian.overlay)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
-            .padding(13.dp),
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
     ) {
-        Text("Astra", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        if (me == null) {
+            Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
+                Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            }
+            return@Column
+        }
+        val ring = userColor(me.id)
+        val bannerColor = me.bannerColor?.removePrefix("#")?.toLongOrNull(16)
+            ?.let { Color(0xFF000000 or it) } ?: Obsidian.overlay
+        Box(Modifier.fillMaxWidth().height(72.dp).background(bannerColor)) {
+            if (!me.bannerUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = me.bannerUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        }
+        Column(Modifier.padding(horizontal = 14.dp)) {
+            Box(
+                Modifier.offset(y = (-24).dp).clip(CircleShape).background(Obsidian.raised)
+                    .border(3.dp, ring, CircleShape).padding(3.dp),
+            ) {
+                DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 48)
+            }
+            Column(Modifier.offset(y = (-14).dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        me.displayName ?: me.username,
+                        style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    StatusDot(status = userStatus(me.effectiveStatus), size = 10.dp, cutoutColor = Obsidian.raised)
+                }
+                Text("@${me.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono))
+                if (!me.customStatus.isNullOrBlank() || !me.statusEmoji.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        listOfNotNull(me.statusEmoji, me.customStatus).joinToString(" "),
+                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                    )
+                }
+                if (!me.bio.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp)); HairRule(); Spacer(Modifier.height(8.dp))
+                    Text(
+                        me.bio.orEmpty(),
+                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
+                        maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("e assim que os outros te veem", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+}
+
+// --- Notificacoes: um toast que desliza da direita, segura e sai — em loop.
+// reduceMotion trava ele parado e visivel (respeita o ajuste de movimento). ---
+@Composable
+private fun NotifPreviewCard(reduceMotion: Boolean) {
+    val t = rememberInfiniteTransition(label = "toast")
+    val cycle by t.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(3400, easing = LinearEasing), RepeatMode.Restart),
+        label = "toastCycle",
+    )
+    var dx = 0f
+    var a = 1f
+    if (!reduceMotion) {
+        when {
+            cycle < 0.14f -> { val k = cycle / 0.14f; dx = (1f - k) * 44f; a = k }
+            cycle < 0.82f -> { dx = 0f; a = 1f }
+            else -> { val k = (cycle - 0.82f) / 0.18f; dx = k * 44f; a = 1f - k }
+        }
+    }
+    Box(Modifier.fillMaxWidth().offset(x = dx.dp).alpha(a)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+                .padding(13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(Obsidian.accentDim),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("A", style = TextStyle(color = Obsidian.accent, fontSize = 15.sp, fontFamily = DmSerif))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Astra", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                Text("novo sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+                Text("e assim que um aviso chega na bandeja.", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+            }
+        }
+    }
+}
+
+// --- Aparencia: mini-janela do app (canal + duas mensagens + campo de escrever)
+// no tema atual; fonte e densidade reagem ao vivo aos controles ao lado. ---
+@Composable
+private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
+    val s = fontSize.scale
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.raised.copy(alpha = 0.6f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("#", style = TextStyle(color = Obsidian.text3, fontSize = 15.sp))
+            Spacer(Modifier.width(6.dp))
+            Text("geral", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+        }
+        HairRule()
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
+            SampleMsg("ana", "e ai, bora marcar a call?", s)
+            Spacer(Modifier.height((density.topDp).dp))
+            SampleMsg("voce", "fechou, 21h entao", s)
+        }
+        HairRule()
+        Box(
+            Modifier.padding(11.dp).fillMaxWidth().clip(RoundedCornerShape(9.dp))
+                .background(Obsidian.void.copy(alpha = 0.5f))
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+        ) {
+            Text("escrever…", style = TextStyle(color = Obsidian.text3, fontSize = (13 * s).sp))
+        }
+    }
+}
+
+@Composable
+private fun SampleMsg(name: String, text: String, scale: Float) {
+    Row(verticalAlignment = Alignment.Top) {
+        val c = userColor(name)
+        Box(
+            Modifier.size((26 * scale).dp).clip(CircleShape).background(c),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(name.take(1).uppercase(), style = TextStyle(color = Obsidian.textInv, fontSize = (11 * scale).sp))
+        }
+        Spacer(Modifier.width(9.dp))
+        Column {
+            Text(name, style = TextStyle(color = c, fontSize = (12 * scale).sp, fontFamily = DmSerif))
+            Text(text, style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (18 * scale).sp))
+        }
+    }
+}
+
+// --- Desempenho: medidor de custo ESTIMADO (nao mede a GPU real; deriva das
+// escolhas). Custo zero de render — so barras que reagem aos toggles. ---
+@Composable
+private fun CostMeter(p: DesktopPrefs.Prefs) {
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.raised.copy(alpha = 0.5f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+            .padding(16.dp),
+    ) {
+        Text("custo estimado", style = TextStyle(color = Obsidian.text1, fontSize = 14.sp, fontFamily = DmSerif))
+        Spacer(Modifier.height(14.dp))
+        val gpu = gpuCost(p)
+        val cpu = cpuCost(p)
+        CostBar("GPU", gpu)
+        Spacer(Modifier.height(12.dp))
+        CostBar("CPU", cpu)
+        Spacer(Modifier.height(14.dp))
+        Text(costVerdict(gpu, cpu), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+    }
+}
+
+@Composable
+private fun CostBar(label: String, value: Float) {
+    val v by animateFloatAsState(value, tween(340), label = "cost-$label")
+    val col = when {
+        v < 0.36f -> Obsidian.success
+        v < 0.68f -> Obsidian.accent
+        else -> Obsidian.danger
+    }
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp), modifier = Modifier.width(38.dp))
+            Spacer(Modifier.weight(1f))
+            Text(costWord(v), style = TextStyle(color = col, fontSize = 10.sp))
+        }
         Spacer(Modifier.height(5.dp))
-        Text("novo sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
-        Spacer(Modifier.height(2.dp))
-        Text("e assim que um aviso aparece na bandeja.", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Box(
+            Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp))
+                .background(Obsidian.void.copy(alpha = 0.6f)),
+        ) {
+            Box(Modifier.fillMaxWidth(v).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(col))
+        }
+    }
+}
+
+private fun gpuCost(p: DesktopPrefs.Prefs): Float {
+    if (p.performanceMode) return 0.08f
+    var c = 0.06f
+    if (p.auroraOn) c += 0.18f + p.auroraQuality.octaves * 0.09f
+    if (p.starsOn) c += 0.14f
+    if (p.windowTransparent) c += 0.08f
+    val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.82f; UiFps.CAP30 -> 0.6f }
+    return (0.06f + (c - 0.06f) * mul).coerceIn(0.05f, 1f)
+}
+
+private fun cpuCost(p: DesktopPrefs.Prefs): Float {
+    if (p.performanceMode) return 0.06f
+    var c = 0.05f
+    if (p.auroraOn) c += 0.08f
+    if (p.starsOn) c += 0.07f
+    if (!p.reduceMotionEff) c += 0.05f
+    val mul = when (p.uiFps) { UiFps.FREE -> 1f; UiFps.CAP60 -> 0.85f; UiFps.CAP30 -> 0.65f }
+    return (0.05f + (c - 0.05f) * mul).coerceIn(0.04f, 1f)
+}
+
+private fun costWord(v: Float) = when {
+    v < 0.36f -> "leve"
+    v < 0.68f -> "medio"
+    else -> "pesado"
+}
+
+private fun costVerdict(gpu: Float, cpu: Float): String {
+    val m = maxOf(gpu, cpu)
+    return when {
+        m < 0.36f -> "leve — sobra folga pra jogar ou transmitir junto."
+        m < 0.68f -> "equilibrado — visual completo sem pesar."
+        else -> "pesado — o modo desempenho corta isso num toque."
+    }
+}
+
+// --- Voz: moldura 16:9 na resolucao/fps escolhido + medidor do mic ao vivo.
+// O medidor abre o microfone SO enquanto esta aba/previa esta visivel. ---
+@Composable
+private fun VoicePreview(p: DesktopPrefs.Prefs) {
+    Column(Modifier.fillMaxWidth()) {
+        val q = p.screenQuality
+        Column(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Obsidian.raised.copy(alpha = 0.5f))
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+                .padding(14.dp),
+        ) {
+            Box(
+                Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
+                    .background(Obsidian.void.copy(alpha = 0.6f))
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("sua tela", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            }
+            Spacer(Modifier.height(9.dp))
+            Text(
+                "${q.height}p · ${q.fps}fps · ${q.bitrate / 1_000_000} Mbps",
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Column(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Obsidian.raised.copy(alpha = 0.5f))
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+                .padding(14.dp),
+        ) {
+            Text("seu microfone", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+            Spacer(Modifier.height(10.dp))
+            MicMeter()
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (p.micNoiseSuppression) "supressao de ruido: ligada" else "supressao de ruido: desligada",
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+            )
+        }
+    }
+}
+
+// Medidor de nivel do mic: abre um TargetDataLine (Java Sound) numa thread
+// daemon enquanto a previa vive, le o RMS dos samples e move as barras.
+// onDispose fecha a linha (troca de aba / fecha configuracoes). Best-effort:
+// sem mic ou em uso -> mostra aviso, nao quebra.
+@Composable
+private fun MicMeter() {
+    var level by remember { mutableFloatStateOf(0f) }
+    var available by remember { mutableStateOf(true) }
+    DisposableEffect(Unit) {
+        val running = AtomicBoolean(true)
+        var line: TargetDataLine? = null
+        val worker = thread(isDaemon = true, name = "astra-mic-preview") {
+            val fmt = AudioFormat(16_000f, 16, 1, true, false)
+            val l = runCatching {
+                (AudioSystem.getLine(DataLine.Info(TargetDataLine::class.java, fmt)) as TargetDataLine)
+                    .apply { open(fmt); start() }
+            }.getOrNull()
+            if (l == null) { available = false; return@thread }
+            line = l
+            val buf = ByteArray(1024)
+            while (running.get()) {
+                val n = runCatching { l.read(buf, 0, buf.size) }.getOrDefault(-1)
+                if (n <= 0) break
+                var sum = 0.0
+                var i = 0
+                while (i < n - 1) {
+                    val sample = ((buf[i + 1].toInt() shl 8) or (buf[i].toInt() and 0xFF)).toShort().toInt()
+                    sum += sample.toDouble() * sample
+                    i += 2
+                }
+                val rms = kotlin.math.sqrt(sum / (n / 2)).toFloat()
+                val norm = (rms / 7000f).coerceIn(0f, 1f)
+                // sobe rapido, desce suave (o pico decai) — leitura mais viva.
+                level = if (norm > level) norm else level * 0.82f + norm * 0.18f
+            }
+            runCatching { l.stop(); l.close() }
+        }
+        onDispose {
+            running.set(false)
+            runCatching { line?.close() }
+        }
+    }
+    if (!available) {
+        Text("microfone indisponivel", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        return
+    }
+    val lvl by animateFloatAsState(level, tween(90), label = "micLvl")
+    Row(
+        Modifier.fillMaxWidth().height(30.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        val bars = 16
+        for (i in 0 until bars) {
+            // envelope em cupula: barras do meio mais altas -> onda de audio.
+            val shape = 0.45f + 0.55f * sin((i + 0.5f) / bars * PI).toFloat()
+            val h = (lvl * shape).coerceIn(0.05f, 1f)
+            Box(
+                Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
+                    .background(Obsidian.accent.copy(alpha = 0.35f + 0.5f * h)),
+            )
+        }
     }
 }
 
@@ -767,10 +1135,6 @@ private fun Toggle(on: Boolean, onChange: (Boolean) -> Unit) {
 // avulso saiu (por ora so temas prontos); volta no futuro como tema editavel.
 @Composable
 private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    FieldLabel("previa")
-    AppearancePreview(p.fontSize, p.density)
-
-    SettingsDivider()
     FieldLabel("tema")
     PresetGrid(p.accentId, p.bgId) { prefs.setTheme(it.accentId, it.bgId) }
 
@@ -799,25 +1163,6 @@ private fun FieldLabel(text: String) {
         style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp),
         modifier = Modifier.padding(bottom = 8.dp),
     )
-}
-
-@Composable
-private fun AppearancePreview(fontSize: FontSizePref, density: DensityPref) {
-    val samples = listOf("Bora marcar a call?", "fechou, 21h entao")
-    Column(Modifier.fillMaxWidth()) {
-        samples.forEachIndexed { i, text ->
-            if (i > 0) Spacer(Modifier.height((density.groupedTopDp + 2).dp))
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Obsidian.raised)
-                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-            ) {
-                Text(text, style = TextStyle(color = Obsidian.text1, fontSize = (14 * fontSize.scale).sp))
-            }
-        }
-    }
 }
 
 @Composable

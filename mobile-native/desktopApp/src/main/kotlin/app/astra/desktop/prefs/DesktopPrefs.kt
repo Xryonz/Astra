@@ -74,7 +74,10 @@ class DesktopPrefs(private val store: SessionStore) {
         // Modo desempenho: kill-switch gamer (aurora+estrelas OFF + reduz movimento).
         val performanceMode: Boolean = false,
         val auroraEnabled: Boolean = true,
-        val auroraQuality: AuroraQuality = AuroraQuality.HIGH,
+        // Padrao MEDIUM (decisao do dono): todos comecam nos graficos medios; quem
+        // quiser sobe pra HIGH nas configs. So o valor INICIAL — escolha explicita
+        // salva prevalece.
+        val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = true,
         val uiFps: UiFps = UiFps.FREE,
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
@@ -113,7 +116,7 @@ class DesktopPrefs(private val store: SessionStore) {
         notifyChannels = store.uiPref("notifyChannels") != "0",
         performanceMode = store.uiPref("performanceMode") == "1",
         auroraEnabled = store.uiPref("auroraEnabled") != "0",
-        auroraQuality = AuroraQuality.from(store.uiPref("auroraQuality")),
+        auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
         starsEnabled = store.uiPref("starsEnabled") != "0",
         uiFps = UiFps.from(store.uiPref("uiFps")),
         windowTransparent = store.uiPref("windowTransparent") != "0",

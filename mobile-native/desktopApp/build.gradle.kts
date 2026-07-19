@@ -52,7 +52,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.2"
+val astraVersion = "0.1.3"
 
 dependencies {
     implementation(project(":shared"))
@@ -137,6 +137,12 @@ compose.desktop {
         mainClass = "app.astra.desktop.MainKt"
         // Versao embutida pro auto-update ler em runtime (System.getProperty).
         jvmArgs += "-Dastra.version=$astraVersion"
+        // O skiko (FrameWatcher) chama System.gc() a cada ~40s pra liberar memoria
+        // nativa do Skia. Com G1 isso vira um full GC stop-the-world -> pausa de ms
+        // que ENGASGA a aurora animando 60fps ("corte do nada", achado no JFR). Este
+        // flag transforma o System.gc() explicito num ciclo CONCORRENTE: a memoria
+        // nativa ainda e liberada, mas sem travar as threads de render. Ship pra todos.
+        jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
         // Profiler RUNTIME (JFR), gated pra nunca vazar pro pacote: rodar
         //   ./gradlew :desktopApp:run -Pjfr
         // Usar o app ~2min (aurora, rolar chat, entrar em call, transmitir) e fechar;

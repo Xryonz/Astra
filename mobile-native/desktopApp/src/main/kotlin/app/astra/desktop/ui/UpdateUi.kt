@@ -2,6 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -122,6 +124,34 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
                 is UpdateState.UpToDate -> GateStatus("voce esta na ultima versao")
                 else -> GateStatus("verificando atualizacoes…")
             }
+            Spacer(Modifier.height(18.dp))
+            XpBar(reduceMotion)
+        }
+    }
+}
+
+// Barra de XP DECORATIVA: o sistema de XP (ganhar por msg/call -> recompensas) e
+// feature FUTURA. Aqui so enfeite gamer sutil (nivel + trilho com fill no accent
+// pulsando). Reduzir movimento -> fill estatico.
+@Composable
+private fun XpBar(reduceMotion: Boolean) {
+    val glow = if (reduceMotion) 1f else {
+        rememberInfiniteTransition(label = "xp").animateFloat(
+            initialValue = 0.7f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Reverse),
+            label = "xpGlow",
+        ).value
+    }
+    Column(Modifier.fillMaxWidth(0.72f)) {
+        Text("nv 1", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        Spacer(Modifier.height(5.dp))
+        Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.raised)) {
+            Box(
+                Modifier.fillMaxWidth(0.62f).fillMaxHeight()
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Obsidian.accent.copy(alpha = glow)),
+            )
         }
     }
 }

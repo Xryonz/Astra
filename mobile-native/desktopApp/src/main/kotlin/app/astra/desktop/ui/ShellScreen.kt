@@ -1775,6 +1775,7 @@ private fun DmList(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
                         .background(Obsidian.base)
+                        .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                 ) {
                     if (query.isEmpty()) {
@@ -1862,6 +1863,16 @@ private fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
+                // Divisoria arredondada no rodape de cada card (destaca cada sussurro).
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .height(1.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Obsidian.borderDim.copy(alpha = 0.5f)),
+                )
             }
             }
             }

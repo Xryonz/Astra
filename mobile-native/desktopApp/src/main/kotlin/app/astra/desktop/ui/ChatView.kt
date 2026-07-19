@@ -251,7 +251,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
         Box(Modifier.weight(1f)) {
             when {
                 state.loading -> ChatSkeleton()
-                state.messages.isEmpty() -> EmptyChatStar()
+                state.messages.isEmpty() -> EmptyChat()
                 else -> LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
@@ -1058,97 +1058,44 @@ private fun Center(text: String) {
     }
 }
 
-// ---- Empty state: estrela flutuando no vazio ----
+// ---- Empty state: pontinhos saltando no vazio ----
 
-// Poeira estelar: posicoes fixas ("aleatorio" na mao) + fase propria pra cada
-// ponto derivar/cintilar fora de sincronia. r em dp.
-private data class Dust(val fx: Float, val fy: Float, val off: Float, val r: Float)
-
-private val DUST = listOf(
-    Dust(0.16f, 0.24f, 0.0f, 1.4f),
-    Dust(0.82f, 0.18f, 1.1f, 1.0f),
-    Dust(0.90f, 0.58f, 2.2f, 1.6f),
-    Dust(0.10f, 0.66f, 3.3f, 1.1f),
-    Dust(0.30f, 0.88f, 4.4f, 1.3f),
-    Dust(0.72f, 0.92f, 5.2f, 1.0f),
-    Dust(0.55f, 0.06f, 2.8f, 1.2f),
-)
-
-// Estrela de 5 pontas (ponta pra cima): raio externo/interno alternando —
-// mesma matematica polar do RotatingStarsLogo do gate.
-private fun starPath(cx: Float, cy: Float, outer: Float, inner: Float): Path {
-    val p = Path()
-    repeat(10) { i ->
-        val r = if (i % 2 == 0) outer else inner
-        val a = -PI / 2 + i * (PI / 5.0)
-        val x = cx + r * cos(a).toFloat()
-        val y = cy + r * sin(a).toFloat()
-        if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-    }
-    p.close()
-    return p
-}
-
-private fun DrawScope.drawDust(phase: Float, color: Color) {
-    DUST.forEach { d ->
-        // Micro-deriva eliptica + cintilada de alpha, cada ponto fora de fase.
-        val dx = sin(phase + d.off) * 3.dp.toPx()
-        val dy = cos(phase + d.off) * 2.dp.toPx()
-        val a = 0.18f + 0.14f * sin(phase * 3f + d.off)
-        drawCircle(
-            color = color.copy(alpha = a),
-            radius = d.r.dp.toPx(),
-            center = Offset(size.width * d.fx + dx, size.height * d.fy + dy),
-        )
-    }
-}
-
-// Empty-state do chat: estrela ambar com "?" flutuando no vazio (bob senoidal),
-// halo respirando em sincronia e poeira estelar derivando atras. GPU-only
-// (graphicsLayer + draw). Reduzir movimento -> tudo parado, ainda visivel.
+// Empty-state do chat: 3 pontinhos saltando em fila (onda da esquerda p/ direita)
+// e voltando. A fase e lida DENTRO do draw (phase.value no lambda do Canvas) ->
+// invalida so o desenho, sem recompor a arvore a cada frame. Reduzir movimento ->
+// pontos parados na base (ainda visiveis).
 @Composable
-private fun EmptyChatStar() {
+private fun EmptyChat() {
     val accent = Obsidian.accent
-    // Um driver de fase pra tudo (bob/halo = 2x, cintilada = 3x): harmonicas
-    // inteiras de um loop linear 0..2π fecham o ciclo sem emenda.
-    val phase = if (LocalReduceMotion.current) 0f else {
-        val t = rememberInfiniteTransition(label = "voidFloat")
-        t.animateFloat(
+    val phase = if (LocalReduceMotion.current) {
+        remember { mutableStateOf(0f) }
+    } else {
+        rememberInfiniteTransition(label = "emptyDots").animateFloat(
             initialValue = 0f,
             targetValue = (2.0 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(tween(6400, easing = LinearEasing)),
-            label = "phase",
-        ).value
+            animationSpec = infiniteRepeatable(tween(1150, easing = LinearEasing)),
+            label = "dotsPhase",
+        )
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-                // Poeira NAO acompanha o bob — camada de tras, da profundidade.
-                Canvas(Modifier.fillMaxSize()) { drawDust(phase, accent) }
-                // Estrela + "?" bobam juntos como uma unidade (periodo ~3.2s).
-                Box(
-                    Modifier
-                        .size(96.dp)
-                        .graphicsLayer { translationY = sin(phase * 2f) * 7.dp.toPx() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        // Halo respirando em sincronia com o bob (alpha 0.10..0.22).
-                        val halo = 0.16f + 0.06f * sin(phase * 2f)
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(accent.copy(alpha = halo), Color.Transparent),
-                            ),
-                            radius = size.minDimension / 2f,
-                        )
-                        val outer = size.minDimension * 0.30f
-                        drawPath(starPath(center.x, center.y, outer, outer * 0.44f), accent)
-                    }
-                    // "?" serifado no miolo, PRETO — vazado sobre o ambar da estrela.
-                    Text("?", style = TextStyle(color = Color.Black, fontSize = 26.sp, fontFamily = DmSerif))
+            Canvas(Modifier.size(width = 62.dp, height = 28.dp)) {
+                val ph = phase.value
+                val r = 4.5.dp.toPx()
+                val gap = 16.dp.toPx()
+                val baseY = size.height - r
+                val startX = size.width / 2f - gap
+                repeat(3) { i ->
+                    // Cada ponto sobe e volta defasado -> onda; no alto fica maior/claro.
+                    val lift = sin(ph - i * 0.7f).coerceAtLeast(0f)
+                    drawCircle(
+                        color = accent.copy(alpha = 0.38f + 0.34f * lift),
+                        radius = r * (0.88f + 0.16f * lift),
+                        center = Offset(startX + i * gap, baseY - lift * 11.dp.toPx()),
+                    )
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 "nada por aqui ainda — comece a conversa",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),

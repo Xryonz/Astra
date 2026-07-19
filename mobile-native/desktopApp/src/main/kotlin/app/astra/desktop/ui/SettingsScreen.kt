@@ -330,6 +330,9 @@ private data class ProfileDraft(
     val bannerColor: String? = null,
     val bannerPositionY: Int = 50,
     val bannerScale: Int = 100,
+    // --- fatia 3 (estilo do perfil) ---
+    val profileTheme: String? = null,
+    val displayFont: String? = null,
 ) {
     companion object {
         fun from(me: ProfileUserDto?) = ProfileDraft(
@@ -343,6 +346,8 @@ private data class ProfileDraft(
             bannerColor = me?.bannerColor,
             bannerPositionY = me?.bannerPositionY ?: 50,
             bannerScale = me?.bannerScale ?: 100,
+            profileTheme = me?.profileTheme,
+            displayFont = me?.displayFont,
         )
     }
 }
@@ -380,7 +385,14 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
             fallback = Obsidian.overlay,
             modifier = Modifier.fillMaxWidth().height(72.dp),
         )
-        Column(Modifier.padding(horizontal = 14.dp)) {
+        // Corpo do cartao pinta o profileTheme (gradiente CSS) por baixo, igual web.
+        val theme = draft?.profileTheme ?: me.profileTheme
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .drawBehind { drawRect(bannerBrush(theme, size.width, size.height, Obsidian.raised)) }
+                .padding(horizontal = 14.dp),
+        ) {
             Box(
                 Modifier.offset(y = (-24).dp).clip(CircleShape).background(Obsidian.raised)
                     .border(3.dp, ring, CircleShape).padding(3.dp),
@@ -391,7 +403,11 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         name,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif),
+                        style = TextStyle(
+                            color = Obsidian.text1,
+                            fontSize = 16.sp,
+                            fontFamily = profileFontFamily(draft?.displayFont ?: me.displayFont),
+                        ),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
@@ -855,6 +871,14 @@ private fun ProfileSection(
     GradientGrid(draft.bannerColor) { onChange(draft.copy(bannerColor = it)) }
 
     SettingsDivider()
+    FieldLabel("fundo do cartao")
+    GradientGrid(draft.profileTheme) { onChange(draft.copy(profileTheme = it)) }
+
+    SettingsDivider()
+    FieldLabel("fonte do seu nome")
+    FontPicker(draft.displayFont) { onChange(draft.copy(displayFont = it)) }
+
+    SettingsDivider()
     FieldLabel("recado")
     Row(Modifier.widthIn(max = 420.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         StatusEmojiButton(draft.statusEmoji) { onChange(draft.copy(statusEmoji = it)) }
@@ -911,6 +935,8 @@ private fun ProfileSection(
                             bannerColor = draft.bannerColor,
                             bannerPositionY = draft.bannerPositionY,
                             bannerScale = draft.bannerScale,
+                            profileTheme = draft.profileTheme,
+                            displayFont = draft.displayFont,
                         ),
                     )
                 }
@@ -998,6 +1024,50 @@ private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
                     )
                 }
                 repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+// Fonte do nome: cada linha se desenha NA PROPRIA fonte, entao da pra ver a
+// diferenca antes de escolher (inclusive as que se parecem no desktop).
+@Composable
+private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
+    val current = selected ?: "serif"
+    Column(
+        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        PROFILE_FONTS.forEach { f ->
+            val active = current == f.id
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (active) Obsidian.active else Obsidian.raised.copy(alpha = 0.5f))
+                    .border(
+                        1.dp,
+                        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                        RoundedCornerShape(9.dp),
+                    )
+                    .clickable { onPick(f.id) }
+                    .padding(horizontal = 13.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LIcon(
+                    if (active) Lucide.CircleDot else Lucide.Circle,
+                    tint = if (active) Obsidian.accent else Obsidian.text3,
+                    size = 14.dp,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    f.label,
+                    style = TextStyle(
+                        color = if (active) Obsidian.text1 else Obsidian.text2,
+                        fontSize = 15.sp,
+                        fontFamily = f.family,
+                    ),
+                )
             }
         }
     }

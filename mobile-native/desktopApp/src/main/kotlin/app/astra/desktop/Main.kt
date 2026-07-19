@@ -171,6 +171,9 @@ fun main() {
                     .build()
             }
 
+            // 1o run: garante um atalho do Astra na area de trabalho (Windows).
+            LaunchedEffect(Unit) { DesktopShortcut.ensureWindows() }
+
             val koin = GlobalContext.get()
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }

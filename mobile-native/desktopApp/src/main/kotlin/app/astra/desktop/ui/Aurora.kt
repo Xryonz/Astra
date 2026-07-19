@@ -108,7 +108,17 @@ half4 main(float2 fragCoord) {
     aur *= 0.88 + 0.24 * wf;
     float3 acc = uAccent * mix(float3(0.94, 0.99, 1.05), float3(1.06, 1.00, 0.94), wf);
 
-    float3 col = uVoid + acc * min(aur, 0.30);
+    // CORTE 5 (iluminacao "sem padrao"): o teto era min(aur, 0.30) — duro. Como
+    // aur chega a ~1.0 no pico (cortinas ~2.4 * 0.22, depois feixes *1.72 e o
+    // wf), regioes GRANDES batiam no limite e viravam um PLATO chapado, com
+    // borda dura onde saturava: o trajeto seguia certo, mas a luz parecia
+    // "cortada". Joelho suave: linear ate 0.22 (miolo identico ao validado) e
+    // dai rola assintotico ate 0.30 — sem nunca chapar. Branchless, 1 exp.
+    float knee = 0.22;
+    float ceiling = 0.30;
+    float over = max(aur - knee, 0.0);
+    float lum = min(aur, knee) + (ceiling - knee) * (1.0 - exp(-over / (ceiling - knee)));
+    float3 col = uVoid + acc * lum;
     return half4(col, 1.0);
 }
 """

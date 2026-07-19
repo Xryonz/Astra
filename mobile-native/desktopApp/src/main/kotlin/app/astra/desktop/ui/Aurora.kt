@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import app.astra.desktop.ui.theme.Obsidian
+import kotlin.math.sqrt
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -34,12 +35,35 @@ import org.jetbrains.skia.Shader
 // escura, parece bug). accent + void ENTRAM COMO UNIFORMS (uAccent/uVoid) pra a
 // aurora seguir o tema de Aparencia ao vivo — antes eram cravados (#D4D8E0 sobre
 // #06060E) e nao recoloriam. So o octaves recompila; cor troca por uniform (barato).
+// Quanto o fbm BALANCA em relacao a propria escala, por numero de oitavas: soma
+// quadratica das amplitudes (o desvio, ja que as oitavas sao ~independentes)
+// dividida pela soma linear (o alcance). 1 oitava = 1.0; 3 oitavas = 0.655, ou
+// seja o campo de 1 oitava e 1.53x mais largo relativo ao proprio intervalo.
+// E por isso que uma curva de contraste fixa nao serve pras tres qualidades.
+private fun fbmSigmaRel(octaves: Int): Double {
+    var sumSq = 0.0
+    var sumLin = 0.0
+    var a = 0.5
+    repeat(octaves) {
+        sumSq += a * a
+        sumLin += a
+        a *= 0.5
+    }
+    return sqrt(sumSq) / sumLin
+}
+
 private fun auroraSksl(octaves: Int): String {
     // Normaliza pela soma de amplitudes da qualidade ALTA (3 oitavas) -> HIGH fica
     // IDENTICA a aurora ja validada (inv=1.0) e as qualidades menores so sobem o
     // brilho pra bater (senao LOW ficaria escura, parece bug).
     val ref = 1.0 - Math.pow(0.5, 3.0)
     val inv = ref / (1.0 - Math.pow(0.5, octaves.toDouble()))
+    // Inclinacao da curva das estrias, ajustada ao quanto o campo BALANCA nesta
+    // qualidade. Menos oitavas = ruido de uma frequencia so = balanca muito mais
+    // em relacao a propria escala (sigmaRel: 0.65 com 3 oitavas, 1.0 com 1). Sem
+    // isto a mesma curva recebe campos de larguras diferentes e o LOW satura em
+    // placas. 12.5 = inclinacao que reproduz no centro a do smoothstep validado.
+    val steep = 12.5 * (fbmSigmaRel(3) / fbmSigmaRel(octaves))
     return """
 uniform float uTime;
 uniform float2 uSize;
@@ -71,10 +95,24 @@ float curtain(float2 uv, float yC, float seed, float2 flow) {
     float d = uv.y - (yC + (n - 0.5) * 0.30);
     // Borda superior mais dura (34 vs 26) -> cortina com contorno definido.
     float body = exp(-abs(d) * (d < 0.0 ? 34.0 : 10.0));
-    // Estrias verticais crispadas: o MESMO fbm de raios, re-shapeado por
-    // smoothstep (contraste alto) — definicao sem custo extra de ruido.
+    // Estrias verticais crispadas: o MESMO fbm de raios, re-shapeado com contraste
+    // alto — definicao sem custo extra de ruido.
+    //
+    // CORTE 6 (o "de vez em quando a iluminacao nao segue um padrao"): isto era
+    // smoothstep(0.30, 0.78, r), e smoothstep SATURA por definicao — fora da faixa
+    // a derivada e ZERO, ou seja platô. Com 3 oitavas o campo tem sigma ~0.115 em
+    // torno de 0.4375, entao a borda de baixo (0.30) cai a 1.2 sigma: ~12% da tela
+    // ja vivia grudada no piso, chapada, com borda dura onde cruzava. Em LOW (1
+    // oitava, campo 1.53x mais largo) virava metade da tela, e placas inteiras
+    // trocavam de nivel de uma vez conforme o flow andava — a luz mudava em blocos
+    // que nao acompanhavam a cortina.
+    //
+    // A logistica tem a MESMA inclinacao no centro (12.5/4 = 3.125 = a do
+    // smoothstep validado) e o mesmo valor em r=0.54, mas nunca encosta no piso:
+    // derivada sempre > 0, entao nao existe platô nem borda dura em qualidade
+    // nenhuma. Custo: 1 exp no lugar de 1 smoothstep.
     float r = fbm(float2(uv.x * 11.0 - seed, 2.7 + seed) + flow * 1.6);
-    float rays = 0.30 + 0.70 * smoothstep(0.30, 0.78, r);
+    float rays = 0.30 + 0.70 / (1.0 + exp(-$steep * (r - 0.54)));
     return body * rays * (0.5 + n);
 }
 

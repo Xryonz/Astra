@@ -12,6 +12,8 @@ function userOrIpKey(req: Request, _res: Response): string {
 class RedisStore {
   prefix: string
   windowMs!: number
+  // Fallback em memoria (por processo) pra quando o Redis cair.
+  private mem = new Map<string, { count: number; reset: number }>()
 
   constructor(prefix: string) { this.prefix = prefix }
   init(opts: Options) { this.windowMs = opts.windowMs }
@@ -29,8 +31,18 @@ class RedisStore {
       const ttl  = Number(res?.[2]?.[1] ?? this.windowMs)
       return { totalHits: hits, resetTime: new Date(Date.now() + ttl) }
     } catch {
-
-      return { totalHits: 1, resetTime: new Date(Date.now() + this.windowMs) }
+      // Redis fora (queda/cota Upstash): NAO liberar geral — o fail-open deixava
+      // brute-force de login passar. Conta numa janela em memoria do processo ->
+      // fail-CLOSED. Render free = 1 instancia, entao cobre o caso real.
+      const now = Date.now()
+      const e = this.mem.get(k)
+      if (!e || e.reset <= now) {
+        if (this.mem.size > 10_000) for (const [mk, v] of this.mem) if (v.reset <= now) this.mem.delete(mk)
+        this.mem.set(k, { count: 1, reset: now + this.windowMs })
+        return { totalHits: 1, resetTime: new Date(now + this.windowMs) }
+      }
+      e.count++
+      return { totalHits: e.count, resetTime: new Date(e.reset) }
     }
   }
 

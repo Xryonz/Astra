@@ -410,6 +410,10 @@ export function createMessagesRouter(io: SocketServer) {
       const { channelId, messageId } = req.params
       const { content }              = req.body
 
+      // Reconfirma acesso ao canal (igual ao POST): um usuario expulso/banido nao
+      // pode continuar editando mensagens antigas dele.
+      await assertChannelAccess(req.userId!, channelId)
+
       const [message] = await db.select().from(messages)
         .where(and(eq(messages.id, messageId), eq(messages.channelId, channelId), isNull(messages.deletedAt)))
         .limit(1)

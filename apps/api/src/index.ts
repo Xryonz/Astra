@@ -140,7 +140,16 @@ app.use('/api/sessions',  sessionsRouter)
 app.use('/api/servers',   emojisRouter)
 app.use('/api',           channelNotifPrefsRouter)
 
-app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1d', immutable: true, fallthrough: true }))
+app.use('/uploads', express.static(UPLOAD_DIR, {
+  maxAge: '1d', immutable: true, fallthrough: true,
+  setHeaders: (res, filePath) => {
+    // So imagem/video/audio abrem inline; qualquer outro tipo BAIXA (nunca
+    // renderiza no dominio da API) -> mata hospedagem de HTML/phishing no /uploads.
+    const inlineOk = /\.(png|jpe?g|gif|webp|avif|mp4|webm|mov|mp3|wav|ogg|weba|m4a|aac)$/i.test(filePath)
+    if (!inlineOk) res.setHeader('Content-Disposition', 'attachment')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+  },
+}))
 
 app.use(
   '/api/channels/:channelId/messages/:messageId/react',

@@ -8,21 +8,16 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { messageLimiter } from '../middleware/rateLimiter'
-import { MessageCursorSchema } from '@astra/types'
+import { AttachmentSchema, MessageCursorSchema } from '@astra/types'
 import { notify } from '../lib/notifications'
 import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
-  attachments: z.array(z.object({
-    url:    z.string(),
-    type:   z.string(),
-    name:   z.string(),
-    size:   z.number(),
-    width:  z.number().optional(),
-    height: z.number().optional(),
-  })).max(10).optional(),
+  // Mesmo schema seguro dos canais: a url passa por SafeUrlSchema (so http(s) ou
+  // /relativa) -> bloqueia anexo de DM com data:/javascript: (era url livre).
+  attachments: z.array(AttachmentSchema).max(10).optional(),
   replyToId:   z.string().optional(),
   ttlSeconds:  z.number().int().min(60).max(60 * 60 * 24 * 30).optional(),
   clientNonce: z.string().max(64).optional(),

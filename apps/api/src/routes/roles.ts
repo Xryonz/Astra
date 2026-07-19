@@ -6,7 +6,7 @@ import { roles, memberRoles, serverMembers, servers } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { PERMS, getMemberPerms } from '../lib/permissions'
+import { PERMS, getMemberPerms, parsePermissionsJson, type MemberPerms, type Permission } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 
 const HEX = /^#[0-9a-fA-F]{6}$/
@@ -27,6 +27,15 @@ const PositionSchema = z.object({
 async function canManageRoles(userId: string, serverId: string) {
   const m = await getMemberPerms(userId, serverId)
   return m.isOwner || m.permissions.has(PERMS.MANAGE_ROLES)
+}
+
+// Anti-escalacao: reduz as permissoes pedidas ao subconjunto que o ATOR ja possui
+// (dono = todas). Sem isto, quem tinha MANAGE_ROLES criava/editava cargo com
+// BAN/KICK/MANAGE_SERVER e se auto-atribuia -> virava dono de fato.
+function grantableSubset(actor: MemberPerms, requested: string[]): Permission[] {
+  const valid = requested.filter((p): p is Permission => (Object.values(PERMS) as string[]).includes(p))
+  const uniq = [...new Set(valid)]
+  return actor.isOwner ? uniq : uniq.filter((p) => actor.permissions.has(p))
 }
 
 export const rolesRouter = Router()
@@ -58,10 +67,12 @@ rolesRouter.post(
     const { serverId } = req.params
     const [srv] = await db.select({ id: servers.id }).from(servers).where(eq(servers.id, serverId)).limit(1)
     if (!srv) return res.status(404).json({ error: 'Servidor não encontrado' })
-    if (!(await canManageRoles(req.userId!, serverId)))
+    const actor = await getMemberPerms(req.userId!, serverId)
+    if (!actor.isOwner && !actor.permissions.has(PERMS.MANAGE_ROLES))
       return res.status(403).json({ error: 'Sem permissão pra gerenciar cargos' })
 
     const body = req.body as z.infer<typeof CreateRoleSchema>
+    const permsToSet = grantableSubset(actor, body.permissions ?? [])
 
     const [{ max } = { max: 0 }] = await db
       .select({ max: sql<number>`COALESCE(MAX(${roles.position}), 0)::int` })
@@ -73,7 +84,7 @@ rolesRouter.post(
       name:        body.name,
       color:       body.color ?? null,
       position:    (max ?? 0) + 1,
-      permissions: JSON.stringify(body.permissions ?? []),
+      permissions: JSON.stringify(permsToSet),
       hoist:       body.hoist ?? false,
     }).returning()
 
@@ -92,7 +103,8 @@ rolesRouter.patch(
   validate(UpdateRoleSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, roleId } = req.params
-    if (!(await canManageRoles(req.userId!, serverId)))
+    const actor = await getMemberPerms(req.userId!, serverId)
+    if (!actor.isOwner && !actor.permissions.has(PERMS.MANAGE_ROLES))
       return res.status(403).json({ error: 'Sem permissão pra editar cargos' })
 
     const body = req.body as z.infer<typeof UpdateRoleSchema>
@@ -100,7 +112,7 @@ rolesRouter.patch(
     if (body.name !== undefined)  patch.name = body.name
     if (body.color !== undefined) patch.color = body.color
     if (body.hoist !== undefined) patch.hoist = body.hoist
-    if (body.permissions !== undefined) patch.permissions = JSON.stringify(body.permissions)
+    if (body.permissions !== undefined) patch.permissions = JSON.stringify(grantableSubset(actor, body.permissions))
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
     const [updated] = await db.update(roles).set(patch)
@@ -161,17 +173,21 @@ rolesRouter.post(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, memberId, roleId } = req.params
-    if (!(await canManageRoles(req.userId!, serverId)))
+    const actor = await getMemberPerms(req.userId!, serverId)
+    if (!actor.isOwner && !actor.permissions.has(PERMS.MANAGE_ROLES))
       return res.status(403).json({ error: 'Sem permissão pra atribuir cargos' })
 
     const [[m], [r]] = await Promise.all([
       db.select({ id: serverMembers.id }).from(serverMembers)
         .where(and(eq(serverMembers.id, memberId), eq(serverMembers.serverId, serverId))).limit(1),
-      db.select({ id: roles.id }).from(roles)
+      db.select({ id: roles.id, permissions: roles.permissions }).from(roles)
         .where(and(eq(roles.id, roleId), eq(roles.serverId, serverId))).limit(1),
     ])
     if (!m) return res.status(404).json({ error: 'Membro não encontrado' })
     if (!r) return res.status(404).json({ error: 'Cargo não encontrado' })
+    // Anti-escalacao: nao atribuir cargo com permissao acima das do ator.
+    if (!actor.isOwner && !parsePermissionsJson(r.permissions).every((p) => actor.permissions.has(p)))
+      return res.status(403).json({ error: 'Não pode atribuir cargo com permissões acima das suas' })
 
     const [existing] = await db.select({ id: memberRoles.id }).from(memberRoles)
       .where(and(eq(memberRoles.memberId, memberId), eq(memberRoles.roleId, roleId))).limit(1)

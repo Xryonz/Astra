@@ -23,7 +23,7 @@ export function generateRefreshToken(userId: string): string {
 
   const jti = crypto.randomUUID()
   return jwt.sign({ userId, jti }, env.JWT_REFRESH_SECRET, {
-    expiresIn: '30d',
+    expiresIn: '7d',
   })
 }
 

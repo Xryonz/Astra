@@ -33,6 +33,20 @@ function isMimeAllowed(raw: string): boolean {
   return ALLOWED_MIMES.has(base)
 }
 
+// Extensao derivada do MIME (nunca do originalname do cliente): um upload com nome
+// "x.html" nao consegue mais virar um arquivo .html servido pela API.
+const MIME_EXT: Record<string, string> = {
+  'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif',
+  'image/webp': '.webp', 'image/avif': '.avif',
+  'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov',
+  'audio/mpeg': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg',
+  'audio/webm': '.weba', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac',
+  'application/pdf': '.pdf', 'text/plain': '.txt', 'application/zip': '.zip', 'application/json': '.json',
+}
+function extForMime(mime: string): string {
+  return MIME_EXT[mime.split(';')[0].trim().toLowerCase()] ?? '.bin'
+}
+
 const MAX_FILE_SIZE  = 25 * 1024 * 1024
 const MAX_PER_REQUEST = 10
 
@@ -72,7 +86,7 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
   const mime = file.mimetype.split(';')[0].toLowerCase()
 
   if (!mime.startsWith('image/') || mime === 'image/gif' || mime === 'image/svg+xml') {
-    return { buffer: file.buffer, mime, ext: path.extname(file.originalname).toLowerCase() }
+    return { buffer: file.buffer, mime, ext: extForMime(mime) }
   }
 
   try {
@@ -93,7 +107,7 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
     }
   } catch (e) {
     console.warn('[upload] sharp falhou, fallback p/ original:', (e as Error).message)
-    return { buffer: file.buffer, mime, ext: path.extname(file.originalname).toLowerCase() }
+    return { buffer: file.buffer, mime, ext: extForMime(mime) }
   }
 }
 
@@ -116,6 +130,15 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const files = (req.files as Express.Multer.File[] | undefined) ?? []
     if (files.length === 0) return res.status(400).json({ error: 'Nenhum arquivo enviado' })
+
+    // Sniff anti-HTML: recusa conteudo que abre como pagina (mesmo declarado como
+    // txt/json/pdf) -> reforca o Content-Disposition do serving estatico.
+    for (const f of files) {
+      const head = f.buffer.subarray(0, 64).toString('latin1').toLowerCase().trimStart()
+      if (head.startsWith('<!doctype html') || head.startsWith('<html') || head.startsWith('<svg') || head.includes('<script')) {
+        return res.status(415).json({ error: 'Conteúdo não permitido' })
+      }
+    }
 
     const attachments = await Promise.all(files.map(async (f) => {
       const processed = await maybeTranscode(f)

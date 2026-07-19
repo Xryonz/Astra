@@ -163,6 +163,18 @@ router.post(
       .returning({ id: refreshTokens.id, userId: refreshTokens.userId })
 
     if (claimed.length === 0) {
+      // Deteccao de reuso: se o token EXISTE mas ja estava revogado, e replay de
+      // um refresh ja rotacionado -> sinal de roubo. Derruba TODA a familia de
+      // refresh tokens do usuario (forca re-login em todos os dispositivos).
+      const [seen] = await db.select({ userId: refreshTokens.userId, revokedAt: refreshTokens.revokedAt })
+        .from(refreshTokens).where(eq(refreshTokens.token, tokenHash)).limit(1)
+      // Janela de graca (30s): um cliente que reenvia o /refresh por retry de rede
+      // apresenta o token recem-rotacionado -> NAO e roubo, so responde 401. Acima
+      // disso e replay de token antigo (roubo) -> derruba a familia inteira.
+      if (seen?.revokedAt && Date.now() - seen.revokedAt.getTime() > 30_000) {
+        await db.update(refreshTokens).set({ revokedAt: new Date() })
+          .where(and(eq(refreshTokens.userId, seen.userId), isNull(refreshTokens.revokedAt)))
+      }
       return res.status(401).json({ error: 'Refresh token inválido ou expirado' })
     }
 
@@ -375,7 +387,7 @@ router.get(
   }
 )
 
-const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 function truncateIp(ip: string | undefined): string | null {
   if (!ip) return null

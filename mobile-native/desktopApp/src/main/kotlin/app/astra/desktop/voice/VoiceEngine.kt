@@ -200,6 +200,7 @@ class VoiceEngine(
     private var lastScreenSource: DesktopSource? = null
 
     fun connect(roomKind: String, roomId: String) {
+        Sfx.callJoin() // entrar na call: som fino/agudo
         scope.launch {
             val nativesOk = withContext(Dispatchers.IO) {
                 // UnsatisfiedLinkError e Error, nao Exception — catch amplo aqui.
@@ -619,9 +620,10 @@ class VoiceEngine(
         return src
     }
 
-    fun startScreenShare(source: DesktopSource? = null) {
+    fun startScreenShare(source: DesktopSource? = null, silent: Boolean = false) {
         if (_screenOn.value) return
         val f = factory ?: return
+        if (!silent) Sfx.shareStart() // transmitir: 3 fases subindo
         lastScreenSource = source
         screenQ = prefs.state.value.screenQuality
         val q = screenQ
@@ -795,8 +797,9 @@ class VoiceEngine(
         }
     }
 
-    fun stopScreenShare() {
+    fun stopScreenShare(silent: Boolean = false) {
         if (!_screenOn.value) return
+        if (!silent) Sfx.shareStop() // parar transmissao: 3 fases descendo (invertido)
         _screenOn.value = false
         _localScreen.value = null
         _localPreview.value = null
@@ -825,10 +828,10 @@ class VoiceEngine(
         prefs.setScreenQuality(q)
         if (!_screenOn.value) return
         val src = lastScreenSource
-        stopScreenShare()
+        stopScreenShare(silent = true)
         scope.launch {
             delay(350) // deixa a renegociacao do stop assentar antes de republicar
-            startScreenShare(src)
+            startScreenShare(src, silent = true)
         }
     }
 
@@ -882,6 +885,7 @@ class VoiceEngine(
     }
 
     fun dispose() {
+        Sfx.callLeave() // sair da call: som grosso/grave
         pingJob?.cancel()
         statsJob?.cancel()
         speakingJob?.cancel()

@@ -85,6 +85,7 @@ import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.Key
+import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.Palette
@@ -110,7 +111,11 @@ import app.astra.desktop.ui.theme.accentOption
 import app.astra.desktop.ui.theme.bgOption
 import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
+import app.astra.desktop.auth.SessionStore
+import app.astra.mobile.core.network.SessionApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.dto.RevokeOthersRequest
+import app.astra.mobile.core.network.dto.SessionDto
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
@@ -135,6 +140,7 @@ import kotlin.math.sin
 private enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
+    SESSIONS("Sessoes", "onde sua conta esta logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
     PERFORMANCE("Desempenho", "graficos, animacoes, fps", Lucide.ChartColumn),
@@ -202,7 +208,7 @@ fun SettingsScreen(
             // Larga o bastante pra previa caber AO LADO da coluna capada (720) sem
             // encostar; senao ela empilha embaixo. Sobre = so a aba sem previa.
             val wide = maxWidth > 1080.dp
-            val showPreview = tab != SettingsTab.ABOUT
+            val showPreview = tab != SettingsTab.ABOUT && tab != SettingsTab.SESSIONS
             Column(
                 Modifier.align(Alignment.TopStart).widthIn(max = 720.dp).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
@@ -248,6 +254,7 @@ fun SettingsScreen(
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved)
+                        SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
                             ToggleRow(
                                 "Sussurros (DMs)", "avisa quando chega mensagem privada",
@@ -311,7 +318,8 @@ private fun SettingsPreview(
             SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
             SettingsTab.PERFORMANCE -> CostMeter(p)
             SettingsTab.VOICE -> VoicePreview(p)
-            SettingsTab.ABOUT -> Unit
+            // Sessoes e Sobre sao listas/acoes — nao ha o que previsualizar.
+            SettingsTab.SESSIONS, SettingsTab.ABOUT -> Unit
         }
     }
 }
@@ -1162,6 +1170,141 @@ private fun AccountSection(me: ProfileUserDto?) {
     }
     Spacer(Modifier.height(12.dp))
     PasswordForm(hasPassword = me?.hasPassword != false)
+}
+
+// Aba Sessoes: cada login vivo da conta (um refresh token). Serve pra ver de
+// onde a conta esta aberta e derrubar o que voce nao reconhece — o unico item
+// da migracao com peso de seguranca.
+@Composable
+private fun SessionsSection() {
+    val koin = GlobalContext.get()
+    val scope = rememberCoroutineScope()
+    var sessions by remember { mutableStateOf<List<SessionDto>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var reload by remember { mutableStateOf(0) }
+
+    LaunchedEffect(reload) {
+        sessions = runCatching { koin.get<SessionApi>().list().data?.sessions }.getOrNull() ?: emptyList()
+    }
+
+    Text(
+        "cada linha e um login ativo na sua conta. nao reconhece algum? derruba.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(14.dp))
+
+    msg?.let { (text, ok) ->
+        Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
+        Spacer(Modifier.height(10.dp))
+    }
+
+    val list = sessions
+    when {
+        list == null -> Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        list.isEmpty() -> Text("nenhuma sessao ativa.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        else -> Column(Modifier.widthIn(max = 460.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            list.forEach { s ->
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Obsidian.raised.copy(alpha = 0.5f))
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            prettyAgent(s.userAgent),
+                            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            listOfNotNull(s.ip, prettyDate(s.lastUsedAt)?.let { "visto $it" })
+                                .joinToString("  ·  "),
+                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "derrubar",
+                        style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(7.dp))
+                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
+                            .clickable(enabled = !busy) {
+                                busy = true; msg = null
+                                scope.launch {
+                                    val r = runCatching { koin.get<SessionApi>().revoke(s.id) }
+                                    busy = false
+                                    msg = if (r.isSuccess) "sessao derrubada" to true
+                                    else "nao deu pra derrubar" to false
+                                    reload++
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
+    }
+
+    Spacer(Modifier.height(18.dp))
+    AboutButton(if (busy) "…" else "derrubar todas as outras", accent = false) {
+        if (busy) return@AboutButton
+        busy = true; msg = null
+        scope.launch {
+            // A rota exige o refresh token DESTA sessao pra nao te derrubar junto.
+            val token = koin.get<SessionStore>().load()?.refreshToken
+            if (token.isNullOrBlank()) {
+                busy = false
+                msg = "nao achei o token desta sessao" to false
+                return@launch
+            }
+            val r = runCatching { koin.get<SessionApi>().revokeOthers(RevokeOthersRequest(token)) }
+            busy = false
+            msg = r.map { "derrubadas: ${it.data?.revokedCount ?: 0}" to true }
+                .getOrElse { "nao deu pra derrubar as outras" to false }
+            reload++
+        }
+    }
+    Spacer(Modifier.height(20.dp))
+}
+
+// User-agent cru e ilegivel; extrai o navegador/app e o SO. O desktop manda o
+// proprio identificador, entao normalmente e so "Astra Desktop".
+private fun prettyAgent(ua: String?): String {
+    val s = ua?.trim().orEmpty()
+    if (s.isEmpty()) return "dispositivo desconhecido"
+    if (s.contains("Astra", true)) return s.take(48)
+    val os = when {
+        s.contains("Windows", true) -> "Windows"
+        s.contains("Android", true) -> "Android"
+        s.contains("iPhone", true) || s.contains("iPad", true) -> "iOS"
+        s.contains("Mac", true) -> "macOS"
+        s.contains("Linux", true) -> "Linux"
+        else -> null
+    }
+    val app = when {
+        s.contains("Edg", true) -> "Edge"
+        s.contains("Chrome", true) -> "Chrome"
+        s.contains("Firefox", true) -> "Firefox"
+        s.contains("Safari", true) -> "Safari"
+        else -> "navegador"
+    }
+    return listOfNotNull(app, os).joinToString(" · ")
+}
+
+// ISO-8601 -> "19/07 15:40". Sem lib: corta os pedacos do proprio texto.
+private fun prettyDate(iso: String?): String? {
+    val s = iso?.trim().orEmpty()
+    if (s.length < 16) return null
+    val d = s.substring(8, 10)
+    val m = s.substring(5, 7)
+    val hm = s.substring(11, 16)
+    return "$d/$m $hm"
 }
 
 // Aba Sobre: versao atual + auto-update (checagem manual, progresso e reinicio).

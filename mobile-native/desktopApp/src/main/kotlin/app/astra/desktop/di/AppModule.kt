@@ -18,6 +18,7 @@ import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.SearchApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
+import app.astra.mobile.core.network.SessionApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.shared.AstraShared
@@ -83,6 +84,7 @@ val appModule = module {
 
     single<ServerApi> { get<Retrofit>(named("authed")).create(ServerApi::class.java) }
     single<UserApi> { get<Retrofit>(named("authed")).create(UserApi::class.java) }
+    single<SessionApi> { get<Retrofit>(named("authed")).create(SessionApi::class.java) }
     single<DmApi> { get<Retrofit>(named("authed")).create(DmApi::class.java) }
     single<ChannelApi> { get<Retrofit>(named("authed")).create(ChannelApi::class.java) }
     single<UploadApi> { get<Retrofit>(named("authed")).create(UploadApi::class.java) }

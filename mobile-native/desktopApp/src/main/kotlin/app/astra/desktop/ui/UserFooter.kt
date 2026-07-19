@@ -109,6 +109,7 @@ fun UserFooter(
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
     var profileOpen by remember { mutableStateOf(false) }
+    var confirmLogout by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
     // Botao direito no rodape: abrir perfil / copiar ID / configuracoes / sair.
@@ -119,7 +120,7 @@ fun UserFooter(
             me?.let { add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(it.id)) }) }
             add(MenuEntry.Item("configuracoes") { onOpenSettings() })
             add(MenuEntry.Separator)
-            add(MenuEntry.Item("sair", danger = true) { onLogout() })
+            add(MenuEntry.Item("sair", danger = true) { confirmLogout = true })
         }
     }) {
     // Cartao flutuante estilo Discord: inset das bordas da sidebar, cantos
@@ -175,8 +176,14 @@ fun UserFooter(
         }
         FooterIcon(Lucide.Settings, danger = false, onClick = onOpenSettings)
         Spacer(Modifier.width(2.dp))
-        FooterIcon(Lucide.LogOut, danger = true, onClick = onLogout)
+        FooterIcon(Lucide.LogOut, danger = true, onClick = { confirmLogout = true })
     }
+    if (confirmLogout) ConfirmPopup(
+        message = "sair da conta?",
+        confirmLabel = "sair",
+        onConfirm = onLogout,
+        onDismiss = { confirmLogout = false },
+    )
     }
 }
 

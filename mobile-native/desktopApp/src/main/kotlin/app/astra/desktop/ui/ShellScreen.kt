@@ -431,6 +431,58 @@ private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
         .border(1.dp, Obsidian.borderMid.copy(alpha = 0.5f), shape)
 }
 
+// Confirmacao "Tem certeza?" reusavel: popup obsidiana no ponto, acao em danger.
+// Usada por todo delete/sair (canal, categoria, constelacao, expulsar, banir,
+// logout). O chamador guarda um Boolean e renderiza isto quando true.
+@Composable
+fun ConfirmPopup(
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    cancelLabel: String = "cancelar",
+) {
+    Popup(
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                .padding(14.dp),
+        ) {
+            Text(
+                message,
+                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                modifier = Modifier.widthIn(max = 240.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    cancelLabel,
+                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(7.dp))
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
+                        .clickable(onClick = onDismiss)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+                Text(
+                    confirmLabel,
+                    style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(7.dp))
+                        .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
+                        .clickable { onDismiss(); onConfirm() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}
+
 // ---- Ctrl+K quick-switcher: pular pra qualquer canal/sussurro pelo teclado ----
 private data class QuickResult(
     val kind: String, // "channel" | "dm"
@@ -1163,6 +1215,7 @@ private fun OrbitList(
                         )
                     }
                     val catUnread = channels.any { it.id in unread }
+                    var confirmDelCat by remember(cat.id) { mutableStateOf(false) }
                     EditorialContextMenu(entries = {
                         buildList {
                             if (catUnread) add(MenuEntry.Item("marcar categoria como lida") {
@@ -1173,10 +1226,18 @@ private fun OrbitList(
                                 add(MenuEntry.Separator)
                                 add(MenuEntry.Item("criar órbita aqui") { onNewChannelInCat(cat.id) })
                                 add(MenuEntry.Item("renomear categoria") { onRenameCat(cat.id, cat.name) })
-                                add(MenuEntry.Item("excluir categoria", danger = true) { onDeleteCat(cat.id) })
+                                add(MenuEntry.Item("excluir categoria", danger = true) { confirmDelCat = true })
                             }
                         }
-                    }) { head() }
+                    }) {
+                        head()
+                        if (confirmDelCat) ConfirmPopup(
+                            message = "excluir a categoria ${cat.name}? não dá pra desfazer.",
+                            confirmLabel = "excluir",
+                            onConfirm = { onDeleteCat(cat.id) },
+                            onDismiss = { confirmDelCat = false },
+                        )
+                    }
                 }
             }
             // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
@@ -1375,6 +1436,7 @@ private fun OrbitEntry(
     // Column: o CascadeIn envolve isto num Box (empilha) — sem a Column, a lista
     // de presenca ficaria SOBRE o canal em vez de abaixo. Empilha na vertical.
     Column(Modifier.fillMaxWidth()) {
+        var confirmDelCh by remember(ch.id) { mutableStateOf(false) }
         // Botao direito na orbita: marcar lido / copiar ID (todos) + renomear/excluir (dono).
         EditorialContextMenu(entries = {
             buildList {
@@ -1383,11 +1445,17 @@ private fun OrbitEntry(
                 if (menu.isOwner) {
                     add(MenuEntry.Separator)
                     add(MenuEntry.Item("renomear") { menu.onRename(ch.id, ch.name) })
-                    add(MenuEntry.Item("excluir órbita", danger = true) { menu.onDelete(ch.id, ch.name) })
+                    add(MenuEntry.Item("excluir órbita", danger = true) { confirmDelCh = true })
                 }
             }
         }) {
             OrbitItem(ch, active, unread, onOpenChat, onOpenVoice, dragCtx)
+            if (confirmDelCh) ConfirmPopup(
+                message = "excluir a órbita ${ch.name}? apaga as mensagens dela — não dá pra desfazer.",
+                confirmLabel = "excluir",
+                onConfirm = { menu.onDelete(ch.id, ch.name) },
+                onDismiss = { confirmDelCh = false },
+            )
         }
         if (ch.type == "VOICE") {
             // Presenca do poll + eu otimista (aparece na hora que entro, sem
@@ -2038,17 +2106,26 @@ private fun MembersPanel(
                 // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3)
                 // + botao direito = menu (sussurro/copiar ID; expulsar/banir do dono).
                 CascadeIn(i, members.size) {
+                    var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
                     EditorialContextMenu(entries = {
                         buildList {
                             if (!isMe) add(MenuEntry.Item("sussurro") { onStartDm(m.user.username, name) })
                             add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(m.userId)) })
                             if (isOwner && !isMe && serverId != null) {
                                 add(MenuEntry.Separator)
-                                add(MenuEntry.Item("expulsar", danger = true) { onKick(m.userId) })
-                                add(MenuEntry.Item("banir", danger = true) { onBan(m.userId) })
+                                add(MenuEntry.Item("expulsar", danger = true) { confirmMember = "kick" })
+                                add(MenuEntry.Item("banir", danger = true) { confirmMember = "ban" })
                             }
                         }
                     }) {
+                        confirmMember?.let { act ->
+                            ConfirmPopup(
+                                message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
+                                confirmLabel = if (act == "ban") "banir" else "expulsar",
+                                onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.userId) },
+                                onDismiss = { confirmMember = null },
+                            )
+                        }
                         ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),

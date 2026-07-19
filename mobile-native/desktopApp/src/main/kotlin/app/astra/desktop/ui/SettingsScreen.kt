@@ -636,6 +636,18 @@ private fun MicMeter() {
         return
     }
     val lvl by animateFloatAsState(level, tween(90), label = "micLvl")
+    // Cor por qualidade do sinal: verde = bom (forte), amarelo = medio, vermelho
+    // = ruim (baixo demais pra te ouvir bem). Mesma escala de 3 cores do CostBar.
+    // Anima a troca de cor pra nao piscar seco entre faixas.
+    val meterColor by animateColorAsState(
+        when {
+            lvl < 0.24f -> Obsidian.danger
+            lvl < 0.52f -> Obsidian.accent
+            else -> Obsidian.success
+        },
+        tween(220),
+        label = "micColor",
+    )
     Row(
         Modifier.fillMaxWidth().height(30.dp),
         verticalAlignment = Alignment.Bottom,
@@ -648,7 +660,7 @@ private fun MicMeter() {
             val h = (lvl * shape).coerceIn(0.05f, 1f)
             Box(
                 Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
-                    .background(Obsidian.accent.copy(alpha = 0.35f + 0.5f * h)),
+                    .background(meterColor.copy(alpha = 0.4f + 0.5f * h)),
             )
         }
     }

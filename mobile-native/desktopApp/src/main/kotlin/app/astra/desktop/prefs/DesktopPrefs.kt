@@ -32,7 +32,7 @@ enum class ScreenQuality(
     val width: Int, val height: Int, val fps: Int, val bitrate: Int,
 ) {
     HIGH_1080_60("h108060", "1080p 60fps — alta", 1920, 1080, 60, 8_000_000),
-    SMOOTH_720_60("s72060", "720p 60fps — fluida", 1280, 720, 60, 4_000_000),
+    SMOOTH_720_60("s72060", "720p 60fps — fluida (recomendado)", 1280, 720, 60, 4_000_000),
     CRISP_1080_30("c108030", "1080p 30fps — nitida", 1920, 1080, 30, 6_000_000),
     LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000);
     companion object {

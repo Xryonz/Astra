@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import { encode as encodeBlurhash } from 'blurhash'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
+import { uploadLimiter } from '../middleware/rateLimiter'
 import { putAttachment, storageMode } from '../lib/storage'
 
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads')
@@ -116,6 +117,7 @@ const router = Router()
 router.post(
   '/',
   requireAuth,
+  uploadLimiter,
   (req: Request, res: Response, next) => {
     upload.array('files', MAX_PER_REQUEST)(req, res, (err: any) => {
       if (err) {

@@ -65,6 +65,19 @@ export const authLimiter = rateLimit({
   store: new RedisStore('auth') as any,
 })
 
+// Upload: cap dedicado por usuario/IP. Cada request pode trazer 10 arquivos de
+// 25MB (memoryStorage) -> sem isto, um cliente martelava /upload e estourava a
+// RAM da instancia. 20/min segura o burst sem atrapalhar uso normal.
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Muitos uploads. Aguarde um momento.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+  store: new RedisStore('upload') as any,
+})
+
 export const messageLimiter = rateLimit({
   windowMs: 10 * 1000,
   max: 20,

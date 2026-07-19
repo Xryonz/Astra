@@ -360,7 +360,14 @@ fun ShellScreen(
             enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f),
             exit = fadeOut(tween(140)) + scaleOut(tween(140), targetScale = 0.98f),
         ) {
-            SettingsScreen(me = state.me, prefs = prefs, onClose = { settingsOpen = false })
+            SettingsScreen(
+                me = state.me,
+                prefs = prefs,
+                onClose = { settingsOpen = false },
+                // Salvou o perfil -> re-hidrata o `me` do shell (rodape, chat e a
+                // propria previa passam a ler o valor novo).
+                onProfileSaved = { vm.refreshMe() },
+            )
         }
 
         // Ctrl+K: quick-switcher em takeover (fade + leve zoom, como o settings).

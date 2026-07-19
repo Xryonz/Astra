@@ -73,6 +73,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChartColumn
 import com.composables.icons.lucide.Circle
@@ -82,9 +84,12 @@ import com.composables.icons.lucide.Key
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.Palette
+import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
+import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
@@ -103,8 +108,12 @@ import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
+import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetPasswordRequest
+import app.astra.mobile.core.network.dto.UpdateProfileRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
@@ -121,6 +130,7 @@ import kotlin.math.sin
 
 private enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
+    PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
     PERFORMANCE("Desempenho", "graficos, animacoes, fps", Lucide.ChartColumn),
@@ -132,9 +142,18 @@ private enum class SettingsTab(val label: String, val sub: String, val icon: Ima
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
 // Notificacoes (toggles do tray) e Movimento (reduzir animacoes).
 @Composable
-fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit) {
+fun SettingsScreen(
+    me: ProfileUserDto?,
+    prefs: DesktopPrefs,
+    onClose: () -> Unit,
+    onProfileSaved: () -> Unit = {},
+) {
     var tab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
     val prefState by prefs.state.collectAsState()
+    // Rascunho do perfil VIVE AQUI (nao dentro da secao): a previa e IRMA da
+    // secao, nao filha — hoisted, ela reage a cada tecla. Reseta quando o `me`
+    // do shell muda (ex.: depois de salvar, o refreshMe traz o valor novo).
+    var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
 
     // ESC fecha: foco no root do takeover + captura da tecla.
     val focus = remember { FocusRequester() }
@@ -224,6 +243,7 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                     Column(Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me)
+                        SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved)
                         SettingsTab.NOTIFICATIONS -> Column {
                             ToggleRow(
                                 "Sussurros (DMs)", "avisa quando chega mensagem privada",
@@ -252,13 +272,13 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                 // separada por um fio.
                 if (!wide && showPreview) {
                     SettingsDivider()
-                    SettingsPreview(tab, me, prefState, Modifier.widthIn(max = 420.dp).fillMaxWidth())
+                    SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = 420.dp).fillMaxWidth())
                 }
             }
                 // Janela larga: previa como card fixo no vazio a direita (nao rola
                 // junto; ancorado ao centro-direita do palco).
                 if (wide && showPreview) {
-                    SettingsPreview(tab, me, prefState, Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).width(300.dp))
+                    SettingsPreview(tab, me, prefState, draft, Modifier.align(Alignment.CenterEnd).padding(end = 32.dp).width(300.dp))
                 }
             }
         }
@@ -274,12 +294,15 @@ private fun SettingsPreview(
     tab: SettingsTab,
     me: ProfileUserDto?,
     p: DesktopPrefs.Prefs,
+    draft: ProfileDraft,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
         FieldLabel("previa")
         when (tab) {
-            SettingsTab.ACCOUNT -> AccountPreviewCard(me)
+            // Conta = teu perfil SALVO; Perfil = o rascunho ao vivo (cada tecla).
+            SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
+            SettingsTab.PROFILE -> ProfileCardPreview(me, draft)
             SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
             SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
             SettingsTab.PERFORMANCE -> CostMeter(p)
@@ -289,11 +312,33 @@ private fun SettingsPreview(
     }
 }
 
-// --- Conta: espelha o ProfilePopupCard (o card que os outros abrem no teu
-// avatar), so que alimentado pelo teu proprio perfil. Muda de verdade quando
-// voce troca avatar/status/bio nas outras telas. ---
+// Rascunho editavel do perfil. Fica no nivel da tela pra a previa (irma da
+// secao) conseguir ler enquanto voce digita.
+private data class ProfileDraft(
+    val displayName: String = "",
+    val pronouns: String = "",
+    val bio: String = "",
+    val statusEmoji: String = "",
+    val customStatus: String = "",
+    val avatarUrl: String? = null,
+) {
+    companion object {
+        fun from(me: ProfileUserDto?) = ProfileDraft(
+            displayName = me?.displayName.orEmpty(),
+            pronouns = me?.pronouns.orEmpty(),
+            bio = me?.bio.orEmpty(),
+            statusEmoji = me?.statusEmoji.orEmpty(),
+            customStatus = me?.customStatus.orEmpty(),
+            avatarUrl = me?.avatarUrl,
+        )
+    }
+}
+
+// --- Card de perfil: espelha o ProfilePopupCard (o que os outros abrem no teu
+// avatar). draft = null -> mostra o perfil SALVO (aba Conta); draft != null ->
+// mostra o rascunho ao vivo (aba Perfil), campo a campo. ---
 @Composable
-private fun AccountPreviewCard(me: ProfileUserDto?) {
+private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
@@ -306,6 +351,13 @@ private fun AccountPreviewCard(me: ProfileUserDto?) {
             }
             return@Column
         }
+        // Rascunho manda quando existe (aba Perfil); senao, o valor salvo (Conta).
+        val avatar = draft?.avatarUrl ?: me.avatarUrl
+        val name = draft?.displayName?.trim()?.ifBlank { null } ?: me.displayName ?: me.username
+        val pronouns = draft?.pronouns ?: me.pronouns
+        val bio = draft?.bio ?: me.bio
+        val emoji = draft?.statusEmoji ?: me.statusEmoji
+        val recado = draft?.customStatus ?: me.customStatus
         val ring = userColor(me.id)
         val bannerColor = me.bannerColor?.removePrefix("#")?.toLongOrNull(16)
             ?.let { Color(0xFF000000 or it) } ?: Obsidian.overlay
@@ -324,12 +376,12 @@ private fun AccountPreviewCard(me: ProfileUserDto?) {
                 Modifier.offset(y = (-24).dp).clip(CircleShape).background(Obsidian.raised)
                     .border(3.dp, ring, CircleShape).padding(3.dp),
             ) {
-                DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 48)
+                DesktopAvatar(avatar, name, 48)
             }
             Column(Modifier.offset(y = (-14).dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        me.displayName ?: me.username,
+                        name,
                         style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -337,18 +389,23 @@ private fun AccountPreviewCard(me: ProfileUserDto?) {
                     Spacer(Modifier.width(6.dp))
                     StatusDot(status = userStatus(me.effectiveStatus), size = 10.dp, cutoutColor = Obsidian.raised)
                 }
-                Text("@${me.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono))
-                if (!me.customStatus.isNullOrBlank() || !me.statusEmoji.isNullOrBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("@${me.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono))
+                    if (!pronouns.isNullOrBlank()) {
+                        Text("  ·  $pronouns", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    }
+                }
+                if (!recado.isNullOrBlank() || !emoji.isNullOrBlank()) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        listOfNotNull(me.statusEmoji, me.customStatus).joinToString(" "),
+                        listOfNotNull(emoji?.ifBlank { null }, recado?.ifBlank { null }).joinToString(" "),
                         style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
                     )
                 }
-                if (!me.bio.isNullOrBlank()) {
+                if (!bio.isNullOrBlank()) {
                     Spacer(Modifier.height(8.dp)); HairRule(); Spacer(Modifier.height(8.dp))
                     Text(
-                        me.bio.orEmpty(),
+                        bio,
                         style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
                         maxLines = 3, overflow = TextOverflow.Ellipsis,
                     )
@@ -662,6 +719,208 @@ private fun MicMeter() {
                 Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
                     .background(meterColor.copy(alpha = 0.4f + 0.5f * h)),
             )
+        }
+    }
+}
+
+// Aba Perfil: identidade (avatar, nome, pronomes, bio, recado + emoji). O que
+// aparece pros outros. Banner/tema/fonte ficam pra fatia 2.
+@Composable
+private fun ProfileSection(
+    me: ProfileUserDto?,
+    draft: ProfileDraft,
+    onChange: (ProfileDraft) -> Unit,
+    onSaved: () -> Unit,
+) {
+    val koin = GlobalContext.get()
+    val scope = rememberCoroutineScope()
+    val original = remember(me) { ProfileDraft.from(me) }
+    var saving by remember { mutableStateOf(false) }
+    var busyAvatar by remember { mutableStateOf(false) }
+    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    val dirty = draft != original
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "voce" }, 64)
+        Spacer(Modifier.width(16.dp))
+        Column {
+            AboutButton(if (busyAvatar) "processando…" else "trocar avatar", accent = true) {
+                if (busyAvatar) return@AboutButton
+                // O dialogo nativo bloqueia (modal) — normal. O peso (decodificar
+                // e reduzir) vai pra fora da thread de UI.
+                val file = AvatarPicker.choose() ?: return@AboutButton
+                busyAvatar = true
+                msg = null
+                scope.launch {
+                    val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
+                    busyAvatar = false
+                    r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
+                        .onFailure { msg = "nao deu pra ler essa imagem" to false }
+                }
+            }
+            if (draft.avatarUrl != null) {
+                Spacer(Modifier.height(6.dp))
+                AboutButton("remover", accent = false) { onChange(draft.copy(avatarUrl = null)) }
+            }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "a imagem e reduzida pra 512px e guardada no teu perfil (maximo 5MB).",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+
+    SettingsDivider()
+    ProfileField("nome", draft.displayName, me?.username ?: "seu nome") {
+        onChange(draft.copy(displayName = it))
+    }
+    Spacer(Modifier.height(12.dp))
+    ProfileField("pronomes", draft.pronouns, "ele/dela/elu…", max = 40) {
+        onChange(draft.copy(pronouns = it))
+    }
+    Spacer(Modifier.height(12.dp))
+    ProfileField("bio", draft.bio, "fale de voce", multiline = true, max = 300) {
+        onChange(draft.copy(bio = it))
+    }
+
+    SettingsDivider()
+    FieldLabel("recado")
+    Row(Modifier.widthIn(max = 420.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        StatusEmojiButton(draft.statusEmoji) { onChange(draft.copy(statusEmoji = it)) }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            Modifier.weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.raised)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            if (draft.customStatus.isEmpty()) {
+                Text("no que voce esta?", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+            }
+            BasicTextField(
+                value = draft.customStatus,
+                onValueChange = { onChange(draft.copy(customStatus = it.take(100))) },
+                singleLine = true,
+                textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                cursorBrush = SolidColor(Obsidian.accent),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+
+    Spacer(Modifier.height(20.dp))
+    msg?.let { (text, ok) ->
+        Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
+        Spacer(Modifier.height(8.dp))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AboutButton(if (saving) "salvando…" else "salvar", accent = true) {
+            if (saving || !dirty) return@AboutButton
+            saving = true
+            msg = null
+            scope.launch {
+                val api = koin.get<UserApi>()
+                val r = runCatching {
+                    // Recado tem rota propria; so manda se mudou.
+                    if (draft.customStatus.trim() != original.customStatus.trim()) {
+                        api.setCustomStatus(CustomStatusRequest(draft.customStatus.trim()))
+                    }
+                    api.updateProfile(
+                        UpdateProfileRequest(
+                            // null = chave omitida = backend nao mexe no campo
+                            // (mesma convencao do card do rodape).
+                            displayName = draft.displayName.trim().ifBlank { null },
+                            pronouns = draft.pronouns.trim(),
+                            bio = draft.bio.trim(),
+                            avatarUrl = draft.avatarUrl,
+                            statusEmoji = draft.statusEmoji,
+                        ),
+                    )
+                }
+                saving = false
+                if (r.isSuccess) {
+                    msg = "perfil salvo" to true
+                    onSaved()
+                } else {
+                    msg = "nao deu pra salvar — tenta de novo" to false
+                }
+            }
+        }
+        if (dirty && !saving) {
+            AboutButton("descartar", accent = false) { onChange(original); msg = null }
+        }
+    }
+    if (!dirty && msg == null) {
+        Spacer(Modifier.height(6.dp))
+        Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+    }
+    Spacer(Modifier.height(20.dp))
+}
+
+// Campo de texto simples do perfil (rotulo + caixa). Multilinha pra bio.
+@Composable
+private fun ProfileField(
+    label: String,
+    value: String,
+    placeholder: String,
+    multiline: Boolean = false,
+    max: Int = 190,
+    onChange: (String) -> Unit,
+) {
+    FieldLabel(label)
+    Box(
+        Modifier
+            .widthIn(max = 420.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        if (value.isEmpty()) {
+            Text(placeholder, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = { onChange(it.take(max)) },
+            singleLine = !multiline,
+            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 18.sp),
+            cursorBrush = SolidColor(Obsidian.accent),
+            modifier = if (multiline) Modifier.fillMaxWidth().height(70.dp) else Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+// Emoji do recado: reusa a MESMA grade das reacoes do chat (ReactionPicker).
+// Clicar no emoji ja escolhido limpa.
+@Composable
+private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.raised)
+                .border(1.dp, if (open) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .clickable { if (current.isNotBlank()) onPick("") else open = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (current.isBlank()) {
+                LIcon(Lucide.SmilePlus, tint = Obsidian.text3, size = 18.dp)
+            } else {
+                Text(current, style = TextStyle(fontSize = 18.sp))
+            }
+        }
+        if (open) {
+            Popup(
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                ReactionPicker(onPick = { onPick(it); open = false })
+            }
         }
     }
 }

@@ -57,6 +57,9 @@ data class UpdateProfileRequest(
     val bannerPositionY: Int? = null,
     val bannerScale: Int? = null,
     val displayFont: String? = null,
+    // O PATCH /api/profile ja aceitava statusEmoji; so faltava aqui. O RECADO
+    // (customStatus) NAO vem por aqui — tem rota propria (/api/friends/custom-status).
+    val statusEmoji: String? = null,
 )
 
 @Serializable

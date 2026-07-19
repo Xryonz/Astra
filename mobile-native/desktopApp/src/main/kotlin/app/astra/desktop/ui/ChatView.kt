@@ -970,9 +970,10 @@ private fun EmojiComposerButton(onPick: (String) -> Unit) {
     }
 }
 
-// Seletor de reacao: 6 rapidos + grade expansivel.
+// Seletor de reacao: 6 rapidos + grade expansivel. internal: a aba Perfil das
+// configuracoes reusa esta mesma grade pro emoji do recado (nao duplicar).
 @Composable
-private fun ReactionPicker(onPick: (String) -> Unit) {
+internal fun ReactionPicker(onPick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column(
         Modifier

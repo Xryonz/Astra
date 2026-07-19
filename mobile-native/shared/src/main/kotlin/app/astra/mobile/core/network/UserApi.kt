@@ -2,6 +2,7 @@ package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
+import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
 import app.astra.mobile.core.network.dto.SetPasswordRequest
 import app.astra.mobile.core.network.dto.SetStatusRequest
@@ -33,4 +34,10 @@ interface UserApi {
 
     @PATCH("api/profile/status")
     suspend fun setStatus(@Body body: SetStatusRequest)
+
+    // Recado (custom status). Mora sob /api/friends no backend, mas e edicao de
+    // perfil — fica aqui pra o desktop nao precisar de uma FriendsApi so por isto
+    // (a do Android vive no modulo :app). Limpar = mandar "".
+    @PATCH("api/friends/custom-status")
+    suspend fun setCustomStatus(@Body body: CustomStatusRequest)
 }

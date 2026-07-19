@@ -55,6 +55,10 @@ data class ChatMessage(
     val authorId: String,
     val authorName: String,
     val authorAvatar: String?,
+    // Fonte escolhida pelo autor em Configuracoes > Perfil. O backend ja mandava
+    // em toda resposta; o modelo do chat e que jogava fora, entao o nome saia
+    // sempre na fonte padrao. null = usuario nao escolheu -> padrao do chat.
+    val authorFont: String? = null,
     val createdAt: String?,
     val mine: Boolean = false,
     val edited: Boolean = false,
@@ -548,6 +552,7 @@ class ChatVm(
     private fun ChannelMessageDto.toChat() = ChatMessage(
         id = id, content = content, authorId = authorId,
         authorName = author.name(authorId), authorAvatar = author?.avatarUrl,
+        authorFont = author?.displayFont,
         createdAt = createdAt,
         mine = authorId == myId, edited = edited,
         reactions = reactions, replyTo = replyTo,
@@ -557,6 +562,7 @@ class ChatVm(
     private fun DmMessageDto.toChat() = ChatMessage(
         id = id, content = content, authorId = senderId,
         authorName = author.name(senderId), authorAvatar = author?.avatarUrl,
+        authorFont = author?.displayFont,
         createdAt = createdAt,
         mine = senderId == myId,
         replyTo = replyTo,

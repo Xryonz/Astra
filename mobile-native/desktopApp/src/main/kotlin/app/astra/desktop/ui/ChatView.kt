@@ -472,7 +472,12 @@ private fun MessageRow(
             }
             add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(msg.id)) })
             if (isChannel) add(MenuEntry.Item("fixar mensagem") { onPin() })
-            if (isChannel && msg.mine) add(MenuEntry.Item("editar") { onStartEdit() })
+            // Editar mexe no CONTENT. Mensagem sem texto (gif, imagem, arquivo
+            // solto) nao tem o que editar — o campo abria vazio e salvar so
+            // esvaziava a mensagem.
+            if (isChannel && msg.mine && msg.content.isNotBlank()) {
+                add(MenuEntry.Item("editar") { onStartEdit() })
+            }
             if (msg.mine) {
                 add(MenuEntry.Separator)
                 add(MenuEntry.Item("excluir", danger = true) { onDelete() })
@@ -522,7 +527,12 @@ private fun MessageRow(
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = msg.authorName,
-                            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                            style = TextStyle(
+                                color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                // null (nao escolheu fonte) fica com o padrao do chat —
+                                // profileFontFamily cairia no serif e mudaria TODO nome.
+                                fontFamily = msg.authorFont?.let { profileFontFamily(it) },
+                            ),
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
@@ -549,7 +559,8 @@ private fun MessageRow(
                 ) {
                     ActionPill(
                         canReact = isChannel,
-                        canEdit = isChannel && msg.mine,
+                        // Mesma regra do menu: sem texto, nada a editar.
+                        canEdit = isChannel && msg.mine && msg.content.isNotBlank(),
                         canDelete = msg.mine,
                         onReply = onReply,
                         onReact = { pickerOpen = true },

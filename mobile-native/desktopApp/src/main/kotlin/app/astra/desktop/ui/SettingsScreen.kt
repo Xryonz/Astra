@@ -20,6 +20,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -321,6 +325,11 @@ private data class ProfileDraft(
     val statusEmoji: String = "",
     val customStatus: String = "",
     val avatarUrl: String? = null,
+    // --- fatia 2 (banner) ---
+    val bannerUrl: String? = null,
+    val bannerColor: String? = null,
+    val bannerPositionY: Int = 50,
+    val bannerScale: Int = 100,
 ) {
     companion object {
         fun from(me: ProfileUserDto?) = ProfileDraft(
@@ -330,6 +339,10 @@ private data class ProfileDraft(
             statusEmoji = me?.statusEmoji.orEmpty(),
             customStatus = me?.customStatus.orEmpty(),
             avatarUrl = me?.avatarUrl,
+            bannerUrl = me?.bannerUrl,
+            bannerColor = me?.bannerColor,
+            bannerPositionY = me?.bannerPositionY ?: 50,
+            bannerScale = me?.bannerScale ?: 100,
         )
     }
 }
@@ -359,18 +372,14 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         val emoji = draft?.statusEmoji ?: me.statusEmoji
         val recado = draft?.customStatus ?: me.customStatus
         val ring = userColor(me.id)
-        val bannerColor = me.bannerColor?.removePrefix("#")?.toLongOrNull(16)
-            ?.let { Color(0xFF000000 or it) } ?: Obsidian.overlay
-        Box(Modifier.fillMaxWidth().height(72.dp).background(bannerColor)) {
-            if (!me.bannerUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = me.bannerUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-        }
+        ProfileBanner(
+            css = draft?.bannerColor ?: me.bannerColor,
+            imageUrl = draft?.bannerUrl ?: me.bannerUrl,
+            positionY = draft?.bannerPositionY ?: me.bannerPositionY ?: 50,
+            scale = draft?.bannerScale ?: me.bannerScale ?: 100,
+            fallback = Obsidian.overlay,
+            modifier = Modifier.fillMaxWidth().height(72.dp),
+        )
         Column(Modifier.padding(horizontal = 14.dp)) {
             Box(
                 Modifier.offset(y = (-24).dp).clip(CircleShape).background(Obsidian.raised)
@@ -737,6 +746,7 @@ private fun ProfileSection(
     val original = remember(me) { ProfileDraft.from(me) }
     var saving by remember { mutableStateOf(false) }
     var busyAvatar by remember { mutableStateOf(false) }
+    var busyBanner by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     val dirty = draft != original
 
@@ -783,6 +793,66 @@ private fun ProfileSection(
     ProfileField("bio", draft.bio, "fale de voce", multiline = true, max = 300) {
         onChange(draft.copy(bio = it))
     }
+
+    SettingsDivider()
+    FieldLabel("banner")
+    // Arrastar na vertical reposiciona a imagem (bannerPositionY); so faz sentido
+    // com imagem — no gradiente nao ha o que enquadrar.
+    ProfileBanner(
+        css = draft.bannerColor,
+        imageUrl = draft.bannerUrl,
+        positionY = draft.bannerPositionY,
+        scale = draft.bannerScale,
+        fallback = Obsidian.overlay,
+        modifier = Modifier
+            .widthIn(max = 420.dp)
+            .fillMaxWidth()
+            .height(110.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .then(
+                if (draft.bannerUrl.isNullOrBlank()) Modifier
+                else Modifier.pointerInput(Unit) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        // 110dp de altura -> ~1.4 px por ponto de posicao. Arrastar
+                        // pra BAIXO revela o topo da imagem (posicao diminui).
+                        val next = (draft.bannerPositionY - drag.y / 1.4f).toInt()
+                        onChange(draft.copy(bannerPositionY = next.coerceIn(0, 100)))
+                    }
+                },
+            ),
+    )
+    if (!draft.bannerUrl.isNullOrBlank()) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "arraste na imagem pra enquadrar.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        )
+        Spacer(Modifier.height(10.dp))
+        ZoomTrack(draft.bannerScale) { onChange(draft.copy(bannerScale = it)) }
+    }
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AboutButton(if (busyBanner) "processando…" else "subir imagem", accent = true) {
+            if (busyBanner) return@AboutButton
+            val file = AvatarPicker.choose("Escolher banner") ?: return@AboutButton
+            busyBanner = true
+            msg = null
+            scope.launch {
+                val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
+                busyBanner = false
+                r.onSuccess { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) }
+                    .onFailure { msg = "nao deu pra ler essa imagem" to false }
+            }
+        }
+        if (!draft.bannerUrl.isNullOrBlank()) {
+            AboutButton("remover imagem", accent = false) { onChange(draft.copy(bannerUrl = null)) }
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    FieldLabel("ou um gradiente")
+    GradientGrid(draft.bannerColor) { onChange(draft.copy(bannerColor = it)) }
 
     SettingsDivider()
     FieldLabel("recado")
@@ -836,6 +906,11 @@ private fun ProfileSection(
                             bio = draft.bio.trim(),
                             avatarUrl = draft.avatarUrl,
                             statusEmoji = draft.statusEmoji,
+                            // Banner: "" limpa a imagem (null seria "nao mexer").
+                            bannerUrl = draft.bannerUrl ?: "",
+                            bannerColor = draft.bannerColor,
+                            bannerPositionY = draft.bannerPositionY,
+                            bannerScale = draft.bannerScale,
                         ),
                     )
                 }
@@ -857,6 +932,75 @@ private fun ProfileSection(
         Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
     }
     Spacer(Modifier.height(20.dp))
+}
+
+// Zoom do banner (bannerScale 100..300%): trilha arrastavel simples. Slider
+// proprio pra nao puxar componente novo so por isto.
+@Composable
+private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
+    val pct = ((scale - 100) / 200f).coerceIn(0f, 1f)
+    Row(
+        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("zoom", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(42.dp))
+        Box(
+            Modifier
+                .weight(1f)
+                .height(22.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, _ ->
+                        change.consume()
+                        val f = (change.position.x / size.width).coerceIn(0f, 1f)
+                        onChange((100 + f * 200).toInt())
+                    }
+                },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(
+                Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
+                    .background(Obsidian.void.copy(alpha = 0.6f)),
+            )
+            Box(
+                Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp))
+                    .background(Obsidian.accent),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Text("${scale}%", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+    }
+}
+
+// Grade dos gradientes prontos (mesma lista do web). Cada pastilha pinta o
+// proprio gradiente — o que voce ve e o que salva.
+@Composable
+private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
+    Column(
+        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        BANNER_GRADIENTS.chunked(6).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { g ->
+                    val active = selected == g.css
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .drawBehind { drawRect(bannerBrush(g.css, size.width, size.height, Obsidian.overlay)) }
+                            .border(
+                                if (active) 2.dp else 1.dp,
+                                if (active) Obsidian.accent else Obsidian.borderDim,
+                                RoundedCornerShape(7.dp),
+                            )
+                            .clickable { onPick(g.css) },
+                    )
+                }
+                repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
 }
 
 // Campo de texto simples do perfil (rotulo + caixa). Multilinha pra bio.

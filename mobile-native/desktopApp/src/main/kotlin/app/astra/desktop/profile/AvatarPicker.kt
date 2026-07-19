@@ -21,8 +21,11 @@ object AvatarPicker {
 
     // Abre o seletor nativo do SO. Bloqueia (modal) — chamar da thread de UI e o
     // comportamento normal de um file dialog. null = o usuario cancelou.
-    fun choose(): File? {
-        val dlg = FileDialog(null as Frame?, "Escolher avatar", FileDialog.LOAD)
+    // Banner e mais largo que o avatar -> mais resolucao antes de virar data-uri.
+    const val BANNER_DIM = 1280
+
+    fun choose(title: String = "Escolher imagem"): File? {
+        val dlg = FileDialog(null as Frame?, title, FileDialog.LOAD)
         dlg.isVisible = true
         val dir = dlg.directory ?: return null
         val name = dlg.file ?: return null
@@ -30,13 +33,13 @@ object AvatarPicker {
     }
 
     // Le, reduz e codifica. Pesado -> rodar fora da thread de UI.
-    fun encode(file: File): Result<String> = runCatching {
+    fun encode(file: File, dim: Int = AVATAR_DIM): Result<String> = runCatching {
         val raw = file.readBytes()
         if (file.name.lowercase().endsWith(".gif") && raw.size <= GIF_MAX) {
             return@runCatching dataUri("image/gif", raw)
         }
         val src = ImageIO.read(file) ?: error("formato de imagem nao suportado")
-        val fitted = fit(src, AVATAR_DIM)
+        val fitted = fit(src, dim)
         // JPEG nao aceita canal alfa; so vai pra PNG quem realmente tem transparencia.
         val alpha = fitted.colorModel.hasAlpha()
         val out = ByteArrayOutputStream()

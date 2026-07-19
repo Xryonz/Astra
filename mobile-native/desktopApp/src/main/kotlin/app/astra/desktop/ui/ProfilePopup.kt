@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,7 +51,6 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ProfileUserDto
-import coil3.compose.AsyncImage
 import org.koin.core.context.GlobalContext
 import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
@@ -149,18 +147,17 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                 CardSkeleton()
             } else {
                 val ring = userColor(p.id)
-                val bannerColor = p.bannerColor?.removePrefix("#")?.toLongOrNull(16)
-                    ?.let { Color(0xFF000000 or it) } ?: Obsidian.overlay
-                Box(Modifier.fillMaxWidth().height(80.dp).background(bannerColor)) {
-                    if (!p.bannerUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = p.bannerUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                }
+                // bannerColor guarda CSS ("linear-gradient(...)"), nao hex — ler
+                // como hex fazia TODO gradiente virar cinza liso aqui. ProfileBanner
+                // traduz o CSS e aplica o enquadramento salvo.
+                ProfileBanner(
+                    css = p.bannerColor,
+                    imageUrl = p.bannerUrl,
+                    positionY = p.bannerPositionY ?: 50,
+                    scale = p.bannerScale ?: 100,
+                    fallback = Obsidian.overlay,
+                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                )
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Box(
                         Modifier

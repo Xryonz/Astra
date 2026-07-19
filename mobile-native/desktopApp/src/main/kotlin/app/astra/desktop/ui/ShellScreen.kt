@@ -257,6 +257,14 @@ fun ShellScreen(
         // Paineis = cartoes flutuantes (estilo mobile): gap entre eles + cantos
         // arredondados deixam a aurora respirar nas juntas (impressao de
         // sobreposicao). Margem externa de 8dp separa do titulo/bordas da janela.
+        // Escondidos enquanto o Settings (takeover) esta aberto: assim a UNICA aurora
+        // do shell (montada acima) fica continua por baixo do Settings — sem aurora
+        // nova, sem salto de posicao ao trocar de aba. Crossfade rapido.
+        AnimatedVisibility(
+            visible = !settingsOpen,
+            enter = fadeIn(tween(160)),
+            exit = fadeOut(tween(160)),
+        ) {
         Row(
             Modifier.fillMaxSize().padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -338,9 +346,10 @@ fun ShellScreen(
             )
         }
         }
+        }
 
-        // Settings em takeover (Discord): cobre o shell inteiro por cima da aurora.
-        // Entra/sai com fade + leve zoom (decisao do dono) — GPU-only, ~180ms.
+        // Settings em takeover (Discord): a MESMA aurora do shell segue viva por baixo
+        // (o conteudo acima esconde-se no crossfade). Entra/sai com fade + leve zoom.
         AnimatedVisibility(
             visible = settingsOpen,
             enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f),

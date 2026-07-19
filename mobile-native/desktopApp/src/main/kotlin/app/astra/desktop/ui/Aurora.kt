@@ -163,7 +163,14 @@ fun Modifier.auroraBackground(): Modifier {
             var last = withFrameNanos { it }
             while (active.value) {
                 withFrameNanos { now ->
-                    acc += (now - last) / 1_000_000_000f
+                    // CORTE 3 (ao voltar pra aba): alt-tab / outro monitor NAO mexem em
+                    // windowVisible nem isMinimized -> 'active' segue true, mas o SO para
+                    // de entregar frames pra janela ocluida. Na volta, o 1o frame traz
+                    // 'now' varios SEGUNDOS a frente -> dt gigante empurraria o tempo num
+                    // salto = a aurora "pula" (o corte "do nada"). Clampo o dt em 50ms
+                    // (~3 frames): pior caso a aurora so atrasa um tico imperceptivel.
+                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
+                    acc += dt
                     if (acc >= AURORA_LOOP) acc -= AURORA_LOOP
                     last = now
                     val cap = fpsCap.value

@@ -50,7 +50,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -129,17 +128,11 @@ fun SettingsScreen(me: ProfileUserDto?, prefs: DesktopPrefs, onClose: () -> Unit
                 if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
             },
     ) {
-        // Fundo proprio do takeover: aurora viva (ou void chapado) cobre o shell
-        // por baixo — senao o palco (Descobrir/chat) vaza atras das secoes. Um veu
-        // por cima segura a leitura sem matar a aurora ("aparencia abranja tudo").
-        if (prefState.auroraOn) {
-            Box(Modifier.matchParentSize().graphicsLayer {}.auroraBackground())
-        } else {
-            Box(Modifier.matchParentSize().background(Obsidian.void))
-        }
-        // Estrelas + veu mais leve: o fundo do takeover fica igual ao resto do app
-        // (aurora viva atras), so com veu o bastante pra manter a leitura.
-        if (prefState.starsOn) StarField(Modifier.matchParentSize())
+        // Fundo do takeover = a MESMA aurora do shell, continua, por baixo (o dono
+        // pediu "mesma aurora, no mesmo lugar independente da aba"). O shell segura a
+        // aurora/estrelas montadas e esconde o proprio conteudo enquanto isto abre ->
+        // nada vaza atras. Aqui so um veu segura a leitura. Pintar aurora nova aqui
+        // era o "salto de posicao" ao abrir configuracoes (relogio independente).
         Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.5f)))
         Row(Modifier.fillMaxSize()) {
             // Nav das secoes

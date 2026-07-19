@@ -97,7 +97,11 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
             var last = withFrameNanos { it }
             while (active.value) {
                 withFrameNanos { now ->
-                    acc += (now - last) / 1_000_000_000f
+                    // Mesmo clamp da aurora (CORTE 3): janela ocluida (alt-tab) para de
+                    // receber frames com 'active' true; na volta o dt gigante faria as
+                    // estrelas/meteoros saltarem. Teto de 50ms mantem o drift suave.
+                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
+                    acc += dt
                     if (acc >= STAR_LOOP) acc -= STAR_LOOP
                     last = now
                     val cap = fpsCap.value

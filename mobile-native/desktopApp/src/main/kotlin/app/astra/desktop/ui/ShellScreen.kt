@@ -102,6 +102,8 @@ import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.voice.VoiceEngine
+import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
@@ -160,6 +162,10 @@ fun ShellScreen(
         )
     }
     val state by vm.state.collectAsState()
+    // Call VIVA acima da navegacao: o engine mora aqui, nao dentro da VoiceView.
+    // Trocar de orbita nao desconecta mais — so desligar (ou entrar noutra sala).
+    val voice = remember { VoiceSession(scope, koin) }
+    DisposableEffect(Unit) { onDispose { voice.leave() } }
     var settingsOpen by remember { mutableStateOf(false) }
     // Aba em que o takeover abre: a engrenagem cai em Conta, o avatar do rodape
     // cai em Perfil.
@@ -323,7 +329,11 @@ fun ShellScreen(
             state.selectedServer,
             chat = chat,
             voiceChannel = state.voiceChannel,
-            onLeaveVoice = vm::leaveVoice,
+            voiceEngine = voice.engineFor(state.voiceChannel),
+            voicePresence = state.voiceChannel?.let { state.voicePresence[it.id] }.orEmpty(),
+            onJoinVoice = { state.voiceChannel?.let(voice::join) },
+            // Desligar = sair de verdade e limpar o palco.
+            onLeaveVoice = { voice.leave(); vm.leaveVoice() },
             createChatVm = createChatVm,
             members = state.members,
             me = state.me,
@@ -354,6 +364,20 @@ fun ShellScreen(
             )
         }
         }
+        }
+
+        // Card flutuante da call: so quando voce esta conectado E saiu da sala no
+        // palco. Fica por cima de tudo (inclusive das configuracoes) — e o unico
+        // lugar com o botao de desligar depois que navegar deixou de desconectar.
+        val joined = voice.joined
+        val joinedEngine = voice.engine
+        if (joined != null && joinedEngine != null && state.voiceChannel?.id != joined.id) {
+            CallDock(
+                channel = joined,
+                engine = joinedEngine,
+                onExpand = { vm.openVoice(joined) },
+                onLeave = { voice.leave(); vm.leaveVoice() },
+            )
         }
 
         // Settings em takeover (Discord): a MESMA aurora do shell segue viva por baixo
@@ -1993,6 +2017,10 @@ private fun Stage(
     server: ServerDto?,
     chat: ChatTarget?,
     voiceChannel: ChannelDto?,
+    // Engine so quando a sala do palco E a que voce entrou; null = antessala.
+    voiceEngine: VoiceEngine?,
+    voicePresence: List<String>,
+    onJoinVoice: () -> Unit,
     onLeaveVoice: () -> Unit,
     createChatVm: (ChatTarget) -> ChatVm,
     members: List<ServerMemberDto>,
@@ -2073,9 +2101,11 @@ private fun Stage(
         }
         HairRule()
 
-        // Sala de voz ocupa o palco (V1); senao, chat/placeholder com fade.
+        // Sala de voz ocupa o palco. Sem engine = voce abriu a sala mas ainda nao
+        // entrou -> antessala com quem esta la e o botao verde.
         if (voiceChannel != null) {
-            VoiceView(voiceChannel, members, me, onLeaveVoice)
+            if (voiceEngine != null) VoiceView(voiceChannel, members, me, voiceEngine, onLeaveVoice)
+            else VoiceLobby(voiceChannel, members, voicePresence, onJoinVoice)
             return@Column
         }
 

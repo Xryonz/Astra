@@ -42,7 +42,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,7 +73,6 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.ScreenPreview
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceStatus
-import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
@@ -83,13 +81,11 @@ import dev.onvoid.webrtc.media.video.VideoBufferConverter
 import dev.onvoid.webrtc.media.video.VideoTrack
 import dev.onvoid.webrtc.media.video.VideoTrackSink
 import dev.onvoid.webrtc.media.video.desktop.DesktopSource
-import okhttp3.OkHttpClient
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Image as SkiaImage
 import org.koin.core.context.GlobalContext
-import org.koin.core.qualifier.named
 
 // Sala de voz — V3..V6: audio bidirecional (mute), transmissao de tela a 60fps,
 // palco de video remoto e speaking indicators
@@ -99,15 +95,12 @@ fun VoiceView(
     channel: ChannelDto,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
+    // O engine vem de fora (VoiceSession, no shell). Nao pode nascer aqui: era o
+    // DisposableEffect desta tela que desconectava a call ao navegar.
+    engine: VoiceEngine,
     onLeave: () -> Unit,
 ) {
     val koin = GlobalContext.get()
-    val scope = rememberCoroutineScope()
-    val engine = remember(channel.id) {
-        VoiceEngine(scope, koin.get<VoiceApi>(), koin.get<OkHttpClient>(named("plain")), koin.get<DesktopPrefs>())
-            .also { it.connect("channel", channel.id) }
-    }
-    DisposableEffect(channel.id) { onDispose { engine.dispose() } }
     val prefs = remember { koin.get<DesktopPrefs>() }
     val prefState by prefs.state.collectAsState()
     val status by engine.status.collectAsState()

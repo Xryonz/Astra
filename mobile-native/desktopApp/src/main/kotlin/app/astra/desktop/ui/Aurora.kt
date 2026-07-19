@@ -90,11 +90,36 @@ float fbm(float2 p) {
     }
     return v * $inv;
 }
+// CORTE 8 — a causa da "borda reta diagonal", e a que sobreviveu a todas as
+// tentativas anteriores (oitavas, relogio, teto de brilho, dither de 8 bits).
+//
+// exp(-abs(d) * k) NAO e suave em d = 0: tem uma CUSPIDE. A derivada salta de
+// +k pra -k instantaneamente — descontinuidade de PRIMEIRA derivada, ou seja um
+// vinco. O olho detecta isso muito melhor do que detecta diferenca de valor
+// (bandas de Mach / inibicao lateral), entao o vinco aparece como um risco
+// nitido mesmo com o brilho variando pouco ali.
+//
+// Nos feixes o argumento do abs e uma funcao LINEAR de uv -> o vinco e uma
+// LINHA RETA; a direcao e a do feixe -> DIAGONAL; e ele varre a tela com
+// sin(ang*2) -> "de vez em quando". Por isso nenhuma correcao anterior pegava:
+// nao era quantizacao nem saturacao, era geometria.
+//
+// softAbs arredonda a ponta num raio ~sqrt(EPS) (aqui ~0.008 em uv, uns poucos
+// pixels) e e C-infinito. Longe de zero e indistinguivel de abs(), entao o
+// formato e o alcance dos feixes/cortinas continuam os validados — some so o
+// risco.
+float softAbs(float d) { return sqrt(d * d + 6e-5); }
+
 float curtain(float2 uv, float yC, float seed, float2 flow) {
     float n = fbm(float2(uv.x * 2.6 + seed, seed * 3.1) + flow);
     float d = uv.y - (yC + (n - 0.5) * 0.30);
-    // Borda superior mais dura (34 vs 26) -> cortina com contorno definido.
-    float body = exp(-abs(d) * (d < 0.0 ? 34.0 : 10.0));
+    // Borda superior mais dura (34 vs 10) -> cortina com contorno definido.
+    // CORTE 8: era exp(-abs(d) * (d < 0.0 ? 34.0 : 10.0)) — DOIS vincos no mesmo
+    // ponto. O abs faz a derivada saltar de +k pra -k em d=0, e o ternario troca a
+    // propria inclinacao de degrau. softAbs arredonda a ponta e o mix troca a
+    // inclinacao numa faixa estreita em vez de num salto. Ver CORTE 8 nos feixes.
+    float kd = mix(10.0, 34.0, smoothstep(0.006, -0.006, d));
+    float body = exp(-softAbs(d) * kd);
     // Estrias verticais crispadas: o MESMO fbm de raios, re-shapeado com contraste
     // alto — definicao sem custo extra de ruido.
     //
@@ -130,8 +155,9 @@ half4 main(float2 fragCoord) {
 
     // Bandas de luz diagonais varrendo as cortinas. Posicao oscila com
     // sin(ang*N) (periodico); so exp/abs, custo ~zero de ALU.
-    float beam1 = exp(-abs(uv.x * 0.8 - uv.y * 0.45 - 0.18 - 0.45 * sin(ang * 2.0 + 0.7)) * 5.5);
-    float beam2 = exp(-abs(uv.x * 0.6 + uv.y * 0.55 - 0.45 - 0.50 * sin(ang * 3.0 + 3.9)) * 7.0) * 0.6;
+    // softAbs, nao abs: e AQUI que nascia a borda reta diagonal (ver CORTE 8).
+    float beam1 = exp(-softAbs(uv.x * 0.8 - uv.y * 0.45 - 0.18 - 0.45 * sin(ang * 2.0 + 0.7)) * 5.5);
+    float beam2 = exp(-softAbs(uv.x * 0.6 + uv.y * 0.55 - 0.45 - 0.50 * sin(ang * 3.0 + 3.9)) * 7.0) * 0.6;
     float beams = beam1 + beam2;
     aur *= 1.0 + 0.45 * beams;
     aur += beams * fall * 0.02;

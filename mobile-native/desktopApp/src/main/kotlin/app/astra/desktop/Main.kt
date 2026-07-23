@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,6 +43,8 @@ import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.ShellScreen
+import app.astra.desktop.ui.StarField
+import app.astra.desktop.ui.auroraBackground
 import app.astra.desktop.ui.UpdateBanner
 import app.astra.desktop.ui.UpdaterGate
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -225,9 +228,25 @@ fun main() {
                     CompositionLocalProvider(
                         LocalWindowActive provides (windowVisible && !state.isMinimized),
                     ) {
+                    // O CEU DA JANELA: aurora + estrelas atras do login E do shell.
+                    // Morava dentro do ShellScreen, e o login pintava a propria aurora
+                    // num painel de 45% — como o uv do shader e normalizado pelo
+                    // tamanho, eram imagens diferentes e a entrada saltava. Aqui em
+                    // cima ela nao se mexe quando o conteudo troca: entra-se NO app,
+                    // nao se troca de tela. E fica um shader so, nunca dois.
+                    Box(Modifier.fillMaxSize()) {
+                    if (prefState.auroraOn) {
+                        // Camada propria (graphicsLayer): so ela invalida por frame —
+                        // os paineis translucidos por cima nao redesenham com o shader.
+                        Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground())
+                    } else {
+                        Box(Modifier.fillMaxSize().background(Obsidian.void))
+                    }
+                    if (prefState.starsOn) StarField(Modifier.fillMaxSize())
+
                     // Entrada do Astra: um reveal unico (uma vez por abertura) quando o
-                    // conteudo aparece depois do gate — a aurora acende e o app sobe
-                    // com fade + escala sutil. GPU-only (graphicsLayer), ~520ms.
+                    // conteudo aparece depois do gate — o app sobe com fade + escala
+                    // sutil POR CIMA do ceu, que ja esta aceso. GPU-only, ~520ms.
                     val reveal = remember { Animatable(0f) }
                     LaunchedEffect(Unit) { reveal.animateTo(1f, tween(520, easing = EaseOutStd)) }
                     Box(
@@ -239,31 +258,41 @@ fun main() {
                             scaleY = sc
                         },
                     ) {
-                        val s = session
-                        if (s == null) {
-                            LoginScreen(repo = authRepo, onLoggedIn = { session = it })
-                        } else {
-                            ShellScreen(
-                                session = s,
-                                // Toast da bandeja so quando o app nao esta na frente.
-                                windowHidden = { !windowVisible || state.isMinimized },
-                                notify = { title, body ->
-                                    trayState.sendNotification(Notification(title, body, Notification.Type.None))
-                                },
-                                onLogout = {
-                                    authRepo.logout()
-                                    session = null
-                                },
-                                searchOpen = searchOpen,
-                                onCloseSearch = { searchOpen = false },
-                                notifOpen = notifOpen,
-                                onCloseNotif = { notifOpen = false },
-                                onNotifUnread = { notifUnread = it },
-                            )
+                        // Entrar no app = os paineis do login se dissolverem e os do
+                        // shell aparecerem SOBRE o mesmo ceu, que nao se mexe. Por
+                        // isso Crossfade e nao slide: o ceu ancora as duas telas, e
+                        // qualquer deslocamento denunciaria que sao telas diferentes.
+                        Crossfade(
+                            targetState = session,
+                            animationSpec = tween(420, easing = EaseOutStd),
+                            label = "entrada",
+                        ) { s ->
+                            if (s == null) {
+                                LoginScreen(repo = authRepo, onLoggedIn = { session = it })
+                            } else {
+                                ShellScreen(
+                                    session = s,
+                                    // Toast da bandeja so quando o app nao esta na frente.
+                                    windowHidden = { !windowVisible || state.isMinimized },
+                                    notify = { title, body ->
+                                        trayState.sendNotification(Notification(title, body, Notification.Type.None))
+                                    },
+                                    onLogout = {
+                                        authRepo.logout()
+                                        session = null
+                                    },
+                                    searchOpen = searchOpen,
+                                    onCloseSearch = { searchOpen = false },
+                                    notifOpen = notifOpen,
+                                    onCloseNotif = { notifOpen = false },
+                                    onNotifUnread = { notifUnread = it },
+                                )
+                            }
                         }
                         // Banner de update (topo): lembrete quando adiado ("depois")
                         // ou achado na checagem manual — conduz o mesmo mini-fluxo.
                         UpdateBanner(updater)
+                    }
                     }
                     }
                 }

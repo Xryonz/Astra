@@ -247,22 +247,11 @@ fun ShellScreen(
                 } else false
             },
     ) {
-        // Aurora viva atras do shell inteiro (decisao do dono). Camada propria
-        // (graphicsLayer): so ela invalida por frame — os paineis translucidos
-        // por cima nao redesenham com o shader. Desligada = void chapado (0 shader).
-        if (prefState.auroraOn) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .graphicsLayer {}
-                    .auroraBackground(),
-            )
-        } else {
-            Box(Modifier.matchParentSize().background(Obsidian.void))
-        }
-        // Estrelas (fieis ao mobile) entre a aurora e os paineis: fixas + piscar
-        // + meteoros. Camada propria (transparente) — a aurora aparece por baixo.
-        if (prefState.starsOn) StarField(Modifier.matchParentSize())
+        // Aurora e estrelas NAO moram mais aqui: subiram pra janela (Main.kt), atras
+        // do login e do shell ao mesmo tempo. Sem isso a entrada saltava — a aurora
+        // do login ocupava 45% da largura e a do shell 100%, e o uv do shader e
+        // normalizado pelo tamanho, entao eram duas imagens diferentes. Uma so
+        // instancia tambem significa um shader em vez de dois durante a transicao.
         // Paineis = cartoes flutuantes (estilo mobile): gap entre eles + cantos
         // arredondados deixam a aurora respirar nas juntas (impressao de
         // sobreposicao). Margem externa de 8dp separa do titulo/bordas da janela.

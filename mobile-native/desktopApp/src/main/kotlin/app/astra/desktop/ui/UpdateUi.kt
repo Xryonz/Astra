@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmSerif
@@ -233,8 +234,10 @@ private fun XpBar(progress: Float?, reduceMotion: Boolean) {
     }
 }
 
+// internal + tamanho parametrizavel: a tela de login reusa o MESMO planeta, pra o
+// objeto que abre o app ser o mesmo que recebe no login (continuidade de marca).
 @Composable
-private fun RotatingStarsLogo(reduceMotion: Boolean) {
+internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp) {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
     // reduceMotion: fase fixa (anel parado, mas ainda com frente/tras).
@@ -275,14 +278,15 @@ private fun RotatingStarsLogo(reduceMotion: Boolean) {
             )
         }
     }
-    Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(150.dp)) { drawRing(front = false) }
+    // O planeta ocupa 52% do diametro; o resto e o espaco onde o anel passa.
+    Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(diameter)) { drawRing(front = false) }
         Image(
             painter = painterResource("astra-icon.png"),
             contentDescription = null,
-            modifier = Modifier.size(78.dp),
+            modifier = Modifier.size(diameter * 0.52f),
         )
-        Canvas(Modifier.size(150.dp)) { drawRing(front = true) }
+        Canvas(Modifier.size(diameter)) { drawRing(front = true) }
     }
 }
 

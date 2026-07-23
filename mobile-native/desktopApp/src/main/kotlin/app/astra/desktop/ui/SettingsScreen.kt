@@ -1890,7 +1890,7 @@ private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSele
 }
 
 @Composable
-private fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
             // Preenche a coluna capada (~720, estilo Discord): interruptor grudado
@@ -1955,14 +1955,14 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
 // Linha separadora entre grupos de configuracao (legibilidade — pedido do dono).
 @Composable
-private fun SettingsDivider() {
+internal fun SettingsDivider() {
     Spacer(Modifier.height(8.dp))
     HairRule()
     Spacer(Modifier.height(16.dp))
 }
 
 @Composable
-private fun FieldLabel(text: String) {
+internal fun FieldLabel(text: String) {
     Text(
         text.uppercase(),
         style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp),

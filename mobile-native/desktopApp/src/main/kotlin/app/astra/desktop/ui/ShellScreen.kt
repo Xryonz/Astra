@@ -170,6 +170,8 @@ fun ShellScreen(
     // Aba em que o takeover abre: a engrenagem cai em Conta, o avatar do rodape
     // cai em Perfil.
     var settingsTab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
+    // Configuracoes da CONSTELACAO (outro takeover): sempre a selecionada.
+    var serverSettingsOpen by remember { mutableStateOf(false) }
     // Ctrl+K = quick-switcher (pular pra canal/sussurro). Foco na raiz garante que o
     // atalho dispara mesmo sem nada clicado; onPreviewKeyEvent na raiz ve a tecla
     // antes de qualquer campo de texto filho.
@@ -259,7 +261,7 @@ fun ShellScreen(
         // do shell (montada acima) fica continua por baixo do Settings — sem aurora
         // nova, sem salto de posicao ao trocar de aba. Crossfade rapido.
         AnimatedVisibility(
-            visible = !settingsOpen,
+            visible = !settingsOpen && !serverSettingsOpen,
             enter = fadeIn(tween(160)),
             exit = fadeOut(tween(160)),
         ) {
@@ -272,6 +274,16 @@ fun ShellScreen(
             selection = state.selection,
             myId = session.userId,
             mutedServers = state.mutedServers,
+            canManageSelected = { id ->
+                (state.selection as? Selection.Server)?.id == id &&
+                    state.myPerms?.let { it.isOwner || it.isAdmin || "MANAGE_SERVER" in it.permissions } == true
+            },
+            onOpenServerSettings = { id ->
+                // Selecionar antes de abrir: a tela le a constelacao selecionada, e
+                // assim tambem chega o myPerms dela.
+                vm.select(Selection.Server(id))
+                serverSettingsOpen = true
+            },
             onSelect = vm::select,
             onLeaveServer = vm::leaveServer,
             onDeleteServer = vm::deleteServer,
@@ -367,6 +379,31 @@ fun ShellScreen(
                 onExpand = { vm.openVoice(joined) },
                 onLeave = { voice.leave(); vm.leaveVoice() },
             )
+        }
+
+        // Configuracoes da constelacao: mesma entrada do Settings (decisao do dono),
+        // pra as duas telas de configuracao se comportarem igual. Sai sozinha se a
+        // constelacao deixar de existir (excluir/sair fecham pelo proprio estado).
+        val cfgServer = state.selectedServer
+        AnimatedVisibility(
+            visible = serverSettingsOpen && cfgServer != null,
+            enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f),
+            exit = fadeOut(tween(140)) + scaleOut(tween(140), targetScale = 0.98f),
+        ) {
+            // Guarda o ultimo servidor valido: durante o fade de saida o selectedServer
+            // ja pode ser null (ex.: acabou de excluir) e a tela nao pode piscar vazia.
+            val shown = remember(cfgServer) { cfgServer }
+            shown?.let { srv ->
+                ServerSettingsScreen(
+                    server = srv,
+                    isOwner = srv.ownerId == session.userId,
+                    onClose = { serverSettingsOpen = false },
+                    onSave = { body, cb -> vm.updateServer(srv.id, body, cb) },
+                    onRegenerateInvite = { cb -> vm.regenerateInvite(srv.id, cb) },
+                    onDelete = { serverSettingsOpen = false; vm.deleteServer(srv.id) },
+                    onLeave = { serverSettingsOpen = false; vm.leaveServer(srv.id) },
+                )
+            }
         }
 
         // Settings em takeover (Discord): a MESMA aurora do shell segue viva por baixo
@@ -670,6 +707,10 @@ private fun Rail(
     selection: Selection,
     myId: String?,
     mutedServers: Set<String>,
+    // "posso gerenciar esta constelacao?" — so responde true pra SELECIONADA (ver
+    // o comentario no menu abaixo).
+    canManageSelected: (String) -> Boolean,
+    onOpenServerSettings: (String) -> Unit,
     onSelect: (Selection) -> Unit,
     onLeaveServer: (String) -> Unit,
     onDeleteServer: (String) -> Unit,
@@ -712,6 +753,16 @@ private fun Rail(
                         add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelacao" else "silenciar constelacao") { onToggleServerMute(srv.id) })
                         add(MenuEntry.Item("marcar tudo como lido") { onMarkServerRead(srv.id) })
                         add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(srv.id)) })
+                        // "configuracoes" so pra quem manda: dono (o app ja sabe pelo
+                        // ownerId) ou MANAGE_SERVER — este ultimo so e conhecido na
+                        // constelacao SELECIONADA, porque as permissoes sao buscadas
+                        // uma vez por selecao (buscar de todas seria N requisicoes no
+                        // boot). Clicar seleciona antes de abrir, entao a tela sempre
+                        // abre com as permissoes certas em mao.
+                        if (isOwner || canManageSelected(srv.id)) {
+                            add(MenuEntry.Separator)
+                            add(MenuEntry.Item("configuracoes") { onOpenServerSettings(srv.id) })
+                        }
                         add(MenuEntry.Separator)
                         if (isOwner) add(MenuEntry.Item("excluir constelacao", danger = true) { confirmDelete = true })
                         else add(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })

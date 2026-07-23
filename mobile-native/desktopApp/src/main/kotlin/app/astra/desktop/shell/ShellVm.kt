@@ -8,6 +8,7 @@ import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
+import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
 import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
@@ -18,12 +19,14 @@ import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.MoveChannelRequest
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
+import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerDto
+import app.astra.mobile.core.network.dto.MyPermsDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import retrofit2.HttpException
 
 // Selecao persistida como string ("dms" | "server:<id>") no ui.properties.
 sealed interface Selection {
@@ -80,6 +84,10 @@ data class ShellUiState(
     // Quem esta em cada canal de voz (channelId -> userIds), via poll ~5s do
     // /voice/presence. Alimenta a lista de presenca sob o canal na sidebar.
     val voicePresence: Map<String, List<String>> = emptyMap(),
+    // Minhas permissoes NA CONSTELACAO SELECIONADA (GET /servers/:id/me). Decide
+    // quem ve "configuracoes" no menu da rail. So da selecionada: buscar de todas
+    // seria uma requisicao por constelacao no boot, e a API dorme no Render free.
+    val myPerms: MyPermsDto? = null,
 ) {
     val selectedServer: ServerDto?
         get() = (selection as? Selection.Server)?.let { sel -> servers.find { it.id == sel.id } }
@@ -235,7 +243,12 @@ class ShellVm(
         // entrada. Re-clicar o mesmo servidor mantem a conversa aberta (as
         // mensagens novas ja chegam pelo socket ao vivo — nada pra recarregar).
         if (_state.value.selection == selection) return
-        _state.update { it.copy(selection = selection, members = emptyList(), chat = null, friendsOpen = false) }
+        // myPerms zera junto com members: sao da constelacao ANTERIOR. Deixar o
+        // valor velho faria o menu oferecer "configuracoes" numa constelacao onde
+        // voce nao manda nada (o backend recusaria, mas a UI ja teria mentido).
+        _state.update {
+            it.copy(selection = selection, members = emptyList(), myPerms = null, chat = null, friendsOpen = false)
+        }
         store.setUiPref("lastSelection", selection.encode())
         saveLocation()
         if (selection is Selection.Server) loadMembers(selection.id)
@@ -378,6 +391,7 @@ class ShellVm(
                     voiceChannel = null,
                     friendsOpen = false,
                     members = emptyList(),
+                    myPerms = null,
                 )
             }
             store.setUiPref("lastSelection", Selection.Server(created.id).encode())
@@ -398,6 +412,7 @@ class ShellVm(
                     chat = null,
                     voiceChannel = null,
                     members = emptyList(),
+                    myPerms = null,
                 )
             }
             store.setUiPref("lastSelection", Selection.Server(serverId).encode())
@@ -546,6 +561,44 @@ class ShellVm(
         }
     }
 
+    // ---- Configuracoes da constelacao ----
+    // Salvar devolve o erro REAL do backend pra tela mostrar (nome duplicado,
+    // imagem grande demais, sem permissao) em vez de um "nao deu" generico.
+    // Sucesso -> recarrega a lista: a rail repinta com o icone/nome novo.
+    fun updateServer(serverId: String, body: UpdateServerRequest, onResult: (String?) -> Unit) {
+        scope.launch {
+            val r = runCatching { serverApi.update(serverId, body) }
+            if (r.isSuccess) {
+                reloadServers()
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra salvar"))
+            }
+        }
+    }
+
+    // Regenerar convite: o codigo novo vem na resposta, mas quem manda na UI e o
+    // ServerDto da lista — entao recarrega pra nao ficar mostrando o antigo.
+    fun regenerateInvite(serverId: String, onResult: (String?) -> Unit) {
+        scope.launch {
+            val r = runCatching { serverApi.regenerateInvite(serverId) }
+            if (r.isSuccess) {
+                reloadServers()
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra gerar um convite novo"))
+            }
+        }
+    }
+
+    // Mensagem de erro do backend ({ error }) quando houver; senao um texto curto.
+    private fun apiMessage(t: Throwable?, fallback: String): String {
+        val http = t as? HttpException ?: return "$fallback — sem conexao"
+        val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
+            ?.let { runCatching { json.decodeFromString<ApiError>(it) }.getOrNull() }
+        return parsed?.error?.takeIf { it.isNotBlank() } ?: "$fallback (erro ${http.code()})"
+    }
+
     fun openVoice(channel: ChannelDto) {
         // Voz nao e restaurada no boot: limpa o lastChat (saveLocation le chat=null).
         _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
@@ -615,10 +668,17 @@ class ShellVm(
 
     private fun loadMembers(serverId: String) {
         scope.launch {
-            val members = runCatching { serverApi.members(serverId).data.orEmpty() }.getOrDefault(emptyList())
+            // Membros e permissoes juntos: sao pedidos pelos mesmos gatilhos (trocar
+            // de constelacao) e nao dependem um do outro -> em paralelo.
+            val membersD = async { runCatching { serverApi.members(serverId).data.orEmpty() }.getOrDefault(emptyList()) }
+            val permsD = async { runCatching { serverApi.myPerms(serverId).data }.getOrNull() }
+            val members = membersD.await()
+            val perms = permsD.await()
             // So aplica se a selecao nao mudou enquanto carregava.
             _state.update {
-                if ((it.selection as? Selection.Server)?.id == serverId) it.copy(members = members) else it
+                if ((it.selection as? Selection.Server)?.id == serverId) {
+                    it.copy(members = members, myPerms = perms)
+                } else it
             }
         }
     }

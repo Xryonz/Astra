@@ -10,6 +10,7 @@ import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.ChannelActivityEventDto
+import app.astra.mobile.core.network.dto.BanDto
 import app.astra.mobile.core.network.dto.BanRequest
 import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ConversationDto
@@ -646,6 +647,23 @@ class ShellVm(
             } else {
                 onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra mudar o cargo do membro"))
             }
+        }
+    }
+
+    // ---- Banimentos ----
+    fun loadBans(serverId: String, onResult: (List<BanDto>?, String?) -> Unit) {
+        scope.launch {
+            val r = runCatching { serverApi.bans(serverId).data.orEmpty() }
+            r.onSuccess { onResult(it, null) }
+                .onFailure { onResult(null, apiMessage(it, "Nao deu pra carregar os banimentos")) }
+        }
+    }
+
+    // userId (nao memberId): quem foi banido ja nao e membro.
+    fun unbanUser(serverId: String, userId: String, onResult: (String?) -> Unit) {
+        scope.launch {
+            val r = runCatching { serverApi.unban(serverId, userId) }
+            onResult(if (r.isSuccess) null else apiMessage(r.exceptionOrNull(), "Nao deu pra revogar o banimento"))
         }
     }
 

@@ -62,6 +62,7 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.dto.BanDto
 import app.astra.mobile.core.network.dto.RoleDto
 import app.astra.mobile.core.network.dto.RoleRequest
 import app.astra.mobile.core.network.dto.ServerDto
@@ -80,12 +81,12 @@ import kotlinx.coroutines.withContext
 // de 220dp a esquerda, coluna de conteudo capada em 720dp), pra as duas telas de
 // configuracao se lerem como a mesma coisa.
 //
-// Visao geral e Cargos prontas; Banimentos ja aparece na navegacao, apagada e
-// inerte, pra a tela nao mudar de forma quando chegar (o flag `ready` manda).
+// As tres abas estao prontas. `ready` fica no enum de proposito: e o interruptor
+// pra listar uma aba futura apagada e inerte, sem mudar a forma da navegacao.
 internal enum class ServerTab(val label: String, val sub: String, val icon: ImageVector, val ready: Boolean) {
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
     ROLES("Cargos", "permissoes e cor do nome", Lucide.Shield, true),
-    BANS("Banimentos", "em breve", Lucide.Ban, false),
+    BANS("Banimentos", "quem nao pode voltar", Lucide.Ban, true),
 }
 
 @Composable
@@ -103,6 +104,8 @@ fun ServerSettingsScreen(
     onSaveRole: (String?, RoleRequest, (String?) -> Unit) -> Unit,
     onDeleteRole: (String, (String?) -> Unit) -> Unit,
     onToggleMemberRole: (String, String, Boolean, (String?) -> Unit) -> Unit,
+    onLoadBans: ((List<BanDto>?, String?) -> Unit) -> Unit,
+    onUnban: (String, (String?) -> Unit) -> Unit,
 ) {
     var tab by remember { mutableStateOf(ServerTab.OVERVIEW) }
 
@@ -111,7 +114,20 @@ fun ServerSettingsScreen(
     var roles by remember(server.id) { mutableStateOf<List<RoleDto>?>(null) }
     var rolesError by remember(server.id) { mutableStateOf<String?>(null) }
     fun reloadRoles() = onLoadRoles { list, err -> roles = list; rolesError = err }
-    LaunchedEffect(server.id, tab) { if (tab == ServerTab.ROLES) reloadRoles() }
+
+    var bans by remember(server.id) { mutableStateOf<List<BanDto>?>(null) }
+    var bansError by remember(server.id) { mutableStateOf<String?>(null) }
+    fun reloadBans() = onLoadBans { list, err -> bans = list; bansError = err }
+
+    // Busca so quando a aba entra em cena: quem so mexe na Visao geral nao paga
+    // por cargos nem banimentos.
+    LaunchedEffect(server.id, tab) {
+        when (tab) {
+            ServerTab.ROLES -> reloadRoles()
+            ServerTab.BANS -> reloadBans()
+            else -> {}
+        }
+    }
 
     // ESC fecha — mesmo contrato do SettingsScreen.
     val focus = remember { FocusRequester() }
@@ -212,9 +228,13 @@ fun ServerSettingsScreen(
                                     },
                                     onToggleMember = onToggleMemberRole,
                                 )
-                                else -> Text(
-                                    "em construcao",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                ServerTab.BANS -> BansSection(
+                                    bans = bans,
+                                    error = bansError,
+                                    // Recarrega ao revogar: a linha some da lista.
+                                    onUnban = { uid, cb ->
+                                        onUnban(uid) { err -> if (err == null) reloadBans(); cb(err) }
+                                    },
                                 )
                             }
                         }

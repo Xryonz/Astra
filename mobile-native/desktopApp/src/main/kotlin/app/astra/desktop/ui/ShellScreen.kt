@@ -410,6 +410,8 @@ fun ShellScreen(
                     onSaveRole = { id, body, cb -> vm.saveRole(srv.id, id, body, cb) },
                     onDeleteRole = { id, cb -> vm.deleteRole(srv.id, id, cb) },
                     onToggleMemberRole = { mid, rid, give, cb -> vm.setMemberRole(srv.id, mid, rid, give, cb) },
+                    onLoadBans = { cb -> vm.loadBans(srv.id, cb) },
+                    onUnban = { uid, cb -> vm.unbanUser(srv.id, uid, cb) },
                 )
             }
         }

@@ -52,58 +52,12 @@ import org.koin.core.context.GlobalContext
 // mesma GifApi do mobile — agora no :shared). Escolher envia na hora, como o
 // Discord: o GIF vai como anexo de URL direta, sem upload.
 
-private object AbovePanel : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset(
-        x = (anchorBounds.right - popupContentSize.width).coerceAtLeast(0),
-        y = (anchorBounds.top - popupContentSize.height - 8).coerceAtLeast(0),
-    )
-}
+// O botao "GIF" solto do compositor saiu (e o AbovePanel junto): emoji e GIF
+// agora vivem dentro da estrela (ComposerStar.kt), que posiciona o proprio popup
+// e chama o GifPanel daqui direto.
 
 @Composable
-fun GifButton(onPick: (GifResultDto) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    Box {
-        Text(
-            "GIF",
-            style = TextStyle(
-                color = if (open || hovered) Obsidian.accent else Obsidian.text3,
-                fontSize = 11.sp,
-            ),
-            modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .border(
-                    1.dp,
-                    if (open || hovered) Obsidian.accentDim else Obsidian.borderDim,
-                    RoundedCornerShape(6.dp),
-                )
-                .hoverable(interaction)
-                .clickable { open = !open }
-                .padding(horizontal = 8.dp, vertical = 5.dp),
-        )
-        if (open) {
-            Popup(
-                popupPositionProvider = AbovePanel,
-                onDismissRequest = { open = false },
-                properties = PopupProperties(focusable = true),
-            ) {
-                GifPanel(onPick = { g ->
-                    open = false
-                    onPick(g)
-                })
-            }
-        }
-    }
-}
-
-@Composable
-private fun GifPanel(onPick: (GifResultDto) -> Unit) {
+internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
     val koin = GlobalContext.get()
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<GifResultDto>>(emptyList()) }

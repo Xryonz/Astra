@@ -52,7 +52,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.4"
+val astraVersion = "0.1.5"
 
 dependencies {
     implementation(project(":shared"))

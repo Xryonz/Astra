@@ -391,12 +391,13 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                         },
                 )
                 Spacer(Modifier.width(8.dp))
-                // Emoji no texto da mensagem (reusa a grade das reacoes); insere no
-                // rascunho e mantem aberto pra escolher varios.
-                EmojiComposerButton(onPick = { draft = (draft + it).take(4000) })
-                Spacer(Modifier.width(6.dp))
-                // GIF direto do composer (F5): escolher = enviar.
-                GifButton(onPick = vm::sendGif)
+                // Emoji e GIF vivem DENTRO da estrela (menu pra cima) em vez de dois
+                // botoes soltos. Emoji insere no rascunho e mantem aberto pra
+                // escolher varios; GIF escolhido JA ENVIA (F5).
+                ComposerStarButton(
+                    onPickEmoji = { draft = (draft + it).take(4000) },
+                    onPickGif = vm::sendGif,
+                )
             }
         }
     }
@@ -938,49 +939,6 @@ private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean =
 }
 
 // Popup ancorado ACIMA do gatilho (o composer fica no rodape), alinhado a direita.
-private object ComposerAbove : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset(
-        x = (anchorBounds.right - popupContentSize.width).coerceAtLeast(0),
-        y = (anchorBounds.top - popupContentSize.height - 8).coerceAtLeast(0),
-    )
-}
-
-// Botao de emoji do COMPOSITOR: abre a grade (a mesma das reacoes) e insere o glifo
-// no rascunho. Fica aberto pra escolher varios; fecha ao clicar fora.
-@Composable
-private fun EmojiComposerButton(onPick: (String) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (open || hov) Obsidian.hover else Color.Transparent)
-                .hoverable(src)
-                .clickable(interactionSource = src, indication = null) { open = !open },
-            contentAlignment = Alignment.Center,
-        ) {
-            LIcon(Lucide.SmilePlus, tint = if (open) Obsidian.accent else Obsidian.text3, size = 18.dp)
-        }
-        if (open) {
-            Popup(
-                popupPositionProvider = ComposerAbove,
-                onDismissRequest = { open = false },
-                properties = PopupProperties(focusable = true),
-            ) {
-                ReactionPicker(onPick = onPick)
-            }
-        }
-    }
-}
-
 // Seletor de reacao: 6 rapidos + grade expansivel. internal: a aba Perfil das
 // configuracoes reusa esta mesma grade pro emoji do recado (nao duplicar).
 @Composable

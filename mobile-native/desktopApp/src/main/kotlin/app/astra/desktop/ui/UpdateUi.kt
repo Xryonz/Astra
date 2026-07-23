@@ -2,7 +2,6 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,7 +40,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -65,9 +68,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 // ---- Gate de boot (estilo Discord): janelinha que verifica a versao ----
-// Logo do Astra no centro com estrelas orbitando (sensacao de carregando). Se
-// achar versao nova, mostra a barra de progresso (RikkaUI) no download; senao
-// (atualizado/falha/timeout) segue pro app. A janela e pequena e frameless.
+// Logo do Astra no centro com estrelas orbitando (sensacao de carregando) sobre o
+// ceu do app. A barra segmentada embaixo mostra o download quando ha um; senao
+// varre. Atualizado/falha/timeout seguem pro app. Janela pequena e frameless.
 @Composable
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
@@ -100,6 +103,10 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     // Rede de seguranca: travou verificando (offline lento) -> segue em 8s.
     LaunchedEffect(Unit) { delay(8_000); if (updater.state.value is UpdateState.Checking) onDone() }
 
+    // Progresso REAL: so o download sabe quanto falta. Nos outros estados a barra
+    // varre (indeterminada) em vez de fingir uma porcentagem.
+    val progress = (st as? UpdateState.Downloading)?.progress
+
     Box(
         Modifier
             .fillMaxSize()
@@ -108,6 +115,28 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center,
     ) {
+        // Fundo: o gate era logo + preto liso. Ganha o MESMO ceu do app (estrelas
+        // fixas, piscar e meteoros) e um halo atras do planeta — reuso do StarField
+        // que ja existe, nao arte nova. Aurora ficou de fora de proposito: e um
+        // shader por pixel e isto e a tela de BOOT, tem que abrir na hora.
+        StarField(Modifier.fillMaxSize())
+        // Halo: separa o planeta do fundo e dá profundidade. Um gradiente radial no
+        // draw, custo de um retangulo.
+        Box(
+            Modifier.fillMaxSize().drawBehind {
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Obsidian.accent.copy(alpha = 0.10f),
+                            Obsidian.accent.copy(alpha = 0.03f),
+                            Color.Transparent,
+                        ),
+                        center = Offset(size.width / 2f, size.height * 0.34f),
+                        radius = size.minDimension * 0.62f,
+                    ),
+                )
+            },
+        )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 26.dp, vertical = 24.dp).fillMaxWidth(),
@@ -118,40 +147,88 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             Spacer(Modifier.height(8.dp))
             when (val s = st) {
                 is UpdateState.Available -> GateStatus("nova versao ${s.version} — baixando…")
-                is UpdateState.Downloading -> GateDownloading(s)
+                is UpdateState.Downloading -> GateStatus("baixando ${s.version}…")
                 is UpdateState.Ready -> GateStatus("reiniciando pra aplicar…")
                 is UpdateState.Failed -> GateStatus(s.reason)
                 is UpdateState.UpToDate -> GateStatus("voce esta na ultima versao")
                 else -> GateStatus("verificando atualizacoes…")
             }
             Spacer(Modifier.height(18.dp))
-            XpBar(reduceMotion)
+            XpBar(progress, reduceMotion)
         }
     }
 }
 
-// Barra de XP DECORATIVA: o sistema de XP (ganhar por msg/call -> recompensas) e
-// feature FUTURA. Aqui so enfeite gamer sutil (nivel + trilho com fill no accent
-// pulsando). Reduzir movimento -> fill estatico.
+// Barra de carregamento SEGMENTADA — colunas dividindo o trilho, no espirito de
+// uma barra de XP de jogo (pedido do dono). Substitui a barra lisa da RikkaUI E a
+// antiga barra decorativa: eram duas barras empilhadas durante o download, uma
+// real e outra de enfeite.
+//
+// progress != null -> avanco REAL do download (celula parcial na ponta, pra o
+// movimento nao ser em degraus de 5%). progress == null -> nao ha o que medir
+// (verificando/pronto/falhou) e a barra VARRE, em vez de fingir porcentagem.
+//
+// Canvas e nao 20 Box: uma unica passada de desenho, sem 20 nos de layout numa
+// tela que precisa abrir na hora.
 @Composable
-private fun XpBar(reduceMotion: Boolean) {
-    val glow = if (reduceMotion) 1f else {
+private fun XpBar(progress: Float?, reduceMotion: Boolean) {
+    val cells = 20
+    // Varredura so quando indeterminada e com movimento ligado.
+    val sweep = if (progress != null || reduceMotion) -1f else {
         rememberInfiniteTransition(label = "xp").animateFloat(
-            initialValue = 0.7f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Reverse),
-            label = "xpGlow",
+            initialValue = -0.25f,
+            targetValue = 1.25f,
+            animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing)),
+            label = "xpSweep",
         ).value
     }
+    val accent = Obsidian.accent
+    val track = Obsidian.raised
     Column(Modifier.fillMaxWidth(0.72f)) {
-        Text("nv 1", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-        Spacer(Modifier.height(5.dp))
-        Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.raised)) {
-            Box(
-                Modifier.fillMaxWidth(0.62f).fillMaxHeight()
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Obsidian.accent.copy(alpha = glow)),
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (progress != null) "baixando" else "nv 1",
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                modifier = Modifier.weight(1f),
             )
+            // Porcentagem so quando ela existe de verdade.
+            if (progress != null) {
+                Text(
+                    "${(progress * 100).toInt()}%",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Canvas(Modifier.fillMaxWidth().height(7.dp)) {
+            val gap = 2.5.dp.toPx()
+            val cellW = (size.width - gap * (cells - 1)) / cells
+            val radius = CornerRadius(1.5.dp.toPx())
+            for (i in 0 until cells) {
+                val x = i * (cellW + gap)
+                val lit = if (progress != null) {
+                    // Quanto DESTA celula ja encheu: a da ponta acende em fracao.
+                    ((progress * cells) - i).coerceIn(0f, 1f)
+                } else {
+                    // Varredura: brilho decai com a distancia ate a frente da onda.
+                    val d = kotlin.math.abs((i + 0.5f) / cells - sweep)
+                    (1f - d * 5f).coerceIn(0f, 1f)
+                }
+                drawRoundRect(
+                    color = track,
+                    topLeft = Offset(x, 0f),
+                    size = Size(cellW, size.height),
+                    cornerRadius = radius,
+                )
+                if (lit > 0f) {
+                    drawRoundRect(
+                        color = accent.copy(alpha = 0.35f + 0.65f * lit),
+                        topLeft = Offset(x, 0f),
+                        size = Size(cellW * lit, size.height),
+                        cornerRadius = radius,
+                    )
+                }
+            }
         }
     }
 }
@@ -212,25 +289,6 @@ private fun RotatingStarsLogo(reduceMotion: Boolean) {
 @Composable
 private fun GateStatus(text: String) {
     Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-}
-
-@Composable
-private fun GateDownloading(s: UpdateState.Downloading) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        GateStatus("baixando ${s.version}…")
-        Spacer(Modifier.height(14.dp))
-        // Barra determinada da RikkaUI (progress 0..1, mola pra suavizar o avanco).
-        Progress(
-            s.progress,
-            Modifier.fillMaxWidth(),
-            Obsidian.accent,
-            Obsidian.overlay,
-            6.dp,
-            ProgressAnimation.Spring,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text("${(s.progress * 100).toInt()}%", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-    }
 }
 
 @Composable

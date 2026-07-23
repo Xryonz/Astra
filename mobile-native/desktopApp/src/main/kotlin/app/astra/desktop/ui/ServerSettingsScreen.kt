@@ -62,7 +62,10 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.dto.RoleDto
+import app.astra.mobile.core.network.dto.RoleRequest
 import app.astra.mobile.core.network.dto.ServerDto
+import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import com.composables.icons.lucide.Ban
 import com.composables.icons.lucide.Info
@@ -77,11 +80,11 @@ import kotlinx.coroutines.withContext
 // de 220dp a esquerda, coluna de conteudo capada em 720dp), pra as duas telas de
 // configuracao se lerem como a mesma coisa.
 //
-// Fatia 1: so "Visao geral". Cargos e Banimentos entram depois — as abas ja estao
-// no enum, marcadas, pra a navegacao nao mudar de forma quando chegarem.
+// Visao geral e Cargos prontas; Banimentos ja aparece na navegacao, apagada e
+// inerte, pra a tela nao mudar de forma quando chegar (o flag `ready` manda).
 internal enum class ServerTab(val label: String, val sub: String, val icon: ImageVector, val ready: Boolean) {
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
-    ROLES("Cargos", "em breve", Lucide.Shield, false),
+    ROLES("Cargos", "permissoes e cor do nome", Lucide.Shield, true),
     BANS("Banimentos", "em breve", Lucide.Ban, false),
 }
 
@@ -89,13 +92,26 @@ internal enum class ServerTab(val label: String, val sub: String, val icon: Imag
 fun ServerSettingsScreen(
     server: ServerDto,
     isOwner: Boolean,
+    members: List<ServerMemberDto>,
+    myPermissions: Set<String>,
     onClose: () -> Unit,
     onSave: (UpdateServerRequest, (String?) -> Unit) -> Unit,
     onRegenerateInvite: ((String?) -> Unit) -> Unit,
     onDelete: () -> Unit,
     onLeave: () -> Unit,
+    onLoadRoles: ((List<RoleDto>?, String?) -> Unit) -> Unit,
+    onSaveRole: (String?, RoleRequest, (String?) -> Unit) -> Unit,
+    onDeleteRole: (String, (String?) -> Unit) -> Unit,
+    onToggleMemberRole: (String, String, Boolean, (String?) -> Unit) -> Unit,
 ) {
     var tab by remember { mutableStateOf(ServerTab.OVERVIEW) }
+
+    // Cargos vivem aqui (nao no ShellUiState): so esta tela usa. Recarrega quando
+    // a aba abre e depois de cada mudanca, pra a lista refletir o servidor.
+    var roles by remember(server.id) { mutableStateOf<List<RoleDto>?>(null) }
+    var rolesError by remember(server.id) { mutableStateOf<String?>(null) }
+    fun reloadRoles() = onLoadRoles { list, err -> roles = list; rolesError = err }
+    LaunchedEffect(server.id, tab) { if (tab == ServerTab.ROLES) reloadRoles() }
 
     // ESC fecha — mesmo contrato do SettingsScreen.
     val focus = remember { FocusRequester() }
@@ -178,6 +194,23 @@ fun ServerSettingsScreen(
                             when (current) {
                                 ServerTab.OVERVIEW -> OverviewSection(
                                     server, isOwner, onSave, onRegenerateInvite, onDelete, onLeave,
+                                )
+                                ServerTab.ROLES -> RolesSection(
+                                    roles = roles,
+                                    members = members,
+                                    myPermissions = myPermissions,
+                                    amOwner = isOwner,
+                                    error = rolesError,
+                                    // Recarrega depois de cada mudanca: posicao e
+                                    // permissoes efetivas vem do servidor (o backend
+                                    // filtra o que voce nao pode conceder).
+                                    onSave = { id, body, cb ->
+                                        onSaveRole(id, body) { err -> if (err == null) reloadRoles(); cb(err) }
+                                    },
+                                    onDelete = { id, cb ->
+                                        onDeleteRole(id) { err -> if (err == null) reloadRoles(); cb(err) }
+                                    },
+                                    onToggleMember = onToggleMemberRole,
                                 )
                                 else -> Text(
                                     "em construcao",

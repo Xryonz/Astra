@@ -25,6 +25,8 @@ import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.RoleDto
+import app.astra.mobile.core.network.dto.RoleRequest
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.MyPermsDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
@@ -587,6 +589,62 @@ class ShellVm(
                 onResult(null)
             } else {
                 onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra gerar um convite novo"))
+            }
+        }
+    }
+
+    // ---- Cargos ----
+    // A tela e dona da propria lista (nao entra no ShellUiState): so ela usa, e
+    // manter no estado global obrigaria a invalidar em lugares que nao ligam.
+    fun loadRoles(serverId: String, onResult: (List<RoleDto>?, String?) -> Unit) {
+        scope.launch {
+            val r = runCatching { serverApi.roles(serverId).data.orEmpty() }
+            r.onSuccess { onResult(it, null) }
+                .onFailure { onResult(null, apiMessage(it, "Nao deu pra carregar os cargos")) }
+        }
+    }
+
+    fun saveRole(serverId: String, roleId: String?, body: RoleRequest, onResult: (String?) -> Unit) {
+        scope.launch {
+            val r = runCatching {
+                if (roleId == null) serverApi.createRole(serverId, body)
+                else serverApi.updateRole(serverId, roleId, body)
+            }
+            if (r.isSuccess) {
+                // Membros recarregam junto: a cor/hoist do cargo muda como a lista
+                // de membros se agrupa e se pinta.
+                _state.value.selectedServer?.id?.let { if (it == serverId) loadMembers(it) }
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra salvar o cargo"))
+            }
+        }
+    }
+
+    fun deleteRole(serverId: String, roleId: String, onResult: (String?) -> Unit) {
+        scope.launch {
+            val r = runCatching { serverApi.deleteRole(serverId, roleId) }
+            if (r.isSuccess) {
+                loadMembers(serverId)
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra excluir o cargo"))
+            }
+        }
+    }
+
+    // memberId aqui e o id do MEMBRO (serverMembers.id), nao o do usuario.
+    fun setMemberRole(serverId: String, memberId: String, roleId: String, give: Boolean, onResult: (String?) -> Unit) {
+        scope.launch {
+            val r = runCatching {
+                if (give) serverApi.assignRole(serverId, memberId, roleId)
+                else serverApi.unassignRole(serverId, memberId, roleId)
+            }
+            if (r.isSuccess) {
+                loadMembers(serverId)
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Nao deu pra mudar o cargo do membro"))
             }
         }
     }

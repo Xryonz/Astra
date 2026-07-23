@@ -397,11 +397,19 @@ fun ShellScreen(
                 ServerSettingsScreen(
                     server = srv,
                     isOwner = srv.ownerId == session.userId,
+                    members = state.members,
+                    // isAdmin (cargo legado) concede o conjunto que o backend trata
+                    // como de admin; senao, so as permissoes granulares dos cargos.
+                    myPermissions = state.myPerms?.permissions.orEmpty().toSet(),
                     onClose = { serverSettingsOpen = false },
                     onSave = { body, cb -> vm.updateServer(srv.id, body, cb) },
                     onRegenerateInvite = { cb -> vm.regenerateInvite(srv.id, cb) },
                     onDelete = { serverSettingsOpen = false; vm.deleteServer(srv.id) },
                     onLeave = { serverSettingsOpen = false; vm.leaveServer(srv.id) },
+                    onLoadRoles = { cb -> vm.loadRoles(srv.id, cb) },
+                    onSaveRole = { id, body, cb -> vm.saveRole(srv.id, id, body, cb) },
+                    onDeleteRole = { id, cb -> vm.deleteRole(srv.id, id, cb) },
+                    onToggleMemberRole = { mid, rid, give, cb -> vm.setMemberRole(srv.id, mid, rid, give, cb) },
                 )
             }
         }

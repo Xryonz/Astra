@@ -103,6 +103,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.lucide.CircleAlert
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.FileImage
 import com.composables.icons.lucide.FileText
@@ -280,6 +281,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             onCancelEdit = { editingId = null },
                             onDelete = { vm.delete(msg.id) },
                             onPin = { vm.pin(msg.id) },
+                            onRetry = { vm.retry(msg) },
                             onJumpTo = { id -> jumpTo(id) },
                             onStartDm = onStartDm,
                         )
@@ -438,6 +440,7 @@ private fun MessageRow(
     onCancelEdit: () -> Unit,
     onDelete: () -> Unit,
     onPin: () -> Unit,
+    onRetry: () -> Unit,
     onJumpTo: (String) -> Unit,
     onStartDm: (String, String) -> Unit,
 ) {
@@ -490,7 +493,8 @@ private fun MessageRow(
             .fillMaxWidth()
             .alpha(rowAlpha)
             .graphicsLayer {
-                alpha = enter.value
+                // Bolha otimista ainda nao confirmada = esmaecida ate o servidor voltar.
+                alpha = enter.value * (if (msg.pending) 0.55f else 1f)
                 translationY = (1f - enter.value) * 6.dp.toPx()
             }
             .background(bg)
@@ -513,7 +517,7 @@ private fun MessageRow(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit)
+                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onRetry)
                 }
             } else {
                 // Clique no avatar abre o card de perfil (F3).
@@ -539,7 +543,7 @@ private fun MessageRow(
                         Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                     }
                     Spacer(Modifier.height(2.dp))
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit)
+                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onRetry)
                 }
             }
         }
@@ -596,6 +600,7 @@ private fun ContentBlock(
     onReact: (String) -> Unit,
     onSaveEdit: (String) -> Unit,
     onCancelEdit: () -> Unit,
+    onRetry: () -> Unit = {},
 ) {
     val scale = LocalMsgFontScale.current
     if (editing) {
@@ -648,6 +653,23 @@ private fun ContentBlock(
                     onClick = { onReact(r.emoji) },
                 )
             }
+        }
+    }
+    // Envio otimista que o servidor recusou/nao respondeu: motivo + tentar de novo.
+    if (msg.failed) {
+        Spacer(Modifier.height(3.dp))
+        val src = remember { MutableInteractionSource() }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LIcon(Lucide.CircleAlert, tint = Obsidian.danger, size = 12.dp)
+            Spacer(Modifier.width(5.dp))
+            Text("nao enviada", style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
+            Text(" · ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Text(
+                "tentar de novo",
+                style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
+                modifier = Modifier
+                    .clickable(interactionSource = src, indication = null, onClick = onRetry),
+            )
         }
     }
 }

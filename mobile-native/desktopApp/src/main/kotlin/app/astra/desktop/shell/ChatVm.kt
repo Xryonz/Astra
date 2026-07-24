@@ -1,6 +1,7 @@
 package app.astra.desktop.shell
 
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.net.FastSendResult
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.UploadApi
@@ -19,6 +20,7 @@ import app.astra.mobile.core.network.dto.MsgAuthorDto
 import app.astra.mobile.core.network.dto.ReactRequest
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReactionUpdateDto
+import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.SendChannelRequest
 import app.astra.mobile.core.network.dto.SendDmRequest
@@ -67,6 +69,13 @@ data class ChatMessage(
     val attachments: List<AttachmentDto> = emptyList(),
     // Marcada pra sumir: a UI anima o fade-out e o VM tira da lista em seguida.
     val deleting: Boolean = false,
+    // --- Envio otimista (so canal, texto puro) ---
+    // Nonce local que casa a bolha temporaria com o new_message que volta do
+    // servidor. pending = ainda nao confirmada (bolha esmaecida). failed = o
+    // servidor recusou ou nao respondeu (mostra "tentar de novo").
+    val clientNonce: String? = null,
+    val pending: Boolean = false,
+    val failed: Boolean = false,
 )
 
 // Arquivo solto no chat esperando o envio (upload acontece no send).
@@ -86,6 +95,8 @@ data class ChatUiState(
 
 private const val PAGE = 50
 private const val FADE_OUT_MS = 340L
+// Se nem o ack nem o broadcast voltarem nesse tempo, a bolha otimista vira falha.
+private const val FAST_SEND_TIMEOUT_MS = 6_000L
 
 // Reenvia typing_start a cada 3s enquanto digita; para apos 3s parado; quem
 // recebe expira o typing em 8s caso o stop se perca (socket caiu etc).
@@ -115,6 +126,10 @@ class ChatVm(
     private val socket: DesktopSocket,
     private val json: Json,
     val myId: String?,
+    // Meu perfil pra desenhar a bolha otimista (nome/avatar/fonte) antes de o
+    // servidor confirmar. Provider e nao valor: o `me` do ShellVm carrega no boot
+    // e pode chegar depois deste VM nascer.
+    private val myProfile: () -> ProfileUserDto? = { null },
 ) {
     private val _state = MutableStateFlow(ChatUiState())
     val state = _state.asStateFlow()
@@ -164,6 +179,17 @@ class ChatVm(
         val pending = _state.value.pending
         if ((content.isEmpty() && pending.isEmpty()) || _state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
+
+        // Caminho otimista: canal + texto puro, sem reply nem anexo, socket vivo.
+        // O fast_send_text do backend so aceita esse caso — reply/anexo/DM caem no
+        // HTTP abaixo. A mensagem aparece na hora; nada de esperar o round-trip.
+        if (target is ChatTarget.Channel && content.isNotEmpty() &&
+            pending.isEmpty() && replyToId == null && socket.isConnected()
+        ) {
+            optimisticSend(target.id, content)
+            return
+        }
+
         stopTypingEmit()
         _state.update { it.copy(sending = true, error = null) }
         scope.launch {
@@ -213,6 +239,70 @@ class ChatVm(
                 }
                 .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "Mensagem nao enviada")) } }
         }
+    }
+
+    // Bolha temporaria na hora + fast_send_text por socket. O broadcast new_message
+    // (com o mesmo clientNonce) reconcilia via append(); o ack so importa pra falha.
+    private fun optimisticSend(channelId: String, content: String) {
+        val nonce = java.util.UUID.randomUUID().toString()
+        val me = myProfile()
+        val temp = ChatMessage(
+            id = "tmp:$nonce",
+            content = content,
+            authorId = myId ?: "",
+            authorName = me?.displayName ?: me?.username ?: "voce",
+            authorAvatar = me?.avatarUrl,
+            authorFont = me?.displayFont,
+            createdAt = java.time.Instant.now().toString(),
+            mine = true,
+            clientNonce = nonce,
+            pending = true,
+        )
+        stopTypingEmit()
+        _state.update { it.copy(messages = it.messages + temp, replyingTo = null, error = null) }
+
+        socket.fastSendText(channelId, content, nonce) { result ->
+            if (!result.ok) markFailed(nonce, fastError(result))
+            // ok: o broadcast new_message reconcilia; nada a fazer aqui.
+        }
+
+        // Rede de seguranca: sem ack nem broadcast, a bolha nao pode ficar
+        // "enviando" pra sempre.
+        scope.launch {
+            delay(FAST_SEND_TIMEOUT_MS)
+            markFailed(nonce, "Sem resposta do servidor")
+        }
+    }
+
+    // So age se a bolha ainda esta pending — se o broadcast ja reconciliou (sumiu
+    // o pending), nao poe erro falso nem em cima de um envio que deu certo.
+    private fun markFailed(nonce: String, error: String) {
+        _state.update { st ->
+            if (st.messages.none { it.clientNonce == nonce && it.pending }) return@update st
+            st.copy(
+                messages = st.messages.map {
+                    if (it.clientNonce == nonce && it.pending) it.copy(pending = false, failed = true) else it
+                },
+                error = error,
+            )
+        }
+    }
+
+    private fun fastError(r: FastSendResult): String {
+        if (r.code == "MUTED" || r.code == "SPAM_MUTED") {
+            val s = r.secondsLeft ?: 0
+            val falta = if (s >= 60) "${s / 60}min" else "${s}s"
+            return if (s > 0) "Voce esta silenciado — faltam $falta" else "Voce esta silenciado neste servidor"
+        }
+        return r.error?.takeIf { it.isNotBlank() && it != "DISCONNECTED" && it != "NO_ACK" }
+            ?: "Mensagem nao enviada"
+    }
+
+    // Clique no "tentar de novo" de uma bolha falha: tira a falha e reenvia o texto.
+    fun retry(msg: ChatMessage) {
+        if (!msg.failed) return
+        _state.update { st -> st.copy(messages = st.messages.filterNot { it.id == msg.id }, error = null) }
+        send(msg.content)
     }
 
     // Motivo REAL da falha. O backend responde { error, code, secondsLeft } — e
@@ -510,9 +600,15 @@ class ChatVm(
     private fun append(msg: ChatMessage) {
         // Quem mandou mensagem obviamente parou de digitar.
         userStoppedTyping(msg.authorId)
-        _state.update {
-            if (it.messages.any { m -> m.id == msg.id }) it
-            else it.copy(messages = it.messages + msg)
+        _state.update { st ->
+            // Reconciliacao otimista: se esta msg confirma uma bolha temporaria
+            // (mesmo clientNonce), troca a temporaria pela real em vez de duplicar.
+            // Idempotente: broadcast repetido cai no dedupe por id.
+            val base = if (msg.clientNonce != null)
+                st.messages.filterNot { it.pending && it.clientNonce == msg.clientNonce }
+            else st.messages
+            if (base.any { m -> m.id == msg.id }) st.copy(messages = base)
+            else st.copy(messages = base + msg)
         }
         // Conversa aberta: o que chega ja nasce lido.
         if (!msg.mine) markRead()
@@ -557,6 +653,7 @@ class ChatVm(
         mine = authorId == myId, edited = edited,
         reactions = reactions, replyTo = replyTo,
         attachments = attachments,
+        clientNonce = clientNonce,
     )
 
     private fun DmMessageDto.toChat() = ChatMessage(

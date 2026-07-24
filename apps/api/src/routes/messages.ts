@@ -98,6 +98,8 @@ export function createMessagesRouter(io: SocketServer) {
       serverId:   channels.serverId,
       serverName: servers.name,
       membershipId: serverMembers.id,
+      isPrivate:  channels.isPrivate,
+      ownerId:    servers.ownerId,
     })
       .from(channels)
       .innerJoin(servers, eq(servers.id, channels.serverId))
@@ -109,6 +111,13 @@ export function createMessagesRouter(io: SocketServer) {
       .limit(1)
 
     if (!row || !row.membershipId) return null
+
+    // Canal publico + ja e membro (garantido acima): acesso liberado sem
+    // re-consultar. userCanSeeChannel refazia este mesmo join channels+servers e
+    // a query de serverMembers do zero — 2 round-trips ao Neon por mensagem
+    // enviada E por pagina de historico. So o canal privado precisa da checagem
+    // de cargo (caminho raro), e o dono ve tudo.
+    if (!row.isPrivate || row.ownerId === userId) return row
 
     const canSee = await userCanSeeChannel(userId, channelId)
     if (!canSee) return null

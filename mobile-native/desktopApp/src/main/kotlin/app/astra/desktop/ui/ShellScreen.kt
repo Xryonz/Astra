@@ -227,6 +227,7 @@ fun ShellScreen(
                 scope, target,
                 koin.get<ChannelApi>(), koin.get<DmApi>(), koin.get<UploadApi>(),
                 socket, koin.get<Json>(), session.userId,
+                myProfile = { vm.state.value.me },
             )
         }
     }

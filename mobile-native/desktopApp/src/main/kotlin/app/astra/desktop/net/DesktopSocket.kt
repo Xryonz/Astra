@@ -2,6 +2,7 @@ package app.astra.desktop.net
 
 import app.astra.desktop.auth.SessionStore
 import app.astra.shared.AstraShared
+import io.socket.client.Ack
 import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.engineio.client.transports.Polling
@@ -11,6 +12,16 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+
+// Resposta do ack do fast_send_text (backend socket.ts). ok=false traz o motivo:
+// code MUTED/SPAM_MUTED com secondsLeft, ou um error generico.
+data class FastSendResult(
+    val ok: Boolean,
+    val error: String? = null,
+    val code: String? = null,
+    val secondsLeft: Int? = null,
+)
 
 // Socket.io do desktop — versao enxuta do SocketManager do Android (mesma lib
 // Java, mesmo protocolo do backend socket.ts). Chat: new_message/new_dm + salas
@@ -112,6 +123,44 @@ class DesktopSocket(private val store: SessionStore) {
         }
 
         s.connect()
+    }
+
+    fun isConnected(): Boolean = socket?.connected() == true
+
+    // Envio rapido de texto puro por socket (com ack) em vez de POST HTTP. O
+    // backend insere, faz broadcast do new_message (com o clientNonce) e responde
+    // o ack — a UI mostra a mensagem na hora e reconcilia quando o broadcast volta.
+    // So texto puro em canal: reply e anexo continuam no HTTP (o handler nao os le).
+    fun fastSendText(
+        channelId: String,
+        content: String,
+        clientNonce: String,
+        onResult: (FastSendResult) -> Unit,
+    ) {
+        val s = socket
+        if (s == null || !s.connected()) {
+            onResult(FastSendResult(ok = false, error = "DISCONNECTED"))
+            return
+        }
+        val payload = JSONObject().apply {
+            put("channelId", channelId)
+            put("content", content)
+            put("clientNonce", clientNonce)
+        }
+        val fired = AtomicBoolean(false)
+        s.emit("fast_send_text", arrayOf<Any>(payload), Ack { args ->
+            if (!fired.compareAndSet(false, true)) return@Ack
+            val obj = args.firstOrNull() as? JSONObject
+            onResult(
+                if (obj == null) FastSendResult(ok = false, error = "NO_ACK")
+                else FastSendResult(
+                    ok = obj.optBoolean("ok", false),
+                    error = obj.optString("error").ifBlank { null },
+                    code = obj.optString("code").ifBlank { null },
+                    secondsLeft = if (obj.has("secondsLeft")) obj.optInt("secondsLeft") else null,
+                ),
+            )
+        })
     }
 
     fun joinChannel(id: String) {

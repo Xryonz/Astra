@@ -17,6 +17,9 @@ data class ChannelMessageDto(
     val author: MsgAuthorDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
     val poll: PollDto? = null,
+    // Eco do nonce que o cliente mandou no fast_send_text: o backend devolve no
+    // broadcast pra o autor casar a mensagem real com a bolha otimista dele.
+    val clientNonce: String? = null,
 )
 
 @Serializable

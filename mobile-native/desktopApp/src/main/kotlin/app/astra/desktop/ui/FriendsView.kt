@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -169,12 +170,20 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
 @Composable
 private fun TabPill(label: String, count: Int?, active: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
+    // Transicao suave ao trocar de aba (como TypeChip/CreateMenuRow) — antes o
+    // fundo/borda trocavam seco, destoando dos outros chips selecionaveis.
+    val bg by animateColorAsState(
+        if (active) Obsidian.active else Obsidian.raised.copy(alpha = 0.4f), tween(130), label = "tabBg",
+    )
+    val borderC by animateColorAsState(
+        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, tween(130), label = "tabBorder",
+    )
     Row(
         Modifier
             .clickScale(src)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (active) Obsidian.active else Obsidian.raised.copy(alpha = 0.4f))
-            .border(1.dp, if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .background(bg)
+            .border(1.dp, borderC, RoundedCornerShape(8.dp))
             .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

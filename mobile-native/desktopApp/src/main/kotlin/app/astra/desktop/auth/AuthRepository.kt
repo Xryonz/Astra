@@ -40,12 +40,14 @@ class AuthRepository(
         Result.failure(Exception("Nao foi possivel entrar"))
     }
 
-    // Fecha o socket ANTES de limpar a sessao. Sem isso, o DesktopSocket (que e
-    // single do Koin, vive o processo inteiro) continua conectado com o token
-    // antigo; o connect() da proxima conta ve connected()==true e volta sem
-    // refazer o handshake — o servidor segue te tratando como a conta anterior.
+    // Limpa a sessao PRIMEIRO — e a parte critica: apaga o session.bin do disco,
+    // senao reabrir o app loga de novo na conta que "saiu". So depois desconecta o
+    // socket, e defensivo: se disconnect() estourasse, nao pode levar o clear()
+    // junto (era esse o bug — a sessao sobrevivia ao logout). O socket precisa cair
+    // mesmo: e single do Koin, e sem desconectar o connect() da proxima conta ve
+    // connected()==true e o servidor segue te tratando como a conta anterior.
     fun logout() {
-        socket.disconnect()
         store.clear()
+        runCatching { socket.disconnect() }
     }
 }

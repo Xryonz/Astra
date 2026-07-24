@@ -26,16 +26,13 @@ fun userStatus(raw: String?): UserStatus = when (raw?.uppercase()) {
     else -> UserStatus.OFFLINE
 }
 
-private val StatusGreen = Color(0xFF22C55E)
-private val StatusAmber = Color(0xFFF59E0B)
-private val StatusRed = Color(0xFFEF4444)
-private val StatusGray = Color(0xFF6B7280)
-
+// Cores dos tokens editoriais do Obsidian (dessaturados) em vez da paleta padrao
+// do Tailwind/shadcn — os pontinhos eram o unico ponto do app com cara generica.
 fun statusColor(status: UserStatus): Color = when (status) {
-    UserStatus.ONLINE -> StatusGreen
-    UserStatus.IDLE -> StatusAmber
-    UserStatus.DND -> StatusRed
-    UserStatus.INVISIBLE, UserStatus.OFFLINE -> StatusGray
+    UserStatus.ONLINE -> Obsidian.success
+    UserStatus.IDLE -> Obsidian.warning
+    UserStatus.DND -> Obsidian.danger
+    UserStatus.INVISIBLE, UserStatus.OFFLINE -> Obsidian.text3
 }
 
 @Composable

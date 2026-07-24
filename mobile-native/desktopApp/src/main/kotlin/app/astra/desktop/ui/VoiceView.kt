@@ -1,7 +1,7 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -46,6 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -68,6 +70,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ScreenQuality
+import kotlin.math.cos
+import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.ScreenPreview
@@ -567,20 +571,21 @@ private fun ParticipantGrid(tiles: List<Tile>) {
 // vive num Box de tamanho fixo, entao falar nao empurra o tile.
 @Composable
 private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
-    val ring = when {
-        !tile.speaking -> 0f
-        LocalReduceMotion.current -> 1f
-        else -> {
-            val t = rememberInfiniteTransition()
-            t.animateFloat(
-                initialValue = 0.5f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-            ).value
-        }
-    }
+    val reduce = LocalReduceMotion.current
+    val active = LocalWindowActive.current
+    // Estrela de fala: UMA fase de orbita, so quando fala + janela visivel +
+    // movimento ligado, lida DENTRO do drawBehind. Antes um halo pulsante era
+    // lido no corpo e recompunha o cartao inteiro (avatar/nome/mic) 60fps por
+    // pessoa falando; agora so redesenha. (Auditoria de movimento, achado #1.)
+    val orbit = if (tile.speaking && !reduce && active) {
+        rememberInfiniteTransition(label = "orbit-${tile.label}").animateFloat(
+            0f, (2.0 * Math.PI).toFloat(),
+            infiniteRepeatable(tween(2600, easing = LinearEasing)),
+        )
+    } else null
+
     val borderColor by animateColorAsState(
-        if (tile.speaking) Obsidian.accent.copy(alpha = ring) else Obsidian.borderDim,
+        if (tile.speaking) Obsidian.accent else Obsidian.borderDim,
         tween(140),
     )
     // Inchada ao falar: o card cresce ~4% com mola suave (escala VISUAL via
@@ -588,7 +593,7 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
     // = fica maior parado, sem animar.
     val swell by animateFloatAsState(
         targetValue = if (tile.speaking) 1.04f else 1f,
-        animationSpec = if (LocalReduceMotion.current) snap()
+        animationSpec = if (reduce) snap()
             else spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
     )
     Column(
@@ -602,11 +607,19 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
     ) {
         Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
             if (tile.speaking) {
-                Box(
-                    Modifier.fillMaxSize()
-                        .clip(CircleShape)
-                        .background(Obsidian.accent.copy(alpha = 0.22f * ring)),
-                )
+                Box(Modifier.fillMaxSize().drawBehind {
+                    // Halo suave constante; a estrela orbita por cima (ou so o halo,
+                    // se movimento reduzido / janela em segundo plano).
+                    drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
+                    orbit?.let { ph ->
+                        val r = size.minDimension / 2f
+                        val ang = ph.value
+                        val trail = Offset(center.x + cos(ang - 0.35f) * r, center.y + sin(ang - 0.35f) * r)
+                        val star = Offset(center.x + cos(ang) * r, center.y + sin(ang) * r)
+                        drawCircle(Obsidian.accent.copy(alpha = 0.35f), radius = 1.5.dp.toPx(), center = trail)
+                        drawCircle(Obsidian.accent, radius = 3.dp.toPx(), center = star)
+                    }
+                })
             }
             DesktopAvatar(tile.avatarUrl, tile.label, 62)
         }

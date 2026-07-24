@@ -58,7 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
@@ -119,6 +119,7 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
+import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import org.koin.core.context.GlobalContext
 import app.astra.mobile.core.network.dto.AttachmentDto
@@ -453,18 +454,32 @@ private fun MessageRow(
     var pickerOpen by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
-    val rowAlpha by animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS))
-    val bg by animateColorAsState(
+    // animateXAsState SEM `by`: guarda o State e le o valor DENTRO do lambda de
+    // desenho (graphicsLayer/drawBehind). Antes o valor era lido no corpo do
+    // composable e alimentava .alpha()/.background() — a linha inteira (avatar,
+    // texto, timestamp) recompunha 60fps durante todo hover/fade. Agora so
+    // redesenha. (Auditoria de movimento, achado #3.)
+    val rowAlpha = animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS), label = "rowAlpha")
+    val bg = animateColorAsState(
         when {
             highlighted -> Obsidian.accentDim
             hovered -> Obsidian.hover.copy(alpha = 0.35f)
             else -> Color.Transparent
         },
         tween(150),
+        label = "rowBg",
     )
     // Mensagem nova entra com fade+subida (~150ms); as demais nascem prontas.
     val enter = remember { Animatable(if (enterAnim) 0f else 1f) }
-    LaunchedEffect(Unit) { if (enterAnim) enter.animateTo(1f, tween(150)) }
+    // "Acende ao chegar": mensagem ao vivo ganha um brilho accent que decai a 0
+    // em 900ms — luz nova no ceu. So a que entra depois do baseline (enterAnim).
+    val glow = remember { Animatable(if (enterAnim) 0.16f else 0f) }
+    LaunchedEffect(Unit) {
+        if (enterAnim) {
+            launch { enter.animateTo(1f, tween(150)) }
+            glow.animateTo(0f, tween(900, easing = EaseOutSoft))
+        }
+    }
 
     EditorialContextMenu(entries = {
         buildList {
@@ -491,13 +506,17 @@ private fun MessageRow(
     Box(
         Modifier
             .fillMaxWidth()
-            .alpha(rowAlpha)
             .graphicsLayer {
-                // Bolha otimista ainda nao confirmada = esmaecida ate o servidor voltar.
-                alpha = enter.value * (if (msg.pending) 0.55f else 1f)
+                // rowAlpha (fade de delete) + pending (bolha otimista esmaecida) +
+                // enter (entrada) num lugar so — leitura na fase de desenho.
+                alpha = enter.value * rowAlpha.value * (if (msg.pending) 0.55f else 1f)
                 translationY = (1f - enter.value) * 6.dp.toPx()
             }
-            .background(bg)
+            .drawBehind {
+                drawRect(bg.value)
+                // Brilho de "mensagem acende" por cima do fundo, decaindo a 0.
+                if (glow.value > 0f) drawRect(Obsidian.accent.copy(alpha = glow.value))
+            }
             .hoverable(interaction),
     ) {
         val dens = LocalMsgDensity.current

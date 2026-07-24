@@ -240,21 +240,24 @@ private fun XpBar(progress: Float?, reduceMotion: Boolean) {
 internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp) {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
-    // reduceMotion: fase fixa (anel parado, mas ainda com frente/tras).
-    val phase = if (reduceMotion) 0.9f else {
-        val t = rememberInfiniteTransition(label = "orbit")
-        t.animateFloat(
+    // Fase lida DENTRO do draw (drawRing roda no DrawScope do Canvas): o composable
+    // nao recompoe por frame, so os Canvas redesenham. Antes o .value saia no corpo
+    // e a tela de login recompunha 60fps enquanto voce digitava a senha. Movimento
+    // reduzido / janela em segundo plano: anel parado. (Auditoria de movimento, #4.)
+    val phaseState = if (reduceMotion || !LocalWindowActive.current) null else {
+        rememberInfiniteTransition(label = "orbit").animateFloat(
             initialValue = 0f,
             targetValue = twoPi,
             animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing)),
             label = "phase",
-        ).value
+        )
     }
     val count = 14
     val tilt = (-12.0 * PI / 180.0).toFloat()
     // Anel de Saturno: elipse achatada; sin(theta) > 0 = lado perto (na frente
     // do planeta), <= 0 = lado longe (atras). Cada canvas desenha so um lado.
     fun DrawScope.drawRing(front: Boolean) {
+        val phase = phaseState?.value ?: 0.9f
         val half = size.minDimension / 2f
         val rx = half * 0.92f
         val ry = half * 0.30f

@@ -1899,24 +1899,25 @@ private fun OrbitItem(
 @Composable
 private fun UnreadPill(modifier: Modifier = Modifier) {
     // Pulso sutil (F6): o marcador "respira" devagar pra puxar o olho sem gritar.
-    // Reduzir movimento: fica aceso e parado.
-    val glow = if (LocalReduceMotion.current) 1f else {
-        val transition = rememberInfiniteTransition()
-        transition.animateFloat(
+    // Movimento reduzido / janela em segundo plano: fica aceso e parado. O valor e
+    // lido DENTRO do graphicsLayer — antes o .value saia no corpo e recompunha o
+    // item a cada frame, um clock por nao-lida. (Auditoria de movimento, achado #2.)
+    val glow = if (LocalReduceMotion.current || !LocalWindowActive.current) null else {
+        rememberInfiniteTransition(label = "unread").animateFloat(
             initialValue = 0.55f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
                 animation = tween(1400, easing = EaseOutSoft),
                 repeatMode = RepeatMode.Reverse,
             ),
-        ).value
+        )
     }
     Box(
         modifier
             .width(3.dp)
             .height(16.dp)
             .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
-            .graphicsLayer { alpha = glow }
+            .graphicsLayer { alpha = glow?.value ?: 1f }
             .background(Obsidian.accent),
     )
 }

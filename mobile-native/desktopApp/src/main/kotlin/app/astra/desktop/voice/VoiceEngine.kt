@@ -123,6 +123,11 @@ class VoiceEngine(
     // ADM explicito: controla o PLAYOUT (ouvir os outros) + escolha do device de saida.
     private var adm: AudioDeviceModule? = null
     private var pingJob: Job? = null
+    // Guarda a coroutine de connect() pra dispose() poder cancela-la, e a flag
+    // marca "ja fui descartado" pras atribuicoes pos-suspensao (carregar a lib
+    // nativa nao e instantaneo) desistirem em vez de escrever num engine morto.
+    private var connectJob: Job? = null
+    @Volatile private var disposed = false
     private var myIdentity: String? = null
     private var mySid: String? = null
     @Volatile private var mySpeaking = false
@@ -201,33 +206,39 @@ class VoiceEngine(
 
     fun connect(roomKind: String, roomId: String) {
         Sfx.callJoin() // entrar na call: som fino/agudo
-        scope.launch {
-            val nativesOk = withContext(Dispatchers.IO) {
+        connectJob = scope.launch {
+            // Escreve num LOCAL, nao no campo: se dispose() correu enquanto a lib
+            // nativa carregava, o factory recem-criado seria orfao (dispose ja
+            // rodou com factory==null e nao teria o que fechar). Checa disposed
+            // antes de adotar; se ja fui descartado, fecho o que acabei de criar.
+            val f = withContext(Dispatchers.IO) {
                 // UnsatisfiedLinkError e Error, nao Exception — catch amplo aqui.
                 // Factory padrao = ADM de hardware pro PLAYOUT (ouvir os outros toca
                 // sozinho no device padrao). A CAPTURA do mic NAO usa esse ADM (ele
                 // quebra nesse caminho): vem do MicCapture (Java Sound) via
                 // CustomAudioSource. UnsatisfiedLinkError e Error -> catch amplo.
                 try {
-                    factory = createFactory()
-                    true
+                    createFactory()
                 } catch (t: Throwable) {
-                    false
+                    null
                 }
             }
-            if (!nativesOk) {
+            if (disposed) { runCatching { f?.dispose() }; return@launch }
+            if (f == null) {
                 _status.value = VoiceStatus.Failed("WebRTC nativo nao carregou nesta maquina")
                 return@launch
             }
+            factory = f
 
             val data = runCatching { voiceApi.token(VoiceTokenRequest(roomKind, roomId)).data }.getOrNull()
+            if (disposed) return@launch
             if (data == null) {
                 _status.value = VoiceStatus.Failed("Backend nao deu o token de voz")
                 return@launch
             }
 
             val url = data.url.trimEnd('/') + "/rtc?access_token=" + data.token + "&auto_subscribe=1&protocol=15"
-            ws = wsClient.newWebSocket(
+            val socket = wsClient.newWebSocket(
                 Request.Builder().url(url).build(),
                 object : WebSocketListener() {
                     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -249,6 +260,9 @@ class VoiceEngine(
                     }
                 },
             )
+            // Mesma corrida do factory: se dispose() rodou durante o token/handshake,
+            // este ws ficaria aberto pra sempre. Fecha em vez de adotar.
+            if (disposed) { runCatching { socket.close(1000, "leave") } } else { ws = socket }
         }
     }
 
@@ -885,6 +899,8 @@ class VoiceEngine(
     }
 
     fun dispose() {
+        disposed = true
+        connectJob?.cancel()
         Sfx.callLeave() // sair da call: som grosso/grave
         pingJob?.cancel()
         statsJob?.cancel()

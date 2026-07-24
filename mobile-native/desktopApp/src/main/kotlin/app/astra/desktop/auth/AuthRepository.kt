@@ -1,5 +1,6 @@
 package app.astra.desktop.auth
 
+import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.LoginRequest
@@ -12,6 +13,7 @@ class AuthRepository(
     private val api: AuthApi,
     private val store: SessionStore,
     private val json: Json,
+    private val socket: DesktopSocket,
 ) {
     suspend fun login(email: String, password: String): Result<Session> = try {
         val resp = api.login(LoginRequest(email.trim(), password))
@@ -38,5 +40,12 @@ class AuthRepository(
         Result.failure(Exception("Nao foi possivel entrar"))
     }
 
-    fun logout() = store.clear()
+    // Fecha o socket ANTES de limpar a sessao. Sem isso, o DesktopSocket (que e
+    // single do Koin, vive o processo inteiro) continua conectado com o token
+    // antigo; o connect() da proxima conta ve connected()==true e volta sem
+    // refazer o handshake — o servidor segue te tratando como a conta anterior.
+    fun logout() {
+        socket.disconnect()
+        store.clear()
+    }
 }

@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,6 +49,7 @@ import app.astra.desktop.ui.StarField
 import app.astra.desktop.ui.auroraBackground
 import app.astra.desktop.ui.UpdateBanner
 import app.astra.desktop.ui.UpdaterGate
+import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.shared.AstraShared
@@ -235,10 +238,14 @@ fun main() {
                     // cima ela nao se mexe quando o conteudo troca: entra-se NO app,
                     // nao se troca de tela. E fica um shader so, nunca dois.
                     Box(Modifier.fillMaxSize()) {
+                    // Pulso de login: o ceu "respira" uma vez quando voce entra. Lido
+                    // no draw da aurora (nao recompoe); disparado no onLoggedIn abaixo.
+                    val auroraPulse = remember { Animatable(0f) }
+                    val pulseScope = rememberCoroutineScope()
                     if (prefState.auroraOn) {
                         // Camada propria (graphicsLayer): so ela invalida por frame —
                         // os paineis translucidos por cima nao redesenham com o shader.
-                        Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground())
+                        Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground { auroraPulse.value })
                     } else {
                         Box(Modifier.fillMaxSize().background(Obsidian.void))
                     }
@@ -268,7 +275,14 @@ fun main() {
                             label = "entrada",
                         ) { s ->
                             if (s == null) {
-                                LoginScreen(repo = authRepo, onLoggedIn = { session = it })
+                                LoginScreen(repo = authRepo, onLoggedIn = {
+                                    session = it
+                                    // O ceu respira: sobe na hora e decai em 900ms.
+                                    pulseScope.launch {
+                                        auroraPulse.snapTo(1f)
+                                        auroraPulse.animateTo(0f, tween(900, easing = EaseOutSoft))
+                                    }
+                                })
                             } else {
                                 ShellScreen(
                                     session = s,

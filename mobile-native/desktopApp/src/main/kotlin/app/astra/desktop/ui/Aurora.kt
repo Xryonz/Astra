@@ -211,8 +211,11 @@ private const val AURORA_LOOP = 62.831853f
 // Quadro estatico agradavel pro "reduzir movimento" (cortinas bem postas).
 private const val AURORA_STILL = 12f
 
+// pulse: 0..1, lido no draw (nao recompoe). No login o ceu "respira" — o brilho
+// sobe ~15% e decai. So MODULA o uniform uAccent (Kotlin), nao toca o SkSL: como
+// col = uVoid + uAccent*..*lum, escalar o accent clareia a aurora proporcional.
 @Composable
-fun Modifier.auroraBackground(): Modifier {
+fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
     val render = LocalRenderPrefs.current
     // Cor do tema (Aparencia): a aurora glow no accent sobre o void escolhido.
     // Ler aqui torna o modifier reativo — troca de tema recompoe e repinta.
@@ -283,7 +286,9 @@ fun Modifier.auroraBackground(): Modifier {
         if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@drawBehind }
         builder.uniform("uTime", timeSec)
         builder.uniform("uSize", size.width, size.height)
-        builder.uniform("uAccent", accent.red, accent.green, accent.blue)
+        // Pulso de login lido AQUI (draw phase): clareia o accent em ate 15% e some.
+        val boost = 1f + 0.15f * pulse().coerceIn(0f, 1f)
+        builder.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
         builder.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
         // CORTE 2 (parado/idle): makeShader() aloca um Shader Skia NATIVO por frame.
         // Sem fechar, eles so somem quando o GC roda o cleaner num lote -> engasgo

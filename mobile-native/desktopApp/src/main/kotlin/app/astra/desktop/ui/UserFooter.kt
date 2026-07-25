@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -50,7 +51,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
-import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import com.composables.icons.lucide.Lucide
@@ -263,7 +263,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                 if (!editing) {
                     Text(
                         me.displayName ?: me.username,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
+                        style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontWeight = FontWeight.Medium),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

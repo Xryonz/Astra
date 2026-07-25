@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -45,7 +46,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
-import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -173,7 +173,7 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 p.displayName ?: p.username,
-                                style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
+                                style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontWeight = FontWeight.Medium),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )

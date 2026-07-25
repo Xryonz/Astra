@@ -62,6 +62,7 @@ import com.composables.icons.lucide.MicOff
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.ScreenShare
 import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.Video
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,6 +85,7 @@ import dev.onvoid.webrtc.media.FourCC
 import dev.onvoid.webrtc.media.video.VideoBufferConverter
 import dev.onvoid.webrtc.media.video.VideoTrack
 import dev.onvoid.webrtc.media.video.VideoTrackSink
+import dev.onvoid.webrtc.media.video.VideoDevice
 import dev.onvoid.webrtc.media.video.desktop.DesktopSource
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
@@ -112,6 +114,7 @@ fun VoiceView(
     val micOn by engine.micOn.collectAsState()
     val videos by engine.remoteVideos.collectAsState()
     val localScreen by engine.localScreen.collectAsState()
+    val sharingCamera by engine.sharingCamera.collectAsState()
     val localPreview by engine.localPreview.collectAsState()
     val screenStats by engine.screenStats.collectAsState()
 
@@ -153,9 +156,9 @@ fun VoiceView(
             }
         }
 
-        val streams = remember(localScreen, videos) {
+        val streams = remember(localScreen, videos, sharingCamera) {
             buildList {
-                localScreen?.let { add(StageStream("sua tela", it, isMe = true)) }
+                localScreen?.let { add(StageStream(if (sharingCamera) "sua camera" else "sua tela", it, isMe = true)) }
                 videos.forEach { add(StageStream(it.ownerLabel, it.track, isMe = false)) }
             }
         }
@@ -238,7 +241,7 @@ fun VoiceView(
         }
 
         // Controles minimalistas (Discord): botoes de simbolo com borda, sem texto.
-        var screenChoices by remember { mutableStateOf<List<DesktopSource>?>(null) }
+        var shareChoices by remember { mutableStateOf<List<ShareChoice>?>(null) }
         var settingsOpen by remember { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CallIconButton(
@@ -254,16 +257,19 @@ fun VoiceView(
                         if (screenOn) {
                             engine.stopScreenShare()
                         } else {
-                            val screens = engine.screens()
-                            if (screens.size <= 1) engine.startScreenShare(screens.firstOrNull())
-                            else screenChoices = screens
+                            val choices = shareChoicesOf(engine)
+                            when {
+                                choices.isEmpty() -> {}
+                                choices.size == 1 -> startShare(engine, choices.first())
+                                else -> shareChoices = choices
+                            }
                         }
                     },
                 )
-                // Mais de um monitor: escolher qual transmitir.
-                screenChoices?.let { screens ->
+                // Escolher a fonte: telas + cameras (o notebook tem tela(s) e webcam).
+                shareChoices?.let { choices ->
                     Popup(
-                        onDismissRequest = { screenChoices = null },
+                        onDismissRequest = { shareChoices = null },
                         properties = PopupProperties(focusable = true),
                     ) {
                         Column(
@@ -273,20 +279,24 @@ fun VoiceView(
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
                                 .padding(4.dp),
                         ) {
-                            screens.forEachIndexed { i, s ->
-                                Text(
-                                    // s.title vem do webrtc-java (Java, pode ser null) — sem o
-                                    // ?: dava NPE "isBlank on null" ao abrir o seletor de tela.
-                                    text = (s.title ?: "").ifBlank { "tela ${i + 1}" },
-                                    style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
+                            choices.forEach { c ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
                                         .clickable {
-                                            engine.startScreenShare(s)
-                                            screenChoices = null
+                                            startShare(engine, c)
+                                            shareChoices = null
                                         }
                                         .padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
+                                ) {
+                                    LIcon(
+                                        if (c is ShareChoice.Camera) Lucide.Video else Lucide.ScreenShare,
+                                        tint = Obsidian.text3, size = 13.dp,
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(c.label, style = TextStyle(color = Obsidian.text1, fontSize = 12.sp))
+                                }
                             }
                         }
                     }
@@ -503,6 +513,32 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
 
 // Uma transmissao no palco: minha tela (auto-preview) OU de outro participante.
 private data class StageStream(val label: String, val track: VideoTrack, val isMe: Boolean)
+
+// Uma fonte transmissivel: uma tela (monitor) OU uma camera. So uma por vez.
+private sealed interface ShareChoice {
+    val label: String
+    data class Screen(val source: DesktopSource, override val label: String) : ShareChoice
+    data class Camera(val device: VideoDevice, override val label: String) : ShareChoice
+}
+
+private fun shareChoicesOf(engine: VoiceEngine): List<ShareChoice> {
+    // s.title vem do webrtc-java (Java, pode ser null) — protege contra o NPE que ja
+    // mordeu no seletor so-de-telas.
+    val screens = engine.screens().mapIndexed { i, s ->
+        ShareChoice.Screen(s, (s.title ?: "").ifBlank { "tela ${i + 1}" })
+    }
+    val cams = engine.cameras().mapIndexed { i, d ->
+        ShareChoice.Camera(d, d.name.ifBlank { "camera ${i + 1}" })
+    }
+    return screens + cams
+}
+
+private fun startShare(engine: VoiceEngine, choice: ShareChoice) {
+    when (choice) {
+        is ShareChoice.Screen -> engine.startScreenShare(choice.source)
+        is ShareChoice.Camera -> engine.startCameraShare(choice.device)
+    }
+}
 
 // Tom do botao de call (borda + simbolo): normal, ativo (accent) ou perigo.
 private enum class CallTone { Normal, Active, Danger }

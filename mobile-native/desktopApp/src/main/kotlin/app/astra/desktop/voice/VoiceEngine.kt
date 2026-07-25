@@ -30,8 +30,11 @@ import dev.onvoid.webrtc.media.MediaType
 import dev.onvoid.webrtc.media.audio.AudioDeviceModule
 import dev.onvoid.webrtc.media.audio.AudioTrack
 import dev.onvoid.webrtc.media.audio.CustomAudioSource
+import dev.onvoid.webrtc.media.MediaDevices
 import dev.onvoid.webrtc.media.video.CustomVideoSource
 import dev.onvoid.webrtc.media.video.VideoDesktopSource
+import dev.onvoid.webrtc.media.video.VideoDevice
+import dev.onvoid.webrtc.media.video.VideoDeviceSource
 import dev.onvoid.webrtc.media.video.VideoTrack
 import dev.onvoid.webrtc.media.video.VideoTrackSource
 import dev.onvoid.webrtc.media.video.desktop.DesktopSource
@@ -177,6 +180,13 @@ class VoiceEngine(
     private var screenTrack: VideoTrack? = null
     private var screenCid: String? = null
     private var screenSender: RTCRtpSender? = null
+    // Camera reusa TODA a maquinaria da tela (track/cid/sender/_screenOn/_localScreen/
+    // attachScreen/stop) — so uma fonte de video por vez. So a FONTE muda: aqui um
+    // VideoDeviceSource (camera) em vez do ffmpeg/GDI. sharingCamera diz a UI se o
+    // "meu palco" e camera (rotulo + preview vem do sink da track, nao do ffmpeg).
+    private var cameraSource: VideoDeviceSource? = null
+    private val _sharingCamera = MutableStateFlow(false)
+    val sharingCamera = _sharingCamera.asStateFlow()
     private val _screenOn = MutableStateFlow(false)
     val screenOn = _screenOn.asStateFlow()
 
@@ -653,6 +663,7 @@ class VoiceEngine(
         screenCid = cid
         screenTrack = f.createVideoTrack(cid, trackSource)
         _localScreen.value = screenTrack // preview local ja com os frames da captura
+        _sharingCamera.value = false
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
@@ -669,6 +680,61 @@ class VoiceEngine(
                             .setWidth(q.width)
                             .setHeight(q.height)
                             .setBitrate(q.bitrate),
+                    ),
+            )
+            .build()
+        ws?.send(req.toByteArray().toByteString())
+    }
+
+    // Cameras disponiveis (webcams). Enumeracao nativa; vazio se nao houver ou falhar.
+    fun cameras(): List<VideoDevice> =
+        runCatching { MediaDevices.getVideoCaptureDevices() }.getOrDefault(emptyList())
+
+    // Transmite a CAMERA. Mesma maquinaria da tela (uma fonte por vez), so a fonte
+    // muda pra VideoDeviceSource. TrackSource.CAMERA na sinalizacao; o preview local
+    // NAO usa o tee ffmpeg (fica null) -> a UI cai no RemoteVideoView, que le a track
+    // real (webcam entrega frames ao sink; CustomVideoSource da tela nao entregava).
+    fun startCameraShare(device: VideoDevice, silent: Boolean = false) {
+        if (_screenOn.value) return
+        val f = factory ?: return
+        if (!silent) Sfx.shareStart()
+        // Capacidade: prefere ~720p30 (bom pra rosto sem exagerar banda); senao a 1a.
+        val caps = runCatching { MediaDevices.getVideoCaptureCapabilities(device) }.getOrDefault(emptyList())
+        val cap = caps.filter { it.width <= 1280 && it.height <= 720 }.maxByOrNull { it.width * it.height + it.frameRate }
+            ?: caps.firstOrNull()
+        val src = runCatching {
+            VideoDeviceSource().apply {
+                setVideoCaptureDevice(device)
+                cap?.let { setVideoCaptureCapability(it) }
+                start()
+            }
+        }.getOrNull() ?: return
+        cameraSource = src
+
+        val w = cap?.width ?: 1280
+        val h = cap?.height ?: 720
+        val cid = "camera-" + UUID.randomUUID().toString().take(8)
+        screenCid = cid
+        screenTrack = f.createVideoTrack(cid, src)
+        _localScreen.value = screenTrack
+        _localPreview.value = null // camera nao tem tee ffmpeg -> RemoteVideoView renderiza a track
+        _sharingCamera.value = true
+        _screenOn.value = true
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setAddTrack(
+                LivekitRtc.AddTrackRequest.newBuilder()
+                    .setCid(cid)
+                    .setName("camera")
+                    .setType(LivekitModels.TrackType.VIDEO)
+                    .setSource(LivekitModels.TrackSource.CAMERA)
+                    .setWidth(w)
+                    .setHeight(h)
+                    .addLayers(
+                        LivekitModels.VideoLayer.newBuilder()
+                            .setQuality(LivekitModels.VideoQuality.HIGH)
+                            .setWidth(w)
+                            .setHeight(h)
+                            .setBitrate(2_000_000),
                     ),
             )
             .build()
@@ -815,6 +881,7 @@ class VoiceEngine(
         if (!_screenOn.value) return
         if (!silent) Sfx.shareStop() // parar transmissao: 3 fases descendo (invertido)
         _screenOn.value = false
+        _sharingCamera.value = false
         _localScreen.value = null
         _localPreview.value = null
         statsJob?.cancel()
@@ -828,6 +895,10 @@ class VoiceEngine(
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }
+        // Camera (quando a fonte era webcam): para e libera a fonte nativa.
+        runCatching { cameraSource?.stop() }
+        runCatching { cameraSource?.dispose() }
+        cameraSource = null
         screenTrack = null
         screenSource = null
         screenCid = null
@@ -925,6 +996,9 @@ class VoiceEngine(
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }
+        runCatching { cameraSource?.stop() }
+        runCatching { cameraSource?.dispose() }
+        cameraSource = null
         screenTrack = null
         screenSource = null
         runCatching { micCapture?.stop() }

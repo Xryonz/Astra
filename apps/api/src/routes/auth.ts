@@ -341,8 +341,31 @@ router.post(
   })
 )
 
+// Desktop nao tem deep-link (mobile) nem CLIENT_URL (web): usa LOOPBACK. O app
+// sobe um HttpServer em 127.0.0.1:PORT, abre o navegador e passa PORT+NONCE no
+// `state` do OAuth. O Google chama ESTE callback (o mesmo ja registrado no Console),
+// e daqui redirecionamos pro loopback. Valida-se porta e nonce dos dois lados; so
+// se redireciona pra 127.0.0.1 (nunca host arbitrario = sem open-redirect).
+function parseDesktopState(raw: unknown): { port: number; nonce: string } | null {
+  if (typeof raw !== 'string' || !raw.startsWith('desktop:')) return null
+  const [, portStr, nonce] = raw.split(':')
+  const port = Number(portStr)
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) return null
+  if (!/^[A-Za-z0-9]{8,64}$/.test(nonce ?? '')) return null
+  return { port, nonce }
+}
+
 router.get('/google', (req: Request, res: Response, next) => {
-  const state = req.query.platform === 'mobile' ? 'mobile' : undefined
+  let state: string | undefined
+  if (req.query.platform === 'mobile') {
+    state = 'mobile'
+  } else if (req.query.platform === 'desktop') {
+    const port = Number(req.query.port)
+    const nonce = String(req.query.nonce ?? '')
+    if (Number.isInteger(port) && port >= 1024 && port <= 65535 && /^[A-Za-z0-9]{8,64}$/.test(nonce)) {
+      state = `desktop:${port}:${nonce}`
+    }
+  }
   passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next)
 })
 
@@ -350,13 +373,19 @@ router.get(
   '/google/callback',
   (req: Request, res: Response, next) => {
     const isMobile  = req.query.state === 'mobile'
+    const desktop   = parseDesktopState(req.query.state)
 
-    const clientBase = isMobile ? 'astra://auth/callback' : `${process.env.CLIENT_URL}/auth/callback`
-    const loginUrl   = isMobile ? 'astra://login'         : `${process.env.CLIENT_URL}/login`
+    // Loopback do desktop usa QUERY (?refresh=), nao fragment (#): o HttpServer local
+    // NAO enxerga o fragment. Web/mobile seguem no fragment.
+    const desktopBase = desktop ? `http://127.0.0.1:${desktop.port}/callback` : null
+    const clientBase = isMobile ? 'astra://auth/callback' : desktopBase ?? `${process.env.CLIENT_URL}/auth/callback`
+    const loginUrl   = isMobile ? 'astra://login'         : desktopBase ?? `${process.env.CLIENT_URL}/login`
+    const sep        = desktop ? '?' : '#'
+    const nonceTail  = desktop ? `&nonce=${desktop.nonce}` : ''
 
     passport.authenticate('google', { session: false }, async (err: Error | null, user: { id: string } | false, info: { code?: string; email?: string } | undefined) => {
       if (err) {
-        return res.redirect(`${loginUrl}?error=oauth`)
+        return res.redirect(`${loginUrl}?error=oauth${nonceTail}`)
       }
       if (!user) {
         if (info?.code === 'email_not_registered' && info.email) {
@@ -364,9 +393,9 @@ router.get(
             error: 'google_email_unregistered',
             email: info.email,
           })
-          return res.redirect(`${loginUrl}?${q.toString()}`)
+          return res.redirect(`${loginUrl}?${q.toString()}${nonceTail}`)
         }
-        return res.redirect(`${loginUrl}?error=oauth`)
+        return res.redirect(`${loginUrl}?error=oauth${nonceTail}`)
       }
       try {
         // Logar via Google PROVA a posse do email — carimba se ainda não tinha.
@@ -379,7 +408,7 @@ router.get(
           ip:        req.ip,
         })
 
-        res.redirect(`${clientBase}#refresh=${encodeURIComponent(refreshToken)}`)
+        res.redirect(`${clientBase}${sep}refresh=${encodeURIComponent(refreshToken)}${nonceTail}`)
       } catch (e) {
         next(e)
       }

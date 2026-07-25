@@ -2,6 +2,8 @@ package app.astra.desktop.auth
 
 import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.AuthApi
+import app.astra.mobile.core.network.RefreshApi
+import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.LoginRequest
 import app.astra.mobile.core.network.dto.RegisterRequest
@@ -15,6 +17,8 @@ class AuthRepository(
     private val store: SessionStore,
     private val json: Json,
     private val socket: DesktopSocket,
+    private val refreshApi: RefreshApi,
+    private val userApi: UserApi,
 ) {
     suspend fun login(email: String, password: String): Result<Session> = try {
         val resp = api.login(LoginRequest(email.trim(), password))
@@ -71,6 +75,37 @@ class AuthRepository(
         Result.failure(Exception("Sem conexao com o servidor"))
     } catch (e: Exception) {
         Result.failure(Exception("Nao foi possivel criar a conta"))
+    }
+
+    // Login com Google via loopback (GoogleAuthFlow abre o navegador). Volta um
+    // refresh token; troca-o por um access (o /refresh so devolve tokens, sem user),
+    // salva sessao provisoria pra o interceptor autenticar o /me, e so entao monta a
+    // sessao completa. Qualquer falha depois do save provisorio limpa o disco pra o
+    // app nao reabrir numa sessao meia-boca (userId vazio quebraria o shell).
+    suspend fun loginWithGoogle(): Result<Session> = try {
+        val token = GoogleAuthFlow.captureRefreshToken().getOrElse { return Result.failure(it) }
+        val refreshed = refreshApi.refresh("Bearer $token").data
+            ?: return Result.failure(Exception("Login Google invalido"))
+        store.save(Session(refreshed.accessToken, refreshed.refreshToken, "", ""))
+        val me = runCatching { userApi.me().data?.user }.getOrNull()
+        if (me == null) {
+            store.clear()
+            return Result.failure(Exception("Nao foi possivel carregar seu perfil"))
+        }
+        val session = Session(
+            accessToken = refreshed.accessToken,
+            refreshToken = refreshed.refreshToken,
+            userId = me.id,
+            displayName = me.displayName ?: me.username,
+        )
+        store.save(session)
+        Result.success(session)
+    } catch (e: IOException) {
+        runCatching { store.clear() }
+        Result.failure(Exception("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        runCatching { store.clear() }
+        Result.failure(Exception(e.message ?: "Nao foi possivel entrar com Google"))
     }
 
     // Limpa a sessao PRIMEIRO — e a parte critica: apaga o session.bin do disco,

@@ -127,6 +127,7 @@ fun LoginScreen(
     var displayName by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var googleLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var showPassword by remember { mutableStateOf(false) }
     var capsOn by remember { mutableStateOf(false) }
@@ -162,6 +163,16 @@ fun LoginScreen(
                     onLoggedIn(it)
                 }
                 .onFailure { e -> loading = false; error = e.message }
+        }
+    }
+
+    fun googleSubmit() {
+        if (loading || googleLoading) return
+        googleLoading = true; error = null
+        scope.launch {
+            repo.loginWithGoogle()
+                .onSuccess { googleLoading = false; onLoggedIn(it) }
+                .onFailure { e -> googleLoading = false; error = e.message }
         }
     }
 
@@ -278,6 +289,14 @@ fun LoginScreen(
                         style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
                     )
                 }
+                // Google e login/vinculo (o backend nao cria conta por Google) —
+                // aparece so no modo entrar.
+                if (mode == AuthMode.LOGIN) {
+                    Spacer(Modifier.height(16.dp))
+                    OrDivider()
+                    Spacer(Modifier.height(16.dp))
+                    GoogleButton(loading = googleLoading, enabled = !loading, onClick = ::googleSubmit)
+                }
                 Spacer(Modifier.height(20.dp))
                 AuthModeToggle(mode) {
                     mode = if (mode == AuthMode.LOGIN) AuthMode.SIGNUP else AuthMode.LOGIN
@@ -329,6 +348,51 @@ private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
             action,
             style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmSerif),
             modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onToggle),
+        )
+    }
+}
+
+@Composable
+private fun OrDivider() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+        Text(
+            "ou",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+    }
+}
+
+// Botao Google editorial (sem asset/estetica stock): "G" ambar + rotulo, borda
+// obsidiana, clickScale. Loading = esperando o navegador/loopback.
+@Composable
+private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hovered by src.collectIsHoveredAsState()
+    val shape = RoundedCornerShape(10.dp)
+    val active = enabled && !loading
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickScale(src)
+            .clip(shape)
+            .background(if (hovered && active) Obsidian.raised else Color.Transparent)
+            .border(1.dp, Obsidian.borderMid, shape)
+            .clickable(enabled = active, interactionSource = src, indication = null, onClick = onClick)
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "G",
+            style = TextStyle(color = Obsidian.accent, fontSize = 15.sp, fontFamily = DmSerif, fontWeight = FontWeight.Medium),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            if (loading) "abrindo o navegador…" else "entrar com Google",
+            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
         )
     }
 }

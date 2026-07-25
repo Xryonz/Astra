@@ -306,7 +306,10 @@ fun ShellScreen(
             members = state.members,
             voicePresence = state.voicePresence,
             myId = session.userId,
-            myVoiceChannelId = state.voiceChannel?.id,
+            // Eu-otimista na sidebar so quando ESTOU CONECTADO (voice.joined), nao
+            // quando so abri a antessala (state.voiceChannel). Antes o meu icone
+            // aparecia sob o canal no instante em que eu clicava nele, sem entrar.
+            myVoiceChannelId = voice.joined?.id,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
             onToggleMute = vm::toggleDmMute,

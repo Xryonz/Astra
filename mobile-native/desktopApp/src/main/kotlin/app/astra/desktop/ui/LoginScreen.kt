@@ -1,6 +1,13 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -147,6 +154,8 @@ fun LoginScreen(
     val allOk = rules.all { it.ok }
     // A constelacao (painel esquerdo) e o medidor: fracao de regras cumpridas.
     val progress = rules.count { it.ok }.toFloat() / rules.size
+    // Duracao das transicoes de troca login<->cadastro (0 = respeita reduce motion).
+    val authDur = if (LocalReduceMotion.current) 0 else 240
 
     fun submit() {
         if (loading || !allOk) return
@@ -222,11 +231,14 @@ fun LoginScreen(
             modifier = Modifier.weight(0.55f).fillMaxHeight().background(Obsidian.base.copy(alpha = 0.82f)),
             contentAlignment = Alignment.Center,
         ) {
-            Column(Modifier.width(360.dp)) {
-                Text(
-                    text = if (mode == AuthMode.LOGIN) "entrar" else "criar conta",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif),
-                )
+            Column(Modifier.width(360.dp).animateContentSize(tween(authDur))) {
+                // Titulo troca com crossfade (entrar <-> criar conta).
+                Crossfade(targetState = mode, animationSpec = tween(authDur), label = "authTitle") { m ->
+                    Text(
+                        text = if (m == AuthMode.LOGIN) "entrar" else "criar conta",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif),
+                    )
+                }
                 Spacer(Modifier.height(18.dp))
                 EditorialField(
                     value = email, onValue = { email = it; error = null },
@@ -234,19 +246,27 @@ fun LoginScreen(
                     focusRequester = emailFocus,
                     onSubmit = { runCatching { passFocus.requestFocus() } },
                 )
-                if (mode == AuthMode.SIGNUP) {
-                    Spacer(Modifier.height(14.dp))
-                    EditorialField(
-                        // username so aceita minusculas (regra do backend) — normaliza
-                        // ao digitar em vez de barrar depois.
-                        value = username, onValue = { username = it.lowercase(); error = null },
-                        label = "usuario", enabled = !loading,
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    EditorialField(
-                        value = displayName, onValue = { displayName = it; error = null },
-                        label = "nome de exibicao", enabled = !loading,
-                    )
+                // Campos so-do-cadastro deslizam pra dentro/fora (fade + expand); a
+                // altura do form gliza junto pelo animateContentSize do Column.
+                AnimatedVisibility(
+                    visible = mode == AuthMode.SIGNUP,
+                    enter = fadeIn(tween(authDur)) + expandVertically(tween(authDur)),
+                    exit = fadeOut(tween(authDur)) + shrinkVertically(tween(authDur)),
+                ) {
+                    Column {
+                        Spacer(Modifier.height(14.dp))
+                        EditorialField(
+                            // username so aceita minusculas (regra do backend) —
+                            // normaliza ao digitar em vez de barrar depois.
+                            value = username, onValue = { username = it.lowercase(); error = null },
+                            label = "usuario", enabled = !loading,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        EditorialField(
+                            value = displayName, onValue = { displayName = it; error = null },
+                            label = "nome de exibicao", enabled = !loading,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(14.dp))
                 EditorialField(
@@ -269,7 +289,10 @@ fun LoginScreen(
                 }
                 Spacer(Modifier.height(14.dp))
                 // Regras pra enviar: acendem em verde e formam a constelacao ao lado.
-                RulesChecklist(rules)
+                // animateContentSize suaviza a troca 2<->5 regras entre os modos.
+                Box(Modifier.animateContentSize(tween(authDur))) {
+                    RulesChecklist(rules)
+                }
                 Spacer(Modifier.height(18.dp))
                 SubmitButton(
                     text = when {
@@ -290,12 +313,18 @@ fun LoginScreen(
                     )
                 }
                 // Google e login/vinculo (o backend nao cria conta por Google) —
-                // aparece so no modo entrar.
-                if (mode == AuthMode.LOGIN) {
-                    Spacer(Modifier.height(16.dp))
-                    OrDivider()
-                    Spacer(Modifier.height(16.dp))
-                    GoogleButton(loading = googleLoading, enabled = !loading, onClick = ::googleSubmit)
+                // aparece so no modo entrar, deslizando junto com a troca.
+                AnimatedVisibility(
+                    visible = mode == AuthMode.LOGIN,
+                    enter = fadeIn(tween(authDur)) + expandVertically(tween(authDur)),
+                    exit = fadeOut(tween(authDur)) + shrinkVertically(tween(authDur)),
+                ) {
+                    Column {
+                        Spacer(Modifier.height(16.dp))
+                        OrDivider()
+                        Spacer(Modifier.height(16.dp))
+                        GoogleButton(loading = googleLoading, enabled = !loading, onClick = ::googleSubmit)
+                    }
                 }
                 Spacer(Modifier.height(20.dp))
                 AuthModeToggle(mode) {
@@ -338,17 +367,22 @@ private fun RulesChecklist(rules: List<AuthRule>) {
 
 @Composable
 private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
-    val prompt = if (mode == AuthMode.LOGIN) "ainda nao tem conta?" else "ja tem conta?"
-    val action = if (mode == AuthMode.LOGIN) "criar conta" else "entrar"
     val src = remember { MutableInteractionSource() }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(prompt, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-        Spacer(Modifier.width(6.dp))
-        Text(
-            action,
-            style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmSerif),
-            modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onToggle),
-        )
+    val dur = if (LocalReduceMotion.current) 0 else 220
+    // O convite (ainda nao tem conta? / ja tem conta?) troca com crossfade junto
+    // com a troca de modo.
+    Crossfade(targetState = mode, animationSpec = tween(dur), label = "authToggle") { m ->
+        val prompt = if (m == AuthMode.LOGIN) "ainda nao tem conta?" else "ja tem conta?"
+        val action = if (m == AuthMode.LOGIN) "criar conta" else "entrar"
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(prompt, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                action,
+                style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmSerif),
+                modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onToggle),
+            )
+        }
     }
 }
 
@@ -530,13 +564,16 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = text,
-            style = TextStyle(
-                color = if (enabled) Obsidian.void else Obsidian.text3,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-        )
+        // Crossfade no rotulo: ENTRAR <-> CRIAR CONTA <-> entrando… trocam macio.
+        Crossfade(targetState = text, animationSpec = tween(if (reduce) 0 else 220), label = "submitLabel") { t ->
+            Text(
+                text = t,
+                style = TextStyle(
+                    color = if (enabled) Obsidian.void else Obsidian.text3,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+            )
+        }
     }
 }

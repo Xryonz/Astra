@@ -128,6 +128,7 @@ private fun JoinCallButton(onJoin: () -> Unit) {
     Box(
         Modifier
             .scale(s)
+            .clickScale(interaction)
             .size(62.dp)
             .clip(CircleShape)
             .background(Obsidian.success)

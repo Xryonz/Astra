@@ -195,6 +195,7 @@ private fun DockIcon(icon: ImageVector, tint: Color, onClick: () -> Unit) {
     Box(
         Modifier
             .size(24.dp)
+            .clickScale(interaction)
             .clip(RoundedCornerShape(6.dp))
             .background(if (hovered) Obsidian.hover else Color.Transparent)
             .hoverable(interaction)
@@ -213,6 +214,7 @@ private fun DockAction(icon: ImageVector, tint: Color, bg: Color, onClick: () ->
     Box(
         Modifier
             .scale(s)
+            .clickScale(interaction)
             .size(34.dp)
             .clip(CircleShape)
             .background(bg)

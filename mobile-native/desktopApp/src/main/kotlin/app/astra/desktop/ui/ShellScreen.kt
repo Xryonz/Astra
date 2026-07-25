@@ -560,6 +560,87 @@ fun ConfirmPopup(
     }
 }
 
+// Confirmacao CENTRAL (logout): scrim escurecido em tela cheia + card no centro,
+// entrada em escala+fade. Diferente do ConfirmPopup ancorado — aqui a decisao e
+// modal (sair da conta merece uma pausa). Clique no escurecido (fora do card)
+// cancela; o card engole o proprio clique pra nao vazar.
+@Composable
+fun CenteredConfirmDialog(
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    cancelLabel: String = "cancelar",
+) {
+    val reduce = LocalReduceMotion.current
+    val enter = remember { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!reduce) enter.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMedium))
+    }
+    val scrimSrc = remember { MutableInteractionSource() }
+    val cardSrc = remember { MutableInteractionSource() }
+    val cancelSrc = remember { MutableInteractionSource() }
+    val okSrc = remember { MutableInteractionSource() }
+    Popup(
+        alignment = Alignment.Center,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = enter.value }
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(interactionSource = scrimSrc, indication = null, onClick = onDismiss),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier
+                    .graphicsLayer {
+                        val s = 0.92f + 0.08f * enter.value
+                        scaleX = s; scaleY = s
+                    }
+                    .widthIn(max = 320.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Obsidian.overlay)
+                    .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
+                    // Engole o clique dentro do card pra nao vazar pro scrim (cancela).
+                    .clickable(interactionSource = cardSrc, indication = null, onClick = {})
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    message,
+                    style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        cancelLabel,
+                        style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                        modifier = Modifier
+                            .clickScale(cancelSrc)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                            .clickable(interactionSource = cancelSrc, indication = null, onClick = onDismiss)
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                    )
+                    Text(
+                        confirmLabel,
+                        style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
+                        modifier = Modifier
+                            .clickScale(okSrc)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Obsidian.danger, RoundedCornerShape(8.dp))
+                            .clickable(interactionSource = okSrc, indication = null) { onDismiss(); onConfirm() }
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ---- Ctrl+K quick-switcher: pular pra qualquer canal/sussurro pelo teclado ----
 private data class QuickResult(
     val kind: String, // "channel" | "dm"

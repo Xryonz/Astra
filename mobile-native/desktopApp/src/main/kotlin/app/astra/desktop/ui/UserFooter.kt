@@ -181,7 +181,7 @@ fun UserFooter(
         Spacer(Modifier.width(2.dp))
         FooterIcon(Lucide.LogOut, danger = true, onClick = { confirmLogout = true })
     }
-    if (confirmLogout) ConfirmPopup(
+    if (confirmLogout) CenteredConfirmDialog(
         message = "sair da conta?",
         confirmLabel = "sair",
         onConfirm = onLogout,

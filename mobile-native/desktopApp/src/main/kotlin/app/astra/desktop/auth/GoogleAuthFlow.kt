@@ -1,6 +1,7 @@
 package app.astra.desktop.auth
 
 import app.astra.shared.AstraShared
+import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -32,28 +33,41 @@ object GoogleAuthFlow {
             .getOrElse { return@withContext Result.failure(Exception("Nao consegui abrir a porta local")) }
         val port = server.address.port
 
+        // /callback recebe o token na QUERY, captura, e REDIRECIONA (302) pra /done.
+        // Assim o token some da barra/historico: a aba final para numa URL limpa
+        // (/done?s=ok) que so diz o que aconteceu.
         server.createContext("/callback") { ex ->
             val params = parseQuery(ex.requestURI.rawQuery)
-            val body: String
-            if (params["nonce"] != nonce) {
-                complete(deferred, Result.failure(Exception("Falha de seguranca (nonce)")))
-                body = page("Nao foi possivel confirmar o login. Tente de novo.")
-            } else if (params["refresh"] != null) {
-                complete(deferred, Result.success(params["refresh"]!!))
-                body = page("Login concluido! Pode fechar esta aba e voltar ao Astra.")
-            } else if (params["error"] == "google_email_unregistered") {
-                complete(deferred, Result.failure(Exception("Esse Google ainda nao tem conta no Astra — crie uma conta primeiro.")))
-                body = page("Esse Google ainda nao tem conta no Astra.")
-            } else {
-                complete(deferred, Result.failure(Exception("Nao deu pra entrar com o Google")))
-                body = page("Nao deu pra entrar com o Google.")
+            val status = when {
+                params["nonce"] != nonce -> {
+                    complete(deferred, Result.failure(Exception("Falha de seguranca (nonce)")))
+                    "nonce"
+                }
+                params["refresh"] != null -> {
+                    complete(deferred, Result.success(params["refresh"]!!))
+                    "ok"
+                }
+                params["error"] == "google_email_unregistered" -> {
+                    complete(deferred, Result.failure(Exception("Esse Google ainda nao tem conta no Astra — crie uma conta primeiro.")))
+                    "unreg"
+                }
+                else -> {
+                    complete(deferred, Result.failure(Exception("Nao deu pra entrar com o Google")))
+                    "err"
+                }
             }
-            val bytes = body.toByteArray(StandardCharsets.UTF_8)
-            ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
-            runCatching {
-                ex.sendResponseHeaders(200, bytes.size.toLong())
-                ex.responseBody.use { it.write(bytes) }
+            redirect(ex, "/done?s=$status")
+        }
+        // Tela final, sem token na URL: editorial, so a mensagem do que rolou.
+        server.createContext("/done") { ex ->
+            val s = parseQuery(ex.requestURI.rawQuery)["s"]
+            val msg = when (s) {
+                "ok" -> "Conectado ao Astra. Pode fechar esta aba e voltar ao app."
+                "unreg" -> "Esse Google ainda nao tem conta no Astra — crie uma conta primeiro."
+                "nonce" -> "Nao foi possivel confirmar o login. Tente de novo."
+                else -> "Nao deu pra entrar com o Google."
             }
+            serveHtml(ex, page(msg, ok = s == "ok"))
         }
         server.start()
 
@@ -97,12 +111,48 @@ object GoogleAuthFlow {
         }.toMap()
     }
 
-    private fun page(msg: String): String = """
-        <!doctype html><html><head><meta charset="utf-8"><title>Astra</title>
-        <style>body{background:#06060e;color:#c9a96e;font-family:system-ui,-apple-system,sans-serif;
-        display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-        div{text-align:center}h1{font-weight:300;letter-spacing:3px;margin:0 0 12px}
-        p{color:#8c8c94;font-size:14px}</style></head>
-        <body><div><h1>&#10022; Astra</h1><p>$msg</p></div></body></html>
-    """.trimIndent()
+    // Redireciona (302) sem corpo — usado pra tirar o token da URL final.
+    private fun redirect(ex: HttpExchange, location: String) {
+        ex.responseHeaders.add("Location", location)
+        runCatching {
+            ex.sendResponseHeaders(302, -1)
+            ex.responseBody.close()
+        }
+    }
+
+    private fun serveHtml(ex: HttpExchange, html: String) {
+        val bytes = html.toByteArray(StandardCharsets.UTF_8)
+        ex.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
+        runCatching {
+            ex.sendResponseHeaders(200, bytes.size.toLong())
+            ex.responseBody.use { it.write(bytes) }
+        }
+    }
+
+    // Tela editorial minima (obsidian + ambar). ok = login concluido (mensagem
+    // em verde); senao a mensagem sai neutra.
+    private fun page(msg: String, ok: Boolean): String {
+        val msgColor = if (ok) "#6ec98a" else "#8c8c94"
+        return """
+            <!doctype html><html lang="pt-br"><head><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Astra</title>
+            <style>
+            :root{color-scheme:dark}
+            *{margin:0;box-sizing:border-box}
+            body{background:#06060e;color:#e8e6e3;
+            font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+            display:flex;align-items:center;justify-content:center;min-height:100vh}
+            .card{text-align:center;padding:44px 52px}
+            .glyph{font-size:46px;color:#c9a96e;line-height:1;margin-bottom:22px}
+            h1{font-weight:300;letter-spacing:5px;font-size:22px;margin-bottom:14px}
+            p{font-size:14px;line-height:1.5;max-width:300px;color:$msgColor}
+            </style></head>
+            <body><div class="card">
+            <div class="glyph">&#10022;</div>
+            <h1>ASTRA</h1>
+            <p>$msg</p>
+            </div></body></html>
+        """.trimIndent()
+    }
 }

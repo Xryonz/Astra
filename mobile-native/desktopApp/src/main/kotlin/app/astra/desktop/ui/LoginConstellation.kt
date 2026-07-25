@@ -39,18 +39,6 @@ private val NODES = listOf(
     Offset(0.86f, 0.26f),
 )
 
-// Quanto de cada campo conta pro progresso. Comprimentos-alvo curtos de proposito:
-// a constelacao tem que reagir DESDE a primeira letra, senao o efeito nao se liga
-// ao gesto de digitar. O email so completa seu trecho quando tem cara de email —
-// assim o desenho fechado significa "da pra enviar", nao so "tem texto".
-fun loginProgress(email: String, password: String): Float {
-    val e = email.trim()
-    val emailShape = e.contains('@') && e.substringAfterLast('@').contains('.')
-    val emailPart = (e.length / 14f).coerceIn(0f, 1f) * (if (emailShape) 1f else 0.75f)
-    val passPart = (password.length / 8f).coerceIn(0f, 1f)
-    return ((emailPart + passPart) / 2f).coerceIn(0f, 1f)
-}
-
 @Composable
 fun LoginConstellation(
     progress: Float,

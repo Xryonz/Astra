@@ -4,6 +4,7 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.LoginRequest
+import app.astra.mobile.core.network.dto.RegisterRequest
 import kotlinx.serialization.json.Json
 import java.io.IOException
 
@@ -38,6 +39,38 @@ class AuthRepository(
         Result.failure(Exception("Sem conexao com o servidor"))
     } catch (e: Exception) {
         Result.failure(Exception("Nao foi possivel entrar"))
+    }
+
+    // Cria a conta e ja loga (o backend responde 201 com os tokens, mesmo shape do
+    // login). Email de verificacao esta desligado no Render -> a conta nasce pronta.
+    suspend fun register(
+        email: String,
+        username: String,
+        displayName: String,
+        password: String,
+    ): Result<Session> = try {
+        val resp = api.register(RegisterRequest(email.trim(), username.trim(), displayName.trim(), password))
+        val body = resp.body()
+        val data = body?.data
+        if (resp.isSuccessful && data != null) {
+            val session = Session(
+                accessToken = data.accessToken,
+                refreshToken = data.refreshToken,
+                userId = data.user.id,
+                displayName = data.user.displayName ?: data.user.username,
+            )
+            store.save(session)
+            Result.success(session)
+        } else {
+            val msg = resp.errorBody()?.string()?.let {
+                runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
+            } ?: body?.error ?: "Nao foi possivel criar a conta"
+            Result.failure(Exception(msg))
+        }
+    } catch (e: IOException) {
+        Result.failure(Exception("Sem conexao com o servidor"))
+    } catch (e: Exception) {
+        Result.failure(Exception("Nao foi possivel criar a conta"))
     }
 
     // Limpa a sessao PRIMEIRO — e a parte critica: apaga o session.bin do disco,

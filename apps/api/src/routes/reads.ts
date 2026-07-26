@@ -1,9 +1,9 @@
 
 import { Router, Request, Response } from 'express'
 import { Server as SocketServer } from 'socket.io'
-import { and, eq, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, gt, isNull, isNotNull, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { channels, serverMembers, channelReads, dmConversations, notifications } from '../db/schema'
+import { channels, serverMembers, channelReads, dmConversations, notifications, messages } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 
@@ -68,6 +68,42 @@ export function createReadsRouter(io: SocketServer) {
 
       const map: Record<string, string> = {}
       for (const r of rows) map[r.channelId] = r.lastReadAt.toISOString()
+      res.json({ data: map })
+    })
+  )
+
+  // Contagem de nao-lidas por canal (badge com numero). Conta mensagens depois
+  // do lastReadAt (ou todas, se nunca leu), ignorando as minhas e as apagadas.
+  // Guarda privacidade: canal privado so entra se o user ja o acessou (tem read
+  // record) — evita vazar contagem de canal que ele nem ve.
+  router.get(
+    '/reads/channels/counts',
+    requireAuth,
+    asyncHandler(async (req: Request, res: Response) => {
+      const rows = await db.select({
+        channelId: channels.id,
+        cnt:       sql<number>`count(${messages.id})::int`,
+      })
+        .from(channels)
+        .innerJoin(serverMembers, and(
+          eq(serverMembers.serverId, channels.serverId),
+          eq(serverMembers.userId,   req.userId!),
+        ))
+        .leftJoin(channelReads, and(
+          eq(channelReads.channelId, channels.id),
+          eq(channelReads.userId,    req.userId!),
+        ))
+        .innerJoin(messages, and(
+          eq(messages.channelId, channels.id),
+          isNull(messages.deletedAt),
+          ne(messages.authorId, req.userId!),
+          or(isNull(channelReads.lastReadAt), gt(messages.createdAt, channelReads.lastReadAt)),
+        ))
+        .where(or(eq(channels.isPrivate, false), isNotNull(channelReads.lastReadAt)))
+        .groupBy(channels.id)
+
+      const map: Record<string, number> = {}
+      for (const r of rows) if (r.cnt > 0) map[r.channelId] = r.cnt
       res.json({ data: map })
     })
   )

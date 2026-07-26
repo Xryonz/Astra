@@ -79,6 +79,9 @@ data class ShellUiState(
     val voiceChannel: ChannelDto? = null,
     // Ids (canal ou conversa) com mensagem que voce ainda nao viu.
     val unread: Set<String> = emptySet(),
+    // Contagem de nao-lidas por canal (badge com numero). So canais; DM usa o
+    // booleano acima. Sobe no load (backend) + incrementa ao vivo via socket.
+    val unreadCounts: Map<String, Int> = emptyMap(),
     // Canais/constelacoes silenciados (mode "mute" no backend de notif prefs).
     val mutedChannels: Set<String> = emptySet(),
     val mutedServers: Set<String> = emptySet(),
@@ -161,6 +164,7 @@ class ShellVm(
             val serversD = async { runCatching { serverApi.servers().data.orEmpty() }.getOrNull() }
             val dmsD = async { runCatching { dmApi.conversations().data.orEmpty() }.getOrDefault(emptyList()) }
             val channelReadsD = async { runCatching { serverApi.channelReads().data.orEmpty() }.getOrDefault(emptyMap()) }
+            val unreadCountsD = async { runCatching { serverApi.channelUnreadCounts().data.orEmpty() }.getOrDefault(emptyMap()) }
             val dmReadsD = async { runCatching { dmApi.dmReads().data.orEmpty() }.getOrDefault(emptyMap()) }
 
             val servers = serversD.await()
@@ -234,6 +238,7 @@ class ShellVm(
                     chat = restoredChat,
                     friendsOpen = restoredFriends,
                     unread = (unreadChannels + unreadDms).toSet() - setOfNotNull(restoredChat?.id),
+                    unreadCounts = unreadCountsD.await() - setOfNotNull(restoredChat?.id),
                 )
             }
             store.setUiPref("lastSelection", finalSelection.encode())
@@ -283,7 +288,7 @@ class ShellVm(
         // Mesma conversa ja aberta: nao recria o ChatVm (evitaria recarregar tudo
         // + replay do fade). As mensagens novas ja chegam pelo socket em tempo real.
         if (_state.value.chat == target) return
-        _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id) }
+        _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id, unreadCounts = it.unreadCounts - target.id) }
         saveLocation()
     }
 
@@ -533,7 +538,7 @@ class ShellVm(
     // Marcar lido: qualquer membro. Renomear/excluir: so o dono (a UI gateia).
     fun markChannelRead(channelId: String) {
         scope.launch { runCatching { channelApi.markRead(channelId) } }
-        _state.update { it.copy(unread = it.unread - channelId) }
+        _state.update { it.copy(unread = it.unread - channelId, unreadCounts = it.unreadCounts - channelId) }
     }
 
     fun renameChannel(serverId: String, channelId: String, name: String) {
@@ -691,7 +696,12 @@ class ShellVm(
                 socket.channelActivity.collect { raw ->
                     val ev = decode<ChannelActivityEventDto>(raw) ?: return@collect
                     if (_state.value.chat?.id != ev.channelId) {
-                        _state.update { it.copy(unread = it.unread + ev.channelId) }
+                        _state.update {
+                            it.copy(
+                                unread = it.unread + ev.channelId,
+                                unreadCounts = it.unreadCounts + (ev.channelId to ((it.unreadCounts[ev.channelId] ?: 0) + 1)),
+                            )
+                        }
                     }
                 }
             }

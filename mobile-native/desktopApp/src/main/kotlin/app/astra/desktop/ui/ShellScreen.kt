@@ -345,6 +345,7 @@ fun ShellScreen(
             // Ids sao unicos: o "ativo" da sidebar cobre chat de texto OU sala de voz.
             activeChatId = chat?.id ?: state.voiceChannel?.id,
             unread = state.unread,
+            unreadCounts = state.unreadCounts,
             dmTyping = state.dmTyping,
             me = state.me,
             meFallback = session.displayName,
@@ -1164,6 +1165,7 @@ private fun Sidebar(
     dms: List<ConversationDto>,
     activeChatId: String?,
     unread: Set<String>,
+    unreadCounts: Map<String, Int>,
     dmTyping: Set<String>,
     me: ProfileUserDto?,
     meFallback: String,
@@ -1264,7 +1266,7 @@ private fun Sidebar(
                                 )
                             }
                         else -> OrbitList(
-                            srv, activeChatId, unread, members, voicePresence, myId, myVoiceChannelId,
+                            srv, activeChatId, unread, unreadCounts, members, voicePresence, myId, myVoiceChannelId,
                             onOpenChat, onOpenVoice,
                             onNewChannelInCat = { catId -> srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } },
                             onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
@@ -1397,6 +1399,7 @@ private fun OrbitList(
     server: ServerDto?,
     activeChatId: String?,
     unread: Set<String>,
+    unreadCounts: Map<String, Int>,
     members: List<ServerMemberDto>,
     voicePresence: Map<String, List<String>>,
     myId: String?,
@@ -1437,7 +1440,7 @@ private fun OrbitList(
         itemsIndexed(loose, key = { _, ch -> ch.id }) { i, ch ->
             CascadeIn(i, server.id) {
                 OrbitEntry(
-                    ch, ch.id == activeChatId, ch.id in unread,
+                    ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                     members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
                     dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels) else null,
                     menu = chMenu,
@@ -1495,7 +1498,7 @@ private fun OrbitList(
             itemsIndexed(visible, key = { _, ch -> ch.id }) { i, ch ->
                 CascadeIn(headerRow + 1 + i, server.id) {
                     OrbitEntry(
-                        ch, ch.id == activeChatId, ch.id in unread,
+                        ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                         members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
                         // Reordena so quando aberta (indice do visivel == indice real).
                         dragCtx = if (isOwner && !collapsed)
@@ -1669,6 +1672,7 @@ private fun OrbitEntry(
     ch: ChannelDto,
     active: Boolean,
     unread: Boolean,
+    unreadCount: Int,
     members: List<ServerMemberDto>,
     voicePresence: Map<String, List<String>>,
     myId: String?,
@@ -1696,7 +1700,7 @@ private fun OrbitEntry(
                 }
             }
         }) {
-            OrbitItem(ch, active, unread, onOpenChat, onOpenVoice, dragCtx)
+            OrbitItem(ch, active, unread, unreadCount, onOpenChat, onOpenVoice, dragCtx)
             if (confirmDelCh) ConfirmPopup(
                 message = "excluir a órbita ${ch.name}? apaga as mensagens dela — não dá pra desfazer.",
                 confirmLabel = "excluir",
@@ -1961,6 +1965,7 @@ private fun OrbitItem(
     ch: ChannelDto,
     active: Boolean,
     unread: Boolean,
+    unreadCount: Int,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
     dragCtx: ChannelDragCtx? = null,
@@ -2010,7 +2015,13 @@ private fun OrbitItem(
                     fontWeight = if (isUnread) FontWeight.Medium else FontWeight.Normal,
                 ),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
+            // Badge de nao-lidas (so quando NAO esta aberto): circulo ambar 99+.
+            if (!active && unreadCount > 0) {
+                Spacer(Modifier.width(6.dp))
+                UnreadCountBadge(unreadCount)
+            }
         }
         if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
         // Marca de insercao do drag: linha accent no topo (subindo) ou na base
@@ -2028,6 +2039,27 @@ private fun OrbitItem(
                     .background(Obsidian.accent),
             )
         }
+    }
+}
+
+// Badge de nao-lidas: circulo ambar com o numero (cap 99+). Numero escuro
+// (Obsidian.base) pra contraste no ambar — marca da constelacao, nao vermelho.
+@Composable
+private fun UnreadCountBadge(count: Int) {
+    Box(
+        Modifier
+            .height(18.dp)
+            .widthIn(min = 18.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .background(Obsidian.accent)
+            .padding(horizontal = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (count > 99) "99+" else count.toString(),
+            style = TextStyle(color = Obsidian.base, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+        )
     }
 }
 

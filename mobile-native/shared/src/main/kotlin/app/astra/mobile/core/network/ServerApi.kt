@@ -112,6 +112,10 @@ interface ServerApi {
     @GET("api/reads/channels")
     suspend fun channelReads(): ApiEnvelope<Map<String, String>>
 
+    // Contagem de nao-lidas por canal (badge com numero). channelId -> qtd.
+    @GET("api/reads/channels/counts")
+    suspend fun channelUnreadCounts(): ApiEnvelope<Map<String, Int>>
+
     @POST("api/servers/{serverId}/channels")
     suspend fun createChannel(
         @Path("serverId") serverId: String,

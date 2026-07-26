@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.heightIn
@@ -439,10 +440,11 @@ fun ShellScreen(
         }
 
         // Ctrl+K: quick-switcher em takeover (fade + leve zoom, como o settings).
+        // Nasce do topo-centro (onde o card fica), nao do centro da tela.
         AnimatedVisibility(
             visible = paletteOpen,
-            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f),
-            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f),
+            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f)),
+            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f)),
         ) {
             CommandPalette(
                 servers = state.servers,
@@ -459,11 +461,12 @@ fun ShellScreen(
             )
         }
 
-        // Busca-A (lupa no titlebar): palette dedicada com abas. Fade+zoom sutil.
+        // Busca-A (lupa no titlebar): palette dedicada com abas. Fade+zoom sutil,
+        // nascendo do topo-centro (posicao do card).
         AnimatedVisibility(
             visible = searchOpen,
-            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f),
-            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f),
+            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f)),
+            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f)),
         ) {
             SearchOverlay(
                 currentServerId = state.selectedServer?.id,
@@ -476,11 +479,12 @@ fun ShellScreen(
             )
         }
 
-        // Notificacoes-A (sino no titlebar): dropdown topo-direita. Fade+zoom sutil.
+        // Notificacoes-A (sino no titlebar): dropdown topo-direita. Nasce do canto
+        // do sino (topo-direita), nao do centro da tela.
         AnimatedVisibility(
             visible = notifOpen,
-            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f),
-            exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f),
+            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
+            exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
         ) {
             NotifPanel(
                 onClose = onCloseNotif,

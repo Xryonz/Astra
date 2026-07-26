@@ -454,6 +454,7 @@ private fun MessageRow(
     val pillInteraction = remember { MutableInteractionSource() }
     val pillHovered by pillInteraction.collectIsHoveredAsState()
     var pickerOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
     // animateXAsState SEM `by`: guarda o State e le o valor DENTRO do lambda de
@@ -501,10 +502,18 @@ private fun MessageRow(
             }
             if (msg.mine) {
                 add(MenuEntry.Separator)
-                add(MenuEntry.Item("excluir", danger = true, icon = Lucide.Trash2) { onDelete() })
+                add(MenuEntry.Item("excluir", danger = true, icon = Lucide.Trash2) { confirmDelete = true })
             }
         }
     }) {
+    if (confirmDelete) {
+        ConfirmPopup(
+            message = "apagar esta mensagem? nao da pra desfazer.",
+            confirmLabel = "apagar",
+            onConfirm = { confirmDelete = false; onDelete() },
+            onDismiss = { confirmDelete = false },
+        )
+    }
     Box(
         Modifier
             .fillMaxWidth()

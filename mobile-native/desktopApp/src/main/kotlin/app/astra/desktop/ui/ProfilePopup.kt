@@ -91,6 +91,7 @@ fun ProfileAnchor(
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
+    var full by remember { mutableStateOf(false) }
     Box(
         Modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -111,14 +112,24 @@ fun ProfileAnchor(
                         open = false
                         onStartDm(u, t)
                     },
+                    // "ver perfil completo": fecha o card e abre o modal central.
+                    onOpenFull = { open = false; full = true },
                 )
             }
         }
     }
+    if (full) {
+        ProfilePage(
+            userId = userId,
+            isMe = isMe,
+            onStartDm = { u, t -> full = false; onStartDm(u, t) },
+            onClose = { full = false },
+        )
+    }
 }
 
 @Composable
-private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, String) -> Unit) {
+private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, String) -> Unit, onOpenFull: () -> Unit) {
     val koin = GlobalContext.get()
     var profile by remember(userId) { mutableStateOf(cached(userId)) }
     LaunchedEffect(userId) {
@@ -216,8 +227,26 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                                 maxLines = 3, overflow = TextOverflow.Ellipsis,
                             )
                         }
+                        Spacer(Modifier.height(12.dp))
+                        val fullSrc = remember { MutableInteractionSource() }
+                        Text(
+                            "ver perfil completo",
+                            style = TextStyle(
+                                color = Obsidian.text2,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickScale(fullSrc)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+                                .clickable(interactionSource = fullSrc, indication = null, onClick = onOpenFull)
+                                .padding(vertical = 8.dp),
+                            maxLines = 1,
+                        )
                         if (!isMe) {
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(8.dp))
                             Text(
                                 "enviar sussurro",
                                 style = TextStyle(

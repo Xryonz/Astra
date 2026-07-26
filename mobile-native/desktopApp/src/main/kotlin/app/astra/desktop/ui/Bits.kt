@@ -139,8 +139,18 @@ val LocalMsgDensity = staticCompositionLocalOf { MsgDensity() }
 // indices animam — item que entra por scroll aparece pronto (LazyColumn recicla).
 private const val CASCADE_MAX = 14
 
+// stepMs/startDelayMs/translateY tem default = comportamento antigo, entao os
+// call-sites de lista (que passam so index+listKey) nao mudam. O ProfilePage passa
+// um passo maior (ritmo "um de cada vez") pro perfil.
 @Composable
-fun CascadeIn(index: Int, listKey: Any?, content: @Composable () -> Unit) {
+fun CascadeIn(
+    index: Int,
+    listKey: Any?,
+    stepMs: Long = 26L,
+    startDelayMs: Long = 0L,
+    translateY: Dp = 10.dp,
+    content: @Composable () -> Unit,
+) {
     // Reduzir movimento: entra pronto, sem stagger.
     if (LocalReduceMotion.current) {
         content()
@@ -150,14 +160,14 @@ fun CascadeIn(index: Int, listKey: Any?, content: @Composable () -> Unit) {
     val enter = remember(listKey) { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(listKey) {
         if (enter.value < 1f) {
-            delay(index * 26L)
+            delay(startDelayMs + index * stepMs)
             enter.animateTo(1f, tween(230, easing = EaseOutStd))
         }
     }
     Box(
         Modifier.graphicsLayer {
             alpha = enter.value
-            translationY = (1f - enter.value) * 10.dp.toPx()
+            translationY = (1f - enter.value) * translateY.toPx()
         },
     ) {
         content()

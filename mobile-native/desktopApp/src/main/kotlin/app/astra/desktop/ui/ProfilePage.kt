@@ -3,6 +3,7 @@ package app.astra.desktop.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,10 +32,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -55,6 +61,8 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutSoft
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.UserApi
@@ -62,6 +70,8 @@ import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import java.time.Instant
 import java.time.ZoneId
@@ -101,19 +111,32 @@ fun ProfilePage(
     // Entrada: scrim faz fade, o card escala/sobe de leve. Uma passada; reduzir
     // movimento -> aparece pronto. Lido dentro do graphicsLayer (frame sem recompor).
     val reduce = LocalReduceMotion.current
+    val scope = rememberCoroutineScope()
     val appear = remember { Animatable(if (reduce) 1f else 0f) }
+    var closing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (appear.value < 1f) {
             appear.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow))
         }
     }
+    // Fecha ANIMANDO (a mesma curva tocada pra tras) antes de avisar o host — sem
+    // isso o modal some seco. `closing` trava reentrada (duplo clique scrim/X/Esc).
+    fun requestClose() {
+        if (closing) return
+        closing = true
+        if (reduce) { onClose(); return }
+        scope.launch {
+            appear.animateTo(0f, tween(160, easing = EaseOutStd))
+            onClose()
+        }
+    }
 
     Popup(
         popupPositionProvider = CenterFill,
-        onDismissRequest = onClose,
+        onDismissRequest = { requestClose() },
         properties = PopupProperties(focusable = true),
         onPreviewKeyEvent = { e ->
-            if (e.key == Key.Escape && e.type == KeyEventType.KeyDown) { onClose(); true } else false
+            if (e.key == Key.Escape && e.type == KeyEventType.KeyDown) { requestClose(); true } else false
         },
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -121,12 +144,12 @@ fun ProfilePage(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = appear.value }
+                    .graphicsLayer { alpha = appear.value.coerceIn(0f, 1f) }
                     .background(Color.Black.copy(alpha = 0.6f))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = onClose,
+                        onClick = { requestClose() },
                     ),
             )
             // Card central.
@@ -134,7 +157,7 @@ fun ProfilePage(
                 Column(
                     Modifier
                         .graphicsLayer {
-                            alpha = appear.value
+                            alpha = appear.value.coerceIn(0f, 1f)
                             val s = 0.94f + 0.06f * appear.value
                             scaleX = s
                             scaleY = s
@@ -157,7 +180,7 @@ fun ProfilePage(
                     if (d == null) {
                         PageSkeleton()
                     } else {
-                        PageBody(d, isMe, onStartDm, onClose)
+                        PageBody(d, isMe, onStartDm, { requestClose() })
                     }
                 }
             }
@@ -171,6 +194,15 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
     val p = d.user
     val ring = userColor(p.id)
     val name = p.displayName ?: p.username
+    // Avatar "pop" com overshoot depois que o card assenta (unico momento bouncy).
+    val reduce = LocalReduceMotion.current
+    val avatarPop = remember(p.id) { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(p.id) {
+        if (!reduce) {
+            delay(200)
+            avatarPop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 500f))
+        }
+    }
 
     Box {
         ProfileBanner(
@@ -181,6 +213,8 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             fallback = Obsidian.overlay,
             modifier = Modifier.fillMaxWidth().height(140.dp),
         )
+        // Sweep de luz ambar atravessa o banner uma vez (alvorecer).
+        BannerSweep(p.id, Modifier.fillMaxWidth().height(140.dp))
         // Fechar (x) no canto do banner.
         val closeSrc = remember { MutableInteractionSource() }
         Box(
@@ -201,6 +235,12 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
         Box(
             Modifier
                 .offset(y = (-38).dp)
+                .graphicsLayer {
+                    alpha = avatarPop.value.coerceIn(0f, 1f)
+                    val s = 0.6f + 0.4f * avatarPop.value
+                    scaleX = s
+                    scaleY = s
+                }
                 .clip(CircleShape)
                 .background(Obsidian.raised)
                 .border(4.dp, ring, CircleShape)
@@ -210,7 +250,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
         }
         Column(Modifier.offset(y = (-24).dp)) {
             // Secoes em cascata (stagger fade+subida) — idioma do CascadeIn.
-            CascadeIn(0, p.id) {
+            CascadeIn(0, p.id, stepMs = 40L, startDelayMs = 220L) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         name,
@@ -222,7 +262,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                     StatusDot(status = userStatus(p.effectiveStatus), size = 12.dp, cutoutColor = Obsidian.raised)
                 }
             }
-            CascadeIn(1, p.id) {
+            CascadeIn(1, p.id, stepMs = 40L, startDelayMs = 220L) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("@${p.username}", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, fontFamily = DmMono))
                     if (!p.pronouns.isNullOrBlank()) {
@@ -232,7 +272,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             }
             if (!p.customStatus.isNullOrBlank() || !p.statusEmoji.isNullOrBlank()) {
                 Spacer(Modifier.height(12.dp))
-                CascadeIn(2, p.id) {
+                CascadeIn(2, p.id, stepMs = 40L, startDelayMs = 220L) {
                     Text(
                         listOfNotNull(p.statusEmoji, p.customStatus).joinToString(" "),
                         style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
@@ -241,7 +281,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             }
             if (!p.bio.isNullOrBlank()) {
                 Spacer(Modifier.height(14.dp))
-                CascadeIn(3, p.id) {
+                CascadeIn(3, p.id, stepMs = 40L, startDelayMs = 220L) {
                     Column {
                         HairRule()
                         Spacer(Modifier.height(10.dp))
@@ -256,7 +296,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             }
             memberSince(p.createdAt)?.let { since ->
                 Spacer(Modifier.height(14.dp))
-                CascadeIn(4, p.id) {
+                CascadeIn(4, p.id, stepMs = 40L, startDelayMs = 220L) {
                     Column {
                         HairRule()
                         Spacer(Modifier.height(10.dp))
@@ -271,7 +311,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             }
             if (d.mutualServers.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
-                CascadeIn(5, p.id) {
+                CascadeIn(5, p.id, stepMs = 40L, startDelayMs = 220L) {
                     Column {
                         HairRule()
                         Spacer(Modifier.height(10.dp))
@@ -281,14 +321,14 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            d.mutualServers.forEach { MutualChip(it) }
+                            d.mutualServers.forEachIndexed { i, s -> MutualChip(s, i) }
                         }
                     }
                 }
             }
             if (!isMe) {
                 Spacer(Modifier.height(18.dp))
-                CascadeIn(6, p.id) {
+                CascadeIn(6, p.id, stepMs = 40L, startDelayMs = 220L) {
                     val src = remember { MutableInteractionSource() }
                     Text(
                         "enviar sussurro",
@@ -319,11 +359,29 @@ private fun SectionLabel(text: String) {
     )
 }
 
+private const val CHIP_STAGGER_MAX = 10
+
 @Composable
-private fun MutualChip(s: MutualServerDto) {
+private fun MutualChip(s: MutualServerDto, index: Int) {
+    val reduce = LocalReduceMotion.current
+    // 2o nivel de stagger: cada chip escala/aparece um tico depois do anterior.
+    // Escala (nao translateY) — o FlowRow quebra linha, subir por linha ficaria torto.
+    val pop = remember(s.id) { Animatable(if (reduce || index !in 0 until CHIP_STAGGER_MAX) 1f else 0f) }
+    LaunchedEffect(s.id) {
+        if (pop.value < 1f) {
+            delay(index * 18L)
+            pop.animateTo(1f, tween(180, easing = EaseOutStd))
+        }
+    }
     val src = remember { MutableInteractionSource() }
     Row(
         Modifier
+            .graphicsLayer {
+                alpha = pop.value
+                val sc = 0.85f + 0.15f * pop.value
+                scaleX = sc
+                scaleY = sc
+            }
             .clickScale(src)
             .clip(RoundedCornerShape(9.dp))
             .background(Obsidian.overlay)
@@ -346,6 +404,34 @@ private fun MutualChip(s: MutualServerDto) {
             modifier = Modifier.width(96.dp),
         )
     }
+}
+
+// Sweep de luz ambar diagonal que atravessa o banner UMA vez na abertura (tipo
+// alvorecer). Sutil (pico alpha 0.15), GPU-only, um-shot. Reduzir movimento = some.
+@Composable
+private fun BannerSweep(seedKey: Any?, modifier: Modifier = Modifier) {
+    if (LocalReduceMotion.current) return
+    val sweep = remember(seedKey) { Animatable(0f) }
+    LaunchedEffect(seedKey) {
+        delay(90)
+        sweep.animateTo(1f, tween(650, easing = EaseOutSoft))
+    }
+    Box(
+        modifier
+            .clipToBounds()
+            .graphicsLayer {
+                translationX = (sweep.value * 1.8f - 0.5f) * size.width
+                rotationZ = -16f
+            }
+            .drawBehind {
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color.Transparent, Obsidian.accent.copy(alpha = 0.15f), Color.Transparent),
+                    ),
+                    size = Size(size.width * 0.4f, size.height * 2f),
+                )
+            },
+    )
 }
 
 @Composable

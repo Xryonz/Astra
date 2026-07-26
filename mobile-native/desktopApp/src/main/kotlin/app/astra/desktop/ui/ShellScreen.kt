@@ -381,6 +381,7 @@ fun ShellScreen(
             onStartDm = vm::startDm,
             showDiscover = state.selection is Selection.Discover,
             onDiscoverJoined = vm::refreshServersAndSelect,
+            joinedServerIds = state.servers.map { it.id }.toSet(),
             showFriends = state.selection is Selection.Dms && state.friendsOpen,
             firstSteps = firstSteps,
             modifier = Modifier.weight(1f),
@@ -2206,6 +2207,9 @@ private fun Stage(
     onStartDm: (String, String) -> Unit,
     showDiscover: Boolean,
     onDiscoverJoined: (String) -> Unit,
+    // IDs dos servidores que ja sou membro — o Discover troca "entrar" por "voce ja
+    // esta aqui" nesses cards.
+    joinedServerIds: Set<String> = emptySet(),
     showFriends: Boolean,
     // Checklist de 1o acesso, quando ativo — renderizado no palco vazio.
     firstSteps: (@Composable () -> Unit)? = null,
@@ -2221,7 +2225,7 @@ private fun Stage(
         }
         // Descobrir ocupa o palco inteiro (tem cabecalho + busca proprios).
         if (showDiscover) {
-            DiscoverView(onDiscoverJoined, Modifier.fillMaxSize())
+            DiscoverView(onDiscoverJoined, joinedIds = joinedServerIds, modifier = Modifier.fillMaxSize())
             return@Column
         }
         // Top bar do palco

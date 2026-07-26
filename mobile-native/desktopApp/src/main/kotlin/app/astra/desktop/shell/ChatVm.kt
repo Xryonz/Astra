@@ -485,6 +485,8 @@ class ChatVm(
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         val content = newContent.trim()
         if (content.isEmpty()) return
+        // Sem mudanca real -> nao chama a API e nao marca "editado" (so fecha o editor).
+        if (_state.value.messages.firstOrNull { it.id == messageId }?.content == content) return
         scope.launch {
             runCatching { channelApi.editMessage(channelId, messageId, EditChannelRequest(content)) }
                 .onSuccess {

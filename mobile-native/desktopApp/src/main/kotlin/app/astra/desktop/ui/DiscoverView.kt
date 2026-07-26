@@ -43,6 +43,7 @@ import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.dto.DiscoverServerDto
 import coil3.compose.AsyncImage
 import com.composables.icons.lucide.Compass
+import com.composables.icons.lucide.LogIn
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Users
@@ -56,7 +57,7 @@ import retrofit2.HttpException
 // /discover/:id/join e o onJoined recarrega os servidores + cai na constelacao.
 // API/DTOs vem do :shared (DiscoverApi movida do :app).
 @Composable
-fun DiscoverView(onJoined: (String) -> Unit, modifier: Modifier = Modifier) {
+fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet(), modifier: Modifier = Modifier) {
     val api = remember { GlobalContext.get().get<DiscoverApi>() }
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
@@ -150,7 +151,7 @@ fun DiscoverView(onJoined: (String) -> Unit, modifier: Modifier = Modifier) {
                     // Cascata de entrada ao carregar/buscar (re-dispara quando o
                     // conjunto muda de tamanho). GPU-only (fade + leve subida).
                     CascadeIn(i, results.size) {
-                        DiscoverCard(s, joining = joining == s.id, onJoin = { join(s.id) })
+                        DiscoverCard(s, joining = joining == s.id, isMember = s.id in joinedIds, onJoin = { join(s.id) })
                     }
                 }
             }
@@ -159,7 +160,7 @@ fun DiscoverView(onJoined: (String) -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, onJoin: () -> Unit) {
+private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boolean, onJoin: () -> Unit) {
     Column(
         Modifier
             .clip(RoundedCornerShape(12.dp))
@@ -206,16 +207,30 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, onJoin: () -> U
                 )
                 Spacer(Modifier.weight(1f))
                 val joinSrc = remember { MutableInteractionSource() }
-                Text(
-                    if (joining) "entrando…" else "entrar",
-                    style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
-                    modifier = Modifier
-                        .clickScale(joinSrc)
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                        .clickable(interactionSource = joinSrc, indication = null, enabled = !joining, onClick = onJoin)
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                )
+                if (isMember) {
+                    // Ja e membro: nada de "entrar" — so um aviso discreto.
+                    Text(
+                        "voce ja esta aqui",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    )
+                } else {
+                    Row(
+                        Modifier
+                            .clickScale(joinSrc)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
+                            .clickable(interactionSource = joinSrc, indication = null, enabled = !joining, onClick = onJoin)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LIcon(Lucide.LogIn, tint = Obsidian.accent, size = 13.dp)
+                        Text(
+                            if (joining) "entrando…" else "entrar",
+                            style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
+                        )
+                    }
+                }
             }
         }
     }

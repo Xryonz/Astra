@@ -193,7 +193,6 @@ fun ProfilePage(
 @Composable
 private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, String) -> Unit, onClose: () -> Unit) {
     val p = d.user
-    val ring = userColor(p.id)
     val name = p.displayName ?: p.username
     // Avatar "pop" com overshoot depois que o card assenta (unico momento bouncy).
     val reduce = LocalReduceMotion.current
@@ -234,6 +233,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
     Column(Modifier.padding(horizontal = 20.dp)) {
         // Avatar sobrepondo ~1/3 do banner (mesma proporcao do card).
         Box(
+            // Sem anel por enquanto (decoracoes de perfil tipo Discord virao depois).
             Modifier
                 .offset(y = (-38).dp)
                 .graphicsLayer {
@@ -241,11 +241,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                     val s = 0.6f + 0.4f * avatarPop.value
                     scaleX = s
                     scaleY = s
-                }
-                .clip(CircleShape)
-                .background(Obsidian.raised)
-                .border(4.dp, ring, CircleShape)
-                .padding(4.dp),
+                },
         ) {
             DesktopAvatar(p.avatarUrl, name, 88)
         }

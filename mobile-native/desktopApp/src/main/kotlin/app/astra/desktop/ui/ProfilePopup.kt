@@ -159,7 +159,6 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
             if (p == null) {
                 CardSkeleton()
             } else {
-                val ring = userColor(p.id)
                 // bannerColor guarda CSS ("linear-gradient(...)"), nao hex — ler
                 // como hex fazia TODO gradiente virar cinza liso aqui. ProfileBanner
                 // traduz o CSS e aplica o enquadramento salvo.
@@ -173,15 +172,9 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Box(
-                        // Sobrepoe so ~1/3 do avatar no banner (offset < altura do
-                        // avatar). Avatar menor (56) + banner mais alto (124) dao mais
-                        // destaque pro banner (referencia: Discord).
-                        Modifier
-                            .offset(y = (-20).dp)
-                            .clip(CircleShape)
-                            .background(Obsidian.raised)
-                            .border(3.dp, ring, CircleShape)
-                            .padding(3.dp),
+                        // Sem anel por enquanto (decoracoes de perfil tipo Discord virao
+                        // depois). So a foto, sobrepondo ~1/3 do banner mais alto.
+                        Modifier.offset(y = (-20).dp),
                     ) {
                         DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 56)
                     }

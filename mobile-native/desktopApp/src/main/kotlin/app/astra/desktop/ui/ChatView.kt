@@ -381,7 +381,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                         draft = it.take(4000)
                         if (it.isNotBlank()) vm.typing()
                     },
-                    placeholder = "mensagem em ${target.title}",
+                    placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}",
                     singleLine = false,
                     animation = InputAnimation.Glow,
                     modifier = Modifier

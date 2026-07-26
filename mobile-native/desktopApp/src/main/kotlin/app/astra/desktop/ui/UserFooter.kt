@@ -228,7 +228,6 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
     var nameField by remember { mutableStateOf(me.displayName ?: "") }
     var pronounsField by remember { mutableStateOf(me.pronouns ?: "") }
     var bioField by remember { mutableStateOf(me.bio ?: "") }
-    val ring = userColor(me.id)
 
     Column(
         Modifier
@@ -252,14 +251,8 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
         }
         Column(Modifier.padding(horizontal = 16.dp)) {
             Box(
-                // Mesma proporcao do card dos outros (ProfilePopup): avatar maior
-                // sobrepondo so ~1/3 do banner mais alto.
-                Modifier
-                    .offset(y = (-20).dp)
-                    .clip(CircleShape)
-                    .background(Obsidian.raised)
-                    .border(3.dp, ring, CircleShape)
-                    .padding(3.dp),
+                // Sem anel por enquanto (decoracoes de perfil tipo Discord virao depois).
+                Modifier.offset(y = (-20).dp),
             ) {
                 DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 56)
             }

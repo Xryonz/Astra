@@ -1,5 +1,7 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +49,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.graphics.vector.ImageVector
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import com.composables.icons.lucide.Lucide
@@ -79,6 +83,12 @@ fun Lightbox(url: String, onClose: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    // Entrada: o overlay inteiro faz fade-in e a imagem cresce de leve (0.96->1).
+    // Uma passada so; respeita reduzir movimento (entra pronto). Lido dentro do
+    // graphicsLayer -> frame sem recomposicao.
+    val reduce = LocalReduceMotion.current
+    val reveal = remember { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(Unit) { if (reveal.value < 1f) reveal.animateTo(1f, tween(180, easing = EaseOutStd)) }
 
     Popup(
         popupPositionProvider = FillWindow,
@@ -95,6 +105,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
         Box(
             Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = reveal.value }
                 .background(Color.Black.copy(alpha = 0.84f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -115,8 +126,9 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                     .fillMaxSize()
                     .padding(48.dp)
                     .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
+                        val enter = 0.96f + 0.04f * reveal.value
+                        scaleX = scale * enter
+                        scaleY = scale * enter
                         translationX = offset.x
                         translationY = offset.y
                     }

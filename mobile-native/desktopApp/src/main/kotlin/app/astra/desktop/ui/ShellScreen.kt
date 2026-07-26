@@ -528,6 +528,7 @@ fun ConfirmPopup(
     ) {
         Column(
             Modifier
+                .popupReveal()
                 .clip(RoundedCornerShape(10.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
@@ -1009,6 +1010,7 @@ private fun CreateServerButton(onCreateServer: (name: String, isGroup: Boolean) 
                     Modifier
                         // max obrigatorio: sem ele o fillMaxWidth das linhas estica o
                         // card pra largura da janela inteira (o Popup da constraint cheia).
+                        .popupReveal()
                         .widthIn(min = 170.dp, max = 230.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(Obsidian.overlay)

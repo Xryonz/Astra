@@ -223,6 +223,7 @@ private fun EmojiSubRow(sub: MenuEntry.EmojiSub, dismiss: () -> Unit) {
             Popup(popupPositionProvider = SubmenuBeside) {
                 Row(
                     Modifier
+                        .popupReveal(originX = 0f, originY = 0.5f)
                         .clip(RoundedCornerShape(999.dp))
                         .background(Obsidian.overlay)
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(999.dp))

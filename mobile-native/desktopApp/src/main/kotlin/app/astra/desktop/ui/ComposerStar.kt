@@ -139,18 +139,20 @@ fun ComposerStarButton(
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
-                when (pane) {
-                    StarPane.MENU -> StarMenu(
-                        onEmoji = { pane = StarPane.EMOJI },
-                        onGif = { pane = StarPane.GIF },
-                    )
-                    // Emoji fica aberto pra escolher varios (mesmo comportamento de
-                    // antes); GIF fecha porque escolher JA ENVIA.
-                    StarPane.EMOJI -> ReactionPicker(onPick = onPickEmoji)
-                    StarPane.GIF -> GifPanel(onPick = { g ->
-                        open = false
-                        onPickGif(g)
-                    })
+                PopupReveal(originX = 1f, originY = 1f) {
+                    when (pane) {
+                        StarPane.MENU -> StarMenu(
+                            onEmoji = { pane = StarPane.EMOJI },
+                            onGif = { pane = StarPane.GIF },
+                        )
+                        // Emoji fica aberto pra escolher varios (mesmo comportamento de
+                        // antes); GIF fecha porque escolher JA ENVIA.
+                        StarPane.EMOJI -> ReactionPicker(onPick = onPickEmoji)
+                        StarPane.GIF -> GifPanel(onPick = { g ->
+                            open = false
+                            onPickGif(g)
+                        })
+                    }
                 }
             }
         }

@@ -274,6 +274,7 @@ fun VoiceView(
                     ) {
                         Column(
                             Modifier
+                                .popupReveal(originX = 0.5f, originY = 1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Obsidian.raised)
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
@@ -313,16 +314,18 @@ fun VoiceView(
                         onDismissRequest = { settingsOpen = false },
                         properties = PopupProperties(focusable = true),
                     ) {
-                        CallSettingsPanel(
-                            current = prefState.screenQuality,
-                            onPick = { engine.setScreenQuality(it) },
-                            inputs = remember { engine.inputDevices() },
-                            outputs = remember { engine.outputDevices() },
-                            selectedInput = prefState.audioInput,
-                            selectedOutput = prefState.audioOutput,
-                            onPickInput = { engine.setInputDevice(it) },
-                            onPickOutput = { engine.setOutputDevice(it) },
-                        )
+                        PopupReveal(originX = 0.5f, originY = 1f) {
+                            CallSettingsPanel(
+                                current = prefState.screenQuality,
+                                onPick = { engine.setScreenQuality(it) },
+                                inputs = remember { engine.inputDevices() },
+                                outputs = remember { engine.outputDevices() },
+                                selectedInput = prefState.audioInput,
+                                selectedOutput = prefState.audioOutput,
+                                onPickInput = { engine.setInputDevice(it) },
+                                onPickOutput = { engine.setOutputDevice(it) },
+                            )
+                        }
                     }
                 }
             }

@@ -602,7 +602,9 @@ private fun MessageRow(
                 onDismissRequest = { pickerOpen = false },
                 properties = PopupProperties(focusable = true),
             ) {
-                ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
+                PopupReveal(originX = 1f, originY = 0f) {
+                    ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
+                }
             }
         }
     }

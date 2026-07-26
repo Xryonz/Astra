@@ -1095,6 +1095,7 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
             ) {
                 Column(
                     Modifier
+                        .popupReveal()
                         .width(390.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Obsidian.overlay)
@@ -1318,7 +1319,9 @@ private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
-                ReactionPicker(onPick = { onPick(it); open = false })
+                PopupReveal {
+                    ReactionPicker(onPick = { onPick(it); open = false })
+                }
             }
         }
     }

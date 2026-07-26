@@ -548,6 +548,7 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
             ) {
                 Column(
                     Modifier
+                        .popupReveal()
                         .width(290.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Obsidian.overlay)

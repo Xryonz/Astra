@@ -164,7 +164,9 @@ fun UserFooter(
                     onDismissRequest = { profileOpen = false },
                     properties = PopupProperties(focusable = true),
                 ) {
-                    ProfileCard(me, onEdited = onEdited, onClose = { profileOpen = false })
+                    PopupReveal(originX = 0.5f, originY = 1f) {
+                        ProfileCard(me, onEdited = onEdited, onClose = { profileOpen = false })
+                    }
                 }
             }
         }

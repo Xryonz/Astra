@@ -137,7 +137,7 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
     ) {
         Column(
             Modifier
-                .width(300.dp)
+                .width(320.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Obsidian.raised)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
@@ -156,24 +156,27 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                     positionY = p.bannerPositionY ?: 50,
                     scale = p.bannerScale ?: 100,
                     fallback = Obsidian.overlay,
-                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Box(
+                        // Sobrepoe so ~1/3 do avatar no banner (offset < altura do
+                        // avatar) — antes cobria ~metade. Banner mais alto + avatar
+                        // maior deixam o card com mais respiro (referencia: Discord).
                         Modifier
-                            .offset(y = (-26).dp)
+                            .offset(y = (-24).dp)
                             .clip(CircleShape)
                             .background(Obsidian.raised)
                             .border(3.dp, ring, CircleShape)
                             .padding(3.dp),
                     ) {
-                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 52)
+                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 68)
                     }
-                    Column(Modifier.offset(y = (-14).dp)) {
+                    Column(Modifier.offset(y = (-8).dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 p.displayName ?: p.username,
-                                style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontWeight = FontWeight.Medium),
+                                style = TextStyle(color = Obsidian.text1, fontSize = 19.sp, fontWeight = FontWeight.Medium),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )
@@ -231,7 +234,7 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                                 maxLines = 1,
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(14.dp))
                     }
                 }
             }

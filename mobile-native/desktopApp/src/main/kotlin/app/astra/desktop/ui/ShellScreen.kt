@@ -262,6 +262,36 @@ fun ShellScreen(
         // Escondidos enquanto o Settings (takeover) esta aberto: assim a UNICA aurora
         // do shell (montada acima) fica continua por baixo do Settings — sem aurora
         // nova, sem salto de posicao ao trocar de aba. Crossfade rapido.
+        // Checklist de 1o acesso (metade "checklist" do onboarding): so pra quem
+        // acabou de passar pelo takeover (pref "checklist:<id>"=1). Risca sozinho
+        // conforme cria constelacao / manda sussurro; some ao completar os dois ou
+        // no "pular".
+        val onbStore = remember { GlobalContext.get().get<SessionStore>() }
+        var checklistActive by remember(session.userId) {
+            mutableStateOf(onbStore.uiPref("checklist:${session.userId}") == "1")
+        }
+        LaunchedEffect(checklistActive, state.servers.size, state.dms.size) {
+            if (checklistActive && state.servers.isNotEmpty() && state.dms.isNotEmpty()) {
+                onbStore.setUiPref("checklist:${session.userId}", "0")
+                checklistActive = false
+            }
+        }
+        val firstSteps: (@Composable () -> Unit)? = if (checklistActive) {
+            {
+                FirstStepsCard(
+                    hasServer = state.servers.isNotEmpty(),
+                    hasDm = state.dms.isNotEmpty(),
+                    hasAvatar = state.me?.avatarUrl != null,
+                    onDismiss = {
+                        onbStore.setUiPref("checklist:${session.userId}", "0")
+                        checklistActive = false
+                    },
+                )
+            }
+        } else {
+            null
+        }
+
         AnimatedVisibility(
             visible = !settingsOpen && !serverSettingsOpen,
             enter = fadeIn(tween(160)),
@@ -352,6 +382,7 @@ fun ShellScreen(
             showDiscover = state.selection is Selection.Discover,
             onDiscoverJoined = vm::refreshServersAndSelect,
             showFriends = state.selection is Selection.Dms && state.friendsOpen,
+            firstSteps = firstSteps,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
@@ -2176,6 +2207,8 @@ private fun Stage(
     showDiscover: Boolean,
     onDiscoverJoined: (String) -> Unit,
     showFriends: Boolean,
+    // Checklist de 1o acesso, quando ativo — renderizado no palco vazio.
+    firstSteps: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
@@ -2279,7 +2312,12 @@ private fun Stage(
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                             )
                         }
-                        else -> EmptyStage(isServer = server != null)
+                        else -> {
+                            EmptyStage(isServer = server != null)
+                            firstSteps?.let { fs ->
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)) { fs() }
+                            }
+                        }
                     }
                 }
             }

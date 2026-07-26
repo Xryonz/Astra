@@ -1,0 +1,101 @@
+package app.astra.desktop.ui
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.ui.theme.Text
+
+// Metade "checklist" do onboarding (combo): cartao flutuante no rodape do palco
+// vazio, so pra quem acabou de passar pelo takeover (Main liga a pref
+// "checklist:<userId>"). Risca sozinho conforme o usuario cumpre cada passo — os
+// estados vem da state do shell (servers/dms/avatar), nao ha rastreio proprio.
+// Some ao completar os dois passos-nucleo (constelacao + sussurro) ou no "pular".
+@Composable
+fun FirstStepsCard(
+    hasServer: Boolean,
+    hasDm: Boolean,
+    hasAvatar: Boolean,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        Modifier
+            .width(340.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Obsidian.overlay.copy(alpha = 0.96f))
+            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
+            .padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "✦ primeiros passos",
+                style = TextStyle(color = Obsidian.accent, fontSize = 14.sp, fontFamily = DmSerif),
+                modifier = Modifier.weight(1f),
+            )
+            val src = remember { MutableInteractionSource() }
+            Text(
+                "pular",
+                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onDismiss),
+            )
+        }
+        Spacer(Modifier.height(13.dp))
+        StepRow(hasAvatar, "escolha sua foto de perfil")
+        Spacer(Modifier.height(10.dp))
+        StepRow(hasServer, "crie ou entre numa constelação — no + da lateral")
+        Spacer(Modifier.height(10.dp))
+        StepRow(hasDm, "mande seu primeiro sussurro")
+    }
+}
+
+@Composable
+private fun StepRow(done: Boolean, label: String) {
+    // O anel se preenche (verde) quando o passo e cumprido — mesma linguagem das
+    // regras do login. Animado, respeita reduzir movimento.
+    val fill by animateFloatAsState(
+        targetValue = if (done) 1f else 0f,
+        animationSpec = tween(if (LocalReduceMotion.current) 0 else 260),
+        label = "stepFill",
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.size(18.dp)) {
+                val r = size.minDimension / 2f
+                drawCircle(color = Obsidian.borderMid, radius = r, style = Stroke(1.4.dp.toPx()))
+                if (fill > 0f) drawCircle(color = Obsidian.success.copy(alpha = fill), radius = r * fill)
+            }
+            if (fill > 0.6f) Text("✓", style = TextStyle(color = Obsidian.void, fontSize = 10.sp))
+        }
+        Spacer(Modifier.width(11.dp))
+        Text(
+            label,
+            style = TextStyle(color = if (done) Obsidian.text3 else Obsidian.text2, fontSize = 12.sp),
+        )
+    }
+}

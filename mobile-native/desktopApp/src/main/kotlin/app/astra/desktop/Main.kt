@@ -301,6 +301,8 @@ fun main() {
                                             displayName = s.displayName,
                                             onDone = {
                                                 store.setUiPref("onboarded:${s.userId}", "1")
+                                                // Liga o checklist residual no palco (a outra metade do combo).
+                                                store.setUiPref("checklist:${s.userId}", "1")
                                                 needsOnboarding = false
                                             },
                                         )

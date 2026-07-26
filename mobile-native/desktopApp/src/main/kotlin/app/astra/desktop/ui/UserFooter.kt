@@ -232,7 +232,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
 
     Column(
         Modifier
-            .width(320.dp)
+            .width(300.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
@@ -240,7 +240,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
         // Banner: imagem > cor > accent apagado.
         val bannerColor = me.bannerColor?.removePrefix("#")?.toLongOrNull(16)
             ?.let { Color(0xFF000000 or it) } ?: Obsidian.overlay
-        Box(Modifier.fillMaxWidth().height(100.dp).background(bannerColor)) {
+        Box(Modifier.fillMaxWidth().height(124.dp).background(bannerColor)) {
             if (!me.bannerUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = me.bannerUrl,
@@ -255,19 +255,22 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                 // Mesma proporcao do card dos outros (ProfilePopup): avatar maior
                 // sobrepondo so ~1/3 do banner mais alto.
                 Modifier
-                    .offset(y = (-24).dp)
+                    .offset(y = (-20).dp)
                     .clip(CircleShape)
                     .background(Obsidian.raised)
                     .border(3.dp, ring, CircleShape)
                     .padding(3.dp),
             ) {
-                DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 68)
+                DesktopAvatar(me.avatarUrl, me.displayName ?: me.username, 56)
             }
             Column(Modifier.offset(y = (-8).dp)) {
                 if (!editing) {
                     Text(
                         me.displayName ?: me.username,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 19.sp, fontWeight = FontWeight.Medium),
+                        style = TextStyle(
+                            color = Obsidian.text1, fontSize = 19.sp, fontWeight = FontWeight.Medium,
+                            fontFamily = profileFontFamily(me.displayFont),
+                        ),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

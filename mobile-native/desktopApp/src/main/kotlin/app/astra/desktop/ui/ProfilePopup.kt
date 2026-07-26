@@ -147,8 +147,10 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
             slideInVertically(tween(280, easing = EaseSpring)) { it / 10 },
     ) {
         Column(
+            // Mais compacto na horizontal (320->300) + banner mais alto (destaque)
+            // + avatar menor: card mais vertical, no espirito do Discord.
             Modifier
-                .width(320.dp)
+                .width(300.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Obsidian.raised)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
@@ -167,27 +169,30 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                     positionY = p.bannerPositionY ?: 50,
                     scale = p.bannerScale ?: 100,
                     fallback = Obsidian.overlay,
-                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    modifier = Modifier.fillMaxWidth().height(124.dp),
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Box(
                         // Sobrepoe so ~1/3 do avatar no banner (offset < altura do
-                        // avatar) — antes cobria ~metade. Banner mais alto + avatar
-                        // maior deixam o card com mais respiro (referencia: Discord).
+                        // avatar). Avatar menor (56) + banner mais alto (124) dao mais
+                        // destaque pro banner (referencia: Discord).
                         Modifier
-                            .offset(y = (-24).dp)
+                            .offset(y = (-20).dp)
                             .clip(CircleShape)
                             .background(Obsidian.raised)
                             .border(3.dp, ring, CircleShape)
                             .padding(3.dp),
                     ) {
-                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 68)
+                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 56)
                     }
                     Column(Modifier.offset(y = (-8).dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 p.displayName ?: p.username,
-                                style = TextStyle(color = Obsidian.text1, fontSize = 19.sp, fontWeight = FontWeight.Medium),
+                                style = TextStyle(
+                                    color = Obsidian.text1, fontSize = 19.sp, fontWeight = FontWeight.Medium,
+                                    fontFamily = profileFontFamily(p.displayFont),
+                                ),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )

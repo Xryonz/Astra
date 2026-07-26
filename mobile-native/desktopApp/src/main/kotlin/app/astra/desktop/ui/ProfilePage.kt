@@ -49,6 +49,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -254,7 +255,10 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         name,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 24.sp, fontWeight = FontWeight.Medium),
+                        style = TextStyle(
+                            color = Obsidian.text1, fontSize = 24.sp, fontWeight = FontWeight.Medium,
+                            fontFamily = profileFontFamily(p.displayFont),
+                        ),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
@@ -332,7 +336,10 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                     val src = remember { MutableInteractionSource() }
                     Text(
                         "enviar sussurro",
-                        style = TextStyle(color = Obsidian.void, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        style = TextStyle(
+                            color = Obsidian.void, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickScale(src)

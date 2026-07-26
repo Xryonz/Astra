@@ -19,14 +19,28 @@ const spamKey = (userId: string, channelId: string) =>
 const muteKey = (userId: string, serverId: string) =>
   `muted:${userId}:${serverId}`
 
+// FAIL-SAFE (mesmo principio do redis.ts): o Redis aqui e cache/contador, NUNCA
+// critico. Se o Upstash cair ou capar por cota (rejeita POR-COMANDO com ReplyError,
+// que o redis.on('error') de conexao NAO pega), estes helpers NAO podem estourar —
+// senao a excecao subia ate o catch do fast_send_text e virava "Erro interno" so
+// no envio de CANAL (o DM nao passa pelo anti-spam). Redis fora = anti-spam
+// degradado (o messageLimiter, com fallback em memoria, ainda segura flood), mas o
+// chat de canal segue funcionando. O banco (mutedMembers) e a fonte da verdade do
+// mute; o Redis so acelera.
+
 export async function trackMessage(
   userId: string,
   channelId: string
 ): Promise<{ spamDetected: boolean; messageCount: number }> {
   const key = spamKey(userId, channelId)
-  const count = await redis.incr(key)
-  if (count === 1) await redis.expire(key, WINDOW_SECONDS)
-  return { spamDetected: count > MAX_MESSAGES, messageCount: count }
+  try {
+    const count = await redis.incr(key)
+    if (count === 1) await redis.expire(key, WINDOW_SECONDS)
+    return { spamDetected: count > MAX_MESSAGES, messageCount: count }
+  } catch {
+    // Redis fora/capado: nao da pra contar -> fail-OPEN (nao bloqueia o envio).
+    return { spamDetected: false, messageCount: 0 }
+  }
 }
 
 export async function muteUser(
@@ -48,7 +62,8 @@ export async function muteUser(
     set: { mutedById: botUserId, reason, expiresAt, createdAt: new Date() },
   })
 
-  await redis.setex(muteKey(userId, serverId), ttl, '1')
+  // Cache do mute: best-effort. O DB acima ja e a fonte da verdade.
+  try { await redis.setex(muteKey(userId, serverId), ttl, '1') } catch { /* cache off */ }
 }
 
 export async function isUserMuted(
@@ -57,8 +72,10 @@ export async function isUserMuted(
 ): Promise<boolean> {
   if (!serverId || typeof serverId !== 'string') return false
 
-  const cached = await redis.exists(muteKey(userId, serverId))
-  if (cached) return true
+  // Cache primeiro; se o Redis falhar, cai direto no DB (fonte da verdade).
+  try {
+    if (await redis.exists(muteKey(userId, serverId))) return true
+  } catch { /* cache off -> DB */ }
 
   const [mute] = await db.select().from(mutedMembers)
     .where(and(eq(mutedMembers.userId, userId), eq(mutedMembers.serverId, serverId)))
@@ -73,7 +90,7 @@ export async function isUserMuted(
   }
 
   const ttl = Math.floor((mute.expiresAt.getTime() - Date.now()) / 1000)
-  if (ttl > 0) await redis.setex(muteKey(userId, serverId), ttl, '1')
+  if (ttl > 0) { try { await redis.setex(muteKey(userId, serverId), ttl, '1') } catch { /* cache off */ } }
 
   return true
 }
@@ -81,14 +98,16 @@ export async function isUserMuted(
 export async function unmuteUser(userId: string, serverId: string): Promise<void> {
   await db.delete(mutedMembers)
     .where(and(eq(mutedMembers.userId, userId), eq(mutedMembers.serverId, serverId)))
-  await redis.del(muteKey(userId, serverId))
+  try { await redis.del(muteKey(userId, serverId)) } catch { /* cache off */ }
 }
 
 export async function getMuteExpiry(userId: string, serverId: string): Promise<number> {
   if (!serverId || typeof serverId !== 'string') return 0
 
-  const ttl = await redis.ttl(muteKey(userId, serverId))
-  if (ttl > 0) return ttl
+  try {
+    const ttl = await redis.ttl(muteKey(userId, serverId))
+    if (ttl > 0) return ttl
+  } catch { /* cache off -> DB */ }
 
   const [mute] = await db.select().from(mutedMembers)
     .where(and(eq(mutedMembers.userId, userId), eq(mutedMembers.serverId, serverId)))
@@ -96,7 +115,6 @@ export async function getMuteExpiry(userId: string, serverId: string): Promise<n
   if (!mute || mute.expiresAt < new Date()) return 0
 
   const secondsLeft = Math.floor((mute.expiresAt.getTime() - Date.now()) / 1000)
-  if (secondsLeft > 0) await redis.setex(muteKey(userId, serverId), secondsLeft, '1')
+  if (secondsLeft > 0) { try { await redis.setex(muteKey(userId, serverId), secondsLeft, '1') } catch { /* cache off */ } }
   return Math.max(0, secondsLeft)
 }
-

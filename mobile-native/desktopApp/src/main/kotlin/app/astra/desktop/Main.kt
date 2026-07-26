@@ -56,6 +56,8 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.shared.AstraShared
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
+import coil3.disk.DiskCache
+import okio.Path.Companion.toPath
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -169,11 +171,27 @@ fun main() {
             transparent = transparentWindow,
         ) {
             // Coil global: data-URIs (avatares no banco) + URLs relativas /uploads.
+            // + cache em disco (300MB) pra nao rebaixar a mesma imagem toda vez —
+            // vive no cache do SO (fora da instalacao, sobrevive a updates). Coil
+            // faz a eviction LRU sozinho ao passar do teto.
             setSingletonImageLoaderFactory { ctx ->
                 ImageLoader.Builder(ctx)
                     .components {
                         add(DataUriMapper())
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
+                    }
+                    .diskCache {
+                        val home = System.getProperty("user.home")
+                        val os = System.getProperty("os.name").orEmpty()
+                        val base = when {
+                            os.startsWith("Windows", true) -> System.getenv("LOCALAPPDATA") ?: "$home\\AppData\\Local"
+                            os.contains("Mac", true) -> "$home/Library/Caches"
+                            else -> System.getenv("XDG_CACHE_HOME") ?: "$home/.cache"
+                        }
+                        DiskCache.Builder()
+                            .directory(java.io.File(base, "Astra/image-cache").absolutePath.toPath())
+                            .maxSizeBytes(300L * 1024 * 1024)
+                            .build()
                     }
                     .build()
             }

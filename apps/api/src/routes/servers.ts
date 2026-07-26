@@ -13,6 +13,7 @@ import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
+import { persistDataUri } from '../lib/storage'
 
 export const serversRouter = Router()
 
@@ -217,8 +218,9 @@ serversRouter.patch(
 
     const patch: Record<string, unknown> = {}
     if (name      !== undefined) patch.name      = name
-    if (iconUrl   !== undefined) patch.iconUrl   = iconUrl
-    if (bannerUrl !== undefined) patch.bannerUrl = bannerUrl
+    // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
+    if (iconUrl   !== undefined) patch.iconUrl   = await persistDataUri(iconUrl)
+    if (bannerUrl !== undefined) patch.bannerUrl = await persistDataUri(bannerUrl)
     if (messageRetentionDays !== undefined)
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
     if (isPublic    !== undefined) patch.isPublic    = isPublic

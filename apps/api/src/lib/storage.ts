@@ -2,6 +2,8 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import path from 'path'
 import fs from 'fs'
+import crypto from 'crypto'
+import sharp from 'sharp'
 
 const {
   R2_ACCOUNT_ID,
@@ -44,4 +46,43 @@ export async function putAttachment(key: string, body: Buffer, mime: string): Pr
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
   await fs.promises.writeFile(path.join(UPLOAD_DIR, key), body)
   return `/uploads/${key}`
+}
+
+function mimeExt(mime: string): string {
+  switch (mime) {
+    case 'image/png':  return 'png'
+    case 'image/jpeg': return 'jpg'
+    case 'image/webp': return 'webp'
+    case 'image/gif':  return 'gif'
+    default:           return 'bin'
+  }
+}
+
+const DATA_URI_RE = /^data:([\w.+-]+\/[\w.+-]+)?(;base64)?,(.*)$/s
+
+// Tira data-URIs do banco: decodifica, joga o binario no R2 (ou disco no
+// fallback) e devolve a URL. Se ja for URL (ou vazio/null), passa direto.
+// PNG/JPEG viram WebP (igual upload.ts, encolhe MUITO); GIF/WebP ficam como
+// estao pra preservar animacao. Falha de decode -> guarda o original.
+export async function persistDataUri<T extends string | null | undefined>(value: T): Promise<T | string> {
+  if (!value || !value.startsWith('data:')) return value
+  const m = DATA_URI_RE.exec(value)
+  if (!m) return value
+
+  const mime = m[1] || 'image/png'
+  const input = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]))
+
+  let body: Buffer = input
+  let outMime = mime
+  let ext = mimeExt(mime)
+  if (mime.startsWith('image/') && mime !== 'image/gif' && mime !== 'image/webp') {
+    try {
+      body = await sharp(input).webp({ quality: 82 }).toBuffer()
+      outMime = 'image/webp'
+      ext = 'webp'
+    } catch { /* imagem estranha: guarda o original */ }
+  }
+
+  const key = `${crypto.randomBytes(16).toString('hex')}.${ext}`
+  return putAttachment(key, body, outMime)
 }

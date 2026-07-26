@@ -8,6 +8,7 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys } from '../lib/redis'
+import { persistDataUri } from '../lib/storage'
 
 const router = Router()
 
@@ -94,8 +95,9 @@ router.patch(
     if (displayName !== undefined) update.displayName = displayName
     if (username    !== undefined) update.username    = username
     if (bio         !== undefined) update.bio         = bio
-    if (avatarUrl   !== undefined) update.avatarUrl   = avatarUrl
-    if (bannerUrl   !== undefined) update.bannerUrl   = bannerUrl
+    // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
+    if (avatarUrl   !== undefined) update.avatarUrl   = await persistDataUri(avatarUrl)
+    if (bannerUrl   !== undefined) update.bannerUrl   = await persistDataUri(bannerUrl)
     if (bannerColor  !== undefined) update.bannerColor  = bannerColor
     if (profileTheme !== undefined) update.profileTheme = profileTheme
     if (bannerPositionY !== undefined) update.bannerPositionY = bannerPositionY

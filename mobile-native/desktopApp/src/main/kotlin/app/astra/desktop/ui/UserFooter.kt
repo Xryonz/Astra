@@ -53,9 +53,11 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.User
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
@@ -116,11 +118,11 @@ fun UserFooter(
     // "definir status" fica pra fatia do submenu generico + API de status.
     EditorialContextMenu(entries = {
         buildList {
-            add(MenuEntry.Item("abrir perfil") { profileOpen = true })
-            me?.let { add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(it.id)) }) }
-            add(MenuEntry.Item("configuracoes") { onOpenSettings(SettingsTab.ACCOUNT) })
+            add(MenuEntry.Item("abrir perfil", icon = Lucide.User) { profileOpen = true })
+            me?.let { add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(it.id)) }) }
+            add(MenuEntry.Item("configuracoes", icon = Lucide.Settings) { onOpenSettings(SettingsTab.ACCOUNT) })
             add(MenuEntry.Separator)
-            add(MenuEntry.Item("sair", danger = true) { confirmLogout = true })
+            add(MenuEntry.Item("sair", danger = true, icon = Lucide.LogOut) { confirmLogout = true })
         }
     }) {
     // Cartao flutuante estilo Discord: inset das bordas da sidebar, cantos

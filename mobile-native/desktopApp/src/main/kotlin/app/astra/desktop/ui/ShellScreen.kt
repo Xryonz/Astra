@@ -112,10 +112,25 @@ import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
+import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.BellOff
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.CheckCheck
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Compass
+import com.composables.icons.lucide.Copy
+import com.composables.icons.lucide.FolderPlus
 import com.composables.icons.lucide.Hash
+import com.composables.icons.lucide.Link
+import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
+import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.UserMinus
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Volume2
 import app.astra.mobile.core.network.ChannelApi
@@ -880,11 +895,11 @@ private fun Rail(
                 EditorialContextMenu(entries = {
                     buildList {
                         srv.inviteCode?.let { code ->
-                            add(MenuEntry.Item("copiar convite") { clipboard.setText(AnnotatedString(code)) })
+                            add(MenuEntry.Item("copiar convite", icon = Lucide.Link) { clipboard.setText(AnnotatedString(code)) })
                         }
-                        add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelacao" else "silenciar constelacao") { onToggleServerMute(srv.id) })
-                        add(MenuEntry.Item("marcar tudo como lido") { onMarkServerRead(srv.id) })
-                        add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(srv.id)) })
+                        add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelacao" else "silenciar constelacao", icon = if (srv.id in mutedServers) Lucide.Bell else Lucide.BellOff) { onToggleServerMute(srv.id) })
+                        add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) { onMarkServerRead(srv.id) })
+                        add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(srv.id)) })
                         // "configuracoes" so pra quem manda: dono (o app ja sabe pelo
                         // ownerId) ou MANAGE_SERVER — este ultimo so e conhecido na
                         // constelacao SELECIONADA, porque as permissoes sao buscadas
@@ -893,11 +908,11 @@ private fun Rail(
                         // abre com as permissoes certas em mao.
                         if (isOwner || canManageSelected(srv.id)) {
                             add(MenuEntry.Separator)
-                            add(MenuEntry.Item("configuracoes") { onOpenServerSettings(srv.id) })
+                            add(MenuEntry.Item("configuracoes", icon = Lucide.Settings) { onOpenServerSettings(srv.id) })
                         }
                         add(MenuEntry.Separator)
-                        if (isOwner) add(MenuEntry.Item("excluir constelacao", danger = true) { confirmDelete = true })
-                        else add(MenuEntry.Item("sair da constelacao", danger = true) { confirmLeave = true })
+                        if (isOwner) add(MenuEntry.Item("excluir constelacao", danger = true, icon = Lucide.Trash2) { confirmDelete = true })
+                        else add(MenuEntry.Item("sair da constelacao", danger = true, icon = Lucide.LogOut) { confirmLeave = true })
                     }
                 }) {
                 if (confirmLeave) {
@@ -1219,13 +1234,13 @@ private fun Sidebar(
                     val isOwnerHere = srv.ownerId == myId
                     EditorialContextMenu(entries = {
                         buildList {
-                            add(MenuEntry.Item("marcar tudo como lido") {
+                            add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) {
                                 srv.channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
                             })
                             if (isOwnerHere) {
                                 add(MenuEntry.Separator)
-                                add(MenuEntry.Item("criar órbita") { chanDialog = ChanDialog.NewChannel(srv.id, null) })
-                                add(MenuEntry.Item("criar categoria") { chanDialog = ChanDialog.NewCategory(srv.id) })
+                                add(MenuEntry.Item("criar órbita", icon = Lucide.Plus) { chanDialog = ChanDialog.NewChannel(srv.id, null) })
+                                add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })
                             }
                         }
                     }) { header() }
@@ -1449,15 +1464,15 @@ private fun OrbitList(
                     var confirmDelCat by remember(cat.id) { mutableStateOf(false) }
                     EditorialContextMenu(entries = {
                         buildList {
-                            if (catUnread) add(MenuEntry.Item("marcar categoria como lida") {
+                            if (catUnread) add(MenuEntry.Item("marcar categoria como lida", icon = Lucide.CheckCheck) {
                                 channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
                             })
-                            add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(cat.id)) })
+                            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })
                             if (isOwner) {
                                 add(MenuEntry.Separator)
-                                add(MenuEntry.Item("criar órbita aqui") { onNewChannelInCat(cat.id) })
-                                add(MenuEntry.Item("renomear categoria") { onRenameCat(cat.id, cat.name) })
-                                add(MenuEntry.Item("excluir categoria", danger = true) { confirmDelCat = true })
+                                add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
+                                add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })
+                                add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })
                             }
                         }
                     }) {
@@ -1671,13 +1686,13 @@ private fun OrbitEntry(
         // Botao direito na orbita: marcar lido / copiar ID (todos) + renomear/excluir (dono).
         EditorialContextMenu(entries = {
             buildList {
-                if (unread) add(MenuEntry.Item("marcar como lido") { menu.onMarkRead(ch.id) })
-                add(MenuEntry.Item(if (ch.id in menu.mutedChannels) "reativar órbita" else "silenciar órbita") { menu.onToggleMute(ch.id) })
-                add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(ch.id)) })
+                if (unread) add(MenuEntry.Item("marcar como lido", icon = Lucide.Check) { menu.onMarkRead(ch.id) })
+                add(MenuEntry.Item(if (ch.id in menu.mutedChannels) "reativar órbita" else "silenciar órbita", icon = if (ch.id in menu.mutedChannels) Lucide.Bell else Lucide.BellOff) { menu.onToggleMute(ch.id) })
+                add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(ch.id)) })
                 if (menu.isOwner) {
                     add(MenuEntry.Separator)
-                    add(MenuEntry.Item("renomear") { menu.onRename(ch.id, ch.name) })
-                    add(MenuEntry.Item("excluir órbita", danger = true) { confirmDelCh = true })
+                    add(MenuEntry.Item("renomear", icon = Lucide.Pencil) { menu.onRename(ch.id, ch.name) })
+                    add(MenuEntry.Item("excluir órbita", danger = true, icon = Lucide.Trash2) { confirmDelCh = true })
                 }
             }
         }) {
@@ -2112,12 +2127,12 @@ private fun DmList(
             EditorialContextMenu(entries = {
                 buildList {
                     add(
-                        MenuEntry.Item(if (conv.muted) "desmutar sussurro" else "mutar sussurro") {
+                        MenuEntry.Item(if (conv.muted) "desmutar sussurro" else "mutar sussurro", icon = if (conv.muted) Lucide.Bell else Lucide.BellOff) {
                             onToggleMute(conv)
                         },
                     )
-                    if (isUnread) add(MenuEntry.Item("marcar como lida") { onMarkRead(conv.id) })
-                    u?.id?.let { uid -> add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(uid)) }) }
+                    if (isUnread) add(MenuEntry.Item("marcar como lida", icon = Lucide.Check) { onMarkRead(conv.id) })
+                    u?.id?.let { uid -> add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(uid)) }) }
                 }
             }) {
             Box(Modifier.fillMaxWidth()) {
@@ -2360,12 +2375,12 @@ private fun MembersPanel(
                     var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
                     EditorialContextMenu(entries = {
                         buildList {
-                            if (!isMe) add(MenuEntry.Item("sussurro") { onStartDm(m.user.username, name) })
-                            add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(m.userId)) })
+                            if (!isMe) add(MenuEntry.Item("sussurro", icon = Lucide.MessageCircle) { onStartDm(m.user.username, name) })
+                            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(m.userId)) })
                             if (isOwner && !isMe && serverId != null) {
                                 add(MenuEntry.Separator)
-                                add(MenuEntry.Item("expulsar", danger = true) { confirmMember = "kick" })
-                                add(MenuEntry.Item("banir", danger = true) { confirmMember = "ban" })
+                                add(MenuEntry.Item("expulsar", danger = true, icon = Lucide.UserMinus) { confirmMember = "kick" })
+                                add(MenuEntry.Item("banir", danger = true, icon = Lucide.Ban) { confirmMember = "ban" })
                             }
                         }
                     }) {
@@ -2373,7 +2388,10 @@ private fun MembersPanel(
                             ConfirmPopup(
                                 message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
                                 confirmLabel = if (act == "ban") "banir" else "expulsar",
-                                onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.userId) },
+                                // kick usa o ID da MEMBERSHIP (serverMembers.id = m.id);
+                                // ban usa o userId no corpo. Mandar userId no kick dava
+                                // 404 (rota casa por serverMembers.id) — bug do "nao expulsa".
+                                onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
                                 onDismiss = { confirmMember = null },
                             )
                         }

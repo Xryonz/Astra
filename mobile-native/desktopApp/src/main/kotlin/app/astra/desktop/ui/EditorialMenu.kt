@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -59,6 +61,9 @@ sealed interface MenuEntry {
     data class Item(
         val label: String,
         val danger: Boolean = false,
+        // Icone opcional a esquerda do texto (Lucide). Herda a cor do texto
+        // (fg animado por hover/danger), pra fundir com a linha.
+        val icon: ImageVector? = null,
         val onClick: () -> Unit,
     ) : MenuEntry
 
@@ -175,9 +180,7 @@ private fun MenuRow(item: MenuEntry.Item, dismiss: () -> Unit) {
         },
         tween(100),
     )
-    Text(
-        item.label,
-        style = TextStyle(color = fg, fontSize = 13.sp),
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
@@ -188,7 +191,15 @@ private fun MenuRow(item: MenuEntry.Item, dismiss: () -> Unit) {
                 item.onClick()
             }
             .padding(horizontal = 10.dp, vertical = 7.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        item.icon?.let {
+            // size 15 alinha com o texto 13sp; cor = fg (segue hover/danger).
+            LIcon(it, tint = fg, size = 15.dp)
+            Spacer(Modifier.width(9.dp))
+        }
+        Text(item.label, style = TextStyle(color = fg, fontSize = 13.sp))
+    }
 }
 
 @Composable

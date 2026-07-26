@@ -104,12 +104,14 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.CircleAlert
+import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.FileImage
 import com.composables.icons.lucide.FileText
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Minus
 import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Pin
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Reply
 import com.composables.icons.lucide.SmilePlus
@@ -483,23 +485,23 @@ private fun MessageRow(
 
     EditorialContextMenu(entries = {
         buildList {
-            add(MenuEntry.Item("responder") { onReply() })
+            add(MenuEntry.Item("responder", icon = Lucide.Reply) { onReply() })
             if (isChannel) add(MenuEntry.EmojiSub("reagir", QUICK_EMOJIS) { onReact(it) })
             add(MenuEntry.Separator)
             if (msg.content.isNotBlank()) {
-                add(MenuEntry.Item("copiar texto") { clipboard.setText(AnnotatedString(msg.content)) })
+                add(MenuEntry.Item("copiar texto", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.content)) })
             }
-            add(MenuEntry.Item("copiar ID") { clipboard.setText(AnnotatedString(msg.id)) })
-            if (isChannel) add(MenuEntry.Item("fixar mensagem") { onPin() })
+            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.id)) })
+            if (isChannel) add(MenuEntry.Item("fixar mensagem", icon = Lucide.Pin) { onPin() })
             // Editar mexe no CONTENT. Mensagem sem texto (gif, imagem, arquivo
             // solto) nao tem o que editar — o campo abria vazio e salvar so
             // esvaziava a mensagem.
             if (isChannel && msg.mine && msg.content.isNotBlank()) {
-                add(MenuEntry.Item("editar") { onStartEdit() })
+                add(MenuEntry.Item("editar", icon = Lucide.Pencil) { onStartEdit() })
             }
             if (msg.mine) {
                 add(MenuEntry.Separator)
-                add(MenuEntry.Item("excluir", danger = true) { onDelete() })
+                add(MenuEntry.Item("excluir", danger = true, icon = Lucide.Trash2) { onDelete() })
             }
         }
     }) {

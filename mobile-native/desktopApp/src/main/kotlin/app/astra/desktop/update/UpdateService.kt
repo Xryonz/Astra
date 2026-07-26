@@ -7,23 +7,31 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.net.UnknownHostException
 import java.time.Duration
 import java.util.zip.ZipInputStream
 import kotlin.system.exitProcess
 
-// Auto-update DIY (zip-swap) do Astra desktop. Sem lib: bate na API publica de
+// Auto-update DIY do Astra desktop, modo PORTATIL (decisao do dono: "pasta com
+// todas as versoes + sempre abrir a mais nova"). Sem lib: bate na API publica de
 // releases do GitHub, compara semver com a versao embutida (-Dastra.version),
-// baixa o .zip do app-image novo com progresso, descompacta num staging ao lado
-// e — no "reiniciar" — solta um .bat que espera o app fechar, troca a pasta
-// (rename quase-atomico e reversivel) e reabre. Usa OkHttp (o MESMO cliente HTTPS
-// do app, que ja funciona no empacotado) — o HttpURLConnection falhava a conexao
-// no JRE do jpackage e o gate mostrava "nao deu pra verificar" toda vez.
+// baixa o .zip do app-image novo com progresso (retry + resume), arquiva o zip e
+// extrai a versao nova numa subpasta propria. No "reiniciar" so abre o Astra.exe
+// da versao nova e sai — sem swap in-place (nada de rename/.old/.bat, que era o
+// que dava permissao/race). O launcher (launch.vbs) sempre reabre a MAIOR versao.
+//
+// Layout portatil (o app roda de versions/<v>/Astra.exe):
+//   C:/Astra/
+//     Astra.lnk            atalho fixo -> launch.vbs
+//     launch.vbs           acha a maior versao e roda seu Astra.exe (sem console)
+//     versions/<v>/Astra.exe ...   uma pasta por versao (historico completo)
+//     zips/Astra-<v>-win-x64.zip   cada zip baixado fica arquivado aqui
 //
 // Convencao de release (o dono segue ao publicar):
-//   tag  : desktop-v<versao>        ex: desktop-v0.2.0
-//   asset: Astra-<versao>-win-x64.zip  (contem a pasta Astra/ do createDistributable)
+//   tag  : desktop-v<versao>            ex: desktop-v0.1.7
+//   asset: Astra-<versao>-win-x64.zip   (contem a pasta Astra/ do createDistributable)
 
 // Checagem SEM a API do GitHub (api.github.com tem rate-limit anonimo de 60/h por
 // IP: varios boots/checagens + amigos no mesmo IP/CGNAT estouravam -> 403 -> falso
@@ -56,8 +64,6 @@ private data class ResolvedRelease(
     val releaseUrl: String,
 )
 
-private data class Staged(val appRoot: File, val newRoot: File, val stagingDir: File)
-
 class UpdateService(private val http: OkHttpClient) {
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state = _state.asStateFlow()
@@ -66,10 +72,11 @@ class UpdateService(private val http: OkHttpClient) {
     // pelo Gradle/IDE — nesse caso o updater fica desligado (appRoot nao resolve).
     val currentVersion: String get() = System.getProperty("astra.version") ?: "dev"
 
-    // So o app empacotado (Astra.exe) tem pasta pra trocar. Dev/IDE = nulo.
+    // So o app empacotado (Astra.exe) tem pasta pra versionar. Dev/IDE = nulo.
     val installed: Boolean get() = appRootDir() != null
 
-    private var staged: Staged? = null
+    // Astra.exe da versao nova, ja extraida em versions/<v>/. Setado no stage.
+    private var stagedExe: File? = null
 
     // ---- Checagem ----
 
@@ -146,65 +153,133 @@ class UpdateService(private val http: OkHttpClient) {
         return false
     }
 
-    // ---- Download + staging ----
+    // ---- Download + extracao (portatil) ----
 
     suspend fun downloadAndStage(av: UpdateState.Available) = withContext(Dispatchers.IO) {
         val appRoot = appRootDir() ?: run {
             _state.value = UpdateState.Failed("nao achei a pasta do app", av.releaseUrl)
             return@withContext
         }
-        val installDir = appRoot.parentFile
-        val stagingDir = File(installDir, "Astra.new")
-        val zipFile = File(installDir, "Astra-update.zip")
+        // appRoot = versions/<versao-atual>. Pai = versions/. Avo = C:/Astra (raiz
+        // portatil, onde mora zips/). Fallback pro proprio versions se nao houver avo.
+        val versionsDir = appRoot.parentFile ?: run {
+            _state.value = UpdateState.Failed("layout do app inesperado", av.releaseUrl)
+            return@withContext
+        }
+        val portableRoot = versionsDir.parentFile ?: versionsDir
+        val zipsDir = File(portableRoot, "zips").apply { mkdirs() }
+        val zipFile = File(zipsDir, "Astra-${av.version}-win-x64.zip")
+        val stagingDir = File(versionsDir, ".staging-${av.version}")
+        val newVersionDir = File(versionsDir, av.version)
         runCatching {
             _state.value = UpdateState.Downloading(av.version, 0f)
             stagingDir.deleteRecursively()
             zipFile.delete()
-            download(av.downloadUrl, zipFile, av.size) { p ->
+            download(av.downloadUrl, zipFile) { p ->
                 _state.value = UpdateState.Downloading(av.version, p)
             }
             unzip(zipFile, stagingDir)
-            zipFile.delete()
-            val newRoot =
+            // O zip NAO e apagado: fica arquivado em zips/ (historico pedido pelo dono).
+            // O asset tem a pasta Astra/ na raiz; achar quem contem Astra.exe (flat
+            // ou aninhado) e promover essa pasta a versions/<v>/.
+            val exeRoot =
                 if (File(stagingDir, "Astra.exe").exists()) stagingDir
                 else stagingDir.listFiles()?.firstOrNull { File(it, "Astra.exe").exists() }
                     ?: error("Astra.exe nao encontrado no pacote")
-            staged = Staged(appRoot, newRoot, stagingDir)
+            newVersionDir.deleteRecursively()
+            // rename e quase-atomico no mesmo volume; copia so se ele falhar (ex.:
+            // exeRoot == stagingDir e alvo em volume diferente — raro).
+            if (!exeRoot.renameTo(newVersionDir)) {
+                exeRoot.copyRecursively(newVersionDir, overwrite = true)
+            }
+            stagingDir.deleteRecursively()
+            // Confere que a versao extraida e um app-image COMPLETO (nao so o exe):
+            // o jpackage sempre traz app/ e runtime/ junto. Faltando = pacote quebrado
+            // (nunca deixa uma versao capenga virar a "mais nova" que o launcher abre).
+            if (!File(newVersionDir, "app").isDirectory || !File(newVersionDir, "runtime").isDirectory) {
+                error("pacote incompleto")
+            }
+            stagedExe = File(newVersionDir, "Astra.exe")
             _state.value = UpdateState.Ready(av.version)
         }.onFailure {
+            // Nao deixa lixo: zip parcial/corrompido e a versao meio-extraida saem,
+            // pra a proxima tentativa comecar limpa e o launcher nunca ver meia-versao.
             stagingDir.deleteRecursively()
             zipFile.delete()
-            _state.value = UpdateState.Failed("falha ao baixar — tente pelo site", av.releaseUrl)
+            newVersionDir.deleteRecursively()
+            _state.value = UpdateState.Failed(stageFailReason(it), av.releaseUrl)
         }
     }
 
-    private fun download(url: String, dest: File, expected: Long, onProgress: (Float) -> Unit) {
-        // Download grande (~150MB): sem teto de chamada (callTimeout), so read timeout.
-        // OkHttp segue o 302 do asset pro storage (objects.githubusercontent) sozinho.
+    // Motivo LEGIVEL da falha do download/extracao — o dono quer saber se baixou ou
+    // nao, e por que. Cada caso vira uma frase que bate com o que houve (a UI de
+    // Settings mostra isto + o botao "abrir pagina do release").
+    private fun stageFailReason(e: Throwable): String {
+        val m = e.message.orEmpty()
+        return when {
+            e is UnknownHostException -> "sem internet — tente pelo site"
+            m.contains("HTTP 404") -> "essa versao ainda nao esta no GitHub"
+            m.startsWith("HTTP") -> "o GitHub recusou ($m) — tente pelo site"
+            m.contains("space", true) || m.contains("espaco", true) -> "sem espaco em disco pra atualizar"
+            m.contains("incompleto") -> "o download veio incompleto — tente de novo"
+            e is IOException -> "a conexao caiu no meio — tente de novo"
+            else -> "falha ao baixar — tente pelo site"
+        }
+    }
+
+    // Download grande (~140MB) resiliente: retry ate 3x e RESUME via Range quando o
+    // servidor aceita (206) — um engasgo de rede >readTimeout nao joga fora o que ja
+    // baixou. Sem callTimeout (a chamada inteira nao tem teto), so readTimeout por
+    // leitura. OkHttp segue o 302 do asset pro storage sozinho.
+    private fun download(url: String, dest: File, onProgress: (Float) -> Unit) {
         val client = http.newBuilder()
             .callTimeout(Duration.ZERO)
-            .readTimeout(Duration.ofSeconds(60))
+            .readTimeout(Duration.ofSeconds(120))
             .build()
-        val req = Request.Builder().url(url).header("User-Agent", "Astra-Desktop").build()
-        client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) error("HTTP ${resp.code}")
-            val bodyRes = resp.body ?: error("sem corpo")
-            val total = if (expected > 0) expected else bodyRes.contentLength()
-            bodyRes.byteStream().use { input ->
-                dest.outputStream().buffered().use { out ->
-                    val buf = ByteArray(64 * 1024)
-                    var read = 0L
-                    while (true) {
-                        val n = input.read(buf)
-                        if (n < 0) break
-                        out.write(buf, 0, n)
-                        read += n
-                        if (total > 0) onProgress((read.toFloat() / total).coerceIn(0f, 1f))
+        var attempt = 0
+        while (true) {
+            attempt++
+            val have = if (dest.exists()) dest.length() else 0L
+            val reqB = Request.Builder().url(url).header("User-Agent", "Astra-Desktop")
+            if (have > 0) reqB.header("Range", "bytes=$have-")
+            try {
+                var expected = -1L
+                client.newCall(reqB.build()).execute().use { resp ->
+                    if (!resp.isSuccessful) error("HTTP ${resp.code}")
+                    val body = resp.body ?: error("sem corpo")
+                    // 206 = retomou de onde parou; qualquer outro (200) = comeca do zero.
+                    val resuming = resp.code == 206 && have > 0
+                    if (!resuming) dest.delete()
+                    val base = if (resuming) have else 0L
+                    expected = body.contentLength().let { if (it > 0) base + it else -1L }
+                    body.byteStream().use { input ->
+                        FileOutputStream(dest, resuming).buffered().use { out ->
+                            val buf = ByteArray(64 * 1024)
+                            var read = base
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                                read += n
+                                if (expected > 0) onProgress((read.toFloat() / expected).coerceIn(0f, 1f))
+                            }
+                        }
                     }
                 }
+                // Integridade: se o GitHub informou o tamanho, o arquivo TEM que bater.
+                // Corte silencioso (a conexao morre sem erro de leitura) deixa o zip
+                // truncado -> IOException dispara o retry, que RETOMA do byte que faltou.
+                if (expected > 0 && dest.length() != expected) {
+                    throw IOException("download incompleto (${dest.length()}/$expected)")
+                }
+                onProgress(1f)
+                return
+            } catch (e: IOException) {
+                if (attempt >= 3) throw e
+                // Espera curta e tenta RETOMAR do byte onde parou (nao recomeca).
+                Thread.sleep(1500)
             }
         }
-        onProgress(1f)
     }
 
     private fun unzip(zip: File, destDir: File) {
@@ -228,53 +303,19 @@ class UpdateService(private val http: OkHttpClient) {
         }
     }
 
-    // ---- Troca + reinicio ----
+    // ---- Reinicio ----
 
-    // Solta o .bat que espera este processo morrer, troca a pasta e reabre. O .bat
-    // sobrevive ao nosso exit (Windows nao mata filho junto do pai).
+    // Portatil: a versao nova ja esta pronta em versions/<v>/. So abre o Astra.exe
+    // dela e sai — sem swap, sem .bat, sem esperar. O launcher (e o atalho) sempre
+    // reabrem a MAIOR versao, entao os proximos boots tambem caem na nova.
     fun restartToInstall() {
-        val s = staged ?: return
-        val bat = writeSwapScript(s)
-        ProcessBuilder("cmd.exe", "/c", bat.absolutePath)
+        val exe = stagedExe ?: return
+        ProcessBuilder(exe.absolutePath)
+            .directory(exe.parentFile)
             .redirectOutput(ProcessBuilder.Redirect.DISCARD)
             .redirectError(ProcessBuilder.Redirect.DISCARD)
             .start()
         exitProcess(0)
-    }
-
-    private fun writeSwapScript(s: Staged): File {
-        val pid = ProcessHandle.current().pid()
-        val appRoot = s.appRoot.absolutePath
-        val newRoot = s.newRoot.absolutePath
-        val staging = s.stagingDir.absolutePath
-        val exe = File(s.appRoot, "Astra.exe").absolutePath
-        // Espera o PID sair -> renomeia Astra->Astra.old, novo->Astra, reabre. Se a
-        // troca falhar (sem permissao/pasta protegida), rollback do .old e reabre.
-        val script = buildString {
-            appendLine("@echo off")
-            appendLine("setlocal")
-            appendLine("set \"PID=$pid\"")
-            appendLine(":wait")
-            appendLine("tasklist /FI \"PID eq %PID%\" 2>nul | find \"%PID%\" >nul")
-            appendLine("if not errorlevel 1 (")
-            appendLine("  timeout /t 1 /nobreak >nul")
-            appendLine("  goto wait")
-            appendLine(")")
-            appendLine("if exist \"$appRoot.old\" rmdir /S /Q \"$appRoot.old\"")
-            appendLine("move \"$appRoot\" \"$appRoot.old\" >nul 2>&1")
-            appendLine("move \"$newRoot\" \"$appRoot\" >nul 2>&1")
-            appendLine("if not exist \"$exe\" (")
-            appendLine("  if exist \"$appRoot.old\" move \"$appRoot.old\" \"$appRoot\" >nul 2>&1")
-            appendLine(") else (")
-            appendLine("  if exist \"$appRoot.old\" rmdir /S /Q \"$appRoot.old\"")
-            appendLine("  if exist \"$staging\" rmdir /S /Q \"$staging\"")
-            appendLine(")")
-            appendLine("start \"\" \"$exe\"")
-            appendLine("del \"%~f0\"")
-        }
-        val bat = File(System.getProperty("java.io.tmpdir"), "astra-update.bat")
-        bat.writeText(script.replace("\n", "\r\n"))
-        return bat
     }
 
     // Astra.exe do jpackage: jpackage.app-path aponta pro launcher; a pasta dele e

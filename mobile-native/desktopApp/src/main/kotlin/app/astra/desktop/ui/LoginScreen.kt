@@ -123,7 +123,8 @@ private fun signupRules(email: String, username: String, displayName: String, pa
 @Composable
 fun LoginScreen(
     repo: AuthRepository,
-    onLoggedIn: (Session) -> Unit,
+    // isNew = veio de "criar conta" (o Main dispara o onboarding); login/Google = false.
+    onLoggedIn: (Session, isNew: Boolean) -> Unit,
 ) {
     val store = remember { GlobalContext.get().get<SessionStore>() }
     var mode by remember { mutableStateOf(AuthMode.LOGIN) }
@@ -169,7 +170,7 @@ fun LoginScreen(
                 .onSuccess {
                     store.setUiPref(LAST_EMAIL_KEY, email.trim())
                     loading = false
-                    onLoggedIn(it)
+                    onLoggedIn(it, mode == AuthMode.SIGNUP)
                 }
                 .onFailure { e -> loading = false; error = e.message }
         }
@@ -180,7 +181,7 @@ fun LoginScreen(
         googleLoading = true; error = null
         scope.launch {
             repo.loginWithGoogle()
-                .onSuccess { googleLoading = false; onLoggedIn(it) }
+                .onSuccess { googleLoading = false; onLoggedIn(it, false) }
                 .onFailure { e -> googleLoading = false; error = e.message }
         }
     }

@@ -44,6 +44,7 @@ import app.astra.desktop.update.UpdateService
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.LoginScreen
+import app.astra.desktop.ui.OnboardingScreen
 import app.astra.desktop.ui.ShellScreen
 import app.astra.desktop.ui.StarField
 import app.astra.desktop.ui.auroraBackground
@@ -184,6 +185,9 @@ fun main() {
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
+            // 1o acesso: takeover de onboarding, disparado SO apos criar conta
+            // (isNew no onLoggedIn). Nunca re-onboarda quem ja tinha sessao/logou.
+            var needsOnboarding by remember { mutableStateOf(false) }
             // Overlays disparados pelo titlebar (lupa/sino) mas renderizados no
             // shell (onde vive o vm de navegacao). Estado hasteado aqui no meio.
             var searchOpen by remember { mutableStateOf(false) }
@@ -220,7 +224,7 @@ fun main() {
                     AstraTitleBar(
                         state = state,
                         onClose = { windowVisible = false },
-                        showActions = session != null,
+                        showActions = session != null && !needsOnboarding,
                         notifUnread = notifUnread,
                         onOpenSearch = { searchOpen = true },
                         onOpenNotifications = { notifOpen = !notifOpen },
@@ -275,8 +279,9 @@ fun main() {
                             label = "entrada",
                         ) { s ->
                             if (s == null) {
-                                LoginScreen(repo = authRepo, onLoggedIn = {
-                                    session = it
+                                LoginScreen(repo = authRepo, onLoggedIn = { sess, isNew ->
+                                    session = sess
+                                    if (isNew) needsOnboarding = true
                                     // O ceu respira: sobe na hora e decai em 900ms.
                                     pulseScope.launch {
                                         auroraPulse.snapTo(1f)
@@ -284,23 +289,41 @@ fun main() {
                                     }
                                 })
                             } else {
-                                ShellScreen(
-                                    session = s,
-                                    // Toast da bandeja so quando o app nao esta na frente.
-                                    windowHidden = { !windowVisible || state.isMinimized },
-                                    notify = { title, body ->
-                                        trayState.sendNotification(Notification(title, body, Notification.Type.None))
-                                    },
-                                    onLogout = {
-                                        authRepo.logout()
-                                        session = null
-                                    },
-                                    searchOpen = searchOpen,
-                                    onCloseSearch = { searchOpen = false },
-                                    notifOpen = notifOpen,
-                                    onCloseNotif = { notifOpen = false },
-                                    onNotifUnread = { notifUnread = it },
-                                )
+                                // Onboarding (so no 1o acesso) e o shell dividem o mesmo
+                                // ceu: crossfade entre eles, sem trocar de "tela".
+                                Crossfade(
+                                    targetState = needsOnboarding,
+                                    animationSpec = tween(420, easing = EaseOutStd),
+                                    label = "onboarding",
+                                ) { onb ->
+                                    if (onb) {
+                                        OnboardingScreen(
+                                            displayName = s.displayName,
+                                            onDone = {
+                                                store.setUiPref("onboarded:${s.userId}", "1")
+                                                needsOnboarding = false
+                                            },
+                                        )
+                                    } else {
+                                        ShellScreen(
+                                            session = s,
+                                            // Toast da bandeja so quando o app nao esta na frente.
+                                            windowHidden = { !windowVisible || state.isMinimized },
+                                            notify = { title, body ->
+                                                trayState.sendNotification(Notification(title, body, Notification.Type.None))
+                                            },
+                                            onLogout = {
+                                                authRepo.logout()
+                                                session = null
+                                            },
+                                            searchOpen = searchOpen,
+                                            onCloseSearch = { searchOpen = false },
+                                            notifOpen = notifOpen,
+                                            onCloseNotif = { notifOpen = false },
+                                            onNotifUnread = { notifUnread = it },
+                                        )
+                                    }
+                                }
                             }
                         }
                         // Banner de update (topo): lembrete quando adiado ("depois")

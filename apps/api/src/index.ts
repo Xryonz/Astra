@@ -105,9 +105,12 @@ app.use('/api/profile', express.json({ limit: '8mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)
-app.use(globalLimiter)
 
+// /health ANTES do rate-limiter: e um GET de uptime (cron-job.org pinger + o
+// checkRedis) sem userId — nao deve pagar rate-limit por IP nem gastar comando.
 app.use(healthRouter)
+
+app.use(globalLimiter)
 
 app.use('/api/auth',     authRouter)
 app.use('/api/profile',  profileRouter)

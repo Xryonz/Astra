@@ -1,5 +1,4 @@
-import rateLimit, { type Options } from 'express-rate-limit'
-import { redis } from '../lib/redis'
+import rateLimit from 'express-rate-limit'
 import type { Request, Response } from 'express'
 
 function userOrIpKey(req: Request, _res: Response): string {
@@ -9,52 +8,15 @@ function userOrIpKey(req: Request, _res: Response): string {
   return `ip:${req.ip ?? 'unknown'}`
 }
 
-class RedisStore {
-  prefix: string
-  windowMs!: number
-  // Fallback em memoria (por processo) pra quando o Redis cair.
-  private mem = new Map<string, { count: number; reset: number }>()
-
-  constructor(prefix: string) { this.prefix = prefix }
-  init(opts: Options) { this.windowMs = opts.windowMs }
-
-  async increment(key: string): Promise<{ totalHits: number; resetTime: Date }> {
-    const k = `rl:${this.prefix}:${key}`
-    try {
-
-      const multi = redis.multi()
-      multi.incr(k)
-      multi.pexpire(k, this.windowMs, 'NX' as any)
-      multi.pttl(k)
-      const res = await multi.exec()
-      const hits = Number(res?.[0]?.[1] ?? 1)
-      const ttl  = Number(res?.[2]?.[1] ?? this.windowMs)
-      return { totalHits: hits, resetTime: new Date(Date.now() + ttl) }
-    } catch {
-      // Redis fora (queda/cota Upstash): NAO liberar geral — o fail-open deixava
-      // brute-force de login passar. Conta numa janela em memoria do processo ->
-      // fail-CLOSED. Render free = 1 instancia, entao cobre o caso real.
-      const now = Date.now()
-      const e = this.mem.get(k)
-      if (!e || e.reset <= now) {
-        if (this.mem.size > 10_000) for (const [mk, v] of this.mem) if (v.reset <= now) this.mem.delete(mk)
-        this.mem.set(k, { count: 1, reset: now + this.windowMs })
-        return { totalHits: 1, resetTime: new Date(now + this.windowMs) }
-      }
-      e.count++
-      return { totalHits: e.count, resetTime: new Date(e.reset) }
-    }
-  }
-
-  async decrement(key: string): Promise<void> {
-    try { await redis.decr(`rl:${this.prefix}:${key}`) } catch {}
-  }
-
-  async resetKey(key: string): Promise<void> {
-    try { await redis.del(`rl:${this.prefix}:${key}`) } catch {}
-  }
-}
-
+// Store EM MEMORIA (default do express-rate-limit, sem `store`). Antes era backed
+// no Redis: cada request pagava 3 comandos (INCR+PEXPIRE+PTTL) e o globalLimiter
+// roda em TODA request — multiplicado pelos polls de fundo (presenca de voz 5-10s,
+// notificacoes 60s), isso sozinho estourava os 500k comandos/mes do Upstash free e
+// derrubava o chat de canal. No Render free e 1 INSTANCIA so, entao um contador
+// distribuido no Redis nao agrega correcao nenhuma sobre o contador em processo.
+// Trade-off: o contador zera num restart (cosmetico — janela nova, nao brecha de
+// seguranca) e nao sincroniza entre instancias (nao ha mais de uma hoje; revisitar
+// se um dia escalar horizontalmente). Zero comando Redis, mesma protecao.
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -62,7 +24,6 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
-  store: new RedisStore('auth') as any,
 })
 
 // Upload: cap dedicado por usuario/IP. Cada request pode trazer 10 arquivos de
@@ -75,7 +36,6 @@ export const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
-  store: new RedisStore('upload') as any,
 })
 
 export const messageLimiter = rateLimit({
@@ -85,7 +45,6 @@ export const messageLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
-  store: new RedisStore('msg') as any,
 })
 
 export const globalLimiter = rateLimit({
@@ -95,5 +54,4 @@ export const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
-  store: new RedisStore('global') as any,
 })

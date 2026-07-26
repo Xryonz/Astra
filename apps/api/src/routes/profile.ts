@@ -7,7 +7,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
-import { getUserStatus, setUserOnline } from '../lib/redis'
+import { getUserStatus, setUserOnline, redis, presenceKeys } from '../lib/redis'
 
 const router = Router()
 
@@ -132,13 +132,16 @@ router.get(
     const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
     if (ids.length === 0) return res.json({ data: {} })
 
+    // UM MGET pra todos os ids (era N x GET, ~1 comando por membro do painel toda
+    // vez que a lista carregava). Mesmo padrao do servers.ts. Fail-safe: Redis fora
+    // -> todos OFFLINE, a request nao cai.
     const out: Record<string, 'ONLINE'|'IDLE'|'DND'|'OFFLINE'> = {}
-    const live = await Promise.all(ids.map((id) => getUserStatus(id)))
+    let live: (string | null)[] = []
+    try { live = await redis.mget(ids.map((id) => presenceKeys.user(id))) } catch { live = [] }
     ids.forEach((id, i) => {
       const s = live[i]
-      if (!s) out[id] = 'OFFLINE'
-      else if (s === 'INVISIBLE') out[id] = 'OFFLINE'
-      else out[id] = s
+      if (!s || s === 'INVISIBLE') out[id] = 'OFFLINE'
+      else out[id] = s as 'ONLINE'|'IDLE'|'DND'
     })
     res.json({ data: out })
   })

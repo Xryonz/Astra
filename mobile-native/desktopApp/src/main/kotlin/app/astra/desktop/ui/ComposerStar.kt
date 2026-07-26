@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -168,7 +167,10 @@ private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit) {
             .background(Obsidian.overlay)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .padding(5.dp)
-            .widthIn(min = 132.dp),
+            // Largura FIXA: dentro do Popup o fillMaxWidth das linhas resolve pro
+            // maximo disponivel (= janela inteira). Sem teto, a Column esticava a
+            // largura toda do app. Fixo = menu compacto ancorado sob o botao.
+            .width(150.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         StarMenuRow("☺", "emoji", onEmoji)

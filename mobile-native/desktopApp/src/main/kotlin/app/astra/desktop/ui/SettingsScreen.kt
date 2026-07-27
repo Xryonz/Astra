@@ -302,15 +302,24 @@ fun SettingsScreen(
                 if (!pinned && showPreview) {
                     SettingsDivider()
                     SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = 420.dp).fillMaxWidth())
+                    if (tab == SettingsTab.PROFILE) {
+                        Spacer(Modifier.height(14.dp))
+                        ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = 420.dp).fillMaxWidth())
+                    }
                 }
             }
                 // Previa como card fixo no topo-direita: nao rola junto, fica ao lado
                 // dos controles desde o primeiro campo.
                 if (pinned) {
-                    SettingsPreview(
-                        tab, me, prefState, draft,
+                    Column(
                         Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(300.dp),
-                    )
+                    ) {
+                        SettingsPreview(tab, me, prefState, draft, Modifier.fillMaxWidth())
+                        if (tab == SettingsTab.PROFILE) {
+                            Spacer(Modifier.height(14.dp))
+                            ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.fillMaxWidth())
+                        }
+                    }
                 }
             }
         }
@@ -803,14 +812,10 @@ private fun ProfileSection(
     onChange: (ProfileDraft) -> Unit,
     onSaved: () -> Unit,
 ) {
-    val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
-    val original = remember(me) { ProfileDraft.from(me) }
-    var saving by remember { mutableStateOf(false) }
     var busyAvatar by remember { mutableStateOf(false) }
     var busyBanner by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    val dirty = draft != original
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "voce" }, 64)
@@ -950,60 +955,79 @@ private fun ProfileSection(
         }
     }
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(16.dp))
+    // Feedback de upload de avatar/banner. O salvar migrou pra BAIXO da previa
+    // (sempre a vista enquanto edita) -> ProfileSaveButton, la no topo da tela.
     msg?.let { (text, ok) ->
         Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
-        Spacer(Modifier.height(8.dp))
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AboutButton(if (saving) "salvando…" else "salvar", accent = true) {
-            if (saving || !dirty) return@AboutButton
-            saving = true
-            msg = null
-            scope.launch {
-                val api = koin.get<UserApi>()
-                val r = runCatching {
-                    // Recado tem rota propria; so manda se mudou.
-                    if (draft.customStatus.trim() != original.customStatus.trim()) {
-                        api.setCustomStatus(CustomStatusRequest(draft.customStatus.trim()))
+}
+
+// Botao Salvar do perfil, HOISTADO pra baixo da previa (o dono pediu: sempre a
+// vista, nao no fim do formulario). Estado proprio (saving/msg/dirty); le o
+// draft vivo + o `me` original. Recado tem rota propria (so manda se mudou).
+@Composable
+private fun ProfileSaveButton(
+    me: ProfileUserDto?,
+    draft: ProfileDraft,
+    onChange: (ProfileDraft) -> Unit,
+    onSaved: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val koin = GlobalContext.get()
+    val scope = rememberCoroutineScope()
+    val original = remember(me) { ProfileDraft.from(me) }
+    var saving by remember { mutableStateOf(false) }
+    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    val dirty = draft != original
+    Column(modifier) {
+        msg?.let { (text, ok) ->
+            Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
+            Spacer(Modifier.height(8.dp))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AboutButton(if (saving) "salvando…" else "salvar", accent = true) {
+                if (saving || !dirty) return@AboutButton
+                saving = true
+                msg = null
+                scope.launch {
+                    val api = koin.get<UserApi>()
+                    val r = runCatching {
+                        if (draft.customStatus.trim() != original.customStatus.trim()) {
+                            api.setCustomStatus(CustomStatusRequest(draft.customStatus.trim()))
+                        }
+                        api.updateProfile(
+                            UpdateProfileRequest(
+                                // null = chave omitida = backend nao mexe no campo.
+                                displayName = draft.displayName.trim().ifBlank { null },
+                                pronouns = draft.pronouns.trim(),
+                                bio = draft.bio.trim(),
+                                avatarUrl = draft.avatarUrl,
+                                statusEmoji = draft.statusEmoji,
+                                // Banner: "" limpa a imagem (null seria "nao mexer").
+                                bannerUrl = draft.bannerUrl ?: "",
+                                bannerColor = draft.bannerColor,
+                                bannerPositionY = draft.bannerPositionY,
+                                bannerScale = draft.bannerScale,
+                                profileTheme = draft.profileTheme,
+                                displayFont = draft.displayFont,
+                            ),
+                        )
                     }
-                    api.updateProfile(
-                        UpdateProfileRequest(
-                            // null = chave omitida = backend nao mexe no campo
-                            // (mesma convencao do card do rodape).
-                            displayName = draft.displayName.trim().ifBlank { null },
-                            pronouns = draft.pronouns.trim(),
-                            bio = draft.bio.trim(),
-                            avatarUrl = draft.avatarUrl,
-                            statusEmoji = draft.statusEmoji,
-                            // Banner: "" limpa a imagem (null seria "nao mexer").
-                            bannerUrl = draft.bannerUrl ?: "",
-                            bannerColor = draft.bannerColor,
-                            bannerPositionY = draft.bannerPositionY,
-                            bannerScale = draft.bannerScale,
-                            profileTheme = draft.profileTheme,
-                            displayFont = draft.displayFont,
-                        ),
-                    )
-                }
-                saving = false
-                if (r.isSuccess) {
-                    msg = "perfil salvo" to true
-                    onSaved()
-                } else {
-                    msg = "nao deu pra salvar — tenta de novo" to false
+                    saving = false
+                    if (r.isSuccess) { msg = "perfil salvo" to true; onSaved() }
+                    else msg = "nao deu pra salvar — tenta de novo" to false
                 }
             }
+            if (dirty && !saving) {
+                AboutButton("descartar", accent = false) { onChange(original); msg = null }
+            }
         }
-        if (dirty && !saving) {
-            AboutButton("descartar", accent = false) { onChange(original); msg = null }
+        if (!dirty && msg == null) {
+            Spacer(Modifier.height(6.dp))
+            Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         }
     }
-    if (!dirty && msg == null) {
-        Spacer(Modifier.height(6.dp))
-        Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-    }
-    Spacer(Modifier.height(20.dp))
 }
 
 // Zoom do banner (bannerScale 100..300%): trilha arrastavel simples. Slider

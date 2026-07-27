@@ -158,6 +158,7 @@ data class RoleDto(
     val id: String,
     val name: String,
     val color: String? = null,
+    val iconUrl: String? = null,
     val position: Int = 0,
     val hoist: Boolean = false,
     val permissions: List<String> = emptyList(),
@@ -167,6 +168,7 @@ data class RoleDto(
 data class RoleRequest(
     val name: String,
     val color: String? = null,
+    val iconUrl: String? = null,
     val permissions: List<String> = emptyList(),
     val hoist: Boolean = false,
 )

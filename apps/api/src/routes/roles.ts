@@ -8,12 +8,15 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms, parsePermissionsJson, type MemberPerms, type Permission } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
+import { persistDataUri } from '../lib/storage'
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 
 const CreateRoleSchema = z.object({
   name:        z.string().min(1).max(50),
   color:       z.string().regex(HEX, 'Cor inválida (hex #RRGGBB)').optional().nullable(),
+  // Mini-imagem do cargo (data-URI ou URL). Vai pro R2 via persistDataUri.
+  iconUrl:     z.string().max(6_500_000).optional().nullable(),
   permissions: z.array(z.string().max(40)).max(20).optional().default([]),
   hoist:       z.boolean().optional().default(false),
 })
@@ -83,6 +86,7 @@ rolesRouter.post(
       serverId,
       name:        body.name,
       color:       body.color ?? null,
+      iconUrl:     await persistDataUri(body.iconUrl ?? null),
       position:    (max ?? 0) + 1,
       permissions: JSON.stringify(permsToSet),
       hoist:       body.hoist ?? false,
@@ -111,6 +115,7 @@ rolesRouter.patch(
     const patch: Record<string, unknown> = {}
     if (body.name !== undefined)  patch.name = body.name
     if (body.color !== undefined) patch.color = body.color
+    if (body.iconUrl !== undefined) patch.iconUrl = await persistDataUri(body.iconUrl)
     if (body.hoist !== undefined) patch.hoist = body.hoist
     if (body.permissions !== undefined) patch.permissions = JSON.stringify(grantableSubset(actor, body.permissions))
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })

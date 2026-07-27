@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -57,6 +60,9 @@ import app.astra.mobile.core.network.dto.ServerMemberDto
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Aba CARGOS. Lista -> clicar abre o editor NO LUGAR da lista (decisao do dono):
 // os 7 interruptores de permissao cabem sem apertar e cada tela respira.
@@ -199,10 +205,16 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.size(10.dp).clip(CircleShape)
-                .background(roleColor(role.color) ?: Obsidian.text3),
-        )
+        if (!role.iconUrl.isNullOrBlank()) {
+            Box(Modifier.size(20.dp).clip(CircleShape).background(Obsidian.overlay)) {
+                AstraImage(role.iconUrl, role.name, Modifier.fillMaxSize())
+            }
+        } else {
+            Box(
+                Modifier.size(10.dp).clip(CircleShape)
+                    .background(roleColor(role.color) ?: Obsidian.text3),
+            )
+        }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -225,6 +237,52 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
     }
 }
 
+// Upload da mini-imagem do cargo (circulo, animavel via AstraImage). Reusa o
+// AvatarPicker: GIF pequeno passa cru (anima); estatico e reduzido pra 128px.
+@Composable
+private fun RoleIconField(iconUrl: String?, onChange: (String?) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(40.dp).clip(CircleShape).background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderDim, CircleShape),
+        ) {
+            if (!iconUrl.isNullOrBlank()) AstraImage(iconUrl, "icone do cargo", Modifier.fillMaxSize())
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            if (busy) "processando…" else "subir imagem",
+            style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
+                .clickable(enabled = !busy) {
+                    val file = AvatarPicker.choose("Imagem do cargo") ?: return@clickable
+                    busy = true
+                    scope.launch {
+                        val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, 128) }
+                        busy = false
+                        r.onSuccess { onChange(it) }
+                    }
+                }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+        if (!iconUrl.isNullOrBlank()) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "remover",
+                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                    .clickable { onChange(null) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun RoleEditor(
     role: RoleDto?,
@@ -238,6 +296,7 @@ private fun RoleEditor(
 ) {
     var name by remember(role) { mutableStateOf(role?.name.orEmpty()) }
     var color by remember(role) { mutableStateOf(role?.color) }
+    var iconUrl by remember(role) { mutableStateOf(role?.iconUrl) }
     var hoist by remember(role) { mutableStateOf(role?.hoist ?: false) }
     var perms by remember(role) { mutableStateOf(role?.permissions.orEmpty().toSet()) }
     var saving by remember { mutableStateOf(false) }
@@ -285,6 +344,10 @@ private fun RoleEditor(
     Spacer(Modifier.height(14.dp))
     FieldLabel("cor do nome")
     RoleColorPicker(color) { color = it }
+
+    Spacer(Modifier.height(14.dp))
+    FieldLabel("imagem do cargo (opcional)")
+    RoleIconField(iconUrl) { iconUrl = it }
 
     Spacer(Modifier.height(6.dp))
     ToggleRow(
@@ -343,7 +406,7 @@ private fun RoleEditor(
                 .clickable(enabled = canSave) {
                     saving = true
                     msg = null
-                    onSave(RoleRequest(name.trim(), color, perms.toList(), hoist)) { err ->
+                    onSave(RoleRequest(name.trim(), color, iconUrl, perms.toList(), hoist)) { err ->
                         saving = false
                         if (err != null) msg = err to false
                     }

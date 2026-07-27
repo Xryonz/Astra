@@ -147,6 +147,7 @@ export const roles = pgTable('ServerRole', {
   serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
   name:        text('name').notNull(),
   color:       text('color'),
+  iconUrl:     text('iconUrl'),
   position:    integer('position').notNull().default(0),
   permissions: text('permissions').notNull().default('[]'),
   hoist:       boolean('hoist').notNull().default(false),

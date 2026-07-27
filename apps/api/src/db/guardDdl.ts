@@ -18,12 +18,14 @@ CREATE TABLE IF NOT EXISTS "ServerRole" (
   "serverId" text NOT NULL REFERENCES "Server"("id") ON DELETE CASCADE,
   "name" text NOT NULL,
   "color" text,
+  "iconUrl" text,
   "position" integer NOT NULL DEFAULT 0,
   "permissions" text NOT NULL DEFAULT '[]',
   "hoist" boolean NOT NULL DEFAULT false,
   "createdAt" timestamp (3) NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "ServerRole_serverId_idx" ON "ServerRole" USING btree ("serverId");
+ALTER TABLE "ServerRole" ADD COLUMN IF NOT EXISTS "iconUrl" text;
 
 CREATE TABLE IF NOT EXISTS "ServerMemberRole" (
   "id" text PRIMARY KEY NOT NULL,

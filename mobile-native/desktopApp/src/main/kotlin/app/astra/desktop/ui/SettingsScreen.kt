@@ -83,6 +83,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChartColumn
+import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
@@ -1220,40 +1221,87 @@ private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
 @Composable
 private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
     val current = selected ?: "serif"
-    Column(
-        Modifier.widthIn(max = 420.dp).fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        PROFILE_FONTS.forEach { f ->
-            val active = current == f.id
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(if (active) Obsidian.active else Obsidian.raised.copy(alpha = 0.5f))
-                    .border(
-                        1.dp,
-                        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
-                        RoundedCornerShape(9.dp),
-                    )
-                    .clickable { onPick(f.id) }
-                    .padding(horizontal = 13.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    val cur = PROFILE_FONTS.find { it.id == current } ?: PROFILE_FONTS.first()
+    var open by remember { mutableStateOf(false) }
+    val hov = remember { MutableInteractionSource() }
+    val h by hov.collectIsHoveredAsState()
+    Box {
+        // Botao (mesmo visual do "fundo do cartao"): mostra a fonte atual escrita
+        // NELA MESMA + chevron. Clique abre o dropdown.
+        Row(
+            Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(9.dp))
+                .background(if (h) Obsidian.hover else Obsidian.raised)
+                .border(
+                    1.dp,
+                    if (open) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                    RoundedCornerShape(9.dp),
+                )
+                .hoverable(hov)
+                .clickable { open = !open }
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                cur.label,
+                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = cur.family),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            LIcon(Lucide.ChevronDown, tint = Obsidian.text3, size = 14.dp)
+        }
+        if (open) {
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = IntOffset(0, 46),
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
             ) {
-                LIcon(
-                    if (active) Lucide.CircleDot else Lucide.Circle,
-                    tint = if (active) Obsidian.accent else Obsidian.text3,
-                    size = 14.dp,
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    f.label,
-                    style = TextStyle(
-                        color = if (active) Obsidian.text1 else Obsidian.text2,
-                        fontSize = 15.sp,
-                        fontFamily = f.family,
-                    ),
-                )
+                Column(
+                    Modifier
+                        .popupReveal()
+                        .width(390.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+                        .heightIn(max = 340.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    PROFILE_FONTS.forEach { f ->
+                        val active = f.id == current
+                        val rowHov = remember { MutableInteractionSource() }
+                        val rh by rowHov.collectIsHoveredAsState()
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (active) Obsidian.active else if (rh) Obsidian.hover else Color.Transparent)
+                                .hoverable(rowHov)
+                                .clickable { onPick(f.id); open = false }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                f.label,
+                                style = TextStyle(
+                                    color = if (active) Obsidian.text1 else Obsidian.text2,
+                                    fontSize = 15.sp,
+                                    fontFamily = f.family,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (active) {
+                                Spacer(Modifier.width(8.dp))
+                                LIcon(Lucide.Check, tint = Obsidian.accent, size = 15.dp)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -1265,19 +1265,41 @@ private fun Sidebar(
                                     style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
                                 )
                             }
-                        else -> OrbitList(
-                            srv, activeChatId, unread, unreadCounts, members, voicePresence, myId, myVoiceChannelId,
-                            onOpenChat, onOpenVoice,
-                            onNewChannelInCat = { catId -> srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } },
-                            onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
-                            onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
-                            onReorderChannels = { ids -> srv?.let { onReorderChannels(it.id, ids) } },
-                            onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
-                            onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
-                            onMarkChannelRead = onMarkChannelRead,
-                            mutedChannels = mutedChannels,
-                            onToggleChannelMute = onToggleChannelMute,
-                        )
+                        else -> {
+                            val orbits: @Composable () -> Unit = {
+                                OrbitList(
+                                    srv, activeChatId, unread, unreadCounts, members, voicePresence, myId, myVoiceChannelId,
+                                    onOpenChat, onOpenVoice,
+                                    onNewChannelInCat = { catId -> srv?.let { chanDialog = ChanDialog.NewChannel(it.id, catId) } },
+                                    onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
+                                    onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
+                                    onReorderChannels = { ids -> srv?.let { onReorderChannels(it.id, ids) } },
+                                    onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
+                                    onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
+                                    onMarkChannelRead = onMarkChannelRead,
+                                    mutedChannels = mutedChannels,
+                                    onToggleChannelMute = onToggleChannelMute,
+                                )
+                            }
+                            // #5: o mesmo menu do cabecalho tambem na AREA VAZIA da lista.
+                            // Orbita/categoria sao mais internos e consomem o clique, entao
+                            // este aqui so dispara no vazio abaixo dos canais.
+                            if (srv != null) {
+                                val ownerHere = srv.ownerId == myId
+                                EditorialContextMenu(entries = {
+                                    buildList {
+                                        add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) {
+                                            srv.channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
+                                        })
+                                        if (ownerHere) {
+                                            add(MenuEntry.Separator)
+                                            add(MenuEntry.Item("criar órbita", icon = Lucide.Plus) { chanDialog = ChanDialog.NewChannel(srv.id, null) })
+                                            add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })
+                                        }
+                                    }
+                                }) { orbits() }
+                            } else orbits()
+                        }
                     }
                 }
             }

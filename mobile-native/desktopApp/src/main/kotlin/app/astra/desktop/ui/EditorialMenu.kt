@@ -104,8 +104,14 @@ fun EditorialContextMenu(
                 while (true) {
                     val event = awaitPointerEvent()
                     if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
-                        val pos = event.changes.first().position
-                        menuAt = IntOffset(pos.x.roundToInt(), pos.y.roundToInt())
+                        // Consome o botao-direito pra que menu ANINHADO resolva no mais
+                        // interno: o filho (ex: orbita) consome primeiro no pass Main, o
+                        // pai (ex: area vazia da lista) ve consumido e ignora.
+                        val change = event.changes.first()
+                        if (!change.isConsumed) {
+                            menuAt = IntOffset(change.position.x.roundToInt(), change.position.y.roundToInt())
+                            change.consume()
+                        }
                     }
                 }
             }

@@ -1,5 +1,14 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,14 +38,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -139,7 +156,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         when {
             loading && results.isEmpty() -> Center("procurando constelacoes…")
             error != null && results.isEmpty() -> Center(error!!)
-            results.isEmpty() -> EmptyHint(if (query.isBlank()) "nenhuma constelacao publica ainda" else "nada encontrado")
+            results.isEmpty() -> DiscoverEmptyMap(query)
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 240.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -240,5 +257,105 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+    }
+}
+
+// #11: vazio da Descoberta = mapa do tesouro. Uma rota tracejada entre nos-estrela
+// se desenha devagar ate um ✦ (o "X" que marca o tesouro), com estrelinhas piscando
+// ao fundo e o destino pulsando. Movimento contido, respeita reduzir-movimento.
+@Composable
+private fun DiscoverEmptyMap(query: String) {
+    val reduce = LocalReduceMotion.current
+    val accent = Obsidian.accent
+
+    // Rota se desenha 1x (0->1). Reduzir movimento = ja cheia.
+    val draw = remember { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(reduce) { if (!reduce) draw.animateTo(1f, tween(1700, easing = FastOutSlowInEasing)) }
+
+    // Relogio unico (0..2π) alimenta twinkle das estrelas + pulso do tesouro.
+    val inf = rememberInfiniteTransition(label = "map")
+    val clock by inf.animateFloat(
+        0f, (2.0 * Math.PI).toFloat(),
+        infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart),
+        label = "clock",
+    )
+    val t = if (reduce) 0f else clock
+    val pulse = if (reduce) 1f else 0.82f + 0.18f * sin(t * 1.6f)
+
+    // Rota em fracoes do box; ultimo no = o tesouro (✦). Fixa por sessao.
+    val route = remember {
+        listOf(
+            Offset(0.09f, 0.74f), Offset(0.27f, 0.42f), Offset(0.44f, 0.63f),
+            Offset(0.61f, 0.30f), Offset(0.79f, 0.52f), Offset(0.92f, 0.28f),
+        )
+    }
+    // Estrelinhas de fundo (x, y, fase do twinkle).
+    val stars = remember {
+        val r = java.util.Random(7)
+        List(16) { Triple(r.nextFloat(), r.nextFloat(), r.nextFloat() * 6.28f) }
+    }
+
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(width = 280.dp, height = 150.dp)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = size.width; val h = size.height
+                    // fundo: estrelas piscando
+                    stars.forEach { (sx, sy, ph) ->
+                        val a = 0.10f + 0.22f * (0.5f + 0.5f * sin(t + ph))
+                        drawCircle(accent.copy(alpha = a), radius = 1.1f, center = Offset(sx * w, sy * h))
+                    }
+                    val pts = route.map { Offset(it.x * w, it.y * h) }
+                    val lens = pts.zipWithNext().map { (a, b) -> (b - a).getDistance() }
+                    val total = lens.sum().coerceAtLeast(1f)
+                    val reached = draw.value * total
+                    // rota tracejada, revelada ate 'reached'
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(5f, 6f), 0f)
+                    var remaining = reached
+                    for (i in lens.indices) {
+                        if (remaining <= 0f) break
+                        val a = pts[i]; val b = pts[i + 1]
+                        val frac = (remaining / lens[i]).coerceAtMost(1f)
+                        val end = Offset(a.x + (b.x - a.x) * frac, a.y + (b.y - a.y) * frac)
+                        drawLine(accent.copy(alpha = 0.5f), a, end, strokeWidth = 1.6f, cap = StrokeCap.Round, pathEffect = dash)
+                        remaining -= lens[i]
+                    }
+                    // nos ja visitados (o tesouro fica pro ✦ por cima)
+                    val cum = FloatArray(pts.size)
+                    for (i in 1 until pts.size) cum[i] = cum[i - 1] + lens[i - 1]
+                    pts.forEachIndexed { i, p ->
+                        if (i < pts.lastIndex && cum[i] <= reached) {
+                            drawCircle(accent.copy(alpha = 0.85f), radius = 2.4f, center = p)
+                            drawCircle(accent.copy(alpha = 0.20f), radius = 4.6f, center = p)
+                        }
+                    }
+                    // halo do tesouro (pulsa) quando a rota chega
+                    if (draw.value > 0.98f) {
+                        val tp = pts.last()
+                        drawCircle(accent.copy(alpha = 0.10f), radius = 16f * pulse, center = tp)
+                        drawCircle(accent.copy(alpha = 0.18f), radius = 8f * pulse, center = tp)
+                    }
+                }
+                // ✦ do tesouro por cima, no ultimo no, pulsando.
+                Text(
+                    "✦",
+                    style = TextStyle(color = accent, fontSize = 22.sp),
+                    modifier = Modifier
+                        .align(BiasAlignment(route.last().x * 2 - 1, route.last().y * 2 - 1))
+                        .graphicsLayer { scaleX = pulse; scaleY = pulse },
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                if (query.isBlank()) "o mapa ainda esta vazio" else "nada no mapa",
+                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (query.isBlank()) "seja o primeiro a fincar bandeira numa constelacao"
+                else "nenhuma constelacao encontrada — tente outro nome",
+                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
+            )
+        }
     }
 }

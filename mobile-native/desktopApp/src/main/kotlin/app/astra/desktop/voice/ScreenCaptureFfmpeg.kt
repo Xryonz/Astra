@@ -27,9 +27,9 @@ import java.util.concurrent.TimeUnit
 class ScreenCaptureFfmpeg(
     private val ffmpegPath: String,
     private val source: CustomVideoSource,
-    // Tee do preview local: recebe (argb, w, h) a ~15fps. O webrtc-java NAO entrega
-    // frames de CustomVideoSource pro sink da track local, entao o auto-preview
-    // (Discord) sai daqui, direto da captura — nao do sink da track.
+    // Tee do preview local: recebe (argb, w, h) no MESMO fps da transmissao (segue o
+    // fps de captura). O webrtc-java NAO entrega frames de CustomVideoSource pro sink
+    // da track local, entao o auto-preview (Discord) sai daqui, direto da captura.
     private val onPreview: ((ByteArray, Int, Int) -> Unit)? = null,
 ) {
     private var process: Process? = null
@@ -39,11 +39,17 @@ class ScreenCaptureFfmpeg(
     // entao 2 dao folga de sobra a 15fps sem alocar 8MB por frame). So a thread de
     // captura toca nestes campos.
     private var lastPreviewNs = 0L
+    // Intervalo do preview = periodo de UM frame no fps de captura -> o preview
+    // ACOMPANHA o fps da transmissao (60fps de share = 60fps de preview). Definido no
+    // start() a partir do fps. Se a CPU nao aguentar, o auto-ajuste do VoiceEngine
+    // baixa o preset -> a captura E o preview caem juntos (sem roubar do encoder).
+    @Volatile private var previewIntervalNs = PREVIEW_INTERVAL_NS
     private var fullArgb = ByteArray(0)                       // scratch res cheia (cap thread)
     private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida ja reduzida (2 buffers)
     private var argbIdx = 0
 
     fun start(outputIdx: Int, width: Int, height: Int, fps: Int): Boolean {
+        previewIntervalNs = 1_000_000_000L / fps.coerceAtLeast(1) // preview segue o fps
         forceIntegratedGpu(ffmpegPath) // Optimus: sem isso, ddagrab da "output not supported"
         val filter = "ddagrab=output_idx=$outputIdx:framerate=$fps," +
             "hwdownload,format=bgra,scale=$width:$height,format=yuv420p"
@@ -130,7 +136,7 @@ class ScreenCaptureFfmpeg(
     private fun emitPreview(buffer: NativeI420Buffer, w: Int, h: Int) {
         val cb = onPreview ?: return
         val now = System.nanoTime()
-        if (now - lastPreviewNs < PREVIEW_INTERVAL_NS) return
+        if (now - lastPreviewNs < previewIntervalNs) return
         lastPreviewNs = now
         // Reduz pra no maximo PREVIEW_MAX_W de largura: o preview nao precisa da
         // resolucao cheia, e um ImageBitmap ~4x menor deixa makeRaster + upload de
@@ -178,7 +184,7 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
-        // Preview a ~24fps (42ms). A transmissao segue no framerate cheio do ddagrab.
+        // Fallback do intervalo do preview (~24fps) ate o start() amarrar ao fps real.
         private const val PREVIEW_INTERVAL_NS = 42_000_000L
         // Largura maxima do preview (mantem aspecto). Preview -> nao precisa de 1080p.
         private const val PREVIEW_MAX_W = 960

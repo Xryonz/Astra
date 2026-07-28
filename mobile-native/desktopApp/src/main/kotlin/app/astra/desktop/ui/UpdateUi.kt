@@ -1,8 +1,10 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +47,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -104,6 +109,21 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     // Rede de seguranca: travou verificando (offline lento) -> segue em 8s.
     LaunchedEffect(Unit) { delay(8_000); if (updater.state.value is UpdateState.Checking) onDone() }
 
+    // Entrada "constelacao se forma", toca UMA vez ao abrir o gate: as 14
+    // estrelas do anel nascem espalhadas e convergem pra orbita (ver
+    // RotatingStarsLogo). null = direto no estado final, sem stagger — e o que
+    // reduceMotion pede e tambem o default dos outros lugares que usam o logo
+    // (login/onboarding), que nao tocam essa entrada.
+    val entrance: State<Float>? = if (reduceMotion) null else {
+        var started by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { started = true }
+        animateFloatAsState(
+            targetValue = if (started) 1f else 0f,
+            animationSpec = tween(2000, easing = LinearEasing),
+            label = "gateEntrance",
+        )
+    }
+
     // Progresso REAL: so o download sabe quanto falta. Nos outros estados a barra
     // varre (indeterminada) em vez de fingir uma porcentagem.
     val progress = (st as? UpdateState.Downloading)?.progress
@@ -142,9 +162,18 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 26.dp, vertical = 24.dp).fillMaxWidth(),
         ) {
-            RotatingStarsLogo(reduceMotion)
+            RotatingStarsLogo(reduceMotion, entrance = entrance)
             Spacer(Modifier.height(16.dp))
-            Text("Astra", style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif))
+            Text(
+                "Astra",
+                style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif),
+                // Titulo resolve por ultimo (1.5..2.0s da entrada): alpha lido dentro do
+                // graphicsLayer, nao no corpo do composable — nao recompoe a cada frame.
+                modifier = Modifier.graphicsLayer {
+                    val ms = (entrance?.value ?: 1f) * 2000f
+                    alpha = ((ms - 1500f) / 500f).coerceIn(0f, 1f)
+                },
+            )
             Spacer(Modifier.height(8.dp))
             when (val s = st) {
                 is UpdateState.Available -> GateStatus("nova versao ${s.version} — baixando…")
@@ -236,8 +265,13 @@ private fun XpBar(progress: Float?, reduceMotion: Boolean) {
 
 // internal + tamanho parametrizavel: a tela de login reusa o MESMO planeta, pra o
 // objeto que abre o app ser o mesmo que recebe no login (continuidade de marca).
+//
+// entrance: progresso 0..1 do one-shot "constelacao se forma", tocado SO pelo
+// gate de boot (UpdaterGate) num Animatable/animateFloatAsState proprio. null
+// (default) = ja assentado, ou seja, o comportamento de sempre — login,
+// onboarding e o proprio gate com reduceMotion continuam iguais, sem esse custo.
 @Composable
-internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp) {
+internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null) {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
     // Fase lida DENTRO do draw (drawRing roda no DrawScope do Canvas): o composable
@@ -254,40 +288,101 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp) {
     }
     val count = 14
     val tilt = (-12.0 * PI / 180.0).toFloat()
+
+    // Posicao de orbita (formula de sempre) extraida pra fn: a entrada precisa
+    // dela tanto de alvo do "reune" quanto do desenho do regime normal.
+    fun DrawScope.orbitPos(theta: Float): Offset {
+        val half = size.minDimension / 2f
+        val rx = half * 0.92f
+        val ry = half * 0.30f
+        val ex = rx * cos(theta)
+        val ey = ry * sin(theta)
+        return Offset(
+            center.x + ex * cos(tilt) - ey * sin(tilt),
+            center.y + ex * sin(tilt) + ey * cos(tilt),
+        )
+    }
+    // Posicao espalhada em t=0 da entrada: um circulo bem mais largo que o anel,
+    // angulo por indice via angulo aureo (~137.5deg) pra nao empilhar duas
+    // estrelas na mesma direcao. Deterministico por indice — sem Random, sem
+    // alocar nada no draw.
+    fun DrawScope.scatterPos(i: Int): Offset {
+        val half = size.minDimension / 2f
+        val ang = i * 2.4f
+        val rad = half * (1.5f + 0.6f * ((i * 53) % 5) / 4f)
+        return Offset(center.x + rad * cos(ang), center.y + rad * sin(ang))
+    }
     // Anel de Saturno: elipse achatada; sin(theta) > 0 = lado perto (na frente
     // do planeta), <= 0 = lado longe (atras). Cada canvas desenha so um lado.
     fun DrawScope.drawRing(front: Boolean) {
         val phase = phaseState?.value ?: 0.9f
-        val half = size.minDimension / 2f
-        val rx = half * 0.92f
-        val ry = half * 0.30f
+        // "Reune" (0..1.1s da entrada): 0 = tudo espalhado, 1 = na orbita. Fora
+        // do gate (entrance == null) cai sempre em 1 = formula de sempre.
+        val gather = ((entrance?.value ?: 1f) * 2000f / 1100f).coerceIn(0f, 1f)
+            .let { FastOutSlowInEasing.transform(it) }
         repeat(count) { i ->
             val theta = phase + i * (twoPi / count)
             val depth = sin(theta)
             if ((depth > 0f) != front) return@repeat
-            val ex = rx * cos(theta)
-            val ey = ry * depth
-            val p = Offset(
-                center.x + ex * cos(tilt) - ey * sin(tilt),
-                center.y + ex * sin(tilt) + ey * cos(tilt),
-            )
+            val target = orbitPos(theta)
+            val p = if (gather >= 1f) target else lerp(scatterPos(i), target, gather)
             // Paralaxe: perto = maior e mais brilhante; longe = menor e apagado.
             val t01 = (depth + 1f) / 2f
             val lead = i % 5 == 0
+            // Espalhada nasce apagada; ganha brilho junto com a aproximacao.
+            val entryAlpha = if (gather >= 1f) 1f else 0.15f + 0.85f * gather
             drawCircle(
-                color = accent.copy(alpha = 0.30f + 0.70f * t01),
+                color = accent.copy(alpha = (0.30f + 0.70f * t01) * entryAlpha),
                 radius = (1.3f + 2.1f * t01).dp.toPx() * (if (lead) 1.35f else 1f),
                 center = p,
             )
         }
     }
+    // Linhas da constelacao sendo esbocada: conecta vizinhos na ORDEM do anel
+    // (i -> i+1), o mesmo desenho que a orbita final, so que ainda se formando.
+    // Sobe durante o "reune", some no "assenta" (1.1..1.7s) — so existe durante
+    // a entrada do gate, entrance == null sai no primeiro if.
+    fun DrawScope.drawConstellationLines() {
+        val e = entrance?.value ?: return
+        val phase = phaseState?.value ?: 0.9f
+        val ms = e * 2000f
+        val gather = (ms / 1100f).coerceIn(0f, 1f).let { FastOutSlowInEasing.transform(it) }
+        val settle = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
+        val lineAlpha = gather * (1f - settle)
+        if (lineAlpha <= 0f) return
+        val pts = (0 until count).map { i ->
+            val theta = phase + i * (twoPi / count)
+            lerp(scatterPos(i), orbitPos(theta), gather)
+        }
+        for (i in 0 until count) {
+            drawLine(
+                color = accent.copy(alpha = 0.16f * lineAlpha),
+                start = pts[i],
+                end = pts[(i + 1) % count],
+                strokeWidth = 1.dp.toPx(),
+            )
+        }
+    }
     // O planeta ocupa 52% do diametro; o resto e o espaco onde o anel passa.
     Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(diameter)) { drawRing(front = false) }
+        Canvas(Modifier.size(diameter)) {
+            drawConstellationLines()
+            drawRing(front = false)
+        }
         Image(
             painter = painterResource("astra-icon.png"),
             contentDescription = null,
-            modifier = Modifier.size(diameter * 0.52f),
+            modifier = Modifier
+                .size(diameter * 0.52f)
+                // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
+                // Lido dentro do graphicsLayer — nao recompoe o composable por frame.
+                .graphicsLayer {
+                    val ms = (entrance?.value ?: 1f) * 2000f
+                    val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
+                    alpha = a
+                    scaleX = 0.85f + 0.15f * a
+                    scaleY = 0.85f + 0.15f * a
+                },
         )
         Canvas(Modifier.size(diameter)) { drawRing(front = true) }
     }

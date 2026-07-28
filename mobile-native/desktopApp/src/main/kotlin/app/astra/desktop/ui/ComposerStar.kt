@@ -193,8 +193,8 @@ private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit, onFile: () -> Unit)
 }
 
 // Seletor nativo do SO, multi-arquivo. Modal (bloqueia) — padrao de file dialog.
-// Vazio = cancelou.
-private fun chooseFiles(): List<File> {
+// Vazio = cancelou. Internal: o '+' do composer (ChatView) reusa o mesmo seletor.
+internal fun chooseFiles(): List<File> {
     val dlg = FileDialog(null as Frame?, "Enviar arquivo", FileDialog.LOAD)
     dlg.isMultipleMode = true
     dlg.isVisible = true

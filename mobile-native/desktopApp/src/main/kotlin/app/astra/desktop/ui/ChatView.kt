@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -114,6 +115,7 @@ import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Pin
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Reply
+import com.composables.icons.lucide.Send
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.X
@@ -130,8 +132,6 @@ import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.shared.AstraShared
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import zed.rainxch.rikkaui.components.ui.input.Input
-import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 import java.awt.Desktop
 import java.awt.datatransfer.DataFlavor
 import java.io.File
@@ -371,40 +371,84 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                 Spacer(Modifier.height(6.dp))
             }
             var draft by remember(target.id) { mutableStateOf("") }
+            var composerFocused by remember(target.id) { mutableStateOf(false) }
             fun submit() {
                 if (draft.isBlank() && state.pending.isEmpty()) return
                 vm.send(draft)
                 draft = ""
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Input(
-                    value = draft,
-                    onValueChange = {
-                        draft = it.take(4000)
-                        if (it.isNotBlank()) vm.typing()
-                    },
-                    placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}",
-                    singleLine = false,
-                    animation = InputAnimation.Glow,
-                    modifier = Modifier
-                        .weight(1f)
-                        // Enter envia; Shift+Enter quebra linha (convencao desktop).
-                        .onPreviewKeyEvent { e ->
-                            if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
-                                submit(); true
-                            } else false
+            val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
+            val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
+            // Barra compacta com acoes inline: '+' anexa (atalho do que tambem vive no
+            // ✦), o campo cresce em multiline, '✦' traz emoji/gif/arquivo, e '➤' envia
+            // — acende no accent quando ha texto/anexo. Contador so aparece perto do teto.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Obsidian.raised)
+                    .border(
+                        1.dp,
+                        if (composerFocused) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                        RoundedCornerShape(12.dp),
+                    )
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ComposerGlyph(Lucide.Plus, tint = Obsidian.text3, enabled = true) {
+                    val files = chooseFiles()
+                    if (files.isNotEmpty()) vm.addFiles(files)
+                }
+                Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
+                    if (draft.isEmpty()) {
+                        Text(
+                            placeholder,
+                            style = TextStyle(color = Obsidian.text3, fontSize = 14.sp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    BasicTextField(
+                        value = draft,
+                        onValueChange = {
+                            draft = it.take(4000)
+                            if (it.isNotBlank()) vm.typing()
                         },
-                )
-                Spacer(Modifier.width(8.dp))
-                // Emoji e GIF vivem DENTRO da estrela (menu pra cima) em vez de dois
-                // botoes soltos. Emoji insere no rascunho e mantem aberto pra
-                // escolher varios; GIF escolhido JA ENVIA (F5).
+                        textStyle = TextStyle(color = Obsidian.text1, fontSize = 14.sp, lineHeight = 20.sp),
+                        cursorBrush = SolidColor(Obsidian.accent),
+                        maxLines = 8,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { composerFocused = it.isFocused }
+                            // Enter envia; Shift+Enter quebra linha (convencao desktop).
+                            .onPreviewKeyEvent { e ->
+                                if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
+                                    submit(); true
+                                } else false
+                            },
+                    )
+                }
+                // Contador so quando chega perto do teto (fica vermelho no limite).
+                if (draft.length > 3600) {
+                    Text(
+                        "${4000 - draft.length}",
+                        style = TextStyle(
+                            color = if (draft.length >= 4000) Obsidian.danger else Obsidian.text3,
+                            fontSize = 11.sp,
+                        ),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
+                // Emoji/GIF/arquivo vivem dentro da estrela (menu pra cima).
                 ComposerStarButton(
                     onPickEmoji = { draft = (draft + it).take(4000) },
                     onPickGif = vm::sendGif,
-                    // Mesmo destino do arrastar-e-soltar: vira anexo pendente no composer.
                     onPickFiles = vm::addFiles,
                 )
+                val sendTint by animateColorAsState(
+                    if (canSend) Obsidian.accent else Obsidian.text3,
+                    tween(140), label = "sendTint",
+                )
+                ComposerGlyph(Lucide.Send, tint = sendTint, enabled = canSend) { submit() }
             }
         }
     }
@@ -1074,6 +1118,25 @@ private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         LIcon(icon, tint = Obsidian.text3, size = 12.dp)
+    }
+}
+
+// Botao-glifo do composer (+ / enviar): 30dp, tint controlavel, hover suave.
+// Desabilitado = sem hover e sem clique (ex: enviar sem texto).
+@Composable
+private fun ComposerGlyph(icon: ImageVector, tint: Color, enabled: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (hov && enabled) Obsidian.hover else Color.Transparent)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(icon, tint = tint, size = 17.dp)
     }
 }
 

@@ -3,6 +3,7 @@ package app.astra.desktop.di
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.AuthInterceptor
+import app.astra.desktop.net.DeviceInterceptor
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.DesktopTokenAuthenticator
 import app.astra.desktop.prefs.DesktopPrefs
@@ -45,6 +46,8 @@ val appModule = module {
             .readTimeout(30, TimeUnit.SECONDS)
             // Teto da chamada inteira (fila incluida): nada pendura pra sempre.
             .callTimeout(75, TimeUnit.SECONDS)
+            // X-Device-Id tambem aqui: login/register/refresh vivem no plain (#4).
+            .addInterceptor(DeviceInterceptor(get()))
             .build()
     }
 
@@ -69,6 +72,7 @@ val appModule = module {
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .callTimeout(90, TimeUnit.SECONDS)
+            .addInterceptor(DeviceInterceptor(get()))
             .addInterceptor(AuthInterceptor(get()))
             .authenticator(DesktopTokenAuthenticator(get(), lazy { get<RefreshApi>() }))
             .build()

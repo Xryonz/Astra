@@ -93,6 +93,9 @@ export const refreshTokens = pgTable('RefreshToken', {
 
   ip:         text('ip'),
 
+  // Id estavel por instalacao (X-Device-Id). Dedup de sessao do mesmo PC (#4).
+  deviceId:   text('deviceId'),
+
   lastUsedAt: timestamp('lastUsedAt', { precision: 3 }),
 }, (t) => ({
   byUser: index('RefreshToken_userId_idx').on(t.userId),

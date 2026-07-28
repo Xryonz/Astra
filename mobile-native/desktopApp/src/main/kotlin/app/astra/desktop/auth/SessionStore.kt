@@ -140,4 +140,12 @@ class SessionStore {
         if (value == null) p.remove(key) else p.setProperty(key, value)
         runCatching { uiFile.outputStream().use { p.store(it, "Astra ui prefs") } }
     }
+
+    // Id estavel por instalacao (nao e segredo). Vive nas prefs de UI pra
+    // sobreviver a logout — assim o MESMO PC mantem o id entre logins e o backend
+    // deduplica a sessao (X-Device-Id). Gerado uma vez, sob lock pra nao nascer
+    // dois no primeiro boot (varias requests concorrentes chamam load/deviceId).
+    fun deviceId(): String = synchronized(lock) {
+        uiPref("deviceId") ?: java.util.UUID.randomUUID().toString().also { setUiPref("deviceId", it) }
+    }
 }

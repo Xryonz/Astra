@@ -176,6 +176,9 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL D
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL DEFAULT 100;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerBorder"    text    NOT NULL DEFAULT 'none';
 
+-- ===== Sessao por dispositivo (#4: dedup do mesmo PC via X-Device-Id) =====
+ALTER TABLE "RefreshToken" ADD COLUMN IF NOT EXISTS "deviceId" text;
+
 -- ===== Profile personalization (pronouns / statusEmoji / displayFont) =====
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pronouns"     text;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "statusEmoji"  text;

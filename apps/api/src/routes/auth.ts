@@ -97,9 +97,14 @@ router.post(
       console.error('[Mail] envio falhou (register):', e?.response ?? e?.message ?? e))
 
     const { token: accessToken } = generateAccessToken(user.id)
+    // #4: dedup por dispositivo — logar do MESMO PC revoga a sessao anterior
+    // daquele device (X-Device-Id) em vez de empilhar duplicata.
+    const deviceId = req.header('x-device-id') ?? undefined
+    await revokeDeviceSessions(user.id, deviceId)
     const { refreshToken }       = await createRefreshToken(user.id, {
       userAgent: req.header('user-agent') ?? undefined,
       ip:        req.ip,
+      deviceId,
     })
 
     res.status(201).json({ data: { user, accessToken, refreshToken } })
@@ -128,9 +133,14 @@ router.post(
     }
 
     const { token: accessToken } = generateAccessToken(user.id)
+    // #4: dedup por dispositivo — logar do MESMO PC revoga a sessao anterior
+    // daquele device (X-Device-Id) em vez de empilhar duplicata.
+    const deviceId = req.header('x-device-id') ?? undefined
+    await revokeDeviceSessions(user.id, deviceId)
     const { refreshToken }       = await createRefreshToken(user.id, {
       userAgent: req.header('user-agent') ?? undefined,
       ip:        req.ip,
+      deviceId,
     })
     const { passwordHash: _, ...userSafe } = user
 
@@ -179,9 +189,12 @@ router.post(
     }
 
     const { token: newAccessToken } = generateAccessToken(payload.userId)
+    // Rotacao 1:1 (o token velho ja foi revogado acima) — sem dedup, so carrega
+    // o deviceId adiante pra a sessao seguir amarrada ao mesmo PC.
     const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId, {
       userAgent: req.header('user-agent') ?? undefined,
       ip:        req.ip,
+      deviceId:  req.header('x-device-id') ?? undefined,
     })
 
     res.json({ data: { accessToken: newAccessToken, refreshToken: newRefreshToken } })
@@ -433,7 +446,7 @@ function truncateIp(ip: string | undefined): string | null {
 
 async function createRefreshToken(
   userId: string,
-  meta?: { userAgent?: string; ip?: string },
+  meta?: { userAgent?: string; ip?: string; deviceId?: string },
 ) {
   const expiresAt    = new Date(Date.now() + REFRESH_TTL_MS)
   const refreshToken = generateRefreshToken(userId)
@@ -444,9 +457,25 @@ async function createRefreshToken(
     expiresAt,
     userAgent:  meta?.userAgent?.slice(0, 256) ?? null,
     ip:         truncateIp(meta?.ip),
+    deviceId:   meta?.deviceId?.slice(0, 128) ?? null,
     lastUsedAt: new Date(),
   })
   return { refreshToken }
+}
+
+// Revoga as sessoes ativas do MESMO dispositivo antes de criar a nova. So afeta
+// clientes que mandam o X-Device-Id (desktop); web/mobile sem id = sem dedup, e
+// outros PCs (deviceId diferente) ficam intactos.
+async function revokeDeviceSessions(userId: string, deviceId?: string) {
+  const id = deviceId?.slice(0, 128)
+  if (!id) return
+  await db.update(refreshTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(
+      eq(refreshTokens.userId, userId),
+      eq(refreshTokens.deviceId, id),
+      isNull(refreshTokens.revokedAt),
+    ))
 }
 
 export default router

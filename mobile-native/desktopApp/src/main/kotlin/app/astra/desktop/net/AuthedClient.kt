@@ -24,6 +24,16 @@ class AuthInterceptor(private val store: SessionStore) : Interceptor {
     }
 }
 
+// Manda o X-Device-Id em TODA request — nos DOIS clients (plain e authed). Precisa
+// estar no plain porque login/register/refresh rodam la (sem Bearer), e sao esses
+// que criam a sessao. Backend deduplica sessoes do mesmo PC por esse id (#4).
+class DeviceInterceptor(private val store: SessionStore) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response =
+        chain.proceed(
+            chain.request().newBuilder().header("X-Device-Id", store.deviceId()).build(),
+        )
+}
+
 // 401 -> renova com o refresh token e repete a request. SINGLE-FLIGHT (mesma
 // logica do TokenRefresher do Android): o boot dispara varias chamadas em
 // paralelo e o refresh e single-use no backend — sem o lock, todas tentavam

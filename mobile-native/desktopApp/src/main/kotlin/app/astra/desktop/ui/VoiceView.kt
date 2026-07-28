@@ -334,8 +334,8 @@ fun VoiceView(
     }
 }
 
-// Config da call (gear): escolher qualidade + fluidez da transmissao (aplica ao
-// vivo) e — futuro — o cancelador de ruido Krisp. Presets = os 4 do ScreenQuality.
+// Config da call (gear): escolher a fluidez da transmissao (aplica ao vivo) e —
+// futuro — o cancelador de ruido Krisp. Presets = os 2 do ScreenQuality (720p 60/30).
 @Composable
 private fun CallSettingsPanel(
     current: ScreenQuality,
@@ -347,15 +347,7 @@ private fun CallSettingsPanel(
     onPickInput: (String?) -> Unit,
     onPickOutput: (String?) -> Unit,
 ) {
-    val is1080 = current.width >= 1920
     val is60 = current.fps >= 60
-    // 2 eixos (resolucao x fluidez) -> os 4 presets ScreenQuality por baixo.
-    fun choose(res1080: Boolean, fps60: Boolean) = when {
-        res1080 && fps60 -> ScreenQuality.HIGH_1080_60
-        !res1080 && fps60 -> ScreenQuality.SMOOTH_720_60
-        res1080 && !fps60 -> ScreenQuality.CRISP_1080_30
-        else -> ScreenQuality.LIGHT_720_30
-    }
     Column(
         Modifier
             .width(232.dp)
@@ -364,18 +356,13 @@ private fun CallSettingsPanel(
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
             .padding(8.dp),
     ) {
-        PanelHeader("Resolucao")
+        // So 720p (foco de perf: o encoder e software, 1080p nao segura o fps). O
+        // eixo de resolucao saiu; sobra a fluidez, 720p60 fluida vs 720p30 leve.
+        PanelHeader("Transmissao · 720p")
         CallSegmented(
-            options = listOf("1080p" to true, "720p" to false),
-            selected = is1080,
-            onPick = { r -> onPick(choose(r, is60)) },
-        )
-        Spacer(Modifier.height(8.dp))
-        PanelHeader("Fluidez")
-        CallSegmented(
-            options = listOf("60fps" to true, "30fps" to false),
+            options = listOf("60fps — fluida" to true, "30fps — leve" to false),
             selected = is60,
-            onPick = { f -> onPick(choose(is1080, f)) },
+            onPick = { f -> onPick(if (f) ScreenQuality.SMOOTH_720_60 else ScreenQuality.LIGHT_720_30) },
         )
         Spacer(Modifier.height(10.dp))
         PanelHeader("Entrada (microfone)")

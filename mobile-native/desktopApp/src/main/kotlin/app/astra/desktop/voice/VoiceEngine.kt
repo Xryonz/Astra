@@ -206,12 +206,12 @@ class VoiceEngine(
     private var statsJob: Job? = null
 
     // Preset ativo da transmissao (Settings > Voz). Capturado da pref no
-    // startScreenShare; TrackPublished/attachScreen leem daqui. Default = 1080p60
-    // (requisito original do dono: 60fps no minimo).
-    private var screenQ: ScreenQuality = ScreenQuality.HIGH_1080_60
+    // startScreenShare; TrackPublished/attachScreen leem daqui. Default = 720p60
+    // (foco em fluidez; 1080p foi removido — o encoder H264 e software).
+    private var screenQ: ScreenQuality = ScreenQuality.SMOOTH_720_60
 
     // Auto-ajuste de fps (#60fps): o webrtc-java so tem encoder por SOFTWARE (sem
-    // HW/NVENC — verificado no binario), entao 1080p60 pode ser CPU demais e o fps
+    // HW/NVENC — verificado no binario), entao ate 720p60 pode ser CPU demais e o fps
     // despenca. Quando o envio fica 'cpu'-limitado por ~3 leituras seguidas, baixamos
     // 1 degrau de preset (priorizando o framerate). sessionQualityCap = teto SO desta
     // sessao — NAO mexe na pref explicita do usuario (zera quando ele escolhe na mao).
@@ -839,12 +839,9 @@ class VoiceEngine(
         scope.launch { autoStepDownTo(next) }
     }
 
-    // Degrau de baixo priorizando FRAMERATE: primeiro cai a resolucao (mantem 60fps),
-    // e so como ultimo recurso cai o fps. Piso = 720p30.
+    // So 720p agora: unico degrau possivel e cair o fps (60 -> 30). Piso = 720p30.
     private fun ScreenQuality.stepDownForCpu(): ScreenQuality? = when (this) {
-        ScreenQuality.HIGH_1080_60  -> ScreenQuality.SMOOTH_720_60
         ScreenQuality.SMOOTH_720_60 -> ScreenQuality.LIGHT_720_30
-        ScreenQuality.CRISP_1080_30 -> ScreenQuality.LIGHT_720_30
         ScreenQuality.LIGHT_720_30  -> null
     }
 

@@ -24,19 +24,19 @@ enum class UiFps(val key: String, val cap: Int) {
     }
 }
 
-// Presets da transmissao de tela (Settings > Voz). Default = 1080p60 (o requisito
-// original do dono: 60fps no minimo); os 30fps sao opt-in pra pouca banda. bitrate
-// em bits/s. Aplica ao INICIAR a transmissao.
+// Presets da transmissao de tela (Settings > Voz). SO 720p, por decisao de perf: o
+// encoder H264 do webrtc-java e por SOFTWARE (sem HW/NVENC) e 1080p nao chega nem a
+// 30fps na CPU — entao foco total em 720p, priorizando fluidez. Default = 720p60.
+// bitrate em bits/s. Aplica ao INICIAR a transmissao. (Chaves antigas de 1080p caem
+// no default via from() — quem tinha 1080p salvo sobe pro 720p60 suportado.)
 enum class ScreenQuality(
     val key: String, val label: String,
     val width: Int, val height: Int, val fps: Int, val bitrate: Int,
 ) {
-    HIGH_1080_60("h108060", "1080p 60fps — alta", 1920, 1080, 60, 8_000_000),
-    SMOOTH_720_60("s72060", "720p 60fps — fluida (recomendado)", 1280, 720, 60, 4_000_000),
-    CRISP_1080_30("c108030", "1080p 30fps — nitida", 1920, 1080, 30, 6_000_000),
+    SMOOTH_720_60("s72060", "720p 60fps — fluida", 1280, 720, 60, 4_000_000),
     LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000);
     companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: HIGH_1080_60
+        fun from(raw: String?) = entries.find { it.key == raw } ?: SMOOTH_720_60
     }
 }
 
@@ -89,7 +89,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val fontSize: FontSizePref = FontSizePref.MD,
         val density: DensityPref = DensityPref.COMFORTABLE,
         // --- Voz & Transmissao ---
-        val screenQuality: ScreenQuality = ScreenQuality.HIGH_1080_60,
+        val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
         // Processamento do microfone (aplica ao ENTRAR na proxima sala de voz).
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,

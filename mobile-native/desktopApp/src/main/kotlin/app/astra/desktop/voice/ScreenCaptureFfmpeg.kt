@@ -39,17 +39,20 @@ class ScreenCaptureFfmpeg(
     // entao 2 dao folga de sobra a 15fps sem alocar 8MB por frame). So a thread de
     // captura toca nestes campos.
     private var lastPreviewNs = 0L
-    // Intervalo do preview = periodo de UM frame no fps de captura -> o preview
-    // ACOMPANHA o fps da transmissao (60fps de share = 60fps de preview). Definido no
-    // start() a partir do fps. Se a CPU nao aguentar, o auto-ajuste do VoiceEngine
-    // baixa o preset -> a captura E o preview caem juntos (sem roubar do encoder).
+    // Intervalo do preview = periodo de UM frame no fps de captura, mas com TETO de
+    // 30fps (PREVIEW_MAX_FPS). Acima disso a conversao ARGB + o downscale — que rodam
+    // NESTA thread de captura, dentro do pushI420, ANTES do frame ir pro encoder —
+    // roubam CPU do encoder H264 (software) e seguram a drenagem do pipe do ffmpeg,
+    // derrubando o fps da propria transmissao. 30fps de preview e liso pro olho e
+    // devolve metade do custo a 60fps. Definido no start() a partir do fps.
     @Volatile private var previewIntervalNs = PREVIEW_INTERVAL_NS
     private var fullArgb = ByteArray(0)                       // scratch res cheia (cap thread)
     private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida ja reduzida (2 buffers)
     private var argbIdx = 0
 
     fun start(outputIdx: Int, width: Int, height: Int, fps: Int): Boolean {
-        previewIntervalNs = 1_000_000_000L / fps.coerceAtLeast(1) // preview segue o fps
+        // Preview segue o fps ATE 30 (teto): acima disso a conversao rouba do encoder.
+        previewIntervalNs = 1_000_000_000L / fps.coerceIn(1, PREVIEW_MAX_FPS)
         forceIntegratedGpu(ffmpegPath) // Optimus: sem isso, ddagrab da "output not supported"
         val filter = "ddagrab=output_idx=$outputIdx:framerate=$fps," +
             "hwdownload,format=bgra,scale=$width:$height,format=yuv420p"
@@ -184,6 +187,9 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
+        // Teto de fps do preview local. Preview e auto-observacao — 30fps basta e
+        // acima disso a conversao/downscale (na thread de captura) rouba do encoder.
+        private const val PREVIEW_MAX_FPS = 30
         // Fallback do intervalo do preview (~24fps) ate o start() amarrar ao fps real.
         private const val PREVIEW_INTERVAL_NS = 42_000_000L
         // Largura maxima do preview (mantem aspecto). Preview -> nao precisa de 1080p.

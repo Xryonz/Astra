@@ -155,6 +155,12 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
             packageVersion = astraVersion
+            // Modulos do JDK que o jlink NAO inclui por padrao mas o app usa em
+            // runtime. jdk.httpserver = com.sun.net.httpserver (loopback do login
+            // Google, GoogleAuthFlow). Sem ele o .exe empacotado joga
+            // NoClassDefFoundError -> "Nao consegui abrir a porta local". No dev
+            // (JDK completo) o modulo existe, por isso so quebrava no pacote.
+            modules("jdk.httpserver")
             // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
             // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
             // System.getProperty("compose.application.resources.dir"). O binario e

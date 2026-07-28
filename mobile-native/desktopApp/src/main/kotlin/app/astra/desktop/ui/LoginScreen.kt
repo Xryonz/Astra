@@ -228,8 +228,18 @@ fun LoginScreen(
         // ---- Painel direito: formulario ----
         Box(
             // Translucido (nao mais opaco): a aurora da janela passa por baixo, no
-            // mesmo idioma dos paineis do shell.
-            modifier = Modifier.weight(0.55f).fillMaxHeight().background(Obsidian.base.copy(alpha = 0.82f)),
+            // mesmo idioma dos paineis do shell. O ENCONTRO com o ceu (esquerda) nao
+            // e um corte seco: um gradiente horizontal funde ceu -> sombra suave ->
+            // painel (mesmo idioma do scrim do banner da constelacao, #13). A faixa
+            // de fade cai no vao vazio antes do formulario (360dp centralizado).
+            modifier = Modifier.weight(0.55f).fillMaxHeight().background(
+                Brush.horizontalGradient(
+                    0.0f to Color.Transparent,
+                    0.10f to Obsidian.void.copy(alpha = 0.45f),
+                    0.26f to Obsidian.base.copy(alpha = 0.82f),
+                    1.0f to Obsidian.base.copy(alpha = 0.82f),
+                ),
+            ),
             contentAlignment = Alignment.Center,
         ) {
             Column(Modifier.width(360.dp).animateContentSize(tween(authDur))) {

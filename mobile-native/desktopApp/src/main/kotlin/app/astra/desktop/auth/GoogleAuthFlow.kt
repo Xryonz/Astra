@@ -85,7 +85,13 @@ object GoogleAuthFlow {
 
         val out = withTimeoutOrNull(TIMEOUT_MS) { deferred.await() }
             ?: Result.failure(Exception("Tempo esgotado — tente de novo"))
-        runCatching { server.stop(0) }
+        // O /callback captura o token e responde 302 -> /done; o navegador so busca
+        // /done DEPOIS. Parar o server na hora (stop(0)) cortava essa segunda request
+        // -> "conexao recusada" no navegador (mesmo o app logando). Para com folga numa
+        // thread daemon pra o /done ser servido, sem atrasar o login no app.
+        Thread {
+            try { Thread.sleep(3000); server.stop(2) } catch (_: Exception) { runCatching { server.stop(0) } }
+        }.apply { isDaemon = true }.start()
         out
     }
 

@@ -15,7 +15,11 @@ router.get(
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const q = String(req.query.q ?? '').trim()
-    const memberCount = sql<number>`(select count(*)::int from "ServerMember" where "ServerMember"."serverId" = ${servers.id})`
+    // "Server"."id" QUALIFICADO na mao (nao ${servers.id}): na projecao do select o
+    // Drizzle renderiza a coluna SEM tabela ("id"), e dentro da subquery esse "id"
+    // pelado casa com "ServerMember"."id" (a PK do membro) em vez do id do servidor
+    // -> serverId = id-do-membro nunca bate -> count 0 pra todos. Qualificar corrige.
+    const memberCount = sql<number>`(select count(*)::int from "ServerMember" where "ServerMember"."serverId" = "Server"."id")`
 
     const rows = await db.select({
       id:          servers.id,

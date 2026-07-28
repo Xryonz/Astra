@@ -60,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.SolidColor
@@ -1160,6 +1161,37 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
 
 // ---- Sidebar (260dp): orbitas da constelacao OU sussurros + painel do user ----
 
+// #13: cabecalho da constelacao = faixa de banner (imagem, animavel via AstraImage)
+// com o nome em serifa por cima, legivel gracas a um scrim de baixo pra cima. Sem
+// banner: um degrade sobrio do tema no lugar da imagem. So constelacao usa isto;
+// sussurros/descobrir seguem no header de texto.
+@Composable
+private fun ServerHeaderBanner(srv: ServerDto) {
+    Box(Modifier.fillMaxWidth().height(104.dp)) {
+        if (!srv.bannerUrl.isNullOrBlank()) {
+            AstraImage(srv.bannerUrl, srv.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Obsidian.overlay, Obsidian.raised))))
+        }
+        // Scrim: transparente em cima, escurece pro void embaixo -> nome sempre le.
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.5f to Color.Transparent,
+                    1f to Obsidian.void.copy(alpha = 0.85f),
+                ),
+            ),
+        )
+        Text(
+            text = srv.name,
+            style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 14.dp, vertical = 11.dp),
+        )
+    }
+}
+
 @Composable
 private fun Sidebar(
     selection: Selection,
@@ -1247,11 +1279,13 @@ private fun Sidebar(
                                 add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })
                             }
                         }
-                    }) { header() }
+                        // #13: faixa de banner no topo da constelacao com o nome por cima.
+                        // Substitui o header de texto simples (que segue nos sussurros/descobrir).
+                    }) { ServerHeaderBanner(srv) }
                 } else {
                     header()
+                    HairRule()
                 }
-                HairRule()
 
                 Box(Modifier.weight(1f)) {
                     when {

@@ -45,6 +45,9 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.GifResultDto
+import java.awt.FileDialog
+import java.awt.Frame
+import java.io.File
 
 // Estrela do compositor: UM botao no lugar dos dois soltos (emoji e GIF). Clicar
 // gira a estrela e abre um menu PRA CIMA com as duas opcoes; escolher troca o
@@ -74,6 +77,7 @@ private object StarAbove : PopupPositionProvider {
 fun ComposerStarButton(
     onPickEmoji: (String) -> Unit,
     onPickGif: (GifResultDto) -> Unit,
+    onPickFiles: (List<File>) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     var pane by remember { mutableStateOf(StarPane.MENU) }
@@ -143,6 +147,15 @@ fun ComposerStarButton(
                         StarPane.MENU -> StarMenu(
                             onEmoji = { pane = StarPane.EMOJI },
                             onGif = { pane = StarPane.GIF },
+                            // Arquivo abre o seletor NATIVO do SO (nao um pane): fecha o
+                            // popup antes pra o dialog modal nao brigar por foco com a
+                            // janela do Popup. Reusa o mesmo pipeline do arrastar-e-soltar
+                            // (vm.addFiles -> anexo pendente no composer).
+                            onFile = {
+                                open = false
+                                val files = chooseFiles()
+                                if (files.isNotEmpty()) onPickFiles(files)
+                            },
                         )
                         // Emoji fica aberto pra escolher varios (mesmo comportamento de
                         // antes); GIF fecha porque escolher JA ENVIA.
@@ -159,7 +172,7 @@ fun ComposerStarButton(
 }
 
 @Composable
-private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit) {
+private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit, onFile: () -> Unit) {
     Column(
         Modifier
             .shadow(8.dp, RoundedCornerShape(10.dp))
@@ -175,7 +188,17 @@ private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit) {
     ) {
         StarMenuRow("☺", "emoji", onEmoji)
         StarMenuRow("▦", "GIF", onGif)
+        StarMenuRow("▤", "arquivo", onFile)
     }
+}
+
+// Seletor nativo do SO, multi-arquivo. Modal (bloqueia) — padrao de file dialog.
+// Vazio = cancelou.
+private fun chooseFiles(): List<File> {
+    val dlg = FileDialog(null as Frame?, "Enviar arquivo", FileDialog.LOAD)
+    dlg.isMultipleMode = true
+    dlg.isVisible = true
+    return dlg.files?.toList().orEmpty()
 }
 
 @Composable

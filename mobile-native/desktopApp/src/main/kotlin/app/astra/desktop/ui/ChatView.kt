@@ -402,6 +402,8 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                 ComposerStarButton(
                     onPickEmoji = { draft = (draft + it).take(4000) },
                     onPickGif = vm::sendGif,
+                    // Mesmo destino do arrastar-e-soltar: vira anexo pendente no composer.
+                    onPickFiles = vm::addFiles,
                 )
             }
         }

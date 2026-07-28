@@ -117,6 +117,7 @@ data class MemberRoleDto(
     val id: String,
     val name: String,
     val color: String? = null,
+    val iconUrl: String? = null,
     val position: Int = 0,
     val hoist: Boolean = false,
 )
@@ -127,6 +128,9 @@ data class MemberUserDto(
     val displayName: String? = null,
     val avatarUrl: String? = null,
 )
+
+@Serializable
+data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 
 @Serializable
 data class MyPermsDto(

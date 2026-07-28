@@ -67,6 +67,11 @@ class DesktopSocket(private val store: SessionStore) {
     private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
 
+    // Presenca de alguem mudou ({userId, status}) — broadcast global. O painel de
+    // membros so aplica se o userId ja estiver na lista da constelacao atual.
+    private val _presenceUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
+    val presenceUpdate: SharedFlow<String> = _presenceUpdate.asSharedFlow()
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = store.load()?.accessToken ?: return
@@ -116,6 +121,9 @@ class DesktopSocket(private val store: SessionStore) {
         }
         s.on("channel_activity") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _channelActivity.tryEmit(it.toString()) }
+        }
+        s.on("presence_update") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _presenceUpdate.tryEmit(it.toString()) }
         }
         s.io().on(io.socket.client.Manager.EVENT_RECONNECT_ATTEMPT) {
             // Token pode ter rotacionado (authenticator http) — usa o mais fresco.

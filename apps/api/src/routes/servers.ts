@@ -513,13 +513,14 @@ serversRouter.get(
       .orderBy(asc(serverMembers.joinedAt))
 
     const memberIds = members.map((m) => m.id)
-    let rolesByMember = new Map<string, Array<{ id: string; name: string; color: string|null; position: number; hoist: boolean }>>()
+    let rolesByMember = new Map<string, Array<{ id: string; name: string; color: string|null; iconUrl: string|null; position: number; hoist: boolean }>>()
     if (memberIds.length > 0) {
       const assignments = await db.select({
         memberId: memberRoles.memberId,
         roleId:   roles.id,
         name:     roles.name,
         color:    roles.color,
+        iconUrl:  roles.iconUrl,
         position: roles.position,
         hoist:    roles.hoist,
       })
@@ -530,7 +531,7 @@ serversRouter.get(
       for (const a of assignments) {
         if (!rolesByMember.has(a.memberId)) rolesByMember.set(a.memberId, [])
         rolesByMember.get(a.memberId)!.push({
-          id: a.roleId, name: a.name, color: a.color, position: a.position, hoist: a.hoist,
+          id: a.roleId, name: a.name, color: a.color, iconUrl: a.iconUrl, position: a.position, hoist: a.hoist,
         })
       }
 

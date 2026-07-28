@@ -146,6 +146,7 @@ import app.astra.mobile.core.network.dto.ConversationDto
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerDto
+import app.astra.mobile.core.network.dto.MemberRoleDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -409,6 +410,7 @@ fun ShellScreen(
         ) {
             MembersPanel(
                 members = state.members,
+                presence = state.memberPresence,
                 myId = session.userId,
                 serverId = state.selectedServer?.id,
                 isOwner = state.selectedServer?.ownerId == session.userId,
@@ -2403,6 +2405,7 @@ private fun Stage(
 @Composable
 private fun MembersPanel(
     members: List<ServerMemberDto>,
+    presence: Map<String, String>,
     myId: String?,
     serverId: String?,
     isOwner: Boolean,
@@ -2410,64 +2413,164 @@ private fun MembersPanel(
     onKick: (String) -> Unit,
     onBan: (String) -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
+    // Agrupado por cargo hoist (membro no cargo mais alto que "separa"; resto em
+    // MEMBROS). Dentro de cada secao: online antes de offline. Recalcula so quando
+    // a lista ou a presenca muda — nao a cada recomposicao.
+    val rows = remember(members, presence) { buildMemberRows(members, presence) }
     Column(Modifier.width(240.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
-        Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Text(
-                text = "membros — ${members.size}",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
-            )
-        }
-        HairRule()
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
-            itemsIndexed(members, key = { _, m -> m.userId }) { i, m ->
-                val name = m.user.displayName ?: m.user.username
-                val isMe = m.userId == myId
-                // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3)
-                // + botao direito = menu (sussurro/copiar ID; expulsar/banir do dono).
-                CascadeIn(i, members.size) {
-                    var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
-                    EditorialContextMenu(entries = {
-                        buildList {
-                            if (!isMe) add(MenuEntry.Item("sussurro", icon = Lucide.MessageCircle) { onStartDm(m.user.username, name) })
-                            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(m.userId)) })
-                            if (isOwner && !isMe && serverId != null) {
-                                add(MenuEntry.Separator)
-                                add(MenuEntry.Item("expulsar", danger = true, icon = Lucide.UserMinus) { confirmMember = "kick" })
-                                add(MenuEntry.Item("banir", danger = true, icon = Lucide.Ban) { confirmMember = "ban" })
-                            }
-                        }
-                    }) {
-                        confirmMember?.let { act ->
-                            ConfirmPopup(
-                                message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
-                                confirmLabel = if (act == "ban") "banir" else "expulsar",
-                                // kick usa o ID da MEMBERSHIP (serverMembers.id = m.id);
-                                // ban usa o userId no corpo. Mandar userId no kick dava
-                                // 404 (rota casa por serverMembers.id) — bug do "nao expulsa".
-                                onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
-                                onDismiss = { confirmMember = null },
-                            )
-                        }
-                        ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                DesktopAvatar(m.user.avatarUrl, name, 26)
-                                Spacer(Modifier.width(9.dp))
-                                Text(
-                                    text = name,
-                                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
+            items(rows, key = { row -> row.key }) { row ->
+                when (row) {
+                    is MemberPanelRow.Header -> MemberSectionHeader(row.label, row.count, row.iconUrl)
+                    is MemberPanelRow.Person -> MemberRow(
+                        m = row.m,
+                        online = row.online,
+                        cascadeIndex = row.cascadeIndex,
+                        cascadeTotal = members.size,
+                        isMe = row.m.userId == myId,
+                        serverId = serverId,
+                        isOwner = isOwner,
+                        onStartDm = onStartDm,
+                        onKick = onKick,
+                        onBan = onBan,
+                    )
                 }
             }
         }
     }
+}
+
+// Linha achatada do painel: cabecalho de secao (cargo/MEMBROS) ou pessoa. Pre-
+// computado fora da composicao pra o LazyColumn so re-emitir quando muda.
+private sealed interface MemberPanelRow {
+    val key: String
+    data class Header(val id: String, val label: String, val count: Int, val iconUrl: String?) : MemberPanelRow {
+        override val key get() = "h:$id"
+    }
+    data class Person(val m: ServerMemberDto, val online: Boolean, val cascadeIndex: Int) : MemberPanelRow {
+        override val key get() = "m:${m.userId}"
+    }
+}
+
+private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String, String>): List<MemberPanelRow> {
+    fun online(uid: String) = presence[uid]?.let { it != "OFFLINE" } == true
+    fun nameOf(m: ServerMemberDto) = (m.user.displayName ?: m.user.username).lowercase()
+
+    // membro -> cargo hoist mais alto (position maior). Sem cargo hoist = "" (MEMBROS).
+    val roleById = HashMap<String, MemberRoleDto>()
+    val buckets = LinkedHashMap<String, MutableList<ServerMemberDto>>()
+    for (m in members) {
+        val r = m.roles.filter { it.hoist }.maxByOrNull { it.position }
+        val key = r?.id ?: ""
+        if (r != null) roleById[key] = r
+        buckets.getOrPut(key) { mutableListOf() }.add(m)
+    }
+    // Secoes: cargos hoist por position desc; MEMBROS ("") sempre por ultimo.
+    val order = buckets.keys.sortedByDescending { roleById[it]?.position ?: Int.MIN_VALUE }
+
+    val out = ArrayList<MemberPanelRow>()
+    var idx = 0
+    for (key in order) {
+        val role = roleById[key]
+        val list = buckets[key] ?: continue
+        val on = list.filter { online(it.userId) }.sortedBy { nameOf(it) }
+        val off = list.filter { !online(it.userId) }.sortedBy { nameOf(it) }
+        out.add(MemberPanelRow.Header(key.ifEmpty { "members" }, role?.name?.uppercase() ?: "MEMBROS", list.size, role?.iconUrl))
+        for (m in on + off) out.add(MemberPanelRow.Person(m, online(m.userId), idx++))
+    }
+    return out
+}
+
+@Composable
+private fun MemberSectionHeader(label: String, count: Int, iconUrl: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!iconUrl.isNullOrBlank()) {
+            Box(Modifier.size(15.dp).clip(CircleShape).background(Obsidian.overlay)) {
+                AstraImage(iconUrl, label, Modifier.fillMaxSize())
+            }
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            text = "$label — $count",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.6.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun MemberRow(
+    m: ServerMemberDto,
+    online: Boolean,
+    cascadeIndex: Int,
+    cascadeTotal: Int,
+    isMe: Boolean,
+    serverId: String?,
+    isOwner: Boolean,
+    onStartDm: (String, String) -> Unit,
+    onKick: (String) -> Unit,
+    onBan: (String) -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    val name = m.user.displayName ?: m.user.username
+    // Online = nome na cor do cargo (topColor). Offline = esmaecido, sem cor.
+    val nameColor = if (online) (memberRoleColor(m.topColor) ?: Obsidian.text2) else Obsidian.text3.copy(alpha = 0.65f)
+    val avatarAlpha = if (online) 1f else 0.4f
+    // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3)
+    // + botao direito = menu (sussurro/copiar ID; expulsar/banir do dono).
+    CascadeIn(cascadeIndex, cascadeTotal) {
+        var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
+        EditorialContextMenu(entries = {
+            buildList {
+                if (!isMe) add(MenuEntry.Item("sussurro", icon = Lucide.MessageCircle) { onStartDm(m.user.username, name) })
+                add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(m.userId)) })
+                if (isOwner && !isMe && serverId != null) {
+                    add(MenuEntry.Separator)
+                    add(MenuEntry.Item("expulsar", danger = true, icon = Lucide.UserMinus) { confirmMember = "kick" })
+                    add(MenuEntry.Item("banir", danger = true, icon = Lucide.Ban) { confirmMember = "ban" })
+                }
+            }
+        }) {
+            confirmMember?.let { act ->
+                ConfirmPopup(
+                    message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
+                    confirmLabel = if (act == "ban") "banir" else "expulsar",
+                    // kick usa o ID da MEMBERSHIP (serverMembers.id = m.id);
+                    // ban usa o userId no corpo. Mandar userId no kick dava
+                    // 404 (rota casa por serverMembers.id) — bug do "nao expulsa".
+                    onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
+                    onDismiss = { confirmMember = null },
+                )
+            }
+            ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.graphicsLayer { alpha = avatarAlpha }) {
+                        DesktopAvatar(m.user.avatarUrl, name, 26)
+                    }
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        text = name,
+                        style = TextStyle(color = nameColor, fontSize = 13.sp),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// "#rrggbb" -> Color; invalido/nulo = null (a UI cai no cinza).
+private fun memberRoleColor(hex: String?): Color? {
+    val h = hex?.trim()?.removePrefix("#") ?: return null
+    if (h.length != 6) return null
+    val v = h.toLongOrNull(16) ?: return null
+    return Color(0xFF000000 or v)
 }
 
 // ---- Pecinhas ----

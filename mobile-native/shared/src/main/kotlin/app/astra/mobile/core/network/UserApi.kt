@@ -13,6 +13,7 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface UserApi {
 
@@ -34,6 +35,11 @@ interface UserApi {
 
     @PATCH("api/profile/status")
     suspend fun setStatus(@Body body: SetStatusRequest)
+
+    // Presenca em lote (ONLINE/IDLE/DND/OFFLINE) por userId — UM mget no backend.
+    // Alimenta o painel de membros (online colorido / offline apagado).
+    @GET("api/profile/presence")
+    suspend fun presence(@Query("ids") ids: String): ApiEnvelope<Map<String, String>>
 
     // Recado (custom status). Mora sob /api/friends no backend, mas e edicao de
     // perfil — fica aqui pra o desktop nao precisar de uma FriendsApi so por isto

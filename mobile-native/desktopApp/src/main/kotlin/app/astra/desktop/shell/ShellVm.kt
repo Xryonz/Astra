@@ -25,6 +25,7 @@ import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
+import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.RoleDto
 import app.astra.mobile.core.network.dto.RoleRequest
@@ -71,6 +72,9 @@ data class ShellUiState(
     val dms: List<ConversationDto> = emptyList(),
     val selection: Selection = Selection.Dms,
     val members: List<ServerMemberDto> = emptyList(),
+    // Presenca por userId dos membros da constelacao atual (ONLINE/IDLE/DND/OFFLINE).
+    // Snapshot no load + patch ao vivo via socket presence_update. Ausente = OFFLINE.
+    val memberPresence: Map<String, String> = emptyMap(),
     val membersOpen: Boolean = true,
     val chat: ChatTarget? = null,
     // "Amigos" aberto no palco (area dos sussurros) — some ao abrir uma conversa.
@@ -255,7 +259,7 @@ class ShellVm(
         // valor velho faria o menu oferecer "configuracoes" numa constelacao onde
         // voce nao manda nada (o backend recusaria, mas a UI ja teria mentido).
         _state.update {
-            it.copy(selection = selection, members = emptyList(), myPerms = null, chat = null, friendsOpen = false)
+            it.copy(selection = selection, members = emptyList(), memberPresence = emptyMap(), myPerms = null, chat = null, friendsOpen = false)
         }
         store.setUiPref("lastSelection", selection.encode())
         saveLocation()
@@ -706,6 +710,19 @@ class ShellVm(
                 }
             }
             launch {
+                socket.presenceUpdate.collect { raw ->
+                    val ev = decode<PresenceUpdateDto>(raw) ?: return@collect
+                    // So mexe se o user ja e membro visivel da constelacao atual —
+                    // evita recompor o painel a cada presenca do app inteiro.
+                    _state.update {
+                        if (it.members.any { m -> m.userId == ev.userId }) {
+                            val norm = if (ev.status == "INVISIBLE") "OFFLINE" else ev.status
+                            it.copy(memberPresence = it.memberPresence + (ev.userId to norm))
+                        } else it
+                    }
+                }
+            }
+            launch {
                 socket.newDm.collect { raw ->
                     val msg = decode<DmMessageDto>(raw) ?: return@collect
                     if (msg.senderId == myId) return@collect
@@ -760,10 +777,16 @@ class ShellVm(
             val permsD = async { runCatching { serverApi.myPerms(serverId).data }.getOrNull() }
             val members = membersD.await()
             val perms = permsD.await()
+            // Presenca dos membros num unico mget (ONLINE colorido / OFFLINE apagado).
+            // Fail-safe: se cair, mapa vazio -> todos aparecem offline, sem quebrar.
+            val presence = if (members.isNotEmpty()) {
+                val ids = members.joinToString(",") { it.userId }
+                runCatching { userApi.presence(ids).data.orEmpty() }.getOrDefault(emptyMap())
+            } else emptyMap()
             // So aplica se a selecao nao mudou enquanto carregava.
             _state.update {
                 if ((it.selection as? Selection.Server)?.id == serverId) {
-                    it.copy(members = members, myPerms = perms)
+                    it.copy(members = members, memberPresence = presence, myPerms = perms)
                 } else it
             }
         }

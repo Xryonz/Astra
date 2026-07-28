@@ -210,6 +210,14 @@ class VoiceEngine(
     // (requisito original do dono: 60fps no minimo).
     private var screenQ: ScreenQuality = ScreenQuality.HIGH_1080_60
 
+    // Auto-ajuste de fps (#60fps): o webrtc-java so tem encoder por SOFTWARE (sem
+    // HW/NVENC — verificado no binario), entao 1080p60 pode ser CPU demais e o fps
+    // despenca. Quando o envio fica 'cpu'-limitado por ~3 leituras seguidas, baixamos
+    // 1 degrau de preset (priorizando o framerate). sessionQualityCap = teto SO desta
+    // sessao — NAO mexe na pref explicita do usuario (zera quando ele escolhe na mao).
+    private var sessionQualityCap: ScreenQuality? = null
+    private var cpuStreak = 0
+
     // Ultima fonte transmitida — pra reiniciar a captura no MESMO monitor quando o
     // dono troca a qualidade ao vivo pelo gear da call.
     private var lastScreenSource: DesktopSource? = null
@@ -649,7 +657,9 @@ class VoiceEngine(
         val f = factory ?: return
         if (!silent) Sfx.shareStart() // transmitir: 3 fases subindo
         lastScreenSource = source
-        screenQ = prefs.state.value.screenQuality
+        // O cap da sessao (auto-ajuste) vence a pref: numa maquina que nao aguenta o
+        // preset escolhido, republicar voltaria pro preset alto e re-derrubaria o fps.
+        screenQ = sessionQualityCap ?: prefs.state.value.screenQuality
         val q = screenQ
 
         // Caminho RAPIDO: ffmpeg ddagrab (DXGI) empurrando frames num CustomVideoSource
@@ -786,6 +796,7 @@ class VoiceEngine(
     // da degradacao. E como saber SE bateu 60 e, se nao, ONDE travou (captura/cpu/banda).
     private fun startScreenStats() {
         statsJob?.cancel()
+        cpuStreak = 0
         statsJob = scope.launch {
             while (isActive && _screenOn.value) {
                 val pc = pub
@@ -814,6 +825,38 @@ class VoiceEngine(
             }
         }
         _screenStats.value = ScreenStats(capture, send, limit)
+        maybeAutoStepDown(limit)
+    }
+
+    // 'cpu'-limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So
+    // desce, nunca sobe (evita ficar oscilando). O cap vale so nesta sessao.
+    private fun maybeAutoStepDown(limit: String) {
+        if (limit == "cpu") cpuStreak++ else cpuStreak = 0
+        if (cpuStreak < 3) return
+        val next = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // ja no piso
+        cpuStreak = 0
+        // Fora da thread do getStats (callback nativo) -> pro escopo do engine.
+        scope.launch { autoStepDownTo(next) }
+    }
+
+    // Degrau de baixo priorizando FRAMERATE: primeiro cai a resolucao (mantem 60fps),
+    // e so como ultimo recurso cai o fps. Piso = 720p30.
+    private fun ScreenQuality.stepDownForCpu(): ScreenQuality? = when (this) {
+        ScreenQuality.HIGH_1080_60  -> ScreenQuality.SMOOTH_720_60
+        ScreenQuality.SMOOTH_720_60 -> ScreenQuality.LIGHT_720_30
+        ScreenQuality.CRISP_1080_30 -> ScreenQuality.LIGHT_720_30
+        ScreenQuality.LIGHT_720_30  -> null
+    }
+
+    // Reinicia a captura no preset menor SEM persistir (respeita a escolha do usuario
+    // pra proxima sessao). Espelha o setScreenQuality manual, mas via sessionQualityCap.
+    private suspend fun autoStepDownTo(q: ScreenQuality) {
+        sessionQualityCap = q
+        if (!_screenOn.value) return
+        val src = lastScreenSource
+        stopScreenShare(silent = true)
+        delay(350) // deixa a renegociacao do stop assentar antes de republicar
+        startScreenShare(src, silent = true)
     }
 
     // Fala: a MINHA vem do RMS do mic (onMicLevel -> mySpeakUntil); a dos OUTROS vem
@@ -910,6 +953,7 @@ class VoiceEngine(
     // pref e, se ja estou transmitindo, reinicia a captura no MESMO monitor com o
     // novo preset (o ffmpeg e spawnado com w/h/fps assados -> so reiniciando muda).
     fun setScreenQuality(q: ScreenQuality) {
+        sessionQualityCap = null // escolha manual = usuario no controle; limpa o auto-cap
         prefs.setScreenQuality(q)
         if (!_screenOn.value) return
         val src = lastScreenSource

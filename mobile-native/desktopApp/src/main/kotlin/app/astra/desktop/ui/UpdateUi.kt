@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -185,10 +184,9 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 26.dp, vertical = 24.dp).fillMaxWidth(),
         ) {
-            // drawnPlanet = planeta VETORIAL (nao o PNG astra-icon): o quadrado preto da
-            // imagem poluia o ceu do gate. So o gate usa vetor; login/onboarding seguem
-            // com o icone. As estrelas continuam orbitando o mesmo corpo.
-            RotatingStarsLogo(reduceMotion, entrance = entrance, drawnPlanet = true)
+            // Logo TRANSPARENTE (astra-glyph.png): so o planeta branco, sem o quadrado
+            // preto que poluia o ceu do gate. As estrelas continuam orbitando o corpo.
+            RotatingStarsLogo(reduceMotion, entrance = entrance, planetRes = "astra-glyph.png")
             Spacer(Modifier.height(18.dp))
             Text(
                 "Astra",
@@ -258,10 +256,11 @@ private fun spaceWord(progress: Float): String =
 // gate de boot (UpdaterGate) num Animatable/animateFloatAsState proprio. null
 // (default) = ja assentado, ou seja, o comportamento de sempre — login,
 // onboarding e o proprio gate com reduceMotion continuam iguais, sem esse custo.
-// drawnPlanet: SO o gate passa true = planeta VETORIAL (sem o PNG, que tinha um
-// quadrado preto poluindo o ceu). login/onboarding = false = o icone de sempre.
+// planetRes: recurso do planeta no centro. O gate passa a variante TRANSPARENTE
+// (astra-glyph.png = so o planeta branco, anel/estrela vazados, sem o quadrado preto
+// que poluia o ceu); login/onboarding usam o icone cheio de sempre (astra-icon.png).
 @Composable
-internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null, drawnPlanet: Boolean = false) {
+internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null, planetRes: String = "astra-icon.png") {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
     // Fase lida DENTRO do draw (drawRing roda no DrawScope do Canvas): o composable
@@ -353,61 +352,27 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             )
         }
     }
-    // Planeta VETORIAL (drawnPlanet): esfera obsidiana com luz de borda ambar, no
-    // lugar do PNG astra-icon — o quadrado preto da imagem poluia o ceu do gate. Le a
-    // entrada pra fundir+crescer no "assenta" (1.1..1.7s), igual o Image fazia.
-    fun DrawScope.drawPlanet() {
-        val ms = (entrance?.value ?: 1f) * 2000f
-        val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
-        if (a <= 0f) return
-        val r = size.minDimension / 2f * 0.52f * (0.85f + 0.15f * a)
-        val c = center
-        val lit = Offset(c.x - r * 0.34f, c.y - r * 0.34f) // luz vinda de cima-esquerda
-        // Corpo: gradiente radial do lado iluminado ate a sombra.
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Obsidian.raised.copy(alpha = a),
-                    Obsidian.base.copy(alpha = a),
-                    Obsidian.void.copy(alpha = a),
-                ),
-                center = lit,
-                radius = r * 1.35f,
-            ),
-            radius = r,
-            center = c,
-        )
-        // Atmosfera: aro fino ambar.
-        drawCircle(color = accent.copy(alpha = 0.40f * a), radius = r, center = c, style = Stroke(width = 1.2.dp.toPx()))
-        // Brilho especular no lado iluminado.
-        drawCircle(color = accent.copy(alpha = 0.12f * a), radius = r * 0.42f, center = lit)
-    }
     // O planeta ocupa 52% do diametro; o resto e o espaco onde o anel passa.
     Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(diameter)) {
             drawConstellationLines()
             drawRing(front = false)
         }
-        if (drawnPlanet) {
-            // Planeta vetorial no MEIO (entre o anel de tras e o da frente).
-            Canvas(Modifier.size(diameter)) { drawPlanet() }
-        } else {
-            Image(
-                painter = painterResource("astra-icon.png"),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(diameter * 0.52f)
-                    // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
-                    // Lido dentro do graphicsLayer — nao recompoe o composable por frame.
-                    .graphicsLayer {
-                        val ms = (entrance?.value ?: 1f) * 2000f
-                        val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
-                        alpha = a
-                        scaleX = 0.85f + 0.15f * a
-                        scaleY = 0.85f + 0.15f * a
-                    },
-            )
-        }
+        Image(
+            painter = painterResource(planetRes),
+            contentDescription = null,
+            modifier = Modifier
+                .size(diameter * 0.52f)
+                // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
+                // Lido dentro do graphicsLayer — nao recompoe o composable por frame.
+                .graphicsLayer {
+                    val ms = (entrance?.value ?: 1f) * 2000f
+                    val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
+                    alpha = a
+                    scaleX = 0.85f + 0.15f * a
+                    scaleY = 0.85f + 0.15f * a
+                },
+        )
         Canvas(Modifier.size(diameter)) { drawRing(front = true) }
     }
 }

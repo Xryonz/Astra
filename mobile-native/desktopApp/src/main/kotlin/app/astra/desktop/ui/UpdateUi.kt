@@ -52,8 +52,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,13 +83,14 @@ import kotlin.math.sin
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
 
-    // Tempo minimo de tela: mesmo com a checagem instantanea, o gate fica no ar
-    // ~2.6s pra a animacao de carregamento (planeta + estrelas orbitando) ser
-    // vista inteira antes de cair no app. So conta pro caminho "atualizado".
+    // Tempo minimo de tela (pedido do dono: mais demorada pra aproveitar a animacao):
+    // mesmo com a checagem instantanea o gate fica no ar ~4.8s, tempo de sobra pra ver
+    // a constelacao se formar e a barra encher com as palavras espaciais antes de cair
+    // no app. So conta pro caminho "atualizado".
     val gateStart = remember { System.currentTimeMillis() }
+    val holdMs = 4800L
     suspend fun holdThenDone() {
-        val minMs = 2600L
-        val left = minMs - (System.currentTimeMillis() - gateStart)
+        val left = holdMs - (System.currentTimeMillis() - gateStart)
         if (left > 0) delay(left)
         onDone()
     }
@@ -119,14 +122,34 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         LaunchedEffect(Unit) { started = true }
         animateFloatAsState(
             targetValue = if (started) 1f else 0f,
-            animationSpec = tween(2000, easing = LinearEasing),
+            animationSpec = tween(2600, easing = LinearEasing),
             label = "gateEntrance",
         )
     }
 
-    // Progresso REAL: so o download sabe quanto falta. Nos outros estados a barra
-    // varre (indeterminada) em vez de fingir uma porcentagem.
-    val progress = (st as? UpdateState.Downloading)?.progress
+    // Preenchimento da barra fina: no download e o progresso REAL; no resto
+    // (verificando / atualizado) uma barra SINTETICA que enche devagar ao longo do
+    // hold — so pra dar a sensacao de "algo acontecendo" enquanto a animacao roda.
+    val realProgress = (st as? UpdateState.Downloading)?.progress
+    val syntheticFill = run {
+        var go by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { go = true }
+        animateFloatAsState(
+            targetValue = if (go) 1f else 0f,
+            animationSpec = tween(holdMs.toInt(), easing = LinearEasing),
+            label = "gateFill",
+        )
+    }
+    val barProgress = realProgress ?: syntheticFill.value
+    // Palavra acima da barra: nos estados reais, o que esta havendo; no hold comum, uma
+    // palavra "espacial" que avanca junto com o preenchimento (pedido do dono).
+    val statusLabel = when (val s = st) {
+        is UpdateState.Available   -> "nova versao ${s.version}"
+        is UpdateState.Downloading -> "baixando ${s.version} · ${(s.progress * 100).toInt()}%"
+        is UpdateState.Ready       -> "reiniciando pra aplicar"
+        is UpdateState.Failed      -> s.reason
+        else                       -> spaceWord(barProgress)
+    }
 
     Box(
         Modifier
@@ -162,106 +185,71 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 26.dp, vertical = 24.dp).fillMaxWidth(),
         ) {
-            RotatingStarsLogo(reduceMotion, entrance = entrance)
-            Spacer(Modifier.height(16.dp))
+            // drawnPlanet = planeta VETORIAL (nao o PNG astra-icon): o quadrado preto da
+            // imagem poluia o ceu do gate. So o gate usa vetor; login/onboarding seguem
+            // com o icone. As estrelas continuam orbitando o mesmo corpo.
+            RotatingStarsLogo(reduceMotion, entrance = entrance, drawnPlanet = true)
+            Spacer(Modifier.height(18.dp))
             Text(
                 "Astra",
                 style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif),
-                // Titulo resolve por ultimo (1.5..2.0s da entrada): alpha lido dentro do
-                // graphicsLayer, nao no corpo do composable — nao recompoe a cada frame.
+                // Titulo resolve por ultimo (1.5..2.0 do virtual da entrada): alpha lido
+                // dentro do graphicsLayer, nao no corpo — nao recompoe a cada frame.
                 modifier = Modifier.graphicsLayer {
                     val ms = (entrance?.value ?: 1f) * 2000f
                     alpha = ((ms - 1500f) / 500f).coerceIn(0f, 1f)
                 },
             )
-            Spacer(Modifier.height(8.dp))
-            when (val s = st) {
-                is UpdateState.Available -> GateStatus("nova versao ${s.version} — baixando…")
-                is UpdateState.Downloading -> GateStatus("baixando ${s.version}…")
-                is UpdateState.Ready -> GateStatus("reiniciando pra aplicar…")
-                is UpdateState.Failed -> GateStatus(s.reason)
-                is UpdateState.UpToDate -> GateStatus("voce esta na ultima versao")
-                else -> GateStatus("verificando atualizacoes…")
-            }
-            Spacer(Modifier.height(18.dp))
-            XpBar(progress, reduceMotion)
+            Spacer(Modifier.height(16.dp))
+            ThinProgress(barProgress, statusLabel)
         }
     }
 }
 
-// Barra de carregamento SEGMENTADA — colunas dividindo o trilho, no espirito de
-// uma barra de XP de jogo (pedido do dono). Substitui a barra lisa da RikkaUI E a
-// antiga barra decorativa: eram duas barras empilhadas durante o download, uma
-// real e outra de enfeite.
-//
-// progress != null -> avanco REAL do download (celula parcial na ponta, pra o
-// movimento nao ser em degraus de 5%). progress == null -> nao ha o que medir
-// (verificando/pronto/falhou) e a barra VARRE, em vez de fingir porcentagem.
-//
-// Canvas e nao 20 Box: uma unica passada de desenho, sem 20 nos de layout numa
-// tela que precisa abrir na hora.
+// Barra de progresso FINA e minimalista (pedido do dono): um trilho de 2dp que
+// enche da esquerda pra direita, com uma palavra "espacial" centralizada acima.
+// No download o preenchimento e o progresso REAL; no hold comum e a barra sintetica
+// que sobe devagar. Canvas (nao Box) pra uma unica passada numa tela que abre na hora.
 @Composable
-private fun XpBar(progress: Float?, reduceMotion: Boolean) {
-    val cells = 20
-    // Varredura so quando indeterminada e com movimento ligado.
-    val sweep = if (progress != null || reduceMotion) -1f else {
-        rememberInfiniteTransition(label = "xp").animateFloat(
-            initialValue = -0.25f,
-            targetValue = 1.25f,
-            animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing)),
-            label = "xpSweep",
-        ).value
-    }
-    val accent = Obsidian.accent
-    val track = Obsidian.raised
-    Column(Modifier.fillMaxWidth(0.72f)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (progress != null) "baixando" else "nv 1",
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
-                modifier = Modifier.weight(1f),
-            )
-            // Porcentagem so quando ela existe de verdade.
-            if (progress != null) {
-                Text(
-                    "${(progress * 100).toInt()}%",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Canvas(Modifier.fillMaxWidth().height(7.dp)) {
-            val gap = 2.5.dp.toPx()
-            val cellW = (size.width - gap * (cells - 1)) / cells
-            val radius = CornerRadius(1.5.dp.toPx())
-            for (i in 0 until cells) {
-                val x = i * (cellW + gap)
-                val lit = if (progress != null) {
-                    // Quanto DESTA celula ja encheu: a da ponta acende em fracao.
-                    ((progress * cells) - i).coerceIn(0f, 1f)
-                } else {
-                    // Varredura: brilho decai com a distancia ate a frente da onda.
-                    val d = kotlin.math.abs((i + 0.5f) / cells - sweep)
-                    (1f - d * 5f).coerceIn(0f, 1f)
-                }
-                drawRoundRect(
-                    color = track,
-                    topLeft = Offset(x, 0f),
-                    size = Size(cellW, size.height),
-                    cornerRadius = radius,
-                )
-                if (lit > 0f) {
-                    drawRoundRect(
-                        color = accent.copy(alpha = 0.35f + 0.65f * lit),
-                        topLeft = Offset(x, 0f),
-                        size = Size(cellW * lit, size.height),
-                        cornerRadius = radius,
-                    )
-                }
+private fun ThinProgress(progress: Float, label: String) {
+    Column(
+        Modifier.fillMaxWidth(0.62f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            label,
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.4.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(9.dp))
+        Canvas(Modifier.fillMaxWidth().height(2.dp)) {
+            val h = size.height
+            val cr = CornerRadius(h / 2f)
+            drawRoundRect(color = Obsidian.raised, size = size, cornerRadius = cr)
+            val w = (size.width * progress).coerceIn(0f, size.width)
+            if (w > 0f) {
+                drawRoundRect(color = Obsidian.accent, size = Size(w, h), cornerRadius = cr)
+                // Brilho discreto na cabeca do preenchimento (toque editorial).
+                drawCircle(color = Obsidian.accent.copy(alpha = 0.5f), radius = h * 1.6f, center = Offset(w, h / 2f))
             }
         }
     }
 }
+
+// Palavras "espaciais" que trocam conforme a barra enche — dao a sensacao de que
+// algo esta sendo feito (pedido do dono: "alinhando orbitas" e afins). ASCII de
+// proposito (convencao do projeto: sem acento em string literal).
+private val SPACE_WORDS = listOf(
+    "acordando o cosmos",
+    "alinhando orbitas",
+    "tracando a rota estelar",
+    "calibrando constelacoes",
+    "quase la",
+)
+
+private fun spaceWord(progress: Float): String =
+    SPACE_WORDS[(progress * SPACE_WORDS.size).toInt().coerceIn(0, SPACE_WORDS.lastIndex)]
 
 // internal + tamanho parametrizavel: a tela de login reusa o MESMO planeta, pra o
 // objeto que abre o app ser o mesmo que recebe no login (continuidade de marca).
@@ -270,8 +258,10 @@ private fun XpBar(progress: Float?, reduceMotion: Boolean) {
 // gate de boot (UpdaterGate) num Animatable/animateFloatAsState proprio. null
 // (default) = ja assentado, ou seja, o comportamento de sempre — login,
 // onboarding e o proprio gate com reduceMotion continuam iguais, sem esse custo.
+// drawnPlanet: SO o gate passa true = planeta VETORIAL (sem o PNG, que tinha um
+// quadrado preto poluindo o ceu). login/onboarding = false = o icone de sempre.
 @Composable
-internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null) {
+internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null, drawnPlanet: Boolean = false) {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
     // Fase lida DENTRO do draw (drawRing roda no DrawScope do Canvas): o composable
@@ -363,34 +353,63 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             )
         }
     }
+    // Planeta VETORIAL (drawnPlanet): esfera obsidiana com luz de borda ambar, no
+    // lugar do PNG astra-icon — o quadrado preto da imagem poluia o ceu do gate. Le a
+    // entrada pra fundir+crescer no "assenta" (1.1..1.7s), igual o Image fazia.
+    fun DrawScope.drawPlanet() {
+        val ms = (entrance?.value ?: 1f) * 2000f
+        val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
+        if (a <= 0f) return
+        val r = size.minDimension / 2f * 0.52f * (0.85f + 0.15f * a)
+        val c = center
+        val lit = Offset(c.x - r * 0.34f, c.y - r * 0.34f) // luz vinda de cima-esquerda
+        // Corpo: gradiente radial do lado iluminado ate a sombra.
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Obsidian.raised.copy(alpha = a),
+                    Obsidian.base.copy(alpha = a),
+                    Obsidian.void.copy(alpha = a),
+                ),
+                center = lit,
+                radius = r * 1.35f,
+            ),
+            radius = r,
+            center = c,
+        )
+        // Atmosfera: aro fino ambar.
+        drawCircle(color = accent.copy(alpha = 0.40f * a), radius = r, center = c, style = Stroke(width = 1.2.dp.toPx()))
+        // Brilho especular no lado iluminado.
+        drawCircle(color = accent.copy(alpha = 0.12f * a), radius = r * 0.42f, center = lit)
+    }
     // O planeta ocupa 52% do diametro; o resto e o espaco onde o anel passa.
     Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(diameter)) {
             drawConstellationLines()
             drawRing(front = false)
         }
-        Image(
-            painter = painterResource("astra-icon.png"),
-            contentDescription = null,
-            modifier = Modifier
-                .size(diameter * 0.52f)
-                // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
-                // Lido dentro do graphicsLayer — nao recompoe o composable por frame.
-                .graphicsLayer {
-                    val ms = (entrance?.value ?: 1f) * 2000f
-                    val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
-                    alpha = a
-                    scaleX = 0.85f + 0.15f * a
-                    scaleY = 0.85f + 0.15f * a
-                },
-        )
+        if (drawnPlanet) {
+            // Planeta vetorial no MEIO (entre o anel de tras e o da frente).
+            Canvas(Modifier.size(diameter)) { drawPlanet() }
+        } else {
+            Image(
+                painter = painterResource("astra-icon.png"),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(diameter * 0.52f)
+                    // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
+                    // Lido dentro do graphicsLayer — nao recompoe o composable por frame.
+                    .graphicsLayer {
+                        val ms = (entrance?.value ?: 1f) * 2000f
+                        val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
+                        alpha = a
+                        scaleX = 0.85f + 0.15f * a
+                        scaleY = 0.85f + 0.15f * a
+                    },
+            )
+        }
         Canvas(Modifier.size(diameter)) { drawRing(front = true) }
     }
-}
-
-@Composable
-private fun GateStatus(text: String) {
-    Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
 }
 
 @Composable

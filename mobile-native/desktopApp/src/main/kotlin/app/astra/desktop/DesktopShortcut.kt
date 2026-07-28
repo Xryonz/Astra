@@ -5,9 +5,12 @@ import kotlin.concurrent.thread
 
 // Atalho na area de trabalho. A distribuicao do Astra e um app-image (zip
 // descompactado, sem instalador), entao NAO ha etapa de "instalar" que crie o
-// atalho — o proprio app garante um Astra.lnk no Desktop no 1o run (se faltar),
-// apontando pro Astra.exe atual. So Windows; roda numa thread daemon (nao trava o
-// boot) e e no-op se o atalho ja existe.
+// atalho — o proprio app garante um Astra.lnk no Desktop no 1o run (se faltar).
+// APONTA PRO LAUNCHER (launch.vbs), nao pro exe de uma versao: a instalacao e
+// portatil (varias versoes em versions\<v>\) e o launch.vbs sempre abre a MAIOR.
+// Cravar o exe de uma versao travava o atalho nela — quando chegava versao nova, o
+// atalho seguia abrindo a velha ("nao leva pra mais atual"). So Windows; thread
+// daemon; repara se o atalho existente estiver errado.
 object DesktopShortcut {
     fun ensureWindows() {
         if (!System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)) return
@@ -15,7 +18,30 @@ object DesktopShortcut {
             runCatching {
                 val exe = currentExePath() ?: return@runCatching
                 fun q(s: String) = s.replace("'", "''")
-                val workDir = File(exe).parent ?: return@runCatching
+                val exeFile = File(exe)
+                // exe = <raiz>\versions\<v>\Astra.exe -> raiz portatil (onde vive o
+                // launch.vbs) = 3 pais acima. Se o launcher existir, o atalho aponta
+                // pra ele; senao (layout inesperado) cai no exe atual, como antes.
+                val portableRoot = exeFile.parentFile?.parentFile?.parentFile
+                val launchVbs = portableRoot?.let { File(it, "launch.vbs") }?.takeIf { it.isFile }
+
+                val target: String
+                val args: String
+                val workDir: String
+                val icon: String
+                if (launchVbs != null && portableRoot != null) {
+                    val winDir = System.getenv("SystemRoot") ?: "C:\\Windows"
+                    target = "$winDir\\System32\\wscript.exe"
+                    args = "\"" + launchVbs.absolutePath + "\""
+                    workDir = portableRoot.absolutePath
+                    icon = File(portableRoot, "astra.ico").takeIf { it.isFile }?.absolutePath ?: exe
+                } else {
+                    target = exe
+                    args = ""
+                    workDir = exeFile.parent ?: return@runCatching
+                    icon = exe
+                }
+
                 // A pasta e resolvida PELO POWERSHELL, nao por user.home + "Desktop":
                 // com o OneDrive ligado (padrao no Windows 11) a area de trabalho vira
                 // %USERPROFILE%\OneDrive\Desktop e a pasta antiga nem existe — o palpite
@@ -27,17 +53,15 @@ object DesktopShortcut {
                     append("if (-not \$d) { exit }; ")
                     append("\$lnk = Join-Path \$d 'Astra.lnk'; ")
                     append("\$w = New-Object -ComObject WScript.Shell; ")
-                    // REPARA em vez de desistir: antes era `if (Test-Path) { exit }`,
-                    // entao um atalho errado (ou de uma instalacao antiga, noutra
-                    // pasta) ficava pra sempre — a versao nova via "ja existe" e nao
-                    // corrigia nada. Agora so sai cedo se o alvo ja for este exe.
-                    append("if (Test-Path \$lnk) { ")
-                    append("if (\$w.CreateShortcut(\$lnk).TargetPath -eq '${q(exe)}') { exit } ")
-                    append("}; ")
+                    // REPARA em vez de desistir: so sai cedo se alvo E args ja batem
+                    // (inclui consertar um atalho antigo cravado no exe de uma versao).
+                    append("if (Test-Path \$lnk) { \$c = \$w.CreateShortcut(\$lnk); ")
+                    append("if (\$c.TargetPath -eq '${q(target)}' -and \$c.Arguments -eq '${q(args)}') { exit } }; ")
                     append("\$s = \$w.CreateShortcut(\$lnk); ")
-                    append("\$s.TargetPath = '${q(exe)}'; ")
+                    append("\$s.TargetPath = '${q(target)}'; ")
+                    append("\$s.Arguments = '${q(args)}'; ")
                     append("\$s.WorkingDirectory = '${q(workDir)}'; ")
-                    append("\$s.IconLocation = '${q(exe)}'; ")
+                    append("\$s.IconLocation = '${q(icon)}'; ")
                     append("\$s.Save()")
                 }
                 ProcessBuilder("powershell", "-NoProfile", "-NonInteractive", "-Command", ps)

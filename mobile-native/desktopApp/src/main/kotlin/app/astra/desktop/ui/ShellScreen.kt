@@ -2346,21 +2346,27 @@ private fun Stage(
                 LIcon(leadIcon, tint = Obsidian.text1, size = 15.dp)
                 Spacer(Modifier.width(7.dp))
             }
-            Text(
-                text = when {
-                    voiceChannel != null -> voiceChannel.name
-                    chat is ChatTarget.Channel -> chat.title
-                    chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
-                    server != null -> "constelacao · ${server.name}"
-                    else -> "sussurros"
-                },
-                style = TextStyle(
-                    color = if (chat != null || voiceChannel != null) Obsidian.text1 else Obsidian.text3,
-                    fontSize = 13.sp,
-                ),
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Box(Modifier.weight(1f)) {
+                // Rota estelar decorativa no vao do header, ATRAS do titulo, terminando
+                // no botao de membros a direita (a "estrela" do fim). Some ao reduzir
+                // movimento; nao atrapalha o texto (fica na metade direita, alpha baixo).
+                StarRoute(Modifier.matchParentSize())
+                Text(
+                    text = when {
+                        voiceChannel != null -> voiceChannel.name
+                        chat is ChatTarget.Channel -> chat.title
+                        chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
+                        server != null -> "constelacao · ${server.name}"
+                        else -> "sussurros"
+                    },
+                    style = TextStyle(
+                        color = if (chat != null || voiceChannel != null) Obsidian.text1 else Obsidian.text3,
+                        fontSize = 13.sp,
+                    ),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
+                )
+            }
             if (server != null) {
                 val interaction = remember { MutableInteractionSource() }
                 val hovered by interaction.collectIsHoveredAsState()

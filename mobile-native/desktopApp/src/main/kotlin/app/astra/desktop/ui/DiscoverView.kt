@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.cos
 import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -219,19 +221,32 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
             )
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LIcon(Lucide.Users, tint = Obsidian.text3, size = 13.dp)
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    "${s.members}",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
-                )
+                // Chip da contagem de membros (borda pra destacar).
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        "${s.members}",
+                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 val joinSrc = remember { MutableInteractionSource() }
                 if (isMember) {
-                    // Ja e membro: nada de "entrar" — so um aviso discreto.
+                    // Ja e membro: chip com borda (destaque), no lugar do "entrar".
                     Text(
                         "voce ja esta aqui",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
                     )
                 } else {
                     Row(
@@ -268,7 +283,7 @@ private fun Center(text: String) {
 // ao fundo e o destino pulsando. Movimento contido, respeita reduzir-movimento.
 // A tela (grid) e a sidebar dividem ESTE canvas — muda so tamanho/legenda.
 @Composable
-private fun TreasureMapCanvas(width: Dp, height: Dp, glyph: TextUnit = 22.sp) {
+private fun TreasureMapCanvas(width: Dp, height: Dp) {
     val reduce = LocalReduceMotion.current
     val accent = Obsidian.accent
 
@@ -331,21 +346,28 @@ private fun TreasureMapCanvas(width: Dp, height: Dp, glyph: TextUnit = 22.sp) {
                     drawCircle(accent.copy(alpha = 0.20f), radius = 4.6f, center = p)
                 }
             }
-            // halo do tesouro (pulsa) quando a rota chega
+            // halo do tesouro (pulsa) + o ✦ NO MESMO ponto, desenhado aqui no Canvas.
+            // Antes o ✦ era um Text por cima via BiasAlignment e o centro do glifo
+            // descolava do brilho; agora a estrela nasce dentro da luz ressoante e
+            // pulsa junto com ela.
             if (draw.value > 0.98f) {
                 val tp = pts.last()
                 drawCircle(accent.copy(alpha = 0.10f), radius = 16f * pulse, center = tp)
                 drawCircle(accent.copy(alpha = 0.18f), radius = 8f * pulse, center = tp)
+                val r = minOf(w, h) * 0.07f * pulse
+                val inner = r * 0.4f
+                val star = Path()
+                for (k in 0 until 8) {
+                    val rad = if (k % 2 == 0) r else inner
+                    val a = (-90.0 + k * 45.0) * Math.PI / 180.0
+                    val px = tp.x + (rad * cos(a)).toFloat()
+                    val py = tp.y + (rad * sin(a)).toFloat()
+                    if (k == 0) star.moveTo(px, py) else star.lineTo(px, py)
+                }
+                star.close()
+                drawPath(star, accent)
             }
         }
-        // ✦ do tesouro por cima, no ultimo no, pulsando.
-        Text(
-            "✦",
-            style = TextStyle(color = accent, fontSize = glyph),
-            modifier = Modifier
-                .align(BiasAlignment(route.last().x * 2 - 1, route.last().y * 2 - 1))
-                .graphicsLayer { scaleX = pulse; scaleY = pulse },
-        )
     }
 }
 
@@ -375,7 +397,7 @@ private fun DiscoverEmptyMap(query: String) {
 internal fun DiscoverSidebarMap() {
     Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TreasureMapCanvas(width = 168.dp, height = 104.dp, glyph = 18.sp)
+            TreasureMapCanvas(width = 168.dp, height = 104.dp)
             Spacer(Modifier.height(16.dp))
             Text(
                 "a rota leva ao palco ao lado",

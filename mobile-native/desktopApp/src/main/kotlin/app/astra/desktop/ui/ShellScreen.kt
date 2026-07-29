@@ -23,6 +23,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,6 +87,7 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -880,7 +882,13 @@ private fun Rail(
             active = selection is Selection.Dms,
             onClick = { onSelect(Selection.Dms) },
         ) {
-            Text("✦", style = TextStyle(color = Obsidian.accent, fontSize = 20.sp))
+            // Marca do Astra = a logo TRANSPARENTE (astra-glyph.png: so o planeta
+            // branco, sem quadrado de fundo), a mesma da tela de procura por update.
+            Image(
+                painter = painterResource("astra-glyph.png"),
+                contentDescription = "sussurros",
+                modifier = Modifier.size(26.dp),
+            )
         }
         Spacer(Modifier.height(8.dp))
         HairRule()
@@ -1294,13 +1302,7 @@ private fun Sidebar(
                             FriendsNavRow(active = friendsOpen, onClick = onOpenFriends)
                             DmList(dms, onToggleMute, onMarkRead, activeChatId, unread, dmTyping, onOpenChat)
                         }
-                        sel is Selection.Discover ->
-                            Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    "busque e entre em constelacoes publicas no palco ao lado.",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
-                                )
-                            }
+                        sel is Selection.Discover -> DiscoverSidebarMap()
                         else -> {
                             val orbits: @Composable () -> Unit = {
                                 OrbitList(

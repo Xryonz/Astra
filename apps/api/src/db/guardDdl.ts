@@ -176,6 +176,11 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL D
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL DEFAULT 100;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerBorder"    text    NOT NULL DEFAULT 'none';
 
+-- ===== Constelacao: enquadramento do banner (posicao/zoom) + zoom do icone =====
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL DEFAULT 50;
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL DEFAULT 100;
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "iconScale"       integer NOT NULL DEFAULT 100;
+
 -- ===== Sessao por dispositivo (#4: dedup do mesmo PC via X-Device-Id) =====
 ALTER TABLE "RefreshToken" ADD COLUMN IF NOT EXISTS "deviceId" text;
 

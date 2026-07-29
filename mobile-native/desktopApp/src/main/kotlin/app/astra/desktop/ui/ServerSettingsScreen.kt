@@ -14,6 +14,12 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -265,6 +271,9 @@ private fun OverviewSection(
     var bannerUrl by remember(server) { mutableStateOf(server.bannerUrl) }
     var isPublic by remember(server) { mutableStateOf(server.isPublic) }
     var retention by remember(server) { mutableStateOf(server.messageRetentionDays ?: 0) }
+    var bannerPositionY by remember(server) { mutableStateOf(server.bannerPositionY) }
+    var bannerScale by remember(server) { mutableStateOf(server.bannerScale) }
+    var iconScale by remember(server) { mutableStateOf(server.iconScale) }
 
     var saving by remember { mutableStateOf(false) }
     var busyIcon by remember { mutableStateOf(false) }
@@ -279,12 +288,19 @@ private fun OverviewSection(
         iconUrl != server.iconUrl ||
         bannerUrl != server.bannerUrl ||
         isPublic != server.isPublic ||
-        retention != (server.messageRetentionDays ?: 0)
+        retention != (server.messageRetentionDays ?: 0) ||
+        bannerPositionY != server.bannerPositionY ||
+        bannerScale != server.bannerScale ||
+        iconScale != server.iconScale
 
+    // Form (esquerda) + card de previa ao vivo (direita). O form segue no fluxo
+    // scrollavel do pai; a previa acompanha no topo-direita.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+      Column(Modifier.weight(1f)) {
     // ---- Identidade ----
     FieldLabel("icone")
     Row(verticalAlignment = Alignment.CenterVertically) {
-        ServerIconPreview(iconUrl, name)
+        ServerIconPreview(iconUrl, name, iconScale)
         Spacer(Modifier.width(16.dp))
         Column {
             SmallButton(if (busyIcon) "processando…" else "trocar icone", accent = true) {
@@ -312,6 +328,10 @@ private fun OverviewSection(
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
+    if (!iconUrl.isNullOrBlank()) {
+        Spacer(Modifier.height(10.dp))
+        ServerZoomTrack(iconScale) { iconScale = it }
+    }
 
     SettingsDivider()
     FieldLabel("nome")
@@ -325,16 +345,33 @@ private fun OverviewSection(
     ProfileBanner(
         css = null,
         imageUrl = bannerUrl,
-        positionY = 50,
-        scale = 100,
+        positionY = bannerPositionY,
+        scale = bannerScale,
         fallback = Obsidian.overlay,
         modifier = Modifier
             .widthIn(max = 460.dp)
             .fillMaxWidth()
             .height(110.dp)
             .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp)),
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .then(
+                // Arrastar na vertical reposiciona (so com imagem). ~1.4px por ponto;
+                // pra baixo revela o topo (posicao diminui). Espelha o editor do perfil.
+                if (bannerUrl.isNullOrBlank()) Modifier
+                else Modifier.pointerInput(Unit) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        bannerPositionY = (bannerPositionY - drag.y / 1.4f).toInt().coerceIn(0, 100)
+                    }
+                },
+            ),
     )
+    if (!bannerUrl.isNullOrBlank()) {
+        Spacer(Modifier.height(6.dp))
+        Text("arraste na imagem pra enquadrar.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Spacer(Modifier.height(10.dp))
+        ServerZoomTrack(bannerScale) { bannerScale = it }
+    }
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SmallButton(if (busyBanner) "processando…" else "subir banner", accent = true) {
@@ -345,7 +382,7 @@ private fun OverviewSection(
             scope.launch {
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
-                r.onSuccess { bannerUrl = it }
+                r.onSuccess { bannerUrl = it; bannerPositionY = 50; bannerScale = 100 }
                     .onFailure { msg = "nao deu pra ler essa imagem" to false }
             }
         }
@@ -451,6 +488,9 @@ private fun OverviewSection(
                     name = name.trim().ifBlank { null },
                     iconUrl = iconUrl ?: "",
                     bannerUrl = bannerUrl ?: "",
+                    bannerPositionY = bannerPositionY,
+                    bannerScale = bannerScale,
+                    iconScale = iconScale,
                     description = description.trim(),
                     // 0 = "pra sempre"; o backend traduz 0 em null.
                     messageRetentionDays = retention,
@@ -469,6 +509,9 @@ private fun OverviewSection(
                 bannerUrl = server.bannerUrl
                 isPublic = server.isPublic
                 retention = server.messageRetentionDays ?: 0
+                bannerPositionY = server.bannerPositionY
+                bannerScale = server.bannerScale
+                iconScale = server.iconScale
                 msg = null
             }
         }
@@ -502,6 +545,20 @@ private fun OverviewSection(
         )
     }
     Spacer(Modifier.height(24.dp))
+      } // fim do form (coluna esquerda)
+      // Card de previa ao vivo (direita): banner enquadrado + icone + nome + canais.
+      ServerConfigPreview(
+          name = name,
+          description = description,
+          iconUrl = iconUrl,
+          bannerUrl = bannerUrl,
+          bannerPositionY = bannerPositionY,
+          bannerScale = bannerScale,
+          iconScale = iconScale,
+          channelCount = server.channels.size,
+          modifier = Modifier.padding(top = 26.dp),
+      )
+    } // fim do Row form+previa
 }
 
 // 1 dia entra a pedido do dono: canais bem efemeros. O aviso em ambar ao lado
@@ -558,22 +615,127 @@ private fun ServerNavRow(tab: ServerTab, active: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ServerIconPreview(url: String?, name: String) {
+private fun ServerIconPreview(url: String?, name: String, iconScale: Int = 100, size: Dp = 64.dp) {
+    val corner = size * 0.28f
     Box(
         Modifier
-            .size(64.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .size(size)
+            .clip(RoundedCornerShape(corner))
             .background(Obsidian.raised)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(18.dp)),
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(corner)),
         contentAlignment = Alignment.Center,
     ) {
         if (url.isNullOrBlank()) {
             Text(
                 name.take(1).uppercase(),
-                style = TextStyle(color = Obsidian.text2, fontSize = 22.sp, fontFamily = DmSerif),
+                style = TextStyle(color = Obsidian.text2, fontSize = (size.value * 0.34f).sp, fontFamily = DmSerif),
             )
         } else {
-            AstraImage(url, null, Modifier.fillMaxSize())
+            // iconScale (100..300%): zoom centrado dentro do recorte (o clip do Box corta o excesso).
+            AstraImage(
+                url, null,
+                Modifier.fillMaxSize().graphicsLayer {
+                    val s = iconScale / 100f
+                    scaleX = s; scaleY = s
+                },
+            )
+        }
+    }
+}
+
+// Zoom (100..300%): trilha arrastavel simples. Espelha o ZoomTrack das configs de
+// usuario (pequena demais pra virar componente compartilhado por enquanto).
+@Composable
+private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
+    val pct = ((scale - 100) / 200f).coerceIn(0f, 1f)
+    Row(
+        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("zoom", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(42.dp))
+        Box(
+            Modifier
+                .weight(1f)
+                .height(22.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, _ ->
+                        change.consume()
+                        val f = (change.position.x / size.width).coerceIn(0f, 1f)
+                        onChange((100 + f * 200).toInt())
+                    }
+                },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
+            Box(Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text("${scale}%", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+    }
+}
+
+// Previa ao vivo da config (direita): a constelacao como aparece pros outros —
+// banner enquadrado (posicao/zoom), icone sobreposto (zoom), nome e nº de canais.
+@Composable
+private fun ServerConfigPreview(
+    name: String,
+    description: String,
+    iconUrl: String?,
+    bannerUrl: String?,
+    bannerPositionY: Int,
+    bannerScale: Int,
+    iconScale: Int,
+    channelCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier
+            .width(248.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Obsidian.raised.copy(alpha = 0.6f))
+            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp)),
+    ) {
+        Text(
+            "PREVIA",
+            style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+            modifier = Modifier.padding(start = 14.dp, top = 12.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        Box {
+            ProfileBanner(
+                css = null,
+                imageUrl = bannerUrl,
+                positionY = bannerPositionY,
+                scale = bannerScale,
+                fallback = Obsidian.overlay,
+                modifier = Modifier.fillMaxWidth().height(84.dp),
+            )
+            Box(Modifier.align(Alignment.BottomStart).padding(start = 14.dp).offset(y = 26.dp)) {
+                ServerIconPreview(iconUrl, name, iconScale, 54.dp)
+            }
+        }
+        Spacer(Modifier.height(32.dp)) // espaco pro icone sobreposto
+        Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp)) {
+            Text(
+                name.ifBlank { "constelacao" },
+                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "$channelCount ${if (channelCount == 1) "canal" else "canais"}",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+            if (description.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    description,
+                    style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 16.sp),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

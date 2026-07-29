@@ -107,6 +107,9 @@ export const servers = pgTable('Server', {
   iconUrl:    text('iconUrl'),
 
   bannerUrl:  text('bannerUrl'),
+  bannerPositionY: integer('bannerPositionY').notNull().default(50),
+  bannerScale:     integer('bannerScale').notNull().default(100),
+  iconScale:       integer('iconScale').notNull().default(100),
   inviteCode: text('inviteCode').notNull().unique().$defaultFn(createId),
   ownerId:    text('ownerId').notNull().references(() => users.id),
   isGroup:    boolean('isGroup').notNull().default(false),

@@ -193,6 +193,9 @@ const UpdateServerSchema = z.object({
   messageRetentionDays: z.number().int().min(0).max(365).optional().nullable(),
   isPublic:    z.boolean().optional(),
   description: z.string().max(200).optional().nullable(),
+  bannerPositionY: z.number().int().min(0).max(100).optional(),
+  bannerScale:     z.number().int().min(100).max(300).optional(),
+  iconScale:       z.number().int().min(100).max(300).optional(),
 })
 
 serversRouter.patch(
@@ -201,9 +204,10 @@ serversRouter.patch(
   validate(UpdateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description } = req.body as {
+    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description, bannerPositionY, bannerScale, iconScale } = req.body as {
       name?: string; iconUrl?: string | null; bannerUrl?: string | null
       messageRetentionDays?: number | null; isPublic?: boolean; description?: string | null
+      bannerPositionY?: number; bannerScale?: number; iconScale?: number
     }
 
     const m = await getMemberPerms(req.userId!, serverId)
@@ -222,6 +226,9 @@ serversRouter.patch(
     // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
     if (iconUrl   !== undefined) patch.iconUrl   = await persistDataUri(iconUrl)
     if (bannerUrl !== undefined) patch.bannerUrl = await persistDataUri(bannerUrl)
+    if (bannerPositionY !== undefined) patch.bannerPositionY = bannerPositionY
+    if (bannerScale     !== undefined) patch.bannerScale     = bannerScale
+    if (iconScale       !== undefined) patch.iconScale       = iconScale
     if (messageRetentionDays !== undefined)
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
     if (isPublic    !== undefined) patch.isPublic    = isPublic

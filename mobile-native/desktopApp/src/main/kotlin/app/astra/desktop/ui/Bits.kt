@@ -43,6 +43,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 
 // Feedback tatil de clique (decisao do dono): o alvo encolhe pra ~0.96 enquanto
 // pressionado e volta com mola ao soltar. GPU-only (graphicsLayer scale). Reduzir
@@ -84,25 +93,57 @@ fun LIcon(
     )
 }
 
-// Avatar circular com fallback de inicial — usado no shell e no chat.
+// Avatar circular com fallback de inicial — usado no shell e no chat. No HOVER: o
+// cursor vira mãozinha e um anel âmbar se DESENHA (0->360, some ao sair). O anel só
+// aparece ao passar o mouse -> custo zero parado. Futuro: a cor do anel vem do perfil
+// (hoje = accent) — o anel de cor padrão (userColor) foi tirado de volta da foto.
 @Composable
 fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val sweep by animateFloatAsState(
+        targetValue = if (hovered) 360f else 0f,
+        animationSpec = tween(durationMillis = if (hovered) 460 else 240, easing = FastOutSlowInEasing),
+        label = "avatarRing",
+    )
     Box(
-        modifier = Modifier.size(sizeDp.dp).clip(CircleShape).background(Obsidian.overlay),
+        modifier = Modifier
+            .size(sizeDp.dp)
+            .hoverable(interaction)
+            .pointerHoverIcon(PointerIcon.Hand),
         contentAlignment = Alignment.Center,
     ) {
-        if (!url.isNullOrBlank()) {
-            AsyncImage(
-                model = url,
-                contentDescription = name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Text(
-                text = name.take(1).uppercase(),
-                style = TextStyle(color = Obsidian.accent, fontSize = (sizeDp * 0.42f).sp),
-            )
+        Box(
+            modifier = Modifier.fillMaxSize().clip(CircleShape).background(Obsidian.overlay),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!url.isNullOrBlank()) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Text(
+                    text = name.take(1).uppercase(),
+                    style = TextStyle(color = Obsidian.accent, fontSize = (sizeDp * 0.42f).sp),
+                )
+            }
+        }
+        if (sweep > 0.5f) {
+            Canvas(Modifier.fillMaxSize()) {
+                val stroke = 1.5.dp.toPx()
+                drawArc(
+                    color = Obsidian.accent,
+                    startAngle = -90f,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    topLeft = Offset(stroke / 2f, stroke / 2f),
+                    size = Size(size.width - stroke, size.height - stroke),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
         }
     }
 }

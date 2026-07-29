@@ -139,12 +139,9 @@ fun UserFooter(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
-            val ring = if (me != null) userColor(me.id) else Obsidian.borderMid
             Box(
                 Modifier
                     .clip(CircleShape)
-                    .border(2.dp, ring, CircleShape)
-                    .padding(2.dp)
                     // Clicar no avatar vai direto pra aba Perfil das configuracoes:
                     // e la que se edita de verdade (avatar, banner, tema, fonte). O
                     // card so de leitura continua no botao direito > "abrir perfil".

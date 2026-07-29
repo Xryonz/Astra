@@ -414,7 +414,6 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         val bio = draft?.bio ?: me.bio
         val emoji = draft?.statusEmoji ?: me.statusEmoji
         val recado = draft?.customStatus ?: me.customStatus
-        val ring = userColor(me.id)
         ProfileBanner(
             css = draft?.bannerColor ?: me.bannerColor,
             imageUrl = draft?.bannerUrl ?: me.bannerUrl,
@@ -433,7 +432,7 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         ) {
             Box(
                 Modifier.offset(y = (-24).dp).clip(CircleShape).background(Obsidian.raised)
-                    .border(3.dp, ring, CircleShape).padding(3.dp),
+                    .padding(3.dp),
             ) {
                 DesktopAvatar(avatar, name, 48)
             }

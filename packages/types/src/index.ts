@@ -99,8 +99,7 @@ export const CreateChannelSchema = z.object({
   name: z
     .string()
     .min(1, 'Nome obrigatório')
-    .max(50, 'Máximo 50 caracteres')
-    .regex(/^[a-z0-9-]+$/, 'Apenas letras minúsculas, números e hífens'),
+    .max(50, 'Máximo 50 caracteres'),
   type: z.enum(['TEXT', 'VOICE']).default('TEXT'),
   categoryId: z.string().nullable().optional(),
 })

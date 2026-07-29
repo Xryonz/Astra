@@ -1861,11 +1861,6 @@ private class ChannelMenu(
     val onToggleMute: (channelId: String) -> Unit,
 )
 
-// Nome de orbita segue a regra do backend (^[a-z0-9-]+$): sanitiza ao vivo pra
-// dar o mesmo feedback do Discord (espaco vira hifen, acento/simbolo some).
-private fun sanitizeChannel(s: String): String =
-    s.lowercase().replace(Regex("\\s+"), "-").replace(Regex("[^a-z0-9-]"), "").take(50)
-
 // Centraliza o dialogo na JANELA (ignora a ancora) — modal flutuante estilo Discord.
 private object CenterInWindow : PopupPositionProvider {
     override fun calculatePosition(
@@ -1914,7 +1909,9 @@ private fun EditorialInputDialog(
                 Spacer(Modifier.height(14.dp))
                 BasicTextField(
                     value = text,
-                    onValueChange = { text = if (channelType) sanitizeChannel(it) else it.take(50) },
+                    // Nome livre (decisao do dono): maiuscula/acento/simbolo permitidos,
+                    // so limita o tamanho. Vale pra orbita e categoria.
+                    onValueChange = { text = it.take(50) },
                     singleLine = true,
                     textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
                     cursorBrush = SolidColor(Obsidian.accent),

@@ -30,6 +30,25 @@ const s3 = R2_READY
 
 export const storageMode = R2_READY ? 'r2' : 'local'
 
+// Host publico do R2 (quando configurado), derivado uma vez.
+const R2_HOST = (() => {
+  try { return R2_PUBLIC_URL ? new URL(R2_PUBLIC_URL).hostname : null } catch { return null }
+})()
+
+// URL que o PROPRIO app gerou (persistDataUri/putAttachment): path local /uploads/
+// ou o host publico do R2. A validacao de host das rotas (isAllowedIcon do server,
+// isAllowedImageUrl do perfil) precisa trata-las como confiaveis — senao reenviar um
+// icone/banner JA salvo (o cliente reenvia o campo inalterado na proxima edicao) cai
+// como "URL nao permitida": /uploads/x quebra o `new URL()` e o host do R2 nao esta
+// no allowlist de terceiros. Bug do "troquei o icone, ai o banner nao troca mais".
+export function isOwnStorageUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  if (url.startsWith('/uploads/')) return true
+  if (!R2_HOST) return false
+  try { const { hostname } = new URL(url); return hostname === R2_HOST || hostname.endsWith(`.${R2_HOST}`) }
+  catch { return false }
+}
+
 export async function putAttachment(key: string, body: Buffer, mime: string): Promise<string> {
   if (s3) {
     await s3.send(new PutObjectCommand({

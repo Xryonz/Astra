@@ -8,7 +8,7 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys } from '../lib/redis'
-import { persistDataUri } from '../lib/storage'
+import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
 
 const router = Router()
 
@@ -29,6 +29,7 @@ const ALLOWED_HOSTS = [
 function isAllowedImageUrl(url: string | null | undefined): boolean {
   if (!url) return true
   if (url.startsWith('data:image/')) return true
+  if (isOwnStorageUrl(url)) return true // URL que nos mesmos persistimos (R2 / /uploads)
   try {
     const { hostname } = new URL(url)
     return ALLOWED_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))

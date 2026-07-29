@@ -13,7 +13,7 @@ import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
-import { persistDataUri } from '../lib/storage'
+import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
 
 export const serversRouter = Router()
 
@@ -172,6 +172,7 @@ const ALLOWED_ICON_HOSTS = [
 function isAllowedIcon(url: string | null | undefined): boolean {
   if (!url) return true
   if (url.startsWith('data:image/')) return true
+  if (isOwnStorageUrl(url)) return true // URL que nos mesmos persistimos (R2 / /uploads)
   try { const { hostname } = new URL(url); return ALLOWED_ICON_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`)) }
   catch { return false }
 }

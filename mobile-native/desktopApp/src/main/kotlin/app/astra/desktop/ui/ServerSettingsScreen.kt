@@ -676,6 +676,14 @@ private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
         ) {
             Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
             Box(Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
+            // Alca agarravel no fim do preenchido (spacers pesados = centro na fracao,
+            // sem clipar nas pontas; arrastar em qualquer ponto do trilho tambem move).
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val f = pct.coerceIn(0f, 1f)
+                if (f > 0f) Spacer(Modifier.weight(f))
+                Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))
+                if (f < 1f) Spacer(Modifier.weight(1f - f))
+            }
         }
         Spacer(Modifier.width(10.dp))
         Text("${scale}%", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))

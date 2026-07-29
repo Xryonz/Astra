@@ -35,18 +35,30 @@ class ScreenCaptureFfmpeg(
     private var process: Process? = null
     @Volatile private var running = false
 
-    // Preview: throttle + 2 buffers ARGB reaproveitados (o UI copia no makeRaster,
-    // entao 2 dao folga de sobra a 15fps sem alocar 8MB por frame). So a thread de
-    // captura toca nestes campos.
-    private var lastPreviewNs = 0L
-    // Intervalo do preview = periodo de UM frame no fps de captura, mas com TETO de
-    // 30fps (PREVIEW_MAX_FPS). Acima disso a conversao ARGB + o downscale — que rodam
-    // NESTA thread de captura, dentro do pushI420, ANTES do frame ir pro encoder —
-    // roubam CPU do encoder H264 (software) e seguram a drenagem do pipe do ffmpeg,
-    // derrubando o fps da propria transmissao. 30fps de preview e liso pro olho e
-    // devolve metade do custo a 60fps. Definido no start() a partir do fps.
+    // Preview DESACOPLADO: a thread de captura NAO converte — so faz um arraycopy
+    // barato do I420 pra um buffer compartilhado e acorda a thread de preview
+    // (ffmpeg-preview), que faz a conversao ARGB + downscale FORA do caminho quente
+    // captura->encoder. Antes a conversao rodava no pushI420 e (a) roubava CPU do
+    // encoder e (b) segurava a drenagem do pipe -> a transmissao E o preview travavam.
+    private var lastPreviewNs = 0L                 // so a thread de captura toca
+    // Intervalo do preview = 1 frame no fps de captura, teto de PREVIEW_MAX_FPS (30).
+    // Definido no start(). O corte usa 90% do intervalo (tolerancia): frames que chegam
+    // de raspao antes do prazo nao sao descartados -> cadencia PAR, sem judder (era o
+    // que fazia 30fps parecer travado).
     @Volatile private var previewIntervalNs = PREVIEW_INTERVAL_NS
-    private var fullArgb = ByteArray(0)                       // scratch res cheia (cap thread)
+    // Handoff capture -> worker: buffer I420 compartilhado, guardado pelo lock.
+    private val previewLock = Object()
+    private var previewShared = ByteArray(0)
+    private var previewSharedReady = false
+    private var previewSharedW = 0
+    private var previewSharedH = 0
+    private var previewThread: Thread? = null
+    // Daqui pra baixo, SO a thread de preview toca:
+    private var previewPrivate = ByteArray(0)                 // copia de trabalho do I420
+    private var previewNative: NativeI420Buffer? = null       // reusado por resolucao
+    private var previewNativeW = 0
+    private var previewNativeH = 0
+    private var fullArgb = ByteArray(0)                       // scratch res cheia (ARGB)
     private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida ja reduzida (2 buffers)
     private var argbIdx = 0
 
@@ -81,6 +93,12 @@ class ScreenCaptureFfmpeg(
             }
         }, "ffmpeg-cap").apply { isDaemon = true; start() }
 
+        // Thread de preview: converte o I420 mais recente em ARGB fora do caminho
+        // quente. So existe quando ha um consumidor de preview.
+        if (onPreview != null) {
+            previewThread = Thread({ previewLoop() }, "ffmpeg-preview").apply { isDaemon = true; start() }
+        }
+
         // Frames fluindo dentro do prazo = sucesso; senao (hardware nao aguenta o
         // DXGI, ddagrab falhou, etc) = falha -> fallback pro GDI.
         val ok = runCatching { firstFrame.await(2500, TimeUnit.MILLISECONDS) }.getOrDefault(false)
@@ -93,6 +111,7 @@ class ScreenCaptureFfmpeg(
 
     fun stop() {
         running = false
+        synchronized(previewLock) { previewLock.notifyAll() } // acorda o worker pra sair do wait
         process?.let { runCatching { it.destroyForcibly() } }
         process = null
     }
@@ -120,7 +139,7 @@ class ScreenCaptureFfmpeg(
             copyPlane(src, 0, w, buffer.dataY, buffer.strideY, w, h)
             copyPlane(src, ySize, cW, buffer.dataU, buffer.strideU, cW, cH)
             copyPlane(src, ySize + cSize, cW, buffer.dataV, buffer.strideV, cW, cH)
-            emitPreview(buffer, w, h)
+            handoffPreview(src, w, h)
             VideoFrame(buffer, System.nanoTime())
         } catch (t: Throwable) {
             runCatching { buffer.release() }
@@ -133,17 +152,68 @@ class ScreenCaptureFfmpeg(
         }
     }
 
-    // Converte o MESMO buffer I420 (antes de virar VideoFrame) pra ARGB e entrega
-    // pra UI. Throttle ~15fps: preview nao precisa de 60, e a conversao/copia sai
-    // do caminho quente da transmissao. Alterna 2 buffers pra nao alocar por frame.
-    private fun emitPreview(buffer: NativeI420Buffer, w: Int, h: Int) {
-        val cb = onPreview ?: return
+    // NA thread de captura: barato. Throttle com tolerancia (90% do intervalo), copia
+    // o I420 pro buffer compartilhado e acorda o worker. Se o worker estiver atras, o
+    // proximo handoff sobrescreve = sempre o frame mais novo (drop natural). NAO
+    // converte nada aqui — a conversao e no previewLoop, fora do caminho do encoder.
+    private fun handoffPreview(src: ByteArray, w: Int, h: Int) {
+        if (onPreview == null) return
         val now = System.nanoTime()
-        if (now - lastPreviewNs < previewIntervalNs) return
+        if (now - lastPreviewNs < previewIntervalNs * 9 / 10) return
         lastPreviewNs = now
-        // Reduz pra no maximo PREVIEW_MAX_W de largura: o preview nao precisa da
-        // resolucao cheia, e um ImageBitmap ~4x menor deixa makeRaster + upload de
-        // textura muito mais leve (era isso que tirava a fluidez). Nearest basta.
+        val need = w * h * 3 / 2
+        synchronized(previewLock) {
+            if (previewShared.size != need) previewShared = ByteArray(need)
+            System.arraycopy(src, 0, previewShared, 0, need)
+            previewSharedW = w; previewSharedH = h
+            previewSharedReady = true
+            previewLock.notifyAll()
+        }
+    }
+
+    // Thread de preview: espera o proximo I420, copia pra um buffer privado (sob o
+    // lock, so um arraycopy) e converte FORA do lock -> convert+downscale ficam longe
+    // da thread de captura e do encoder. So o frame MAIS NOVO importa (drop natural).
+    private fun previewLoop() {
+        val cb = onPreview ?: return
+        while (running) {
+            var w = 0; var h = 0; var got = false
+            synchronized(previewLock) {
+                while (running && !previewSharedReady) {
+                    try { previewLock.wait(200) } catch (_: InterruptedException) {}
+                }
+                if (previewSharedReady) {
+                    val need = previewShared.size
+                    if (previewPrivate.size != need) previewPrivate = ByteArray(need)
+                    System.arraycopy(previewShared, 0, previewPrivate, 0, need)
+                    w = previewSharedW; h = previewSharedH
+                    previewSharedReady = false
+                    got = true
+                }
+            }
+            if (!running) break
+            if (got) runCatching { convertAndEmit(previewPrivate, w, h, cb) }
+        }
+        runCatching { previewNative?.release() }
+        previewNative = null
+    }
+
+    // I420 cru -> NativeI420Buffer (reusado por resolucao) -> ARGB (ABGR) -> downscale
+    // pra <= PREVIEW_MAX_W -> callback. So a thread de preview toca aqui. O ImageBitmap
+    // menor deixa makeRaster + upload de textura no UI muito mais leve.
+    private fun convertAndEmit(i420: ByteArray, w: Int, h: Int, cb: (ByteArray, Int, Int) -> Unit) {
+        val cW = w / 2; val cH = h / 2
+        val ySize = w * h; val cSize = cW * cH
+        if (i420.size < ySize + 2 * cSize) return
+        var native = previewNative
+        if (native == null || previewNativeW != w || previewNativeH != h) {
+            runCatching { native?.release() }
+            native = runCatching { NativeI420Buffer.allocate(w, h) }.getOrNull() ?: return
+            previewNative = native; previewNativeW = w; previewNativeH = h
+        }
+        copyPlane(i420, 0, w, native.dataY, native.strideY, w, h)
+        copyPlane(i420, ySize, cW, native.dataU, native.strideU, cW, cH)
+        copyPlane(i420, ySize + cSize, cW, native.dataV, native.strideV, cW, cH)
         val scale = if (w > PREVIEW_MAX_W) PREVIEW_MAX_W.toDouble() / w else 1.0
         val pw = (w * scale).toInt() and 1.inv()
         val ph = (h * scale).toInt() and 1.inv()
@@ -153,12 +223,10 @@ class ScreenCaptureFfmpeg(
         val outNeed = pw * ph * 4
         val dst = argbBufs[argbIdx].let { if (it.size == outNeed) it else ByteArray(outNeed).also { b -> argbBufs[argbIdx] = b } }
         argbIdx = argbIdx xor 1
-        runCatching {
-            VideoBufferConverter.convertFromI420(buffer, fullArgb, FourCC.ABGR)
-            if (pw == w && ph == h) System.arraycopy(fullArgb, 0, dst, 0, outNeed)
-            else downscaleArgb(fullArgb, w, h, dst, pw, ph)
-            cb(dst, pw, ph)
-        }
+        VideoBufferConverter.convertFromI420(native, fullArgb, FourCC.ABGR)
+        if (pw == w && ph == h) System.arraycopy(fullArgb, 0, dst, 0, outNeed)
+        else downscaleArgb(fullArgb, w, h, dst, pw, ph)
+        cb(dst, pw, ph)
     }
 
     // Nearest-neighbor ARGB — barato, roda na thread de captura fora do caminho da

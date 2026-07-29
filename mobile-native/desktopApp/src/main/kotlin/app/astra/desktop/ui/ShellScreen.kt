@@ -2450,7 +2450,7 @@ private fun MembersPanel(
     // Agrupado por cargo hoist (membro no cargo mais alto que "separa"; resto em
     // MEMBROS). Dentro de cada secao: online antes de offline. Recalcula so quando
     // a lista ou a presenca muda — nao a cada recomposicao.
-    val rows = remember(members, presence) { buildMemberRows(members, presence) }
+    val rows = remember(members, presence, myId) { buildMemberRows(members, presence, myId) }
     Column(Modifier.width(240.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
             items(rows, key = { row -> row.key }) { row ->
@@ -2486,8 +2486,12 @@ private sealed interface MemberPanelRow {
     }
 }
 
-private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String, String>): List<MemberPanelRow> {
-    fun online(uid: String) = presence[uid]?.let { it != "OFFLINE" } == true
+private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String, String>, myId: String?): List<MemberPanelRow> {
+    // Eu SEMPRE conto como online (estou olhando o app agora): a presenca do proprio
+    // usuario nunca chega via socket (o broadcast do connect vai so pros OUTROS) e o
+    // snapshot inicial pode ter pego antes do socket subir. Sem isso meu nome ficava
+    // apagado mesmo online. Os demais vem da presenca real (o heartbeat a mantem viva).
+    fun online(uid: String) = uid == myId || presence[uid]?.let { it != "OFFLINE" } == true
     fun nameOf(m: ServerMemberDto) = (m.user.displayName ?: m.user.username).lowercase()
 
     // membro -> cargo hoist mais alto (position maior). Sem cargo hoist = "" (MEMBROS).

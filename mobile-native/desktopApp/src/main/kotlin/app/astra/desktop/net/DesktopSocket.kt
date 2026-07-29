@@ -30,6 +30,7 @@ data class FastSendResult(
 // sala). Unread: channel_activity (global via sala pessoal). Presenca depois.
 class DesktopSocket(private val store: SessionStore) {
     private var socket: Socket? = null
+    private var heartbeatTimer: java.util.Timer? = null
     private val channels = ConcurrentHashMap.newKeySet<String>()
     private val dms = ConcurrentHashMap.newKeySet<String>()
 
@@ -88,6 +89,7 @@ class DesktopSocket(private val store: SessionStore) {
             // Re-entra nas salas apos reconectar.
             channels.forEach { s.emit("join_channel", it) }
             dms.forEach { s.emit("join_dm", it) }
+            s.emit("heartbeat") // presenca viva ja no connect (o timer refresca depois)
         }
         s.on("new_message") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _newChannelMessage.tryEmit(it.toString()) }
@@ -131,6 +133,17 @@ class DesktopSocket(private val store: SessionStore) {
         }
 
         s.connect()
+
+        // Heartbeat periodico: mantem a presenca viva no Redis (TTL 60s no backend).
+        // SEM isto a chave expira em 60s e o usuario (e todos) aparecem OFFLINE na aba
+        // de membros no proximo carregamento — era a "presenca atrasada". 25s da folga
+        // de 2 batidas dentro do TTL.
+        heartbeatTimer?.cancel()
+        heartbeatTimer = java.util.Timer("astra-heartbeat", true).apply {
+            scheduleAtFixedRate(object : java.util.TimerTask() {
+                override fun run() { runCatching { socket?.takeIf { it.connected() }?.emit("heartbeat") } }
+            }, 25_000L, 25_000L)
+        }
     }
 
     fun isConnected(): Boolean = socket?.connected() == true
@@ -198,6 +211,8 @@ class DesktopSocket(private val store: SessionStore) {
     fun stopDmTyping(conversationId: String) { socket?.emit("dm_typing_stop", conversationId) }
 
     fun disconnect() {
+        heartbeatTimer?.cancel()
+        heartbeatTimer = null
         channels.clear()
         dms.clear()
         socket?.apply { off(); disconnect() }

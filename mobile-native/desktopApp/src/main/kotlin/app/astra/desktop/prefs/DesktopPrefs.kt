@@ -94,6 +94,9 @@ class DesktopPrefs(private val store: SessionStore) {
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,
+        // Sensibilidade de entrada (voice gate): 0 = sempre transmite; >0 = so
+        // transmite quando o RMS (0..1) passa do limiar (com cauda de 250ms).
+        val micSensitivity: Float = 0f,
         // Dispositivos da call (nome exato; null = padrao do sistema). Entrada =
         // mic (Java Sound); saida = alto-falante (ADM do WebRTC).
         val audioInput: String? = null,
@@ -128,6 +131,7 @@ class DesktopPrefs(private val store: SessionStore) {
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
         micAutoGain = store.uiPref("micAutoGain") != "0",
+        micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
         audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
     )
@@ -223,6 +227,12 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setMicAutoGain(v: Boolean) {
         persist("micAutoGain", v)
         _state.update { it.copy(micAutoGain = v) }
+    }
+
+    fun setMicSensitivity(v: Float) {
+        val c = v.coerceIn(0f, 1f)
+        store.setUiPref("micSensitivity", c.toString())
+        _state.update { it.copy(micSensitivity = c) }
     }
 
     fun setAudioInput(v: String?) {

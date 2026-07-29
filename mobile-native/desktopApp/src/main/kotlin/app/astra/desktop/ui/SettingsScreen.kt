@@ -703,7 +703,7 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
             // O medidor so abre o microfone quando VOCE manda testar. Antes ele
             // abria sozinho ao entrar na aba e ficava gravando em segundo plano
             // enquanto a previa vivesse — barulho de privacidade por nada.
-            MicMeter(testing)
+            MicMeter(testing, p.micSensitivity)
             Spacer(Modifier.height(10.dp))
             AboutButton(if (testing) "parar teste" else "testar microfone", accent = !testing) {
                 testing = !testing
@@ -722,7 +722,7 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
 // onDispose fecha a linha (parar o teste / troca de aba / fecha configuracoes).
 // Best-effort: sem mic ou em uso -> mostra aviso, nao quebra.
 @Composable
-private fun MicMeter(active: Boolean) {
+private fun MicMeter(active: Boolean, threshold: Float = 0f) {
     var level by remember { mutableFloatStateOf(0f) }
     var available by remember { mutableStateOf(true) }
     DisposableEffect(active) {
@@ -785,21 +785,79 @@ private fun MicMeter(active: Boolean) {
         tween(220),
         label = "micColor",
     )
-    Row(
-        Modifier.fillMaxWidth().height(30.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        val bars = 16
-        for (i in 0 until bars) {
-            // envelope em cupula: barras do meio mais altas -> onda de audio.
-            val shape = 0.45f + 0.55f * sin((i + 0.5f) / bars * PI).toFloat()
-            val h = (lvl * shape).coerceIn(0.05f, 1f)
-            Box(
-                Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
-                    .background(meterColor.copy(alpha = 0.4f + 0.5f * h)),
+    Box(Modifier.fillMaxWidth().height(30.dp)) {
+        Row(
+            Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            val bars = 16
+            for (i in 0 until bars) {
+                // envelope em cupula: barras do meio mais altas -> onda de audio.
+                val shape = 0.45f + 0.55f * sin((i + 0.5f) / bars * PI).toFloat()
+                val h = (lvl * shape).coerceIn(0.05f, 1f)
+                Box(
+                    Modifier.weight(1f).fillMaxHeight(h).clip(RoundedCornerShape(2.dp))
+                        .background(meterColor.copy(alpha = 0.4f + 0.5f * h)),
+                )
+            }
+        }
+        // Marcador do limiar de sensibilidade: linha ambar vertical na fracao —
+        // abaixo dela o mic nao transmite. Spacers pesados = sem clipar nas pontas.
+        if (threshold > 0f) {
+            Row(Modifier.fillMaxSize()) {
+                val f = threshold.coerceIn(0.02f, 0.98f)
+                Spacer(Modifier.weight(f))
+                Box(Modifier.width(2.dp).fillMaxHeight().background(Obsidian.accent.copy(alpha = 0.9f)))
+                Spacer(Modifier.weight(1f - f))
+            }
+        }
+    }
+}
+
+// Slider de sensibilidade de entrada (voice gate). 0 = sempre transmite; arraste
+// a alca. O marcador ambar no medidor acima mostra o limiar vs a sua voz.
+@Composable
+private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
+    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Sensibilidade de entrada", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+            Text(
+                if (value <= 0f) "sempre transmite" else "${(value * 100).toInt()}%",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             )
         }
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(22.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, _ ->
+                        change.consume()
+                        onChange((change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
+            Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val f = value.coerceIn(0f, 1f)
+                if (f > 0f) Spacer(Modifier.weight(f))
+                Box(Modifier.size(14.dp).clip(CircleShape).background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape))
+                if (f < 1f) Spacer(Modifier.weight(1f - f))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "abaixo desse nivel o mic nao transmite. 0 = sempre aberto. teste o mic acima pra calibrar.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        )
     }
 }
 
@@ -1837,6 +1895,8 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic", p.micEchoCancel, prefs::setMicEchoCancel)
     ToggleRow("Ganho automatico", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
+    Spacer(Modifier.height(12.dp))
+    MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
     Spacer(Modifier.height(4.dp))
     Text(
         "as opcoes de microfone valem na proxima vez que voce entrar numa sala.",

@@ -28,6 +28,8 @@ class MicCapture(
     private val echoCancel: Boolean,
     // Dispositivo de entrada (nome do Mixer; null = padrao do sistema).
     private val inputDeviceName: String? = null,
+    // Voice gate: 0 = sempre transmite; >0 = so transmite acima desse RMS (0..1).
+    private val sensitivity: Float = 0f,
     private val onLevel: (Float) -> Unit,
 ) {
     private var line: TargetDataLine? = null
@@ -76,6 +78,20 @@ class MicCapture(
         Thread({
             val inBuf = ByteArray(inBytes)
             val outBuf = ByteArray(outBytes)
+            // Silencio pra quando o gate fecha: mantem a cadencia de 10ms (o Opus
+            // comprime silencio a quase nada) em vez de picar frames.
+            val silenceOut = ByteArray(outBytes)
+            val silenceIn = ByteArray(inBytes)
+            // Cauda: segue transmitindo ~250ms depois de cair abaixo do limiar, pra
+            // nao cortar o fim das palavras (gate seco pica a fala).
+            var lastActiveNs = 0L
+            val hangoverNs = 250_000_000L
+            fun gateOpen(level: Float): Boolean {
+                if (sensitivity <= 0f) return true // 0 = sem gate (transmite sempre)
+                val now = System.nanoTime()
+                if (level >= sensitivity) { lastActiveNs = now; return true }
+                return now - lastActiveNs < hangoverNs
+            }
             while (running) {
                 val n = runCatching { l.read(inBuf, 0, inBuf.size) }.getOrDefault(-1)
                 if (n <= 0) break
@@ -85,14 +101,18 @@ class MicCapture(
                     // Limpa (NS/HPF/AGC) + converte pra 48k mono no mesmo passo.
                     val ok = runCatching { proc.processStream(inBuf, inConfig, outConfig, outBuf) }.isSuccess
                     if (ok) {
-                        runCatching { source.pushAudio(outBuf, 16, 48000, 1, outFrames) }
-                        onLevel(rms(outBuf))
+                        val level = rms(outBuf)
+                        onLevel(level)
+                        val buf = if (gateOpen(level)) outBuf else silenceOut
+                        runCatching { source.pushAudio(buf, 16, 48000, 1, outFrames) }
                         continue
                     }
                 }
                 // Sem APM (ou processStream falhou): cai pro cru pra nao ficar mudo.
-                runCatching { source.pushAudio(inBuf, 16, rate, channels, inFrames) }
-                onLevel(rms(inBuf))
+                val level = rms(inBuf)
+                onLevel(level)
+                val buf = if (gateOpen(level)) inBuf else silenceIn
+                runCatching { source.pushAudio(buf, 16, rate, channels, inFrames) }
             }
         }, "mic-capture").apply { isDaemon = true; start() }
         return true

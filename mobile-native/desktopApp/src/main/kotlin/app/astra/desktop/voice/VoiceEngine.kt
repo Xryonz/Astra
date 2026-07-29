@@ -326,7 +326,7 @@ class VoiceEngine(
         val src = micSource ?: return
         runCatching { micCapture?.stop() }
         val p = prefs.state.value
-        val cap = MicCapture(src, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, name) { level -> onMicLevel(level) }
+        val cap = MicCapture(src, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, name, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
         cap.start()
     }
@@ -523,7 +523,7 @@ class VoiceEngine(
         micSource = source
         micTrack = f.createAudioTrack(cid, source)
         val p = prefs.state.value
-        val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput) { level -> onMicLevel(level) }
+        val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
         cap.start() // false = sem dispositivo de captura; a track fica muda, mas nao trava
         val req = LivekitRtc.SignalRequest.newBuilder()

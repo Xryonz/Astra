@@ -134,11 +134,12 @@ fun ProfileBanner(
             AstraImage(
                 url = imageUrl,
                 contentDescription = null,
-                // FillBounds = a imagem ESTICA pra cobrir 100% da caixa em toda tela
-                // (decisao do dono): mesma imagem inteira em todo lugar, sem corte que
-                // variava por proporcao. `scale` (zoom) ainda vale por cima; positionY
-                // deixa de importar (nao ha sobra pra reposicionar) mas fica inofensivo.
-                contentScale = ContentScale.FillBounds,
+                // Crop (como era antes): NAO distorce e anima gif/webp normal. O
+                // enquadramento fica por conta do REDIMENSIONAMENTO — positionY
+                // reposiciona (vertical) e `scale` da o zoom. Foi o esticar (FillBounds)
+                // que o dono nao curtiu; a cobertura agora e no controle manual.
+                contentScale = ContentScale.Crop,
+                // bias -1 = topo, 0 = centro, +1 = base.
                 alignment = BiasAlignment(0f, (positionY.coerceIn(0, 100) / 50f) - 1f),
                 modifier = Modifier.fillMaxSize().scale((scale.coerceIn(100, 300)) / 100f),
             )

@@ -258,7 +258,7 @@ private fun spaceWord(progress: Float): String =
 // onboarding e o proprio gate com reduceMotion continuam iguais, sem esse custo.
 // planetRes: recurso do planeta no centro. O gate passa a variante TRANSPARENTE
 // (astra-glyph.png = so o planeta branco, anel/estrela vazados, sem o quadrado preto
-// que poluia o ceu); login/onboarding usam o icone cheio de sempre (astra-icon.png).
+// que poluia o ceu); gate/login/onboarding/rail usam essa mesma marca transparente.
 @Composable
 internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null, planetRes: String = "astra-icon.png") {
     val accent = Obsidian.accent

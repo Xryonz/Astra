@@ -200,7 +200,7 @@ fun LoginScreen(
             ) {
                 // O MESMO planeta do gate de atualizacao: o objeto que abre o app e
                 // o que recebe no login.
-                RotatingStarsLogo(LocalReduceMotion.current, diameter = 132.dp)
+                RotatingStarsLogo(LocalReduceMotion.current, diameter = 132.dp, planetRes = "astra-glyph.png")
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = "Astra",

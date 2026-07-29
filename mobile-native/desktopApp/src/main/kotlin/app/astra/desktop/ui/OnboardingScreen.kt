@@ -158,7 +158,7 @@ fun OnboardingScreen(displayName: String, onDone: () -> Unit) {
 @Composable
 private fun WelcomeStep(reduce: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        RotatingStarsLogo(reduce, diameter = 116.dp)
+        RotatingStarsLogo(reduce, diameter = 116.dp, planetRes = "astra-glyph.png")
         Spacer(Modifier.height(18.dp))
         Text(
             "sua constelação começa aqui",

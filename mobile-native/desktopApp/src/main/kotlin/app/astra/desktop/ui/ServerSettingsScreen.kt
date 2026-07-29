@@ -468,59 +468,6 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
-    // ---- Salvar ----
-    Spacer(Modifier.height(22.dp))
-    msg?.let { (text, ok) ->
-        Text(
-            text,
-            style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
-        )
-        Spacer(Modifier.height(8.dp))
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SmallButton(if (saving) "salvando…" else "salvar", accent = true) {
-            if (saving || !dirty) return@SmallButton
-            saving = true
-            msg = null
-            onSave(
-                UpdateServerRequest(
-                    name = name.trim().ifBlank { null },
-                    iconUrl = iconUrl ?: "",
-                    bannerUrl = bannerUrl ?: "",
-                    bannerPositionY = bannerPositionY,
-                    bannerScale = bannerScale,
-                    iconScale = iconScale,
-                    description = description.trim(),
-                    // 0 = "pra sempre"; o backend traduz 0 em null.
-                    messageRetentionDays = retention,
-                    isPublic = isPublic,
-                ),
-            ) { err ->
-                saving = false
-                msg = (err ?: "constelacao salva") to (err == null)
-            }
-        }
-        if (dirty && !saving) {
-            SmallButton("descartar", accent = false) {
-                name = server.name
-                description = server.description.orEmpty()
-                iconUrl = server.iconUrl
-                bannerUrl = server.bannerUrl
-                isPublic = server.isPublic
-                retention = server.messageRetentionDays ?: 0
-                bannerPositionY = server.bannerPositionY
-                bannerScale = server.bannerScale
-                iconScale = server.iconScale
-                msg = null
-            }
-        }
-    }
-    if (!dirty && msg == null) {
-        Spacer(Modifier.height(6.dp))
-        Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-    }
-
     // ---- Zona de perigo ----
     SettingsDivider()
     FieldLabel("zona de perigo")
@@ -546,18 +493,79 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(24.dp))
       } // fim do form (coluna esquerda)
-      // Card de previa ao vivo (direita): banner enquadrado + icone + nome + canais.
-      ServerConfigPreview(
-          name = name,
-          description = description,
-          iconUrl = iconUrl,
-          bannerUrl = bannerUrl,
-          bannerPositionY = bannerPositionY,
-          bannerScale = bannerScale,
-          iconScale = iconScale,
-          channelCount = server.channels.size,
+      // Coluna direita: card de previa ao vivo -> legenda "PREVIA" ABAIXO dele ->
+      // acoes de salvar/descartar (ficam junto do que elas afetam).
+      Column(
           modifier = Modifier.padding(top = 26.dp),
-      )
+          horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
+          ServerConfigPreview(
+              name = name,
+              description = description,
+              iconUrl = iconUrl,
+              bannerUrl = bannerUrl,
+              bannerPositionY = bannerPositionY,
+              bannerScale = bannerScale,
+              iconScale = iconScale,
+              channelCount = server.channels.size,
+          )
+          Spacer(Modifier.height(10.dp))
+          Text(
+              "PREVIA",
+              style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+          )
+          Spacer(Modifier.height(18.dp))
+          msg?.let { (text, ok) ->
+              Text(
+                  text,
+                  style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp),
+                  modifier = Modifier.widthIn(max = 248.dp),
+              )
+              Spacer(Modifier.height(8.dp))
+          }
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              SmallButton(if (saving) "salvando…" else "salvar", accent = true) {
+                  if (saving || !dirty) return@SmallButton
+                  saving = true
+                  msg = null
+                  onSave(
+                      UpdateServerRequest(
+                          name = name.trim().ifBlank { null },
+                          iconUrl = iconUrl ?: "",
+                          bannerUrl = bannerUrl ?: "",
+                          bannerPositionY = bannerPositionY,
+                          bannerScale = bannerScale,
+                          iconScale = iconScale,
+                          description = description.trim(),
+                          // 0 = "pra sempre"; o backend traduz 0 em null.
+                          messageRetentionDays = retention,
+                          isPublic = isPublic,
+                      ),
+                  ) { err ->
+                      saving = false
+                      msg = (err ?: "constelacao salva") to (err == null)
+                  }
+              }
+              if (dirty && !saving) {
+                  SmallButton("descartar", accent = false) {
+                      name = server.name
+                      description = server.description.orEmpty()
+                      iconUrl = server.iconUrl
+                      bannerUrl = server.bannerUrl
+                      isPublic = server.isPublic
+                      retention = server.messageRetentionDays ?: 0
+                      bannerPositionY = server.bannerPositionY
+                      bannerScale = server.bannerScale
+                      iconScale = server.iconScale
+                      msg = null
+                  }
+              }
+          }
+          if (!dirty && msg == null) {
+              Spacer(Modifier.height(6.dp))
+              Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+          }
+      }
     } // fim do Row form+previa
 }
 
@@ -695,12 +703,6 @@ private fun ServerConfigPreview(
             .background(Obsidian.raised.copy(alpha = 0.6f))
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp)),
     ) {
-        Text(
-            "PREVIA",
-            style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
-            modifier = Modifier.padding(start = 14.dp, top = 12.dp),
-        )
-        Spacer(Modifier.height(8.dp))
         Box {
             ProfileBanner(
                 css = null,

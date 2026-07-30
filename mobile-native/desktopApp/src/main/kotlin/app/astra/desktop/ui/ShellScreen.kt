@@ -53,6 +53,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -77,11 +79,16 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -375,6 +382,7 @@ fun ShellScreen(
             onRenameCategory = vm::renameCategory,
             onDeleteCategory = vm::deleteCategory,
             onReorderChannels = vm::reorderChannel,
+            onMoveChannelToCategory = vm::moveChannelToCategory,
             onRenameChannel = vm::renameChannel,
             onDeleteChannel = vm::deleteChannel,
             onMarkChannelRead = vm::markChannelRead,
@@ -1230,6 +1238,7 @@ private fun Sidebar(
     onRenameCategory: (serverId: String, categoryId: String, name: String) -> Unit,
     onDeleteCategory: (serverId: String, categoryId: String) -> Unit,
     onReorderChannels: (serverId: String, orderedIds: List<String>) -> Unit,
+    onMoveChannelToCategory: (serverId: String, channelId: String, categoryId: String) -> Unit,
     onRenameChannel: (serverId: String, channelId: String, name: String) -> Unit,
     onDeleteChannel: (serverId: String, channelId: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
@@ -1312,6 +1321,7 @@ private fun Sidebar(
                                     onRenameCat = { catId, cur -> srv?.let { chanDialog = ChanDialog.RenameCategory(it.id, catId, cur) } },
                                     onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
                                     onReorderChannels = { ids -> srv?.let { onReorderChannels(it.id, ids) } },
+                                    onMoveToCategory = { cid, catId -> srv?.let { onMoveChannelToCategory(it.id, cid, catId) } },
                                     onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
                                     onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
                                     onMarkChannelRead = onMarkChannelRead,
@@ -1470,6 +1480,7 @@ private fun OrbitList(
     onRenameCat: (categoryId: String, current: String) -> Unit,
     onDeleteCat: (categoryId: String) -> Unit,
     onReorderChannels: (orderedIds: List<String>) -> Unit,
+    onMoveToCategory: (channelId: String, categoryId: String) -> Unit,
     onOpenChannelRename: (channelId: String, current: String) -> Unit,
     onOpenChannelDelete: (channelId: String, name: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
@@ -1502,7 +1513,7 @@ private fun OrbitList(
                 OrbitEntry(
                     ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                     members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
-                    dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels) else null,
+                    dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
                     menu = chMenu,
                 )
             }
@@ -1511,60 +1522,81 @@ private fun OrbitList(
         cats.forEach { cat ->
             val channels = byCat[cat.id].orEmpty().sortedBy { it.position }
             val headerRow = offset
-            item(key = "cat-${cat.id}") {
-                CascadeIn(headerRow, server.id) {
-                    val head = @Composable {
-                        CategoryHeader(
-                            name = cat.name,
-                            collapsed = cat.id in collapsedCats,
-                            onToggle = {
-                                collapsedCats =
-                                    if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
-                            },
-                        )
-                    }
-                    val catUnread = channels.any { it.id in unread }
-                    var confirmDelCat by remember(cat.id) { mutableStateOf(false) }
-                    EditorialContextMenu(entries = {
-                        buildList {
-                            if (catUnread) add(MenuEntry.Item("marcar categoria como lida", icon = Lucide.CheckCheck) {
-                                channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
-                            })
-                            add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })
-                            if (isOwner) {
-                                add(MenuEntry.Separator)
-                                add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
-                                add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })
-                                add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })
-                            }
-                        }
-                    }) {
-                        head()
-                        if (confirmDelCat) ConfirmPopup(
-                            message = "excluir a categoria ${cat.name}? não dá pra desfazer.",
-                            confirmLabel = "excluir",
-                            onConfirm = { onDeleteCat(cat.id) },
-                            onDismiss = { confirmDelCat = false },
-                        )
-                    }
-                }
-            }
-            // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
             val collapsed = cat.id in collapsedCats
             val channelIds = channels.map { it.id }
+            // Colapsada ainda mostra a ativa e as nao lidas (comportamento Discord).
             val visible =
                 if (collapsed) channels.filter { it.id == activeChatId || it.id in unread }
                 else channels
-            itemsIndexed(visible, key = { _, ch -> ch.id }) { i, ch ->
-                CascadeIn(headerRow + 1 + i, server.id) {
-                    OrbitEntry(
-                        ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
-                        members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
-                        // Reordena so quando aberta (indice do visivel == indice real).
-                        dragCtx = if (isOwner && !collapsed)
-                            ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels) else null,
-                        menu = chMenu,
-                    )
+            // A categoria vira UM item medido: header + orbitas na mesma Column, pra (1)
+            // registrar os bounds da categoria em coords de janela (hit-test do drag) e (2)
+            // desenhar a MOLDURA da hitbox quando uma orbita de FORA paira por cima.
+            item(key = "cat-${cat.id}") {
+                val highlight = drag.dragging && drag.hoverCat == cat.id && drag.section != "cat:${cat.id}"
+                val hi by animateFloatAsState(if (highlight) 1f else 0f, tween(120), label = "catHitbox")
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { drag.catBounds[cat.id] = it.boundsInWindow() }
+                        .drawBehind {
+                            if (hi > 0f) {
+                                val inset = 6.dp.toPx()
+                                val tl = Offset(inset, 3.dp.toPx())
+                                val sz = Size(size.width - inset * 2f, size.height - 6.dp.toPx())
+                                val rad = CornerRadius(10.dp.toPx())
+                                drawRoundRect(Obsidian.accent.copy(alpha = 0.07f * hi), tl, sz, rad)
+                                drawRoundRect(Obsidian.accent.copy(alpha = 0.55f * hi), tl, sz, rad, style = Stroke(1.5.dp.toPx()))
+                            }
+                        },
+                ) {
+                    CascadeIn(headerRow, server.id) {
+                        val head = @Composable {
+                            CategoryHeader(
+                                name = cat.name,
+                                collapsed = collapsed,
+                                onToggle = {
+                                    collapsedCats =
+                                        if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
+                                },
+                            )
+                        }
+                        val catUnread = channels.any { it.id in unread }
+                        var confirmDelCat by remember(cat.id) { mutableStateOf(false) }
+                        EditorialContextMenu(entries = {
+                            buildList {
+                                if (catUnread) add(MenuEntry.Item("marcar categoria como lida", icon = Lucide.CheckCheck) {
+                                    channels.forEach { if (it.id in unread) onMarkChannelRead(it.id) }
+                                })
+                                add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(cat.id)) })
+                                if (isOwner) {
+                                    add(MenuEntry.Separator)
+                                    add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
+                                    add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })
+                                    add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })
+                                }
+                            }
+                        }) {
+                            head()
+                            if (confirmDelCat) ConfirmPopup(
+                                message = "excluir a categoria ${cat.name}? não dá pra desfazer.",
+                                confirmLabel = "excluir",
+                                onConfirm = { onDeleteCat(cat.id) },
+                                onDismiss = { confirmDelCat = false },
+                            )
+                        }
+                    }
+                    visible.forEachIndexed { i, ch ->
+                        CascadeIn(headerRow + 1 + i, server.id) {
+                            OrbitEntry(
+                                ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
+                                members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                                // Reordena so quando aberta (indice do visivel == indice real).
+                                dragCtx = if (isOwner && !collapsed)
+                                    ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory) else null,
+                                menu = chMenu,
+                            )
+                        }
+                    }
                 }
             }
             offset = headerRow + 1 + visible.size
@@ -1587,10 +1619,14 @@ private class ChannelDragState {
     var targetIndex by mutableStateOf(-1)
     var windowPos by mutableStateOf(Offset.Zero)
     var fadingOut by mutableStateOf(false)
+    // Hitbox: categoria sob o cursor durante o arrasto (pro realce + drop cross-categoria).
+    // catBounds = bounds de cada categoria em coords de JANELA, alimentado no layout.
+    var hoverCat by mutableStateOf<String?>(null)
+    val catBounds = mutableStateMapOf<String, Rect>()
     val dragging: Boolean get() = id != null && !fadingOut
     fun reset() {
         id = null; name = ""; isVoice = false; section = null
-        fromIndex = -1; targetIndex = -1; fadingOut = false
+        fromIndex = -1; targetIndex = -1; fadingOut = false; hoverCat = null
     }
 }
 
@@ -1601,6 +1637,7 @@ private class ChannelDragCtx(
     val sectionSize: Int,
     val orderedIds: List<String>,
     val onReorder: (List<String>) -> Unit,
+    val onMoveToCategory: (channelId: String, categoryId: String) -> Unit,
 )
 
 // Long-press pega a orbita; o arrasto move a bolha (windowPos) e calcula o slot alvo
@@ -1633,14 +1670,24 @@ private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier
                     accY += delta.y
                     coords?.let { c -> d.windowPos = c.localToWindow(change.position) }
                     d.targetIndex = (ctx.index + (accY / itemH).roundToInt()).coerceIn(0, ctx.sectionSize - 1)
+                    // Categoria sob o cursor: realca a hitbox e decide drop cross-categoria.
+                    d.hoverCat = d.catBounds.entries.firstOrNull { it.value.contains(d.windowPos) }?.key
                 },
                 onDragEnd = {
-                    if (d.id == ch.id && d.targetIndex in 0 until ctx.sectionSize && d.targetIndex != d.fromIndex) {
-                        val list = ctx.orderedIds.toMutableList()
-                        list.add(d.targetIndex, list.removeAt(d.fromIndex))
-                        ctx.onReorder(list)
+                    if (d.id == ch.id) {
+                        val srcCat = if (ctx.section.startsWith("cat:")) ctx.section.removePrefix("cat:") else null
+                        val over = d.hoverCat
+                        if (over != null && over != srcCat) {
+                            // Soltou POR CIMA de outra categoria -> move pra dentro dela.
+                            ctx.onMoveToCategory(ch.id, over)
+                        } else if (d.targetIndex in 0 until ctx.sectionSize && d.targetIndex != d.fromIndex) {
+                            // Reordena dentro da mesma secao.
+                            val list = ctx.orderedIds.toMutableList()
+                            list.add(d.targetIndex, list.removeAt(d.fromIndex))
+                            ctx.onReorder(list)
+                        }
+                        d.fadingOut = true // dispara o fade da bolha
                     }
-                    if (d.id == ch.id) d.fadingOut = true // dispara o fade da bolha
                 },
                 onDragCancel = { if (d.id == ch.id) d.reset() },
             )

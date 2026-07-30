@@ -498,6 +498,29 @@ class ShellVm(
         }
     }
 
+    // Mover uma orbita PRA DENTRO de outra categoria (drag cross-categoria). position =
+    // fim da categoria alvo. Otimista: troca categoryId+position local; PATCH com categoryId
+    // (nao-nulo -> serializa); reload reconcilia. So o dono chega aqui (a UI so habilita drag
+    // pro dono). Mover pra "solta" (categoryId null explicito) e' bloqueado pelo explicitNulls.
+    fun moveChannelToCategory(serverId: String, channelId: String, targetCategoryId: String) {
+        scope.launch {
+            val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
+            val ch = srv0.channels.find { it.id == channelId } ?: return@launch
+            if (ch.categoryId == targetCategoryId) return@launch
+            val np = (srv0.channels.filter { it.categoryId == targetCategoryId }.maxOfOrNull { it.position } ?: -1) + 1
+            _state.update { st ->
+                st.copy(servers = st.servers.map { s ->
+                    if (s.id != serverId) s
+                    else s.copy(channels = s.channels.map { c ->
+                        if (c.id == channelId) c.copy(categoryId = targetCategoryId, position = np) else c
+                    })
+                })
+            }
+            runCatching { serverApi.moveChannel(serverId, channelId, MoveChannelRequest(np, targetCategoryId)) }
+            reloadServers()
+        }
+    }
+
     // ---- Silenciar (notif prefs): backend channelNotifPrefs.ts, mode "mute" ----
     private fun loadNotifPrefs() {
         scope.launch {

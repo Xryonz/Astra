@@ -89,10 +89,13 @@ data class ChannelVisibilityRequest(
 @Serializable
 data class UpdateChannelNameRequest(val name: String)
 
-// Reordenar canal (drag na sidebar): so a posicao. O backend (PATCH .../channels/:cid)
-// aceita name/categoryId/position; aqui so mexemos em position dentro da mesma secao.
+// Reordenar / mover canal (drag na sidebar). O backend (PATCH .../channels/:cid) aceita
+// name/categoryId/position. position = ordem na secao; categoryId != null MOVE pra dentro
+// da categoria. categoryId fica null (default) no reorder simples e, com explicitNulls=false
+// (AppModule), e OMITIDO -> backend mantem a categoria atual. NAO da pra mandar null explicito
+// (mover pra "solta") por causa disso — caso deferido.
 @Serializable
-data class MoveChannelRequest(val position: Int)
+data class MoveChannelRequest(val position: Int, val categoryId: String? = null)
 
 @Serializable
 data class CreateChannelRequest(

@@ -2347,10 +2347,11 @@ private fun Stage(
                 Spacer(Modifier.width(7.dp))
             }
             Box(Modifier.weight(1f)) {
-                // Rota estelar decorativa no vao do header, ATRAS do titulo, terminando
-                // no botao de membros a direita (a "estrela" do fim). Some ao reduzir
-                // movimento; nao atrapalha o texto (fica na metade direita, alpha baixo).
-                StarRoute(Modifier.matchParentSize())
+                // Constelacao conectada no vao do header, ATRAS do titulo, terminando no
+                // botao de membros a direita (que FECHA a constelacao). SO com constelacao
+                // selecionada (server != null); some em DM/sussurros. Alpha baixo + congela
+                // ao reduzir movimento — nao atrapalha o texto.
+                if (server != null) ConstellationRoute(Modifier.matchParentSize())
                 Text(
                     text = when {
                         voiceChannel != null -> voiceChannel.name

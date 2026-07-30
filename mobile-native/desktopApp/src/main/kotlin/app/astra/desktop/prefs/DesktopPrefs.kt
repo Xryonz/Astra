@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.update
 import app.astra.desktop.auth.SessionStore
 
 // Qualidade da aurora = numero de oitavas do FBM no shader (custo dominante).
-// SkSL exige bound de loop CONSTANTE -> nao da uniform; recompila-se uma variante
-// por nivel (barato, so quando muda). HIGH=3, MEDIUM=2, LOW=1.
+// SkSL exige bound de loop CONSTANTE -> não da uniform; recompila-se uma variante
+// por nível (barato, so quando muda). HIGH=3, MEDIUM=2, LOW=1.
 enum class AuroraQuality(val key: String, val octaves: Int) {
     HIGH("high", 3), MEDIUM("med", 2), LOW("low", 1);
     companion object {
@@ -15,7 +15,7 @@ enum class AuroraQuality(val key: String, val octaves: Int) {
     }
 }
 
-// Teto de FPS das animacoes de fundo (aurora/estrelas). LIVRE segue o vsync do
+// Teto de FPS das animações de fundo (aurora/estrelas). LIVRE segue o vsync do
 // monitor (144Hz de gamer = mais trabalho); 30 poupa GPU pro jogo. 0 = livre.
 enum class UiFps(val key: String, val cap: Int) {
     FREE("free", 0), CAP60("60", 60), CAP30("30", 30);
@@ -24,10 +24,10 @@ enum class UiFps(val key: String, val cap: Int) {
     }
 }
 
-// Presets da transmissao de tela (Settings > Voz). SO 720p, por decisao de perf: o
-// encoder H264 do webrtc-java e por SOFTWARE (sem HW/NVENC) e 1080p nao chega nem a
+// Presets da transmissão de tela (Settings > Voz). SO 720p, por decisao de perf: o
+// encoder H264 do webrtc-java e por SOFTWARE (sem HW/NVENC) e 1080p não chega nem a
 // 30fps na CPU — entao foco total em 720p, priorizando fluidez. Default = 720p60.
-// bitrate em bits/s. Aplica ao INICIAR a transmissao. (Chaves antigas de 1080p caem
+// bitrate em bits/s. Aplica ao INICIAR a transmissão. (Chaves antigas de 1080p caem
 // no default via from() — quem tinha 1080p salvo sobe pro 720p60 suportado.)
 enum class ScreenQuality(
     val key: String, val label: String,
@@ -59,13 +59,13 @@ enum class DensityPref(val key: String, val label: String, val topDp: Int, val g
     }
 }
 
-// Preferencias LOCAIS do desktop (nao vao pro backend): movimento, toasts da
+// Preferencias LOCAIS do desktop (não vao pro backend): movimento, toasts da
 // bandeja e agora DESEMPENHO/GRAFICOS. Persistem no ui.properties (mesmo arquivo
-// da ultima selecao, que sobrevive a logout). StateFlow pra UI e shell reagirem
+// da última selecao, que sobrevive a logout). StateFlow pra UI e shell reagirem
 // na hora que muda.
 class DesktopPrefs(private val store: SessionStore) {
     data class Prefs(
-        // Reduz/desliga as animacoes de fundo (aurora, cascata, pulsos).
+        // Reduz/desliga as animações de fundo (aurora, cascata, pulsos).
         val reduceMotion: Boolean = false,
         // Toast na bandeja quando chega DM / atividade de canal (janela oculta).
         val notifyDms: Boolean = true,
@@ -90,7 +90,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val density: DensityPref = DensityPref.COMFORTABLE,
         // --- Voz & Transmissao ---
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
-        // Processamento do microfone (aplica ao ENTRAR na proxima sala de voz).
+        // Processamento do microfone (aplica ao ENTRAR na próxima sala de voz).
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,

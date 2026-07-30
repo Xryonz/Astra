@@ -74,7 +74,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-// ---- Gate de boot (estilo Discord): janelinha que verifica a versao ----
+// ---- Gate de boot (estilo Discord): janelinha que verifica a versão ----
 // Logo do Astra no centro com estrelas orbitando (sensacao de carregando) sobre o
 // ceu do app. A barra segmentada embaixo mostra o download quando ha um; senao
 // varre. Atualizado/falha/timeout seguem pro app. Janela pequena e frameless.
@@ -82,9 +82,9 @@ import kotlin.math.sin
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
 
-    // Tempo minimo de tela (pedido do dono: mais demorada pra aproveitar a animacao):
+    // Tempo mínimo de tela (pedido do dono: mais demorada pra aproveitar a animação):
     // mesmo com a checagem instantanea o gate fica no ar ~4.8s, tempo de sobra pra ver
-    // a constelacao se formar e a barra encher com as palavras espaciais antes de cair
+    // a constelação se formar e a barra encher com as palavras espaciais antes de cair
     // no app. So conta pro caminho "atualizado".
     val gateStart = remember { System.currentTimeMillis() }
     val holdMs = 4800L
@@ -94,11 +94,11 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         onDone()
     }
 
-    // Gate silencioso: falha de rede vira "atualizado" e segue (sem "nao deu").
+    // Gate silencioso: falha de rede vira "atualizado" e segue (sem "não deu").
     LaunchedEffect(Unit) { updater.check(silent = true) }
-    // Resolucao TOTALMENTE automatica: achou versao nova -> baixa sozinho (sem
+    // Resolucao TOTALMENTE automatica: achou versão nova -> baixa sozinho (sem
     // clique) -> quando pronto, reinicia e instala. Atualizado/falha seguem pro
-    // app. Basta ter QUALQUER versao instalada: o resto anda sem GitHub na mao.
+    // app. Basta ter QUALQUER versão instalada: o resto anda sem GitHub na mao.
     LaunchedEffect(st) {
         when (val s = st) {
             is UpdateState.Available -> updater.downloadAndStage(s)
@@ -111,11 +111,11 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     // Rede de seguranca: travou verificando (offline lento) -> segue em 8s.
     LaunchedEffect(Unit) { delay(8_000); if (updater.state.value is UpdateState.Checking) onDone() }
 
-    // Entrada "constelacao se forma", toca UMA vez ao abrir o gate: as 14
-    // estrelas do anel nascem espalhadas e convergem pra orbita (ver
+    // Entrada "constelação se forma", toca UMA vez ao abrir o gate: as 14
+    // estrelas do anel nascem espalhadas e convergem pra órbita (ver
     // RotatingStarsLogo). null = direto no estado final, sem stagger — e o que
-    // reduceMotion pede e tambem o default dos outros lugares que usam o logo
-    // (login/onboarding), que nao tocam essa entrada.
+    // reduceMotion pede e também o default dos outros lugares que usam o logo
+    // (login/onboarding), que não tocam essa entrada.
     val entrance: State<Float>? = if (reduceMotion) null else {
         var started by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { started = true }
@@ -128,7 +128,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 
     // Preenchimento da barra fina: no download e o progresso REAL; no resto
     // (verificando / atualizado) uma barra SINTETICA que enche devagar ao longo do
-    // hold — so pra dar a sensacao de "algo acontecendo" enquanto a animacao roda.
+    // hold — so pra dar a sensacao de "algo acontecendo" enquanto a animação roda.
     val realProgress = (st as? UpdateState.Downloading)?.progress
     val syntheticFill = run {
         var go by remember { mutableStateOf(false) }
@@ -143,7 +143,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     // Palavra acima da barra: nos estados reais, o que esta havendo; no hold comum, uma
     // palavra "espacial" que avanca junto com o preenchimento (pedido do dono).
     val statusLabel = when (val s = st) {
-        is UpdateState.Available   -> "nova versao ${s.version}"
+        is UpdateState.Available   -> "nova versão ${s.version}"
         is UpdateState.Downloading -> "baixando ${s.version} · ${(s.progress * 100).toInt()}%"
         is UpdateState.Ready       -> "reiniciando pra aplicar"
         is UpdateState.Failed      -> s.reason
@@ -159,8 +159,8 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         contentAlignment = Alignment.Center,
     ) {
         // Fundo: o gate era logo + preto liso. Ganha o MESMO ceu do app (estrelas
-        // fixas, piscar e meteoros) e um halo atras do planeta — reuso do StarField
-        // que ja existe, nao arte nova. Aurora ficou de fora de proposito: e um
+        // fixas, piscar e meteoros) e um halo atrás do planeta — reuso do StarField
+        // que já existe, não arte nova. Aurora ficou de fora de proposito: e um
         // shader por pixel e isto e a tela de BOOT, tem que abrir na hora.
         StarField(Modifier.fillMaxSize())
         // Halo: separa o planeta do fundo e dá profundidade. Um gradiente radial no
@@ -191,8 +191,8 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             Text(
                 "Astra",
                 style = TextStyle(color = Obsidian.text1, fontSize = 22.sp, fontFamily = DmSerif),
-                // Titulo resolve por ultimo (1.5..2.0 do virtual da entrada): alpha lido
-                // dentro do graphicsLayer, nao no corpo — nao recompoe a cada frame.
+                // Titulo resolve por último (1.5..2.0 do virtual da entrada): alpha lido
+                // dentro do graphicsLayer, não no corpo — não recompoe a cada frame.
                 modifier = Modifier.graphicsLayer {
                     val ms = (entrance?.value ?: 1f) * 2000f
                     alpha = ((ms - 1500f) / 500f).coerceIn(0f, 1f)
@@ -207,7 +207,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 // Barra de progresso FINA e minimalista (pedido do dono): um trilho de 2dp que
 // enche da esquerda pra direita, com uma palavra "espacial" centralizada acima.
 // No download o preenchimento e o progresso REAL; no hold comum e a barra sintetica
-// que sobe devagar. Canvas (nao Box) pra uma unica passada numa tela que abre na hora.
+// que sobe devagar. Canvas (não Box) pra uma única passada numa tela que abre na hora.
 @Composable
 private fun ThinProgress(progress: Float, label: String) {
     Column(
@@ -236,13 +236,13 @@ private fun ThinProgress(progress: Float, label: String) {
 }
 
 // Palavras "espaciais" que trocam conforme a barra enche — dao a sensacao de que
-// algo esta sendo feito (pedido do dono: "alinhando orbitas" e afins). ASCII de
+// algo esta sendo feito (pedido do dono: "alinhando órbitas" e afins). ASCII de
 // proposito (convencao do projeto: sem acento em string literal).
 private val SPACE_WORDS = listOf(
     "acordando o cosmos",
-    "alinhando orbitas",
+    "alinhando órbitas",
     "tracando a rota estelar",
-    "calibrando constelacoes",
+    "calibrando constelações",
     "quase la",
 )
 
@@ -252,9 +252,9 @@ private fun spaceWord(progress: Float): String =
 // internal + tamanho parametrizavel: a tela de login reusa o MESMO planeta, pra o
 // objeto que abre o app ser o mesmo que recebe no login (continuidade de marca).
 //
-// entrance: progresso 0..1 do one-shot "constelacao se forma", tocado SO pelo
+// entrance: progresso 0..1 do one-shot "constelação se forma", tocado SO pelo
 // gate de boot (UpdaterGate) num Animatable/animateFloatAsState proprio. null
-// (default) = ja assentado, ou seja, o comportamento de sempre — login,
+// (default) = já assentado, ou seja, o comportamento de sempre — login,
 // onboarding e o proprio gate com reduceMotion continuam iguais, sem esse custo.
 // planetRes: recurso do planeta no centro. O gate passa a variante TRANSPARENTE
 // (astra-glyph.png = so o planeta branco, anel/estrela vazados, sem o quadrado preto
@@ -264,8 +264,8 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
     // Fase lida DENTRO do draw (drawRing roda no DrawScope do Canvas): o composable
-    // nao recompoe por frame, so os Canvas redesenham. Antes o .value saia no corpo
-    // e a tela de login recompunha 60fps enquanto voce digitava a senha. Movimento
+    // não recompoe por frame, so os Canvas redesenham. Antes o .value saia no corpo
+    // e a tela de login recompunha 60fps enquanto você digitava a senha. Movimento
     // reduzido / janela em segundo plano: anel parado. (Auditoria de movimento, #4.)
     val phaseState = if (reduceMotion || !LocalWindowActive.current) null else {
         rememberInfiniteTransition(label = "orbit").animateFloat(
@@ -278,7 +278,7 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
     val count = 14
     val tilt = (-12.0 * PI / 180.0).toFloat()
 
-    // Posicao de orbita (formula de sempre) extraida pra fn: a entrada precisa
+    // Posicao de órbita (formula de sempre) extraida pra fn: a entrada precisa
     // dela tanto de alvo do "reune" quanto do desenho do regime normal.
     fun DrawScope.orbitPos(theta: Float): Offset {
         val half = size.minDimension / 2f
@@ -292,7 +292,7 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
         )
     }
     // Posicao espalhada em t=0 da entrada: um circulo bem mais largo que o anel,
-    // angulo por indice via angulo aureo (~137.5deg) pra nao empilhar duas
+    // angulo por indice via angulo aureo (~137.5deg) pra não empilhar duas
     // estrelas na mesma direcao. Deterministico por indice — sem Random, sem
     // alocar nada no draw.
     fun DrawScope.scatterPos(i: Int): Offset {
@@ -302,10 +302,10 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
         return Offset(center.x + rad * cos(ang), center.y + rad * sin(ang))
     }
     // Anel de Saturno: elipse achatada; sin(theta) > 0 = lado perto (na frente
-    // do planeta), <= 0 = lado longe (atras). Cada canvas desenha so um lado.
+    // do planeta), <= 0 = lado longe (atrás). Cada canvas desenha so um lado.
     fun DrawScope.drawRing(front: Boolean) {
         val phase = phaseState?.value ?: 0.9f
-        // "Reune" (0..1.1s da entrada): 0 = tudo espalhado, 1 = na orbita. Fora
+        // "Reune" (0..1.1s da entrada): 0 = tudo espalhado, 1 = na órbita. Fora
         // do gate (entrance == null) cai sempre em 1 = formula de sempre.
         val gather = ((entrance?.value ?: 1f) * 2000f / 1100f).coerceIn(0f, 1f)
             .let { FastOutSlowInEasing.transform(it) }
@@ -327,8 +327,8 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             )
         }
     }
-    // Linhas da constelacao sendo esbocada: conecta vizinhos na ORDEM do anel
-    // (i -> i+1), o mesmo desenho que a orbita final, so que ainda se formando.
+    // Linhas da constelação sendo esbocada: conecta vizinhos na ORDEM do anel
+    // (i -> i+1), o mesmo desenho que a órbita final, so que ainda se formando.
     // Sobe durante o "reune", some no "assenta" (1.1..1.7s) — so existe durante
     // a entrada do gate, entrance == null sai no primeiro if.
     fun DrawScope.drawConstellationLines() {
@@ -364,7 +364,7 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             modifier = Modifier
                 .size(diameter * 0.52f)
                 // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
-                // Lido dentro do graphicsLayer — nao recompoe o composable por frame.
+                // Lido dentro do graphicsLayer — não recompoe o composable por frame.
                 .graphicsLayer {
                     val ms = (entrance?.value ?: 1f) * 2000f
                     val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
@@ -394,7 +394,7 @@ private fun PillButton(label: String, accent: Boolean, onClick: () -> Unit) {
 
 // ---- Banner in-app (topo): lembrete quando o update foi adiado ("depois") ou
 // achado na checagem manual. Desliza de cima e conduz o mesmo mini-fluxo
-// (disponivel -> baixando -> pronto) usando o estado compartilhado do service. ----
+// (disponível -> baixando -> pronto) usando o estado compartilhado do service. ----
 @Composable
 fun BoxScope.UpdateBanner(updater: UpdateService) {
     val st by updater.state.collectAsState()
@@ -425,7 +425,7 @@ fun BoxScope.UpdateBanner(updater: UpdateService) {
             when (val s = st) {
                 is UpdateState.Available -> {
                     Text(
-                        "Astra ${s.version} disponivel",
+                        "Astra ${s.version} disponível",
                         style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
                         modifier = Modifier.weight(1f),
                     )

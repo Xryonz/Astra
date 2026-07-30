@@ -7,9 +7,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
 // Tokens obsidiana do desktop — agora REATIVOS. Os campos de cor que dependem do
-// tema (accent + rampa de fundo) sao mutableStateOf, entao os ~300 usos
+// tema (accent + rampa de fundo) são mutableStateOf, entao os ~300 usos
 // `Obsidian.xxx` dentro de @Composable recompoem sozinhos quando o tema muda. Os
-// call sites nao mudam. apply() deriva a paleta do par (accentId, bgId) escolhido
+// call sites não mudam. apply() deriva a paleta do par (accentId, bgId) escolhido
 // em Settings > Aparencia (mesma logica do buildAstraColors do mobile). text/border
 // /status ficam fixos (funcionam em qualquer fundo escuro).
 object Obsidian {

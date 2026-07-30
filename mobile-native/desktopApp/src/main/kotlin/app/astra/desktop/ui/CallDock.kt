@@ -61,20 +61,20 @@ import com.composables.icons.lucide.MicOff
 import com.composables.icons.lucide.PhoneOff
 import kotlin.math.roundToInt
 
-// Card flutuante da call — aparece quando voce esta conectado mas navegou pra
+// Card flutuante da call — aparece quando você esta conectado mas navegou pra
 // outra tela. Espelha o VoiceCallPanel do web (arrastavel, avatares de quem
 // fala, mic/desligar, botao de voltar pro palco) com tres cortes de custo que
 // pesavam la:
 //
-//  1. O web roda uma animacao infinita POR PARTICIPANTE (o anel de quem fala) e
+//  1. O web roda uma animação infinita POR PARTICIPANTE (o anel de quem fala) e
 //     mais uma no ponto pulsante. Aqui existe UMA transicao infinita so, e o
-//     valor dela e lido dentro do drawBehind — muda o desenho, nao a composicao.
-//  2. O anel de "falando" e pintado (drawCircle no draw scope), nao um layout a
+//     valor dela e lido dentro do drawBehind — muda o desenho, não a composicao.
+//  2. O anel de "falando" e pintado (drawCircle no draw scope), não um layout a
 //     mais por avatar entrando e saindo da arvore.
 //  3. Parado (ninguem falando) NENHUM frame e pedido: a transicao infinita so e
 //     criada quando ha alguem falando, e some junto.
 //
-// Arrastar guarda a posicao em memoria (nao persiste entre sessoes de propósito:
+// Arrastar guarda a posição em memoria (não persiste entre sessões de propósito:
 // menos I/O e o card sempre volta pro canto conhecido ao reabrir o app).
 @Composable
 fun BoxScope.CallDock(
@@ -112,7 +112,7 @@ fun BoxScope.CallDock(
             },
     ) {
         Column {
-            // Cabecalho: ponto vivo + de onde vem o audio + quantos estao na sala.
+            // Cabecalho: ponto vivo + de onde vem o audio + quantos estão na sala.
             Row(
                 Modifier.fillMaxWidth().padding(start = 11.dp, end = 7.dp, top = 9.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -141,7 +141,7 @@ fun BoxScope.CallDock(
             }
             HairRule()
             // Acoes: calar/abrir mic e desligar. Desligar e a UNICA saida da call
-            // agora que navegar nao desconecta mais.
+            // agora que navegar não desconecta mais.
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.Center,

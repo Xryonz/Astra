@@ -81,9 +81,9 @@ import java.awt.Toolkit
 import java.awt.event.KeyEvent as AwtKeyEvent
 
 // Login split editorial: ceu vivo a esquerda (o MESMO planeta do gate de boot, as
-// estrelas do app e a constelacao que se forma ao digitar), formulario a direita.
+// estrelas do app e a constelação que se forma ao digitar), formulario a direita.
 //
-// A aurora NAO e pintada aqui: ela vive na janela (Main.kt), atras do login e do
+// A aurora NAO e pintada aqui: ela vive na janela (Main.kt), atrás do login e do
 // shell. Foi o que tornou a entrada continua — antes a aurora do login ocupava 45%
 // da largura e a do shell 100%, e como o uv do shader e normalizado pelo tamanho,
 // as duas imagens eram completamente diferentes: a troca saltava.
@@ -114,7 +114,7 @@ private fun loginRules(email: String, password: String) = listOf(
 
 private fun signupRules(email: String, username: String, displayName: String, password: String) = listOf(
     AuthRule("email valido", isEmailValid(email)),
-    AuthRule("usuario: 3+ (a-z, 0-9, _)", isUsernameValid(username)),
+    AuthRule("usuário: 3+ (a-z, 0-9, _)", isUsernameValid(username)),
     AuthRule("nome de exibicao preenchido", displayName.isNotBlank()),
     AuthRule("senha: 8+ caracteres", password.length >= 8),
     AuthRule("senha com 1 maiuscula e 1 numero", password.any { it.isUpperCase() } && password.any { it.isDigit() }),
@@ -128,8 +128,8 @@ fun LoginScreen(
 ) {
     val store = remember { GlobalContext.get().get<SessionStore>() }
     var mode by remember { mutableStateOf(AuthMode.LOGIN) }
-    // Lembra o ultimo email que ENTROU (nao o que foi digitado): reabrir o app cai
-    // com o campo pronto e o foco ja na senha.
+    // Lembra o último email que ENTROU (não o que foi digitado): reabrir o app cai
+    // com o campo pronto e o foco já na senha.
     var email by remember { mutableStateOf(store.uiPref(LAST_EMAIL_KEY).orEmpty()) }
     var username by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
@@ -153,7 +153,7 @@ fun LoginScreen(
         AuthMode.SIGNUP -> signupRules(email, username, displayName, password)
     }
     val allOk = rules.all { it.ok }
-    // A constelacao (painel esquerdo) e o medidor: fracao de regras cumpridas.
+    // A constelação (painel esquerdo) e o medidor: fracao de regras cumpridas.
     val progress = rules.count { it.ok }.toFloat() / rules.size
     // Duracao das transicoes de troca login<->cadastro (0 = respeita reduce motion).
     val authDur = if (LocalReduceMotion.current) 0 else 240
@@ -187,7 +187,7 @@ fun LoginScreen(
     }
 
     Row(Modifier.fillMaxSize()) {
-        // ---- Painel esquerdo: ceu + marca + constelacao ----
+        // ---- Painel esquerdo: ceu + marca + constelação ----
         Box(
             modifier = Modifier.weight(0.45f).fillMaxHeight(),
             contentAlignment = Alignment.Center,
@@ -213,7 +213,7 @@ fun LoginScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "sua constelacao te espera",
+                    text = "sua constelação te espera",
                     style = TextStyle(color = Obsidian.text2, fontSize = 15.sp),
                 )
                 Spacer(Modifier.height(6.dp))
@@ -227,10 +227,10 @@ fun LoginScreen(
 
         // ---- Painel direito: formulario ----
         Box(
-            // Translucido (nao mais opaco): a aurora da janela passa por baixo, no
-            // mesmo idioma dos paineis do shell. O ENCONTRO com o ceu (esquerda) nao
+            // Translucido (não mais opaco): a aurora da janela passa por baixo, no
+            // mesmo idioma dos paineis do shell. O ENCONTRO com o ceu (esquerda) não
             // e um corte seco: um gradiente horizontal funde ceu -> sombra suave ->
-            // painel (mesmo idioma do scrim do banner da constelacao, #13). A faixa
+            // painel (mesmo idioma do scrim do banner da constelação, #13). A faixa
             // de fade cai no vao vazio antes do formulario (360dp centralizado).
             modifier = Modifier.weight(0.55f).fillMaxHeight().background(
                 Brush.horizontalGradient(
@@ -270,7 +270,7 @@ fun LoginScreen(
                             // username so aceita minusculas (regra do backend) —
                             // normaliza ao digitar em vez de barrar depois.
                             value = username, onValue = { username = it.lowercase(); error = null },
-                            label = "usuario", enabled = !loading,
+                            label = "usuário", enabled = !loading,
                         )
                         Spacer(Modifier.height(14.dp))
                         EditorialField(
@@ -287,19 +287,19 @@ fun LoginScreen(
                     focusRequester = passFocus,
                     reveal = showPassword,
                     onToggleReveal = { showPassword = !showPassword },
-                    // Caps Lock e a causa numero 1 de "a senha esta certa e nao
+                    // Caps Lock e a causa numero 1 de "a senha esta certa e não
                     // entra". O estado da tecla vem do proprio SO (AWT Toolkit).
                     onKey = { capsOn = capsLockOn() },
                 )
                 if (capsOn) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Caps Lock esta ligado",
+                        text = "Caps Lock está ligado",
                         style = TextStyle(color = Obsidian.warning, fontSize = 12.sp),
                     )
                 }
                 Spacer(Modifier.height(14.dp))
-                // Regras pra enviar: acendem em verde e formam a constelacao ao lado.
+                // Regras pra enviar: acendem em verde e formam a constelação ao lado.
                 // animateContentSize suaviza a troca 2<->5 regras entre os modos.
                 Box(Modifier.animateContentSize(tween(authDur))) {
                     RulesChecklist(rules)
@@ -323,7 +323,7 @@ fun LoginScreen(
                         style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
                     )
                 }
-                // Google e login/vinculo (o backend nao cria conta por Google) —
+                // Google e login/vinculo (o backend não cria conta por Google) —
                 // aparece so no modo entrar, deslizando junto com a troca.
                 AnimatedVisibility(
                     visible = mode == AuthMode.LOGIN,
@@ -348,7 +348,7 @@ fun LoginScreen(
 }
 
 // Regras de envio: cada uma acende (verde) quando cumprida. O ponto e um anel que
-// se preenche; junto, elas movem a constelacao do painel esquerdo.
+// se preenche; junto, elas movem a constelação do painel esquerdo.
 @Composable
 private fun RulesChecklist(rules: List<AuthRule>) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -380,10 +380,10 @@ private fun RulesChecklist(rules: List<AuthRule>) {
 private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val dur = if (LocalReduceMotion.current) 0 else 220
-    // O convite (ainda nao tem conta? / ja tem conta?) troca com crossfade junto
+    // O convite (ainda não tem conta? / já tem conta?) troca com crossfade junto
     // com a troca de modo.
     Crossfade(targetState = mode, animationSpec = tween(dur), label = "authToggle") { m ->
-        val prompt = if (m == AuthMode.LOGIN) "ainda nao tem conta?" else "ja tem conta?"
+        val prompt = if (m == AuthMode.LOGIN) "ainda não tem conta?" else "já tem conta?"
         val action = if (m == AuthMode.LOGIN) "criar conta" else "entrar"
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(prompt, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
@@ -444,7 +444,7 @@ private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit
 
 private const val LAST_EMAIL_KEY = "lastEmail"
 
-// Estado real da tecla, perguntado ao SO — nao da pra deduzir do caractere digitado
+// Estado real da tecla, perguntado ao SO — não da pra deduzir do caractere digitado
 // (uma letra maiuscula pode ser Shift). Nem todo ambiente responde; ai assume-se
 // desligado em vez de avisar errado.
 private fun capsLockOn(): Boolean = runCatching {

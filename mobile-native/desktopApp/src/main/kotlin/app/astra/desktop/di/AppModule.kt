@@ -46,7 +46,7 @@ val appModule = module {
             .readTimeout(30, TimeUnit.SECONDS)
             // Teto da chamada inteira (fila incluida): nada pendura pra sempre.
             .callTimeout(75, TimeUnit.SECONDS)
-            // X-Device-Id tambem aqui: login/register/refresh vivem no plain (#4).
+            // X-Device-Id também aqui: login/register/refresh vivem no plain (#4).
             .addInterceptor(DeviceInterceptor(get()))
             .build()
     }
@@ -103,6 +103,6 @@ val appModule = module {
     single { AuthRepository(get(), get(), get(), get(), get(), get()) }
     single { DesktopPrefs(get()) }
     // Auto-update DIY (zip-swap via GitHub Releases). Usa o OkHttp "plain" (mesmo
-    // HTTPS que ja funciona no app) — o HttpURLConnection falhava no JRE empacotado.
+    // HTTPS que já funciona no app) — o HttpURLConnection falhava no JRE empacotado.
     single { UpdateService(get(named("plain"))) }
 }

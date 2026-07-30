@@ -27,7 +27,7 @@ fun userStatus(raw: String?): UserStatus = when (raw?.uppercase()) {
 }
 
 // Cores dos tokens editoriais do Obsidian (dessaturados) em vez da paleta padrao
-// do Tailwind/shadcn — os pontinhos eram o unico ponto do app com cara generica.
+// do Tailwind/shadcn — os pontinhos eram o único ponto do app com cara generica.
 fun statusColor(status: UserStatus): Color = when (status) {
     UserStatus.ONLINE -> Obsidian.success
     UserStatus.IDLE -> Obsidian.warning

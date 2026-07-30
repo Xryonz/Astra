@@ -69,7 +69,7 @@ import kotlin.concurrent.thread
 import zed.rainxch.rikkaui.foundation.RikkaColors
 import zed.rainxch.rikkaui.foundation.RikkaTheme
 
-// Instancia unica: lock por ServerSocket no loopback. Se ja tem Astra rodando (a
+// Instancia única: lock por ServerSocket no loopback. Se já tem Astra rodando (a
 // porta esta ocupada), sinaliza o processo existente pra aparecer e ESTE sai — sem
 // dois apps na bandeja. O primeiro escuta e traz a janela pra frente ao ser tocado.
 object SingleInstance {
@@ -77,7 +77,7 @@ object SingleInstance {
     val activate = MutableStateFlow(0)
     private var server: ServerSocket? = null
 
-    // true = somos a instancia primaria; false = ja tem uma (sinalizamos, hora de sair).
+    // true = somos a instancia primaria; false = já tem uma (sinalizamos, hora de sair).
     fun acquireOrSignal(): Boolean = try {
         server = ServerSocket(PORT, 1, InetAddress.getLoopbackAddress()).also { s ->
             thread(isDaemon = true, name = "astra-single-instance") {
@@ -106,7 +106,7 @@ fun main() {
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
 
-        // Outro processo tentou abrir o Astra -> traz esta janela (a unica) pra frente.
+        // Outro processo tentou abrir o Astra -> traz esta janela (a única) pra frente.
         val activate by SingleInstance.activate.collectAsState()
         LaunchedEffect(activate) {
             if (activate > 0) {
@@ -116,8 +116,8 @@ fun main() {
         }
 
         // Auto-update: gate de boot (janelinha estilo Discord) so no app instalado;
-        // dev/IDE pula direto pro app. Tema aplicado ja aqui -> o gate (logo +
-        // estrelas orbitando) sai no accent que o usuario escolheu.
+        // dev/IDE pula direto pro app. Tema aplicado já aqui -> o gate (logo +
+        // estrelas orbitando) sai no accent que o usuário escolheu.
         val updater = remember { GlobalContext.get().get<UpdateService>() }
         val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
         LaunchedEffect(Unit) { Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId) }
@@ -127,7 +127,7 @@ fun main() {
             state = trayState,
             icon = appIcon,
             tooltip = "Astra",
-            onAction = { windowVisible = true }, // duplo clique no icone reabre
+            onAction = { windowVisible = true }, // duplo clique no ícone reabre
             menu = {
                 Item("Abrir o Astra", onClick = { windowVisible = true })
                 Separator()
@@ -135,9 +135,9 @@ fun main() {
             },
         )
 
-        // Gate de update primeiro: verifica a versao (logo + estrelas girando) e,
+        // Gate de update primeiro: verifica a versão (logo + estrelas girando) e,
         // se houver nova, baixa com barra de progresso; senao segue pro app. So
-        // enquanto nao terminou (gateDone) — depois some e o app abre normal.
+        // enquanto não terminou (gateDone) — depois some e o app abre normal.
         if (!gateDone) {
             val gateState = rememberWindowState(
                 width = 380.dp,
@@ -171,7 +171,7 @@ fun main() {
             transparent = transparentWindow,
         ) {
             // Coil global: data-URIs (avatares no banco) + URLs relativas /uploads.
-            // + cache em disco (300MB) pra nao rebaixar a mesma imagem toda vez —
+            // + cache em disco (300MB) pra não rebaixar a mesma imagem toda vez —
             // vive no cache do SO (fora da instalacao, sobrevive a updates). Coil
             // faz a eviction LRU sozinho ao passar do teto.
             setSingletonImageLoaderFactory { ctx ->
@@ -204,7 +204,7 @@ fun main() {
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
             // 1o acesso: takeover de onboarding, disparado SO apos criar conta
-            // (isNew no onLoggedIn). Nunca re-onboarda quem ja tinha sessao/logou.
+            // (isNew no onLoggedIn). Nunca re-onboarda quem já tinha sessão/logou.
             var needsOnboarding by remember { mutableStateOf(false) }
             // Overlays disparados pelo titlebar (lupa/sino) mas renderizados no
             // shell (onde vive o vm de navegacao). Estado hasteado aqui no meio.
@@ -212,7 +212,7 @@ fun main() {
             var notifOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
 
-            // Tema do usuario (Settings > Aparencia): aplica o par accent/fundo nos
+            // Tema do usuário (Settings > Aparencia): aplica o par accent/fundo nos
             // tokens reativos do Obsidian -> o app inteiro recolore ao vivo.
             val prefs = remember { koin.get<DesktopPrefs>() }
             val prefState by prefs.state.collectAsState()
@@ -226,7 +226,7 @@ fun main() {
             val windowShape = if (rounded) RoundedCornerShape(10.dp) else RectangleShape
 
             // RikkaUI e CMP (foundation-only): mesmo tema do mobile, tokens obsidiana.
-            // Reconstruido AQUI (nao top-level) pra ler os tokens reativos do Obsidian
+            // Reconstruido AQUI (não top-level) pra ler os tokens reativos do Obsidian
             // -> os componentes RikkaUI recolorem junto quando o tema muda.
             RikkaTheme(colors = obsidianRikkaColors()) {
                 Column(
@@ -247,35 +247,35 @@ fun main() {
                         onOpenSearch = { searchOpen = true },
                         onOpenNotifications = { notifOpen = !notifOpen },
                     )
-                    // Ativa = visivel & nao minimizada: aurora/estrelas so pedem
+                    // Ativa = visivel & não minimizada: aurora/estrelas so pedem
                     // frame quando ativa (poupam na bandeja) SEM congelar quando um
-                    // popup rouba o foco (isso e visibilidade, nao foco).
+                    // popup rouba o foco (isso e visibilidade, não foco).
                     CompositionLocalProvider(
                         LocalWindowActive provides (windowVisible && !state.isMinimized),
                     ) {
-                    // O CEU DA JANELA: aurora + estrelas atras do login E do shell.
+                    // O CEU DA JANELA: aurora + estrelas atrás do login E do shell.
                     // Morava dentro do ShellScreen, e o login pintava a propria aurora
                     // num painel de 45% — como o uv do shader e normalizado pelo
                     // tamanho, eram imagens diferentes e a entrada saltava. Aqui em
-                    // cima ela nao se mexe quando o conteudo troca: entra-se NO app,
-                    // nao se troca de tela. E fica um shader so, nunca dois.
+                    // cima ela não se mexe quando o conteudo troca: entra-se NO app,
+                    // não se troca de tela. E fica um shader so, nunca dois.
                     Box(Modifier.fillMaxSize()) {
-                    // Pulso de login: o ceu "respira" uma vez quando voce entra. Lido
-                    // no draw da aurora (nao recompoe); disparado no onLoggedIn abaixo.
+                    // Pulso de login: o ceu "respira" uma vez quando você entra. Lido
+                    // no draw da aurora (não recompoe); disparado no onLoggedIn abaixo.
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
                     if (prefState.auroraOn) {
                         // Camada propria (graphicsLayer): so ela invalida por frame —
-                        // os paineis translucidos por cima nao redesenham com o shader.
+                        // os paineis translucidos por cima não redesenham com o shader.
                         Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground { auroraPulse.value })
                     } else {
                         Box(Modifier.fillMaxSize().background(Obsidian.void))
                     }
                     if (prefState.starsOn) StarField(Modifier.fillMaxSize())
 
-                    // Entrada do Astra: um reveal unico (uma vez por abertura) quando o
+                    // Entrada do Astra: um reveal único (uma vez por abertura) quando o
                     // conteudo aparece depois do gate — o app sobe com fade + escala
-                    // sutil POR CIMA do ceu, que ja esta aceso. GPU-only, ~520ms.
+                    // sutil POR CIMA do ceu, que já esta aceso. GPU-only, ~520ms.
                     val reveal = remember { Animatable(0f) }
                     LaunchedEffect(Unit) { reveal.animateTo(1f, tween(520, easing = EaseOutStd)) }
                     Box(
@@ -288,9 +288,9 @@ fun main() {
                         },
                     ) {
                         // Entrar no app = os paineis do login se dissolverem e os do
-                        // shell aparecerem SOBRE o mesmo ceu, que nao se mexe. Por
-                        // isso Crossfade e nao slide: o ceu ancora as duas telas, e
-                        // qualquer deslocamento denunciaria que sao telas diferentes.
+                        // shell aparecerem SOBRE o mesmo ceu, que não se mexe. Por
+                        // isso Crossfade e não slide: o ceu ancora as duas telas, e
+                        // qualquer deslocamento denunciaria que são telas diferentes.
                         Crossfade(
                             targetState = session,
                             animationSpec = tween(420, easing = EaseOutStd),
@@ -327,7 +327,7 @@ fun main() {
                                     } else {
                                         ShellScreen(
                                             session = s,
-                                            // Toast da bandeja so quando o app nao esta na frente.
+                                            // Toast da bandeja so quando o app não esta na frente.
                                             windowHidden = { !windowVisible || state.isMinimized },
                                             notify = { title, body ->
                                                 trayState.sendNotification(Notification(title, body, Notification.Type.None))
@@ -359,7 +359,7 @@ fun main() {
 }
 
 // Mapeamento RikkaColors identico ao AstraTheme do mobile (Theme.kt), com os
-// tokens obsidiana do desktop. Funcao (nao val) pra ler os tokens reativos DENTRO
+// tokens obsidiana do desktop. Funcao (não val) pra ler os tokens reativos DENTRO
 // da composicao -> recolore quando o tema muda.
 private fun obsidianRikkaColors() = RikkaColors(
     background = Obsidian.raised,

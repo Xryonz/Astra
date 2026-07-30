@@ -11,16 +11,16 @@ import javax.imageio.ImageIO
 import kotlin.math.max
 
 // Avatar do Astra NAO usa o endpoint de upload: vive como DATA-URI na coluna
-// avatarUrl (mesmo padrao do mobile e do web; o Coil do desktop ja resolve
+// avatarUrl (mesmo padrao do mobile e do web; o Coil do desktop já resolve
 // data-uri, ver Main.kt). O backend recusa acima de 5MB, entao reduzimos pra
-// AVATAR_DIM antes de codificar. GIF pequeno passa CRU pra nao matar a animacao.
+// AVATAR_DIM antes de codificar. GIF pequeno passa CRU pra não matar a animação.
 object AvatarPicker {
     private const val AVATAR_DIM = 512
     private const val GIF_MAX = 4_500_000
     private const val HARD_MAX = 5_000_000
 
     // Abre o seletor nativo do SO. Bloqueia (modal) — chamar da thread de UI e o
-    // comportamento normal de um file dialog. null = o usuario cancelou.
+    // comportamento normal de um file dialog. null = o usuário cancelou.
     // Banner e mais largo que o avatar -> mais resolucao antes de virar data-uri.
     const val BANNER_DIM = 1280
 
@@ -38,9 +38,9 @@ object AvatarPicker {
         if (file.name.lowercase().endsWith(".gif") && raw.size <= GIF_MAX) {
             return@runCatching dataUri("image/gif", raw)
         }
-        val src = ImageIO.read(file) ?: error("formato de imagem nao suportado")
+        val src = ImageIO.read(file) ?: error("formato de imagem não suportado")
         val fitted = fit(src, dim)
-        // JPEG nao aceita canal alfa; so vai pra PNG quem realmente tem transparencia.
+        // JPEG não aceita canal alfa; so vai pra PNG quem realmente tem transparencia.
         val alpha = fitted.colorModel.hasAlpha()
         val out = ByteArrayOutputStream()
         ImageIO.write(fitted, if (alpha) "png" else "jpg", out)

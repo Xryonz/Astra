@@ -50,17 +50,17 @@ import java.awt.Frame
 import java.io.File
 
 // Estrela do compositor: UM botao no lugar dos dois soltos (emoji e GIF). Clicar
-// gira a estrela e abre um menu PRA CIMA com as duas opcoes; escolher troca o
+// gira a estrela e abre um menu PRA CIMA com as duas opções; escolher troca o
 // conteudo do MESMO popup pelo seletor correspondente.
 //
 // Um popup so (maquina de estados) em vez de popup dentro de popup: no desktop
 // cada Popup focavel e uma janela de verdade, e empilhar duas rouba o foco da
-// primeira — o mesmo tipo de armadilha que ja congelou a aurora quando ela era
+// primeira — o mesmo tipo de armadilha que já congelou a aurora quando ela era
 // gateada por foco.
 private enum class StarPane { MENU, EMOJI, GIF }
 
 // Ancora o painel ACIMA do botao, alinhado pela direita (o botao vive no canto
-// direito do compositor). Clampa pra nao sair da janela.
+// direito do compositor). Clampa pra não sair da janela.
 private object StarAbove : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -85,9 +85,9 @@ fun ComposerStarButton(
     val hov by src.collectIsHoveredAsState()
     val reduce = LocalReduceMotion.current
 
-    // A animacao do clique: a estrela gira um oitavo de volta e cresce. Mola com
+    // A animação do clique: a estrela gira um oitavo de volta e cresce. Mola com
     // pouco amortecimento pra dar o "tec" de mola sem virar brinquedo. Nada de
-    // animacao continua — comeca no clique e termina.
+    // animação continua — comeca no clique e termina.
     val spin by animateFloatAsState(
         targetValue = if (open) 45f else 0f,
         animationSpec = if (reduce) tween(0) else spring(
@@ -113,15 +113,15 @@ fun ComposerStarButton(
                 .background(if (open || hov) Obsidian.hover else Color.Transparent)
                 .hoverable(src)
                 .clickable(interactionSource = src, indication = null) {
-                    // Reabrir sempre cai no menu: quem fechou no seletor de GIF nao
-                    // quer voltar direto pra ele na proxima mensagem.
+                    // Reabrir sempre cai no menu: quem fechou no seletor de GIF não
+                    // quer voltar direto pra ele na próxima mensagem.
                     if (!open) pane = StarPane.MENU
                     open = !open
                 },
             contentAlignment = Alignment.Center,
         ) {
-            // O MESMO glifo da rail dos sussurros e do palco vazio — a estrela ja e
-            // a marca do app, entao o botao nao introduz simbolo novo.
+            // O MESMO glifo da rail dos sussurros e do palco vazio — a estrela já e
+            // a marca do app, entao o botao não introduz simbolo novo.
             // graphicsLayer: gira/escala na composicao GPU, sem relayout do texto.
             Text(
                 "✦",
@@ -147,8 +147,8 @@ fun ComposerStarButton(
                         StarPane.MENU -> StarMenu(
                             onEmoji = { pane = StarPane.EMOJI },
                             onGif = { pane = StarPane.GIF },
-                            // Arquivo abre o seletor NATIVO do SO (nao um pane): fecha o
-                            // popup antes pra o dialog modal nao brigar por foco com a
+                            // Arquivo abre o seletor NATIVO do SO (não um pane): fecha o
+                            // popup antes pra o dialog modal não brigar por foco com a
                             // janela do Popup. Reusa o mesmo pipeline do arrastar-e-soltar
                             // (vm.addFiles -> anexo pendente no composer).
                             onFile = {
@@ -181,7 +181,7 @@ private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit, onFile: () -> Unit)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .padding(5.dp)
             // Largura FIXA: dentro do Popup o fillMaxWidth das linhas resolve pro
-            // maximo disponivel (= janela inteira). Sem teto, a Column esticava a
+            // máximo disponível (= janela inteira). Sem teto, a Column esticava a
             // largura toda do app. Fixo = menu compacto ancorado sob o botao.
             .width(150.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),

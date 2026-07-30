@@ -74,9 +74,9 @@ import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
 
-// Descobrir constelacoes publicas (paridade com web/mobile). Palco central: busca
+// Descobrir constelações públicas (paridade com web/mobile). Palco central: busca
 // no topo (?q= com debounce) + grid de cards com banner. Entrar chama
-// /discover/:id/join e o onJoined recarrega os servidores + cai na constelacao.
+// /discover/:id/join e o onJoined recarrega os servidores + cai na constelação.
 // API/DTOs vem do :shared (DiscoverApi movida do :app).
 @Composable
 fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet(), modifier: Modifier = Modifier) {
@@ -88,14 +88,14 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
     var error by remember { mutableStateOf<String?>(null) }
     var joining by remember { mutableStateOf<String?>(null) }
 
-    // Busca com debounce: ~400ms apos a ultima tecla (query vazia carrega na hora).
+    // Busca com debounce: ~400ms apos a última tecla (query vazia carrega na hora).
     LaunchedEffect(query) {
         loading = true
         error = null
         if (query.isNotBlank()) delay(400)
         val res = runCatching { api.discover(query.trim().ifBlank { null }).data.orEmpty() }
         results = res.getOrDefault(emptyList())
-        error = if (res.isFailure) "Nao deu pra carregar a Descoberta" else null
+        error = if (res.isFailure) "Não deu pra carregar a Descoberta" else null
         loading = false
     }
 
@@ -105,11 +105,11 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         scope.launch {
             val r = runCatching { api.join(id) }
             joining = null
-            // 201 (entrou) OU 409 (ja era membro) -> cai na constelacao do mesmo jeito.
+            // 201 (entrou) OU 409 (já era membro) -> cai na constelação do mesmo jeito.
             when {
                 r.isSuccess -> onJoined(id)
                 (r.exceptionOrNull() as? HttpException)?.code() == 409 -> onJoined(id)
-                else -> error = "Nao deu pra entrar nessa constelacao"
+                else -> error = "Não deu pra entrar nessa constelação"
             }
         }
     }
@@ -119,13 +119,13 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
             LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp)
             Spacer(Modifier.width(10.dp))
             Text(
-                "Descobrir constelacoes",
+                "Descobrir constelações",
                 style = TextStyle(color = Obsidian.text1, fontSize = 20.sp, fontFamily = DmSerif),
             )
         }
         Spacer(Modifier.height(3.dp))
         Text(
-            "entre em comunidades publicas do Astra",
+            "entre em comunidades públicas do Astra",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
         )
         Spacer(Modifier.height(14.dp))
@@ -144,7 +144,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
             Spacer(Modifier.width(9.dp))
             Box(Modifier.weight(1f)) {
                 if (query.isEmpty()) {
-                    Text("buscar constelacao", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+                    Text("buscar constelação", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
                 }
                 BasicTextField(
                     value = query,
@@ -212,9 +212,9 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
                 )
             }
             Spacer(Modifier.height(8.dp))
-            // Altura fixa (2 linhas) pra os cards alinharem no grid mesmo sem descricao.
+            // Altura fixa (2 linhas) pra os cards alinharem no grid mesmo sem descrição.
             Text(
-                s.description?.ifBlank { null } ?: "sem descricao",
+                s.description?.ifBlank { null } ?: "sem descrição",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 16.sp),
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.height(32.dp),
@@ -241,7 +241,7 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
                 if (isMember) {
                     // Ja e membro: chip com borda (destaque), no lugar do "entrar".
                     Text(
-                        "voce ja esta aqui",
+                        "você já está aqui",
                         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -287,11 +287,11 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
     val reduce = LocalReduceMotion.current
     val accent = Obsidian.accent
 
-    // Rota se desenha 1x (0->1). Reduzir movimento = ja cheia.
+    // Rota se desenha 1x (0->1). Reduzir movimento = já cheia.
     val draw = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(reduce) { if (!reduce) draw.animateTo(1f, tween(1700, easing = FastOutSlowInEasing)) }
 
-    // Relogio unico (0..2π) alimenta twinkle das estrelas + pulso do tesouro.
+    // Relogio único (0..2π) alimenta twinkle das estrelas + pulso do tesouro.
     val inf = rememberInfiniteTransition(label = "map")
     val clock by inf.animateFloat(
         0f, (2.0 * Math.PI).toFloat(),
@@ -301,7 +301,7 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
     val t = if (reduce) 0f else clock
     val pulse = if (reduce) 1f else 0.82f + 0.18f * sin(t * 1.6f)
 
-    // Rota em fracoes do box; ultimo no = o tesouro (✦). Fixa por sessao.
+    // Rota em fracoes do box; último no = o tesouro (✦). Fixa por sessão.
     val route = remember {
         listOf(
             Offset(0.09f, 0.74f), Offset(0.27f, 0.42f), Offset(0.44f, 0.63f),
@@ -337,7 +337,7 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
                 drawLine(accent.copy(alpha = 0.5f), a, end, strokeWidth = 1.6f, cap = StrokeCap.Round, pathEffect = dash)
                 remaining -= lens[i]
             }
-            // nos ja visitados (o tesouro fica pro ✦ por cima)
+            // nos já visitados (o tesouro fica pro ✦ por cima)
             val cum = FloatArray(pts.size)
             for (i in 1 until pts.size) cum[i] = cum[i - 1] + lens[i - 1]
             pts.forEachIndexed { i, p ->
@@ -378,13 +378,13 @@ private fun DiscoverEmptyMap(query: String) {
             TreasureMapCanvas(width = 280.dp, height = 150.dp)
             Spacer(Modifier.height(20.dp))
             Text(
-                if (query.isBlank()) "o mapa ainda esta vazio" else "nada no mapa",
+                if (query.isBlank()) "o mapa ainda está vazio" else "nada no mapa",
                 style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                if (query.isBlank()) "seja o primeiro a fincar bandeira numa constelacao"
-                else "nenhuma constelacao encontrada — tente outro nome",
+                if (query.isBlank()) "seja o primeiro a fincar bandeira numa constelação"
+                else "nenhuma constelação encontrada — tente outro nome",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
             )
         }
@@ -405,7 +405,7 @@ internal fun DiscoverSidebarMap() {
             )
             Spacer(Modifier.height(5.dp))
             Text(
-                "busque e entre em constelacoes publicas",
+                "busque e entre em constelações públicas",
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 15.sp, textAlign = TextAlign.Center),
             )
         }

@@ -18,19 +18,19 @@ import java.security.SecureRandom
 // navegador embutido): sobe um HttpServer em 127.0.0.1:porta-efemera, abre o
 // navegador do sistema na rota /api/auth/google (passando porta+nonce no `state`),
 // e espera o backend redirecionar de volta pra 127.0.0.1/callback com o refresh
-// token na QUERY (o fragment # nao chega ao servidor). O nonce casa a volta com
+// token na QUERY (o fragment # não chega ao servidor). O nonce casa a volta com
 // ESTE pedido; a porta so e nossa porque foi aberta antes de abrir o navegador.
 object GoogleAuthFlow {
 
     private const val TIMEOUT_MS = 120_000L
 
-    // Retorna o refresh token capturado (o AuthRepository troca por uma sessao).
+    // Retorna o refresh token capturado (o AuthRepository troca por uma sessão).
     suspend fun captureRefreshToken(): Result<String> = withContext(Dispatchers.IO) {
         val nonce = randomNonce()
         val deferred = CompletableDeferred<Result<String>>()
 
         val server = runCatching { HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0) }
-            .getOrElse { return@withContext Result.failure(Exception("Nao consegui abrir a porta local")) }
+            .getOrElse { return@withContext Result.failure(Exception("Não consegui abrir a porta local")) }
         val port = server.address.port
 
         // /callback recebe o token na QUERY, captura, e REDIRECIONA (302) pra /done.
@@ -48,11 +48,11 @@ object GoogleAuthFlow {
                     "ok"
                 }
                 params["error"] == "google_email_unregistered" -> {
-                    complete(deferred, Result.failure(Exception("Esse Google ainda nao tem conta no Astra — crie uma conta primeiro.")))
+                    complete(deferred, Result.failure(Exception("Esse Google ainda não tem conta no Astra — crie uma conta primeiro.")))
                     "unreg"
                 }
                 else -> {
-                    complete(deferred, Result.failure(Exception("Nao deu pra entrar com o Google")))
+                    complete(deferred, Result.failure(Exception("Não deu pra entrar com o Google")))
                     "err"
                 }
             }
@@ -63,9 +63,9 @@ object GoogleAuthFlow {
             val s = parseQuery(ex.requestURI.rawQuery)["s"]
             val msg = when (s) {
                 "ok" -> "Conectado ao Astra. Pode fechar esta aba e voltar ao app."
-                "unreg" -> "Esse Google ainda nao tem conta no Astra — crie uma conta primeiro."
-                "nonce" -> "Nao foi possivel confirmar o login. Tente de novo."
-                else -> "Nao deu pra entrar com o Google."
+                "unreg" -> "Esse Google ainda não tem conta no Astra — crie uma conta primeiro."
+                "nonce" -> "Não foi possível confirmar o login. Tente de novo."
+                else -> "Não deu pra entrar com o Google."
             }
             serveHtml(ex, page(msg, ok = s == "ok"))
         }
@@ -80,14 +80,14 @@ object GoogleAuthFlow {
 
         if (!opened) {
             runCatching { server.stop(0) }
-            return@withContext Result.failure(Exception("Nao consegui abrir o navegador"))
+            return@withContext Result.failure(Exception("Não consegui abrir o navegador"))
         }
 
         val out = withTimeoutOrNull(TIMEOUT_MS) { deferred.await() }
             ?: Result.failure(Exception("Tempo esgotado — tente de novo"))
         // O /callback captura o token e responde 302 -> /done; o navegador so busca
         // /done DEPOIS. Parar o server na hora (stop(0)) cortava essa segunda request
-        // -> "conexao recusada" no navegador (mesmo o app logando). Para com folga numa
+        // -> "conexão recusada" no navegador (mesmo o app logando). Para com folga numa
         // thread daemon pra o /done ser servido, sem atrasar o login no app.
         Thread {
             try { Thread.sleep(3000); server.stop(2) } catch (_: Exception) { runCatching { server.stop(0) } }

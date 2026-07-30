@@ -347,7 +347,7 @@ private fun PendingLists(
 
 @Composable
 private fun PendingRow(p: FriendRequestDto, trailing: @Composable () -> Unit) {
-    val name = p.user?.displayName ?: p.user?.username ?: "usuario"
+    val name = p.user?.displayName ?: p.user?.username ?: "usuário"
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -370,7 +370,7 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
 
     Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
         Text(
-            "adicione um amigo pelo nome de usuario.",
+            "adicione um amigo pelo nome de usuário.",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
         )
         Spacer(Modifier.height(12.dp))
@@ -384,7 +384,7 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
                 if (value.isEmpty()) {
-                    Text("nome de usuario", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+                    Text("nome de usuário", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
                 }
                 BasicTextField(
                     value = value,
@@ -410,9 +410,9 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
                             busy = false
                             msg = when {
                                 ok -> "pedido enviado" to true
-                                code == 404 -> "usuario nao encontrado" to false
+                                code == 404 -> "usuário não encontrado" to false
                                 code == 400 -> "confira os dados" to false
-                                else -> "nao deu — tente de novo" to false
+                                else -> "não deu — tente de novo" to false
                             }
                             if (ok) value = ""
                         }

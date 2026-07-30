@@ -21,12 +21,12 @@ import kotlin.math.sin
 // — foi o web que definiu o formato e o mobile seguiu. O desktop ate agora so
 // tentava ler como hex (toLongOrNull(16)), entao TODO gradiente virava cinza
 // liso aqui. Este arquivo traduz CSS -> Brush do Compose pra o banner ficar
-// igual nos tres clientes. Aceita tambem hex puro ("#0f0c29"), que e o que
+// igual nos tres clientes. Aceita também hex puro ("#0f0c29"), que e o que
 // contas antigas podem ter.
 
 data class BannerGradient(val id: String, val label: String, val css: String)
 
-// Mesma lista (e mesma ordem) de apps/web CustomizationSection.tsx — o que voce
+// Mesma lista (e mesma ordem) de apps/web CustomizationSection.tsx — o que você
 // escolhe num cliente aparece igual no outro.
 val BANNER_GRADIENTS = listOf(
     BannerGradient("sunrise", "Amanhecer", "linear-gradient(135deg,#ff6b9d,#ff9874,#ffd6a5)"),
@@ -112,7 +112,7 @@ fun bannerBrush(css: String?, width: Float, height: Float, fallback: Color): Bru
 
 // Proporcao UNICA do banner de perfil (largura:altura). Usada no popup, na pagina
 // completa, na previa das configs e na moldura de enquadramento — asim o Crop mostra a
-// MESMA fatia da imagem em todo lugar: o que voce enquadra = o que todos veem (pedido do
+// MESMA fatia da imagem em todo lugar: o que você enquadra = o que todos veem (pedido do
 // dono). Meio-termo entre a referencia do popup (~4:1) e a da pagina (~3.14:1).
 internal const val ProfileBannerAspect = 3.5f
 
@@ -134,16 +134,16 @@ fun ProfileBanner(
             .drawBehind { drawRect(bannerBrush(css, size.width, size.height, fallback)) },
     ) {
         if (!imageUrl.isNullOrBlank()) {
-            // AstraImage e nao AsyncImage: o Coil no JVM so pinta o 1o frame, entao
+            // AstraImage e não AsyncImage: o Coil no JVM so pinta o 1o frame, entao
             // banner em gif/webp animado ficava parado. O AstraImage decodifica os
-            // frames pelo Skiko e roda a animacao (estatico cai no Coil, sem custo).
+            // frames pelo Skiko e roda a animação (estatico cai no Coil, sem custo).
             AstraImage(
                 url = imageUrl,
                 contentDescription = null,
                 // Crop (como era antes): NAO distorce e anima gif/webp normal. O
                 // enquadramento fica por conta do REDIMENSIONAMENTO — positionY
                 // reposiciona (vertical) e `scale` da o zoom. Foi o esticar (FillBounds)
-                // que o dono nao curtiu; a cobertura agora e no controle manual.
+                // que o dono não curtiu; a cobertura agora e no controle manual.
                 contentScale = ContentScale.Crop,
                 // bias -1 = topo, 0 = centro, +1 = base.
                 alignment = BiasAlignment(0f, (positionY.coerceIn(0, 100) / 50f) - 1f),

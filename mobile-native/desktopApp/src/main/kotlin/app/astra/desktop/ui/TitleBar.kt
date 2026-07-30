@@ -43,8 +43,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 
 // Barra-titulo obsidiana da janela frameless: arrasta a janela, minimiza,
-// maximiza/restaura e fecha — estilo Discord, pele Astra. Com sessao ativa,
-// ganha lupa (busca) e sino (notificacoes, com badge).
+// maximiza/restaura e fecha — estilo Discord, pele Astra. Com sessão ativa,
+// ganha lupa (busca) e sino (notificações, com badge).
 @Composable
 fun WindowScope.AstraTitleBar(
     state: WindowState,
@@ -83,7 +83,7 @@ fun WindowScope.AstraTitleBar(
     }
 }
 
-// Sino com badge de nao-lidas (bolinha ambar com contagem). Mesma pegada do
+// Sino com badge de não-lidas (bolinha ambar com contagem). Mesma pegada do
 // TitleBarButton, com o badge sobreposto no canto.
 @Composable
 private fun TitleBarBell(unread: Int, onClick: () -> Unit) {

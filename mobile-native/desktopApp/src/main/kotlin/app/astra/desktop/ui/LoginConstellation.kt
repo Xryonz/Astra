@@ -21,15 +21,15 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
-// Constelacao que SE FORMA conforme o formulario e preenchido, e se DESFAZ quando
-// se apaga (pedido do dono). Nao e enfeite solto: e o medidor de preenchimento.
+// Constelação que SE FORMA conforme o formulario e preenchido, e se DESFAZ quando
+// se apaga (pedido do dono). Não e enfeite solto: e o medidor de preenchimento.
 //
-// Cada estrela e um marco do progresso; a linha ate a proxima cresce enquanto o
+// Cada estrela e um marco do progresso; a linha ate a próxima cresce enquanto o
 // trecho e percorrido. Apagar uma letra devolve o progresso, entao o traco RETRAI
 // — o desenho e funcao pura do que esta digitado, sem estado escondido. Fechado o
-// ultimo traco, a mensagem de conclusao acende no meio.
+// último traco, a mensagem de conclusao acende no meio.
 //
-// Posicoes normalizadas (0..1) desenhando algo proximo da Cassiopeia (o "W"), que
+// Posicoes normalizadas (0..1) desenhando algo próximo da Cassiopeia (o "W"), que
 // fecha bem num painel mais alto que largo.
 private val NODES = listOf(
     Offset(0.10f, 0.30f),
@@ -45,7 +45,7 @@ fun LoginConstellation(
     modifier: Modifier = Modifier,
 ) {
     val reduce = LocalReduceMotion.current
-    // Suaviza o avanco/retrocesso: digitar rapido nao faz o traco pular de letra em
+    // Suaviza o avanco/retrocesso: digitar rapido não faz o traco pular de letra em
     // letra. Com movimento reduzido acompanha o valor cru.
     val p by animateFloatAsState(
         targetValue = progress,
@@ -68,7 +68,7 @@ fun LoginConstellation(
             fun at(i: Int) = Offset(pad + NODES[i].x * w, pad + NODES[i].y * h)
 
             val legs = NODES.size - 1
-            // Quanto do caminho inteiro ja foi percorrido, em "pernas".
+            // Quanto do caminho inteiro já foi percorrido, em "pernas".
             val walked = p * legs
 
             // Linhas: as vencidas inteiras, a atual pela metade exata do progresso.
@@ -86,14 +86,14 @@ fun LoginConstellation(
                 )
             }
 
-            // Estrelas: acendem na ordem. A do inicio ja nasce visivel (a constelacao
+            // Estrelas: acendem na ordem. A do inicio já nasce visivel (a constelação
             // precisa existir apagada pra a formacao ter pra onde ir).
             for (i in NODES.indices) {
                 val lit = (walked - (i - 1)).coerceIn(0f, 1f)
                 val c = at(i)
                 val alpha = 0.16f + 0.84f * lit
                 if (lit > 0.35f) {
-                    // Halo so na estrela ja acesa — evita mancha nas apagadas.
+                    // Halo so na estrela já acesa — evita mancha nas apagadas.
                     drawCircle(accent.copy(alpha = 0.14f * lit), radius = 7.dp.toPx() * lit, center = c)
                 }
                 drawCircle(accent.copy(alpha = alpha), radius = (1.6f + 1.4f * lit).dp.toPx(), center = c)
@@ -101,7 +101,7 @@ fun LoginConstellation(
         }
         if (msgAlpha > 0f) {
             Text(
-                "constelacao completa",
+                "constelação completa",
                 style = TextStyle(
                     color = accent.copy(alpha = msgAlpha),
                     fontSize = 12.sp,

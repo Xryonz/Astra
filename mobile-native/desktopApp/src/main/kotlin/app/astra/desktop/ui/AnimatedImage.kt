@@ -28,14 +28,14 @@ import org.koin.core.qualifier.named
 import java.util.Base64
 
 // Imagens ANIMADAS no desktop (GIF, WebP animado). O Coil3 no JVM so decodifica o
-// PRIMEIRO frame (nao existe coil-gif-jvm nem AnimatedSkiaImageDecoder no JVM —
-// coil-gif so publica variant Android). Entao a animacao vem daqui: decodifica os
-// frames na mao com o Codec do Skiko (que ja vem junto do Compose Desktop) e roda
+// PRIMEIRO frame (não existe coil-gif-jvm nem AnimatedSkiaImageDecoder no JVM —
+// coil-gif so pública variant Android). Entao a animação vem daqui: decodifica os
+// frames na mao com o Codec do Skiko (que já vem junto do Compose Desktop) e roda
 // um loop de frames no Compose. Estatico continua no Coil (sem regressao).
 //
-// AstraImage e drop-in do AsyncImage: enquanto nao sabe se anima (ou se e estatico)
-// mostra o Coil — que ja pinta o 1o frame do gif, entao a troca pro animado nao
-// pisca. So tenta decodificar formatos que PODEM animar (gif/webp) pra nao baixar
+// AstraImage e drop-in do AsyncImage: enquanto não sabe se anima (ou se e estatico)
+// mostra o Coil — que já pinta o 1o frame do gif, entao a troca pro animado não
+// pisca. So tenta decodificar formatos que PODEM animar (gif/webp) pra não baixar
 // duas vezes cada foto estatica.
 
 private data class AnimatedFrames(
@@ -51,7 +51,7 @@ fun AstraImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    // Enquadramento (banner do perfil usa BiasAlignment pra posicao vertical).
+    // Enquadramento (banner do perfil usa BiasAlignment pra posição vertical).
     alignment: Alignment = Alignment.Center,
 ) {
     val reduce = LocalReduceMotion.current
@@ -66,7 +66,7 @@ fun AstraImage(
 
     val a = anim
     if (a != null && a.frames.isNotEmpty()) {
-        // Reduzir movimento: congela no 1o frame (ainda mostra o gif, so nao mexe).
+        // Reduzir movimento: congela no 1o frame (ainda mostra o gif, so não mexe).
         var idx by remember(a) { mutableStateOf(0) }
         if (!reduce && a.frames.size > 1) {
             LaunchedEffect(a) {
@@ -107,7 +107,7 @@ private fun mightAnimate(url: String): Boolean {
 }
 
 // Decodifica os bytes em frames via Skiko. null = 1 frame so (estatico -> Coil),
-// nao decodificou, ou grande demais pro teto de memoria.
+// não decodificou, ou grande demais pro teto de memoria.
 private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
     val count = codec.frameCount
@@ -116,8 +116,8 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val w = info.width
     val h = info.height
     if (w <= 0 || h <= 0) return null
-    // Teto por imagem (~24MB de bitmaps): imagem gigante nao vira animacao (cai no
-    // Coil estatico) pra nao estourar a RAM.
+    // Teto por imagem (~24MB de bitmaps): imagem gigante não vira animação (cai no
+    // Coil estatico) pra não estourar a RAM.
     val perFrame = w.toLong() * h * 4
     val maxFrames = (24L * 1024 * 1024 / perFrame).toInt()
     if (maxFrames < 2) return null
@@ -127,7 +127,7 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val out = ArrayList<ImageBitmap>(n)
     val durs = ArrayList<Int>(n)
     for (i in 0 until n) {
-        // Sequencial: o bitmap ja carrega o frame i-1, cobrindo o disposal comum
+        // Sequencial: o bitmap já carrega o frame i-1, cobrindo o disposal comum
         // (requiredFrame == i-1). makeFromBitmap copia (bitmap e mutavel) -> cada
         // frame vira um snapshot independente.
         codec.readPixels(bmp, i)
@@ -140,7 +140,7 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
 }.getOrNull()
 
 // Cache de frames decodificados (LRU por contagem — cada gif custa uns MB). Guarda
-// tambem as URLs que deram ESTATICO, pra nao baixar/decodificar de novo a cada
+// também as URLs que deram ESTATICO, pra não baixar/decodificar de novo a cada
 // scroll. Bytes vem por data-uri (inline), /uploads (base + path) ou http direto.
 private object AnimatedImageStore {
     private val lock = Any()

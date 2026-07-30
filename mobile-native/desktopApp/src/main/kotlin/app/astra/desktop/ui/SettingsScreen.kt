@@ -142,21 +142,21 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 // Publico (era private): entra na assinatura do SettingsScreen e do UserFooter —
-// clicar no avatar do rodape abre as configuracoes JA no Perfil.
+// clicar no avatar do rodape abre as configurações JA no Perfil.
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
-    SESSIONS("Sessoes", "onde sua conta esta logada", Lucide.LogOut),
+    SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
-    PERFORMANCE("Desempenho", "graficos, animacoes, fps", Lucide.ChartColumn),
-    VOICE("Voz", "microfone e transmissao", Lucide.Volume2),
-    ABOUT("Sobre", "versao e atualizacoes", Lucide.Info),
+    PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
+    VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
+    ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
 }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
-// Notificacoes (toggles do tray) e Movimento (reduzir animacoes).
+// Notificacoes (toggles do tray) e Movimento (reduzir animações).
 @Composable
 fun SettingsScreen(
     me: ProfileUserDto?,
@@ -167,8 +167,8 @@ fun SettingsScreen(
 ) {
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
     val prefState by prefs.state.collectAsState()
-    // Rascunho do perfil VIVE AQUI (nao dentro da secao): a previa e IRMA da
-    // secao, nao filha — hoisted, ela reage a cada tecla. Reseta quando o `me`
+    // Rascunho do perfil VIVE AQUI (não dentro da secao): a previa e IRMA da
+    // secao, não filha — hoisted, ela reage a cada tecla. Reseta quando o `me`
     // do shell muda (ex.: depois de salvar, o refreshMe traz o valor novo).
     var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
 
@@ -188,8 +188,8 @@ fun SettingsScreen(
         // Fundo do takeover = a MESMA aurora do shell, continua, por baixo (o dono
         // pediu "mesma aurora, no mesmo lugar independente da aba"). O shell segura a
         // aurora/estrelas montadas e esconde o proprio conteudo enquanto isto abre ->
-        // nada vaza atras. Aqui so um veu segura a leitura. Pintar aurora nova aqui
-        // era o "salto de posicao" ao abrir configuracoes (relogio independente).
+        // nada vaza atrás. Aqui so um veu segura a leitura. Pintar aurora nova aqui
+        // era o "salto de posição" ao abrir configurações (relogio independente).
         Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.5f)))
         Row(Modifier.fillMaxSize()) {
             // Nav das secoes
@@ -198,7 +198,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    "configuracoes",
+                    "configurações",
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
@@ -207,23 +207,23 @@ fun SettingsScreen(
                 }
             }
 
-            // Conteudo da secao — coluna capada (~720) estilo Discord: nao esparrama
+            // Conteudo da secao — coluna capada (~720) estilo Discord: não esparrama
             // pelo palco todo (o "enxuto" que o dono pediu). O Box segura a coluna
             // encostada a esquerda; os controles leem como uma coluna so em vez de
             // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-            // Sobre/Sessoes nao tem previa.
+            // Sobre/Sessões não tem previa.
             val showPreview = tab != SettingsTab.ABOUT && tab != SettingsTab.SESSIONS
             // Previa SEMPRE fixa no topo-direita (decisao do dono), em toda aba: ela
-            // nao rola junto, entao o efeito do que se mexe fica a vista mesmo
+            // não rola junto, entao o efeito do que se mexe fica a vista mesmo
             // editando o rodape do formulario. Empilhada no fim, como era, a previa
             // do Perfil (a aba mais alta) so aparecia depois de rolar tudo — uma
-            // previa ao vivo que ninguem ve nao e previa.
-            // PISO de 700dp: abaixo disso nao ha largura pra duas colunas (a de
+            // previa ao vivo que ninguem ve não e previa.
+            // PISO de 700dp: abaixo disso não ha largura pra duas colunas (a de
             // conteudo ficaria com menos de 300dp e os controles quebrariam), entao
             // volta a empilhar embaixo em vez de espremer as duas.
             val pinned = showPreview && maxWidth > 700.dp
-            // Com a previa fixa, a coluna de conteudo encolhe pra nao correr por
+            // Com a previa fixa, a coluna de conteudo encolhe pra não correr por
             // baixo dela: 300 da previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
                 if (pinned) minOf(720.dp, (maxWidth - 376.dp).coerceAtLeast(300.dp)) else 720.dp
@@ -238,7 +238,7 @@ fun SettingsScreen(
                         style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif),
                         modifier = Modifier.weight(1f),
                     )
-                    // Fechar (ESC tambem, via foco no shell) volta pro shell.
+                    // Fechar (ESC também, via foco no shell) volta pro shell.
                     val hov = remember { MutableInteractionSource() }
                     val h by hov.collectIsHoveredAsState()
                     Box(
@@ -279,7 +279,7 @@ fun SettingsScreen(
                                 prefState.notifyDms, prefs::setNotifyDms,
                             )
                             ToggleRow(
-                                "Atividade de canal", "avisa nova mensagem nas constelacoes",
+                                "Atividade de canal", "avisa nova mensagem nas constelações",
                                 prefState.notifyChannels, prefs::setNotifyChannels,
                             )
                             Spacer(Modifier.height(10.dp))
@@ -297,7 +297,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // Janela abaixo do piso: a previa nao cabe ao lado -> empilha
+                // Janela abaixo do piso: a previa não cabe ao lado -> empilha
                 // embaixo, separada por um fio.
                 if (!pinned && showPreview) {
                     SettingsDivider()
@@ -308,7 +308,7 @@ fun SettingsScreen(
                     }
                 }
             }
-                // Previa como card fixo no topo-direita: nao rola junto, fica ao lado
+                // Previa como card fixo no topo-direita: não rola junto, fica ao lado
                 // dos controles desde o primeiro campo.
                 if (pinned) {
                     Column(
@@ -329,7 +329,7 @@ fun SettingsScreen(
 // Previa ao vivo (lado das configs). Cada aba mostra o efeito real do que se
 // mexe: Conta = teu perfil como os OUTROS veem; Notificacoes = aviso deslizando
 // na bandeja; Aparencia = mini-janela no tema/fonte/densidade; Desempenho =
-// medidor de custo GPU/CPU; Voz = moldura da transmissao + nivel do mic ao vivo.
+// medidor de custo GPU/CPU; Voz = moldura da transmissão + nível do mic ao vivo.
 @Composable
 private fun SettingsPreview(
     tab: SettingsTab,
@@ -348,14 +348,14 @@ private fun SettingsPreview(
             SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
             SettingsTab.PERFORMANCE -> CostMeter(p)
             SettingsTab.VOICE -> VoicePreview(p)
-            // Sessoes e Sobre sao listas/acoes — nao ha o que previsualizar.
+            // Sessões e Sobre são listas/ações — não ha o que previsualizar.
             SettingsTab.SESSIONS, SettingsTab.ABOUT -> Unit
         }
     }
 }
 
-// Rascunho editavel do perfil. Fica no nivel da tela pra a previa (irma da
-// secao) conseguir ler enquanto voce digita.
+// Rascunho editavel do perfil. Fica no nível da tela pra a previa (irma da
+// secao) conseguir ler enquanto você digita.
 private data class ProfileDraft(
     val displayName: String = "",
     val pronouns: String = "",
@@ -547,7 +547,7 @@ private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
             SampleMsg("ana", "e ai, bora marcar a call?", s)
             Spacer(Modifier.height((density.topDp).dp))
-            SampleMsg("voce", "fechou, 21h entao", s)
+            SampleMsg("você", "fechou, 21h entao", s)
         }
         HairRule()
         Box(
@@ -579,7 +579,7 @@ private fun SampleMsg(name: String, text: String, scale: Float) {
     }
 }
 
-// --- Desempenho: medidor de custo ESTIMADO (nao mede a GPU real; deriva das
+// --- Desempenho: medidor de custo ESTIMADO (não mede a GPU real; deriva das
 // escolhas). Custo zero de render — so barras que reagem aos toggles. ---
 @Composable
 private fun CostMeter(p: DesktopPrefs.Prefs) {
@@ -716,10 +716,10 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
     }
 }
 
-// Medidor de nivel do mic: abre um TargetDataLine (Java Sound) numa thread
+// Medidor de nível do mic: abre um TargetDataLine (Java Sound) numa thread
 // daemon ENQUANTO O TESTE ESTA LIGADO, le o RMS dos samples e move as barras.
-// onDispose fecha a linha (parar o teste / troca de aba / fecha configuracoes).
-// Best-effort: sem mic ou em uso -> mostra aviso, nao quebra.
+// onDispose fecha a linha (parar o teste / troca de aba / fecha configurações).
+// Best-effort: sem mic ou em uso -> mostra aviso, não quebra.
 @Composable
 private fun MicMeter(active: Boolean, threshold: Float = 0f) {
     var level by remember { mutableFloatStateOf(0f) }
@@ -769,12 +769,12 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
         return
     }
     val lvl by animateFloatAsState(level, tween(90), label = "micLvl")
-    // Termometro de qualidade, nao alarme: CINZA parado (teste desligado ou
+    // Termometro de qualidade, não alarme: CINZA parado (teste desligado ou
     // silencio — antes ficava vermelho o tempo todo, como se algo estivesse
     // errado), AMBAR quando o sinal e fraco demais pra te ouvirem bem, VERDE
-    // quando esta bom. Ambar = warning (fixo) e nao accent: com o tema branco
+    // quando esta bom. Ambar = warning (fixo) e não accent: com o tema branco
     // padrao o accent e quase cinza e a faixa do meio some.
-    // Anima a troca de cor pra nao piscar seco entre faixas.
+    // Anima a troca de cor pra não piscar seco entre faixas.
     val meterColor by animateColorAsState(
         when {
             lvl < 0.10f -> Obsidian.text3
@@ -802,7 +802,7 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
             }
         }
         // Marcador do limiar de sensibilidade: linha ambar vertical na fracao —
-        // abaixo dela o mic nao transmite. Spacers pesados = sem clipar nas pontas.
+        // abaixo dela o mic não transmite. Spacers pesados = sem clipar nas pontas.
         if (threshold > 0f) {
             Row(Modifier.fillMaxSize()) {
                 val f = threshold.coerceIn(0.02f, 0.98f)
@@ -854,7 +854,7 @@ private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "abaixo desse nivel o mic nao transmite. 0 = sempre aberto. teste o mic acima pra calibrar.",
+            "abaixo desse nível o mic não transmite. 0 = sempre aberto. teste o mic acima pra calibrar.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         )
     }
@@ -875,7 +875,7 @@ private fun ProfileSection(
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
-        DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "voce" }, 64)
+        DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "você" }, 64)
         Spacer(Modifier.width(16.dp))
         Column {
             AboutButton(if (busyAvatar) "processando…" else "trocar avatar", accent = true) {
@@ -889,7 +889,7 @@ private fun ProfileSection(
                     val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
                     busyAvatar = false
                     r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
-                        .onFailure { msg = "nao deu pra ler essa imagem" to false }
+                        .onFailure { msg = "não deu pra ler essa imagem" to false }
                 }
             }
             if (draft.avatarUrl != null) {
@@ -900,7 +900,7 @@ private fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a imagem e reduzida pra 512px e guardada no teu perfil (maximo 5MB).",
+        "a imagem e reduzida pra 512px e guardada no teu perfil (máximo 5MB).",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -914,14 +914,14 @@ private fun ProfileSection(
         onChange(draft.copy(pronouns = it))
     }
     Spacer(Modifier.height(12.dp))
-    ProfileField("bio", draft.bio, "fale de voce", multiline = true, max = 300) {
+    ProfileField("bio", draft.bio, "fale de você", multiline = true, max = 300) {
         onChange(draft.copy(bio = it))
     }
 
     SettingsDivider()
     FieldLabel("banner")
     // Arrastar na vertical reposiciona a imagem (bannerPositionY); so faz sentido
-    // com imagem — no gradiente nao ha o que enquadrar.
+    // com imagem — no gradiente não ha o que enquadrar.
     ProfileBanner(
         css = draft.bannerColor,
         imageUrl = draft.bannerUrl,
@@ -931,7 +931,7 @@ private fun ProfileSection(
         modifier = Modifier
             .widthIn(max = 420.dp)
             .fillMaxWidth()
-            // Mesma proporcao dos cards (popup/pagina/previa): o que voce enquadra aqui e
+            // Mesma proporcao dos cards (popup/pagina/previa): o que você enquadra aqui e
             // exatamente o que aparece neles.
             .aspectRatio(ProfileBannerAspect)
             .clip(RoundedCornerShape(10.dp))
@@ -941,8 +941,8 @@ private fun ProfileSection(
                 else Modifier.pointerInput(Unit) {
                     detectDragGestures { change, drag ->
                         change.consume()
-                        // 110dp de altura -> ~1.4 px por ponto de posicao. Arrastar
-                        // pra BAIXO revela o topo da imagem (posicao diminui).
+                        // 110dp de altura -> ~1.4 px por ponto de posição. Arrastar
+                        // pra BAIXO revela o topo da imagem (posição diminui).
                         val next = (draft.bannerPositionY - drag.y / 1.4f).toInt()
                         onChange(draft.copy(bannerPositionY = next.coerceIn(0, 100)))
                     }
@@ -969,7 +969,7 @@ private fun ProfileSection(
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
                 r.onSuccess { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) }
-                    .onFailure { msg = "nao deu pra ler essa imagem" to false }
+                    .onFailure { msg = "não deu pra ler essa imagem" to false }
             }
         }
         if (!draft.bannerUrl.isNullOrBlank()) {
@@ -1023,7 +1023,7 @@ private fun ProfileSection(
 }
 
 // Botao Salvar do perfil, HOISTADO pra baixo da previa (o dono pediu: sempre a
-// vista, nao no fim do formulario). Estado proprio (saving/msg/dirty); le o
+// vista, não no fim do formulario). Estado proprio (saving/msg/dirty); le o
 // draft vivo + o `me` original. Recado tem rota propria (so manda se mudou).
 @Composable
 private fun ProfileSaveButton(
@@ -1057,13 +1057,13 @@ private fun ProfileSaveButton(
                         }
                         api.updateProfile(
                             UpdateProfileRequest(
-                                // null = chave omitida = backend nao mexe no campo.
+                                // null = chave omitida = backend não mexe no campo.
                                 displayName = draft.displayName.trim().ifBlank { null },
                                 pronouns = draft.pronouns.trim(),
                                 bio = draft.bio.trim(),
                                 avatarUrl = draft.avatarUrl,
                                 statusEmoji = draft.statusEmoji,
-                                // Banner: "" limpa a imagem (null seria "nao mexer").
+                                // Banner: "" limpa a imagem (null seria "não mexer").
                                 bannerUrl = draft.bannerUrl ?: "",
                                 bannerColor = draft.bannerColor,
                                 bannerPositionY = draft.bannerPositionY,
@@ -1075,7 +1075,7 @@ private fun ProfileSaveButton(
                     }
                     saving = false
                     if (r.isSuccess) { msg = "perfil salvo" to true; onSaved() }
-                    else msg = "nao deu pra salvar — tenta de novo" to false
+                    else msg = "não deu pra salvar — tenta de novo" to false
                 }
             }
             if (dirty && !saving) {
@@ -1090,7 +1090,7 @@ private fun ProfileSaveButton(
 }
 
 // Zoom do banner (bannerScale 100..300%): trilha arrastavel simples. Slider
-// proprio pra nao puxar componente novo so por isto.
+// proprio pra não puxar componente novo so por isto.
 @Composable
 private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     val pct = ((scale - 100) / 200f).coerceIn(0f, 1f)
@@ -1122,7 +1122,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
             )
             // Alca agarravel no fim do preenchido: spacers pesados poem o centro na
             // fracao atual sem clipar nas pontas. Arrastar em qualquer ponto do
-            // trilho tambem move (o gesto ja cobre o Box inteiro).
+            // trilho também move (o gesto já cobre o Box inteiro).
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 val f = pct.coerceIn(0f, 1f)
                 if (f > 0f) Spacer(Modifier.weight(f))
@@ -1139,7 +1139,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
 }
 
 // Grade dos gradientes prontos (mesma lista do web). Cada pastilha pinta o
-// proprio gradiente — o que voce ve e o que salva.
+// proprio gradiente — o que você ve e o que salva.
 @Composable
 private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -1198,7 +1198,7 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
                         .padding(14.dp),
                 ) {
-                    FieldLabel("codigo hex")
+                    FieldLabel("código hex")
                     HexField(selected, onPick)
                     Spacer(Modifier.height(14.dp))
                     HairRule()
@@ -1216,10 +1216,10 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
 // Campo de cor solida. Grava no MESMO campo do gradiente ("#rrggbb" e um valor
 // valido pro bannerBrush e pro web/mobile), entao escolher um gradiente depois
 // simplesmente sobrescreve. So aplica quando fecham 6 digitos: teclar no meio
-// nao deve pintar um valor pela metade.
+// não deve pintar um valor pela metade.
 @Composable
 private fun HexField(selected: String?, onPick: (String) -> Unit) {
-    // Se o valor de fora e um gradiente, o campo comeca vazio (nao ha hex que o
+    // Se o valor de fora e um gradiente, o campo comeca vazio (não ha hex que o
     // represente). Rechaveia quando o valor muda por fora (ex.: clicou num
     // gradiente da grade logo abaixo).
     var text by remember(selected) {
@@ -1273,7 +1273,7 @@ private fun HexField(selected: String?, onPick: (String) -> Unit) {
 }
 
 // Rotulo da pastilha: nome do gradiente conhecido, o proprio hex, ou um aviso
-// generico pra um CSS que veio de outro cliente e nao esta na lista.
+// generico pra um CSS que veio de outro cliente e não esta na lista.
 private fun colorLabel(css: String?): String {
     val raw = css?.trim().orEmpty()
     if (raw.isEmpty()) return "padrao"
@@ -1437,7 +1437,7 @@ private fun ProfileField(
 }
 
 // Emoji do recado: reusa a MESMA grade das reacoes do chat (ReactionPicker).
-// Clicar no emoji ja escolhido limpa.
+// Clicar no emoji já escolhido limpa.
 @Composable
 private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -1487,7 +1487,7 @@ private fun AccountSection(me: ProfileUserDto?) {
     Spacer(Modifier.height(4.dp))
     if (me?.hasPassword == false) {
         Text(
-            "conta google sem senha — defina uma pra entrar por email tambem.",
+            "conta google sem senha — defina uma pra entrar por email também.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         )
     }
@@ -1495,8 +1495,8 @@ private fun AccountSection(me: ProfileUserDto?) {
     PasswordForm(hasPassword = me?.hasPassword != false)
 }
 
-// Aba Sessoes: cada login vivo da conta (um refresh token). Serve pra ver de
-// onde a conta esta aberta e derrubar o que voce nao reconhece — o unico item
+// Aba Sessões: cada login vivo da conta (um refresh token). Serve pra ver de
+// onde a conta esta aberta e derrubar o que você não reconhece — o único item
 // da migracao com peso de seguranca.
 @Composable
 private fun SessionsSection() {
@@ -1512,7 +1512,7 @@ private fun SessionsSection() {
     }
 
     Text(
-        "cada linha e um login ativo na sua conta. nao reconhece algum? derruba.",
+        "cada linha e um login ativo na sua conta. não reconhece algum? derruba.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -1526,7 +1526,7 @@ private fun SessionsSection() {
     val list = sessions
     when {
         list == null -> Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-        list.isEmpty() -> Text("nenhuma sessao ativa.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        list.isEmpty() -> Text("nenhuma sessão ativa.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
         else -> Column(Modifier.widthIn(max = 460.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             list.forEach { s ->
                 Row(
@@ -1562,8 +1562,8 @@ private fun SessionsSection() {
                                 scope.launch {
                                     val r = runCatching { koin.get<SessionApi>().revoke(s.id) }
                                     busy = false
-                                    msg = if (r.isSuccess) "sessao derrubada" to true
-                                    else "nao deu pra derrubar" to false
+                                    msg = if (r.isSuccess) "sessão derrubada" to true
+                                    else "não deu pra derrubar" to false
                                     reload++
                                 }
                             }
@@ -1579,17 +1579,17 @@ private fun SessionsSection() {
         if (busy) return@AboutButton
         busy = true; msg = null
         scope.launch {
-            // A rota exige o refresh token DESTA sessao pra nao te derrubar junto.
+            // A rota exige o refresh token DESTA sessão pra não te derrubar junto.
             val token = koin.get<SessionStore>().load()?.refreshToken
             if (token.isNullOrBlank()) {
                 busy = false
-                msg = "nao achei o token desta sessao" to false
+                msg = "não achei o token desta sessão" to false
                 return@launch
             }
             val r = runCatching { koin.get<SessionApi>().revokeOthers(RevokeOthersRequest(token)) }
             busy = false
             msg = r.map { "derrubadas: ${it.data?.revokedCount ?: 0}" to true }
-                .getOrElse { "nao deu pra derrubar as outras" to false }
+                .getOrElse { "não deu pra derrubar as outras" to false }
             reload++
         }
     }
@@ -1630,15 +1630,15 @@ private fun prettyDate(iso: String?): String? {
     return "$d/$m $hm"
 }
 
-// Aba Sobre: versao atual + auto-update (checagem manual, progresso e reinicio).
-// O gate de boot ja verifica sozinho; aqui e o controle manual + fallback.
+// Aba Sobre: versão atual + auto-update (checagem manual, progresso e reinicio).
+// O gate de boot já verifica sozinho; aqui e o controle manual + fallback.
 @Composable
 private fun AboutSection() {
     val updater = remember { GlobalContext.get().get<UpdateService>() }
     val st by updater.state.collectAsState()
     val scope = rememberCoroutineScope()
 
-    ReadRow("versao", updater.currentVersion)
+    ReadRow("versão", updater.currentVersion)
     Spacer(Modifier.height(22.dp))
 
     if (!updater.installed) {
@@ -1653,7 +1653,7 @@ private fun AboutSection() {
     Text("atualizacoes", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "o Astra verifica sozinho ao abrir. voce tambem pode procurar agora.",
+        "o Astra verifica sozinho ao abrir. você também pode procurar agora.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -1661,9 +1661,9 @@ private fun AboutSection() {
 
     when (val s = st) {
         is UpdateState.Checking -> AboutStatus("procurando atualizacoes…")
-        is UpdateState.UpToDate -> AboutStatus("voce esta na ultima versao")
+        is UpdateState.UpToDate -> AboutStatus("você está na última versão")
         is UpdateState.Available -> {
-            AboutStatus("nova versao ${s.version} disponivel")
+            AboutStatus("nova versão ${s.version} disponível")
             Spacer(Modifier.height(10.dp))
             AboutButton("baixar e reiniciar", accent = true) { scope.launch { updater.downloadAndStage(s) } }
         }
@@ -1763,7 +1763,7 @@ private fun PasswordForm(hasPassword: Boolean) {
                         current = ""; next = ""; confirm = ""
                         msg = "senha atualizada" to true
                     } else {
-                        msg = "nao deu — confira a senha atual" to false
+                        msg = "não deu — confira a senha atual" to false
                     }
                 }
             }
@@ -1771,7 +1771,7 @@ private fun PasswordForm(hasPassword: Boolean) {
     )
     if (next.isNotEmpty() && next.length < 8) {
         Spacer(Modifier.height(6.dp))
-        Text("minimo 8 caracteres", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text("mínimo 8 caracteres", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
     }
 }
 
@@ -1813,7 +1813,7 @@ private fun ReadRow(label: String, value: String) {
     }
 }
 
-// Variante com icone Lucide no lugar do rotulo (Conta: envelope no email, pessoa no usuario).
+// Variante com ícone Lucide no lugar do rotulo (Conta: envelope no email, pessoa no usuário).
 @Composable
 private fun ReadRow(icon: ImageVector, value: String) {
     Row(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1874,13 +1874,13 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
     }
 }
 
-// Aba Voz: qualidade da transmissao de tela (presets) + processamento do mic.
+// Aba Voz: qualidade da transmissão de tela (presets) + processamento do mic.
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "vale ao iniciar a transmissao. o padrao 1080p60 e o minimo que combinamos.",
+        "vale ao iniciar a transmissão. o padrao 1080p60 e o mínimo que combinamos.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -1900,13 +1900,13 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
     Spacer(Modifier.height(4.dp))
     Text(
-        "as opcoes de microfone valem na proxima vez que voce entrar numa sala.",
+        "as opções de microfone valem na próxima vez que você entrar numa sala.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
 }
 
-// Lista de opcao unica (radio) — pra escolhas com rotulos longos (presets).
+// Lista de opção única (radio) — pra escolhas com rotulos longos (presets).
 @Composable
 private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
@@ -1955,13 +1955,13 @@ private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect:
 private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     ToggleRow(
         "Modo desempenho",
-        "desliga aurora + estrelas e reduz animacoes de uma vez — pra jogar ou transmitir",
+        "desliga aurora + estrelas e reduz animações de uma vez — pra jogar ou transmitir",
         p.performanceMode, prefs::setPerformanceMode,
     )
     Spacer(Modifier.height(6.dp))
 
-    // Controles finos: o modo desempenho ja sobrepoe, entao esmaece quando ligado
-    // (continuam clicaveis — sao a tua preferencia fora do modo desempenho).
+    // Controles finos: o modo desempenho já sobrepoe, entao esmaece quando ligado
+    // (continuam clicaveis — são a tua preferencia fora do modo desempenho).
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
         ToggleRow("Aurora", "fundo animado em shader", p.auroraEnabled, prefs::setAuroraEnabled)
         LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU") {
@@ -1971,7 +1971,7 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             )
         }
         ToggleRow("Estrelas", "campo de estrelas + meteoros sobre a aurora", p.starsEnabled, prefs::setStarsEnabled)
-        LabeledControl("FPS das animacoes", "teto de quadros do fundo (livre segue o monitor)") {
+        LabeledControl("FPS das animações", "teto de quadros do fundo (livre segue o monitor)") {
             SegmentedRow(
                 listOf("Livre" to UiFps.FREE, "60" to UiFps.CAP60, "30" to UiFps.CAP30),
                 p.uiFps, prefs::setUiFps,
@@ -2042,7 +2042,7 @@ internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boole
     Row(
         Modifier
             // Preenche a coluna capada (~720, estilo Discord): interruptor grudado
-            // na ponta direita. Quem limita a largura agora e a coluna, nao a linha.
+            // na ponta direita. Quem limita a largura agora e a coluna, não a linha.
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))
@@ -2101,7 +2101,7 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(20.dp))
 }
 
-// Linha separadora entre grupos de configuracao (legibilidade — pedido do dono).
+// Linha separadora entre grupos de configuração (legibilidade — pedido do dono).
 @Composable
 internal fun SettingsDivider() {
     Spacer(Modifier.height(8.dp))

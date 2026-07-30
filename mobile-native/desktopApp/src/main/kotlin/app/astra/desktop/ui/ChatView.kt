@@ -146,7 +146,7 @@ import kotlin.math.sin
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 // Sincronizado com ChatVm.FADE_OUT_MS: o VM remove a mensagem da lista quando
-// esta animacao termina.
+// esta animação termina.
 private const val FADE_MS = 340
 
 private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "🔥")
@@ -204,7 +204,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
     var editingId by remember(target.id) { mutableStateOf<String?>(null) }
     var highlightId by remember(target.id) { mutableStateOf<String?>(null) }
 
-    // Cola no fim so quando ENTRA mensagem (apagar tambem muda o size e nao
+    // Cola no fim so quando ENTRA mensagem (apagar também muda o size e não
     // pode jogar a lista pro fundo).
     var prevCount by remember(target.id) { mutableStateOf(0) }
     LaunchedEffect(state.messages.size) {
@@ -215,7 +215,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
     }
 
     // Entrada fade+subida so pra mensagem NOVA: o historico entra sem animar e
-    // item reciclado pelo scroll nao re-anima (set de ids ja vistos).
+    // item reciclado pelo scroll não re-anima (set de ids já vistos).
     val animatedIds = remember(target.id) { mutableSetOf<String>() }
     var baselineDone by remember(target.id) { mutableStateOf(false) }
     LaunchedEffect(state.loading) {
@@ -267,7 +267,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             baselineDone && fresh
                         }
                         // Pill de hover + menu de botao direito (as duas rotas
-                        // pras mesmas acoes; o menu tem copiar texto/ID/fixar).
+                        // pras mesmas ações; o menu tem copiar texto/ID/fixar).
                         MessageRow(
                             msg = msg,
                             // Reply quebra o agrupamento (a referencia precisa aparecer).
@@ -295,7 +295,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
 
         // Composer
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-            // Slot fixo: aparecer/sumir o "digitando…" nao pode pular o layout.
+            // Slot fixo: aparecer/sumir o "digitando…" não pode pular o layout.
             Box(Modifier.fillMaxWidth().height(16.dp)) {
                 if (state.typing.isNotEmpty()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -304,8 +304,8 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                         val names = state.typing.values.toList()
                         val label = when (names.size) {
                             1 -> "${names[0]} esta digitando…"
-                            2 -> "${names[0]} e ${names[1]} estao digitando…"
-                            else -> "varias pessoas estao digitando…"
+                            2 -> "${names[0]} e ${names[1]} estão digitando…"
+                            else -> "varias pessoas estão digitando…"
                         }
                         Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
                     }
@@ -379,7 +379,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
             }
             val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
             val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
-            // Barra compacta com acoes inline: '+' anexa (atalho do que tambem vive no
+            // Barra compacta com ações inline: '+' anexa (atalho do que também vive no
             // ✦), o campo cresce em multiline, '✦' traz emoji/gif/arquivo, e '➤' envia
             // — acende no accent quando ha texto/anexo. Contador so aparece perto do teto.
             Row(
@@ -541,7 +541,7 @@ private fun MessageRow(
             add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.id)) })
             if (isChannel) add(MenuEntry.Item("fixar mensagem", icon = Lucide.Pin) { onPin() })
             // Editar mexe no CONTENT. Mensagem sem texto (gif, imagem, arquivo
-            // solto) nao tem o que editar — o campo abria vazio e salvar so
+            // solto) não tem o que editar — o campo abria vazio e salvar so
             // esvaziava a mensagem.
             if (isChannel && msg.mine && msg.content.isNotBlank()) {
                 add(MenuEntry.Item("editar", icon = Lucide.Pencil) { onStartEdit() })
@@ -554,7 +554,7 @@ private fun MessageRow(
     }) {
     if (confirmDelete) {
         ConfirmPopup(
-            message = "apagar esta mensagem? nao da pra desfazer.",
+            message = "apagar esta mensagem? não da pra desfazer.",
             confirmLabel = "apagar",
             onConfirm = { confirmDelete = false; onDelete() },
             onDismiss = { confirmDelete = false },
@@ -610,7 +610,7 @@ private fun MessageRow(
                             text = msg.authorName,
                             style = TextStyle(
                                 color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                // null (nao escolheu fonte) fica com o padrao do chat —
+                                // null (não escolheu fonte) fica com o padrao do chat —
                                 // profileFontFamily cairia no serif e mudaria TODO nome.
                                 fontFamily = msg.authorFont?.let { profileFontFamily(it) },
                             ),
@@ -632,7 +632,7 @@ private fun MessageRow(
                 offset = with(density) { IntOffset(-10.dp.roundToPx(), (-12).dp.roundToPx()) },
             ) {
                 // Entrada fade+subida; o MutableTransitionState nasce false e vira
-                // true na primeira composicao pra animacao rodar.
+                // true na primeira composicao pra animação rodar.
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
                 AnimatedVisibility(
                     visibleState = visible,
@@ -646,7 +646,7 @@ private fun MessageRow(
                         onReply = onReply,
                         onReact = { pickerOpen = true },
                         onEdit = onStartEdit,
-                        // Lixeira do hover passa pela MESMA confirmacao do menu de
+                        // Lixeira do hover passa pela MESMA confirmação do menu de
                         // contexto (confirmDelete -> ConfirmPopup) — antes apagava direto.
                         onDelete = { confirmDelete = true },
                         modifier = Modifier.hoverable(pillInteraction),
@@ -735,14 +735,14 @@ private fun ContentBlock(
             }
         }
     }
-    // Envio otimista que o servidor recusou/nao respondeu: motivo + tentar de novo.
+    // Envio otimista que o servidor recusou/não respondeu: motivo + tentar de novo.
     if (msg.failed) {
         Spacer(Modifier.height(3.dp))
         val src = remember { MutableInteractionSource() }
         Row(verticalAlignment = Alignment.CenterVertically) {
             LIcon(Lucide.CircleAlert, tint = Obsidian.danger, size = 12.dp)
             Spacer(Modifier.width(5.dp))
-            Text("nao enviada", style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
+            Text("não enviada", style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
             Text(" · ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
             Text(
                 "tentar de novo",
@@ -1042,7 +1042,7 @@ private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean =
 
 // Popup ancorado ACIMA do gatilho (o composer fica no rodape), alinhado a direita.
 // Seletor de reacao: 6 rapidos + grade expansivel. internal: a aba Perfil das
-// configuracoes reusa esta mesma grade pro emoji do recado (nao duplicar).
+// configurações reusa esta mesma grade pro emoji do recado (não duplicar).
 @Composable
 internal fun ReactionPicker(onPick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -1086,7 +1086,7 @@ private fun EmojiCell(glyph: String, onClick: () -> Unit) {
     }
 }
 
-// Variante so-icone (ex.: +/- pra expandir a grade) — o glifo emoji e conteudo,
+// Variante so-ícone (ex.: +/- pra expandir a grade) — o glifo emoji e conteudo,
 // mas o toggle de expandir e chrome, entao vira Lucide.
 @Composable
 private fun EmojiCell(icon: ImageVector, onClick: () -> Unit) {

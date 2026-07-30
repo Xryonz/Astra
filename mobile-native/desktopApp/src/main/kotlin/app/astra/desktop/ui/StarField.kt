@@ -21,7 +21,7 @@ import kotlin.math.sin
 
 // Campo de estrelas portado do mobile (StarField.kt do :app): estrelas fixas +
 // piscar + meteoros ("estrelas caindo"). Fica entre a aurora e os paineis, sutil.
-// DROPADO do mobile: tilt (acelerometro, nao existe no desktop). MANTIDO: o
+// DROPADO do mobile: tilt (acelerometro, não existe no desktop). MANTIDO: o
 // relogio com PAUSA sem foco (guardrail de perf) e o respeito ao reduzir
 // movimento (LocalReduceMotion) — congela num campo estatico, sem meteoros.
 
@@ -34,8 +34,8 @@ private fun lcg(seed: Int): () -> Float {
 }
 
 private class BgStar(val x: Float, val y: Float, val r: Float)
-// Twinkle carrega tambem um WANDER proprio (orbita lenta e individual): e o que
-// da a sensacao de "fundo vivo" no desktop, ja que o tilt do celular saiu.
+// Twinkle carrega também um WANDER proprio (órbita lenta e individual): e o que
+// da a sensacao de "fundo vivo" no desktop, já que o tilt do celular saiu.
 // wSpeed em rad/s (periodo ~16..30s), fases desencontram o movimento de cada uma.
 private class Twinkle(
     val x: Float, val y: Float, val r: Float, val freq: Float, val phase: Float,
@@ -47,7 +47,7 @@ private val BG_STARS: List<BgStar> = buildList {
     val rnd = lcg(424242)
     repeat(70) { add(BgStar(rnd(), rnd(), if (rnd() > 0.5f) 1.4f else 1.0f)) }
 }
-// Periodos do wander: SO divisores de STAR_LOOP (360) pra orbita fechar sem
+// Periodos do wander: SO divisores de STAR_LOOP (360) pra órbita fechar sem
 // salto no wrap (18|20|24|30|36 -> 360/p inteiro). Lentos (18..36s) = calmo.
 private val WANDER_PERIODS = floatArrayOf(18f, 20f, 24f, 30f, 36f)
 private val TWINKLES: List<Twinkle> = buildList {
@@ -69,17 +69,17 @@ private val METEORS: List<Meteor> = buildList {
 }
 
 // Periodos das camadas (segundos): drift orbital lento, ciclo do piscar, ciclo
-// dos meteoros. Um relogio unico alimenta os tres.
+// dos meteoros. Um relogio único alimenta os tres.
 private const val DRIFT_PERIOD = 90f
 private const val TWINKLE_PERIOD = 5f
 private const val METEOR_PERIOD = 24f
 private const val STAR_LOOP = 360f // multiplo dos periodos (drift/twinkle/meteoro/wander): enrola sem salto
-private const val WANDER_DP = 9f // amplitude da orbita individual das twinkles (perceptivel, calmo)
+private const val WANDER_DP = 9f // amplitude da órbita individual das twinkles (perceptivel, calmo)
 
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     val reduceMotion = LocalReduceMotion.current
-    // Mesmo relogio/gate da aurora: pausa quando minimizada (nao quando so perde
+    // Mesmo relogio/gate da aurora: pausa quando minimizada (não quando so perde
     // o foco pra um popup); reduzir movimento congela em 0 (campo estatico).
     val active = rememberUpdatedState(LocalWindowActive.current)
     // Teto de FPS (Settings > Desempenho): mesmo throttle da aurora — limita a
@@ -115,7 +115,7 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
         }
     }
 
-    // Resolucao cheia: estrelas sao pontos nitidos e baratos (~90 ops/frame);
+    // Resolucao cheia: estrelas são pontos nitidos e baratos (~90 ops/frame);
     // meia-res (truque da aurora) so serve pra shader caro por pixel, aqui borra.
     Canvas(modifier.fillMaxSize()) {
         val w = size.width
@@ -132,8 +132,8 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
         val wander = WANDER_DP.dp.toPx()
         TWINKLES.forEach { t ->
             val a = 0.25f + 0.7f * ((sin(tau * t.freq + t.phase) + 1f) / 2f)
-            // Orbita propria (elipse): X e Y na mesma velocidade angular, fases
-            // distintas -> cada estrela vagueia devagar num caminho unico.
+            // Órbita propria (elipse): X e Y na mesma velocidade angular, fases
+            // distintas -> cada estrela vagueia devagar num caminho único.
             val wx = sin(time * t.wSpeed + t.wPhaseX) * wander
             val wy = cos(time * t.wSpeed + t.wPhaseY) * wander * 0.7f
             val c = Offset(t.x * w + dx + wx, t.y * h + dy + wy)

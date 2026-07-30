@@ -221,7 +221,7 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
             .padding(horizontal = 8.dp, vertical = 9.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        // Ponto de nao-lida (some quando lida).
+        // Ponto de não-lida (some quando lida).
         Box(Modifier.padding(top = 5.dp).size(6.dp).clip(CircleShape).background(if (unread) Obsidian.accent else Color.Transparent))
         Spacer(Modifier.width(8.dp))
         Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Obsidian.base), contentAlignment = Alignment.Center) {

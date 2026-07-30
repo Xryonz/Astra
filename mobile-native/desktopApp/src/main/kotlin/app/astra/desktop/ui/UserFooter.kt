@@ -65,11 +65,11 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
-// Rodape do usuario (F2 da fase de design) — estrutura do UserFooter do web:
-// avatar com anel na cor do usuario + StatusDot, nome + status, engrenagem e
+// Rodape do usuário (F2 da fase de design) — estrutura do UserFooter do web:
+// avatar com anel na cor do usuário + StatusDot, nome + status, engrenagem e
 // sair. Clicar no avatar abre o card de perfil (com editar), como no mobile.
 
-// Mesma paleta/hash do web (userColor): cor fixa por usuario.
+// Mesma paleta/hash do web (userColor): cor fixa por usuário.
 private val UserPalette = listOf(
     Color(0xFFC9A96E), Color(0xFF7C6FC4), Color(0xFF6FA8C9), Color(0xFFC97C6E), Color(0xFF6EC98A),
 )
@@ -83,7 +83,7 @@ fun userColor(id: String): Color {
 private fun statusLabel(status: UserStatus) = when (status) {
     UserStatus.ONLINE -> "brilhando"
     UserStatus.IDLE -> "ausente"
-    UserStatus.DND -> "nao perturbe"
+    UserStatus.DND -> "não perturbe"
     UserStatus.INVISIBLE, UserStatus.OFFLINE -> "invisivel"
 }
 
@@ -114,13 +114,13 @@ fun UserFooter(
     var confirmLogout by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
-    // Botao direito no rodape: abrir perfil / copiar ID / configuracoes / sair.
+    // Botao direito no rodape: abrir perfil / copiar ID / configurações / sair.
     // "definir status" fica pra fatia do submenu generico + API de status.
     EditorialContextMenu(entries = {
         buildList {
             add(MenuEntry.Item("abrir perfil", icon = Lucide.User) { profileOpen = true })
             me?.let { add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(it.id)) }) }
-            add(MenuEntry.Item("configuracoes", icon = Lucide.Settings) { onOpenSettings(SettingsTab.ACCOUNT) })
+            add(MenuEntry.Item("configurações", icon = Lucide.Settings) { onOpenSettings(SettingsTab.ACCOUNT) })
             add(MenuEntry.Separator)
             add(MenuEntry.Item("sair", danger = true, icon = Lucide.LogOut) { confirmLogout = true })
         }
@@ -142,7 +142,7 @@ fun UserFooter(
             Box(
                 Modifier
                     .clip(CircleShape)
-                    // Clicar no avatar vai direto pra aba Perfil das configuracoes:
+                    // Clicar no avatar vai direto pra aba Perfil das configurações:
                     // e la que se edita de verdade (avatar, banner, tema, fonte). O
                     // card so de leitura continua no botao direito > "abrir perfil".
                     .clickable(onClick = { onOpenSettings(SettingsTab.PROFILE) }),

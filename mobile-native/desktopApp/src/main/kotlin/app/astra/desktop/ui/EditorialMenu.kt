@@ -77,7 +77,7 @@ sealed interface MenuEntry {
     ) : MenuEntry
 }
 
-// Popup na posicao do clique (offset dentro da ancora), clampado na janela.
+// Popup na posição do clique (offset dentro da ancora), clampado na janela.
 private class AtPointer(private val at: IntOffset) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -91,7 +91,7 @@ private class AtPointer(private val at: IntOffset) : PopupPositionProvider {
 }
 
 // Envolve o alvo: botao direito abre o menu no ponto do clique. So OBSERVA os
-// eventos (nao consome) — cliques normais seguem funcionando por baixo.
+// eventos (não consome) — cliques normais seguem funcionando por baixo.
 @Composable
 fun EditorialContextMenu(
     entries: () -> List<MenuEntry>,
@@ -105,7 +105,7 @@ fun EditorialContextMenu(
                     val event = awaitPointerEvent()
                     if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
                         // Consome o botao-direito pra que menu ANINHADO resolva no mais
-                        // interno: o filho (ex: orbita) consome primeiro no pass Main, o
+                        // interno: o filho (ex: órbita) consome primeiro no pass Main, o
                         // pai (ex: area vazia da lista) ve consumido e ignora.
                         val change = event.changes.first()
                         if (!change.isConsumed) {
@@ -140,8 +140,8 @@ private fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
     ) {
         Column(
             Modifier
-                // Abraca o conteudo (min menor + teto): item curto nao vira barra
-                // esticada. Textos do menu sao de 1 linha (< max), sem quebra.
+                // Abraca o conteudo (min menor + teto): item curto não vira barra
+                // esticada. Textos do menu são de 1 linha (< max), sem quebra.
                 .widthIn(min = 150.dp, max = 260.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Obsidian.overlay)

@@ -7,12 +7,12 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 // Sons do app SINTETIZADOS em runtime (sem arquivos .wav): senoides curtas com
-// envelope (fade in/out) pra nao estalar. Convencao do dono:
+// envelope (fade in/out) pra não estalar. Convencao do dono:
 //   entrar na call  = agudo/fino  (sobe)
 //   sair da call     = grave/grosso (desce)
 //   transmitir tela  = 3 fases subindo (cada fase mais fina)
-//   parar transmissao= as MESMAS 3 fases, invertidas (descendo)
-// Toca numa thread daemon (nao trava a UI); so JDK (javax.sound), zero dependencia.
+//   parar transmissão= as MESMAS 3 fases, invertidas (descendo)
+// Toca numa thread daemon (não trava a UI); so JDK (javax.sound), zero dependencia.
 object Sfx {
     private const val RATE = 44100
 

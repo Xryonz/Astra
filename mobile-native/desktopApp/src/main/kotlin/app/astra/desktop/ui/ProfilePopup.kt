@@ -66,7 +66,7 @@ private val profileCache = mutableMapOf<String, Pair<ProfileUserDto, Long>>()
 private fun cached(userId: String): ProfileUserDto? =
     profileCache[userId]?.takeIf { System.currentTimeMillis() - it.second < CACHE_MS }?.first
 
-// Abre ao LADO da ancora (direita; vira pra esquerda se nao couber) e clampa
+// Abre ao LADO da ancora (direita; vira pra esquerda se não couber) e clampa
 // na vertical — funciona tanto no chat quanto no painel de membros na borda.
 private object BesideAnchor : PopupPositionProvider {
     override fun calculatePosition(
@@ -161,7 +161,7 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
             if (p == null) {
                 CardSkeleton()
             } else {
-                // bannerColor guarda CSS ("linear-gradient(...)"), nao hex — ler
+                // bannerColor guarda CSS ("linear-gradient(...)"), não hex — ler
                 // como hex fazia TODO gradiente virar cinza liso aqui. ProfileBanner
                 // traduz o CSS e aplica o enquadramento salvo.
                 ProfileBanner(

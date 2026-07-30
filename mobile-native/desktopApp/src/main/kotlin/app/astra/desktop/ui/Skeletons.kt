@@ -20,7 +20,7 @@ import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 
 // Skeletons shimmer (RikkaUI, cores do RikkaTheme obsidiana do Main) no lugar
-// dos textos de loading. Densidade DESKTOP (compacta) — nao os tamanhos touch
+// dos textos de loading. Densidade DESKTOP (compacta) — não os tamanhos touch
 // do ListSkeleton do mobile.
 
 private val Shimmer = SkeletonAnimation.Shimmer
@@ -52,7 +52,7 @@ fun SidebarSkeleton(rows: Int = 9, modifier: Modifier = Modifier) {
     }
 }
 
-// Linhas estilo Discord (avatar + nome + texto), nao bolhas como o mobile —
+// Linhas estilo Discord (avatar + nome + texto), não bolhas como o mobile —
 // espelha o layout real do ChatView.
 @Composable
 fun ChatSkeleton(modifier: Modifier = Modifier) {

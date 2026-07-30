@@ -15,27 +15,27 @@ import java.util.zip.ZipInputStream
 import kotlin.system.exitProcess
 
 // Auto-update DIY do Astra desktop, modo PORTATIL (decisao do dono: "pasta com
-// todas as versoes + sempre abrir a mais nova"). Sem lib: bate na API publica de
-// releases do GitHub, compara semver com a versao embutida (-Dastra.version),
+// todas as versões + sempre abrir a mais nova"). Sem lib: bate na API pública de
+// releases do GitHub, compara semver com a versão embutida (-Dastra.version),
 // baixa o .zip do app-image novo com progresso (retry + resume), arquiva o zip e
-// extrai a versao nova numa subpasta propria. No "reiniciar" so abre o Astra.exe
-// da versao nova e sai — sem swap in-place (nada de rename/.old/.bat, que era o
-// que dava permissao/race). O launcher (launch.vbs) sempre reabre a MAIOR versao.
+// extrai a versão nova numa subpasta propria. No "reiniciar" so abre o Astra.exe
+// da versão nova e sai — sem swap in-place (nada de rename/.old/.bat, que era o
+// que dava permissão/race). O launcher (launch.vbs) sempre reabre a MAIOR versão.
 //
 // Layout portatil (o app roda de versions/<v>/Astra.exe):
 //   C:/Astra/
 //     Astra.lnk            atalho fixo -> launch.vbs
-//     launch.vbs           acha a maior versao e roda seu Astra.exe (sem console)
-//     versions/<v>/Astra.exe ...   uma pasta por versao (historico completo)
+//     launch.vbs           acha a maior versão e roda seu Astra.exe (sem console)
+//     versions/<v>/Astra.exe ...   uma pasta por versão (historico completo)
 //     zips/Astra-<v>-win-x64.zip   cada zip baixado fica arquivado aqui
 //
 // Convencao de release (o dono segue ao publicar):
-//   tag  : desktop-v<versao>            ex: desktop-v0.1.7
-//   asset: Astra-<versao>-win-x64.zip   (contem a pasta Astra/ do createDistributable)
+//   tag  : desktop-v<versão>            ex: desktop-v0.1.7
+//   asset: Astra-<versão>-win-x64.zip   (contem a pasta Astra/ do createDistributable)
 
 // Checagem SEM a API do GitHub (api.github.com tem rate-limit anonimo de 60/h por
 // IP: varios boots/checagens + amigos no mesmo IP/CGNAT estouravam -> 403 -> falso
-// "sem conexao"). github.com/<repo>/releases/latest responde 302 pra .../tag/<tag>
+// "sem conexão"). github.com/<repo>/releases/latest responde 302 pra .../tag/<tag>
 // e a pagina web NAO tem esse limite; da tag monta-se o zip por convencao.
 private const val REPO = "Xryonz/Astra"
 private const val LATEST_PAGE = "https://github.com/$REPO/releases/latest"
@@ -56,7 +56,7 @@ sealed interface UpdateState {
     data class Failed(val reason: String, val releaseUrl: String?) : UpdateState
 }
 
-// Resolvida so pela tag (via redirect). notes/size ficam de fora: sem a API nao ha
+// Resolvida so pela tag (via redirect). notes/size ficam de fora: sem a API não ha
 // como obte-los, e nenhum dos dois e essencial (o download usa o contentLength).
 private data class ResolvedRelease(
     val version: String,
@@ -69,13 +69,13 @@ class UpdateService(private val http: OkHttpClient) {
     val state = _state.asStateFlow()
 
     // Versao embutida no app-image (jvmArg do build.gradle). "dev" quando rodando
-    // pelo Gradle/IDE — nesse caso o updater fica desligado (appRoot nao resolve).
+    // pelo Gradle/IDE — nesse caso o updater fica desligado (appRoot não resolve).
     val currentVersion: String get() = System.getProperty("astra.version") ?: "dev"
 
     // So o app empacotado (Astra.exe) tem pasta pra versionar. Dev/IDE = nulo.
     val installed: Boolean get() = appRootDir() != null
 
-    // Astra.exe da versao nova, ja extraida em versions/<v>/. Setado no stage.
+    // Astra.exe da versão nova, já extraida em versions/<v>/. Setado no stage.
     private var stagedExe: File? = null
 
     // ---- Checagem ----
@@ -86,21 +86,21 @@ class UpdateService(private val http: OkHttpClient) {
         val release = try {
             fetchLatest()
         } catch (e: Exception) {
-            // Rede caiu de verdade. No gate (silent) nao assusta: assume "atualizado"
+            // Rede caiu de verdade. No gate (silent) não assusta: assume "atualizado"
             // e segue. Manual (Settings) mostra a causa REAL — sem o falso "sem
-            // conexao" que o rate-limit da API (60/h/IP) disparava antes.
+            // conexão" que o rate-limit da API (60/h/IP) disparava antes.
             _state.value = if (silent) UpdateState.UpToDate
             else UpdateState.Failed(failureReason(e), LATEST_PAGE)
             return@withContext
         }
-        // Sem release publicada, ou nao ha nada mais novo que agora.
+        // Sem release publicada, ou não ha nada mais novo que agora.
         if (release == null || !isNewer(release.version, currentVersion)) {
             _state.value = UpdateState.UpToDate
             return@withContext
         }
         _state.value = UpdateState.Available(
             version = release.version,
-            notes = "", // checagem sem API -> sem release notes (nao essencial)
+            notes = "", // checagem sem API -> sem release notes (não essencial)
             downloadUrl = release.downloadUrl,
             size = 0L, // desconhecido sem API; o download usa o contentLength da resposta
             releaseUrl = release.releaseUrl,
@@ -137,11 +137,11 @@ class UpdateService(private val http: OkHttpClient) {
     // sobra so o caso real (rede) — a mensagem finalmente bate com o que houve.
     private fun failureReason(e: Throwable): String = when (e) {
         is UnknownHostException -> "sem internet"
-        is IOException -> "sem conexao com o GitHub"
-        else -> "nao deu pra verificar agora"
+        is IOException -> "sem conexão com o GitHub"
+        else -> "não deu pra verificar agora"
     }
 
-    // semver simples: a > b por campo (major.minor.patch). Campos nao-numericos = 0.
+    // semver simples: a > b por campo (major.minor.patch). Campos não-numericos = 0.
     private fun isNewer(a: String, b: String): Boolean {
         val pa = a.split(".", "-").map { it.toIntOrNull() ?: 0 }
         val pb = b.split(".", "-").map { it.toIntOrNull() ?: 0 }
@@ -157,11 +157,11 @@ class UpdateService(private val http: OkHttpClient) {
 
     suspend fun downloadAndStage(av: UpdateState.Available) = withContext(Dispatchers.IO) {
         val appRoot = appRootDir() ?: run {
-            _state.value = UpdateState.Failed("nao achei a pasta do app", av.releaseUrl)
+            _state.value = UpdateState.Failed("não achei a pasta do app", av.releaseUrl)
             return@withContext
         }
-        // appRoot = versions/<versao-atual>. Pai = versions/. Avo = C:/Astra (raiz
-        // portatil, onde mora zips/). Fallback pro proprio versions se nao houver avo.
+        // appRoot = versions/<versão-atual>. Pai = versions/. Avo = C:/Astra (raiz
+        // portatil, onde mora zips/). Fallback pro proprio versions se não houver avo.
         val versionsDir = appRoot.parentFile ?: run {
             _state.value = UpdateState.Failed("layout do app inesperado", av.releaseUrl)
             return@withContext
@@ -185,7 +185,7 @@ class UpdateService(private val http: OkHttpClient) {
             val exeRoot =
                 if (File(stagingDir, "Astra.exe").exists()) stagingDir
                 else stagingDir.listFiles()?.firstOrNull { File(it, "Astra.exe").exists() }
-                    ?: error("Astra.exe nao encontrado no pacote")
+                    ?: error("Astra.exe não encontrado no pacote")
             newVersionDir.deleteRecursively()
             // rename e quase-atomico no mesmo volume; copia so se ele falhar (ex.:
             // exeRoot == stagingDir e alvo em volume diferente — raro).
@@ -193,17 +193,17 @@ class UpdateService(private val http: OkHttpClient) {
                 exeRoot.copyRecursively(newVersionDir, overwrite = true)
             }
             stagingDir.deleteRecursively()
-            // Confere que a versao extraida e um app-image COMPLETO (nao so o exe):
+            // Confere que a versão extraida e um app-image COMPLETO (não so o exe):
             // o jpackage sempre traz app/ e runtime/ junto. Faltando = pacote quebrado
-            // (nunca deixa uma versao capenga virar a "mais nova" que o launcher abre).
+            // (nunca deixa uma versão capenga virar a "mais nova" que o launcher abre).
             if (!File(newVersionDir, "app").isDirectory || !File(newVersionDir, "runtime").isDirectory) {
                 error("pacote incompleto")
             }
             stagedExe = File(newVersionDir, "Astra.exe")
             _state.value = UpdateState.Ready(av.version)
         }.onFailure {
-            // Nao deixa lixo: zip parcial/corrompido e a versao meio-extraida saem,
-            // pra a proxima tentativa comecar limpa e o launcher nunca ver meia-versao.
+            // Não deixa lixo: zip parcial/corrompido e a versão meio-extraida saem,
+            // pra a próxima tentativa comecar limpa e o launcher nunca ver meia-versão.
             stagingDir.deleteRecursively()
             zipFile.delete()
             newVersionDir.deleteRecursively()
@@ -212,24 +212,24 @@ class UpdateService(private val http: OkHttpClient) {
     }
 
     // Motivo LEGIVEL da falha do download/extracao — o dono quer saber se baixou ou
-    // nao, e por que. Cada caso vira uma frase que bate com o que houve (a UI de
+    // não, e por que. Cada caso vira uma frase que bate com o que houve (a UI de
     // Settings mostra isto + o botao "abrir pagina do release").
     private fun stageFailReason(e: Throwable): String {
         val m = e.message.orEmpty()
         return when {
             e is UnknownHostException -> "sem internet — tente pelo site"
-            m.contains("HTTP 404") -> "essa versao ainda nao esta no GitHub"
+            m.contains("HTTP 404") -> "essa versão ainda não está no GitHub"
             m.startsWith("HTTP") -> "o GitHub recusou ($m) — tente pelo site"
             m.contains("space", true) || m.contains("espaco", true) -> "sem espaco em disco pra atualizar"
             m.contains("incompleto") -> "o download veio incompleto — tente de novo"
-            e is IOException -> "a conexao caiu no meio — tente de novo"
+            e is IOException -> "a conexão caiu no meio — tente de novo"
             else -> "falha ao baixar — tente pelo site"
         }
     }
 
     // Download grande (~140MB) resiliente: retry ate 3x e RESUME via Range quando o
-    // servidor aceita (206) — um engasgo de rede >readTimeout nao joga fora o que ja
-    // baixou. Sem callTimeout (a chamada inteira nao tem teto), so readTimeout por
+    // servidor aceita (206) — um engasgo de rede >readTimeout não joga fora o que já
+    // baixou. Sem callTimeout (a chamada inteira não tem teto), so readTimeout por
     // leitura. OkHttp segue o 302 do asset pro storage sozinho.
     private fun download(url: String, dest: File, onProgress: (Float) -> Unit) {
         val client = http.newBuilder()
@@ -267,7 +267,7 @@ class UpdateService(private val http: OkHttpClient) {
                     }
                 }
                 // Integridade: se o GitHub informou o tamanho, o arquivo TEM que bater.
-                // Corte silencioso (a conexao morre sem erro de leitura) deixa o zip
+                // Corte silencioso (a conexão morre sem erro de leitura) deixa o zip
                 // truncado -> IOException dispara o retry, que RETOMA do byte que faltou.
                 if (expected > 0 && dest.length() != expected) {
                     throw IOException("download incompleto (${dest.length()}/$expected)")
@@ -276,7 +276,7 @@ class UpdateService(private val http: OkHttpClient) {
                 return
             } catch (e: IOException) {
                 if (attempt >= 3) throw e
-                // Espera curta e tenta RETOMAR do byte onde parou (nao recomeca).
+                // Espera curta e tenta RETOMAR do byte onde parou (não recomeca).
                 Thread.sleep(1500)
             }
         }
@@ -305,9 +305,9 @@ class UpdateService(private val http: OkHttpClient) {
 
     // ---- Reinicio ----
 
-    // Portatil: a versao nova ja esta pronta em versions/<v>/. So abre o Astra.exe
+    // Portatil: a versão nova já esta pronta em versions/<v>/. So abre o Astra.exe
     // dela e sai — sem swap, sem .bat, sem esperar. O launcher (e o atalho) sempre
-    // reabrem a MAIOR versao, entao os proximos boots tambem caem na nova.
+    // reabrem a MAIOR versão, entao os proximos boots também caem na nova.
     fun restartToInstall() {
         val exe = stagedExe ?: return
         ProcessBuilder(exe.absolutePath)

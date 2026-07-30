@@ -65,23 +65,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Aba CARGOS. Lista -> clicar abre o editor NO LUGAR da lista (decisao do dono):
-// os 7 interruptores de permissao cabem sem apertar e cada tela respira.
+// os 7 interruptores de permissão cabem sem apertar e cada tela respira.
 //
-// Regra que molda esta tela: o backend passa toda permissao por grantableSubset,
-// que DESCARTA em silencio o que o ator nao possui (menos o dono) e ainda assim
-// responde 200. Se a UI deixasse marcar o que voce nao tem, ela diria "salvo" e a
-// permissao nao estaria la. Por isso os interruptores fora do teu alcance ficam
+// Regra que molda esta tela: o backend passa toda permissão por grantableSubset,
+// que DESCARTA em silencio o que o ator não possui (menos o dono) e ainda assim
+// responde 200. Se a UI deixasse marcar o que você não tem, ela diria "salvo" e a
+// permissão não estaria la. Por isso os interruptores fora do teu alcance ficam
 // desligados e explicados, em vez de mentir.
 
-// Rotulo e explicacao de cada permissao. A ordem e do mais forte pro mais fraco.
+// Rotulo e explicacao de cada permissão. A ordem e do mais forte pro mais fraco.
 private val PERMISSIONS = listOf(
-    Triple("MANAGE_SERVER", "Gerenciar a constelacao", "mudar nome, imagens, convite e visibilidade"),
+    Triple("MANAGE_SERVER", "Gerenciar a constelação", "mudar nome, imagens, convite e visibilidade"),
     Triple("MANAGE_ROLES", "Gerenciar cargos", "criar, editar e dar cargos a outras pessoas"),
-    Triple("MANAGE_CHANNELS", "Gerenciar orbitas", "criar, renomear, mover e apagar canais"),
-    Triple("KICK_MEMBERS", "Expulsar membros", "remove da constelacao; da pra voltar com convite"),
+    Triple("MANAGE_CHANNELS", "Gerenciar órbitas", "criar, renomear, mover e apagar canais"),
+    Triple("KICK_MEMBERS", "Expulsar membros", "remove da constelação; da pra voltar com convite"),
     Triple("BAN_MEMBERS", "Banir membros", "remove e impede de voltar"),
     Triple("MANAGE_MESSAGES", "Gerenciar mensagens", "apagar mensagem de outros e fixar"),
-    Triple("MENTION_EVERYONE", "Mencionar todos", "usar @everyone pra avisar a constelacao inteira"),
+    Triple("MENTION_EVERYONE", "Mencionar todos", "usar @everyone pra avisar a constelação inteira"),
 )
 
 // Paleta de cargos: tons que se leem sobre o obsidiana sem virar neon. Quem quer
@@ -119,7 +119,7 @@ internal fun RolesSection(
         targetState = editing,
         transitionSpec = {
             // Entrar no editor desliza pra esquerda; voltar, pra direita — o gesto
-            // diz de que lado voce veio.
+            // diz de que lado você veio.
             val forward = targetState != null
             val dir = if (forward) 1 else -1
             (slideInHorizontally(tween(200)) { it / 8 * dir } + fadeIn(tween(200)))
@@ -155,7 +155,7 @@ private fun RoleList(
     onNew: () -> Unit,
 ) {
     Text(
-        "cargos dao permissoes e cor ao nome. Quem tem varios fica com a cor do mais alto.",
+        "cargos dao permissões e cor ao nome. Quem tem varios fica com a cor do mais alto.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -168,7 +168,7 @@ private fun RoleList(
         )
         Spacer(Modifier.height(12.dp))
     }
-    // Mais alto primeiro: a posicao e a hierarquia.
+    // Mais alto primeiro: a posição e a hierarquia.
     roles.sortedByDescending { it.position }.forEach { role ->
         val count = members.count { m -> m.roles.any { it.id == role.id } }
         RoleRow(role, count) { onPick(role.id) }
@@ -226,7 +226,7 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
                 buildString {
                     append(if (memberCount == 1) "1 membro" else "$memberCount membros")
                     if (role.hoist) append(" · separado na lista")
-                    if (role.permissions.isNotEmpty()) append(" · ${role.permissions.size} permissoes")
+                    if (role.permissions.isNotEmpty()) append(" · ${role.permissions.size} permissões")
                 },
                 style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -248,7 +248,7 @@ private fun RoleIconField(iconUrl: String?, onChange: (String?) -> Unit) {
             Modifier.size(40.dp).clip(CircleShape).background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderDim, CircleShape),
         ) {
-            if (!iconUrl.isNullOrBlank()) AstraImage(iconUrl, "icone do cargo", Modifier.fillMaxSize())
+            if (!iconUrl.isNullOrBlank()) AstraImage(iconUrl, "ícone do cargo", Modifier.fillMaxSize())
         }
         Spacer(Modifier.width(12.dp))
         Text(
@@ -357,10 +357,10 @@ private fun RoleEditor(
     ) { hoist = it }
 
     SettingsDivider()
-    FieldLabel("permissoes")
+    FieldLabel("permissões")
     if (!amOwner) {
         Text(
-            "voce so pode conceder permissoes que voce mesmo tem.",
+            "você so pode conceder permissões que você mesmo tem.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             modifier = Modifier.widthIn(max = 460.dp).padding(bottom = 8.dp),
         )
@@ -371,7 +371,7 @@ private fun RoleEditor(
         val canGrant = amOwner || key in myPermissions
         PermissionRow(
             label = label,
-            desc = if (canGrant) desc else "$desc — voce nao tem esta permissao",
+            desc = if (canGrant) desc else "$desc — você não tem esta permissão",
             checked = key in perms,
             enabled = canGrant,
         ) { on ->
@@ -379,7 +379,7 @@ private fun RoleEditor(
         }
     }
 
-    // ---- Membros com este cargo (so pra cargo que ja existe) ----
+    // ---- Membros com este cargo (so pra cargo que já existe) ----
     if (role != null) {
         SettingsDivider()
         FieldLabel("quem tem este cargo")
@@ -427,7 +427,7 @@ private fun RoleEditor(
     }
     if (confirmDelete && role != null) {
         ConfirmPopup(
-            message = "excluir o cargo ${role.name}? quem o tem perde as permissoes dele.",
+            message = "excluir o cargo ${role.name}? quem o tem perde as permissões dele.",
             confirmLabel = "excluir",
             onConfirm = {
                 confirmDelete = false
@@ -439,8 +439,8 @@ private fun RoleEditor(
     Spacer(Modifier.height(24.dp))
 }
 
-// Membros com o cargo + quem falta. Lista rolavel e capada: uma constelacao
-// grande nao pode empurrar os botoes de salvar pra fora da tela.
+// Membros com o cargo + quem falta. Lista rolavel e capada: uma constelação
+// grande não pode empurrar os botoes de salvar pra fora da tela.
 @Composable
 private fun RoleMembers(
     role: RoleDto,
@@ -548,7 +548,7 @@ private fun PermissionRow(
             Text(desc, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
         }
         Spacer(Modifier.width(12.dp))
-        // Interruptor simples (o ToggleRow do Settings ja tem rotulo proprio; aqui
+        // Interruptor simples (o ToggleRow do Settings já tem rotulo proprio; aqui
         // o rotulo e a coluna acima, entao so a chave).
         Box(
             Modifier
@@ -642,7 +642,7 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
                     Spacer(Modifier.height(4.dp))
                     HairRule()
                     Spacer(Modifier.height(10.dp))
-                    FieldLabel("codigo hex")
+                    FieldLabel("código hex")
                     RoleHexField(selected) { onPick(it) }
                 }
             }
@@ -673,7 +673,7 @@ private fun RoleHexField(selected: String?, onPick: (String) -> Unit) {
                 onValueChange = { raw ->
                     val clean = raw.filter { it.isDigit() || it.lowercaseChar() in 'a'..'f' }.lowercase().take(6)
                     text = clean
-                    // So aplica com os 6 digitos: teclar no meio nao deve pintar um
+                    // So aplica com os 6 digitos: teclar no meio não deve pintar um
                     // valor pela metade.
                     if (clean.length == 6) onPick("#$clean")
                 },

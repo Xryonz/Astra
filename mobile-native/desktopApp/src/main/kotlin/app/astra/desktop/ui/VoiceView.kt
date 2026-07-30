@@ -93,7 +93,7 @@ import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Image as SkiaImage
 import org.koin.core.context.GlobalContext
 
-// Sala de voz — V3..V6: audio bidirecional (mute), transmissao de tela a 60fps,
+// Sala de voz — V3..V6: audio bidirecional (mute), transmissão de tela a 60fps,
 // palco de video remoto e speaking indicators
 // (plano: docs/plans/2026-07-10-astra-voz-nativa.md).
 @Composable
@@ -101,7 +101,7 @@ fun VoiceView(
     channel: ChannelDto,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
-    // O engine vem de fora (VoiceSession, no shell). Nao pode nascer aqui: era o
+    // O engine vem de fora (VoiceSession, no shell). Não pode nascer aqui: era o
     // DisposableEffect desta tela que desconectava a call ao navegar.
     engine: VoiceEngine,
     onLeave: () -> Unit,
@@ -137,16 +137,16 @@ fun VoiceView(
         Text(label, style = TextStyle(color = color, fontSize = 11.sp))
         Spacer(Modifier.height(14.dp))
 
-        // Palco. Sem transmissao (minha nem de outros) = grid de tiles. Com
-        // transmissao = video grande em DESTAQUE + faixa de tiles embaixo. A MINHA
-        // tela entra como stream tambem (auto-preview Discord) e vem PRIMEIRO ->
-        // ao transmitir, ja vejo em destaque o que estou compartilhando.
+        // Palco. Sem transmissão (minha nem de outros) = grid de tiles. Com
+        // transmissão = video grande em DESTAQUE + faixa de tiles embaixo. A MINHA
+        // tela entra como stream também (auto-preview Discord) e vem PRIMEIRO ->
+        // ao transmitir, já vejo em destaque o que estou compartilhando.
         val connected = status as? VoiceStatus.Connected
         val avatarByUser = remember(members) { members.associate { it.userId to it.user.avatarUrl } }
         val tiles = remember(connected, me, micOn, avatarByUser) {
             buildList {
                 if (connected != null) {
-                    add(Tile("voce", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
+                    add(Tile("você", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
                     connected.others.forEach { p ->
                         // Foto: primeiro a do token (metadata) — vale em DM tb; se faltar,
                         // cai na lista de membros do servidor.
@@ -184,17 +184,17 @@ fun VoiceView(
                             .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                         val lp = localPreview
                         // Minha tela = preview direto da captura (o sink da track local
-                        // nao entrega frames do CustomVideoSource). Sem tee (fallback
+                        // não entrega frames do CustomVideoSource). Sem tee (fallback
                         // GDI) cai pro sink da track.
                         if (w.isMe && lp != null) LocalPreviewView(lp, stageMod)
                         else RemoteVideoView(w.track, stageMod)
                         Spacer(Modifier.height(6.dp))
-                        // Na MINHA transmissao mostro os fps reais (envio + captura) e
+                        // Na MINHA transmissão mostro os fps reais (envio + captura) e
                         // o motivo se o WebRTC degradou — e como saber se bateu 60.
                         val st = screenStats
                         val txt = when {
-                            !w.isMe -> "transmissao de ${w.label}"
-                            st == null -> "voce esta transmitindo"
+                            !w.isMe -> "transmissão de ${w.label}"
+                            st == null -> "você está transmitindo"
                             else -> buildString {
                                 append("transmitindo · envio ${st.sendFps}fps · captura ${st.captureFps}fps")
                                 if (st.limit != "none" && st.limit.isNotBlank()) append(" · limite: ${st.limit}")
@@ -207,7 +207,7 @@ fun VoiceView(
                             else -> Obsidian.text3
                         }
                         Text(txt, style = TextStyle(color = txtColor, fontSize = 11.sp))
-                        // Abas so quando ha mais de uma transmissao (a minha + de outros).
+                        // Abas so quando ha mais de uma transmissão (a minha + de outros).
                         if (streams.size > 1) {
                             Spacer(Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -334,7 +334,7 @@ fun VoiceView(
     }
 }
 
-// Config da call (gear): escolher a fluidez da transmissao (aplica ao vivo) e —
+// Config da call (gear): escolher a fluidez da transmissão (aplica ao vivo) e —
 // futuro — o cancelador de ruido Krisp. Presets = os 2 do ScreenQuality (720p 60/30).
 @Composable
 private fun CallSettingsPanel(
@@ -356,7 +356,7 @@ private fun CallSettingsPanel(
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
             .padding(8.dp),
     ) {
-        // So 720p (foco de perf: o encoder e software, 1080p nao segura o fps). O
+        // So 720p (foco de perf: o encoder e software, 1080p não segura o fps). O
         // eixo de resolucao saiu; sobra a fluidez, 720p60 fluida vs 720p30 leve.
         PanelHeader("Transmissao · 720p")
         CallSegmented(
@@ -501,7 +501,7 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
-// Uma transmissao no palco: minha tela (auto-preview) OU de outro participante.
+// Uma transmissão no palco: minha tela (auto-preview) OU de outro participante.
 private data class StageStream(val label: String, val track: VideoTrack, val isMe: Boolean)
 
 // Uma fonte transmissivel: uma tela (monitor) OU uma camera. So uma por vez.
@@ -512,7 +512,7 @@ private sealed interface ShareChoice {
 }
 
 private fun shareChoicesOf(engine: VoiceEngine): List<ShareChoice> {
-    // s.title vem do webrtc-java (Java, pode ser null) — protege contra o NPE que ja
+    // s.title vem do webrtc-java (Java, pode ser null) — protege contra o NPE que já
     // mordeu no seletor so-de-telas.
     val screens = engine.screens().mapIndexed { i, s ->
         ShareChoice.Screen(s, (s.title ?: "").ifBlank { "tela ${i + 1}" })
@@ -533,7 +533,7 @@ private fun startShare(engine: VoiceEngine, choice: ShareChoice) {
 // Tom do botao de call (borda + simbolo): normal, ativo (accent) ou perigo.
 private enum class CallTone { Normal, Active, Danger }
 
-// Botao minimalista de call (Discord): so o icone, circulo com borda que troca
+// Botao minimalista de call (Discord): so o ícone, circulo com borda que troca
 // de cor pelo estado. Sem texto. Icone Lucide monocromatico -> o tint AGORA pega
 // no glifo (antes, com emoji colorido, so a borda carregava o estado).
 @Composable
@@ -569,8 +569,8 @@ private fun CallIconButton(icon: ImageVector, tone: CallTone, onClick: () -> Uni
     }
 }
 
-// Um participante no palco. muted so e conhecido pra mim (o engine nao expoe o
-// mute dos outros ainda) — nos outros o icone fica de fora.
+// Um participante no palco. muted so e conhecido pra mim (o engine não expoe o
+// mute dos outros ainda) — nos outros o ícone fica de fora.
 private data class Tile(
     val label: String,
     val speaking: Boolean,
@@ -594,12 +594,12 @@ private fun ParticipantGrid(tiles: List<Tile>) {
 
 // Cartao: avatar grande centralizado + nome; anel/halo ambar pulsa ao falar
 // (respeita reduzir movimento — fica aceso e parado). Layout estavel: o halo
-// vive num Box de tamanho fixo, entao falar nao empurra o tile.
+// vive num Box de tamanho fixo, entao falar não empurra o tile.
 @Composable
 private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
     val reduce = LocalReduceMotion.current
     val active = LocalWindowActive.current
-    // Estrela de fala: UMA fase de orbita, so quando fala + janela visivel +
+    // Estrela de fala: UMA fase de órbita, so quando fala + janela visivel +
     // movimento ligado, lida DENTRO do drawBehind. Antes um halo pulsante era
     // lido no corpo e recompunha o cartao inteiro (avatar/nome/mic) 60fps por
     // pessoa falando; agora so redesenha. (Auditoria de movimento, achado #1.)
@@ -615,7 +615,7 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
         tween(140),
     )
     // Inchada ao falar: o card cresce ~4% com mola suave (escala VISUAL via
-    // graphicsLayer -> nao empurra os vizinhos; cresce por cima). Reduzir movimento
+    // graphicsLayer -> não empurra os vizinhos; cresce por cima). Reduzir movimento
     // = fica maior parado, sem animar.
     val swell by animateFloatAsState(
         targetValue = if (tile.speaking) 1.04f else 1f,
@@ -634,7 +634,7 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
         Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
             if (tile.speaking) {
                 Box(Modifier.fillMaxSize().drawBehind {
-                    // Halo suave constante; a estrela orbita por cima (ou so o halo,
+                    // Halo suave constante; a estrela órbita por cima (ou so o halo,
                     // se movimento reduzido / janela em segundo plano).
                     drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
                     orbit?.let { ph ->
@@ -702,7 +702,7 @@ private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
 }
 
 // Auto-preview da MINHA tela: os frames vem direto da captura (ScreenPreview, ARGB
-// cru) porque o sink da track local nao dispara pra CustomVideoSource. makeRaster
+// cru) porque o sink da track local não dispara pra CustomVideoSource. makeRaster
 // copia os bytes; cada ScreenPreview novo (~15fps) recompoe e redesenha.
 @Composable
 private fun LocalPreviewView(preview: ScreenPreview, modifier: Modifier = Modifier) {

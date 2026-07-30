@@ -64,8 +64,8 @@ import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
 // Busca-A: palette dedicada (lupa no titlebar). Abas Tudo/Mensagens/Canais/
-// Pessoas contra GET /api/search. Escopo padrao = constelacao atual, com toggle
-// "buscar em tudo" (mensagens/canais filtram por serverId; pessoas sao globais).
+// Pessoas contra GET /api/search. Escopo padrao = constelação atual, com toggle
+// "buscar em tudo" (mensagens/canais filtram por serverId; pessoas são globais).
 
 private enum class SearchTab(val label: String) {
     ALL("Tudo"), MESSAGES("Mensagens"), CHANNELS("Canais"), PEOPLE("Pessoas")
@@ -80,7 +80,7 @@ fun SearchOverlay(
 ) {
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(SearchTab.ALL) }
-    // Sem constelacao aberta (ex.: nos sussurros), busca sempre global.
+    // Sem constelação aberta (ex.: nos sussurros), busca sempre global.
     var onlyHere by remember { mutableStateOf(currentServerId != null) }
     var results by remember { mutableStateOf(SearchResultsDto()) }
     var loading by remember { mutableStateOf(false) }

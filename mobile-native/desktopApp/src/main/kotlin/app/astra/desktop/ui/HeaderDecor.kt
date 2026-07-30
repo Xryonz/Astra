@@ -17,11 +17,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import app.astra.desktop.ui.theme.Obsidian
 import kotlin.math.sin
 
-// "Constelacao conectada": decoracao do vao do header quando ha uma constelacao
+// "Constelação conectada": decoracao do vao do header quando ha uma constelação
 // selecionada. Nos-estrela em alturas variadas, ligados por linhas finas (o idioma do
-// mapa do tesouro), piscando fora de fase e derivando devagar. O ultimo no encosta na
-// borda direita — onde fica o botao de membros, que FECHA a constelacao. Fica ATRAS do
-// titulo (alpha baixo, nao briga com o texto). Congela ao reduzir-movimento ou janela
+// mapa do tesouro), piscando fora de fase e derivando devagar. O último no encosta na
+// borda direita — onde fica o botao de membros, que FECHA a constelação. Fica ATRAS do
+// titulo (alpha baixo, não briga com o texto). Congela ao reduzir-movimento ou janela
 // inativa (guardrail de frame: withFrameNanos para de vir quando ocluida).
 //
 // Layout fixo dos nos: fx (0..1 no trecho direito do vao), fy (0..1 vertical), fase
@@ -68,7 +68,7 @@ internal fun ConstellationRoute(modifier: Modifier) {
             val y = top + vspan * fy + bob * sin(t * 6.2832f + ph)
             Offset(x, y)
         }
-        // linhas ligando os nos consecutivos = a "constelacao"
+        // linhas ligando os nos consecutivos = a "constelação"
         val path = Path()
         pts.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
         drawPath(path, color = accent.copy(alpha = 0.16f), style = Stroke(width = 1f, cap = StrokeCap.Round))

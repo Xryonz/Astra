@@ -52,13 +52,13 @@ import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 
 // Onboarding de primeiro acesso (combo: takeover curto + checklist no palco). ESTE
-// arquivo e o TAKEOVER — 3 passos sobre o mesmo ceu (aurora/estrelas ja vivem na
+// arquivo e o TAKEOVER — 3 passos sobre o mesmo ceu (aurora/estrelas já vivem na
 // janela, Main.kt), no idioma editorial do login. Dispara so depois de CRIAR CONTA
 // (Main passa isNew=true) e some ao concluir; o gatilho persiste numa pref local
 // por conta (uiPref "onboarded:<userId>"). O checklist residual vive no palco vazio.
 //
-// Passos: boas-vindas -> o idioma do ceu (constelacao/orbita/sussurro) -> sua foto.
-// A foto e opcional e usa o MESMO caminho do perfil (data-URI via AvatarPicker, nao
+// Passos: boas-vindas -> o idioma do ceu (constelação/órbita/sussurro) -> sua foto.
+// A foto e opcional e usa o MESMO caminho do perfil (data-URI via AvatarPicker, não
 // upload). Reduzir movimento: as trocas viram instantaneas.
 private enum class OnbStep { WELCOME, SKY, PHOTO }
 

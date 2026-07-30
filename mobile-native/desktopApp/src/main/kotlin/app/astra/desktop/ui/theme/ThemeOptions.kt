@@ -3,7 +3,7 @@ package app.astra.desktop.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Espelha o ui/theme/ThemeOptions.kt do mobile (que espelha apps/web theme.ts):
-// as opcoes de cor de destaque, fundo e presets. O Obsidian (reativo) deriva a
+// as opções de cor de destaque, fundo e presets. O Obsidian (reativo) deriva a
 // paleta a partir do par (accentId, bgId) escolhido em Settings > Aparencia.
 
 data class AccentOption(val id: String, val label: String, val value: Color)

@@ -34,9 +34,9 @@ import app.astra.desktop.ui.theme.Text
 
 // Metade "checklist" do onboarding (combo): cartao flutuante no rodape do palco
 // vazio, so pra quem acabou de passar pelo takeover (Main liga a pref
-// "checklist:<userId>"). Risca sozinho conforme o usuario cumpre cada passo — os
-// estados vem da state do shell (servers/dms/avatar), nao ha rastreio proprio.
-// Some ao completar os dois passos-nucleo (constelacao + sussurro) ou no "pular".
+// "checklist:<userId>"). Risca sozinho conforme o usuário cumpre cada passo — os
+// estados vem da state do shell (servers/dms/avatar), não ha rastreio proprio.
+// Some ao completar os dois passos-nucleo (constelação + sussurro) ou no "pular".
 @Composable
 fun FirstStepsCard(
     hasServer: Boolean,

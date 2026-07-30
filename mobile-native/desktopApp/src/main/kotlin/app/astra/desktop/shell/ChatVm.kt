@@ -57,9 +57,9 @@ data class ChatMessage(
     val authorId: String,
     val authorName: String,
     val authorAvatar: String?,
-    // Fonte escolhida pelo autor em Configuracoes > Perfil. O backend ja mandava
+    // Fonte escolhida pelo autor em Configuracoes > Perfil. O backend já mandava
     // em toda resposta; o modelo do chat e que jogava fora, entao o nome saia
-    // sempre na fonte padrao. null = usuario nao escolheu -> padrao do chat.
+    // sempre na fonte padrao. null = usuário não escolheu -> padrao do chat.
     val authorFont: String? = null,
     val createdAt: String?,
     val mine: Boolean = false,
@@ -71,8 +71,8 @@ data class ChatMessage(
     val deleting: Boolean = false,
     // --- Envio otimista (so canal, texto puro) ---
     // Nonce local que casa a bolha temporaria com o new_message que volta do
-    // servidor. pending = ainda nao confirmada (bolha esmaecida). failed = o
-    // servidor recusou ou nao respondeu (mostra "tentar de novo").
+    // servidor. pending = ainda não confirmada (bolha esmaecida). failed = o
+    // servidor recusou ou não respondeu (mostra "tentar de novo").
     val clientNonce: String? = null,
     val pending: Boolean = false,
     val failed: Boolean = false,
@@ -86,9 +86,9 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val sending: Boolean = false,
     val replyingTo: ChatMessage? = null,
-    // Quem esta digitando nesta conversa (userId -> nome exibido).
+    // Quem está digitando nesta conversa (userId -> nome exibido).
     val typing: Map<String, String> = emptyMap(),
-    // Anexos pendentes (drag&drop) que saem na proxima mensagem.
+    // Anexos pendentes (drag&drop) que saem na próxima mensagem.
     val pending: List<PendingFile> = emptyList(),
     val error: String? = null,
 )
@@ -114,7 +114,7 @@ private val ALLOWED_MIMES = setOf(
     "application/pdf", "text/plain", "application/zip", "application/json",
 )
 
-// Estado de UMA conversa aberta: historico + envio + acoes (responder/reagir/
+// Estado de UMA conversa aberta: historico + envio + ações (responder/reagir/
 // editar/apagar) + eventos ao vivo (socket). Recriado por alvo (remember(target)
 // na composicao); o listener do socket morre junto do escopo.
 class ChatVm(
@@ -127,7 +127,7 @@ class ChatVm(
     private val json: Json,
     val myId: String?,
     // Meu perfil pra desenhar a bolha otimista (nome/avatar/fonte) antes de o
-    // servidor confirmar. Provider e nao valor: o `me` do ShellVm carrega no boot
+    // servidor confirmar. Provider e não valor: o `me` do ShellVm carrega no boot
     // e pode chegar depois deste VM nascer.
     private val myProfile: () -> ProfileUserDto? = { null },
 ) {
@@ -170,7 +170,7 @@ class ChatVm(
                     // do mais velho (topo) pro mais novo (base).
                     _state.update { it.copy(loading = false, messages = list.sortedBy { m -> m.createdAt ?: "" }) }
                 }
-                .onFailure { _state.update { it.copy(loading = false, error = "Nao deu pra carregar a conversa") } }
+                .onFailure { _state.update { it.copy(loading = false, error = "Não deu pra carregar a conversa") } }
         }
     }
 
@@ -207,7 +207,7 @@ class ChatVm(
                     }.getOrNull()
                 }
                 if (uploaded.isNullOrEmpty()) {
-                    _state.update { it.copy(sending = false, error = "Nao deu pra subir o anexo") }
+                    _state.update { it.copy(sending = false, error = "Não deu pra subir o anexo") }
                     return@launch
                 }
                 uploaded
@@ -237,7 +237,7 @@ class ChatVm(
                         )
                     }
                 }
-                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "Mensagem nao enviada")) } }
+                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "Mensagem não enviada")) } }
         }
     }
 
@@ -250,7 +250,7 @@ class ChatVm(
             id = "tmp:$nonce",
             content = content,
             authorId = myId ?: "",
-            authorName = me?.displayName ?: me?.username ?: "voce",
+            authorName = me?.displayName ?: me?.username ?: "você",
             authorAvatar = me?.avatarUrl,
             authorFont = me?.displayFont,
             createdAt = java.time.Instant.now().toString(),
@@ -266,7 +266,7 @@ class ChatVm(
             // ok: o broadcast new_message reconcilia; nada a fazer aqui.
         }
 
-        // Rede de seguranca: sem ack nem broadcast, a bolha nao pode ficar
+        // Rede de seguranca: sem ack nem broadcast, a bolha não pode ficar
         // "enviando" pra sempre.
         scope.launch {
             delay(FAST_SEND_TIMEOUT_MS)
@@ -274,8 +274,8 @@ class ChatVm(
         }
     }
 
-    // So age se a bolha ainda esta pending — se o broadcast ja reconciliou (sumiu
-    // o pending), nao poe erro falso nem em cima de um envio que deu certo.
+    // So age se a bolha ainda esta pending — se o broadcast já reconciliou (sumiu
+    // o pending), não poe erro falso nem em cima de um envio que deu certo.
     private fun markFailed(nonce: String, error: String) {
         _state.update { st ->
             if (st.messages.none { it.clientNonce == nonce && it.pending }) return@update st
@@ -292,10 +292,10 @@ class ChatVm(
         if (r.code == "MUTED" || r.code == "SPAM_MUTED") {
             val s = r.secondsLeft ?: 0
             val falta = if (s >= 60) "${s / 60}min" else "${s}s"
-            return if (s > 0) "Voce esta silenciado — faltam $falta" else "Voce esta silenciado neste servidor"
+            return if (s > 0) "Você está silenciado — faltam $falta" else "Você está silenciado neste servidor"
         }
         return r.error?.takeIf { it.isNotBlank() && it != "DISCONNECTED" && it != "NO_ACK" }
-            ?: "Mensagem nao enviada"
+            ?: "Mensagem não enviada"
     }
 
     // Clique no "tentar de novo" de uma bolha falha: tira a falha e reenvia o texto.
@@ -308,20 +308,20 @@ class ChatVm(
     // Motivo REAL da falha. O backend responde { error, code, secondsLeft } — e
     // trocar tudo isso por um texto fixo foi o que transformou "estou silenciado
     // ha 4 minutos" num misterio: o anti-spam devolve 429 MUTED e a UI so dizia
-    // "Mensagem nao enviada". Sem corpo legivel, cai no codigo HTTP.
+    // "Mensagem não enviada". Sem corpo legivel, cai no código HTTP.
     private fun sendError(t: Throwable, fallback: String): String {
-        val http = t as? HttpException ?: return "$fallback — sem conexao"
+        val http = t as? HttpException ?: return "$fallback — sem conexão"
         val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
             ?.let { runCatching { json.decodeFromString<ApiError>(it) }.getOrNull() }
         if (parsed?.code == "MUTED" || parsed?.code == "SPAM_MUTED") {
             val s = parsed.secondsLeft ?: 0
             val falta = if (s >= 60) "${s / 60}min" else "${s}s"
-            return if (s > 0) "Voce esta silenciado — faltam $falta" else "Voce esta silenciado neste servidor"
+            return if (s > 0) "Você está silenciado — faltam $falta" else "Você está silenciado neste servidor"
         }
         parsed?.error?.takeIf { it.isNotBlank() }?.let { return it }
         return when (http.code()) {
-            403 -> "Sem permissao pra falar aqui"
-            404 -> "Esta orbita nao existe mais"
+            403 -> "Sem permissão pra falar aqui"
+            404 -> "Esta órbita não existe mais"
             else -> "$fallback (erro ${http.code()})"
         }
     }
@@ -362,7 +362,7 @@ class ChatVm(
                         )
                     }
                 }
-                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "GIF nao enviado")) } }
+                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "GIF não enviado")) } }
         }
     }
 
@@ -382,7 +382,7 @@ class ChatVm(
             }
             val mime = mimeOf(f)
             if (mime == null || mime !in ALLOWED_MIMES) {
-                error = "Tipo nao suportado: ${f.name}"
+                error = "Tipo não suportado: ${f.name}"
                 continue
             }
             current += PendingFile(f, mime)
@@ -451,7 +451,7 @@ class ChatVm(
         _state.update { if (userId in it.typing) it.copy(typing = it.typing - userId) else it }
     }
 
-    // Zera o "nao lida" desta conversa no backend (sidebar limpa localmente).
+    // Zera o "não lida" desta conversa no backend (sidebar limpa localmente).
     private fun markRead() {
         scope.launch {
             runCatching {
@@ -477,7 +477,7 @@ class ChatVm(
         scope.launch {
             runCatching { channelApi.react(channelId, messageId, ReactRequest(emoji)) }
                 .onSuccess { res -> res.data?.let { setReactions(messageId, it.reactions) } }
-                .onFailure { _state.update { it.copy(error = "Nao deu pra reagir") } }
+                .onFailure { _state.update { it.copy(error = "Não deu pra reagir") } }
         }
     }
 
@@ -485,7 +485,7 @@ class ChatVm(
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         val content = newContent.trim()
         if (content.isEmpty()) return
-        // Sem mudanca real -> nao chama a API e nao marca "editado" (so fecha o editor).
+        // Sem mudanca real -> não chama a API e não marca "editado" (so fecha o editor).
         if (_state.value.messages.firstOrNull { it.id == messageId }?.content == content) return
         scope.launch {
             runCatching { channelApi.editMessage(channelId, messageId, EditChannelRequest(content)) }
@@ -496,7 +496,7 @@ class ChatVm(
                         })
                     }
                 }
-                .onFailure { _state.update { it.copy(error = "Nao deu pra editar") } }
+                .onFailure { _state.update { it.copy(error = "Não deu pra editar") } }
         }
     }
 
@@ -510,7 +510,7 @@ class ChatVm(
             }
             result
                 .onSuccess { fadeOutAndRemove(messageId) }
-                .onFailure { _state.update { it.copy(error = "Nao deu pra apagar") } }
+                .onFailure { _state.update { it.copy(error = "Não deu pra apagar") } }
         }
     }
 
@@ -519,7 +519,7 @@ class ChatVm(
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         scope.launch {
             runCatching { channelApi.pin(channelId, messageId) }
-                .onFailure { _state.update { it.copy(error = "Nao deu pra fixar") } }
+                .onFailure { _state.update { it.copy(error = "Não deu pra fixar") } }
         }
     }
 
@@ -612,7 +612,7 @@ class ChatVm(
             if (base.any { m -> m.id == msg.id }) st.copy(messages = base)
             else st.copy(messages = base + msg)
         }
-        // Conversa aberta: o que chega ja nasce lido.
+        // Conversa aberta: o que chega já nasce lido.
         if (!msg.mine) markRead()
     }
 
@@ -624,7 +624,7 @@ class ChatVm(
         }
     }
 
-    // Marca deleting (a UI anima o fade-out) e tira da lista quando a animacao
+    // Marca deleting (a UI anima o fade-out) e tira da lista quando a animação
     // acaba. Chega duas vezes pra quem apagou (HTTP ok + evento) — dedupe aqui.
     private fun fadeOutAndRemove(messageId: String) {
         val current = _state.value.messages.firstOrNull { it.id == messageId }
@@ -645,7 +645,7 @@ class ChatVm(
         runCatching { json.decodeFromString<T>(raw) }.getOrNull()
 
     private fun MsgAuthorDto?.name(fallbackId: String): String =
-        this?.displayName ?: this?.username ?: if (fallbackId == myId) "voce" else "alguem"
+        this?.displayName ?: this?.username ?: if (fallbackId == myId) "você" else "alguem"
 
     private fun ChannelMessageDto.toChat() = ChatMessage(
         id = id, content = content, authorId = authorId,

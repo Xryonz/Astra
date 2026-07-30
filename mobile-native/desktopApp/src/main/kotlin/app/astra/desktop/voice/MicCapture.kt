@@ -11,7 +11,7 @@ import javax.sound.sampled.TargetDataLine
 
 // Captura o microfone por javax.sound.sampled (JDK puro) e passa CADA bloco de
 // 10ms pelo APM do WebRTC (AudioProcessing) antes de empurrar no CustomAudioSource:
-// supressao de ruido + high-pass + ganho automatico, ja convertendo pra 48kHz mono
+// supressao de ruido + high-pass + ganho automatico, já convertendo pra 48kHz mono
 // (o caminho feliz do WebRTC/Opus). Antes o PCM ia CRU -> Opus produzia "voz de
 // robo com ruido" (mic cru + reamostragem 44.1k/estereo). AEC (eco) exige o sinal
 // reverso (processReverseStream) e fica pra outra fase.
@@ -20,7 +20,7 @@ import javax.sound.sampled.TargetDataLine
 // factory ("Start recording failed"), entao a captura vem por este caminho
 // independente que roda em qualquer maquina; o APM roda por fora, na mao.
 //
-// onLevel recebe o RMS (0..1) de cada bloco — usado pra "quem esta falando".
+// onLevel recebe o RMS (0..1) de cada bloco — usado pra "quem está falando".
 class MicCapture(
     private val source: CustomAudioSource,
     private val noiseSuppress: Boolean,
@@ -46,7 +46,7 @@ class MicCapture(
         val inBytes = inFrames * channels * 2
         println("[MicCapture] formato do mic: ${rate}Hz ${channels}ch -> APM -> 48000Hz 1ch")
 
-        // Buffer folgado (~200ms): pausa de GC nao derruba amostra (o picote que soa
+        // Buffer folgado (~200ms): pausa de GC não derruba amostra (o picote que soa
         // robotico). Tenta o device escolhido; se falhar, cai no padrao do sistema.
         val l = acquireLine(inputDeviceName, format, inBytes * 20)
             ?: (if (inputDeviceName != null) acquireLine(null, format, inBytes * 20) else null)
@@ -83,7 +83,7 @@ class MicCapture(
             val silenceOut = ByteArray(outBytes)
             val silenceIn = ByteArray(inBytes)
             // Cauda: segue transmitindo ~250ms depois de cair abaixo do limiar, pra
-            // nao cortar o fim das palavras (gate seco pica a fala).
+            // não cortar o fim das palavras (gate seco pica a fala).
             var lastActiveNs = 0L
             val hangoverNs = 250_000_000L
             fun gateOpen(level: Float): Boolean {
@@ -108,7 +108,7 @@ class MicCapture(
                         continue
                     }
                 }
-                // Sem APM (ou processStream falhou): cai pro cru pra nao ficar mudo.
+                // Sem APM (ou processStream falhou): cai pro cru pra não ficar mudo.
                 val level = rms(inBuf)
                 onLevel(level)
                 val buf = if (gateOpen(level)) inBuf else silenceIn
@@ -118,7 +118,7 @@ class MicCapture(
         return true
     }
 
-    // Abre a TargetDataLine no Mixer escolhido (ou padrao) e ja liga. Null = falhou.
+    // Abre a TargetDataLine no Mixer escolhido (ou padrao) e já liga. Null = falhou.
     private fun acquireLine(deviceName: String?, format: AudioFormat, bufBytes: Int): TargetDataLine? = runCatching {
         val info = DataLine.Info(TargetDataLine::class.java, format)
         val mi = deviceName?.let { n -> AudioSystem.getMixerInfo().firstOrNull { it.name == n } }

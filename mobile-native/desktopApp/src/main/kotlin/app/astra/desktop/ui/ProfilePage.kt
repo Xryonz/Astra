@@ -82,7 +82,7 @@ import java.util.Locale
 
 // Perfil completo (F: pagina de perfil) — modal CENTRAL sobre scrim, o irmao
 // maior do ProfilePopup. Abre pelo botao "ver perfil completo" do card pequeno.
-// Alem do que o card mostra, traz "membro desde" e os SERVIDORES EM COMUM (ja vem
+// Alem do que o card mostra, traz "membro desde" e os SERVIDORES EM COMUM (já vem
 // do GET /api/profile/:id -> ProfileViewWrapper; o card so descartava). A entrada
 // (scrim + card + cascata das secoes) segue o idioma do CenteredConfirmDialog;
 // fable refina a coreografia depois. Respeita LocalReduceMotion.
@@ -195,7 +195,7 @@ fun ProfilePage(
 private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, String) -> Unit, onClose: () -> Unit) {
     val p = d.user
     val name = p.displayName ?: p.username
-    // Avatar "pop" com overshoot depois que o card assenta (unico momento bouncy).
+    // Avatar "pop" com overshoot depois que o card assenta (único momento bouncy).
     val reduce = LocalReduceMotion.current
     val avatarPop = remember(p.id) { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(p.id) {
@@ -368,8 +368,8 @@ private const val CHIP_STAGGER_MAX = 10
 @Composable
 private fun MutualChip(s: MutualServerDto, index: Int) {
     val reduce = LocalReduceMotion.current
-    // 2o nivel de stagger: cada chip escala/aparece um tico depois do anterior.
-    // Escala (nao translateY) — o FlowRow quebra linha, subir por linha ficaria torto.
+    // 2o nível de stagger: cada chip escala/aparece um tico depois do anterior.
+    // Escala (não translateY) — o FlowRow quebra linha, subir por linha ficaria torto.
     val pop = remember(s.id) { Animatable(if (reduce || index !in 0 until CHIP_STAGGER_MAX) 1f else 0f) }
     LaunchedEffect(s.id) {
         if (pop.value < 1f) {

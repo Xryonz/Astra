@@ -85,14 +85,14 @@ import kotlinx.coroutines.withContext
 
 // Configuracoes da CONSTELACAO — takeover no mesmo idioma do SettingsScreen (nav
 // de 220dp a esquerda, coluna de conteudo capada em 720dp), pra as duas telas de
-// configuracao se lerem como a mesma coisa.
+// configuração se lerem como a mesma coisa.
 //
-// As tres abas estao prontas. `ready` fica no enum de proposito: e o interruptor
+// As tres abas estão prontas. `ready` fica no enum de proposito: e o interruptor
 // pra listar uma aba futura apagada e inerte, sem mudar a forma da navegacao.
 internal enum class ServerTab(val label: String, val sub: String, val icon: ImageVector, val ready: Boolean) {
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
-    ROLES("Cargos", "permissoes e cor do nome", Lucide.Shield, true),
-    BANS("Banimentos", "quem nao pode voltar", Lucide.Ban, true),
+    ROLES("Cargos", "permissões e cor do nome", Lucide.Shield, true),
+    BANS("Banimentos", "quem não pode voltar", Lucide.Ban, true),
 }
 
 @Composable
@@ -115,7 +115,7 @@ fun ServerSettingsScreen(
 ) {
     var tab by remember { mutableStateOf(ServerTab.OVERVIEW) }
 
-    // Cargos vivem aqui (nao no ShellUiState): so esta tela usa. Recarrega quando
+    // Cargos vivem aqui (não no ShellUiState): so esta tela usa. Recarrega quando
     // a aba abre e depois de cada mudanca, pra a lista refletir o servidor.
     var roles by remember(server.id) { mutableStateOf<List<RoleDto>?>(null) }
     var rolesError by remember(server.id) { mutableStateOf<String?>(null) }
@@ -125,7 +125,7 @@ fun ServerSettingsScreen(
     var bansError by remember(server.id) { mutableStateOf<String?>(null) }
     fun reloadBans() = onLoadBans { list, err -> bans = list; bansError = err }
 
-    // Busca so quando a aba entra em cena: quem so mexe na Visao geral nao paga
+    // Busca so quando a aba entra em cena: quem so mexe na Visao geral não paga
     // por cargos nem banimentos.
     LaunchedEffect(server.id, tab) {
         when (tab) {
@@ -164,7 +164,7 @@ fun ServerSettingsScreen(
                     modifier = Modifier.padding(start = 8.dp),
                 )
                 Text(
-                    "constelacao",
+                    "constelação",
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
@@ -223,9 +223,9 @@ fun ServerSettingsScreen(
                                     myPermissions = myPermissions,
                                     amOwner = isOwner,
                                     error = rolesError,
-                                    // Recarrega depois de cada mudanca: posicao e
-                                    // permissoes efetivas vem do servidor (o backend
-                                    // filtra o que voce nao pode conceder).
+                                    // Recarrega depois de cada mudanca: posição e
+                                    // permissões efetivas vem do servidor (o backend
+                                    // filtra o que você não pode conceder).
                                     onSave = { id, body, cb ->
                                         onSaveRole(id, body) { err -> if (err == null) reloadRoles(); cb(err) }
                                     },
@@ -298,14 +298,14 @@ private fun OverviewSection(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
       Column(Modifier.weight(1f)) {
     // ---- Identidade ----
-    FieldLabel("icone")
+    FieldLabel("ícone")
     Row(verticalAlignment = Alignment.CenterVertically) {
         ServerIconPreview(iconUrl, name, iconScale)
         Spacer(Modifier.width(16.dp))
         Column {
-            SmallButton(if (busyIcon) "processando…" else "trocar icone", accent = true) {
+            SmallButton(if (busyIcon) "processando…" else "trocar ícone", accent = true) {
                 if (busyIcon) return@SmallButton
-                val file = AvatarPicker.choose("Escolher icone") ?: return@SmallButton
+                val file = AvatarPicker.choose("Escolher ícone") ?: return@SmallButton
                 busyIcon = true
                 msg = null
                 scope.launch {
@@ -313,7 +313,7 @@ private fun OverviewSection(
                     val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
                     busyIcon = false
                     r.onSuccess { iconUrl = it }
-                        .onFailure { msg = "nao deu pra ler essa imagem" to false }
+                        .onFailure { msg = "não deu pra ler essa imagem" to false }
                 }
             }
             if (!iconUrl.isNullOrBlank()) {
@@ -324,7 +324,7 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a imagem e reduzida pra 512px e vira parte da constelacao (maximo 5MB).",
+        "a imagem e reduzida pra 512px e vira parte da constelação (máximo 5MB).",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -335,10 +335,10 @@ private fun OverviewSection(
 
     SettingsDivider()
     FieldLabel("nome")
-    PlainField(name, "nome da constelacao") { name = it.take(100) }
+    PlainField(name, "nome da constelação") { name = it.take(100) }
     Spacer(Modifier.height(12.dp))
-    FieldLabel("descricao")
-    PlainField(description, "do que e essa constelacao?", multiline = true) { description = it.take(300) }
+    FieldLabel("descrição")
+    PlainField(description, "do que e essa constelação?", multiline = true) { description = it.take(300) }
 
     SettingsDivider()
     FieldLabel("banner")
@@ -356,7 +356,7 @@ private fun OverviewSection(
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .then(
                 // Arrastar na vertical reposiciona (so com imagem). ~1.4px por ponto;
-                // pra baixo revela o topo (posicao diminui). Espelha o editor do perfil.
+                // pra baixo revela o topo (posição diminui). Espelha o editor do perfil.
                 if (bannerUrl.isNullOrBlank()) Modifier
                 else Modifier.pointerInput(Unit) {
                     detectDragGestures { change, drag ->
@@ -383,7 +383,7 @@ private fun OverviewSection(
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
                 r.onSuccess { bannerUrl = it; bannerPositionY = 50; bannerScale = 100 }
-                    .onFailure { msg = "nao deu pra ler essa imagem" to false }
+                    .onFailure { msg = "não deu pra ler essa imagem" to false }
             }
         }
         if (!bannerUrl.isNullOrBlank()) {
@@ -424,7 +424,7 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "regenerar invalida o convite atual — quem tiver o link antigo nao entra mais.",
+        "regenerar invalida o convite atual — quem tiver o link antigo não entra mais.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -448,7 +448,7 @@ private fun OverviewSection(
     // ---- Descoberta e retencao ----
     SettingsDivider()
     ToggleRow(
-        "Constelacao publica",
+        "Constelação pública",
         "aparece na Descoberta pra quem procura onde entrar",
         isPublic,
     ) { isPublic = it }
@@ -463,7 +463,7 @@ private fun OverviewSection(
     Spacer(Modifier.height(6.dp))
     Text(
         if (retention == 0) "as mensagens ficam pra sempre."
-        else "mensagens com mais de $retention dia(s) somem sozinhas — nao da pra recuperar.",
+        else "mensagens com mais de $retention dia(s) somem sozinhas — não da pra recuperar.",
         style = TextStyle(color = if (retention == 0) Obsidian.text3 else Obsidian.warning, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -472,16 +472,16 @@ private fun OverviewSection(
     SettingsDivider()
     FieldLabel("zona de perigo")
     Text(
-        if (isOwner) "excluir apaga a constelacao pra todo mundo. Nao da pra desfazer."
+        if (isOwner) "excluir apaga a constelação pra todo mundo. Não da pra desfazer."
         else "sair remove teu acesso; pra voltar precisa de convite.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
-    DangerButton(if (isOwner) "excluir constelacao" else "sair da constelacao") { confirmDanger = true }
+    DangerButton(if (isOwner) "excluir constelação" else "sair da constelação") { confirmDanger = true }
     if (confirmDanger) {
         ConfirmPopup(
-            message = if (isOwner) "excluir ${server.name}? apaga pra todos — nao da pra desfazer."
+            message = if (isOwner) "excluir ${server.name}? apaga pra todos — não da pra desfazer."
             else "sair de ${server.name}?",
             confirmLabel = if (isOwner) "excluir" else "sair",
             onConfirm = {
@@ -494,7 +494,7 @@ private fun OverviewSection(
     Spacer(Modifier.height(24.dp))
       } // fim do form (coluna esquerda)
       // Coluna direita: card de previa ao vivo -> legenda "PREVIA" ABAIXO dele ->
-      // acoes de salvar/descartar (ficam junto do que elas afetam).
+      // ações de salvar/descartar (ficam junto do que elas afetam).
       Column(
           modifier = Modifier.padding(top = 26.dp),
           horizontalAlignment = Alignment.CenterHorizontally,
@@ -543,7 +543,7 @@ private fun OverviewSection(
                       ),
                   ) { err ->
                       saving = false
-                      msg = (err ?: "constelacao salva") to (err == null)
+                      msg = (err ?: "constelação salva") to (err == null)
                   }
               }
               if (dirty && !saving) {
@@ -607,8 +607,8 @@ private fun ServerNavRow(tab: ServerTab, active: Boolean, onClick: () -> Unit) {
             Text(
                 tab.label,
                 style = TextStyle(
-                    // Aba nao pronta fica visivelmente apagada: mostra pra onde a
-                    // tela vai crescer sem prometer que ja funciona.
+                    // Aba não pronta fica visivelmente apagada: mostra pra onde a
+                    // tela vai crescer sem prometer que já funciona.
                     color = when {
                         !tab.ready -> Obsidian.text3
                         active -> Obsidian.text1
@@ -652,7 +652,7 @@ private fun ServerIconPreview(url: String?, name: String, iconScale: Int = 100, 
 }
 
 // Zoom (100..300%): trilha arrastavel simples. Espelha o ZoomTrack das configs de
-// usuario (pequena demais pra virar componente compartilhado por enquanto).
+// usuário (pequena demais pra virar componente compartilhado por enquanto).
 @Composable
 private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     val pct = ((scale - 100) / 200f).coerceIn(0f, 1f)
@@ -677,7 +677,7 @@ private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
             Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
             Box(Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
             // Alca agarravel no fim do preenchido (spacers pesados = centro na fracao,
-            // sem clipar nas pontas; arrastar em qualquer ponto do trilho tambem move).
+            // sem clipar nas pontas; arrastar em qualquer ponto do trilho também move).
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 val f = pct.coerceIn(0f, 1f)
                 if (f > 0f) Spacer(Modifier.weight(f))
@@ -690,8 +690,8 @@ private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     }
 }
 
-// Previa ao vivo da config (direita): a constelacao como aparece pros outros —
-// banner enquadrado (posicao/zoom), icone sobreposto (zoom), nome e nº de canais.
+// Previa ao vivo da config (direita): a constelação como aparece pros outros —
+// banner enquadrado (posição/zoom), ícone sobreposto (zoom), nome e nº de canais.
 @Composable
 private fun ServerConfigPreview(
     name: String,
@@ -724,10 +724,10 @@ private fun ServerConfigPreview(
                 ServerIconPreview(iconUrl, name, iconScale, 54.dp)
             }
         }
-        Spacer(Modifier.height(32.dp)) // espaco pro icone sobreposto
+        Spacer(Modifier.height(32.dp)) // espaco pro ícone sobreposto
         Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp)) {
             Text(
-                name.ifBlank { "constelacao" },
+                name.ifBlank { "constelação" },
                 style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

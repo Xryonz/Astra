@@ -59,7 +59,7 @@ import java.awt.Desktop
 import java.net.URI
 
 // Lightbox (F5): visualizador de imagem dentro do app — scroll da zoom, arrastar
-// move, duplo-clique reseta, ESC/clique-fora fecha; acoes de abrir/copiar link.
+// move, duplo-clique reseta, ESC/clique-fora fecha; ações de abrir/copiar link.
 
 // Abrir imagem no lightbox de qualquer profundidade (evita callback por 3 camadas).
 val LocalOpenImage = staticCompositionLocalOf<(String) -> Unit> { {} }
@@ -132,7 +132,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                         translationX = offset.x
                         translationY = offset.y
                     }
-                    // Clique na imagem nao fecha; arrastar move; duplo-clique reseta.
+                    // Clique na imagem não fecha; arrastar move; duplo-clique reseta.
                     .pointerInput(Unit) {
                         detectTapGestures(onDoubleTap = { scale = 1f; offset = Offset.Zero }, onTap = {})
                     }
@@ -175,7 +175,7 @@ private fun LightboxAction(label: String, onClick: () -> Unit) {
     )
 }
 
-// Variante so-icone (fechar) — mesmo cartao, glifo Lucide no lugar do texto.
+// Variante so-ícone (fechar) — mesmo cartao, glifo Lucide no lugar do texto.
 @Composable
 private fun LightboxAction(icon: ImageVector, onClick: () -> Unit) {
     Box(

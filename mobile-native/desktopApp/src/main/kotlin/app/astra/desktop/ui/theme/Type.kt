@@ -15,7 +15,7 @@ import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.text.style.TextOverflow
 
 // Tipografia migrada do mobile (mesmos .ttf do :app): DM Sans variavel pro
-// corpo/UI, DM Serif Display pros titulos editoriais, DM Mono pra codigo e
+// corpo/UI, DM Serif Display pros titulos editoriais, DM Mono pra código e
 // timestamps, Great Vibes pra assinaturas.
 
 @OptIn(ExperimentalTextApi::class)
@@ -44,7 +44,7 @@ val DmMono = FontFamily(
 
 val GreatVibes = FontFamily(Font(resource = "font/great_vibes.ttf"))
 
-// DM Sans e o texto padrao do app. BasicText nao le LocalTextStyle (isso e do
+// DM Sans e o texto padrao do app. BasicText não le LocalTextStyle (isso e do
 // material), entao este Text aplica a familia por baixo — os call sites so
 // declaram cor/tamanho e herdam a fonte certa.
 private val BaseStyle = TextStyle(fontFamily = DmSans)

@@ -23,7 +23,7 @@ data class FastSendResult(
     val secondsLeft: Int? = null,
 )
 
-// Socket.io do desktop — versao enxuta do SocketManager do Android (mesma lib
+// Socket.io do desktop — versão enxuta do SocketManager do Android (mesma lib
 // Java, mesmo protocolo do backend socket.ts). Chat: new_message/new_dm + salas
 // join_channel/join_dm. Acoes: message_edited/message_deleted/reaction_update/
 // dm_deleted. Typing: user_typing/dm_user_typing (so chega pra quem esta na
@@ -64,12 +64,12 @@ class DesktopSocket(private val store: SessionStore) {
     private val _dmTypingStopped = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val dmTypingStopped: SharedFlow<String> = _dmTypingStopped.asSharedFlow()
 
-    // Novidade em canal de qualquer constelacao (vai pra sala pessoal user:{id}).
+    // Novidade em canal de qualquer constelação (vai pra sala pessoal user:{id}).
     private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
 
     // Presenca de alguem mudou ({userId, status}) — broadcast global. O painel de
-    // membros so aplica se o userId ja estiver na lista da constelacao atual.
+    // membros so aplica se o userId já estiver na lista da constelação atual.
     private val _presenceUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
     val presenceUpdate: SharedFlow<String> = _presenceUpdate.asSharedFlow()
 
@@ -89,7 +89,7 @@ class DesktopSocket(private val store: SessionStore) {
             // Re-entra nas salas apos reconectar.
             channels.forEach { s.emit("join_channel", it) }
             dms.forEach { s.emit("join_dm", it) }
-            s.emit("heartbeat") // presenca viva ja no connect (o timer refresca depois)
+            s.emit("heartbeat") // presenca viva já no connect (o timer refresca depois)
         }
         s.on("new_message") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _newChannelMessage.tryEmit(it.toString()) }
@@ -135,8 +135,8 @@ class DesktopSocket(private val store: SessionStore) {
         s.connect()
 
         // Heartbeat periodico: mantem a presenca viva no Redis (TTL 60s no backend).
-        // SEM isto a chave expira em 60s e o usuario (e todos) aparecem OFFLINE na aba
-        // de membros no proximo carregamento — era a "presenca atrasada". 25s da folga
+        // SEM isto a chave expira em 60s e o usuário (e todos) aparecem OFFLINE na aba
+        // de membros no próximo carregamento — era a "presenca atrasada". 25s da folga
         // de 2 batidas dentro do TTL.
         heartbeatTimer?.cancel()
         heartbeatTimer = java.util.Timer("astra-heartbeat", true).apply {
@@ -151,7 +151,7 @@ class DesktopSocket(private val store: SessionStore) {
     // Envio rapido de texto puro por socket (com ack) em vez de POST HTTP. O
     // backend insere, faz broadcast do new_message (com o clientNonce) e responde
     // o ack — a UI mostra a mensagem na hora e reconcilia quando o broadcast volta.
-    // So texto puro em canal: reply e anexo continuam no HTTP (o handler nao os le).
+    // So texto puro em canal: reply e anexo continuam no HTTP (o handler não os le).
     fun fastSendText(
         channelId: String,
         content: String,
@@ -204,7 +204,7 @@ class DesktopSocket(private val store: SessionStore) {
         socket?.emit("leave_dm", id)
     }
 
-    // Backend ignora typing de quem nao esta na sala (socket.rooms.has).
+    // Backend ignora typing de quem não está na sala (socket.rooms.has).
     fun startTyping(channelId: String) { socket?.emit("typing_start", channelId) }
     fun stopTyping(channelId: String) { socket?.emit("typing_stop", channelId) }
     fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }

@@ -16,13 +16,13 @@ import org.koin.core.qualifier.named
 //
 // Antes o VoiceEngine nascia dentro do VoiceView (`remember(channel.id) { ... }`)
 // e um DisposableEffect o matava quando a tela saia da composicao. Como abrir uma
-// orbita de texto limpa o `voiceChannel` do palco, navegar DESCONECTAVA a call —
-// era o "kick automatico". Aqui a sessao mora no shell: so desligar (ou entrar em
+// órbita de texto limpa o `voiceChannel` do palco, navegar DESCONECTAVA a call —
+// era o "kick automatico". Aqui a sessão mora no shell: so desligar (ou entrar em
 // outra sala) encerra.
 //
 // Dois conceitos que antes eram um so:
 //   - `voiceChannel` (ShellVm) = que sala esta NO PALCO. Some ao navegar. Certo.
-//   - `joined` (aqui)          = em que sala voce esta CONECTADO. Sobrevive.
+//   - `joined` (aqui)          = em que sala você esta CONECTADO. Sobrevive.
 @Stable
 class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     var joined by mutableStateOf<ChannelDto?>(null)
@@ -31,7 +31,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
         private set
 
     // Engine so quando a sala do palco E a sala conectada — o lobby (sala aberta
-    // mas nao entrou) recebe null e desenha o botao de entrar.
+    // mas não entrou) recebe null e desenha o botao de entrar.
     fun engineFor(channel: ChannelDto?): VoiceEngine? =
         if (channel != null && joined?.id == channel.id) engine else null
 

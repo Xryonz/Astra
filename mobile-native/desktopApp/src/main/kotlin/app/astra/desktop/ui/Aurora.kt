@@ -21,25 +21,25 @@ import org.jetbrains.skia.RuntimeShaderBuilder
 import org.jetbrains.skia.Shader
 
 // Aurora viva em SkSL (Skia RuntimeEffect) — a assinatura visual do desktop.
-// PORTA DA AURORA DO MOBILE (StarField.kt AURORA_AGSL; AGSL e SkSL sao o mesmo
+// PORTA DA AURORA DO MOBILE (StarField.kt AURORA_AGSL; AGSL e SkSL são o mesmo
 // dialeto do Skia). Cortinas organicas por ruido fractal (FBM), prata sobre o
 // void. O TEMPO ANDA NUM CIRCULO no espaco de ruido (cos/sin * raio), entao o
 // loop fecha PERFEITO sem salto — corrige o "cortada" do nebula anterior (tempo
 // linear crescia sem fim -> dominio do ruido estourava a precisao do float e a
-// animacao travava). Tilt/toque do mobile ficaram de fora (sao de celular:
+// animação travava). Tilt/toque do mobile ficaram de fora (são de celular:
 // acelerometro/dedo). PERF: value-noise ALU-only, 3 oitavas, 2 cortinas.
 // octaves = qualidade (Settings > Desempenho): mais oitavas = ruido mais rico e
 // mais caro. SkSL exige bound de loop constante -> a contagem entra no source e
-// recompila-se uma variante por nivel. Normaliza-se por (1-0.5^oct) pra aurora
+// recompila-se uma variante por nível. Normaliza-se por (1-0.5^oct) pra aurora
 // manter o mesmo brilho em qualquer qualidade (senao LOW fica visivelmente mais
 // escura, parece bug). accent + void ENTRAM COMO UNIFORMS (uAccent/uVoid) pra a
 // aurora seguir o tema de Aparencia ao vivo — antes eram cravados (#D4D8E0 sobre
-// #06060E) e nao recoloriam. So o octaves recompila; cor troca por uniform (barato).
+// #06060E) e não recoloriam. So o octaves recompila; cor troca por uniform (barato).
 // Quanto o fbm BALANCA em relacao a propria escala, por numero de oitavas: soma
-// quadratica das amplitudes (o desvio, ja que as oitavas sao ~independentes)
+// quadratica das amplitudes (o desvio, já que as oitavas são ~independentes)
 // dividida pela soma linear (o alcance). 1 oitava = 1.0; 3 oitavas = 0.655, ou
 // seja o campo de 1 oitava e 1.53x mais largo relativo ao proprio intervalo.
-// E por isso que uma curva de contraste fixa nao serve pras tres qualidades.
+// E por isso que uma curva de contraste fixa não serve pras tres qualidades.
 private fun fbmSigmaRel(octaves: Int): Double {
     var sumSq = 0.0
     var sumLin = 0.0
@@ -54,7 +54,7 @@ private fun fbmSigmaRel(octaves: Int): Double {
 
 private fun auroraSksl(octaves: Int): String {
     // Normaliza pela soma de amplitudes da qualidade ALTA (3 oitavas) -> HIGH fica
-    // IDENTICA a aurora ja validada (inv=1.0) e as qualidades menores so sobem o
+    // IDENTICA a aurora já validada (inv=1.0) e as qualidades menores so sobem o
     // brilho pra bater (senao LOW ficaria escura, parece bug).
     val ref = 1.0 - Math.pow(0.5, 3.0)
     val inv = ref / (1.0 - Math.pow(0.5, octaves.toDouble()))
@@ -102,7 +102,7 @@ float fbm(float2 p) {
 // Nos feixes o argumento do abs e uma funcao LINEAR de uv -> o vinco e uma
 // LINHA RETA; a direcao e a do feixe -> DIAGONAL; e ele varre a tela com
 // sin(ang*2) -> "de vez em quando". Por isso nenhuma correcao anterior pegava:
-// nao era quantizacao nem saturacao, era geometria.
+// não era quantizacao nem saturacao, era geometria.
 //
 // softAbs arredonda a ponta num raio ~sqrt(EPS) (aqui ~0.008 em uv, uns poucos
 // pixels) e e C-infinito. Longe de zero e indistinguivel de abs(), entao o
@@ -123,18 +123,18 @@ float curtain(float2 uv, float yC, float seed, float2 flow) {
     // Estrias verticais crispadas: o MESMO fbm de raios, re-shapeado com contraste
     // alto — definicao sem custo extra de ruido.
     //
-    // CORTE 6 (o "de vez em quando a iluminacao nao segue um padrao"): isto era
+    // CORTE 6 (o "de vez em quando a iluminacao não segue um padrao"): isto era
     // smoothstep(0.30, 0.78, r), e smoothstep SATURA por definicao — fora da faixa
     // a derivada e ZERO, ou seja platô. Com 3 oitavas o campo tem sigma ~0.115 em
     // torno de 0.4375, entao a borda de baixo (0.30) cai a 1.2 sigma: ~12% da tela
-    // ja vivia grudada no piso, chapada, com borda dura onde cruzava. Em LOW (1
+    // já vivia grudada no piso, chapada, com borda dura onde cruzava. Em LOW (1
     // oitava, campo 1.53x mais largo) virava metade da tela, e placas inteiras
-    // trocavam de nivel de uma vez conforme o flow andava — a luz mudava em blocos
-    // que nao acompanhavam a cortina.
+    // trocavam de nível de uma vez conforme o flow andava — a luz mudava em blocos
+    // que não acompanhavam a cortina.
     //
     // A logistica tem a MESMA inclinacao no centro (12.5/4 = 3.125 = a do
     // smoothstep validado) e o mesmo valor em r=0.54, mas nunca encosta no piso:
-    // derivada sempre > 0, entao nao existe platô nem borda dura em qualidade
+    // derivada sempre > 0, entao não existe platô nem borda dura em qualidade
     // nenhuma. Custo: 1 exp no lugar de 1 smoothstep.
     float r = fbm(float2(uv.x * 11.0 - seed, 2.7 + seed) + flow * 1.6);
     float rays = 0.30 + 0.70 / (1.0 + exp(-$steep * (r - 0.54)));
@@ -155,7 +155,7 @@ half4 main(float2 fragCoord) {
 
     // Bandas de luz diagonais varrendo as cortinas. Posicao oscila com
     // sin(ang*N) (periodico); so exp/abs, custo ~zero de ALU.
-    // softAbs, nao abs: e AQUI que nascia a borda reta diagonal (ver CORTE 8).
+    // softAbs, não abs: e AQUI que nascia a borda reta diagonal (ver CORTE 8).
     float beam1 = exp(-softAbs(uv.x * 0.8 - uv.y * 0.45 - 0.18 - 0.45 * sin(ang * 2.0 + 0.7)) * 5.5);
     float beam2 = exp(-softAbs(uv.x * 0.6 + uv.y * 0.55 - 0.45 - 0.50 * sin(ang * 3.0 + 3.9)) * 7.0) * 0.6;
     float beams = beam1 + beam2;
@@ -187,8 +187,8 @@ half4 main(float2 fragCoord) {
     // CORTE 7 (banding): com fundo PRETO PURO a aurora inteira vive entre 0 e
     // ~0.25, ou seja nos 64 primeiros valores de 256 de um display de 8 bits. Um
     // gradiente suave espremido em 64 degraus vira FAIXAS chapadas de borda dura,
-    // e quando o campo deriva o contorno de cada faixa salta de posicao de uma vez
-    // — a luz muda em placas que nao acompanham a cortina. Independe de oitavas,
+    // e quando o campo deriva o contorno de cada faixa salta de posição de uma vez
+    // — a luz muda em placas que não acompanham a cortina. Independe de oitavas,
     // por isso sobrevivia em qualidade ALTA.
     //
     // Dither: meio degrau (1/255) de ruido branco por pixel antes da quantizacao.
@@ -211,8 +211,8 @@ private const val AURORA_LOOP = 62.831853f
 // Quadro estatico agradavel pro "reduzir movimento" (cortinas bem postas).
 private const val AURORA_STILL = 12f
 
-// pulse: 0..1, lido no draw (nao recompoe). No login o ceu "respira" — o brilho
-// sobe ~15% e decai. So MODULA o uniform uAccent (Kotlin), nao toca o SkSL: como
+// pulse: 0..1, lido no draw (não recompoe). No login o ceu "respira" — o brilho
+// sobe ~15% e decai. So MODULA o uniform uAccent (Kotlin), não toca o SkSL: como
 // col = uVoid + uAccent*..*lum, escalar o accent clareia a aurora proporcional.
 @Composable
 fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
@@ -227,12 +227,12 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
     } ?: return this.drawBehind { drawRect(voidC) } // shader falhou -> void chapado do tema
     val builder = remember(effect) { RuntimeShaderBuilder(effect) }
     val reduceMotion = LocalReduceMotion.current
-    // Gate por VISIBILIDADE (nao foco): rememberUpdatedState pra ler o valor mais
+    // Gate por VISIBILIDADE (não foco): rememberUpdatedState pra ler o valor mais
     // fresco dentro do loop sem reiniciar o produceState (o que zeraria o tempo).
     val active = rememberUpdatedState(LocalWindowActive.current)
     // Teto de FPS (Settings > Desempenho): limita a taxa de REDESENHO do shader
     // (emitir menos 'value' = menos invocacoes por segundo). O tempo acumula em
-    // toda frame (acc), so a emissao e afinada — a velocidade da animacao nao muda.
+    // toda frame (acc), so a emissao e afinada — a velocidade da animação não muda.
     val fpsCap = rememberUpdatedState(render.fpsCap)
     // Relogio de frames com PAUSA: minimizada/na bandeja = nenhum frame pedido
     // (zero CPU/GPU em segundo plano — guardrail do dono). Enquanto VISIVEL segue
@@ -275,8 +275,8 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         }
     }
     val paint = remember { Paint() }
-    // Guarda o shader que ESTE modifier criou no ultimo frame, pra fecha-lo na mao
-    // antes de criar o proximo (ver CORTE 2 abaixo). Array de 1 = celula mutavel
+    // Guarda o shader que ESTE modifier criou no último frame, pra fecha-lo na mao
+    // antes de criar o próximo (ver CORTE 2 abaixo). Array de 1 = celula mutavel
     // barata que sobrevive entre frames sem recompor.
     val lastShader = remember { arrayOfNulls<Shader>(1) }
     return drawBehind {
@@ -298,7 +298,7 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         lastShader[0]?.close()
         val shader = builder.makeShader()
         lastShader[0] = shader
-        // Skia Shader nao e o Shader do Compose -> desenha direto no canvas nativo.
+        // Skia Shader não e o Shader do Compose -> desenha direto no canvas nativo.
         paint.shader = shader
         drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
     }

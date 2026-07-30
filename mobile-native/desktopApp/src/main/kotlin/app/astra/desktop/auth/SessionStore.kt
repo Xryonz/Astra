@@ -16,7 +16,7 @@ data class Session(
     val displayName: String,
 )
 
-// Sessao persistida em %APPDATA%/Astra (pasta por-usuario do Windows; ~/.astra
+// Sessao persistida em %APPDATA%/Astra (pasta por-usuário do Windows; ~/.astra
 // no resto). Tokens cifrados em repouso com DPAPI (CryptProtectData amarra o
 // segredo a conta do Windows); fora do Windows cai no arquivo plano.
 //
@@ -55,8 +55,8 @@ class SessionStore {
         synchronized(lock) {
             cache = s
             loaded = true
-            // Disco e best-effort: se a cifra/escrita falhar, a sessao da
-            // execucao atual segue viva no cache (re-login so no proximo boot).
+            // Disco e best-effort: se a cifra/escrita falhar, a sessão da
+            // execucao atual segue viva no cache (re-login so no próximo boot).
             runCatching {
                 dir.mkdirs()
                 val p = Properties()
@@ -103,7 +103,7 @@ class SessionStore {
     }
 
     // Sessao antiga em texto plano vira cifrada (sem re-login). O arquivo plano
-    // SO morre depois do cifrado confirmado no disco — senao segura a sessao.
+    // SO morre depois do cifrado confirmado no disco — senao segura a sessão.
     private fun migrateLegacy() {
         if (!legacyFile.exists()) return
         if (file.exists()) {
@@ -123,8 +123,8 @@ class SessionStore {
         if (file.exists()) legacyFile.delete()
     }
 
-    // Prefs de UI (ex: ultima constelacao/orbita aberta) — arquivo separado da
-    // sessao pra sobreviver a logout/refresh de token.
+    // Prefs de UI (ex: última constelação/órbita aberta) — arquivo separado da
+    // sessão pra sobreviver a logout/refresh de token.
     private val uiFile = File(dir, "ui.properties")
 
     fun uiPref(key: String): String? {
@@ -141,9 +141,9 @@ class SessionStore {
         runCatching { uiFile.outputStream().use { p.store(it, "Astra ui prefs") } }
     }
 
-    // Id estavel por instalacao (nao e segredo). Vive nas prefs de UI pra
+    // Id estavel por instalacao (não e segredo). Vive nas prefs de UI pra
     // sobreviver a logout — assim o MESMO PC mantem o id entre logins e o backend
-    // deduplica a sessao (X-Device-Id). Gerado uma vez, sob lock pra nao nascer
+    // deduplica a sessão (X-Device-Id). Gerado uma vez, sob lock pra não nascer
     // dois no primeiro boot (varias requests concorrentes chamam load/deviceId).
     fun deviceId(): String = synchronized(lock) {
         uiPref("deviceId") ?: java.util.UUID.randomUUID().toString().also { setUiPref("deviceId", it) }

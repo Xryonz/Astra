@@ -59,7 +59,7 @@ fun PopupReveal(
 // Variante Modifier: pro caso comum em que o filho do Popup JA tem cadeia de
 // Modifier (Column/Row com clip/background). Aplicar CEDO na cadeia (antes de
 // clip/background) pra escala/alpha envolverem o visual inteiro. Mesma entrada,
-// via um unico Animatable lido dentro do graphicsLayer (frame sem recomposicao).
+// via um único Animatable lido dentro do graphicsLayer (frame sem recomposicao).
 @Composable
 fun Modifier.popupReveal(
     originX: Float = 0f,

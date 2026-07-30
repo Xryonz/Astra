@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
 import java.io.IOException
 
 // Login por email/senha (Google OAuth fica pra uma fatia futura — precisa de
-// loopback local). Persiste a sessao no SessionStore.
+// loopback local). Persiste a sessão no SessionStore.
 class AuthRepository(
     private val api: AuthApi,
     private val store: SessionStore,
@@ -36,16 +36,16 @@ class AuthRepository(
         } else {
             val msg = resp.errorBody()?.string()?.let {
                 runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
-            } ?: body?.error ?: "Nao foi possivel entrar"
+            } ?: body?.error ?: "Não foi possível entrar"
             Result.failure(Exception(msg))
         }
     } catch (e: IOException) {
-        Result.failure(Exception("Sem conexao com o servidor"))
+        Result.failure(Exception("Sem conexão com o servidor"))
     } catch (e: Exception) {
-        Result.failure(Exception("Nao foi possivel entrar"))
+        Result.failure(Exception("Não foi possível entrar"))
     }
 
-    // Cria a conta e ja loga (o backend responde 201 com os tokens, mesmo shape do
+    // Cria a conta e já loga (o backend responde 201 com os tokens, mesmo shape do
     // login). Email de verificacao esta desligado no Render -> a conta nasce pronta.
     suspend fun register(
         email: String,
@@ -68,20 +68,20 @@ class AuthRepository(
         } else {
             val msg = resp.errorBody()?.string()?.let {
                 runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
-            } ?: body?.error ?: "Nao foi possivel criar a conta"
+            } ?: body?.error ?: "Não foi possível criar a conta"
             Result.failure(Exception(msg))
         }
     } catch (e: IOException) {
-        Result.failure(Exception("Sem conexao com o servidor"))
+        Result.failure(Exception("Sem conexão com o servidor"))
     } catch (e: Exception) {
-        Result.failure(Exception("Nao foi possivel criar a conta"))
+        Result.failure(Exception("Não foi possível criar a conta"))
     }
 
     // Login com Google via loopback (GoogleAuthFlow abre o navegador). Volta um
     // refresh token; troca-o por um access (o /refresh so devolve tokens, sem user),
-    // salva sessao provisoria pra o interceptor autenticar o /me, e so entao monta a
-    // sessao completa. Qualquer falha depois do save provisorio limpa o disco pra o
-    // app nao reabrir numa sessao meia-boca (userId vazio quebraria o shell).
+    // salva sessão provisoria pra o interceptor autenticar o /me, e so entao monta a
+    // sessão completa. Qualquer falha depois do save provisorio limpa o disco pra o
+    // app não reabrir numa sessão meia-boca (userId vazio quebraria o shell).
     suspend fun loginWithGoogle(): Result<Session> = try {
         val token = GoogleAuthFlow.captureRefreshToken().getOrElse { return Result.failure(it) }
         val refreshed = refreshApi.refresh("Bearer $token").data
@@ -90,7 +90,7 @@ class AuthRepository(
         val me = runCatching { userApi.me().data?.user }.getOrNull()
         if (me == null) {
             store.clear()
-            return Result.failure(Exception("Nao foi possivel carregar seu perfil"))
+            return Result.failure(Exception("Não foi possível carregar seu perfil"))
         }
         val session = Session(
             accessToken = refreshed.accessToken,
@@ -102,17 +102,17 @@ class AuthRepository(
         Result.success(session)
     } catch (e: IOException) {
         runCatching { store.clear() }
-        Result.failure(Exception("Sem conexao com o servidor"))
+        Result.failure(Exception("Sem conexão com o servidor"))
     } catch (e: Exception) {
         runCatching { store.clear() }
-        Result.failure(Exception(e.message ?: "Nao foi possivel entrar com Google"))
+        Result.failure(Exception(e.message ?: "Não foi possível entrar com Google"))
     }
 
-    // Limpa a sessao PRIMEIRO — e a parte critica: apaga o session.bin do disco,
+    // Limpa a sessão PRIMEIRO — e a parte critica: apaga o session.bin do disco,
     // senao reabrir o app loga de novo na conta que "saiu". So depois desconecta o
-    // socket, e defensivo: se disconnect() estourasse, nao pode levar o clear()
-    // junto (era esse o bug — a sessao sobrevivia ao logout). O socket precisa cair
-    // mesmo: e single do Koin, e sem desconectar o connect() da proxima conta ve
+    // socket, e defensivo: se disconnect() estourasse, não pode levar o clear()
+    // junto (era esse o bug — a sessão sobrevivia ao logout). O socket precisa cair
+    // mesmo: e single do Koin, e sem desconectar o connect() da próxima conta ve
     // connected()==true e o servidor segue te tratando como a conta anterior.
     fun logout() {
         store.clear()

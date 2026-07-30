@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 class ScreenCaptureFfmpeg(
     private val ffmpegPath: String,
     private val source: CustomVideoSource,
-    // Tee do preview local: recebe (argb, w, h) no MESMO fps da transmissao (segue o
+    // Tee do preview local: recebe (argb, w, h) no MESMO fps da transmissão (segue o
     // fps de captura). O webrtc-java NAO entrega frames de CustomVideoSource pro sink
     // da track local, entao o auto-preview (Discord) sai daqui, direto da captura.
     private val onPreview: ((ByteArray, Int, Int) -> Unit)? = null,
@@ -39,11 +39,11 @@ class ScreenCaptureFfmpeg(
     // barato do I420 pra um buffer compartilhado e acorda a thread de preview
     // (ffmpeg-preview), que faz a conversao ARGB + downscale FORA do caminho quente
     // captura->encoder. Antes a conversao rodava no pushI420 e (a) roubava CPU do
-    // encoder e (b) segurava a drenagem do pipe -> a transmissao E o preview travavam.
+    // encoder e (b) segurava a drenagem do pipe -> a transmissão E o preview travavam.
     private var lastPreviewNs = 0L                 // so a thread de captura toca
     // Intervalo do preview = 1 frame no fps de captura, teto de PREVIEW_MAX_FPS (30).
     // Definido no start(). O corte usa 90% do intervalo (tolerancia): frames que chegam
-    // de raspao antes do prazo nao sao descartados -> cadencia PAR, sem judder (era o
+    // de raspao antes do prazo não são descartados -> cadencia PAR, sem judder (era o
     // que fazia 30fps parecer travado).
     @Volatile private var previewIntervalNs = PREVIEW_INTERVAL_NS
     // Handoff capture -> worker: buffer I420 compartilhado, guardado pelo lock.
@@ -59,11 +59,14 @@ class ScreenCaptureFfmpeg(
     private var previewNativeW = 0
     private var previewNativeH = 0
     private var fullArgb = ByteArray(0)                       // scratch res cheia (ARGB)
-    private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida ja reduzida (2 buffers)
+    private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida já reduzida (2 buffers)
     private var argbIdx = 0
 
     fun start(outputIdx: Int, width: Int, height: Int, fps: Int): Boolean {
-        // Preview segue o fps ATE 30 (teto): acima disso a conversao rouba do encoder.
+        // Preview acompanha o fps de captura ATE 60 (teto). O pipeline já e DESACOPLADO do
+        // encoder (handoffPreview so faz memcpy pra thread 'ffmpeg-preview'; o pushFrame pro
+        // encoder roda a parte, no fps de captura). Tradeoff: em HW fraco o dobro de
+        // memcpy/conversao pode disputar CPU e antecipar o auto-downgrade do STREAM.
         previewIntervalNs = 1_000_000_000L / fps.coerceIn(1, PREVIEW_MAX_FPS)
         forceIntegratedGpu(ffmpegPath) // Optimus: sem isso, ddagrab da "output not supported"
         val filter = "ddagrab=output_idx=$outputIdx:framerate=$fps," +
@@ -99,7 +102,7 @@ class ScreenCaptureFfmpeg(
             previewThread = Thread({ previewLoop() }, "ffmpeg-preview").apply { isDaemon = true; start() }
         }
 
-        // Frames fluindo dentro do prazo = sucesso; senao (hardware nao aguenta o
+        // Frames fluindo dentro do prazo = sucesso; senao (hardware não aguenta o
         // DXGI, ddagrab falhou, etc) = falha -> fallback pro GDI.
         val ok = runCatching { firstFrame.await(2500, TimeUnit.MILLISECONDS) }.getOrDefault(false)
         if (!ok || !proc.isAlive) {
@@ -153,8 +156,8 @@ class ScreenCaptureFfmpeg(
     }
 
     // NA thread de captura: barato. Throttle com tolerancia (90% do intervalo), copia
-    // o I420 pro buffer compartilhado e acorda o worker. Se o worker estiver atras, o
-    // proximo handoff sobrescreve = sempre o frame mais novo (drop natural). NAO
+    // o I420 pro buffer compartilhado e acorda o worker. Se o worker estiver atrás, o
+    // próximo handoff sobrescreve = sempre o frame mais novo (drop natural). NAO
     // converte nada aqui — a conversao e no previewLoop, fora do caminho do encoder.
     private fun handoffPreview(src: ByteArray, w: Int, h: Int) {
         if (onPreview == null) return
@@ -171,7 +174,7 @@ class ScreenCaptureFfmpeg(
         }
     }
 
-    // Thread de preview: espera o proximo I420, copia pra um buffer privado (sob o
+    // Thread de preview: espera o próximo I420, copia pra um buffer privado (sob o
     // lock, so um arraycopy) e converte FORA do lock -> convert+downscale ficam longe
     // da thread de captura e do encoder. So o frame MAIS NOVO importa (drop natural).
     private fun previewLoop() {
@@ -230,7 +233,7 @@ class ScreenCaptureFfmpeg(
     }
 
     // Nearest-neighbor ARGB — barato, roda na thread de captura fora do caminho da
-    // transmissao. Pra preview a qualidade nearest e suficiente.
+    // transmissão. Pra preview a qualidade nearest e suficiente.
     private fun downscaleArgb(src: ByteArray, sw: Int, sh: Int, dst: ByteArray, dw: Int, dh: Int) {
         var di = 0
         for (y in 0 until dh) {
@@ -255,12 +258,12 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
-        // Teto de fps do preview local. Preview e auto-observacao — 30fps basta e
-        // acima disso a conversao/downscale (na thread de captura) rouba do encoder.
-        private const val PREVIEW_MAX_FPS = 30
+        // Teto de fps do preview local. Sobe pra 60 pra acompanhar a captura no preset
+        // 720@60 (preview 2x mais fluido). Pipeline desacoplado do encoder — ver start().
+        private const val PREVIEW_MAX_FPS = 60
         // Fallback do intervalo do preview (~24fps) ate o start() amarrar ao fps real.
         private const val PREVIEW_INTERVAL_NS = 42_000_000L
-        // Largura maxima do preview (mantem aspecto). Preview -> nao precisa de 1080p.
+        // Largura maxima do preview (mantem aspecto). Preview -> não precisa de 1080p.
         private const val PREVIEW_MAX_W = 960
 
         // Preferencia de GPU por-exe (HKCU) = "power saving" (integrada). No Optimus

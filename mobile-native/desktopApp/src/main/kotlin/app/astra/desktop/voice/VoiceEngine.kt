@@ -70,7 +70,7 @@ import okio.ByteString.Companion.toByteString
 sealed interface VoiceStatus {
     data object Connecting : VoiceStatus
 
-    // Join aceito e ping/pong mantendo a sessao viva. audioLive = subscriber PC
+    // Join aceito e ping/pong mantendo a sessão viva. audioLive = subscriber PC
     // conectado (DTLS/RTP fluindo — audio remoto toca no device padrao).
     data class Connected(
         val others: List<VoiceParticipant>,
@@ -86,20 +86,20 @@ data class VoiceParticipant(val identity: String, val label: String, val speakin
 // Transmissao de outro participante (track de video remota; render no VoiceView).
 class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: VideoTrack)
 
-// Metricas da MINHA transmissao (poll de getStats). captureFps = fps que o
+// Metricas da MINHA transmissão (poll de getStats). captureFps = fps que o
 // capturer de tela produz; sendFps = fps que sai codificado; limit = por que o
 // WebRTC degradou (none/cpu/bandwidth/other). captureFps baixo = gargalo na
-// CAPTURA (nao da pra trocar o metodo nesta lib); sendFps < captureFps = encoder
+// CAPTURA (não da pra trocar o metodo nesta lib); sendFps < captureFps = encoder
 // degradando framerate (default de conteudo de tela e manter resolucao).
 data class ScreenStats(val captureFps: Int, val sendFps: Int, val limit: String)
 
 // Frame do auto-preview local (Discord): ARGB cru + dimensoes. Vem direto da
-// captura (ScreenCaptureFfmpeg), NAO do sink da track — o webrtc-java nao entrega
+// captura (ScreenCaptureFfmpeg), NAO do sink da track — o webrtc-java não entrega
 // frames de CustomVideoSource pra sink local. A UI faz makeRaster disto.
 class ScreenPreview(val argb: ByteArray, val width: Int, val height: Int)
 
 // Deteccao de fala por NIVEL DE AUDIO (getStats) — independe do speakers_changed do
-// servidor (que nao chega no nosso WS hand-rolled). Nivel 0..1; voz ativa passa do
+// servidor (que não chega no nosso WS hand-rolled). Nivel 0..1; voz ativa passa do
 // threshold. Hangover segura o "falando" um tico apos cair (anti-flicker).
 private const val SPEAK_THRESHOLD = 0.015
 private const val SPEAK_POLL_MS = 200L
@@ -127,8 +127,8 @@ class VoiceEngine(
     private var adm: AudioDeviceModule? = null
     private var pingJob: Job? = null
     // Guarda a coroutine de connect() pra dispose() poder cancela-la, e a flag
-    // marca "ja fui descartado" pras atribuicoes pos-suspensao (carregar a lib
-    // nativa nao e instantaneo) desistirem em vez de escrever num engine morto.
+    // marca "já fui descartado" pras atribuicoes pos-suspensao (carregar a lib
+    // nativa não e instantaneo) desistirem em vez de escrever num engine morto.
     private var connectJob: Job? = null
     @Volatile private var disposed = false
     private var myIdentity: String? = null
@@ -139,13 +139,13 @@ class VoiceEngine(
     @Volatile private var mySpeakUntil = 0L
 
     // identity -> outro participante (ordem de chegada). speaking vem por sid
-    // (SpeakersChanged fala em sid, nao identity).
+    // (SpeakersChanged fala em sid, não identity).
     private class Remote(val sid: String, val label: String, val avatarUrl: String? = null, var speaking: Boolean = false, var speakUntil: Long = 0)
     private val others = linkedMapOf<String, Remote>()
-    // Receiver do audio remoto por dono (ownerSid) — pra medir o nivel de fala de cada um.
+    // Receiver do audio remoto por dono (ownerSid) — pra medir o nível de fala de cada um.
     private val remoteAudioReceivers = linkedMapOf<String, RTCRtpReceiver>()
 
-    // Transmissoes remotas (video). Track de audio remota nao entra aqui: toca
+    // Transmissoes remotas (video). Track de audio remota não entra aqui: toca
     // sozinha no device padrao.
     private val _remoteVideos = MutableStateFlow<List<RemoteVideo>>(emptyList())
     val remoteVideos = _remoteVideos.asStateFlow()
@@ -183,7 +183,7 @@ class VoiceEngine(
     // Camera reusa TODA a maquinaria da tela (track/cid/sender/_screenOn/_localScreen/
     // attachScreen/stop) — so uma fonte de video por vez. So a FONTE muda: aqui um
     // VideoDeviceSource (camera) em vez do ffmpeg/GDI. sharingCamera diz a UI se o
-    // "meu palco" e camera (rotulo + preview vem do sink da track, nao do ffmpeg).
+    // "meu palco" e camera (rotulo + preview vem do sink da track, não do ffmpeg).
     private var cameraSource: VideoDeviceSource? = null
     private val _sharingCamera = MutableStateFlow(false)
     val sharingCamera = _sharingCamera.asStateFlow()
@@ -200,12 +200,12 @@ class VoiceEngine(
     private val _localPreview = MutableStateFlow<ScreenPreview?>(null)
     val localPreview = _localPreview.asStateFlow()
 
-    // Metricas da transmissao (poll a cada ~1.5s enquanto compartilho).
+    // Metricas da transmissão (poll a cada ~1.5s enquanto compartilho).
     private val _screenStats = MutableStateFlow<ScreenStats?>(null)
     val screenStats = _screenStats.asStateFlow()
     private var statsJob: Job? = null
 
-    // Preset ativo da transmissao (Settings > Voz). Capturado da pref no
+    // Preset ativo da transmissão (Settings > Voz). Capturado da pref no
     // startScreenShare; TrackPublished/attachScreen leem daqui. Default = 720p60
     // (foco em fluidez; 1080p foi removido — o encoder H264 e software).
     private var screenQ: ScreenQuality = ScreenQuality.SMOOTH_720_60
@@ -214,7 +214,7 @@ class VoiceEngine(
     // HW/NVENC — verificado no binario), entao ate 720p60 pode ser CPU demais e o fps
     // despenca. Quando o envio fica 'cpu'-limitado por ~3 leituras seguidas, baixamos
     // 1 degrau de preset (priorizando o framerate). sessionQualityCap = teto SO desta
-    // sessao — NAO mexe na pref explicita do usuario (zera quando ele escolhe na mao).
+    // sessão — NAO mexe na pref explicita do usuário (zera quando ele escolhe na mao).
     private var sessionQualityCap: ScreenQuality? = null
     private var cpuStreak = 0
 
@@ -225,12 +225,12 @@ class VoiceEngine(
     fun connect(roomKind: String, roomId: String) {
         Sfx.callJoin() // entrar na call: som fino/agudo
         connectJob = scope.launch {
-            // Escreve num LOCAL, nao no campo: se dispose() correu enquanto a lib
-            // nativa carregava, o factory recem-criado seria orfao (dispose ja
-            // rodou com factory==null e nao teria o que fechar). Checa disposed
-            // antes de adotar; se ja fui descartado, fecho o que acabei de criar.
+            // Escreve num LOCAL, não no campo: se dispose() correu enquanto a lib
+            // nativa carregava, o factory recem-criado seria orfao (dispose já
+            // rodou com factory==null e não teria o que fechar). Checa disposed
+            // antes de adotar; se já fui descartado, fecho o que acabei de criar.
             val f = withContext(Dispatchers.IO) {
-                // UnsatisfiedLinkError e Error, nao Exception — catch amplo aqui.
+                // UnsatisfiedLinkError e Error, não Exception — catch amplo aqui.
                 // Factory padrao = ADM de hardware pro PLAYOUT (ouvir os outros toca
                 // sozinho no device padrao). A CAPTURA do mic NAO usa esse ADM (ele
                 // quebra nesse caminho): vem do MicCapture (Java Sound) via
@@ -243,7 +243,7 @@ class VoiceEngine(
             }
             if (disposed) { runCatching { f?.dispose() }; return@launch }
             if (f == null) {
-                _status.value = VoiceStatus.Failed("WebRTC nativo nao carregou nesta maquina")
+                _status.value = VoiceStatus.Failed("WebRTC nativo não carregou nesta maquina")
                 return@launch
             }
             factory = f
@@ -251,7 +251,7 @@ class VoiceEngine(
             val data = runCatching { voiceApi.token(VoiceTokenRequest(roomKind, roomId)).data }.getOrNull()
             if (disposed) return@launch
             if (data == null) {
-                _status.value = VoiceStatus.Failed("Backend nao deu o token de voz")
+                _status.value = VoiceStatus.Failed("Backend não deu o token de voz")
                 return@launch
             }
 
@@ -284,8 +284,8 @@ class VoiceEngine(
         }
     }
 
-    // Factory com ADM explicito: o ADM default nao estava tocando o audio remoto
-    // nesta maquina (voce nao ouvia ninguem, mas te ouviam). Escolhe a saida da
+    // Factory com ADM explicito: o ADM default não estava tocando o audio remoto
+    // nesta maquina (você não ouvia ninguem, mas te ouviam). Escolhe a saida da
     // pref (ou a 1a). Se o caminho do ADM explodir, cai no factory padrao pra pelo
     // menos ENTRAR na sala (mesmo comportamento de antes).
     private fun createFactory(): PeerConnectionFactory {
@@ -358,7 +358,7 @@ class VoiceEngine(
                         remoteAudioReceivers.remove(p.sid)
                         _remoteVideos.value = _remoteVideos.value.filterNot { it.ownerSid == p.sid }
                     } else {
-                        // Preserva speaking: UPDATE nao fala de voz ativa.
+                        // Preserva speaking: UPDATE não fala de voz ativa.
                         others[p.identity] = p.remote(others[p.identity]?.speaking ?: false)
                     }
                 }
@@ -412,17 +412,17 @@ class VoiceEngine(
                 if (joined) publishConnected()
             }
 
-            // Track de video remota = transmissao de alguem. O LiveKit nomeia o
+            // Track de video remota = transmissão de alguem. O LiveKit nomeia o
             // MediaStream como "participantSid|trackSid" — dai sai o dono.
             override fun onAddTrack(receiver: RTCRtpReceiver, streams: Array<MediaStream>) {
                 val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|') ?: return
                 when (val track = receiver.track) {
                     is VideoTrack -> {
-                        val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissao"
+                        val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissão"
                         _remoteVideos.value = _remoteVideos.value + RemoteVideo(ownerSid, label, track)
                     }
                     // Audio remoto toca sozinho no device padrao; guardamos o receiver so
-                    // pra medir o nivel de fala (inchada do card de quem fala).
+                    // pra medir o nível de fala (inchada do card de quem fala).
                     is AudioTrack -> remoteAudioReceivers[ownerSid] = receiver
                     else -> Unit
                 }
@@ -516,7 +516,7 @@ class VoiceEngine(
         // factory ("Start recording failed"); Java Sound abre o mic por outro caminho
         // e roda em qualquer maquina. O MicCapture passa cada bloco pelo APM do WebRTC
         // (NS + high-pass + AGC, saida 48k mono) conforme as prefs de Voz — sem isso a
-        // voz saia "robo com ruido". Sem mic nao derruba a sala: segue so ouvindo.
+        // voz saia "robo com ruido". Sem mic não derruba a sala: segue so ouvindo.
         val source = runCatching { CustomAudioSource() }.getOrNull() ?: return
         val cid = "mic-" + UUID.randomUUID().toString().take(8)
         micCid = cid
@@ -525,7 +525,7 @@ class VoiceEngine(
         val p = prefs.state.value
         val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
-        cap.start() // false = sem dispositivo de captura; a track fica muda, mas nao trava
+        cap.start() // false = sem dispositivo de captura; a track fica muda, mas não trava
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
                 LivekitRtc.AddTrackRequest.newBuilder()
@@ -603,7 +603,7 @@ class VoiceEngine(
         )
     }
 
-    // ---- V5: transmissao de tela — 60fps NO MINIMO (requisito do dono) --------
+    // ---- V5: transmissão de tela — 60fps NO MINIMO (requisito do dono) --------
 
     // Monitores disponiveis (id + titulo). Enumeracao pontual; capturer descartado.
     fun screens(): List<DesktopSource> {
@@ -636,8 +636,8 @@ class VoiceEngine(
     }
 
     // Fallback GDI (VideoDesktopSource): roda em qualquer maquina, ~20-30fps. fps
-    // na captura; resolucao capada no preset (o webrtc-java nao expoe
-    // degradationPreference, entao nao dar ao encoder mais pixels do que segura).
+    // na captura; resolucao capada no preset (o webrtc-java não expoe
+    // degradationPreference, entao não dar ao encoder mais pixels do que segura).
     private fun startGdiCapture(source: DesktopSource?, q: ScreenQuality): VideoTrackSource? {
         val target = source ?: screens().firstOrNull() ?: return null
         val src = runCatching {
@@ -657,7 +657,7 @@ class VoiceEngine(
         val f = factory ?: return
         if (!silent) Sfx.shareStart() // transmitir: 3 fases subindo
         lastScreenSource = source
-        // O cap da sessao (auto-ajuste) vence a pref: numa maquina que nao aguenta o
+        // O cap da sessão (auto-ajuste) vence a pref: numa maquina que não aguenta o
         // preset escolhido, republicar voltaria pro preset alto e re-derrubaria o fps.
         screenQ = sessionQualityCap ?: prefs.state.value.screenQuality
         val q = screenQ
@@ -672,7 +672,7 @@ class VoiceEngine(
         val cid = "screen-" + UUID.randomUUID().toString().take(8)
         screenCid = cid
         screenTrack = f.createVideoTrack(cid, trackSource)
-        _localScreen.value = screenTrack // preview local ja com os frames da captura
+        _localScreen.value = screenTrack // preview local já com os frames da captura
         _sharingCamera.value = false
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -696,14 +696,14 @@ class VoiceEngine(
         ws?.send(req.toByteArray().toByteString())
     }
 
-    // Cameras disponiveis (webcams). Enumeracao nativa; vazio se nao houver ou falhar.
+    // Cameras disponiveis (webcams). Enumeracao nativa; vazio se não houver ou falhar.
     fun cameras(): List<VideoDevice> =
         runCatching { MediaDevices.getVideoCaptureDevices() }.getOrDefault(emptyList())
 
     // Transmite a CAMERA. Mesma maquinaria da tela (uma fonte por vez), so a fonte
     // muda pra VideoDeviceSource. TrackSource.CAMERA na sinalizacao; o preview local
     // NAO usa o tee ffmpeg (fica null) -> a UI cai no RemoteVideoView, que le a track
-    // real (webcam entrega frames ao sink; CustomVideoSource da tela nao entregava).
+    // real (webcam entrega frames ao sink; CustomVideoSource da tela não entregava).
     fun startCameraShare(device: VideoDevice, silent: Boolean = false) {
         if (_screenOn.value) return
         val f = factory ?: return
@@ -727,7 +727,7 @@ class VoiceEngine(
         screenCid = cid
         screenTrack = f.createVideoTrack(cid, src)
         _localScreen.value = screenTrack
-        _localPreview.value = null // camera nao tem tee ffmpeg -> RemoteVideoView renderiza a track
+        _localPreview.value = null // camera não tem tee ffmpeg -> RemoteVideoView renderiza a track
         _sharingCamera.value = true
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -767,7 +767,7 @@ class VoiceEngine(
         screenSender = transceiver.sender
         preferH264(transceiver)
         negotiatePublisher()
-        // Reforca os encodings no sender ja negociado (o init nem sempre carrega
+        // Reforca os encodings no sender já negociado (o init nem sempre carrega
         // maxBitrate/maxFramerate pela munge do SDP) + comeca a medir os fps.
         scope.launch {
             delay(1200)
@@ -777,7 +777,7 @@ class VoiceEngine(
     }
 
     // Re-aplica maxFramerate/maxBitrate direto no sender (via setParameters) — jeito
-    // confiavel de garantir que o teto vale, ja que init encodings as vezes se perde.
+    // confiavel de garantir que o teto vale, já que init encodings as vezes se perde.
     private fun reinforceScreenSender() {
         val sender = screenSender ?: return
         runCatching {
@@ -793,7 +793,7 @@ class VoiceEngine(
     }
 
     // Poll de getStats no sender da tela: expoe fps de captura e de envio + o motivo
-    // da degradacao. E como saber SE bateu 60 e, se nao, ONDE travou (captura/cpu/banda).
+    // da degradacao. E como saber SE bateu 60 e, se não, ONDE travou (captura/cpu/banda).
     private fun startScreenStats() {
         statsJob?.cancel()
         cpuStreak = 0
@@ -829,24 +829,24 @@ class VoiceEngine(
     }
 
     // 'cpu'-limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So
-    // desce, nunca sobe (evita ficar oscilando). O cap vale so nesta sessao.
+    // desce, nunca sobe (evita ficar oscilando). O cap vale so nesta sessão.
     private fun maybeAutoStepDown(limit: String) {
         if (limit == "cpu") cpuStreak++ else cpuStreak = 0
         if (cpuStreak < 3) return
-        val next = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // ja no piso
+        val next = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // já no piso
         cpuStreak = 0
         // Fora da thread do getStats (callback nativo) -> pro escopo do engine.
         scope.launch { autoStepDownTo(next) }
     }
 
-    // So 720p agora: unico degrau possivel e cair o fps (60 -> 30). Piso = 720p30.
+    // So 720p agora: único degrau possível e cair o fps (60 -> 30). Piso = 720p30.
     private fun ScreenQuality.stepDownForCpu(): ScreenQuality? = when (this) {
         ScreenQuality.SMOOTH_720_60 -> ScreenQuality.LIGHT_720_30
         ScreenQuality.LIGHT_720_30  -> null
     }
 
-    // Reinicia a captura no preset menor SEM persistir (respeita a escolha do usuario
-    // pra proxima sessao). Espelha o setScreenQuality manual, mas via sessionQualityCap.
+    // Reinicia a captura no preset menor SEM persistir (respeita a escolha do usuário
+    // pra próxima sessão). Espelha o setScreenQuality manual, mas via sessionQualityCap.
     private suspend fun autoStepDownTo(q: ScreenQuality) {
         sessionQualityCap = q
         if (!_screenOn.value) return
@@ -865,13 +865,13 @@ class VoiceEngine(
         speakingJob = scope.launch {
             while (isActive) {
                 val now = System.currentTimeMillis()
-                if (!_micOn.value) mySpeakUntil = 0L // mudo => nao "fala"
+                if (!_micOn.value) mySpeakUntil = 0L // mudo => não "fala"
                 sub?.let { pc ->
                     remoteAudioReceivers.entries.toList().forEach { (sid, recv) ->
                         runCatching { pc.getStats(recv) { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) markRemoteSpeak(sid) } }
                     }
                 }
-                // Aplica (com base no que ja voltou dos ciclos anteriores).
+                // Aplica (com base no que já voltou dos ciclos anteriores).
                 var changed = false
                 val meSpeak = now < mySpeakUntil
                 if (meSpeak != mySpeaking) { mySpeaking = meSpeak; changed = true }
@@ -898,7 +898,7 @@ class VoiceEngine(
         }
     }
 
-    // audioLevel (0..1) de qualquer stat que reporte — usado pro nivel dos remotos.
+    // audioLevel (0..1) de qualquer stat que reporte — usado pro nível dos remotos.
     private fun audioLevelOf(report: RTCStatsReport): Double {
         var lvl = 0.0
         report.stats.values.forEach { s ->
@@ -919,7 +919,7 @@ class VoiceEngine(
 
     fun stopScreenShare(silent: Boolean = false) {
         if (!_screenOn.value) return
-        if (!silent) Sfx.shareStop() // parar transmissao: 3 fases descendo (invertido)
+        if (!silent) Sfx.shareStop() // parar transmissão: 3 fases descendo (invertido)
         _screenOn.value = false
         _sharingCamera.value = false
         _localScreen.value = null
@@ -946,11 +946,11 @@ class VoiceEngine(
         negotiatePublisher()
     }
 
-    // Troca a qualidade/fluidez da transmissao ao vivo (gear da call): persiste a
-    // pref e, se ja estou transmitindo, reinicia a captura no MESMO monitor com o
+    // Troca a qualidade/fluidez da transmissão ao vivo (gear da call): persiste a
+    // pref e, se já estou transmitindo, reinicia a captura no MESMO monitor com o
     // novo preset (o ffmpeg e spawnado com w/h/fps assados -> so reiniciando muda).
     fun setScreenQuality(q: ScreenQuality) {
-        sessionQualityCap = null // escolha manual = usuario no controle; limpa o auto-cap
+        sessionQualityCap = null // escolha manual = usuário no controle; limpa o auto-cap
         prefs.setScreenQuality(q)
         if (!_screenOn.value) return
         val src = lastScreenSource
@@ -961,7 +961,7 @@ class VoiceEngine(
         }
     }
 
-    // Mute local (track para de mandar frames) + aviso pro server (icone de mute
+    // Mute local (track para de mandar frames) + aviso pro server (ícone de mute
     // aparece pros outros).
     fun toggleMic() {
         val track = micTrack ?: return
@@ -1054,8 +1054,8 @@ class VoiceEngine(
         sub = null
         runCatching { factory?.dispose() }
         factory = null
-        // O factory e dono do ADM (foi passado no construtor) — nao dispomos de novo
-        // pra nao arriscar double-free nativo; so soltamos a referencia.
+        // O factory e dono do ADM (foi passado no construtor) — não dispomos de novo
+        // pra não arriscar double-free nativo; so soltamos a referencia.
         adm = null
     }
 }

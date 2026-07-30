@@ -56,7 +56,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 // Feedback tatil de clique (decisao do dono): o alvo encolhe pra ~0.96 enquanto
 // pressionado e volta com mola ao soltar. GPU-only (graphicsLayer scale). Reduzir
 // movimento -> sem escala. Reaproveita o MESMO InteractionSource que o componente
-// ja usa pro hover; pra funcionar, o clickable precisa receber esse source
+// já usa pro hover; pra funcionar, o clickable precisa receber esse source
 // (clickable(interactionSource = it, indication = null, ...)). Aplique cedo na
 // cadeia (antes de clip/background) pra escala envolver o visual inteiro.
 @Composable
@@ -76,8 +76,8 @@ fun Modifier.clickScale(
 
 // Icone Lucide tingido. O desktop NAO tem material (sem Icon()), entao renderiza
 // o ImageVector via foundation.Image + ColorFilter.tint. Substitui os glifos/emoji
-// que faziam papel de icone de chrome; a marca ✦ do Astra fica de fora (e
-// identidade, nao icone). Mesma lib/versao do :app Android (com.composables.icons.lucide).
+// que faziam papel de ícone de chrome; a marca ✦ do Astra fica de fora (e
+// identidade, não ícone). Mesma lib/versão do :app Android (com.composables.icons.lucide).
 @Composable
 fun LIcon(
     icon: ImageVector,
@@ -148,21 +148,21 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
     }
 }
 
-// "Reduzir movimento" (Settings > Movimento): quando ligado, as animacoes de
+// "Reduzir movimento" (Settings > Movimento): quando ligado, as animações de
 // fundo (aurora, cascata, pulsos) param. Provido no ShellScreen a partir do
 // DesktopPrefs; muda em tempo real. Modifiers @Composable (auroraBackground,
 // CascadeIn) e os pulsos leem daqui.
 val LocalReduceMotion = staticCompositionLocalOf { false }
 
-// Janela "ativa" = visivel E nao minimizada (provido no Main a partir do estado
+// Janela "ativa" = visivel E não minimizada (provido no Main a partir do estado
 // da janela). Aurora e estrelas gastam frame SO quando ativa — na bandeja/
 // minimizada param (guardrail do dono). IMPORTANTE: e diferente de "focada".
 // Popups focaveis do desktop (menu de botao direito, dialogs) roubam o foco da
 // janela, entao gatear por FOCO congelava a aurora toda vez que abria um menu
-// (o "cortada de vez em quando"). Visibilidade nao pisca com popup -> sem corte.
+// (o "cortada de vez em quando"). Visibilidade não pisca com popup -> sem corte.
 val LocalWindowActive = staticCompositionLocalOf { true }
 
-// Prefs de RENDER das animacoes de fundo (Settings > Desempenho), desacopladas
+// Prefs de RENDER das animações de fundo (Settings > Desempenho), desacopladas
 // dos enums de prefs: octaves do FBM da aurora e teto de FPS (0 = livre). O
 // ShellScreen mapeia AuroraQuality/UiFps -> isto e provee; Aurora/StarField leem.
 data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = 0)
@@ -181,7 +181,7 @@ val LocalMsgDensity = staticCompositionLocalOf { MsgDensity() }
 private const val CASCADE_MAX = 14
 
 // stepMs/startDelayMs/translateY tem default = comportamento antigo, entao os
-// call-sites de lista (que passam so index+listKey) nao mudam. O ProfilePage passa
+// call-sites de lista (que passam so index+listKey) não mudam. O ProfilePage passa
 // um passo maior (ritmo "um de cada vez") pro perfil.
 @Composable
 fun CascadeIn(

@@ -83,6 +83,10 @@ class DesktopPrefs(private val store: SessionStore) {
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
         // de criacao da janela). Opaca = mais nitido/leve.
         val windowTransparent: Boolean = true,
+        // Fechar o X ENCERRA o Astra de vez (sem bandeja/segundo plano). Default
+        // false = minimiza pra bandeja (comportamento antigo). Ligado, tambem some
+        // o icone da bandeja — zero presenca em segundo plano ao fechar.
+        val exitOnClose: Boolean = false,
         // --- Aparencia ---
         val accentId: String = "white",
         val bgId: String = "void",
@@ -123,6 +127,7 @@ class DesktopPrefs(private val store: SessionStore) {
         starsEnabled = store.uiPref("starsEnabled") != "0",
         uiFps = UiFps.from(store.uiPref("uiFps")),
         windowTransparent = store.uiPref("windowTransparent") != "0",
+        exitOnClose = store.uiPref("exitOnClose") == "1",
         accentId = store.uiPref("accentId") ?: "white",
         bgId = store.uiPref("bgId") ?: "void",
         fontSize = FontSizePref.from(store.uiPref("fontSize")),
@@ -181,6 +186,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setWindowTransparent(v: Boolean) {
         persist("windowTransparent", v)
         _state.update { it.copy(windowTransparent = v) }
+    }
+
+    fun setExitOnClose(v: Boolean) {
+        persist("exitOnClose", v)
+        _state.update { it.copy(exitOnClose = v) }
     }
 
     fun setScreenQuality(v: ScreenQuality) {

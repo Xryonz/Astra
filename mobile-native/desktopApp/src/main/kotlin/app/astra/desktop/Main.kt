@@ -102,6 +102,12 @@ fun main() {
         // Transparencia e param de CRIACAO da janela -> le a pref UMA vez no boot
         // (Settings > Desempenho avisa "aplica ao reiniciar"). Opaca = mais leve.
         val transparentWindow = remember { GlobalContext.get().get<DesktopPrefs>().state.value.windowTransparent }
+        // Fechar o X: encerra de vez (sem bandeja) ou minimiza pra bandeja, conforme a
+        // pref (Settings > Desempenho). Reativa -> togglar aplica na hora. Ligado, a
+        // Tray nem e criada = zero presenca em segundo plano ao fechar.
+        val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
+        val exitOnClose = topPrefState.exitOnClose
+        val onCloseApp = { if (exitOnClose) exitApplication() else { windowVisible = false } }
         // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
@@ -123,17 +129,21 @@ fun main() {
         LaunchedEffect(Unit) { Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId) }
         var gateDone by remember { mutableStateOf(!updater.installed) }
 
-        Tray(
-            state = trayState,
-            icon = appIcon,
-            tooltip = "Astra",
-            onAction = { windowVisible = true }, // duplo clique no ícone reabre
-            menu = {
-                Item("Abrir o Astra", onClick = { windowVisible = true })
-                Separator()
-                Item("Sair", onClick = ::exitApplication)
-            },
-        )
+        // Bandeja so quando NAO e "fechar de vez": ligado o exitOnClose, o X ja encerra
+        // o app, entao um icone de bandeja seria presenca inutil em segundo plano.
+        if (!exitOnClose) {
+            Tray(
+                state = trayState,
+                icon = appIcon,
+                tooltip = "Astra",
+                onAction = { windowVisible = true }, // duplo clique no ícone reabre
+                menu = {
+                    Item("Abrir o Astra", onClick = { windowVisible = true })
+                    Separator()
+                    Item("Sair", onClick = ::exitApplication)
+                },
+            )
+        }
 
         // Gate de update primeiro: verifica a versão (logo + estrelas girando) e,
         // se houver nova, baixa com barra de progresso; senao segue pro app. So
@@ -160,7 +170,7 @@ fun main() {
         }
 
         Window(
-            onCloseRequest = { windowVisible = false },
+            onCloseRequest = onCloseApp,
             title = "Astra",
             icon = appIcon,
             state = state,
@@ -241,7 +251,7 @@ fun main() {
                 ) {
                     AstraTitleBar(
                         state = state,
-                        onClose = { windowVisible = false },
+                        onClose = onCloseApp,
                         showActions = session != null && !needsOnboarding,
                         notifUnread = notifUnread,
                         onOpenSearch = { searchOpen = true },

@@ -80,7 +80,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ChartColumn
 import com.composables.icons.lucide.Check
@@ -920,8 +924,11 @@ private fun ProfileSection(
 
     SettingsDivider()
     FieldLabel("banner")
-    // Arrastar na vertical reposiciona a imagem (bannerPositionY); so faz sentido
-    // com imagem — no gradiente não ha o que enquadrar.
+    // Previa ESTATICA. Antes o enquadramento era arrastando DIRETO nesta previa, e
+    // cada arrasto recompunha a aba inteira -> a main thread saturava e o ticker do
+    // gif do banner parava ("a animação que para"). Agora o enquadramento e no modal
+    // "redimensionar" (fora da coluna), entao aqui a animação nunca e interrompida.
+    var resizeOpen by remember { mutableStateOf(false) }
     ProfileBanner(
         css = draft.bannerColor,
         imageUrl = draft.bannerUrl,
@@ -935,29 +942,8 @@ private fun ProfileSection(
             // exatamente o que aparece neles.
             .aspectRatio(ProfileBannerAspect)
             .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .then(
-                if (draft.bannerUrl.isNullOrBlank()) Modifier
-                else Modifier.pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        // 110dp de altura -> ~1.4 px por ponto de posição. Arrastar
-                        // pra BAIXO revela o topo da imagem (posição diminui).
-                        val next = (draft.bannerPositionY - drag.y / 1.4f).toInt()
-                        onChange(draft.copy(bannerPositionY = next.coerceIn(0, 100)))
-                    }
-                },
-            ),
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp)),
     )
-    if (!draft.bannerUrl.isNullOrBlank()) {
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "arraste na imagem pra enquadrar.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        )
-        Spacer(Modifier.height(10.dp))
-        ZoomTrack(draft.bannerScale) { onChange(draft.copy(bannerScale = it)) }
-    }
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         AboutButton(if (busyBanner) "processando…" else "subir imagem", accent = true) {
@@ -973,8 +959,17 @@ private fun ProfileSection(
             }
         }
         if (!draft.bannerUrl.isNullOrBlank()) {
+            AboutButton("redimensionar imagem", accent = false) { resizeOpen = true }
             AboutButton("remover imagem", accent = false) { onChange(draft.copy(bannerUrl = null)) }
         }
+    }
+    if (resizeOpen && !draft.bannerUrl.isNullOrBlank()) {
+        ResizeBannerDialog(
+            draft = draft,
+            username = me?.username ?: "você",
+            onSave = { posY, scale -> onChange(draft.copy(bannerPositionY = posY, bannerScale = scale)) },
+            onClose = { resizeOpen = false },
+        )
     }
     Spacer(Modifier.height(14.dp))
     FieldLabel("ou uma cor")
@@ -1135,6 +1130,129 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
         }
         Spacer(Modifier.width(10.dp))
         Text("${scale}%", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+    }
+}
+
+// Popup que cobre a JANELA inteira (offset zero) — o conteudo desenha o scrim e
+// centraliza o cartao. Mesmo idioma do modal central do ProfilePage.
+private object OverlayCenter : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset.Zero
+}
+
+// Modal de "redimensionar banner": mostra o MINI CARD (o que os outros veem) com a
+// imagem arrastavel + zoom. Vive FORA da coluna das configs, entao arrastar aqui
+// recompoe so este cartaozinho — não a aba inteira — e o gif do banner continua
+// animando (era o bug: o drag na previa recompunha a pagina toda e matava o ticker).
+// Trabalha em estado LOCAL (posY/scl) e so aplica no "salvar"; cancelar descarta.
+@Composable
+private fun ResizeBannerDialog(
+    draft: ProfileDraft,
+    username: String,
+    onSave: (posY: Int, scale: Int) -> Unit,
+    onClose: () -> Unit,
+) {
+    var posY by remember { mutableStateOf(draft.bannerPositionY) }
+    var scl by remember { mutableStateOf(draft.bannerScale) }
+    val name = draft.displayName.ifBlank { username }
+    Popup(
+        popupPositionProvider = OverlayCenter,
+        onDismissRequest = onClose,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Obsidian.void.copy(alpha = 0.72f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onClose() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier
+                    .width(360.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Obsidian.raised)
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
+                    // Clique no cartao NAO fecha (so o scrim atras fecha).
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {}
+                    .padding(18.dp),
+            ) {
+                Text(
+                    "redimensionar banner",
+                    style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "é isto que os outros veem. arraste na imagem pra enquadrar.",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                )
+                Spacer(Modifier.height(16.dp))
+                // MINI CARD fiel ao popup: banner + avatar sobreposto + nome.
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
+                ) {
+                    ProfileBanner(
+                        css = draft.bannerColor,
+                        imageUrl = draft.bannerUrl,
+                        positionY = posY,
+                        scale = scl,
+                        fallback = Obsidian.overlay,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(ProfileBannerAspect)
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, drag ->
+                                    change.consume()
+                                    // 1.4 px por ponto (igual a previa antiga): arrastar pra
+                                    // BAIXO revela o topo (posição diminui).
+                                    posY = (posY - drag.y / 1.4f).toInt().coerceIn(0, 100)
+                                }
+                            },
+                    )
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        Box(Modifier.offset(y = (-30).dp)) {
+                            DesktopAvatar(draft.avatarUrl, name, 72)
+                        }
+                        Column(Modifier.offset(y = (-8).dp)) {
+                            Text(
+                                name,
+                                style = TextStyle(
+                                    color = Obsidian.text1, fontSize = 18.sp, fontWeight = FontWeight.Medium,
+                                    fontFamily = profileFontFamily(draft.displayFont),
+                                ),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                "@$username",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                ZoomTrack(scl) { scl = it }
+                Spacer(Modifier.height(18.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AboutButton("cancelar", accent = false) { onClose() }
+                    AboutButton("salvar", accent = true) { onSave(posY, scl); onClose() }
+                }
+            }
+        }
     }
 }
 
@@ -1990,6 +2108,13 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "a transparencia da janela so aplica ao reiniciar o app.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
+    )
+
+    Spacer(Modifier.height(6.dp))
+    ToggleRow(
+        "Fechar de vez ao fechar o app",
+        "o X encerra o Astra em vez de minimizar pra bandeja — sem nada em segundo plano",
+        p.exitOnClose, prefs::setExitOnClose,
     )
 }
 

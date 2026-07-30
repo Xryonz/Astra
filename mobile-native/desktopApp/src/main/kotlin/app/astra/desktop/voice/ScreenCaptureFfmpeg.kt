@@ -58,7 +58,7 @@ class ScreenCaptureFfmpeg(
     private var previewNative: NativeI420Buffer? = null       // reusado por resolucao
     private var previewNativeW = 0
     private var previewNativeH = 0
-    private var fullArgb = ByteArray(0)                       // scratch res cheia (ARGB)
+    private var smallI420 = ByteArray(0)                      // I420 ja reduzido (Metodo B)
     private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida já reduzida (2 buffers)
     private var argbIdx = 0
 
@@ -201,50 +201,67 @@ class ScreenCaptureFfmpeg(
         previewNative = null
     }
 
-    // I420 cru -> NativeI420Buffer (reusado por resolucao) -> ARGB (ABGR) -> downscale
-    // pra <= PREVIEW_MAX_W -> callback. So a thread de preview toca aqui. O ImageBitmap
-    // menor deixa makeRaster + upload de textura no UI muito mais leve.
+    // I420 cru -> (reduz JA no I420) -> NativeI420Buffer -> ARGB (ABGR) -> callback.
+    // So a thread de preview toca aqui.
+    //
+    // Metodo B (pesquisa de FPS): reduzir ANTES de converter. Antes convertia o frame
+    // INTEIRO pra ARGB (buffer de w*h*4 — 3.7MB em 720p) e so depois reduzia; agora a
+    // reducao acontece no I420 (1.5 byte/px em vez de 4) e a conversao roda ja no
+    // tamanho final. Em 720p->960 isso e ~45% menos pixel convertido por frame e um
+    // buffer de 3.7MB a menos vivo — direto no consumo de CPU/RAM da transmissão.
     private fun convertAndEmit(i420: ByteArray, w: Int, h: Int, cb: (ByteArray, Int, Int) -> Unit) {
         val cW = w / 2; val cH = h / 2
         val ySize = w * h; val cSize = cW * cH
         if (i420.size < ySize + 2 * cSize) return
-        var native = previewNative
-        if (native == null || previewNativeW != w || previewNativeH != h) {
-            runCatching { native?.release() }
-            native = runCatching { NativeI420Buffer.allocate(w, h) }.getOrNull() ?: return
-            previewNative = native; previewNativeW = w; previewNativeH = h
-        }
-        copyPlane(i420, 0, w, native.dataY, native.strideY, w, h)
-        copyPlane(i420, ySize, cW, native.dataU, native.strideU, cW, cH)
-        copyPlane(i420, ySize + cSize, cW, native.dataV, native.strideV, cW, cH)
+        // Tamanho do preview (par, mantendo proporcao).
         val scale = if (w > PREVIEW_MAX_W) PREVIEW_MAX_W.toDouble() / w else 1.0
         val pw = (w * scale).toInt() and 1.inv()
         val ph = (h * scale).toInt() and 1.inv()
         if (pw < 2 || ph < 2) return
-        val fullNeed = w * h * 4
-        if (fullArgb.size != fullNeed) fullArgb = ByteArray(fullNeed)
+
+        // Fonte da conversao: o proprio frame (sem reducao) ou a copia reduzida.
+        val src: ByteArray; val srcW: Int; val srcH: Int; val srcOff: Int
+        if (pw == w && ph == h) {
+            src = i420; srcW = w; srcH = h; srcOff = 0
+        } else {
+            val pcW = pw / 2; val pcH = ph / 2
+            val need = pw * ph + 2 * (pcW * pcH)
+            if (smallI420.size != need) smallI420 = ByteArray(need)
+            scalePlane(i420, 0, w, h, smallI420, 0, pw, ph)
+            scalePlane(i420, ySize, cW, cH, smallI420, pw * ph, pcW, pcH)
+            scalePlane(i420, ySize + cSize, cW, cH, smallI420, pw * ph + pcW * pcH, pcW, pcH)
+            src = smallI420; srcW = pw; srcH = ph; srcOff = 0
+        }
+
+        val sCW = srcW / 2; val sCH = srcH / 2
+        val sY = srcW * srcH; val sC = sCW * sCH
+        var native = previewNative
+        if (native == null || previewNativeW != srcW || previewNativeH != srcH) {
+            runCatching { native?.release() }
+            native = runCatching { NativeI420Buffer.allocate(srcW, srcH) }.getOrNull() ?: return
+            previewNative = native; previewNativeW = srcW; previewNativeH = srcH
+        }
+        copyPlane(src, srcOff, srcW, native.dataY, native.strideY, srcW, srcH)
+        copyPlane(src, srcOff + sY, sCW, native.dataU, native.strideU, sCW, sCH)
+        copyPlane(src, srcOff + sY + sC, sCW, native.dataV, native.strideV, sCW, sCH)
+
         val outNeed = pw * ph * 4
         val dst = argbBufs[argbIdx].let { if (it.size == outNeed) it else ByteArray(outNeed).also { b -> argbBufs[argbIdx] = b } }
         argbIdx = argbIdx xor 1
-        VideoBufferConverter.convertFromI420(native, fullArgb, FourCC.ABGR)
-        if (pw == w && ph == h) System.arraycopy(fullArgb, 0, dst, 0, outNeed)
-        else downscaleArgb(fullArgb, w, h, dst, pw, ph)
+        VideoBufferConverter.convertFromI420(native, dst, FourCC.ABGR)
         cb(dst, pw, ph)
     }
 
-    // Nearest-neighbor ARGB — barato, roda na thread de captura fora do caminho da
-    // transmissão. Pra preview a qualidade nearest e suficiente.
-    private fun downscaleArgb(src: ByteArray, sw: Int, sh: Int, dst: ByteArray, dw: Int, dh: Int) {
-        var di = 0
+    // Nearest-neighbor de UM plano (8 bits/px) — usado pra reduzir o I420 antes da
+    // conversao. Roda na thread de preview, fora do caminho do encoder.
+    private fun scalePlane(
+        src: ByteArray, srcOff: Int, sw: Int, sh: Int,
+        dst: ByteArray, dstOff: Int, dw: Int, dh: Int,
+    ) {
+        var di = dstOff
         for (y in 0 until dh) {
-            val srow = (y * sh / dh) * sw * 4
-            for (x in 0 until dw) {
-                val si = srow + (x * sw / dw) * 4
-                dst[di++] = src[si]
-                dst[di++] = src[si + 1]
-                dst[di++] = src[si + 2]
-                dst[di++] = src[si + 3]
-            }
+            val srow = srcOff + (y * sh / dh) * sw
+            for (x in 0 until dw) dst[di++] = src[srow + (x * sw / dw)]
         }
     }
 

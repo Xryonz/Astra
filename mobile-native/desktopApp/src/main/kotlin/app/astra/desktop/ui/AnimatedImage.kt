@@ -22,6 +22,8 @@ import okhttp3.Request
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Codec
 import org.jetbrains.skia.Data
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.Surface
 import org.jetbrains.skia.Image as SkiaImage
 import org.koin.core.context.GlobalContext
 import org.koin.core.qualifier.named
@@ -106,8 +108,14 @@ private fun mightAnimate(url: String): Boolean {
     return path.endsWith(".gif") || path.endsWith(".webp")
 }
 
-// Decodifica os bytes em frames via Skiko. null = 1 frame so (estatico -> Coil),
-// não decodificou, ou grande demais pro teto de memoria.
+// Maior lado que um frame animado guarda em memoria. Banner/avatar nunca sao
+// desenhados perto disso, entao reduzir não tira qualidade visivel — e e o que faz
+// gif GRANDE continuar animando: na resolucao original, um gif de banner (ex.
+// 1920x1080 = 8MB/frame) estourava o teto e virava "estatico" pra sempre.
+private const val ANIM_MAX_DIM = 1024
+
+// Decodifica os bytes em frames via Skiko, REDUZINDO frames grandes. null = 1 frame
+// so (estatico -> Coil) ou não decodificou.
 private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
     val count = codec.frameCount
@@ -116,14 +124,19 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     val w = info.width
     val h = info.height
     if (w <= 0 || h <= 0) return null
-    // Teto por imagem (~24MB de bitmaps): imagem gigante não vira animação (cai no
-    // Coil estatico) pra não estourar a RAM.
-    val perFrame = w.toLong() * h * 4
-    val maxFrames = (24L * 1024 * 1024 / perFrame).toInt()
+    // Alvo depois da reducao (mantem proporcao). scale < 1 => desenha reduzido.
+    val scale = minOf(1f, ANIM_MAX_DIM.toFloat() / maxOf(w, h))
+    val tw = (w * scale).toInt().coerceAtLeast(1)
+    val th = (h * scale).toInt().coerceAtLeast(1)
+    // Teto de memoria (~48MB de bitmaps) contado JA no tamanho reduzido.
+    val perFrame = tw.toLong() * th * 4
+    val maxFrames = (48L * 1024 * 1024 / perFrame).toInt()
     if (maxFrames < 2) return null
     val n = minOf(count, maxFrames)
     val fi = codec.framesInfo
     val bmp = Bitmap().apply { allocPixels(info) }
+    // So aloca a superficie de reducao quando ha o que reduzir.
+    val surface = if (scale < 1f) Surface.makeRasterN32Premul(tw, th) else null
     val out = ArrayList<ImageBitmap>(n)
     val durs = ArrayList<Int>(n)
     for (i in 0 until n) {
@@ -131,12 +144,21 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
         // (requiredFrame == i-1). makeFromBitmap copia (bitmap e mutavel) -> cada
         // frame vira um snapshot independente.
         codec.readPixels(bmp, i)
-        out += SkiaImage.makeFromBitmap(bmp).toComposeImageBitmap()
+        val full = SkiaImage.makeFromBitmap(bmp)
+        if (surface == null) {
+            out += full.toComposeImageBitmap()
+        } else {
+            surface.canvas.clear(0)
+            surface.canvas.drawImageRect(full, Rect.makeWH(tw.toFloat(), th.toFloat()))
+            runCatching { full.close() }
+            out += surface.makeImageSnapshot().toComposeImageBitmap()
+        }
         val d = fi.getOrNull(i)?.duration ?: 100
         durs += if (d <= 0) 100 else d // GIF com 0ms -> 100ms (o que os browsers fazem)
     }
     runCatching { bmp.close() }
-    AnimatedFrames(out, durs, w, h)
+    runCatching { surface?.close() }
+    AnimatedFrames(out, durs, tw, th)
 }.getOrNull()
 
 // Cache de frames decodificados (LRU por contagem — cada gif custa uns MB). Guarda
@@ -170,6 +192,13 @@ private object AnimatedImageStore {
         return frames
     }
 
+    // Cliente SEM auth pro fallback: quando o banner mora num CDN/R2 publico, mandar
+    // o header Authorization pode ser recusado (o endpoint tenta interpretar como
+    // assinatura) -> o fetch falhava, a animação nunca era decodificada e sobrava o
+    // 1o frame do Coil. Era o "gif anima, ai reinicio o Astra e fica parado": antes de
+    // salvar a imagem e data-uri (decodifica local), depois vira URL e passava por aqui.
+    private val plain by lazy { OkHttpClient() }
+
     private fun fetchBytes(url: String): ByteArray? {
         if (url.startsWith("data:")) {
             val i = url.indexOf("base64,")
@@ -177,10 +206,13 @@ private object AnimatedImageStore {
             return runCatching { Base64.getDecoder().decode(url.substring(i + 7)) }.getOrNull()
         }
         val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
-        return runCatching {
-            http.newCall(Request.Builder().url(abs).build()).execute().use { resp ->
-                if (resp.isSuccessful) resp.body?.bytes() else null
-            }
-        }.getOrNull()
+        // Tenta autenticado (uploads do proprio backend exigem) e, se falhar, sem auth.
+        return get(http, abs) ?: get(plain, abs)
     }
+
+    private fun get(client: OkHttpClient, url: String): ByteArray? = runCatching {
+        client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            if (resp.isSuccessful) resp.body?.bytes() else null
+        }
+    }.getOrNull()
 }

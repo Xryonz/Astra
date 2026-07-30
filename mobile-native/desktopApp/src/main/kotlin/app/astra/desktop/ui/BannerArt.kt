@@ -140,11 +140,13 @@ fun ProfileBanner(
             AstraImage(
                 url = imageUrl,
                 contentDescription = null,
-                // Crop (como era antes): NAO distorce e anima gif/webp normal. O
-                // enquadramento fica por conta do REDIMENSIONAMENTO — positionY
-                // reposiciona (vertical) e `scale` da o zoom. Foi o esticar (FillBounds)
-                // que o dono não curtiu; a cobertura agora e no controle manual.
-                contentScale = ContentScale.Crop,
+                // Fit: a imagem aparece INTEIRA (pedido do dono) — o Crop antigo cortava
+                // sozinho pra encaixar na faixa e comia o resto do conteudo. Fit NAO
+                // distorce (diferente do FillBounds que ele rejeitou): so cabe a imagem
+                // toda na caixa e o gradiente/cor aparece nas sobras. Dai o usuario
+                // ajusta como quiser — `scale` (0-300%) enche a faixa e positionY
+                // reposiciona na vertical.
+                contentScale = ContentScale.Fit,
                 // bias -1 = topo, 0 = centro, +1 = base.
                 alignment = BiasAlignment(0f, (positionY.coerceIn(0, 100) / 50f) - 1f),
                 modifier = Modifier.fillMaxSize().scale((scale.coerceIn(0, 300)) / 100f),

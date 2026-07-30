@@ -693,15 +693,44 @@ private fun DrawScope.drawImageFit(img: ImageBitmap) {
     )
 }
 
+// Recicla as Skia Images do video. makeRaster COPIA os pixels pra uma imagem raster
+// nova = memoria NATIVA (off-heap) que, sozinha, so seria liberada no finalizador do
+// GC. A 60fps × ~2MB/frame sao ~120MB/s de memoria nativa; entre os System.gc() do
+// skiko (~40s) isso empilha GIGABYTES de RSS (era o "3GB ao transmitir"). Aqui
+// fechamos cada imagem de forma DETERMINISTICA, na propria thread do sink: guardamos
+// current+prev e so fechamos a de 2 quadros atras — ela saiu do frame.value ha 2
+// trocas, entao o render thread ja desenhou muito alem dela (nenhum draw a referencia).
+// Resultado: memoria nativa presa em ~2 frames em vez de centenas, sem depender do GC.
+private class RasterRecycler {
+    private var prev: SkiaImage? = null
+    private var prevPrev: SkiaImage? = null
+
+    fun wrap(info: ImageInfo, pixels: ByteArray, rowBytes: Int): ImageBitmap {
+        val img = SkiaImage.makeRaster(info, pixels, rowBytes)
+        runCatching { prevPrev?.close() } // 2 quadros atras: seguro fechar
+        prevPrev = prev
+        prev = img
+        return img.toComposeImageBitmap()
+    }
+
+    fun dispose() {
+        runCatching { prev?.close() }
+        runCatching { prevPrev?.close() }
+        prev = null; prevPrev = null
+    }
+}
+
 // Renderiza a track remota: sink nativo -> I420 -> RGBA -> ImageBitmap por frame.
 // makeRaster copia os bytes (frame nativo pode ser reciclado logo apos o callback);
-// o buffer de conversao e reutilizado — so o sink escreve nele. O frame e um State
+// o buffer de conversao e reutilizado — so o sink escreve nele. A Skia Image e
+// reciclada (RasterRecycler) pra memoria nativa não estourar. O frame e um State
 // lido DENTRO do Canvas (fase de desenho) -> cada frame (60fps) redesenha, NAO recompoe.
 @Composable
 private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
     val frame = remember(track) { mutableStateOf<ImageBitmap?>(null) }
     DisposableEffect(track) {
         var scratch = ByteArray(0)
+        val recycler = RasterRecycler()
         val sink = VideoTrackSink { vf ->
             runCatching {
                 val buf = vf.buffer
@@ -710,31 +739,33 @@ private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
                 val need = w * h * 4
                 if (scratch.size != need) scratch = ByteArray(need)
                 VideoBufferConverter.convertFromI420(buf, scratch, FourCC.ABGR)
-                frame.value = SkiaImage.makeRaster(
+                frame.value = recycler.wrap(
                     ImageInfo(w, h, ColorType.RGBA_8888, ColorAlphaType.OPAQUE),
                     scratch,
                     w * 4,
-                ).toComposeImageBitmap()
+                )
             }
         }
         track.addSink(sink)
-        onDispose { runCatching { track.removeSink(sink) } }
+        onDispose { runCatching { track.removeSink(sink) }; recycler.dispose() }
     }
     Canvas(modifier) { frame.value?.let { drawImageFit(it) } }
 }
 
 // Auto-preview da MINHA tela: os frames vem direto da captura (ScreenPreview, ARGB
-// cru) porque o sink da track local não dispara pra CustomVideoSource. makeRaster
-// copia os bytes; cada ScreenPreview novo (~15fps) recompoe e redesenha.
+// cru) porque o sink da track local não dispara pra CustomVideoSource. Mesma
+// reciclagem do remoto (RasterRecycler) pra memoria nativa não empilhar a 60fps.
 @Composable
 private fun LocalPreviewView(preview: ScreenPreview, modifier: Modifier = Modifier) {
+    val recycler = remember { RasterRecycler() }
+    DisposableEffect(Unit) { onDispose { recycler.dispose() } }
     val image = remember(preview) {
         runCatching {
-            SkiaImage.makeRaster(
+            recycler.wrap(
                 ImageInfo(preview.width, preview.height, ColorType.RGBA_8888, ColorAlphaType.OPAQUE),
                 preview.argb,
                 preview.width * 4,
-            ).toComposeImageBitmap()
+            )
         }.getOrNull()
     }
     // Mesmo idioma do RemoteVideoView: desenha via Canvas (sem relayout do no de Image).

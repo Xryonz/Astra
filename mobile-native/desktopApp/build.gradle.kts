@@ -52,7 +52,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.26"
+val astraVersion = "0.1.27"
 
 dependencies {
     implementation(project(":shared"))
@@ -143,6 +143,14 @@ compose.desktop {
         // flag transforma o System.gc() explicito num ciclo CONCORRENTE: a memoria
         // nativa ainda e liberada, mas sem travar as threads de render. Ship pra todos.
         jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
+        // Teto de HEAP. Sem -Xmx o HotSpot deixa o heap crescer ate 1/4 da RAM FISICA
+        // (num PC de 16GB isso e ~4GB) antes de um GC maior — como não ha pressao, o GC
+        // fica preguicoso e o RSS so sobe ("em call, de 2 em 2MB a mais, sem parar"). O
+        // churn de getStats do audio (5x/s por participante) + protobuf + UI alimenta
+        // isso. Capar em 768MB forca o heap a ficar enxuto (uso real fica ~150-300MB),
+        // entao o RSS para de escalar. NAO afeta a transmissão: bitmaps de video sao
+        // memoria NATIVA (fora do heap), presos pelo RasterRecycler, não pelo -Xmx.
+        jvmArgs += "-Xmx768m"
         // Profiler RUNTIME (JFR), gated pra nunca vazar pro pacote: rodar
         //   ./gradlew :desktopApp:run -Pjfr
         // Usar o app ~2min (aurora, rolar chat, entrar em call, transmitir) e fechar;

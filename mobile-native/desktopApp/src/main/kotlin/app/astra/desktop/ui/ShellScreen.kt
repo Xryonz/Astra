@@ -2377,12 +2377,12 @@ private fun Stage(
             DiscoverView(onDiscoverJoined, joinedIds = joinedServerIds, modifier = Modifier.fillMaxSize())
             return@Column
         }
-        // Top bar do palco. ESCONDIDO na tela vazia da constelacao (nenhuma orbita aberta):
-        // ali o palco vira um componente so — a animacao central fica de fato no centro e os
-        // membros ja aparecem na lateral. Nos demais estados (orbita/sussurro/voz) aparece com
-        // o nome. O botao de membros saiu: em constelacao os membros ficam sempre visiveis.
-        val bareServerLanding = server != null && chat == null && voiceChannel == null
-        if (!bareServerLanding) {
+        // Top bar do palco. ESCONDIDO em QUALQUER tela vazia (nada aberto) — constelacao OU
+        // sussurros: ali o palco vira um componente so, com a animacao central de fato no
+        // centro (e, em constelacao, os membros ja na lateral). Estados com nome (orbita ou
+        // sussurro aberto, voz) mantem o top bar. O botao de membros saiu.
+        val bareLanding = chat == null && voiceChannel == null
+        if (!bareLanding) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,

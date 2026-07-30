@@ -110,6 +110,12 @@ fun bannerBrush(css: String?, width: Float, height: Float, fallback: Color): Bru
     )
 }
 
+// Proporcao UNICA do banner de perfil (largura:altura). Usada no popup, na pagina
+// completa, na previa das configs e na moldura de enquadramento — asim o Crop mostra a
+// MESMA fatia da imagem em todo lugar: o que voce enquadra = o que todos veem (pedido do
+// dono). Meio-termo entre a referencia do popup (~4:1) e a da pagina (~3.14:1).
+internal const val ProfileBannerAspect = 3.5f
+
 // Banner do perfil: gradiente/cor por baixo e, se houver imagem, ela por cima
 // com o enquadramento salvo. positionY 0..100 (0=topo, 50=centro, 100=base) e
 // bannerScale em porcento (100 = cobre a caixa). Mesma semantica do web.

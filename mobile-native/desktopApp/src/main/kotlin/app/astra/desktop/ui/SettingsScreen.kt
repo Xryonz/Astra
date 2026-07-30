@@ -420,7 +420,7 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
             positionY = draft?.bannerPositionY ?: me.bannerPositionY ?: 50,
             scale = draft?.bannerScale ?: me.bannerScale ?: 100,
             fallback = Obsidian.overlay,
-            modifier = Modifier.fillMaxWidth().height(72.dp),
+            modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
         )
         // Corpo do cartao pinta o profileTheme (gradiente CSS) por baixo, igual web.
         val theme = draft?.profileTheme ?: me.profileTheme
@@ -931,7 +931,9 @@ private fun ProfileSection(
         modifier = Modifier
             .widthIn(max = 420.dp)
             .fillMaxWidth()
-            .height(110.dp)
+            // Mesma proporcao dos cards (popup/pagina/previa): o que voce enquadra aqui e
+            // exatamente o que aparece neles.
+            .aspectRatio(ProfileBannerAspect)
             .clip(RoundedCornerShape(10.dp))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .then(

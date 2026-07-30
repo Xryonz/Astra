@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -169,7 +170,7 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                     positionY = p.bannerPositionY ?: 50,
                     scale = p.bannerScale ?: 100,
                     fallback = Obsidian.overlay,
-                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Box(

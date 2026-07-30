@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -211,10 +212,10 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             positionY = p.bannerPositionY ?: 50,
             scale = p.bannerScale ?: 100,
             fallback = Obsidian.overlay,
-            modifier = Modifier.fillMaxWidth().height(140.dp),
+            modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
         )
         // Sweep de luz ambar atravessa o banner uma vez (alvorecer).
-        BannerSweep(p.id, Modifier.fillMaxWidth().height(140.dp))
+        BannerSweep(p.id, Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect))
         // Fechar (x) no canto do banner.
         val closeSrc = remember { MutableInteractionSource() }
         Box(
@@ -235,7 +236,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
         Box(
             // Sem anel por enquanto (decoracoes de perfil tipo Discord virao depois).
             Modifier
-                .offset(y = (-44).dp)
+                .offset(y = (-42).dp)
                 .graphicsLayer {
                     alpha = avatarPop.value.coerceIn(0f, 1f)
                     val s = 0.6f + 0.4f * avatarPop.value
@@ -243,7 +244,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                     scaleY = s
                 },
         ) {
-            DesktopAvatar(p.avatarUrl, name, 104)
+            DesktopAvatar(p.avatarUrl, name, 99)
         }
         Column(Modifier.offset(y = (-24).dp)) {
             // Secoes em cascata (stagger fade+subida) — idioma do CascadeIn.

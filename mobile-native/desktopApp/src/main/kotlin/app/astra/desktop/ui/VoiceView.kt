@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,7 +54,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
@@ -667,12 +672,34 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
     }
 }
 
+// Desenha o bitmap com ContentScale.Fit MANUAL (o Canvas nao faz sozinho): escala pra
+// caber mantendo o aspecto e centraliza. Chamado no lambda de DESENHO -> frame novo so
+// redesenha, sem recompor+relayout. (Perf P0-1.)
+private fun DrawScope.drawImageFit(img: ImageBitmap) {
+    val iw = img.width.toFloat()
+    val ih = img.height.toFloat()
+    if (iw <= 0f || ih <= 0f || size.width <= 0f || size.height <= 0f) return
+    val scale = minOf(size.width / iw, size.height / ih)
+    val dw = (iw * scale).roundToInt()
+    val dh = (ih * scale).roundToInt()
+    val left = ((size.width - dw) / 2f).roundToInt()
+    val top = ((size.height - dh) / 2f).roundToInt()
+    drawImage(
+        image = img,
+        srcOffset = IntOffset.Zero,
+        srcSize = IntSize(img.width, img.height),
+        dstOffset = IntOffset(left, top),
+        dstSize = IntSize(dw, dh),
+    )
+}
+
 // Renderiza a track remota: sink nativo -> I420 -> RGBA -> ImageBitmap por frame.
 // makeRaster copia os bytes (frame nativo pode ser reciclado logo apos o callback);
-// o buffer de conversao e reutilizado — so o sink escreve nele.
+// o buffer de conversao e reutilizado — so o sink escreve nele. O frame e um State
+// lido DENTRO do Canvas (fase de desenho) -> cada frame (60fps) redesenha, NAO recompoe.
 @Composable
 private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
-    var frame by remember(track) { mutableStateOf<ImageBitmap?>(null) }
+    val frame = remember(track) { mutableStateOf<ImageBitmap?>(null) }
     DisposableEffect(track) {
         var scratch = ByteArray(0)
         val sink = VideoTrackSink { vf ->
@@ -683,7 +710,7 @@ private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
                 val need = w * h * 4
                 if (scratch.size != need) scratch = ByteArray(need)
                 VideoBufferConverter.convertFromI420(buf, scratch, FourCC.ABGR)
-                frame = SkiaImage.makeRaster(
+                frame.value = SkiaImage.makeRaster(
                     ImageInfo(w, h, ColorType.RGBA_8888, ColorAlphaType.OPAQUE),
                     scratch,
                     w * 4,
@@ -693,12 +720,7 @@ private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
         track.addSink(sink)
         onDispose { runCatching { track.removeSink(sink) } }
     }
-    val f = frame
-    if (f != null) {
-        Image(f, contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit)
-    } else {
-        Box(modifier)
-    }
+    Canvas(modifier) { frame.value?.let { drawImageFit(it) } }
 }
 
 // Auto-preview da MINHA tela: os frames vem direto da captura (ScreenPreview, ARGB
@@ -715,9 +737,6 @@ private fun LocalPreviewView(preview: ScreenPreview, modifier: Modifier = Modifi
             ).toComposeImageBitmap()
         }.getOrNull()
     }
-    if (image != null) {
-        Image(image, contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit)
-    } else {
-        Box(modifier)
-    }
+    // Mesmo idioma do RemoteVideoView: desenha via Canvas (sem relayout do no de Image).
+    Canvas(modifier) { image?.let { drawImageFit(it) } }
 }

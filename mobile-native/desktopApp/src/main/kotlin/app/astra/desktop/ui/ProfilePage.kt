@@ -235,7 +235,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
         Box(
             // Sem anel por enquanto (decoracoes de perfil tipo Discord virao depois).
             Modifier
-                .offset(y = (-38).dp)
+                .offset(y = (-44).dp)
                 .graphicsLayer {
                     alpha = avatarPop.value.coerceIn(0f, 1f)
                     val s = 0.6f + 0.4f * avatarPop.value
@@ -243,7 +243,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
                     scaleY = s
                 },
         ) {
-            DesktopAvatar(p.avatarUrl, name, 88)
+            DesktopAvatar(p.avatarUrl, name, 104)
         }
         Column(Modifier.offset(y = (-24).dp)) {
             // Secoes em cascata (stagger fade+subida) — idioma do CascadeIn.

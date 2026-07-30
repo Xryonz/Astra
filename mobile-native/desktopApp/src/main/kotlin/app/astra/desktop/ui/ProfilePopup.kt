@@ -147,10 +147,11 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
             slideInVertically(tween(280, easing = EaseSpring)) { it / 10 },
     ) {
         Column(
-            // Mais compacto na horizontal (320->300) + banner mais alto (destaque)
-            // + avatar menor: card mais vertical, no espirito do Discord.
+            // Proporcao "fiel ao Discord" (escolha do dono): card 320 de largura, banner
+            // CURTO (80) e avatar GRANDE (72) sobrepondo ~40% do banner — avatar em
+            // destaque sobre uma faixa fina, igual ao mini-perfil do Discord.
             Modifier
-                .width(300.dp)
+                .width(320.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Obsidian.raised)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
@@ -168,15 +169,14 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                     positionY = p.bannerPositionY ?: 50,
                     scale = p.bannerScale ?: 100,
                     fallback = Obsidian.overlay,
-                    modifier = Modifier.fillMaxWidth().height(124.dp),
+                    modifier = Modifier.fillMaxWidth().height(80.dp),
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Box(
-                        // Sem anel por enquanto (decoracoes de perfil tipo Discord virao
-                        // depois). So a foto, sobrepondo ~1/3 do banner mais alto.
-                        Modifier.offset(y = (-20).dp),
+                        // Avatar grande sobrepondo ~40% do banner curto (proporcao Discord).
+                        Modifier.offset(y = (-30).dp),
                     ) {
-                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 56)
+                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 72)
                     }
                     Column(Modifier.offset(y = (-8).dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {

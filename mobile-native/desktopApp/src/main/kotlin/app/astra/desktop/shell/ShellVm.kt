@@ -521,6 +521,27 @@ class ShellVm(
         }
     }
 
+    // Reordena as CATEGORIAS entre si (drag no cabecalho). orderedIds = nova ordem; PATCH
+    // position dos que mudaram. Otimista + reload reconcilia. So o dono chega aqui.
+    fun reorderCategories(serverId: String, orderedIds: List<String>) {
+        scope.launch {
+            val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
+            val oldPos = srv0.categories.associate { it.id to it.position }
+            val newPos = orderedIds.mapIndexed { i, id -> id to i }.toMap()
+            _state.update { st ->
+                st.copy(servers = st.servers.map { s ->
+                    if (s.id != serverId) s
+                    else s.copy(categories = s.categories.map { c -> newPos[c.id]?.let { c.copy(position = it) } ?: c })
+                })
+            }
+            orderedIds.forEach { id ->
+                val np = newPos.getValue(id)
+                if (oldPos[id] != np) runCatching { serverApi.updateCategory(serverId, id, UpdateCategoryRequest(position = np)) }
+            }
+            reloadServers()
+        }
+    }
+
     // ---- Silenciar (notif prefs): backend channelNotifPrefs.ts, mode "mute" ----
     private fun loadNotifPrefs() {
         scope.launch {

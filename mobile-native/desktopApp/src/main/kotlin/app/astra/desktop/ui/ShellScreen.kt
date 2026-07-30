@@ -130,6 +130,7 @@ import com.composables.icons.lucide.CheckCheck
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.Copy
+import com.composables.icons.lucide.Folder
 import com.composables.icons.lucide.FolderPlus
 import com.composables.icons.lucide.Hash
 import com.composables.icons.lucide.Link
@@ -383,6 +384,7 @@ fun ShellScreen(
             onDeleteCategory = vm::deleteCategory,
             onReorderChannels = vm::reorderChannel,
             onMoveChannelToCategory = vm::moveChannelToCategory,
+            onReorderCategories = vm::reorderCategories,
             onRenameChannel = vm::renameChannel,
             onDeleteChannel = vm::deleteChannel,
             onMarkChannelRead = vm::markChannelRead,
@@ -1239,6 +1241,7 @@ private fun Sidebar(
     onDeleteCategory: (serverId: String, categoryId: String) -> Unit,
     onReorderChannels: (serverId: String, orderedIds: List<String>) -> Unit,
     onMoveChannelToCategory: (serverId: String, channelId: String, categoryId: String) -> Unit,
+    onReorderCategories: (serverId: String, orderedIds: List<String>) -> Unit,
     onRenameChannel: (serverId: String, channelId: String, name: String) -> Unit,
     onDeleteChannel: (serverId: String, channelId: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
@@ -1322,6 +1325,7 @@ private fun Sidebar(
                                     onDeleteCat = { catId -> srv?.let { onDeleteCategory(it.id, catId) } },
                                     onReorderChannels = { ids -> srv?.let { onReorderChannels(it.id, ids) } },
                                     onMoveToCategory = { cid, catId -> srv?.let { onMoveChannelToCategory(it.id, cid, catId) } },
+                                    onReorderCategories = { ids -> srv?.let { onReorderCategories(it.id, ids) } },
                                     onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
                                     onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
                                     onMarkChannelRead = onMarkChannelRead,
@@ -1481,6 +1485,7 @@ private fun OrbitList(
     onDeleteCat: (categoryId: String) -> Unit,
     onReorderChannels: (orderedIds: List<String>) -> Unit,
     onMoveToCategory: (channelId: String, categoryId: String) -> Unit,
+    onReorderCategories: (orderedIds: List<String>) -> Unit,
     onOpenChannelRename: (channelId: String, current: String) -> Unit,
     onOpenChannelDelete: (channelId: String, name: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
@@ -1519,7 +1524,8 @@ private fun OrbitList(
             }
         }
         var offset = loose.size
-        cats.forEach { cat ->
+        val orderedCatIds = cats.map { it.id }
+        cats.forEachIndexed { catIndex, cat ->
             val channels = byCat[cat.id].orEmpty().sortedBy { it.position }
             val headerRow = offset
             val collapsed = cat.id in collapsedCats
@@ -1558,6 +1564,7 @@ private fun OrbitList(
                                     collapsedCats =
                                         if (cat.id in collapsedCats) collapsedCats - cat.id else collapsedCats + cat.id
                                 },
+                                dragCtx = if (isOwner) CategoryDragCtx(drag, catIndex, orderedCatIds, onReorderCategories) else null,
                             )
                         }
                         val catUnread = channels.any { it.id in unread }
@@ -1623,10 +1630,13 @@ private class ChannelDragState {
     // catBounds = bounds de cada categoria em coords de JANELA, alimentado no layout.
     var hoverCat by mutableStateOf<String?>(null)
     val catBounds = mutableStateMapOf<String, Rect>()
+    // Arrastando uma CATEGORIA (cabecalho) em vez de uma orbita — muda o icone da bolha
+    // e a logica de drop (reordena categorias).
+    var isCategory by mutableStateOf(false)
     val dragging: Boolean get() = id != null && !fadingOut
     fun reset() {
         id = null; name = ""; isVoice = false; section = null
-        fromIndex = -1; targetIndex = -1; fadingOut = false; hoverCat = null
+        fromIndex = -1; targetIndex = -1; fadingOut = false; hoverCat = null; isCategory = false
     }
 }
 
@@ -1694,6 +1704,58 @@ private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier
         }
 }
 
+private class CategoryDragCtx(
+    val state: ChannelDragState,
+    val index: Int,
+    val orderedIds: List<String>,
+    val onReorder: (List<String>) -> Unit,
+)
+
+// Long-press no cabecalho pega a CATEGORIA; arrastar reordena entre as outras (hit-test
+// pela drag.catBounds ja registrada). Soltar reordena. Chamado SEMPRE (ctx nulo = no-op)
+// pra nao variar a contagem de composables. Convive com o clique (tap = colapsar).
+@Composable
+private fun Modifier.categoryDrag(name: String, ctx: CategoryDragCtx?): Modifier {
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    if (ctx == null) return this
+    val catId = ctx.orderedIds.getOrNull(ctx.index) ?: return this
+    val d = ctx.state
+    return this
+        .onGloballyPositioned { coords = it }
+        .pointerInput(catId, ctx.index, ctx.orderedIds.size) {
+            detectDragGesturesAfterLongPress(
+                onDragStart = { pos ->
+                    d.reset()
+                    d.id = catId
+                    d.name = name
+                    d.isCategory = true
+                    d.fromIndex = ctx.index
+                    d.targetIndex = ctx.index
+                    coords?.let { c -> d.windowPos = c.localToWindow(pos) }
+                },
+                onDrag = { change, _ ->
+                    change.consume()
+                    coords?.let { c -> d.windowPos = c.localToWindow(change.position) }
+                    // Categoria sob o cursor -> indice alvo (usa os bounds ja medidos).
+                    val overId = d.catBounds.entries.firstOrNull { it.value.contains(d.windowPos) }?.key
+                    val idx = ctx.orderedIds.indexOf(overId)
+                    if (idx >= 0) d.targetIndex = idx
+                },
+                onDragEnd = {
+                    if (d.id == catId) {
+                        if (d.targetIndex in ctx.orderedIds.indices && d.targetIndex != d.fromIndex) {
+                            val list = ctx.orderedIds.toMutableList()
+                            list.add(d.targetIndex, list.removeAt(d.fromIndex))
+                            ctx.onReorder(list)
+                        }
+                        d.fadingOut = true
+                    }
+                },
+                onDragCancel = { if (d.id == catId) d.reset() },
+            )
+        }
+}
+
 // A bolha flutuante (Popup em coords de janela, segue o cursor 1:1 — sem inercia).
 // Entrada = "gota" que coalesce (comeca alongada na vertical e assenta redonda, com
 // leve overshoot da mola); saida = "esparrama" (achata na horizontal e some), e so
@@ -1753,7 +1815,7 @@ private fun ChannelDragBubble(d: ChannelDragState) {
                     .border(1.dp, Obsidian.accent.copy(alpha = 0.6f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                LIcon(if (voice) Lucide.Volume2 else Lucide.Hash, tint = Obsidian.accent, size = 20.dp)
+                LIcon(if (d.isCategory) Lucide.Folder else if (voice) Lucide.Volume2 else Lucide.Hash, tint = Obsidian.accent, size = 20.dp)
             }
             Spacer(Modifier.height(5.dp))
             // O nome so faz fade junto (nao esparrama — texto esticado fica estranho).
@@ -1857,7 +1919,7 @@ private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
 }
 
 @Composable
-private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Unit) {
+private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Unit, dragCtx: CategoryDragCtx? = null) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     // Chevron gira ao colapsar (▾ -> ▸).
@@ -1868,6 +1930,8 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
             .padding(top = 10.dp, bottom = 2.dp)
+            // Long-press + arrastar reordena as categorias (so o dono; ctx nulo = no-op).
+            .categoryDrag(name, dragCtx)
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onToggle),
         verticalAlignment = Alignment.CenterVertically,

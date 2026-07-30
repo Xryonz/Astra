@@ -401,8 +401,6 @@ fun ShellScreen(
             createChatVm = createChatVm,
             members = state.members,
             me = state.me,
-            membersOpen = state.membersOpen,
-            onToggleMembers = vm::toggleMembers,
             loading = state.loading,
             error = state.error,
             onRetry = vm::load,
@@ -415,7 +413,9 @@ fun ShellScreen(
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
-            visible = state.selection is Selection.Server && state.membersOpen,
+            // Membros SEMPRE visiveis quando ha constelacao selecionada (o dono tirou o
+            // botao de alternar) — entrar numa constelacao ja mostra os membros.
+            visible = state.selection is Selection.Server,
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
         ) {
@@ -2350,8 +2350,6 @@ private fun Stage(
     createChatVm: (ChatTarget) -> ChatVm,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
-    membersOpen: Boolean,
-    onToggleMembers: () -> Unit,
     loading: Boolean,
     error: String?,
     onRetry: () -> Unit,
@@ -2379,64 +2377,48 @@ private fun Stage(
             DiscoverView(onDiscoverJoined, joinedIds = joinedServerIds, modifier = Modifier.fillMaxSize())
             return@Column
         }
-        // Top bar do palco
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val leadIcon = when {
-                voiceChannel != null -> Lucide.Volume2
-                chat is ChatTarget.Channel -> Lucide.Hash
-                else -> null
-            }
-            if (leadIcon != null) {
-                LIcon(leadIcon, tint = Obsidian.text1, size = 15.dp)
-                Spacer(Modifier.width(7.dp))
-            }
-            Box(Modifier.weight(1f)) {
-                // Constelacao conectada no vao do header, ATRAS do titulo, terminando no
-                // botao de membros a direita (que FECHA a constelacao). SO com constelacao
-                // selecionada (server != null); some em DM/sussurros. Alpha baixo + congela
-                // ao reduzir movimento — nao atrapalha o texto.
-                if (server != null) ConstellationRoute(Modifier.matchParentSize())
-                Text(
-                    text = when {
-                        voiceChannel != null -> voiceChannel.name
-                        chat is ChatTarget.Channel -> chat.title
-                        chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
-                        server != null -> "constelacao · ${server.name}"
-                        else -> "sussurros"
-                    },
-                    style = TextStyle(
-                        color = if (chat != null || voiceChannel != null) Obsidian.text1 else Obsidian.text3,
-                        fontSize = 13.sp,
-                    ),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
-                )
-            }
-            if (server != null) {
-                val interaction = remember { MutableInteractionSource() }
-                val hovered by interaction.collectIsHoveredAsState()
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(if (hovered) Obsidian.hover else Color.Transparent)
-                        .border(1.dp, Obsidian.borderMid, CircleShape)
-                        .hoverable(interaction)
-                        .clickable(onClick = onToggleMembers),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    LIcon(
-                        Lucide.Users,
-                        tint = if (membersOpen) Obsidian.accent else Obsidian.text3,
-                        size = 15.dp,
+        // Top bar do palco. ESCONDIDO na tela vazia da constelacao (nenhuma orbita aberta):
+        // ali o palco vira um componente so — a animacao central fica de fato no centro e os
+        // membros ja aparecem na lateral. Nos demais estados (orbita/sussurro/voz) aparece com
+        // o nome. O botao de membros saiu: em constelacao os membros ficam sempre visiveis.
+        val bareServerLanding = server != null && chat == null && voiceChannel == null
+        if (!bareServerLanding) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val leadIcon = when {
+                    voiceChannel != null -> Lucide.Volume2
+                    chat is ChatTarget.Channel -> Lucide.Hash
+                    else -> null
+                }
+                if (leadIcon != null) {
+                    LIcon(leadIcon, tint = Obsidian.text1, size = 15.dp)
+                    Spacer(Modifier.width(7.dp))
+                }
+                Box(Modifier.weight(1f)) {
+                    // Constelacao conectada no vao, ATRAS do titulo da orbita (so quando ha
+                    // constelacao). Alpha baixo + congela ao reduzir movimento.
+                    if (server != null) ConstellationRoute(Modifier.matchParentSize())
+                    Text(
+                        text = when {
+                            voiceChannel != null -> voiceChannel.name
+                            chat is ChatTarget.Channel -> chat.title
+                            chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
+                            server != null -> "constelacao · ${server.name}"
+                            else -> "sussurros"
+                        },
+                        style = TextStyle(
+                            color = if (chat != null || voiceChannel != null) Obsidian.text1 else Obsidian.text3,
+                            fontSize = 13.sp,
+                        ),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
                     )
                 }
             }
+            HairRule()
         }
-        HairRule()
 
         // Sala de voz ocupa o palco. Sem engine = voce abriu a sala mas ainda nao
         // entrou -> antessala com quem esta la e o botao verde.

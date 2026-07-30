@@ -646,7 +646,9 @@ private fun MessageRow(
                         onReply = onReply,
                         onReact = { pickerOpen = true },
                         onEdit = onStartEdit,
-                        onDelete = onDelete,
+                        // Lixeira do hover passa pela MESMA confirmacao do menu de
+                        // contexto (confirmDelete -> ConfirmPopup) — antes apagava direto.
+                        onDelete = { confirmDelete = true },
                         modifier = Modifier.hoverable(pillInteraction),
                     )
                 }

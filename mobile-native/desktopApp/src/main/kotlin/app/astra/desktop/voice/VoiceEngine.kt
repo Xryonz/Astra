@@ -1,7 +1,13 @@
 package app.astra.desktop.voice
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ScreenQuality
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
+import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Image as SkiaImage
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.VoiceTokenRequest
 import dev.onvoid.webrtc.CreateSessionDescriptionObserver
@@ -93,10 +99,33 @@ class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: Video
 // degradando framerate (default de conteudo de tela e manter resolucao).
 data class ScreenStats(val captureFps: Int, val sendFps: Int, val limit: String)
 
-// Frame do auto-preview local (Discord): ARGB cru + dimensoes. Vem direto da
+// Frame do auto-preview local (Discord): já como ImageBitmap PRONTO. Vem direto da
 // captura (ScreenCaptureFfmpeg), NAO do sink da track — o webrtc-java não entrega
-// frames de CustomVideoSource pra sink local. A UI faz makeRaster disto.
-class ScreenPreview(val argb: ByteArray, val width: Int, val height: Int)
+// frames de CustomVideoSource pra sink local. O makeRaster roda na thread do preview
+// (fora da UI) via PreviewRasters: antes a UI fazia makeRaster (~2MB) por frame e, com
+// conteudo animado (video/jogo), o palco engasgava.
+class ScreenPreview(val image: ImageBitmap, val width: Int, val height: Int)
+
+// Recicla as Skia Images do preview local. makeRaster COPIA os pixels pra memoria
+// NATIVA (off-heap, liberada so no GC) — a 60fps empilha GBs. Fecha cada imagem 2
+// quadros depois de sair de cena (o render ja passou dela). Mesma tecnica do
+// RasterRecycler do VoiceView, aqui pro caminho do preview direto.
+private class PreviewRasters {
+    private var prev: SkiaImage? = null
+    private var prevPrev: SkiaImage? = null
+    fun wrap(argb: ByteArray, w: Int, h: Int): ImageBitmap {
+        val img = SkiaImage.makeRaster(
+            ImageInfo(w, h, ColorType.RGBA_8888, ColorAlphaType.OPAQUE), argb, w * 4,
+        )
+        runCatching { prevPrev?.close() }
+        prevPrev = prev; prev = img
+        return img.toComposeImageBitmap()
+    }
+    fun dispose() {
+        runCatching { prev?.close() }; runCatching { prevPrev?.close() }
+        prev = null; prevPrev = null
+    }
+}
 
 // Deteccao de fala por NIVEL DE AUDIO (getStats) — independe do speakers_changed do
 // servidor (que não chega no nosso WS hand-rolled). Nivel 0..1; voz ativa passa do
@@ -199,6 +228,13 @@ class VoiceEngine(
     // fallback GDI) -> a UI cai pro sink da track.
     private val _localPreview = MutableStateFlow<ScreenPreview?>(null)
     val localPreview = _localPreview.asStateFlow()
+    // true = ha preview DIRETO (caminho ffmpeg ligado). A UI decide o branch por AQUI
+    // (muda so no start/stop) em vez de observar localPreview -> o palco NAO recompoe a
+    // cada frame (60fps) so pra escolher a view. Era isto que engasgava com video/jogo.
+    private val _directPreview = MutableStateFlow(false)
+    val directPreview = _directPreview.asStateFlow()
+    // makeRaster do preview roda na thread do preview (fora da UI) e recicla as imagens.
+    private val previewRasters = PreviewRasters()
 
     // Metricas da transmissão (poll a cada ~1.5s enquanto compartilho).
     private val _screenStats = MutableStateFlow<ScreenStats?>(null)
@@ -622,8 +658,11 @@ class VoiceEngine(
         val ffPath = FfmpegLocator.path ?: return null
         val outIdx = source?.let { s -> screens().indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
         val custom = CustomVideoSource()
+        // makeRaster AQUI (thread 'ffmpeg-preview', fora da UI): a UI so desenha o
+        // ImageBitmap pronto. Antes a UI fazia o raster por frame e engasgava no
+        // conteudo animado. wrap() copia sincronamente antes do buffer ser reusado.
         val cap = ScreenCaptureFfmpeg(ffPath, custom) { argb, w, h ->
-            _localPreview.value = ScreenPreview(argb, w, h)
+            _localPreview.value = ScreenPreview(previewRasters.wrap(argb, w, h), w, h)
         }
         if (!cap.start(outIdx, q.width, q.height, q.fps)) {
             cap.stop()
@@ -632,6 +671,7 @@ class VoiceEngine(
         }
         customSource = custom
         ffmpegCap = cap
+        _directPreview.value = true
         return custom
     }
 
@@ -924,6 +964,8 @@ class VoiceEngine(
         _sharingCamera.value = false
         _localScreen.value = null
         _localPreview.value = null
+        _directPreview.value = false
+        previewRasters.dispose()
         statsJob?.cancel()
         _screenStats.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }

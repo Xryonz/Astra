@@ -147,7 +147,7 @@ fun ProfileBanner(
                 contentScale = ContentScale.Crop,
                 // bias -1 = topo, 0 = centro, +1 = base.
                 alignment = BiasAlignment(0f, (positionY.coerceIn(0, 100) / 50f) - 1f),
-                modifier = Modifier.fillMaxSize().scale((scale.coerceIn(100, 300)) / 100f),
+                modifier = Modifier.fillMaxSize().scale((scale.coerceIn(0, 300)) / 100f),
             )
         }
     }

@@ -94,13 +94,16 @@ fun LIcon(
 }
 
 // Avatar circular com fallback de inicial — usado no shell e no chat. No HOVER: o
-// cursor vira mãozinha e um anel âmbar se DESENHA (0->360, some ao sair). O anel só
-// aparece ao passar o mouse -> custo zero parado. Futuro: a cor do anel vem do perfil
-// (hoje = accent) — o anel de cor padrão (userColor) foi tirado de volta da foto.
+// cursor vira mãozinha e um anel âmbar se DESENHA (0->360, some ao sair) com um mini
+// brilho em volta. O anel só aparece ao passar o mouse -> custo zero parado.
+// `externalHover` deixa a LINHA que contem o avatar disparar o anel (ex: hover na
+// linha de sussurro), não só o hover direto na foto. Futuro: a cor do anel vem do
+// perfil (hoje = accent).
 @Composable
-fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
+fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
+    val selfHover by interaction.collectIsHoveredAsState()
+    val hovered = selfHover || externalHover
     val sweep by animateFloatAsState(
         targetValue = if (hovered) 360f else 0f,
         animationSpec = tween(durationMillis = if (hovered) 460 else 240, easing = FastOutSlowInEasing),
@@ -133,14 +136,20 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
         }
         if (sweep > 0.5f) {
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 1.5.dp.toPx()
+                val stroke = 2.dp.toPx()   // traco levemente mais grosso (era 1.5)
+                val glow = 4.dp.toPx()     // arco largo+translucido por baixo = mini brilho
+                val pad = glow / 2f        // mesma caixa concentrica pros dois
+                val box = Size(size.width - glow, size.height - glow)
+                drawArc(
+                    color = Obsidian.accent.copy(alpha = 0.20f),
+                    startAngle = -90f, sweepAngle = sweep, useCenter = false,
+                    topLeft = Offset(pad, pad), size = box,
+                    style = Stroke(width = glow, cap = StrokeCap.Round),
+                )
                 drawArc(
                     color = Obsidian.accent,
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(stroke / 2f, stroke / 2f),
-                    size = Size(size.width - stroke, size.height - stroke),
+                    startAngle = -90f, sweepAngle = sweep, useCenter = false,
+                    topLeft = Offset(pad, pad), size = box,
                     style = Stroke(width = stroke, cap = StrokeCap.Round),
                 )
             }

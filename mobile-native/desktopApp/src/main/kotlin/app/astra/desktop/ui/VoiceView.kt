@@ -80,7 +80,6 @@ import kotlin.math.cos
 import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
-import app.astra.desktop.voice.ScreenPreview
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceStatus
 import app.astra.mobile.core.network.dto.ChannelDto
@@ -120,7 +119,10 @@ fun VoiceView(
     val videos by engine.remoteVideos.collectAsState()
     val localScreen by engine.localScreen.collectAsState()
     val sharingCamera by engine.sharingCamera.collectAsState()
-    val localPreview by engine.localPreview.collectAsState()
+    // NAO coletamos localPreview aqui: emitia por frame (60fps) e recompunha o palco
+    // inteiro so pra escolher a view. directPreview muda so no start/stop; o frame vai
+    // direto pro LocalPreviewView (State lido na fase de desenho).
+    val directPreview by engine.directPreview.collectAsState()
     val screenStats by engine.screenStats.collectAsState()
 
     Column(
@@ -187,11 +189,10 @@ fun VoiceView(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        val lp = localPreview
                         // Minha tela = preview direto da captura (o sink da track local
-                        // não entrega frames do CustomVideoSource). Sem tee (fallback
-                        // GDI) cai pro sink da track.
-                        if (w.isMe && lp != null) LocalPreviewView(lp, stageMod)
+                        // não entrega frames do CustomVideoSource). Sem preview direto
+                        // (fallback GDI) cai pro sink da track.
+                        if (w.isMe && directPreview) LocalPreviewView(engine, stageMod)
                         else RemoteVideoView(w.track, stageMod)
                         Spacer(Modifier.height(6.dp))
                         // Na MINHA transmissão mostro os fps reais (envio + captura) e
@@ -752,22 +753,16 @@ private fun RemoteVideoView(track: VideoTrack, modifier: Modifier = Modifier) {
     Canvas(modifier) { frame.value?.let { drawImageFit(it) } }
 }
 
-// Auto-preview da MINHA tela: os frames vem direto da captura (ScreenPreview, ARGB
-// cru) porque o sink da track local não dispara pra CustomVideoSource. Mesma
-// reciclagem do remoto (RasterRecycler) pra memoria nativa não empilhar a 60fps.
+// Auto-preview da MINHA tela: o frame já vem como ImageBitmap PRONTO (o makeRaster
+// roda na thread do preview, no VoiceEngine — não na UI). Coletamos o flow AQUI e
+// guardamos num State lido DENTRO do Canvas (fase de desenho): cada frame só
+// REDESENHA, sem recompor. Antes o ScreenPreview era coletado no palco (recompunha
+// tudo 60fps) e a UI fazia o raster — o que travava com video/jogo.
 @Composable
-private fun LocalPreviewView(preview: ScreenPreview, modifier: Modifier = Modifier) {
-    val recycler = remember { RasterRecycler() }
-    DisposableEffect(Unit) { onDispose { recycler.dispose() } }
-    val image = remember(preview) {
-        runCatching {
-            recycler.wrap(
-                ImageInfo(preview.width, preview.height, ColorType.RGBA_8888, ColorAlphaType.OPAQUE),
-                preview.argb,
-                preview.width * 4,
-            )
-        }.getOrNull()
+private fun LocalPreviewView(engine: VoiceEngine, modifier: Modifier = Modifier) {
+    val frame = remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(engine) {
+        engine.localPreview.collect { frame.value = it?.image }
     }
-    // Mesmo idioma do RemoteVideoView: desenha via Canvas (sem relayout do no de Image).
-    Canvas(modifier) { image?.let { drawImageFit(it) } }
+    Canvas(modifier) { frame.value?.let { drawImageFit(it) } }
 }

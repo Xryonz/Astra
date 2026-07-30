@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
 import androidx.compose.foundation.text.BasicTextField
@@ -115,7 +116,7 @@ import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Pin
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Reply
-import com.composables.icons.lucide.Send
+import com.composables.icons.lucide.ArrowUp
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.X
@@ -444,11 +445,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                     onPickGif = vm::sendGif,
                     onPickFiles = vm::addFiles,
                 )
-                val sendTint by animateColorAsState(
-                    if (canSend) Obsidian.accent else Obsidian.text3,
-                    tween(140), label = "sendTint",
-                )
-                ComposerGlyph(Lucide.Send, tint = sendTint, enabled = canSend) { submit() }
+                SendButton(enabled = canSend) { submit() }
             }
         }
     }
@@ -1120,6 +1117,35 @@ private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         LIcon(icon, tint = Obsidian.text3, size = 12.dp)
+    }
+}
+
+// Botao de ENVIAR: minimalista estilo "seta pra cima". Sem texto = seta apagada,
+// fundo transparente (so hover leve). COM texto = circulo BRANCO preenchido + seta
+// escura (contraste alto = "pronto pra enviar"). As cores animam (fade), não um
+// liga/desliga seco -> transicao fluida (pedido do dono).
+@Composable
+private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    val bg by animateColorAsState(
+        if (enabled) Obsidian.text1 else Color.Transparent,
+        tween(170), label = "sendBg",
+    )
+    val fg by animateColorAsState(
+        if (enabled) Obsidian.void else Obsidian.text3,
+        tween(170), label = "sendFg",
+    )
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(if (enabled) bg else if (hov) Obsidian.hover else Color.Transparent)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(Lucide.ArrowUp, tint = fg, size = 17.dp)
     }
 }
 

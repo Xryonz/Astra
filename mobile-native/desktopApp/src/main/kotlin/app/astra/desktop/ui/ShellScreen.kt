@@ -2352,7 +2352,9 @@ private fun DmList(
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesktopAvatar(u?.avatarUrl, name, 28)
+                    // Hover na LINHA inteira dispara o anel 360 em volta da foto
+                    // (não so o hover direto na foto) -> a hitbox toda fica viva.
+                    DesktopAvatar(u?.avatarUrl, name, 28, externalHover = hovered)
                     Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
                         Text(

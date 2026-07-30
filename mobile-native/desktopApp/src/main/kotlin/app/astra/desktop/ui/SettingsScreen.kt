@@ -61,6 +61,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -1084,11 +1086,13 @@ private fun ProfileSaveButton(
     }
 }
 
-// Zoom do banner (bannerScale 100..300%): trilha arrastavel simples. Slider
-// proprio pra não puxar componente novo so por isto.
+// Zoom do banner (bannerScale 0..300%): trilha arrastavel simples. Abaixo de 100%
+// a imagem encolhe dentro da caixa (revela o fundo em volta) ate sumir no 0% —
+// permite "afastar" pra enquadrar sem so cortar. Slider proprio pra não puxar
+// componente novo so por isto.
 @Composable
 private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
-    val pct = ((scale - 100) / 200f).coerceIn(0f, 1f)
+    val pct = (scale / 300f).coerceIn(0f, 1f)
     Row(
         Modifier.widthIn(max = 420.dp).fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1102,7 +1106,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
                         val f = (change.position.x / size.width).coerceIn(0f, 1f)
-                        onChange((100 + f * 200).toInt())
+                        onChange((f * 300).toInt())
                     }
                 },
             contentAlignment = Alignment.CenterStart,
@@ -1214,12 +1218,15 @@ private fun ResizeBannerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(ProfileBannerAspect)
+                            // Cursor de mão sobre a area arrastavel (sinaliza "pega e move").
+                            .pointerHoverIcon(PointerIcon.Hand)
                             .pointerInput(Unit) {
                                 detectDragGestures { change, drag ->
                                     change.consume()
-                                    // 1.4 px por ponto (igual a previa antiga): arrastar pra
-                                    // BAIXO revela o topo (posição diminui).
-                                    posY = (posY - drag.y / 1.4f).toInt().coerceIn(0, 100)
+                                    // ~0.9px por ponto: a faixa 0..100 cobre ~a altura do
+                                    // cartao -> arraste 1:1, bem mais facil (era 1.4, lento).
+                                    // Arrastar pra BAIXO revela o topo (posição diminui).
+                                    posY = (posY - drag.y / 0.9f).toInt().coerceIn(0, 100)
                                 }
                             },
                     )

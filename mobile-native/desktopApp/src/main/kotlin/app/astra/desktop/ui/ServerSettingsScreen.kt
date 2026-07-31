@@ -300,7 +300,9 @@ private fun OverviewSection(
 
     // Form (esquerda) + card de previa ao vivo (direita). O form segue no fluxo
     // scrollavel do pai; a previa acompanha no topo-direita.
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    // O vao e generoso de proposito: a previa NAO e um campo do formulario, e a 48dp
+    // ela parecia mais uma coluna do form do que o resultado dele.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(80.dp)) {
       Column(Modifier.weight(1f)) {
     // ---- Identidade ----
     FieldLabel("ícone")

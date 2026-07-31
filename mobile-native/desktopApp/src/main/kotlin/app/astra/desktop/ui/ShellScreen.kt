@@ -32,6 +32,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -1233,11 +1234,24 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
 // com o nome em serifa por cima, legivel gracas a um scrim de baixo pra cima. Sem
 // banner: um degrade sobrio do tema no lugar da imagem. So constelação usa isto;
 // sussurros/descobrir seguem no header de texto.
+//
+// MESMO desenho da previa das configuracoes: mesmo ProfileBanner, mesma proporcao
+// (ServerBannerAspect) e o mesmo enquadramento (positionY/scale) que o dono ajustou.
+// Antes era um AstraImage cru com ContentScale.Crop numa altura fixa de 104dp — ou
+// seja, outra proporcao E sem enquadramento nenhum, entao o que se via aqui nunca
+// batia com o que a previa prometia.
 @Composable
 private fun ServerHeaderBanner(srv: ServerDto) {
-    Box(Modifier.fillMaxWidth().height(104.dp)) {
+    Box(Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect)) {
         if (!srv.bannerUrl.isNullOrBlank()) {
-            AstraImage(srv.bannerUrl, srv.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            ProfileBanner(
+                css = null,
+                imageUrl = srv.bannerUrl,
+                positionY = srv.bannerPositionY,
+                scale = srv.bannerScale,
+                fallback = Obsidian.overlay,
+                modifier = Modifier.fillMaxSize(),
+            )
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Obsidian.overlay, Obsidian.raised))))
         }

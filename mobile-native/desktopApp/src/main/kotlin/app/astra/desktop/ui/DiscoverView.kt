@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -190,7 +191,9 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
     ) {
         // Faixa de banner (imagem ou fundo do tema).
-        Box(Modifier.fillMaxWidth().height(70.dp).background(Obsidian.overlay)) {
+        // Proporcao UNICA do banner de constelação (ServerBannerAspect): a mesma
+        // do editor e da previa, entao o recorte assado cai exato nos tres.
+        Box(Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect).background(Obsidian.overlay)) {
             if (!s.bannerUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = s.bannerUrl,

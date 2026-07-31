@@ -116,6 +116,11 @@ fun bannerBrush(css: String?, width: Float, height: Float, fallback: Color): Bru
 // dono). Meio-termo entre a referencia do popup (~4:1) e a da pagina (~3.14:1).
 internal const val ProfileBannerAspect = 3.5f
 
+// Mesma ideia pro banner da CONSTELACAO. Ele aparecia em tres proporcoes
+// diferentes (editor ~4.2:1, previa 2.95:1, card da Descoberta ~4.9:1) e o
+// recorte assado so pode ser exato numa. Unificado em 3:1 (escolha do dono).
+internal const val ServerBannerAspect = 3.0f
+
 // Banner do perfil: gradiente/cor por baixo e, se houver imagem, ela por cima
 // com o enquadramento salvo. positionY 0..100 (0=topo, 50=centro, 100=base) e
 // bannerScale em porcento (100 = cobre a caixa). Mesma semantica do web.

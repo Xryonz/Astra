@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -282,6 +283,10 @@ private fun OverviewSection(
     var confirmRegen by remember { mutableStateOf(false) }
     var confirmDanger by remember { mutableStateOf(false) }
     var regenerating by remember { mutableStateOf(false) }
+    // Recorte estilo Discord: a fonte aberta no modal (arquivo novo ou a imagem
+    // já salva pra reenquadrar). null = modal fechado.
+    var cropIcon by remember { mutableStateOf<CropSource?>(null) }
+    var cropBanner by remember { mutableStateOf<CropSource?>(null) }
 
     val dirty = name.trim() != server.name ||
         description.trim() != server.description.orEmpty().trim() ||
@@ -309,7 +314,15 @@ private fun OverviewSection(
                 busyIcon = true
                 msg = null
                 scope.launch {
-                    // Decodificar/reduzir e pesado -> fora da thread de UI.
+                    // Ler o arquivo e pesado -> fora da thread de UI. Animado não
+                    // pode ser assado num recorte: vai pro caminho antigo (a
+                    // animação sobrevive, o enquadramento fica em metadado).
+                    val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
+                    if (!animated) {
+                        busyIcon = false
+                        cropIcon = CropSource.Local(file)
+                        return@launch
+                    }
                     val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
                     busyIcon = false
                     r.onSuccess { iconUrl = it }
@@ -328,9 +341,16 @@ private fun OverviewSection(
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
-    if (!iconUrl.isNullOrBlank()) {
+    // Estatico agora e ASSADO no recorte, entao o zoom em metadado so vale pro
+    // animado (o unico que não pode ser assado). Estatico ganha "reenquadrar".
+    val iconNow = iconUrl
+    if (!iconNow.isNullOrBlank()) {
         Spacer(Modifier.height(10.dp))
-        ServerZoomTrack(iconScale) { iconScale = it }
+        if (ImageCrop.isAnimated(iconNow)) {
+            ServerZoomTrack(iconScale) { iconScale = it }
+        } else {
+            SmallButton("reenquadrar", accent = false) { cropIcon = CropSource.Remote(iconNow) }
+        }
     }
 
     SettingsDivider()
@@ -342,6 +362,8 @@ private fun OverviewSection(
 
     SettingsDivider()
     FieldLabel("banner")
+    val bannerNow = bannerUrl
+    val bannerAnimated = ImageCrop.isAnimated(bannerNow)
     ProfileBanner(
         css = null,
         imageUrl = bannerUrl,
@@ -351,13 +373,15 @@ private fun OverviewSection(
         modifier = Modifier
             .widthIn(max = 460.dp)
             .fillMaxWidth()
-            .height(110.dp)
+            // Proporcao UNICA (editor = previa = card da Descoberta): so assim o
+            // recorte assado cai exato nos tres.
+            .aspectRatio(ServerBannerAspect)
             .clip(RoundedCornerShape(10.dp))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .then(
-                // Arrastar na vertical reposiciona (so com imagem). ~1.4px por ponto;
-                // pra baixo revela o topo (posição diminui). Espelha o editor do perfil.
-                if (bannerUrl.isNullOrBlank()) Modifier
+                // Arrastar na vertical reposiciona — so pro ANIMADO, que não pode
+                // ser assado. O estatico já vem recortado, arrastar so desalinharia.
+                if (!bannerAnimated) Modifier
                 else Modifier.pointerInput(Unit) {
                     detectDragGestures { change, drag ->
                         change.consume()
@@ -366,7 +390,7 @@ private fun OverviewSection(
                 },
             ),
     )
-    if (!bannerUrl.isNullOrBlank()) {
+    if (bannerAnimated) {
         Spacer(Modifier.height(6.dp))
         Text("arraste na imagem pra enquadrar.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         Spacer(Modifier.height(10.dp))
@@ -380,13 +404,22 @@ private fun OverviewSection(
             busyBanner = true
             msg = null
             scope.launch {
+                val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
+                if (!animated) {
+                    busyBanner = false
+                    cropBanner = CropSource.Local(file)
+                    return@launch
+                }
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
                 r.onSuccess { bannerUrl = it; bannerPositionY = 50; bannerScale = 100 }
                     .onFailure { msg = "não deu pra ler essa imagem" to false }
             }
         }
-        if (!bannerUrl.isNullOrBlank()) {
+        if (!bannerNow.isNullOrBlank()) {
+            if (!bannerAnimated) {
+                SmallButton("reenquadrar", accent = false) { cropBanner = CropSource.Remote(bannerNow) }
+            }
             SmallButton("remover banner", accent = false) { bannerUrl = null }
         }
     }
@@ -567,6 +600,30 @@ private fun OverviewSection(
           }
       }
     } // fim do Row form+previa
+
+    // Modais de recorte (Popup: sobem no nivel da janela, não estorvam o layout).
+    cropIcon?.let { src ->
+        CropDialog(
+            source = src,
+            aspect = 1f,
+            round = false,
+            title = "recortar ícone",
+            outW = ImageCrop.AVATAR_OUT_W,
+            onApply = { iconUrl = it; iconScale = 100 },
+            onClose = { cropIcon = null },
+        )
+    }
+    cropBanner?.let { src ->
+        CropDialog(
+            source = src,
+            aspect = ServerBannerAspect,
+            round = false,
+            title = "recortar banner",
+            outW = ImageCrop.BANNER_OUT_W,
+            onApply = { bannerUrl = it; bannerPositionY = 50; bannerScale = 100 },
+            onClose = { cropBanner = null },
+        )
+    }
 }
 
 // 1 dia entra a pedido do dono: canais bem efemeros. O aviso em ambar ao lado
@@ -718,7 +775,7 @@ private fun ServerConfigPreview(
                 positionY = bannerPositionY,
                 scale = bannerScale,
                 fallback = Obsidian.overlay,
-                modifier = Modifier.fillMaxWidth().height(84.dp),
+                modifier = Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect),
             )
             Box(Modifier.align(Alignment.BottomStart).padding(start = 14.dp).offset(y = 26.dp)) {
                 ServerIconPreview(iconUrl, name, iconScale, 54.dp)

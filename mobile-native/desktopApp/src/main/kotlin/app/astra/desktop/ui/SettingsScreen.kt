@@ -879,6 +879,9 @@ private fun ProfileSection(
     var busyAvatar by remember { mutableStateOf(false) }
     var busyBanner by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    // Recorte estilo Discord: a fonte aberta no modal. null = fechado.
+    var cropAvatar by remember { mutableStateOf<CropSource?>(null) }
+    var cropBanner by remember { mutableStateOf<CropSource?>(null) }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "você" }, 64)
@@ -886,12 +889,19 @@ private fun ProfileSection(
         Column {
             AboutButton(if (busyAvatar) "processando…" else "trocar avatar", accent = true) {
                 if (busyAvatar) return@AboutButton
-                // O dialogo nativo bloqueia (modal) — normal. O peso (decodificar
-                // e reduzir) vai pra fora da thread de UI.
+                // O dialogo nativo bloqueia (modal) — normal. O peso (ler/decodificar)
+                // vai pra fora da thread de UI.
                 val file = AvatarPicker.choose() ?: return@AboutButton
                 busyAvatar = true
                 msg = null
                 scope.launch {
+                    // Animado não pode ser assado num recorte -> caminho antigo.
+                    val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
+                    if (!animated) {
+                        busyAvatar = false
+                        cropAvatar = CropSource.Local(file)
+                        return@launch
+                    }
                     val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
                     busyAvatar = false
                     r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
@@ -954,14 +964,27 @@ private fun ProfileSection(
             busyBanner = true
             msg = null
             scope.launch {
+                val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
+                if (!animated) {
+                    busyBanner = false
+                    cropBanner = CropSource.Local(file)
+                    return@launch
+                }
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
                 r.onSuccess { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) }
                     .onFailure { msg = "não deu pra ler essa imagem" to false }
             }
         }
-        if (!draft.bannerUrl.isNullOrBlank()) {
-            AboutButton("redimensionar imagem", accent = false) { resizeOpen = true }
+        val bannerNow = draft.bannerUrl
+        if (!bannerNow.isNullOrBlank()) {
+            // Animado continua no modal de posição+zoom (a animação sobrevive);
+            // estatico abre o recorte, que ASSA o enquadramento na imagem.
+            if (ImageCrop.isAnimated(bannerNow)) {
+                AboutButton("redimensionar imagem", accent = false) { resizeOpen = true }
+            } else {
+                AboutButton("reenquadrar imagem", accent = false) { cropBanner = CropSource.Remote(bannerNow) }
+            }
             AboutButton("remover imagem", accent = false) { onChange(draft.copy(bannerUrl = null)) }
         }
     }
@@ -971,6 +994,29 @@ private fun ProfileSection(
             username = me?.username ?: "você",
             onSave = { posY, scale -> onChange(draft.copy(bannerPositionY = posY, bannerScale = scale)) },
             onClose = { resizeOpen = false },
+        )
+    }
+    cropAvatar?.let { src ->
+        CropDialog(
+            source = src,
+            aspect = 1f,
+            round = true,
+            title = "recortar avatar",
+            outW = ImageCrop.AVATAR_OUT_W,
+            onApply = { onChange(draft.copy(avatarUrl = it)) },
+            onClose = { cropAvatar = null },
+        )
+    }
+    cropBanner?.let { src ->
+        CropDialog(
+            source = src,
+            aspect = ProfileBannerAspect,
+            round = false,
+            title = "recortar banner",
+            outW = ImageCrop.BANNER_OUT_W,
+            // Assado na proporcao do card -> posição/zoom voltam pro neutro.
+            onApply = { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) },
+            onClose = { cropBanner = null },
         )
     }
     Spacer(Modifier.height(14.dp))

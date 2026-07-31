@@ -105,6 +105,7 @@ import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
 import app.astra.desktop.profile.AvatarPicker
+import app.astra.desktop.voice.AudioDevices
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
@@ -2053,6 +2054,86 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
 }
 
 // Aba Voz: qualidade da transmissão de tela (presets) + processamento do mic.
+// Seletor de dispositivo de audio. null = padrao do sistema — e a PRIMEIRA opcao
+// de proposito: e o que funciona pra maioria e o que o dono pediu ("seguir o
+// Windows"). Lista vazia (nenhum dispositivo achado) ainda mostra o padrao.
+@Composable
+private fun DeviceDropdown(devices: List<String>, selected: String?, onPick: (String?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val hov = remember { MutableInteractionSource() }
+    val h by hov.collectIsHoveredAsState()
+    Box {
+        Row(
+            Modifier
+                .widthIn(max = 460.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(9.dp))
+                .background(if (h) Obsidian.hover else Obsidian.raised)
+                .border(
+                    1.dp,
+                    if (open) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                    RoundedCornerShape(9.dp),
+                )
+                .hoverable(hov)
+                .clickable { open = !open }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                selected ?: "padrão do Windows",
+                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            LIcon(Lucide.ChevronDown, tint = Obsidian.text3, size = 14.dp)
+        }
+        if (open) {
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = IntOffset(0, 46),
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .popupReveal()
+                        .widthIn(min = 240.dp, max = 460.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                        .padding(4.dp),
+                ) {
+                    DeviceRow("padrão do Windows", selected == null) { onPick(null); open = false }
+                    devices.forEach { d ->
+                        DeviceRow(d, selected == d) { onPick(d); open = false }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
+    val hov = remember { MutableInteractionSource() }
+    val h by hov.collectIsHoveredAsState()
+    Text(
+        label,
+        style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(7.dp))
+            .background(if (h) Obsidian.hover else Obsidian.overlay)
+            .hoverable(hov)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    )
+}
+
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -2067,6 +2148,25 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         ScreenQuality.entries.map { it.label to it },
         p.screenQuality, prefs::setScreenQuality,
     )
+
+    SettingsDivider()
+    Text("Dispositivos", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "\"padrao do Windows\" segue o que você escolheu no sistema — inclusive se trocar depois.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    // Enumerado uma vez ao abrir a aba: listar SAIDA abre um modulo do WebRTC, e
+    // não vale refazer isso a cada recomposicao.
+    val outs = remember { AudioDevices.outputs() }
+    val ins = remember { AudioDevices.inputs() }
+    FieldLabel("saída (quem você ouve)")
+    DeviceDropdown(outs, p.audioOutput, prefs::setAudioOutput)
+    Spacer(Modifier.height(12.dp))
+    FieldLabel("entrada (seu microfone)")
+    DeviceDropdown(ins, p.audioInput, prefs::setAudioInput)
 
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))

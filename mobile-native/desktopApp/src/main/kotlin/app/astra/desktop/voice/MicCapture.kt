@@ -5,6 +5,7 @@ import dev.onvoid.webrtc.media.audio.AudioProcessingConfig
 import dev.onvoid.webrtc.media.audio.AudioProcessingStreamConfig
 import dev.onvoid.webrtc.media.audio.CustomAudioSource
 import javax.sound.sampled.AudioFormat
+import dev.onvoid.webrtc.media.audio.AudioDeviceModule
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.TargetDataLine
@@ -160,8 +161,10 @@ class MicCapture(
     }
 }
 
-// Enumera dispositivos de ENTRADA (mic) via Java Sound — nomes pro seletor da call.
-// A SAIDA (alto-falante) vem do ADM do WebRTC (VoiceEngine.outputDevices()).
+// Enumera dispositivos de audio. A ENTRADA (mic) vem do Java Sound; a SAIDA
+// (alto-falante) so o WebRTC conhece, e o ADM da chamada so existe DURANTE uma
+// chamada — por isso `outputs()` abre um modulo temporario e descarta. E o que
+// permite listar dispositivos nas Configuracoes, fora de qualquer call.
 object AudioDevices {
     fun inputs(): List<String> = runCatching {
         AudioSystem.getMixerInfo().filter { mi ->
@@ -169,5 +172,12 @@ object AudioDevices {
                 AudioSystem.getMixer(mi).targetLineInfo.any { it.lineClass == TargetDataLine::class.java }
             }.getOrDefault(false)
         }.map { it.name }.distinct()
+    }.getOrDefault(emptyList())
+
+    fun outputs(): List<String> = runCatching {
+        val m = AudioDeviceModule()
+        val names = runCatching { m.playoutDevices.map { it.name } }.getOrDefault(emptyList())
+        runCatching { m.dispose() }
+        names.distinct()
     }.getOrDefault(emptyList())
 }

@@ -326,11 +326,7 @@ class VoiceEngine(
     // menos ENTRAR na sala (mesmo comportamento de antes).
     private fun createFactory(): PeerConnectionFactory {
         val module = runCatching {
-            AudioDeviceModule().also { m ->
-                val outName = prefs.state.value.audioOutput
-                val devs = m.playoutDevices
-                (devs.firstOrNull { it.name == outName } ?: devs.firstOrNull())?.let { m.setPlayoutDevice(it) }
-            }
+            AudioDeviceModule().also { m -> applyPlayoutDevice(m, prefs.state.value.audioOutput) }
         }.getOrNull()
         adm = module
         return runCatching {
@@ -346,14 +342,25 @@ class VoiceEngine(
     fun outputDevices(): List<String> = runCatching { adm?.playoutDevices?.map { it.name } }.getOrNull().orEmpty()
     fun inputDevices(): List<String> = AudioDevices.inputs()
 
-    // Troca a SAIDA ao vivo (ADM) + persiste. name null = primeiro/padrao.
+    // Aplica a saida escolhida no ADM. name null (ou dispositivo sumido) = NAO
+    // mexe: o modulo fica no padrao do sistema.
+    //
+    // Era aqui o bug de "não ouco ninguem": sem preferencia salva o codigo fazia
+    // `?: devs.firstOrNull()` e FORCAVA o primeiro dispositivo da enumeracao —
+    // que raramente e o que o Windows usa. Pior: isso quebrava justamente quem
+    // nunca abriu as configurações de voz, ou seja, todo mundo por padrao.
+    private fun applyPlayoutDevice(m: AudioDeviceModule, name: String?) {
+        if (name.isNullOrBlank()) return
+        runCatching {
+            m.playoutDevices.firstOrNull { it.name == name }?.let { m.setPlayoutDevice(it) }
+        }
+    }
+
+    // Troca a SAIDA ao vivo (ADM) + persiste. name null = padrao do Windows.
     fun setOutputDevice(name: String?) {
         prefs.setAudioOutput(name)
         val m = adm ?: return
-        runCatching {
-            val devs = m.playoutDevices
-            (devs.firstOrNull { it.name == name } ?: devs.firstOrNull())?.let { m.setPlayoutDevice(it) }
-        }
+        applyPlayoutDevice(m, name)
     }
 
     // Troca a ENTRADA ao vivo: persiste + reabre so a captura (mesma track/source).

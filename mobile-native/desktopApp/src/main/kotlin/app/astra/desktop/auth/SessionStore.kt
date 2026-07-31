@@ -27,7 +27,14 @@ data class Session(
 class SessionStore {
     private val dir: File = run {
         val appData = System.getenv("APPDATA")
-        if (appData != null) File(appData, "Astra") else File(System.getProperty("user.home"), ".astra")
+        val base = if (appData != null) File(appData, "Astra") else File(System.getProperty("user.home"), ".astra")
+        // Segunda instancia (-Dastra.multi) mora numa pasta PROPRIA. Sem isto as duas
+        // janelas dividiriam o mesmo session.bin, ou seja: a mesma conta nas duas — e
+        // testar "eu vejo o que o outro fez" ficaria impossivel, que e justamente o
+        // ponto de abrir a segunda. O valor da flag vira sufixo, entao da pra ter
+        // quantos perfis quiser (-Dastra.multi=2, =3, ...).
+        val slot = System.getProperty("astra.multi")?.takeIf { it.isNotBlank() && it != "true" } ?: "1"
+        if (System.getProperty("astra.multi") != null) File("${base.path}-teste$slot") else base
     }
     private val file = File(dir, "session.bin")
     private val legacyFile = File(dir, "session.properties")

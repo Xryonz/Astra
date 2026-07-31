@@ -188,6 +188,17 @@ compose.desktop {
             jvmArgs += "-XX:ErrorFile=\$APPDIR/falha-jvm-%p.log"
         }
 
+        // SEGUNDA JANELA pra testar com DUAS contas ao mesmo tempo:
+        //   ./gradlew :desktopApp:run -Pastra.multi
+        // Pula o bloqueio de instancia unica E usa uma pasta de sessao propria
+        // (%APPDATA%\Astra-teste1), entao da pra logar com outra conta e ver ao vivo
+        // o que uma faz aparecer na outra. A maioria dos bugs de tempo real so
+        // aparece com duas pontas — com uma conta so, quem cria o canal sempre ve o
+        // canal. NAO vai no pacote: e gateado pela flag, como o -Pjfr.
+        if (providers.gradleProperty("astra.multi").isPresent) {
+            jvmArgs += "-Dastra.multi=${providers.gradleProperty("astra.multi").get().ifBlank { "1" }}"
+        }
+
         // Diagnostico de engasgo (NAO vai no pacote normal):
         //   ./gradlew :desktopApp:run -Pastra.diag
         // Loga fps e AVISA cada frame que passou de 17ms (= perdeu o vsync de 60fps).

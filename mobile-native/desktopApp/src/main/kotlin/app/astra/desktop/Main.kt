@@ -112,8 +112,20 @@ object SingleInstance {
     val activate = MutableStateFlow(0)
     private var server: ServerSocket? = null
 
+    // Abre um SEGUNDO Astra na mesma maquina, com sessão propria:
+    //   ./gradlew :desktopApp:run -Pastra.multi
+    //   (ou o .exe com -Dastra.multi=1)
+    //
+    // Por que isto existe: a maioria dos bugs que aparecem aqui e do tipo
+    // "funciona pra quem fez a ação, não funciona pro outro" — canal novo que não
+    // aparecia, presenca congelada, status que não propagava, membro que não
+    // surgia. Nenhum deles e azar: e consequencia de so dar pra testar com UMA
+    // conta. Com duas janelas lado a lado, cada um desses aparece em segundos, na
+    // hora de escrever o codigo, em vez de semanas depois pela boca de um amigo.
+    val multi: Boolean = System.getProperty("astra.multi") != null
+
     // true = somos a instancia primaria; false = já tem uma (sinalizamos, hora de sair).
-    fun acquireOrSignal(): Boolean = try {
+    fun acquireOrSignal(): Boolean = if (multi) true else try {
         server = ServerSocket(PORT, 1, InetAddress.getLoopbackAddress()).also { s ->
             thread(isDaemon = true, name = "astra-single-instance") {
                 while (!s.isClosed) runCatching { s.accept().close(); activate.value++ }

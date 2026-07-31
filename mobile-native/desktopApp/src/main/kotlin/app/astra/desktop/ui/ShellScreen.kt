@@ -142,13 +142,16 @@ import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.User
 import com.composables.icons.lucide.UserMinus
+import com.composables.icons.lucide.X
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Volume2
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.NotificationApi
+import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.UserApi
@@ -394,6 +397,7 @@ fun ShellScreen(
             onOpenVoice = vm::openVoice,
             onToggleMute = vm::toggleDmMute,
             onMarkRead = vm::markDmRead,
+            onCloseDm = vm::closeDm,
             onEditedProfile = vm::refreshMe,
             onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
             onLogout = onLogout,
@@ -1294,6 +1298,7 @@ private fun Sidebar(
     onOpenVoice: (ChannelDto) -> Unit,
     onToggleMute: (ConversationDto) -> Unit,
     onMarkRead: (String) -> Unit,
+    onCloseDm: (String) -> Unit,
     onEditedProfile: () -> Unit,
     onOpenSettings: (SettingsTab) -> Unit,
     onLogout: () -> Unit,
@@ -1378,7 +1383,7 @@ private fun Sidebar(
                         loading -> SidebarSkeleton()
                         sel is Selection.Dms -> Column(Modifier.fillMaxSize()) {
                             FriendsNavRow(active = friendsOpen, onClick = onOpenFriends)
-                            DmList(dms, onToggleMute, onMarkRead, activeChatId, unread, dmTyping, onOpenChat)
+                            DmList(dms, servers, onToggleMute, onMarkRead, onCloseDm, activeChatId, unread, dmTyping, onOpenChat)
                         }
                         sel is Selection.Discover -> DiscoverSidebarMap()
                         else -> {
@@ -2342,8 +2347,10 @@ private fun UnreadPill(modifier: Modifier = Modifier) {
 @Composable
 private fun DmList(
     dms: List<ConversationDto>,
+    servers: List<ServerDto>,
     onToggleMute: (ConversationDto) -> Unit,
     onMarkRead: (String) -> Unit,
+    onCloseDm: (String) -> Unit,
     activeChatId: String?,
     unread: Set<String>,
     dmTyping: Set<String>,
@@ -2354,6 +2361,20 @@ private fun DmList(
         return
     }
     val clipboard = LocalClipboardManager.current
+    // Alvos dos itens de menu que abrem tela (null = fechado).
+    var profileFor by remember { mutableStateOf<String?>(null) }
+    var inviteFor by remember { mutableStateOf<ConversationDto?>(null) }
+    // Amizades carregadas UMA vez: o menu precisa do id da amizade pra desfazer, e
+    // a conversa so carrega o id do usuário. Sem amizade com a pessoa, o item nem
+    // aparece — melhor do que oferecer uma ação que vai falhar.
+    val friendApi = remember { GlobalContext.get().get<FriendApi>() }
+    var friendships by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        friendships = runCatching { friendApi.friends().data.orEmpty() }
+            .getOrDefault(emptyList())
+            .associate { it.user.id to it.friendshipId }
+    }
     // Estrutura Discord: busca no topo dos sussurros (filtro local por nome).
     var query by remember { mutableStateOf("") }
     val filtered = if (query.isBlank()) dms else dms.filter { c ->
@@ -2406,13 +2427,34 @@ private fun DmList(
             CascadeIn(cascadeRow, Unit) {
             EditorialContextMenu(entries = {
                 buildList {
+                    u?.id?.let { uid ->
+                        add(MenuEntry.Item("ver perfil", icon = Lucide.User) { profileFor = uid })
+                    }
+                    if (isUnread) add(MenuEntry.Item("marcar como lida", icon = Lucide.Check) { onMarkRead(conv.id) })
+                    add(MenuEntry.Separator)
+                    // So faz sentido convidar se eu tenho pra onde convidar.
+                    if (u?.username != null && servers.isNotEmpty()) {
+                        add(MenuEntry.Item("convidar para constelação", icon = Lucide.Users) { inviteFor = conv })
+                    }
                     add(
                         MenuEntry.Item(if (conv.muted) "desmutar sussurro" else "mutar sussurro", icon = if (conv.muted) Lucide.Bell else Lucide.BellOff) {
                             onToggleMute(conv)
                         },
                     )
-                    if (isUnread) add(MenuEntry.Item("marcar como lida", icon = Lucide.Check) { onMarkRead(conv.id) })
                     u?.id?.let { uid -> add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(uid)) }) }
+                    add(MenuEntry.Separator)
+                    add(MenuEntry.Item("fechar sussurro", icon = Lucide.X) { onCloseDm(conv.id) })
+                    // "desfazer amizade" so aparece se existe amizade — oferecer uma
+                    // ação que vai dar erro e pior do que não oferecer.
+                    friendships[u?.id]?.let { fid ->
+                        add(MenuEntry.Separator)
+                        add(MenuEntry.Item("desfazer amizade", danger = true, icon = Lucide.UserMinus) {
+                            scope.launch {
+                                runCatching { friendApi.remove(fid) }
+                                friendships = friendships - (u?.id ?: "")
+                            }
+                        })
+                    }
                 }
             }) {
             Box(Modifier.fillMaxWidth()) {
@@ -2477,6 +2519,86 @@ private fun DmList(
             }
             }
             }
+        }
+    }
+
+    // Telas abertas pelo menu do sussurro. Ficam FORA da LazyColumn de proposito:
+    // a linha some da composicao ao rolar, e a tela iria junto no meio do uso.
+    profileFor?.let { uid ->
+        ProfilePage(
+            userId = uid,
+            isMe = false,
+            onStartDm = { _, _ -> profileFor = null },
+            onClose = { profileFor = null },
+        )
+    }
+    inviteFor?.let { conv ->
+        val uname = conv.otherUser?.username
+        if (uname == null) inviteFor = null
+        else PickServerDialog(
+            username = uname,
+            servers = servers,
+            onClose = { inviteFor = null },
+        )
+    }
+}
+
+// Escolher PRA ONDE convidar. O menu de contexto não tem submenu generico, e um
+// dialogo aqui e mais honesto que uma lista escondida: da pra ver o ícone e o nome
+// de cada constelação antes de decidir. Adiciona pelo @usuario (a pessoa entra na
+// hora) — a mesma rota do "convidar pessoas" da rail.
+@Composable
+private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose: () -> Unit) {
+    val api = remember { GlobalContext.get().get<ServerApi>() }
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf<String?>(null) }
+    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+
+    DialogShell(onClose = onClose) {
+        Text(
+            "convidar @$username",
+            style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            "para qual constelação?",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        )
+        Spacer(Modifier.height(12.dp))
+        servers.forEach { srv ->
+            val loading = busy == srv.id
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(enabled = busy == null) {
+                        busy = srv.id
+                        msg = null
+                        scope.launch {
+                            val r = runCatching { api.addMember(srv.id, username) }
+                            busy = null
+                            msg = if (r.isSuccess) "entrou em ${srv.name}" to true
+                            else "não deu — já é membro, ou você não tem permissão" to false
+                        }
+                    }
+                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DesktopAvatar(srv.iconUrl, srv.name, 26)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    if (loading) "…" else srv.name,
+                    style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        msg?.let { (text, ok) ->
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text,
+                style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp),
+            )
         }
     }
 }

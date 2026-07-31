@@ -322,6 +322,12 @@ export const dmConversations = pgTable('DMConversation', {
   // Silenciar DM: timestamp de quando cada lado mutou (null = nao mutado).
   mutedByA:     timestamp('mutedByA', { precision: 3 }),
   mutedByB:     timestamp('mutedByB', { precision: 3 }),
+  // "Fechar conversa": timestamp de quando cada lado escondeu. NAO apaga nada e
+  // nao afeta o outro lado. A conversa VOLTA sozinha quando chega mensagem nova,
+  // porque a regra e "escondida se updatedAt <= hiddenBy" e mensagem nova bumpa o
+  // updatedAt — mesma semantica do Discord, sem precisar de flag pra desfazer.
+  hiddenByA:    timestamp('hiddenByA', { precision: 3 }),
+  hiddenByB:    timestamp('hiddenByB', { precision: 3 }),
   createdAt:    timestamp('createdAt',   { precision: 3 }).notNull().defaultNow(),
   updatedAt:    timestamp('updatedAt',   { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => ({

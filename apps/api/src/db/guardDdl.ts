@@ -89,6 +89,9 @@ CREATE INDEX IF NOT EXISTS "ChannelRead_userId_idx" ON "ChannelRead" USING btree
 
 ALTER TABLE "DMConversation" ADD COLUMN IF NOT EXISTS "lastReadByA" timestamp (3);
 ALTER TABLE "DMConversation" ADD COLUMN IF NOT EXISTS "lastReadByB" timestamp (3);
+-- "fechar conversa": esconde a DM so pro lado que fechou (ver schema.ts).
+ALTER TABLE "DMConversation" ADD COLUMN IF NOT EXISTS "hiddenByA" timestamp (3);
+ALTER TABLE "DMConversation" ADD COLUMN IF NOT EXISTS "hiddenByB" timestamp (3);
 
 -- ===== Notificações =====
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "notificationPrefs" text;

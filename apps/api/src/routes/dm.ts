@@ -40,9 +40,18 @@ export function createDMRouter(io: SocketServer) {
     asyncHandler(async (req: Request, res: Response) => {
       const userId = req.userId!
 
-      const convs = await db.select().from(dmConversations)
+      const all = await db.select().from(dmConversations)
         .where(or(eq(dmConversations.userAId, userId), eq(dmConversations.userBId, userId)))
         .orderBy(desc(dmConversations.updatedAt))
+
+      // Conversas FECHADAS por mim somem — mas so enquanto nada acontecer nelas.
+      // Mensagem nova bumpa o updatedAt e a conversa volta sozinha, sem precisar de
+      // uma acao pra "reabrir". Filtro no JS (nao no SQL) porque qual coluna vale
+      // depende de eu ser o lado A ou o B desta conversa.
+      const convs = all.filter((c) => {
+        const hidden = c.userAId === userId ? c.hiddenByA : c.hiddenByB
+        return !hidden || c.updatedAt > hidden
+      })
 
       if (convs.length === 0) return res.json({ data: [] })
 
@@ -247,6 +256,32 @@ export function createDMRouter(io: SocketServer) {
         : { mutedByB: null, updatedAt: conv.updatedAt }
       await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
       res.json({ data: { conversationId: conv.id, muted: false } })
+    })
+  )
+
+  // "Fechar mensagem direta". NAO apaga nada e nao afeta o outro lado: so marca
+  // que EU escondi. A conversa reaparece sozinha na proxima mensagem (ver o filtro
+  // na listagem). Preserva o updatedAt de proposito — bumpar aqui faria a conversa
+  // voltar pro topo de quem acabou de fecha-la.
+  router.delete(
+    '/:conversationId',
+    requireAuth,
+    asyncHandler(async (req: Request, res: Response) => {
+      const { conversationId } = req.params
+      const [conv] = await db.select().from(dmConversations)
+        .where(and(
+          eq(dmConversations.id, conversationId),
+          or(eq(dmConversations.userAId, req.userId!), eq(dmConversations.userBId, req.userId!)),
+        ))
+        .limit(1)
+      if (!conv) return res.status(403).json({ error: 'Acesso negado' })
+
+      const now = new Date()
+      const patch = conv.userAId === req.userId
+        ? { hiddenByA: now, updatedAt: conv.updatedAt }
+        : { hiddenByB: now, updatedAt: conv.updatedAt }
+      await db.update(dmConversations).set(patch).where(eq(dmConversations.id, conv.id))
+      res.json({ data: { conversationId: conv.id, closed: true } })
     })
   )
 

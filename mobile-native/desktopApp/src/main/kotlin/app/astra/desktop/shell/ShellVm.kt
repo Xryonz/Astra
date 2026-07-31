@@ -336,6 +336,21 @@ class ShellVm(
         }
     }
 
+    // "Fechar sussurro": some da MINHA lista (nada e apagado, o outro lado nem
+    // fica sabendo, e volta sozinho na proxima mensagem). Otimista: tira da lista
+    // na hora e, se a conversa fechada estava aberta no palco, esvazia o palco —
+    // ficar olhando pra uma conversa que "não existe mais" seria esquisito.
+    fun closeDm(conversationId: String) {
+        scope.launch { runCatching { dmApi.close(conversationId) } }
+        _state.update { st ->
+            st.copy(
+                dms = st.dms.filterNot { it.id == conversationId },
+                unread = st.unread - conversationId,
+                chat = if (st.chat?.id == conversationId) null else st.chat,
+            )
+        }
+    }
+
     fun markDmRead(conversationId: String) {
         scope.launch { runCatching { dmApi.markRead(conversationId) } }
         _state.update { it.copy(unread = it.unread - conversationId) }

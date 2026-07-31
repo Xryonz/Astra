@@ -67,7 +67,7 @@ private object CenterOverlay : PopupPositionProvider {
 }
 
 @Composable
-private fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
+internal fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
     Popup(
         popupPositionProvider = CenterOverlay,
         onDismissRequest = onClose,

@@ -96,6 +96,27 @@ export function setupSocket(io: Server) {
 
     socket.join(`user:${userId}`)
 
+    // Salas de CONSTELACAO. Ate agora so existiam salas de canal e de DM, ou seja,
+    // nada que valha pra constelacao inteira tinha por onde ser transmitido — e por
+    // isso "canal novo" so aparecia pros outros no proximo boot do app. Uma consulta
+    // indexada no connect resolve pra sessao toda.
+    try {
+      const mine = await db.select({ serverId: serverMembers.serverId })
+        .from(serverMembers).where(eq(serverMembers.userId, userId))
+      for (const s of mine) socket.join(`server:${s.serverId}`)
+    } catch {}
+
+    // Entrou numa constelacao AGORA (convite/descoberta): a sala do connect nao a
+    // inclui, entao o cliente pede a entrada em vez de reconectar o socket inteiro.
+    socket.on('join_server', async (serverId: string) => {
+      if (typeof serverId !== 'string' || !serverId) return
+      const [row] = await db.select({ userId: serverMembers.userId })
+        .from(serverMembers)
+        .where(and(eq(serverMembers.serverId, serverId), eq(serverMembers.userId, userId)))
+        .limit(1)
+      if (row) socket.join(`server:${serverId}`)
+    })
+
     socket.on('heartbeat', () => {
       socketEventsTotal.inc({ event: 'heartbeat', direction: 'in' })
       refreshPresence(userId)

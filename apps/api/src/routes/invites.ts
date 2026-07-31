@@ -8,6 +8,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { authLimiter } from '../middleware/rateLimiter'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { invalidateMembersCache } from '../lib/membersCache'
+import { membersChanged } from '../lib/realtime'
 
 const router = Router()
 
@@ -59,6 +60,7 @@ router.post(
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id, role: 'MEMBER' })
     void invalidateMembersCache(server.id)
+    membersChanged(server.id)
 
     const [chRows, [countRow]] = await Promise.all([
       db.select().from(channels).where(eq(channels.serverId, server.id)).orderBy(asc(channels.createdAt)),

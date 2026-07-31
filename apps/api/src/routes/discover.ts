@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { authLimiter } from '../middleware/rateLimiter'
 import { invalidateMembersCache } from '../lib/membersCache'
+import { membersChanged } from '../lib/realtime'
 
 const router = Router()
 
@@ -63,6 +64,7 @@ router.post(
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId, role: 'MEMBER' })
     void invalidateMembersCache(serverId)
+    membersChanged(serverId)
 
     res.status(201).json({ data: { ok: true, serverId } })
   })

@@ -82,6 +82,30 @@ class DesktopSocket(private val store: SessionStore) {
     private val _voicePresence = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val voicePresence: SharedFlow<String> = _voicePresence.asSharedFlow()
 
+    // Constelacao mexeu (sala server:<id>). Sao PINGS, nao deltas: quem recebe
+    // refaz a busca. Canal privado faz cada membro ver uma lista diferente, entao
+    // mesclar no cliente erraria — quem decide o que cada um enxerga e o backend.
+    private val _serverChannels = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val serverChannels: SharedFlow<String> = _serverChannels.asSharedFlow()
+
+    private val _serverMembers = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val serverMembers: SharedFlow<String> = _serverMembers.asSharedFlow()
+
+    // Fui adicionado a uma constelacao (chega na sala pessoal — ainda nao estou na
+    // sala dela). A rail ganha a constelacao nova sem reabrir o app.
+    private val _serverJoined = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val serverJoined: SharedFlow<String> = _serverJoined.asSharedFlow()
+
+    // Constelacoes em que ja pedi entrada na sala. O backend ja inscreve nas do
+    // connect; isto cobre as que entrei DEPOIS (convite/descoberta) e reinscreve
+    // apos reconectar.
+    private val servers = ConcurrentHashMap.newKeySet<String>()
+
+    fun joinServer(id: String) {
+        servers.add(id)
+        socket?.emit("join_server", id)
+    }
+
     // Avisa a constelação que entrei/sai da call — o resto ve na hora.
     fun voiceJoin(channelId: String) { socket?.emit("voice_join", channelId) }
     fun voiceLeave(channelId: String) { socket?.emit("voice_leave", channelId) }
@@ -102,6 +126,7 @@ class DesktopSocket(private val store: SessionStore) {
             // Re-entra nas salas apos reconectar.
             channels.forEach { s.emit("join_channel", it) }
             dms.forEach { s.emit("join_dm", it) }
+            servers.forEach { s.emit("join_server", it) }
             s.emit("heartbeat") // presenca viva já no connect (o timer refresca depois)
         }
         s.on("new_message") { args ->
@@ -145,6 +170,15 @@ class DesktopSocket(private val store: SessionStore) {
         }
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }
+        }
+        s.on("server_channels") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _serverChannels.tryEmit(it.toString()) }
+        }
+        s.on("server_members") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _serverMembers.tryEmit(it.toString()) }
+        }
+        s.on("server_joined") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _serverJoined.tryEmit(it.toString()) }
         }
         s.io().on(io.socket.client.Manager.EVENT_RECONNECT_ATTEMPT) {
             // Token pode ter rotacionado (authenticator http) — usa o mais fresco.
@@ -253,6 +287,7 @@ class DesktopSocket(private val store: SessionStore) {
         heartbeatTimer = null
         channels.clear()
         dms.clear()
+        servers.clear()
         socket?.apply { off(); disconnect() }
         socket = null
     }

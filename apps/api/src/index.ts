@@ -27,6 +27,7 @@ import profileRouter         from './routes/profile'
 import inviteRouter          from './routes/invites'
 import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
+import { attachRealtime }                from './lib/realtime'
 import { createMessagesRouter }          from './routes/messages'
 import { createReactionsRouter }         from './routes/reactions'
 import { createPollsRouter }             from './routes/polls'
@@ -78,6 +79,8 @@ const io = new SocketServer(httpServer, {
   pingInterval:      25_000,
 })
 setupSocket(io)
+// Rotas que emitem por socket sao routers `const` (nao factory) — io por setter.
+attachRealtime(io)
 
 app.use(hidePoweredBy)
 app.use(secureHeaders)

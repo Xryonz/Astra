@@ -14,6 +14,7 @@ import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
+import { channelsChanged, membersChanged, joinedServer } from '../lib/realtime'
 
 export const serversRouter = Router()
 
@@ -312,6 +313,8 @@ serversRouter.post(
 
     await db.insert(serverMembers).values({ userId: friendUserId, serverId })
     void invalidateMembersCache(serverId)
+    joinedServer(friendUserId, serverId)
+    membersChanged(serverId)
     await db.insert(notifications).values({
       userId: friendUserId,
       type:   'server_invite',
@@ -412,6 +415,7 @@ serversRouter.delete(
 
     await db.delete(serverMembers).where(eq(serverMembers.id, memberId))
     void invalidateMembersCache(serverId)
+    membersChanged(serverId)
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
       targetId: target.userId,
@@ -462,6 +466,7 @@ serversRouter.delete(
 
     await db.delete(serverMembers).where(eq(serverMembers.id, membership.id))
     void invalidateMembersCache(serverId)
+    membersChanged(serverId)
     res.json({ message: 'Você saiu do servidor' })
   })
 )
@@ -486,6 +491,7 @@ serversRouter.post(
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id })
     void invalidateMembersCache(server.id)
+    membersChanged(server.id)
     res.json({ data: server })
   })
 )
@@ -587,6 +593,8 @@ serversRouter.post(
 
     await db.insert(serverMembers).values({ userId: target.id, serverId, role: 'MEMBER' })
     void invalidateMembersCache(serverId)
+    joinedServer(target.id, serverId)
+    membersChanged(serverId)
     res.json({ message: `${target.displayName} adicionado com sucesso` })
   })
 )
@@ -717,6 +725,7 @@ channelsRouter.post(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_CREATE,
       targetId: channel.id, metadata: { name, type, categoryId },
     })
+    channelsChanged(serverId)
     res.status(201).json({ data: channel })
   })
 )
@@ -786,6 +795,7 @@ channelsRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
       targetId: channelId, metadata: { isPrivate, roleIds: validRoleIds },
     })
+    channelsChanged(serverId)
     res.json({ data: { isPrivate, roleIds: validRoleIds } })
   })
 )
@@ -831,6 +841,7 @@ channelsRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
       targetId: channelId, metadata: { name, categoryId, position },
     })
+    channelsChanged(serverId)
     res.json({ data: r[0] })
   })
 )
@@ -855,6 +866,7 @@ channelsRouter.delete(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_DELETE,
       targetId: channelId, metadata: { name: r[0].name },
     })
+    channelsChanged(serverId)
     res.json({ message: 'Canal excluído' })
   })
 )
@@ -879,6 +891,7 @@ channelsRouter.post(
 
     const [cat] = await db.insert(channelCategories)
       .values({ name, serverId, position: nextPos }).returning()
+    channelsChanged(serverId)
     res.status(201).json({ data: cat })
   })
 )
@@ -909,6 +922,7 @@ channelsRouter.patch(
       .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
       .returning()
     if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
+    channelsChanged(serverId)
     res.json({ data: r[0] })
   })
 )
@@ -927,6 +941,7 @@ channelsRouter.delete(
       .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
       .returning({ id: channelCategories.id })
     if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
+    channelsChanged(serverId)
     res.json({ message: 'Categoria excluída' })
   })
 )

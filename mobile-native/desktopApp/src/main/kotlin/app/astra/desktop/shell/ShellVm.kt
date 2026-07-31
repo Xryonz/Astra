@@ -28,6 +28,7 @@ import app.astra.mobile.core.network.dto.LastMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
+import app.astra.mobile.core.network.dto.ServerScopedEventDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.RoleDto
 import app.astra.mobile.core.network.dto.RoleRequest
@@ -418,6 +419,7 @@ class ShellVm(
     fun createServer(name: String, isGroup: Boolean) {
         scope.launch {
             val created = runCatching { serverApi.create(CreateServerRequest(name, isGroup)).data }.getOrNull() ?: return@launch
+            socket.joinServer(created.id) // nasceu depois do connect: entra na sala dela
             val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
             _state.update {
                 it.copy(
@@ -440,6 +442,9 @@ class ShellVm(
     // já cai nela (vira a selecao ativa, como se tivesse clicado na rail).
     fun refreshServersAndSelect(serverId: String) {
         scope.launch {
+            // Entrei AGORA: o socket so inscreveu nas constelacoes que eu tinha no
+            // connect, entao sem isto eu nao receberia aviso de canal novo aqui.
+            socket.joinServer(serverId)
             val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
             _state.update {
                 it.copy(
@@ -859,6 +864,32 @@ class ShellVm(
                             else st.unread
                         st.copy(dms = dms, unread = unread)
                     }
+                }
+            }
+            // Constelacao mexeu. Sao PINGS ("mudou, busca de novo"), nao deltas: canal
+            // privado faz cada membro ver uma lista diferente, entao so o backend sabe
+            // o que cada um deve enxergar. Uma busca extra num evento raro e barato —
+            // o caro era o canal novo so aparecer pros outros no proximo boot do app.
+            launch {
+                socket.serverChannels.collect { reloadServers() }
+            }
+            launch {
+                socket.serverMembers.collect { raw ->
+                    val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
+                    // So recarrega se for a constelacao ABERTA (o painel de membros das
+                    // outras nem esta na tela).
+                    if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
+                        loadMembers(ev.serverId)
+                    }
+                }
+            }
+            launch {
+                socket.serverJoined.collect { raw ->
+                    val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
+                    // Fui adicionado agora: entra na sala dela (o connect nao a incluia)
+                    // e traz a constelacao nova pra rail.
+                    socket.joinServer(ev.serverId)
+                    reloadServers()
                 }
             }
             launch {

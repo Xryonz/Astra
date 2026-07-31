@@ -141,6 +141,12 @@ data class MemberUserDto(
 @Serializable
 data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 
+// Aviso de que algo mudou numa constelacao (server_channels / server_members /
+// server_joined). So carrega o id: e um PING pra refazer a busca, nao um delta —
+// canal privado faz cada membro ver uma lista diferente, e so o backend sabe qual.
+@Serializable
+data class ServerScopedEventDto(val serverId: String)
+
 @Serializable
 data class MyPermsDto(
     val isOwner: Boolean = false,

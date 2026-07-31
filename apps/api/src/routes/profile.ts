@@ -9,6 +9,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys } from '../lib/redis'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
+import { presenceChanged } from '../lib/realtime'
 
 const router = Router()
 
@@ -195,6 +196,9 @@ router.patch(
     const { status } = req.body as { status: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE' }
     await db.update(users).set({ status }).where(eq(users.id, req.userId!))
     await setUserOnline(req.userId!, status)
+    // Sem isto o status novo so aparecia pros outros quando eles recarregavam a
+    // tela — o caminho por socket (set_status) ja avisava, este nao.
+    presenceChanged(req.userId!, status)
     res.json({ data: { status } })
   })
 )

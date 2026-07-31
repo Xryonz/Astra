@@ -50,12 +50,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.dto.FriendDto
 import app.astra.mobile.core.network.dto.FriendRequestDto
+import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.SendFriendRequest
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Inbox
@@ -67,6 +69,7 @@ import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
 
@@ -102,6 +105,25 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
         outgoing = runCatching { api.outgoing().data.orEmpty() }.getOrDefault(emptyList())
     }
     LaunchedEffect(Unit) { reload(); loading = false }
+
+    // Presenca AO VIVO. A lista vinha do /friends e congelava ali: quem entrasse ou
+    // saisse depois continuava com a bolinha antiga ate a tela ser reaberta — era a
+    // "confirmacao de online muito atrasada". O backend ja emitia presence_update no
+    // connect e no disconnect; faltava alguem escutando aqui.
+    // Reordena junto (online sobe), senao a bolinha muda mas a lista fica torta.
+    LaunchedEffect(Unit) {
+        val koin = GlobalContext.get()
+        val socket = koin.get<DesktopSocket>()
+        val json = koin.get<Json>()
+        socket.presenceUpdate.collect { raw ->
+            val ev = runCatching { json.decodeFromString<PresenceUpdateDto>(raw) }.getOrNull() ?: return@collect
+            friends = friends
+                .map { f -> if (f.user.id == ev.userId) f.copy(presence = ev.status) else f }
+                .sortedWith(
+                    compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
+                )
+        }
+    }
 
     // Acao otimista-simples: roda e recarrega as tres listas.
     fun act(block: suspend () -> Unit) {

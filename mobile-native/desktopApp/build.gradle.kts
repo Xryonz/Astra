@@ -142,7 +142,49 @@ compose.desktop {
         // que ENGASGA a aurora animando 60fps ("corte do nada", achado no JFR). Este
         // flag transforma o System.gc() explicito num ciclo CONCORRENTE: a memoria
         // nativa ainda e liberada, mas sem travar as threads de render. Ship pra todos.
-        jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
+        // --- Fase 1 de desempenho (branch astra-dev) ---
+        // GC: o coletor e a fonte classica de engasgo numa UI 60fps (uma pausa de 30ms
+        // = 2 frames perdidos). Duas opções, trocaveis no build pra COMPARAR:
+        //   ./gradlew ... -Pastra.gc=zgc  (padrao) pausas < 1ms, custo: mais overhead
+        //   ./gradlew ... -Pastra.gc=g1              menos RAM, pausas de dezenas de ms
+        // Ambas verificadas neste JDK (Temurin 21). ZGC geracional e JDK 21+.
+        // ATENCAO ao medir no Gerenciador de Tarefas: o ZGC reserva MUITO endereco
+        // virtual (mapeamento multiplo) — olhar "working set"/memoria privada, não a
+        // memoria virtual, senao parece que gastou mais do que gasta.
+        val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "zgc"
+        if (gcProfile == "g1") {
+            // G1 com alvo de pausa curto (default e 200ms — uma eternidade a 60fps).
+            jvmArgs += "-XX:MaxGCPauseMillis=8"
+            // System.gc() do skiko vira ciclo concorrente em vez de full stop-the-world.
+            jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
+        } else {
+            jvmArgs += "-XX:+UseZGC"
+            jvmArgs += "-XX:+ZGenerational"
+            // No ZGC todo ciclo ja e concorrente — inclusive o System.gc() do skiko.
+        }
+
+        // AppCDS automatico (JDK 19+): a JVM guarda as classes ja "digeridas" num
+        // arquivo e reusa na proxima abertura -> abre mais rapido e o metaspace fica
+        // menor (memoria compartilhada em vez de recriada). Cria sozinho no 1o run;
+        // se o caminho não for gravavel, a JVM so avisa e segue (não quebra).
+        // $APPDIR e substituido pelo jpackage pela pasta app/ da instalacao.
+        // So no build EMPACOTADO: `$APPDIR` e substituido pelo jpackage. Rodando pelo
+        // Gradle (:run) o token não resolve e a JVM cospe um erro feio de cds (inofensivo,
+        // sai com 0 — verificado), entao gateamos pela mesma flag do empacote.
+        if (providers.gradleProperty("astra.distDir").isPresent) {
+            jvmArgs += "-XX:+AutoCreateSharedArchive"
+            jvmArgs += "-XX:SharedArchiveFile=\$APPDIR/astra-cds.jsa"
+        }
+
+        // Diagnostico de engasgo (NAO vai no pacote normal):
+        //   ./gradlew :desktopApp:run -Pastra.diag
+        // Loga fps e AVISA cada frame que passou de 17ms (= perdeu o vsync de 60fps).
+        // E assim que se acha travamento de verdade em vez de adivinhar.
+        if (providers.gradleProperty("astra.diag").isPresent) {
+            jvmArgs += "-Dskiko.fps.enabled=true"
+            jvmArgs += "-Dskiko.fps.longFrames.show=true"
+            jvmArgs += "-Dskiko.fps.longFrames.millis=17"
+        }
         // Teto de HEAP. Sem -Xmx o HotSpot deixa o heap crescer ate 1/4 da RAM FISICA
         // (num PC de 16GB isso e ~4GB) antes de um GC maior — como não ha pressao, o GC
         // fica preguicoso e o RSS so sobe ("em call, de 2 em 2MB a mais, sem parar"). O

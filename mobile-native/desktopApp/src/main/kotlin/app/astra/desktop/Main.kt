@@ -69,6 +69,13 @@ import kotlin.concurrent.thread
 import zed.rainxch.rikkaui.foundation.RikkaColors
 import zed.rainxch.rikkaui.foundation.RikkaTheme
 
+// Coletor ativo (so pro log de boot): o nome do GC vem do proprio MXBean, entao o
+// log conta a VERDADE do runtime empacotado, não o que achamos que passamos.
+private fun gcName(): String = runCatching {
+    java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()
+        .joinToString("+") { it.name }
+}.getOrDefault("?")
+
 // Instancia única: lock por ServerSocket no loopback. Se já tem Astra rodando (a
 // porta esta ocupada), sinaliza o processo existente pra aparecer e ESTE sai — sem
 // dois apps na bandeja. O primeiro escuta e traz a janela pra frente ao ser tocado.
@@ -94,6 +101,10 @@ object SingleInstance {
 fun main() {
     // Segundo processo: pede pro Astra aberto aparecer e encerra aqui mesmo.
     if (!SingleInstance.acquireOrSignal()) return
+    // Qual API grafica o Skia escolheu nesta maquina. Se aparecer SOFTWARE_*, quem
+    // desenha cada pixel e a CPU (engasgo garantido, por driver/GPU) — e o 1o lugar
+    // pra olhar quando alguem reclama de travamento. Uma linha, so no boot.
+    println("[Astra] render=${org.jetbrains.skiko.SkikoProperties.renderApi} gc=${gcName()}")
     startKoin { modules(appModule) }
     application {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).

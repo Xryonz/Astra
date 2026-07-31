@@ -13,8 +13,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import app.astra.desktop.ui.theme.Obsidian
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 // O bannerColor do Astra guarda uma string CSS ("linear-gradient(135deg,#a,#b)")
@@ -120,6 +122,34 @@ internal const val ProfileBannerAspect = 3.5f
 // diferentes (editor ~4.2:1, previa 2.95:1, card da Descoberta ~4.9:1) e o
 // recorte assado so pode ser exato numa. Unificado em 3:1 (escolha do dono).
 internal const val ServerBannerAspect = 3.0f
+
+// Fundo CONTINUO do cartao de perfil. O Discord pinta banner + corpo como UMA
+// peca so (o gradiente atravessa o cartao inteiro) em vez de dois retangulos com
+// gradientes independentes. Aqui: o gradiente cobre a caixa toda e, a partir do
+// fim da faixa do banner, entra um veu escuro.
+//
+// O veu não e enfeite: sem ele um preset claro (Artico, Menta, Petala) deixaria
+// nome e bio ilegiveis, porque a paleta de texto do app e clara e fixa. Assim a
+// cor fica VIVA na faixa (onde não ha texto) e vira tom no corpo — que e como o
+// cartao do Discord se parece, e casa com o obsidiana do Astra.
+//
+// Quem usa isto passa `css = null` no ProfileBanner de cima (com fallback
+// transparente), senao a faixa repinta o proprio gradiente e o corte reaparece.
+fun Modifier.profileCardBackdrop(css: String?, aspect: Float = ProfileBannerAspect): Modifier =
+    drawBehind {
+        drawRect(bannerBrush(css, size.width, size.height, Obsidian.raised))
+        if (size.height <= 0f) return@drawBehind
+        // Onde a faixa do banner acaba, em fracao da altura do cartao.
+        val start = ((size.width / aspect) / size.height).coerceIn(0f, 1f)
+        val veil = Obsidian.void.copy(alpha = 0.78f)
+        drawRect(
+            Brush.verticalGradient(
+                start to Color.Transparent,
+                min(1f, start + 0.30f) to veil,
+                1f to veil,
+            ),
+        )
+    }
 
 // Banner do perfil: gradiente/cor por baixo e, se houver imagem, ela por cima
 // com o enquadramento salvo. positionY 0..100 (0=topo, 50=centro, 100=base) e

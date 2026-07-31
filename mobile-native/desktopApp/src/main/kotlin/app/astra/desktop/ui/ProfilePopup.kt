@@ -154,22 +154,23 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
             Modifier
                 .width(320.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Obsidian.raised)
+                // Gradiente CONTINUO: uma peca so do topo do banner ao pe do cartao.
+                .profileCardBackdrop(profile?.bannerColor)
                 .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
         ) {
             val p = profile
             if (p == null) {
                 CardSkeleton()
             } else {
-                // bannerColor guarda CSS ("linear-gradient(...)"), não hex — ler
-                // como hex fazia TODO gradiente virar cinza liso aqui. ProfileBanner
-                // traduz o CSS e aplica o enquadramento salvo.
+                // css = null de proposito: quem pinta o gradiente e o cartao inteiro
+                // (profileCardBackdrop acima). Se a faixa repintasse por conta, o
+                // gradiente "recomecaria" aqui e o corte voltaria.
                 ProfileBanner(
-                    css = p.bannerColor,
+                    css = null,
                     imageUrl = p.bannerUrl,
                     positionY = p.bannerPositionY ?: 50,
                     scale = p.bannerScale ?: 100,
-                    fallback = Obsidian.overlay,
+                    fallback = Color.Transparent,
                     modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {

@@ -168,7 +168,8 @@ fun ProfilePage(
                         .width(440.dp)
                         .heightIn(max = 640.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Obsidian.raised)
+                        // Gradiente CONTINUO (mesma peca do popup).
+                        .profileCardBackdrop(data?.user?.bannerColor)
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(16.dp))
                         // Engole o clique (senao o scrim fecha ao clicar no card).
                         .clickable(
@@ -206,12 +207,13 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
     }
 
     Box {
+        // css = null: o gradiente e do cartao inteiro (profileCardBackdrop).
         ProfileBanner(
-            css = p.bannerColor,
+            css = null,
             imageUrl = p.bannerUrl,
             positionY = p.bannerPositionY ?: 50,
             scale = p.bannerScale ?: 100,
-            fallback = Obsidian.overlay,
+            fallback = Color.Transparent,
             modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
         )
         // Sweep de luz ambar atravessa o banner uma vez (alvorecer).

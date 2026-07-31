@@ -404,7 +404,8 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Obsidian.raised)
+            // Mesmo gradiente continuo do cartao real (banner + corpo, uma peca so).
+            .profileCardBackdrop(draft?.bannerColor ?: me?.bannerColor)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
     ) {
         if (me == null) {
@@ -420,20 +421,18 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         val bio = draft?.bio ?: me.bio
         val emoji = draft?.statusEmoji ?: me.statusEmoji
         val recado = draft?.customStatus ?: me.customStatus
+        // css = null: o gradiente e do cartao inteiro (profileCardBackdrop).
         ProfileBanner(
-            css = draft?.bannerColor ?: me.bannerColor,
+            css = null,
             imageUrl = draft?.bannerUrl ?: me.bannerUrl,
             positionY = draft?.bannerPositionY ?: me.bannerPositionY ?: 50,
             scale = draft?.bannerScale ?: me.bannerScale ?: 100,
-            fallback = Obsidian.overlay,
+            fallback = Color.Transparent,
             modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
         )
-        // Corpo do cartao pinta o profileTheme (gradiente CSS) por baixo, igual web.
-        val theme = draft?.profileTheme ?: me.profileTheme
         Column(
             Modifier
                 .fillMaxWidth()
-                .drawBehind { drawRect(bannerBrush(theme, size.width, size.height, Obsidian.raised)) }
                 .padding(horizontal = 14.dp),
         ) {
             Box(
@@ -1020,12 +1019,20 @@ private fun ProfileSection(
         )
     }
     Spacer(Modifier.height(14.dp))
-    FieldLabel("ou uma cor")
-    ColorPickerButton(draft.bannerColor) { onChange(draft.copy(bannerColor = it)) }
-
-    SettingsDivider()
-    FieldLabel("fundo do cartao")
-    ColorPickerButton(draft.profileTheme) { onChange(draft.copy(profileTheme = it)) }
+    FieldLabel("cor do perfil")
+    // UM seletor so: o gradiente atravessa banner + corpo como uma peca (Discord).
+    // Grava nas DUAS colunas (bannerColor e profileTheme) de proposito — o web e o
+    // mobile ainda pintam a faixa e o corpo separados, entao escrever as duas
+    // mantem a mesma cor em todo cliente em vez de deixar um deles pra tras.
+    ColorPickerButton(draft.bannerColor) {
+        onChange(draft.copy(bannerColor = it, profileTheme = it))
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "a cor atravessa o cartao inteiro. com imagem de banner, ela aparece do banner pra baixo.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 420.dp),
+    )
 
     SettingsDivider()
     FieldLabel("fonte do seu nome")

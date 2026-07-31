@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,6 +81,8 @@ import kotlin.math.roundToInt
 fun BoxScope.CallDock(
     channel: ChannelDto,
     engine: VoiceEngine,
+    meName: String,
+    meAvatar: String?,
     onExpand: () -> Unit,
     onLeave: () -> Unit,
 ) {
@@ -139,6 +142,34 @@ fun BoxScope.CallDock(
                 Spacer(Modifier.width(6.dp))
                 DockIcon(Lucide.Maximize2, tint = Obsidian.text2, onClick = onExpand)
             }
+            // Quem esta na sala (pedido do dono): so o "N na sala" não dizia QUEM. Cada
+            // rosto entra estourando e sai encolhendo (PopIn) — a chave e a identity, e
+            // por isso que trocar de gente anima em vez de so trocar a imagem.
+            if (connected != null) {
+                val faces = remember(connected, meName, meAvatar) {
+                    listOf(DockFace("me", meName, meAvatar, connected.mySpeaking)) +
+                        connected.others.map { DockFace(it.identity, it.label, it.avatarUrl, it.speaking) }
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 11.dp, end = 11.dp, bottom = 9.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    faces.take(6).forEach { f ->
+                        key(f.id) {
+                            PopIn {
+                                DockFaceAvatar(f)
+                            }
+                        }
+                    }
+                    if (faces.size > 6) {
+                        Text(
+                            "+${faces.size - 6}",
+                            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                        )
+                    }
+                }
+            }
             HairRule()
             // Acoes: calar/abrir mic e desligar. Desligar e a UNICA saida da call
             // agora que navegar não desconecta mais.
@@ -162,6 +193,37 @@ fun BoxScope.CallDock(
                 )
             }
         }
+    }
+}
+
+private data class DockFace(
+    val id: String,
+    val label: String,
+    val avatarUrl: String?,
+    val speaking: Boolean,
+)
+
+// Rosto na mini-tela: 22dp. Quem esta FALANDO ganha um anel ambar (mesma leitura
+// do palco cheio), animado — assim da pra ver quem fala sem abrir a call.
+@Composable
+private fun DockFaceAvatar(f: DockFace) {
+    val ring by animateFloatAsState(
+        targetValue = if (f.speaking) 1f else 0f,
+        animationSpec = tween(160),
+        label = "dockSpeak",
+    )
+    Box(
+        Modifier
+            .size(26.dp)
+            .border(
+                width = 2.dp,
+                color = Obsidian.accent.copy(alpha = 0.9f * ring),
+                shape = CircleShape,
+            )
+            .padding(2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        DesktopAvatar(f.avatarUrl, f.label, 22)
     }
 }
 

@@ -454,6 +454,8 @@ fun ShellScreen(
             CallDock(
                 channel = joined,
                 engine = joinedEngine,
+                meName = state.me?.displayName ?: state.me?.username ?: "você",
+                meAvatar = state.me?.avatarUrl,
                 onExpand = { vm.openVoice(joined) },
                 onLeave = { voice.leave(); vm.leaveVoice() },
             )

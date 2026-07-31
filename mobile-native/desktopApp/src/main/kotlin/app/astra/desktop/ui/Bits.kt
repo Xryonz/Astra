@@ -1,6 +1,12 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -257,5 +263,35 @@ fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
                     .background(color),
             )
         }
+    }
+}
+
+// "Estouro" de entrada/saida de gente na call (pedido do dono, no idioma do
+// Discord): quem chega ENTRA estourando — nasce pequeno e passa do tamanho antes
+// de assentar (mola com pouco amortecimento) — e quem sai encolhe e some. E o que
+// faz a call parecer viva em vez de a lista so trocar de conteudo.
+//
+// Uso: envolver cada item de uma lista que muda, com `key` = id da pessoa. O
+// AnimatedVisibility precisa nascer com visible=false e virar true no 1o frame,
+// senao ele considera o item "ja estava la" e não anima.
+// Reduzir movimento -> aparece pronto, sem estouro.
+@Composable
+fun PopIn(content: @Composable () -> Unit) {
+    if (LocalReduceMotion.current) {
+        content()
+        return
+    }
+    val vis = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(
+        visibleState = vis,
+        enter = scaleIn(
+            // dampingRatio baixo = passa do alvo e volta (o "pop"). Sem isso vira
+            // um fade escalado, que não comunica "alguem chegou".
+            animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
+            initialScale = 0.4f,
+        ) + fadeIn(tween(120)),
+        exit = scaleOut(tween(150), targetScale = 0.55f) + fadeOut(tween(130)),
+    ) {
+        content()
     }
 }

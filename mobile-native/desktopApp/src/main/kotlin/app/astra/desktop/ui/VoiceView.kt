@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -153,11 +154,11 @@ fun VoiceView(
         val tiles = remember(connected, me, micOn, avatarByUser) {
             buildList {
                 if (connected != null) {
-                    add(Tile("você", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
+                    add(Tile("me", "você", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
                     connected.others.forEach { p ->
                         // Foto: primeiro a do token (metadata) — vale em DM tb; se faltar,
                         // cai na lista de membros do servidor.
-                        add(Tile(p.label, p.speaking, p.avatarUrl ?: avatarByUser[p.identity], isMe = false, muted = false))
+                        add(Tile(p.identity, p.label, p.speaking, p.avatarUrl ?: avatarByUser[p.identity], isMe = false, muted = false))
                     }
                 }
             }
@@ -240,7 +241,9 @@ fun VoiceView(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        tiles.forEach { ParticipantTile(it, Modifier.width(148.dp)) }
+                        tiles.forEach { t ->
+                            key(t.key) { PopIn { ParticipantTile(t, Modifier.width(148.dp)) } }
+                        }
                     }
                 }
             }
@@ -578,6 +581,9 @@ private fun CallIconButton(icon: ImageVector, tone: CallTone, onClick: () -> Uni
 // Um participante no palco. muted so e conhecido pra mim (o engine não expoe o
 // mute dos outros ainda) — nos outros o ícone fica de fora.
 private data class Tile(
+    // Identidade estavel do participante — e a CHAVE da animação de entrar/sair.
+    // Sem ela o Compose reusaria o mesmo slot e a troca de gente seria muda.
+    val key: String,
     val label: String,
     val speaking: Boolean,
     val avatarUrl: String?,
@@ -594,7 +600,12 @@ private fun ParticipantGrid(tiles: List<Tile>) {
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        tiles.forEach { ParticipantTile(it, Modifier.width(164.dp)) }
+        // Mesmo "estouro" da mini-tela: quem entra na call nasce pequeno e passa do
+        // tamanho antes de assentar; quem sai encolhe. A key e a identidade — sem ela
+        // o Compose reusaria o slot e a troca seria muda.
+        tiles.forEach { t ->
+            key(t.key) { PopIn { ParticipantTile(t, Modifier.width(164.dp)) } }
+        }
     }
 }
 

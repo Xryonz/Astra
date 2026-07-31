@@ -159,6 +159,9 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
+    // Ultima de proposito: e a aba que a gente pede pra abrir quando algo "não
+    // funciona" — não e pra ser mexida no dia a dia.
+    DIAGNOSTICS("Diagnostico", "o que o app esta vendo agora", Lucide.CircleDot),
 }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
@@ -300,6 +303,7 @@ fun SettingsScreen(
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                         SettingsTab.ABOUT -> AboutSection()
+                        SettingsTab.DIAGNOSTICS -> DiagnosticsSection()
                     }
                     }
                 }
@@ -356,7 +360,7 @@ private fun SettingsPreview(
             SettingsTab.PERFORMANCE -> CostMeter(p)
             SettingsTab.VOICE -> VoicePreview(p)
             // Sessões e Sobre são listas/ações — não ha o que previsualizar.
-            SettingsTab.SESSIONS, SettingsTab.ABOUT -> Unit
+            SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS -> Unit
         }
     }
 }

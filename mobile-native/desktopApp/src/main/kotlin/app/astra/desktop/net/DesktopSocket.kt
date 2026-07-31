@@ -106,6 +106,21 @@ class DesktopSocket(private val store: SessionStore) {
         socket?.emit("join_server", id)
     }
 
+    // ---- Diagnostico (Configuracoes > Diagnostico) ----
+    // Ultimos eventos RECEBIDOS, so nome + hora. Quando alguem diz "não apareceu
+    // pra mim", isto responde na hora se o aviso chegou e o app ignorou, ou se
+    // nunca chegou — que sao problemas em pontas opostas do sistema. Sem isto a
+    // unica saida e adivinhar. NAO guarda conteudo: e diagnostico, não espionagem.
+    private val recent = ArrayDeque<Pair<Long, String>>()
+    private fun note(event: String) = synchronized(recent) {
+        recent.addLast(System.currentTimeMillis() to event)
+        while (recent.size > 40) recent.removeFirst()
+    }
+
+    fun recentEvents(): List<Pair<Long, String>> = synchronized(recent) { recent.toList() }
+    fun joinedRooms(): Triple<Set<String>, Set<String>, Set<String>> =
+        Triple(channels.toSet(), dms.toSet(), servers.toSet())
+
     // Avisa a constelação que entrei/sai da call — o resto ve na hora.
     fun voiceJoin(channelId: String) { socket?.emit("voice_join", channelId) }
     fun voiceLeave(channelId: String) { socket?.emit("voice_leave", channelId) }
@@ -122,7 +137,11 @@ class DesktopSocket(private val store: SessionStore) {
         val s = runCatching { IO.socket(AstraShared.BASE_URL, opts) }.getOrNull() ?: return
         socket = s
 
+        // Um so lugar registra TODO evento que entra (em vez de 17 chamadas
+        // espalhadas que alguem esqueceria de somar ao adicionar o 18o).
+        s.onAnyIncoming { args -> note(args.firstOrNull()?.toString() ?: "?") }
         s.on(Socket.EVENT_CONNECT) {
+            note("· conectado")
             // Re-entra nas salas apos reconectar.
             channels.forEach { s.emit("join_channel", it) }
             dms.forEach { s.emit("join_dm", it) }

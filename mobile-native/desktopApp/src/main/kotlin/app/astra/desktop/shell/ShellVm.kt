@@ -791,18 +791,31 @@ class ShellVm(
         return parsed?.error?.takeIf { it.isNotBlank() } ?: "$fallback (erro ${http.code()})"
     }
 
+    // Canal que ANUNCIAMOS por socket estar na call. Nao e o mesmo que voiceChannel:
+    // aquele e so a sala aberta NO PALCO, e clicar numa sala abre a antessala (ver
+    // quem esta la antes de abrir o microfone) — o que nunca deveria contar como
+    // entrar. Era exatamente essa confusao que fazia "clicar ja aparecer na call".
+    private var announcedVoice: String? = null
+
+    // Abrir a antessala. So navegacao: nao entra na call nem avisa ninguem.
     fun openVoice(channel: ChannelDto) {
         // Voz não e restaurada no boot: limpa o lastChat (saveLocation le chat=null).
-        val prev = _state.value.voiceChannel
-        if (prev != null && prev.id != channel.id) socket.voiceLeave(prev.id)
         _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
-        // Avisa a constelação na hora (o poll do /voice/presence ainda corrige depois).
-        socket.voiceJoin(channel.id)
         saveLocation()
     }
 
+    // Entrei DE VERDADE (botao verde da antessala). Avisa a constelação na hora; o
+    // poll do /voice/presence ainda corrige depois.
+    fun announceVoiceJoin(channelId: String) {
+        if (announcedVoice == channelId) return
+        announcedVoice?.let { socket.voiceLeave(it) } // uma call por vez
+        announcedVoice = channelId
+        socket.voiceJoin(channelId)
+    }
+
     fun leaveVoice() {
-        _state.value.voiceChannel?.let { socket.voiceLeave(it.id) }
+        announcedVoice?.let { socket.voiceLeave(it) }
+        announcedVoice = null
         _state.update { it.copy(voiceChannel = null) }
     }
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Notification
@@ -264,6 +265,8 @@ fun main() {
             LaunchedEffect(Unit) { DesktopShortcut.ensureWindows() }
 
             val koin = GlobalContext.get()
+            // Foco da janela (nao e o mesmo que visivel): alimenta a regra de aviso.
+            val windowInfo = LocalWindowInfo.current
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
@@ -392,7 +395,12 @@ fun main() {
                                         ShellScreen(
                                             session = s,
                                             // Toast da bandeja so quando o app não esta na frente.
-                                            windowHidden = { !windowVisible || state.isMinimized },
+                                            // FOCO conta: antes exigia minimizado/bandeja, entao
+                                            // com o Astra aberto atras de outra janela — o caso
+                                            // comum — não vinha aviso nenhum.
+                                            windowInactive = {
+                                                !windowVisible || state.isMinimized || !windowInfo.isWindowFocused
+                                            },
                                             notify = { title, body ->
                                                 trayState.sendNotification(Notification(title, body, Notification.Type.None))
                                             },

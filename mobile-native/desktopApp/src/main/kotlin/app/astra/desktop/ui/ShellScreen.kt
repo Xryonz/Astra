@@ -170,7 +170,7 @@ import org.koin.core.context.GlobalContext
 @Composable
 fun ShellScreen(
     session: Session,
-    windowHidden: () -> Boolean,
+    windowInactive: () -> Boolean,
     notify: (String, String) -> Unit,
     onLogout: () -> Unit,
     searchOpen: Boolean = false,
@@ -245,7 +245,7 @@ fun ShellScreen(
     LaunchedEffect(Unit) {
         launch {
             socket.newDm.collect { raw ->
-                if (!windowHidden() || !prefs.state.value.notifyDms) return@collect
+                if (!windowInactive() || !prefs.state.value.notifyDms) return@collect
                 val msg = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull() ?: return@collect
                 if (msg.senderId == session.userId) return@collect
                 if (vm.state.value.dms.any { it.id == msg.conversationId && it.muted }) return@collect
@@ -255,7 +255,7 @@ fun ShellScreen(
         }
         launch {
             socket.channelActivity.collect { raw ->
-                if (!windowHidden() || !prefs.state.value.notifyChannels) return@collect
+                if (!windowInactive() || !prefs.state.value.notifyChannels) return@collect
                 val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
                 val ch = vm.state.value.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
                 notify("#${ch.name}", "nova mensagem")
@@ -418,7 +418,9 @@ fun ShellScreen(
             voiceChannel = state.voiceChannel,
             voiceEngine = voice.engineFor(state.voiceChannel),
             voicePresence = state.voiceChannel?.let { state.voicePresence[it.id] }.orEmpty(),
-            onJoinVoice = { state.voiceChannel?.let(voice::join) },
+            // Entrar de verdade: conecta E anuncia. O anuncio mora aqui (e nao no
+            // openVoice) porque abrir a antessala nao e entrar na call.
+            onJoinVoice = { state.voiceChannel?.let { voice.join(it); vm.announceVoiceJoin(it.id) } },
             // Desligar = sair de verdade e limpar o palco.
             onLeaveVoice = { voice.leave(); vm.leaveVoice() },
             createChatVm = createChatVm,

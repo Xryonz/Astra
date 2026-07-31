@@ -76,6 +76,36 @@ private fun gcName(): String = runCatching {
         .joinToString("+") { it.name }
 }.getOrDefault("?")
 
+// Grava o diagnostico de boot num ARQUIVO. O println sozinho não servia: app de
+// janela no Windows (jpackage) não tem console anexado, entao a linha ia pro nada —
+// ninguem conseguia ler. Fica em %LOCALAPPDATA%\Astra\diagnostico.txt (mesma pasta
+// do cache de imagens). Sobrescreve a cada abertura: e um retrato do boot atual.
+private fun writeDiagnostics() = runCatching {
+    val os = System.getProperty("os.name").orEmpty()
+    val base = when {
+        os.startsWith("Windows", true) -> System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}\\AppData\\Local"
+        os.contains("Mac", true) -> "${System.getProperty("user.home")}/Library/Caches"
+        else -> System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache"
+    }
+    val dir = java.io.File(base, "Astra")
+    dir.mkdirs()
+    val rt = Runtime.getRuntime()
+    val txt = buildString {
+        appendLine("Astra — diagnostico de boot")
+        appendLine("quando       : ${java.time.LocalDateTime.now()}")
+        appendLine("versao       : ${System.getProperty("astra.version") ?: "dev"}")
+        appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
+        appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
+        appendLine("GC           : ${gcName()}")
+        appendLine("heap maximo  : ${rt.maxMemory() / 1024 / 1024} MB")
+        appendLine("nucleos      : ${rt.availableProcessors()}")
+        appendLine("java         : ${System.getProperty("java.version")}")
+        appendLine("SO           : $os ${System.getProperty("os.version")}")
+    }
+    java.io.File(dir, "diagnostico.txt").writeText(txt)
+    println(txt)
+}
+
 // Instancia única: lock por ServerSocket no loopback. Se já tem Astra rodando (a
 // porta esta ocupada), sinaliza o processo existente pra aparecer e ESTE sai — sem
 // dois apps na bandeja. O primeiro escuta e traz a janela pra frente ao ser tocado.
@@ -101,10 +131,8 @@ object SingleInstance {
 fun main() {
     // Segundo processo: pede pro Astra aberto aparecer e encerra aqui mesmo.
     if (!SingleInstance.acquireOrSignal()) return
-    // Qual API grafica o Skia escolheu nesta maquina. Se aparecer SOFTWARE_*, quem
-    // desenha cada pixel e a CPU (engasgo garantido, por driver/GPU) — e o 1o lugar
-    // pra olhar quando alguem reclama de travamento. Uma linha, so no boot.
-    println("[Astra] render=${org.jetbrains.skiko.SkikoProperties.renderApi} gc=${gcName()}")
+    // Retrato do boot (API grafica do Skia, GC, heap) num arquivo legivel.
+    writeDiagnostics()
     startKoin { modules(appModule) }
     application {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).

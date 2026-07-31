@@ -274,8 +274,11 @@ fun CropDialog(
     var err by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
-    // pct = porcentagem do "cobre a janela" (100 = cobre exatamente). Abaixo de
-    // 100 sobra vazio nas bordas e o recorte sai com alfa.
+    // pct = porcentagem do "cobre a janela", e 100 e o MINIMO (escolha do dono:
+    // "igual Discord"). Assim a imagem sempre preenche a moldura — nunca sobra
+    // borda — e sempre ha pedaco escondido pra revelar, entao arrastar funciona
+    // nos dois eixos. O preco: não da pra ver a imagem inteira, você escolhe QUAL
+    // pedaço aparece. E exatamente como o recortador do Discord se comporta.
     var pct by remember { mutableStateOf(100) }
     var pan by remember { mutableStateOf(Offset.Zero) }
 
@@ -373,7 +376,7 @@ fun CropDialog(
                                 .pointerHoverIcon(PointerIcon.Hand)
                                 .onPointerEvent(PointerEventType.Scroll) { e ->
                                     val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: return@onPointerEvent
-                                    pct = (pct + if (dy < 0) 8 else -8).coerceIn(10, 300)
+                                    pct = (pct + if (dy < 0) 8 else -8).coerceIn(100, 300)
                                     pan = clampPan(pan, cover * pct / 100f)
                                 }
                                 .pointerInput(i) {
@@ -445,11 +448,11 @@ fun CropDialog(
     }
 }
 
-// Trilha de zoom em % do "cobre a janela" (10..300). Espelha o ZoomTrack das
+// Trilha de zoom em % do "cobre a janela" (100..300). Espelha o ZoomTrack das
 // configs; a escala e outra (aqui 100 = cobre, não 100 = tamanho original).
 @Composable
 private fun CropZoomTrack(pct: Int, onChange: (Int) -> Unit) {
-    val f = ((pct - 10) / 290f).coerceIn(0f, 1f)
+    val f = ((pct - 100) / 200f).coerceIn(0f, 1f)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("zoom", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(42.dp))
         Box(
@@ -460,7 +463,7 @@ private fun CropZoomTrack(pct: Int, onChange: (Int) -> Unit) {
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
                         val x = (change.position.x / size.width).coerceIn(0f, 1f)
-                        onChange((10 + x * 290).toInt())
+                        onChange((100 + x * 200).toInt())
                     }
                 },
             contentAlignment = Alignment.CenterStart,

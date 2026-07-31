@@ -133,8 +133,10 @@ internal const val ServerBannerAspect = 3.0f
 // cor fica VIVA na faixa (onde não ha texto) e vira tom no corpo — que e como o
 // cartao do Discord se parece, e casa com o obsidiana do Astra.
 //
-// Quem usa isto passa `css = null` no ProfileBanner de cima (com fallback
-// transparente), senao a faixa repinta o proprio gradiente e o corte reaparece.
+// Quem usa isto passa `css = null` no ProfileBanner de cima, com o fallback vindo
+// de `bannerBackdrop()`: TRANSPARENTE quando não ha imagem (o gradiente atravessa
+// a faixa e o cartao vira uma peca so) e PRETO quando ha (decisao do dono: a sobra
+// de um recorte menor que a faixa e preta, não acompanha a cor do perfil).
 fun Modifier.profileCardBackdrop(css: String?, aspect: Float = ProfileBannerAspect): Modifier =
     drawBehind {
         drawRect(bannerBrush(css, size.width, size.height, Obsidian.raised))
@@ -150,6 +152,13 @@ fun Modifier.profileCardBackdrop(css: String?, aspect: Float = ProfileBannerAspe
             ),
         )
     }
+
+// Cor que fica ATRAS da imagem do banner dentro do cartao de perfil. Com imagem,
+// preto: um recorte menor que a faixa deixa sobra, e a sobra e preta em vez de
+// deixar o gradiente vazar por tras da foto. Sem imagem, transparente pro
+// gradiente do cartao atravessar.
+fun bannerBackdrop(imageUrl: String?): Color =
+    if (imageUrl.isNullOrBlank()) Color.Transparent else Color.Black
 
 // Banner do perfil: gradiente/cor por baixo e, se houver imagem, ela por cima
 // com o enquadramento salvo. positionY 0..100 (0=topo, 50=centro, 100=base) e

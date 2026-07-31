@@ -170,7 +170,7 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                     imageUrl = p.bannerUrl,
                     positionY = p.bannerPositionY ?: 50,
                     scale = p.bannerScale ?: 100,
-                    fallback = Color.Transparent,
+                    fallback = bannerBackdrop(p.bannerUrl),
                     modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
                 )
                 Column(Modifier.padding(horizontal = 16.dp)) {

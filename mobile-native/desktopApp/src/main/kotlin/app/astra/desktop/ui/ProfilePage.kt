@@ -213,7 +213,7 @@ private fun PageBody(d: ProfileViewWrapper, isMe: Boolean, onStartDm: (String, S
             imageUrl = p.bannerUrl,
             positionY = p.bannerPositionY ?: 50,
             scale = p.bannerScale ?: 100,
-            fallback = Color.Transparent,
+            fallback = bannerBackdrop(p.bannerUrl),
             modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
         )
         // Sweep de luz ambar atravessa o banner uma vez (alvorecer).

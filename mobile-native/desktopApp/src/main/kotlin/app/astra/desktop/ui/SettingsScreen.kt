@@ -427,7 +427,7 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
             imageUrl = draft?.bannerUrl ?: me.bannerUrl,
             positionY = draft?.bannerPositionY ?: me.bannerPositionY ?: 50,
             scale = draft?.bannerScale ?: me.bannerScale ?: 100,
-            fallback = Color.Transparent,
+            fallback = bannerBackdrop(draft?.bannerUrl ?: me.bannerUrl),
             modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
         )
         Column(

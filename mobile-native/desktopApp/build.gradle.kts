@@ -142,25 +142,31 @@ compose.desktop {
         // que ENGASGA a aurora animando 60fps ("corte do nada", achado no JFR). Este
         // flag transforma o System.gc() explicito num ciclo CONCORRENTE: a memoria
         // nativa ainda e liberada, mas sem travar as threads de render. Ship pra todos.
-        // --- Fase 1 de desempenho (branch astra-dev) ---
+        // --- Fase 1 de desempenho ---
         // GC: o coletor e a fonte classica de engasgo numa UI 60fps (uma pausa de 30ms
-        // = 2 frames perdidos). Duas opções, trocaveis no build pra COMPARAR:
-        //   ./gradlew ... -Pastra.gc=zgc  (padrao) pausas < 1ms, custo: mais overhead
-        //   ./gradlew ... -Pastra.gc=g1              menos RAM, pausas de dezenas de ms
-        // Ambas verificadas neste JDK (Temurin 21). ZGC geracional e JDK 21+.
-        // ATENCAO ao medir no Gerenciador de Tarefas: o ZGC reserva MUITO endereco
-        // virtual (mapeamento multiplo) — olhar "working set"/memoria privada, não a
-        // memoria virtual, senao parece que gastou mais do que gasta.
-        val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "zgc"
-        if (gcProfile == "g1") {
+        // = 2 frames perdidos), mas TAMBEM pesa na memoria. Medimos os dois no app real
+        // (tools/medir-desempenho.ps1), mesma maquina, mesmas 3 fases:
+        //
+        //                    ZGC        G1
+        //   parado          582MB      433MB
+        //   em call         609MB      155MB
+        //   transmitindo   2768MB      500MB   <- 5.5x menos
+        //
+        // O ZGC mapeia a mesma memoria fisica em varios enderecos e o Windows conta
+        // CADA mapeamento no working set — o "vazamento de 2.7GB" era contabilidade
+        // inflada, não memoria de verdade. Como o objetivo aqui e custo minimo de RAM,
+        // o padrao e G1. Pra voltar ao ZGC (pausas < 1ms, se um dia o engasgo importar
+        // mais que a memoria): ./gradlew ... -Pastra.gc=zgc
+        val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "g1"
+        if (gcProfile == "zgc") {
+            jvmArgs += "-XX:+UseZGC"
+            jvmArgs += "-XX:+ZGenerational"
+            // No ZGC todo ciclo ja e concorrente — inclusive o System.gc() do skiko.
+        } else {
             // G1 com alvo de pausa curto (default e 200ms — uma eternidade a 60fps).
             jvmArgs += "-XX:MaxGCPauseMillis=8"
             // System.gc() do skiko vira ciclo concorrente em vez de full stop-the-world.
             jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
-        } else {
-            jvmArgs += "-XX:+UseZGC"
-            jvmArgs += "-XX:+ZGenerational"
-            // No ZGC todo ciclo ja e concorrente — inclusive o System.gc() do skiko.
         }
 
         // AppCDS automatico (JDK 19+): a JVM guarda as classes ja "digeridas" num

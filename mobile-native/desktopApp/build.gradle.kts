@@ -52,7 +52,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.32"
+val astraVersion = "0.1.33"
 
 dependencies {
     implementation(project(":shared"))
@@ -210,7 +210,10 @@ compose.desktop {
             // Google, GoogleAuthFlow). Sem ele o .exe empacotado joga
             // NoClassDefFoundError -> "Nao consegui abrir a porta local". No dev
             // (JDK completo) o modulo existe, por isso so quebrava no pacote.
-            modules("jdk.httpserver")
+            // java.management: sem ele o ManagementFactory nem existe no runtime
+            // enxuto do jlink — era o "GC : ?" do diagnostico (a leitura do coletor
+            // falhava calada). Tambem e o que habilita monitoramento/JFR no pacote.
+            modules("jdk.httpserver", "java.management")
             // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
             // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
             // System.getProperty("compose.application.resources.dir"). O binario e

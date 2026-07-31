@@ -2541,9 +2541,6 @@ private fun Stage(
                     Spacer(Modifier.width(7.dp))
                 }
                 Box(Modifier.weight(1f)) {
-                    // Constelação conectada no vao, ATRAS do titulo da órbita (so quando ha
-                    // constelação). Alpha baixo + congela ao reduzir movimento.
-                    if (server != null) ConstellationRoute(Modifier.matchParentSize())
                     Text(
                         text = when {
                             voiceChannel != null -> voiceChannel.name

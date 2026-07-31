@@ -209,8 +209,13 @@ compose.desktop {
         // realmente precisa dela — vira OutOfMemoryError, que mata o processo na hora
         // e sem aviso. Como MaxHeapFreeRatio devolve as paginas ao Windows depois do
         // pico, o teto mais alto NAO custa memoria parado; so evita a morte no pico
-        // (call cheia + transmissão). Volta pros 768m que o texto acima já descrevia.
-        jvmArgs += "-Xmx768m"
+        // (call cheia + transmissão). 1GB e o teto pedido pelo dono.
+        //
+        // ATENCAO ao ler o Gerenciador de Tarefas: isto limita o HEAP (objetos Java),
+        // que não e o total do processo. Os quadros de video vivem em memoria NATIVA,
+        // fora do heap — por isso "3GB transmitindo" NAO e resolvido por este numero.
+        // O que segura aquilo e o lado nativo (ver ScreenCaptureFfmpeg).
+        jvmArgs += "-Xmx1g"
         // Devolver RAM ao SISTEMA. Por padrao a JVM segura o que ja cresceu: mesmo
         // depois de coletar, o heap continua reservado e o Gerenciador de Tarefas
         // segue mostrando o pico. Com estas tres a JVM ENCOLHE o heap e devolve as

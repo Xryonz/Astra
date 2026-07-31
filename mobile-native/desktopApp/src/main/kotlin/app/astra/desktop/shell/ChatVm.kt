@@ -174,7 +174,9 @@ class ChatVm(
         }
     }
 
-    fun send(text: String) {
+    // allowFast=false força o caminho HTTP — usado pelo fallback quando o envio
+    // rapido não teve resposta (ex.: backend ainda sem o handler fast_send_dm).
+    fun send(text: String, allowFast: Boolean = true) {
         val content = text.trim()
         val pending = _state.value.pending
         if ((content.isEmpty() && pending.isEmpty()) || _state.value.sending) return
@@ -183,7 +185,7 @@ class ChatVm(
         // Caminho otimista: texto puro, sem reply nem anexo, socket vivo — vale pra
         // canal (fast_send_text) E pra sussurro (fast_send_dm). Reply/anexo caem no
         // HTTP abaixo. A mensagem aparece na hora; nada de esperar o round-trip.
-        if (content.isNotEmpty() && pending.isEmpty() && replyToId == null && socket.isConnected()) {
+        if (allowFast && content.isNotEmpty() && pending.isEmpty() && replyToId == null && socket.isConnected()) {
             optimisticSend(target, content)
             return
         }
@@ -261,7 +263,14 @@ class ChatVm(
         _state.update { it.copy(messages = it.messages + temp, replyingTo = null, error = null) }
 
         val onResult: (FastSendResult) -> Unit = { result ->
-            if (!result.ok) markFailed(nonce, fastError(result))
+            // "Sem ack" = o servidor não tem este handler (backend mais velho que o
+            // app) ou a resposta se perdeu. Em vez de acusar falha na cara do usuário,
+            // refaz pelo HTTP, que todo backend entende. So neste caso: erro de
+            // verdade (silenciado, spam, sem acesso) continua virando falha visivel.
+            if (!result.ok) {
+                if (result.error == "NO_ACK") fallbackToHttp(nonce, content)
+                else markFailed(nonce, fastError(result))
+            }
             // ok: o broadcast (new_message/new_dm) reconcilia; nada a fazer aqui.
         }
         when (target) {
@@ -270,11 +279,24 @@ class ChatVm(
         }
 
         // Rede de seguranca: sem ack nem broadcast, a bolha não pode ficar
-        // "enviando" pra sempre.
+        // "enviando" pra sempre — cai pro HTTP pelo mesmo motivo acima.
         scope.launch {
             delay(FAST_SEND_TIMEOUT_MS)
-            markFailed(nonce, "Sem resposta do servidor")
+            fallbackToHttp(nonce, content)
         }
+    }
+
+    // Tira a bolha temporaria e reenvia pelo caminho HTTP. So age se ela AINDA estiver
+    // pending: se o broadcast ja reconciliou (chegou), não reenvia — e o que evita
+    // mandar a mensagem duas vezes quando so o ack se perdeu.
+    private fun fallbackToHttp(nonce: String, content: String) {
+        var fire = false
+        _state.update { st ->
+            if (st.messages.none { it.clientNonce == nonce && it.pending }) return@update st
+            fire = true
+            st.copy(messages = st.messages.filterNot { it.clientNonce == nonce && it.pending })
+        }
+        if (fire) send(content, allowFast = false)
     }
 
     // So age se a bolha ainda esta pending — se o broadcast já reconciliou (sumiu

@@ -305,6 +305,28 @@ export function setupSocket(io: Server) {
       }
     })
 
+    // Presenca de VOZ ao vivo. A fonte da verdade continua sendo o LiveKit (rota
+    // /voice/presence, que o cliente ainda consulta de tempos em tempos), mas quem
+    // entra/sai AVISA na hora — senao "fulano entrou na call" so aparecia no proximo
+    // poll (ate ~10s de atraso, contando o cache do servidor).
+    // Por que confiar no cliente aqui: o dado e cosmetico (bolinha na barra lateral),
+    // o acesso ao canal e VALIDADO abaixo, e o poll corrige qualquer mentira ou
+    // fantasma (queda de rede/crash, que nao emitem 'leave') em segundos.
+    const emitVoicePresence = async (channelId: unknown, joined: boolean) => {
+      if (typeof channelId !== 'string' || !channelId) return
+      if (!(await userCanAccessChannel(userId, channelId))) return
+      const [ch] = await db.select({ serverId: channels.serverId })
+        .from(channels).where(eq(channels.id, channelId)).limit(1)
+      if (!ch) return
+      const members = await db.select({ userId: serverMembers.userId })
+        .from(serverMembers).where(eq(serverMembers.serverId, ch.serverId))
+      for (const m of members) {
+        io.to(`user:${m.userId}`).emit('voice_presence', { channelId, userId, joined })
+      }
+    }
+    socket.on('voice_join', (channelId: string) => { void emitVoicePresence(channelId, true) })
+    socket.on('voice_leave', (channelId: string) => { void emitVoicePresence(channelId, false) })
+
     // Irmao do fast_send_text pro SUSSURRO: mesma ideia (texto puro, sem anexo nem
     // resposta) pra a bolha aparecer na hora em vez de esperar o POST. Espelha a rota
     // HTTP de dm.ts — inclusive o notify em background, senao DM por este caminho

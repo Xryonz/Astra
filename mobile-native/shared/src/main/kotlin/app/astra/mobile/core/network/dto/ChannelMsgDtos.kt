@@ -98,3 +98,12 @@ data class ChannelActivityEventDto(
     val channelId: String,
     val lastMessageAt: String? = null,
 )
+
+// Alguem entrou (joined=true) ou saiu de um canal de voz. Delta imediato pra barra
+// lateral; a rota /voice/presence continua sendo a fonte autoritativa.
+@Serializable
+data class VoicePresenceEventDto(
+    val channelId: String,
+    val userId: String,
+    val joined: Boolean = false,
+)

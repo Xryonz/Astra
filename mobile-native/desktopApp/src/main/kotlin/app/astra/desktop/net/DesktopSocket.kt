@@ -73,6 +73,19 @@ class DesktopSocket(private val store: SessionStore) {
     private val _presenceUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
     val presenceUpdate: SharedFlow<String> = _presenceUpdate.asSharedFlow()
 
+    // Notificacao nova (o backend ja emitia 'notification' pra sala user:<id>; o
+    // desktop so não escutava e descobria pelo poll de 30s do sino).
+    private val _notification = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val notification: SharedFlow<String> = _notification.asSharedFlow()
+
+    // Alguem entrou/saiu de um canal de voz (delta imediato; o poll ainda corrige).
+    private val _voicePresence = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val voicePresence: SharedFlow<String> = _voicePresence.asSharedFlow()
+
+    // Avisa a constelação que entrei/sai da call — o resto ve na hora.
+    fun voiceJoin(channelId: String) { socket?.emit("voice_join", channelId) }
+    fun voiceLeave(channelId: String) { socket?.emit("voice_leave", channelId) }
+
     fun connect() {
         if (socket?.connected() == true) return
         val token = store.load()?.accessToken ?: return
@@ -126,6 +139,12 @@ class DesktopSocket(private val store: SessionStore) {
         }
         s.on("presence_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _presenceUpdate.tryEmit(it.toString()) }
+        }
+        s.on("notification") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _notification.tryEmit(it.toString()) }
+        }
+        s.on("voice_presence") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }
         }
         s.io().on(io.socket.client.Manager.EVENT_RECONNECT_ATTEMPT) {
             // Token pode ter rotacionado (authenticator http) — usa o mais fresco.

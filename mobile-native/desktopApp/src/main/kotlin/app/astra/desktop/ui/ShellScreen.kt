@@ -209,14 +209,24 @@ fun ShellScreen(
 
     LaunchedEffect(Unit) { socket.connect() }
 
-    // Badge do sino: poll da contagem de não-lidas a cada 30s; qualquer leitura no
-    // painel bumpa o tick -> refetch imediato. Barato (uma linha no backend).
+    // Badge do sino: o servidor AVISA (evento 'notification' na sala user:<id>), então
+    // o badge sobe na hora em vez de esperar o próximo poll. O poll continua, mas
+    // lento (2min) e so como rede de seguranca — ele e a fonte AUTORITATIVA da
+    // contagem (corrige o palpite local e conta o que chegou com o app fechado).
     var notifRefresh by remember { mutableStateOf(0) }
+    var notifCount by remember { mutableStateOf(0) }
     LaunchedEffect(notifRefresh) {
         while (true) {
             val c = runCatching { koin.get<NotificationApi>().unread().data?.count }.getOrNull() ?: 0
+            notifCount = c
             onNotifUnread(c)
-            delay(30_000)
+            delay(120_000)
+        }
+    }
+    LaunchedEffect(Unit) {
+        socket.notification.collect {
+            notifCount += 1
+            onNotifUnread(notifCount)
         }
     }
 

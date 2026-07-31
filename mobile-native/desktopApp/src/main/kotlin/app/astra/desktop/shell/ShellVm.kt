@@ -23,6 +23,7 @@ import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
+import app.astra.mobile.core.network.dto.LastMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
@@ -32,6 +33,7 @@ import app.astra.mobile.core.network.dto.RoleRequest
 import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.MyPermsDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
+import app.astra.mobile.core.network.dto.VoicePresenceEventDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -131,10 +133,11 @@ class ShellVm(
         pollVoicePresence()
     }
 
-    // Presenca de voz: não ha evento de socket (backend so tem o REST com cache
-    // de 5s) — entao poll simples enquanto uma constelação esta aberta. Pega os
-    // canais de voz do servidor selecionado; DMs = limpa. Latencia ~5-10s (cache
-    // do servidor + intervalo); aceitavel pro "quem está na sala".
+    // Presenca de voz: quem entra/sai AVISA por socket (voice_presence) e aplicamos o
+    // delta na hora. O poll continua como fonte AUTORITATIVA — a verdade mora no
+    // LiveKit e so ele sabe de fantasma (queda de rede/crash não emite 'leave') —, mas
+    // agora bem mais espacado, ja que o caso comum chega pelo evento. Antes era poll de
+    // 5s + cache de 5s no servidor = ate ~10s pra ver alguem entrar na call.
     private fun pollVoicePresence() {
         scope.launch {
             while (true) {
@@ -147,7 +150,26 @@ class ShellVm(
                 } else if (_state.value.voicePresence.isNotEmpty()) {
                     _state.update { it.copy(voicePresence = emptyMap()) }
                 }
-                delay(5_000)
+                delay(20_000)
+            }
+        }
+        scope.launch {
+            socket.voicePresence.collect { raw ->
+                val ev = runCatching { json.decodeFromString<VoicePresenceEventDto>(raw) }.getOrNull()
+                    ?: return@collect
+                _state.update { st ->
+                    // So mexe em canal que esta na constelação aberta (o resto nem e exibido).
+                    val known = st.selectedServer?.channels?.any { it.id == ev.channelId } == true
+                    if (!known) return@update st
+                    val cur = st.voicePresence[ev.channelId].orEmpty()
+                    val next = if (ev.joined) {
+                        if (ev.userId in cur) cur else cur + ev.userId
+                    } else {
+                        cur - ev.userId
+                    }
+                    if (next == cur) st
+                    else st.copy(voicePresence = st.voicePresence + (ev.channelId to next))
+                }
             }
         }
     }
@@ -730,11 +752,18 @@ class ShellVm(
 
     fun openVoice(channel: ChannelDto) {
         // Voz não e restaurada no boot: limpa o lastChat (saveLocation le chat=null).
+        val prev = _state.value.voiceChannel
+        if (prev != null && prev.id != channel.id) socket.voiceLeave(prev.id)
         _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
+        // Avisa a constelação na hora (o poll do /voice/presence ainda corrige depois).
+        socket.voiceJoin(channel.id)
         saveLocation()
     }
 
-    fun leaveVoice() = _state.update { it.copy(voiceChannel = null) }
+    fun leaveVoice() {
+        _state.value.voiceChannel?.let { socket.voiceLeave(it.id) }
+        _state.update { it.copy(voiceChannel = null) }
+    }
 
     fun toggleMembers() = _state.update { it.copy(membersOpen = !it.membersOpen) }
 
@@ -769,12 +798,30 @@ class ShellVm(
             launch {
                 socket.newDm.collect { raw ->
                     val msg = decode<DmMessageDto>(raw) ?: return@collect
-                    if (msg.senderId == myId) return@collect
                     dmTypingStopped(msg.conversationId, msg.senderId)
-                    val st = _state.value
-                    val muted = st.dms.any { it.id == msg.conversationId && it.muted }
-                    if (!muted && st.chat?.id != msg.conversationId) {
-                        _state.update { it.copy(unread = it.unread + msg.conversationId) }
+                    // DELTA da barra lateral: aplica a previa ("Você: ..."/texto) e sobe a
+                    // conversa pro topo na hora. Antes so marcava não-lida e a previa/ordem
+                    // ficavam velhas ate um reload — o classico "chegou mensagem mas a lista
+                    // continua igual". Vale pras MINHAS tambem (por isso o filtro de senderId
+                    // saiu daqui e virou so a regra do não-lida abaixo).
+                    _state.update { st ->
+                        val idx = st.dms.indexOfFirst { it.id == msg.conversationId }
+                        val dms = if (idx < 0) st.dms else {
+                            val conv = st.dms[idx].copy(
+                                lastMessage = LastMessageDto(
+                                    content = msg.content,
+                                    senderId = msg.senderId,
+                                    createdAt = msg.createdAt,
+                                ),
+                            )
+                            listOf(conv) + st.dms.filterIndexed { i, _ -> i != idx }
+                        }
+                        val mine = msg.senderId == myId
+                        val muted = st.dms.any { it.id == msg.conversationId && it.muted }
+                        val unread =
+                            if (!mine && !muted && st.chat?.id != msg.conversationId) st.unread + msg.conversationId
+                            else st.unread
+                        st.copy(dms = dms, unread = unread)
                     }
                 }
             }

@@ -11,6 +11,7 @@ import app.astra.desktop.update.UpdateService
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DiscoverApi
+import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.GifApi
@@ -95,6 +96,7 @@ val appModule = module {
     single<VoiceApi> { get<Retrofit>(named("authed")).create(VoiceApi::class.java) }
     single<GifApi> { get<Retrofit>(named("authed")).create(GifApi::class.java) }
     single<DiscoverApi> { get<Retrofit>(named("authed")).create(DiscoverApi::class.java) }
+    single<InviteApi> { get<Retrofit>(named("authed")).create(InviteApi::class.java) }
     single<FriendApi> { get<Retrofit>(named("authed")).create(FriendApi::class.java) }
     single<SearchApi> { get<Retrofit>(named("authed")).create(SearchApi::class.java) }
     single<NotificationApi> { get<Retrofit>(named("authed")).create(NotificationApi::class.java) }

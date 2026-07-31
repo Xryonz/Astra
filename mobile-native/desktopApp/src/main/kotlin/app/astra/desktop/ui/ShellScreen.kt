@@ -146,6 +146,7 @@ import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Volume2
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
@@ -186,7 +187,7 @@ fun ShellScreen(
     val vm = remember {
         ShellVm(
             scope, koin.get<ServerApi>(), koin.get<ChannelApi>(), koin.get<UserApi>(), koin.get<DmApi>(), koin.get<VoiceApi>(),
-            koin.get<NotificationApi>(), koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
+            koin.get<NotificationApi>(), koin.get<InviteApi>(), koin.get<SessionStore>(), socket, koin.get<Json>(), session.userId,
         )
     }
     val state by vm.state.collectAsState()
@@ -366,6 +367,8 @@ fun ShellScreen(
             onCreateServer = vm::createServer,
             onToggleServerMute = vm::toggleServerMute,
             onMarkServerRead = vm::markServerRead,
+            onAddMember = vm::addMember,
+            onJoinInvite = vm::joinByInvite,
         )
         Sidebar(
             selection = state.selection,
@@ -899,8 +902,12 @@ private fun Rail(
     onCreateServer: (name: String, isGroup: Boolean) -> Unit,
     onToggleServerMute: (String) -> Unit,
     onMarkServerRead: (String) -> Unit,
+    onAddMember: (serverId: String, username: String, onResult: (String?) -> Unit) -> Unit,
+    onJoinInvite: (raw: String, onResult: (String?) -> Unit) -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
+    // Constelação com o dialogo de convite aberto (null = fechado).
+    var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
     Column(
         // Cartao translucido: a aurora vaza por baixo (estilo mobile).
         modifier = Modifier.width(72.dp).fillMaxHeight().panelCard(Obsidian.void, 0.34f),
@@ -935,8 +942,14 @@ private fun Rail(
                 val isOwner = srv.ownerId == myId
                 EditorialContextMenu(entries = {
                     buildList {
+                        // Convidar abre o dialogo (adicionar por @ + link pronto). O
+                        // "copiar convite" antigo copiava o CODIGO cru, que ninguem
+                        // sabia o que fazer com — agora o link vai copiado inteiro.
+                        add(MenuEntry.Item("convidar pessoas", icon = Lucide.Users) { inviteFor = srv })
                         srv.inviteCode?.let { code ->
-                            add(MenuEntry.Item("copiar convite", icon = Lucide.Link) { clipboard.setText(AnnotatedString(code)) })
+                            add(MenuEntry.Item("copiar link do convite", icon = Lucide.Link) {
+                                clipboard.setText(AnnotatedString(inviteLink(code)))
+                            })
                         }
                         add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelação" else "silenciar constelação", icon = if (srv.id in mutedServers) Lucide.Bell else Lucide.BellOff) { onToggleServerMute(srv.id) })
                         add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) { onMarkServerRead(srv.id) })
@@ -1065,7 +1078,7 @@ private fun Rail(
             }
             // "+" colado logo abaixo do último servidor (rola junto com a lista,
             // não fica preso no rodape da rail).
-            item(key = "create-server") { CreateServerButton(onCreateServer) }
+            item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
         }
         // Bussola (Descobrir) fixada no rodape da rail — padrao Discord.
         Spacer(Modifier.height(8.dp))
@@ -1079,13 +1092,25 @@ private fun Rail(
         }
         Spacer(Modifier.height(10.dp))
     }
+    inviteFor?.let { srv ->
+        InvitePeopleDialog(
+            serverName = srv.name,
+            inviteCode = srv.inviteCode,
+            onAdd = { username, onResult -> onAddMember(srv.id, username, onResult) },
+            onClose = { inviteFor = null },
+        )
+    }
 }
 
-// "+" da rail: abre um mini-menu (constelação / grupo) e, ao escolher, um dialogo
-// de nome. Reaproveita o EditorialInputDialog (mesmo do criar canal).
+// "+" da rail: abre um mini-menu (constelação / grupo / entrar com convite) e, ao
+// escolher, um dialogo. Reaproveita o EditorialInputDialog (mesmo do criar canal).
 @Composable
-private fun CreateServerButton(onCreateServer: (name: String, isGroup: Boolean) -> Unit) {
+private fun CreateServerButton(
+    onCreateServer: (name: String, isGroup: Boolean) -> Unit,
+    onJoinInvite: (raw: String, onResult: (String?) -> Unit) -> Unit,
+) {
     var menuOpen by remember { mutableStateOf(false) }
+    var joinOpen by remember { mutableStateOf(false) }
     // null = fechado; false = constelação; true = grupo.
     var kind by remember { mutableStateOf<Boolean?>(null) }
     Box {
@@ -1111,9 +1136,13 @@ private fun CreateServerButton(onCreateServer: (name: String, isGroup: Boolean) 
                 ) {
                     CreateMenuRow(glyph = "✦", label = "criar constelação") { menuOpen = false; kind = false }
                     CreateMenuRow(icon = Lucide.Users, label = "criar grupo") { menuOpen = false; kind = true }
+                    CreateMenuRow(icon = Lucide.Link, label = "entrar com convite") { menuOpen = false; joinOpen = true }
                 }
             }
         }
+    }
+    if (joinOpen) {
+        JoinByInviteDialog(onJoin = onJoinInvite, onClose = { joinOpen = false })
     }
     kind?.let { g ->
         EditorialInputDialog(

@@ -4,6 +4,7 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
+import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UserApi
@@ -115,6 +116,7 @@ class ShellVm(
     private val dmApi: DmApi,
     private val voiceApi: VoiceApi,
     private val notifApi: NotificationApi,
+    private val inviteApi: InviteApi,
     private val store: SessionStore,
     private val socket: DesktopSocket,
     private val json: Json,
@@ -651,6 +653,40 @@ class ShellVm(
                 onResult(null)
             } else {
                 onResult(apiMessage(r.exceptionOrNull(), "Não deu pra salvar"))
+            }
+        }
+    }
+
+    // Adiciona alguem pelo @usuario. Nao passa por convite nenhum: o backend checa
+    // permissao (dono ou MANAGE_SERVER), banimento e se já e membro. Sucesso ->
+    // recarrega os membros pra pessoa aparecer no painel na hora.
+    fun addMember(serverId: String, username: String, onResult: (String?) -> Unit) {
+        val u = username.trim().removePrefix("@")
+        if (u.isBlank()) { onResult("Digite o nome de usuário"); return }
+        scope.launch {
+            val r = runCatching { serverApi.addMember(serverId, u) }
+            if (r.isSuccess) {
+                loadMembers(serverId)
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra adicionar essa pessoa"))
+            }
+        }
+    }
+
+    // Entrar por convite. Aceita o codigo cru OU o link inteiro colado (o usuário
+    // vai colar o link, não o codigo) — por isso o parse tolerante.
+    fun joinByInvite(raw: String, onResult: (String?) -> Unit) {
+        val code = raw.trim().trimEnd('/').substringAfterLast('/').substringBefore('?')
+        if (code.isBlank()) { onResult("Cole o convite ou o código"); return }
+        scope.launch {
+            val r = runCatching { inviteApi.join(code).data }
+            val joined = r.getOrNull()
+            if (joined != null) {
+                refreshServersAndSelect(joined.id)
+                onResult(null)
+            } else {
+                onResult(apiMessage(r.exceptionOrNull(), "Convite inválido ou expirado"))
             }
         }
     }

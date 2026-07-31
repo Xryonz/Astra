@@ -44,6 +44,11 @@ interface ServerApi {
     @POST("api/servers/{id}/regenerate-invite")
     suspend fun regenerateInvite(@Path("id") serverId: String): ApiEnvelope<InviteCodeResponse>
 
+    // Adiciona alguem DIRETO pelo @usuario (sem link, sem a outra ponta aceitar).
+    // Exige dono ou MANAGE_SERVER; o backend recusa banido e quem já e membro.
+    @POST("api/servers/{id}/invite/{username}")
+    suspend fun addMember(@Path("id") serverId: String, @Path("username") username: String)
+
     @PATCH("api/servers/{id}/my-color")
     suspend fun setMyColor(@Path("id") serverId: String, @Body body: MyColorRequest): ApiEnvelope<MyColorResponse>
 

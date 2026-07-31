@@ -53,6 +53,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.LogOut
@@ -60,6 +61,7 @@ import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.User
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.SetStatusRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -111,13 +113,27 @@ fun UserFooter(
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
     var profileOpen by remember { mutableStateOf(false) }
+    var statusOpen by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
 
-    // Botao direito no rodape: abrir perfil / copiar ID / configurações / sair.
-    // "definir status" fica pra fatia do submenu generico + API de status.
+    // Escolher status: PATCH /api/profile/status (o backend já aceitava
+    // ONLINE|IDLE|DND|INVISIBLE e atualiza a presenca no Redis) e recarrega o
+    // perfil pro rodape refletir na hora.
+    val pickStatus: (UserStatus) -> Unit = { picked ->
+        statusOpen = false
+        scope.launch {
+            runCatching {
+                GlobalContext.get().get<UserApi>().setStatus(SetStatusRequest(picked.name))
+            }.onSuccess { onEdited() }
+        }
+    }
+
+    // Botao direito no rodape: definir status / abrir perfil / copiar ID / configurações / sair.
     EditorialContextMenu(entries = {
         buildList {
+            add(MenuEntry.Item("definir status", icon = Lucide.CircleDot) { statusOpen = true })
             add(MenuEntry.Item("abrir perfil", icon = Lucide.User) { profileOpen = true })
             me?.let { add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(it.id)) }) }
             add(MenuEntry.Item("configurações", icon = Lucide.Settings) { onOpenSettings(SettingsTab.ACCOUNT) })
@@ -170,13 +186,33 @@ fun UserFooter(
             }
         }
         Spacer(Modifier.width(9.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = name,
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(statusLabel(status), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        // Clicar no nome/status abre o seletor de status (igual Discord). Antes não
+        // havia NENHUM jeito de sair do "brilhando" no desktop.
+        Box(Modifier.weight(1f)) {
+            Column(
+                Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { statusOpen = true },
+            ) {
+                Text(
+                    text = name,
+                    style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(statusLabel(status), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            }
+            if (statusOpen) {
+                Popup(
+                    popupPositionProvider = AboveAnchor,
+                    onDismissRequest = { statusOpen = false },
+                    properties = PopupProperties(focusable = true),
+                ) {
+                    PopupReveal(originX = 0f, originY = 1f) {
+                        StatusMenu(current = status, onPick = pickStatus)
+                    }
+                }
+            }
         }
         FooterIcon(Lucide.Settings, danger = false, onClick = { onOpenSettings(SettingsTab.ACCOUNT) })
         Spacer(Modifier.width(2.dp))
@@ -188,6 +224,47 @@ fun UserFooter(
         onConfirm = onLogout,
         onDismiss = { confirmLogout = false },
     )
+    }
+}
+
+// Seletor de status. So os quatro que o backend aceita (profile.ts: StatusSchema)
+// — OFFLINE não entra porque não e escolha, e sim ausencia de presenca.
+@Composable
+private fun StatusMenu(current: UserStatus, onPick: (UserStatus) -> Unit) {
+    Column(
+        Modifier
+            .width(184.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+            .padding(vertical = 5.dp),
+    ) {
+        listOf(UserStatus.ONLINE, UserStatus.IDLE, UserStatus.DND, UserStatus.INVISIBLE).forEach { s ->
+            val hov = remember { MutableInteractionSource() }
+            val h by hov.collectIsHoveredAsState()
+            val bg = if (h) Obsidian.hover else Obsidian.raised
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .hoverable(hov)
+                    .background(bg)
+                    .clickable { onPick(s) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // cutoutColor acompanha o fundo: a "mordida" da lua (ausente) e a
+                // barra do não-perturbe sao recortes, não pintura.
+                StatusDot(status = s, size = 11.dp, cutoutColor = bg)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    statusLabel(s),
+                    style = TextStyle(
+                        color = if (s == current) Obsidian.accent else Obsidian.text2,
+                        fontSize = 12.sp,
+                    ),
+                )
+            }
+        }
     }
 }
 

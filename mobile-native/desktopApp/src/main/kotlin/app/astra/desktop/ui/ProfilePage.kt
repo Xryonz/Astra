@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -171,6 +173,25 @@ fun ProfilePage(
                         // Gradiente CONTINUO (mesma peca do popup).
                         .profileCardBackdrop(data?.user?.bannerColor)
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(16.dp))
+                        // Rodape dissolvido: os cantos já eram arredondados, mas quando o
+                        // conteudo passa da altura maxima o scroll FATIA o texto no meio e
+                        // o corte seco parece quina dura. Este veu na borda de baixo faz o
+                        // conteudo sumir em vez de ser cortado. Fica ANTES do verticalScroll
+                        // de proposito: assim ele desenha no espaco da JANELA (fixo no pe do
+                        // cartao) e não rola junto com o conteudo.
+                        .drawWithContent {
+                            drawContent()
+                            val h = 26.dp.toPx()
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    listOf(Color.Transparent, Obsidian.void.copy(alpha = 0.85f)),
+                                    startY = size.height - h,
+                                    endY = size.height,
+                                ),
+                                topLeft = Offset(0f, size.height - h),
+                                size = Size(size.width, h),
+                            )
+                        }
                         // Engole o clique (senao o scrim fecha ao clicar no card).
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },

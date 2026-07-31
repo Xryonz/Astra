@@ -229,6 +229,14 @@ fun main() {
                         add(DataUriMapper())
                         add(RelativeUrlMapper(AstraShared.BASE_URL))
                     }
+                    // TETO do cache de imagens EM MEMORIA. Sem isto o Coil usa a regra
+                    // dele (~25% da memoria do app) — num heap de 512MB sao ~128MB so de
+                    // bitmap decodificado, e era parte do "Astra incha sozinho". 48MB
+                    // segura avatares e previas de sobra; o resto vem do cache em DISCO
+                    // abaixo (que não custa RAM).
+                    .memoryCache {
+                        coil3.memory.MemoryCache.Builder().maxSizeBytes(48L * 1024 * 1024).build()
+                    }
                     .diskCache {
                         val home = System.getProperty("user.home")
                         val os = System.getProperty("os.name").orEmpty()

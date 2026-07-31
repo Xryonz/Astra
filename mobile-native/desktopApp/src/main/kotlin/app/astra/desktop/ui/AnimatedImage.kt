@@ -45,7 +45,11 @@ private data class AnimatedFrames(
     val durationsMs: List<Int>,
     val width: Int,
     val height: Int,
-)
+) {
+    // Custo real em memoria (4 bytes por pixel por frame) — e o que o cache soma
+    // pra respeitar o teto global.
+    val bytes: Long get() = width.toLong() * height * 4 * frames.size
+}
 
 @Composable
 fun AstraImage(
@@ -161,14 +165,30 @@ private fun decodeAnimated(bytes: ByteArray): AnimatedFrames? = runCatching {
     AnimatedFrames(out, durs, tw, th)
 }.getOrNull()
 
-// Cache de frames decodificados (LRU por contagem — cada gif custa uns MB). Guarda
-// também as URLs que deram ESTATICO, pra não baixar/decodificar de novo a cada
-// scroll. Bytes vem por data-uri (inline), /uploads (base + path) ou http direto.
+// Cache de frames decodificados. O LRU e por BYTES, não por contagem: contando
+// itens (12) com um teto de 48MB CADA, o pior caso eram ~576MB de frames vivos —
+// o app inchava sozinho conforme você passava por avatares/banners animados.
+// Agora o teto e GLOBAL e a conta e fechada: nunca passa de ANIM_CACHE_BYTES,
+// independente de quantos gifs aparecerem.
+private const val ANIM_CACHE_BYTES = 48L * 1024 * 1024
+
+// Guarda também as URLs que deram ESTATICO, pra não baixar/decodificar de novo a
+// cada scroll. Bytes vem por data-uri (inline), /uploads (base + path) ou http.
 private object AnimatedImageStore {
     private val lock = Any()
 
-    private val cache = object : LinkedHashMap<String, AnimatedFrames>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, AnimatedFrames>) = size > 12
+    // accessOrder=true -> o primeiro da iteracao e o MENOS usado recentemente.
+    private val cache = LinkedHashMap<String, AnimatedFrames>(16, 0.75f, true)
+    private var cacheBytes = 0L
+
+    // Chamado sob o lock: joga fora os menos usados ate caber no teto.
+    private fun trimLocked() {
+        if (cacheBytes <= ANIM_CACHE_BYTES) return
+        val it = cache.entries.iterator()
+        while (it.hasNext() && cacheBytes > ANIM_CACHE_BYTES) {
+            cacheBytes -= it.next().value.bytes
+            it.remove()
+        }
     }
     private val staticKeys = object : LinkedHashMap<String, Boolean>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 512
@@ -187,7 +207,13 @@ private object AnimatedImageStore {
         val bytes = fetchBytes(url) ?: return null
         val frames = decodeAnimated(bytes)
         synchronized(lock) {
-            if (frames == null) staticKeys[url] = true else cache[url] = frames
+            if (frames == null) {
+                staticKeys[url] = true
+            } else {
+                cache.put(url, frames)?.let { cacheBytes -= it.bytes } // trocou: tira o antigo
+                cacheBytes += frames.bytes
+                trimLocked()
+            }
         }
         return frames
     }

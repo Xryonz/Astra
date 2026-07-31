@@ -34,6 +34,11 @@ class ScreenCaptureFfmpeg(
 ) {
     private var process: Process? = null
     @Volatile private var running = false
+    // Preview LIGADO/DESLIGADO em runtime. Com a janela escondida (bandeja/minimizada)
+    // ninguem esta olhando o auto-preview, mas ele continuava convertendo e enviando
+    // frame a 60fps — CPU jogada fora. Desligando, a transmissão pros OUTROS continua
+    // intacta (o encoder e um caminho separado); so o quadradinho local para.
+    @Volatile var previewEnabled = true
 
     // Preview DESACOPLADO: a thread de captura NAO converte — so faz um arraycopy
     // barato do I420 pra um buffer compartilhado e acorda a thread de preview
@@ -160,7 +165,7 @@ class ScreenCaptureFfmpeg(
     // próximo handoff sobrescreve = sempre o frame mais novo (drop natural). NAO
     // converte nada aqui — a conversao e no previewLoop, fora do caminho do encoder.
     private fun handoffPreview(src: ByteArray, w: Int, h: Int) {
-        if (onPreview == null) return
+        if (onPreview == null || !previewEnabled) return
         val now = System.nanoTime()
         if (now - lastPreviewNs < previewIntervalNs * 9 / 10) return
         lastPreviewNs = now

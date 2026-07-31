@@ -52,7 +52,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.34"
+val astraVersion = "0.1.35"
 
 dependencies {
     implementation(project(":shared"))
@@ -198,7 +198,18 @@ compose.desktop {
         // isso. Capar em 768MB forca o heap a ficar enxuto (uso real fica ~150-300MB),
         // entao o RSS para de escalar. NAO afeta a transmissão: bitmaps de video sao
         // memoria NATIVA (fora do heap), presos pelo RasterRecycler, não pelo -Xmx.
-        jvmArgs += "-Xmx768m"
+        jvmArgs += "-Xmx512m"
+        // Devolver RAM ao SISTEMA. Por padrao a JVM segura o que ja cresceu: mesmo
+        // depois de coletar, o heap continua reservado e o Gerenciador de Tarefas
+        // segue mostrando o pico. Com estas tres a JVM ENCOLHE o heap e devolve as
+        // paginas ao Windows, entao a memoria CAI depois de uma call/transmissao em
+        // vez de ficar no topo. O periodico so roda quando o app esta ocioso.
+        jvmArgs += "-XX:MinHeapFreeRatio=10"
+        jvmArgs += "-XX:MaxHeapFreeRatio=25"
+        jvmArgs += "-XX:G1PeriodicGCInterval=20000"
+        // Teto do metaspace (classes). Sem limite ele so cresce; 192MB e folgado pro
+        // que o app carrega e evita crescimento silencioso ao longo de horas.
+        jvmArgs += "-XX:MaxMetaspaceSize=192m"
         // Profiler RUNTIME (JFR), gated pra nunca vazar pro pacote: rodar
         //   ./gradlew :desktopApp:run -Pjfr
         // Usar o app ~2min (aurora, rolar chat, entrar em call, transmitir) e fechar;

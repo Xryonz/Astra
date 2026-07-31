@@ -641,6 +641,14 @@ class VoiceEngine(
 
     // ---- V5: transmissão de tela — 60fps NO MINIMO (requisito do dono) --------
 
+    // Janela escondida (bandeja/minimizada) = ninguem olhando o auto-preview: desliga
+    // a conversao/entrega do quadradinho local. A transmissão pros OUTROS não muda —
+    // o encoder e outro caminho. So economia de CPU enquanto ninguem ve.
+    fun setPreviewEnabled(on: Boolean) {
+        ffmpegCap?.previewEnabled = on
+        if (!on) _localPreview.value = null
+    }
+
     // Monitores disponiveis (id + titulo). Enumeracao pontual; capturer descartado.
     fun screens(): List<DesktopSource> {
         val cap = runCatching { ScreenCapturer() }.getOrNull() ?: return emptyList()

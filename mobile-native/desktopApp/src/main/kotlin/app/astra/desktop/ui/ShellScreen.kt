@@ -209,6 +209,13 @@ fun ShellScreen(
 
     LaunchedEffect(Unit) { socket.connect() }
 
+    // Janela escondida/minimizada = ninguem olha o auto-preview da transmissão. Ele
+    // custa conversao + upload de textura a 60fps, entao desliga enquanto não da pra
+    // ver e volta ao reaparecer. O que os OUTROS recebem não muda (encoder e outro
+    // caminho) — economia pura.
+    val windowActive = LocalWindowActive.current
+    LaunchedEffect(windowActive) { voice.engine?.setPreviewEnabled(windowActive) }
+
     // Badge do sino: o servidor AVISA (evento 'notification' na sala user:<id>), então
     // o badge sobe na hora em vez de esperar o próximo poll. O poll continua, mas
     // lento (2min) e so como rede de seguranca — ele e a fonte AUTORITATIVA da

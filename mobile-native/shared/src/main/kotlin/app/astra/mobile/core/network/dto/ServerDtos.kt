@@ -147,6 +147,14 @@ data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 @Serializable
 data class ServerScopedEventDto(val serverId: String)
 
+// Um comando do bot, como o backend descreve (lib/bot.ts).
+@Serializable
+data class BotCommandDto(
+    val name: String,
+    val description: String = "",
+    val category: String = "",
+)
+
 @Serializable
 data class MyPermsDto(
     val isOwner: Boolean = false,

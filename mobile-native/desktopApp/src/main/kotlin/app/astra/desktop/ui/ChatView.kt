@@ -379,6 +379,16 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                 draft = ""
             }
             val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
+            // Caixinha de comandos: aparece ACIMA do compositor quando a mensagem
+            // comeca com "/" e some assim que deixa de ser uma busca de comando.
+            val allCommands = rememberBotCommands()
+            val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
+            CommandPalette(matches) { picked ->
+                // Escolher deixa o comando pronto com um espaco: quase todo comando
+                // aqui ou e completo (/astra ping) ou pede um texto depois (/astra).
+                draft = picked.name + " "
+            }
+            if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
             val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
             // Barra compacta com ações inline: '+' anexa (atalho do que também vive no
             // ✦), o campo cresce em multiline, '✦' traz emoji/gif/arquivo, e '➤' envia

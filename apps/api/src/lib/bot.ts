@@ -214,6 +214,21 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   return { text: finalText, toolsUsed, truncated }
 }
 
+// Catalogo UNICO dos comandos. Alimenta o `/astra help` daqui de baixo E a
+// caixinha que o cliente abre ao digitar "/" (via GET /api/bot/commands).
+//
+// Fica numa lista so de proposito: uma lista no backend e outra no app seriam
+// duas verdades, e uma delas ficaria velha na primeira vez que alguem adicionasse
+// um comando. Adicionar aqui e o bastante pra aparecer nos dois lugares.
+export const BOT_COMMANDS: Array<{ name: string; description: string; category: string }> = [
+  { name: '/astra',        category: 'Conversa',   description: 'conversa comigo (lembro das últimas 24h)' },
+  { name: '/astra ajuda',  category: 'Utilitários', description: 'mostra esta lista' },
+  { name: '/astra reset',  category: 'Conversa',   description: 'apaga minha memória deste canal' },
+  { name: '/astra ping',   category: 'Utilitários', description: 'testa a latência' },
+  { name: '/astra status', category: 'Utilitários', description: 'status da plataforma' },
+  { name: '/astra mute',   category: 'Moderação',  description: 'verifica se você está silenciado' },
+]
+
 export async function handleBotCommand(
   content: string,
   extras: { username: string; isMuted: boolean; muteSecondsLeft: number; userId?: string; channelId?: string },
@@ -223,11 +238,7 @@ export async function handleBotCommand(
   if (lower === '/astra help' || lower === '/astra ajuda') {
     return [
       '**Comandos disponíveis:**',
-      '`/astra <pergunta>` — conversa comigo (memória de 24h)',
-      '`/astra reset` — apaga minha memória deste canal',
-      '`/astra ping` — testa a latência',
-      '`/astra status` — status da plataforma',
-      '`/astra mute` — verifica se você está silenciado',
+      ...BOT_COMMANDS.map((c) => `\`${c.name}\` — ${c.description}`),
       '',
       'Tenho ferramentas pra buscar mensagens, resumir o canal e olhar info de membros. Pergunta naturalmente.',
     ].join('\n')

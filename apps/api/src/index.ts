@@ -47,6 +47,7 @@ import { bansRouter }                    from './routes/bans'
 import { serverBadgesRouter, userBadgesRouter } from './routes/badges'
 import { healthRouter }                  from './routes/health'
 import notificationsRouter               from './routes/notifications'
+import botCommandsRouter                 from './routes/botCommands'
 import bookmarksRouter                    from './routes/bookmarks'
 import remindersRouter                    from './routes/reminders'
 import translateRouter                    from './routes/translate'
@@ -136,6 +137,7 @@ app.use('/api/servers', bansRouter)
 app.use('/api/servers', serverBadgesRouter)
 app.use('/api/users',   userBadgesRouter)
 app.use('/api',         notificationsRouter)
+app.use('/api/bot',     botCommandsRouter)
 app.use('/api/bookmarks', bookmarksRouter)
 app.use('/api/reminders', remindersRouter)
 app.use('/api/translate', translateRouter)

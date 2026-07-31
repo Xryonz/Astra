@@ -407,6 +407,7 @@ fun ShellScreen(
             onMarkChannelRead = vm::markChannelRead,
             mutedChannels = state.mutedChannels,
             onToggleChannelMute = vm::toggleChannelMute,
+            firstSteps = firstSteps,
         )
         Stage(
             state.selectedServer,
@@ -428,7 +429,6 @@ fun ShellScreen(
             onDiscoverJoined = vm::refreshServersAndSelect,
             joinedServerIds = state.servers.map { it.id }.toSet(),
             showFriends = state.selection is Selection.Dms && state.friendsOpen,
-            firstSteps = firstSteps,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
@@ -1266,6 +1266,8 @@ private fun Sidebar(
     onMarkChannelRead: (channelId: String) -> Unit,
     mutedChannels: Set<String>,
     onToggleChannelMute: (channelId: String) -> Unit,
+    // Checklist de 1o acesso, quando ativo — vive acima do rodape do usuário.
+    firstSteps: (@Composable () -> Unit)? = null,
 ) {
     // Dialogo de nome (nova órbita / nova categoria / renomear) — centralizado na
     // janela. So o dono da constelação dispara pelos menus de botao direito.
@@ -1374,6 +1376,15 @@ private fun Sidebar(
                     }
                 }
             }
+        }
+
+        // Checklist de 1o acesso, LOGO ACIMA do rodape. Ficava sobre o palco vazio,
+        // onde tapava a arte e — pior — SUMIA assim que o usuário abria qualquer
+        // órbita, justo enquanto ele cumpria os passos. Aqui ele acompanha o
+        // caminho todo, e numa conta nova esta coluna esta vazia mesmo.
+        firstSteps?.let { fs ->
+            fs()
+            Spacer(Modifier.height(8.dp))
         }
 
         // Rodape do usuário: cartao flutuante estilo Discord (bordas arredondadas
@@ -2450,8 +2461,6 @@ private fun Stage(
     // está aqui" nesses cards.
     joinedServerIds: Set<String> = emptySet(),
     showFriends: Boolean,
-    // Checklist de 1o acesso, quando ativo — renderizado no palco vazio.
-    firstSteps: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
@@ -2546,12 +2555,7 @@ private fun Stage(
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                             )
                         }
-                        else -> {
-                            EmptyStage(isServer = server != null)
-                            firstSteps?.let { fs ->
-                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)) { fs() }
-                            }
-                        }
+                        else -> EmptyStage(isServer = server != null)
                     }
                 }
             }

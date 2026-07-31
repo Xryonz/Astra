@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,13 +45,15 @@ fun FirstStepsCard(
     hasAvatar: Boolean,
     onDismiss: () -> Unit,
 ) {
+    // Largura livre: mora na barra lateral (260dp), não mais solto sobre o palco.
     Column(
         Modifier
-            .width(340.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(Obsidian.overlay.copy(alpha = 0.96f))
-            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-            .padding(16.dp),
+            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(12.dp))
+            .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(

@@ -1,0 +1,6 @@
+# Esta maquina roda com core.autocrlf=true, entao TODO arquivo de texto vira
+# CRLF no checkout. Pra script de shell isso e fatal: o bash le o \r como parte
+# do comando e o arquivo morre com "syntax error" ou "bad interpreter" — e o
+# hook de seguranca falharia CALADO numa clonagem nova.
+*.sh   text eol=lf
+gradlew text eol=lf

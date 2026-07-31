@@ -82,13 +82,7 @@ private fun gcName(): String = runCatching {
 // do cache de imagens). Sobrescreve a cada abertura: e um retrato do boot atual.
 private fun writeDiagnostics() = runCatching {
     val os = System.getProperty("os.name").orEmpty()
-    val base = when {
-        os.startsWith("Windows", true) -> System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}\\AppData\\Local"
-        os.contains("Mac", true) -> "${System.getProperty("user.home")}/Library/Caches"
-        else -> System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache"
-    }
-    val dir = java.io.File(base, "Astra")
-    dir.mkdirs()
+    val dir = CrashLog.dataDir()
     val rt = Runtime.getRuntime()
     val txt = buildString {
         appendLine("Astra — diagnostico de boot")
@@ -101,6 +95,9 @@ private fun writeDiagnostics() = runCatching {
         appendLine("nucleos      : ${rt.availableProcessors()}")
         appendLine("java         : ${System.getProperty("java.version")}")
         appendLine("SO           : $os ${System.getProperty("os.version")}")
+        appendLine()
+        appendLine("Fechou sozinho? o motivo fica em falhas.txt, nesta mesma pasta.")
+        appendLine("(se falhas.txt não existir, a JVM morreu por fora: ver falha-jvm-*.log na pasta do app)")
     }
     java.io.File(dir, "diagnostico.txt").writeText(txt)
     println(txt)
@@ -123,12 +120,22 @@ object SingleInstance {
         }
         true
     } catch (e: IOException) {
-        runCatching { Socket(InetAddress.getLoopbackAddress(), PORT).use { } }
-        false
+        // Bind falhou — mas isso NAO prova que ha outro Astra. Firewall, porta tomada
+        // por outro programa ou socket preso do boot anterior dao o mesmo IOException,
+        // e antes o app simplesmente SUMIA nesses casos (um "fecha do nada" perfeito:
+        // sem janela, sem erro, sem log). So sai se alguem de fato atender do outro
+        // lado; sem resposta, seguimos como primaria mesmo sem o lock.
+        val existe = runCatching {
+            Socket().use { it.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 800) }
+        }.isSuccess
+        !existe
     }
 }
 
 fun main() {
+    // ANTES de tudo: sem isto, excecao não tratada mata o app em silencio (jpackage
+    // não tem console) — era o "fecha do nada" sem rastro nenhum.
+    CrashLog.install()
     // Segundo processo: pede pro Astra aberto aparecer e encerra aqui mesmo.
     if (!SingleInstance.acquireOrSignal()) return
     // Retrato do boot (API grafica do Skia, GC, heap) num arquivo legivel.

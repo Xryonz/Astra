@@ -180,6 +180,12 @@ compose.desktop {
         if (providers.gradleProperty("astra.distDir").isPresent) {
             jvmArgs += "-XX:+AutoCreateSharedArchive"
             jvmArgs += "-XX:SharedArchiveFile=\$APPDIR/astra-cds.jsa"
+            // Crash NATIVO (webrtc/skia derrubando a JVM inteira) não passa pelo
+            // CrashLog — a JVM morre antes de rodar codigo Java. Neste caso ela
+            // escreve o hs_err aqui, ao lado do app, em vez de num diretorio
+            // aleatorio onde ninguem acha. Junto com falhas.txt, cobre os dois
+            // tipos de "fecha do nada": excecao Java e morte nativa.
+            jvmArgs += "-XX:ErrorFile=\$APPDIR/falha-jvm-%p.log"
         }
 
         // Diagnostico de engasgo (NAO vai no pacote normal):
@@ -198,7 +204,13 @@ compose.desktop {
         // isso. Capar em 768MB forca o heap a ficar enxuto (uso real fica ~150-300MB),
         // entao o RSS para de escalar. NAO afeta a transmissão: bitmaps de video sao
         // memoria NATIVA (fora do heap), presos pelo RasterRecycler, não pelo -Xmx.
-        jvmArgs += "-Xmx512m"
+        //
+        // 512m (0.1.35) foi longe demais: teto baixo não "economiza" RAM quando o app
+        // realmente precisa dela — vira OutOfMemoryError, que mata o processo na hora
+        // e sem aviso. Como MaxHeapFreeRatio devolve as paginas ao Windows depois do
+        // pico, o teto mais alto NAO custa memoria parado; so evita a morte no pico
+        // (call cheia + transmissão). Volta pros 768m que o texto acima já descrevia.
+        jvmArgs += "-Xmx768m"
         // Devolver RAM ao SISTEMA. Por padrao a JVM segura o que ja cresceu: mesmo
         // depois de coletar, o heap continua reservado e o Gerenciador de Tarefas
         // segue mostrando o pico. Com estas tres a JVM ENCOLHE o heap e devolve as
@@ -207,9 +219,12 @@ compose.desktop {
         jvmArgs += "-XX:MinHeapFreeRatio=10"
         jvmArgs += "-XX:MaxHeapFreeRatio=25"
         jvmArgs += "-XX:G1PeriodicGCInterval=20000"
-        // Teto do metaspace (classes). Sem limite ele so cresce; 192MB e folgado pro
-        // que o app carrega e evita crescimento silencioso ao longo de horas.
-        jvmArgs += "-XX:MaxMetaspaceSize=192m"
+        // Teto do metaspace (classes). Sem limite ele so cresce; o teto evita
+        // crescimento silencioso ao longo de horas. 192m era apertado demais pro que
+        // este app carrega (Compose + Koin + Retrofit + protobuf + webrtc, mais as
+        // classes que o Compose GERA em runtime): estourar o metaspace tambem e um
+        // OutOfMemoryError, ou seja, mais uma forma de "fecha do nada".
+        jvmArgs += "-XX:MaxMetaspaceSize=256m"
         // Profiler RUNTIME (JFR), gated pra nunca vazar pro pacote: rodar
         //   ./gradlew :desktopApp:run -Pjfr
         // Usar o app ~2min (aurora, rolar chat, entrar em call, transmitir) e fechar;

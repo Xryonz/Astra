@@ -21,7 +21,7 @@ $destino = $env:DESTINO
 if (-not $origem)  { Write-Host "Falta \$env:ORIGEM (a URL do Neon)."   -ForegroundColor Red; exit 1 }
 if (-not $destino) { Write-Host "Falta \$env:DESTINO (a URL do Supabase)." -ForegroundColor Red; exit 1 }
 
-foreach ($exe in 'pg_dump', 'pg_restore') {
+foreach ($exe in 'pg_dump', 'pg_restore', 'psql') {
     if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) {
         Write-Host "$exe nao esta no PATH." -ForegroundColor Red
         Write-Host "Instale as ferramentas de cliente do Postgres:" -ForegroundColor Yellow
@@ -30,6 +30,23 @@ foreach ($exe in 'pg_dump', 'pg_restore') {
         exit 1
     }
 }
+
+# O restore recria as tabelas do zero. Se o destino ja tem tabela (ex: o
+# db:migrate rodou antes), o pg_restore para em "already exists" e voce fica com
+# metade migrado. Melhor descobrir isso AGORA do que no meio.
+Write-Host "[0/3] Conferindo se o destino esta vazio..." -ForegroundColor Cyan
+$existentes = & psql --dbname=$destino -tAc "select count(*) from pg_tables where schemaname in ('public','drizzle')"
+if ($LASTEXITCODE -ne 0) { Write-Host "Nao consegui conectar no DESTINO. Confira a string (session pooler, porta 5432)." -ForegroundColor Red; exit 1 }
+if ([int]$existentes.Trim() -gt 0) {
+    Write-Host "O destino ja tem $($existentes.Trim()) tabelas — o restore ia colidir." -ForegroundColor Red
+    Write-Host "Se elas sao so o schema recem-criado (SEM dados que voce queira), limpe no SQL Editor:" -ForegroundColor Yellow
+    Write-Host "    drop schema if exists drizzle cascade;" -ForegroundColor Yellow
+    Write-Host "    drop schema public cascade;" -ForegroundColor Yellow
+    Write-Host "    create schema public;" -ForegroundColor Yellow
+    Write-Host "e rode este script de novo. ATENCAO: isso apaga o RLS/grants — refaca o SQL de seguranca DEPOIS." -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "      destino vazio, pode seguir" -ForegroundColor Green
 
 $dump = Join-Path $PSScriptRoot "astra-dump-$(Get-Date -Format 'yyyyMMdd-HHmm').dump"
 

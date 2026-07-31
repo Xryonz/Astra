@@ -2,7 +2,8 @@ import { Server, Socket } from 'socket.io'
 import { randomUUID } from 'node:crypto'
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '../db'
-import { users, dmConversations, channels, messages, serverMembers } from '../db/schema'
+import { users, dmConversations, directMessages, channels, messages, serverMembers } from '../db/schema'
+import { notify } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence } from '../lib/redis'
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
@@ -300,6 +301,95 @@ export function setupSocket(io: Server) {
         })
       } catch (e) {
         console.error('[fast_send_text]', e)
+        safeAck({ ok: false, error: 'Erro interno' })
+      }
+    })
+
+    // Irmao do fast_send_text pro SUSSURRO: mesma ideia (texto puro, sem anexo nem
+    // resposta) pra a bolha aparecer na hora em vez de esperar o POST. Espelha a rota
+    // HTTP de dm.ts — inclusive o notify em background, senao DM por este caminho
+    // deixaria de gerar feed/push/badge (regressao silenciosa).
+    socket.on('fast_send_dm', async (
+      payload: { conversationId: string; content: string; clientNonce?: string },
+      ack?: (r: { ok: boolean; error?: string; msg?: unknown }) => void,
+    ) => {
+      const safeAck = typeof ack === 'function' ? ack : () => {}
+      try {
+        const { conversationId, content, clientNonce } = payload ?? {}
+        if (typeof conversationId !== 'string' || typeof content !== 'string') {
+          return safeAck({ ok: false, error: 'Payload inválido' })
+        }
+        const trimmed = content.trim()
+        if (trimmed.length === 0 || trimmed.length > 4000) {
+          return safeAck({ ok: false, error: 'Conteúdo inválido' })
+        }
+
+        const [conv] = await db.select().from(dmConversations)
+          .where(and(
+            eq(dmConversations.id, conversationId),
+            or(eq(dmConversations.userAId, userId), eq(dmConversations.userBId, userId)),
+          ))
+          .limit(1)
+        if (!conv) return safeAck({ ok: false, error: 'Acesso negado' })
+
+        const receiverId = conv.userAId === userId ? conv.userBId : conv.userAId
+
+        const [insertedRows, authorRows] = await Promise.all([
+          db.insert(directMessages).values({
+            content: trimmed, senderId: userId, receiverId, conversationId,
+            attachments: '[]', replyToId: null,
+          }).returning(),
+          selectAuthorById.execute({ userId }),
+        ])
+        const inserted = insertedRows[0]
+        const author   = authorRows[0]
+
+        const message = {
+          ...inserted,
+          attachments: [],
+          replyTo:     null,
+          author,
+          clientNonce: clientNonce ?? null,
+        }
+
+        io.to(`dm:${conversationId}`).emit('new_dm', message)
+        messagesSentTotal.inc({ kind: 'dm' })
+        safeAck({ ok: true, msg: message })
+
+        setImmediate(() => {
+          void (async () => {
+            try {
+              await db.update(dmConversations).set({ updatedAt: new Date() })
+                .where(eq(dmConversations.id, conversationId))
+              // Silenciada pelo receptor: a mensagem entra (o socket ja emitiu),
+              // mas sem feed/push/badge — mesma regra da rota HTTP.
+              const receiverMuted =
+                (conv.userAId === receiverId ? conv.mutedByA : conv.mutedByB) != null
+              if (receiverMuted) return
+              await notify({
+                io, userId: receiverId, actorId: userId, type: 'dm',
+                payload: {
+                  messageId:    inserted.id,
+                  conversationId,
+                  authorId:     author?.id,
+                  authorName:   author?.displayName ?? 'Alguém',
+                  authorAvatar: author?.avatarUrl ?? null,
+                  preview:      trimmed.slice(0, 140),
+                },
+                push: {
+                  title: `Nova DM de ${author?.displayName ?? 'Alguém'}`,
+                  body:  trimmed.slice(0, 140),
+                  url:   `/app/dm/${conversationId}`,
+                  tag:   `dm-${conversationId}`,
+                },
+              })
+            } catch (e) {
+              console.error('[fast_send_dm/background]', e)
+            }
+          })()
+        })
+      } catch (e) {
+        console.error('[fast_send_dm]', e)
         safeAck({ ok: false, error: 'Erro interno' })
       }
     })

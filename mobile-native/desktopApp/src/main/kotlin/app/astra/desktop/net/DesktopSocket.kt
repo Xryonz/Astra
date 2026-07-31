@@ -157,6 +157,25 @@ class DesktopSocket(private val store: SessionStore) {
         content: String,
         clientNonce: String,
         onResult: (FastSendResult) -> Unit,
+    ) = fastSend("fast_send_text", "channelId", channelId, content, clientNonce, onResult)
+
+    // Mesmo caminho rapido pro SUSSURRO (fast_send_dm no backend): a bolha aparece na
+    // hora e o broadcast new_dm reconcilia pelo clientNonce. So texto puro — reply e
+    // anexo continuam no HTTP.
+    fun fastSendDm(
+        conversationId: String,
+        content: String,
+        clientNonce: String,
+        onResult: (FastSendResult) -> Unit,
+    ) = fastSend("fast_send_dm", "conversationId", conversationId, content, clientNonce, onResult)
+
+    private fun fastSend(
+        event: String,
+        idKey: String,
+        id: String,
+        content: String,
+        clientNonce: String,
+        onResult: (FastSendResult) -> Unit,
     ) {
         val s = socket
         if (s == null || !s.connected()) {
@@ -164,12 +183,12 @@ class DesktopSocket(private val store: SessionStore) {
             return
         }
         val payload = JSONObject().apply {
-            put("channelId", channelId)
+            put(idKey, id)
             put("content", content)
             put("clientNonce", clientNonce)
         }
         val fired = AtomicBoolean(false)
-        s.emit("fast_send_text", arrayOf<Any>(payload), Ack { args ->
+        s.emit(event, arrayOf<Any>(payload), Ack { args ->
             if (!fired.compareAndSet(false, true)) return@Ack
             val obj = args.firstOrNull() as? JSONObject
             onResult(

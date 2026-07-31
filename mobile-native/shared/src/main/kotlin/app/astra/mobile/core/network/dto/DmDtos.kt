@@ -33,6 +33,9 @@ data class DmMessageDto(
     val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
+    // Eco do nonce que o cliente mandou no fast_send_dm: e por ele que a bolha
+    // otimista e trocada pela mensagem real em vez de aparecer duas vezes.
+    val clientNonce: String? = null,
 )
 
 @Serializable

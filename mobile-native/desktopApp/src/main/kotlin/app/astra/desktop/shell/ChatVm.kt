@@ -180,13 +180,11 @@ class ChatVm(
         if ((content.isEmpty() && pending.isEmpty()) || _state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
 
-        // Caminho otimista: canal + texto puro, sem reply nem anexo, socket vivo.
-        // O fast_send_text do backend so aceita esse caso — reply/anexo/DM caem no
+        // Caminho otimista: texto puro, sem reply nem anexo, socket vivo — vale pra
+        // canal (fast_send_text) E pra sussurro (fast_send_dm). Reply/anexo caem no
         // HTTP abaixo. A mensagem aparece na hora; nada de esperar o round-trip.
-        if (target is ChatTarget.Channel && content.isNotEmpty() &&
-            pending.isEmpty() && replyToId == null && socket.isConnected()
-        ) {
-            optimisticSend(target.id, content)
+        if (content.isNotEmpty() && pending.isEmpty() && replyToId == null && socket.isConnected()) {
+            optimisticSend(target, content)
             return
         }
 
@@ -241,9 +239,10 @@ class ChatVm(
         }
     }
 
-    // Bolha temporaria na hora + fast_send_text por socket. O broadcast new_message
-    // (com o mesmo clientNonce) reconcilia via append(); o ack so importa pra falha.
-    private fun optimisticSend(channelId: String, content: String) {
+    // Bolha temporaria na hora + envio rapido por socket (fast_send_text no canal,
+    // fast_send_dm no sussurro). O broadcast (new_message/new_dm, com o mesmo
+    // clientNonce) reconcilia via append(); o ack so importa pra falha.
+    private fun optimisticSend(target: ChatTarget, content: String) {
         val nonce = java.util.UUID.randomUUID().toString()
         val me = myProfile()
         val temp = ChatMessage(
@@ -261,9 +260,13 @@ class ChatVm(
         stopTypingEmit()
         _state.update { it.copy(messages = it.messages + temp, replyingTo = null, error = null) }
 
-        socket.fastSendText(channelId, content, nonce) { result ->
+        val onResult: (FastSendResult) -> Unit = { result ->
             if (!result.ok) markFailed(nonce, fastError(result))
-            // ok: o broadcast new_message reconcilia; nada a fazer aqui.
+            // ok: o broadcast (new_message/new_dm) reconcilia; nada a fazer aqui.
+        }
+        when (target) {
+            is ChatTarget.Channel -> socket.fastSendText(target.id, content, nonce, onResult)
+            is ChatTarget.Dm -> socket.fastSendDm(target.id, content, nonce, onResult)
         }
 
         // Rede de seguranca: sem ack nem broadcast, a bolha não pode ficar
@@ -666,5 +669,6 @@ class ChatVm(
         mine = senderId == myId,
         replyTo = replyTo,
         attachments = attachments,
+        clientNonce = clientNonce,
     )
 }

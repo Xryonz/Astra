@@ -85,7 +85,12 @@ Postgres e Redis são serviços externos (Neon e Upstash), não add-ons do Rende
 
 Sem passo de migration: o schema é garantido no boot por `ensureSchema` (idempotente).
 O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger externo
-(ex: cron-job.org) batendo em `/health`.
+(ex: cron-job.org) batendo em **`/live`**.
+
+> Aponte o pinger pro `/live`, **não** pro `/health`. O `/health` consulta Postgres e Redis a cada
+> chamada: pingado de minuto em minuto ele impede o Neon de autossuspender e queima a cota de
+> compute do plano free (erro `53000: exceeded the compute time quota`, que derruba o deploy).
+> `/live` só responde uptime — segura o Render acordado sem tocar no banco.
 
 ### Pós-deploy
 

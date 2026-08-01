@@ -160,10 +160,23 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
-    // Ultima de proposito: e a aba que a gente pede pra abrir quando algo "não
-    // funciona" — não e pra ser mexida no dia a dia.
+    // SO PRA DEV (decisao do dono). Ver `abaDeDev` abaixo.
     DIAGNOSTICS("Diagnostico", "o que o app esta vendo agora", Lucide.CircleDot),
 }
+
+// Rodando pelo Gradle/IDE = dev. No app empacotado o jpackage define
+// `jpackage.app-path`; sem essa propriedade, estamos no ambiente de
+// desenvolvimento. Da pra forcar no pacote com -Dastra.dev (util pra pedir o
+// diagnostico a alguem sem publicar uma versão especial).
+//
+// Esconder a aba NAO cega o suporte: o diagnostico de boot e o registro de falhas
+// continuam sendo gravados em %LOCALAPPDATA%\Astra pra todo mundo, entao ainda da
+// pra pedir o arquivo a um amigo quando algo quebrar.
+private val abaDeDev: Boolean =
+    System.getProperty("jpackage.app-path") == null || System.getProperty("astra.dev") != null
+
+private val abasVisiveis: List<SettingsTab> =
+    SettingsTab.entries.filter { it != SettingsTab.DIAGNOSTICS || abaDeDev }
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
@@ -213,7 +226,7 @@ fun SettingsScreen(
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                SettingsTab.entries.forEach { t ->
+                abasVisiveis.forEach { t ->
                     NavRow(t.icon, t.label, t.sub, active = t == tab) { tab = t }
                 }
             }
@@ -2156,6 +2169,45 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
     )
 }
 
+// Nota explicativa ao lado do ajuste que ela explica. Comeca RECOLHIDA: quem so
+// quer mexer no ajuste não tem um paragrafo na frente, e quem estranhou o
+// comportamento acha a resposta onde procurou — em vez de num FAQ que não existe.
+@Composable
+private fun InfoNote(title: String, body: String) {
+    var open by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .widthIn(max = 460.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(9.dp))
+            .background(Obsidian.overlay.copy(alpha = 0.5f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
+            .clickable { open = !open }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LIcon(Lucide.Info, tint = Obsidian.accent, size = 14.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                title,
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                if (open) "−" else "+",
+                style = TextStyle(color = Obsidian.text3, fontSize = 13.sp),
+            )
+        }
+        if (open) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                body,
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 17.sp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -2169,6 +2221,20 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     RadioList(
         ScreenQuality.entries.map { it.label to it },
         p.screenQuality, prefs::setScreenQuality,
+    )
+    Spacer(Modifier.height(12.dp))
+    // Explicacao ao lado do que ela afeta. Sem isto o usuario ve a propria janelinha
+    // mais "travada" que a transmissão e acha que a transmissão esta ruim tambem.
+    InfoNote(
+        "Por que a sua prévia parece mais travada",
+        "Quem está assistindo recebe os 60 quadros por segundo do preset acima — " +
+            "isso não muda. A sua prévia aqui do lado é limitada a 30, de propósito.\n\n" +
+            "O motivo: seu processador é quem comprime o vídeo (a placa de vídeo não " +
+            "faz esse trabalho neste app). Cada quadro da prévia consome processador " +
+            "que sairia da compressão — e quando falta, quem engasga é a transmissão " +
+            "de quem está te assistindo, não a sua janelinha.\n\n" +
+            "30 quadros já são fluidos pra conferir o que você está mostrando, e " +
+            "devolvem metade desse custo pra quem importa: quem está do outro lado.",
     )
 
     SettingsDivider()

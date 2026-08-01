@@ -9,7 +9,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys } from '../lib/redis'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
-import { presenceChanged } from '../lib/realtime'
+import { presenceChanged, profileChanged } from '../lib/realtime'
 
 const router = Router()
 
@@ -125,6 +125,10 @@ router.patch(
         displayFont: users.displayFont,
       })
 
+    // Sem isto, o perfil editado só aparecia pros outros (e pra mim em outras
+    // telas) depois de reabrir o app — a lista de membros, a barra de sussurros e
+    // o autor de cada mensagem seguiam com o nome e a foto velhos.
+    profileChanged(req.userId!)
     res.json({ data: { user } })
   })
 )

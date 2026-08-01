@@ -280,9 +280,16 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
-        // Teto de fps do preview local. Sobe pra 60 pra acompanhar a captura no preset
-        // 720@60 (preview 2x mais fluido). Pipeline desacoplado do encoder — ver start().
-        private const val PREVIEW_MAX_FPS = 60
+        // Teto de fps da PREVIA LOCAL — de propósito METADE da transmissão.
+        //
+        // A transmissão pros outros continua nos 60fps do preset: ela e o produto.
+        // A previa e so a conferencia de "estou mostrando a tela certa", e cada
+        // quadro dela custa um memcpy + conversao de cor + reducao na CPU. Como o
+        // encoder e SOFTWARE (o webrtc-java não usa NVENC), CPU gasta na previa e
+        // CPU tirada de quem esta assistindo — e o primeiro sintoma disso e a
+        // transmissão dos OUTROS engasgar, não a sua janelinha.
+        // 30fps ja e fluido pra conferir enquadramento e devolve metade desse custo.
+        private const val PREVIEW_MAX_FPS = 30
         // Fallback do intervalo do preview (~24fps) ate o start() amarrar ao fps real.
         private const val PREVIEW_INTERVAL_NS = 42_000_000L
         // Largura maxima do preview (mantem aspecto). Preview -> não precisa de 1080p.

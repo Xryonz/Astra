@@ -96,6 +96,12 @@ class DesktopSocket(private val store: SessionStore) {
     private val _serverJoined = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val serverJoined: SharedFlow<String> = _serverJoined.asSharedFlow()
 
+    // Alguem editou o perfil (nome, foto, banner, cor, recado). A mesma pessoa
+    // aparece em varias telas ao mesmo tempo, entao o evento e global e cada tela
+    // ignora se nao tiver essa pessoa em cena.
+    private val _profileUpdated = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val profileUpdated: SharedFlow<String> = _profileUpdated.asSharedFlow()
+
     // Constelacoes em que ja pedi entrada na sala. O backend ja inscreve nas do
     // connect; isto cobre as que entrei DEPOIS (convite/descoberta) e reinscreve
     // apos reconectar.
@@ -116,6 +122,12 @@ class DesktopSocket(private val store: SessionStore) {
         recent.addLast(System.currentTimeMillis() to event)
         while (recent.size > 40) recent.removeFirst()
     }
+
+    // POR QUE caiu. "desconectado" sozinho não diz se e token vencido, servidor
+    // dormindo (o Render free dorme em 15min) ou rede — causas com conserto
+    // totalmente diferente.
+    @Volatile private var lastError: String? = null
+    fun lastError(): String? = lastError
 
     fun recentEvents(): List<Pair<Long, String>> = synchronized(recent) { recent.toList() }
     fun joinedRooms(): Triple<Set<String>, Set<String>, Set<String>> =
@@ -140,7 +152,18 @@ class DesktopSocket(private val store: SessionStore) {
         // Um so lugar registra TODO evento que entra (em vez de 17 chamadas
         // espalhadas que alguem esqueceria de somar ao adicionar o 18o).
         s.onAnyIncoming { args -> note(args.firstOrNull()?.toString() ?: "?") }
+        s.on(Socket.EVENT_CONNECT_ERROR) { args ->
+            val motivo = args.firstOrNull()?.let { e ->
+                (e as? Exception)?.message ?: e.toString()
+            } ?: "desconhecido"
+            lastError = motivo
+            note("· falhou ao conectar: ${motivo.take(60)}")
+        }
+        s.on(Socket.EVENT_DISCONNECT) { args ->
+            note("· desconectou (${args.firstOrNull() ?: "?"})")
+        }
         s.on(Socket.EVENT_CONNECT) {
+            lastError = null
             note("· conectado")
             // Re-entra nas salas apos reconectar.
             channels.forEach { s.emit("join_channel", it) }
@@ -198,6 +221,9 @@ class DesktopSocket(private val store: SessionStore) {
         }
         s.on("server_joined") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverJoined.tryEmit(it.toString()) }
+        }
+        s.on("profile_updated") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _profileUpdated.tryEmit(it.toString()) }
         }
         s.io().on(io.socket.client.Manager.EVENT_RECONNECT_ATTEMPT) {
             // Token pode ter rotacionado (authenticator http) — usa o mais fresco.

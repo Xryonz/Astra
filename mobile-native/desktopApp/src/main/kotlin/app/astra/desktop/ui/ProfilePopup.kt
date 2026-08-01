@@ -66,6 +66,13 @@ private val profileCache = mutableMapOf<String, Pair<ProfileUserDto, Long>>()
 private fun cached(userId: String): ProfileUserDto? =
     profileCache[userId]?.takeIf { System.currentTimeMillis() - it.second < CACHE_MS }?.first
 
+// Alguem editou o perfil -> a copia guardada envelheceu na hora. Sem isto o cache
+// de 5min seguraria a foto e o nome VELHOS mesmo com o aviso ao vivo chegando: o
+// evento atualizaria a lista de membros e o card continuaria desatualizado.
+fun invalidateProfileCache(userId: String) {
+    profileCache.remove(userId)
+}
+
 // Abre ao LADO da ancora (direita; vira pra esquerda se não couber) e clampa
 // na vertical — funciona tanto no chat quanto no painel de membros na borda.
 private object BesideAnchor : PopupPositionProvider {

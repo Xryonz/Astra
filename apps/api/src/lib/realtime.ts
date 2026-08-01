@@ -39,6 +39,15 @@ export function joinedServer(userId: string, serverId: string) {
 // socket (`set_status`) ja avisava todo mundo; este nao — quem mudava pra ocupado
 // continuava aparecendo online pros outros ate eles recarregarem a tela.
 // INVISIBLE vira OFFLINE pra fora: e o ponto inteiro de ser invisivel.
+// Alguem editou o proprio perfil (nome, avatar, banner, cor, recado, fonte).
+// Global de proposito: a mesma pessoa aparece na lista de membros, na barra de
+// sussurros, no autor de cada mensagem e no cartao de perfil — rastrear quem ve
+// quem custaria mais do que um evento minusculo que cada cliente ignora se nao
+// tiver essa pessoa na tela. So o id vai: quem se importa rebusca.
+export function profileChanged(userId: string) {
+  io?.emit('profile_updated', { userId })
+}
+
 export function presenceChanged(userId: string, status: string) {
   io?.emit('presence_update', { userId, status: status === 'INVISIBLE' ? 'OFFLINE' : status })
 }

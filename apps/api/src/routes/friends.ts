@@ -11,6 +11,7 @@ import { badRequest, notFound } from '../lib/errors'
 import { redis } from '../lib/redis'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { isValidCoordinate, normalizeCoordinate } from '../lib/coordinate'
+import { profileChanged } from '../lib/realtime'
 
 const router = Router()
 
@@ -180,6 +181,9 @@ const StatusSchema = z.object({ customStatus: z.string().max(100).nullable() })
 router.patch('/custom-status', requireAuth, validate(StatusSchema), asyncHandler(async (req: Request, res: Response) => {
   const { customStatus } = req.body as z.infer<typeof StatusSchema>
   await db.update(users).set({ customStatus: customStatus?.trim() || null }).where(eq(users.id, req.userId!))
+  // O recado mora numa rota PROPRIA (fora do /profile), entao precisa avisar aqui
+  // tambem — senao salvar o perfil inteiro propaga e mudar so o recado nao.
+  profileChanged(req.userId!)
   res.json({ data: { customStatus: customStatus?.trim() || null } })
 }))
 

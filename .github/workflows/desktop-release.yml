@@ -58,6 +58,12 @@ jobs:
           if ($LASTEXITCODE -eq 0) { $existe = $true }
           "existe=$existe" >> $env:GITHUB_OUTPUT
           if ($existe) { Write-Host "release $tag ja existe — nada a fazer" }
+          else { Write-Host "release $tag ainda nao existe — vamos publicar" }
+          # "Nao existe" e uma RESPOSTA, nao um erro: o `gh release view` sai com
+          # codigo != 0 nesse caso, e o pwsh do Actions reprova o passo inteiro pelo
+          # ultimo exit code. Sem este exit 0 explicito, o fluxo morria justamente
+          # quando havia algo pra publicar (e passava quando nao havia).
+          exit 0
 
       - name: Setup JDK 21
         if: steps.checar.outputs.existe == 'False'

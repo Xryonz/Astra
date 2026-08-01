@@ -79,6 +79,13 @@ internal fun DiagnosticsSection() {
     Column(Modifier.fillMaxWidth()) {
         DiagTitle("conexão")
         DiagRow("socket", if (connected) "conectado" else "DESCONECTADO", ok = connected)
+        // O motivo importa mais que o estado: token vencido, servidor dormindo e
+        // rede caida parecem iguais aqui e tem conserto totalmente diferente.
+        if (!connected) {
+            remember(tick) { socket.lastError() }?.let { motivo ->
+                DiagRow("motivo", motivo.take(60), ok = false)
+            }
+        }
         DiagRow("constelações ouvindo", servers.size.toString(), ok = true)
         DiagRow("órbitas na sala", channels.size.toString(), ok = true)
         DiagRow("sussurros na sala", dms.size.toString(), ok = true)

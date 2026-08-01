@@ -29,6 +29,7 @@ import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ServerScopedEventDto
+import app.astra.desktop.ui.invalidateProfileCache
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.RoleDto
 import app.astra.mobile.core.network.dto.RoleRequest
@@ -908,6 +909,25 @@ class ShellVm(
                     // outras nem esta na tela).
                     if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
                         loadMembers(ev.serverId)
+                    }
+                }
+            }
+            launch {
+                socket.profileUpdated.collect { raw ->
+                    val ev = decode<PresenceUpdateDto>(raw) ?: return@collect
+                    // A copia guardada do perfil envelheceu — sem limpar, o cartao
+                    // continuaria com a foto velha mesmo com o aviso chegando.
+                    invalidateProfileCache(ev.userId)
+                    if (ev.userId == myId) {
+                        // Fui EU: a barra de sussurros, o rodape e o card usam este
+                        // `me`. Era o "salvei e nao mudou nada na tela inicial".
+                        refreshMe()
+                    }
+                    // Membro da constelacao aberta: recarrega pra lista pegar o nome
+                    // e a foto novos. Fora dela, o evento e ignorado de proposito.
+                    val serverId = (_state.value.selection as? Selection.Server)?.id
+                    if (serverId != null && _state.value.members.any { it.userId == ev.userId }) {
+                        loadMembers(serverId)
                     }
                 }
             }

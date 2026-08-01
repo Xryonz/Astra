@@ -61,6 +61,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.shared.AstraShared
 import app.astra.desktop.ui.theme.Text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -150,10 +151,7 @@ object ImageCrop {
         val bytes = when (source) {
             is CropSource.Local -> source.file.readBytes()
             is CropSource.Remote -> fetch(source.url)
-                ?: error(
-                    if (source.url.startsWith("data:")) "a imagem salva está num formato que não sei ler"
-                    else "não deu pra baixar do servidor",
-                )
+                ?: error("a imagem salva está num formato que não sei ler")
         }
         decode(bytes)
     }
@@ -232,18 +230,35 @@ object ImageCrop {
     private fun fetch(url: String): ByteArray? {
         if (url.startsWith("data:")) {
             val i = url.indexOf("base64,")
-            if (i < 0) return null
+            // O backend aceita data-uri percent-encoded (sem base64); aqui só o
+            // base64 era tratado, e o outro caso voltava null calado.
+            if (i < 0) {
+                val corpo = url.substringAfter(',', "")
+                return runCatching { java.net.URLDecoder.decode(corpo, "UTF-8").toByteArray(Charsets.ISO_8859_1) }
+                    .getOrNull()
+            }
             return runCatching { Base64.getDecoder().decode(url.substring(i + 7)) }.getOrNull()
         }
         val abs = absoluteUrl(url)
-        return get(http, abs) ?: get(plain, abs)
+        // Authorization SO pro nosso backend. O banner do perfil vive no R2 (o
+        // persistDataUri troca o data-uri por uma URL de la), e mandar o Bearer
+        // pra um host de terceiro (a) vaza o token pra fora e (b) costuma tomar
+        // 400 — vários storages recusam requisição com dois mecanismos de auth.
+        // Antes tentava o autenticado PRIMEIRO em toda URL, inclusive nessas.
+        val nosso = abs.startsWith(AstraShared.BASE_URL.trimEnd('/'))
+        val motivos = mutableListOf<String>()
+        if (nosso) get(http, abs, motivos)?.let { return it }
+        get(plain, abs, motivos)?.let { return it }
+        // Motivo REAL na exceção (código HTTP, timeout, DNS) em vez de null mudo.
+        throw java.io.IOException(motivos.joinToString(" / ").ifBlank { "sem resposta" })
     }
 
-    private fun get(client: OkHttpClient, url: String): ByteArray? = runCatching {
+    private fun get(client: OkHttpClient, url: String, motivos: MutableList<String>): ByteArray? = runCatching {
         client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
-            if (resp.isSuccessful) resp.body?.bytes() else null
+            if (resp.isSuccessful) resp.body?.bytes()
+            else { motivos += "HTTP ${resp.code}"; null }
         }
-    }.getOrNull()
+    }.onFailure { motivos += (it.message ?: it::class.simpleName ?: "falhou") }.getOrNull()
 }
 
 private val StageW = 324.dp

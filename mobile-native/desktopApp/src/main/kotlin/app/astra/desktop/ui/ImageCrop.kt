@@ -149,7 +149,11 @@ object ImageCrop {
     fun load(source: CropSource): Result<CropImage> = runCatching {
         val bytes = when (source) {
             is CropSource.Local -> source.file.readBytes()
-            is CropSource.Remote -> fetch(source.url) ?: error("não deu pra baixar essa imagem")
+            is CropSource.Remote -> fetch(source.url)
+                ?: error(
+                    if (source.url.startsWith("data:")) "a imagem salva está num formato que não sei ler"
+                    else "não deu pra baixar do servidor",
+                )
         }
         decode(bytes)
     }
@@ -197,6 +201,9 @@ object ImageCrop {
     }
 
     private fun decode(bytes: ByteArray): CropImage {
+        // makeFromEncoded joga uma excecao nativa crua quando o formato não e
+        // reconhecido; a checagem aqui devolve algo que da pra ler na tela.
+        require(bytes.isNotEmpty()) { "a imagem veio vazia" }
         val img = SkiaImage.makeFromEncoded(bytes)
         val hasAlpha = img.imageInfo.colorInfo.alphaType != ColorAlphaType.OPAQUE
         val m = max(img.width, img.height)
@@ -292,7 +299,12 @@ fun CropDialog(
     LaunchedEffect(source) {
         val r = withContext(Dispatchers.IO) { ImageCrop.load(source) }
         r.onSuccess { loaded = it; bmp = it.img.toComposeImageBitmap(); pct = 100; pan = Offset.Zero }
-            .onFailure { err = "não deu pra ler essa imagem" }
+            // A MENSAGEM REAL, não um "não deu" generico: "não deu pra ler essa
+            // imagem" foi reportado tres vezes seguidas e nunca deu pra saber se
+            // era download, formato ou tamanho — problemas em pontas opostas.
+            .onFailure { e ->
+                err = "não deu pra ler: " + (e.message?.take(120) ?: e::class.simpleName ?: "erro desconhecido")
+            }
     }
     // `cur` capturado numa val: ler `loaded` dentro do onDispose pegaria o valor
     // ATUAL (a imagem recem-carregada) e fecharia ela viva.

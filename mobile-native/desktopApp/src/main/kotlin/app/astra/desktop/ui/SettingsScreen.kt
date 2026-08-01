@@ -137,6 +137,7 @@ import kotlinx.coroutines.withContext
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import retrofit2.HttpException
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
 import java.util.concurrent.atomic.AtomicBoolean
@@ -1130,7 +1131,11 @@ private fun ProfileSaveButton(
                     }
                     saving = false
                     if (r.isSuccess) { msg = "perfil salvo" to true; onSaved() }
-                    else msg = "não deu pra salvar — tenta de novo" to false
+                    // O ERRO REAL do backend. "tenta de novo" era conselho ruim: as
+                    // causas comuns aqui (imagem grande demais -> 413, nome de
+                    // usuário em uso -> 409) não melhoram tentando de novo, e a
+                    // mensagem generica escondia justamente qual delas era.
+                    else msg = saveErrorMessage(r.exceptionOrNull()) to false
                 }
             }
             if (dirty && !saving) {
@@ -1142,6 +1147,19 @@ private fun ProfileSaveButton(
             Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         }
     }
+}
+
+// Traduz a falha do salvar pro que a pessoa precisa FAZER. O corpo de erro do
+// backend e `{ "error": "..." }` e ja vem em português — so o 413 ganha um texto
+// proprio, porque "Arquivo muito grande" sozinho não diz o que fazer a respeito.
+private fun saveErrorMessage(t: Throwable?): String {
+    val http = t as? HttpException ?: return "sem conexão com o servidor"
+    if (http.code() == 413) return "a imagem ficou grande demais — escolha uma menor ou dê menos zoom"
+    val body = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
+    val parsed = body?.let {
+        runCatching { Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }.getOrNull()
+    }
+    return parsed?.takeIf { it.isNotBlank() } ?: "não deu pra salvar (erro ${http.code()})"
 }
 
 // Zoom do banner (bannerScale 0..300%): trilha arrastavel simples. Abaixo de 100%

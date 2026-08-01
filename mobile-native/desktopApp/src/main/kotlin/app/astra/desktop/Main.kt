@@ -124,9 +124,22 @@ object SingleInstance {
     // hora de escrever o codigo, em vez de semanas depois pela boca de um amigo.
     val multi: Boolean = System.getProperty("astra.multi") != null
 
+    // Solta a trava. Existe pro AUTO-UPDATE: o processo velho abre o Astra novo e
+    // so depois morre — se ele ainda estivesse segurando a porta, o novo concluiria
+    // "já tem um Astra aberto" e sairia sozinho. Fechava tudo e nao reabria nada.
+    fun release() {
+        runCatching { server?.close() }
+        server = null
+    }
+
     // true = somos a instancia primaria; false = já tem uma (sinalizamos, hora de sair).
     fun acquireOrSignal(): Boolean = if (multi) true else try {
-        server = ServerSocket(PORT, 1, InetAddress.getLoopbackAddress()).also { s ->
+        server = ServerSocket().also { s ->
+            // Reaproveitar o endereco: sem isto, a porta pode ficar presa por alguns
+            // segundos depois de um fechamento com conexao aceita — justo a janela em
+            // que o auto-update reabre o app.
+            s.reuseAddress = true
+            s.bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 1)
             thread(isDaemon = true, name = "astra-single-instance") {
                 while (!s.isClosed) runCatching { s.accept().close(); activate.value++ }
             }

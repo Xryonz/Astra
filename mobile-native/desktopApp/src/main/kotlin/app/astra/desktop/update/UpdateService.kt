@@ -1,5 +1,6 @@
 package app.astra.desktop.update
 
+import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -308,14 +309,42 @@ class UpdateService(private val http: OkHttpClient) {
     // Portatil: a versão nova já esta pronta em versions/<v>/. So abre o Astra.exe
     // dela e sai — sem swap, sem .bat, sem esperar. O launcher (e o atalho) sempre
     // reabrem a MAIOR versão, entao os proximos boots também caem na nova.
+    //
+    // POR QUE ISTO NAO ERA SO "start + exit":
+    //
+    // 1. A TRAVA DE INSTANCIA UNICA. O processo velho ainda segura a porta quando o
+    //    novo abre. O novo entao conclui "já tem um Astra aberto", avisa o velho e
+    //    SAI — e logo depois o velho sai também. Resultado visto de fora: a janela
+    //    pisca, tudo fecha e nada reabre. Por isso a trava e solta ANTES de abrir o
+    //    novo: quando ele chegar na checagem (~1s de JVM), a porta já esta livre.
+    //
+    // 2. FECHAR SEM TER ABERTO. Se o start falhasse, o exitProcess vinha do mesmo
+    //    jeito e o app sumia sem substituto. Agora so sai se o novo de fato subiu.
+    //
+    // 3. stagedExe NULO. Ele so existe na sessão em que a versão foi baixada. Quem
+    //    baixou, fechou e reabriu caia num `return` mudo — a tela dizia "reiniciando"
+    //    e nada acontecia. O fallback acha a maior versão instalada no disco.
     fun restartToInstall() {
-        val exe = stagedExe ?: return
-        ProcessBuilder(exe.absolutePath)
-            .directory(exe.parentFile)
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-        exitProcess(0)
+        val exe = stagedExe?.takeIf { it.isFile } ?: exeDaMaiorVersao() ?: return
+        SingleInstance.release()
+        val subiu = runCatching {
+            ProcessBuilder(exe.absolutePath)
+                .directory(exe.parentFile)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        }.isSuccess
+        if (subiu) exitProcess(0)
+    }
+
+    // Maior versão presente em versions/. Ordena por semver, nao por texto: por
+    // ordem alfabetica "0.1.9" viria depois de "0.1.38" e o app reabriria a VELHA.
+    private fun exeDaMaiorVersao(): File? {
+        val versionsDir = appRootDir()?.parentFile ?: return null
+        return versionsDir.listFiles()
+            ?.filter { it.isDirectory && File(it, "Astra.exe").isFile }
+            ?.maxWithOrNull { a, b -> if (isNewer(a.name, b.name)) 1 else -1 }
+            ?.let { File(it, "Astra.exe") }
     }
 
     // Astra.exe do jpackage: jpackage.app-path aponta pro launcher; a pasta dele e

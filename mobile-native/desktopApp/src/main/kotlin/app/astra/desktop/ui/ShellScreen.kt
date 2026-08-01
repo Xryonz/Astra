@@ -124,6 +124,8 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Bot
+import com.composables.icons.lucide.BotOff
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.BellOff
 import com.composables.icons.lucide.Check
@@ -438,6 +440,8 @@ fun ShellScreen(
             onMarkChannelRead = vm::markChannelRead,
             mutedChannels = state.mutedChannels,
             onToggleChannelMute = vm::toggleChannelMute,
+            onToggleChannelBot = vm::setChannelBot,
+            onToggleCatBot = vm::setCategoryBot,
             firstSteps = firstSteps,
         )
         Stage(
@@ -1339,6 +1343,8 @@ private fun Sidebar(
     onMarkChannelRead: (channelId: String) -> Unit,
     mutedChannels: Set<String>,
     onToggleChannelMute: (channelId: String) -> Unit,
+    onToggleChannelBot: (serverId: String, channelId: String, ligar: Boolean) -> Unit,
+    onToggleCatBot: (serverId: String, categoryId: String, ligar: Boolean) -> Unit,
     // Checklist de 1o acesso, quando ativo — vive acima do rodape do usuário.
     firstSteps: (@Composable () -> Unit)? = null,
 ) {
@@ -1425,6 +1431,8 @@ private fun Sidebar(
                                     onMarkChannelRead = onMarkChannelRead,
                                     mutedChannels = mutedChannels,
                                     onToggleChannelMute = onToggleChannelMute,
+                                    onToggleChannelBot = { cid, on -> srv?.let { onToggleChannelBot(it.id, cid, on) } },
+                                    onToggleCatBot = { catId, on -> srv?.let { onToggleCatBot(it.id, catId, on) } },
                                 )
                             }
                             // #5: o mesmo menu do cabecalho também na AREA VAZIA da lista.
@@ -1594,6 +1602,8 @@ private fun OrbitList(
     onMarkChannelRead: (channelId: String) -> Unit,
     mutedChannels: Set<String>,
     onToggleChannelMute: (channelId: String) -> Unit,
+    onToggleChannelBot: (channelId: String, ligar: Boolean) -> Unit,
+    onToggleCatBot: (categoryId: String, ligar: Boolean) -> Unit,
 ) {
     if (server == null) return
     // Estrutura Discord: órbitas soltas primeiro, depois categorias colapsaveis.
@@ -1614,7 +1624,15 @@ private fun OrbitList(
     // Estado do drag de reordenacao (uma instancia por constelação aberta).
     val drag = remember(server.id) { ChannelDragState() }
     // Acoes do botao-direito da órbita (serverId já embutido nas lambdas de cima).
-    val chMenu = ChannelMenu(isOwner, mutedChannels, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute)
+    val chMenu = ChannelMenu(
+        isOwner, mutedChannels, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute,
+        // Herança resolvida aqui, uma vez: órbita decide; se não decidiu, a
+        // categoria; se nem ela, a bot atende.
+        botAtende = { ch ->
+            ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
+        },
+        onToggleBot = onToggleChannelBot,
+    )
 
     // Cascata (F6): a posição corrida na lista decide o atraso de entrada.
     // Os indices são computados no escopo do DSL (sincrono e deterministico);
@@ -1686,6 +1704,13 @@ private fun OrbitList(
                                 if (isOwner) {
                                     add(MenuEntry.Separator)
                                     add(MenuEntry.Item("criar órbita aqui", icon = Lucide.Plus) { onNewChannelInCat(cat.id) })
+                                    val botNaCat = cat.botEnabled ?: true
+                                    add(
+                                        MenuEntry.Item(
+                                            if (botNaCat) "silenciar a bot na categoria" else "deixar a bot atender na categoria",
+                                            icon = if (botNaCat) Lucide.BotOff else Lucide.Bot,
+                                        ) { onToggleCatBot(cat.id, !botNaCat) },
+                                    )
                                     add(MenuEntry.Item("renomear categoria", icon = Lucide.Pencil) { onRenameCat(cat.id, cat.name) })
                                     add(MenuEntry.Item("excluir categoria", danger = true, icon = Lucide.Trash2) { confirmDelCat = true })
                                 }
@@ -1972,6 +1997,13 @@ private fun OrbitEntry(
                 add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(ch.id)) })
                 if (menu.isOwner) {
                     add(MenuEntry.Separator)
+                    val temBot = menu.botAtende(ch)
+                    add(
+                        MenuEntry.Item(
+                            if (temBot) "silenciar a bot aqui" else "deixar a bot atender aqui",
+                            icon = if (temBot) Lucide.BotOff else Lucide.Bot,
+                        ) { menu.onToggleBot(ch.id, !temBot) },
+                    )
                     add(MenuEntry.Item("renomear", icon = Lucide.Pencil) { menu.onRename(ch.id, ch.name) })
                     add(MenuEntry.Item("excluir órbita", danger = true, icon = Lucide.Trash2) { confirmDelCh = true })
                 }
@@ -2078,6 +2110,9 @@ private class ChannelMenu(
     val onRename: (channelId: String, current: String) -> Unit,
     val onDelete: (channelId: String, name: String) -> Unit,
     val onToggleMute: (channelId: String) -> Unit,
+    // A bot atende nesta órbita? (já vem com a herança da categoria resolvida)
+    val botAtende: (ChannelDto) -> Boolean,
+    val onToggleBot: (channelId: String, ligar: Boolean) -> Unit,
 )
 
 // Centraliza o dialogo na JANELA (ignora a ancora) — modal flutuante estilo Discord.
@@ -2756,7 +2791,16 @@ private fun Stage(
             if (target != null) {
                 val chatVm = remember { createChatVm(target) }
                 DisposableEffect(Unit) { onDispose { chatVm.dispose() } }
-                ChatView(target, chatVm, onStartDm)
+                // Heranca: orbita decide; se nao decidiu, a categoria; se nem ela,
+                // fica ligado. Resolvido aqui porque o cliente ja tem as duas listas
+                // na mao — pedir de novo ao servidor seria round-trip por nada.
+                val botAqui = remember(target.id, server) {
+                    val ch = server?.channels?.find { it.id == target.id }
+                    val cat = server?.categories?.find { it.id == ch?.categoryId }
+                    // Sussurro não tem órbita nem categoria: a bot atende sempre.
+                    ch?.botEnabled ?: cat?.botEnabled ?: true
+                }
+                ChatView(target, chatVm, onStartDm, botAqui = botAqui)
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {

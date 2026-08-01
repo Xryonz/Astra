@@ -171,7 +171,10 @@ private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
-fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit) {
+// botAqui: a bot atende nesta orbita? Quando NAO, a caixinha do "/" nem abre —
+// mostrar comando que o servidor vai ignorar em silencio e pior do que nao
+// mostrar nada (a pessoa digita, manda, e nada acontece).
+fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit, botAqui: Boolean = true) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -381,7 +384,7 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
             val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
             // Caixinha de comandos: aparece ACIMA do compositor quando a mensagem
             // comeca com "/" e some assim que deixa de ser uma busca de comando.
-            val allCommands = rememberBotCommands()
+            val allCommands = if (botAqui) rememberBotCommands() else emptyList()
             val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
             CommandPalette(matches) { picked ->
                 // Escolher deixa o comando pronto com um espaco: quase todo comando

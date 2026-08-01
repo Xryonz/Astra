@@ -107,6 +107,13 @@ CREATE TABLE IF NOT EXISTS "Notification" (
 CREATE INDEX IF NOT EXISTS "Notification_userId_createdAt_idx" ON "Notification" USING btree ("userId", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "Notification_userId_readAt_idx" ON "Notification" USING btree ("userId", "readAt");
 
+-- ===== Bot por orbita / categoria =====
+-- NULO de proposito: "nao decidi". Orbita nula herda a categoria; categoria nula
+-- fica ligada. Com boolean NOT NULL nao haveria como representar a heranca, e
+-- desligar a categoria nao alcancaria as orbitas dela.
+ALTER TABLE "Channel"         ADD COLUMN IF NOT EXISTS "botEnabled" boolean;
+ALTER TABLE "ChannelCategory" ADD COLUMN IF NOT EXISTS "botEnabled" boolean;
+
 -- ===== Bloqueio de pessoa =====
 CREATE TABLE IF NOT EXISTS "UserBlock" (
   "id" text PRIMARY KEY NOT NULL,

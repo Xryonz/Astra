@@ -12,6 +12,7 @@ import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/
 import { parseMentions } from '../lib/mentions'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
+import { botPodeFalar } from '../lib/botScope'
 
 const userSockets = new Map<string, Set<string>>()
 
@@ -454,6 +455,10 @@ export function setupSocket(io: Server) {
 
       const canAccess = await userCanAccessChannel(userId, channelId)
       if (!canAccess) return
+      // Bot desligada aqui: sai calada. Responder "estou desligada" seria falar
+      // justamente onde pediram silencio — e o cliente ja nem mostra a caixinha
+      // de comandos nestas orbitas, entao ninguem chega aqui por engano.
+      if (!(await botPodeFalar(channelId))) return
 
       const botId = await getBotId()
       if (!botId) return

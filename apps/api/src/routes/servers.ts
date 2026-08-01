@@ -816,6 +816,8 @@ const UpdateChannelSchema = z.object({
   name:       z.string().min(1).max(50).optional(),
   categoryId: z.string().nullable().optional(),
   position:   z.number().int().min(0).optional(),
+  // null = "nao decidi" (herda da categoria). Nao e o mesmo que false.
+  botEnabled: z.boolean().nullable().optional(),
 })
 channelsRouter.patch(
   '/:serverId/channels/:channelId',
@@ -823,7 +825,7 @@ channelsRouter.patch(
   validate(UpdateChannelSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, channelId } = req.params
-    const { name, categoryId, position } = req.body as z.infer<typeof UpdateChannelSchema>
+    const { name, categoryId, position, botEnabled } = req.body as z.infer<typeof UpdateChannelSchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
@@ -837,16 +839,17 @@ channelsRouter.patch(
       if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
     }
 
-    const set: Partial<{ name: string; categoryId: string | null; position: number }> = {}
+    const set: Partial<{ name: string; categoryId: string | null; position: number; botEnabled: boolean | null }> = {}
     if (name !== undefined) set.name = name
     if (categoryId !== undefined) set.categoryId = categoryId
     if (position !== undefined) set.position = position
+    if (botEnabled !== undefined) set.botEnabled = botEnabled
     if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
 
     const r = await db.update(channels)
       .set(set)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
-      .returning({ id: channels.id, name: channels.name, categoryId: channels.categoryId, position: channels.position })
+      .returning({ id: channels.id, name: channels.name, categoryId: channels.categoryId, position: channels.position, botEnabled: channels.botEnabled })
     if (r.length === 0) return res.status(404).json({ error: 'Canal não encontrado' })
 
     void audit({
@@ -911,6 +914,8 @@ channelsRouter.post(
 const UpdateCategorySchema = z.object({
   name:     z.string().min(1).max(50).optional(),
   position: z.number().int().min(0).optional(),
+  // Desligar aqui alcanca TODAS as orbitas da categoria que nao decidiram nada.
+  botEnabled: z.boolean().nullable().optional(),
 })
 channelsRouter.patch(
   '/:serverId/categories/:categoryId',
@@ -918,15 +923,16 @@ channelsRouter.patch(
   validate(UpdateCategorySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, categoryId } = req.params
-    const { name, position } = req.body as z.infer<typeof UpdateCategorySchema>
+    const { name, position, botEnabled } = req.body as z.infer<typeof UpdateCategorySchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
       return res.status(403).json({ error: 'Sem permissão' })
 
-    const set: Partial<{ name: string; position: number }> = {}
+    const set: Partial<{ name: string; position: number; botEnabled: boolean | null }> = {}
     if (name !== undefined) set.name = name
     if (position !== undefined) set.position = position
+    if (botEnabled !== undefined) set.botEnabled = botEnabled
     if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
 
     const r = await db.update(channelCategories)

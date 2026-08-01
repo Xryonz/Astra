@@ -23,6 +23,7 @@ import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
+import app.astra.mobile.core.network.dto.UpdateChannelBotRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.LastMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
@@ -632,6 +633,27 @@ class ShellVm(
     fun markChannelRead(channelId: String) {
         scope.launch { runCatching { channelApi.markRead(channelId) } }
         _state.update { it.copy(unread = it.unread - channelId, unreadCounts = it.unreadCounts - channelId) }
+    }
+
+    // Liga/desliga a bot numa orbita ou numa categoria inteira. Recarrega no
+    // sucesso: a caixinha do "/" le desse mesmo estado, entao ela some/volta na
+    // hora, sem reabrir nada.
+    fun setChannelBot(serverId: String, channelId: String, enabled: Boolean) {
+        scope.launch {
+            val ok = runCatching {
+                serverApi.setChannelBot(serverId, channelId, UpdateChannelBotRequest(enabled))
+            }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    fun setCategoryBot(serverId: String, categoryId: String, enabled: Boolean) {
+        scope.launch {
+            val ok = runCatching {
+                serverApi.updateCategory(serverId, categoryId, UpdateCategoryRequest(botEnabled = enabled))
+            }.isSuccess
+            if (ok) reloadServers()
+        }
     }
 
     fun renameChannel(serverId: String, channelId: String, name: String) {

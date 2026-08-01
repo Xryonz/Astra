@@ -202,6 +202,10 @@ export const channelCategories = pgTable('ChannelCategory', {
   name:      text('name').notNull(),
   serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
   position:  integer('position').notNull().default(0),
+  // Bot ligado nas orbitas desta categoria. NULO = ligado (o padrao e a bot
+  // atuar em tudo; quem quiser silencio DESLIGA, em vez de ter que ligar em cada
+  // orbita nova e descobrir depois que a bot "sumiu").
+  botEnabled: boolean('botEnabled'),
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
   byServer: index('ChannelCategory_serverId_idx').on(t.serverId),
@@ -215,6 +219,10 @@ export const channels = pgTable('Channel', {
   categoryId: text('categoryId').references(() => channelCategories.id, { onDelete: 'set null' }),
   position:   integer('position').notNull().default(0),
   isPrivate:  boolean('isPrivate').notNull().default(false),
+  // NULO = herda da categoria (e, sem categoria, fica ligado). Precisa ser
+  // nulavel: com boolean cru nao haveria como dizer "nao decidi", e desligar a
+  // categoria nao alcancaria as orbitas dela.
+  botEnabled: boolean('botEnabled'),
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
   byServer:   index('Channel_serverId_idx').on(t.serverId),

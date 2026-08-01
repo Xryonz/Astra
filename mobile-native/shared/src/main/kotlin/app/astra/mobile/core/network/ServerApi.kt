@@ -11,6 +11,7 @@ import app.astra.mobile.core.network.dto.CreateCategoryRequest
 import app.astra.mobile.core.network.dto.CreateChannelRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.MoveChannelRequest
+import app.astra.mobile.core.network.dto.UpdateChannelBotRequest
 import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.CreateServerRequest
 import app.astra.mobile.core.network.dto.InviteCodeResponse
@@ -140,6 +141,14 @@ interface ServerApi {
         @Path("cid") channelId: String,
         @Body body: ChannelVisibilityRequest,
     ): ApiEnvelope<ChannelVisibilityDto>
+
+    // Mesma rota do renomear: o backend aceita name/categoryId/position/botEnabled.
+    @PATCH("api/servers/{sid}/channels/{cid}")
+    suspend fun setChannelBot(
+        @Path("sid") serverId: String,
+        @Path("cid") channelId: String,
+        @Body body: UpdateChannelBotRequest,
+    ): ApiEnvelope<ChannelDto>
 
     @PATCH("api/servers/{sid}/channels/{cid}")
     suspend fun renameChannel(

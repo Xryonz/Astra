@@ -32,6 +32,10 @@ data class ChannelDto(
     val categoryId: String? = null,
     val position: Int = 0,
     val lastMessageAt: String? = null,
+    // null = "nao decidi": herda da categoria e, sem categoria, fica LIGADO.
+    // Nao e o mesmo que false — sem o nulo nao daria pra desligar uma categoria
+    // inteira e reativar uma orbita dentro dela.
+    val botEnabled: Boolean? = null,
 )
 
 @Serializable
@@ -39,6 +43,7 @@ data class CategoryDto(
     val id: String,
     val name: String,
     val position: Int = 0,
+    val botEnabled: Boolean? = null,
 )
 
 @Serializable
@@ -89,6 +94,13 @@ data class ChannelVisibilityRequest(
 @Serializable
 data class UpdateChannelNameRequest(val name: String)
 
+// Liga/desliga a bot NESTA orbita. So true/false: com explicitNulls=false o null
+// sumiria do JSON e o backend leria "nao mudar" — entao "voltar a herdar da
+// categoria" nao tem como ser expresso por aqui, e a decisao vira definitiva
+// pra esta orbita. E o comportamento certo mesmo: quem decidiu na mao, decidiu.
+@Serializable
+data class UpdateChannelBotRequest(val botEnabled: Boolean)
+
 // Reordenar / mover canal (drag na sidebar). O backend (PATCH .../channels/:cid) aceita
 // name/categoryId/position. position = ordem na secao; categoryId != null MOVE pra dentro
 // da categoria. categoryId fica null (default) no reorder simples e, com explicitNulls=false
@@ -108,7 +120,11 @@ data class CreateChannelRequest(
 data class CreateCategoryRequest(val name: String)
 
 @Serializable
-data class UpdateCategoryRequest(val name: String? = null, val position: Int? = null)
+data class UpdateCategoryRequest(
+    val name: String? = null,
+    val position: Int? = null,
+    val botEnabled: Boolean? = null,
+)
 
 @Serializable
 data class ServerMemberDto(

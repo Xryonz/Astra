@@ -12,6 +12,7 @@ import { AttachmentSchema, MessageCursorSchema } from '@astra/types'
 import { notify } from '../lib/notifications'
 import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
+import { haBloqueio } from '../lib/blocks'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
@@ -103,6 +104,11 @@ export function createDMRouter(io: SocketServer) {
 
       if (!target) return res.status(404).json({ error: 'Usuário não encontrado' })
       if (target.id === req.userId) return res.status(400).json({ error: 'Não pode abrir DM consigo mesmo' })
+      // Mensagem neutra de proposito: quem foi bloqueado nao deve descobrir que
+      // foi, e um "você foi bloqueado" aqui contaria.
+      if (await haBloqueio(req.userId!, target.id)) {
+        return res.status(403).json({ error: 'Não é possível conversar com essa pessoa' })
+      }
 
       const conversation = await getOrCreateConversation(req.userId!, target.id)
       res.json({ data: { conversationId: conversation.id, otherUser: target } })
@@ -303,6 +309,12 @@ export function createDMRouter(io: SocketServer) {
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
       const receiverId = conv.userAId === req.userId ? conv.userBId : conv.userAId
+      // Bloqueio vale nos DOIS sentidos: quem bloqueou tambem para de mandar.
+      // Checado no envio, e nao so ao abrir a conversa, porque a conversa pode ter
+      // sido aberta ANTES do bloqueio e continuar na tela de quem ja estava nela.
+      if (await haBloqueio(req.userId!, receiverId)) {
+        return res.status(403).json({ error: 'Não é possível conversar com essa pessoa' })
+      }
 
       let validReplyToId: string | null = null
       let replySnapshot: { id: string; content: string; authorName: string; authorAvatar: string | null } | null = null

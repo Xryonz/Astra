@@ -15,6 +15,7 @@ import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.GifApi
+import app.astra.mobile.core.network.BlockApi
 import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.RefreshApi
@@ -102,6 +103,7 @@ val appModule = module {
     single<SearchApi> { get<Retrofit>(named("authed")).create(SearchApi::class.java) }
     single<NotificationApi> { get<Retrofit>(named("authed")).create(NotificationApi::class.java) }
     single<BotApi> { get<Retrofit>(named("authed")).create(BotApi::class.java) }
+    single<BlockApi> { get<Retrofit>(named("authed")).create(BlockApi::class.java) }
 
     single { DesktopSocket(get(), get()) }
     single { AuthRepository(get(), get(), get(), get(), get(), get()) }

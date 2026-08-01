@@ -11,6 +11,7 @@ import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincroniz
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
+import { haBloqueio } from '../lib/blocks'
 
 const userSockets = new Map<string, Set<string>>()
 
@@ -377,6 +378,12 @@ export function setupSocket(io: Server) {
         if (!conv) return safeAck({ ok: false, error: 'Acesso negado' })
 
         const receiverId = conv.userAId === userId ? conv.userBId : conv.userAId
+        // O caminho rapido precisa da MESMA regra da rota HTTP. Sem isto, bloquear
+        // alguem funcionaria so quando a mensagem tivesse anexo ou resposta — que e
+        // o tipo de meia-regra pior que regra nenhuma.
+        if (await haBloqueio(userId, receiverId)) {
+          return safeAck({ ok: false, error: 'Não é possível conversar com essa pessoa' })
+        }
 
         const [insertedRows, authorRows] = await Promise.all([
           db.insert(directMessages).values({

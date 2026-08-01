@@ -107,6 +107,17 @@ CREATE TABLE IF NOT EXISTS "Notification" (
 CREATE INDEX IF NOT EXISTS "Notification_userId_createdAt_idx" ON "Notification" USING btree ("userId", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "Notification_userId_readAt_idx" ON "Notification" USING btree ("userId", "readAt");
 
+-- ===== Bloqueio de pessoa =====
+CREATE TABLE IF NOT EXISTS "UserBlock" (
+  "id" text PRIMARY KEY NOT NULL,
+  "blockerId" text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "blockedId" text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "createdAt" timestamp (3) NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "UserBlock_blockerId_blockedId_key" ON "UserBlock" USING btree ("blockerId", "blockedId");
+CREATE INDEX IF NOT EXISTS "UserBlock_blockerId_idx" ON "UserBlock" USING btree ("blockerId");
+CREATE INDEX IF NOT EXISTS "UserBlock_blockedId_idx" ON "UserBlock" USING btree ("blockedId");
+
 -- ===== Bookmarks =====
 CREATE TABLE IF NOT EXISTS "Bookmark" (
   "id" text PRIMARY KEY NOT NULL,

@@ -33,6 +33,7 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.voice.AudioDevices
+import app.astra.desktop.voice.VoiceLog
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 import java.io.File
@@ -94,6 +95,53 @@ internal fun DiagnosticsSection() {
         DiagTitle("áudio")
         DiagRow("saídas encontradas", outputs.size.toString(), ok = outputs.isNotEmpty())
         DiagRow("entradas encontradas", inputs.size.toString(), ok = inputs.isNotEmpty())
+
+        Spacer(Modifier.height(18.dp))
+        DiagTitle("última call (passo a passo)")
+        Spacer(Modifier.height(6.dp))
+        // "Ninguém me escuta" pode quebrar em oito lugares e todos soam igual:
+        // silêncio. Aqui dá pra ver ATÉ ONDE chegou — o passo que faltar é o culpado.
+        val passos = remember(tick) { VoiceLog.linhas().asReversed() }
+        if (passos.isEmpty()) {
+            Text(
+                "nenhuma call ainda nesta sessão. entre numa e volte aqui.",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Obsidian.void.copy(alpha = 0.4f))
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                    .padding(10.dp),
+            ) {
+                passos.take(16).forEach { (at, texto) ->
+                    val ruim = texto.contains("NAO") || texto.contains("CAIU") ||
+                        texto.contains("NEGADO") || texto.contains("FAILED")
+                    Row {
+                        Text(
+                            HORA.format(Instant.ofEpochMilli(at)),
+                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            texto,
+                            style = TextStyle(
+                                color = if (ruim) Obsidian.danger else Obsidian.text2,
+                                fontSize = 11.sp,
+                                fontFamily = DmMono,
+                            ),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "o mesmo vai pro arquivo voz.txt (na pasta do Astra) — dá pra mandar inteiro pra quem estiver ajudando.",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+        }
 
         Spacer(Modifier.height(18.dp))
         DiagTitle("app")
@@ -161,6 +209,73 @@ internal fun DiagnosticsSection() {
     }
 }
 
+// Mesmo passo a passo da call, mas pra QUALQUER pessoa (a aba de Diagnóstico só
+// existe pra dev). Fica em Configurações > Voz porque é ali que a pessoa vai
+// procurar quando ninguém a escutar — e porque quem mais precisa disto é o amigo
+// do outro lado, que não tem como abrir o app em modo dev.
+@Composable
+internal fun VoicePassos() {
+    val clipboard = LocalClipboardManager.current
+    var copiado by remember { mutableStateOf(false) }
+    var tick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(1000); tick++ } }
+    val passos = remember(tick) { VoiceLog.linhas().asReversed() }
+
+    if (passos.isEmpty()) {
+        Text(
+            "nenhuma call nesta sessão ainda. entre numa e volte aqui — cada etapa aparece nesta lista.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        )
+        return
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.void.copy(alpha = 0.4f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        passos.take(12).forEach { (at, texto) ->
+            val ruim = texto.contains("NAO") || texto.contains("CAIU") ||
+                texto.contains("NEGADO") || texto.contains("FAILED")
+            Row {
+                Text(
+                    HORA.format(Instant.ofEpochMilli(at)),
+                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    texto,
+                    style = TextStyle(
+                        color = if (ruim) Obsidian.danger else Obsidian.text2,
+                        fontSize = 11.sp, fontFamily = DmMono,
+                    ),
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        if (copiado) "copiado" else "copiar os passos",
+        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
+            .clickable {
+                clipboard.setText(
+                    AnnotatedString(
+                        VoiceLog.linhas().joinToString("\n") { (at, t) ->
+                            "${HORA.format(Instant.ofEpochMilli(at))}  $t"
+                        },
+                    ),
+                )
+                copiado = true
+            }
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
+}
+
 @Composable
 private fun DiagTitle(text: String) {
     Text(
@@ -210,6 +325,9 @@ private fun buildReport(
     appendLine("salas  : ${servers.size} constelacoes, ${channels.size} orbitas, ${dms.size} sussurros")
     appendLine("saidas : ${outputs.size} -> ${outputs.take(4).joinToString()}")
     appendLine("entradas: ${inputs.size} -> ${inputs.take(4).joinToString()}")
+    appendLine()
+    appendLine("ultima call (passo a passo):")
+    VoiceLog.linhas().takeLast(24).forEach { (at, t) -> appendLine("  ${HORA.format(Instant.ofEpochMilli(at))}  $t") }
     appendLine()
     appendLine("ultimos avisos:")
     events.take(20).forEach { (at, name) -> appendLine("  ${HORA.format(Instant.ofEpochMilli(at))}  $name") }

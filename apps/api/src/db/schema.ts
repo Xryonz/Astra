@@ -439,6 +439,25 @@ export const notifications = pgTable('Notification', {
   byUserUnread:  index('Notification_userId_readAt_idx').on(t.userId, t.readAt),
 }))
 
+// Bloqueio de pessoa. DIRECIONAL de proposito (quem bloqueou -> quem foi
+// bloqueado): saber quem partiu do bloqueio decide o que cada lado enxerga. Quem
+// bloqueia ve "Desbloquear"; quem foi bloqueado nao ve nada (o Discord tambem
+// nao avisa, e avisar so renderia briga).
+// O EFEITO, porem, vale nos dois sentidos: bloqueou, ninguem manda sussurro pro
+// outro. Bloqueio de mao unica seria uma porta trancada com a chave do lado de fora.
+export const userBlocks = pgTable('UserBlock', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  blockerId: text('blockerId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  blockedId: text('blockedId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  uniqPair:  uniqueIndex('UserBlock_blockerId_blockedId_key').on(t.blockerId, t.blockedId),
+  // Os dois lados sao consultados: "quem eu bloqueei" na lista, "quem me
+  // bloqueou" a cada envio de sussurro.
+  byBlocker: index('UserBlock_blockerId_idx').on(t.blockerId),
+  byBlocked: index('UserBlock_blockedId_idx').on(t.blockedId),
+}))
+
 export const wishingStars = pgTable('WishingStar', {
   id:        text('id').primaryKey().$defaultFn(createId),
   userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),

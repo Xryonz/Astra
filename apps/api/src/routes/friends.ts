@@ -12,6 +12,7 @@ import { redis } from '../lib/redis'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { isValidCoordinate, normalizeCoordinate } from '../lib/coordinate'
 import { profileChanged } from '../lib/realtime'
+import { haBloqueio } from '../lib/blocks'
 
 const router = Router()
 
@@ -122,6 +123,9 @@ router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async
     .limit(1)
   if (!target) throw notFound('Usuário não encontrado')
   if (target.id === req.userId) throw badRequest('Não pode adicionar você mesmo')
+  // Bloqueou e a amizade caiu junto; sem esta guarda, mandar o pedido de novo
+  // seria o caminho de volta e o bloqueio nao valeria nada.
+  if (await haBloqueio(req.userId!, target.id)) throw badRequest('Não é possível adicionar essa pessoa')
 
   const [a, b] = normalize(req.userId!, target.id)
 

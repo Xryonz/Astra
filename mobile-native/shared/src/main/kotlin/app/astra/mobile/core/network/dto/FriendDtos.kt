@@ -11,6 +11,17 @@ data class FriendUserDto(
     val customStatus: String? = null,
 )
 
+// Quem EU bloqueei. Nao existe o contrario: quem foi bloqueado nao fica sabendo,
+// entao nao ha lista "quem me bloqueou" pra pedir.
+@Serializable
+data class BlockedUserDto(
+    val id: String,
+    val username: String,
+    val displayName: String? = null,
+    val avatarUrl: String? = null,
+    val blockedAt: String? = null,
+)
+
 @Serializable
 data class FriendDto(
     val friendshipId: String,

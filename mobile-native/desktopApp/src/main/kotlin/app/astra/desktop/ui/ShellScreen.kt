@@ -143,6 +143,8 @@ import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.User
+import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.UserCheck
 import com.composables.icons.lucide.UserMinus
 import com.composables.icons.lucide.X
 import com.composables.icons.lucide.Users
@@ -151,6 +153,7 @@ import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.InviteApi
 import app.astra.mobile.core.network.NotificationApi
+import app.astra.mobile.core.network.BlockApi
 import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
@@ -2389,11 +2392,17 @@ private fun DmList(
     // aparece — melhor do que oferecer uma ação que vai falhar.
     val friendApi = remember { GlobalContext.get().get<FriendApi>() }
     var friendships by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    // Quem eu bloqueei: o menu precisa saber pra oferecer "desbloquear" em vez de
+    // "bloquear" de novo (bloquear duas vezes nao faz nada e confunde).
+    val blockApi = remember { GlobalContext.get().get<BlockApi>() }
+    var blocked by remember { mutableStateOf<Set<String>>(emptySet()) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         friendships = runCatching { friendApi.friends().data.orEmpty() }
             .getOrDefault(emptyList())
             .associate { it.user.id to it.friendshipId }
+        blocked = runCatching { blockApi.blocked().data.orEmpty() }
+            .getOrDefault(emptyList()).map { it.id }.toSet()
     }
     // Estrutura Discord: busca no topo dos sussurros (filtro local por nome).
     var query by remember { mutableStateOf("") }
@@ -2474,6 +2483,32 @@ private fun DmList(
                                 friendships = friendships - (u?.id ?: "")
                             }
                         })
+                    }
+                    u?.id?.let { uid ->
+                        val jaBloqueado = uid in blocked
+                        if (!friendships.containsKey(uid)) add(MenuEntry.Separator)
+                        add(
+                            MenuEntry.Item(
+                                if (jaBloqueado) "desbloquear" else "bloquear",
+                                danger = !jaBloqueado,
+                                icon = if (jaBloqueado) Lucide.UserCheck else Lucide.Ban,
+                            ) {
+                                scope.launch {
+                                    if (jaBloqueado) {
+                                        runCatching { blockApi.unblock(uid) }.onSuccess { blocked = blocked - uid }
+                                    } else {
+                                        runCatching { blockApi.block(uid) }.onSuccess {
+                                            blocked = blocked + uid
+                                            // O backend ja desfez a amizade e escondeu a
+                                            // conversa; a tela acompanha na hora em vez de
+                                            // esperar o proximo carregamento.
+                                            friendships = friendships - uid
+                                            onCloseDm(conv.id)
+                                        }
+                                    }
+                                }
+                            },
+                        )
                     }
                 }
             }) {

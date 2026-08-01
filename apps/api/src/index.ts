@@ -54,6 +54,7 @@ import bookmarksRouter                    from './routes/bookmarks'
 import remindersRouter                    from './routes/reminders'
 import translateRouter                    from './routes/translate'
 import friendsRouter                      from './routes/friends'
+import blocksRouter                       from './routes/blocks'
 import voiceRouter                        from './routes/voice'
 import wishesRouter                       from './routes/wishes'
 import sessionsRouter                     from './routes/sessions'
@@ -161,6 +162,7 @@ app.use('/api/bookmarks', bookmarksRouter)
 app.use('/api/reminders', remindersRouter)
 app.use('/api/translate', translateRouter)
 app.use('/api/friends',   friendsRouter)
+app.use('/api/blocks',    blocksRouter)
 app.use('/api/voice',     voiceRouter)
 app.use('/api/wishes',    wishesRouter)
 app.use('/api/sessions',  sessionsRouter)

@@ -259,6 +259,7 @@ class VoiceEngine(
     private var lastScreenSource: DesktopSource? = null
 
     fun connect(roomKind: String, roomId: String) {
+        VoiceLog.nota("--- entrando em $roomKind:$roomId ---")
         Sfx.callJoin() // entrar na call: som fino/agudo
         connectJob = scope.launch {
             // Escreve num LOCAL, não no campo: se dispose() correu enquanto a lib
@@ -279,18 +280,22 @@ class VoiceEngine(
             }
             if (disposed) { runCatching { f?.dispose() }; return@launch }
             if (f == null) {
+                VoiceLog.nota("1. webrtc nativo NAO CARREGOU (sem isso nao ha audio nenhum)")
                 _status.value = VoiceStatus.Failed("WebRTC nativo não carregou nesta maquina")
                 return@launch
             }
             factory = f
+            VoiceLog.nota("1. webrtc nativo ok")
 
             val data = runCatching { voiceApi.token(VoiceTokenRequest(roomKind, roomId)).data }.getOrNull()
             if (disposed) return@launch
             if (data == null) {
+                VoiceLog.nota("2. token de voz NEGADO pelo backend (LiveKit configurado? acesso ao canal?)")
                 _status.value = VoiceStatus.Failed("Backend não deu o token de voz")
                 return@launch
             }
 
+            VoiceLog.nota("2. token ok, servidor de voz = " + data.url)
             val url = data.url.trimEnd('/') + "/rtc?access_token=" + data.token + "&auto_subscribe=1&protocol=15"
             val socket = wsClient.newWebSocket(
                 Request.Builder().url(url).build(),
@@ -302,6 +307,7 @@ class VoiceEngine(
                     }
 
                     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        VoiceLog.nota("3. signaling CAIU: " + (t.message ?: "erro") + " (http " + (response?.code ?: 0) + ")")
                         pingJob?.cancel()
                         _status.value =
                             if (joined) VoiceStatus.Closed
@@ -309,6 +315,7 @@ class VoiceEngine(
                     }
 
                     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        VoiceLog.nota("3. signaling fechou ($code $reason)")
                         pingJob?.cancel()
                         if (_status.value !is VoiceStatus.Failed) _status.value = VoiceStatus.Closed
                     }
@@ -378,6 +385,7 @@ class VoiceEngine(
         when (res.messageCase) {
             LivekitRtc.SignalResponse.MessageCase.JOIN -> {
                 joined = true
+                VoiceLog.nota("4. join aceito. ja estavam na sala: " + res.join.otherParticipantsCount)
                 myIdentity = res.join.participant.identity
                 mySid = res.join.participant.sid
                 others.clear()
@@ -451,6 +459,10 @@ class VoiceEngine(
                 sendTrickle(candidate, LivekitRtc.SignalTarget.SUBSCRIBER)
 
             override fun onConnectionChange(state: RTCPeerConnectionState) {
+                // ESTE e o passo que decide se voce OUVE alguem. CONNECTED = a midia
+                // achou caminho pela rede; FAILED = firewall/UDP bloqueado (o sintoma
+                // e silencio total, sem erro nenhum na tela).
+                VoiceLog.nota("6. canal de audio de ENTRADA: " + state)
                 audioLive = state == RTCPeerConnectionState.CONNECTED
                 if (joined) publishConnected()
             }
@@ -466,7 +478,10 @@ class VoiceEngine(
                     }
                     // Audio remoto toca sozinho no device padrao; guardamos o receiver so
                     // pra medir o nível de fala (inchada do card de quem fala).
-                    is AudioTrack -> remoteAudioReceivers[ownerSid] = receiver
+                    is AudioTrack -> {
+                        VoiceLog.nota("7. audio de alguem chegou (" + (others.values.find { it.sid == ownerSid }?.label ?: ownerSid) + ")")
+                        remoteAudioReceivers[ownerSid] = receiver
+                    }
                     else -> Unit
                 }
             }
@@ -560,7 +575,10 @@ class VoiceEngine(
         // e roda em qualquer maquina. O MicCapture passa cada bloco pelo APM do WebRTC
         // (NS + high-pass + AGC, saida 48k mono) conforme as prefs de Voz — sem isso a
         // voz saia "robo com ruido". Sem mic não derruba a sala: segue so ouvindo.
-        val source = runCatching { CustomAudioSource() }.getOrNull() ?: return
+        val source = runCatching { CustomAudioSource() }.getOrNull() ?: run {
+            VoiceLog.nota("5. mic: nao consegui criar a fonte de audio")
+            return
+        }
         val cid = "mic-" + UUID.randomUUID().toString().take(8)
         micCid = cid
         micSource = source
@@ -568,7 +586,10 @@ class VoiceEngine(
         val p = prefs.state.value
         val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
-        cap.start() // false = sem dispositivo de captura; a track fica muda, mas não trava
+        // ESTE e o passo que decide se te OUVEM. false = nao abriu o microfone
+        // (privacidade do Windows fechada, sem aparelho, ou aparelho ocupado).
+        val micOk = cap.start()
+        VoiceLog.nota(if (micOk) "5. mic capturando (" + (p.audioInput ?: "padrao do Windows") + ")" else "5. mic NAO ABRIU - ninguem vai te ouvir (privacidade do Windows? aparelho ocupado?)")
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
                 LivekitRtc.AddTrackRequest.newBuilder()

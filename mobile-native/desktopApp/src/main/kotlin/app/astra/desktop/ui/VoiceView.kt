@@ -138,7 +138,14 @@ fun VoiceView(
         Spacer(Modifier.height(4.dp))
         val (label, color) = when (val s = status) {
             VoiceStatus.Connecting -> "conectando…" to Obsidian.text3
-            is VoiceStatus.Connected -> "conectado" to Obsidian.success
+            // "Conectado" era MENTIRA quando o canal de áudio não subia: entrar na
+            // sala (sinalização) e a voz achar caminho pela rede são duas coisas
+            // diferentes, e só a segunda faz alguém ouvir alguém. Dizer "conectado"
+            // nas duas escondia justamente a falha que a pessoa está sentindo — ela
+            // ficava olhando pro verde sem entender por que ninguém a escuta.
+            is VoiceStatus.Connected ->
+                if (s.audioLive) "conectado" to Obsidian.success
+                else "entrou na sala, mas o áudio ainda não passou" to Obsidian.accent
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }

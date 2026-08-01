@@ -951,7 +951,7 @@ class ShellVm(
                     // dela agora, sair primeiro: deixar a tela aberta numa
                     // constelacao que nao existe mais so rende erro em cada clique.
                     if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
-                        _state.update { it.copy(selection = Selection.Home, chat = null, members = emptyList()) }
+                        _state.update { it.copy(selection = Selection.Dms, chat = null, members = emptyList()) }
                     }
                     reloadServers()
                 }

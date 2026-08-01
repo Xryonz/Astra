@@ -214,6 +214,26 @@ fun ShellScreen(
 
     LaunchedEffect(Unit) { socket.connect() }
 
+    // Permissões do Windows na PRIMEIRA abertura. Aparece uma vez só; depois fica
+    // em Configurações > Voz. Vem antes da primeira call de propósito: descobrir
+    // que o mic está bloqueado no meio da conversa é o pior momento possível.
+    val sessionStore = remember { koin.get<SessionStore>() }
+    var permsOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (sessionStore.uiPref("permsVistas") != "1") {
+            // Um respiro pra a janela desenhar antes: a checagem abre o microfone
+            // e o diálogo caindo em cima do carregamento parece travamento.
+            kotlinx.coroutines.delay(900)
+            permsOpen = true
+        }
+    }
+    if (permsOpen) {
+        PermissoesDialog(onClose = {
+            permsOpen = false
+            sessionStore.setUiPref("permsVistas", "1")
+        })
+    }
+
     // Janela escondida/minimizada = ninguem olha o auto-preview da transmissão. Ele
     // custa conversao + upload de textura a 60fps, entao desliga enquanto não da pra
     // ver e volta ao reaparecer. O que os OUTROS recebem não muda (encoder e outro

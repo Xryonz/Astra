@@ -2238,6 +2238,27 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
 
     SettingsDivider()
+    Text("Permissões do Windows", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "quando o Windows bloqueia o microfone, ele não avisa: o som simplesmente não chega. aqui dá pra conferir antes da call.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    var permsAbertas by remember { mutableStateOf(false) }
+    Text(
+        "conferir agora",
+        style = TextStyle(color = Obsidian.accent, fontSize = 12.5.sp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(9.dp))
+            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(9.dp))
+            .clickable { permsAbertas = true }
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
+    if (permsAbertas) PermissoesDialog(onClose = { permsAbertas = false })
+
+    SettingsDivider()
     Text("Dispositivos", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(

@@ -1,0 +1,126 @@
+name: Desktop · publicar release
+
+# AUTO-UPDATE SEM PASSO MANUAL.
+#
+# O gatilho e a PROPRIA VERSAO: sobe pra main com o astraVersion bumpado e este
+# fluxo empacota, publica a release e sobe o asset com o nome exato que o
+# UpdateService espera. Nao ha tag pra criar, nem zip pra arrastar, nem nome pra
+# digitar — que era onde tudo quebrava: a ultima release publicada na mao tinha a
+# tag desktop-v0.1.8 com o asset chamado "0.1.9.zip", e o app procurava
+# Astra-0.1.8-win-x64.zip. Resultado: 404, zero downloads, e o dono mandando o zip
+# pros amigos por 28 versoes seguidas.
+#
+# Se a versao NAO mudou, o fluxo sai sozinho no comeco (nao republica nada).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-native/**'
+      - '.github/workflows/desktop-release.yml'
+  # Botao manual, pra reempacotar sem precisar de um commit novo.
+  workflow_dispatch:
+
+permissions:
+  contents: write   # criar release e subir asset
+
+jobs:
+  publicar:
+    # Windows obrigatorio: o jpackage so gera app-image do Windows RODANDO no
+    # Windows, e o ffmpeg empacotado e o ddagrab (DXGI), que so existe aqui.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ler a versao do build.gradle.kts
+        id: versao
+        shell: pwsh
+        run: |
+          # Fonte UNICA da versao. Ninguem digita numero de versao neste fluxo.
+          $m = Select-String -Path mobile-native/desktopApp/build.gradle.kts -Pattern 'val astraVersion = "([^"]+)"'
+          if (-not $m) { throw "nao achei astraVersion" }
+          $v = $m.Matches[0].Groups[1].Value
+          "versao=$v"           >> $env:GITHUB_OUTPUT
+          "tag=desktop-v$v"     >> $env:GITHUB_OUTPUT
+          "asset=Astra-$v-win-x64.zip" >> $env:GITHUB_OUTPUT
+          Write-Host "versao $v"
+
+      - name: Ja existe release desta versao?
+        id: checar
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.versao.outputs.tag }}"
+          $existe = $false
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { $existe = $true }
+          "existe=$existe" >> $env:GITHUB_OUTPUT
+          if ($existe) { Write-Host "release $tag ja existe — nada a fazer" }
+
+      - name: Setup JDK 21
+        if: steps.checar.outputs.existe == 'False'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # O ffmpeg (ddagrab) e grande e fica FORA do git — cachear evita rebaixar
+      # ~100MB a cada release.
+      - name: Cache do ffmpeg
+        if: steps.checar.outputs.existe == 'False'
+        uses: actions/cache@v4
+        with:
+          path: mobile-native/desktopApp/appResources/windows/ffmpeg.exe
+          key: ffmpeg-ddagrab-win64-v1
+
+      - name: Empacotar
+        if: steps.checar.outputs.existe == 'False'
+        shell: pwsh
+        working-directory: mobile-native
+        run: |
+          # Sem -Pastra.distDir aqui: aquele desvio existe so porque o repo do dono
+          # mora num caminho com acento, e o jpackage nao engole. No runner o
+          # caminho e limpo, entao o build padrao serve.
+          ./gradlew.bat :desktopApp:zipDistributable --no-daemon
+
+      - name: Publicar release + asset
+        if: steps.checar.outputs.existe == 'False'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag   = "${{ steps.versao.outputs.tag }}"
+          $asset = "${{ steps.versao.outputs.asset }}"
+          $zip   = "mobile-native/desktopApp/build/$asset"
+          if (-not (Test-Path $zip)) {
+            Write-Host "procurando o zip..."
+            Get-ChildItem mobile-native -Recurse -Filter "Astra-*-win-x64.zip" | ForEach-Object { $_.FullName }
+            throw "zip nao encontrado em $zip"
+          }
+          gh release create $tag $zip `
+            --repo $env:GITHUB_REPOSITORY `
+            --title "Astra ${{ steps.versao.outputs.versao }}" `
+            --notes "Atualizacao automatica. O Astra baixa sozinho na proxima abertura."
+          if ($LASTEXITCODE -ne 0) { throw "gh release create falhou" }
+
+      # Publicar nao basta: o que importa e o APP achar. Ele nao usa a API do
+      # GitHub — le o 302 de /releases/latest, tira a tag e monta a URL do zip por
+      # convencao. Entao a conferencia tem que passar por esse mesmo caminho.
+      - name: Conferir pelo caminho que o app usa
+        if: steps.checar.outputs.existe == 'False'
+        shell: pwsh
+        run: |
+          $tag   = "${{ steps.versao.outputs.tag }}"
+          $asset = "${{ steps.versao.outputs.asset }}"
+          $repo  = $env:GITHUB_REPOSITORY
+          Start-Sleep -Seconds 5
+          $r = Invoke-WebRequest -Uri "https://github.com/$repo/releases/latest" -MaximumRedirection 0 -SkipHttpErrorCheck
+          $tagVista = ($r.Headers.Location -split '/releases/tag/')[-1]
+          $zipUrl = "https://github.com/$repo/releases/download/$tag/$asset"
+          $ok = try { (Invoke-WebRequest -Uri $zipUrl -Method Head -MaximumRedirection 5).StatusCode -eq 200 } catch { $false }
+          Write-Host "latest aponta pra: $tagVista (esperado $tag)"
+          Write-Host "zip acessivel    : $ok"
+          if ($tagVista -ne $tag -or -not $ok) { throw "PUBLICOU MAS O APP NAO VAI ACHAR" }
+          Write-Host "OK — os amigos recebem na proxima abertura do Astra."

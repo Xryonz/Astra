@@ -10,6 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { invalidateMembersCache } from '../lib/membersCache'
+import { membersChanged, leftServer } from '../lib/realtime'
 
 export const bansRouter = Router()
 
@@ -91,6 +92,11 @@ bansRouter.post(
       ))
     })
     void invalidateMembersCache(serverId)
+    // Duas pontas: a constelacao ve o membro sumir da lista, e quem foi banido ve
+    // a constelacao sumir da rail. Sem a segunda, a pessoa continua com o icone
+    // la e cada clique so devolve erro — o pior tipo de "nao atualizou".
+    membersChanged(serverId)
+    leftServer(userId, serverId)
 
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_BAN,

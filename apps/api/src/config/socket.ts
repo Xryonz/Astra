@@ -7,7 +7,7 @@ import { notify } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence } from '../lib/redis'
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
-import { getBotId, askBot, handleBotCommand } from '../lib/bot'
+import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
@@ -224,7 +224,8 @@ export function setupSocket(io: Server) {
             content: `🔇 **@${socket.data.username}** foi silenciado por **5 minutos** por spam.`,
             channelId, edited: false, createdAt: new Date().toISOString(),
             authorColor: null, reactions: [], mentions: [],
-            author: { id: botId, username: 'astra_bot', displayName: 'Astra', avatarUrl: null },
+            // Aviso de moderacao sai com o nome de quem esta de plantao hoje.
+            author: { id: botId, username: 'astra_bot', displayName: personaDoDia().nome, avatarUrl: null },
           }
           io.to(`channel:${channelId}`).emit('new_message', botMsg)
         }
@@ -415,7 +416,7 @@ export function setupSocket(io: Server) {
                   messageId:    inserted.id,
                   conversationId,
                   authorId:     author?.id,
-                  authorName:   author?.displayName ?? 'Alguém',
+                  authorName:   author?.displayName || author?.username,
                   authorAvatar: author?.avatarUrl ?? null,
                   preview:      trimmed.slice(0, 140),
                 },
@@ -440,13 +441,16 @@ export function setupSocket(io: Server) {
     socket.on('bot_command', async (payload: { channelId: string; serverId: string; content: string }) => {
       const { channelId, serverId, content } = payload ?? {}
       if (typeof channelId !== 'string' || typeof serverId !== 'string' || typeof content !== 'string') return
-      if (!content.toLowerCase().startsWith('/astra')) return
+      // /sparkle (dias uteis), /sparxie (fim de semana) e /astra (o que o app
+      // mobile ja manda). Todos entram; quem responde e quem esta de plantao.
+      if (!prefixoUsado(content)) return
 
       const canAccess = await userCanAccessChannel(userId, channelId)
       if (!canAccess) return
 
       const botId = await getBotId()
       if (!botId) return
+      const persona = await sincronizaPersona(botId)
 
       const muted           = await isUserMuted(userId, serverId)
       const muteSecondsLeft = muted ? await getMuteExpiry(userId, serverId) : 0
@@ -463,9 +467,9 @@ export function setupSocket(io: Server) {
       if (commandResponse) {
         reply = commandResponse
       } else {
-        const userMessage = content.replace(/^\/astra\s*/i, '').trim()
+        const userMessage = semPrefixo(content)
         if (!userMessage) {
-          reply = 'Como posso ajudar? Tente `/astra help` pra ver comandos.'
+          reply = `Como posso ajudar? Tente \`${persona.prefixo} ajuda\` pra ver os comandos de hoje.`
         } else {
           const result = await askBot({
             userMessage,
@@ -482,7 +486,7 @@ export function setupSocket(io: Server) {
         content: reply, channelId,
         edited: false, createdAt: new Date().toISOString(),
         authorColor: null, reactions: [], mentions: [],
-        author: { id: botId, username: 'astra_bot', displayName: 'Astra', avatarUrl: null },
+        author: { id: botId, username: 'astra_bot', displayName: persona.nome, avatarUrl: null },
       }
       io.to(`channel:${channelId}`).emit('new_message', botMsg)
     })

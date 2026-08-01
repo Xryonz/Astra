@@ -941,6 +941,45 @@ class ShellVm(
                 }
             }
             launch {
+                // Nome/icone/banner novos: a rail e o cabecalho vem do mesmo GET.
+                socket.serverUpdated.collect { reloadServers() }
+            }
+            launch {
+                socket.serverAccessLost.collect { raw ->
+                    val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
+                    // Apagaram, me expulsaram ou me baniram. Se eu estiver DENTRO
+                    // dela agora, sair primeiro: deixar a tela aberta numa
+                    // constelacao que nao existe mais so rende erro em cada clique.
+                    if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
+                        _state.update { it.copy(selection = Selection.Home, chat = null, members = emptyList()) }
+                    }
+                    reloadServers()
+                }
+            }
+            launch {
+                socket.serverRoles.collect { raw ->
+                    val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
+                    // Cargo mexe na cor do nome e no agrupamento da lista.
+                    if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
+                        loadMembers(ev.serverId)
+                    }
+                }
+            }
+            launch {
+                // RECONCILIACAO. Evento e dispare-e-esqueça: o que passou enquanto o
+                // socket esteve fora nao volta sozinho. Sem isto, uma queda de 10s
+                // deixava a tela mentindo ate o proximo boot — e queda ACONTECE
+                // (servidor dormindo, wifi oscilando, notebook fechando).
+                // Rebusca o que esta em cena; o ChatVm cuida das mensagens.
+                socket.reconnected.collect {
+                    reloadServers()
+                    (_state.value.selection as? Selection.Server)?.id?.let { loadMembers(it) }
+                    runCatching { dmApi.conversations().data.orEmpty() }.getOrNull()?.let { dms ->
+                        _state.update { it.copy(dms = dms) }
+                    }
+                }
+            }
+            launch {
                 socket.dmTyping.collect { raw ->
                     val ev = decode<DmTypingEventDto>(raw) ?: return@collect
                     dmTypingStarted(ev.conversationId, ev.userId)

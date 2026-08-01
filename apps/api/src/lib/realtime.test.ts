@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import {
   attachRealtime, channelsChanged, membersChanged, joinedServer, presenceChanged,
+  serverUpdated, serverGone, rolesChanged, leftServer,
 } from './realtime'
 
 // Trava o CONTRATO dos avisos de tempo real: nome da sala, nome do evento e o
@@ -43,6 +44,33 @@ describe('avisos de constelacao', () => {
     expect(f.to).toHaveBeenCalledWith('user:u9')
     expect(f.to).not.toHaveBeenCalledWith('server:srv1')
     expect(f.emit).toHaveBeenCalledWith('server_joined', { serverId: 'srv1' })
+  })
+
+  it('constelacao editada -> sala da constelacao', () => {
+    serverUpdated('srv1')
+    expect(f.to).toHaveBeenCalledWith('server:srv1')
+    expect(f.emit).toHaveBeenCalledWith('server_updated', { serverId: 'srv1' })
+  })
+
+  it('cargos mexeram -> sala da constelacao', () => {
+    rolesChanged('srv1')
+    expect(f.to).toHaveBeenCalledWith('server:srv1')
+    expect(f.emit).toHaveBeenCalledWith('server_roles', { serverId: 'srv1' })
+  })
+
+  it('constelacao apagada -> avisa a sala DELA (o aviso tem que sair antes do delete)', () => {
+    // Depois do DELETE nao existe mais membro no banco pra descobrir quem avisar.
+    // Se este teste virar "manda pra sala pessoal de cada um", quebrou o contrato.
+    serverGone('srv1')
+    expect(f.to).toHaveBeenCalledWith('server:srv1')
+    expect(f.emit).toHaveBeenCalledWith('server_gone', { serverId: 'srv1' })
+  })
+
+  it('perdi acesso -> sala PESSOAL (banido ja saiu da sala da constelacao)', () => {
+    leftServer('u9', 'srv1')
+    expect(f.to).toHaveBeenCalledWith('user:u9')
+    expect(f.to).not.toHaveBeenCalledWith('server:srv1')
+    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1' })
   })
 })
 

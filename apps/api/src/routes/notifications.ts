@@ -1,6 +1,6 @@
 
 import { Router, Request, Response } from 'express'
-import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
 import { users, notifications } from '../db/schema'
@@ -40,12 +40,40 @@ router.get(
       ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString() })).toString('base64url')
       : null
 
+    const payloads = items.map((n) => safeJson(n.payload))
+
+    // CONSERTO DO HISTORICO: notificação antiga foi gravada sem o nome de quem
+    // mandou (ou com o literal 'Alguém'), e payload gravado não se corrige
+    // sozinho. Como o authorId esta la, da pra resolver o nome na leitura — UMA
+    // consulta por pagina, so pelos ids que faltam. Sem isto o conserto so
+    // valeria pra notificação nova e a lista seguiria cheia de "alguém".
+    const faltando = [...new Set(
+      payloads
+        .filter((p) => !p.authorName || p.authorName === 'Alguém')
+        .map((p) => p.authorId)
+        .filter((id): id is string => typeof id === 'string'),
+    )]
+    if (faltando.length > 0) {
+      const autores = await db.select({
+        id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl,
+      }).from(users).where(inArray(users.id, faltando))
+      const porId = new Map(autores.map((a) => [a.id, a]))
+      for (const p of payloads) {
+        if (p.authorName && p.authorName !== 'Alguém') continue
+        const a = typeof p.authorId === 'string' ? porId.get(p.authorId) : undefined
+        if (!a) continue
+        p.authorName     = a.displayName || a.username
+        p.authorUsername = a.username
+        p.authorAvatar   = p.authorAvatar ?? a.avatarUrl ?? null
+      }
+    }
+
     res.json({
       data: {
-        items: items.map((n) => ({
+        items: items.map((n, i) => ({
           id:      n.id,
           type:    n.type,
-          payload: safeJson(n.payload),
+          payload: payloads[i],
           readAt:  n.readAt?.toISOString() ?? null,
           createdAt: n.createdAt.toISOString(),
         })),
@@ -125,8 +153,11 @@ router.patch(
   })
 )
 
-function safeJson(s: string): unknown {
-  try { return JSON.parse(s) } catch { return {} }
+function safeJson(s: string): Record<string, unknown> {
+  try {
+    const v = JSON.parse(s)
+    return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
+  } catch { return {} }
 }
 
 export default router

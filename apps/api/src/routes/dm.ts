@@ -370,7 +370,7 @@ export function createDMRouter(io: SocketServer) {
                 messageId:      inserted.id,
                 conversationId,
                 authorId:       author?.id,
-                authorName:     author?.displayName ?? 'Alguém',
+                authorName:     author?.displayName || author?.username,
                 authorAvatar:   author?.avatarUrl ?? null,
                 preview:        content.slice(0, 140),
               },

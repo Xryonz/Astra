@@ -103,7 +103,7 @@ val appModule = module {
     single<NotificationApi> { get<Retrofit>(named("authed")).create(NotificationApi::class.java) }
     single<BotApi> { get<Retrofit>(named("authed")).create(BotApi::class.java) }
 
-    single { DesktopSocket(get()) }
+    single { DesktopSocket(get(), get()) }
     single { AuthRepository(get(), get(), get(), get(), get(), get()) }
     single { DesktopPrefs(get()) }
     // Auto-update DIY (zip-swap via GitHub Releases). Usa o OkHttp "plain" (mesmo

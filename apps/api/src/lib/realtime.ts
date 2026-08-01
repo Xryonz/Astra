@@ -51,3 +51,31 @@ export function profileChanged(userId: string) {
 export function presenceChanged(userId: string, status: string) {
   io?.emit('presence_update', { userId, status: status === 'INVISIBLE' ? 'OFFLINE' : status })
 }
+
+// A CONSTELACAO em si mudou: nome, icone, banner, descricao. Aparece na rail, no
+// cabecalho e no cartao de convite ao mesmo tempo — mais barato mandar refazer a
+// busca do que tentar remendar cada lugar.
+export function serverUpdated(serverId: string) {
+  io?.to(`server:${serverId}`).emit('server_updated', { serverId })
+}
+
+// A constelacao deixou de existir. Tem que sair ANTES do delete no banco: depois
+// dele nao ha mais como saber quem era membro. Sem isto, todo mundo ficava com um
+// icone fantasma na rail que so sumia no proximo boot — e clicar nele dava erro.
+export function serverGone(serverId: string) {
+  io?.to(`server:${serverId}`).emit('server_gone', { serverId })
+}
+
+// Cargos mexeram (criou, renomeou, mudou cor/permissao, deu ou tirou de alguem).
+// Mexe em duas telas: o painel de cargos e a lista de membros (cor do nome e
+// agrupamento por cargo). Um ping so; cada tela rebusca o que usa.
+export function rolesChanged(serverId: string) {
+  io?.to(`server:${serverId}`).emit('server_roles', { serverId })
+}
+
+// Perdi acesso a uma constelacao (sai, fui expulso ou banido). Vai pra sala
+// pessoal porque, no caso do banimento, a pessoa ja foi tirada da sala do
+// servidor — mandar pra la seria falar pra uma sala em que ela nao esta mais.
+export function leftServer(userId: string, serverId: string) {
+  io?.to(`user:${userId}`).emit('server_left', { serverId })
+}

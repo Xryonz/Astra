@@ -106,8 +106,31 @@ export async function notify(opts: NotifyOpts): Promise<NotifyResult> {
     const quiet  = isInQuietHours(prefs)
     const muted  = isDnd || quiet
 
+    // QUEM mandou entra AQUI, num lugar so.
+    //
+    // Antes cada chamador montava o proprio authorName e caia num literal
+    // 'Alguém' quando a busca do autor não vinha — e o app mostrava "alguém" na
+    // lista de notificações, sem jeito de saber de quem era. Preencher no centro
+    // torna impossivel esquecer no proximo tipo de notificação que alguem criar.
+    // Tambem guarda o @usuario: displayName pode mudar, e o @ e o que identifica
+    // a pessoa sem sombra de duvida.
+    const enriched = { ...payload }
+    if (actorId && !enriched.authorName) {
+      const [actor] = await db.select({
+        username:    users.username,
+        displayName: users.displayName,
+        avatarUrl:   users.avatarUrl,
+      }).from(users).where(eq(users.id, actorId)).limit(1)
+      if (actor) {
+        enriched.authorId     = actorId
+        enriched.authorName   = actor.displayName || actor.username
+        enriched.authorUsername = actor.username
+        enriched.authorAvatar = enriched.authorAvatar ?? actor.avatarUrl ?? null
+      }
+    }
+
     const [created] = await db.insert(notifications).values({
-      userId, type, payload: JSON.stringify(payload),
+      userId, type, payload: JSON.stringify(enriched),
     }).returning({ id: notifications.id, createdAt: notifications.createdAt })
 
     io.to(`user:${userId}`).emit('notification', {

@@ -21,6 +21,7 @@
     "@astra/types": "*",
     "@aws-sdk/client-s3": "^3.1068.0",
     "@sentry/node": "^10.55.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^2.4.3",
     "blurhash": "^2.0.5",
     "compression": "^1.8.1",

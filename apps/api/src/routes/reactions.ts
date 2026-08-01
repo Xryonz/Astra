@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { Server as SocketServer } from 'socket.io'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
-import { channels, serverMembers, messages, messageReactions, users } from '../db/schema'
+import { channels, serverMembers, messages, messageReactions } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -66,17 +66,14 @@ export function createReactionsRouter(io: SocketServer) {
       io.to(`channel:${channelId}`).emit('reaction_update', { messageId, channelId, reactions })
 
       if (action === 'added' && message.authorId !== req.userId) {
-        const [actor] = await db.select({
-          displayName: users.displayName, avatarUrl: users.avatarUrl,
-        }).from(users).where(eq(users.id, req.userId!)).limit(1)
+        // Sem buscar o autor aqui: o notify() preenche nome/@/foto a partir do
+        // actorId (uma consulta so, no lugar certo).
         notify({
           io, userId: message.authorId, actorId: req.userId!, type: 'reaction',
           payload: {
             messageId, channelId, serverId: channel.serverId,
             emoji,
             authorId:    req.userId!,
-            authorName:  actor?.displayName ?? 'Alguém',
-            authorAvatar: actor?.avatarUrl ?? null,
             preview:     (message.content ?? '').slice(0, 80),
           },
 

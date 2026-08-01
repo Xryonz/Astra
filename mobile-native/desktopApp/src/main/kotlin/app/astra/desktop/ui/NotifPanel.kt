@@ -72,6 +72,8 @@ private data class NotifPayload(
     val serverName: String? = null,
     val conversationId: String? = null,
     val authorName: String? = null,
+    // Rede de seguranca do nome: displayName pode faltar em conta antiga, o @ nunca.
+    val authorUsername: String? = null,
     val authorAvatar: String? = null,
     val preview: String? = null,
     val emoji: String? = null,
@@ -87,6 +89,7 @@ fun NotifPanel(
 ) {
     val json = remember { GlobalContext.get().get<Json>() }
     val api = remember { GlobalContext.get().get<NotificationApi>() }
+    val socket = remember { GlobalContext.get().get<app.astra.desktop.net.DesktopSocket>() }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var items by remember { mutableStateOf<List<NotificationItemDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -96,8 +99,16 @@ fun NotifPanel(
         loading = false
     }
 
-    fun parse(it: NotificationItemDto): NotifPayload =
-        it.payload?.let { p -> runCatching { json.decodeFromJsonElement<NotifPayload>(p) }.getOrNull() } ?: NotifPayload()
+    // O runCatching aqui e uma fabrica de bug invisivel: qualquer problema no
+    // payload virava um NotifPayload vazio, e a linha aparecia como "alguém" sem
+    // pista nenhuma do motivo. Continua não quebrando a tela — mas agora deixa
+    // rastro no Diagnostico, que e o que separa "chegou torto" de "chegou vazio".
+    fun parse(it: NotificationItemDto): NotifPayload {
+        val p = it.payload ?: return NotifPayload()
+        return runCatching { json.decodeFromJsonElement<NotifPayload>(p) }
+            .onFailure { e -> socket.noteLocal("· notificação ilegível: ${e.message?.take(50)}") }
+            .getOrNull() ?: NotifPayload()
+    }
 
     fun open(item: NotificationItemDto) {
         val p = parse(item)
@@ -201,7 +212,7 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
     val hov by src.collectIsHoveredAsState()
     val unread = item.readAt == null
     val bg by animateColorAsState(if (hov) Obsidian.hover else Color.Transparent, tween(100))
-    val author = p.authorName ?: "alguém"
+    val author = p.authorName ?: p.authorUsername?.let { "@$it" } ?: "alguém"
     val (title, sub) = when (item.type) {
         "mention"       -> "$author mencionou você" to channelSub(p)
         "reply"         -> "$author respondeu você" to channelSub(p)

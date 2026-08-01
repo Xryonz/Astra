@@ -36,10 +36,20 @@ composeCompiler {
 }
 
 // jpackage/jlink quebram com caminho non-ASCII no Windows (o repo mora em
-// ".../Codigos e Loucuras/..."). Pra EMPACOTAR o .exe, redirecione o build deste
-// modulo pra um path sem acento:
-//   ./gradlew :desktopApp:createDistributable -Pastra.distDir=C:/astra-dist
-// Sem a flag, nada muda (build normal em build/).
+// ".../Codigos e Loucuras/..."), entao o empacote sai do repo e vai pra um
+// caminho limpo. Tudo do Astra mora em C:/Astra:
+//
+//   C:/Astra/build/      <- saida do empacote (era a pasta astra-dist solta)
+//   C:/Astra/versions/   <- as versoes instaladas
+//   C:/Astra/multi/      <- copia pra abrir como OUTRA pessoa (testar call)
+//
+// Pra empacotar: ./gradlew :desktopApp:zipDistributable -Pastra.dist
+// (o valor e opcional; da pra mandar outro caminho com -Pastra.dist=D:/foo)
+// Sem a flag, nada muda: build normal em build/, dentro do repo.
+providers.gradleProperty("astra.dist").orNull?.let {
+    layout.buildDirectory.set(file(it.ifBlank { "C:/Astra/build" }))
+}
+// Nome antigo, mantido pra nao quebrar comando ja anotado em outro lugar.
 providers.gradleProperty("astra.distDir").orNull?.let {
     layout.buildDirectory.set(file(it))
 }
@@ -52,7 +62,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.36"
+val astraVersion = "0.1.37"
 
 dependencies {
     implementation(project(":shared"))

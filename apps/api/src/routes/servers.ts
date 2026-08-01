@@ -14,7 +14,7 @@ import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
-import { channelsChanged, membersChanged, joinedServer } from '../lib/realtime'
+import { channelsChanged, membersChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
 
 export const serversRouter = Router()
 
@@ -241,6 +241,9 @@ serversRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.SERVER_UPDATE,
       targetId: serverId, metadata: { fields: Object.keys(patch) },
     })
+    // Nome/icone/banner aparecem na rail e no cabecalho de TODO mundo — sem este
+    // aviso, so quem editou via a mudanca ate os outros reabrirem o app.
+    serverUpdated(serverId)
     const updated = await serverWithChannelsAndCount(serverId)
     res.json({ data: updated })
   })
@@ -357,6 +360,9 @@ serversRouter.patch(
     if (target.role === 'OWNER') return res.status(400).json({ error: 'Não é possível alterar o cargo do dono' })
 
     await db.update(serverMembers).set({ role }).where(eq(serverMembers.id, memberId))
+    // Virar ADMIN muda o que a pessoa PODE fazer: sem o aviso, ela continuava
+    // vendo a tela de membro comum ate reabrir o app.
+    membersChanged(serverId)
     res.json({ data: { id: memberId, role } })
   })
 )
@@ -416,6 +422,9 @@ serversRouter.delete(
     await db.delete(serverMembers).where(eq(serverMembers.id, memberId))
     void invalidateMembersCache(serverId)
     membersChanged(serverId)
+    // Quem foi expulso precisa saber TAMBEM: senao a constelacao continua na rail
+    // dele, e clicar so devolve erro.
+    leftServer(target.userId, serverId)
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
       targetId: target.userId,
@@ -438,6 +447,9 @@ serversRouter.delete(
       return res.status(403).json({ error: 'Apenas o dono pode excluir o servidor' })
     }
 
+    // ANTES do delete: depois dele nao ha mais membros no banco pra avisar, e a
+    // constelacao ficaria de fantasma na rail de todo mundo ate o proximo boot.
+    serverGone(serverId)
     await db.delete(servers).where(eq(servers.id, serverId))
     res.json({ message: 'Servidor excluído com sucesso' })
   })

@@ -7,6 +7,8 @@ initSentry()
 import express    from 'express'
 import http       from 'http'
 import { Server as SocketServer } from 'socket.io'
+import { createAdapter } from '@socket.io/redis-adapter'
+import { redis } from './lib/redis'
 import cors       from 'cors'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
@@ -79,6 +81,23 @@ const io = new SocketServer(httpServer, {
   pingTimeout:       20_000,
   pingInterval:      25_000,
 })
+// UMA instancia so alcanca os sockets DELA. `io.emit` num processo nao chega em
+// quem esta conectado no outro — e o dia em que a API rodar em 2 processos,
+// METADE dos avisos some sem erro nenhum no log. O adapter do Redis resolve isso
+// repassando os eventos por pub/sub.
+//
+// Fica atras de um interruptor (SOCKET_ADAPTER=redis) de proposito, e nao ligado
+// sempre, por dois motivos concretos: o plano free do Upstash conta comando e o
+// adapter publica um por broadcast, e nem todo Redis gerenciado libera pub/sub.
+// Hoje o Render roda 1 instancia — ligar so gastaria cota sem ganhar nada.
+// No dia que escalar: uma variavel de ambiente, sem tocar em codigo.
+if (process.env.SOCKET_ADAPTER === 'redis') {
+  const pub = redis.duplicate()
+  const sub = redis.duplicate()
+  io.adapter(createAdapter(pub, sub))
+  console.log('[Socket] adapter Redis ligado (varias instancias)')
+}
+
 setupSocket(io)
 // Rotas que emitem por socket sao routers `const` (nao factory) — io por setter.
 attachRealtime(io)

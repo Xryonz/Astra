@@ -550,6 +550,13 @@ class ChatVm(
 
     private fun listenLive() {
         liveJob = scope.launch {
+            launch {
+                // Voltou do mundo dos mortos: tudo que passou enquanto o socket
+                // esteve fora nao chega atrasado, simplesmente NAO chega. Recarregar
+                // a conversa aberta e o unico jeito de a tela parar de mentir —
+                // vale pra canal e pra sussurro, por isso fica fora do `when`.
+                socket.reconnected.collect { load() }
+            }
             when (target) {
                 is ChatTarget.Channel -> {
                     launch {

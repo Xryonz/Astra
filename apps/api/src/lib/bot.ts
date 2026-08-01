@@ -1,12 +1,13 @@
 
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { users } from '../db/schema'
+import { users, wishingStars } from '../db/schema'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from './coordinate'
 import { redis } from './redis'
 import { env } from './env'
 import { logger } from './logger'
+import { profileChanged } from './realtime'
 import {
   pushTurn, getHistory, countTurns, getSummary, setSummary, clearMemory,
   consumeTokens, consumeToolCall, SUMMARY_TRIGGER, WORKING_WINDOW, type MemoryTurn,
@@ -17,6 +18,83 @@ import { botInvocationsTotal, botTokensTotal } from './metrics'
 export const BOT_USERNAME    = 'astra_bot'
 export const BOT_DISPLAYNAME = 'Astra'
 export const BOT_EMAIL       = 'bot@astra.internal'
+
+// ============ PERSONA POR DIA ============
+//
+// Mesma conta, dois turnos: de segunda a sexta quem atende e a Sparkle; sabado e
+// domingo entra a Sparxie, com comandos que so existem no fim de semana.
+//
+// UMA conta de proposito. Duas contas separariam o historico de mensagens em
+// dois autores diferentes, e uma conversa de sexta ficaria com o nome errado pra
+// sempre no sabado — sem contar dois cadastros pra manter. Aqui o que muda e o
+// nome exibido e o tom; a memoria, os comandos e o id continuam os mesmos.
+//
+// O dia e o de SAO PAULO, nao o do servidor. O Render roda em UTC: sem isto, a
+// Sparxie entraria de turno as 21h de sexta e a Sparkle voltaria as 21h de
+// domingo — errado nas duas pontas.
+export interface Persona {
+  chave:   'sparkle' | 'sparxie'
+  nome:    string
+  prefixo: string
+  emoji:   string
+  tom:     string
+}
+
+const SPARKLE: Persona = {
+  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦',
+  tom: 'Você é a Sparkle, de plantão nos dias de semana. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
+}
+const SPARXIE: Persona = {
+  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧',
+  tom: 'Você é a Sparxie, que assume nos fins de semana. Tom mais solto e brincalhão que o da Sparkle (sua irmã de plantão nos dias úteis), sem virar palhaçada. É fim de semana: puxa papo, sugere programa, celebra.',
+}
+
+export function ehFimDeSemana(agora: Date = new Date()): boolean {
+  const dia = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(agora)
+  return dia === 'Sat' || dia === 'Sun'
+}
+
+export function personaDoDia(agora: Date = new Date()): Persona {
+  return ehFimDeSemana(agora) ? SPARXIE : SPARKLE
+}
+
+// Os DOIS nomes respondem sempre, mesmo fora do turno — e `/astra` continua
+// valendo porque e o que o app mobile ja manda. Recusar o nome "errado" so
+// renderia "comando não existe" pra quem digitou certo na terça o que aprendeu no
+// sabado. Quem estiver de plantao responde e avisa quem e, o que ensina a regra
+// sem irritar ninguem.
+export const PREFIXOS_BOT = ['/sparkle', '/sparxie', '/astra'] as const
+
+export function prefixoUsado(content: string): string | null {
+  const lower = content.toLowerCase().trimStart()
+  return PREFIXOS_BOT.find((p) => lower === p || lower.startsWith(`${p} `)) ?? null
+}
+
+// Devolve o que veio DEPOIS do prefixo ("/sparxie festa" -> "festa").
+export function semPrefixo(content: string): string {
+  const p = prefixoUsado(content)
+  return p ? content.trimStart().slice(p.length).trim() : content.trim()
+}
+
+// O nome exibido acompanha o turno. Roda antes de responder: uma leitura barata,
+// e o UPDATE so acontece no dia em que o nome de fato muda (2x por semana).
+// O aviso de perfil faz o nome trocar na tela de quem esta com o app aberto, sem
+// precisar reabrir nada.
+export async function sincronizaPersona(botId: string): Promise<Persona> {
+  const persona = personaDoDia()
+  try {
+    const [atual] = await db.select({ displayName: users.displayName })
+      .from(users).where(eq(users.id, botId)).limit(1)
+    if (atual && atual.displayName !== persona.nome) {
+      await db.update(users).set({ displayName: persona.nome }).where(eq(users.id, botId))
+      profileChanged(botId)
+      logger.info('Bot', `persona do dia: ${persona.nome}`)
+    }
+  } catch (e) {
+    logger.error('Bot', `nao deu pra trocar a persona: ${(e as Error).message}`)
+  }
+  return persona
+}
 
 const MODEL_SONNET = 'claude-sonnet-4-6'
 const MODEL_HAIKU  = 'claude-haiku-4-5-20251001'
@@ -68,12 +146,15 @@ export async function getBotId(): Promise<string | null> {
   return bot?.id ?? null
 }
 
-const SYSTEM_PROMPT = `Você é a Astra, assistente oficial da plataforma de chat Astra.
+// Quem VOCE e vem no bloco de persona, logo abaixo — este texto e o que nao muda
+// e por isso fica no cache do prompt (trocar 2x por semana derrubaria o cache).
+const SYSTEM_PROMPT = `Você é a assistente oficial da plataforma de chat Astra.
 
 Comportamento:
 - Português brasileiro, conciso (1-3 parágrafos curtos).
 - Útil, direto, sem floreios. Use markdown leve quando ajudar (negrito, listas).
 - Você tem memória das últimas conversas neste canal (24h, expira automaticamente).
+- Nunca diga que é "a Astra": Astra é a plataforma. Seu nome é o que vier no bloco de persona.
 - Você tem ferramentas pra buscar mensagens, resumir o canal, ver info de servidor/usuário. Use quando fizer sentido.
 - NUNCA invente fatos sobre o que aconteceu no servidor — se precisar saber, use as ferramentas.
 - NUNCA mencione que é baseado em Claude/Anthropic. Você é "a Astra".
@@ -114,6 +195,9 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   ])
 
   const systemBlocks: any[] = [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
+  // Bloco de persona FORA do cache: e a unica parte que muda de dia pra dia.
+  const persona = personaDoDia()
+  systemBlocks.push({ type: 'text', text: `\n\nSua persona de hoje:\n${persona.tom}\nSeu nome é ${persona.nome}. Assine mentalmente com ${persona.emoji} quando fizer sentido, sem exagero.` })
   if (summary) {
     systemBlocks.push({
       type: 'text',
@@ -220,45 +304,120 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 // Fica numa lista so de proposito: uma lista no backend e outra no app seriam
 // duas verdades, e uma delas ficaria velha na primeira vez que alguem adicionasse
 // um comando. Adicionar aqui e o bastante pra aparecer nos dois lugares.
-export const BOT_COMMANDS: Array<{ name: string; description: string; category: string }> = [
-  { name: '/astra',        category: 'Conversa',   description: 'conversa comigo (lembro das últimas 24h)' },
-  { name: '/astra ajuda',  category: 'Utilitários', description: 'mostra esta lista' },
-  { name: '/astra reset',  category: 'Conversa',   description: 'apaga minha memória deste canal' },
-  { name: '/astra ping',   category: 'Utilitários', description: 'testa a latência' },
-  { name: '/astra status', category: 'Utilitários', description: 'status da plataforma' },
-  { name: '/astra mute',   category: 'Moderação',  description: 'verifica se você está silenciado' },
+// `sufixo` e o que vem depois do prefixo; o prefixo entra na hora, conforme quem
+// esta de plantao. Guardar "/astra ping" cravado aqui daria uma caixinha que
+// ensina o comando errado no sabado.
+interface ComandoBot {
+  sufixo:      string
+  description: string
+  category:    string
+  so?:         'sparxie' // so aparece (e so responde) no fim de semana
+}
+
+const COMANDOS: ComandoBot[] = [
+  { sufixo: '',       category: 'Conversa',    description: 'conversa comigo (lembro das últimas 24h)' },
+  { sufixo: 'ajuda',  category: 'Utilitários', description: 'mostra esta lista' },
+  { sufixo: 'reset',  category: 'Conversa',    description: 'apaga minha memória deste canal' },
+  { sufixo: 'ping',   category: 'Utilitários', description: 'testa a latência' },
+  { sufixo: 'status', category: 'Utilitários', description: 'status da plataforma' },
+  { sufixo: 'mute',   category: 'Moderação',   description: 'verifica se você está silenciado' },
+  // --- so no fim de semana, com a Sparxie ---
+  { sufixo: 'desejo', category: 'Fim de semana', description: 'joga um desejo na estrela cadente', so: 'sparxie' },
+  { sufixo: 'festa',  category: 'Fim de semana', description: 'sorteia um programa pro fim de semana', so: 'sparxie' },
+]
+
+// O que aparece na caixinha do "/" HOJE: prefixo do plantao + os extras de fim
+// de semana so quando e fim de semana.
+export function comandosDeHoje(agora: Date = new Date()): Array<{ name: string; description: string; category: string }> {
+  const p = personaDoDia(agora)
+  return COMANDOS
+    .filter((c) => !c.so || c.so === p.chave)
+    .map((c) => ({
+      name:        c.sufixo ? `${p.prefixo} ${c.sufixo}` : p.prefixo,
+      description: c.description,
+      category:    c.category,
+    }))
+}
+
+const PROGRAMAS_DE_FDS = [
+  'maratona de série com a call aberta',
+  'jogatina em grupo — quem entrar por último escolhe o jogo',
+  'noite de filme ruim: cada um indica o pior que já viu',
+  'call de música: cada um manda uma que ninguém conhece',
+  'sessão de fotos antigas no chat',
+  'campeonato improvisado de qualquer coisa',
+  'sair do PC e voltar com uma história pra contar',
 ]
 
 export async function handleBotCommand(
   content: string,
   extras: { username: string; isMuted: boolean; muteSecondsLeft: number; userId?: string; channelId?: string },
 ): Promise<string | null> {
-  const lower = content.toLowerCase().trim()
+  const persona = personaDoDia()
+  const arg     = semPrefixo(content)
+  const lower   = arg.toLowerCase()
+  const verbo   = lower.split(/\s+/)[0] ?? ''
 
-  if (lower === '/astra help' || lower === '/astra ajuda') {
+  // Chamou pelo nome de quem esta de folga: responde do mesmo jeito e aproveita
+  // pra apresentar quem esta de plantao. Recusar seria so um erro a mais.
+  const chamou = prefixoUsado(content)
+  const trocado =
+    (chamou === '/sparkle' && persona.chave === 'sparxie') ||
+    (chamou === '/sparxie' && persona.chave === 'sparkle')
+  const nota = trocado
+    ? `\n\n_(${chamou === '/sparkle' ? 'a Sparkle folga no fim de semana' : 'a Sparxie só aparece sábado e domingo'} — quem responde agora sou eu, ${persona.nome} ${persona.emoji}. Use \`${persona.prefixo}\`.)_`
+    : ''
+
+  if (verbo === 'help' || verbo === 'ajuda') {
     return [
-      '**Comandos disponíveis:**',
-      ...BOT_COMMANDS.map((c) => `\`${c.name}\` — ${c.description}`),
+      `**${persona.nome} ${persona.emoji} — comandos de hoje:**`,
+      ...comandosDeHoje().map((c) => `\`${c.name}\` — ${c.description}`),
+      '',
+      ehFimDeSemana()
+        ? '_É fim de semana: os comandos de festa e desejo só existem agora._'
+        : '_Sábado e domingo quem atende é a Sparxie, com comandos que só rolam no fim de semana._',
       '',
       'Tenho ferramentas pra buscar mensagens, resumir o canal e olhar info de membros. Pergunta naturalmente.',
-    ].join('\n')
+    ].join('\n') + nota
   }
 
-  if (lower === '/astra reset') {
+  if (verbo === 'reset') {
     if (!extras.userId || !extras.channelId) return null
     await clearMemory(extras.userId, extras.channelId)
-    return '✓ Memória limpa neste canal.'
+    return '✓ Memória limpa neste canal.' + nota
   }
 
-  if (lower === '/astra ping')   return `🏓 Pong, @${extras.username}!`
-  if (lower === '/astra status') return '✅ Todos os sistemas operacionais.'
+  if (verbo === 'ping')   return `🏓 Pong, @${extras.username}!` + nota
+  if (verbo === 'status') return '✅ Todos os sistemas operacionais.' + nota
 
-  if (lower === '/astra mute' || lower === '/astra silenciado') {
+  if (verbo === 'mute' || verbo === 'silenciado') {
     if (extras.isMuted) {
       const mins = Math.ceil(extras.muteSecondsLeft / 60)
-      return `🔇 Você está silenciado por aproximadamente **${mins} minuto(s)**.`
+      return `🔇 Você está silenciado por aproximadamente **${mins} minuto(s)**.` + nota
     }
-    return '🔊 Você não está silenciado.'
+    return '🔊 Você não está silenciado.' + nota
+  }
+
+  // ---- so no fim de semana ----
+  // Fora do fim de semana a resposta explica QUANDO volta, em vez de fingir que o
+  // comando nunca existiu (foi visto na caixinha do "/" no sabado).
+  if (verbo === 'desejo' || verbo === 'festa') {
+    if (!ehFimDeSemana()) {
+      return `${persona.emoji} \`${verbo}\` é coisa da Sparxie — volta sábado. Até lá quem cuida do plantão sou eu, ${persona.nome}.`
+    }
+    if (verbo === 'festa') {
+      const escolha = PROGRAMAS_DE_FDS[Math.floor(Math.random() * PROGRAMAS_DE_FDS.length)]
+      return `✧ Programa de fim de semana sorteado: **${escolha}**.`
+    }
+    const desejo = arg.slice(verbo.length).trim()
+    if (desejo.length < 4) return '✧ Escreve o desejo junto: `/sparxie desejo quero...`'
+    if (!extras.userId) return null
+    try {
+      await db.insert(wishingStars).values({ userId: extras.userId, content: desejo.slice(0, 500) })
+      return `✧ Desejo lançado, @${extras.username}. A estrela levou.`
+    } catch {
+      return '✧ A estrela passou rápido demais — tenta de novo.'
+    }
   }
 
   return null

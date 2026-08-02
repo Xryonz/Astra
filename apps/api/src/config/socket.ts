@@ -235,7 +235,7 @@ export function setupSocket(io: Server) {
 
             authorColor: null, reactions: [], mentions: [],
             // Aviso de moderacao sai com o nome de quem esta de plantao hoje.
-            author: { id: botId, username: 'astra_bot', displayName: personaDoDia().nome, avatarUrl: null },
+            author: { id: botId, username: 'astra_bot', displayName: personaDoDia().nome, avatarUrl: personaDoDia().avatar },
           }
           io.to(`channel:${channelId}`).emit('new_message', botMsg)
         }

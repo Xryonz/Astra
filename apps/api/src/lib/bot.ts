@@ -13,6 +13,7 @@ import {
   consumeTokens, consumeToolCall, SUMMARY_TRIGGER, WORKING_WINDOW, type MemoryTurn,
 } from './botMemory'
 import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
+import { AVATAR_SPARKLE, AVATAR_SPARXIE } from './botAvatars'
 import { botInvocationsTotal, botTokensTotal } from './metrics'
 
 export const BOT_USERNAME    = 'astra_bot'
@@ -37,15 +38,16 @@ export interface Persona {
   nome:    string
   prefixo: string
   emoji:   string
+  avatar:  string
   tom:     string
 }
 
 const SPARKLE: Persona = {
-  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦',
+  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: AVATAR_SPARKLE,
   tom: 'Você é a Sparkle, de plantão nos dias de semana. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
-  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧',
+  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: AVATAR_SPARXIE,
   tom: 'Você é a Sparxie, que assume nos fins de semana. Tom mais solto e brincalhão que o da Sparkle (sua irmã de plantão nos dias úteis), sem virar palhaçada. É fim de semana: puxa papo, sugere programa, celebra.',
 }
 
@@ -76,17 +78,19 @@ export function semPrefixo(content: string): string {
   return p ? content.trimStart().slice(p.length).trim() : content.trim()
 }
 
-// O nome exibido acompanha o turno. Roda antes de responder: uma leitura barata,
-// e o UPDATE so acontece no dia em que o nome de fato muda (2x por semana).
-// O aviso de perfil faz o nome trocar na tela de quem esta com o app aberto, sem
-// precisar reabrir nada.
+// O nome exibido E a foto acompanham o turno. Roda antes de responder: uma leitura
+// barata, e o UPDATE so acontece no dia em que a persona de fato muda (2x por
+// semana) — ou uma unica vez, depois de trocar a arte. O aviso de perfil faz o
+// rosto trocar na tela de quem esta com o app aberto, sem precisar reabrir nada.
 export async function sincronizaPersona(botId: string): Promise<Persona> {
   const persona = personaDoDia()
   try {
-    const [atual] = await db.select({ displayName: users.displayName })
+    const [atual] = await db.select({ displayName: users.displayName, avatarUrl: users.avatarUrl })
       .from(users).where(eq(users.id, botId)).limit(1)
-    if (atual && atual.displayName !== persona.nome) {
-      await db.update(users).set({ displayName: persona.nome }).where(eq(users.id, botId))
+    if (atual && (atual.displayName !== persona.nome || atual.avatarUrl !== persona.avatar)) {
+      await db.update(users)
+        .set({ displayName: persona.nome, avatarUrl: persona.avatar })
+        .where(eq(users.id, botId))
       profileChanged(botId)
       logger.info('Bot', `persona do dia: ${persona.nome}`)
     }
@@ -130,7 +134,9 @@ export async function initBot(): Promise<string> {
     displayName: BOT_DISPLAYNAME,
     isBot:       true,
     bio:         'Bot oficial da Astra. Memória de 24h. Use /astra <pergunta>',
-    avatarUrl:   null,
+    // Ja nasce com rosto. Antes entrava null aqui e nada preenchia depois — a conta
+    // do bot passava a vida inteira sem foto.
+    avatarUrl:   personaDoDia().avatar,
   }).returning({ id: users.id })
 
   logger.info('Bot', `Conta criada: ${bot.id}`)

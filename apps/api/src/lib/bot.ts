@@ -42,14 +42,20 @@ export interface Persona {
 }
 
 // As fotos vivem em apps/api/public/bot/ e sao servidas em /static (ver index.ts).
-// URL RELATIVA de proposito: o desktop ja prefixa a BASE_URL sozinho
-// (RelativeUrlMapper) e o mesmo valor serve dev e producao sem env nenhuma.
+//
+// ABSOLUTA quando a API sabe o proprio endereco, RELATIVA quando nao sabe. Os dois
+// clientes nativos aceitam relativa (o desktop prefixa a BASE_URL sozinho, no
+// RelativeUrlMapper), mas o web joga avatarUrl cru dentro de <img src> — e ali uma
+// URL relativa aponta pro dominio da Vercel, onde /static nao existe. Com API_URL
+// preenchida no Render, os tres acertam.
+const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
+
 const SPARKLE: Persona = {
-  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: '/static/bot/sparkle.jpg',
+  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
   tom: 'Você é a Sparkle, de plantão nos dias de semana. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
-  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: '/static/bot/sparxie.jpg',
+  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
   tom: 'Você é a Sparxie, que assume nos fins de semana. Tom mais solto e brincalhão que o da Sparkle (sua irmã de plantão nos dias úteis), sem virar palhaçada. É fim de semana: puxa papo, sugere programa, celebra.',
 }
 

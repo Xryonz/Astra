@@ -70,6 +70,18 @@ sealed interface Selection {
     }
 }
 
+// Fui expulso ou banido de uma constelacao. Vira um aviso no meio da tela.
+//
+// Existe porque perder acesso sem explicacao e a pior versao do "nao atualizou":
+// a constelacao some da rail e a pessoa nao sabe se foi expulsa, banida, se saiu
+// sem querer ou se a constelacao acabou. As quatro pedem reacoes diferentes.
+data class Penalidade(
+    /** "expulso" ou "banido". */
+    val tipo: String,
+    val constelacao: String?,
+    val motivo: String?,
+)
+
 data class ShellUiState(
     val loading: Boolean = true,
     val error: String? = null,
@@ -87,6 +99,8 @@ data class ShellUiState(
     val friendsOpen: Boolean = false,
     // Sala de voz aberta no palco (sonda V1; persistir em navegacao = V6).
     val voiceChannel: ChannelDto? = null,
+    // Aviso de expulsao/banimento esperando ser lido. null = nada a avisar.
+    val penalidade: Penalidade? = null,
     // Ids (canal ou conversa) com mensagem que você ainda não viu.
     val unread: Set<String> = emptySet(),
     // Contagem de não-lidas por canal (badge com numero). So canais; DM usa o
@@ -859,6 +873,8 @@ class ShellVm(
 
     fun toggleMembers() = _state.update { it.copy(membersOpen = !it.membersOpen) }
 
+    fun dispensarPenalidade() = _state.update { it.copy(penalidade = null) }
+
     private fun listenRealtime() {
         scope.launch {
             launch {
@@ -969,11 +985,41 @@ class ShellVm(
             launch {
                 socket.serverAccessLost.collect { raw ->
                     val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
+                    val st = _state.value
+                    // O nome vem da MINHA lista, antes de recarregar. Depois do
+                    // reload a constelacao ja sumiu e o aviso ficaria sem nome.
+                    val nome = st.servers.firstOrNull { it.id == ev.serverId }?.name
+
+                    // Sair da CALL tambem. A sala de voz ocupa o palco sozinha e
+                    // nao olha a selecao: trocar a selecao deixava a pessoa
+                    // expulsa dentro da call, ouvindo e sendo ouvida, ate ela
+                    // mesma trocar de aba. Era o "a tela continua la".
+                    val naCallDaqui = st.voiceChannel?.let { canal ->
+                        st.servers.firstOrNull { s -> s.id == ev.serverId }
+                            ?.channels?.any { c -> c.id == canal.id } == true
+                    } == true
+                    if (naCallDaqui) leaveVoice()
+
                     // Apagaram, me expulsaram ou me baniram. Se eu estiver DENTRO
                     // dela agora, sair primeiro: deixar a tela aberta numa
                     // constelacao que nao existe mais so rende erro em cada clique.
-                    if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
-                        _state.update { it.copy(selection = Selection.Dms, chat = null, members = emptyList()) }
+                    if ((st.selection as? Selection.Server)?.id == ev.serverId) {
+                        _state.update {
+                            it.copy(
+                                selection = Selection.Dms,
+                                chat = null,
+                                members = emptyList(),
+                                friendsOpen = true,
+                            )
+                        }
+                    }
+                    // So avisa quando foi PENALIDADE. Sair por vontade propria
+                    // passa pelo mesmo evento, e um pop-up dizendo "você saiu"
+                    // logo depois de clicar em sair e so um clique a mais.
+                    if (ev.motivo == "expulso" || ev.motivo == "banido") {
+                        _state.update {
+                            it.copy(penalidade = Penalidade(ev.motivo, nome, ev.reason))
+                        }
                     }
                     reloadServers()
                 }

@@ -76,6 +76,17 @@ export function rolesChanged(serverId: string) {
 // Perdi acesso a uma constelacao (sai, fui expulso ou banido). Vai pra sala
 // pessoal porque, no caso do banimento, a pessoa ja foi tirada da sala do
 // servidor — mandar pra la seria falar pra uma sala em que ela nao esta mais.
-export function leftServer(userId: string, serverId: string) {
-  io?.to(`user:${userId}`).emit('server_left', { serverId })
+// `motivo` existe pra a pessoa saber O QUE aconteceu com ela. Sem isso a
+// constelacao simplesmente sumia da tela e ela ficava sem saber se foi expulsa,
+// banida, se saiu sem querer ou se a constelacao acabou — e as quatro pedem
+// reacoes diferentes (voltar a entrar, pedir desculpa, nada).
+// 'saiu' e o default porque leftServer tambem cobre a saida voluntaria, que nao
+// e penalidade nenhuma e nao deve gerar aviso.
+export function leftServer(
+  userId: string,
+  serverId: string,
+  motivo: 'expulso' | 'banido' | 'saiu' = 'saiu',
+  reason?: string | null,
+) {
+  io?.to(`user:${userId}`).emit('server_left', { serverId, motivo, reason: reason ?? null })
 }

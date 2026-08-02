@@ -424,7 +424,7 @@ serversRouter.delete(
     membersChanged(serverId)
     // Quem foi expulso precisa saber TAMBEM: senao a constelacao continua na rail
     // dele, e clicar so devolve erro.
-    leftServer(target.userId, serverId)
+    leftServer(target.userId, serverId, 'expulso')
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
       targetId: target.userId,

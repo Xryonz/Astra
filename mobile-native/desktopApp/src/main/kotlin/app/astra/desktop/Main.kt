@@ -162,6 +162,11 @@ fun main() {
     // ANTES de tudo: sem isto, excecao não tratada mata o app em silencio (jpackage
     // não tem console) — era o "fecha do nada" sem rastro nenhum.
     CrashLog.install()
+    // Identidade do processo pro Windows. TEM que vir antes de qualquer coisa
+    // grafica: o Windows carimba a identidade quando o icone de bandeja nasce, e
+    // sem ela o Astra e um app anonimo — o aviso sai sem dono e nao aparece em
+    // Configuracoes > Notificacoes pra ninguem ligar ou desligar.
+    WindowsAppId.aplicar()
     // Segundo processo: pede pro Astra aberto aparecer e encerra aqui mesmo.
     if (!SingleInstance.acquireOrSignal()) return
     // Retrato do boot (API grafica do Skia, GC, heap) num arquivo legivel.

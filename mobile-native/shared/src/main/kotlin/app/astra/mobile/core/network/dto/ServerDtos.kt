@@ -161,7 +161,13 @@ data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 // server_joined). So carrega o id: e um PING pra refazer a busca, nao um delta —
 // canal privado faz cada membro ver uma lista diferente, e so o backend sabe qual.
 @Serializable
-data class ServerScopedEventDto(val serverId: String)
+data class ServerScopedEventDto(
+    val serverId: String,
+    // So no server_left: 'expulso' | 'banido' | 'saiu'. Com default porque os
+    // outros eventos que usam este DTO (server_gone, roles, etc.) nao mandam.
+    val motivo: String = "saiu",
+    val reason: String? = null,
+)
 
 // Um comando do bot, como o backend descreve (lib/bot.ts).
 @Serializable

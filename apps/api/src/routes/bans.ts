@@ -96,7 +96,7 @@ bansRouter.post(
     // a constelacao sumir da rail. Sem a segunda, a pessoa continua com o icone
     // la e cada clique so devolve erro — o pior tipo de "nao atualizou".
     membersChanged(serverId)
-    leftServer(userId, serverId)
+    leftServer(userId, serverId, 'banido', reason ?? null)
 
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_BAN,

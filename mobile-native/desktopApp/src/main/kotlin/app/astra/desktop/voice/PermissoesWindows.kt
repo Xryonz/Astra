@@ -1,5 +1,8 @@
 package app.astra.desktop.voice
 
+import app.astra.desktop.WindowsAppId
+import com.sun.jna.platform.win32.Advapi32Util
+import com.sun.jna.platform.win32.WinReg
 import dev.onvoid.webrtc.media.MediaDevices
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
@@ -33,7 +36,51 @@ data class Checagem(
 
 object PermissoesWindows {
 
-    fun todas(): List<Checagem> = listOf(microfone(), camera(), saida(), tela())
+    fun todas(): List<Checagem> = listOf(microfone(), camera(), saida(), tela(), notificacoes())
+
+    // Avisos do Windows.
+    //
+    // Aqui NAO ha permissao pra pedir: app de area de trabalho nao tem janelinha
+    // de "permitir notificacoes". O que da pra conferir sao duas coisas de
+    // verdade: se os avisos estao ligados no sistema, e se o Windows JA CONHECE o
+    // Astra (a entrada so nasce depois do primeiro aviso, e so se o processo tiver
+    // identidade — ver WindowsAppId).
+    //
+    // "Ainda nao conhece" NAO e defeito: e o estado normal antes do primeiro
+    // aviso. Por isso o texto manda usar o botao de testar em vez de mandar mexer
+    // em configuracao que ainda nem existe.
+    fun notificacoes(): Checagem {
+        val ligado = runCatching {
+            Advapi32Util.registryGetIntValue(
+                WinReg.HKEY_CURRENT_USER,
+                "Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications",
+                "ToastEnabled",
+            )
+        }.getOrDefault(1)
+        if (ligado == 0) {
+            return Checagem(
+                "Avisos", Acesso.BLOQUEADO,
+                "As notificações estão desligadas no Windows — nenhum app consegue avisar você.",
+                "ms-settings:notifications",
+            )
+        }
+        val conhecido = runCatching {
+            Advapi32Util.registryKeyExists(
+                WinReg.HKEY_CURRENT_USER,
+                "Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\${WindowsAppId.AUMID}",
+            )
+        }.getOrDefault(false)
+        return if (conhecido) {
+            Checagem("Avisos", Acesso.OK, "O Windows conhece o Astra e deixa ele avisar você.")
+        } else {
+            Checagem(
+                "Avisos", Acesso.MUDO,
+                "O Windows ainda não registrou o Astra — isso acontece no primeiro aviso. " +
+                    "Use \"testar notificação\" em Configurações > Notificações.",
+                "ms-settings:notifications",
+            )
+        }
+    }
 
     // Abre o mic e escuta ~400ms.
     //

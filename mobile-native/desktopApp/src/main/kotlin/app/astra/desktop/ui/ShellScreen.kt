@@ -240,6 +240,26 @@ fun ShellScreen(
         })
     }
 
+    // Fui expulso/banido: o VM ja me tirou da call e da constelacao; aqui so
+    // explico o que houve. Vem DEPOIS do dialogo de permissoes de proposito — se
+    // os dois abrissem juntos, um Popup focavel roubaria o foco do outro.
+    state.penalidade?.let { p ->
+        val onde = p.constelacao?.let { " de $it" } ?: ""
+        CenteredConfirmDialog(
+            message = if (p.tipo == "banido") "você foi banido$onde" else "você foi removido$onde",
+            detalhe = when {
+                !p.motivo.isNullOrBlank() -> "motivo: ${p.motivo}"
+                p.tipo == "banido" -> "não dá pra entrar de novo enquanto o banimento valer."
+                else -> "você pode entrar de novo se receber um convite."
+            },
+            confirmLabel = "entendi",
+            cancelLabel = null,
+            perigo = false,
+            onConfirm = { vm.dispensarPenalidade() },
+            onDismiss = { vm.dispensarPenalidade() },
+        )
+    }
+
     // Janela escondida/minimizada = ninguem olha o auto-preview da transmissão. Ele
     // custa conversao + upload de textura a 60fps, entao desliga enquanto não da pra
     // ver e volta ao reaparecer. O que os OUTROS recebem não muda (encoder e outro
@@ -715,7 +735,13 @@ fun CenteredConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    cancelLabel: String = "cancelar",
+    // null = um botao so. Aviso nao e pergunta: quando nao ha o que escolher, um
+    // "cancelar" ao lado do "entendi" so faz a pessoa procurar a diferenca.
+    cancelLabel: String? = "cancelar",
+    // Detalhe opcional embaixo da frase principal (motivo do banimento, etc.).
+    detalhe: String? = null,
+    // Vermelho = acao destrutiva. Aviso que a pessoa so le nao e destrutivo.
+    perigo: Boolean = true,
 ) {
     val reduce = LocalReduceMotion.current
     val enter = remember { Animatable(if (reduce) 1f else 0f) }
@@ -758,25 +784,35 @@ fun CenteredConfirmDialog(
                     message,
                     style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
                 )
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (detalhe != null) {
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        cancelLabel,
-                        style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                        modifier = Modifier
-                            .clickScale(cancelSrc)
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                            .clickable(interactionSource = cancelSrc, indication = null, onClick = onDismiss)
-                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                        detalhe,
+                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
                     )
+                }
+                Spacer(Modifier.height(16.dp))
+                val corBotao = if (perigo) Obsidian.danger else Obsidian.accent
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (cancelLabel != null) {
+                        Text(
+                            cancelLabel,
+                            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                            modifier = Modifier
+                                .clickScale(cancelSrc)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                                .clickable(interactionSource = cancelSrc, indication = null, onClick = onDismiss)
+                                .padding(horizontal = 16.dp, vertical = 9.dp),
+                        )
+                    }
                     Text(
                         confirmLabel,
-                        style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
+                        style = TextStyle(color = corBotao, fontSize = 13.sp),
                         modifier = Modifier
                             .clickScale(okSrc)
                             .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.danger, RoundedCornerShape(8.dp))
+                            .border(1.dp, corBotao, RoundedCornerShape(8.dp))
                             .clickable(interactionSource = okSrc, indication = null) { onDismiss(); onConfirm() }
                             .padding(horizontal = 16.dp, vertical = 9.dp),
                     )

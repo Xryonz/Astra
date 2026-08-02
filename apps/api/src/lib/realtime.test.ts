@@ -70,7 +70,19 @@ describe('avisos de constelacao', () => {
     leftServer('u9', 'srv1')
     expect(f.to).toHaveBeenCalledWith('user:u9')
     expect(f.to).not.toHaveBeenCalledWith('server:srv1')
-    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1' })
+    // Sem motivo declarado = saida voluntaria: nao gera aviso de penalidade.
+    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'saiu', reason: null })
+  })
+
+  // O motivo e o que deixa a pessoa saber O QUE aconteceu. Antes so sumia a
+  // constelacao da tela e ela ficava sem saber se foi expulsa, banida, ou se a
+  // constelacao acabou — situacoes que pedem reacoes bem diferentes.
+  it('expulsao e banimento viajam com o motivo (e o banimento com a justificativa)', () => {
+    leftServer('u9', 'srv1', 'expulso')
+    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'expulso', reason: null })
+
+    leftServer('u9', 'srv1', 'banido', 'spam')
+    expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'banido', reason: 'spam' })
   })
 })
 

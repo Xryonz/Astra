@@ -326,6 +326,7 @@ class VoiceEngine(
             }
             factory = f
             VoiceLog.nota("1. webrtc nativo ok")
+            anotarSaida()
 
             val data = runCatching { voiceApi.token(VoiceTokenRequest(roomKind, roomId)).data }.getOrNull()
             if (disposed) return@launch
@@ -383,6 +384,23 @@ class VoiceEngine(
             adm = null
             PeerConnectionFactory()
         }
+    }
+
+    // QUAL caixa de som o WebRTC vai usar. Quando o passo 9 disser que os pacotes
+    // CHEGAM e mesmo assim ninguem ouvir nada, a resposta esta nesta linha: o som
+    // esta saindo, so que num aparelho que ninguem esta escutando. Lista vazia aqui
+    // ja e veredito — sem aparelho de saida visivel, nenhuma call vai ter audio.
+    private fun anotarSaida() {
+        val m = adm ?: run {
+            VoiceLog.nota("1b. saida de audio: modulo proprio nao subiu — no padrao do webrtc")
+            return
+        }
+        val nomes = runCatching { m.playoutDevices.map { it.name } }.getOrNull().orEmpty()
+        VoiceLog.nota(
+            if (nomes.isEmpty()) "1b. saida de audio: NENHUM aparelho visivel — nao ha como ouvir ninguem"
+            else "1b. saida de audio: " + (prefs.state.value.audioOutput ?: "padrao do Windows") +
+                " (de " + nomes.size + ": " + nomes.joinToString(", ") + ")",
+        )
     }
 
     // Dispositivos pro seletor da call. Saida = ADM (WebRTC); entrada = Java Sound.

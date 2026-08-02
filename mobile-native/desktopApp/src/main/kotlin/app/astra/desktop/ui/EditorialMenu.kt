@@ -78,7 +78,7 @@ sealed interface MenuEntry {
 }
 
 // Popup na posição do clique (offset dentro da ancora), clampado na janela.
-private class AtPointer(private val at: IntOffset) : PopupPositionProvider {
+internal class AtPointer(private val at: IntOffset) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -131,7 +131,7 @@ fun EditorialContextMenu(
 }
 
 @Composable
-private fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
+internal fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(
         visibleState = entered,

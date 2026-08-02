@@ -42,6 +42,8 @@ import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
+import androidx.compose.foundation.LocalContextMenuRepresentation
+import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.LoginScreen
@@ -341,6 +343,11 @@ fun main() {
             // RikkaUI e CMP (foundation-only): mesmo tema do mobile, tokens obsidiana.
             // Reconstruido AQUI (não top-level) pra ler os tokens reativos do Obsidian
             // -> os componentes RikkaUI recolorem junto quando o tema muda.
+            //
+            // O menu de botao-direito dos campos de texto entra AQUI, e não dentro de
+            // cada campo: assim vale pro compositor do chat, pra busca, pro login e pra
+            // qualquer campo futuro de uma vez so.
+            CompositionLocalProvider(LocalContextMenuRepresentation provides AstraTextContextMenu) {
             RikkaTheme(colors = obsidianRikkaColors()) {
                 Column(
                     Modifier
@@ -485,6 +492,7 @@ fun main() {
                     }
                     }
                 }
+            }
             }
         }
     }

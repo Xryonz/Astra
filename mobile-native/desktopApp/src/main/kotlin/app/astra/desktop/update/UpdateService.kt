@@ -2,6 +2,11 @@ package app.astra.desktop.update
 
 import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
@@ -41,10 +46,19 @@ import kotlin.system.exitProcess
 private const val REPO = "Xryonz/Astra"
 private const val LATEST_PAGE = "https://github.com/$REPO/releases/latest"
 
+// Intervalo da ronda de atualizacao (ver iniciarRonda).
+private const val INTERVALO_RONDA_MS = 20L * 60_000L
+
 sealed interface UpdateState {
     data object Idle : UpdateState
     data object Checking : UpdateState
-    data object UpToDate : UpdateState
+
+    // `vista` = a versao que o GitHub disse ser a mais nova, e QUANDO isso foi
+    // conferido. Sem os dois, "você está na última versão" e uma afirmacao sem
+    // lastro: nao da pra saber se ele olhou agora ou quando o app abriu, nem
+    // contra o que ele comparou. Quem esta esperando uma release sair precisa
+    // exatamente dessa informacao.
+    data class UpToDate(val vista: String, val conferidoEm: Long = System.currentTimeMillis()) : UpdateState
     data class Available(
         val version: String,
         val notes: String,
@@ -91,24 +105,73 @@ class UpdateService(private val http: OkHttpClient) {
     // Astra.exe da versão nova, já extraida em versions/<v>/. Setado no stage.
     private var stagedExe: File? = null
 
+    // ---- Ronda: conferir sozinho enquanto o app esta aberto ----
+    //
+    // O app so olhava o GitHub na ABERTURA. Quem deixa o Astra aberto o dia todo
+    // (o caso normal — ele mora na bandeja) so descobria uma versao nova no
+    // proximo boot, ou clicando "procurar atualizacoes" na sorte. Publicar uma
+    // correcao nao adiantava nada pra quem ja estava com o app aberto.
+    //
+    // 20 minutos: uma release leva ~5min pra sair do build, entao o pior caso e
+    // saber ~25min depois de eu subir o commit — sem ninguem fazer nada. E uma
+    // requisicao que so le um cabecalho de redirecionamento, sem corpo; 3 por hora
+    // por pessoa nao pesa em lado nenhum.
+    //
+    // NAO mexe no estado quando ja ha download/instalacao em andamento: uma ronda
+    // no meio do caminho jogaria a barra de progresso de volta pra "procurando".
+    private var ronda: Job? = null
+
+    fun iniciarRonda(scope: CoroutineScope) {
+        if (!installed || ronda?.isActive == true) return
+        ronda = scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(INTERVALO_RONDA_MS)
+                val agora = _state.value
+                val ocupado = agora is UpdateState.Downloading ||
+                    agora is UpdateState.Ready ||
+                    agora is UpdateState.Available
+                // Falha da ronda NAO vira aviso na tela: ela roda enquanto a
+                // pessoa conversa, e um "sem conexão com o GitHub" brotando do
+                // nada no meio de uma conversa e susto por nada. A proxima volta
+                // tenta de novo.
+                if (!ocupado) check(mostrarFalha = false)
+            }
+        }
+    }
+
     // ---- Checagem ----
 
-    suspend fun check(silent: Boolean) = withContext(Dispatchers.IO) {
+    // mostrarFalha = false -> a falha nao aparece na tela; o estado volta ao que
+    // era. E o modo da ronda, que roda sozinha com a pessoa usando o app.
+    suspend fun check(mostrarFalha: Boolean = true) = withContext(Dispatchers.IO) {
         if (!installed) { _state.value = UpdateState.Idle; return@withContext }
+        val antes = _state.value
         _state.value = UpdateState.Checking
+
+        fun falhou(motivo: String) {
+            _state.value = if (mostrarFalha) UpdateState.Failed(motivo, LATEST_PAGE) else antes
+        }
+
         val release = try {
             fetchLatest()
         } catch (e: Exception) {
-            // Rede caiu de verdade. No gate (silent) não assusta: assume "atualizado"
-            // e segue. Manual (Settings) mostra a causa REAL — sem o falso "sem
-            // conexão" que o rate-limit da API (60/h/IP) disparava antes.
-            _state.value = if (silent) UpdateState.UpToDate
-            else UpdateState.Failed(failureReason(e), LATEST_PAGE)
+            falhou(failureReason(e))
             return@withContext
         }
-        // Sem release publicada, ou não ha nada mais novo que agora.
-        if (release == null || !isNewer(release.version, currentVersion)) {
-            _state.value = UpdateState.UpToDate
+        // NAO CONFUNDIR "nao consegui ler" COM "voce esta atualizado".
+        //
+        // Antes, qualquer resposta que o app nao soubesse interpretar (redirect sem
+        // Location, tag em outro formato, pagina fora do ar) caia em "você está na
+        // última versão" — uma afirmacao TRANQUILIZADORA sobre uma pergunta que
+        // ficou SEM RESPOSTA. Quem esta esperando uma release sair le isso e
+        // conclui que a release nao existe. Uma falha de rede virava a mesma
+        // mentira pelo mesmo caminho.
+        if (release == null) {
+            falhou("não consegui ler a versão publicada")
+            return@withContext
+        }
+        if (!isNewer(release.version, currentVersion)) {
+            _state.value = UpdateState.UpToDate(vista = release.version)
             return@withContext
         }
         _state.value = UpdateState.Available(

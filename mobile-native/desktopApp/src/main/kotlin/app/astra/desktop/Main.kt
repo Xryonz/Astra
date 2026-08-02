@@ -200,6 +200,10 @@ fun main() {
         val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
         LaunchedEffect(Unit) { Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId) }
         var gateDone by remember { mutableStateOf(!updater.installed) }
+        // Ronda: o app deixa de depender de reiniciar pra saber que saiu versao
+        // nova. Vive no escopo da janela — some junto com ela.
+        val escopoDaJanela = rememberCoroutineScope()
+        LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
 
         // Bandeja so quando NAO e "fechar de vez": ligado o exitOnClose, o X ja encerra
         // o app, entao um icone de bandeja seria presenca inutil em segundo plano.

@@ -95,7 +95,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     }
 
     // Gate silencioso: falha de rede vira "atualizado" e segue (sem "não deu").
-    LaunchedEffect(Unit) { updater.check(silent = true) }
+    LaunchedEffect(Unit) { updater.check() }
     // Resolucao TOTALMENTE automatica: achou versão nova -> baixa sozinho (sem
     // clique) -> quando pronto, reinicia e instala. Atualizado/falha seguem pro
     // app. Basta ter QUALQUER versão instalada: o resto anda sem GitHub na mao.

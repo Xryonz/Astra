@@ -1357,7 +1357,9 @@ private fun FaixaDaConstelacao(
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        // Encostados na DIREITA (pedido do dono): o lado esquerdo e a coluna de
+        // leitura da lista de orbitas — botao de acao ali disputa com ela.
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BotaoDaFaixa(Lucide.Users, aceso = membrosAbertos, onClick = onToggleMembros)

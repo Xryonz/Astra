@@ -82,7 +82,15 @@ enum class CardVariante {
 // Largura natural do cartao completo. Estreito de proposito: com 440 ele ficava
 // deitado — muita largura pra pouca altura — e cartao de pessoa e EM PE. Estreitar
 // tambem empurra o texto pra baixo, o que alonga sozinho.
-val LARGURA_CARTAO_COMPLETO = 360.dp
+val LARGURA_CARTAO_COMPLETO = 330.dp
+
+// O banner do cartao COMPLETO e mais alto que o do compacto (3.5 -> 2.6).
+//
+// Altura de cartao de pessoa nao se resolve com espaco vazio no pe: se eu so
+// forcasse uma altura minima, quem tem pouca bio ganharia um buraco embaixo. A
+// faixa do topo e a peca que da pra crescer sem inventar conteudo — e crescer o
+// retrato tambem e o que os cartoes do genero fazem.
+private const val BannerCartaoCompleto = 2.6f
 
 // Largura do cartao compacto (o que abre ao clicar num avatar).
 val LARGURA_CARTAO_NORMAL = 320.dp
@@ -140,12 +148,15 @@ fun ProfileCard(
 ) {
     val completo = variante == CardVariante.COMPLETO
     val recuoH = if (completo) 20.dp else 16.dp
+    val aspectoBanner = if (completo) BannerCartaoCompleto else ProfileBannerAspect
 
     Column(
         modifier
             .clip(RoundedCornerShape(if (completo) 16.dp else 12.dp))
             // Gradiente CONTINUO: uma peca so, do topo do banner ao pe do cartao.
-            .profileCardBackdrop(dados.bannerColor)
+            // O aspecto vai junto — o veu tem que comecar a escurecer onde a faixa
+            // de VERDADE acaba, senao volta a aparecer a linha dura entre as duas.
+            .profileCardBackdrop(dados.bannerColor, aspectoBanner)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(if (completo) 16.dp else 12.dp)),
     ) {
         Box {
@@ -158,10 +169,10 @@ fun ProfileCard(
                 positionY = dados.bannerPositionY,
                 scale = dados.bannerScale,
                 fallback = bannerBackdrop(dados.bannerUrl),
-                modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
+                modifier = Modifier.fillMaxWidth().aspectRatio(aspectoBanner),
             )
             if (completo && animar) {
-                BannerSweep(dados.username, Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect))
+                BannerSweep(dados.username, Modifier.fillMaxWidth().aspectRatio(aspectoBanner))
             }
             if (aoFechar != null) {
                 val fecharSrc = remember { MutableInteractionSource() }

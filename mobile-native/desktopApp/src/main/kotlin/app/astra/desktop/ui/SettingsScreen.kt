@@ -184,6 +184,11 @@ private val abaDeDev: Boolean =
 private val abasVisiveis: List<SettingsTab> =
     SettingsTab.entries.filter { it != SettingsTab.DIAGNOSTICS || abaDeDev }
 
+// Largura da coluna de previa. Era 300 fixa (e 420 empilhada): com DUAS previas
+// lado a lado sobravam ~145dp pra cada cartao, e um cartao encolhido a 40% vira
+// mancha — da pra ver que ha um cartao, nao COMO ele esta.
+private val LARGURA_PREVIA = 420.dp
+
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
 // Notificacoes (toggles do tray) e Movimento (reduzir animações).
@@ -257,7 +262,7 @@ fun SettingsScreen(
             // Com a previa fixa, a coluna de conteudo encolhe pra não correr por
             // baixo dela: 300 da previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
-                if (pinned) minOf(720.dp, (maxWidth - 376.dp).coerceAtLeast(300.dp)) else 720.dp
+                if (pinned) minOf(720.dp, (maxWidth - LARGURA_PREVIA - 76.dp).coerceAtLeast(300.dp)) else 720.dp
             Column(
                 Modifier.align(Alignment.TopStart).widthIn(max = contentMax).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
@@ -286,6 +291,18 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(20.dp))
+
+                // Janela estreita: a previa nao cabe ao lado, entao entra AQUI —
+                // logo abaixo do titulo, antes dos controles. Empilhada no fim (como
+                // era) ela ficava depois do formulario INTEIRO: numa aba alta so
+                // aparecia depois de rolar tudo, e uma previa ao vivo que ninguem ve
+                // enquanto edita nao e previa.
+                if (!pinned && showPreview) {
+                    SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = LARGURA_PREVIA).fillMaxWidth())
+                    Spacer(Modifier.height(18.dp))
+                    SettingsDivider()
+                    Spacer(Modifier.height(18.dp))
+                }
 
                 // Troca de secao com fade + leve zoom (decisao do dono).
                 AnimatedContent(
@@ -331,22 +348,19 @@ fun SettingsScreen(
                     }
                 }
 
-                // Janela abaixo do piso: a previa não cabe ao lado -> empilha
-                // embaixo, separada por um fio.
-                if (!pinned && showPreview) {
-                    SettingsDivider()
-                    SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = 420.dp).fillMaxWidth())
-                    if (tab == SettingsTab.PROFILE) {
-                        Spacer(Modifier.height(14.dp))
-                        ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = 420.dp).fillMaxWidth())
-                    }
+                // O botao de salvar segue no PE do formulario (a previa subiu, ele
+                // nao): salvar e o fim da tarefa, e o lugar dele e onde a tarefa
+                // acaba.
+                if (!pinned && showPreview && tab == SettingsTab.PROFILE) {
+                    Spacer(Modifier.height(14.dp))
+                    ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = LARGURA_PREVIA).fillMaxWidth())
                 }
             }
                 // Previa como card fixo no topo-direita: não rola junto, fica ao lado
                 // dos controles desde o primeiro campo.
                 if (pinned) {
                     Column(
-                        Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(300.dp),
+                        Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(LARGURA_PREVIA),
                     ) {
                         SettingsPreview(tab, me, prefState, draft, Modifier.fillMaxWidth())
                         if (tab == SettingsTab.PROFILE) {
@@ -1956,7 +1970,7 @@ private fun AboutSection() {
     Text("atualizacoes", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "o Astra verifica sozinho ao abrir. você também pode procurar agora.",
+        "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -1964,7 +1978,12 @@ private fun AboutSection() {
 
     when (val s = st) {
         is UpdateState.Checking -> AboutStatus("procurando atualizacoes…")
-        is UpdateState.UpToDate -> AboutStatus("você está na última versão")
+        // Diz CONTRA O QUE comparou e QUANDO. "você está na última versão" sozinho
+        // nao da pra checar: quem acabou de ver uma release sair no GitHub nao tem
+        // como saber se o app olhou agora ou quando abriu, de manha.
+        is UpdateState.UpToDate -> AboutStatus(
+            "você está na ${s.vista} — a mais nova publicada, conferido ${haQuantoTempo(s.conferidoEm)}",
+        )
         is UpdateState.Available -> {
             AboutStatus("nova versão ${s.version} disponível")
             Spacer(Modifier.height(10.dp))
@@ -2000,7 +2019,18 @@ private fun AboutSection() {
     }
 
     Spacer(Modifier.height(16.dp))
-    AboutButton("procurar atualizacoes", accent = false) { scope.launch { updater.check(silent = false) } }
+    AboutButton("procurar atualizacoes", accent = false) { scope.launch { updater.check() } }
+}
+
+// "agora mesmo" / "há 12 min" / "há 2 h". Precisao grossa de proposito: o que
+// importa e se a informacao e de agora ou de horas atras.
+private fun haQuantoTempo(quando: Long): String {
+    val min = (System.currentTimeMillis() - quando) / 60_000
+    return when {
+        min < 1L  -> "agora mesmo"
+        min < 60L -> "há $min min"
+        else      -> "há ${min / 60} h"
+    }
 }
 
 @Composable

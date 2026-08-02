@@ -409,10 +409,8 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                     .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ComposerGlyph(Lucide.Plus, tint = Obsidian.text3, enabled = true) {
-                    val files = chooseFiles()
-                    if (files.isNotEmpty()) vm.addFiles(files)
-                }
+                ComposerPlusButton(onPickFiles = vm::addFiles)
+                Spacer(Modifier.width(4.dp))
                 Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
                     if (draft.isEmpty()) {
                         Text(
@@ -452,12 +450,12 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                     )
                     Spacer(Modifier.width(4.dp))
                 }
-                // Emoji/GIF/arquivo vivem dentro da estrela (menu pra cima).
-                ComposerStarButton(
-                    onPickEmoji = { draft = (draft + it).take(4000) },
-                    onPickGif = vm::sendGif,
-                    onPickFiles = vm::addFiles,
-                )
+                // Seletores A MOSTRA (padrao Discord): GIF e emoji abrem direto, sem
+                // passar por menu. O que "cria coisa" mora no '+', do outro lado.
+                ComposerPickerButton(StarPane.GIF, onPickGif = vm::sendGif)
+                Spacer(Modifier.width(4.dp))
+                ComposerPickerButton(StarPane.EMOJI, onPickEmoji = { draft = (draft + it).take(4000) })
+                Spacer(Modifier.width(4.dp))
                 SendButton(enabled = canSend) { submit() }
             }
         }

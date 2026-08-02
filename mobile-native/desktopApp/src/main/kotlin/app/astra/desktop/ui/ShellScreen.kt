@@ -54,6 +54,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -442,6 +443,8 @@ fun ShellScreen(
             onToggleChannelMute = vm::toggleChannelMute,
             onToggleChannelBot = vm::setChannelBot,
             onToggleCatBot = vm::setCategoryBot,
+            membersOpen = state.membersOpen,
+            onToggleMembers = vm::toggleMembers,
             firstSteps = firstSteps,
         )
         Stage(
@@ -469,9 +472,10 @@ fun ShellScreen(
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
-            // Membros SEMPRE visiveis quando ha constelação selecionada (o dono tirou o
-            // botao de alternar) — entrar numa constelação já mostra os membros.
-            visible = state.selection is Selection.Server,
+            // Volta a ter interruptor (embaixo do banner): entrar numa constelação
+            // ainda mostra os membros — o padrão continua ABERTO —, mas dá pra
+            // fechar e ganhar a largura pro chat.
+            visible = state.selection is Selection.Server && state.membersOpen,
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
         ) {
@@ -1271,6 +1275,55 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
 // Antes era um AstraImage cru com ContentScale.Crop numa altura fixa de 104dp — ou
 // seja, outra proporcao E sem enquadramento nenhum, entao o que se via aqui nunca
 // batia com o que a previa prometia.
+// Interruptor do painel de membros, logo abaixo do banner.
+//
+// A borda ACESA quando o painel está aberto (pedido do dono) resolve o problema
+// clássico do botão que alterna: sem estado visível, cada clique é um palpite.
+// Com o painel aberto ela pulsa de leve — o brilho fica vivo em vez de ser só
+// uma cor diferente —, e fechado volta pra borda apagada.
+@Composable
+private fun MembrosToggle(aberto: Boolean, onToggle: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    val reduzir = LocalReduceMotion.current
+    // Respiro do brilho: 1.6s de ida e volta. Com "reduzir movimento" fica fixo
+    // no meio — o estado continua legível, sem nada se mexendo.
+    val respiro = if (reduzir || !aberto) 0.5f else {
+        val t = rememberInfiniteTransition(label = "membrosGlow")
+        t.animateFloat(
+            initialValue = 0.35f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1600, easing = EaseOutSoft), RepeatMode.Reverse),
+            label = "membrosGlowV",
+        ).value
+    }
+    val corBorda = when {
+        aberto -> Obsidian.accent.copy(alpha = 0.35f + 0.45f * respiro)
+        hov -> Obsidian.borderMid
+        else -> Obsidian.borderDim
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .border(1.dp, corBorda, RoundedCornerShape(9.dp))
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onToggle)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LIcon(Lucide.Users, tint = if (aberto) Obsidian.accent else Obsidian.text3, size = 14.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "membros",
+            style = TextStyle(
+                color = if (aberto) Obsidian.text1 else Obsidian.text3,
+                fontSize = 12.sp,
+            ),
+        )
+    }
+}
+
 @Composable
 private fun ServerHeaderBanner(srv: ServerDto) {
     Box(Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect)) {
@@ -1345,6 +1398,8 @@ private fun Sidebar(
     onToggleChannelMute: (channelId: String) -> Unit,
     onToggleChannelBot: (serverId: String, channelId: String, ligar: Boolean) -> Unit,
     onToggleCatBot: (serverId: String, categoryId: String, ligar: Boolean) -> Unit,
+    membersOpen: Boolean,
+    onToggleMembers: () -> Unit,
     // Checklist de 1o acesso, quando ativo — vive acima do rodape do usuário.
     firstSteps: (@Composable () -> Unit)? = null,
 ) {
@@ -1402,6 +1457,7 @@ private fun Sidebar(
                         // #13: faixa de banner no topo da constelação com o nome por cima.
                         // Substitui o header de texto simples (que segue nos sussurros/descobrir).
                     }) { ServerHeaderBanner(srv) }
+                    MembrosToggle(aberto = membersOpen, onToggle = onToggleMembers)
                 } else {
                     header()
                     HairRule()
@@ -1726,7 +1782,26 @@ private fun OrbitList(
                         }
                     }
                     visible.forEachIndexed { i, ch ->
-                        CascadeIn(headerRow + 1 + i, server.id) {
+                    // POR QUE o indice aqui e LOCAL da categoria, e nao a linha da
+                    // lista inteira: a cascata so anima os primeiros CASCADE_MAX
+                    // itens (senao o ultimo de uma lista longa entraria segundos
+                    // depois). Com o indice global, toda orbita a partir da 15a
+                    // linha caia fora do limite e aparecia SECA — e era exatamente
+                    // o que se via ao abrir uma categoria mais pra baixo.
+                    // Local: uma categoria raramente passa de 14 orbitas, entao
+                    // todas animam. O lugar da categoria na lista vira um atraso de
+                    // largada, limitado a ~150ms pra que abrir no clique continue
+                    // parecendo resposta, e nao espera.
+                    // A chave inclui o colapso: reabrir toca a entrada de novo.
+                    // E o key(ch.id) faz o estado da animacao seguir a ORBITA, nao a
+                    // posicao — sem ele, colapsada->aberta reaproveitava o estado da
+                    // vizinha e uma entrava pronta enquanto a outra animava.
+                        key(ch.id) {
+                        CascadeIn(
+                            i,
+                            "${server.id}:${cat.id}:$collapsed",
+                            startDelayMs = minOf(headerRow, 6).toLong() * 26L,
+                        ) {
                             OrbitEntry(
                                 ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                                 members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
@@ -1735,6 +1810,7 @@ private fun OrbitList(
                                     ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory) else null,
                                 menu = chMenu,
                             )
+                        }
                         }
                     }
                 }

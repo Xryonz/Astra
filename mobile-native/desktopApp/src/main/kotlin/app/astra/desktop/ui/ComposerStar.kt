@@ -57,7 +57,7 @@ import java.io.File
 // cada Popup focavel e uma janela de verdade, e empilhar duas rouba o foco da
 // primeira — o mesmo tipo de armadilha que já congelou a aurora quando ela era
 // gateada por foco.
-private enum class StarPane { MENU, EMOJI, GIF }
+internal enum class StarPane { MENU, EMOJI, GIF }
 
 // Ancora o painel ACIMA do botao, alinhado pela direita (o botao vive no canto
 // direito do compositor). Clampa pra não sair da janela.
@@ -189,6 +189,106 @@ private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit, onFile: () -> Unit)
         StarMenuRow("☺", "emoji", onEmoji)
         StarMenuRow("▦", "GIF", onGif)
         StarMenuRow("▤", "arquivo", onFile)
+    }
+}
+
+// ---- Botoes SOLTOS no compositor (padrao Discord) ----
+//
+// A estrela ✦ guardava emoji/GIF/arquivo atras de um clique. Virou o contrario:
+// os seletores ficam a mostra na barra, e o '+' passa a ser o menu do que "cria
+// coisa". Menos um clique pro que se usa toda hora.
+//
+// Estilo pedido pelo dono: icone simples, SEM fundo, so borda — no hover a borda
+// e o glifo acendem no accent, sem preencher.
+
+@Composable
+private fun IconeDoCompositor(glifo: String, tamanho: Int = 13, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, if (hov) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            glifo,
+            style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = tamanho.sp),
+        )
+    }
+}
+
+// Abre DIRETO no painel pedido (emoji ou GIF) — sem passar por menu.
+@Composable
+internal fun ComposerPickerButton(
+    tipo: StarPane,
+    onPickEmoji: (String) -> Unit = {},
+    onPickGif: (GifResultDto) -> Unit = {},
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconeDoCompositor(
+            glifo = if (tipo == StarPane.GIF) "GIF" else "☺",
+            tamanho = if (tipo == StarPane.GIF) 9 else 14,
+        ) { open = !open }
+        if (open) {
+            Popup(
+                popupPositionProvider = StarAbove,
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                PopupReveal(originX = 1f, originY = 1f) {
+                    // Emoji fica aberto pra escolher varios; GIF fecha porque
+                    // escolher JA ENVIA.
+                    if (tipo == StarPane.GIF) GifPanel(onPick = { g -> open = false; onPickGif(g) })
+                    else ReactionPicker(onPick = onPickEmoji)
+                }
+            }
+        }
+    }
+}
+
+// O '+' agora e menu, nao atalho de anexo.
+//
+// So tem "enviar um arquivo" por enquanto: "criar enquete" existe no backend mas
+// o desktop ainda nao sabe DESENHAR enquete no chat — um item que cria mensagem
+// que o app nao exibe seria pior que a ausencia dele. Entra junto com a tela.
+@Composable
+fun ComposerPlusButton(onPickFiles: (List<File>) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconeDoCompositor("+", tamanho = 15) { open = !open }
+        if (open) {
+            Popup(
+                popupPositionProvider = StarAbove,
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                PopupReveal(originX = 0f, originY = 1f) {
+                    Column(
+                        Modifier
+                            .shadow(8.dp, RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Obsidian.overlay)
+                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+                            .padding(5.dp)
+                            .width(178.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        StarMenuRow("▤", "enviar um arquivo") {
+                            // Fecha ANTES: o dialog nativo e modal e brigaria por
+                            // foco com a janela do Popup.
+                            open = false
+                            val files = chooseFiles()
+                            if (files.isNotEmpty()) onPickFiles(files)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

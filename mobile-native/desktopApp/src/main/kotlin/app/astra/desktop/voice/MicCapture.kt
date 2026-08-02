@@ -115,7 +115,19 @@ class MicCapture(
                 val buf = if (gateOpen(level)) inBuf else silenceIn
                 runCatching { source.pushAudio(buf, 16, rate, channels, inFrames) }
             }
-        }, "mic-capture").apply { isDaemon = true; start() }
+        }, "mic-capture").apply {
+            isDaemon = true
+            // Prioridade alta, e nao e capricho: esta thread TEM que voltar a cada
+            // 10ms. Se o agendador do Windows a deixar de fora por mais tempo que o
+            // buffer da placa aguenta, as amostras que chegaram nesse meio-tempo sao
+            // PERDIDAS - nao atrasam, somem. O resultado e o picote, e ele aparece
+            // exatamente quando a maquina esta ocupada: aurora a 60fps, video
+            // comprimindo, duas janelas do Astra abertas no mesmo PC. Em prioridade
+            // normal ela disputa CPU de igual pra igual com o desenho da interface,
+            // que pode esperar - ela nao.
+            runCatching { priority = Thread.MAX_PRIORITY }
+            start()
+        }
         return true
     }
 

@@ -93,7 +93,12 @@ val LARGURA_CARTAO_COMPLETO = 330.dp
 private const val BannerCartaoCompleto = 2.6f
 
 // Largura do cartao compacto (o que abre ao clicar num avatar).
-val LARGURA_CARTAO_NORMAL = 320.dp
+//
+// IGUAL a do completo (pedido do dono). Antes eram 320 e 330 — dez pixels de
+// diferenca que ninguem enxerga isolado, mas que apareciam justamente onde doem:
+// os dois lado a lado na previa das Configuracoes, um levemente mais estreito que
+// o outro sem motivo nenhum. Mesma pessoa, mesmo cartao, mesma largura.
+val LARGURA_CARTAO_NORMAL = LARGURA_CARTAO_COMPLETO
 
 // Os dados que o cartao desenha. Existe pra a previa poder montar um cartao a
 // partir do RASCUNHO (campo a campo, ao vivo, antes de salvar) usando exatamente
@@ -206,7 +211,15 @@ fun ProfileCard(
 // atencao, varios viram brinquedo.
 @Composable
 private fun AvatarDoCartao(dados: DadosDoCartao, completo: Boolean, animar: Boolean) {
-    val px = if (completo) 99 else 72
+    // 99->88 e 72->64. A foto tinha crescido junto com o cartao e nao voltou a
+    // encolher quando o cartao ficou mais estreito e mais alto: a 99 ela ocupava
+    // quase um terco da largura, e um retrato desse tamanho rouba a atencao do
+    // nome, que e o que a pessoa foi ali ler.
+    //
+    // O vao entre a foto e o nome NAO muda com isto: a caixa da foto continua no
+    // fluxo com a altura dela e o texto vem logo depois, entao encolher a foto
+    // sobe o bloco inteiro sem abrir buraco.
+    val px = if (completo) 88 else 64
     val reduzir = LocalReduceMotion.current
     val pop = remember(dados.username, completo) {
         Animatable(if (reduzir || !completo || !animar) 1f else 0f)

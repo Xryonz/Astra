@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -103,8 +104,18 @@ fun BoxScope.CallDock(
             .padding(end = 18.dp, bottom = 18.dp)
             .offset { IntOffset(dx.roundToInt(), dy.roundToInt()) }
             .width(232.dp)
+            // O card sumia no fundo, e por dois motivos somados: ele flutua sobre a
+            // AURORA (que e escura e viva, entao nao serve de contraste estavel) e
+            // usava `overlay` — um tom que existe justamente pra encostar no fundo,
+            // nao pra se destacar dele.
+            //
+            // Tres coisas resolvem, e as tres fazem falta separadas: sombra (e o que
+            // diz "isto esta FLUTUANDO", e nao havia nenhuma), uma superficie um
+            // degrau mais clara, e opacidade cheia — a 0.94 a aurora atravessava o
+            // card e mexia por baixo do texto.
+            .shadow(20.dp, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
-            .background(Obsidian.overlay.copy(alpha = 0.94f))
+            .background(Obsidian.hover)
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
             .pointerInput(Unit) {
                 detectDragGestures { change, drag ->

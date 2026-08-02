@@ -169,7 +169,22 @@ class VoiceEngine(
 
     // identity -> outro participante (ordem de chegada). speaking vem por sid
     // (SpeakersChanged fala em sid, não identity).
-    private class Remote(val sid: String, val label: String, val avatarUrl: String? = null, var speaking: Boolean = false, var speakUntil: Long = 0)
+    //
+    // DUAS fontes pra "esta falando", e elas não competem:
+    //  • signalSpeaking — o SERVIDOR avisando (speakers_changed). É liga/desliga,
+    //    sem prazo: o LiveKit só manda quando MUDA, então quem fala dois minutos
+    //    seguidos gera um aviso e mais nada. Prazo aqui apagaria o anel no meio
+    //    da frase.
+    //  • speakUntil — o nível medido no getStats do áudio dele. Esse SIM tem
+    //    prazo (hangover), porque é uma amostra e não um evento.
+    private class Remote(
+        val sid: String,
+        val label: String,
+        val avatarUrl: String? = null,
+        var speaking: Boolean = false,
+        var speakUntil: Long = 0,
+        var signalSpeaking: Boolean = false,
+    )
     private val others = linkedMapOf<String, Remote>()
     // Receiver do audio remoto por dono (ownerSid) — pra medir o nível de fala de cada um.
     private val remoteAudioReceivers = linkedMapOf<String, RTCRtpReceiver>()
@@ -409,8 +424,14 @@ class VoiceEngine(
                         remoteAudioReceivers.remove(p.sid)
                         _remoteVideos.value = _remoteVideos.value.filterNot { it.ownerSid == p.sid }
                     } else {
-                        // Preserva speaking: UPDATE não fala de voz ativa.
-                        others[p.identity] = p.remote(others[p.identity]?.speaking ?: false)
+                        // Preserva a fala: UPDATE conta de nome/metadata, não de voz
+                        // ativa. Sem isto, qualquer troca de avatar de qualquer um
+                        // apagaria o anel de quem estivesse falando naquele instante.
+                        val antes = others[p.identity]
+                        others[p.identity] = p.remote(antes?.speaking ?: false).also {
+                            it.speakUntil = antes?.speakUntil ?: 0
+                            it.signalSpeaking = antes?.signalSpeaking ?: false
+                        }
                     }
                 }
                 if (joined) publishConnected()
@@ -419,7 +440,21 @@ class VoiceEngine(
                 _status.value = VoiceStatus.Closed
                 ws?.close(1000, "leave")
             }
-            // speakers_changed/connection_quality etc entram na V6 (UI da sala).
+            // Quem está falando, pela boca do servidor.
+            //
+            // ISTO ESTAVA FALTANDO, e era o motivo de o anel de "falando" só acender
+            // no proprio usuario: a minha fala vem do RMS do meu mic (local, sempre
+            // disponivel), e a dos outros dependia inteiramente do getStats do
+            // receiver de audio deles — que so existe se `onAddTrack` tiver
+            // registrado o receiver. Quando nao registra, o audio TOCA do mesmo
+            // jeito (o ADM nativo cuida disso sozinho, sem passar por nos) e a
+            // interface fica cega: da pra ouvir a pessoa e nao da pra ver quem e.
+            //
+            // O servidor ja calcula isso pra sala inteira e avisa de graca. Nao
+            // depende de track registrada, de stats, nem de nome de stream.
+            LivekitRtc.SignalResponse.MessageCase.SPEAKERS_CHANGED ->
+                onSpeakersChanged(res.speakersChanged.speakersList)
+            // connection_quality etc entram na V6 (UI da sala).
             else -> Unit
         }
     }
@@ -470,7 +505,16 @@ class VoiceEngine(
             // Track de video remota = transmissão de alguem. O LiveKit nomeia o
             // MediaStream como "participantSid|trackSid" — dai sai o dono.
             override fun onAddTrack(receiver: RTCRtpReceiver, streams: Array<MediaStream>) {
-                val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|') ?: return
+                // Sem stream nomeado não dá pra saber DE QUEM é a track. Antes isso
+                // era um `return` mudo, e essa era a pior parte: o audio tocava
+                // normalmente (o ADM nativo nao passa por aqui), entao nada parecia
+                // errado — so o anel de "quem esta falando" nunca acendia, sem uma
+                // linha sequer no diario explicando por que.
+                val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|')
+                if (ownerSid.isNullOrBlank()) {
+                    VoiceLog.nota("7. chegou audio/video SEM dono no nome do stream (streams=${streams.size}) — da pra ouvir, mas nao da pra saber de quem e")
+                    return
+                }
                 when (val track = receiver.track) {
                     is VideoTrack -> {
                         val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissão"
@@ -953,7 +997,10 @@ class VoiceEngine(
                 if (meSpeak != mySpeaking) { mySpeaking = meSpeak; changed = true }
                 runCatching {
                     others.values.toList().forEach { r ->
-                        val sp = now < r.speakUntil
+                        // Servidor OU nivel medido. Basta um dos dois: o nivel e mais
+                        // rapido a reagir, o servidor funciona mesmo sem receiver
+                        // registrado — e o segundo sozinho ja acende o anel.
+                        val sp = r.signalSpeaking || now < r.speakUntil
                         if (r.speaking != sp) { r.speaking = sp; changed = true }
                     }
                 }
@@ -961,6 +1008,22 @@ class VoiceEngine(
                 delay(SPEAK_POLL_MS)
             }
         }
+    }
+
+    // speakers_changed e um DELTA: vem quem mudou de estado, com active=false pra
+    // quem parou. Quem nao aparece na lista fica como estava.
+    //
+    // A minha propria linha e ignorada de proposito: o servidor so sabe da minha
+    // voz depois que ela sobe, comprime e volta — uns 200ms de atraso num anel
+    // que reage ao meu proprio rosto. O RMS do meu mic e instantaneo e ja resolve.
+    private fun onSpeakersChanged(speakers: List<LivekitModels.SpeakerInfo>) {
+        var changed = false
+        speakers.forEach { s ->
+            if (s.sid == mySid) return@forEach
+            val r = others.values.find { it.sid == s.sid } ?: return@forEach
+            if (r.signalSpeaking != s.active) { r.signalSpeaking = s.active; changed = true }
+        }
+        if (changed && joined) publishConnected()
     }
 
     private fun markRemoteSpeak(sid: String) {

@@ -132,6 +132,7 @@ import app.astra.desktop.update.UpdateState
 import app.astra.desktop.auth.SessionStore
 import app.astra.mobile.core.network.SessionApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.RevokeOthersRequest
 import app.astra.mobile.core.network.dto.SessionDto
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
@@ -483,6 +484,20 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
     )
     var ampliada by remember { mutableStateOf<CardVariante?>(null) }
 
+    // POR QUE ISTO BUSCA DE NOVO um perfil que a tela ja tem: `me` vem de
+    // /users/me, e la NAO existe "servidores em comum" — nao faria sentido a
+    // rota que devolve voce mesmo calcular o que voce tem em comum com voce.
+    // O cartao de verdade vem de /profile/{id}, que calcula. Resultado: a previa
+    // desenhava um cartao mais CURTO que o real, faltando a secao inteira, e ela
+    // existe justamente pra nao mentir. Uma chamada, uma vez, ao abrir.
+    var mutuais by remember(me.id) { mutableStateOf<List<MutualServerDto>>(emptyList()) }
+    LaunchedEffect(me.id) {
+        mutuais = withContext(Dispatchers.IO) {
+            runCatching { GlobalContext.get().get<UserApi>().profile(me.id).data?.mutualServers }
+                .getOrNull().orEmpty()
+        }
+    }
+
     Column(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CartaoDaPrevia(
@@ -491,7 +506,7 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
                 modifier = Modifier.weight(1f),
                 aoClicar = { ampliada = CardVariante.COMPLETO },
             ) {
-                ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth(), animar = false)
+                ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth(), servidoresEmComum = mutuais, animar = false)
             }
             CartaoDaPrevia(
                 rotulo = "ao clicar no avatar",
@@ -519,6 +534,7 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
                 modifier = Modifier.width(
                     if (qual == CardVariante.COMPLETO) LARGURA_CARTAO_COMPLETO else LARGURA_CARTAO_NORMAL,
                 ),
+                servidoresEmComum = if (qual == CardVariante.COMPLETO) mutuais else emptyList(),
             )
         }
     }

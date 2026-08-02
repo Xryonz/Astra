@@ -318,7 +318,18 @@ fun CropDialog(
             // imagem" foi reportado tres vezes seguidas e nunca deu pra saber se
             // era download, formato ou tamanho — problemas em pontas opostas.
             .onFailure { e ->
-                err = "não deu pra ler: " + (e.message?.take(120) ?: e::class.simpleName ?: "erro desconhecido")
+                val motivo = e.message.orEmpty()
+                // 404 não é "erro ao ler a imagem": é a imagem NÃO EXISTIR MAIS no
+                // servidor. Some quando o arquivo foi gravado no disco da instância
+                // (storage local) e a hospedagem reiniciou — o endereço continua
+                // salvo no perfil, apontando pra um arquivo que evaporou. Mandar
+                // "HTTP 404" pra quem só queria mexer no banner não ajuda ninguém a
+                // fazer a única coisa que resolve: subir a imagem de novo.
+                err = if ("404" in motivo) {
+                    "essa imagem não está mais no servidor. escolha o arquivo de novo pra subir outra vez."
+                } else {
+                    "não deu pra ler: " + (motivo.take(120).ifBlank { e::class.simpleName ?: "erro desconhecido" })
+                }
             }
     }
     // `cur` capturado numa val: ler `loaded` dentro do onDispose pegaria o valor

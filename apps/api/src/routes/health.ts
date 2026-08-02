@@ -4,6 +4,7 @@ import { pool } from '../db'
 import { redis } from '../lib/redis'
 import { env } from '../lib/env'
 import { isMailEnabled } from '../lib/mailer'
+import { storageMode } from '../lib/storage'
 import { logger } from '../lib/logger'
 import { renderMetrics, metricsContentType } from '../lib/metrics'
 
@@ -52,6 +53,12 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     release:   env.RELEASE ?? null,
     voiceCfg:  !!env.LIVEKIT_URL,
     mailCfg:   isMailEnabled(),
+    // 'local' = imagens gravadas no disco da instância. Em hospedagem com disco
+    // efêmero (Render) isso significa que TODA imagem enviada morre no próximo
+    // deploy, e o app só descobre com um 404 na cara do usuário — foi assim que
+    // um banner sumiu e ninguém tinha como saber por quê sem abrir o painel do
+    // Render. Uma linha aqui responde isso de fora, em um curl.
+    storage:   storageMode,
     checks:    { db, redis: rd },
   })
 })

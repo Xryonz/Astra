@@ -35,6 +35,7 @@ import dev.onvoid.webrtc.media.MediaStream
 import dev.onvoid.webrtc.media.MediaType
 import dev.onvoid.webrtc.media.audio.AudioDeviceModule
 import dev.onvoid.webrtc.media.audio.AudioTrack
+import dev.onvoid.webrtc.media.audio.AudioTrackSink
 import dev.onvoid.webrtc.media.audio.CustomAudioSource
 import dev.onvoid.webrtc.media.MediaDevices
 import dev.onvoid.webrtc.media.video.CustomVideoSource
@@ -134,6 +135,16 @@ private const val SPEAK_THRESHOLD = 0.015
 private const val SPEAK_POLL_MS = 200L
 private const val SPEAK_HANGOVER_MS = 400L
 
+// Teto do Opus, em bits por segundo. 64k mono e o patamar de "voz presente" que
+// os apps de call usam hoje; o padrao do WebRTC (~32k) foi calibrado pra rede
+// muito pior que a de um PC com banda. Como e TETO, rede ruim desce sozinha.
+private const val OPUS_BITRATE = 64_000
+
+// Atraso estimado entre o que sai na caixa e o que volta pelo mic. O AEC3 tem
+// estimador proprio e ajusta sozinho; este valor so acelera a convergencia no
+// comeco da call.
+private const val AEC_DELAY_MS = 60
+
 // V3+V4+V5 — OUVIR, FALAR e TRANSMITIR. Subscriber PC (LiveKit e subscriber-
 // primary: o SERVIDOR manda o offer; a gente responde answer) + publisher PC
 // (a gente manda o offer DEPOIS do AddTrackRequest ser aceito — ordem do
@@ -188,6 +199,14 @@ class VoiceEngine(
     private val others = linkedMapOf<String, Remote>()
     // Receiver do audio remoto por dono (ownerSid) — pra medir o nível de fala de cada um.
     private val remoteAudioReceivers = linkedMapOf<String, RTCRtpReceiver>()
+
+    // Faixas de audio remoto, pra alimentar o cancelador de eco (ver `reavaliarAec`).
+    private val remoteAudioTracks = linkedMapOf<String, AudioTrack>()
+    private var aecTrack: AudioTrack? = null
+    private var aecSink: AudioTrackSink? = null
+    private var aecSid: String? = null
+
+    private var micSender: RTCRtpSender? = null
 
     // Transmissoes remotas (video). Track de audio remota não entra aqui: toca
     // sozinha no device padrao.
@@ -422,6 +441,10 @@ class VoiceEngine(
                     if (p.state == LivekitModels.ParticipantInfo.State.DISCONNECTED) {
                         others.remove(p.identity)
                         remoteAudioReceivers.remove(p.sid)
+                        // Saiu gente: pode ser que agora sobre so um do outro lado,
+                        // e ai o cancelamento de eco volta a ser possivel.
+                        remoteAudioTracks.remove(p.sid)
+                        reavaliarAec()
                         _remoteVideos.value = _remoteVideos.value.filterNot { it.ownerSid == p.sid }
                     } else {
                         // Preserva a fala: UPDATE conta de nome/metadata, não de voz
@@ -525,6 +548,8 @@ class VoiceEngine(
                     is AudioTrack -> {
                         VoiceLog.nota("7. audio de alguem chegou (" + (others.values.find { it.sid == ownerSid }?.label ?: ownerSid) + ")")
                         remoteAudioReceivers[ownerSid] = receiver
+                        remoteAudioTracks[ownerSid] = track
+                        reavaliarAec()
                     }
                     else -> Unit
                 }
@@ -532,6 +557,10 @@ class VoiceEngine(
 
             override fun onRemoveTrack(receiver: RTCRtpReceiver) {
                 remoteAudioReceivers.entries.removeIf { it.value == receiver }
+                runCatching { receiver.track }.getOrNull()?.let { t ->
+                    remoteAudioTracks.entries.removeIf { it.value == t }
+                }
+                reavaliarAec()
                 val gone = runCatching { receiver.track?.id }.getOrNull() ?: return
                 _remoteVideos.value = _remoteVideos.value.filterNot { v ->
                     runCatching { v.track.id == gone }.getOrDefault(true)
@@ -662,8 +691,35 @@ class VoiceEngine(
             direction = RTCRtpTransceiverDirection.SEND_ONLY
             streamIds = listOf(cid)
         }
-        runCatching { pub?.addTransceiver(track, init) }.onFailure { return }
+        val tr = runCatching { pub?.addTransceiver(track, init) }.getOrNull() ?: return
+        micSender = tr.sender
         negotiatePublisher()
+        // Mesmo caminho do video: o teto so cola depois da negociacao assentar.
+        scope.launch {
+            delay(1200)
+            reforcarMic()
+        }
+    }
+
+    // Teto de bitrate do Opus.
+    //
+    // O mic subia SEM parametro nenhum, entao valia o padrao do WebRTC pra voz —
+    // por volta de 32kbps. Nao e "quebrado", e economico: foi calibrado pra rede
+    // de celular de uma decada atras. Em call de PC com banda sobrando, dobrar
+    // esse teto e a diferenca entre voz que da pra entender e voz que soa presente.
+    //
+    // TETO, nao piso: se a rede apertar, o WebRTC desce sozinho. Nao ha risco de
+    // insistir em bitrate alto numa conexao ruim.
+    private fun reforcarMic() {
+        val sender = micSender ?: return
+        runCatching {
+            val params = sender.parameters ?: return
+            params.encodings?.firstOrNull()?.apply {
+                active = true
+                maxBitrate = OPUS_BITRATE
+            }
+            sender.parameters = params
+        }
     }
 
     private fun negotiatePublisher() {
@@ -1010,6 +1066,54 @@ class VoiceEngine(
         }
     }
 
+    // CANCELAMENTO DE ECO — decide qual faixa remota alimenta o APM.
+    //
+    // O AEC subtrai do microfone aquilo que esta SAINDO na caixa de som. Pra isso
+    // ele precisa ouvir o que sai. So que a lib nao oferece torneira do audio JA
+    // MISTURADO — o que da pra capturar e uma faixa por pessoa, cada uma no ritmo
+    // do proprio decodificador.
+    //
+    // Por isso o AEC so liga com UMA pessoa do outro lado. Com duas ou mais, o
+    // sinal que a gente entregaria seria METADE do que sai na caixa, e AEC com
+    // referencia errada nao "cancela menos": ele subtrai coisa que nao e eco, e o
+    // estrago aparece na SUA voz, picotada. Desligado e melhor que estragado.
+    //
+    // Cobre o caso que importa hoje (conversa de dois) e degrada de forma honesta.
+    // Pra cobrir grupo faltaria misturar as faixas na mao, com sincronia — outra
+    // fatia, e com risco proprio.
+    private fun reavaliarAec() {
+        val alvo = remoteAudioTracks.entries.singleOrNull()?.takeIf { prefs.state.value.micEchoCancel }
+        if (alvo?.key == aecSid) return
+
+        aecSink?.let { s -> aecTrack?.let { t -> runCatching { t.removeSink(s) } } }
+        aecSink = null
+        aecTrack = null
+        aecSid = null
+
+        if (alvo == null) {
+            VoiceLog.nota("8. cancelamento de eco desligado (" + motivoAecDesligado() + ")")
+            return
+        }
+        val sink = AudioTrackSink { data, bits, taxa, canais, quadros ->
+            micCapture?.processarReverso(data, bits, taxa, canais, quadros)
+        }
+        runCatching { alvo.value.addSink(sink) }
+            .onSuccess {
+                aecSink = sink
+                aecTrack = alvo.value
+                aecSid = alvo.key
+                runCatching { micCapture?.avisarAtraso(AEC_DELAY_MS) }
+                VoiceLog.nota("8. cancelamento de eco LIGADO")
+            }
+            .onFailure { VoiceLog.nota("8. cancelamento de eco falhou ao ligar: " + (it.message ?: "erro")) }
+    }
+
+    private fun motivoAecDesligado(): String = when {
+        !prefs.state.value.micEchoCancel -> "desligado nas preferencias"
+        remoteAudioTracks.isEmpty() -> "ninguem mais na sala"
+        else -> "${remoteAudioTracks.size} pessoas — so funciona em conversa de dois"
+    }
+
     // speakers_changed e um DELTA: vem quem mudou de estado, com active=false pra
     // quem parou. Quem nao aparece na lista fica como estava.
     //
@@ -1169,6 +1273,10 @@ class VoiceEngine(
         ws = null
         _remoteVideos.value = emptyList()
         remoteAudioReceivers.clear()
+        // Solta o AEC ANTES de largar as faixas: o sink e nativo e ficaria
+        // apontando pra uma track que vai embora.
+        remoteAudioTracks.clear()
+        reavaliarAec()
         _localScreen.value = null
         _localPreview.value = null
         ffmpegCap?.stop()

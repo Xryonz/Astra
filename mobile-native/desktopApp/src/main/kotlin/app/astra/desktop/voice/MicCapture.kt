@@ -14,8 +14,14 @@ import javax.sound.sampled.TargetDataLine
 // 10ms pelo APM do WebRTC (AudioProcessing) antes de empurrar no CustomAudioSource:
 // supressao de ruido + high-pass + ganho automatico, já convertendo pra 48kHz mono
 // (o caminho feliz do WebRTC/Opus). Antes o PCM ia CRU -> Opus produzia "voz de
-// robo com ruido" (mic cru + reamostragem 44.1k/estereo). AEC (eco) exige o sinal
-// reverso (processReverseStream) e fica pra outra fase.
+// robo com ruido" (mic cru + reamostragem 44.1k/estereo).
+//
+// AEC (cancelamento de eco): o APM precisa dos DOIS lados. O que entra pelo mic
+// vem por processStream (aqui), e o que SAI na caixa de som tem que vir por
+// processReverseStream — e vem de fora, pelo `processarReverso` mais abaixo, que
+// o VoiceEngine alimenta com o audio decodificado do outro participante. Enquanto
+// so existia metade, ligar "cancelar eco" nas preferencias nao fazia nada: o
+// cancelador nao tem como subtrair um sinal que nunca viu.
 //
 // O Core Audio nativo do webrtc-java quebra a captura quando o ADM e anexado ao
 // factory ("Start recording failed"), entao a captura vem por este caminho
@@ -36,6 +42,17 @@ class MicCapture(
     private var line: TargetDataLine? = null
     private var apm: AudioProcessing? = null
     @Volatile private var running = false
+
+    // O APM passa a ser tocado por DUAS threads: a do mic (processStream) e a do
+    // WebRTC que entrega o audio do outro (processReverseStream). O objeto e
+    // nativo — usar depois do dispose nao lanca excecao em Kotlin, derruba o
+    // processo. A trava existe pra `stop()` esperar quem estiver dentro.
+    private val trava = Any()
+
+    // Buffer de saida do lado reverso, reaproveitado. O processReverseStream exige
+    // um destino mesmo quando ninguem vai ler: o que importa e o APM ter OUVIDO o
+    // sinal, nao o que ele devolve.
+    private var bufReverso = ByteArray(0)
 
     fun start(): Boolean {
         val format = FORMATS.firstOrNull {
@@ -97,23 +114,25 @@ class MicCapture(
                 val n = runCatching { l.read(inBuf, 0, inBuf.size) }.getOrDefault(-1)
                 if (n <= 0) break
                 if (n < inBuf.size) continue // bloco parcial (shutdown): mantem alinhamento
-                val proc = apm
-                if (proc != null) {
+                // Sob a trava: o dispose do APM pode acontecer a qualquer momento
+                // vindo de outra thread, e a chamada nativa nao sobrevive a isso.
+                val ok = synchronized(trava) {
+                    val proc = apm
                     // Limpa (NS/HPF/AGC) + converte pra 48k mono no mesmo passo.
-                    val ok = runCatching { proc.processStream(inBuf, inConfig, outConfig, outBuf) }.isSuccess
-                    if (ok) {
-                        val level = rms(outBuf)
-                        onLevel(level)
-                        val buf = if (gateOpen(level)) outBuf else silenceOut
-                        runCatching { source.pushAudio(buf, 16, 48000, 1, outFrames) }
-                        continue
-                    }
+                    proc != null && runCatching { proc.processStream(inBuf, inConfig, outConfig, outBuf) }.isSuccess
                 }
-                // Sem APM (ou processStream falhou): cai pro cru pra não ficar mudo.
-                val level = rms(inBuf)
-                onLevel(level)
-                val buf = if (gateOpen(level)) inBuf else silenceIn
-                runCatching { source.pushAudio(buf, 16, rate, channels, inFrames) }
+                if (ok) {
+                    val level = rms(outBuf)
+                    onLevel(level)
+                    val buf = if (gateOpen(level)) outBuf else silenceOut
+                    runCatching { source.pushAudio(buf, 16, 48000, 1, outFrames) }
+                } else {
+                    // Sem APM (ou processStream falhou): cai pro cru pra não ficar mudo.
+                    val level = rms(inBuf)
+                    onLevel(level)
+                    val buf = if (gateOpen(level)) inBuf else silenceIn
+                    runCatching { source.pushAudio(buf, 16, rate, channels, inFrames) }
+                }
             }
         }, "mic-capture").apply {
             isDaemon = true
@@ -140,13 +159,40 @@ class MicCapture(
         l.apply { open(format, bufBytes); start() }
     }.getOrNull()
 
+    // O AUDIO QUE SAI NA CAIXA DE SOM, entregue ao APM pra ele saber o que
+    // subtrair do microfone. Chamado da thread do WebRTC que decodifica o audio do
+    // outro participante, a cada bloco de 10ms.
+    //
+    // Sem isto o cancelador de eco fica cego: ele so ve o mic, e o mic sozinho nao
+    // tem como distinguir "voz da pessoa aqui" de "voz do outro saindo pela caixa".
+    fun processarReverso(data: ByteArray, bitsPorAmostra: Int, taxa: Int, canais: Int, quadros: Int) {
+        if (!echoCancel) return
+        synchronized(trava) {
+            val proc = apm ?: return
+            val cfg = AudioProcessingStreamConfig(taxa, canais)
+            val precisa = quadros * canais * (bitsPorAmostra / 8)
+            if (bufReverso.size < precisa) bufReverso = ByteArray(precisa)
+            runCatching { proc.processReverseStream(data, cfg, cfg, bufReverso) }
+        }
+    }
+
+    // Dica de quanto tempo o som leva pra sair na caixa e voltar pelo mic. O AEC3
+    // estima sozinho; isto so encurta a convergencia nos primeiros segundos.
+    fun avisarAtraso(ms: Int) {
+        synchronized(trava) { runCatching { apm?.setStreamDelayMs(ms) } }
+    }
+
     fun stop() {
         running = false
         runCatching { line?.stop() }
         runCatching { line?.close() }
         line = null
-        runCatching { apm?.dispose() }
-        apm = null
+        // Sob a trava: se a thread do audio remoto estiver dentro do
+        // processReverseStream agora, o dispose aqui derrubaria o processo.
+        synchronized(trava) {
+            runCatching { apm?.dispose() }
+            apm = null
+        }
     }
 
     private fun rms(buf: ByteArray): Float {

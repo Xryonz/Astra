@@ -207,6 +207,7 @@ class VoiceEngine(
     private var aecSid: String? = null
 
     private var micSender: RTCRtpSender? = null
+    private var entradaJob: Job? = null
 
     // Transmissoes remotas (video). Track de audio remota não entra aqui: toca
     // sozinha no device padrao.
@@ -522,6 +523,7 @@ class VoiceEngine(
                 // e silencio total, sem erro nenhum na tela).
                 VoiceLog.nota("6. canal de audio de ENTRADA: " + state)
                 audioLive = state == RTCPeerConnectionState.CONNECTED
+                if (state == RTCPeerConnectionState.CONNECTED) conferirEntradaDeAudio()
                 if (joined) publishConnected()
             }
 
@@ -571,8 +573,20 @@ class VoiceEngine(
 
     // Server manda o offer (subscriber-primary); renegociacoes (alguem publicou
     // track nova) chegam pelo mesmo caminho — a cadeia inteira se repete.
+    // ESTE e o caminho pelo qual o audio dos outros chega ate voce: toda vez que
+    // alguem publica, o servidor manda uma proposta nova e a gente responde. Se
+    // qualquer um dos tres passos falhar, a faixa nunca e entregue.
+    //
+    // Os quatro `onFailure` daqui eram `= Unit`. Quatro maneiras de a call ficar
+    // muda sem deixar um unico rastro — e "ninguem escuta ninguem" e exatamente o
+    // que se ve de fora quando isso acontece. Agora cada uma fala.
     private fun onServerOffer(sdp: String) {
         val pc = sub ?: return
+        // Quantas faixas de audio o servidor esta oferecendo. Zero aqui ja mata a
+        // duvida: o problema seria do lado de LA (ninguem publicou, ou nao fomos
+        // inscritos), nao no nosso tratamento da proposta.
+        val faixasDeAudio = sdp.lineSequence().count { it.startsWith("m=audio") }
+        VoiceLog.nota("7a. proposta do servidor recebida ($faixasDeAudio faixa(s) de audio)")
         pc.setRemoteDescription(
             RTCSessionDescription(RTCSdpType.OFFER, sdp),
             object : SetSessionDescriptionObserver {
@@ -590,15 +604,18 @@ class VoiceEngine(
                                     desc,
                                     object : SetSessionDescriptionObserver {
                                         override fun onSuccess() = sendAnswer(desc.sdp)
-                                        override fun onFailure(error: String) = Unit
+                                        override fun onFailure(error: String) =
+                                            VoiceLog.nota("7a. FALHOU ao aplicar a propria resposta: $error — o audio dos outros nao vai chegar")
                                     },
                                 )
                             }
-                            override fun onFailure(error: String) = Unit
+                            override fun onFailure(error: String) =
+                                VoiceLog.nota("7a. FALHOU ao montar a resposta: $error — o audio dos outros nao vai chegar")
                         },
                     )
                 }
-                override fun onFailure(error: String) = Unit
+                override fun onFailure(error: String) =
+                    VoiceLog.nota("7a. FALHOU ao aceitar a proposta do servidor: $error — o audio dos outros nao vai chegar")
             },
         )
     }
@@ -1062,6 +1079,61 @@ class VoiceEngine(
                 }
                 if (changed && joined) publishConnected()
                 delay(SPEAK_POLL_MS)
+            }
+        }
+    }
+
+    // PASSO 9 — "o audio dos outros esta CHEGANDO?"
+    //
+    // Nenhum dos passos 1 a 8 responde isso. Todos falam do que SAI (microfone,
+    // publicacao) ou da conexao existir. So que "ninguem escuta ninguem" pode ser
+    // tres coisas COMPLETAMENTE diferentes, e as tres sao silencio identico:
+    //
+    //   sem receptor de audio  -> nunca fomos inscritos nas faixas dos outros
+    //                             (assinatura/negociacao — problema de sinalizacao)
+    //   receptor sem pacote    -> inscritos, mas a midia nao chega
+    //                             (rede, servidor, ICE)
+    //   pacotes chegando       -> a midia CHEGA e nao vira som
+    //                             (saida de audio: o modulo de som ou o aparelho)
+    //
+    // Cada uma tem conserto em um lugar oposto do codigo, e sem esta linha a
+    // escolha entre elas e chute. Duas fotos porque uma leitura sozinha mente:
+    // cedo demais e ninguem publicou ainda, tarde demais e a pessoa ja desistiu.
+    private fun conferirEntradaDeAudio() {
+        entradaJob?.cancel()
+        entradaJob = scope.launch {
+            delay(6_000)
+            fotografarEntrada()
+            delay(14_000)
+            fotografarEntrada()
+        }
+    }
+
+    private fun fotografarEntrada() {
+        val pc = sub ?: return
+        val receptores = runCatching {
+            pc.getReceivers().count { runCatching { it.track is AudioTrack }.getOrDefault(false) }
+        }.getOrDefault(-1)
+        runCatching {
+            pc.getStats { r ->
+                var fontes = 0
+                var pacotes = 0L
+                r.stats.values.forEach { s ->
+                    if (s.type != RTCStatsType.INBOUND_RTP) return@forEach
+                    val a = s.attributes
+                    if ((a["kind"] as? String) != "audio") return@forEach
+                    fontes++
+                    pacotes += (a["packetsReceived"] as? Number)?.toLong() ?: 0L
+                }
+                val veredito = when {
+                    receptores <= 0 && fontes == 0 ->
+                        "NAO estamos inscritos no audio de ninguem — o problema e na assinatura, nao no som"
+                    pacotes <= 0L ->
+                        "inscritos, mas ZERO pacote chegou — a midia nao esta vindo (rede/servidor)"
+                    else ->
+                        "o audio CHEGA ($pacotes pacotes) — se nao da pra ouvir, o problema e a saida de som"
+                }
+                VoiceLog.nota("9. entrada de audio: $receptores receptor(es), $fontes fonte(s), $pacotes pacotes -> $veredito")
             }
         }
     }

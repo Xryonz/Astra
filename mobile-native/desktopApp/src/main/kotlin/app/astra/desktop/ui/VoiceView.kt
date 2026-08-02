@@ -79,6 +79,7 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ScreenQuality
 import kotlin.math.cos
 import kotlin.math.sin
+import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.VoiceEngine
@@ -149,7 +150,20 @@ fun VoiceView(
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }
-        Text(label, style = TextStyle(color = color, fontSize = 11.sp))
+        // Estado da conexao e tempo de sala na mesma linha: sao as duas coisas que se
+        // olha de relance. O cronometro em mono pra o numero nao dancar a cada
+        // segundo (fonte proporcional muda a largura do "1" pro "8").
+        val inicio by engine.inicio.collectAsState()
+        val tempo by lembrarTempoDeCall(inicio)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = TextStyle(color = color, fontSize = 11.sp))
+            if (tempo.isNotEmpty()) {
+                Text(
+                    "  ·  $tempo",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                )
+            }
+        }
         Spacer(Modifier.height(14.dp))
 
         // Palco. Sem transmissão (minha nem de outros) = grid de tiles. Com

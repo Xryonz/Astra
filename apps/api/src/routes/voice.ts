@@ -2,13 +2,14 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
-import { AccessToken, RoomServiceClient } from 'livekit-server-sdk'
+import { AccessToken } from 'livekit-server-sdk'
 import { db } from '../db'
 import { dmConversations, channels, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { env } from '../lib/env'
+import { getRoomService } from '../lib/livekit'
 import { userCanSeeChannel } from '../lib/permissions'
 import { forbidden, badRequest } from '../lib/errors'
 
@@ -16,11 +17,6 @@ const router = Router()
 
 const PRESENCE_TTL_MS = 5_000
 const presenceCache = new Map<string, { at: number; ids: string[] }>()
-
-function getRoomService(): RoomServiceClient | null {
-  if (!env.LIVEKIT_URL || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) return null
-  return new RoomServiceClient(env.LIVEKIT_URL, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET)
-}
 
 const TokenSchema = z.object({
   roomKind: z.enum(['channel', 'dm']),

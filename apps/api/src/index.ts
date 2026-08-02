@@ -31,6 +31,7 @@ import inviteRouter          from './routes/invites'
 import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
 import { attachRealtime }                from './lib/realtime'
+import { iniciarRelogioDeCall }          from './lib/xp'
 import { createMessagesRouter }          from './routes/messages'
 import { createReactionsRouter }         from './routes/reactions'
 import { createPollsRouter }             from './routes/polls'
@@ -58,6 +59,7 @@ import friendsRouter                      from './routes/friends'
 import blocksRouter                       from './routes/blocks'
 import voiceRouter                        from './routes/voice'
 import wishesRouter                       from './routes/wishes'
+import xpRouter                           from './routes/xp'
 import sessionsRouter                     from './routes/sessions'
 import emojisRouter                       from './routes/emojis'
 import channelNotifPrefsRouter            from './routes/channelNotifPrefs'
@@ -166,6 +168,7 @@ app.use('/api/friends',   friendsRouter)
 app.use('/api/blocks',    blocksRouter)
 app.use('/api/voice',     voiceRouter)
 app.use('/api/wishes',    wishesRouter)
+app.use('/api/xp',        xpRouter)
 app.use('/api/sessions',  sessionsRouter)
 app.use('/api/servers',   emojisRouter)
 app.use('/api',           channelNotifPrefsRouter)
@@ -267,6 +270,8 @@ httpServer.listen(env.PORT, async () => {
   logger.info('Retention', 'Worker iniciado (1h)')
   startReminderWorker(io)
   logger.info('Reminders', 'Worker iniciado (30s)')
+  iniciarRelogioDeCall()
+  logger.info('Xp', 'Relogio de call iniciado (1min)')
   initPush()
   void initFcm()
   initMailer()

@@ -21,6 +21,7 @@ import { PERMS, getMemberPerms, userCanSeeChannel } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { safeParsePoll } from './polls'
 import { messagesSentTotal } from '../lib/metrics'
+import { xpPorMensagem } from '../lib/xp'
 
 interface CursorPayload {
   createdAt: Date
@@ -319,6 +320,11 @@ export function createMessagesRouter(io: SocketServer) {
       messagesSentTotal.inc({ kind: 'channel' })
 
       res.status(201).json({ data: msgWithReactions })
+
+      // O mesmo XP do caminho por socket. Os dois precisam creditar: quem manda
+      // anexo, resposta ou usa o mobile cai AQUI, e so instrumentar o socket daria
+      // um sistema que paga uns e nao paga outros — sem ninguem entender por que.
+      void xpPorMensagem(req.userId!)
 
       setImmediate(() => {
         void (async () => {

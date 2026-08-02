@@ -10,6 +10,7 @@ import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamD
 import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
+import { xpPorMensagem } from '../lib/xp'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
 import { botPodeFalar } from '../lib/botScope'
@@ -309,6 +310,11 @@ export function setupSocket(io: Server) {
         io.to(`channel:${channelId}`).emit('new_message', payload2)
         messagesSentTotal.inc({ kind: 'channel' })
         safeAck({ ok: true, msg: payload2 })
+
+        // XP DEPOIS do ack, sem await: a bolha da mensagem nao espera progressao.
+        // A propria funcao decide se conta (trava de 1 min, teto do dia) e ela
+        // engole os proprios erros — nao ha caso em que XP derrube uma mensagem.
+        void xpPorMensagem(userId)
 
         setImmediate(() => {
           void (async () => {

@@ -279,6 +279,12 @@ class VoiceEngine(
     // Metricas da transmissão (poll a cada ~1.5s enquanto compartilho).
     private val _screenStats = MutableStateFlow<ScreenStats?>(null)
     val screenStats = _screenStats.asStateFlow()
+
+    // Quando a call comecou (millis). Null ate o primeiro CONNECTED. Quem mostra o
+    // cronometro conta a partir daqui — assim o relogio nasce no servidor de voz e
+    // nao no instante em que uma tela qualquer entrou na composicao.
+    private val _inicio = MutableStateFlow<Long?>(null)
+    val inicio = _inicio.asStateFlow()
     private var statsJob: Job? = null
 
     // Preset ativo da transmissão (Settings > Voz). Capturado da pref no
@@ -1352,6 +1358,10 @@ class VoiceEngine(
     }
 
     private fun publishConnected() {
+        // Relogio da call. Marcado no PRIMEIRO connected e nunca remarcado: uma queda
+        // de rede que reconecta nao devolve o tempo ao zero — o tempo e da sua sessao
+        // na sala, nao da conexao. Sai junto com o engine (uma call por vez).
+        if (_inicio.value == null) _inicio.value = System.currentTimeMillis()
         _status.value = VoiceStatus.Connected(
             others.map { (identity, r) -> VoiceParticipant(identity, r.label, r.speaking, r.avatarUrl) },
             audioLive,

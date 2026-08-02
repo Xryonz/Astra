@@ -88,6 +88,7 @@ fun BoxScope.CallDock(
     onLeave: () -> Unit,
 ) {
     val status by engine.status.collectAsState()
+    val inicio by engine.inicio.collectAsState()
     val micOn by engine.micOn.collectAsState()
 
     var dx by remember { mutableFloatStateOf(0f) }
@@ -144,8 +145,13 @@ fun BoxScope.CallDock(
                         style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
+                    val tempo by lembrarTempoDeCall(inicio)
                     Text(
-                        if (connected != null) "$count na sala" else "…",
+                        when {
+                            connected == null -> "…"
+                            tempo.isNotEmpty() -> "$count na sala · $tempo"
+                            else -> "$count na sala"
+                        },
                         style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
                         maxLines = 1,
                     )

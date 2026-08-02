@@ -48,6 +48,14 @@ export function profileChanged(userId: string) {
   io?.emit('profile_updated', { userId })
 }
 
+// Ganhou XP. Vai so pra quem ganhou: progressao e assunto de uma pessoa so, e
+// mandar pra sala do servidor faria todo mundo receber um evento por mensagem de
+// todo mundo. O payload ja leva o progresso inteiro pra o anel do rodape nao ter
+// que voltar no servidor perguntar quanto ficou.
+export function xpGanho(userId: string, payload: unknown) {
+  io?.to(`user:${userId}`).emit('xp_gain', payload)
+}
+
 export function presenceChanged(userId: string, status: string) {
   io?.emit('presence_update', { userId, status: status === 'INVISIBLE' ? 'OFFLINE' : status })
 }

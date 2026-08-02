@@ -1,5 +1,6 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +61,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.User
+import app.astra.desktop.xp.XpStore
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.SetStatusRequest
@@ -112,6 +115,15 @@ fun UserFooter(
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
+    // Progressao: o anel em volta do avatar e o numero no lugar do status quando o
+    // mouse passa. O `progresso` e lido na composicao (muda no maximo 1x por
+    // minuto, e so pra trocar o TEXTO); a barra em si e animada na fase de desenho
+    // pelo VisualDeXp, entao ganhar XP nao recompoe a barra lateral.
+    val xpStore = remember { GlobalContext.get().get<XpStore>() }
+    val progresso by xpStore.progresso.collectAsState()
+    val visualXp = rememberVisualDeXp(xpStore)
+    val hoverCartao = remember { MutableInteractionSource() }
+    val cartaoSobHover by hoverCartao.collectIsHoveredAsState()
     var profileOpen by remember { mutableStateOf(false) }
     var statusOpen by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
@@ -151,10 +163,22 @@ fun UserFooter(
             .clip(RoundedCornerShape(12.dp))
             .background(Obsidian.void.copy(alpha = 0.46f))
             .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .hoverable(hoverCartao)
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
+        // O anel vive AQUI, no Box de fora: o de dentro tem .clip(CircleShape) e
+        // cortaria tudo que e desenhado pra fora da foto. Ele passa do avatar em
+        // ~3.5dp de cada lado, que cabem na folga vertical de 9dp do cartao.
+        Box(
+            Modifier.anelDeXp(
+                fracao = visualXp.fracao,
+                aceso = visualXp.aceso,
+                varredura = visualXp.varredura,
+                cor = corDoAnel,
+                trilho = trilhoDoAnel,
+            ),
+        ) {
             Box(
                 Modifier
                     .clip(CircleShape)
@@ -200,7 +224,21 @@ fun UserFooter(
                     style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                Text(statusLabel(status), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                // A linha de baixo tem dois papeis. Em repouso e o status ("brilhando");
+                // com o mouse em cima vira o numero do nivel. Escolher assim em vez de
+                // mostrar os dois evita crescer o cartao — e ninguem precisa do XP o
+                // tempo todo, so quando quer saber.
+                Crossfade(cartaoSobHover, animationSpec = tween(140), label = "statusOuNivel") { emHover ->
+                    Text(
+                        if (emHover) "nível ${progresso.nivel} · ${progresso.noNivel}/${progresso.paraOProximo}"
+                        else statusLabel(status),
+                        style = TextStyle(
+                            color = if (emHover) Obsidian.text2 else Obsidian.text3,
+                            fontSize = 11.sp,
+                        ),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             if (statusOpen) {
                 Popup(

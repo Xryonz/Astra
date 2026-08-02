@@ -114,6 +114,7 @@ import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.xp.XpStore
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceSession
@@ -219,6 +220,10 @@ fun ShellScreen(
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
     LaunchedEffect(Unit) { socket.connect() }
+
+    // Progressao: le o XP uma vez e depois fica escutando o `xp_gain`. Vive no
+    // escopo do shell — some junto com a sessao, sem coletor orfao depois do logout.
+    LaunchedEffect(Unit) { koin.get<XpStore>().iniciar(scope) }
 
     // Permissões do Windows na PRIMEIRA abertura, pra quem JÁ TINHA conta — quem
     // cria conta agora vê a mesma lista dentro das boas-vindas (e o onDone de lá

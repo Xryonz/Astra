@@ -251,6 +251,14 @@ DO $$ BEGIN
     FOREIGN KEY ("categoryId") REFERENCES "ChannelCategory"("id") ON DELETE set null ON UPDATE no action;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
+-- ===== Progressao (XP + Brilho) =====
+CREATE TABLE IF NOT EXISTS "UserXp" (
+  "userId"    text PRIMARY KEY NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "xp"        integer NOT NULL DEFAULT 0,
+  "brilho"    integer NOT NULL DEFAULT 0,
+  "updatedAt" timestamp (3) NOT NULL DEFAULT now()
+);
+
 -- ===== Remoção da feature de threads (mensagens de thread viram normais) =====
 DROP INDEX IF EXISTS "Message_threadId_idx";
 ALTER TABLE "Message" DROP COLUMN IF EXISTS "threadId";

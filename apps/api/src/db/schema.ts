@@ -476,6 +476,20 @@ export const wishingStars = pgTable('WishingStar', {
   byUser:    index('WishingStar_userId_idx').on(t.userId),
 }))
 
+// Progressao do usuario. UMA linha por pessoa, e so dois numeros que importam.
+//
+// O NIVEL NAO E GUARDADO: e derivado do xp (progressoDoXp em lib/xp.ts). Guardar
+// os dois seria manter duas verdades sobre a mesma coisa, e a hora em que elas
+// discordassem — um crash entre os dois UPDATEs, um ajuste manual da curva — nao
+// haveria como saber qual esta certa.
+export const userXp = pgTable('UserXp', {
+  userId:    text('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  xp:        integer('xp').notNull().default(0),
+  // Moeda gasta na loja. Cai aqui pela trilha (subir de nivel) — nunca por compra.
+  brilho:    integer('brilho').notNull().default(0),
+  updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
+})
+
 export const badges = pgTable('Badge', {
   id:          text('id').primaryKey().$defaultFn(createId),
   serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),

@@ -119,6 +119,11 @@ class DesktopSocket(
     private val _profileUpdated = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val profileUpdated: SharedFlow<String> = _profileUpdated.asSharedFlow()
 
+    // Ganhei XP. Chega so pra mim (sala user:{id}) e ja traz o progresso inteiro —
+    // o anel do rodape nao precisa voltar no servidor perguntar quanto ficou.
+    private val _xpGain = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val xpGain: SharedFlow<String> = _xpGain.asSharedFlow()
+
     // A constelacao em si mudou (nome, icone, banner) — a rail e o cabecalho
     // rebuscam.
     private val _serverUpdated = MutableSharedFlow<String>(extraBufferCapacity = 16)
@@ -371,6 +376,9 @@ class DesktopSocket(
         }
         s.on("profile_updated") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _profileUpdated.tryEmit(it.toString()) }
+        }
+        s.on("xp_gain") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _xpGain.tryEmit(it.toString()) }
         }
         s.on("server_updated") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverUpdated.tryEmit(it.toString()) }

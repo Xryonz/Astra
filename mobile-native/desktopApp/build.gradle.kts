@@ -62,7 +62,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.54"
+val astraVersion = "0.1.55"
 
 dependencies {
     implementation(project(":shared"))
@@ -186,8 +186,25 @@ compose.desktop {
         // $APPDIR e substituido pelo jpackage pela pasta app/ da instalacao.
         // So no build EMPACOTADO: `$APPDIR` e substituido pelo jpackage. Rodando pelo
         // Gradle (:run) o token não resolve e a JVM cospe um erro feio de cds (inofensivo,
-        // sai com 0 — verificado), entao gateamos pela mesma flag do empacote.
-        if (providers.gradleProperty("astra.distDir").isPresent) {
+        // sai com 0 — verificado), entao isto so entra quando se esta EMPACOTANDO.
+        //
+        // O GATE ESTAVA ERRADO E NADA DISTO CHEGAVA NO APP PUBLICADO.
+        //
+        // Era `astra.distDir`, que significa "jogue a saida do build noutro lugar" —
+        // uma gambiarra que existe so porque o repo do dono mora num caminho com
+        // acento e o jpackage não engole. O workflow de release NAO passa essa flag
+        // (de proposito: no runner o caminho e limpo). Ou seja, o unico build que
+        // chega em alguem era exatamente o que ficava SEM AppCDS (abertura mais
+        // lenta pra todo mundo) e SEM ErrorFile (o laudo de crash nativo caindo como
+        // hs_err_pid<n>.log na raiz, enquanto o diagnostico mandava procurar
+        // falha-jvm-*.log — um arquivo que nunca existiu).
+        //
+        // Agora o gate pergunta a coisa certa: "a tarefa pedida e de empacotamento?".
+        // Vale no CI e na maquina do dono, com ou sem a gambiarra do caminho.
+        val empacotando = gradle.startParameter.taskNames.any { alvo ->
+            listOf("distributable", "package", "dmg", "msi", "deb").any { it in alvo.lowercase() }
+        } || providers.gradleProperty("astra.distDir").isPresent
+        if (empacotando) {
             jvmArgs += "-XX:+AutoCreateSharedArchive"
             jvmArgs += "-XX:SharedArchiveFile=\$APPDIR/astra-cds.jsa"
             // Crash NATIVO (webrtc/skia derrubando a JVM inteira) não passa pelo

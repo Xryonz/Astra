@@ -100,12 +100,15 @@ internal fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
     }
 }
 
+// Campo e botao dos dialogos. Nasceram aqui (convite) mas nao tem nada de
+// convite dentro — o dialogo de enquete usa os mesmos. Copiar seria repetir o
+// erro do cartao de perfil, que existia em dois arquivos e divergiu.
 @Composable
-private fun InviteField(
+internal fun DialogField(
     value: String,
     placeholder: String,
     onChange: (String) -> Unit,
-    onSubmit: () -> Unit,
+    onSubmit: () -> Unit = {},
 ) {
     Box(
         Modifier
@@ -132,7 +135,7 @@ private fun InviteField(
 }
 
 @Composable
-private fun InviteButton(label: String, accent: Boolean, onClick: () -> Unit) {
+internal fun DialogButton(label: String, accent: Boolean, onClick: () -> Unit) {
     Text(
         label,
         style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
@@ -191,10 +194,10 @@ fun InvitePeopleDialog(
         Spacer(Modifier.height(7.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                InviteField(username, "@usuario", { username = it; msg = null }, submit)
+                DialogField(username, "@usuario", { username = it; msg = null }, submit)
             }
             Spacer(Modifier.width(8.dp))
-            InviteButton(if (busy) "…" else "adicionar", accent = true) { submit() }
+            DialogButton(if (busy) "…" else "adicionar", accent = true) { submit() }
         }
         Spacer(Modifier.height(6.dp))
         Text(
@@ -233,7 +236,7 @@ fun InvitePeopleDialog(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                InviteButton(if (copied) "copiado" else "copiar", accent = false) {
+                DialogButton(if (copied) "copiado" else "copiar", accent = false) {
                     clipboard.setText(AnnotatedString(link))
                     copied = true
                 }
@@ -242,7 +245,7 @@ fun InvitePeopleDialog(
 
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InviteButton("fechar", accent = false) { onClose() }
+            DialogButton("fechar", accent = false) { onClose() }
         }
     }
 }
@@ -280,15 +283,15 @@ fun JoinByInviteDialog(
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         )
         Spacer(Modifier.height(14.dp))
-        InviteField(raw, inviteLink("codigo-do-convite"), { raw = it; err = null }, submit)
+        DialogField(raw, inviteLink("codigo-do-convite"), { raw = it; err = null }, submit)
         err?.let {
             Spacer(Modifier.height(8.dp))
             Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
         }
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InviteButton("cancelar", accent = false) { onClose() }
-            InviteButton(if (busy) "entrando…" else "entrar", accent = true) { submit() }
+            DialogButton("cancelar", accent = false) { onClose() }
+            DialogButton(if (busy) "entrando…" else "entrar", accent = true) { submit() }
         }
     }
 }

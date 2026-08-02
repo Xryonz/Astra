@@ -79,6 +79,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -188,6 +194,7 @@ fun SettingsScreen(
     onClose: () -> Unit,
     onProfileSaved: () -> Unit = {},
     initialTab: SettingsTab = SettingsTab.ACCOUNT,
+    onTestarNotificacao: () -> Unit = {},
 ) {
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
     val prefState by prefs.state.collectAsState()
@@ -312,6 +319,8 @@ fun SettingsScreen(
                                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                                 modifier = Modifier.widthIn(max = 460.dp),
                             )
+                            Spacer(Modifier.height(16.dp))
+                            TestarNotificacao(onTestarNotificacao)
                         }
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
@@ -417,13 +426,14 @@ private data class ProfileDraft(
 
 // --- Previa do cartao de perfil. ---
 //
-// Usa o MESMO composable do cartao de verdade (ProfileCard), nao uma copia: a
-// versao antiga era um segundo desenho e ja tinha divergido do original (avatar
-// de 48 aqui, 72 la), ou seja, prometia uma coisa e os outros viam outra.
+// Usa o MESMO composable do cartao de verdade (ProfileCard), nao uma copia. Ja
+// houve duas copias aqui e as duas divergiram do original — previa que mente e
+// pior que previa nenhuma.
 //
-// Mostra as DUAS variantes (pedido do dono): o cartao COMPLETO e o compacto que
-// abre ao clicar num avatar. Como sao a mesma funcao com um parametro diferente,
-// nenhuma das duas pode envelhecer sozinha.
+// As duas LADO A LADO (pedido do dono): cabem juntas, da pra comparar sem rolar,
+// e clicar numa abre ela no tamanho de verdade. Espremidas em meia largura elas
+// ficam apertadas de proposito — a previa serve pra ver a CARA do cartao; quem
+// quiser conferir detalhe clica.
 //
 // draft = null -> perfil SALVO (aba Conta); draft != null -> rascunho ao vivo
 // (aba Perfil), campo a campo, antes de salvar.
@@ -450,18 +460,127 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         recado = draft?.customStatus ?: me.customStatus,
         fonte = draft?.displayFont ?: me.displayFont,
         status = me.effectiveStatus,
+        criadoEm = me.createdAt,
     )
+    var ampliada by remember { mutableStateOf<CardVariante?>(null) }
+
     Column(Modifier.fillMaxWidth()) {
-        RotuloDaPrevia("cartão completo")
-        ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth())
-        Spacer(Modifier.height(16.dp))
-        RotuloDaPrevia("ao clicar no seu avatar")
-        ProfileCard(dados, CardVariante.NORMAL, Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CartaoDaPrevia(
+                rotulo = "cartão completo",
+                larguraReal = LARGURA_CARTAO_COMPLETO,
+                modifier = Modifier.weight(1f),
+                aoClicar = { ampliada = CardVariante.COMPLETO },
+            ) {
+                ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth(), animar = false)
+            }
+            CartaoDaPrevia(
+                rotulo = "ao clicar no avatar",
+                larguraReal = LARGURA_CARTAO_NORMAL,
+                modifier = Modifier.weight(1f),
+                aoClicar = { ampliada = CardVariante.NORMAL },
+            ) {
+                ProfileCard(dados, CardVariante.NORMAL, Modifier.fillMaxWidth(), animar = false)
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Text(
-            "é assim que os outros te veem",
+            "é assim que os outros te veem — clique pra ver em tamanho real",
             style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
         )
+    }
+
+    ampliada?.let { qual ->
+        DialogShell(onClose = { ampliada = null }) {
+            // Aqui SIM na largura de verdade e com a coreografia ligada: e o cartao
+            // como os outros veem, nao a miniatura.
+            ProfileCard(
+                dados = dados,
+                variante = qual,
+                modifier = Modifier.width(
+                    if (qual == CardVariante.COMPLETO) LARGURA_CARTAO_COMPLETO else LARGURA_CARTAO_NORMAL,
+                ),
+            )
+        }
+    }
+}
+
+// Rotulo + a MINIATURA clicavel.
+//
+// O cartao e desenhado na largura de VERDADE e depois encolhido por escala, em
+// vez de ser desenhado apertado numa largura pequena. A diferenca importa: numa
+// largura pequena o texto quebra em outros lugares, o avatar fica gigante perto
+// do resto e a previa passa a mostrar um cartao que ninguem vai ver. Encolhido
+// por escala, e o cartao real visto de longe — proporcao intacta.
+//
+// O clique fica na caixa de FORA: o cartao de verdade nao e clicavel inteiro, e
+// enfiar um clickable nele so pra previa mudaria o componente compartilhado por
+// causa de um caso de uso.
+@Composable
+private fun CartaoDaPrevia(
+    rotulo: String,
+    larguraReal: Dp,
+    modifier: Modifier = Modifier,
+    aoClicar: () -> Unit,
+    conteudo: @Composable () -> Unit,
+) {
+    Column(modifier) {
+        RotuloDaPrevia(rotulo)
+        BoxWithConstraints {
+            val larguraRealPx = with(LocalDensity.current) { larguraReal.roundToPx() }
+            // Nunca AMPLIA: se sobrar espaco, o cartao fica no tamanho natural.
+            val escala = (constraints.maxWidth.toFloat() / larguraRealPx).coerceAtMost(1f)
+            Box(
+                Modifier
+                    .layout { measurable, _ ->
+                        val p = measurable.measure(Constraints.fixedWidth(larguraRealPx))
+                        // A caixa reserva o tamanho JA ENCOLHIDO; sem isto sobraria
+                        // um buraco do tamanho do cartao inteiro embaixo.
+                        layout((p.width * escala).toInt(), (p.height * escala).toInt()) { p.place(0, 0) }
+                    }
+                    .graphicsLayer {
+                        scaleX = escala
+                        scaleY = escala
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = aoClicar,
+                    ),
+            ) {
+                conteudo()
+            }
+        }
+    }
+}
+
+// "Testar" dispara um aviso de bandeja DE VERDADE — o mesmo caminho do aviso de
+// mensagem, nao um toast falso desenhado dentro do app. O que costuma falhar e
+// justamente o lado do SO (foco de assistencia, notificacao do app desativada no
+// Windows), e um toast interno passaria por cima disso e diria "funciona" quando
+// nao funciona.
+//
+// Nao precisa minimizar antes: a regra "so avisa com a janela atras" mora no
+// shell, no ponto em que a mensagem chega — nao dentro do envio. Aqui chamamos o
+// envio direto, entao o aviso sai mesmo com o Astra na frente.
+@Composable
+private fun TestarNotificacao(onTestar: () -> Unit) {
+    var avisou by remember { mutableStateOf(false) }
+    Column {
+        DialogButton(if (avisou) "mandei — olhe o canto da tela" else "testar notificação", accent = !avisou) {
+            avisou = true
+            onTestar()
+        }
+        if (avisou) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "não apareceu? o Windows pode estar com o foco de assistência ligado, " +
+                    "ou as notificações do Astra desativadas em Sistema > Notificações.",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                modifier = Modifier.widthIn(max = 460.dp),
+            )
+        }
     }
 }
 

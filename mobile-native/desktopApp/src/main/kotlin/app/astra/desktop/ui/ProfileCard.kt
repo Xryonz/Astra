@@ -1,9 +1,18 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -11,43 +20,72 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
+import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutSoft
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
+import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 // O CARTAO DE PERFIL — um so, duas variantes.
 //
-// POR QUE ISTO EXISTE: o cartao era desenhado DUAS vezes, em arquivos diferentes
-// (o de verdade no ProfilePopup, a previa nas Configuracoes). Duas copias da
-// mesma tela sempre divergem — e tinham divergido: avatar de 72 num, de 48 no
-// outro, deslocamentos diferentes, seccoes fora de ordem. Ou seja, a previa
-// prometia uma coisa e os outros viam outra, que e o pior defeito possivel numa
-// previa.
+// POR QUE ISTO EXISTE: o cartao era desenhado em ARQUIVOS diferentes, e as copias
+// divergiam. Primeiro foram duas (o popup e a previa das Configuracoes). Depois de
+// unificar essas duas, sobrou a divergencia MAIOR: o "cartao completo" de verdade
+// era o ProfilePage — outro composable, com secoes que o COMPLETO daqui nao tinha
+// (sobre / membro / servidores em comum). Ou seja, a previa chamada "cartao
+// completo" mostrava um cartao que ninguem via, e as duas previas saiam quase
+// iguais entre si, porque a de cima era so a de baixo com numeros maiores.
 //
-// Agora ha UMA implementacao. A previa nao pode mais mentir porque e literalmente
-// o mesmo desenho — se um dia sair torto, sai torto nos dois, e se conserta uma
-// vez.
+// Agora o COMPLETO daqui E o cartao do perfil completo. O ProfilePage virou so a
+// moldura (fundo escuro, animacao de entrada, rolagem) em volta deste desenho.
+// A previa nao pode mentir porque e literalmente a mesma funcao.
 
 enum class CardVariante {
-    /** O que abre ao clicar num avatar: compacto, 320 de largura. */
+    /** O que abre ao clicar num avatar: compacto, sem secoes. */
     NORMAL,
 
-    /** Versao grande, com mais respiro e a bio inteira. */
+    /** O perfil completo: avatar grande, "sobre", "membro", "em comum". */
     COMPLETO,
 }
+
+// Largura natural do cartao completo. Estreito de proposito: com 440 ele ficava
+// deitado — muita largura pra pouca altura — e cartao de pessoa e EM PE. Estreitar
+// tambem empurra o texto pra baixo, o que alonga sozinho.
+val LARGURA_CARTAO_COMPLETO = 360.dp
+
+// Largura do cartao compacto (o que abre ao clicar num avatar).
+val LARGURA_CARTAO_NORMAL = 320.dp
 
 // Os dados que o cartao desenha. Existe pra a previa poder montar um cartao a
 // partir do RASCUNHO (campo a campo, ao vivo, antes de salvar) usando exatamente
@@ -66,6 +104,7 @@ data class DadosDoCartao(
     val recado: String? = null,
     val fonte: String? = null,
     val status: String? = null,
+    val criadoEm: String? = null,
 )
 
 fun ProfileUserDto.paraCartao() = DadosDoCartao(
@@ -82,6 +121,7 @@ fun ProfileUserDto.paraCartao() = DadosDoCartao(
     recado = customStatus,
     fonte = displayFont,
     status = effectiveStatus,
+    criadoEm = createdAt,
 )
 
 @Composable
@@ -89,14 +129,17 @@ fun ProfileCard(
     dados: DadosDoCartao,
     variante: CardVariante = CardVariante.NORMAL,
     modifier: Modifier = Modifier,
+    servidoresEmComum: List<MutualServerDto> = emptyList(),
+    // Botao de fechar no canto do banner. null = sem botao (o popup pequeno e a
+    // previa fecham por fora).
+    aoFechar: (() -> Unit)? = null,
+    // A previa desliga a coreografia: ela recompoe a cada tecla digitada, e a
+    // cascata reiniciando a cada letra transformaria a previa num pisca-pisca.
+    animar: Boolean = true,
     rodape: @Composable (() -> Unit)? = null,
 ) {
     val completo = variante == CardVariante.COMPLETO
-    val avatarPx = if (completo) 88 else 72
     val recuoH = if (completo) 20.dp else 16.dp
-    // O avatar sobe pra pisar no banner. Metade dele pra fora e o que da a
-    // sensacao de "colado" sem cobrir a faixa inteira.
-    val subida = (-avatarPx / 2 - 4).dp
 
     Column(
         modifier
@@ -105,94 +148,317 @@ fun ProfileCard(
             .profileCardBackdrop(dados.bannerColor)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(if (completo) 16.dp else 12.dp)),
     ) {
-        // css = null de proposito: quem pinta o gradiente e o cartao inteiro. Se a
-        // faixa repintasse por conta, o gradiente "recomecaria" e apareceria o corte.
-        ProfileBanner(
-            css = null,
-            imageUrl = dados.bannerUrl,
-            positionY = dados.bannerPositionY,
-            scale = dados.bannerScale,
-            fallback = bannerBackdrop(dados.bannerUrl),
-            modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
-        )
-        Column(Modifier.padding(horizontal = recuoH)) {
-            Box(
-                Modifier
-                    .offset(y = subida)
-                    // Anel do fundo do cartao ao redor do avatar: e o que separa a
-                    // foto do banner quando as duas sao claras.
-                    .clip(CircleShape)
-                    .background(Obsidian.raised)
-                    .padding(3.dp),
-            ) {
-                DesktopAvatar(dados.avatarUrl, dados.nome, avatarPx)
+        Box {
+            // css = null de proposito: quem pinta o gradiente e o cartao inteiro. Se
+            // a faixa repintasse por conta, o gradiente "recomecaria" e o corte
+            // apareceria.
+            ProfileBanner(
+                css = null,
+                imageUrl = dados.bannerUrl,
+                positionY = dados.bannerPositionY,
+                scale = dados.bannerScale,
+                fallback = bannerBackdrop(dados.bannerUrl),
+                modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
+            )
+            if (completo && animar) {
+                BannerSweep(dados.username, Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect))
             }
-            Column(Modifier.offset(y = subida / 2)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        dados.nome,
-                        style = TextStyle(
-                            color = Obsidian.text1,
-                            fontSize = if (completo) 23.sp else 19.sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = profileFontFamily(dados.fonte),
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    StatusDot(
-                        status = userStatus(dados.status),
-                        size = if (completo) 12.dp else 10.dp,
-                        cutoutColor = Obsidian.raised,
-                    )
+            if (aoFechar != null) {
+                val fecharSrc = remember { MutableInteractionSource() }
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .clip(CircleShape)
+                        .background(Obsidian.void.copy(alpha = 0.5f))
+                        .clickable(interactionSource = fecharSrc, indication = null) { aoFechar() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, modifier = Modifier.padding(5.dp))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "@${dados.username}",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
-                    )
-                    if (!dados.pronomes.isNullOrBlank()) {
-                        Text("  ·  ${dados.pronomes}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-                    }
-                }
-                if (!dados.recado.isNullOrBlank() || !dados.statusEmoji.isNullOrBlank()) {
-                    Spacer(Modifier.height(9.dp))
-                    Text(
-                        listOfNotNull(
-                            dados.statusEmoji?.ifBlank { null },
-                            dados.recado?.ifBlank { null },
-                        ).joinToString(" "),
-                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-                    )
-                }
-                if (!dados.bio.isNullOrBlank()) {
-                    Spacer(Modifier.height(10.dp))
-                    // Faixa propria pra bio (padrao do cartao do Discord): o bloco
-                    // levemente destacado separa "quem e" de "o que escreveu" sem
-                    // precisar de titulo.
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Obsidian.void.copy(alpha = 0.38f))
-                            .padding(horizontal = 11.dp, vertical = 9.dp),
-                    ) {
-                        Text(
-                            dados.bio.orEmpty(),
-                            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-                            // No completo a bio aparece inteira; no compacto corta.
-                            maxLines = if (completo) 12 else 3,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                if (rodape != null) {
-                    Spacer(Modifier.height(12.dp))
-                    rodape()
-                }
-                Spacer(Modifier.height(if (completo) 16.dp else 12.dp))
+            }
+        }
+
+        Column(Modifier.padding(horizontal = recuoH)) {
+            AvatarDoCartao(dados, completo, animar)
+            Column(Modifier.offset(y = if (completo) (-24).dp else (-40).dp)) {
+                if (completo) CorpoCompleto(dados, servidoresEmComum, animar, rodape)
+                else CorpoCompacto(dados, rodape)
+                Spacer(Modifier.height(if (completo) 20.dp else 12.dp))
             }
         }
     }
+}
+
+// O avatar pisa no banner. No completo ele "pipoca" com overshoot depois que o
+// cartao assenta — o unico momento bouncy do perfil, de proposito: um so chama
+// atencao, varios viram brinquedo.
+@Composable
+private fun AvatarDoCartao(dados: DadosDoCartao, completo: Boolean, animar: Boolean) {
+    val px = if (completo) 99 else 72
+    val reduzir = LocalReduceMotion.current
+    val pop = remember(dados.username, completo) {
+        Animatable(if (reduzir || !completo || !animar) 1f else 0f)
+    }
+    LaunchedEffect(dados.username, completo) {
+        if (pop.value < 1f) {
+            delay(200)
+            pop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium))
+        }
+    }
+    Box(
+        Modifier
+            // Metade do avatar pra fora e o que da a sensacao de "colado" sem
+            // cobrir a faixa inteira.
+            .offset(y = if (completo) (-42).dp else (-px / 2 - 4).dp)
+            .graphicsLayer {
+                alpha = pop.value.coerceIn(0f, 1f)
+                val s = 0.6f + 0.4f * pop.value
+                scaleX = s
+                scaleY = s
+            }
+            // Anel do fundo do cartao ao redor do avatar: e o que separa a foto do
+            // banner quando as duas sao claras.
+            .clip(CircleShape)
+            .background(Obsidian.raised)
+            .padding(3.dp),
+    ) {
+        DesktopAvatar(dados.avatarUrl, dados.nome, px)
+    }
+}
+
+@Composable
+private fun CorpoCompacto(dados: DadosDoCartao, rodape: @Composable (() -> Unit)?) {
+    NomeELinha(dados, tamanhoNome = 19, tamanhoPonto = 10)
+    if (!dados.recado.isNullOrBlank() || !dados.statusEmoji.isNullOrBlank()) {
+        Spacer(Modifier.height(9.dp))
+        Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+    }
+    if (!dados.bio.isNullOrBlank()) {
+        Spacer(Modifier.height(10.dp))
+        // Faixa propria pra bio: separa "quem e" de "o que escreveu" sem titulo.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Obsidian.void.copy(alpha = 0.38f))
+                .padding(horizontal = 11.dp, vertical = 9.dp),
+        ) {
+            Text(
+                dados.bio.orEmpty(),
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
+                maxLines = 3, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+    if (rodape != null) {
+        Spacer(Modifier.height(12.dp))
+        rodape()
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CorpoCompleto(
+    dados: DadosDoCartao,
+    servidoresEmComum: List<MutualServerDto>,
+    animar: Boolean,
+    rodape: @Composable (() -> Unit)?,
+) {
+    val chave = dados.username
+    // Secoes entram em cascata (fade + subida, uma depois da outra).
+    val cascata: @Composable (Int, @Composable () -> Unit) -> Unit = { i, conteudo ->
+        if (animar) CascadeIn(i, chave, stepMs = 40L, startDelayMs = 220L) { conteudo() } else conteudo()
+    }
+
+    cascata(0) { NomeELinha(dados, tamanhoNome = 24, tamanhoPonto = 12, so = Parte.NOME) }
+    cascata(1) { NomeELinha(dados, tamanhoNome = 24, tamanhoPonto = 12, so = Parte.ARROBA) }
+    if (!dados.recado.isNullOrBlank() || !dados.statusEmoji.isNullOrBlank()) {
+        Spacer(Modifier.height(12.dp))
+        cascata(2) {
+            Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
+        }
+    }
+    if (!dados.bio.isNullOrBlank()) {
+        Spacer(Modifier.height(14.dp))
+        cascata(3) {
+            Secao("sobre") {
+                Text(dados.bio.orEmpty(), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp))
+            }
+        }
+    }
+    membroDesde(dados.criadoEm)?.let { desde ->
+        Spacer(Modifier.height(14.dp))
+        cascata(4) {
+            Secao("membro") {
+                Text("nas estrelas desde $desde", style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
+            }
+        }
+    }
+    if (servidoresEmComum.isNotEmpty()) {
+        Spacer(Modifier.height(14.dp))
+        cascata(5) {
+            Secao("servidores em comum · ${servidoresEmComum.size}") {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    servidoresEmComum.forEachIndexed { i, s -> MutualChip(s, if (animar) i else CHIP_STAGGER_MAX) }
+                }
+            }
+        }
+    }
+    if (rodape != null) {
+        Spacer(Modifier.height(18.dp))
+        cascata(6) { rodape() }
+    }
+}
+
+private enum class Parte { TUDO, NOME, ARROBA }
+
+// Nome + bolinha de status, e a linha do @usuario com os pronomes. As duas juntas
+// no compacto; separadas no completo, porque la cada uma entra num tempo.
+@Composable
+private fun NomeELinha(
+    dados: DadosDoCartao,
+    tamanhoNome: Int,
+    tamanhoPonto: Int,
+    so: Parte = Parte.TUDO,
+) {
+    if (so != Parte.ARROBA) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                dados.nome,
+                style = TextStyle(
+                    color = Obsidian.text1,
+                    fontSize = tamanhoNome.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = profileFontFamily(dados.fonte),
+                ),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Spacer(Modifier.width(6.dp))
+            StatusDot(
+                status = userStatus(dados.status),
+                size = tamanhoPonto.dp,
+                cutoutColor = Obsidian.raised,
+            )
+        }
+    }
+    if (so != Parte.NOME) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "@${dados.username}",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+            )
+            if (!dados.pronomes.isNullOrBlank()) {
+                Text("  ·  ${dados.pronomes}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            }
+        }
+    }
+}
+
+private fun recadoInteiro(dados: DadosDoCartao) = listOfNotNull(
+    dados.statusEmoji?.ifBlank { null },
+    dados.recado?.ifBlank { null },
+).joinToString(" ")
+
+@Composable
+private fun Secao(titulo: String, conteudo: @Composable () -> Unit) {
+    Column {
+        HairRule()
+        Spacer(Modifier.height(10.dp))
+        Text(
+            titulo.uppercase(),
+            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+        )
+        Spacer(Modifier.height(6.dp))
+        conteudo()
+    }
+}
+
+private const val CHIP_STAGGER_MAX = 10
+
+@Composable
+private fun MutualChip(s: MutualServerDto, index: Int) {
+    val reduce = LocalReduceMotion.current
+    // 2o nivel de stagger: cada chip escala/aparece um tico depois do anterior.
+    // Escala (nao translateY) — o FlowRow quebra linha, subir por linha ficaria
+    // torto.
+    val pop = remember(s.id) { Animatable(if (reduce || index !in 0 until CHIP_STAGGER_MAX) 1f else 0f) }
+    LaunchedEffect(s.id) {
+        if (pop.value < 1f) {
+            delay(index * 18L)
+            pop.animateTo(1f, tween(180, easing = EaseOutStd))
+        }
+    }
+    val src = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .graphicsLayer {
+                alpha = pop.value
+                val sc = 0.85f + 0.15f * pop.value
+                scaleX = sc
+                scaleY = sc
+            }
+            .clickScale(src)
+            .clip(RoundedCornerShape(9.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(Obsidian.raised), contentAlignment = Alignment.Center) {
+            if (!s.iconUrl.isNullOrBlank()) {
+                DesktopAvatar(s.iconUrl, s.name, 22)
+            } else {
+                Text(s.name.take(1).uppercase(), style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontFamily = DmSerif))
+            }
+        }
+        Spacer(Modifier.width(7.dp))
+        Text(
+            s.name,
+            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(96.dp),
+        )
+    }
+}
+
+// Sweep de luz ambar diagonal que atravessa o banner UMA vez na abertura (tipo
+// alvorecer). Sutil (pico alpha 0.15), GPU-only, um-shot. Reduzir movimento = some.
+@Composable
+private fun BannerSweep(seedKey: Any?, modifier: Modifier = Modifier) {
+    if (LocalReduceMotion.current) return
+    val sweep = remember(seedKey) { Animatable(0f) }
+    LaunchedEffect(seedKey) {
+        delay(90)
+        sweep.animateTo(1f, tween(650, easing = EaseOutSoft))
+    }
+    Box(
+        modifier
+            .clipToBounds()
+            .graphicsLayer {
+                translationX = (sweep.value * 1.8f - 0.5f) * size.width
+                rotationZ = -16f
+            }
+            .drawBehind {
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color.Transparent, Obsidian.accent.copy(alpha = 0.15f), Color.Transparent),
+                    ),
+                    size = Size(size.width * 0.4f, size.height * 2f),
+                )
+            },
+    )
+}
+
+// createdAt (ISO) -> "julho de 2026" (pt-BR). Falha silenciosa: sem data, sem linha.
+private fun membroDesde(iso: String?): String? {
+    if (iso.isNullOrBlank()) return null
+    return runCatching {
+        val date = Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate()
+        date.format(DateTimeFormatter.ofPattern("MMMM 'de' yyyy", Locale("pt", "BR")))
+    }.getOrNull()
 }

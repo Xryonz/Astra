@@ -174,7 +174,14 @@ private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
 // botAqui: a bot atende nesta orbita? Quando NAO, a caixinha do "/" nem abre —
 // mostrar comando que o servidor vai ignorar em silencio e pior do que nao
 // mostrar nada (a pessoa digita, manda, e nada acontece).
-fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit, botAqui: Boolean = true) {
+fun ChatView(
+    target: ChatTarget,
+    vm: ChatVm,
+    onStartDm: (String, String) -> Unit,
+    botAqui: Boolean = true,
+    // Constelacao do canal aberto. null em sussurro — la nao ha bot por orbita.
+    serverId: String? = null,
+) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -203,6 +210,9 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
             }
         }
     }
+
+    // Dialogo de criar enquete (so canal — o '+' nem oferece em sussurro).
+    var enqueteAberta by remember(target.id) { mutableStateOf(false) }
 
     // Mensagem sendo editada inline / destacada pelo clique numa reply.
     var editingId by remember(target.id) { mutableStateOf<String?>(null) }
@@ -288,6 +298,8 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                             onCancelEdit = { editingId = null },
                             onDelete = { vm.delete(msg.id) },
                             onPin = { vm.pin(msg.id) },
+                            onVote = { opcao -> vm.vote(msg.id, opcao) },
+                            onClosePoll = { vm.closePoll(msg.id) },
                             onRetry = { vm.retry(msg) },
                             onJumpTo = { id -> jumpTo(id) },
                             onStartDm = onStartDm,
@@ -376,20 +388,34 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
             }
             var draft by remember(target.id) { mutableStateOf("") }
             var composerFocused by remember(target.id) { mutableStateOf(false) }
-            fun submit() {
-                if (draft.isBlank() && state.pending.isEmpty()) return
-                vm.send(draft)
-                draft = ""
-            }
-            val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
             // Caixinha de comandos: aparece ACIMA do compositor quando a mensagem
             // comeca com "/" e some assim que deixa de ser uma busca de comando.
             val allCommands = if (botAqui) rememberBotCommands() else emptyList()
             val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
+            // Os prefixos VEM DA LISTA que o backend mandou (o 1o pedaco de cada
+            // comando), nao de uma copia cravada aqui. Eles mudam de nome conforme
+            // o dia (/sparkle na semana, /sparxie no fim de semana); uma lista
+            // local ficaria velha e o comando voltaria a sair como mensagem.
+            val prefixosBot = remember(allCommands) {
+                allCommands.map { it.name.substringBefore(' ') }.toSet()
+            }
+            fun submit() {
+                if (draft.isBlank() && state.pending.isEmpty()) return
+                val texto = draft.trim()
+                val prefixo = prefixosBot.firstOrNull {
+                    texto.equals(it, true) || texto.startsWith("$it ", true)
+                }
+                if (prefixo != null && serverId != null) vm.sendBotCommand(serverId, texto)
+                else vm.send(draft)
+                draft = ""
+            }
+            val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
             CommandPalette(matches) { picked ->
-                // Escolher deixa o comando pronto com um espaco: quase todo comando
-                // aqui ou e completo (/astra ping) ou pede um texto depois (/astra).
-                draft = picked.name + " "
+                // Escolher deixa o comando pronto com um espaco. O que a caixinha
+                // mostra inclui o rotulo do argumento ("/sparxie desejo <seu
+                // desejo>"); esse rotulo NAO entra no compositor — seria texto pra
+                // apagar antes de escrever.
+                draft = picked.name.substringBefore(" <") + " "
             }
             if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
             val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
@@ -409,7 +435,10 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                     .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ComposerPlusButton(onPickFiles = vm::addFiles)
+                ComposerPlusButton(
+                    onPickFiles = vm::addFiles,
+                    onCriarEnquete = if (isChannel) ({ enqueteAberta = true }) else null,
+                )
                 Spacer(Modifier.width(4.dp))
                 Box(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 7.dp)) {
                     if (draft.isEmpty()) {
@@ -452,13 +481,23 @@ fun ChatView(target: ChatTarget, vm: ChatVm, onStartDm: (String, String) -> Unit
                 }
                 // Seletores A MOSTRA (padrao Discord): GIF e emoji abrem direto, sem
                 // passar por menu. O que "cria coisa" mora no '+', do outro lado.
-                ComposerPickerButton(StarPane.GIF, onPickGif = vm::sendGif)
+                ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
                 Spacer(Modifier.width(4.dp))
-                ComposerPickerButton(StarPane.EMOJI, onPickEmoji = { draft = (draft + it).take(4000) })
+                ComposerPickerButton(Seletor.EMOJI, onPickEmoji = { draft = (draft + it).take(4000) })
                 Spacer(Modifier.width(4.dp))
                 SendButton(enabled = canSend) { submit() }
             }
         }
+    }
+
+    if (enqueteAberta) {
+        CriarEnqueteDialog(
+            canalNome = target.title,
+            onCriar = { pergunta, opcoes, multipla, prazo ->
+                vm.createPoll(pergunta, opcoes, multipla, prazo)
+            },
+            onClose = { enqueteAberta = false },
+        )
     }
 
     // Overlay enquanto o arquivo esta sendo arrastado por cima da conversa.
@@ -497,6 +536,8 @@ private fun MessageRow(
     onCancelEdit: () -> Unit,
     onDelete: () -> Unit,
     onPin: () -> Unit,
+    onVote: (String) -> Unit,
+    onClosePoll: () -> Unit,
     onRetry: () -> Unit,
     onJumpTo: (String) -> Unit,
     onStartDm: (String, String) -> Unit,
@@ -601,7 +642,7 @@ private fun MessageRow(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onRetry)
+                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             } else {
                 // Clique no avatar abre o card de perfil (F3).
@@ -627,7 +668,7 @@ private fun MessageRow(
                         Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
                     }
                     Spacer(Modifier.height(2.dp))
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onRetry)
+                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             }
         }
@@ -688,9 +729,25 @@ private fun ContentBlock(
     onReact: (String) -> Unit,
     onSaveEdit: (String) -> Unit,
     onCancelEdit: () -> Unit,
+    onVote: (String) -> Unit = {},
+    onClosePoll: () -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
     val scale = LocalMsgFontScale.current
+    // Enquete SUBSTITUI o texto: o backend guarda a pergunta nos dois lugares
+    // (content e poll.question), entao desenhar os dois repetiria a frase.
+    msg.poll?.let { poll ->
+        PollBlock(
+            poll = poll,
+            myId = myId,
+            // Mesmo criterio que a lixeira da pill usa: o backend tambem aceita
+            // quem tem "gerenciar mensagens", mas o chat nao conhece cargo aqui.
+            podeEncerrar = msg.mine,
+            onVote = onVote,
+            onClose = onClosePoll,
+        )
+        return
+    }
     if (editing) {
         EditField(msg.content, onSaveEdit, onCancelEdit)
     } else if (msg.content.isNotBlank() || msg.edited) {

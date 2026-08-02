@@ -376,21 +376,26 @@ fun ShellScreen(
             Modifier.fillMaxSize().padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+        // Quem pode abrir as configurações da constelação, e como abrir. Sao os
+        // MESMOS dois pra rail e pra engrenagem abaixo do banner — duas rotas pra
+        // mesma tela, uma regra so.
+        val podeConfigurar: (String) -> Boolean = { id ->
+            (state.selection as? Selection.Server)?.id == id &&
+                state.myPerms?.let { it.isOwner || it.isAdmin || "MANAGE_SERVER" in it.permissions } == true
+        }
+        val abrirConfigDaConstelacao: (String) -> Unit = { id ->
+            // Selecionar antes de abrir: a tela le a constelação selecionada, e
+            // assim também chega o myPerms dela.
+            vm.select(Selection.Server(id))
+            serverSettingsOpen = true
+        }
         Rail(
             servers = state.servers,
             selection = state.selection,
             myId = session.userId,
             mutedServers = state.mutedServers,
-            canManageSelected = { id ->
-                (state.selection as? Selection.Server)?.id == id &&
-                    state.myPerms?.let { it.isOwner || it.isAdmin || "MANAGE_SERVER" in it.permissions } == true
-            },
-            onOpenServerSettings = { id ->
-                // Selecionar antes de abrir: a tela le a constelação selecionada, e
-                // assim também chega o myPerms dela.
-                vm.select(Selection.Server(id))
-                serverSettingsOpen = true
-            },
+            canManageSelected = podeConfigurar,
+            onOpenServerSettings = abrirConfigDaConstelacao,
             onSelect = vm::select,
             onLeaveServer = vm::leaveServer,
             onDeleteServer = vm::deleteServer,
@@ -445,6 +450,8 @@ fun ShellScreen(
             onToggleCatBot = vm::setCategoryBot,
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
+            canManageSelected = podeConfigurar,
+            onOpenServerSettings = abrirConfigDaConstelacao,
             firstSteps = firstSteps,
         )
         Stage(
@@ -559,6 +566,13 @@ fun ShellScreen(
                 // Salvou o perfil -> re-hidrata o `me` do shell (rodape, chat e a
                 // propria previa passam a ler o valor novo).
                 onProfileSaved = { vm.refreshMe() },
+                // O teste usa o MESMO caminho do aviso de verdade (bandeja do SO).
+                // Um "toast falso" desenhado dentro do app provaria nada — o que
+                // costuma falhar e justamente o SO: foco de notificacao desligado,
+                // modo nao perturbe, icone escondido na bandeja.
+                onTestarNotificacao = {
+                    notify("Astra", "Se você está lendo isto, os avisos funcionam.")
+                },
             )
         }
 
@@ -1281,46 +1295,75 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
 // clássico do botão que alterna: sem estado visível, cada clique é um palpite.
 // Com o painel aberto ela pulsa de leve — o brilho fica vivo em vez de ser só
 // uma cor diferente —, e fechado volta pra borda apagada.
+// Botao de icone da faixa abaixo do banner. Quadrado, so borda, sem fundo — o
+// mesmo vocabulario dos botoes do compositor.
+//
+// `aceso` faz a borda PULSAR no accent. E o que resolve o problema classico do
+// botao que alterna: sem estado visivel, cada clique vira palpite. Pulsar (e nao
+// so trocar de cor) deixa o estado vivo em vez de ser mais um tom no escuro.
 @Composable
-private fun MembrosToggle(aberto: Boolean, onToggle: () -> Unit) {
+private fun BotaoDaFaixa(
+    icone: ImageVector,
+
+    aceso: Boolean = false,
+    onClick: () -> Unit,
+) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     val reduzir = LocalReduceMotion.current
     // Respiro do brilho: 1.6s de ida e volta. Com "reduzir movimento" fica fixo
-    // no meio — o estado continua legível, sem nada se mexendo.
-    val respiro = if (reduzir || !aberto) 0.5f else {
-        val t = rememberInfiniteTransition(label = "membrosGlow")
+    // no meio — o estado continua legivel, sem nada se mexendo.
+    val respiro = if (reduzir || !aceso) 0.5f else {
+        val t = rememberInfiniteTransition(label = "faixaGlow")
         t.animateFloat(
             initialValue = 0.35f, targetValue = 1f,
             animationSpec = infiniteRepeatable(tween(1600, easing = EaseOutSoft), RepeatMode.Reverse),
-            label = "membrosGlowV",
+            label = "faixaGlowV",
         ).value
     }
     val corBorda = when {
-        aberto -> Obsidian.accent.copy(alpha = 0.35f + 0.45f * respiro)
+        aceso -> Obsidian.accent.copy(alpha = 0.35f + 0.45f * respiro)
         hov -> Obsidian.borderMid
         else -> Obsidian.borderDim
     }
-    Row(
+    Box(
         Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .size(30.dp)
             .clip(RoundedCornerShape(9.dp))
             .border(1.dp, corBorda, RoundedCornerShape(9.dp))
             .hoverable(src)
-            .clickable(interactionSource = src, indication = null, onClick = onToggle)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(
+            icone,
+            tint = if (aceso || hov) Obsidian.accent else Obsidian.text3,
+            size = 15.dp,
+        )
+    }
+}
+
+// A faixa logo abaixo do banner: membros (abre/fecha o painel da direita) e
+// engrenagem (configuracoes da constelacao).
+//
+// A engrenagem so aparece pra quem manda. Ela existia so no menu de botao
+// direito da rail — atalho invisivel pra quem nao sabe que ele existe.
+@Composable
+private fun FaixaDaConstelacao(
+    membrosAbertos: Boolean,
+    onToggleMembros: () -> Unit,
+    podeConfigurar: Boolean,
+    onAbrirConfig: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LIcon(Lucide.Users, tint = if (aberto) Obsidian.accent else Obsidian.text3, size = 14.dp)
-        Spacer(Modifier.width(8.dp))
-        Text(
-            "membros",
-            style = TextStyle(
-                color = if (aberto) Obsidian.text1 else Obsidian.text3,
-                fontSize = 12.sp,
-            ),
-        )
+        BotaoDaFaixa(Lucide.Users, aceso = membrosAbertos, onClick = onToggleMembros)
+        if (podeConfigurar) {
+            BotaoDaFaixa(Lucide.Settings, onClick = onAbrirConfig)
+        }
     }
 }
 
@@ -1400,6 +1443,8 @@ private fun Sidebar(
     onToggleCatBot: (serverId: String, categoryId: String, ligar: Boolean) -> Unit,
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
+    canManageSelected: (String) -> Boolean,
+    onOpenServerSettings: (String) -> Unit,
     // Checklist de 1o acesso, quando ativo — vive acima do rodape do usuário.
     firstSteps: (@Composable () -> Unit)? = null,
 ) {
@@ -1457,7 +1502,12 @@ private fun Sidebar(
                         // #13: faixa de banner no topo da constelação com o nome por cima.
                         // Substitui o header de texto simples (que segue nos sussurros/descobrir).
                     }) { ServerHeaderBanner(srv) }
-                    MembrosToggle(aberto = membersOpen, onToggle = onToggleMembers)
+                    FaixaDaConstelacao(
+                        membrosAbertos = membersOpen,
+                        onToggleMembros = onToggleMembers,
+                        podeConfigurar = isOwnerHere || canManageSelected(srv.id),
+                        onAbrirConfig = { onOpenServerSettings(srv.id) },
+                    )
                 } else {
                     header()
                     HairRule()
@@ -2876,7 +2926,7 @@ private fun Stage(
                     // Sussurro não tem órbita nem categoria: a bot atende sempre.
                     ch?.botEnabled ?: cat?.botEnabled ?: true
                 }
-                ChatView(target, chatVm, onStartDm, botAqui = botAqui)
+                ChatView(target, chatVm, onStartDm, botAqui = botAqui, serverId = server?.id)
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {

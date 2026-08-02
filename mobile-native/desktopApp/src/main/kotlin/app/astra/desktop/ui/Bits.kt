@@ -38,6 +38,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
@@ -49,13 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 
@@ -100,24 +97,49 @@ fun LIcon(
 }
 
 // Avatar circular com fallback de inicial — usado no shell e no chat. No HOVER: o
-// cursor vira mãozinha e um anel âmbar se DESENHA (0->360, some ao sair) com um mini
-// brilho em volta. O anel só aparece ao passar o mouse -> custo zero parado.
-// `externalHover` deixa a LINHA que contem o avatar disparar o anel (ex: hover na
-// linha de sussurro), não só o hover direto na foto. Futuro: a cor do anel vem do
-// perfil (hoje = accent).
+// cursor vira mãozinha e um BRILHO acende em volta da foto.
+//
+// Era um anel que se desenhava de 0 a 360 graus. O anel tinha dois problemas: a
+// borda dura competia com a propria foto (que ja e um circulo), e a varredura
+// virava uma animacaozinha que pedia atencao toda vez que o mouse passava — e o
+// mouse passa por avatar o tempo todo num app de chat. O brilho difuso diz a
+// mesma coisa ("da pra clicar") sem desenhar uma segunda borda nem chamar aten-
+// cao pra si. So acende no hover -> custo zero parado.
+//
+// `externalHover` deixa a LINHA que contem o avatar acender o brilho (ex: hover
+// na linha de sussurro), não só o hover direto na foto.
 @Composable
 fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
     val selfHover by interaction.collectIsHoveredAsState()
     val hovered = selfHover || externalHover
-    val sweep by animateFloatAsState(
-        targetValue = if (hovered) 360f else 0f,
-        animationSpec = tween(durationMillis = if (hovered) 460 else 240, easing = FastOutSlowInEasing),
-        label = "avatarRing",
+    val brilho by animateFloatAsState(
+        targetValue = if (hovered) 1f else 0f,
+        animationSpec = tween(durationMillis = if (hovered) 220 else 180, easing = FastOutSlowInEasing),
+        label = "avatarBrilho",
     )
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
+            // O halo vaza pra FORA da caixa do avatar (1.4x o raio) — e o que faz
+            // parecer luz e nao mais uma borda. Fica em drawBehind pra passar por
+            // baixo da foto; por cima viraria um veu leitoso sobre o rosto.
+            .drawBehind {
+                if (brilho <= 0.01f) return@drawBehind
+                val raio = size.minDimension / 2f * 1.4f
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        // Miolo transparente: a foto tapa essa parte de qualquer
+                        // jeito, e pintar por baixo dela so gastaria pixel.
+                        0.55f to Color.Transparent,
+                        0.72f to Obsidian.accent.copy(alpha = 0.30f * brilho),
+                        1f to Color.Transparent,
+                        center = center,
+                        radius = raio,
+                    ),
+                    radius = raio,
+                )
+            }
             .hoverable(interaction)
             .pointerHoverIcon(PointerIcon.Hand),
         contentAlignment = Alignment.Center,
@@ -137,26 +159,6 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolea
                 Text(
                     text = name.take(1).uppercase(),
                     style = TextStyle(color = Obsidian.accent, fontSize = (sizeDp * 0.42f).sp),
-                )
-            }
-        }
-        if (sweep > 0.5f) {
-            Canvas(Modifier.fillMaxSize()) {
-                val stroke = 2.dp.toPx()   // traco levemente mais grosso (era 1.5)
-                val glow = 4.dp.toPx()     // arco largo+translucido por baixo = mini brilho
-                val pad = glow / 2f        // mesma caixa concentrica pros dois
-                val box = Size(size.width - glow, size.height - glow)
-                drawArc(
-                    color = Obsidian.accent.copy(alpha = 0.20f),
-                    startAngle = -90f, sweepAngle = sweep, useCenter = false,
-                    topLeft = Offset(pad, pad), size = box,
-                    style = Stroke(width = glow, cap = StrokeCap.Round),
-                )
-                drawArc(
-                    color = Obsidian.accent,
-                    startAngle = -90f, sweepAngle = sweep, useCenter = false,
-                    topLeft = Offset(pad, pad), size = box,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round),
                 )
             }
         }

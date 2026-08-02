@@ -119,12 +119,27 @@ for ($i = 0; $i -lt $lados.Count; $i++) {
   $bw.Write([UInt32]$offset)
   $offset += $imagens[$i].Length
 }
-foreach ($img in $imagens) { $bw.Write($img) }
+# O CAST [byte[]] E OBRIGATORIO. Sem ele o PowerShell entrega um Object[] (ele
+# desembrulha o byte[] ao passar pela funcao), o BinaryWriter nao acha a sobrecarga
+# Write(byte[]), cai na Write(Boolean) — objeto nao-nulo vira $true — e grava UM
+# byte 0x01 no lugar da imagem inteira. Resultado: um .ico de 125 bytes com a
+# tabela de entradas certinha e ZERO pixel dentro. O Windows nao reclama: so
+# ignora o arquivo e continua mostrando o icone velho do cache, o que faz parecer
+# que "o arredondamento nao pegou".
+foreach ($img in $imagens) { $bw.Write([byte[]]$img, 0, $img.Length) }
 $bw.Flush()
 [System.IO.File]::WriteAllBytes($destIco, $ms.ToArray())
 $bw.Dispose(); $ms.Dispose()
 
-Write-Host ("ICO regerado com {0} tamanhos: {1}" -f $lados.Count, ($lados -join ", "))
+# Confere o tamanho: cabecalho + tabela dao ~118 bytes, entao qualquer coisa perto
+# disso significa que as imagens nao entraram (foi exatamente o que aconteceu).
+$tamanho = (Get-Item $destIco).Length
+$minimo = 6 + (16 * $lados.Count) + 1024
+if ($tamanho -lt $minimo) {
+  throw "ICO saiu com $tamanho bytes - as imagens nao foram gravadas."
+}
+
+Write-Host ("ICO regerado com {0} tamanhos ({1}) - {2} KB" -f $lados.Count, ($lados -join ", "), [math]::Round($tamanho / 1KB, 1))
 Write-Host $destIco
 Write-Host ""
 Write-Host "O Windows cacheia icone: a barra de tarefas so mostra o novo depois de reempacotar."

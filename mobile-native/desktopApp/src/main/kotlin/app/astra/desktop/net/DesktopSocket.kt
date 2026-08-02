@@ -60,6 +60,12 @@ class DesktopSocket(
     private val _reactionUpdate = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val reactionUpdate: SharedFlow<String> = _reactionUpdate.asSharedFlow()
 
+    // Alguem votou (ou encerraram a enquete). Vem o objeto INTEIRO da enquete, nao
+    // um delta — a contagem de voto e disputada por natureza e somar +1 no cliente
+    // dessincroniza na primeira corrida. Substituir o todo sempre acerta.
+    private val _pollUpdated = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val pollUpdated: SharedFlow<String> = _pollUpdated.asSharedFlow()
+
     private val _dmDeleted = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val dmDeleted: SharedFlow<String> = _dmDeleted.asSharedFlow()
 
@@ -324,6 +330,9 @@ class DesktopSocket(
         s.on("reaction_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _reactionUpdate.tryEmit(it.toString()) }
         }
+        s.on("poll_updated") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _pollUpdated.tryEmit(it.toString()) }
+        }
         s.on("dm_deleted") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _dmDeleted.tryEmit(it.toString()) }
         }
@@ -483,6 +492,20 @@ class DesktopSocket(
     fun leaveChannel(id: String) {
         channels.remove(id)
         socket?.emit("leave_channel", id)
+    }
+
+    // Chama a bot. NAO e uma mensagem: o backend nao guarda o comando, so responde
+    // — igual a barra do Discord, onde o que voce digitou some e so a resposta
+    // fica. Sem socket, devolve false pra quem chamou avisar em vez de o comando
+    // sumir no vazio.
+    fun sendBotCommand(channelId: String, serverId: String, content: String): Boolean {
+        val s = socket?.takeIf { it.connected() } ?: return false
+        s.emit("bot_command", JSONObject(mapOf(
+            "channelId" to channelId,
+            "serverId" to serverId,
+            "content" to content,
+        )))
+        return true
     }
 
     fun joinDm(id: String) {

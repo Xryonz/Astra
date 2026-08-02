@@ -307,23 +307,40 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 // `sufixo` e o que vem depois do prefixo; o prefixo entra na hora, conforme quem
 // esta de plantao. Guardar "/astra ping" cravado aqui daria uma caixinha que
 // ensina o comando errado no sabado.
+// `args` = o que o comando espera depois do nome. Aparece no `name` (a caixinha
+// do "/" mostra a forma completa) e vira um EXEMPLO de verdade na descricao.
+//
+// Sem isso a caixinha listava "/sparxie desejo — joga um desejo na estrela" e a
+// pessoa mandava exatamente `/sparxie desejo`, sem desejo nenhum. A descricao
+// dizia O QUE o comando faz e nunca COMO se escreve — e o formato e justamente a
+// parte que nao da pra adivinhar.
 interface ComandoBot {
   sufixo:      string
   description: string
   category:    string
+  args?:       string   // rotulo do que vem depois, ex.: '<seu desejo>'
+  exemplo?:    string   // so o miolo; o prefixo do dia entra na hora
   so?:         'sparxie' // so aparece (e so responde) no fim de semana
 }
 
 const COMANDOS: ComandoBot[] = [
-  { sufixo: '',       category: 'Conversa',    description: 'conversa comigo (lembro das últimas 24h)' },
+  {
+    sufixo: '', category: 'Conversa', args: '<sua pergunta>',
+    description: 'conversa comigo — lembro das últimas 24h deste canal',
+    exemplo: 'do que a gente falou ontem?',
+  },
   { sufixo: 'ajuda',  category: 'Utilitários', description: 'mostra esta lista' },
   { sufixo: 'reset',  category: 'Conversa',    description: 'apaga minha memória deste canal' },
   { sufixo: 'ping',   category: 'Utilitários', description: 'testa a latência' },
   { sufixo: 'status', category: 'Utilitários', description: 'status da plataforma' },
   { sufixo: 'mute',   category: 'Moderação',   description: 'verifica se você está silenciado' },
   // --- so no fim de semana, com a Sparxie ---
-  { sufixo: 'desejo', category: 'Fim de semana', description: 'joga um desejo na estrela cadente', so: 'sparxie' },
-  { sufixo: 'festa',  category: 'Fim de semana', description: 'sorteia um programa pro fim de semana', so: 'sparxie' },
+  {
+    sufixo: 'desejo', category: 'Fim de semana', args: '<seu desejo>', so: 'sparxie',
+    description: 'joga um desejo na estrela cadente',
+    exemplo: 'desejo passar de ano',
+  },
+  { sufixo: 'festa', category: 'Fim de semana', description: 'sorteia um programa pro fim de semana', so: 'sparxie' },
 ]
 
 // O que aparece na caixinha do "/" HOJE: prefixo do plantao + os extras de fim
@@ -332,11 +349,14 @@ export function comandosDeHoje(agora: Date = new Date()): Array<{ name: string; 
   const p = personaDoDia(agora)
   return COMANDOS
     .filter((c) => !c.so || c.so === p.chave)
-    .map((c) => ({
-      name:        c.sufixo ? `${p.prefixo} ${c.sufixo}` : p.prefixo,
-      description: c.description,
-      category:    c.category,
-    }))
+    .map((c) => {
+      const base = c.sufixo ? `${p.prefixo} ${c.sufixo}` : p.prefixo
+      return {
+        name:        c.args ? `${base} ${c.args}` : base,
+        description: c.exemplo ? `${c.description} · ex.: ${p.prefixo} ${c.exemplo}` : c.description,
+        category:    c.category,
+      }
+    })
 }
 
 const PROGRAMAS_DE_FDS = [

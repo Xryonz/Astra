@@ -71,8 +71,40 @@ if ($linhas -match "astra\.multi") {
   } else {
     $saida = $linhas + @("", "[JavaOptions]", "java-options=-Dastra.multi=2")
   }
-  Set-Content -Path $cfg -Value $saida -Encoding utf8
+
+  # SEM BOM, OBRIGATORIO. "Set-Content -Encoding utf8" no PowerShell 5.1 grava os
+  # tres bytes EF BB BF na frente do arquivo. O lancador do jpackage le o Astra.cfg
+  # linha a linha procurando a secao literal "[Application]" — com o BOM colado a
+  # primeira linha vira "<BOM>[Application]", a secao nunca casa, o app.classpath e
+  # o app.mainclass nunca sao lidos e o resultado e "falhou em rodar o JVM".
+  # Um arquivo VISUALMENTE identico ao que funciona, quebrado por tres bytes
+  # invisiveis. Por isso escrevemos os bytes na mao.
+  $semBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($cfg, ($saida -join "`r`n") + "`r`n", $semBom)
   Write-Host "flag -Dastra.multi=2 adicionada."
+}
+
+# --- A COPIA NAO PODE SE ATUALIZAR SOZINHA -----------------------------------
+# A partir da 0.1.43 o proprio app desliga o updater quando ve -Dastra.multi. Mas
+# a copia e feita de um binario JA PRONTO, que pode ser mais velho que isso — e ai
+# ele atualiza, extrai em versions/<v>/ (a pasta da instalacao PRINCIPAL, que as
+# duas passariam a disputar) e reinicia apontando pra la. Esse exe nao tem a flag
+# multi, entao a trava de instancia unica volta a valer, ele ve o Astra principal
+# aberto e sai calado: "reinicia e nao liga de novo".
+# Fingir uma versao altissima resolve pra QUALQUER binario: nada publicado e mais
+# novo que 99.0.0, entao a copia se acha sempre atualizada e nunca baixa nada.
+# Pra testar uma versao nova na copia, rode este script de novo.
+$texto = [System.IO.File]::ReadAllText($cfg)
+if ($texto -notmatch "astra\.version=99\.0\.0") {
+  $texto = $texto -replace "java-options=-Dastra\.version=[^\r\n]*", "java-options=-Dastra.version=99.0.0"
+  [System.IO.File]::WriteAllText($cfg, $texto, (New-Object System.Text.UTF8Encoding($false)))
+  Write-Host "updater desligado na copia (versao fingida 99.0.0)."
+}
+
+# Conferencia: se sobrou BOM, o app nao abre e a mensagem de erro nao explica nada.
+$primeiros = [System.IO.File]::ReadAllBytes($cfg)[0..2]
+if ($primeiros[0] -eq 0xEF -and $primeiros[1] -eq 0xBB -and $primeiros[2] -eq 0xBF) {
+  throw "O Astra.cfg saiu com BOM. O app nao vai abrir. (nao deveria acontecer)"
 }
 
 Write-Host ""

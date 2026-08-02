@@ -1,9 +1,5 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,7 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -45,164 +41,53 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.GifResultDto
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Smile
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 
-// Estrela do compositor: UM botao no lugar dos dois soltos (emoji e GIF). Clicar
-// gira a estrela e abre um menu PRA CIMA com as duas opções; escolher troca o
-// conteudo do MESMO popup pelo seletor correspondente.
+// Botoes do compositor.
 //
-// Um popup so (maquina de estados) em vez de popup dentro de popup: no desktop
-// cada Popup focavel e uma janela de verdade, e empilhar duas rouba o foco da
-// primeira — o mesmo tipo de armadilha que já congelou a aurora quando ela era
-// gateada por foco.
-internal enum class StarPane { MENU, EMOJI, GIF }
+// Antes existia UMA estrela ✦ que abria um menu com emoji/GIF/arquivo. Virou o
+// contrario (pedido do dono, padrao Discord): os seletores ficam A MOSTRA na
+// barra e o '+' passa a ser o menu do que "cria coisa". A estrela foi removida
+// junto — deixar um botao sem chamador so serviria pra confundir depois.
+//
+// Regra que continua valendo: UM Popup por botao, nunca popup dentro de popup.
+// No desktop cada Popup focavel e uma janela de verdade, e empilhar duas rouba o
+// foco da primeira.
+internal enum class Seletor { EMOJI, GIF }
 
-// Ancora o painel ACIMA do botao, alinhado pela direita (o botao vive no canto
-// direito do compositor). Clampa pra não sair da janela.
-private object StarAbove : PopupPositionProvider {
+// Ancora o painel ACIMA do botao. O lado importa: alinhar SEMPRE pela direita
+// funcionava quando o unico botao era a estrela, no canto direito do compositor.
+// O '+' mora no canto ESQUERDO — alinhado pela direita, o menu era empurrado
+// pra fora da barra, sobrando pra esquerda do botao. Cada botao pede a borda em
+// que ele encosta. Clampa pra não sair da janela nos dois casos.
+private class AcimaDoBotao(private val pelaDireita: Boolean) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-    ): IntOffset = IntOffset(
-        x = (anchorBounds.right - popupContentSize.width).coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width)),
-        y = (anchorBounds.top - popupContentSize.height - 8).coerceAtLeast(0),
-    )
-}
-
-@Composable
-fun ComposerStarButton(
-    onPickEmoji: (String) -> Unit,
-    onPickGif: (GifResultDto) -> Unit,
-    onPickFiles: (List<File>) -> Unit,
-) {
-    var open by remember { mutableStateOf(false) }
-    var pane by remember { mutableStateOf(StarPane.MENU) }
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    val reduce = LocalReduceMotion.current
-
-    // A animação do clique: a estrela gira um oitavo de volta e cresce. Mola com
-    // pouco amortecimento pra dar o "tec" de mola sem virar brinquedo. Nada de
-    // animação continua — comeca no clique e termina.
-    val spin by animateFloatAsState(
-        targetValue = if (open) 45f else 0f,
-        animationSpec = if (reduce) tween(0) else spring(
-            dampingRatio = 0.42f,
-            stiffness = Spring.StiffnessMediumLow,
-        ),
-        label = "starSpin",
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (open) 1.18f else if (hov) 1.08f else 1f,
-        animationSpec = if (reduce) tween(0) else spring(
-            dampingRatio = 0.5f,
-            stiffness = Spring.StiffnessMedium,
-        ),
-        label = "starScale",
-    )
-
-    Box {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (open || hov) Obsidian.hover else Color.Transparent)
-                .hoverable(src)
-                .clickable(interactionSource = src, indication = null) {
-                    // Reabrir sempre cai no menu: quem fechou no seletor de GIF não
-                    // quer voltar direto pra ele na próxima mensagem.
-                    if (!open) pane = StarPane.MENU
-                    open = !open
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            // O MESMO glifo da rail dos sussurros e do palco vazio — a estrela já e
-            // a marca do app, entao o botao não introduz simbolo novo.
-            // graphicsLayer: gira/escala na composicao GPU, sem relayout do texto.
-            Text(
-                "✦",
-                style = TextStyle(
-                    color = if (open || hov) Obsidian.accent else Obsidian.text3,
-                    fontSize = 17.sp,
-                ),
-                modifier = Modifier.graphicsLayer {
-                    rotationZ = spin
-                    scaleX = scale
-                    scaleY = scale
-                },
-            )
-        }
-        if (open) {
-            Popup(
-                popupPositionProvider = StarAbove,
-                onDismissRequest = { open = false },
-                properties = PopupProperties(focusable = true),
-            ) {
-                PopupReveal(originX = 1f, originY = 1f) {
-                    when (pane) {
-                        StarPane.MENU -> StarMenu(
-                            onEmoji = { pane = StarPane.EMOJI },
-                            onGif = { pane = StarPane.GIF },
-                            // Arquivo abre o seletor NATIVO do SO (não um pane): fecha o
-                            // popup antes pra o dialog modal não brigar por foco com a
-                            // janela do Popup. Reusa o mesmo pipeline do arrastar-e-soltar
-                            // (vm.addFiles -> anexo pendente no composer).
-                            onFile = {
-                                open = false
-                                val files = chooseFiles()
-                                if (files.isNotEmpty()) onPickFiles(files)
-                            },
-                        )
-                        // Emoji fica aberto pra escolher varios (mesmo comportamento de
-                        // antes); GIF fecha porque escolher JA ENVIA.
-                        StarPane.EMOJI -> ReactionPicker(onPick = onPickEmoji)
-                        StarPane.GIF -> GifPanel(onPick = { g ->
-                            open = false
-                            onPickGif(g)
-                        })
-                    }
-                }
-            }
-        }
+    ): IntOffset {
+        val x = if (pelaDireita) anchorBounds.right - popupContentSize.width else anchorBounds.left
+        return IntOffset(
+            x = x.coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width)),
+            y = (anchorBounds.top - popupContentSize.height - 8).coerceAtLeast(0),
+        )
     }
 }
 
-@Composable
-private fun StarMenu(onEmoji: () -> Unit, onGif: () -> Unit, onFile: () -> Unit) {
-    Column(
-        Modifier
-            .shadow(8.dp, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
-            .background(Obsidian.overlay)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .padding(5.dp)
-            // Largura FIXA: dentro do Popup o fillMaxWidth das linhas resolve pro
-            // máximo disponível (= janela inteira). Sem teto, a Column esticava a
-            // largura toda do app. Fixo = menu compacto ancorado sob o botao.
-            .width(150.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        StarMenuRow("☺", "emoji", onEmoji)
-        StarMenuRow("▦", "GIF", onGif)
-        StarMenuRow("▤", "arquivo", onFile)
-    }
-}
+private val AcimaPelaDireita = AcimaDoBotao(pelaDireita = true)
+private val AcimaPelaEsquerda = AcimaDoBotao(pelaDireita = false)
 
-// ---- Botoes SOLTOS no compositor (padrao Discord) ----
-//
-// A estrela ✦ guardava emoji/GIF/arquivo atras de um clique. Virou o contrario:
-// os seletores ficam a mostra na barra, e o '+' passa a ser o menu do que "cria
-// coisa". Menos um clique pro que se usa toda hora.
-//
 // Estilo pedido pelo dono: icone simples, SEM fundo, so borda — no hover a borda
 // e o glifo acendem no accent, sem preencher.
-
+//
+// A moldura, comum aos dois: quadrado de 28, so borda, sem fundo.
 @Composable
-private fun IconeDoCompositor(glifo: String, tamanho: Int = 13, onClick: () -> Unit) {
+private fun MolduraDoCompositor(onClick: () -> Unit, conteudo: @Composable (aceso: Boolean) -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Box(
@@ -213,7 +98,12 @@ private fun IconeDoCompositor(glifo: String, tamanho: Int = 13, onClick: () -> U
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) {
+    ) { conteudo(hov) }
+}
+
+@Composable
+private fun IconeDoCompositor(glifo: String, tamanho: Int = 13, onClick: () -> Unit) {
+    MolduraDoCompositor(onClick) { hov ->
         Text(
             glifo,
             style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = tamanho.sp),
@@ -221,29 +111,46 @@ private fun IconeDoCompositor(glifo: String, tamanho: Int = 13, onClick: () -> U
     }
 }
 
+// Icone de TRAÇO (Lucide), nao glifo de texto.
+//
+// O emoji era o caractere "☺": a fonte de emoji do Windows sequestra esse ponto
+// de codigo e desenha a bolinha amarela PREENCHIDA — cor propria, fundo proprio,
+// nada a ver com o resto da barra. Nenhum ajuste de cor resolve, porque quem
+// pinta e a fonte, nao nos. Icone vetorial de traco obedece o tint.
+@Composable
+private fun IconeVetorial(icone: ImageVector, onClick: () -> Unit) {
+    MolduraDoCompositor(onClick) { hov ->
+        LIcon(
+            icone,
+            tint = if (hov) Obsidian.accent else Obsidian.text3,
+            size = 15.dp,
+        )
+    }
+}
+
 // Abre DIRETO no painel pedido (emoji ou GIF) — sem passar por menu.
 @Composable
 internal fun ComposerPickerButton(
-    tipo: StarPane,
+    tipo: Seletor,
     onPickEmoji: (String) -> Unit = {},
     onPickGif: (GifResultDto) -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconeDoCompositor(
-            glifo = if (tipo == StarPane.GIF) "GIF" else "☺",
-            tamanho = if (tipo == StarPane.GIF) 9 else 14,
-        ) { open = !open }
+        // "GIF" continua sendo TEXTO de proposito: e uma sigla, nao um desenho —
+        // e todo cliente de chat escreve GIF em vez de tentar desenhar um.
+        if (tipo == Seletor.GIF) IconeDoCompositor("GIF", tamanho = 9) { open = !open }
+        else IconeVetorial(Lucide.Smile) { open = !open }
         if (open) {
             Popup(
-                popupPositionProvider = StarAbove,
+                popupPositionProvider = AcimaPelaDireita,
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
                 PopupReveal(originX = 1f, originY = 1f) {
                     // Emoji fica aberto pra escolher varios; GIF fecha porque
                     // escolher JA ENVIA.
-                    if (tipo == StarPane.GIF) GifPanel(onPick = { g -> open = false; onPickGif(g) })
+                    if (tipo == Seletor.GIF) GifPanel(onPick = { g -> open = false; onPickGif(g) })
                     else ReactionPicker(onPick = onPickEmoji)
                 }
             }
@@ -253,17 +160,19 @@ internal fun ComposerPickerButton(
 
 // O '+' agora e menu, nao atalho de anexo.
 //
-// So tem "enviar um arquivo" por enquanto: "criar enquete" existe no backend mas
-// o desktop ainda nao sabe DESENHAR enquete no chat — um item que cria mensagem
-// que o app nao exibe seria pior que a ausencia dele. Entra junto com a tela.
+// onCriarEnquete = null em sussurro: enquete so existe em canal no backend, e
+// oferecer um item que sempre falha e pior que nao ter o item.
 @Composable
-fun ComposerPlusButton(onPickFiles: (List<File>) -> Unit) {
+fun ComposerPlusButton(
+    onPickFiles: (List<File>) -> Unit,
+    onCriarEnquete: (() -> Unit)? = null,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconeDoCompositor("+", tamanho = 15) { open = !open }
         if (open) {
             Popup(
-                popupPositionProvider = StarAbove,
+                popupPositionProvider = AcimaPelaEsquerda,
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
@@ -278,12 +187,18 @@ fun ComposerPlusButton(onPickFiles: (List<File>) -> Unit) {
                             .width(178.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
-                        StarMenuRow("▤", "enviar um arquivo") {
+                        MenuRow("▤", "enviar um arquivo") {
                             // Fecha ANTES: o dialog nativo e modal e brigaria por
                             // foco com a janela do Popup.
                             open = false
                             val files = chooseFiles()
                             if (files.isNotEmpty()) onPickFiles(files)
+                        }
+                        if (onCriarEnquete != null) {
+                            MenuRow("▥", "criar enquete") {
+                                open = false
+                                onCriarEnquete()
+                            }
                         }
                     }
                 }
@@ -302,7 +217,7 @@ internal fun chooseFiles(): List<File> {
 }
 
 @Composable
-private fun StarMenuRow(glyph: String, label: String, onClick: () -> Unit) {
+private fun MenuRow(glyph: String, label: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Row(

@@ -68,7 +68,36 @@ describe('catalogo do dia', () => {
   it('fim de semana: prefixo da Sparxie e COM os extras', () => {
     const nomes = comandosDeHoje(emUtc('2026-08-08T13:00:00Z')).map((c) => c.name)
     expect(nomes).toContain('/sparxie festa')
-    expect(nomes).toContain('/sparxie desejo')
+    // Com argumento, o nome carrega a FORMA — e por isso o `toContain` exato de
+    // "/sparxie desejo" nao vale mais.
+    expect(nomes).toContain('/sparxie desejo <seu desejo>')
     expect(nomes.some((n) => n.startsWith('/sparkle'))).toBe(false)
+  })
+
+  // O que a caixinha do "/" mostra tem que ENSINAR a escrever. Antes ela dizia
+  // "/sparxie desejo — joga um desejo na estrela": quem lia mandava exatamente
+  // isso, sem desejo nenhum, e o comando reclamava. O formato e justamente a
+  // parte que nao da pra adivinhar.
+  it('comando com argumento mostra a forma e um exemplo', () => {
+    const fds = comandosDeHoje(emUtc('2026-08-08T13:00:00Z'))
+    const desejo = fds.find((c) => c.name.startsWith('/sparxie desejo'))!
+    expect(desejo.name).toBe('/sparxie desejo <seu desejo>')
+    expect(desejo.description).toContain('ex.: /sparxie desejo passar de ano')
+
+    // O exemplo usa o prefixo de QUEM ESTA DE PLANTAO: ensinar "/sparxie ..."
+    // numa terca seria ensinar errado.
+    const util = comandosDeHoje(emUtc('2026-08-10T13:00:00Z'))
+    const conversa = util.find((c) => c.name.startsWith('/sparkle <'))!
+    expect(conversa.name).toBe('/sparkle <sua pergunta>')
+    expect(conversa.description).toContain('ex.: /sparkle ')
+    expect(conversa.description).not.toContain('/sparxie')
+  })
+
+  // Comando sem argumento continua limpo: acrescentar "<...>" onde nao ha o que
+  // escrever so poluiria a lista.
+  it('comando sem argumento nao ganha rotulo', () => {
+    const nomes = comandosDeHoje(emUtc('2026-08-10T13:00:00Z')).map((c) => c.name)
+    expect(nomes).toContain('/sparkle ping')
+    expect(nomes).toContain('/sparkle ajuda')
   })
 })

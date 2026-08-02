@@ -16,8 +16,12 @@ import app.astra.mobile.core.network.dto.EditChannelRequest
 import app.astra.mobile.core.network.dto.GifResultDto
 import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
+import app.astra.mobile.core.network.dto.CreatePollRequest
 import app.astra.mobile.core.network.dto.MsgAuthorDto
+import app.astra.mobile.core.network.dto.PollDto
+import app.astra.mobile.core.network.dto.PollUpdateDto
 import app.astra.mobile.core.network.dto.ReactRequest
+import app.astra.mobile.core.network.dto.VoteRequest
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReactionUpdateDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
@@ -67,6 +71,9 @@ data class ChatMessage(
     val reactions: List<ReactionDto> = emptyList(),
     val replyTo: ReplyToDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
+    // Enquete: a mensagem VIRA a enquete (nao e anexo). O backend guarda o objeto
+    // inteiro numa coluna da propria mensagem, entao ela chega e atualiza junto.
+    val poll: PollDto? = null,
     // Marcada pra sumir: a UI anima o fade-out e o VM tira da lista em seguida.
     val deleting: Boolean = false,
     // --- Envio otimista (so canal, texto puro) ---
@@ -80,6 +87,16 @@ data class ChatMessage(
 
 // Arquivo solto no chat esperando o envio (upload acontece no send).
 data class PendingFile(val file: File, val mime: String)
+
+// Enquete com prazo que ja passou. O backend recusa o voto de qualquer jeito; isto
+// existe pra a UI nao oferecer um clique que ela sabe que vai falhar.
+// Data ilegivel = NAO expirada: derrubar a enquete por causa de um formato de data
+// seria pior que deixar o servidor recusar.
+fun expirada(poll: PollDto): Boolean {
+    val fim = poll.expiresAt ?: return false
+    val instante = runCatching { java.time.Instant.parse(fim) }.getOrNull() ?: return false
+    return instante.isBefore(java.time.Instant.now())
+}
 
 data class ChatUiState(
     val loading: Boolean = true,
@@ -548,6 +565,97 @@ class ChatVm(
         }
     }
 
+    // Comando da bot. Sai por socket (evento proprio), NAO como mensagem: o
+    // backend nao guarda o comando, so publica a resposta — mesma coisa que o
+    // cliente web ja fazia e que o desktop simplesmente nunca chamou. Era esse o
+    // "os comandos nao funcionam": a caixinha do "/" existia, preenchia o texto,
+    // e o texto saia como mensagem comum. A bot nunca era acionada.
+    fun sendBotCommand(serverId: String, content: String) {
+        val channelId = (target as? ChatTarget.Channel)?.id ?: return
+        stopTypingEmit()
+        if (!socket.sendBotCommand(channelId, serverId, content.trim())) {
+            _state.update { it.copy(error = "Sem conexão — o comando não chegou na bot") }
+        }
+    }
+
+    // ---- Enquete ----
+    // So existe em canal. Sussurro nao tem enquete no backend, e a UI nem oferece.
+
+    fun createPoll(question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?) {
+        val channelId = (target as? ChatTarget.Channel)?.id ?: return
+        val limpas = options.map { it.trim() }.filter { it.isNotBlank() }
+        if (question.isBlank() || limpas.size < 2) return
+        _state.update { it.copy(sending = true, error = null) }
+        scope.launch {
+            runCatching {
+                channelApi.createPoll(
+                    channelId,
+                    CreatePollRequest(question.trim(), limpas, allowMultiple, durationHours),
+                ).data?.toChat()
+            }
+                .onSuccess { msg ->
+                    // O broadcast chega pra todo mundo, inclusive pra mim; append()
+                    // ja deduplica por id, entao somar aqui so adianta o meu caso.
+                    _state.update { it.copy(sending = false) }
+                    if (msg != null) append(msg)
+                }
+                .onFailure { t ->
+                    _state.update { it.copy(sending = false, error = sendError(t, "Enquete não criada")) }
+                }
+        }
+    }
+
+    // Voto otimista: a barra mexe no clique. O servidor manda a enquete inteira de
+    // volta (pelo HTTP e pelo socket) e ela substitui a minha conta local — se eu
+    // errei, o certo chega em seguida; se deu erro, volto ao que era.
+    fun vote(messageId: String, optionId: String) {
+        val channelId = (target as? ChatTarget.Channel)?.id ?: return
+        val me = myId ?: return
+        val antes = _state.value.messages.firstOrNull { it.id == messageId }?.poll ?: return
+        if (antes.closed || expirada(antes)) return
+
+        setPoll(messageId, votoLocal(antes, optionId, me))
+        scope.launch {
+            runCatching { channelApi.votePoll(channelId, messageId, VoteRequest(optionId)).data?.poll }
+                .onSuccess { p -> if (p != null) setPoll(messageId, p) else setPoll(messageId, antes) }
+                .onFailure {
+                    setPoll(messageId, antes)
+                    _state.update { it.copy(error = "Voto não registrado") }
+                }
+        }
+    }
+
+    fun closePoll(messageId: String) {
+        val channelId = (target as? ChatTarget.Channel)?.id ?: return
+        scope.launch {
+            runCatching { channelApi.closePoll(channelId, messageId).data?.poll }
+                .onSuccess { p -> if (p != null) setPoll(messageId, p) }
+                .onFailure { _state.update { it.copy(error = "Não deu pra encerrar a enquete") } }
+        }
+    }
+
+    // Mesma regra do backend: clicar de novo tira o voto; sem multipla escolha, o
+    // voto novo apaga o anterior. Se divergir daqui, a barra pula quando o servidor
+    // responder — por isso a regra e copiada, nao inventada.
+    private fun votoLocal(poll: PollDto, optionId: String, me: String): PollDto {
+        val jaVotou = poll.options.any { it.id == optionId && me in it.votes }
+        return poll.copy(options = poll.options.map { o ->
+            val votos = when {
+                o.id == optionId && jaVotou -> o.votes - me
+                o.id == optionId            -> o.votes + me
+                poll.allowMultiple          -> o.votes
+                else                        -> o.votes - me
+            }
+            o.copy(votes = votos)
+        })
+    }
+
+    private fun setPoll(messageId: String, poll: PollDto) {
+        _state.update { st ->
+            st.copy(messages = st.messages.map { if (it.id == messageId) it.copy(poll = poll) else it })
+        }
+    }
+
     private fun listenLive() {
         liveJob = scope.launch {
             launch {
@@ -586,6 +694,12 @@ class ChatVm(
                         socket.reactionUpdate.collect { raw ->
                             val ev = decode<ReactionUpdateDto>(raw) ?: return@collect
                             if (ev.channelId == target.id) setReactions(ev.messageId, ev.reactions)
+                        }
+                    }
+                    launch {
+                        socket.pollUpdated.collect { raw ->
+                            val ev = decode<PollUpdateDto>(raw) ?: return@collect
+                            if (ev.channelId == target.id) setPoll(ev.messageId, ev.poll)
                         }
                     }
                     launch {
@@ -687,6 +801,7 @@ class ChatVm(
         mine = authorId == myId, edited = edited,
         reactions = reactions, replyTo = replyTo,
         attachments = attachments,
+        poll = poll,
         clientNonce = clientNonce,
     )
 

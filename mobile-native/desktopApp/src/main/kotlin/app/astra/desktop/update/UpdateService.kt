@@ -74,7 +74,19 @@ class UpdateService(private val http: OkHttpClient) {
     val currentVersion: String get() = System.getProperty("astra.version") ?: "dev"
 
     // So o app empacotado (Astra.exe) tem pasta pra versionar. Dev/IDE = nulo.
-    val installed: Boolean get() = appRootDir() != null
+    //
+    // A COPIA DE TESTE (-Dastra.multi) NAO ATUALIZA, de proposito. Ela e um retrato
+    // congelado pra simular outra pessoa, e atualizar quebrava de duas formas ao
+    // mesmo tempo:
+    //   1. ela extrai em versions/<v>/ — a MESMA pasta da instalacao principal, ou
+    //      seja, as duas copias disputando o mesmo diretorio;
+    //   2. ela reiniciava apontando pra esse versions/<v>/Astra.exe, que NAO tem a
+    //      flag -Dastra.multi. Sem a flag a trava de instancia unica volta a valer,
+    //      ela via o Astra principal aberto e saia calada. Era exatamente o
+    //      "reinicia e nao liga de novo".
+    // Pra testar versao nova na copia: rode o preparar-multi.ps1 de novo, que ele
+    // recopia da versao mais recente.
+    val installed: Boolean get() = System.getProperty("astra.multi") == null && appRootDir() != null
 
     // Astra.exe da versão nova, já extraida em versions/<v>/. Setado no stage.
     private var stagedExe: File? = null

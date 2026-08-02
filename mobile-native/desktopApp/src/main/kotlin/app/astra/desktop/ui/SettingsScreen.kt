@@ -415,93 +415,63 @@ private data class ProfileDraft(
     }
 }
 
-// --- Card de perfil: espelha o ProfilePopupCard (o que os outros abrem no teu
-// avatar). draft = null -> mostra o perfil SALVO (aba Conta); draft != null ->
-// mostra o rascunho ao vivo (aba Perfil), campo a campo. ---
+// --- Previa do cartao de perfil. ---
+//
+// Usa o MESMO composable do cartao de verdade (ProfileCard), nao uma copia: a
+// versao antiga era um segundo desenho e ja tinha divergido do original (avatar
+// de 48 aqui, 72 la), ou seja, prometia uma coisa e os outros viam outra.
+//
+// Mostra as DUAS variantes (pedido do dono): o cartao COMPLETO e o compacto que
+// abre ao clicar num avatar. Como sao a mesma funcao com um parametro diferente,
+// nenhuma das duas pode envelhecer sozinha.
+//
+// draft = null -> perfil SALVO (aba Conta); draft != null -> rascunho ao vivo
+// (aba Perfil), campo a campo, antes de salvar.
 @Composable
 private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            // Mesmo gradiente continuo do cartao real (banner + corpo, uma peca so).
-            .profileCardBackdrop(draft?.bannerColor ?: me?.bannerColor)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
-    ) {
-        if (me == null) {
-            Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
-                Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-            }
-            return@Column
+    if (me == null) {
+        Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
+            Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
         }
-        // Rascunho manda quando existe (aba Perfil); senao, o valor salvo (Conta).
-        val avatar = draft?.avatarUrl ?: me.avatarUrl
-        val name = draft?.displayName?.trim()?.ifBlank { null } ?: me.displayName ?: me.username
-        val pronouns = draft?.pronouns ?: me.pronouns
-        val bio = draft?.bio ?: me.bio
-        val emoji = draft?.statusEmoji ?: me.statusEmoji
-        val recado = draft?.customStatus ?: me.customStatus
-        // css = null: o gradiente e do cartao inteiro (profileCardBackdrop).
-        ProfileBanner(
-            css = null,
-            imageUrl = draft?.bannerUrl ?: me.bannerUrl,
-            positionY = draft?.bannerPositionY ?: me.bannerPositionY ?: 50,
-            scale = draft?.bannerScale ?: me.bannerScale ?: 100,
-            fallback = bannerBackdrop(draft?.bannerUrl ?: me.bannerUrl),
-            modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
-        )
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-        ) {
-            Box(
-                Modifier.offset(y = (-24).dp).clip(CircleShape).background(Obsidian.raised)
-                    .padding(3.dp),
-            ) {
-                DesktopAvatar(avatar, name, 48)
-            }
-            Column(Modifier.offset(y = (-14).dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        name,
-                        style = TextStyle(
-                            color = Obsidian.text1,
-                            fontSize = 16.sp,
-                            fontFamily = profileFontFamily(draft?.displayFont ?: me.displayFont),
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    StatusDot(status = userStatus(me.effectiveStatus), size = 10.dp, cutoutColor = Obsidian.raised)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("@${me.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono))
-                    if (!pronouns.isNullOrBlank()) {
-                        Text("  ·  $pronouns", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-                    }
-                }
-                if (!recado.isNullOrBlank() || !emoji.isNullOrBlank()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        listOfNotNull(emoji?.ifBlank { null }, recado?.ifBlank { null }).joinToString(" "),
-                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-                    )
-                }
-                if (!bio.isNullOrBlank()) {
-                    Spacer(Modifier.height(8.dp)); HairRule(); Spacer(Modifier.height(8.dp))
-                    Text(
-                        bio,
-                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-                        maxLines = 3, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Text("e assim que os outros te veem", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-                Spacer(Modifier.height(6.dp))
-            }
-        }
+        return
     }
+    // O rascunho manda quando existe; senao, o valor salvo.
+    val dados = DadosDoCartao(
+        nome = draft?.displayName?.trim()?.ifBlank { null } ?: me.displayName ?: me.username,
+        username = me.username,
+        avatarUrl = draft?.avatarUrl ?: me.avatarUrl,
+        bannerUrl = draft?.bannerUrl ?: me.bannerUrl,
+        bannerColor = draft?.bannerColor ?: me.bannerColor,
+        bannerPositionY = draft?.bannerPositionY ?: me.bannerPositionY ?: 50,
+        bannerScale = draft?.bannerScale ?: me.bannerScale ?: 100,
+        pronomes = draft?.pronouns ?: me.pronouns,
+        bio = draft?.bio ?: me.bio,
+        statusEmoji = draft?.statusEmoji ?: me.statusEmoji,
+        recado = draft?.customStatus ?: me.customStatus,
+        fonte = draft?.displayFont ?: me.displayFont,
+        status = me.effectiveStatus,
+    )
+    Column(Modifier.fillMaxWidth()) {
+        RotuloDaPrevia("cartão completo")
+        ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(16.dp))
+        RotuloDaPrevia("ao clicar no seu avatar")
+        ProfileCard(dados, CardVariante.NORMAL, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "é assim que os outros te veem",
+            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+        )
+    }
+}
+
+@Composable
+private fun RotuloDaPrevia(texto: String) {
+    Text(
+        texto.uppercase(),
+        style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.4.sp),
+        modifier = Modifier.padding(bottom = 6.dp),
+    )
 }
 
 // --- Notificacoes: um toast que desliza da direita, segura e sai — em loop.

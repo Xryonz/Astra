@@ -154,124 +154,48 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
         enter = fadeIn(tween(240, easing = EaseSpring)) +
             slideInVertically(tween(280, easing = EaseSpring)) { it / 10 },
     ) {
-        Column(
-            // Proporcao "fiel ao Discord" (escolha do dono): card 320 de largura, banner
-            // CURTO (80) e avatar GRANDE (72) sobrepondo ~40% do banner — avatar em
-            // destaque sobre uma faixa fina, igual ao mini-perfil do Discord.
-            Modifier
-                .width(320.dp)
-                .clip(RoundedCornerShape(12.dp))
-                // Gradiente CONTINUO: uma peca so do topo do banner ao pe do cartao.
-                .profileCardBackdrop(profile?.bannerColor)
-                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
-        ) {
-            val p = profile
-            if (p == null) {
-                CardSkeleton()
-            } else {
-                // css = null de proposito: quem pinta o gradiente e o cartao inteiro
-                // (profileCardBackdrop acima). Se a faixa repintasse por conta, o
-                // gradiente "recomecaria" aqui e o corte voltaria.
-                ProfileBanner(
-                    css = null,
-                    imageUrl = p.bannerUrl,
-                    positionY = p.bannerPositionY ?: 50,
-                    scale = p.bannerScale ?: 100,
-                    fallback = bannerBackdrop(p.bannerUrl),
-                    modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
+        val p = profile
+        if (p == null) {
+            Column(
+                Modifier.width(320.dp).clip(RoundedCornerShape(12.dp))
+                    .profileCardBackdrop(null)
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
+            ) { CardSkeleton() }
+        } else {
+            // MESMO desenho da previa das Configuracoes (ProfileCard) — nao existem
+            // mais duas copias pra divergir. O que e proprio DAQUI sao os botoes,
+            // que so fazem sentido no cartao de verdade.
+            ProfileCard(
+                dados = p.paraCartao(),
+                variante = CardVariante.NORMAL,
+                modifier = Modifier.width(320.dp),
+            ) {
+                val fullSrc = remember { MutableInteractionSource() }
+                Text(
+                    "ver perfil completo",
+                    style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, textAlign = TextAlign.Center),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickScale(fullSrc)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+                        .clickable(interactionSource = fullSrc, indication = null, onClick = onOpenFull)
+                        .padding(vertical = 8.dp),
+                    maxLines = 1,
                 )
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    Box(
-                        // Avatar grande sobrepondo ~40% do banner curto (proporcao Discord).
-                        Modifier.offset(y = (-30).dp),
-                    ) {
-                        DesktopAvatar(p.avatarUrl, p.displayName ?: p.username, 72)
-                    }
-                    Column(Modifier.offset(y = (-8).dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                p.displayName ?: p.username,
-                                style = TextStyle(
-                                    color = Obsidian.text1, fontSize = 19.sp, fontWeight = FontWeight.Medium,
-                                    fontFamily = profileFontFamily(p.displayFont),
-                                ),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            StatusDot(
-                                status = userStatus(p.effectiveStatus),
-                                size = 10.dp,
-                                cutoutColor = Obsidian.raised,
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "@${p.username}",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
-                            )
-                            if (!p.pronouns.isNullOrBlank()) {
-                                Text(
-                                    "  ·  ${p.pronouns}",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                                )
-                            }
-                        }
-                        if (!p.customStatus.isNullOrBlank() || !p.statusEmoji.isNullOrBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                listOfNotNull(p.statusEmoji, p.customStatus).joinToString(" "),
-                                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-                            )
-                        }
-                        if (!p.bio.isNullOrBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            HairRule()
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                p.bio.orEmpty(),
-                                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-                                maxLines = 3, overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        val fullSrc = remember { MutableInteractionSource() }
-                        Text(
-                            "ver perfil completo",
-                            style = TextStyle(
-                                color = Obsidian.text2,
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickScale(fullSrc)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
-                                .clickable(interactionSource = fullSrc, indication = null, onClick = onOpenFull)
-                                .padding(vertical = 8.dp),
-                            maxLines = 1,
-                        )
-                        if (!isMe) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "enviar sussurro",
-                                style = TextStyle(
-                                    color = Obsidian.accent,
-                                    fontSize = 12.sp,
-                                    textAlign = TextAlign.Center,
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                                    .clickable { onStartDm(p.username, p.displayName ?: p.username) }
-                                    .padding(vertical = 8.dp),
-                                maxLines = 1,
-                            )
-                        }
-                        Spacer(Modifier.height(14.dp))
-                    }
+                if (!isMe) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "enviar sussurro",
+                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, textAlign = TextAlign.Center),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
+                            .clickable { onStartDm(p.username, p.displayName ?: p.username) }
+                            .padding(vertical = 8.dp),
+                        maxLines = 1,
+                    )
                 }
             }
         }

@@ -143,11 +143,19 @@ fun Modifier.profileCardBackdrop(css: String?, aspect: Float = ProfileBannerAspe
         if (size.height <= 0f) return@drawBehind
         // Onde a faixa do banner acaba, em fracao da altura do cartao.
         val start = ((size.width / aspect) / size.height).coerceIn(0f, 1f)
-        val veil = Obsidian.void.copy(alpha = 0.78f)
+        // O veu escurece o corpo do cartao pro texto ter contraste. Ele NAO e preto
+        // puro: mantem 88% de void e deixa 12% da cor do banner atravessar, entao o
+        // corpo herda um tom do topo em vez de virar um retangulo preto colado numa
+        // faixa colorida. E a diferenca entre "cartao" e "duas coisas empilhadas".
+        val veil = Obsidian.void.copy(alpha = 0.88f)
+        val meio = Obsidian.void.copy(alpha = 0.62f)
         drawRect(
             Brush.verticalGradient(
-                start to Color.Transparent,
-                min(1f, start + 0.30f) to veil,
+                // Comeca a escurecer JA DENTRO da faixa (um respiro antes do fim):
+                // sem isso, a base do banner encosta no corpo com uma linha dura.
+                (start - 0.10f).coerceAtLeast(0f) to Color.Transparent,
+                start to meio,
+                min(1f, start + 0.26f) to veil,
                 1f to veil,
             ),
         )

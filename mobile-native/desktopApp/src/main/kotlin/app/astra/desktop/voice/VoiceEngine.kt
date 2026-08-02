@@ -1291,11 +1291,24 @@ class VoiceEngine(
         cameraSource = null
         screenTrack = null
         screenSource = null
-        runCatching { micCapture?.stop() }
+        // A ORDEM E A ESPERA IMPORTAM. O stop() agora so volta depois que a thread
+        // da captura morreu de fato, e e por isso que o dispose logo abaixo pode
+        // acontecer: ele libera memoria NATIVA que aquela thread usa a cada 10ms.
+        // Antes o stop() voltava na hora e o dispose corria por cima de um
+        // pushAudio em andamento — heap nativo corrompido, processo derrubado pelo
+        // Windows sem uma linha de log. Era o "o Astra fecha sozinho".
+        val paradaLimpa = runCatching { micCapture?.stop() ?: true }.getOrDefault(false)
         micCapture = null
         runCatching { micTrack?.dispose() }
         micTrack = null
-        runCatching { micSource?.dispose() }
+        if (paradaLimpa) {
+            runCatching { micSource?.dispose() }
+        } else {
+            // Deixa vazar de proposito: alguns KB ate a proxima call, contra
+            // derrubar o app agora. Fica registrado porque, se aparecer sempre,
+            // e sinal de que ha algo travando o driver do microfone.
+            VoiceLog.nota("a captura do mic nao encerrou a tempo — fonte de audio nao liberada (seguro, mas anormal)")
+        }
         micSource = null
         runCatching { pub?.close() }
         pub = null

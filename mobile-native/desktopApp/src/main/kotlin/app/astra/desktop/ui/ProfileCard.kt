@@ -84,13 +84,19 @@ enum class CardVariante {
 // tambem empurra o texto pra baixo, o que alonga sozinho.
 val LARGURA_CARTAO_COMPLETO = 330.dp
 
-// O banner do cartao COMPLETO e mais alto que o do compacto (3.5 -> 2.6).
+// OS DOIS CARTOES USAM A MESMA PROPORCAO DE BANNER, e isto nao e escolha de
+// gosto — e obrigacao.
 //
-// Altura de cartao de pessoa nao se resolve com espaco vazio no pe: se eu so
-// forcasse uma altura minima, quem tem pouca bio ganharia um buraco embaixo. A
-// faixa do topo e a peca que da pra crescer sem inventar conteudo — e crescer o
-// retrato tambem e o que os cartoes do genero fazem.
-private const val BannerCartaoCompleto = 2.6f
+// O recorte e ASSADO na imagem que sobe (ImageCrop): o arquivo salvo JA tem a
+// proporcao ProfileBannerAspect, e o `scale`/`positionY` ficam em 100/50. Uma
+// faixa com outra proporcao nao tem como exibir esse arquivo direito: ou sobra
+// tarja, ou corta. E o zoom nao salva, porque o problema e o FORMATO da caixa,
+// nao o tamanho da imagem dentro dela.
+//
+// Eu tinha posto 2.6 aqui pra alongar o cartao completo no eixo Y. Funcionou
+// pra altura e quebrou todo banner ja salvo — a troca nao vale. A altura do
+// cartao completo vem do conteudo (nome maior, secoes), que e de onde ela
+// deveria ter vindo desde o comeco.
 
 // Largura do cartao compacto (o que abre ao clicar num avatar).
 //
@@ -153,7 +159,7 @@ fun ProfileCard(
 ) {
     val completo = variante == CardVariante.COMPLETO
     val recuoH = if (completo) 20.dp else 16.dp
-    val aspectoBanner = if (completo) BannerCartaoCompleto else ProfileBannerAspect
+    val aspectoBanner = ProfileBannerAspect
 
     Column(
         modifier

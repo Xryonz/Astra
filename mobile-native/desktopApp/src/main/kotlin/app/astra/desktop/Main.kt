@@ -81,6 +81,13 @@ private fun gcName(): String = runCatching {
 // janela no Windows (jpackage) não tem console anexado, entao a linha ia pro nada —
 // ninguem conseguia ler. Fica em %LOCALAPPDATA%\Astra\diagnostico.txt (mesma pasta
 // do cache de imagens). Sobrescreve a cada abertura: e um retrato do boot atual.
+// Onde o crash nativo cai: a JVM grava o hs_err na pasta de TRABALHO do processo,
+// que no pacote do jpackage e a pasta do Astra.exe. Sem jpackage (Gradle), e de
+// onde o build rodou.
+private fun pastaDaInstalacao(): String =
+    System.getProperty("jpackage.app-path")?.let { java.io.File(it).parent }
+        ?: System.getProperty("user.dir").orEmpty().ifBlank { "?" }
+
 private fun writeDiagnostics() = runCatching {
     val os = System.getProperty("os.name").orEmpty()
     val dir = CrashLog.dataDir()
@@ -98,7 +105,12 @@ private fun writeDiagnostics() = runCatching {
         appendLine("SO           : $os ${System.getProperty("os.version")}")
         appendLine()
         appendLine("Fechou sozinho? o motivo fica em falhas.txt, nesta mesma pasta.")
-        appendLine("(se falhas.txt não existir, a JVM morreu por fora: ver falha-jvm-*.log na pasta do app)")
+        // O nome e o lugar do arquivo sao os que a JVM usa DE VERDADE — conferidos
+        // num crash real. O texto antigo inventava "falha-jvm-*.log na pasta do
+        // app", e procurar por um arquivo que nao existe com esse nome e pior do
+        // que nao ter dica nenhuma: parece que nao houve registro.
+        appendLine("(sem falhas.txt = a JVM morreu por fora, em código nativo. O laudo é")
+        appendLine(" hs_err_pid<numero>.log, na pasta da instalação — ${pastaDaInstalacao()})")
     }
     java.io.File(dir, "diagnostico.txt").writeText(txt)
     println(txt)

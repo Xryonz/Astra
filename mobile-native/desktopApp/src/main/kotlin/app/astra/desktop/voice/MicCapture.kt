@@ -43,6 +43,17 @@ class MicCapture(
     private var apm: AudioProcessing? = null
     @Volatile private var running = false
 
+    // A thread da captura, guardada pra `stop()` conseguir ESPERAR por ela.
+    //
+    // ISTO E O QUE IMPEDIA O APP DE FECHAR SOZINHO. `stop()` so baixava a
+    // bandeira e voltava na hora; quem chamava seguia adiante e dava dispose() no
+    // CustomAudioSource — que e memoria nativa. Se a thread estivesse a um passo
+    // do pushAudio (e a cada 10ms ela esta), o push caia em memoria ja liberada.
+    // Isso nao lanca excecao: corrompe o heap nativo, e o Windows derruba o
+    // processo inteiro com 0x80000003. Da pra ver o resultado do lado de fora
+    // como "o Astra fechou do nada", sempre perto de entrar ou sair de call.
+    private var thread: Thread? = null
+
     // O APM passa a ser tocado por DUAS threads: a do mic (processStream) e a do
     // WebRTC que entrega o audio do outro (processReverseStream). O objeto e
     // nativo — usar depois do dispose nao lanca excecao em Kotlin, derruba o
@@ -134,7 +145,7 @@ class MicCapture(
                     runCatching { source.pushAudio(buf, 16, rate, channels, inFrames) }
                 }
             }
-        }, "mic-capture").apply {
+        }, "mic-capture").also { thread = it }.apply {
             isDaemon = true
             // Prioridade alta, e nao e capricho: esta thread TEM que voltar a cada
             // 10ms. Se o agendador do Windows a deixar de fora por mais tempo que o
@@ -182,17 +193,40 @@ class MicCapture(
         synchronized(trava) { runCatching { apm?.setStreamDelayMs(ms) } }
     }
 
-    fun stop() {
+    /**
+     * Para a captura e ESPERA a thread morrer.
+     *
+     * O retorno importa: `false` = a thread nao terminou a tempo, e quem chamou
+     * NAO pode liberar o CustomAudioSource. Vazar uma fonte de audio custa alguns
+     * KB ate a proxima call; liberar embaixo de um pushAudio em andamento derruba
+     * o app inteiro. A escolha entre os dois nao e dificil.
+     */
+    fun stop(): Boolean {
+        // Ordem obrigatoria: baixa a bandeira ANTES de fechar a linha. Ao contrario,
+        // o read() volta com erro, o laco continua achando que deve rodar e tenta
+        // ler de uma linha ja fechada.
         running = false
+        // Fechar a linha e o que DESBLOQUEIA o read(): sem isso a thread ficaria
+        // parada esperando 10ms de audio de um microfone que ninguem mais alimenta.
         runCatching { line?.stop() }
         runCatching { line?.close() }
         line = null
+
+        val t = thread
+        thread = null
+        val morreu = if (t == null || t === Thread.currentThread()) {
+            true
+        } else {
+            runCatching { t.join(FIM_MS); !t.isAlive }.getOrDefault(false)
+        }
+
         // Sob a trava: se a thread do audio remoto estiver dentro do
         // processReverseStream agora, o dispose aqui derrubaria o processo.
         synchronized(trava) {
             runCatching { apm?.dispose() }
             apm = null
         }
+        return morreu
     }
 
     private fun rms(buf: ByteArray): Float {
@@ -209,6 +243,11 @@ class MicCapture(
     }
 
     companion object {
+        // Quanto esperar a thread da captura morrer. Ela so precisa terminar o
+        // bloco de 10ms em que estiver; meio segundo e folga enorme, e existe pra
+        // nao travar a interface se o driver do microfone engasgar no close().
+        private const val FIM_MS = 500L
+
         // 48k/44.1k, mono depois estereo. O APM converte qualquer um pra 48k mono.
         private val FORMATS = listOf(
             AudioFormat(48000f, 16, 1, true, false),

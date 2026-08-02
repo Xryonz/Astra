@@ -6,6 +6,7 @@ initSentry()
 
 import express    from 'express'
 import http       from 'http'
+import { resolve } from 'path'
 import { Server as SocketServer } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import { redis } from './lib/redis'
@@ -168,6 +169,21 @@ app.use('/api/wishes',    wishesRouter)
 app.use('/api/sessions',  sessionsRouter)
 app.use('/api/servers',   emojisRouter)
 app.use('/api',           channelNotifPrefsRouter)
+
+// Arquivos que VIAJAM COM O CODIGO — hoje, as fotos das duas personas do bot.
+//
+// Diferente de /uploads em tudo que importa: /uploads e disco efemero do Render e
+// morre no proximo deploy (por isso o R2 existe); isto esta no repositorio e sobe
+// junto com o build, entao nunca some e pode ficar muito tempo em cache.
+//
+// POR QUE ARQUIVO E NAO data-URI embutido: avatarUrl viaja no `author` de CADA
+// mensagem. Em base64 a foto do bot seriam ~125KB repetidos por mensagem; aqui e
+// uma URL de 24 caracteres, baixada uma vez e guardada no cache de disco do
+// cliente. __dirname resolve pro mesmo lugar em dev (src/) e em producao (dist/).
+app.use('/static', express.static(resolve(__dirname, '../public'), {
+  maxAge: '7d', fallthrough: true,
+  setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff') },
+}))
 
 app.use('/uploads', express.static(UPLOAD_DIR, {
   maxAge: '1d', immutable: true, fallthrough: true,

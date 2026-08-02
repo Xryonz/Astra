@@ -13,7 +13,6 @@ import {
   consumeTokens, consumeToolCall, SUMMARY_TRIGGER, WORKING_WINDOW, type MemoryTurn,
 } from './botMemory'
 import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
-import { AVATAR_SPARKLE, AVATAR_SPARXIE } from './botAvatars'
 import { botInvocationsTotal, botTokensTotal } from './metrics'
 
 export const BOT_USERNAME    = 'astra_bot'
@@ -42,12 +41,15 @@ export interface Persona {
   tom:     string
 }
 
+// As fotos vivem em apps/api/public/bot/ e sao servidas em /static (ver index.ts).
+// URL RELATIVA de proposito: o desktop ja prefixa a BASE_URL sozinho
+// (RelativeUrlMapper) e o mesmo valor serve dev e producao sem env nenhuma.
 const SPARKLE: Persona = {
-  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: AVATAR_SPARKLE,
+  chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: '/static/bot/sparkle.jpg',
   tom: 'Você é a Sparkle, de plantão nos dias de semana. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
-  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: AVATAR_SPARXIE,
+  chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: '/static/bot/sparxie.jpg',
   tom: 'Você é a Sparxie, que assume nos fins de semana. Tom mais solto e brincalhão que o da Sparkle (sua irmã de plantão nos dias úteis), sem virar palhaçada. É fim de semana: puxa papo, sugere programa, celebra.',
 }
 

@@ -793,17 +793,26 @@ class ChatVm(
     private fun MsgAuthorDto?.name(fallbackId: String): String =
         this?.displayName ?: this?.username ?: if (fallbackId == myId) "você" else "alguem"
 
-    private fun ChannelMessageDto.toChat() = ChatMessage(
-        id = id, content = content, authorId = authorId,
-        authorName = author.name(authorId), authorAvatar = author?.avatarUrl,
-        authorFont = author?.displayFont,
-        createdAt = createdAt,
-        mine = authorId == myId, edited = edited,
-        reactions = reactions, replyTo = replyTo,
-        attachments = attachments,
-        poll = poll,
-        clientNonce = clientNonce,
-    )
+    private fun ChannelMessageDto.toChat(): ChatMessage {
+        // authorId pode vir vazio (ver ChannelMessageDto): cai pro id de dentro do
+        // `author`. Sem isso a mensagem entra sem dono — nao agrupa, nao abre
+        // perfil e acha que e minha (authorId == myId com os dois vazios).
+        val autor = authorId.ifBlank { author?.id.orEmpty() }
+        return ChatMessage(
+            id = id, content = content, authorId = autor,
+            authorName = author.name(autor), authorAvatar = author?.avatarUrl,
+            authorFont = author?.displayFont,
+            createdAt = createdAt,
+            // autor, nao authorId: com os dois vazios, "" == null daria falso, mas
+            // uma mensagem sem dono nunca deve passar por minha.
+            mine = autor.isNotBlank() && autor == myId,
+            edited = edited,
+            reactions = reactions, replyTo = replyTo,
+            attachments = attachments,
+            poll = poll,
+            clientNonce = clientNonce,
+        )
+    }
 
     private fun DmMessageDto.toChat() = ChatMessage(
         id = id, content = content, authorId = senderId,

@@ -6,7 +6,13 @@ import kotlinx.serialization.Serializable
 data class ChannelMessageDto(
     val id: String,
     val content: String = "",
-    val authorId: String,
+    // COM DEFAULT, de proposito. Campo obrigatorio aqui significa: qualquer
+    // mensagem que chegue sem ele explode a desserializacao, o runCatching de quem
+    // escuta o socket engole a excecao e a mensagem some SEM SINAL NENHUM. Foi
+    // exatamente o que aconteceu com a bot: o backend mandava so o objeto `author`
+    // aninhado, e o desktop descartou toda resposta dela por meses.
+    // Quem le deve preferir authorId e cair pro author?.id quando vier vazio.
+    val authorId: String = "",
     val channelId: String,
     val authorColor: String? = null,
     val createdAt: String? = null,

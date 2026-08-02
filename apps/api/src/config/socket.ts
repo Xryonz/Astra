@@ -225,6 +225,14 @@ export function setupSocket(io: Server) {
             id: `bot-mute-${randomUUID()}`,
             content: `🔇 **@${socket.data.username}** foi silenciado por **5 minutos** por spam.`,
             channelId, edited: false, createdAt: new Date().toISOString(),
+            // authorId ALEM do author: o cliente Kotlin exige o campo plano (todas as
+
+            // outras mensagens vem do banco, que tem authorId). Sem ele a desserializacao
+
+            // falha e o desktop DESCARTA a mensagem da bot em silencio.
+
+            authorId: botId,
+
             authorColor: null, reactions: [], mentions: [],
             // Aviso de moderacao sai com o nome de quem esta de plantao hoje.
             author: { id: botId, username: 'astra_bot', displayName: personaDoDia().nome, avatarUrl: null },
@@ -497,6 +505,14 @@ export function setupSocket(io: Server) {
         id: `bot-${randomUUID()}`,
         content: reply, channelId,
         edited: false, createdAt: new Date().toISOString(),
+        // authorId ALEM do author: o cliente Kotlin exige o campo plano (todas as
+
+        // outras mensagens vem do banco, que tem authorId). Sem ele a desserializacao
+
+        // falha e o desktop DESCARTA a mensagem da bot em silencio.
+
+        authorId: botId,
+
         authorColor: null, reactions: [], mentions: [],
         author: { id: botId, username: 'astra_bot', displayName: persona.nome, avatarUrl: null },
       }

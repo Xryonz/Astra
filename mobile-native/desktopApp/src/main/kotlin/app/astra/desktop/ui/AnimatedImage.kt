@@ -2,16 +2,23 @@ package app.astra.desktop.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import app.astra.shared.AstraShared
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +35,7 @@ import org.jetbrains.skia.Image as SkiaImage
 import org.koin.core.context.GlobalContext
 import org.koin.core.qualifier.named
 import java.util.Base64
+import kotlin.math.roundToInt
 
 // Imagens ANIMADAS no desktop (GIF, WebP animado). O Coil3 no JVM so decodifica o
 // PRIMEIRO frame (não existe coil-gif-jvm nem AnimatedSkiaImageDecoder no JVM —
@@ -72,20 +80,38 @@ fun AstraImage(
 
     val a = anim
     if (a != null && a.frames.isNotEmpty()) {
-        // Reduzir movimento: congela no 1o frame (ainda mostra o gif, so não mexe).
-        var idx by remember(a) { mutableStateOf(0) }
+        // O NUMERO DO QUADRO NAO PODE SER LIDO AQUI EM CIMA.
+        //
+        // Antes era `Image(bitmap = a.frames[idx])`, com o `idx` lido no corpo do
+        // composable. Ler um State na composicao significa: mudou o State,
+        // recompoe e REMEDE o no inteiro. A ~15 quadros por segundo. Por imagem.
+        // No grid do seletor de GIF, com uma duzia animando ao mesmo tempo, isso
+        // e a interface inteira sendo remontada centenas de vezes por segundo pra
+        // trocar uns pixels.
+        //
+        // Agora o quadro e lido DENTRO do desenho (QuadrosPainter.onDraw): mudou o
+        // quadro, so redesenha. Mesmo conserto que tirou a travada do video de
+        // chamada na 0.1.26.
+        //
+        // Por que Painter e nao Canvas: o Painter tem tamanho intrinseco, entao o
+        // `Image` continua medindo e enquadrando exatamente como antes —
+        // contentScale e alignment seguem funcionando de graca. Um Canvas nao tem
+        // tamanho proprio e obrigaria a refazer Crop/Fit na mao em 8 lugares.
+        //
+        // Reduzir movimento: congela no 1o quadro (ainda mostra o gif, so não mexe).
+        val indice = remember(a) { mutableIntStateOf(0) }
         if (!reduce && a.frames.size > 1) {
             LaunchedEffect(a) {
                 var i = 0
                 while (true) {
                     delay(a.durationsMs[i].coerceAtLeast(20).toLong())
                     i = (i + 1) % a.frames.size
-                    idx = i
+                    indice.intValue = i
                 }
             }
         }
         Image(
-            bitmap = a.frames[idx.coerceIn(0, a.frames.lastIndex)],
+            painter = remember(a) { QuadrosPainter(a.frames, indice) },
             contentDescription = contentDescription,
             modifier = modifier,
             alignment = alignment,
@@ -98,6 +124,32 @@ fun AstraImage(
             modifier = modifier,
             alignment = alignment,
             contentScale = contentScale,
+        )
+    }
+}
+
+// Pinta o quadro ATUAL de uma animacao, lendo o indice so na hora de desenhar.
+//
+// O tamanho intrinseco vem do primeiro quadro (todos tem o mesmo) — e o que faz o
+// `Image` medir e enquadrar igualzinho a antes. Como ele nunca muda, trocar de
+// quadro nao invalida layout nenhum: so o desenho.
+private class QuadrosPainter(
+    private val quadros: List<ImageBitmap>,
+    private val indice: IntState,
+) : Painter() {
+    override val intrinsicSize: Size =
+        if (quadros.isEmpty()) Size.Unspecified
+        else Size(quadros[0].width.toFloat(), quadros[0].height.toFloat())
+
+    override fun DrawScope.onDraw() {
+        if (quadros.isEmpty() || size.width <= 0f || size.height <= 0f) return
+        val bmp = quadros[indice.intValue.coerceIn(0, quadros.lastIndex)]
+        drawImage(
+            image = bmp,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(bmp.width, bmp.height),
+            dstOffset = IntOffset.Zero,
+            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
         )
     }
 }

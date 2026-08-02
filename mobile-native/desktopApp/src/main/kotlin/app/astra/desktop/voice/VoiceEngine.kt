@@ -178,6 +178,11 @@ class VoiceEngine(
     private var speakingJob: Job? = null
     @Volatile private var mySpeakUntil = 0L
 
+    // O servidor ja avisa quem esta falando? Enquanto nao souber, medimos por
+    // conta propria (caro). Volta a false a cada nova sala: e propriedade do
+    // servidor daquela conexao, nao do app.
+    @Volatile private var servidorAvisaFala = false
+
     // identity -> outro participante (ordem de chegada). speaking vem por sid
     // (SpeakersChanged fala em sid, não identity).
     //
@@ -1055,13 +1060,27 @@ class VoiceEngine(
     // (anti-flicker) — a inchada do card reage a isso.
     private fun startSpeakingPoll() {
         speakingJob?.cancel()
+        // Sala nova, servidor possivelmente outro: volta a medir por conta propria
+        // ate o primeiro speakers_changed provar que nao precisa.
+        servidorAvisaFala = false
         speakingJob = scope.launch {
             while (isActive) {
                 val now = System.currentTimeMillis()
                 if (!_micOn.value) mySpeakUntil = 0L // mudo => não "fala"
-                sub?.let { pc ->
-                    remoteAudioReceivers.entries.toList().forEach { (sid, recv) ->
-                        runCatching { pc.getStats(recv) { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) markRemoteSpeak(sid) } }
+                // Medir o nivel de cada um custa CARO: um getStats por pessoa, cinco
+                // vezes por segundo, e cada chamada monta um relatorio inteiro de
+                // estatisticas (dezenas de objetos com mapas de atributos) que vira
+                // lixo no instante seguinte. Numa sala de cinco sao vinte relatorios
+                // por segundo pra responder uma pergunta que o servidor ja responde
+                // de graca pelo speakers_changed.
+                //
+                // Fica como rede de seguranca ate o primeiro aviso do servidor
+                // chegar — servidor que nao mande o evento continua funcionando.
+                if (!servidorAvisaFala) {
+                    sub?.let { pc ->
+                        remoteAudioReceivers.entries.toList().forEach { (sid, recv) ->
+                            runCatching { pc.getStats(recv) { r -> if (audioLevelOf(r) > SPEAK_THRESHOLD) markRemoteSpeak(sid) } }
+                        }
                     }
                 }
                 // Aplica (com base no que já voltou dos ciclos anteriores).
@@ -1193,6 +1212,13 @@ class VoiceEngine(
     // voz depois que ela sobe, comprime e volta — uns 200ms de atraso num anel
     // que reage ao meu proprio rosto. O RMS do meu mic e instantaneo e ja resolve.
     private fun onSpeakersChanged(speakers: List<LivekitModels.SpeakerInfo>) {
+        // Chegou aviso do servidor pelo menos uma vez => o poll de getStats vira
+        // custo puro e se desliga (ver startSpeakingPoll). Nao da pra decidir isso
+        // no comeco da call: so descobrimos que o servidor manda quando ele manda.
+        if (!servidorAvisaFala) {
+            servidorAvisaFala = true
+            VoiceLog.nota("quem fala vem do servidor — medicao local de nivel desligada (economia)")
+        }
         var changed = false
         speakers.forEach { s ->
             if (s.sid == mySid) return@forEach

@@ -755,12 +755,19 @@ private fun ContentBlock(
         // ```bloco``` vira caixa mono (F5); `inline` vira span mono; o resto e
         // o caminho rapido de sempre.
         val segments = remember(msg.content) { parseSegments(msg.content) }
+        // O texto estilizado tambem e memoizado, nao so o fatiamento. Monta-lo na
+        // composicao significa varrer a mensagem atras de crases e alocar um
+        // AnnotatedString novo TODA vez que a linha recompoe — e ela recompoe por
+        // motivos que nao tem nada a ver com o texto (passar o mouse, chegar
+        // mensagem nova, mudar a densidade). E o caminho mais quente do app.
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
-                text = buildAnnotatedString {
-                    appendInlineCoded(msg.content)
-                    if (msg.edited) {
-                        withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
+                text = remember(msg.content, msg.edited) {
+                    buildAnnotatedString {
+                        appendInlineCoded(msg.content)
+                        if (msg.edited) {
+                            withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
+                        }
                     }
                 },
                 style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
@@ -770,7 +777,7 @@ private fun ContentBlock(
                 if (i > 0) Spacer(Modifier.height(4.dp))
                 when (seg) {
                     is Seg.Txt -> Text(
-                        text = buildAnnotatedString { appendInlineCoded(seg.s) },
+                        text = remember(seg.s) { buildAnnotatedString { appendInlineCoded(seg.s) } },
                         style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
                     )
                     is Seg.Code -> CodeBox(seg)

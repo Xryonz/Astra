@@ -20,15 +20,69 @@ import javax.sound.sampled.TargetDataLine
 // o microfone e escuta um pedaço. É a única resposta que vale, porque é
 // exatamente o que a call vai fazer depois.
 //
-// Uma coisa que NÃO tem checagem: transmissão de tela. No Windows ela não pede
-// permissão nenhuma (diferente do macOS) — inventar um cadeado aqui seria teatro.
-// O que pode faltar é o ffmpeg do pacote, e disso a gente sabe olhando o arquivo.
+// Consequência disso, e o motivo de o botão da interface se chamar "permitir"
+// sem nunca abrir uma janelinha: aplicativo de área de trabalho não tem API pra
+// PEDIR permissão. Quem decide é um interruptor global do Windows ("deixar
+// aplicativos da área de trabalho acessarem o microfone"). Tudo o que dá pra
+// fazer é levar a pessoa até o interruptor certo e ficar conferindo até virar.
 
-enum class Acesso { OK, BLOQUEADO, SEM_APARELHO, MUDO }
+enum class Acesso {
+    /** Funciona agora. */
+    OK,
+
+    /** O Windows está negando na cara. */
+    BLOQUEADO,
+
+    /** Não existe aparelho pra usar. */
+    SEM_APARELHO,
+
+    /** Abriu, mas não chegou nada — o sintoma clássico de privacidade fechada. */
+    MUDO,
+
+    /**
+     * Ninguém negou; o Windows só ainda não decidiu. Firewall antes da primeira
+     * call, avisos antes do primeiro aviso. NÃO é defeito — e por isso não pinta
+     * de vermelho nem de amarelo: mandar consertar o que não está quebrado é o
+     * jeito mais rápido de ensinar alguém a ignorar a tela inteira.
+     */
+    PENDENTE,
+}
+
+// O que cada permissão É, em português de gente. Fica AQUI e não na tela porque
+// as três telas que mostram isto (boas-vindas, configurações e o aviso da
+// primeira abertura) precisam do mesmo texto — e texto duplicado é texto que
+// diverge.
+enum class Permissao(val titulo: String, val oQueE: String) {
+    MICROFONE(
+        "Microfone",
+        "É por onde sua voz entra na call. Sem ele você ouve todo mundo e ninguém ouve você.",
+    ),
+    SOM(
+        "Som",
+        "A saída de áudio — é por onde você escuta as outras pessoas.",
+    ),
+    CAMERA(
+        "Câmera",
+        "Só é usada quando você liga o vídeo. A luz dela acende nessa hora, nunca antes.",
+    ),
+    TELA(
+        "Transmitir a tela",
+        "Mostrar o que está na sua tela pra quem está na call.",
+    ),
+    REDE(
+        "Rede",
+        "O firewall do Windows decide se o Astra pode falar com a internet. É por aí que passam as mensagens e a call.",
+    ),
+    AVISOS(
+        "Avisos",
+        "Deixa o Astra te chamar quando chega mensagem com o app fechado ou atrás de outra janela.",
+    ),
+}
 
 data class Checagem(
-    val titulo: String,
+    val permissao: Permissao,
     val acesso: Acesso,
+    /** O estado AGORA — muda a cada conferida. Diferente do `oQueE`, que é fixo. */
     val explica: String,
     /** Página exata das Configurações do Windows, quando existe uma pra consertar. */
     val ajustes: String? = null,
@@ -36,7 +90,19 @@ data class Checagem(
 
 object PermissoesWindows {
 
-    fun todas(): List<Checagem> = listOf(microfone(), camera(), saida(), tela(), notificacoes())
+    // Ordem: primeiro o que a call precisa (na ordem em que ela usa), depois o
+    // que o sistema controla por fora.
+    fun todas(): List<Checagem> =
+        listOf(microfone(), saida(), camera(), tela(), rede(), notificacoes())
+
+    fun uma(p: Permissao): Checagem = when (p) {
+        Permissao.MICROFONE -> microfone()
+        Permissao.SOM -> saida()
+        Permissao.CAMERA -> camera()
+        Permissao.TELA -> tela()
+        Permissao.REDE -> rede()
+        Permissao.AVISOS -> notificacoes()
+    }
 
     // Avisos do Windows.
     //
@@ -47,8 +113,8 @@ object PermissoesWindows {
     // identidade — ver WindowsAppId).
     //
     // "Ainda nao conhece" NAO e defeito: e o estado normal antes do primeiro
-    // aviso. Por isso o texto manda usar o botao de testar em vez de mandar mexer
-    // em configuracao que ainda nem existe.
+    // aviso. Por isso o botao "permitir" desta linha DISPARA UM AVISO em vez de
+    // abrir configuracao — e o unico jeito de fazer o Windows registrar o app.
     fun notificacoes(): Checagem {
         val ligado = runCatching {
             Advapi32Util.registryGetIntValue(
@@ -59,7 +125,7 @@ object PermissoesWindows {
         }.getOrDefault(1)
         if (ligado == 0) {
             return Checagem(
-                "Avisos", Acesso.BLOQUEADO,
+                Permissao.AVISOS, Acesso.BLOQUEADO,
                 "As notificações estão desligadas no Windows — nenhum app consegue avisar você.",
                 "ms-settings:notifications",
             )
@@ -71,12 +137,11 @@ object PermissoesWindows {
             )
         }.getOrDefault(false)
         return if (conhecido) {
-            Checagem("Avisos", Acesso.OK, "O Windows conhece o Astra e deixa ele avisar você.")
+            Checagem(Permissao.AVISOS, Acesso.OK, "O Windows conhece o Astra e deixa ele avisar você.")
         } else {
             Checagem(
-                "Avisos", Acesso.MUDO,
-                "O Windows ainda não registrou o Astra — isso acontece no primeiro aviso. " +
-                    "Use \"testar notificação\" em Configurações > Notificações.",
+                Permissao.AVISOS, Acesso.PENDENTE,
+                "O Windows registra o Astra no primeiro aviso. Clique em permitir pra mandar um agora.",
                 "ms-settings:notifications",
             )
         }
@@ -92,8 +157,8 @@ object PermissoesWindows {
         val nomes = AudioDevices.inputs()
         if (nomes.isEmpty()) {
             return Checagem(
-                "Microfone", Acesso.SEM_APARELHO,
-                "Nenhum microfone encontrado. Conecte um e clique em conferir de novo.",
+                Permissao.MICROFONE, Acesso.SEM_APARELHO,
+                "Nenhum microfone encontrado. Conecte um e confira de novo.",
                 "ms-settings:sound",
             )
         }
@@ -122,16 +187,16 @@ object PermissoesWindows {
 
         return when {
             !abriu -> Checagem(
-                "Microfone", Acesso.BLOQUEADO,
+                Permissao.MICROFONE, Acesso.BLOQUEADO,
                 "O Windows não deixou o Astra abrir o microfone. Ligue o acesso pra aplicativos da área de trabalho.",
                 "ms-settings:privacy-microphone",
             )
             soZeros -> Checagem(
-                "Microfone", Acesso.MUDO,
+                Permissao.MICROFONE, Acesso.MUDO,
                 "O microfone abriu, mas não chegou som nenhum. Costuma ser a privacidade do Windows fechada — ou o mic mudo no botão do aparelho.",
                 "ms-settings:privacy-microphone",
             )
-            else -> Checagem("Microfone", Acesso.OK, "Ouvindo normalmente (${nomes.first()}).")
+            else -> Checagem(Permissao.MICROFONE, Acesso.OK, "Ouvindo normalmente (${nomes.first()}).")
         }
     }
 
@@ -141,21 +206,25 @@ object PermissoesWindows {
         val cams = runCatching { MediaDevices.getVideoCaptureDevices() }.getOrDefault(emptyList())
         return if (cams.isEmpty()) {
             Checagem(
-                "Câmera", Acesso.SEM_APARELHO,
+                Permissao.CAMERA, Acesso.SEM_APARELHO,
                 "Nenhuma câmera encontrada. Se você tem uma, o acesso pode estar fechado no Windows.",
                 "ms-settings:privacy-webcam",
             )
         } else {
-            Checagem("Câmera", Acesso.OK, "${cams.size} encontrada(s). A luz só acende quando você transmitir.")
+            Checagem(Permissao.CAMERA, Acesso.OK, "${cams.size} encontrada(s).")
         }
     }
 
     fun saida(): Checagem {
         val saidas = AudioDevices.outputs()
         return if (saidas.isEmpty()) {
-            Checagem("Som", Acesso.SEM_APARELHO, "Nenhuma saída de áudio encontrada — você não ouviria a call.", "ms-settings:sound")
+            Checagem(
+                Permissao.SOM, Acesso.SEM_APARELHO,
+                "Nenhuma saída de áudio encontrada — você não ouviria a call.",
+                "ms-settings:sound",
+            )
         } else {
-            Checagem("Som", Acesso.OK, "${saidas.size} saída(s) disponível(is).")
+            Checagem(Permissao.SOM, Acesso.OK, "${saidas.size} saída(s) disponível(is).")
         }
     }
 
@@ -163,16 +232,67 @@ object PermissoesWindows {
         val ff = FfmpegLocator.path
         return if (ff == null) {
             Checagem(
-                "Transmitir a tela", Acesso.SEM_APARELHO,
+                Permissao.TELA, Acesso.SEM_APARELHO,
                 "O componente de captura não veio no pacote. Reinstale o Astra.",
             )
         } else {
-            Checagem("Transmitir a tela", Acesso.OK, "Pronto. O Windows não pede permissão pra isto.")
+            Checagem(Permissao.TELA, Acesso.OK, "Pronto — o Windows não pede permissão pra isto.")
         }
     }
 
-    // `start` do cmd é o que entende ms-settings: — Desktop.browse() só lida com
-    // http/https e recusa esse esquema.
+    // Firewall.
+    //
+    // Esta é a permissão que o Windows REALMENTE pergunta ("Permitir acesso?"),
+    // uma vez só, na primeira vez que a call abre uma porta. Quem clica em
+    // Cancelar naquele susto ganha uma regra de BLOQUEIO permanente e nunca mais
+    // vê o aviso — e a partir daí a call falha calada, igual ao microfone.
+    //
+    // A leitura é do registro em vez de `netsh` de propósito: netsh demora
+    // ~1s e pisca uma janela de console. Aqui são ~750 valores de texto no
+    // formato "…|Action=Allow|Active=TRUE|Dir=In|App=C:\…\Astra.exe|…".
+    private const val REGRAS_FIREWALL =
+        "SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules"
+
+    fun rede(): Checagem {
+        // Sem jpackage estamos no Gradle: o executável é o java.exe do runtime, e
+        // regra de firewall pra ele não diz nada sobre o Astra empacotado.
+        val exe = System.getProperty("jpackage.app-path")?.lowercase()
+            ?: return Checagem(
+                Permissao.REDE, Acesso.PENDENTE,
+                "Rodando pelo Gradle — não há executável do Astra pra procurar no firewall.",
+            )
+
+        val minhas = runCatching {
+            Advapi32Util.registryGetValues(WinReg.HKEY_LOCAL_MACHINE, REGRAS_FIREWALL)
+                .values.filterIsInstance<String>()
+                .map { it.lowercase() }
+                .filter { it.contains("|app=$exe|") || it.endsWith("|app=$exe") }
+        }.getOrNull() ?: return Checagem(
+            Permissao.REDE, Acesso.PENDENTE,
+            "Não deu pra ler as regras do firewall. Se a call não conectar, confira o Astra na lista de aplicativos permitidos.",
+            "windowsdefender://network/",
+        )
+
+        val ativas = minhas.filter { it.contains("|active=true|") }
+        return when {
+            ativas.any { it.contains("|action=block|") } -> Checagem(
+                Permissao.REDE, Acesso.BLOQUEADO,
+                "Existe uma regra bloqueando o Astra no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não conecta assim.",
+                "windowsdefender://network/",
+            )
+            ativas.any { it.contains("|action=allow|") } -> Checagem(
+                Permissao.REDE, Acesso.OK, "Liberado no firewall do Windows.",
+            )
+            else -> Checagem(
+                Permissao.REDE, Acesso.PENDENTE,
+                "O Windows vai perguntar na sua primeira call. Quando perguntar, escolha Permitir — se cancelar, a call para de conectar.",
+                "windowsdefender://network/",
+            )
+        }
+    }
+
+    // `start` do cmd é o que entende ms-settings: e windowsdefender: — Desktop.browse()
+    // só lida com http/https e recusa esses esquemas.
     fun abrirAjustes(uri: String) {
         runCatching { ProcessBuilder("cmd", "/c", "start", "", uri).start() }
     }

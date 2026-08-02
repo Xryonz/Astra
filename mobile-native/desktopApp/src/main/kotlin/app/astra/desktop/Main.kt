@@ -418,10 +418,24 @@ fun main() {
                                     if (onb) {
                                         OnboardingScreen(
                                             displayName = s.displayName,
+                                            // Permitir "Avisos" = MANDAR um aviso: e o
+                                            // unico jeito de o Windows registrar o app.
+                                            // Pelo caminho de verdade (bandeja do SO) —
+                                            // um toast desenhado dentro do app não
+                                            // registraria nada.
+                                            onTestarAviso = {
+                                                trayState.sendNotification(
+                                                    Notification("Astra", "Pronto — os avisos do Astra estão liberados.", Notification.Type.None),
+                                                )
+                                            },
                                             onDone = {
                                                 store.setUiPref("onboarded:${s.userId}", "1")
                                                 // Liga o checklist residual no palco (a outra metade do combo).
                                                 store.setUiPref("checklist:${s.userId}", "1")
+                                                // Ja viu a lista de permissões AQUI: o aviso
+                                                // da primeira abertura (ShellScreen) seria a
+                                                // mesma lista duas vezes seguidas.
+                                                store.setUiPref("permsVistas", "1")
                                                 needsOnboarding = false
                                             },
                                         )

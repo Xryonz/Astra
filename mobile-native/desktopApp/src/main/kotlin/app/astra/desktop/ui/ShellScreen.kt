@@ -220,9 +220,11 @@ fun ShellScreen(
 
     LaunchedEffect(Unit) { socket.connect() }
 
-    // Permissões do Windows na PRIMEIRA abertura. Aparece uma vez só; depois fica
-    // em Configurações > Voz. Vem antes da primeira call de propósito: descobrir
-    // que o mic está bloqueado no meio da conversa é o pior momento possível.
+    // Permissões do Windows na PRIMEIRA abertura, pra quem JÁ TINHA conta — quem
+    // cria conta agora vê a mesma lista dentro das boas-vindas (e o onDone de lá
+    // marca esta pref, pra não mostrar duas vezes seguidas). Depois fica em
+    // Configurações > Permissões. Vem antes da primeira call de propósito:
+    // descobrir que o mic está bloqueado no meio da conversa é o pior momento.
     val sessionStore = remember { koin.get<SessionStore>() }
     var permsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -234,10 +236,13 @@ fun ShellScreen(
         }
     }
     if (permsOpen) {
-        PermissoesDialog(onClose = {
-            permsOpen = false
-            sessionStore.setUiPref("permsVistas", "1")
-        })
+        PermissoesDialog(
+            onTestarAviso = { notify("Astra", "Pronto — os avisos do Astra estão liberados.") },
+            onClose = {
+                permsOpen = false
+                sessionStore.setUiPref("permsVistas", "1")
+            },
+        )
     }
 
     // Fui expulso/banido: o VM ja me tirou da call e da constelacao; aqui so

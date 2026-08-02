@@ -106,6 +106,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.ShieldCheck
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
@@ -165,6 +166,7 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
+    PERMISSIONS("Permissoes", "o que o Windows libera", Lucide.ShieldCheck),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
     // SO PRA DEV (decisao do dono). Ver `abaDeDev` abaixo.
     DIAGNOSTICS("Diagnostico", "o que o app esta vendo agora", Lucide.CircleDot),
@@ -248,8 +250,10 @@ fun SettingsScreen(
             // encostada a esquerda; os controles leem como uma coluna so em vez de
             // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-            // Sobre/Sessões não tem previa.
-            val showPreview = tab != SettingsTab.ABOUT && tab != SettingsTab.SESSIONS
+            // Sobre/Sessões/Permissões não tem previa — são listas e ações, não
+            // ajustes com efeito visual.
+            val showPreview =
+                tab != SettingsTab.ABOUT && tab != SettingsTab.SESSIONS && tab != SettingsTab.PERMISSIONS
             // Previa SEMPRE fixa no topo-direita (decisao do dono), em toda aba: ela
             // não rola junto, entao o efeito do que se mexe fica a vista mesmo
             // editando o rodape do formulario. Empilhada no fim, como era, a previa
@@ -342,6 +346,7 @@ fun SettingsScreen(
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
+                        SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
                         SettingsTab.DIAGNOSTICS -> DiagnosticsSection()
                     }
@@ -396,8 +401,8 @@ private fun SettingsPreview(
             SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
             SettingsTab.PERFORMANCE -> CostMeter(p)
             SettingsTab.VOICE -> VoicePreview(p)
-            // Sessões e Sobre são listas/ações — não ha o que previsualizar.
-            SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS -> Unit
+            // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
+            SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.PERMISSIONS -> Unit
         }
     }
 }
@@ -2327,6 +2332,36 @@ private fun InfoNote(title: String, body: String) {
     }
 }
 
+// Aba Permissões — a casa de quem já usava o Astra antes desta tela existir, ou
+// de quem passou reto pelas boas-vindas. A lista e a mesma de lá
+// (PainelDePermissoes); a diferença e o `detalhado`, que aqui mostra o estado até
+// das linhas certas: quem abre esta aba veio investigar, e "ouvindo normalmente
+// (Microfone Realtek)" e justamente o que responde "então o problema não é esse".
+@Composable
+private fun PermissionsSection(onTestarAviso: () -> Unit) {
+    Text(
+        "o Windows decide o que cada programa pode usar — e quando ele bloqueia, não avisa: o microfone entrega silêncio, o aviso não aparece, a call não conecta. aqui dá pra ver o que está liberado e liberar o que faltar.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 560.dp),
+    )
+    Spacer(Modifier.height(16.dp))
+    PainelDePermissoes(onTestarAviso = onTestarAviso, modifier = Modifier.widthIn(max = 560.dp))
+    Spacer(Modifier.height(20.dp))
+    InfoNote(
+        "Por que não aparece a janelinha de \"permitir\"",
+        "No navegador, um site pede permissão e você responde num pop-up. Programa " +
+            "instalado no Windows não tem esse pedido: quem manda é um interruptor do " +
+            "próprio sistema, o mesmo pra todos os programas de área de trabalho.\n\n" +
+            "Por isso o botão \"permitir\" aqui abre a página exata das Configurações do " +
+            "Windows em vez de perguntar — e continua conferindo sozinho depois. Você liga " +
+            "o interruptor lá, volta pra cá, e a linha já está verde sem precisar clicar de novo.\n\n" +
+            "Duas fogem da regra. Avisos não têm interruptor pra ligar: o Windows só " +
+            "registra o Astra quando ele manda o primeiro aviso, então permitir manda um. " +
+            "E transmitir a tela não pede permissão nenhuma no Windows — inventar um " +
+            "cadeado ali seria teatro.",
+    )
+}
+
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -2356,26 +2391,9 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             "devolvem metade desse custo pra quem importa: quem está do outro lado.",
     )
 
-    SettingsDivider()
-    Text("Permissões do Windows", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-    Spacer(Modifier.height(4.dp))
-    Text(
-        "quando o Windows bloqueia o microfone, ele não avisa: o som simplesmente não chega. aqui dá pra conferir antes da call.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
-    Spacer(Modifier.height(10.dp))
-    var permsAbertas by remember { mutableStateOf(false) }
-    Text(
-        "conferir agora",
-        style = TextStyle(color = Obsidian.accent, fontSize = 12.5.sp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(9.dp))
-            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(9.dp))
-            .clickable { permsAbertas = true }
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    )
-    if (permsAbertas) PermissoesDialog(onClose = { permsAbertas = false })
+    // As permissões do Windows moram na aba Permissões. Ficavam aqui como um
+    // atalho que abria um diálogo com a MESMA lista — duas casas pra uma coisa só
+    // envelhece mal (uma das duas deixa de ser atualizada).
 
     SettingsDivider()
     Text("Ninguém te escuta?", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))

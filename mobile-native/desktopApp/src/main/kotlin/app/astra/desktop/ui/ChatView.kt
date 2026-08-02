@@ -275,7 +275,23 @@ fun ChatView(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
-                    itemsIndexed(state.messages, key = { _, m -> m.id }) { i, msg ->
+                    // contentType: o LazyColumn RECICLA o esqueleto de composicao de
+                    // um item que saiu de tela pro que entrou. Reciclar entre tipos
+                    // diferentes (texto puro <-> imagem <-> enquete) nao aproveita
+                    // nada: ele descarta e reconstroi. Dizendo o tipo, ele so recicla
+                    // entre iguais — e a rolagem rapida numa conversa misturada para
+                    // de reconstruir arvore a toa.
+                    itemsIndexed(
+                        state.messages,
+                        key = { _, m -> m.id },
+                        contentType = { _, m ->
+                            when {
+                                m.poll != null -> "enquete"
+                                m.attachments.isNotEmpty() -> "anexo"
+                                else -> "texto"
+                            }
+                        },
+                    ) { i, msg ->
                         val enterAnim = remember(msg.id) {
                             val fresh = animatedIds.add(msg.id)
                             baselineDone && fresh

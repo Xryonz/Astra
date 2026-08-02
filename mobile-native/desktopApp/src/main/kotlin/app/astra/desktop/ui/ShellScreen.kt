@@ -499,7 +499,18 @@ fun ShellScreen(
             onStartDm = vm::startDm,
             showDiscover = state.selection is Selection.Discover,
             onDiscoverJoined = vm::refreshServersAndSelect,
-            joinedServerIds = state.servers.map { it.id }.toSet(),
+            // COLECAO MONTADA NA HORA E VENENO PRA RECOMPOSICAO.
+            //
+            // `Set` e instavel pro Compose, entao ele so consegue pular quando
+            // recebe A MESMA INSTANCIA (comparacao por identidade, que e como o
+            // strong skipping trata instavel). Montado aqui dentro, o Set nasce
+            // NOVO a cada recomposicao deste shell — e o shell recompoe a cada
+            // mensagem, presenca, alguem digitando. Resultado: o palco inteiro
+            // nunca pulava, por causa de um argumento que quase nunca muda.
+            //
+            // Com o remember, a instancia so troca quando a lista de constelacoes
+            // troca de verdade.
+            joinedServerIds = remember(state.servers) { state.servers.map { it.id }.toSet() },
             showFriends = state.selection is Selection.Dms && state.friendsOpen,
             modifier = Modifier.weight(1f),
         )
@@ -560,7 +571,9 @@ fun ShellScreen(
                     members = state.members,
                     // isAdmin (cargo legado) concede o conjunto que o backend trata
                     // como de admin; senao, so as permissões granulares dos cargos.
-                    myPermissions = state.myPerms?.permissions.orEmpty().toSet(),
+                    // Mesmo caso do joinedServerIds acima: Set novo a cada
+                    // recomposicao impedia a tela de configuracoes de pular.
+                    myPermissions = remember(state.myPerms) { state.myPerms?.permissions.orEmpty().toSet() },
                     onClose = { serverSettingsOpen = false },
                     onSave = { body, cb -> vm.updateServer(srv.id, body, cb) },
                     onRegenerateInvite = { cb -> vm.regenerateInvite(srv.id, cb) },

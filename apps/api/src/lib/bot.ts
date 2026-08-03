@@ -200,8 +200,8 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 
   // Instrucao de sistema num texto so. Eram blocos separados por causa do cache de
   // prompt da Anthropic (o pedaco fixo entrava em cache, a persona ficava de fora);
-  // o Gemini nao tem esse mecanismo aqui, entao manter a divisao seria carregar a
-  // complicacao sem o beneficio.
+  // nenhum dos provedores atuais tem esse mecanismo, entao manter a divisao seria
+  // carregar a complicacao sem o beneficio.
   const persona = personaDoDia()
   const instrucao = [
     SYSTEM_PROMPT,
@@ -226,7 +226,11 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 
     if (res.error) {
       logger.error('Bot', `IA falhou: ${res.error.message}`)
-      finalText = 'Tive um problema técnico. Tente reformular?'
+      // 429 do provedor gratis nao e defeito, e fila. Dizer "problema tecnico"
+      // faria a pessoa reformular a pergunta pra sempre sem nunca ser atendida.
+      finalText = res.error.type === 'limite'
+        ? 'Estou com muita gente falando comigo agora ✧ tenta de novo daqui a pouco?'
+        : 'Tive um problema técnico. Tente reformular?'
       break
     }
 

@@ -76,6 +76,10 @@ import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Crop
+import com.composables.icons.lucide.LoaderCircle
+import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.Upload
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.Shield
 import com.composables.icons.lucide.Lucide
@@ -400,9 +404,16 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SmallButton(if (busyBanner) "processando…" else "subir banner", accent = true) {
-            if (busyBanner) return@SmallButton
-            val file = AvatarPicker.choose("Escolher banner") ?: return@SmallButton
+        // Ícones em vez de texto: os três nomes por extenso ocupavam a largura toda e
+        // o mais comprido ainda quebrava em duas linhas. O nome de cada um aparece ao
+        // parar o mouse — em botão que apaga, descobrir clicando sairia caro.
+        BotaoIcone(
+            icone = if (busyBanner) Lucide.LoaderCircle else Lucide.Upload,
+            dica = if (busyBanner) "processando…" else "subir banner",
+            accent = true,
+        ) {
+            if (busyBanner) return@BotaoIcone
+            val file = AvatarPicker.choose("Escolher banner") ?: return@BotaoIcone
             busyBanner = true
             msg = null
             scope.launch {
@@ -420,9 +431,9 @@ private fun OverviewSection(
         }
         if (!bannerNow.isNullOrBlank()) {
             if (!bannerAnimated) {
-                SmallButton("reenquadrar", accent = false) { cropBanner = CropSource.Remote(bannerNow) }
+                BotaoIcone(Lucide.Crop, "reenquadrar") { cropBanner = CropSource.Remote(bannerNow) }
             }
-            SmallButton("remover banner", accent = false) { bannerUrl = null }
+            BotaoIcone(Lucide.Trash2, "remover banner", danger = true) { bannerUrl = null }
         }
     }
 

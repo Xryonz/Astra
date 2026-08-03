@@ -1,8 +1,14 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,6 +59,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import com.composables.icons.lucide.CircleDot
@@ -228,7 +235,21 @@ fun UserFooter(
                 // com o mouse em cima vira o numero do nivel. Escolher assim em vez de
                 // mostrar os dois evita crescer o cartao — e ninguem precisa do XP o
                 // tempo todo, so quando quer saber.
-                Crossfade(cartaoSobHover, animationSpec = tween(140), label = "statusOuNivel") { emHover ->
+                // Desliza em vez de dissolver: o status sai por cima e o nível entra
+                // por baixo, como um marcador girando. Dissolução lê como "a tela
+                // piscou"; movimento lê como troca de conteúdo — e a altura do cartão
+                // não muda, então a barra lateral não reflui.
+                AnimatedContent(
+                    targetState = cartaoSobHover,
+                    transitionSpec = {
+                        val entra = if (targetState) 1 else -1   // hover: sobe; saindo: desce
+                        (slideInVertically(tween(200, easing = EaseOutStd)) { h -> entra * h } +
+                            fadeIn(tween(150))) togetherWith
+                            (slideOutVertically(tween(200, easing = EaseOutStd)) { h -> -entra * h } +
+                                fadeOut(tween(110))) using SizeTransform(clip = false)
+                    },
+                    label = "statusOuNivel",
+                ) { emHover ->
                     Text(
                         if (emHover) "nível ${progresso.nivel} · ${progresso.noNivel}/${progresso.paraOProximo}"
                         else statusLabel(status),

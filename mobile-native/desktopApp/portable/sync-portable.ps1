@@ -1,7 +1,7 @@
 # sync-portable.ps1 - atualiza a instalacao PORTATIL do dono (C:\Astra) com o
 # build recem-empacotado, pra o atalho sempre abrir a versao mais nova sem ele
 # fazer nada na mao. Rodar em TODA release do desktop, depois de:
-#   ./gradlew :desktopApp:zipDistributable -Pastra.distDir=C:/astra-dist
+#   ./gradlew :desktopApp:zipDistributable -Pastra.distDir=C:/Astra/build
 #
 # O que faz (idempotente): copia o app-image novo pra versions\<v>\, arquiva o zip
 # em zips\, e garante launcher + icone + atalhos (pasta + area de trabalho). O
@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repo = Split-Path $PSScriptRoot -Parent            # ...\desktopApp
-$dist = "C:\astra-dist"
+$dist = "C:\Astra\build"
 $root = "C:\Astra"; $versions = Join-Path $root "versions"; $zips = Join-Path $root "zips"
 
 # Versao: do parametro, senao le o astraVersion do build.gradle.kts.

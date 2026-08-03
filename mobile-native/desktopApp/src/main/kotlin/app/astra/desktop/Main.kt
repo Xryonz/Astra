@@ -223,6 +223,10 @@ fun main() {
         // nova. Vive no escopo da janela — some junto com ela.
         val escopoDaJanela = rememberCoroutineScope()
         LaunchedEffect(Unit) { updater.iniciarRonda(escopoDaJanela) }
+        // Faxina das versoes antigas, 20s depois de abrir: se este pacote estiver
+        // quebrado e o app morrer antes disso, a versao anterior sobrevive e o
+        // launcher volta pra ela.
+        LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
 
         // Bandeja so quando NAO e "fechar de vez": ligado o exitOnClose, o X ja encerra
         // o app, entao um icone de bandeja seria presenca inutil em segundo plano.

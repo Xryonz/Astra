@@ -62,7 +62,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.57"
+val astraVersion = "0.1.58"
 
 dependencies {
     implementation(project(":shared"))
@@ -97,9 +97,9 @@ dependencies {
     // COMMITADAS em src/main/java/livekit (geradas 1x na mao) porque o protoc,
     // como o jpackage, nao engole o path com acento do repo. Pra regenerar
     // (quando os .proto em src/main/proto mudarem): copiar os protos pra um
-    // dir ASCII (ex: C:/astra-dist/proto-tmp, com google/protobuf/timestamp
+    // dir ASCII (ex: C:/Astra/build/proto-tmp, com google/protobuf/timestamp
     // e descriptor extraidos do jar do protobuf-java) e rodar:
-    //   protoc --proto_path=C:/astra-dist/proto-tmp --java_out=<saida> \
+    //   protoc --proto_path=C:/Astra/build/proto-tmp --java_out=<saida> \
     //     livekit_rtc.proto livekit_models.proto livekit_metrics.proto logger/options.proto
     implementation(libs.protobuf.java)
 }
@@ -133,7 +133,7 @@ tasks.matching { it.name == "createDistributable" || it.name == "packageDistribu
 
 // Zipa o app-image (pasta Astra/) pro asset do GitHub Release que o auto-update
 // baixa. Rodar junto do empacote (mesmo path ASCII do jpackage):
-//   ./gradlew :desktopApp:zipDistributable -Pastra.distDir=C:/astra-dist
+//   ./gradlew :desktopApp:zipDistributable -Pastra.distDir=C:/Astra/build
 // Saida: <buildDir>/Astra-<versao>-win-x64.zip
 tasks.register<Zip>("zipDistributable") {
     dependsOn("createDistributable")

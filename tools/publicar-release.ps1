@@ -33,13 +33,13 @@ Write-Host "tag    : $tag"
 Write-Host "asset  : $asset"
 
 # ---- 2. O zip tem que existir E ter o nome da convencao ----
-$zip = Join-Path 'C:/astra-dist' $asset
+$zip = Join-Path 'C:/Astra/build' $asset
 if (-not (Test-Path $zip)) {
   throw @"
 zip nao encontrado: $zip
 Empacote antes:
   cd mobile-native
-  ./gradlew :desktopApp:zipDistributable "-Pastra.distDir=C:/astra-dist"
+  ./gradlew :desktopApp:zipDistributable "-Pastra.distDir=C:/Astra/build"
 "@
 }
 $mb = [math]::Round((Get-Item $zip).Length / 1MB, 1)

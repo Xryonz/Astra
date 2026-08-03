@@ -520,7 +520,11 @@ export function setupSocket(io: Server) {
         authorId: botId,
 
         authorColor: null, reactions: [], mentions: [],
-        author: { id: botId, username: 'astra_bot', displayName: persona.nome, avatarUrl: null },
+        // A foto TEM que vir da persona aqui. Esta mensagem nao passa pelo banco (e
+        // sintetica, id `bot-...`), entao ela nao herda nada do User como as outras —
+        // com null cravado, a bot aparecia com foto no cartao de perfil e sem foto na
+        // propria mensagem que acabou de mandar.
+        author: { id: botId, username: 'astra_bot', displayName: persona.nome, avatarUrl: persona.avatar },
       }
       io.to(`channel:${channelId}`).emit('new_message', botMsg)
     })

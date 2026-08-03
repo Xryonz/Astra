@@ -59,6 +59,11 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     // um banner sumiu e ninguém tinha como saber por quê sem abrir o painel do
     // Render. Uma linha aqui responde isso de fora, em um curl.
     storage:   storageMode,
+    // A bot responde "estou offline (sem chave de API)" sempre que isto for false.
+    // Sem esta linha, "eu ja pus a chave no Render" e "a chave chegou no processo"
+    // eram indistinguiveis de fora — e o unico jeito de saber era abrir o painel.
+    // BOOLEANO, nunca a chave: /health e publico.
+    botCfg:    !!env.ANTHROPIC_API_KEY,
     checks:    { db, redis: rd },
   })
 })

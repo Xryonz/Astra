@@ -139,6 +139,63 @@ class UpdateService(private val http: OkHttpClient) {
         }
     }
 
+    // ---- Faxina: so a versao atual sobrevive ----
+    //
+    // O layout portatil guardava TUDO: uma pasta por versao em versions/ e cada zip
+    // baixado arquivado em zips/. Bonito na teoria, 5 GB na pratica depois de umas
+    // vinte atualizacoes — num PC de estudante isso e o disco inteiro.
+    //
+    // Roda no BOOT, nao logo depois de atualizar, porque so aqui as versoes velhas
+    // estao garantidamente paradas: uma versao nao consegue apagar a si mesma (o
+    // Windows tranca o proprio exe e a runtime em uso).
+    //
+    // ESPERA antes de apagar: se o pacote novo estiver quebrado e o app morrer nos
+    // primeiros segundos, a versao anterior continua no disco e o launch.vbs volta a
+    // abrir ela. E o unico plano B que existe depois que o historico morre — barato,
+    // e a diferenca entre "atualizou errado" e "o Astra nao abre mais".
+    private val ESPERA_FAXINA_MS = 20_000L
+
+    fun agendarFaxina(scope: CoroutineScope) {
+        if (!installed) return
+        scope.launch(Dispatchers.IO) {
+            delay(ESPERA_FAXINA_MS)
+            runCatching { limparVersoesAntigas() }
+        }
+    }
+
+    // Devolve quantos bytes foram liberados (0 quando nao ha nada a fazer).
+    fun limparVersoesAntigas(): Long {
+        val atual = appRootDir() ?: return 0L            // versions/<versao-atual>
+        val versionsDir = atual.parentFile ?: return 0L  // versions/
+        val raiz = versionsDir.parentFile ?: return 0L   // C:/Astra
+        val caminhoAtual = runCatching { atual.canonicalPath }.getOrNull() ?: return 0L
+        var liberado = 0L
+
+        fun apagar(alvo: File) {
+            if (runCatching { alvo.canonicalPath }.getOrNull() == caminhoAtual) return
+            val tamanho = alvo.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+            if (alvo.deleteRecursively()) liberado += tamanho
+        }
+
+        // versions/: toda pasta que nao e a que esta rodando (inclui .staging-* de
+        // atualizacoes que morreram no meio).
+        versionsDir.listFiles()?.forEach { if (it.isDirectory) apagar(it) }
+
+        // zips/: nenhum precisa sobreviver. Ja foram extraidos, e reinstalar a partir
+        // do zip nunca foi um caminho que o app oferece — pra voltar atras, o release
+        // esta no GitHub.
+        File(raiz, "zips").listFiles()?.forEach { if (it.isFile) apagar(it) }
+
+        // Sobra do layout ANTIGO: versao solta na raiz (C:/Astra/0.1.42) em vez de
+        // dentro de versions/. So apaga o que tem cara de versao — nunca toca em
+        // multi/, build/, launch.vbs ou qualquer coisa que o dono tenha posto ali.
+        val pastaDeVersao = Regex("""^\d+\.\d+\.\d+$""")
+        raiz.listFiles()?.forEach { f ->
+            if (f.isDirectory && pastaDeVersao.matches(f.name)) apagar(f)
+        }
+        return liberado
+    }
+
     // ---- Checagem ----
 
     // mostrarFalha = false -> a falha nao aparece na tela; o estado volta ao que

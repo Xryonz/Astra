@@ -11,16 +11,32 @@ const {
   R2_SECRET_ACCESS_KEY,
   R2_BUCKET,
   R2_PUBLIC_URL,
+  // Escapes pra NAO depender da Cloudflare.
+  //
+  // Isto aqui sempre foi um cliente S3 comum: a unica coisa presa ao R2 era a URL
+  // do endpoint, montada a partir do account id. Com S3_ENDPOINT preenchido, o
+  // mesmo codigo fala com Supabase Storage, Backblaze B2, MinIO — qualquer coisa
+  // que entenda S3. Importa porque o R2 exige cartao cadastrado mesmo no plano
+  // gratuito, e nem todo mundo tem cartao pra dar.
+  S3_ENDPOINT,
+  S3_REGION,
 } = process.env
 
-const R2_READY = !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET && R2_PUBLIC_URL)
+// Endpoint proprio OU account id do R2 — um dos dois basta.
+const ENDPOINT = S3_ENDPOINT || (R2_ACCOUNT_ID ? `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : null)
+const R2_READY = !!(ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET && R2_PUBLIC_URL)
 
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads')
 
 const s3 = R2_READY
   ? new S3Client({
-      region: 'auto',
-      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      // 'auto' e o que o R2 espera; o Supabase e o B2 querem a regiao de verdade.
+      region: S3_REGION || 'auto',
+      endpoint: ENDPOINT!,
+      // Caminho no lugar de subdominio (bucket.host -> host/bucket). O R2 aceita os
+      // dois; o Supabase so funciona assim. Ligado apenas quando ha endpoint
+      // proprio, pra nao mexer em quem ja esta no R2 e funcionando.
+      forcePathStyle: !!S3_ENDPOINT,
       credentials: {
         accessKeyId:     R2_ACCESS_KEY_ID!,
         secretAccessKey: R2_SECRET_ACCESS_KEY!,
@@ -28,7 +44,9 @@ const s3 = R2_READY
     })
   : null
 
-export const storageMode = R2_READY ? 'r2' : 'local'
+// 's3' quando o destino nao e a Cloudflare — /health passa a dizer PRA ONDE as
+// imagens vao, nao so que saem do disco.
+export const storageMode = !R2_READY ? 'local' : (S3_ENDPOINT ? 's3' : 'r2')
 
 // Host publico do R2 (quando configurado), derivado uma vez.
 const R2_HOST = (() => {

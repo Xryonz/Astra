@@ -23,6 +23,7 @@ import { reqContext }     from './middleware/reqContext'
 import { httpMetrics }    from './middleware/httpMetrics'
 import { setupSocket }    from './config/socket'
 import { initBot }        from './lib/bot'
+import { IA_LIGADA, IA_PROVEDOR, MODELO_CONVERSA } from './lib/ia'
 import './config/passport'
 
 import authRouter            from './routes/auth'
@@ -265,7 +266,10 @@ httpServer.listen(env.PORT, async () => {
   logger.info('Astra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
   await ensureCategorySchema()
   await initBot()
-  logger.info('Bot', 'Pronto.')
+  // Diz QUAL cerebro acordou. "Eu pus a chave no painel" e "a chave chegou no
+  // processo" sao coisas diferentes, e sem esta linha a unica forma de saber a
+  // diferenca era adivinhar.
+  logger.info('Bot', IA_LIGADA ? `Pronto — IA: ${IA_PROVEDOR} (${MODELO_CONVERSA}).` : 'Pronto — IA DESLIGADA: nenhuma chave no ambiente (GROQ_API_KEY?). So os comandos funcionam.')
   startRetentionWorker()
   logger.info('Retention', 'Worker iniciado (1h)')
   startReminderWorker(io)

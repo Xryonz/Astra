@@ -14,6 +14,10 @@ import {
 } from './botMemory'
 import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
 import {
+  shipp, moeda, dado, escolha, sorteio, quemMandou, revelar,
+  ranking, perfilXp, lembrete, resumoDoDia,
+} from './botDiversao'
+import {
   chamarIa, gerarTexto, IA_LIGADA, MODELO_CONVERSA, MODELO_RESUMO,
   type BlocoIa, type FerramentaIa,
 } from './ia'
@@ -334,6 +338,41 @@ const COMANDOS: ComandoBot[] = [
   { sufixo: 'ping',   category: 'Utilitários', description: 'testa a latência' },
   { sufixo: 'status', category: 'Utilitários', description: 'status da plataforma' },
   { sufixo: 'mute',   category: 'Moderação',   description: 'verifica se você está silenciado' },
+  // --- zoeira ---
+  {
+    sufixo: 'quem mandou', category: 'Diversão',
+    description: 'sorteia uma mensagem antiga daqui e a galera adivinha quem escreveu',
+  },
+  { sufixo: 'revelar', category: 'Diversão', description: 'conta quem tinha mandado' },
+  {
+    sufixo: 'shipp', category: 'Diversão', args: '@um @outro',
+    description: 'mede a compatibilidade', exemplo: 'shipp @ana @bia',
+  },
+  {
+    sufixo: 'sorteio', category: 'Diversão', args: '[@marcados]',
+    description: 'sorteia entre os marcados, ou entre a constelação inteira',
+  },
+  { sufixo: 'moeda', category: 'Diversão', description: 'cara ou coroa' },
+  {
+    sufixo: 'dado', category: 'Diversão', args: '<2d6>',
+    description: 'rola dados', exemplo: 'dado 2d6',
+  },
+  {
+    sufixo: 'escolha', category: 'Diversão', args: '<a, b, c>',
+    description: 'escolho por você', exemplo: 'escolha pizza, sushi, hambúrguer',
+  },
+  // --- progressão ---
+  { sufixo: 'ranking', category: 'Progressão', description: 'top 10 por nível desta constelação' },
+  {
+    sufixo: 'perfil', category: 'Progressão', args: '[@alguém]',
+    description: 'nível, XP e brilho', exemplo: 'perfil @ana',
+  },
+  // --- úteis ---
+  {
+    sufixo: 'lembrete', category: 'Utilitários', args: '<quando> <o quê>',
+    description: 'te chamo depois', exemplo: 'lembrete 20min terminar o trabalho',
+  },
+  { sufixo: 'resumo', category: 'Utilitários', description: 'o que rolou hoje nesta órbita' },
   // --- so no fim de semana, com a Sparxie ---
   {
     sufixo: 'desejo', category: 'Fim de semana', args: '<seu desejo>', so: 'sparxie',
@@ -371,7 +410,13 @@ const PROGRAMAS_DE_FDS = [
 
 export async function handleBotCommand(
   content: string,
-  extras: { username: string; isMuted: boolean; muteSecondsLeft: number; userId?: string; channelId?: string },
+  extras: {
+    username: string; isMuted: boolean; muteSecondsLeft: number
+    userId?: string; channelId?: string
+    // Ranking e sorteio sao por CONSTELACAO — sem o serverId nao ha de quem
+    // rankear nem entre quem sortear.
+    serverId?: string
+  },
 ): Promise<string | null> {
   const persona = personaDoDia()
   const arg     = semPrefixo(content)
@@ -409,6 +454,44 @@ export async function handleBotCommand(
 
   if (verbo === 'ping')   return `🏓 Pong, @${extras.username}!` + nota
   if (verbo === 'status') return '✅ Todos os sistemas operacionais.' + nota
+
+  // ---- comandos que NAO precisam de IA ----
+  //
+  // Rodam ANTES do askBot e por isso continuam funcionando com a conversa livre
+  // desligada. Sao eles que sustentam a bot enquanto nao ha chave de API — e a
+  // maioria deles seria melhor assim de qualquer jeito: dado sorteado por modelo
+  // de linguagem nao e sorteio, e ranking inventado por IA e mentira.
+  const resto = arg.slice(verbo.length).trim()
+  const precisaDeSala = extras.serverId && extras.channelId
+  switch (verbo) {
+    case 'moeda':   return moeda() + nota
+    case 'dado':    return dado(resto) + nota
+    case 'escolha': return escolha(resto) + nota
+    case 'shipp':   return (await shipp(resto)) + nota
+    case 'sorteio':
+      if (!extras.serverId) return null
+      return (await sorteio(extras.serverId, resto)) + nota
+    case 'ranking':
+      if (!extras.serverId) return null
+      return (await ranking(extras.serverId)) + nota
+    case 'perfil':
+      if (!extras.userId) return null
+      return (await perfilXp(resto, extras.userId)) + nota
+    case 'revelar':
+      if (!extras.channelId) return null
+      return (await revelar(extras.channelId)) + nota
+    case 'resumo':
+      if (!extras.channelId) return null
+      return (await resumoDoDia(extras.channelId)) + nota
+    case 'lembrete':
+      if (!precisaDeSala || !extras.userId) return null
+      return (await lembrete(resto, extras.userId, extras.channelId!)) + nota
+  }
+  // "quem mandou" e o unico de duas palavras — o verbo sozinho seria "quem".
+  if (verbo === 'quem' && lower.startsWith('quem mandou')) {
+    if (!extras.channelId) return null
+    return (await quemMandou(extras.channelId)) + nota
+  }
 
   if (verbo === 'mute' || verbo === 'silenciado') {
     if (extras.isMuted) {

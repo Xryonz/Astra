@@ -487,6 +487,7 @@ export function setupSocket(io: Server) {
         muteSecondsLeft,
         userId,
         channelId,
+        serverId,
       })
 
       let reply: string

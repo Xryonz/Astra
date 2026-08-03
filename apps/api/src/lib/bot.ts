@@ -13,6 +13,10 @@ import {
   consumeTokens, consumeToolCall, SUMMARY_TRIGGER, WORKING_WINDOW, type MemoryTurn,
 } from './botMemory'
 import { TOOL_DEFINITIONS, runTool, type BotContext } from './botTools'
+import {
+  chamarIa, gerarTexto, IA_LIGADA, MODELO_CONVERSA, MODELO_RESUMO,
+  type BlocoIa, type FerramentaIa,
+} from './ia'
 import { botInvocationsTotal, botTokensTotal } from './metrics'
 
 export const BOT_USERNAME    = 'astra_bot'
@@ -108,25 +112,7 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
   return persona
 }
 
-const MODEL_SONNET = 'claude-sonnet-4-6'
-const MODEL_HAIKU  = 'claude-haiku-4-5-20251001'
 const MAX_TOOL_ITERATIONS = 5
-
-interface AnthropicContentBlock {
-  type:  'text' | 'tool_use'
-  text?: string
-  id?:   string
-  name?: string
-  input?: unknown
-}
-interface AnthropicResponse {
-  id?:           string
-  model?:        string
-  stop_reason?:  string
-  content?:      AnthropicContentBlock[]
-  usage?:        { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number }
-  error?:        { type?: string; message?: string }
-}
 
 export async function initBot(): Promise<string> {
   const [existing] = await db.select({ id: users.id }).from(users)
@@ -188,7 +174,7 @@ export interface AskBotResult {
 }
 
 export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotResult> {
-  if (!env.ANTHROPIC_API_KEY) {
+  if (!IA_LIGADA) {
     botInvocationsTotal.inc({ status: 'error' })
     return { text: 'Estou offline no momento (sem chave de API). Tente mais tarde.', toolsUsed: [] }
   }
@@ -208,16 +194,16 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     getHistory(ctx.userId, ctx.channelId, WORKING_WINDOW),
   ])
 
-  const systemBlocks: any[] = [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
-  // Bloco de persona FORA do cache: e a unica parte que muda de dia pra dia.
+  // Instrucao de sistema num texto so. Eram blocos separados por causa do cache de
+  // prompt da Anthropic (o pedaco fixo entrava em cache, a persona ficava de fora);
+  // o Gemini nao tem esse mecanismo aqui, entao manter a divisao seria carregar a
+  // complicacao sem o beneficio.
   const persona = personaDoDia()
-  systemBlocks.push({ type: 'text', text: `\n\nSua persona de hoje:\n${persona.tom}\nSeu nome é ${persona.nome}. Assine mentalmente com ${persona.emoji} quando fizer sentido, sem exagero.` })
-  if (summary) {
-    systemBlocks.push({
-      type: 'text',
-      text: `\n\nResumo de conversas anteriores hoje (${summary.turnsCovered} turnos):\n${summary.text}`,
-    })
-  }
+  const instrucao = [
+    SYSTEM_PROMPT,
+    `\n\nSua persona de hoje:\n${persona.tom}\nSeu nome é ${persona.nome}. Assine mentalmente com ${persona.emoji} quando fizer sentido, sem exagero.`,
+    summary ? `\n\nResumo de conversas anteriores hoje (${summary.turnsCovered} turnos):\n${summary.text}` : '',
+  ].join('')
 
   const messages = historyToMessages(history)
 
@@ -226,16 +212,16 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   let finalText = ''
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const res = await callClaude({
-      model: MODEL_SONNET,
-      system: systemBlocks,
+    const res = await chamarIa({
+      model: MODELO_CONVERSA,
+      system: instrucao,
       messages,
-      tools: TOOL_DEFINITIONS,
+      tools: TOOL_DEFINITIONS as FerramentaIa[],
       maxTokens: 800,
     })
 
     if (res.error) {
-      logger.error('Bot', `Claude error: ${res.error.message}`)
+      logger.error('Bot', `IA falhou: ${res.error.message}`)
       finalText = 'Tive um problema técnico. Tente reformular?'
       break
     }
@@ -253,7 +239,7 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
       if (delta > 0) await consumeTokens(ctx.userId, delta)
     }
 
-    const blocks = res.content ?? []
+    const blocks: BlocoIa[] = res.content ?? []
     const textBlocks = blocks.filter((b) => b.type === 'text' && b.text)
     const toolBlocks = blocks.filter((b) => b.type === 'tool_use' && b.name && b.id)
 
@@ -472,35 +458,6 @@ function historyToMessages(history: MemoryTurn[]): any[] {
   return out
 }
 
-async function callClaude(opts: {
-  model:     string
-  system:    any[]
-  messages:  any[]
-  tools?:    any[]
-  maxTokens: number
-}): Promise<AnthropicResponse> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type':      'application/json',
-      'x-api-key':         env.ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model:      opts.model,
-      max_tokens: opts.maxTokens,
-      system:     opts.system,
-      messages:   opts.messages,
-      ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools } : {}),
-    }),
-  })
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '')
-    return { error: { type: 'http', message: `HTTP ${res.status}: ${errBody.slice(0, 200)}` } }
-  }
-  return res.json() as Promise<AnthropicResponse>
-}
-
 async function maybeSummarize(userId: string, channelId: string): Promise<void> {
   const history = await getHistory(userId, channelId, 200)
   if (history.length <= WORKING_WINDOW) return
@@ -512,14 +469,14 @@ async function maybeSummarize(userId: string, channelId: string): Promise<void> 
     `[${t.role === 'user' ? 'USER' : 'ASTRA'}]: ${t.content}`
   ).join('\n')
 
-  const res = await callClaude({
-    model: MODEL_HAIKU,
-    system: [{ type: 'text', text: 'Você comprime conversas. Resuma fatos relevantes em 2-4 frases curtas, em português. Mantenha decisões, preferências do user, fatos sobre o canal. Não invente nada.' }],
-    messages: [{ role: 'user', content: `Resuma esta conversa:\n\n${transcript}` }],
-    maxTokens: 200,
-  })
-
-  const text = res.content?.find((b) => b.type === 'text')?.text?.trim()
+  // Modelo mais leve pro resumo: comprimir texto e a tarefa mais facil que a bot
+  // faz, e o resumo roda em segundo plano sem ninguem esperando por ele.
+  const text = await gerarTexto(
+    MODELO_RESUMO,
+    'Você comprime conversas. Resuma fatos relevantes em 2-4 frases curtas, em português. Mantenha decisões, preferências do user, fatos sobre o canal. Não invente nada.',
+    `Resuma esta conversa:\n\n${transcript}`,
+    200,
+  )
   if (!text) return
 
   await setSummary(userId, channelId, {

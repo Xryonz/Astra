@@ -5,6 +5,7 @@ import { redis } from '../lib/redis'
 import { env } from '../lib/env'
 import { isMailEnabled } from '../lib/mailer'
 import { storageMode } from '../lib/storage'
+import { IA_LIGADA } from '../lib/ia'
 import { logger } from '../lib/logger'
 import { renderMetrics, metricsContentType } from '../lib/metrics'
 
@@ -63,7 +64,7 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     // Sem esta linha, "eu ja pus a chave no Render" e "a chave chegou no processo"
     // eram indistinguiveis de fora — e o unico jeito de saber era abrir o painel.
     // BOOLEANO, nunca a chave: /health e publico.
-    botCfg:    !!env.ANTHROPIC_API_KEY,
+    botCfg:    IA_LIGADA,
     checks:    { db, redis: rd },
   })
 })

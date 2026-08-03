@@ -25,6 +25,10 @@ const EnvSchema = z.object({
   API_URL:    z.string().url('API_URL deve ser uma URL válida').optional(),
 
 
+  // Cerebro da bot e do tradutor. Gemini porque o AI Studio da chave SEM cartao —
+  // ver lib/ia.ts. A ANTHROPIC_API_KEY fica declarada pra quem ja tinha uma no
+  // ambiente nao ver erro de schema no boot; nada mais a le.
+  GEMINI_API_KEY:    z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
 

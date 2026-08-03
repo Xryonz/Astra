@@ -5,9 +5,9 @@ import crypto from 'crypto'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { env } from '../lib/env'
 import { redis } from '../lib/redis'
 import { logger } from '../lib/logger'
+import { gerarTexto, IA_LIGADA, MODELO_RESUMO } from '../lib/ia'
 
 const router = Router()
 
@@ -36,7 +36,7 @@ function dayKey(userId: string) {
 router.post('/', requireAuth, validate(TranslateSchema), asyncHandler(async (req: Request, res: Response) => {
   const { text, targetLang } = req.body as z.infer<typeof TranslateSchema>
 
-  if (!env.ANTHROPIC_API_KEY) {
+  if (!IA_LIGADA) {
     return res.status(503).json({ error: 'Tradutor offline (sem chave de API)' })
   }
 
@@ -55,28 +55,16 @@ router.post('/', requireAuth, validate(TranslateSchema), asyncHandler(async (req
   }
 
   try {
-    const aRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        system: `You are a translation engine. Translate the user's text into ${LANG_NAMES[targetLang]}. Output ONLY the translation — no quotes, no preamble, no explanation. Preserve markdown, emojis, code blocks, mentions (@user) and urls verbatim. If text already is in ${LANG_NAMES[targetLang]}, output it unchanged.`,
-        messages: [{ role: 'user', content: text }],
-      }),
-    })
-    if (!aRes.ok) {
-      const body = await aRes.text().catch(() => '')
-      logger.error('Translate', `HTTP ${aRes.status}: ${body.slice(0, 200)}`)
-      return res.status(502).json({ error: 'Tradução indisponível' })
-    }
-    const json = await aRes.json() as { content?: Array<{ type: string; text?: string }> }
-    const out = (json.content ?? []).find((b) => b.type === 'text')?.text?.trim() ?? ''
-    if (!out) return res.status(502).json({ error: 'Resposta vazia da IA' })
+    // Modelo leve: traduzir uma frase e a tarefa mais simples que a IA faz aqui, e
+    // o resultado ainda entra no cache do Redis por hash — a mesma frase nunca e
+    // traduzida duas vezes.
+    const out = await gerarTexto(
+      MODELO_RESUMO,
+      `You are a translation engine. Translate the user's text into ${LANG_NAMES[targetLang]}. Output ONLY the translation — no quotes, no preamble, no explanation. Preserve markdown, emojis, code blocks, mentions (@user) and urls verbatim. If text already is in ${LANG_NAMES[targetLang]}, output it unchanged.`,
+      text,
+      800,
+    )
+    if (!out) return res.status(502).json({ error: 'Tradução indisponível' })
 
     await redis.setex(cacheKey, CACHE_TTL_SECS, out)
     res.json({ data: { translation: out, cached: false } })

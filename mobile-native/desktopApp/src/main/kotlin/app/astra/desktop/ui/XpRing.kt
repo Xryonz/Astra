@@ -137,8 +137,13 @@ fun rememberVisualDeXp(store: XpStore): VisualDeXp {
                 varreduraAnim.snapTo(0f)
                 varreduraAnim.animateTo(1f, tween(900, easing = LinearEasing))
             }
+            // XP de missao respira MAIS LONGO que o de conversa. Sao dois eventos de
+            // peso diferente: mensagem rende 12 e acontece o tempo todo; missao rende
+            // dezenas e acontece porque a pessoa foi atras. Mesmo pulso pros dois faria
+            // o segundo passar despercebido bem na hora que ele deveria ser sentido.
+            val forte = g.origem == "missao"
             acesoAnim.snapTo(1f)
-            acesoAnim.animateTo(0f, tween(900, easing = EaseOutStd))
+            acesoAnim.animateTo(0f, tween(if (forte) 1500 else 900, easing = EaseOutStd))
         }
     }
 

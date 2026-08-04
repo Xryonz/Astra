@@ -38,6 +38,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Minus
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Square
+import com.composables.icons.lucide.Target
 import com.composables.icons.lucide.X
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -53,6 +54,7 @@ fun WindowScope.AstraTitleBar(
     notifUnread: Int = 0,
     onOpenSearch: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
+    onOpenMissions: () -> Unit = {},
 ) {
     WindowDraggableArea {
         Row(
@@ -71,6 +73,9 @@ fun WindowScope.AstraTitleBar(
             if (showActions) {
                 TitleBarButton(Lucide.Search, onClick = onOpenSearch)
                 TitleBarBell(notifUnread, onClick = onOpenNotifications)
+                // Missoes por ultimo dos tres: e o menos frequente. Busca e sino sao
+                // reacao a alguma coisa; missao e quando a pessoa QUER olhar.
+                TitleBarButton(Lucide.Target, onClick = onOpenMissions)
             }
             TitleBarButton(Lucide.Minus) { state.isMinimized = true }
             TitleBarButton(if (state.placement == WindowPlacement.Maximized) Lucide.Copy else Lucide.Square) {

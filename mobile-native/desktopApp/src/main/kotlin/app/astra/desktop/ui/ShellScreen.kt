@@ -114,6 +114,7 @@ import androidx.compose.runtime.LaunchedEffect
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.XpStore
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.voice.VoiceEngine
@@ -188,6 +189,8 @@ fun ShellScreen(
     onCloseSearch: () -> Unit = {},
     notifOpen: Boolean = false,
     onCloseNotif: () -> Unit = {},
+    missoesOpen: Boolean = false,
+    onCloseMissoes: () -> Unit = {},
     onNotifUnread: (Int) -> Unit = {},
 ) {
     val koin = GlobalContext.get()
@@ -224,6 +227,11 @@ fun ShellScreen(
     // Progressao: le o XP uma vez e depois fica escutando o `xp_gain`. Vive no
     // escopo do shell — some junto com a sessao, sem coletor orfao depois do logout.
     LaunchedEffect(Unit) { koin.get<XpStore>().iniciar(scope) }
+
+    // Missoes: so o coletor do socket sobe no boot (barato, e o que faz o aviso
+    // aparecer). O painel em si so e buscado quando alguem abre a tela — carregar no
+    // boot seria uma requisicao a mais no pior momento, pra desenhar nada.
+    LaunchedEffect(Unit) { koin.get<MissoesStore>().iniciar(scope) }
 
     // Permissões do Windows na PRIMEIRA abertura, pra quem JÁ TINHA conta — quem
     // cria conta agora vê a mesma lista dentro das boas-vindas (e o onDone de lá
@@ -680,6 +688,20 @@ fun ShellScreen(
                 onAfterRead = { notifRefresh++ },
             )
         }
+
+        // Missoes (alvo no titlebar). Nasce do topo-direita como o sino — os dois
+        // saem da mesma regiao da barra.
+        AnimatedVisibility(
+            visible = missoesOpen,
+            enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f)),
+            exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f)),
+        ) {
+            MissoesOverlay(onClose = onCloseMissoes)
+        }
+
+        // O aviso fica FORA do AnimatedVisibility das telas: missao pode fechar com
+        // qualquer coisa aberta (ou nada), e o aviso tem que aparecer do mesmo jeito.
+        MissaoToaster()
     }
     }
 }

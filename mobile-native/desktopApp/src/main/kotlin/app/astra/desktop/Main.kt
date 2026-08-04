@@ -329,6 +329,7 @@ fun main() {
             // shell (onde vive o vm de navegacao). Estado hasteado aqui no meio.
             var searchOpen by remember { mutableStateOf(false) }
             var notifOpen by remember { mutableStateOf(false) }
+            var missoesOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
 
             // Tema do usuário (Settings > Aparencia): aplica o par accent/fundo nos
@@ -370,6 +371,7 @@ fun main() {
                         notifUnread = notifUnread,
                         onOpenSearch = { searchOpen = true },
                         onOpenNotifications = { notifOpen = !notifOpen },
+                        onOpenMissions = { missoesOpen = !missoesOpen },
                     )
                     // Ativa = visivel & não minimizada: aurora/estrelas so pedem
                     // frame quando ativa (poupam na bandeja) SEM congelar quando um
@@ -483,6 +485,8 @@ fun main() {
                                             onCloseSearch = { searchOpen = false },
                                             notifOpen = notifOpen,
                                             onCloseNotif = { notifOpen = false },
+                                            missoesOpen = missoesOpen,
+                                            onCloseMissoes = { missoesOpen = false },
                                             onNotifUnread = { notifUnread = it },
                                         )
                                     }

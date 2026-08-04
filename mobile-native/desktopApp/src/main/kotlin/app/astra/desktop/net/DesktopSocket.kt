@@ -124,6 +124,13 @@ class DesktopSocket(
     private val _xpGain = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val xpGain: SharedFlow<String> = _xpGain.asSharedFlow()
 
+    // Fechei uma missao. Separado do xp_gain porque sao coisas diferentes na tela: o
+    // XP move o anel em silencio, a missao aparece com nome e recompensa. Quem fecha
+    // as tres do dia recebe quatro eventos seguidos (as tres + o bonus) — a fila do
+    // aviso e que resolve mostrar um de cada vez.
+    private val _missaoConcluida = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val missaoConcluida: SharedFlow<String> = _missaoConcluida.asSharedFlow()
+
     // A constelacao em si mudou (nome, icone, banner) — a rail e o cabecalho
     // rebuscam.
     private val _serverUpdated = MutableSharedFlow<String>(extraBufferCapacity = 16)
@@ -379,6 +386,9 @@ class DesktopSocket(
         }
         s.on("xp_gain") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _xpGain.tryEmit(it.toString()) }
+        }
+        s.on("mission_done") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _missaoConcluida.tryEmit(it.toString()) }
         }
         s.on("server_updated") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverUpdated.tryEmit(it.toString()) }

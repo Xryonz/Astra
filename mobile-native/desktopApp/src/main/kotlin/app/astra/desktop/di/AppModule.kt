@@ -5,6 +5,7 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.AuthInterceptor
 import app.astra.desktop.net.DeviceInterceptor
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.XpStore
 import app.astra.desktop.net.DesktopTokenAuthenticator
 import app.astra.desktop.prefs.DesktopPrefs
@@ -21,6 +22,7 @@ import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.SearchApi
+import app.astra.mobile.core.network.MissionApi
 import app.astra.mobile.core.network.XpApi
 import app.astra.mobile.core.network.ServerApi
 import app.astra.mobile.core.network.UploadApi
@@ -104,12 +106,14 @@ val appModule = module {
     single<FriendApi> { get<Retrofit>(named("authed")).create(FriendApi::class.java) }
     single<SearchApi> { get<Retrofit>(named("authed")).create(SearchApi::class.java) }
     single<XpApi> { get<Retrofit>(named("authed")).create(XpApi::class.java) }
+    single<MissionApi> { get<Retrofit>(named("authed")).create(MissionApi::class.java) }
     single<NotificationApi> { get<Retrofit>(named("authed")).create(NotificationApi::class.java) }
     single<BotApi> { get<Retrofit>(named("authed")).create(BotApi::class.java) }
     single<BlockApi> { get<Retrofit>(named("authed")).create(BlockApi::class.java) }
 
     single { DesktopSocket(get(), get()) }
     single { XpStore(get(), get()) }
+    single { MissoesStore(get(), get()) }
     single { AuthRepository(get(), get(), get(), get(), get(), get()) }
     single { DesktopPrefs(get()) }
     // Auto-update DIY (zip-swap via GitHub Releases). Usa o OkHttp "plain" (mesmo

@@ -87,7 +87,7 @@ export function brilhoDaTrilha(nivel: number): number {
 // O dia e o de SAO PAULO, nao o do servidor: o Render roda em UTC, e um teto que
 // vira as 21h corta a noite da galera exatamente no melhor momento.
 // 'en-CA' porque e o locale que formata como AAAA-MM-DD.
-function diaDeSaoPaulo(agora: Date = new Date()): string {
+export function diaDeSaoPaulo(agora: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora)
 }
 
@@ -104,7 +104,7 @@ async function dentroDoTeto(chave: string, ganho: number, teto: number): Promise
 
 export interface GanhoXp {
   ganho:         number
-  origem:        'mensagem' | 'call'
+  origem:        'mensagem' | 'call' | 'missao'
   subiuDeNivel:  boolean
   brilhoGanho:   number
   progresso:     Progresso
@@ -175,6 +175,14 @@ export async function xpPorMensagem(userId: string): Promise<GanhoXp | null> {
   return creditar(userId, XP_POR_MENSAGEM, 'mensagem')
 }
 
+// XP de missao NAO passa pelo teto diario, de proposito. O teto existe pra que
+// ninguem farme conversa fiada; missao pede exatamente o comportamento que o app
+// quer. Fazer a missao e o XP nao vir porque o dia acabou seria a pior surpresa
+// possivel — e a pessoa nao teria como saber por que.
+export async function creditarXpDeMissao(userId: string, ganho: number): Promise<GanhoXp | null> {
+  return creditar(userId, ganho, 'missao')
+}
+
 async function xpPorMinutoDeCall(userId: string): Promise<GanhoXp | null> {
   const ok = await dentroDoTeto(`call:${userId}:${diaDeSaoPaulo()}`, XP_POR_MINUTO_CALL, TETO_DIARIO_CALL)
   if (!ok) return null
@@ -199,7 +207,11 @@ function podeGanhar(tracks: { type: TrackType; muted: boolean }[]): boolean {
   return tracks.some((t) => t.type === TrackType.AUDIO && !t.muted)
 }
 
-export async function tickXpDeCall(): Promise<void> {
+// `aoMinuto` recebe quem cumpriu um minuto valido de call. Existe como parametro em
+// vez de um import das missoes porque isto aqui e o unico lugar que sabe quem esta
+// falando de verdade — e importar missoes daqui fecharia um ciclo com o XP que elas
+// creditam. Quem liga as duas pontas e o index.ts, que ja conhece as duas.
+export async function tickXpDeCall(aoMinuto?: (userIds: string[]) => void): Promise<void> {
   const svc = getRoomService()
   if (!svc) return
   try {
@@ -214,6 +226,9 @@ export async function tickXpDeCall(): Promise<void> {
       if (vivos.length < 2) continue
       // A identity do token e o proprio userId (routes/voice.ts).
       for (const p of vivos) await xpPorMinutoDeCall(p.identity)
+      // Fora do laco de cima de proposito: a missao conta o minuto mesmo pra quem ja
+      // bateu o teto diario de XP.
+      aoMinuto?.(vivos.map((p) => p.identity))
     }
   } catch (e) {
     logger.error('Xp', `tick de call falhou: ${(e as Error).message}`)
@@ -224,12 +239,12 @@ export async function tickXpDeCall(): Promise<void> {
 // sem ele, duas instancias creditariam o mesmo minuto duas vezes. TTL menor que o
 // intervalo pra nunca pular um minuto legitimo.
 const INTERVALO_TICK_MS = 60_000
-export function iniciarRelogioDeCall(): NodeJS.Timeout {
+export function iniciarRelogioDeCall(aoMinuto?: (userIds: string[]) => void): NodeJS.Timeout {
   return setInterval(() => {
     void (async () => {
       const meu = await redis.set('xp:tick', '1', 'EX', 55, 'NX').catch(() => null)
       if (meu !== 'OK') return
-      await tickXpDeCall()
+      await tickXpDeCall(aoMinuto)
     })()
   }, INTERVALO_TICK_MS)
 }

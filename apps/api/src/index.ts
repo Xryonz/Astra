@@ -33,6 +33,7 @@ import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
 import { attachRealtime }                from './lib/realtime'
 import { iniciarRelogioDeCall }          from './lib/xp'
+import { eventoDeMissao }                from './lib/missoes'
 import { createMessagesRouter }          from './routes/messages'
 import { createReactionsRouter }         from './routes/reactions'
 import { createPollsRouter }             from './routes/polls'
@@ -61,6 +62,7 @@ import blocksRouter                       from './routes/blocks'
 import voiceRouter                        from './routes/voice'
 import wishesRouter                       from './routes/wishes'
 import xpRouter                           from './routes/xp'
+import missionsRouter                     from './routes/missions'
 import sessionsRouter                     from './routes/sessions'
 import emojisRouter                       from './routes/emojis'
 import channelNotifPrefsRouter            from './routes/channelNotifPrefs'
@@ -170,6 +172,7 @@ app.use('/api/blocks',    blocksRouter)
 app.use('/api/voice',     voiceRouter)
 app.use('/api/wishes',    wishesRouter)
 app.use('/api/xp',        xpRouter)
+app.use('/api/missions',  missionsRouter)
 app.use('/api/sessions',  sessionsRouter)
 app.use('/api/servers',   emojisRouter)
 app.use('/api',           channelNotifPrefsRouter)
@@ -274,7 +277,12 @@ httpServer.listen(env.PORT, async () => {
   logger.info('Retention', 'Worker iniciado (1h)')
   startReminderWorker(io)
   logger.info('Reminders', 'Worker iniciado (30s)')
-  iniciarRelogioDeCall()
+  // O relogio devolve quem cumpriu um minuto valido de call, e daqui vira evento de
+  // missao. A ligacao mora no index e nao dentro do lib/xp porque as missoes
+  // creditam XP — importar uma da outra fecharia um ciclo.
+  iniciarRelogioDeCall((ids) => {
+    for (const id of ids) void eventoDeMissao(id, 'call')
+  })
   logger.info('Xp', 'Relogio de call iniciado (1min)')
   initPush()
   void initFcm()

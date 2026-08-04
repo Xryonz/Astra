@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { notify } from '../lib/notifications'
+import { eventoDeMissao } from '../lib/missoes'
 
 const EmojiSchema = z.object({
   emoji: z.string().min(1).max(8),
@@ -81,6 +82,12 @@ export function createReactionsRouter(io: SocketServer) {
       }
 
       res.json({ data: { action, reactions } })
+
+      // So ao ADICIONAR: tirar e por a mesma reacao seria um contador infinito com
+      // dois cliques. Reagir nao da XP direto (e acao de um clique, repetivel a
+      // vontade) — mas como missao, com alvo baixo e teto natural, cumpre o papel de
+      // fazer a pessoa passar por mensagens que ela nao leria.
+      if (action === 'added') void eventoDeMissao(req.userId!, 'reacao', { channelId })
     })
   )
 

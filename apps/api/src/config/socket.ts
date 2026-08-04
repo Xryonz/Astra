@@ -11,6 +11,7 @@ import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincroniz
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
 import { xpPorMensagem } from '../lib/xp'
+import { eventoDeMissao } from '../lib/missoes'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
 import { botPodeFalar } from '../lib/botScope'
@@ -315,6 +316,7 @@ export function setupSocket(io: Server) {
         // A propria funcao decide se conta (trava de 1 min, teto do dia) e ela
         // engole os proprios erros — nao ha caso em que XP derrube uma mensagem.
         void xpPorMensagem(userId)
+        void eventoDeMissao(userId, 'mensagem', { channelId })
 
         setImmediate(() => {
           void (async () => {

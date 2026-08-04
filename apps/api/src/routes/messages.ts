@@ -22,6 +22,7 @@ import { AUDIT, audit } from '../lib/audit'
 import { safeParsePoll } from './polls'
 import { messagesSentTotal } from '../lib/metrics'
 import { xpPorMensagem } from '../lib/xp'
+import { eventoDeMissao } from '../lib/missoes'
 
 interface CursorPayload {
   createdAt: Date
@@ -325,6 +326,11 @@ export function createMessagesRouter(io: SocketServer) {
       // anexo, resposta ou usa o mobile cai AQUI, e so instrumentar o socket daria
       // um sistema que paga uns e nao paga outros — sem ninguem entender por que.
       void xpPorMensagem(req.userId!)
+      // Missao ao lado do XP, mas independente dele: quem ja bateu o teto do dia
+      // continua avancando missao. Resposta so conta se for resposta de verdade —
+      // e por isso que este caminho (o unico que aceita replyToId) dispara os dois.
+      void eventoDeMissao(req.userId!, 'mensagem', { channelId })
+      if (validReplyToId) void eventoDeMissao(req.userId!, 'resposta', { channelId })
 
       setImmediate(() => {
         void (async () => {

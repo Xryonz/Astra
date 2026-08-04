@@ -1,5 +1,5 @@
 import {
-  pgTable, text, boolean, timestamp, integer, pgEnum, uniqueIndex, index,
+  pgTable, text, boolean, timestamp, integer, pgEnum, uniqueIndex, index, primaryKey,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { createId } from './cuid'
@@ -482,6 +482,26 @@ export const wishingStars = pgTable('WishingStar', {
 // os dois seria manter duas verdades sobre a mesma coisa, e a hora em que elas
 // discordassem — um crash entre os dois UPDATEs, um ajuste manual da curva — nao
 // haveria como saber qual esta certa.
+// Progresso de missao. UMA linha por (pessoa, missao, periodo).
+//
+// O periodo faz parte da chave de proposito: e o que permite a mesma missao ser
+// jogada de novo amanha sem apagar nada. '2026-08-03' pra diaria, '2026-W32' pra
+// semanal, 'sempre' pra conquista.
+//
+// QUAIS missoes cairam hoje NAO fica guardado aqui: o sorteio e deterministico a
+// partir de (userId + periodo) — ver lib/missoes.ts. Guardar o sorteio seria uma
+// segunda verdade sobre a mesma coisa, e uma escrita a mais no primeiro acesso do
+// dia de cada pessoa.
+export const userMissions = pgTable('UserMission', {
+  userId:      text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  missionId:   text('missionId').notNull(),
+  periodo:     text('periodo').notNull(),
+  progresso:   integer('progresso').notNull().default(0),
+  concluidaEm: timestamp('concluidaEm', { precision: 3 }),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.userId, t.missionId, t.periodo] }),
+}))
+
 export const userXp = pgTable('UserXp', {
   userId:    text('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   xp:        integer('xp').notNull().default(0),

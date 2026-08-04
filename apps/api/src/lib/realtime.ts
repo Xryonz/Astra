@@ -56,6 +56,14 @@ export function xpGanho(userId: string, payload: unknown) {
   io?.to(`user:${userId}`).emit('xp_gain', payload)
 }
 
+// Fechou uma missao. Evento separado do xp_gain porque sao coisas diferentes na
+// tela: o XP move o anel em silencio, a missao aparece com nome e recompensa. Vem um
+// de cada — quem fecha as tres do dia recebe quatro eventos (as tres + o bonus), e a
+// fila do toast e que resolve mostrar um por vez.
+export function missaoConcluida(userId: string, payload: unknown) {
+  io?.to(`user:${userId}`).emit('mission_done', payload)
+}
+
 export function presenceChanged(userId: string, status: string) {
   io?.emit('presence_update', { userId, status: status === 'INVISIBLE' ? 'OFFLINE' : status })
 }

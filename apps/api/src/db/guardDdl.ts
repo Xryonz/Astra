@@ -259,6 +259,16 @@ CREATE TABLE IF NOT EXISTS "UserXp" (
   "updatedAt" timestamp (3) NOT NULL DEFAULT now()
 );
 
+-- ===== Missoes =====
+CREATE TABLE IF NOT EXISTS "UserMission" (
+  "userId"      text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+  "missionId"   text NOT NULL,
+  "periodo"     text NOT NULL,
+  "progresso"   integer NOT NULL DEFAULT 0,
+  "concluidaEm" timestamp (3),
+  PRIMARY KEY ("userId", "missionId", "periodo")
+);
+
 -- ===== Remoção da feature de threads (mensagens de thread viram normais) =====
 DROP INDEX IF EXISTS "Message_threadId_idx";
 ALTER TABLE "Message" DROP COLUMN IF EXISTS "threadId";

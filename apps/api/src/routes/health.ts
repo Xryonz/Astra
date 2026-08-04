@@ -4,7 +4,7 @@ import { pool } from '../db'
 import { redis } from '../lib/redis'
 import { env } from '../lib/env'
 import { isMailEnabled } from '../lib/mailer'
-import { storageMode } from '../lib/storage'
+import { storageMode, storageFalta } from '../lib/storage'
 import { IA_LIGADA, IA_PROVEDOR } from '../lib/ia'
 import { logger } from '../lib/logger'
 import { renderMetrics, metricsContentType } from '../lib/metrics'
@@ -60,6 +60,8 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     // um banner sumiu e ninguém tinha como saber por quê sem abrir o painel do
     // Render. Uma linha aqui responde isso de fora, em um curl.
     storage:   storageMode,
+    // Vazio quando esta tudo configurado. So NOMES de variavel, nunca valores.
+    storageFalta,
     // A bot responde "estou offline (sem chave de API)" sempre que isto for false.
     // Sem esta linha, "eu ja pus a chave no Render" e "a chave chegou no processo"
     // eram indistinguiveis de fora — e o unico jeito de saber era abrir o painel.

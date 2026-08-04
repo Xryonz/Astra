@@ -48,6 +48,23 @@ const s3 = R2_READY
 // imagens vao, nao so que saem do disco.
 export const storageMode = !R2_READY ? 'local' : (S3_ENDPOINT ? 's3' : 'r2')
 
+// QUAIS variaveis faltam pro storage sair do disco. So os NOMES, nunca os valores.
+//
+// Existe porque "storage: local" nao diz nada acionavel: sao cinco variaveis e uma
+// so que falte derruba as cinco. De fora nao havia como saber qual, e o unico jeito
+// era abrir o painel do Render e conferir uma por uma — que e exatamente o passo em
+// que alguem erra de novo. Nome de variavel de ambiente nao e segredo.
+export const storageFalta: string[] = (() => {
+  if (R2_READY) return []
+  const falta: string[] = []
+  if (!ENDPOINT)             falta.push('S3_ENDPOINT')
+  if (!R2_ACCESS_KEY_ID)     falta.push('R2_ACCESS_KEY_ID')
+  if (!R2_SECRET_ACCESS_KEY) falta.push('R2_SECRET_ACCESS_KEY')
+  if (!R2_BUCKET)            falta.push('R2_BUCKET')
+  if (!R2_PUBLIC_URL)        falta.push('R2_PUBLIC_URL')
+  return falta
+})()
+
 // Host publico do R2 (quando configurado), derivado uma vez.
 const R2_HOST = (() => {
   try { return R2_PUBLIC_URL ? new URL(R2_PUBLIC_URL).hostname : null } catch { return null }

@@ -1,4 +1,4 @@
-# Publica uma release do Astra desktop no GitHub, no formato EXATO que o
+﻿# Publica uma release do Astra desktop no GitHub, no formato EXATO que o
 # auto-update espera. Existe porque publicar na mao ja falhou de todas as formas
 # possiveis: a ultima release publicada (26/jul) tinha a tag desktop-v0.1.8 e o
 # asset chamado "0.1.9.zip" — o app montava .../desktop-v0.1.8/Astra-0.1.8-win-x64.zip

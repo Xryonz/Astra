@@ -2861,7 +2861,9 @@ private fun DmList(
                         .background(itemBg)
                         .hoverable(interaction)
                         .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        // 9dp e nao 6dp: sem a linha, o respiro e o unico separador,
+                        // e 6dp deixava os cards colados demais pra isso funcionar.
+                        .padding(horizontal = 8.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Hover na LINHA inteira dispara o anel 360 em volta da foto
@@ -2900,16 +2902,11 @@ private fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
-                // Divisoria arredondada no rodape de cada card (destaca cada sussurro).
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp)
-                        .height(1.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Obsidian.borderDim.copy(alpha = 0.5f)),
-                )
+                // Sem divisoria. Ela era um traco de borda a borda no rodape de cada
+                // card — padrao de TABELA, e o olho passa a ler a coluna como grade
+                // em vez de gente. Quem separa agora e o respiro (o vertical padding
+                // do Row dobrou) e o hover, que acende o fundo e desenha o limite do
+                // card exatamente quando ele importa: na hora de clicar.
             }
             }
             }

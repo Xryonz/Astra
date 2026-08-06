@@ -107,8 +107,20 @@ $resp = $req.GetResponse()
 $loc = $resp.Headers['Location']
 $resp.Close()
 $tagVista = ("$loc" -split '/releases/tag/')[-1]
+# GET de UM byte, nao HEAD. O CDN de assets do GitHub recusa HEAD as vezes
+# (404 com o arquivo intacto no ar) e isso ja deu falso negativo aqui: o script
+# gritou "o app nao vai achar" com a release perfeita. Alem disso o app baixa com
+# GET — verificar por HEAD e testar um caminho que ninguem percorre.
 $zipUrl = "https://github.com/$repo/releases/download/$tag/$asset"
-$ok = try { (Invoke-WebRequest -Uri $zipUrl -Method Head -MaximumRedirection 5 -UseBasicParsing).StatusCode -eq 200 } catch { $false }
+$ok = try {
+  $g = [System.Net.HttpWebRequest]::Create($zipUrl)
+  $g.UserAgent = 'Astra-Publicar'
+  $g.AddRange(0, 0)
+  $gr = $g.GetResponse()
+  $codigo = [int]$gr.StatusCode
+  $gr.Close()
+  $codigo -eq 206 -or $codigo -eq 200
+} catch { $false }
 
 Write-Host ""
 Write-Host "--- verificacao pelo caminho do app ---"

@@ -99,7 +99,12 @@ import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Circle
 import com.composables.icons.lucide.CircleDot
+import com.composables.icons.lucide.Crop
 import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.Move
+import com.composables.icons.lucide.RefreshCw
+import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.Upload
 import com.composables.icons.lucide.Key
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
@@ -603,7 +608,13 @@ private fun CartaoDaPrevia(
 private fun TestarNotificacao(onTestar: () -> Unit) {
     var avisou by remember { mutableStateOf(false) }
     Column {
-        DialogButton(if (avisou) "mandei — olhe o canto da tela" else "testar notificação", accent = !avisou) {
+        // Texto mantido: fica sozinho no fim da seção, e o que ele faz não tem ícone
+        // universal — um sino solto leria como "abrir notificações".
+        DialogButton(
+            if (avisou) "mandei — olhe o canto da tela" else "testar notificação",
+            accent = !avisou,
+            icone = Lucide.Bell,
+        ) {
             avisou = true
             onTestar()
         }
@@ -1028,12 +1039,12 @@ private fun ProfileSection(
     Row(verticalAlignment = Alignment.CenterVertically) {
         DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "você" }, 64)
         Spacer(Modifier.width(16.dp))
-        Column {
-            AboutButton(if (busyAvatar) "processando…" else "trocar avatar", accent = true) {
-                if (busyAvatar) return@AboutButton
+        // Só ícone: estão colados na foto que operam.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BotaoIcone(Lucide.Upload, "trocar avatar", accent = true, ocupado = busyAvatar) {
                 // O dialogo nativo bloqueia (modal) — normal. O peso (ler/decodificar)
                 // vai pra fora da thread de UI.
-                val file = AvatarPicker.choose() ?: return@AboutButton
+                val file = AvatarPicker.choose() ?: return@BotaoIcone
                 busyAvatar = true
                 msg = null
                 scope.launch {
@@ -1050,9 +1061,12 @@ private fun ProfileSection(
                         .onFailure { msg = "não deu pra ler essa imagem" to false }
                 }
             }
+            val avatarAtual = draft.avatarUrl
+            if (avatarAtual != null && !ImageCrop.isAnimated(avatarAtual)) {
+                BotaoIcone(Lucide.Crop, "reenquadrar") { cropAvatar = CropSource.Remote(avatarAtual) }
+            }
             if (draft.avatarUrl != null) {
-                Spacer(Modifier.height(6.dp))
-                AboutButton("remover", accent = false) { onChange(draft.copy(avatarUrl = null)) }
+                BotaoIcone(Lucide.Trash2, "remover avatar", danger = true) { onChange(draft.copy(avatarUrl = null)) }
             }
         }
     }
@@ -1099,10 +1113,11 @@ private fun ProfileSection(
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp)),
     )
     Spacer(Modifier.height(10.dp))
+    // Só ícone: a fileira fica logo abaixo do banner que ela opera. Os três nomes
+    // por extenso ocupavam a largura inteira do painel.
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AboutButton(if (busyBanner) "processando…" else "subir imagem", accent = true) {
-            if (busyBanner) return@AboutButton
-            val file = AvatarPicker.choose("Escolher banner") ?: return@AboutButton
+        BotaoIcone(Lucide.Upload, "subir imagem", accent = true, ocupado = busyBanner) {
+            val file = AvatarPicker.choose("Escolher banner") ?: return@BotaoIcone
             busyBanner = true
             msg = null
             scope.launch {
@@ -1123,11 +1138,11 @@ private fun ProfileSection(
             // Animado continua no modal de posição+zoom (a animação sobrevive);
             // estatico abre o recorte, que ASSA o enquadramento na imagem.
             if (ImageCrop.isAnimated(bannerNow)) {
-                AboutButton("redimensionar imagem", accent = false) { resizeOpen = true }
+                BotaoIcone(Lucide.Move, "redimensionar") { resizeOpen = true }
             } else {
-                AboutButton("reenquadrar imagem", accent = false) { cropBanner = CropSource.Remote(bannerNow) }
+                BotaoIcone(Lucide.Crop, "reenquadrar") { cropBanner = CropSource.Remote(bannerNow) }
             }
-            AboutButton("remover imagem", accent = false) { onChange(draft.copy(bannerUrl = null)) }
+            BotaoIcone(Lucide.Trash2, "remover imagem", danger = true) { onChange(draft.copy(bannerUrl = null)) }
         }
     }
     if (resizeOpen && !draft.bannerUrl.isNullOrBlank()) {
@@ -1238,7 +1253,7 @@ private fun ProfileSaveButton(
             Spacer(Modifier.height(8.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AboutButton(if (saving) "salvando…" else "salvar", accent = true) {
+            AboutButton(if (saving) "salvando…" else "salvar", accent = true, icone = Lucide.Check) {
                 if (saving || !dirty) return@AboutButton
                 saving = true
                 msg = null
@@ -1889,31 +1904,29 @@ private fun SessionsSection() {
                         )
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text(
-                        "derrubar",
-                        style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(7.dp))
-                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
-                            .clickable(enabled = !busy) {
-                                busy = true; msg = null
-                                scope.launch {
-                                    val r = runCatching { koin.get<SessionApi>().revoke(s.id) }
-                                    busy = false
-                                    msg = if (r.isSuccess) "sessão derrubada" to true
-                                    else "não deu pra derrubar" to false
-                                    reload++
-                                }
-                            }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
+                    // Só ícone: repete uma vez por linha e cada um está encostado na
+                    // sessão que derruba. É onde ícone puro mais compensa — o rótulo
+                    // repetido três vezes só empilhava ruído. E é reversível: quem
+                    // for derrubado por engano só entra de novo.
+                    BotaoIcone(Lucide.LogOut, "derrubar esta sessão", danger = true, ocupado = busy) {
+                        busy = true; msg = null
+                        scope.launch {
+                            val r = runCatching { koin.get<SessionApi>().revoke(s.id) }
+                            busy = false
+                            msg = if (r.isSuccess) "sessão derrubada" to true
+                            else "não deu pra derrubar" to false
+                            reload++
+                        }
+                    }
                 }
             }
         }
     }
 
     Spacer(Modifier.height(18.dp))
-    AboutButton(if (busy) "…" else "derrubar todas as outras", accent = false) {
+    // Texto mantido: é em lote e destrutivo. Um ícone sozinho aqui derrubaria todo
+    // mundo com um clique de curiosidade.
+    AboutButton(if (busy) "…" else "derrubar todas as outras", accent = false, icone = Lucide.LogOut) {
         if (busy) return@AboutButton
         busy = true; msg = null
         scope.launch {
@@ -2040,7 +2053,7 @@ private fun AboutSection() {
     }
 
     Spacer(Modifier.height(16.dp))
-    AboutButton("procurar atualizacoes", accent = false) { scope.launch { updater.check() } }
+    AboutButton("procurar atualizações", accent = false, icone = Lucide.RefreshCw) { scope.launch { updater.check() } }
 }
 
 // "agora mesmo" / "há 12 min" / "há 2 h". Precisao grossa de proposito: o que
@@ -2059,17 +2072,26 @@ private fun AboutStatus(text: String) {
     Text(text, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
 }
 
+// Mantém o TEXTO e ganha um ícone à esquerda. É o outro lado da regra dos ícones:
+// vira ícone puro só quem está encostado no objeto que opera e repete. Estes ficam
+// sozinhos no fim de uma seção — sem vizinho pra comparar, ícone puro seria charada.
 @Composable
-private fun AboutButton(label: String, accent: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
+private fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
+    val cor = if (accent) Obsidian.accent else Obsidian.text2
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icone?.let {
+            LIcon(it, tint = cor, size = 14.dp)
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
+    }
 }
 
 @Composable
@@ -2097,9 +2119,8 @@ private fun PasswordForm(hasPassword: Boolean) {
     }
 
     val canSave = !busy && next.length >= 8 && next == confirm && (!hasPassword || current.isNotBlank())
-    Text(
-        if (busy) "salvando…" else "salvar",
-        style = TextStyle(color = if (canSave) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
+    val corSalvar = if (canSave) Obsidian.accent else Obsidian.text3
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (canSave) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
@@ -2122,7 +2143,15 @@ private fun PasswordForm(hasPassword: Boolean) {
                 }
             }
             .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LIcon(Lucide.Check, tint = corSalvar, size = 14.dp)
+        Spacer(Modifier.width(7.dp))
+        Text(
+            if (busy) "salvando…" else "salvar",
+            style = TextStyle(color = corSalvar, fontSize = 13.sp),
+        )
+    }
     if (next.isNotEmpty() && next.length < 8) {
         Spacer(Modifier.height(6.dp))
         Text("mínimo 8 caracteres", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))

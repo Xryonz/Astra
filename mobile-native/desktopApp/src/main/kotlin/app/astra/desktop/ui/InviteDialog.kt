@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -135,16 +136,22 @@ internal fun DialogField(
 }
 
 @Composable
-internal fun DialogButton(label: String, accent: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
+internal fun DialogButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
+    val cor = if (accent) Obsidian.accent else Obsidian.text2
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icone?.let {
+            LIcon(it, tint = cor, size = 14.dp)
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
+    }
 }
 
 // "convidar pessoas" — quem já esta na constelação chama.

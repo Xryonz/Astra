@@ -76,7 +76,11 @@ import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Crop
+import com.composables.icons.lucide.LogOut
+import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.LoaderCircle
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.Upload
@@ -287,6 +291,13 @@ private fun OverviewSection(
     var confirmRegen by remember { mutableStateOf(false) }
     var confirmDanger by remember { mutableStateOf(false) }
     var regenerating by remember { mutableStateOf(false) }
+    // O "copiar" virou icone e perdeu o rotulo que dizia "copiado". A confirmacao
+    // agora e o proprio icone virando um tique por 2s — sem isso, clicar num
+    // quadrado que nao muda de nada nao prova que a copia aconteceu.
+    var copiado by remember { mutableStateOf(false) }
+    LaunchedEffect(copiado) {
+        if (copiado) { kotlinx.coroutines.delay(2000); copiado = false }
+    }
     // Recorte estilo Discord: a fonte aberta no modal (arquivo novo ou a imagem
     // já salva pra reenquadrar). null = modal fechado.
     var cropIcon by remember { mutableStateOf<CropSource?>(null) }
@@ -313,10 +324,11 @@ private fun OverviewSection(
     Row(verticalAlignment = Alignment.CenterVertically) {
         ServerIconPreview(iconUrl, name, iconScale)
         Spacer(Modifier.width(16.dp))
-        Column {
-            SmallButton(if (busyIcon) "processando…" else "trocar ícone", accent = true) {
-                if (busyIcon) return@SmallButton
-                val file = AvatarPicker.choose("Escolher ícone") ?: return@SmallButton
+        // Só ícone: os três botões ficam COLADOS na miniatura que eles mexem, e o
+        // contexto já diz do que se trata. O nome aparece ao parar o mouse.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BotaoIcone(Lucide.Upload, "trocar ícone", accent = true, ocupado = busyIcon) {
+                val file = AvatarPicker.choose("Escolher ícone") ?: return@BotaoIcone
                 busyIcon = true
                 msg = null
                 scope.launch {
@@ -335,9 +347,14 @@ private fun OverviewSection(
                         .onFailure { msg = "não deu pra ler essa imagem" to false }
                 }
             }
+            val iconAtual = iconUrl
+            // Reenquadrar só existe pra imagem estática: animada não pode ser assada
+            // num recorte (perderia a animação), e ali o zoom vive em metadado.
+            if (!iconAtual.isNullOrBlank() && !ImageCrop.isAnimated(iconAtual)) {
+                BotaoIcone(Lucide.Crop, "reenquadrar") { cropIcon = CropSource.Remote(iconAtual) }
+            }
             if (!iconUrl.isNullOrBlank()) {
-                Spacer(Modifier.height(6.dp))
-                SmallButton("remover", accent = false) { iconUrl = null }
+                BotaoIcone(Lucide.Trash2, "remover ícone", danger = true) { iconUrl = null }
             }
         }
     }
@@ -347,16 +364,12 @@ private fun OverviewSection(
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
-    // Estatico agora e ASSADO no recorte, entao o zoom em metadado so vale pro
-    // animado (o unico que não pode ser assado). Estatico ganha "reenquadrar".
+    // O zoom em metadado so vale pro ANIMADO — o estatico ja e assado no recorte, e
+    // o botao de reenquadrar dele subiu pra fileira de icones junto da miniatura.
     val iconNow = iconUrl
-    if (!iconNow.isNullOrBlank()) {
+    if (!iconNow.isNullOrBlank() && ImageCrop.isAnimated(iconNow)) {
         Spacer(Modifier.height(10.dp))
-        if (ImageCrop.isAnimated(iconNow)) {
-            ServerZoomTrack(iconScale) { iconScale = it }
-        } else {
-            SmallButton("reenquadrar", accent = false) { cropIcon = CropSource.Remote(iconNow) }
-        }
+        ServerZoomTrack(iconScale) { iconScale = it }
     }
 
     SettingsDivider()
@@ -457,15 +470,19 @@ private fun OverviewSection(
             )
         }
         Spacer(Modifier.width(8.dp))
+        // Só ícone: os dois estão encostados no código que eles operam. Copiar e
+        // regenerar são universais, e regenerar ainda passa por confirmação — não
+        // há como apagar o convite por engano num clique curioso.
         server.inviteCode?.let { code ->
-            SmallButton("copiar", accent = false) {
+            BotaoIcone(if (copiado) Lucide.Check else Lucide.Copy, if (copiado) "copiado" else "copiar convite") {
                 clipboard.setText(AnnotatedString(code))
+                copiado = true
                 msg = "convite copiado" to true
             }
             Spacer(Modifier.width(6.dp))
         }
-        SmallButton(if (regenerating) "gerando…" else "regenerar", accent = true) {
-            if (!regenerating) confirmRegen = true
+        BotaoIcone(Lucide.RefreshCw, "regenerar convite", accent = true, ocupado = regenerating) {
+            confirmRegen = true
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -524,7 +541,12 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
-    DangerButton(if (isOwner) "excluir constelação" else "sair da constelação") { confirmDanger = true }
+    // Texto MANTIDO: é irreversível e fica sozinho na zona de perigo. Uma lixeira
+    // solta ali dependeria de a pessoa passar o mouse antes de clicar.
+    DangerButton(
+        if (isOwner) "excluir constelação" else "sair da constelação",
+        icone = if (isOwner) Lucide.Trash2 else Lucide.LogOut,
+    ) { confirmDanger = true }
     if (confirmDanger) {
         ConfirmPopup(
             message = if (isOwner) "excluir ${server.name}? apaga pra todos — não da pra desfazer."
@@ -570,7 +592,7 @@ private fun OverviewSection(
               Spacer(Modifier.height(8.dp))
           }
           Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-              SmallButton(if (saving) "salvando…" else "salvar", accent = true) {
+              SmallButton(if (saving) "salvando…" else "salvar", accent = true, icone = Lucide.Check) {
                   if (saving || !dirty) return@SmallButton
                   saving = true
                   msg = null
@@ -872,28 +894,42 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
+// Botão que MANTÉM o texto e ganha um ícone à esquerda. É o outro lado da regra: só
+// vira ícone puro quem está encostado no objeto que opera. Botão sozinho não tem
+// vizinho pra comparar, e ícone sem vizinho é adivinhação.
 @Composable
-private fun SmallButton(label: String, accent: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        style = TextStyle(color = if (accent) Obsidian.accent else Obsidian.text2, fontSize = 13.sp),
+private fun SmallButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
+    val cor = if (accent) Obsidian.accent else Obsidian.text2
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, if (accent) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icone?.let {
+            LIcon(it, tint = cor, size = 14.dp)
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
+    }
 }
 
 @Composable
-private fun DangerButton(label: String, onClick: () -> Unit) {
-    Text(
-        label,
-        style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
+private fun DangerButton(label: String, icone: ImageVector? = null, onClick: () -> Unit) {
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, Obsidian.danger.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icone?.let {
+            LIcon(it, tint = Obsidian.danger, size = 14.dp)
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(label, style = TextStyle(color = Obsidian.danger, fontSize = 13.sp))
+    }
 }

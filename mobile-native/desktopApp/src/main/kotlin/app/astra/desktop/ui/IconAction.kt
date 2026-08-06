@@ -1,6 +1,10 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,7 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.lucide.LoaderCircle
+import com.composables.icons.lucide.Lucide
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -54,6 +61,10 @@ fun BotaoIcone(
     dica: String,
     accent: Boolean = false,
     danger: Boolean = false,
+    // Trabalhando: troca o glifo por um giro e recusa o clique. Sem isto, subir uma
+    // imagem grande deixa o botao com cara de "nao aconteceu nada" e a pessoa clica
+    // de novo — dois uploads da mesma foto.
+    ocupado: Boolean = false,
     onClick: () -> Unit,
 ) {
     val interacao = remember { MutableInteractionSource() }
@@ -97,12 +108,27 @@ fun BotaoIcone(
                 .background(fundo)
                 .border(1.dp, borda, RoundedCornerShape(8.dp))
                 .hoverable(interacao)
-                .clickable(interactionSource = interacao, indication = null, onClick = onClick),
+                .clickable(interactionSource = interacao, indication = null, enabled = !ocupado, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            LIcon(icone, tint = conteudo, size = 16.dp)
+            if (ocupado) {
+                // Girando de verdade. Um LoaderCircle parado le como icone travado —
+                // que e exatamente a impressao oposta da que ele deve passar.
+                val giro = rememberInfiniteTransition(label = "ocupado")
+                val angulo by giro.animateFloat(
+                    0f, 360f,
+                    infiniteRepeatable(tween(900, easing = LinearEasing)),
+                    label = "angulo",
+                )
+                LIcon(
+                    Lucide.LoaderCircle, tint = conteudo, size = 16.dp,
+                    modifier = Modifier.graphicsLayer { rotationZ = angulo },
+                )
+            } else {
+                LIcon(icone, tint = conteudo, size = 16.dp)
+            }
         }
-        if (mostrarDica) {
+        if (mostrarDica && !ocupado) {
             Popup(popupPositionProvider = AbaixoCentralizado) {
                 Box(
                     Modifier

@@ -60,6 +60,8 @@ import app.astra.mobile.core.network.dto.ServerMemberDto
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.Upload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -251,34 +253,19 @@ private fun RoleIconField(iconUrl: String?, onChange: (String?) -> Unit) {
             if (!iconUrl.isNullOrBlank()) AstraImage(iconUrl, "ícone do cargo", Modifier.fillMaxSize())
         }
         Spacer(Modifier.width(12.dp))
-        Text(
-            if (busy) "processando…" else "subir imagem",
-            style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                .clickable(enabled = !busy) {
-                    val file = AvatarPicker.choose("Imagem do cargo") ?: return@clickable
-                    busy = true
-                    scope.launch {
-                        val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, 128) }
-                        busy = false
-                        r.onSuccess { onChange(it) }
-                    }
-                }
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-        )
+        // Só ícone: encostados na mini-imagem do cargo que eles trocam.
+        BotaoIcone(Lucide.Upload, "subir imagem", accent = true, ocupado = busy) {
+            val file = AvatarPicker.choose("Imagem do cargo") ?: return@BotaoIcone
+            busy = true
+            scope.launch {
+                val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, 128) }
+                busy = false
+                r.onSuccess { onChange(it) }
+            }
+        }
         if (!iconUrl.isNullOrBlank()) {
             Spacer(Modifier.width(8.dp))
-            Text(
-                "remover",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                    .clickable { onChange(null) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
+            BotaoIcone(Lucide.Trash2, "remover imagem", danger = true) { onChange(null) }
         }
     }
 }

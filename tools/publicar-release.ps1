@@ -95,10 +95,20 @@ Write-Host "asset enviado."
 # O app nao usa a API: le o 302 de /releases/latest e monta a URL do zip por
 # convencao. Entao a verificacao tem que passar por ai, senao "publicou" sem
 # garantir que o app acha — que foi exatamente o que aconteceu antes.
-$loc = (Invoke-WebRequest -Uri "https://github.com/$repo/releases/latest" -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction SilentlyContinue).Headers.Location
-$tagVista = ($loc -split '/releases/tag/')[-1]
+# HttpWebRequest e nao Invoke-WebRequest: o IWR mente de dois jeitos diferentes
+# aqui. No PS 5.1 nao existe -SkipHttpErrorCheck (e PowerShell 7+) e o objeto de
+# resposta do -UseBasicParsing nao tem .Headers.Location — devolve vazio calado,
+# que e o pior resultado possivel numa verificacao. Com AllowAutoRedirect = $false
+# o 302 volta como resposta normal nas duas versoes.
+$req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
+$req.AllowAutoRedirect = $false
+$req.UserAgent = 'Astra-Publicar'
+$resp = $req.GetResponse()
+$loc = $resp.Headers['Location']
+$resp.Close()
+$tagVista = ("$loc" -split '/releases/tag/')[-1]
 $zipUrl = "https://github.com/$repo/releases/download/$tag/$asset"
-$ok = try { (Invoke-WebRequest -Uri $zipUrl -Method Head -MaximumRedirection 5).StatusCode -eq 200 } catch { $false }
+$ok = try { (Invoke-WebRequest -Uri $zipUrl -Method Head -MaximumRedirection 5 -UseBasicParsing).StatusCode -eq 200 } catch { $false }
 
 Write-Host ""
 Write-Host "--- verificacao pelo caminho do app ---"

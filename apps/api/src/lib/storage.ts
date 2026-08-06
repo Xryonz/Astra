@@ -1,5 +1,5 @@
 
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -100,6 +100,31 @@ export async function putAttachment(key: string, body: Buffer, mime: string): Pr
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
   await fs.promises.writeFile(path.join(UPLOAD_DIR, key), body)
   return `/uploads/${key}`
+}
+
+// Apagar o arquivo, esteja ele onde estiver.
+//
+// Existe porque tudo que APAGA (emoji removido, mensagem que expirou) so sabia
+// apagar do disco local: o `if (url.startsWith('/uploads/'))` espalhado pelas rotas
+// simplesmente NAO FAZIA NADA quando o arquivo estava no bucket. O objeto ficava
+// orfao pra sempre, e num plano de 1 GB isso enche sozinho.
+//
+// Engole erro de proposito: apagar arquivo e limpeza, nunca motivo pra falhar a
+// acao que a pessoa pediu.
+export async function removeAttachment(url: string | null | undefined): Promise<void> {
+  if (!url) return
+  try {
+    if (url.startsWith('/uploads/')) {
+      await fs.promises.unlink(path.join(UPLOAD_DIR, url.slice('/uploads/'.length)))
+      return
+    }
+    if (!s3 || !R2_PUBLIC_URL) return
+    const raiz = R2_PUBLIC_URL.replace(/\/$/, '') + '/'
+    if (!url.startsWith(raiz)) return  // link de terceiro (avatar do Google, GIF do Giphy)
+    const key = url.slice(raiz.length)
+    if (!key) return
+    await s3.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }))
+  } catch { /* limpeza e best-effort */ }
 }
 
 function mimeExt(mime: string): string {

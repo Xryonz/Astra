@@ -12,7 +12,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { getMemberPerms, PERMS } from '../lib/permissions'
-import { UPLOAD_DIR } from './upload'
+import { putAttachment, removeAttachment } from '../lib/storage'
 
 const MAX_EMOJIS = 50
 const MAX_SIZE   = 512 * 1024
@@ -115,12 +115,16 @@ router.post(
 
     const id  = crypto.randomBytes(16).toString('hex')
     const filename = `${id}${ext}`
-    await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), buffer)
+    // Passa pelo putAttachment como TODO o resto. Antes era fs.writeFile direto no
+    // disco da instancia — o unico arquivo do app que nunca via o bucket, entao
+    // emoji personalizado morria em todo deploy do Render por mais bem configurado
+    // que o storage estivesse.
+    const url = await putAttachment(filename, buffer, mime)
 
     const [created] = await db.insert(serverEmojis).values({
       serverId,
       name,
-      url:       `/uploads/${filename}`,
+      url,
       createdBy: req.userId!,
     }).returning()
 
@@ -141,11 +145,8 @@ router.delete(
       .returning({ id: serverEmojis.id, url: serverEmojis.url })
     if (result.length === 0) return res.status(404).json({ error: 'Emoji não encontrado' })
 
-    const url = result[0].url
-    if (url.startsWith('/uploads/')) {
-      const p = path.join(UPLOAD_DIR, url.replace('/uploads/', ''))
-      fs.promises.unlink(p).catch(() => {})
-    }
+    // Apaga de onde estiver (disco ou bucket) — antes so sabia apagar do disco.
+    void removeAttachment(result[0].url)
     res.json({ data: { ok: true } })
   })
 )

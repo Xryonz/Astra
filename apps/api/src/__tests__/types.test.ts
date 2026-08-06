@@ -27,6 +27,36 @@ describe('AttachmentSchema — URL safety', () => {
     expect(r.success).toBe(true)
   })
 
+  // Este par de testes existe por causa de um bug que nao dava erro em lugar
+  // nenhum: o Zod DESCARTA chave que o schema nao declara. O upload calculava o
+  // blurhash, devolvia pro cliente, o cliente reenviava na mensagem — e ele morria
+  // aqui, na validacao, antes de chegar no banco. Trabalho feito e jogado fora em
+  // silencio, em todo upload, por meses.
+  it('PRESERVA o blurhash (era descartado na validacao)', () => {
+    const r = AttachmentSchema.safeParse({
+      url: 'https://cdn.example.com/a.webp', type: 'image/webp', name: 'a.webp', size: 100,
+      blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
+    })
+    expect(r.success).toBe(true)
+    expect(r.success && r.data.blurhash).toBe('LEHV6nWB2yk8pyo0adR*.7kCMdnj')
+  })
+
+  it('PRESERVA a thumbUrl, com a mesma protecao de URL do url', () => {
+    const ok = AttachmentSchema.safeParse({
+      url: 'https://cdn.example.com/a.webp', thumbUrl: 'https://cdn.example.com/a_t.webp',
+      type: 'image/webp', name: 'a.webp', size: 100,
+    })
+    expect(ok.success && ok.data.thumbUrl).toBe('https://cdn.example.com/a_t.webp')
+
+    // A miniatura vai pro mesmo <img> que o original: se ela aceitasse javascript:,
+    // fechar a porta so no `url` nao teria adiantado nada.
+    const mau = AttachmentSchema.safeParse({
+      url: 'https://cdn.example.com/a.webp', thumbUrl: 'javascript:alert(1)',
+      type: 'image/webp', name: 'a.webp', size: 100,
+    })
+    expect(mau.success).toBe(false)
+  })
+
   it('BLOQUEIA javascript: (XSS)', () => {
     const r = AttachmentSchema.safeParse({
       url: 'javascript:alert(1)', type: 'image/png', name: 'evil.png', size: 100,

@@ -20,6 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import app.astra.shared.AstraShared
+import androidx.compose.ui.draw.drawBehind
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -67,6 +68,13 @@ fun AstraImage(
     contentScale: ContentScale = ContentScale.Crop,
     // Enquadramento (banner do perfil usa BiasAlignment pra posição vertical).
     alignment: Alignment = Alignment.Center,
+    // Cores borradas da propria imagem, pintadas ATRAS enquanto ela nao chega. O
+    // servidor ja manda isto em todo anexo (~30 bytes, junto da mensagem) — ver
+    // Blurhash.kt. Sem ele o lugar da foto fica um buraco.
+    blurhash: String? = null,
+    // Proporcao conhecida do anexo (width/height). Usada so pra decodificar o
+    // borrao no formato certo; quem reserva o espaco e quem chama.
+    proporcaoBlur: Float = 1.5f,
 ) {
     val reduce = LocalReduceMotion.current
     var anim by remember(url) { mutableStateOf(url?.let { AnimatedImageStore.cached(it) }) }
@@ -118,10 +126,24 @@ fun AstraImage(
             contentScale = contentScale,
         )
     } else {
+        val borrao by lembrarBlurhash(blurhash, proporcaoBlur)
         AsyncImage(
             model = url,
             contentDescription = contentDescription,
-            modifier = modifier,
+            // drawBehind e nao um Box atras: o AsyncImage continua medindo e
+            // enquadrando exatamente como antes. Um Box com matchParentSize nao
+            // contribui pro tamanho do pai e colapsaria o layout pra zero enquanto a
+            // imagem nao chegasse.
+            modifier = modifier.drawBehind {
+                val b = borrao ?: return@drawBehind
+                drawImage(
+                    image = b,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(b.width, b.height),
+                    dstOffset = IntOffset.Zero,
+                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                )
+            },
             alignment = alignment,
             contentScale = contentScale,
         )

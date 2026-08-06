@@ -111,11 +111,21 @@ const SafeUrlSchema = z.string().min(1).max(2048).refine(
 
 export const AttachmentSchema = z.object({
   url:    SafeUrlSchema,
+  // Versao pequena da mesma imagem (~720px). A bolha do chat mostra ESTA; o
+  // original so e baixado quando alguem abre em tela cheia. Ausente quando a
+  // imagem ja era pequena o bastante — ai o cliente usa `url`.
+  thumbUrl: SafeUrlSchema.optional(),
   type:   z.string().max(120),
   name:   z.string().max(255),
   size:   z.number().int().nonnegative().max(50 * 1024 * 1024),
   width:  z.number().int().positive().max(20_000).optional(),
   height: z.number().int().positive().max(20_000).optional(),
+
+  // PRECISA estar aqui. O Zod descarta chave que o schema nao declara — o upload
+  // calculava o blurhash, devolvia pro cliente, o cliente reenviava na mensagem e
+  // ele morria NA VALIDACAO, antes de chegar no banco. O trabalho era feito e
+  // jogado fora em silencio, toda vez.
+  blurhash: z.string().max(200).optional(),
 
   duration: z.number().nonnegative().max(3600).optional(),
 })
@@ -202,12 +212,13 @@ export interface Reaction {
 }
 
 export interface Attachment {
-  url:    string
-  type:   string
-  name:   string
-  size:   number
-  width?: number
-  height?: number
+  url:      string
+  thumbUrl?: string
+  type:     string
+  name:     string
+  size:     number
+  width?:   number
+  height?:  number
 
   blurhash?: string
 }

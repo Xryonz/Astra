@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -848,15 +849,28 @@ private fun ContentBlock(
 private fun AttachmentBlock(att: AttachmentDto) {
     if (att.type?.startsWith("image/") == true) {
         val openImage = LocalOpenImage.current
+        val w = att.width ?: 0
+        val h = att.height ?: 0
+        val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
         AstraImage(
-            url = att.url,
+            // A bolha mostra a MINIATURA (~720px); o original so e baixado ao abrir
+            // em tela cheia. Aqui a imagem aparece com ~320dp — baixar o WebP de
+            // 2048px pra isso era dez a vinte vezes mais bytes do que a tela usa.
+            // Anexo antigo (ou imagem que ja era pequena) nao tem thumb e cai no url.
+            url = att.thumbUrl ?: att.url,
             contentDescription = att.name,
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .heightIn(max = 240.dp)
+                // Reserva o espaco ANTES de a imagem chegar. Sem isto a bolha nasce
+                // com altura zero e empurra a conversa inteira pra baixo quando a
+                // foto carrega — e quem estava lendo perde a linha.
+                .then(if (proporcao != null) Modifier.aspectRatio(proporcao) else Modifier)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { openImage(att.url) },
             contentScale = ContentScale.Fit,
+            blurhash = att.blurhash,
+            proporcaoBlur = proporcao ?: 1.5f,
         )
     } else {
         val src = remember { MutableInteractionSource() }

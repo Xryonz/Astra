@@ -76,6 +76,15 @@ async function makeBlurhash(input: Buffer): Promise<string | undefined> {
   }
 }
 
+// Largura da miniatura. A bolha do chat mostra a imagem com ~400px de largura, e
+// ate agora ela baixava o WebP inteiro de 2048px pra isso — dez a vinte vezes mais
+// bytes do que a tela usa. 720 cobre a bolha com folga pra tela grande e continua
+// sendo uma fracao do original.
+const THUMB_PX = 720
+// Abaixo disso a miniatura seria do tamanho do original: gerar duas copias quase
+// iguais so gastaria espaco no bucket (que e de 1 GB) e uma requisicao a mais.
+const THUMB_MIN_PX = 1000
+
 async function maybeTranscode(file: Express.Multer.File): Promise<{
   buffer:   Buffer
   mime:     string
@@ -83,6 +92,7 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
   width?:   number
   height?:  number
   blurhash?: string
+  thumb?:   Buffer
 }> {
   const mime = file.mimetype.split(';')[0].toLowerCase()
 
@@ -98,6 +108,19 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
       .resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 82, effort: 4 })
       .toBuffer()
+
+    // Miniatura a partir do ORIGINAL, nao do WebP acima: recomprimir um WebP ja
+    // comprimido empilha artefato em cima de artefato.
+    const maiorLado = Math.max(meta.width ?? 0, meta.height ?? 0)
+    let thumb: Buffer | undefined
+    if (maiorLado >= THUMB_MIN_PX) {
+      thumb = await sharp(file.buffer, { failOn: 'none' })
+        .rotate()
+        .resize({ width: THUMB_PX, height: THUMB_PX, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 74, effort: 4 })
+        .toBuffer()
+    }
+
     return {
       buffer,
       mime:     'image/webp',
@@ -105,6 +128,7 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
       width:    meta.width,
       height:   meta.height,
       blurhash: await makeBlurhash(file.buffer),
+      thumb,
     }
   } catch (e) {
     console.warn('[upload] sharp falhou, fallback p/ original:', (e as Error).message)
@@ -146,9 +170,18 @@ router.post(
       const processed = await maybeTranscode(f)
       const id = crypto.randomBytes(16).toString('hex')
       const filename = `${id}${processed.ext}`
-      const url = await putAttachment(filename, processed.buffer, processed.mime)
+      // As duas em paralelo: sao dois PUT independentes e esperar em fila dobraria
+      // o tempo do upload sem motivo.
+      const [url, thumbUrl] = await Promise.all([
+        putAttachment(filename, processed.buffer, processed.mime),
+        processed.thumb
+          ? putAttachment(`${id}_t.webp`, processed.thumb, 'image/webp')
+          : Promise.resolve(undefined),
+      ])
       return {
         url,
+        // Ausente quando a imagem ja era pequena — o cliente cai no `url` sozinho.
+        thumbUrl,
         type:     processed.mime,
         name:     f.originalname,
         size:     processed.buffer.length,

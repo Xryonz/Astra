@@ -1,9 +1,7 @@
-import path from 'path'
-import fs from 'fs'
 import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { servers, channels, messages, notifications } from '../db/schema'
-import { UPLOAD_DIR } from '../routes/upload'
+import { removeAttachment } from './storage'
 import { logger } from './logger'
 
 const NOTIFICATION_TTL_DAYS = 30
@@ -36,13 +34,14 @@ export function startRetentionWorker() {
 
         for (const m of stale) {
           try {
-            const arr = JSON.parse(m.attachments || '[]') as Array<{ url: string }>
+            // O anexo pode ter miniatura; as duas somem junto com a mensagem.
+            const arr = JSON.parse(m.attachments || '[]') as Array<{ url: string; thumbUrl?: string }>
             for (const a of arr) {
-              if (a.url?.startsWith('/uploads/')) {
-                const fname = a.url.replace('/uploads/', '')
-                const p = path.join(UPLOAD_DIR, fname)
-                fs.unlink(p, () => {})
-              }
+              // removeAttachment sabe apagar do disco E do bucket. Antes so tratava
+              // '/uploads/', entao com storage no S3 este laco inteiro nao fazia nada
+              // e todo anexo de mensagem apagada virava objeto orfao, pra sempre.
+              await removeAttachment(a.url)
+              await removeAttachment(a.thumbUrl)
             }
           } catch {}
         }

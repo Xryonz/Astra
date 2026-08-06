@@ -3120,7 +3120,12 @@ private fun Stage(
                     // Sussurro não tem órbita nem categoria: a bot atende sempre.
                     ch?.botEnabled ?: cat?.botEnabled ?: true
                 }
-                ChatView(target, chatVm, onStartDm, botAqui = botAqui, serverId = server?.id)
+                ChatView(
+                    target, chatVm, onStartDm,
+                    botAqui = botAqui,
+                    serverId = server?.id,
+                    membros = if (target is ChatTarget.Channel) members else emptyList(),
+                )
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {

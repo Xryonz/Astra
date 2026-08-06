@@ -135,6 +135,7 @@ import org.koin.core.context.GlobalContext
 import app.astra.mobile.core.network.dto.AttachmentDto
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReplyToDto
+import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.shared.AstraShared
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -180,6 +181,9 @@ fun ChatView(
     botAqui: Boolean = true,
     // Constelacao do canal aberto. null em sussurro — la nao ha bot por orbita.
     serverId: String? = null,
+    // So pro autocomplete de @. Vazio em sussurro: mencionar quem ja e a unica
+    // outra pessoa da conversa nao serve pra nada.
+    membros: List<ServerMemberDto> = emptyList(),
 ) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
@@ -429,6 +433,27 @@ fun ChatView(
             // comeca com "/" e some assim que deixa de ser uma busca de comando.
             val allCommands = if (botAqui) rememberBotCommands() else emptyList()
             val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
+            // Autocomplete de @: olha o token no FIM do rascunho.
+            //
+            // Sem posicao de cursor — o compositor guarda uma String, nao um
+            // TextFieldValue — completar no meio do texto exigiria trocar o campo
+            // inteiro, e junto dele o envio, o insert de emoji e o de GIF. O caso
+            // real e digitar @ e continuar escrevendo; volto no meio do texto se
+            // isso incomodar de verdade.
+            val mencaoAlvo = remember(draft, membros) {
+                if (membros.isEmpty()) null else REGEX_MENCAO_ABERTA.find(draft)
+            }
+            val candidatos = remember(mencaoAlvo, membros) {
+                val q = mencaoAlvo?.groupValues?.get(1)?.lowercase() ?: return@remember emptyList()
+                membros.asSequence()
+                    .filter { m ->
+                        q.isEmpty() ||
+                            m.user.username.startsWith(q, ignoreCase = true) ||
+                            m.user.displayName.orEmpty().startsWith(q, ignoreCase = true)
+                    }
+                    .take(8)
+                    .toList()
+            }
             // Os prefixos VEM DA LISTA que o backend mandou (o 1o pedaco de cada
             // comando), nao de uma copia cravada aqui. Eles mudam de nome conforme
             // o dia (/sparkle na semana, /sparxie no fim de semana); uma lista
@@ -447,6 +472,16 @@ fun ChatView(
                 draft = ""
             }
             val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
+            // As duas caixinhas nunca aparecem juntas: comando so casa no COMECO
+            // ("/x"), mencao so no FIM ("…@x"). O guard existe pra o dia em que
+            // uma das duas regras mudar e ninguem lembrar desta.
+            if (candidatos.isNotEmpty() && matches.isEmpty()) {
+                MencaoPalette(candidatos) { escolhido ->
+                    val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
+                    draft = draft.substring(0, inicio) + "@" + escolhido.user.username + " "
+                }
+                Spacer(Modifier.height(6.dp))
+            }
             CommandPalette(matches) { picked ->
                 // Escolher deixa o comando pronto com um espaco. O que a caixinha
                 // mostra inclui o rotulo do argumento ("/sparxie desejo <seu
@@ -995,6 +1030,57 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(s
             append(s.substring(a + 1, b))
         }
         i = b + 1
+    }
+}
+
+// Mencao ABERTA: o @ que esta sendo digitado agora, colado no fim do rascunho.
+// Aceita vazio ("@") de proposito — assim a lista abre no instante em que voce
+// digita o arroba, antes de saber o nome, que e justamente quando ela serve.
+private val REGEX_MENCAO_ABERTA = Regex("@([A-Za-z0-9_]*)$")
+
+// Lista de membros pra completar o @. Mesma casca da caixinha de comandos: cartao
+// obsidiana ACIMA do compositor, porque abaixo ele ficaria fora da janela.
+@Composable
+private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .padding(4.dp),
+    ) {
+        itens.forEach { m ->
+            val src = remember(m.userId) { MutableInteractionSource() }
+            val hov by src.collectIsHoveredAsState()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(if (hov) Obsidian.hover else Color.Transparent)
+                    .hoverable(src)
+                    .clickable(interactionSource = src, indication = null) { onPick(m) }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DesktopAvatar(m.user.avatarUrl, m.user.displayName ?: m.user.username, 22)
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    m.user.displayName ?: m.user.username,
+                    style = TextStyle(color = if (hov) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(7.dp))
+                // O @usuario aparece SEMPRE, mesmo quando ha apelido: e ele que vai
+                // parar no texto, e esconder isso faria a mensagem sair diferente
+                // do que a caixinha prometeu.
+                Text(
+                    "@" + m.user.username,
+                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

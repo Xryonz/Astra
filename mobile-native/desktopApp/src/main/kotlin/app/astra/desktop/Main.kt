@@ -38,6 +38,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.di.appModule
+import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
@@ -186,6 +187,10 @@ fun main() {
     // Retrato do boot (API grafica do Skia, GC, heap) num arquivo legivel.
     writeDiagnostics()
     startKoin { modules(appModule) }
+    // Avisar o servidor ao sair, pra a pessoa ficar offline na hora em vez de
+    // depois do timeout de ping. Aqui e nao dentro do application{}: precisa valer
+    // pra qualquer saida, inclusive as que nunca passam pela janela.
+    GlobalContext.get().get<DesktopSocket>().registrarDespedida()
     application {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).
         var windowVisible by remember { mutableStateOf(true) }

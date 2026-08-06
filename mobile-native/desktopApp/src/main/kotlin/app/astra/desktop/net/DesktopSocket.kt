@@ -542,6 +542,32 @@ class DesktopSocket(
     fun startDmTyping(conversationId: String) { socket?.emit("dm_typing_start", conversationId) }
     fun stopDmTyping(conversationId: String) { socket?.emit("dm_typing_stop", conversationId) }
 
+    // TCHAU EXPLICITO AO FECHAR O APP.
+    //
+    // O backend so marca OFFLINE quando o socket cai, e ele descobre isso de dois
+    // jeitos com custos MUITO diferentes: fechamento limpo (frame de close) e na
+    // hora; queda abrupta e so pelo relogio — pingInterval 25s + pingTimeout 20s,
+    // ou seja, ate ~45 segundos de fantasma online.
+    //
+    // Sair do app nunca mandava esse frame: exitApplication/exitProcess derrubam a
+    // JVM e o socket morre junto, sem despedida. Por isso "fechei e continuo online
+    // por vários segundos" — nao era lentidao de rede, era ninguem avisar.
+    //
+    // Registrado como shutdown hook pra cobrir TODAS as saidas de uma vez: o X, o
+    // "Sair" da bandeja e o exitProcess do atualizador. Nao cobre kill -9, e nao
+    // tem como cobrir — nesse caso o relogio do servidor volta a ser a rede de
+    // seguranca, que e exatamente pra isso que ele existe.
+    fun registrarDespedida() {
+        Runtime.getRuntime().addShutdownHook(
+            Thread {
+                runCatching { socket?.disconnect() }
+                // O disconnect e assincrono: sem esta pausa a JVM pode terminar
+                // antes de o frame sair do buffer, e ai a despedida nao acontece.
+                runCatching { Thread.sleep(250) }
+            },
+        )
+    }
+
     fun disconnect() {
         // Primeiro desliga a VONTADE de estar conectado: senao o vigia de 5s
         // reconectaria sozinho logo depois do logout, com a conta que acabou de sair.

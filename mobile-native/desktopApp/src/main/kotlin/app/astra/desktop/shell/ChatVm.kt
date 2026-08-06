@@ -69,6 +69,7 @@ data class ChatMessage(
     val mine: Boolean = false,
     val edited: Boolean = false,
     val reactions: List<ReactionDto> = emptyList(),
+    val mentions: List<String> = emptyList(),
     val replyTo: ReplyToDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
     // Enquete: a mensagem VIRA a enquete (nao e anexo). O backend guarda o objeto
@@ -807,7 +808,7 @@ class ChatVm(
             // uma mensagem sem dono nunca deve passar por minha.
             mine = autor.isNotBlank() && autor == myId,
             edited = edited,
-            reactions = reactions, replyTo = replyTo,
+            reactions = reactions, mentions = mentions, replyTo = replyTo,
             attachments = attachments,
             poll = poll,
             clientNonce = clientNonce,

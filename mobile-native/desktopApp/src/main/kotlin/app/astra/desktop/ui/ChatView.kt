@@ -594,6 +594,10 @@ private fun MessageRow(
     // composable e alimentava .alpha()/.background() — a linha inteira (avatar,
     // texto, timestamp) recompunha 60fps durante todo hover/fade. Agora so
     // redesenha. (Auditoria de movimento, achado #3.)
+    // Por ID e nao pelo texto: e o servidor quem decide quem foi mencionado (ele
+    // resolve @nome contra os membros REAIS da constelacao). Escrever "@fulano"
+    // sem fulano existir nao acende barra nenhuma, que e o certo.
+    val meMencionou = LocalMinhaConta.current.id?.let { it in msg.mentions } == true
     val rowAlpha = animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS), label = "rowAlpha")
     val bg = animateColorAsState(
         when {
@@ -659,6 +663,13 @@ private fun MessageRow(
                 drawRect(bg.value)
                 // Brilho de "mensagem acende" por cima do fundo, decaindo a 0.
                 if (glow.value > 0f) drawRect(Obsidian.accent.copy(alpha = glow.value))
+                // Barra de mencao: 2dp na borda esquerda, so quando VOCE foi
+                // chamado. Fica na fase de desenho junto do resto — um Box a mais
+                // no layout custaria medida em todas as linhas pra pintar duas
+                // colunas de pixel em quase nenhuma.
+                if (meMencionou) {
+                    drawRect(Obsidian.accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
+                }
             }
             .hoverable(interaction),
     ) {
@@ -797,11 +808,13 @@ private fun ContentBlock(
         // AnnotatedString novo TODA vez que a linha recompoe — e ela recompoe por
         // motivos que nao tem nada a ver com o texto (passar o mouse, chegar
         // mensagem nova, mudar a densidade). E o caminho mais quente do app.
+        // Entra na chave do remember: trocar de conta muda QUAL @ ganha fundo.
+        val meuUsuario = LocalMinhaConta.current.usuario
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
-                text = remember(msg.content, msg.edited) {
+                text = remember(msg.content, msg.edited, meuUsuario) {
                     buildAnnotatedString {
-                        appendInlineCoded(msg.content)
+                        appendInlineCoded(msg.content, meuUsuario)
                         if (msg.edited) {
                             withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
                         }
@@ -814,7 +827,7 @@ private fun ContentBlock(
                 if (i > 0) Spacer(Modifier.height(4.dp))
                 when (seg) {
                     is Seg.Txt -> Text(
-                        text = remember(seg.s) { buildAnnotatedString { appendInlineCoded(seg.s) } },
+                        text = remember(seg.s, meuUsuario) { buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario) } },
                         style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
                     )
                     is Seg.Code -> CodeBox(seg)
@@ -966,22 +979,47 @@ private fun parseSegments(content: String): List<Seg> {
     return out.filter { it !is Seg.Txt || it.s.isNotBlank() }
 }
 
-// `inline code` vira span DM Mono com fundo.
-private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(s: String) {
+// `inline code` vira span DM Mono com fundo. Fora das crases, @usuario vira mencao.
+// A ordem importa: `@fulano` dentro de crase e codigo, nao mencao.
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(s: String, meuUsuario: String? = null) {
     var i = 0
     while (true) {
         val a = s.indexOf('`', i)
         val b = if (a >= 0) s.indexOf('`', a + 1) else -1
         if (a < 0 || b < 0) {
-            append(s.substring(i))
+            appendComMencoes(s.substring(i), meuUsuario)
             return
         }
-        append(s.substring(i, a))
+        appendComMencoes(s.substring(i, a), meuUsuario)
         withStyle(SpanStyle(fontFamily = DmMono, background = Obsidian.base, fontSize = 12.sp)) {
             append(s.substring(a + 1, b))
         }
         i = b + 1
     }
+}
+
+// Mesma regra do backend (lib/mentions.ts): @ seguido de letras, numeros e _.
+// Divergir aqui pintaria de ambar algo que o servidor nunca notificou.
+private val REGEX_MENCAO = Regex("@([A-Za-z0-9_]+)")
+
+// @usuario em ambar; o MEU ganha fundo. Ambar sozinho ja diz "tem gente marcada",
+// mas nao diz "e voce" — e essa e a unica distincao que muda o que voce faz com a
+// mensagem. Por isso o peso visual fica reservado pro seu caso.
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(s: String, meuUsuario: String?) {
+    var i = 0
+    for (m in REGEX_MENCAO.findAll(s)) {
+        append(s.substring(i, m.range.first))
+        val minha = !meuUsuario.isNullOrBlank() && m.groupValues[1].equals(meuUsuario, ignoreCase = true)
+        withStyle(
+            SpanStyle(
+                color = Obsidian.accent,
+                fontWeight = FontWeight.Medium,
+                background = if (minha) Obsidian.accent.copy(alpha = 0.16f) else Color.Transparent,
+            ),
+        ) { append(m.value) }
+        i = m.range.last + 1
+    }
+    append(s.substring(i))
 }
 
 @Composable

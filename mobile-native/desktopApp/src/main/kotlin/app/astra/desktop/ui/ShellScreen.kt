@@ -359,6 +359,7 @@ fun ShellScreen(
     CompositionLocalProvider(
         LocalReduceMotion provides prefState.reduceMotionEff,
         LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
+        LocalMinhaConta provides MinhaConta(session.userId, state.me?.username),
     ) {
     Box(
         Modifier

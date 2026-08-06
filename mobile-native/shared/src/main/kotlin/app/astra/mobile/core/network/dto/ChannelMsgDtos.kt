@@ -19,6 +19,10 @@ data class ChannelMessageDto(
     val edited: Boolean = false,
     val pinned: Boolean = false,
     val reactions: List<ReactionDto> = emptyList(),
+    // Ids de quem foi mencionado. O backend ja resolvia "@usuario" -> userId desde
+    // sempre (lib/mentions.ts) e mandava isto no payload; o desktop e que descartava
+    // o campo, entao mencao chegava e ninguem via.
+    val mentions: List<String> = emptyList(),
     val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),

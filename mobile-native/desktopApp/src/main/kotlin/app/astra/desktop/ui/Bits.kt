@@ -171,6 +171,13 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolea
 // CascadeIn) e os pulsos leem daqui.
 val LocalReduceMotion = staticCompositionLocalOf { false }
 
+// Quem sou eu, pra quem desenha mensagem. Vem por CompositionLocal e nao por
+// parametro porque o destaque de mencao mora na FOLHA da arvore (o span de texto
+// dentro da bolha), e enfiar dois campos por quatro camadas de assinatura so pra
+// pintar uma palavra e pior que a magia.
+data class MinhaConta(val id: String? = null, val usuario: String? = null)
+val LocalMinhaConta = staticCompositionLocalOf { MinhaConta() }
+
 // Janela "ativa" = visivel E não minimizada (provido no Main a partir do estado
 // da janela). Aurora e estrelas gastam frame SO quando ativa — na bandeja/
 // minimizada param (guardrail do dono). IMPORTANTE: e diferente de "focada".

@@ -123,6 +123,7 @@ import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
 import app.astra.desktop.shell.ShellVm
+import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
@@ -147,6 +148,7 @@ import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
+import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Ban
@@ -428,6 +430,18 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
+        // Estado proprio (a rail tem o dela): sao dois pontos de entrada distantes
+        // pro mesmo dialogo, e hoistar o da rail pra ca so pra economizar quatro
+        // linhas mexeria numa assinatura que ja esta grande demais.
+        var convidarPelaFaixa by remember { mutableStateOf<ServerDto?>(null) }
+        convidarPelaFaixa?.let { alvo ->
+            InvitePeopleDialog(
+                serverName = alvo.name,
+                inviteCode = alvo.inviteCode,
+                onAdd = { username, onResult -> vm.addMember(alvo.id, username, onResult) },
+                onClose = { convidarPelaFaixa = null },
+            )
+        }
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -458,7 +472,9 @@ fun ShellScreen(
             loading = state.loading,
             members = state.members,
             voicePresence = state.voicePresence,
+            memberPresence = state.memberPresence,
             myId = session.userId,
+            onConvidar = { convidarPelaFaixa = it },
             // Eu-otimista na sidebar so quando ESTOU CONECTADO (voice.joined), não
             // quando so abri a antessala (state.voiceChannel). Antes o meu ícone
             // aparecia sob o canal no instante em que eu clicava nele, sem entrar.
@@ -1458,27 +1474,56 @@ private fun BotaoDaFaixa(
     }
 }
 
-// A faixa logo abaixo do banner: membros (abre/fecha o painel da direita) e
-// engrenagem (configuracoes da constelacao).
+// A faixa logo abaixo do banner: nome da constelação, quantas pessoas ha, e as
+// acoes (convidar, membros, configuracoes).
+//
+// O NOME MUDOU DE LUGAR. Vivia por cima da imagem, com um scrim escuro embaixo
+// tentando salvar a leitura — e banner claro ganhava do scrim. Aqui ele fica sobre
+// a obsidiana, sempre legivel, e de quebra a faixa deixa de ser dois botoes
+// flutuando num vazio.
 //
 // A engrenagem so aparece pra quem manda. Ela existia so no menu de botao
 // direito da rail — atalho invisivel pra quem nao sabe que ele existe.
 @Composable
 private fun FaixaDaConstelacao(
+    nome: String,
+    membros: Int,
+    online: Int,
     membrosAbertos: Boolean,
     onToggleMembros: () -> Unit,
+    onConvidar: () -> Unit,
     podeConfigurar: Boolean,
     onAbrirConfig: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-        // Encostados na DIREITA (pedido do dono): o lado esquerdo e a coluna de
-        // leitura da lista de orbitas — botao de acao ali disputa com ela.
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+        Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                nome,
+                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // O ponto e o unico sinal de vida da faixa: sem ele, "4 online" le
+                // como numero de relatorio em vez de gente do outro lado.
+                Box(Modifier.size(5.dp).clip(CircleShape).background(Obsidian.success))
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    "$online online · $membros " + if (membros == 1) "membro" else "membros",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        BotaoDaFaixa(Lucide.UserPlus, onClick = onConvidar)
+        Spacer(Modifier.width(6.dp))
         BotaoDaFaixa(Lucide.Users, aceso = membrosAbertos, onClick = onToggleMembros)
         if (podeConfigurar) {
+            Spacer(Modifier.width(6.dp))
             BotaoDaFaixa(Lucide.Settings, onClick = onAbrirConfig)
         }
     }
@@ -1509,12 +1554,9 @@ private fun ServerHeaderBanner(srv: ServerDto) {
                 ),
             ),
         )
-        Text(
-            text = srv.name,
-            style = TextStyle(color = Obsidian.text1, fontSize = 16.sp, fontFamily = DmSerif),
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 14.dp, vertical = 11.dp),
-        )
+        // O nome saiu daqui pra FaixaDaConstelacao logo abaixo (banner claro comia
+        // o texto mesmo com scrim). O scrim FICA: ele ainda casa a base da imagem
+        // com a obsidiana da faixa, sem o corte reto que havia antes.
     }
 }
 
@@ -1532,8 +1574,10 @@ private fun Sidebar(
     loading: Boolean,
     members: List<ServerMemberDto>,
     voicePresence: Map<String, List<String>>,
+    memberPresence: Map<String, String>,
     myId: String?,
     myVoiceChannelId: String?,
+    onConvidar: (ServerDto) -> Unit,
     onOpenChat: (ChatTarget) -> Unit,
     onOpenVoice: (ChannelDto) -> Unit,
     onToggleMute: (ConversationDto) -> Unit,
@@ -1620,8 +1664,15 @@ private fun Sidebar(
                         // Substitui o header de texto simples (que segue nos sussurros/descobrir).
                     }) { ServerHeaderBanner(srv) }
                     FaixaDaConstelacao(
+                        nome = srv.name,
+                        membros = members.size,
+                        // Eu conto sempre: estou olhando o app agora. Mesma regra do
+                        // painel de membros — duas contagens divergentes na mesma
+                        // tela seriam pior que qualquer imprecisao.
+                        online = members.count { it.userId == myId || memberPresence[it.userId]?.let { p -> p != "OFFLINE" } == true },
                         membrosAbertos = membersOpen,
                         onToggleMembros = onToggleMembers,
+                        onConvidar = { onConvidar(srv) },
                         podeConfigurar = isOwnerHere || canManageSelected(srv.id),
                         onAbrirConfig = { onOpenServerSettings(srv.id) },
                     )

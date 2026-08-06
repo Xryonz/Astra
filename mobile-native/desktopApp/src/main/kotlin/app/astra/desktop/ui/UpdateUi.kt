@@ -1,6 +1,9 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -59,6 +62,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.update.UpdateService
@@ -199,7 +203,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
                 },
             )
             Spacer(Modifier.height(16.dp))
-            ThinProgress(barProgress, statusLabel)
+            ThinProgress(barProgress, statusLabel, reduceMotion)
         }
     }
 }
@@ -209,17 +213,38 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 // No download o preenchimento e o progresso REAL; no hold comum e a barra sintetica
 // que sobe devagar. Canvas (não Box) pra uma única passada numa tela que abre na hora.
 @Composable
-private fun ThinProgress(progress: Float, label: String) {
+private fun ThinProgress(progress: Float, label: String, reduceMotion: Boolean) {
     Column(
         Modifier.fillMaxWidth(0.62f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            label,
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.4.sp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // As palavras trocavam por corte seco, o que numa tela parada e a unica
+        // coisa que se move — lia como falha de renderizacao. Agora a que sai sobe
+        // e apaga, e a que entra vem de baixo: um teleprompter, nao um piscar.
+        //
+        // A entrada espera a saida terminar (delay = duracao da saida). Cruzadas,
+        // as duas frases se sobrepoem no mesmo ponto e viram borrao ilegivel.
+        AnimatedContent(
+            targetState = label,
+            transitionSpec = {
+                val dur = if (reduceMotion) 0 else 1
+                (
+                    fadeIn(tween(220 * dur, delayMillis = 140 * dur)) +
+                        slideInVertically(tween(280 * dur, delayMillis = 140 * dur, easing = EaseOutStd)) { it / 2 }
+                    ).togetherWith(
+                    fadeOut(tween(140 * dur)) +
+                        slideOutVertically(tween(180 * dur, easing = EaseOutStd)) { -it / 2 },
+                ) using SizeTransform(clip = false)
+            },
+            label = "palavraEspacial",
+        ) { palavra ->
+            Text(
+                palavra,
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.4.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Spacer(Modifier.height(9.dp))
         Canvas(Modifier.fillMaxWidth().height(2.dp)) {
             val h = size.height
@@ -236,14 +261,15 @@ private fun ThinProgress(progress: Float, label: String) {
 }
 
 // Palavras "espaciais" que trocam conforme a barra enche — dao a sensacao de que
-// algo esta sendo feito (pedido do dono: "alinhando órbitas" e afins). ASCII de
-// proposito (convencao do projeto: sem acento em string literal).
+// algo esta sendo feito. Acentuadas: a convencao de ASCII vale pra COMENTARIO e
+// nome de coisa no codigo, nunca pra texto que a pessoa le. "tracando" e "quase
+// la" tinham escapado e apareciam errados na primeira tela do app.
 private val SPACE_WORDS = listOf(
     "acordando o cosmos",
     "alinhando órbitas",
-    "tracando a rota estelar",
+    "traçando a rota estelar",
     "calibrando constelações",
-    "quase la",
+    "quase lá",
 )
 
 private fun spaceWord(progress: Float): String =

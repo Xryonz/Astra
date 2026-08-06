@@ -48,6 +48,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.astra.desktop.auth.SessionStore
+import app.astra.desktop.shell.HISTORICO_DESTINOS
+import app.astra.desktop.shell.SEP_HISTORICO
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -58,6 +61,7 @@ import app.astra.mobile.core.network.dto.SearchResultsDto
 import app.astra.mobile.core.network.dto.SearchUserDto
 import com.composables.icons.lucide.Hash
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Volume2
 import kotlinx.coroutines.delay
@@ -77,7 +81,22 @@ fun SearchOverlay(
     onClose: () -> Unit,
     onOpenChannel: (serverId: String, channelId: String, name: String) -> Unit,
     onWhisper: (username: String, title: String) -> Unit,
+    onOpenDm: (convId: String, title: String) -> Unit,
 ) {
+    // Historico gravado pelo ShellVm a cada conversa aberta (em qualquer lugar do
+    // app, nao so aqui). Lido UMA vez, na abertura: a lista muda quando voce navega,
+    // e voce nao navega com esta tela na frente.
+    val recentes = remember {
+        val store = GlobalContext.get().get<SessionStore>()
+        store.uiPref(HISTORICO_DESTINOS)?.split('\n').orEmpty().mapNotNull { linha ->
+            val p = linha.split(SEP_HISTORICO)
+            when {
+                p.size == 4 && p[0] == "c" -> Recente(orbita = true, serverId = p[1], id = p[2], nome = p[3])
+                p.size == 3 && p[0] == "d" -> Recente(orbita = false, serverId = "", id = p[1], nome = p[2])
+                else -> null
+            }
+        }
+    }
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(SearchTab.ALL) }
     // Sem constelação aberta (ex.: nos sussurros), busca sempre global.
@@ -166,6 +185,22 @@ fun SearchOverlay(
 
             val empty = msgs.isEmpty() && chans.isEmpty() && people.isEmpty()
             when {
+                // Campo vazio deixou de ser uma tela morta com uma instrucao. Os
+                // ultimos destinos transformam a lupa em atalho pra onde voce estava
+                // — que e o motivo pra abrir isto sem ter o que digitar.
+                query.trim().length < 2 && recentes.isNotEmpty() -> LazyColumn(
+                    Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    item { SectionLabel("recentes") }
+                    items(recentes.size) { i ->
+                        val r = recentes[i]
+                        RecenteResult(r) {
+                            if (r.orbita) onOpenChannel(r.serverId, r.id, r.nome) else onOpenDm(r.id, r.nome)
+                            onClose()
+                        }
+                    }
+                }
                 query.trim().length < 2 -> Hint("digite ao menos 2 letras")
                 loading && empty -> Hint("procurando…")
                 empty -> Hint("nada encontrado")
@@ -213,6 +248,25 @@ fun SearchOverlay(
 @Composable
 private fun Hint(t: String) {
     Text(t, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.padding(vertical = 16.dp))
+}
+
+// Um destino do historico. Orbita guarda a constelacao junto porque reabrir um
+// canal exige selecionar a constelacao antes; sussurro nao precisa de nada alem
+// do id da conversa.
+private data class Recente(val orbita: Boolean, val serverId: String, val id: String, val nome: String)
+
+@Composable
+private fun RecenteResult(r: Recente, onClick: () -> Unit) = ResultRow(onClick) {
+    Box(Modifier.size(28.dp).clip(RoundedCornerShape(7.dp)).background(Obsidian.base), contentAlignment = Alignment.Center) {
+        LIcon(if (r.orbita) Lucide.Hash else Lucide.MessageCircle, tint = Obsidian.text3, size = 15.dp)
+    }
+    Spacer(Modifier.width(10.dp))
+    Text(
+        r.nome,
+        style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+        maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f),
+    )
 }
 
 @Composable

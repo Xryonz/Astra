@@ -673,6 +673,12 @@ fun ShellScreen(
                     vm.openChat(ChatTarget.Channel(cid, name))
                 },
                 onWhisper = { username, title -> vm.startDm(username, title) },
+                // Sussurro do historico ja tem id de conversa: abre direto, sem
+                // passar pelo startDm (que resolve @usuario -> conversa).
+                onOpenDm = { convId, title ->
+                    vm.select(Selection.Dms)
+                    vm.openChat(ChatTarget.Dm(convId, title))
+                },
             )
         }
 

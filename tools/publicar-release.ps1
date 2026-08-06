@@ -100,13 +100,22 @@ Write-Host "asset enviado."
 # resposta do -UseBasicParsing nao tem .Headers.Location — devolve vazio calado,
 # que e o pior resultado possivel numa verificacao. Com AllowAutoRedirect = $false
 # o 302 volta como resposta normal nas duas versoes.
-$req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
-$req.AllowAutoRedirect = $false
-$req.UserAgent = 'Astra-Publicar'
-$resp = $req.GetResponse()
-$loc = $resp.Headers['Location']
-$resp.Close()
-$tagVista = ("$loc" -split '/releases/tag/')[-1]
+# O ponteiro /releases/latest demora alguns segundos pra andar depois do upload.
+# Sem esta espera o script ja gritou "o app nao vai achar" duas vezes com a
+# release perfeita no ar — e alarme falso repetido treina a gente a ignorar o
+# alarme, que e o pior estrago possivel numa verificacao.
+$tagVista = ''
+foreach ($tentativa in 1..5) {
+  $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
+  $req.AllowAutoRedirect = $false
+  $req.UserAgent = 'Astra-Publicar'
+  $resp = $req.GetResponse()
+  $loc = $resp.Headers['Location']
+  $resp.Close()
+  $tagVista = ("$loc" -split '/releases/tag/')[-1]
+  if ($tagVista -eq $tag) { break }
+  if ($tentativa -lt 5) { Start-Sleep -Seconds 4 }
+}
 # GET de UM byte, nao HEAD. O CDN de assets do GitHub recusa HEAD as vezes
 # (404 com o arquivo intacto no ar) e isso ja deu falso negativo aqui: o script
 # gritou "o app nao vai achar" com a release perfeita. Alem disso o app baixa com

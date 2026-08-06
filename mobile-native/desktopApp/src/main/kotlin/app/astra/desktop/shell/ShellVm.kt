@@ -125,6 +125,12 @@ data class ShellUiState(
 
 // Estado do shell. Sem ViewModel no desktop: classe simples presa ao escopo da
 // composicao (rememberCoroutineScope).
+// Historico de destinos (ver registrarDestino). Chave e separador ficam aqui pra
+// a tela de busca, que LE o mesmo formato, importar em vez de repetir a string.
+const val HISTORICO_DESTINOS = "historicoDestinos"
+const val SEP_HISTORICO = "\u0001"
+private const val TETO_HISTORICO = 12
+
 class ShellVm(
     private val scope: CoroutineScope,
     private val serverApi: ServerApi,
@@ -333,8 +339,39 @@ class ShellVm(
         // Mesma conversa já aberta: não recria o ChatVm (evitaria recarregar tudo
         // + replay do fade). As mensagens novas já chegam pelo socket em tempo real.
         if (_state.value.chat == target) return
+        registrarDestino(target)
         _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id, unreadCounts = it.unreadCounts - target.id) }
         saveLocation()
+    }
+
+    // HISTORICO DE DESTINOS — alimenta a lista que a busca mostra com o campo vazio.
+    //
+    // Fica AQUI e nao na tela de busca porque este e o funil por onde passa toda
+    // abertura de conversa: sidebar, Ctrl+K, clique num resultado, retomada do
+    // ultimo lugar. Gravar so o que sai da busca faria o historico nascer vazio e
+    // continuar vazio, ja que quase nada se abre por ali.
+    //
+    // Uma linha por destino; campos separados por U+0001, escrito como escape e
+    // NUNCA como caractere literal no fonte (controle invisivel nao sobrevive a
+    // copia/cola e some sem deixar rastro). Separador exotico porque nome de orbita
+    // aceita "|", ":" e praticamente qualquer pontuacao.
+    private fun registrarDestino(target: ChatTarget) {
+        val entrada = when (target) {
+            is ChatTarget.Channel -> {
+                // A constelacao vem da selecao atual: ChatTarget.Channel so carrega
+                // id e titulo, e sem o serverId nao da pra reabrir de fora.
+                val sid = (_state.value.selection as? Selection.Server)?.id ?: return
+                listOf("c", sid, target.id, target.title).joinToString(SEP_HISTORICO)
+            }
+            is ChatTarget.Dm -> listOf("d", target.id, target.title).joinToString(SEP_HISTORICO)
+        }
+        // Chave = tudo menos o nome. Reabrir a mesma conversa depois de um apelido
+        // novo tem que ATUALIZAR a entrada, nao empilhar uma segunda igual.
+        val chave = entrada.substringBeforeLast(SEP_HISTORICO)
+        val atual = store.uiPref(HISTORICO_DESTINOS)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
+        val nova = (listOf(entrada) + atual.filterNot { it.substringBeforeLast(SEP_HISTORICO) == chave })
+            .take(TETO_HISTORICO)
+        store.setUiPref(HISTORICO_DESTINOS, nova.joinToString("\n"))
     }
 
     // Menu de botao direito (F4) ------------------------------------------------

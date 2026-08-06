@@ -152,12 +152,6 @@ private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDe
 private const val FADE_MS = 340
 
 private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "🔥")
-private val GRID_EMOJIS = listOf(
-    "😀", "😅", "🤣", "😊", "😍", "😘", "😎",
-    "🤔", "😴", "😭", "😡", "🤯", "🥳", "😇",
-    "🙏", "👏", "👀", "💀", "✨", "💜", "💔",
-    "✅", "❌", "⚡", "🎉", "🎮", "🎧", "🌙",
-)
 
 private fun hhmm(iso: String?): String =
     iso?.let { runCatching { HHMM.format(Instant.parse(it)) }.getOrNull() } ?: ""
@@ -1162,11 +1156,10 @@ internal fun ReactionPicker(onPick: (String) -> Unit) {
         }
         if (expanded) {
             Spacer(Modifier.height(4.dp))
-            GRID_EMOJIS.chunked(7).forEach { rowEmojis ->
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    rowEmojis.forEach { e -> EmojiCell(e) { onPick(e) } }
-                }
-            }
+            // A grade de 28 glifos cravados virou o catalogo inteiro (EmojiPicker):
+            // ~700 em oito categorias, com busca e recentes. Os seis rapidos de cima
+            // continuam — eles resolvem 90% das reacoes sem abrir nada.
+            EmojiPicker(onPick = onPick)
         }
     }
 }

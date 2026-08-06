@@ -105,6 +105,11 @@ class DesktopPrefs(private val store: SessionStore) {
         // mic (Java Sound); saida = alto-falante (ADM do WebRTC).
         val audioInput: String? = null,
         val audioOutput: String? = null,
+        // Emojis usados por ultimo, do mais recente pro mais antigo. Local e nao no
+        // backend de proposito: e preferencia de MAQUINA (o teclado que voce usa
+        // aqui), nao de conta — e sincronizar isso custaria uma escrita no servidor
+        // a cada emoji clicado.
+        val emojiRecentes: List<String> = emptyList(),
     ) {
         // Flags EFETIVAS que o shell consome: o modo desempenho sobrepoe.
         val auroraOn: Boolean get() = auroraEnabled && !performanceMode
@@ -139,6 +144,9 @@ class DesktopPrefs(private val store: SessionStore) {
         micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
         audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
+        // Separados por espaco: nenhum emoji contem espaco, entao nao ha o que
+        // escapar.
+        emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
     )
 
     private fun persist(key: String, on: Boolean) = store.setUiPref(key, if (on) "1" else "0")
@@ -253,5 +261,17 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setAudioOutput(v: String?) {
         store.setUiPref("audioOutput", v ?: "")
         _state.update { it.copy(audioOutput = v) }
+    }
+
+    // O emoji usado vai pro topo. Guarda poucos de proposito: "recentes" com 60
+    // itens nao e recente, e a linha do seletor mostra uma fileira so.
+    fun registrarEmoji(glifo: String) {
+        val nova = (listOf(glifo) + _state.value.emojiRecentes.filter { it != glifo }).take(TETO_RECENTES)
+        store.setUiPref("emojiRecentes", nova.joinToString(" "))
+        _state.update { it.copy(emojiRecentes = nova) }
+    }
+
+    private companion object {
+        const val TETO_RECENTES = 24
     }
 }

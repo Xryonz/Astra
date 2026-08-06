@@ -45,10 +45,20 @@ Empacote antes:
 $mb = [math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host "zip    : $zip ($mb MB)"
 
-# ---- 3. Token ----
+# ---- 3. Credencial ----
+# Ordem: variavel de ambiente > gh CLI. O gh guarda a credencial no Gerenciador
+# de Credenciais do Windows (cifrada pelo perfil), entao no caminho normal nao
+# existe token em texto puro em lugar nenhum da maquina.
 $token = $env:GITHUB_TOKEN
 if ([string]::IsNullOrWhiteSpace($token)) {
-  throw 'defina $env:GITHUB_TOKEN (escopo repo) antes de rodar'
+  $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+  if (-not $gh -and (Test-Path 'C:\Program Files\GitHub CLI\gh.exe')) {
+    $gh = 'C:\Program Files\GitHub CLI\gh.exe'   # instalado agora, ainda fora do PATH desta sessao
+  }
+  if ($gh) { $token = try { & $gh auth token | Select-Object -First 1 } catch { $null } }
+}
+if ([string]::IsNullOrWhiteSpace($token)) {
+  throw 'sem credencial: rode `gh auth login` (ou defina $env:GITHUB_TOKEN com escopo repo)'
 }
 $headers = @{
   Authorization = "Bearer $token"

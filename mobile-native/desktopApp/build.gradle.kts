@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
 import java.util.zip.ZipFile
 
-// :desktopApp ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â cliente desktop do Astra (Compose Multiplatform / JVM).
+// :desktopApp ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â cliente desktop do Astra (Compose Multiplatform / JVM).
 // D0: so abre uma janela obsidiana. O codigo compartilhado (dominio/dados/UI)
 // entra num :shared em D1+; por ora este modulo e standalone e NAO toca no :app.
 plugins {
@@ -62,7 +62,7 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.67"
+val astraVersion = "0.1.68"
 
 dependencies {
     implementation(project(":shared"))
@@ -77,7 +77,7 @@ dependencies {
     // Imagens: Coil3 e KMP, mesmos artefatos do Android rodam no desktop.
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
-    // Icones Lucide (mesma lib/versao do :app Android) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â variante -jvm. Os ~1.7k
+    // Icones Lucide (mesma lib/versao do :app Android) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â variante -jvm. Os ~1.7k
     // ImageVectors ficam sob com.composables.icons.lucide.* (igual ao mobile).
     implementation(libs.lucide.icons.jvm)
     // Realtime: socket.io-client e Java puro (mesma lib do Android, mesmo backend).
@@ -86,9 +86,9 @@ dependencies {
     // (Input, Dialog, ...) rodam identicos no desktop.
     implementation(libs.rikkaui.foundation)
     implementation(libs.rikkaui.components)
-    // DPAPI (CryptProtectData) pro SessionStore ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â tokens cifrados em repouso.
+    // DPAPI (CryptProtectData) pro SessionStore ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â tokens cifrados em repouso.
     implementation(libs.jna.platform)
-    // Vidro/blur real (backdrop) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â haze e CMP, mesma lib do Android.
+    // Vidro/blur real (backdrop) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â haze e CMP, mesma lib do Android.
     implementation(libs.haze)
     // Voz nativa (fase V1+): WebRTC pra JVM + natives do Windows por classifier.
     implementation(libs.webrtc.java)
@@ -104,7 +104,7 @@ dependencies {
     implementation(libs.protobuf.java)
 }
 
-// Baixa o ffmpeg.exe (com ddagrab) pro appResources se faltar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â o binario e
+// Baixa o ffmpeg.exe (com ddagrab) pro appResources se faltar ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â o binario e
 // grande e fica FORA do git. Num clone limpo: `./gradlew :desktopApp:fetchFfmpeg`
 // antes de empacotar (o createDistributable ja depende dele). Build lgpl (sem os
 // codecs GPL) porque so usamos captura+escala, nao encoders.
@@ -163,17 +163,17 @@ compose.desktop {
         //   transmitindo   2768MB      500MB   <- 5.5x menos
         //
         // O ZGC mapeia a mesma memoria fisica em varios enderecos e o Windows conta
-        // CADA mapeamento no working set ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â o "vazamento de 2.7GB" era contabilidade
-        // inflada, nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o memoria de verdade. Como o objetivo aqui e custo minimo de RAM,
+        // CADA mapeamento no working set ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â o "vazamento de 2.7GB" era contabilidade
+        // inflada, nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o memoria de verdade. Como o objetivo aqui e custo minimo de RAM,
         // o padrao e G1. Pra voltar ao ZGC (pausas < 1ms, se um dia o engasgo importar
         // mais que a memoria): ./gradlew ... -Pastra.gc=zgc
         val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "g1"
         if (gcProfile == "zgc") {
             jvmArgs += "-XX:+UseZGC"
             jvmArgs += "-XX:+ZGenerational"
-            // No ZGC todo ciclo ja e concorrente ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â inclusive o System.gc() do skiko.
+            // No ZGC todo ciclo ja e concorrente ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â inclusive o System.gc() do skiko.
         } else {
-            // G1 com alvo de pausa curto (default e 200ms ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â uma eternidade a 60fps).
+            // G1 com alvo de pausa curto (default e 200ms ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â uma eternidade a 60fps).
             jvmArgs += "-XX:MaxGCPauseMillis=8"
             // System.gc() do skiko vira ciclo concorrente em vez de full stop-the-world.
             jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
@@ -182,22 +182,22 @@ compose.desktop {
         // AppCDS automatico (JDK 19+): a JVM guarda as classes ja "digeridas" num
         // arquivo e reusa na proxima abertura -> abre mais rapido e o metaspace fica
         // menor (memoria compartilhada em vez de recriada). Cria sozinho no 1o run;
-        // se o caminho nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o for gravavel, a JVM so avisa e segue (nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o quebra).
+        // se o caminho nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o for gravavel, a JVM so avisa e segue (nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o quebra).
         // $APPDIR e substituido pelo jpackage pela pasta app/ da instalacao.
         // So no build EMPACOTADO: `$APPDIR` e substituido pelo jpackage. Rodando pelo
-        // Gradle (:run) o token nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o resolve e a JVM cospe um erro feio de cds (inofensivo,
-        // sai com 0 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â verificado), entao isto so entra quando se esta EMPACOTANDO.
+        // Gradle (:run) o token nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o resolve e a JVM cospe um erro feio de cds (inofensivo,
+        // sai com 0 ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â verificado), entao isto so entra quando se esta EMPACOTANDO.
         //
         // O GATE ESTAVA ERRADO E NADA DISTO CHEGAVA NO APP PUBLICADO.
         //
-        // Era `astra.distDir`, que significa "jogue a saida do build noutro lugar" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â
+        // Era `astra.distDir`, que significa "jogue a saida do build noutro lugar" ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â
         // uma gambiarra que existe so porque o repo do dono mora num caminho com
-        // acento e o jpackage nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o engole. O workflow de release NAO passa essa flag
+        // acento e o jpackage nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o engole. O workflow de release NAO passa essa flag
         // (de proposito: no runner o caminho e limpo). Ou seja, o unico build que
         // chega em alguem era exatamente o que ficava SEM AppCDS (abertura mais
         // lenta pra todo mundo) e SEM ErrorFile (o laudo de crash nativo caindo como
         // hs_err_pid<n>.log na raiz, enquanto o diagnostico mandava procurar
-        // falha-jvm-*.log ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â um arquivo que nunca existiu).
+        // falha-jvm-*.log ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â um arquivo que nunca existiu).
         //
         // Agora o gate pergunta a coisa certa: "a tarefa pedida e de empacotamento?".
         // Vale no CI e na maquina do dono, com ou sem a gambiarra do caminho.
@@ -207,8 +207,8 @@ compose.desktop {
         if (empacotando) {
             jvmArgs += "-XX:+AutoCreateSharedArchive"
             jvmArgs += "-XX:SharedArchiveFile=\$APPDIR/astra-cds.jsa"
-            // Crash NATIVO (webrtc/skia derrubando a JVM inteira) nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o passa pelo
-            // CrashLog ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a JVM morre antes de rodar codigo Java. Neste caso ela
+            // Crash NATIVO (webrtc/skia derrubando a JVM inteira) nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o passa pelo
+            // CrashLog ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â a JVM morre antes de rodar codigo Java. Neste caso ela
             // escreve o hs_err aqui, ao lado do app, em vez de num diretorio
             // aleatorio onde ninguem acha. Junto com falhas.txt, cobre os dois
             // tipos de "fecha do nada": excecao Java e morte nativa.
@@ -220,7 +220,7 @@ compose.desktop {
         // Pula o bloqueio de instancia unica E usa uma pasta de sessao propria
         // (%APPDATA%\Astra-teste1), entao da pra logar com outra conta e ver ao vivo
         // o que uma faz aparecer na outra. A maioria dos bugs de tempo real so
-        // aparece com duas pontas ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â com uma conta so, quem cria o canal sempre ve o
+        // aparece com duas pontas ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â com uma conta so, quem cria o canal sempre ve o
         // canal. NAO vai no pacote: e gateado pela flag, como o -Pjfr.
         if (providers.gradleProperty("astra.multi").isPresent) {
             jvmArgs += "-Dastra.multi=${providers.gradleProperty("astra.multi").get().ifBlank { "1" }}"
@@ -236,22 +236,22 @@ compose.desktop {
             jvmArgs += "-Dskiko.fps.longFrames.millis=17"
         }
         // Teto de HEAP. Sem -Xmx o HotSpot deixa o heap crescer ate 1/4 da RAM FISICA
-        // (num PC de 16GB isso e ~4GB) antes de um GC maior ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â como nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o ha pressao, o GC
+        // (num PC de 16GB isso e ~4GB) antes de um GC maior ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â como nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o ha pressao, o GC
         // fica preguicoso e o RSS so sobe ("em call, de 2 em 2MB a mais, sem parar"). O
         // churn de getStats do audio (5x/s por participante) + protobuf + UI alimenta
         // isso. Capar em 768MB forca o heap a ficar enxuto (uso real fica ~150-300MB),
-        // entao o RSS para de escalar. NAO afeta a transmissÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o: bitmaps de video sao
-        // memoria NATIVA (fora do heap), presos pelo RasterRecycler, nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o pelo -Xmx.
+        // entao o RSS para de escalar. NAO afeta a transmissÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o: bitmaps de video sao
+        // memoria NATIVA (fora do heap), presos pelo RasterRecycler, nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o pelo -Xmx.
         //
-        // 512m (0.1.35) foi longe demais: teto baixo nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o "economiza" RAM quando o app
-        // realmente precisa dela ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â vira OutOfMemoryError, que mata o processo na hora
+        // 512m (0.1.35) foi longe demais: teto baixo nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o "economiza" RAM quando o app
+        // realmente precisa dela ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â vira OutOfMemoryError, que mata o processo na hora
         // e sem aviso. Como MaxHeapFreeRatio devolve as paginas ao Windows depois do
         // pico, o teto mais alto NAO custa memoria parado; so evita a morte no pico
-        // (call cheia + transmissÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o). 1GB e o teto pedido pelo dono.
+        // (call cheia + transmissÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o). 1GB e o teto pedido pelo dono.
         //
         // ATENCAO ao ler o Gerenciador de Tarefas: isto limita o HEAP (objetos Java),
-        // que nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o e o total do processo. Os quadros de video vivem em memoria NATIVA,
-        // fora do heap ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â por isso "3GB transmitindo" NAO e resolvido por este numero.
+        // que nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o e o total do processo. Os quadros de video vivem em memoria NATIVA,
+        // fora do heap ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â por isso "3GB transmitindo" NAO e resolvido por este numero.
         // O que segura aquilo e o lado nativo (ver ScreenCaptureFfmpeg).
         jvmArgs += "-Xmx1g"
         // Devolver RAM ao SISTEMA. Por padrao a JVM segura o que ja cresceu: mesmo
@@ -286,13 +286,13 @@ compose.desktop {
             // NoClassDefFoundError -> "Nao consegui abrir a porta local". No dev
             // (JDK completo) o modulo existe, por isso so quebrava no pacote.
             // java.management: sem ele o ManagementFactory nem existe no runtime
-            // enxuto do jlink ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â era o "GC : ?" do diagnostico (a leitura do coletor
+            // enxuto do jlink ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â era o "GC : ?" do diagnostico (a leitura do coletor
             // falhava calada). Tambem e o que habilita monitoramento/JFR no pacote.
             modules("jdk.httpserver", "java.management")
             // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
             // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
             // System.getProperty("compose.application.resources.dir"). O binario e
-            // gitignored (grande) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â quem for buildar roda `:desktopApp:fetchFfmpeg`.
+            // gitignored (grande) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â quem for buildar roda `:desktopApp:fetchFfmpeg`.
             appResourcesRootDir.set(project.file("appResources"))
             windows {
                 // Logo do Astra (mesmo favicon.ico do site) no Astra.exe.

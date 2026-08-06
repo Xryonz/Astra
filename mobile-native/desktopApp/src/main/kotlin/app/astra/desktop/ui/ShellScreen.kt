@@ -218,6 +218,10 @@ fun ShellScreen(
     var settingsTab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
     // Configuracoes da CONSTELACAO (outro takeover): sempre a selecionada.
     var serverSettingsOpen by remember { mutableStateOf(false) }
+    // Convite aberto pelo botao da faixa do banner. Declarado aqui em cima porque
+    // quem SETA (a faixa, dentro do Sidebar) e quem RENDERIZA (o Box de fora) estao
+    // em ramos diferentes da arvore.
+    var convidarPelaFaixa by remember { mutableStateOf<ServerDto?>(null) }
     // Ctrl+K = quick-switcher (pular pra canal/sussurro). Foco na raiz garante que o
     // atalho dispara mesmo sem nada clicado; onPreviewKeyEvent na raiz ve a tecla
     // antes de qualquer campo de texto filho.
@@ -429,18 +433,6 @@ fun ShellScreen(
             // assim também chega o myPerms dela.
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
-        }
-        // Estado proprio (a rail tem o dela): sao dois pontos de entrada distantes
-        // pro mesmo dialogo, e hoistar o da rail pra ca so pra economizar quatro
-        // linhas mexeria numa assinatura que ja esta grande demais.
-        var convidarPelaFaixa by remember { mutableStateOf<ServerDto?>(null) }
-        convidarPelaFaixa?.let { alvo ->
-            InvitePeopleDialog(
-                serverName = alvo.name,
-                inviteCode = alvo.inviteCode,
-                onAdd = { username, onResult -> vm.addMember(alvo.id, username, onResult) },
-                onClose = { convidarPelaFaixa = null },
-            )
         }
         Rail(
             servers = state.servers,
@@ -714,6 +706,24 @@ fun ShellScreen(
             exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f)),
         ) {
             MissoesOverlay(onClose = onCloseMissoes)
+        }
+
+        // Convite aberto pela faixa do banner. Mora AQUI, no Box de fora, e nao
+        // junto do Sidebar: um Popup escrito dentro daquele Row conta como filho
+        // pro Arrangement.spacedBy, entao o layout inteiro ganhava 8dp de
+        // deslocamento no instante em que o dialogo abria. Popup nao ocupa espaco,
+        // mas ocupa VAGA na contagem de filhos — e essa e a pegadinha.
+        //
+        // Estado proprio (a rail tem o dela): sao dois pontos de entrada distantes
+        // pro mesmo dialogo, e hoistar o da rail pra ca mexeria numa assinatura
+        // que ja esta grande demais.
+        convidarPelaFaixa?.let { alvo ->
+            InvitePeopleDialog(
+                serverName = alvo.name,
+                inviteCode = alvo.inviteCode,
+                onAdd = { username, onResult -> vm.addMember(alvo.id, username, onResult) },
+                onClose = { convidarPelaFaixa = null },
+            )
         }
 
         // O aviso fica FORA do AnimatedVisibility das telas: missao pode fechar com

@@ -12,7 +12,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -126,6 +129,7 @@ import app.astra.desktop.shell.ChatMessage
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.ui.theme.EaseOutSoft
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import org.koin.core.context.GlobalContext
 import app.astra.mobile.core.network.dto.AttachmentDto
@@ -378,24 +382,46 @@ fun ChatView(
                 }
                 Spacer(Modifier.height(6.dp))
             }
-            state.replyingTo?.let { r ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Obsidian.raised)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("respondendo a ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-                    Text(
-                        r.authorName,
-                        style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                    )
-                    Spacer(Modifier.weight(1f))
-                    HoverGlyph(Lucide.X) { vm.cancelReply() }
+            // A barra abre de dentro do compositor: cresce de altura zero e o texto
+            // acende 40ms depois, ja com a caixa aberta — acender junto faria a
+            // frase aparecer espremida. Fecha pelo mesmo caminho, mais rapido,
+            // porque cancelar nao merece a mesma cerimonia de comecar.
+            //
+            // O ultimo alvo fica guardado: `replyingTo` vira null no instante do
+            // cancelamento, e sem isto a barra ficaria vazia no meio do fechamento.
+            val respondendo = state.replyingTo
+            var ultimaResposta by remember(target.id) { mutableStateOf(respondendo) }
+            if (respondendo != null) ultimaResposta = respondendo
+            val semMovimento = LocalReduceMotion.current
+            AnimatedVisibility(
+                visible = respondendo != null,
+                enter = expandVertically(tween(if (semMovimento) 0 else 180, easing = EaseOutStd)) +
+                    fadeIn(tween(if (semMovimento) 0 else 140, delayMillis = if (semMovimento) 0 else 40)),
+                exit = shrinkVertically(tween(if (semMovimento) 0 else 140, easing = EaseOutStd)) +
+                    fadeOut(tween(if (semMovimento) 0 else 90)),
+            ) {
+                val r = ultimaResposta
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Obsidian.raised)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("respondendo a ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                        Text(
+                            r?.authorName.orEmpty(),
+                            style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                        )
+                        Spacer(Modifier.weight(1f))
+                        HoverGlyph(Lucide.X) { vm.cancelReply() }
+                    }
+                    // Dentro do AnimatedVisibility pra o respiro fechar junto com a
+                    // barra — fora, ele sobreviveria ao fechamento como um degrau.
+                    Spacer(Modifier.height(6.dp))
                 }
-                Spacer(Modifier.height(6.dp))
             }
             var draft by remember(target.id) { mutableStateOf("") }
             var composerFocused by remember(target.id) { mutableStateOf(false) }

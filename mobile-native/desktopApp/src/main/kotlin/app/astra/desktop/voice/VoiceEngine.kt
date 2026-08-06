@@ -402,9 +402,11 @@ class VoiceEngine(
             return
         }
         val nomes = runCatching { m.playoutDevices.map { it.name } }.getOrNull().orEmpty()
+        val salvo = prefs.state.value.audioOutput
         VoiceLog.nota(
             if (nomes.isEmpty()) "1b. saida de audio: NENHUM aparelho visivel — nao ha como ouvir ninguem"
-            else "1b. saida de audio: " + (prefs.state.value.audioOutput ?: "padrao do Windows") +
+            else "1b. saida de audio EM USO: " + (saidaEmUso ?: "padrao do webrtc") +
+                (if (!salvo.isNullOrBlank() && salvo != saidaEmUso) " [salvo \"" + salvo + "\" NAO foi aplicado]" else "") +
                 " (de " + nomes.size + ": " + nomes.joinToString(", ") + ")",
         )
     }
@@ -420,10 +422,30 @@ class VoiceEngine(
     // `?: devs.firstOrNull()` e FORCAVA o primeiro dispositivo da enumeracao —
     // que raramente e o que o Windows usa. Pior: isso quebrava justamente quem
     // nunca abriu as configurações de voz, ou seja, todo mundo por padrao.
+    // O aparelho que REALMENTE entrou no ADM — que nao e a mesma coisa que a
+    // preferencia salva. Se o aparelho salvo sumiu da enumeracao (fone tirado da
+    // tomada, driver reenumerado, aparelho desativado), a preferencia continua no
+    // disco e o som vai pro padrao do WebRTC, que pode ser outro aparelho. Guardar
+    // os dois separados e o que deixa o log dizer o que ESTA acontecendo em vez de
+    // repetir o que a gente queria que acontecesse.
+    private var saidaEmUso: String? = null
+
     private fun applyPlayoutDevice(m: AudioDeviceModule, name: String?) {
+        saidaEmUso = null
         if (name.isNullOrBlank()) return
         runCatching {
-            m.playoutDevices.firstOrNull { it.name == name }?.let { m.setPlayoutDevice(it) }
+            val achado = m.playoutDevices.firstOrNull { it.name == name }
+            if (achado == null) {
+                // Grita. Este caso era silencioso, e silencio aqui vira "o audio
+                // chega e ninguem ouve" — que le exatamente como um bug de rede.
+                VoiceLog.nota(
+                    "1b! aparelho de saida salvo (\"" + name + "\") NAO esta na lista deste momento — " +
+                        "o som vai pro padrao do WebRTC, que pode ser outro aparelho",
+                )
+                return@runCatching
+            }
+            m.setPlayoutDevice(achado)
+            saidaEmUso = achado.name
         }
     }
 

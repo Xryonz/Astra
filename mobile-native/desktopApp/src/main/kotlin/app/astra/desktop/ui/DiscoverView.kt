@@ -65,6 +65,7 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.dto.DiscoverServerDto
 import coil3.compose.AsyncImage
+import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.LogIn
 import com.composables.icons.lucide.Lucide
@@ -243,14 +244,18 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
                 val joinSrc = remember { MutableInteractionSource() }
                 if (isMember) {
                     // Ja e membro: chip com borda (destaque), no lugar do "entrar".
-                    Text(
-                        "você já está aqui",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                        modifier = Modifier
+                    // So o tique. O chip ocupa o lugar exato do "entrar", entao a
+                    // comparacao entre os cartoes ja diz o que ele significa: onde
+                    // os outros oferecem entrada, este diz que ja esta resolvido.
+                    Box(
+                        Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                    )
+                            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        LIcon(Lucide.Check, tint = Obsidian.accent, size = 13.dp)
+                    }
                 } else {
                     Row(
                         Modifier

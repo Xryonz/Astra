@@ -145,6 +145,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.User
@@ -2695,18 +2696,29 @@ private fun DmList(
             textStyle = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
             cursorBrush = SolidColor(Obsidian.accent),
             decorationBox = { inner ->
-                Box(
+                Row(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
                         .background(Obsidian.base)
                         .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
                         .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (query.isEmpty()) {
-                        Text("encontrar conversa", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                    // A lupa acende quando o campo tem texto: parada, ela e so um
+                    // rotulo; acesa, confirma que o filtro esta valendo.
+                    LIcon(
+                        Lucide.Search,
+                        tint = if (query.isEmpty()) Obsidian.text3 else Obsidian.accent,
+                        size = 13.dp,
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (query.isEmpty()) {
+                            Text("encontrar conversa", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                        }
+                        inner()
                     }
-                    inner()
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
@@ -3023,11 +3035,12 @@ private fun Stage(
             return@Column
         }
 
-        // Fade ao abrir/trocar conversa: a pagina antiga (com seu ChatVm) segue
-        // renderizando ate o fade acabar; o dispose roda no fim.
-        AnimatedContent(
-            targetState = chat,
-            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+        // Troca de conversa em DOIS TEMPOS (ver TrocaDePagina.kt). Antes era um
+        // AnimatedContent com fade cruzado, e as duas conversas — cada uma com seu
+        // ChatVm, sua lista e suas imagens — desenhavam no mesmo frame. Era esse o
+        // engasgo. Agora a antiga apaga primeiro e a nova so e composta depois.
+        TrocaDePagina(
+            alvo = chat,
             modifier = Modifier.fillMaxSize(),
         ) { target ->
             if (target != null) {

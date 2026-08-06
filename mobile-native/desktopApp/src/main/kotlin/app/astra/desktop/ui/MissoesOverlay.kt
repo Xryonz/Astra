@@ -1,6 +1,6 @@
 package app.astra.desktop.ui
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
+import app.astra.desktop.ui.theme.EaseOutSoft
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.xp.MissoesStore
@@ -67,6 +70,11 @@ import org.koin.core.context.GlobalContext
 private const val MIN_MS  = 60_000L
 private const val HORA_MS = 3_600_000L
 private const val DIA_MS  = 86_400_000L
+
+// Cascata de entrada. 40ms e o intervalo em que as linhas ainda leem como uma
+// sequencia; abaixo disso viram um bloco so, acima viram uma fila.
+private const val ATRASO_MS = 40L
+private const val TETO_CASCATA = 11
 
 // "renova em 6h" e melhor que uma hora exata: ninguem planeja o dia pelo minuto em
 // que a missao vira, mas todo mundo entende "ainda da tempo".
@@ -143,19 +151,25 @@ fun MissoesOverlay(onClose: () -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 14.dp),
             ) {
+                // A ordem CONTINUA de bloco pra bloco: a cascata varre o painel
+                // inteiro de cima a baixo, uma vez. Reiniciar em cada secao faria
+                // tres animacoes competindo, e o olho perderia o fio.
+                val depoisDoBonus = p.diarias.itens.size + 1
+                val depoisDaSemana = depoisDoBonus + p.semanais.itens.size
+
                 Secao("hoje", faltando(p.diarias.renovaEm, agora))
-                p.diarias.itens.forEach { LinhaDeMissao(it) }
+                p.diarias.itens.forEachIndexed { i, m -> LinhaDeMissao(m, i) }
                 // O bonus fica visualmente preso as tres de cima (sem espaco antes):
                 // ele nao e uma quarta missao, e a consequencia daquelas tres.
-                LinhaDeMissao(p.diarias.bonus, bonus = true)
+                LinhaDeMissao(p.diarias.bonus, depoisDoBonus - 1, bonus = true)
 
                 Spacer(Modifier.height(22.dp))
                 Secao("esta semana", faltando(p.semanais.renovaEm, agora))
-                p.semanais.itens.forEach { LinhaDeMissao(it) }
+                p.semanais.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDoBonus + i) }
 
                 Spacer(Modifier.height(22.dp))
                 Secao("conquistas", "não expiram")
-                p.conquistas.itens.forEach { LinhaDeMissao(it) }
+                p.conquistas.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDaSemana + i) }
             }
         }
     }
@@ -180,14 +194,33 @@ private fun Secao(titulo: String, direita: String) {
 // oito barras grossas empilhadas viram um painel de jogo mobile, e a estetica daqui
 // e editorial. A linha fina diz a mesma coisa e some quando nao e olhada.
 @Composable
-private fun LinhaDeMissao(m: ItemMissaoDto, bonus: Boolean = false) {
+private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) {
     val hover = remember { MutableInteractionSource() }
     val sobHover by hover.collectIsHoveredAsState()
-    val fracao by animateFloatAsState(
-        if (m.alvo <= 0) 0f else (m.progresso.toFloat() / m.alvo).coerceIn(0f, 1f),
-        tween(420),
-        label = "progressoMissao",
-    )
+    val reduzir = LocalReduceMotion.current
+    val alvoFracao = if (m.alvo <= 0) 0f else (m.progresso.toFloat() / m.alvo).coerceIn(0f, 1f)
+
+    // Cascata: cada linha entra ATRASO_MS depois da de cima, subindo 8dp. O teto
+    // existe porque a lista de conquistas cresce — sem ele, a decima quinta linha
+    // entraria meio segundo depois da primeira e a "cascata" viraria espera.
+    val entrada = remember { Animatable(if (reduzir) 1f else 0f) }
+    val fracao = remember { Animatable(if (reduzir) alvoFracao else 0f) }
+    var jaEntrou by remember { mutableStateOf(reduzir) }
+    LaunchedEffect(alvoFracao, reduzir) {
+        if (reduzir) {
+            entrada.snapTo(1f); fracao.snapTo(alvoFracao); jaEntrou = true
+            return@LaunchedEffect
+        }
+        if (!jaEntrou) {
+            delay(ordem.coerceAtMost(TETO_CASCATA) * ATRASO_MS)
+            entrada.animateTo(1f, tween(240, easing = EaseOutStd))
+            jaEntrou = true
+        }
+        // A barra corre DEPOIS que a linha pousa. Ver o progresso acontecer e o
+        // ponto da coisa, e ele se perde se disputar atencao com a entrada.
+        fracao.animateTo(alvoFracao, tween(480, easing = EaseOutSoft))
+    }
+
     val corTitulo = when {
         m.concluida -> Obsidian.text3      // feito sai do caminho, nao vira troféu
         sobHover    -> Obsidian.text1
@@ -197,6 +230,11 @@ private fun LinhaDeMissao(m: ItemMissaoDto, bonus: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()
+            // Fase de desenho: a cascata nao recompoe a linha, so redesenha.
+            .graphicsLayer {
+                alpha = entrada.value
+                translationY = (1f - entrada.value) * 8.dp.toPx()
+            }
             .clip(RoundedCornerShape(8.dp))
             .hoverable(hover)
             .background(if (sobHover) Obsidian.hover.copy(alpha = 0.5f) else Color.Transparent)
@@ -220,10 +258,11 @@ private fun LinhaDeMissao(m: ItemMissaoDto, bonus: Boolean = false) {
                     .height(2.dp)
                     .drawBehind {
                         drawRoundRectSimples(Obsidian.borderDim.copy(alpha = 0.55f), size.width, size.height)
-                        if (fracao > 0f) {
+                        val f = fracao.value
+                        if (f > 0f) {
                             drawRoundRectSimples(
                                 if (m.concluida) Obsidian.accent.copy(alpha = 0.45f) else Obsidian.accent,
-                                size.width * fracao, size.height,
+                                size.width * f, size.height,
                             )
                         }
                     },

@@ -41,7 +41,9 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.GifResultDto
+import com.composables.icons.lucide.ChartNoAxesColumn
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Paperclip
 import com.composables.icons.lucide.Smile
 import java.awt.FileDialog
 import java.awt.Frame
@@ -205,7 +207,7 @@ fun ComposerPlusButton(
                             .width(178.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
-                        MenuRow("▤", "enviar um arquivo") {
+                        MenuRow(Lucide.Paperclip, "enviar um arquivo") {
                             // Fecha ANTES: o dialog nativo e modal e brigaria por
                             // foco com a janela do Popup.
                             open = false
@@ -213,7 +215,7 @@ fun ComposerPlusButton(
                             if (files.isNotEmpty()) onPickFiles(files)
                         }
                         if (onCriarEnquete != null) {
-                            MenuRow("▥", "criar enquete") {
+                            MenuRow(Lucide.ChartNoAxesColumn, "criar enquete") {
                                 open = false
                                 onCriarEnquete()
                             }
@@ -235,7 +237,7 @@ internal fun chooseFiles(): List<File> {
 }
 
 @Composable
-private fun MenuRow(glyph: String, label: String, onClick: () -> Unit) {
+private fun MenuRow(icone: ImageVector, label: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     Row(
@@ -248,10 +250,7 @@ private fun MenuRow(glyph: String, label: String, onClick: () -> Unit) {
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            glyph,
-            style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = 13.sp),
-        )
+        LIcon(icone, tint = if (hov) Obsidian.accent else Obsidian.text3, size = 14.dp)
         Spacer(Modifier.width(9.dp))
         Text(
             label,

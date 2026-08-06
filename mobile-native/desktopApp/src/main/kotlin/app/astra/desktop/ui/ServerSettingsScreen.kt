@@ -481,8 +481,30 @@ private fun OverviewSection(
             }
             Spacer(Modifier.width(6.dp))
         }
-        BotaoIcone(Lucide.RefreshCw, "regenerar convite", accent = true, ocupado = regenerating) {
-            confirmRegen = true
+        // O ConfirmPopup mora DENTRO deste Box de proposito: a ancora do popup e o
+        // container onde ele foi escrito, e a ancora tem que ser o botao. Solto no
+        // corpo da tela, ele ancorava na coluna inteira e aparecia la em cima.
+        Box {
+            BotaoIcone(Lucide.RefreshCw, "regenerar convite", accent = true, ocupado = regenerating) {
+                confirmRegen = true
+            }
+            if (confirmRegen) {
+                ConfirmPopup(
+                    message = "gerar um convite novo? o link atual para de funcionar.",
+                    confirmLabel = "gerar novo",
+                    posicao = AoLadoDoBotao,
+                    onConfirm = {
+                        confirmRegen = false
+                        regenerating = true
+                        msg = null
+                        onRegenerateInvite { err ->
+                            regenerating = false
+                            msg = (err ?: "convite novo gerado") to (err == null)
+                        }
+                    },
+                    onDismiss = { confirmRegen = false },
+                )
+            }
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -491,22 +513,6 @@ private fun OverviewSection(
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
-    if (confirmRegen) {
-        ConfirmPopup(
-            message = "gerar um convite novo? o link atual para de funcionar.",
-            confirmLabel = "gerar novo",
-            onConfirm = {
-                confirmRegen = false
-                regenerating = true
-                msg = null
-                onRegenerateInvite { err ->
-                    regenerating = false
-                    msg = (err ?: "convite novo gerado") to (err == null)
-                }
-            },
-            onDismiss = { confirmRegen = false },
-        )
-    }
 
     // ---- Descoberta e retencao ----
     SettingsDivider()

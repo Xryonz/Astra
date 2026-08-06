@@ -720,6 +720,13 @@ private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
 // Confirmacao "Tem certeza?" reusavel: popup obsidiana no ponto, ação em danger.
 // Usada por todo delete/sair (canal, categoria, constelação, expulsar, banir,
 // logout). O chamador guarda um Boolean e renderiza isto quando true.
+//
+// ATENCAO ao usar: sem `posicao`, o Popup ancora no CONTAINER onde ele foi
+// escrito, nao no botao que o abriu. Dentro de uma tela de configuracoes inteira
+// isso joga a caixinha no topo da pagina, longe do botao — foi o que aconteceu
+// com o regenerar convite. Se o chamador nao estiver colado no botao, passe
+// `posicao = AoLadoDoBotao` e escreva o ConfirmPopup DENTRO de um Box que
+// embrulhe so o botao (o Box e quem vira a ancora).
 @Composable
 fun ConfirmPopup(
     message: String,
@@ -727,11 +734,9 @@ fun ConfirmPopup(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     cancelLabel: String = "cancelar",
+    posicao: PopupPositionProvider? = null,
 ) {
-    Popup(
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
-    ) {
+    val corpo: @Composable () -> Unit = {
         Column(
             Modifier
                 .popupReveal()
@@ -767,6 +772,34 @@ fun ConfirmPopup(
                 )
             }
         }
+    }
+    val props = PopupProperties(focusable = true)
+    if (posicao != null) {
+        Popup(popupPositionProvider = posicao, onDismissRequest = onDismiss, properties = props) { corpo() }
+    } else {
+        Popup(onDismissRequest = onDismiss, properties = props) { corpo() }
+    }
+}
+
+// Cola o popup na DIREITA da ancora, centralizado na altura dela. Se nao couber
+// ate a borda da janela, vai pra esquerda; se nem la couber, encosta na borda.
+// Cortar a caixa pela metade seria pior que desalinhar.
+object AoLadoDoBotao : PopupPositionProvider {
+    private const val FOLGA = 8
+
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val direita = anchorBounds.right + FOLGA
+        val x = if (direita + popupContentSize.width <= windowSize.width) direita
+        else (anchorBounds.left - FOLGA - popupContentSize.width)
+            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val y = (anchorBounds.center.y - popupContentSize.height / 2)
+            .coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+        return IntOffset(x, y)
     }
 }
 

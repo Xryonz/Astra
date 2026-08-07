@@ -130,12 +130,49 @@ jobs:
           $tag   = "${{ steps.versao.outputs.tag }}"
           $asset = "${{ steps.versao.outputs.asset }}"
           $repo  = $env:GITHUB_REPOSITORY
-          Start-Sleep -Seconds 5
-          $r = Invoke-WebRequest -Uri "https://github.com/$repo/releases/latest" -MaximumRedirection 0 -SkipHttpErrorCheck
-          $tagVista = ($r.Headers.Location -split '/releases/tag/')[-1]
+
+          # HttpWebRequest e nao Invoke-WebRequest. As mesmas tres armadilhas que
+          # ja tinham derrubado o tools/publicar-release.ps1 estavam AQUI tambem —
+          # este passo nunca conferiu nada, so falhava:
+          #
+          #  1. `-MaximumRedirection 0` LANCA "maximum redirection count has been
+          #     exceeded" em vez de devolver o 302. Era o erro desta execucao.
+          #  2. `-UseBasicParsing` devolve .Headers.Location VAZIO, calado — pior
+          #     que falhar, porque a conferencia "passa" sem conferir.
+          #  3. O CDN do GitHub responde 404 a HEAD de asset valido, de vez em
+          #     quando. Por isso o teste e um GET de UM BYTE (espera 206).
+          #
+          # E o ponteiro /releases/latest demora segundos pra apontar pra tag nova:
+          # por isso tenta 5x em vez de um Start-Sleep chutado.
+          $tagVista = ''
+          foreach ($tentativa in 1..5) {
+            $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
+            $req.AllowAutoRedirect = $false
+            $req.UserAgent = 'Astra-Release-CI'
+            $resp = $req.GetResponse()
+            $loc = $resp.Headers['Location']; $resp.Close()
+            $tagVista = ("$loc" -split '/releases/tag/')[-1]
+            if ($tagVista -eq $tag) { break }
+            if ($tentativa -lt 5) { Start-Sleep -Seconds 4 }
+          }
+
           $zipUrl = "https://github.com/$repo/releases/download/$tag/$asset"
-          $ok = try { (Invoke-WebRequest -Uri $zipUrl -Method Head -MaximumRedirection 5).StatusCode -eq 200 } catch { $false }
+          $ok = try {
+            $g = [System.Net.HttpWebRequest]::Create($zipUrl); $g.UserAgent = 'Astra-Release-CI'; $g.AddRange(0, 0)
+            $gr = $g.GetResponse(); $codigo = [int]$gr.StatusCode; $gr.Close()
+            $codigo -eq 206 -or $codigo -eq 200
+          } catch { $false }
+
+          # O hash tem que estar la tambem: sem ele o app aceita o zip sem
+          # conferir, e o motivo de nao conferir seria invisivel.
+          $okHash = try {
+            $h = [System.Net.HttpWebRequest]::Create("$zipUrl.sha256"); $h.UserAgent = 'Astra-Release-CI'
+            $hr = $h.GetResponse(); $c2 = [int]$hr.StatusCode; $hr.Close()
+            $c2 -eq 200
+          } catch { $false }
+
           Write-Host "latest aponta pra: $tagVista (esperado $tag)"
           Write-Host "zip acessivel    : $ok"
-          if ($tagVista -ne $tag -or -not $ok) { throw "PUBLICOU MAS O APP NAO VAI ACHAR" }
+          Write-Host "sha256 acessivel : $okHash"
+          if ($tagVista -ne $tag -or -not $ok -or -not $okHash) { throw "PUBLICOU MAS O APP NAO VAI ACHAR" }
           Write-Host "OK — os amigos recebem na proxima abertura do Astra."

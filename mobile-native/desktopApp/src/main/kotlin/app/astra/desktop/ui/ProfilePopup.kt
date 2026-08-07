@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -75,17 +76,33 @@ fun invalidateProfileCache(userId: String) {
 
 // Abre ao LADO da ancora (direita; vira pra esquerda se não couber) e clampa
 // na vertical — funciona tanto no chat quanto no painel de membros na borda.
-private object BesideAnchor : PopupPositionProvider {
+// AO LADO da ancora, encostando em nada.
+//
+// As medidas chegam aqui em PIXEL, não em dp — `calculatePosition` fala a lingua
+// da tela crua. A versao antiga somava `8` direto, o que numa tela a 150% (o
+// normal no Windows) dava ~5dp de folga: o card ficava colado no painel de
+// membros, cruzando a linha que marca o limite dele. Por isso a folga agora
+// chega convertida de dp pelo chamador, que tem o LocalDensity.
+//
+// A margem existe pelo mesmo motivo, na vertical: o clamp antigo era
+// `coerceAtLeast(0)`, e zero e a borda EXATA da janela — o card do primeiro
+// membro da lista encostava na barra de titulo.
+private class AoLadoDaAncora(private val folgaPx: Int, private val margemPx: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
-        val right = anchorBounds.right + 8
-        val x = if (right + popupContentSize.width <= windowSize.width) right
-        else (anchorBounds.left - popupContentSize.width - 8).coerceAtLeast(0)
-        val y = anchorBounds.top.coerceAtMost(windowSize.height - popupContentSize.height).coerceAtLeast(0)
+        // Direita primeiro; se nao couber inteiro, esquerda. O painel de membros
+        // mora na borda direita da janela, entao la cai sempre na esquerda — que e
+        // exatamente onde o card deve nascer.
+        val direita = anchorBounds.right + folgaPx
+        val x = if (direita + popupContentSize.width + margemPx <= windowSize.width) direita
+        else (anchorBounds.left - popupContentSize.width - folgaPx)
+            .coerceIn(margemPx, (windowSize.width - popupContentSize.width - margemPx).coerceAtLeast(margemPx))
+        val y = anchorBounds.top
+            .coerceIn(margemPx, (windowSize.height - popupContentSize.height - margemPx).coerceAtLeast(margemPx))
         return IntOffset(x, y)
     }
 }
@@ -100,6 +117,12 @@ fun ProfileAnchor(
 ) {
     var open by remember { mutableStateOf(false) }
     var full by remember { mutableStateOf(false) }
+    // dp -> px AQUI, onde existe densidade. Dentro do PopupPositionProvider não
+    // existe: ele nao e composable e so recebe pixel.
+    val densidade = LocalDensity.current
+    val posicao = remember(densidade) {
+        with(densidade) { AoLadoDaAncora(folgaPx = 12.dp.roundToPx(), margemPx = 12.dp.roundToPx()) }
+    }
     Box(
         Modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -109,7 +132,7 @@ fun ProfileAnchor(
         content()
         if (open) {
             Popup(
-                popupPositionProvider = BesideAnchor,
+                popupPositionProvider = posicao,
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {

@@ -1607,8 +1607,12 @@ private fun FaixaDaConstelacao(
                 // como numero de relatorio em vez de gente do outro lado.
                 Box(Modifier.size(5.dp).clip(CircleShape).background(Obsidian.success))
                 Spacer(Modifier.width(5.dp))
+                // "2/4 membros online", e nao "2 online · 4 membros". A fracao diz
+                // as duas coisas de uma vez e cabe: a versao antiga repetia a
+                // palavra online/membro em duas metades e estourava a largura da
+                // faixa — o que se via de verdade era "1 online · 5 memb…".
                 Text(
-                    "$online online · $membros " + if (membros == 1) "membro" else "membros",
+                    "$online/$membros " + (if (membros == 1) "membro" else "membros") + " online",
                     style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )

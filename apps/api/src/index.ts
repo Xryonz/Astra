@@ -71,6 +71,7 @@ import { startReminderWorker }            from './lib/reminders'
 import { HttpError }                     from './lib/errors'
 import { logger }                        from './lib/logger'
 import { ensureCategorySchema }          from './db/ensureSchema'
+import { garantirBotEmTodas }            from './lib/botMembership'
 
 const app        = express()
 
@@ -271,6 +272,10 @@ httpServer.listen(env.PORT, async () => {
   logger.info('Astra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
   await ensureCategorySchema()
   await initBot()
+  // Depois do initBot (precisa da conta existir) e sem await: as constelacoes que
+  // ja existiam ganham a bot no painel, mas ninguem espera o servidor subir por
+  // causa disso.
+  void garantirBotEmTodas()
   // Diz QUAL cerebro acordou. "Eu pus a chave no painel" e "a chave chegou no
   // processo" sao coisas diferentes, e sem esta linha a unica forma de saber a
   // diferenca era adivinhar.

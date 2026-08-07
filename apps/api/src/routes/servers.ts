@@ -14,6 +14,7 @@ import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
+import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { channelsChanged, membersChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
 
 export const serversRouter = Router()
@@ -159,6 +160,12 @@ serversRouter.post(
 
     // Sem categoria default: a constelacao nasce so com o canal "geral" solto
     // (decisao do dono). Categorias ("tabelas") sao criadas depois, na mao.
+
+    // A bot entra junto, com o cargo BOT. Fora da transacao de proposito: se algo
+    // falhar aqui, a constelacao ja existe e vale — perder a criacao inteira porque
+    // a bot nao entrou seria trocar um detalhe por um desastre. O guard de boot
+    // alcanca quem ficou pra tras.
+    void garantirBotNaConstelacao(server.id)
 
     const full = await serverWithChannelsAndCount(server.id)
     res.status(201).json({ data: full })

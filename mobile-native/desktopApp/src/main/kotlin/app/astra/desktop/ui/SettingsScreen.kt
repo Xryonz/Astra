@@ -1,6 +1,7 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -315,11 +316,21 @@ fun SettingsScreen(
                 }
 
                 // Troca de secao com fade + leve zoom (decisao do dono).
+                //
+                // O SizeTransform explicito e o que faz a animacao ser SEMPRE a
+                // mesma. O fade e o zoom ja eram fixos; quem variava era o
+                // redimensionamento do container, que por padrao e uma MOLA — e mola
+                // tem duracao proporcional a distancia. Trocar entre duas abas de
+                // altura parecida dava um ajuste curto e seco; sair da aba mais alta
+                // pra mais baixa dava um deslize longo. Mesma acao, animacoes
+                // diferentes, sem que nada no codigo dissesse isso. Com tween a
+                // duracao e a mesma nos dois casos, e igual a do conteudo.
                 AnimatedContent(
                     targetState = tab,
                     transitionSpec = {
                         (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f))
-                            .togetherWith(fadeOut(tween(120)))
+                            .togetherWith(fadeOut(tween(120))) using
+                            SizeTransform(clip = false) { _, _ -> tween(180) }
                     },
                     label = "settingsSection",
                 ) { current ->

@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -40,6 +39,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -447,6 +447,9 @@ fun ShellScreen(
             selection = state.selection,
             myId = session.userId,
             mutedServers = state.mutedServers,
+            // `unread` guarda id de canal E de conversa no mesmo conjunto; o que
+            // separa um do outro e cruzar com a lista de sussurros.
+            sussurroNaoLido = state.dms.any { it.id in state.unread },
             canManageSelected = podeConfigurar,
             onOpenServerSettings = abrirConfigDaConstelacao,
             onSelect = vm::select,
@@ -768,7 +771,11 @@ fun ShellScreen(
 // (a aurora vaza por baixo) + borda fina. O gap entre cartoes na Row vira a
 // "linha arredondada" que da a sensacao de sobreposicao.
 private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
-    val shape = RoundedCornerShape(14.dp)
+    // 8dp, e nao mais 14dp (pedido do dono): mais quadrado, ainda com o canto
+    // quebrado. Vale pros QUATRO paineis que usam isto — rail, sidebar, palco e
+    // membros. Arredondar so a sidebar deixaria ela falando um dialeto diferente
+    // dos vizinhos colados nela, que e pior que o raio anterior.
+    val shape = RoundedCornerShape(8.dp)
     return this
         .clip(shape)
         .background(bg.copy(alpha = alpha))
@@ -1116,6 +1123,8 @@ private fun Rail(
     selection: Selection,
     myId: String?,
     mutedServers: Set<String>,
+    // Ha sussurro com mensagem que você ainda não viu -> ponto ambar na marca.
+    sussurroNaoLido: Boolean,
     // "posso gerenciar esta constelação?" — so responde true pra SELECIONADA (ver
     // o comentario no menu abaixo).
     canManageSelected: (String) -> Boolean,
@@ -1137,22 +1146,66 @@ private fun Rail(
         modifier = Modifier.width(72.dp).fillMaxHeight().panelCard(Obsidian.void, 0.34f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(10.dp))
-        RailItem(
-            active = selection is Selection.Dms,
-            onClick = { onSelect(Selection.Dms) },
+        Spacer(Modifier.height(12.dp))
+        // A MARCA nao e mais um item da fila. Ela ganha halo, respiro e uma
+        // divisoria curta — as constelacoes sao cartoes em sequencia, o Astra
+        // flutua acima delas.
+        Box(
+            modifier = Modifier.size(72.dp).drawBehind {
+                // Halo: o mesmo recurso do gate de boot. Um gradiente radial no
+                // draw, custo de um retangulo — nao recompoe nada.
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Obsidian.accent.copy(alpha = 0.16f),
+                            Obsidian.accent.copy(alpha = 0.05f),
+                            Color.Transparent,
+                        ),
+                        center = center,
+                        radius = size.minDimension * 0.52f,
+                    ),
+                )
+            },
+            contentAlignment = Alignment.Center,
         ) {
-            // Marca do Astra = a logo TRANSPARENTE (astra-glyph.png: so o planeta
-            // branco, sem quadrado de fundo), a mesma da tela de procura por update.
-            Image(
-                painter = painterResource("astra-glyph.png"),
-                contentDescription = "sussurros",
-                modifier = Modifier.size(26.dp),
-            )
+            // Caixa do tamanho do botao: e ela que ancora o ponto de nao-lido no
+            // canto. Sem ela o ponto se alinharia pelo halo, 14dp longe demais.
+            Box(Modifier.size(44.dp)) {
+                RailItem(
+                    active = selection is Selection.Dms,
+                    onClick = { onSelect(Selection.Dms) },
+                ) {
+                    // Marca do Astra = a logo TRANSPARENTE (astra-glyph.png: so o planeta
+                    // branco, sem quadrado de fundo), a mesma da tela de procura por update.
+                    Image(
+                        painter = painterResource("astra-glyph.png"),
+                        contentDescription = "sussurros",
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+                if (sussurroNaoLido) {
+                    // Anel na cor do rail em volta do ponto: sem ele o ambar
+                    // encosta na borda do botao e le como parte do desenho.
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Obsidian.void),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(Obsidian.accent))
+                    }
+                }
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        HairRule()
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
+        // Divisoria CURTA e centrada, no lugar do traco de borda a borda: traco
+        // inteiro le como linha de tabela, e o que se quer aqui e quebra de
+        // capitulo.
+        Box(Modifier.width(24.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+        Spacer(Modifier.height(12.dp))
         LazyColumn(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -1427,10 +1480,12 @@ private object RailMenuBeside : PopupPositionProvider {
 private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // Pill morph: circulo -> quadrado arredondado no hover/ativo (assinatura da
-    // rail). Canto, fundo e borda transicionam (polish).
-    val corner by animateDpAsState(if (active || hovered) 14.dp else 22.dp, tween(140))
-    val shape = RoundedCornerShape(corner)
+    // Quadrado de canto quebrado SEMPRE (pedido do dono). Antes o item nascia
+    // circulo (22dp) e so virava quadrado no hover/ativo — o morph de forma fazia a
+    // fila inteira parecer respirar quando o mouse passava de raspao. Agora a forma
+    // e constante e so fundo e borda transicionam; 8dp e o mesmo raio dos botoes do
+    // compositor e das linhas de navegacao, entao o rail para de falar sozinho.
+    val shape = RoundedCornerShape(8.dp)
     val bg by animateColorAsState(if (active) Obsidian.overlay else Obsidian.raised, tween(140))
     val borderColor by animateColorAsState(
         if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,

@@ -352,7 +352,21 @@ fun ChatView(
                 }
             }
             if (state.error != null) {
-                Text(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                // O aviso vinha sozinho, e sem saida: a unica forma de sair dele era
+                // trocar de conversa e voltar. Agora vem com a acao ao lado.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                    Spacer(Modifier.width(10.dp))
+                    val src = remember { MutableInteractionSource() }
+                    Text(
+                        "Tentar novamente",
+                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(interactionSource = src, indication = null) { vm.tentarDeNovo() }
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
                 Spacer(Modifier.height(6.dp))
             }
             // Anexos pendentes (drag&drop): chips com ✕ pra tirar antes de enviar.

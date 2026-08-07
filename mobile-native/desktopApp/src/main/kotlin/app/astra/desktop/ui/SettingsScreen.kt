@@ -2543,14 +2543,15 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     // Controles finos: o modo desempenho já sobrepoe, entao esmaece quando ligado
     // (continuam clicaveis — são a tua preferencia fora do modo desempenho).
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
-        ToggleRow("Aurora", "fundo animado em shader", p.auroraEnabled, prefs::setAuroraEnabled)
-        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU") {
+        // Escolher QUAL fundo mora em Aparencia; aqui fica so o ajuste de custo do
+        // que ja foi escolhido. Um mesmo controle em duas abas envelhece mal: uma
+        // hora as duas divergem e a pessoa nao sabe qual delas manda.
+        LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU; escolha o fundo em Aparencia") {
             SegmentedRow(
                 listOf("Alta" to AuroraQuality.HIGH, "Media" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
                 p.auroraQuality, prefs::setAuroraQuality,
             )
         }
-        ToggleRow("Estrelas", "campo de estrelas + meteoros sobre a aurora", p.starsEnabled, prefs::setStarsEnabled)
         LabeledControl("FPS das animações", "teto de quadros do fundo (livre segue o monitor)") {
             SegmentedRow(
                 listOf("Livre" to UiFps.FREE, "60" to UiFps.CAP60, "30" to UiFps.CAP30),
@@ -2679,6 +2680,11 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     PresetGrid(p.accentId, p.bgId) { prefs.setTheme(it.accentId, it.bgId) }
 
     SettingsDivider()
+    LabeledControl("Fundo", "liso e o padrao; a aurora e um shader animado e cobra GPU") {
+        SegmentedRow(FundoPref.entries.map { it.label to it }, fundoAtual(p)) { aplicarFundo(prefs, it) }
+    }
+
+    SettingsDivider()
     LabeledControl("Tamanho da fonte", "das mensagens no chat") {
         SegmentedRow(FontSizePref.entries.map { it.label to it }, p.fontSize, prefs::setFontSize)
     }
@@ -2686,6 +2692,27 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         SegmentedRow(DensityPref.entries.map { it.label to it }, p.density, prefs::setDensity)
     }
     Spacer(Modifier.height(20.dp))
+}
+
+// Escolha de FUNDO. Não e uma preferencia nova: e a leitura conjunta de
+// auroraEnabled + starsEnabled como uma escada de custo. "Aurora sem estrelas"
+// era uma combinacao possivel que ninguem pedia, e cada combinacao a mais e uma
+// pergunta a mais pra quem so quer decidir como o app parece.
+private enum class FundoPref(val label: String) {
+    LISO("Liso"),
+    ESTRELAS("Estrelas"),
+    AURORA("Aurora"),
+}
+
+private fun fundoAtual(p: DesktopPrefs.Prefs): FundoPref = when {
+    p.auroraEnabled -> FundoPref.AURORA
+    p.starsEnabled -> FundoPref.ESTRELAS
+    else -> FundoPref.LISO
+}
+
+private fun aplicarFundo(prefs: DesktopPrefs, f: FundoPref) {
+    prefs.setAuroraEnabled(f == FundoPref.AURORA)
+    prefs.setStarsEnabled(f != FundoPref.LISO)
 }
 
 // Linha separadora entre grupos de configuração (legibilidade — pedido do dono).

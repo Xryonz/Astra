@@ -73,12 +73,16 @@ class DesktopPrefs(private val store: SessionStore) {
         // --- Desempenho & Graficos ---
         // Modo desempenho: kill-switch gamer (aurora+estrelas OFF + reduz movimento).
         val performanceMode: Boolean = false,
-        val auroraEnabled: Boolean = true,
+        // DESLIGADAS por padrao (decisao do dono): o Astra abre com fundo liso, e
+        // aurora/estrelas viram uma escolha em Aparencia > Fundo. Fundo animado
+        // como padrao e uma opiniao forte cobrada de quem nunca pediu — e a conta
+        // vem em GPU numa maquina que a gente nao conhece.
+        val auroraEnabled: Boolean = false,
         // Padrao MEDIUM (decisao do dono): todos comecam nos graficos medios; quem
         // quiser sobe pra HIGH nas configs. So o valor INICIAL — escolha explicita
         // salva prevalece.
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
-        val starsEnabled: Boolean = true,
+        val starsEnabled: Boolean = false,
         val uiFps: UiFps = UiFps.FREE,
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
         // de criacao da janela). Opaca = mais nitido/leve.
@@ -121,15 +125,20 @@ class DesktopPrefs(private val store: SessionStore) {
     val state = _state.asStateFlow()
 
     // Ausente = default (toasts ligados; reduceMotion/perfMode desligados; aurora
-    // e estrelas ligadas; qualidade alta; fps livre; janela translucida).
+    // e estrelas DESLIGADAS; qualidade media; fps livre; janela translucida).
+    //
+    // Repare na polaridade de aurora/estrelas: e `== "1"`, e nao `!= "0"`. A
+    // diferenca importa pra quem ja usa o Astra — so quem LIGOU de proposito tem
+    // "1" gravado e continua com o ceu; quem nunca abriu as configs passa a ver o
+    // fundo liso. E o que o dono pediu, e sem apagar escolha de ninguem.
     private fun read() = Prefs(
         reduceMotion = store.uiPref("reduceMotion") == "1",
         notifyDms = store.uiPref("notifyDms") != "0",
         notifyChannels = store.uiPref("notifyChannels") != "0",
         performanceMode = store.uiPref("performanceMode") == "1",
-        auroraEnabled = store.uiPref("auroraEnabled") != "0",
+        auroraEnabled = store.uiPref("auroraEnabled") == "1",
         auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
-        starsEnabled = store.uiPref("starsEnabled") != "0",
+        starsEnabled = store.uiPref("starsEnabled") == "1",
         uiFps = UiFps.from(store.uiPref("uiFps")),
         windowTransparent = store.uiPref("windowTransparent") != "0",
         exitOnClose = store.uiPref("exitOnClose") == "1",

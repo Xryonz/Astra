@@ -117,6 +117,10 @@ data class ChatUiState(
 )
 
 private const val PAGE = 50
+// Carga da conversa: quantas tentativas, e quanto esperar ENTRE elas. Duas
+// esperas pra tres tentativas — a ultima falha nao espera ninguem.
+private const val TENTATIVAS_DE_CARGA = 3
+private val ESPERA_ENTRE_CARGAS_MS = longArrayOf(1_500L, 4_000L)
 private const val FADE_OUT_MS = 340L
 // Se nem o ack nem o broadcast voltarem nesse tempo, a bolha otimista vira falha.
 private const val FAST_SEND_TIMEOUT_MS = 6_000L
@@ -177,23 +181,38 @@ class ChatVm(
         if (target is ChatTarget.Channel) socket.leaveChannel(target.id)
     }
 
+    // Botao "tentar de novo" da tela de erro. Publica de proposito: sem isto a
+    // unica saida do erro era trocar de conversa e voltar.
+    fun tentarDeNovo() = load()
+
     private fun load() {
         scope.launch {
-            val result = runCatching {
-                when (target) {
-                    is ChatTarget.Channel ->
-                        channelApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
-                    is ChatTarget.Dm ->
-                        dmApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
+            _state.update { it.copy(loading = true, error = null) }
+            // TRES tentativas com espera crescente, e não uma só. A API dorme no
+            // plano free do Render depois de 15min parada e acorda em ate ~50s: a
+            // primeira chamada depois do sono cai, e uma tentativa unica
+            // transformava isso num beco sem saida — a conversa ficava com o aviso
+            // vermelho ate a pessoa perceber sozinha que era so sair e voltar.
+            // A espera cresce (1,5s -> 4s) porque tentar de novo na hora, contra um
+            // servidor que ainda esta subindo, so gasta a tentativa.
+            repeat(TENTATIVAS_DE_CARGA) { tentativa ->
+                val r = runCatching {
+                    when (target) {
+                        is ChatTarget.Channel ->
+                            channelApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
+                        is ChatTarget.Dm ->
+                            dmApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
+                    }
                 }
-            }
-            result
-                .onSuccess { list ->
+                r.onSuccess { list ->
                     // Backend pagina do mais novo pro mais velho; o palco mostra
                     // do mais velho (topo) pro mais novo (base).
-                    _state.update { it.copy(loading = false, messages = list.sortedBy { m -> m.createdAt ?: "" }) }
+                    _state.update { it.copy(loading = false, error = null, messages = list.sortedBy { m -> m.createdAt ?: "" }) }
+                    return@launch
                 }
-                .onFailure { _state.update { it.copy(loading = false, error = "Não deu pra carregar a conversa") } }
+                if (tentativa < TENTATIVAS_DE_CARGA - 1) delay(ESPERA_ENTRE_CARGAS_MS[tentativa])
+            }
+            _state.update { it.copy(loading = false, error = "Não foi possível carregar a conversa.") }
         }
     }
 

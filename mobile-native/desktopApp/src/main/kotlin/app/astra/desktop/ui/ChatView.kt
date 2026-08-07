@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -555,6 +556,16 @@ fun ChatView(
                 // passar por menu. O que "cria coisa" mora no '+', do outro lado.
                 ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
                 Spacer(Modifier.width(4.dp))
+                // Só em órbita: figurinha pertence a uma constelação, e sussurro
+                // não tem de onde tirar. Mesma regra da enquete no '+'.
+                if (serverId != null) {
+                    ComposerPickerButton(
+                        Seletor.FIGURINHA,
+                        serverId = serverId,
+                        onPickSticker = vm::sendSticker,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 ComposerPickerButton(Seletor.EMOJI, onPickEmoji = { draft = (draft + it).take(4000) })
                 Spacer(Modifier.width(4.dp))
                 SendButton(enabled = canSend) { submit() }
@@ -911,10 +922,38 @@ private fun ContentBlock(
     }
 }
 
+// Lado maior da figurinha na conversa. Mesma ordem de grandeza do Discord: grande
+// o bastante pra ler a expressão, pequena o bastante pra não dominar a linha.
+private val FIGURINHA_DP = 150.dp
+
 // Anexo na mensagem: imagem inline (Coil) abre no lightbox; resto vira chip
 // que abre no navegador.
 @Composable
 private fun AttachmentBlock(att: AttachmentDto) {
+    // FIGURINHA antes de tudo: tamanho fixo e SEM abrir em tela cheia. Figurinha
+    // e expressao, nao arquivo — ampliar nao serve pra nada e ainda rouba o
+    // clique. Tamanho fixo tambem mantem o ritmo da conversa, em vez de deixar
+    // uma imagem grande dominar a linha.
+    if (att.sticker == true) {
+        val w = att.width ?: 0
+        val h = att.height ?: 0
+        val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
+        AstraImage(
+            url = att.url,
+            contentDescription = att.name,
+            // Com a proporcao conhecida, o teto vale pro LADO MAIOR e a figurinha
+            // reserva o espaco exato antes de a imagem chegar — sem isso a
+            // conversa pula quando ela carrega. Sem proporcao, quadrado e o Fit
+            // resolve as sobras.
+            modifier = if (proporcao != null) {
+                Modifier.sizeIn(maxWidth = FIGURINHA_DP, maxHeight = FIGURINHA_DP).aspectRatio(proporcao)
+            } else {
+                Modifier.size(FIGURINHA_DP)
+            },
+            contentScale = ContentScale.Fit,
+        )
+        return
+    }
     if (att.type?.startsWith("image/") == true) {
         val openImage = LocalOpenImage.current
         val w = att.width ?: 0

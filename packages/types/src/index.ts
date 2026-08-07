@@ -128,6 +128,12 @@ export const AttachmentSchema = z.object({
   blurhash: z.string().max(200).optional(),
 
   duration: z.number().nonnegative().max(3600).optional(),
+
+  // Marca de FIGURINHA. Pela mesma razao do blurhash acima: sem declarar aqui, o
+  // Zod apaga a chave e a figurinha chega no banco como imagem comum — grande,
+  // clicavel, indistinguivel de um print. O bug seria invisivel no envio e so
+  // apareceria depois de recarregar a conversa.
+  sticker: z.boolean().optional(),
 })
 
 export const SendMessageSchema = z.object({

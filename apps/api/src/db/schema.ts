@@ -168,6 +168,27 @@ export const serverSounds = pgTable('ServerSound', {
   byServer: index('ServerSound_serverId_idx').on(t.serverId),
 }))
 
+// Figurinhas da constelacao. Mesma forma do ServerSound de proposito — sao a
+// mesma ideia ("colecao de midia curta que pertence a constelacao"), e divergir a
+// estrutura so criaria dois jeitos de fazer a mesma coisa.
+//
+// width/height ficam GRAVADOS: a conversa reserva o espaco da figurinha ANTES de
+// a imagem chegar. Sem eles a linha nasce com altura zero e empurra tudo pra
+// baixo quando a figurinha carrega — quem estava lendo perde a linha.
+export const serverStickers = pgTable('ServerSticker', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  name:      text('name').notNull(),
+  url:       text('url').notNull(),
+  width:     integer('width').notNull().default(0),
+  height:    integer('height').notNull().default(0),
+  createdBy: text('createdBy').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  uniqName: uniqueIndex('ServerSticker_serverId_name_key').on(t.serverId, t.name),
+  byServer: index('ServerSticker_serverId_idx').on(t.serverId),
+}))
+
 export const roles = pgTable('ServerRole', {
   id:          text('id').primaryKey().$defaultFn(createId),
   serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),

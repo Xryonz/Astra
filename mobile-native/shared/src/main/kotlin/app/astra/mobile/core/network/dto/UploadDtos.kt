@@ -19,4 +19,9 @@ data class AttachmentDto(
     val height: Int? = null,
     val blurhash: String? = null,
     val duration: Int? = null,
+    // Marca de FIGURINHA: desenha em tamanho fixo e sem abrir em tela cheia, em
+    // vez de virar mais uma imagem grande e clicavel. Precisa existir tambem no
+    // AttachmentSchema do backend (packages/types) — o Zod apaga chave que o
+    // schema nao declara, e a marca sumiria em silencio no caminho.
+    val sticker: Boolean? = null,
 )

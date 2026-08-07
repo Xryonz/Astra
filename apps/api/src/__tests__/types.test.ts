@@ -41,6 +41,18 @@ describe('AttachmentSchema — URL safety', () => {
     expect(r.success && r.data.blurhash).toBe('LEHV6nWB2yk8pyo0adR*.7kCMdnj')
   })
 
+  // Mesma armadilha do blurhash, um andar acima: sem a chave declarada no schema,
+  // a figurinha chegaria no banco como imagem comum — grande e clicavel. O envio
+  // pareceria certo e o erro so apareceria ao recarregar a conversa.
+  it('PRESERVA a marca de figurinha', () => {
+    const r = AttachmentSchema.safeParse({
+      url: 'https://cdn.example.com/fig.webp', type: 'image/webp', name: 'susto', size: 0,
+      sticker: true,
+    })
+    expect(r.success).toBe(true)
+    expect(r.success && r.data.sticker).toBe(true)
+  })
+
   it('PRESERVA a thumbUrl, com a mesma protecao de URL do url', () => {
     const ok = AttachmentSchema.safeParse({
       url: 'https://cdn.example.com/a.webp', thumbUrl: 'https://cdn.example.com/a_t.webp',

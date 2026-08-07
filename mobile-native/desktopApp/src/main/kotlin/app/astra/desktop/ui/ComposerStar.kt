@@ -41,10 +41,12 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.GifResultDto
+import app.astra.mobile.core.network.dto.ServerStickerDto
 import com.composables.icons.lucide.ChartNoAxesColumn
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Paperclip
 import com.composables.icons.lucide.Smile
+import com.composables.icons.lucide.Sticker
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -59,7 +61,7 @@ import java.io.File
 // Regra que continua valendo: UM Popup por botao, nunca popup dentro de popup.
 // No desktop cada Popup focavel e uma janela de verdade, e empilhar duas rouba o
 // foco da primeira.
-internal enum class Seletor { EMOJI, GIF }
+internal enum class Seletor { EMOJI, GIF, FIGURINHA }
 
 // Ancora o painel ACIMA do botao. O lado importa: alinhar SEMPRE pela direita
 // funcionava quando o unico botao era a estrela, no canto direito do compositor.
@@ -148,19 +150,27 @@ private fun IconeVetorial(icone: ImageVector, onClick: () -> Unit) {
     }
 }
 
-// Abre DIRETO no painel pedido (emoji ou GIF) — sem passar por menu.
+// Abre DIRETO no painel pedido (emoji, GIF ou figurinha) — sem passar por menu.
+//
+// serverId so importa pra figurinha: elas pertencem a uma constelacao, e em
+// sussurro nao ha de onde tirar. Quem chama nao oferece o botao la (ChatView).
 @Composable
 internal fun ComposerPickerButton(
     tipo: Seletor,
+    serverId: String? = null,
     onPickEmoji: (String) -> Unit = {},
     onPickGif: (GifResultDto) -> Unit = {},
+    onPickSticker: (ServerStickerDto) -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
         // "GIF" continua sendo TEXTO de proposito: e uma sigla, nao um desenho —
         // e todo cliente de chat escreve GIF em vez de tentar desenhar um.
-        if (tipo == Seletor.GIF) IconeDoCompositor("GIF", tamanho = 9) { open = !open }
-        else IconeVetorial(Lucide.Smile) { open = !open }
+        when (tipo) {
+            Seletor.GIF -> IconeDoCompositor("GIF", tamanho = 9) { open = !open }
+            Seletor.FIGURINHA -> IconeVetorial(Lucide.Sticker) { open = !open }
+            Seletor.EMOJI -> IconeVetorial(Lucide.Smile) { open = !open }
+        }
         if (open) {
             Popup(
                 popupPositionProvider = AcimaPelaDireita,
@@ -168,10 +178,15 @@ internal fun ComposerPickerButton(
                 properties = PopupProperties(focusable = true),
             ) {
                 PopupReveal(originX = 1f, originY = 1f) {
-                    // Emoji fica aberto pra escolher varios; GIF fecha porque
-                    // escolher JA ENVIA.
-                    if (tipo == Seletor.GIF) GifPanel(onPick = { g -> open = false; onPickGif(g) })
-                    else ReactionPicker(onPick = onPickEmoji)
+                    // Emoji fica aberto pra escolher varios; GIF e figurinha
+                    // fecham porque escolher JA ENVIA.
+                    when (tipo) {
+                        Seletor.GIF -> GifPanel(onPick = { g -> open = false; onPickGif(g) })
+                        Seletor.FIGURINHA -> if (serverId != null) {
+                            StickerPanel(serverId, onPick = { f -> open = false; onPickSticker(f) })
+                        }
+                        Seletor.EMOJI -> ReactionPicker(onPick = onPickEmoji)
+                    }
                 }
             }
         }

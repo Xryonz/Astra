@@ -40,6 +40,7 @@ import { createPollsRouter }             from './routes/polls'
 import { createReadsRouter }             from './routes/reads'
 import { createDMRouter }                from './routes/dm'
 import { createSoundsRouter }            from './routes/sounds'
+import { stickersRouter }                from './routes/stickers'
 import searchRouter                      from './routes/search'
 import discoverRouter                    from './routes/discover'
 import uploadRouter, { UPLOAD_DIR }      from './routes/upload'
@@ -156,6 +157,7 @@ app.use('/api/channels/:channelId/polls',    createPollsRouter(io))
 app.use('/api',                              createReadsRouter(io))
 app.use('/api/dm', createDMRouter(io))
 app.use('/api/sounds', createSoundsRouter(io))
+app.use('/api/stickers', stickersRouter)
 app.use('/api/search', searchRouter)
 app.use('/api/discover', discoverRouter)
 app.use('/api/upload', uploadRouter)

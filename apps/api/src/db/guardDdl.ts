@@ -290,4 +290,18 @@ CREATE TABLE IF NOT EXISTS "ServerSound" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "ServerSound_serverId_name_key" ON "ServerSound" USING btree ("serverId", "name");
 CREATE INDEX IF NOT EXISTS "ServerSound_serverId_idx" ON "ServerSound" USING btree ("serverId");
+
+-- ===== Figurinhas da constelação =====
+CREATE TABLE IF NOT EXISTS "ServerSticker" (
+  "id" text PRIMARY KEY NOT NULL,
+  "serverId" text NOT NULL REFERENCES "Server"("id") ON DELETE CASCADE,
+  "name" text NOT NULL,
+  "url" text NOT NULL,
+  "width" integer NOT NULL DEFAULT 0,
+  "height" integer NOT NULL DEFAULT 0,
+  "createdBy" text NOT NULL,
+  "createdAt" timestamp (3) NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ServerSticker_serverId_name_key" ON "ServerSticker" USING btree ("serverId", "name");
+CREATE INDEX IF NOT EXISTS "ServerSticker_serverId_idx" ON "ServerSticker" USING btree ("serverId");
 `

@@ -14,6 +14,7 @@ import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.EditChannelRequest
 import app.astra.mobile.core.network.dto.GifResultDto
+import app.astra.mobile.core.network.dto.ServerStickerDto
 import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
 import app.astra.mobile.core.network.dto.CreatePollRequest
@@ -406,6 +407,55 @@ class ChatVm(
                     }
                 }
                 .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "GIF não enviado")) } }
+        }
+    }
+
+    // FIGURINHA: e uma mensagem comum com um anexo marcado `sticker = true`, nao
+    // um tipo novo de mensagem. Assim ela herda de graca resposta, reacao,
+    // exclusao e notificacao — um caminho proprio teria que reimplementar tudo.
+    //
+    // O `type` sai da extensao da URL em vez de ser cravado: os clientes que ainda
+    // nao conhecem a marca (mobile, web) caem no ramo de IMAGEM em vez de desenhar
+    // um cartao de arquivo. `size = 0` porque o tamanho nao e guardado — o backend
+    // exige o campo e so o cartao de arquivo o exibe, que figurinha nunca vira.
+    fun sendSticker(fig: ServerStickerDto) {
+        if (_state.value.sending) return
+        val replyToId = _state.value.replyingTo?.id
+        _state.update { it.copy(sending = true, error = null) }
+        scope.launch {
+            val ext = fig.url.substringAfterLast('.', "png").substringBefore('?').lowercase()
+            val att = AttachmentDto(
+                url = fig.url,
+                type = "image/" + (if (ext.length in 2..4) ext else "png"),
+                name = fig.name,
+                size = 0,
+                width = fig.width.takeIf { it > 0 },
+                height = fig.height.takeIf { it > 0 },
+                sticker = true,
+            )
+            val result = runCatching {
+                when (target) {
+                    is ChatTarget.Channel -> channelApi.send(
+                        target.id,
+                        SendChannelRequest("", replyToId = replyToId, attachments = listOf(att)),
+                    ).data?.toChat()
+                    is ChatTarget.Dm -> dmApi.send(
+                        target.id,
+                        SendDmRequest("", replyToId = replyToId, attachments = listOf(att)),
+                    ).data?.toChat()
+                }
+            }
+            result
+                .onSuccess { msg ->
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            replyingTo = null,
+                            messages = if (msg != null && it.messages.none { m -> m.id == msg.id }) it.messages + msg else it.messages,
+                        )
+                    }
+                }
+                .onFailure { t -> _state.update { it.copy(sending = false, error = sendError(t, "Figurinha não enviada")) } }
         }
     }
 

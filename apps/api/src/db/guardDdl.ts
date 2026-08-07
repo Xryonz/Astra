@@ -273,4 +273,17 @@ CREATE TABLE IF NOT EXISTS "UserMission" (
 DROP INDEX IF EXISTS "Message_threadId_idx";
 ALTER TABLE "Message" DROP COLUMN IF EXISTS "threadId";
 DROP TABLE IF EXISTS "Thread";
+
+-- ===== Efeitos sonoros da constelação (soundboard) =====
+CREATE TABLE IF NOT EXISTS "ServerSound" (
+  "id" text PRIMARY KEY NOT NULL,
+  "serverId" text NOT NULL REFERENCES "Server"("id") ON DELETE CASCADE,
+  "name" text NOT NULL,
+  "url" text NOT NULL,
+  "durationMs" integer NOT NULL DEFAULT 0,
+  "createdBy" text NOT NULL,
+  "createdAt" timestamp (3) NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ServerSound_serverId_name_key" ON "ServerSound" USING btree ("serverId", "name");
+CREATE INDEX IF NOT EXISTS "ServerSound_serverId_idx" ON "ServerSound" USING btree ("serverId");
 `

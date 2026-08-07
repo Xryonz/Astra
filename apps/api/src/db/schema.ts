@@ -148,6 +148,26 @@ export const serverEmojis = pgTable('ServerEmoji', {
   byServer: index('ServerEmoji_serverId_idx').on(t.serverId),
 }))
 
+// Efeitos sonoros da constelacao. Mesma forma do ServerEmoji de proposito: os dois
+// sao "colecao de midia curta que pertence a constelacao", e divergir a estrutura
+// so criaria dois jeitos de fazer a mesma coisa.
+//
+// A duracao fica GRAVADA aqui em vez de ser lida do arquivo na hora de tocar: quem
+// mostra a lista precisa dela pra desenhar, e abrir um WAV do bucket so pra saber
+// quanto ele dura seria uma requisicao por som a cada abertura do painel.
+export const serverSounds = pgTable('ServerSound', {
+  id:        text('id').primaryKey().$defaultFn(createId),
+  serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  name:      text('name').notNull(),
+  url:       text('url').notNull(),
+  durationMs: integer('durationMs').notNull().default(0),
+  createdBy: text('createdBy').notNull(),
+  createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
+}, (t) => ({
+  uniqName: uniqueIndex('ServerSound_serverId_name_key').on(t.serverId, t.name),
+  byServer: index('ServerSound_serverId_idx').on(t.serverId),
+}))
+
 export const roles = pgTable('ServerRole', {
   id:          text('id').primaryKey().$defaultFn(createId),
   serverId:    text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),

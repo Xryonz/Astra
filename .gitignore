@@ -90,3 +90,6 @@ desktop.ini
 # ── Lock files alternativos (manter só package-lock.json) ────
 yarn.lock
 pnpm-lock.yaml
+
+# Config de deploy da Vercel: fica LOCAL, fora do GitHub (decisao do dono).
+vercel.json

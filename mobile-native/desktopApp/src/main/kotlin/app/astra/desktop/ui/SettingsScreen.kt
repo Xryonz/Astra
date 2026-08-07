@@ -2,6 +2,7 @@ package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -83,6 +84,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -211,6 +213,13 @@ fun SettingsScreen(
     onTestarNotificacao: () -> Unit = {},
 ) {
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
+    // Abas que ja fizeram a cascata NESTA visita as configuracoes.
+    //
+    // O `remember` sem chave e o mecanismo inteiro: ele morre quando a tela sai da
+    // composicao, ou seja, quando as configuracoes fecham. Dai sai de graca a regra
+    // que o dono pediu — trocar de aba e voltar encontra a aba ja montada; fechar
+    // as configuracoes e abrir de novo faz a cascata acontecer outra vez.
+    val jaAnimaram = remember { mutableSetOf<SettingsTab>() }
     val prefState by prefs.state.collectAsState()
     // Rascunho do perfil VIVE AQUI (não dentro da secao): a previa e IRMA da
     // secao, não filha — hoisted, ela reage a cada tecla. Reseta quando o `me`
@@ -334,10 +343,14 @@ fun SettingsScreen(
                     },
                     label = "settingsSection",
                 ) { current ->
-                    // Cada secao emite varios filhos DIRETO. Sem esta Column o
-                    // container do AnimatedContent os empilha no mesmo Y (era o bug
-                    // dos "textos sobrepostos"). A Column relaya em vertical.
-                    Column(Modifier.fillMaxWidth()) {
+                    // Cada secao emite varios filhos DIRETO — e e justamente isso que
+                    // permite a cascata enxergar um por um (ver CascataVertical).
+                    // Sem um container que relaie em vertical, o container do
+                    // AnimatedContent os empilha no mesmo Y (era o bug dos "textos
+                    // sobrepostos").
+                    val jaVisto = current in jaAnimaram
+                    LaunchedEffect(current) { jaAnimaram += current }
+                    CascataVertical(chave = current, animar = !jaVisto, modifier = Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved)
@@ -2703,6 +2716,67 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         SegmentedRow(DensityPref.entries.map { it.label to it }, p.density, prefs::setDensity)
     }
     Spacer(Modifier.height(20.dp))
+}
+
+// Cascata de entrada pra conteudo ARBITRARIO.
+//
+// O CascadeIn que ja existe (Bits.kt) precisa de um indice, porque nasceu pra
+// lista: quem chama esta dentro de um itemsIndexed e sabe quem e o item 3. Aqui
+// nao ha lista — cada secao de configuracao emite os proprios filhos, e sao os
+// filhos que devem entrar um a um. Este Layout resolve olhando os filhos DEPOIS
+// de medidos: cada um ganha o degrau seguinte de atraso.
+//
+// Por que isso funciona: um @Composable que nao se embrulha em Column/Box emite
+// os nos direto no pai. AccountSection, VoiceSection e as outras sao assim, entao
+// o `measurables` daqui chega com os controles todos, separados.
+//
+// LARGURA > 0 e o filtro que pula os Spacer verticais — Spacer(Modifier.height(x))
+// mede zero de largura. Sem ele, cada respiro entre controles gastaria um degrau e
+// a cascata sairia com buracos no ritmo.
+//
+// O alpha e o deslocamento vao no placeWithLayer, ou seja, na fase de PLACEMENT:
+// o relogio avancando re-executa o posicionamento, nunca a recomposicao. Numa tela
+// com previa ao vivo, recompor 30 controles por frame seria bem caro.
+private const val CASCATA_PASSO_MS = 34
+private const val CASCATA_DURACAO_MS = 260
+private const val CASCATA_DEGRAUS = 16
+
+@Composable
+private fun CascataVertical(
+    chave: Any?,
+    animar: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val deveAnimar = animar && !LocalReduceMotion.current
+    val totalMs = CASCATA_DURACAO_MS + CASCATA_PASSO_MS * CASCATA_DEGRAUS
+    val relogio = remember(chave) { Animatable(if (deveAnimar) 0f else 1f) }
+    LaunchedEffect(chave) {
+        if (deveAnimar) relogio.animateTo(1f, tween(totalMs, easing = LinearEasing))
+    }
+    val deslocamento = with(LocalDensity.current) { 10.dp.toPx() }
+    Layout(content = content, modifier = modifier) { medidos, constraints ->
+        val filhos = medidos.map { it.measure(constraints.copy(minHeight = 0)) }
+        val largura = if (constraints.hasBoundedWidth) constraints.maxWidth
+        else filhos.maxOfOrNull { it.width } ?: 0
+        layout(largura, filhos.sumOf { it.height }) {
+            val agora = relogio.value * totalMs
+            var y = 0
+            var degrau = 0
+            filhos.forEach { filho ->
+                val conta = filho.width > 0 && filho.height > 0
+                val meu = if (conta) degrau++ else degrau
+                val progresso =
+                    ((agora - meu.coerceAtMost(CASCATA_DEGRAUS) * CASCATA_PASSO_MS) / CASCATA_DURACAO_MS)
+                        .coerceIn(0f, 1f)
+                filho.placeWithLayer(0, y) {
+                    alpha = progresso
+                    translationY = (1f - progresso) * deslocamento
+                }
+                y += filho.height
+            }
+        }
+    }
 }
 
 // Escolha de FUNDO. Não e uma preferencia nova: e a leitura conjunta de

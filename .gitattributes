@@ -4,3 +4,18 @@
 # hook de seguranca falharia CALADO numa clonagem nova.
 *.sh   text eol=lf
 gradlew text eol=lf
+
+# --- Barra de linguagens do GitHub ---
+#
+# O GitHub mede a barra por BYTES de codigo, e nao por arquivo. Os quatro .java
+# de mobile-native/desktopApp/src/main/java somam ~163 mil linhas — mais que o
+# projeto inteiro em Kotlin — e nao foram escritos por ninguem: sao as classes
+# que o protoc gera a partir dos .proto do LiveKit (a conversa entre o app e o
+# servidor de voz). O app COMPILA contra elas, entao apagar quebra a voz; o que
+# elas nao devem e contar como codigo do projeto.
+mobile-native/desktopApp/src/main/java/livekit/**  linguist-generated=true
+mobile-native/desktopApp/src/main/java/logger/**   linguist-generated=true
+
+# Andaime do Capacitor (projeto Android gerado por template, nao escrito aqui).
+# Vendored ate a remocao do Capacitor; depois disso a pasta some inteira.
+apps/web/android/**  linguist-vendored=true

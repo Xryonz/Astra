@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -501,9 +500,15 @@ private fun PillButton(label: String, accent: Boolean, onClick: () -> Unit) {
     )
 }
 
-// ---- Banner in-app (topo): lembrete quando o update foi adiado ("depois") ou
-// achado na checagem manual. Desliza de cima e conduz o mesmo mini-fluxo
-// (disponível -> baixando -> pronto) usando o estado compartilhado do service. ----
+// ---- Aviso in-app (canto inferior direito): lembrete quando o update foi adiado
+// ("depois") ou achado na checagem manual. Sobe do rodape e conduz o mesmo
+// mini-fluxo (disponível -> baixando -> pronto) usando o estado do service. ----
+
+// Mesma largura do painel de membros (ShellScreen: Column(Modifier.width(240.dp))).
+// E o que o dono pediu, e o motivo e bom: o aviso passa a se alinhar com uma
+// coluna que ja existe na tela em vez de inventar uma medida propria.
+private val LARGURA_AVISO = 240.dp
+
 @Composable
 fun BoxScope.UpdateBanner(updater: UpdateService) {
     val st by updater.state.collectAsState()
@@ -514,43 +519,35 @@ fun BoxScope.UpdateBanner(updater: UpdateService) {
     )
     AnimatedVisibility(
         visible = show,
-        enter = slideInVertically(tween(220)) { -it } + fadeIn(tween(220)),
-        exit = slideOutVertically(tween(180)) { -it } + fadeOut(tween(160)),
-        modifier = Modifier.align(Alignment.TopCenter),
+        // Sobe do rodape em vez de descer do topo — e o gesto que a posicao pede.
+        enter = slideInVertically(tween(240, easing = EaseOutStd)) { it } + fadeIn(tween(220)),
+        exit = slideOutVertically(tween(180, easing = EaseOutStd)) { it } + fadeOut(tween(160)),
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp),
     ) {
-        Row(
+        // COLUNA, e não mais uma linha unica. Em 240dp o texto, o botao e o fechar
+        // nao cabem lado a lado — antes o aviso tinha 560dp de largura, entao a
+        // linha unica funcionava. Agora o titulo ocupa a largura toda (podendo
+        // quebrar em duas linhas) e a acao desce pra baixo dele.
+        Column(
             Modifier
-                .padding(top = 8.dp)
-                .widthIn(max = 560.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .width(LARGURA_AVISO)
+                .clip(RoundedCornerShape(10.dp))
                 .background(Obsidian.overlay)
-                .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .border(1.dp, Obsidian.accent.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
-            LIcon(Lucide.ArrowUp, tint = Obsidian.accent, size = 16.dp)
-            Spacer(Modifier.width(10.dp))
             when (val s = st) {
                 is UpdateState.Available -> {
-                    Text(
-                        "Astra ${s.version} disponível",
-                        style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    PillButton("atualizar", accent = true, onClick = { scope.launch { updater.downloadAndStage(s) } })
-                    Spacer(Modifier.width(6.dp))
-                    BannerClose { dismissed = true }
+                    TituloDoAviso("Astra ${s.version} disponível", onClose = { dismissed = true })
+                    Spacer(Modifier.height(10.dp))
+                    AcaoDoAviso("atualizar") { scope.launch { updater.downloadAndStage(s) } }
                 }
                 is UpdateState.Downloading -> {
-                    Text(
-                        "baixando ${s.version}… ${(s.progress * 100).toInt()}%",
-                        style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
-                    )
-                    Spacer(Modifier.width(12.dp))
+                    TituloDoAviso("baixando ${s.version} · ${(s.progress * 100).toInt()}%", onClose = null)
+                    Spacer(Modifier.height(10.dp))
                     Progress(
                         s.progress,
-                        Modifier.weight(1f),
+                        Modifier.fillMaxWidth(),
                         Obsidian.accent,
                         Obsidian.overlay,
                         5.dp,
@@ -558,16 +555,42 @@ fun BoxScope.UpdateBanner(updater: UpdateService) {
                     )
                 }
                 is UpdateState.Ready -> {
-                    Text(
-                        "${s.version} pronto — reinicie pra aplicar",
-                        style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    PillButton("reiniciar", accent = true, onClick = { updater.restartToInstall() })
+                    TituloDoAviso("${s.version} pronto — reinicie para aplicar", onClose = null)
+                    Spacer(Modifier.height(10.dp))
+                    AcaoDoAviso("reiniciar") { updater.restartToInstall() }
                 }
                 else -> {}
             }
         }
+    }
+}
+
+// Alinhamento no TOPO, e não no centro: com o texto quebrando em duas linhas, o
+// icone e o fechar centralizados ficariam boiando no meio do bloco.
+@Composable
+private fun TituloDoAviso(texto: String, onClose: (() -> Unit)?) {
+    Row(verticalAlignment = Alignment.Top) {
+        LIcon(Lucide.ArrowUp, tint = Obsidian.accent, size = 15.dp)
+        Spacer(Modifier.width(9.dp))
+        Text(
+            texto,
+            style = TextStyle(color = Obsidian.text1, fontSize = 12.5.sp, lineHeight = 17.sp),
+            modifier = Modifier.weight(1f),
+        )
+        if (onClose != null) {
+            Spacer(Modifier.width(4.dp))
+            BannerClose(onClose)
+        }
+    }
+}
+
+// Acao encostada na DIREITA (o Spacer com peso empurra). Num cartao estreito o
+// botao solto na esquerda le como sobra de layout.
+@Composable
+private fun AcaoDoAviso(rotulo: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.weight(1f))
+        PillButton(rotulo, accent = true, onClick = onClick)
     }
 }
 

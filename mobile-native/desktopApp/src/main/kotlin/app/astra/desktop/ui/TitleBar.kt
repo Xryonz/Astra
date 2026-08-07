@@ -71,19 +71,25 @@ fun WindowScope.AstraTitleBar(
             )
             Spacer(Modifier.weight(1f))
             if (showActions) {
-                TitleBarButton(Lucide.Search, onClick = onOpenSearch)
+                TitleBarButton(Lucide.Search, "Buscar", onClick = onOpenSearch)
                 TitleBarBell(notifUnread, onClick = onOpenNotifications)
                 // Missoes por ultimo dos tres: e o menos frequente. Busca e sino sao
                 // reacao a alguma coisa; missao e quando a pessoa QUER olhar.
-                TitleBarButton(Lucide.Target, onClick = onOpenMissions)
+                TitleBarButton(Lucide.Target, "Missões", onClick = onOpenMissions)
             }
-            TitleBarButton(Lucide.Minus) { state.isMinimized = true }
-            TitleBarButton(if (state.placement == WindowPlacement.Maximized) Lucide.Copy else Lucide.Square) {
+            TitleBarButton(Lucide.Minus, "Minimizar") { state.isMinimized = true }
+            val maximizada = state.placement == WindowPlacement.Maximized
+            // O rotulo acompanha o icone: o botao alterna, e anunciar "Maximizar"
+            // com a janela ja maximizada seria o leitor de tela dizendo o contrario
+            // do que o clique faz.
+            TitleBarButton(
+                if (maximizada) Lucide.Copy else Lucide.Square,
+                if (maximizada) "Restaurar" else "Maximizar",
+            ) {
                 state.placement =
-                    if (state.placement == WindowPlacement.Maximized) WindowPlacement.Floating
-                    else WindowPlacement.Maximized
+                    if (maximizada) WindowPlacement.Floating else WindowPlacement.Maximized
             }
-            TitleBarButton(Lucide.X, hoverColor = Obsidian.danger, onClick = onClose)
+            TitleBarButton(Lucide.X, "Fechar", hoverColor = Obsidian.danger, onClick = onClose)
         }
     }
 }
@@ -105,7 +111,14 @@ private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(Lucide.Bell, tint = if (unread > 0) Obsidian.text1 else Obsidian.text2, size = 15.dp)
+        // A contagem entra no NOME, e nao so no badge: a bolinha ambar e a unica
+        // pista de que ha algo novo, e ela e puramente visual.
+        LIcon(
+            Lucide.Bell,
+            tint = if (unread > 0) Obsidian.text1 else Obsidian.text2,
+            size = 15.dp,
+            rotulo = if (unread > 0) "Notificações — $unread não lidas" else "Notificações",
+        )
         if (unread > 0) {
             Box(
                 modifier = Modifier
@@ -127,6 +140,7 @@ private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
 @Composable
 private fun TitleBarButton(
     icon: ImageVector,
+    rotulo: String,
     hoverColor: Color = Obsidian.hover,
     onClick: () -> Unit,
 ) {
@@ -147,6 +161,7 @@ private fun TitleBarButton(
             icon = icon,
             tint = if (hovered && hoverColor == Obsidian.danger) Obsidian.text1 else Obsidian.text2,
             size = 15.dp,
+            rotulo = rotulo,
         )
     }
 }

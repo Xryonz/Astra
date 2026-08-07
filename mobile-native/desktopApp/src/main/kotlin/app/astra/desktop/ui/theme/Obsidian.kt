@@ -31,7 +31,17 @@ object Obsidian {
         private set
 
     // Fixos (independentes do tema).
-    val text1 = Color(0xFFF5F5F7)
+    //
+    // text1 desceu de #F5F5F7 pra #E4E4EB, e o motivo NAO e contraste — e o
+    // contrario dele. Sobre o void (#06060E), o valor antigo dava ~19:1, quase o
+    // dobro do que a norma pede pra texto pequeno. Contraste ALTO DEMAIS em fundo
+    // escuro produz halacao: a borda clara da letra parece vibrar, e o efeito
+    // aparece justamente em quem passa horas no app a noite — que e o uso real
+    // daqui. O valor novo continua em ~15:1, folgado acima do minimo de 4,5:1.
+    //
+    // Se algum dia isto parecer apagado demais, o caminho e subir ESTE numero, e
+    // nao mexer no fundo: a rampa de elevacao inteira e calibrada a partir do void.
+    val text1 = Color(0xFFE4E4EB)
     val text2 = Color(0xFFC0C0C6)
     val text3 = Color(0xFF8C8C94)
     val borderDim = Color(0xFF363741)

@@ -30,18 +30,27 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -62,35 +71,77 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 // já usa pro hover; pra funcionar, o clickable precisa receber esse source
 // (clickable(interactionSource = it, indication = null, ...)). Aplique cedo na
 // cadeia (antes de clip/background) pra escala envolver o visual inteiro.
+//
+// TAMBEM desenha o anel de FOCO DE TECLADO, e por isso o nome ficou menor que o
+// trabalho — mantido assim porque renomear em 29 lugares seria puro ruido de
+// diff. Este e o "jeito de botao" compartilhado do Astra: aperta e encolhe,
+// recebe foco e ganha anel.
+//
+// O anel resolve um buraco que valia pro app INTEIRO: havia 97 lugares com
+// `indication = null` e ZERO uso de estado de foco no projeto. O Tab andava pelos
+// botoes, mas nada mostrava onde voce estava — quem navega so por teclado ficava
+// as cegas. E ficar as cegas nao e um detalhe de acessibilidade: e o app inutil.
+//
+// Duas escolhas de implementacao que importam:
+//  - `onFocusChanged`, e nao o InteractionSource. O modificador observa o foco de
+//    quem vem DEPOIS dele na cadeia — e o clickable vem depois. Assim o anel nao
+//    depende de o clickable repassar (ou nao) interacao de foco pro source.
+//  - o anel e pintado no `drawWithContent`, DEPOIS do drawContent. Como o
+//    clickScale entra cedo na cadeia, uma borda comum aqui seria coberta pelo
+//    background que vem logo adiante; desenhar por cima e o unico jeito de o anel
+//    sobreviver a qualquer ordem de clip/background do chamador.
 @Composable
 fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.96f,
+    // Forma do anel. O default cobre quase tudo; botao redondo passa CircleShape,
+    // senao sai um anel quadrado em volta de um circulo.
+    formaDoFoco: Shape = RoundedCornerShape(8.dp),
 ): Modifier {
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
+    var focado by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
         animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
         label = "clickScale",
     )
-    return graphicsLayer { scaleX = scale; scaleY = scale }
+    val corDoFoco = Obsidian.accent
+    return onFocusChanged { focado = it.isFocused }
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .drawWithContent {
+            drawContent()
+            if (!focado) return@drawWithContent
+            val traco = Stroke(width = 2.dp.toPx())
+            when (val contorno = formaDoFoco.createOutline(size, layoutDirection, this)) {
+                is Outline.Rectangle -> drawRect(corDoFoco, style = traco)
+                is Outline.Rounded -> drawPath(Path().apply { addRoundRect(contorno.roundRect) }, corDoFoco, style = traco)
+                is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
+            }
+        }
 }
 
 // Icone Lucide tingido. O desktop NAO tem material (sem Icon()), entao renderiza
 // o ImageVector via foundation.Image + ColorFilter.tint. Substitui os glifos/emoji
 // que faziam papel de ícone de chrome; a marca ✦ do Astra fica de fora (e
 // identidade, não ícone). Mesma lib/versão do :app Android (com.composables.icons.lucide).
+//
+// `rotulo` e o nome que o leitor de tela anuncia. Fica NULO por padrao de
+// proposito: icone ao lado de um texto e decoracao, e anunciar "lixeira, Apagar
+// conversa" faz o leitor repetir tudo duas vezes. Quem PRECISA de rotulo e o
+// botao so-icone, onde o desenho e a unica pista que existe — e ali estava o
+// buraco: os 90 usos de LIcon passavam null sem nem ter como mudar isso.
 @Composable
 fun LIcon(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     tint: Color = Obsidian.text2,
     size: Dp = 16.dp,
+    rotulo: String? = null,
 ) {
     Image(
         imageVector = icon,
-        contentDescription = null,
+        contentDescription = rotulo,
         modifier = modifier.size(size),
         colorFilter = ColorFilter.tint(tint),
     )

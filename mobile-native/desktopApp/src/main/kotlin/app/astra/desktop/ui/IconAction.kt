@@ -125,7 +125,11 @@ fun BotaoIcone(
                     modifier = Modifier.graphicsLayer { rotationZ = angulo },
                 )
             } else {
-                LIcon(icone, tint = conteudo, size = 16.dp)
+                // A `dica` VIRA o nome acessivel. Ela ja e exatamente isso — o nome
+                // da acao em portugues — e estava sendo escrita duas vezes no
+                // codigo pra ser mostrada uma so, pro mouse. Quem usa leitor de
+                // tela nao alcancava o texto que ja existia.
+                LIcon(icone, tint = conteudo, size = 16.dp, rotulo = dica)
             }
         }
         if (mostrarDica && !ocupado) {

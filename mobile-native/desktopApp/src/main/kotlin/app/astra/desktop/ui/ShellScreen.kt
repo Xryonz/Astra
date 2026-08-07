@@ -2758,20 +2758,33 @@ private fun OrbitItem(
 
 // Badge de não-lidas: circulo ambar com o numero (cap 99+). Numero escuro
 // (Obsidian.base) pra contraste no ambar — marca da constelação, não vermelho.
+//
+// `internal` (era private) porque as abas de Amigos passaram a usar o MESMO
+// badge. Contagem redonda e o vocabulario do app pra "isto tem um numero"; ter
+// duas versoes desse desenho seria garantir que uma delas envelhecesse sozinha.
+//
+// `destaque` separa duas coisas que parecem iguais e nao sao: ambar cheio quer
+// dizer PRECISA DE VOCE (nao lida, pedido recebido); apagado e so um total, sem
+// pedido nenhum. Pintar todo numero de ambar dilui o unico sinal que o app tem
+// pra dizer "olha aqui" — e app que pisca por tudo ensina a ignorar o piscar.
 @Composable
-private fun UnreadCountBadge(count: Int) {
+internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
     Box(
         Modifier
             .height(18.dp)
             .widthIn(min = 18.dp)
             .clip(RoundedCornerShape(9.dp))
-            .background(Obsidian.accent)
+            .background(if (destaque) Obsidian.accent else Obsidian.raised)
             .padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             if (count > 99) "99+" else count.toString(),
-            style = TextStyle(color = Obsidian.base, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+            style = TextStyle(
+                color = if (destaque) Obsidian.base else Obsidian.text2,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
             maxLines = 1,
         )
     }

@@ -101,8 +101,13 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
         friends = f.sortedWith(
             compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
         )
-        incoming = runCatching { api.requests().data.orEmpty() }.getOrDefault(emptyList())
-        outgoing = runCatching { api.outgoing().data.orEmpty() }.getOrDefault(emptyList())
+        // onSuccess, e nao getOrDefault(emptyList()): falha de rede virava lista
+        // VAZIA, e lista vazia aqui e uma afirmacao — "voce nao tem pedido
+        // nenhum". Com a API dormindo no plano free do Render, a primeira carga
+        // depois do sono cai, e a tela mentia com toda a confianca. Agora uma
+        // falha apenas mantem o que ja se sabia.
+        runCatching { api.requests().data.orEmpty() }.onSuccess { incoming = it }
+        runCatching { api.outgoing().data.orEmpty() }.onSuccess { outgoing = it }
     }
     LaunchedEffect(Unit) { reload(); loading = false }
 
@@ -140,7 +145,17 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             TabPill("Amigos", friends.size, tab == FriendsTab.FRIENDS) { tab = FriendsTab.FRIENDS }
-            TabPill("Pendentes", incoming.size, tab == FriendsTab.PENDING) { tab = FriendsTab.PENDING }
+            // Conta RECEBIDOS + ENVIADOS. Contava só os recebidos, mas a aba lista
+            // os dois — então um convite que você mandou aparecia na lista e não
+            // entrava na conta. Rótulo "Pendentes" promete o que a aba mostra.
+            TabPill(
+                "Pendentes",
+                incoming.size + outgoing.size,
+                tab == FriendsTab.PENDING,
+                // Âmbar só quando há pedido ESPERANDO VOCÊ. Convite que você
+                // mandou está esperando o outro — não é tarefa sua.
+                destaque = incoming.isNotEmpty(),
+            ) { tab = FriendsTab.PENDING }
             TabPill("Adicionar", null, tab == FriendsTab.ADD) { tab = FriendsTab.ADD }
         }
         Spacer(Modifier.height(6.dp))
@@ -190,7 +205,15 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun TabPill(label: String, count: Int?, active: Boolean, onClick: () -> Unit) {
+private fun TabPill(
+    label: String,
+    count: Int?,
+    active: Boolean,
+    // Âmbar cheio = precisa de você. Aqui, só Pendentes: "Amigos" é um total, não
+    // um pedido — ver o comentário do UnreadCountBadge.
+    destaque: Boolean = false,
+    onClick: () -> Unit,
+) {
     val src = remember { MutableInteractionSource() }
     // Transicao suave ao trocar de aba (como TypeChip/CreateMenuRow) — antes o
     // fundo/borda trocavam seco, destoando dos outros chips selecionaveis.
@@ -215,8 +238,10 @@ private fun TabPill(label: String, count: Int?, active: Boolean, onClick: () -> 
             style = TextStyle(color = if (active) Obsidian.text1 else Obsidian.text3, fontSize = 13.sp, fontFamily = DmSerif),
         )
         if (count != null && count > 0) {
-            Spacer(Modifier.width(6.dp))
-            Text("$count", style = TextStyle(color = if (active) Obsidian.accent else Obsidian.text3, fontSize = 11.sp))
+            Spacer(Modifier.width(7.dp))
+            // O MESMO badge redondo das órbitas. Era um numero solto, que some no
+            // meio do rotulo — e contagem que nao se ve nao e contagem.
+            UnreadCountBadge(count, destaque = destaque)
         }
     }
 }

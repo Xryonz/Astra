@@ -1,6 +1,7 @@
 package app.astra.desktop.net
 
 import app.astra.desktop.auth.SessionStore
+import app.astra.desktop.voice.SoundboardPlayer
 import app.astra.mobile.core.network.UserApi
 import app.astra.shared.AstraShared
 import io.socket.client.Ack
@@ -371,6 +372,14 @@ class DesktopSocket(
         }
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }
+        }
+        // Soundboard: toca DIRETO daqui, sem passar pela UI. O som e um efeito da
+        // call, nao um estado de tela — mandar isso subir ate um ViewModel pra
+        // descer de novo so adiaria o audio e criaria uma dependencia entre tocar
+        // som e ter a tela da call composta.
+        s.on("soundboard_play") { args ->
+            val url = (args.firstOrNull() as? JSONObject)?.optString("url").orEmpty()
+            if (url.isNotBlank()) SoundboardPlayer.tocar(url)
         }
         s.on("server_channels") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverChannels.tryEmit(it.toString()) }

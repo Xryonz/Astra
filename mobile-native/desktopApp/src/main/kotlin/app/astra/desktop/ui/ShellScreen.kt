@@ -3095,7 +3095,7 @@ private fun Stage(
         // Sala de voz ocupa o palco. Sem engine = você abriu a sala mas ainda não
         // entrou -> antessala com quem esta la e o botao verde.
         if (voiceChannel != null) {
-            if (voiceEngine != null) VoiceView(voiceChannel, members, me, voiceEngine, onLeaveVoice)
+            if (voiceEngine != null) VoiceView(voiceChannel, members, me, voiceEngine, onLeaveVoice, server?.id)
             else VoiceLobby(voiceChannel, members, voicePresence, onJoinVoice)
             return@Column
         }

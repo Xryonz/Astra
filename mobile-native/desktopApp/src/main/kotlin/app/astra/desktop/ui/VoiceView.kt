@@ -65,6 +65,12 @@ import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
+import com.composables.icons.lucide.Volume2
+import androidx.compose.runtime.rememberCoroutineScope
+import app.astra.mobile.core.network.SoundApi
+import app.astra.mobile.core.network.dto.ServerSoundDto
+import app.astra.mobile.core.network.dto.TocarSomRequest
+import kotlinx.coroutines.launch
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.ScreenShare
 import com.composables.icons.lucide.Settings
@@ -111,9 +117,23 @@ fun VoiceView(
     // DisposableEffect desta tela que desconectava a call ao navegar.
     engine: VoiceEngine,
     onLeave: () -> Unit,
+    // So pra soundboard: ChannelDto nao carrega a constelacao, e a rota de tocar
+    // precisa dela pra checar se voce e membro.
+    serverId: String? = null,
 ) {
     val koin = GlobalContext.get()
     val prefs = remember { koin.get<DesktopPrefs>() }
+
+    // Soundboard. A lista e buscada UMA vez por constelacao: sons mudam quando
+    // alguem sobe um novo, e isso nao acontece no meio de uma call.
+    val soundApi = remember { koin.get<SoundApi>() }
+    val escopoSons = rememberCoroutineScope()
+    var sons by remember(serverId) { mutableStateOf<List<ServerSoundDto>>(emptyList()) }
+    var sonsAbertos by remember { mutableStateOf(false) }
+    LaunchedEffect(serverId) {
+        val sid = serverId ?: return@LaunchedEffect
+        runCatching { sons = soundApi.listar(sid).sounds }
+    }
     val prefState by prefs.state.collectAsState()
     val status by engine.status.collectAsState()
     val screenOn by engine.screenOn.collectAsState()
@@ -279,6 +299,65 @@ fun VoiceView(
                 tone = if (micOn) CallTone.Normal else CallTone.Danger,
                 onClick = engine::toggleMic,
             )
+            // SOUNDBOARD. Clicar num som NAO mistura audio no seu microfone: o
+            // servidor avisa a sala e cada um toca o arquivo original localmente
+            // (ver SoundboardPlayer). Passar pelo mic faria o som atravessar o Opus
+            // da voz, que e afinado pra fala e esmaga efeito.
+            //
+            // Sem freio entre disparos — decisao explicita do dono.
+            Box {
+                CallIconButton(
+                    icon = Lucide.Volume2,
+                    tone = if (sonsAbertos) CallTone.Active else CallTone.Normal,
+                    onClick = { sonsAbertos = !sonsAbertos },
+                )
+                if (sonsAbertos) {
+                    Popup(
+                        onDismissRequest = { sonsAbertos = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        Column(
+                            Modifier
+                                .popupReveal(originX = 0.5f, originY = 1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Obsidian.raised)
+                                .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+                                .padding(4.dp),
+                        ) {
+                            if (sons.isEmpty()) {
+                                Text(
+                                    "nenhum som aqui ainda",
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
+                            sons.forEach { som ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            val sid = serverId
+                                            if (sid != null) escopoSons.launch {
+                                                runCatching {
+                                                    soundApi.tocar(sid, som.id, TocarSomRequest(channel.id))
+                                                }
+                                            }
+                                            // O menu NAO fecha: soundboard e feita
+                                            // pra disparar varios seguidos, e reabrir
+                                            // a cada som mataria a graca.
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                ) {
+                                    LIcon(Lucide.Volume2, tint = Obsidian.text3, size = 13.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(som.name, style = TextStyle(color = Obsidian.text1, fontSize = 12.sp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             Box {
                 CallIconButton(
                     icon = Lucide.ScreenShare,

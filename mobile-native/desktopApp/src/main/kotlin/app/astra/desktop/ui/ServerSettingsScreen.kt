@@ -84,6 +84,7 @@ import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.LoaderCircle
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.Upload
+import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.Shield
 import com.composables.icons.lucide.Lucide
@@ -102,6 +103,7 @@ internal enum class ServerTab(val label: String, val sub: String, val icon: Imag
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
     ROLES("Cargos", "permissões e cor do nome", Lucide.Shield, true),
     BANS("Banimentos", "quem não pode voltar", Lucide.Ban, true),
+    SOUNDS("Efeitos sonoros", "sons pra tocar em call", Lucide.Volume2, true),
 }
 
 @Composable
@@ -250,6 +252,13 @@ fun ServerSettingsScreen(
                                     onUnban = { uid, cb ->
                                         onUnban(uid) { err -> if (err == null) reloadBans(); cb(err) }
                                     },
+                                )
+                                // Quem so e membro tambem abre esta aba: ele nao sobe
+                                // nem apaga, mas ouvir o que existe antes de tocar
+                                // numa call cheia e o minimo de cortesia.
+                                ServerTab.SOUNDS -> SoundsSection(
+                                    serverId = server.id,
+                                    podeGerenciar = isOwner || "MANAGE_SERVER" in myPermissions,
                                 )
                             }
                         }

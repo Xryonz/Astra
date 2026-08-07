@@ -105,7 +105,16 @@ jobs:
             Get-ChildItem mobile-native -Recurse -Filter "Astra-*-win-x64.zip" | ForEach-Object { $_.FullName }
             throw "zip nao encontrado em $zip"
           }
-          gh release create $tag $zip `
+          # SHA-256 ao lado do zip. O app baixa este arquivo e confere ANTES de
+          # trocar a pasta da versao — antes ele so olhava o Content-Length, que
+          # pega download truncado mas nao pega arquivo trocado.
+          # Formato do `sha256sum` ("<hash>  <nome>") porque e o que o cliente le.
+          $sha  = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          $hashFile = "$zip.sha256"
+          "$sha  $asset" | Out-File -FilePath $hashFile -Encoding ascii -NoNewline
+          Write-Host "sha256: $sha"
+
+          gh release create $tag $zip $hashFile `
             --repo $env:GITHUB_REPOSITORY `
             --title "Astra ${{ steps.versao.outputs.versao }}" `
             --notes "Atualizacao automatica. O Astra baixa sozinho na proxima abertura."

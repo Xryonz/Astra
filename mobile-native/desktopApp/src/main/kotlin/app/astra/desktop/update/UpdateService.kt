@@ -15,6 +15,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.security.MessageDigest
 import java.net.UnknownHostException
 import java.time.Duration
 import java.util.zip.ZipInputStream
@@ -311,6 +312,7 @@ class UpdateService(private val http: OkHttpClient) {
             download(av.downloadUrl, zipFile) { p ->
                 _state.value = UpdateState.Downloading(av.version, p)
             }
+            conferirHash(av.downloadUrl, zipFile)
             unzip(zipFile, stagingDir)
             // O zip NAO e apagado: fica arquivado em zips/ (historico pedido pelo dono).
             // O asset tem a pasta Astra/ na raiz; achar quem contem Astra.exe (flat
@@ -412,6 +414,48 @@ class UpdateService(private val http: OkHttpClient) {
                 // Espera curta e tenta RETOMAR do byte onde parou (não recomeca).
                 Thread.sleep(1500)
             }
+        }
+    }
+
+    // Confere o zip baixado contra o SHA-256 publicado ao lado dele.
+    //
+    // O que isto pega: zip corrompido ou trocado no caminho. O que NAO pega:
+    // quem tem a credencial de publicacao — essa pessoa publica o zip e o hash
+    // juntos. Assinatura de codigo resolveria isso, e foi deixada de fora de
+    // proposito: exige gerenciar chave e rotacao, trabalho que nao se mantem num
+    // projeto de uma pessoa so.
+    //
+    // AUSENTE = SEGUE. As releases ate a 0.1.76 nao tem o arquivo de hash, e
+    // recusar atualizacao por causa disso deixaria todo mundo preso na versao
+    // instalada — o remedio seria pior que a doenca.
+    private fun conferirHash(zipUrl: String, zip: File) {
+        val esperado = runCatching {
+            val req = Request.Builder().url("$zipUrl.sha256")
+                .header("User-Agent", "Astra-Desktop").build()
+            http.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@use null
+                // Formato do `sha256sum`: "<hash>  <nome do arquivo>".
+                resp.body?.string()?.trim()?.split(Regex("\\s+"))?.firstOrNull()
+            }
+        }.getOrNull()?.lowercase()
+
+        if (esperado.isNullOrBlank() || esperado.length != 64) return
+
+        val md = MessageDigest.getInstance("SHA-256")
+        zip.inputStream().buffered().use { input ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        val obtido = md.digest().joinToString("") { "%02x".format(it) }
+        if (obtido != esperado) {
+            // Apaga: manter um zip que nao confere na pasta zips/ deixaria um
+            // arquivo suspeito no disco e o retry tentaria RETOMAR ele por Range.
+            zip.delete()
+            error("o pacote baixado nao confere com o publicado")
         }
     }
 

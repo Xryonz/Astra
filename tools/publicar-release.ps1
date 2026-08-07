@@ -1,4 +1,17 @@
-﻿# Publica uma release do Astra desktop no GitHub, no formato EXATO que o
+﻿# ⚠ NAO E MAIS O CAMINHO NORMAL. Quem publica e o
+# `.github/workflows/desktop-release.yml`, disparado pelo push que bumpa o
+# `astraVersion`. Este script existe so pra emergencia (Actions fora do ar).
+#
+# Por que deixou de ser o caminho normal: rodar os dois publicava a MESMA
+# release por dois caminhos. Como o script e rapido e o workflow leva ~5min
+# empacotando, o script sempre chegava primeiro — e o workflow morria no fim com
+# "a release with the same tag name already exists". Resultado: CI vermelho em
+# todo push, e um CI que se aprende a ignorar nao avisa nada quando importa.
+#
+# Se precisar rodar isto, va no Actions e CANCELE a execucao do workflow antes.
+#
+# ---------------------------------------------------------------------------
+# Publica uma release do Astra desktop no GitHub, no formato EXATO que o
 # auto-update espera. Existe porque publicar na mao ja falhou de todas as formas
 # possiveis: a ultima release publicada (26/jul) tinha a tag desktop-v0.1.8 e o
 # asset chamado "0.1.9.zip" — o app montava .../desktop-v0.1.8/Astra-0.1.8-win-x64.zip
@@ -90,6 +103,20 @@ $uploadUrl = ($release.upload_url -replace '\{.*\}', '') + "?name=$asset"
 $up = @{ Authorization = "Bearer $token"; 'User-Agent' = 'Astra-Publicar'; 'Content-Type' = 'application/zip' }
 Invoke-RestMethod -Method Post -Uri $uploadUrl -Headers $up -InFile $zip | Out-Null
 Write-Host "asset enviado."
+
+# ---- 6b. SHA-256 ao lado do zip ----
+# O app confere isto antes de trocar a pasta da versao. Tem que sair daqui
+# tambem: uma release publicada por este caminho sem o hash seria aceita (o
+# cliente segue quando o arquivo falta), mas ficaria sem a protecao — e o motivo
+# de faltar seria invisivel.
+$sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+$hashTmp = Join-Path $env:TEMP "$asset.sha256"
+"$sha  $asset" | Out-File -FilePath $hashTmp -Encoding ascii -NoNewline
+$upTxt = @{ Authorization = "Bearer $token"; 'User-Agent' = 'Astra-Publicar'; 'Content-Type' = 'text/plain' }
+$hashUrl = ($release.upload_url -replace '\{.*\}', '') + "?name=$asset.sha256"
+Invoke-RestMethod -Method Post -Uri $hashUrl -Headers $upTxt -InFile $hashTmp | Out-Null
+Remove-Item $hashTmp -Force
+Write-Host "sha256 enviado: $sha"
 
 # ---- 7. Confere pelo MESMO caminho que o app usa ----
 # O app nao usa a API: le o 302 de /releases/latest e monta a URL do zip por

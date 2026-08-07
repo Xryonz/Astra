@@ -8,7 +8,14 @@ on:
 
 jobs:
   ci:
-    name: Lint · Type-check · Test
+    # O nome dizia "Lint" e nunca rodou lint nenhum. Nao e so cosmetico: um passo
+    # que se acredita existir e nao existe e pior que um passo ausente.
+    #
+    # E nao da pra so ligar: o apps/web tem ESLint 9 no package.json e NENHUM
+    # arquivo de configuracao (nem .eslintrc, nem eslint.config.js) — a v9 so le
+    # o formato flat. O script `lint` nunca funcionou. Como o web esta congelado,
+    # escrever config pra ele agora seria trabalho pra um app que ninguem edita.
+    name: Type-check · Test · Audit
     runs-on: ubuntu-latest
 
     steps:
@@ -34,3 +41,11 @@ jobs:
 
       - name: Test API
         run: npm test --workspace=@astra/api
+
+      # AVISA, nao trava (continue-on-error). CVE em dependencia transitiva
+      # costuma nao ter correcao no dia em que aparece; travar o CI por isso
+      # ensinaria a ignorar o vermelho, que e justamente o que nao se quer.
+      # Vira bloqueio no dia em que a fila de avisos estiver zerada.
+      - name: Auditar dependencias
+        continue-on-error: true
+        run: npm audit --audit-level=high

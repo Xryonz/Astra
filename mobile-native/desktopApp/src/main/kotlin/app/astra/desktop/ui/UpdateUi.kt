@@ -12,7 +12,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
@@ -35,6 +37,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,12 +50,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
@@ -146,12 +152,19 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     val barProgress = realProgress ?: syntheticFill.value
     // Palavra acima da barra: nos estados reais, o que esta havendo; no hold comum, uma
     // palavra "espacial" que avanca junto com o preenchimento (pedido do dono).
-    val statusLabel = when (val s = st) {
-        is UpdateState.Available   -> "nova versão ${s.version}"
-        is UpdateState.Downloading -> "baixando ${s.version} · ${(s.progress * 100).toInt()}%"
-        is UpdateState.Ready       -> "reiniciando pra aplicar"
-        is UpdateState.Failed      -> s.reason
-        else                       -> spaceWord(barProgress)
+    //
+    // A FRASE e a PORCENTAGEM andam separadas de proposito. Elas tem ritmos
+    // opostos: a frase muda 5 vezes na tela inteira, a porcentagem muda 100 vezes
+    // so no download. Enquanto as duas moravam na MESMA String, cada 1% virava um
+    // targetState novo e remontava a animacao — a frase saia antes de terminar de
+    // entrar e nunca dava pra ler nada. Agora o numero anda por fora e atualiza no
+    // lugar: numero trocando no lugar e o esperado, texto piscando le como falha.
+    val rotulo = when (val s = st) {
+        is UpdateState.Available   -> Rotulo("nova versão ${s.version}")
+        is UpdateState.Downloading -> Rotulo("baixando ${s.version}", baixando = true)
+        is UpdateState.Ready       -> Rotulo("reiniciando pra aplicar")
+        is UpdateState.Failed      -> Rotulo(s.reason)
+        else                       -> Rotulo(spaceWord(barProgress))
     }
 
     Box(
@@ -203,7 +216,12 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
                 },
             )
             Spacer(Modifier.height(16.dp))
-            ThinProgress(barProgress, statusLabel, reduceMotion)
+            // O gate e uma janela propria e nunca passou por quem provê o
+            // LocalReduceMotion — os pontinhos de carregamento leem DE LA. Sem
+            // isto eles saltariam mesmo com movimento reduzido ligado.
+            CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
+                ThinProgress(barProgress, rotulo, realProgress?.let { (it * 100).toInt() }, reduceMotion)
+            }
         }
     }
 }
@@ -213,40 +231,68 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
 // No download o preenchimento e o progresso REAL; no hold comum e a barra sintetica
 // que sobe devagar. Canvas (não Box) pra uma única passada numa tela que abre na hora.
 @Composable
-private fun ThinProgress(progress: Float, label: String, reduceMotion: Boolean) {
+private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceMotion: Boolean) {
     Column(
-        Modifier.fillMaxWidth(0.62f),
+        Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // As palavras trocavam por corte seco, o que numa tela parada e a unica
-        // coisa que se move — lia como falha de renderizacao. Agora a que sai sobe
-        // e apaga, e a que entra vem de baixo: um teleprompter, nao um piscar.
+        // coisa que se move — lia como falha de renderizacao. Agora a que sai
+        // desliza pra DIREITA e some no escuro, e a proxima nasce do escuro pela
+        // ESQUERDA: uma passa pela outra, como um letreiro.
         //
         // A entrada espera a saida terminar (delay = duracao da saida). Cruzadas,
         // as duas frases se sobrepoem no mesmo ponto e viram borrao ilegivel.
-        AnimatedContent(
-            targetState = label,
-            transitionSpec = {
-                val dur = if (reduceMotion) 0 else 1
-                (
-                    fadeIn(tween(220 * dur, delayMillis = 140 * dur)) +
-                        slideInVertically(tween(280 * dur, delayMillis = 140 * dur, easing = EaseOutStd)) { it / 2 }
-                    ).togetherWith(
-                    fadeOut(tween(140 * dur)) +
-                        slideOutVertically(tween(180 * dur, easing = EaseOutStd)) { -it / 2 },
-                ) using SizeTransform(clip = false)
-            },
-            label = "palavraEspacial",
-        ) { palavra ->
-            Text(
-                palavra,
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.4.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        Box(Modifier.dissolverNasBordas(ZONA_ESCURA)) {
+            AnimatedContent(
+                targetState = rotulo,
+                transitionSpec = {
+                    val dur = if (reduceMotion) 0 else 1
+                    (
+                        fadeIn(tween(240 * dur, delayMillis = 190 * dur)) +
+                            slideInHorizontally(tween(340 * dur, delayMillis = 190 * dur, easing = EaseOutStd)) { -it / 3 }
+                        ).togetherWith(
+                        fadeOut(tween(200 * dur)) +
+                            slideOutHorizontally(tween(260 * dur, easing = EaseOutStd)) { it / 3 },
+                    ) using SizeTransform(clip = false)
+                },
+                label = "palavraEspacial",
+            ) { r ->
+                // O respiro lateral e do TAMANHO da zona escura: assim o gradiente
+                // da mascara cai sobre espaco vazio, e a frase parada fica inteira
+                // legivel. Ela so escurece quando entra nesse respiro, deslizando.
+                Row(
+                    Modifier.padding(horizontal = ZONA_ESCURA),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        r.texto,
+                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, letterSpacing = 0.4.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (r.baixando) {
+                        Spacer(Modifier.width(7.dp))
+                        // Os mesmos pontinhos do "digitando…" e do sussurro vazio.
+                        TypingDots(Obsidian.text3, dotSize = 3.dp)
+                        Spacer(Modifier.width(9.dp))
+                        // Largura FIXA: "7%" e "100%" tem que ocupar o mesmo espaco.
+                        // Como a linha inteira e centralizada, sem isso ela andaria
+                        // de lado a cada ponto percentual — o tremor que estamos
+                        // justamente tirando daqui.
+                        Box(Modifier.width(30.dp), contentAlignment = Alignment.CenterEnd) {
+                            Text(
+                                "${percent ?: 0}%",
+                                style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(9.dp))
-        Canvas(Modifier.fillMaxWidth().height(2.dp)) {
+        Canvas(Modifier.fillMaxWidth(0.62f).height(2.dp)) {
             val h = size.height
             val cr = CornerRadius(h / 2f)
             drawRoundRect(color = Obsidian.raised, size = size, cornerRadius = cr)
@@ -259,6 +305,43 @@ private fun ThinProgress(progress: Float, label: String, reduceMotion: Boolean) 
         }
     }
 }
+
+// O que a linha acima da barra mostra. E um objeto, e nao uma String, porque a
+// PORCENTAGEM nao pode entrar aqui: ela e o que muda cem vezes, e qualquer coisa
+// dentro deste tipo vira gatilho de animacao (e o targetState do AnimatedContent).
+private data class Rotulo(val texto: String, val baixando: Boolean = false)
+
+// Quanto de cada lateral e "escuro" — a faixa onde a palavra se dissolve. E
+// tambem o respiro lateral da linha, pra a frase parada nunca cair dentro dela.
+private val ZONA_ESCURA = 26.dp
+
+// Dissolve nas bordas: um gradiente horizontal aplicado com DstIn zera o alpha do
+// que chega perto das laterais. A palavra entra e sai deslizando POR BAIXO dessa
+// mascara, entao ela some no escuro em vez de ser cortada na borda da caixa.
+//
+// CompositingStrategy.Offscreen e OBRIGATORIO: sem ele o DstIn apagaria tambem o
+// que ja esta pintado embaixo (o ceu de estrelas do gate), abrindo um buraco.
+// O recorte da camada cai exatamente onde o gradiente ja chegou a zero — o que
+// fica de fora ja era invisivel, entao o corte nao aparece.
+private fun Modifier.dissolverNasBordas(zona: Dp): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        // Largura zero acontece de verdade num frame de primeira medida ou resize.
+        // Dividir por ela daria NaN nos stops e o Skia descarta o desenho inteiro —
+        // e o mesmo NaN que ja tinha cortado a aurora uma vez.
+        if (size.width <= 0f) return@drawWithContent
+        val f = (zona.toPx() / size.width).coerceIn(0f, 0.49f)
+        drawRect(
+            brush = Brush.horizontalGradient(
+                0f to Color.Transparent,
+                f to Color.Black,
+                1f - f to Color.Black,
+                1f to Color.Transparent,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
 
 // Palavras "espaciais" que trocam conforme a barra enche — dao a sensacao de que
 // algo esta sendo feito. Acentuadas: a convencao de ASCII vale pra COMENTARIO e

@@ -103,14 +103,18 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
   try {
     const img = sharp(file.buffer, { failOn: 'none' })
     const meta = await img.metadata()
-    const buffer = await img
-      .rotate()
-      .resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82, effort: 4 })
-      .toBuffer()
-
-    // Miniatura a partir do ORIGINAL, nao do WebP acima: recomprimir um WebP ja
-    // comprimido empilha artefato em cima de artefato.
+    // O ORIGINAL VAI INTEIRO, byte por byte (pedido do dono: arquivo nao perde
+    // qualidade). Antes ele era reduzido a 2048px e re-encodado em WebP 82 —
+    // resolucao perdida e artefato somado, de forma IRREVERSIVEL: o que sobe e o
+    // que fica, nao existe volta pro original depois.
+    //
+    // Isso nao briga com "carregar instantaneamente" por causa da miniatura: a
+    // bolha do chat baixa o thumb de 720px, e o original so e buscado quando
+    // alguem abre a imagem em tela cheia. Quem paga o tamanho e quem pediu pra
+    // ver de perto.
+    //
+    // O custo real e espaco no bucket (1 GB). Se apertar, o caminho e apagar
+    // anexo velho — nao estragar o novo.
     const maiorLado = Math.max(meta.width ?? 0, meta.height ?? 0)
     let thumb: Buffer | undefined
     if (maiorLado >= THUMB_MIN_PX) {
@@ -122,9 +126,9 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
     }
 
     return {
-      buffer,
-      mime:     'image/webp',
-      ext:      '.webp',
+      buffer:   file.buffer,
+      mime,
+      ext:      extForMime(mime),
       width:    meta.width,
       height:   meta.height,
       blurhash: await makeBlurhash(file.buffer),

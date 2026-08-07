@@ -24,6 +24,7 @@ import app.astra.mobile.core.network.dto.UpdateChannelNameRequest
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import app.astra.mobile.core.network.dto.UpdateCategoryRequest
 import app.astra.mobile.core.network.dto.UpdateChannelBotRequest
+import app.astra.mobile.core.network.dto.UpdateChannelKeepRequest
 import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.LastMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
@@ -693,6 +694,17 @@ class ShellVm(
         scope.launch {
             val ok = runCatching {
                 serverApi.setChannelBot(serverId, channelId, UpdateChannelBotRequest(enabled))
+            }.isSuccess
+            if (ok) reloadServers()
+        }
+    }
+
+    // Guardar (ou nao) a conversa com a bot nesta orbita. Recarrega tambem: o
+    // rotulo do menu le do proprio ChannelDto.
+    fun setChannelKeepBot(serverId: String, channelId: String, guardar: Boolean) {
+        scope.launch {
+            val ok = runCatching {
+                serverApi.setChannelKeepBot(serverId, channelId, UpdateChannelKeepRequest(guardar))
             }.isSuccess
             if (ok) reloadServers()
         }

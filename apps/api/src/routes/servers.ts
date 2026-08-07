@@ -825,6 +825,8 @@ const UpdateChannelSchema = z.object({
   position:   z.number().int().min(0).optional(),
   // null = "nao decidi" (herda da categoria). Nao e o mesmo que false.
   botEnabled: z.boolean().nullable().optional(),
+  // Guardar a conversa com a bot no historico. Sem null: nao ha heranca aqui.
+  botKeepReplies: z.boolean().optional(),
 })
 channelsRouter.patch(
   '/:serverId/channels/:channelId',
@@ -832,7 +834,7 @@ channelsRouter.patch(
   validate(UpdateChannelSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId, channelId } = req.params
-    const { name, categoryId, position, botEnabled } = req.body as z.infer<typeof UpdateChannelSchema>
+    const { name, categoryId, position, botEnabled, botKeepReplies } = req.body as z.infer<typeof UpdateChannelSchema>
 
     const m = await getMemberPerms(req.userId!, serverId)
     if (!m.isOwner && !m.permissions.has(PERMS.MANAGE_CHANNELS))
@@ -846,17 +848,18 @@ channelsRouter.patch(
       if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
     }
 
-    const set: Partial<{ name: string; categoryId: string | null; position: number; botEnabled: boolean | null }> = {}
+    const set: Partial<{ name: string; categoryId: string | null; position: number; botEnabled: boolean | null; botKeepReplies: boolean }> = {}
     if (name !== undefined) set.name = name
     if (categoryId !== undefined) set.categoryId = categoryId
     if (position !== undefined) set.position = position
     if (botEnabled !== undefined) set.botEnabled = botEnabled
+    if (botKeepReplies !== undefined) set.botKeepReplies = botKeepReplies
     if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Nada pra atualizar' })
 
     const r = await db.update(channels)
       .set(set)
       .where(and(eq(channels.id, channelId), eq(channels.serverId, serverId)))
-      .returning({ id: channels.id, name: channels.name, categoryId: channels.categoryId, position: channels.position, botEnabled: channels.botEnabled })
+      .returning({ id: channels.id, name: channels.name, categoryId: channels.categoryId, position: channels.position, botEnabled: channels.botEnabled, botKeepReplies: channels.botKeepReplies })
     if (r.length === 0) return res.status(404).json({ error: 'Canal não encontrado' })
 
     void audit({

@@ -114,6 +114,10 @@ CREATE INDEX IF NOT EXISTS "Notification_userId_readAt_idx" ON "Notification" US
 ALTER TABLE "Channel"         ADD COLUMN IF NOT EXISTS "botEnabled" boolean;
 ALTER TABLE "ChannelCategory" ADD COLUMN IF NOT EXISTS "botEnabled" boolean;
 
+-- Guardar a conversa com a bot. NOT NULL com default: nao ha heranca aqui, e as
+-- orbitas que ja existiam adotam o padrao (guardar) sem passo extra.
+ALTER TABLE "Channel" ADD COLUMN IF NOT EXISTS "botKeepReplies" boolean NOT NULL DEFAULT true;
+
 -- ===== Bloqueio de pessoa =====
 CREATE TABLE IF NOT EXISTS "UserBlock" (
   "id" text PRIMARY KEY NOT NULL,

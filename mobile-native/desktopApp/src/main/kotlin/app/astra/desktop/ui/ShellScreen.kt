@@ -128,7 +128,9 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Archive
 import com.composables.icons.lucide.Bot
+import com.composables.icons.lucide.EyeOff
 import com.composables.icons.lucide.BotOff
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.BellOff
@@ -495,6 +497,7 @@ fun ShellScreen(
             mutedChannels = state.mutedChannels,
             onToggleChannelMute = vm::toggleChannelMute,
             onToggleChannelBot = vm::setChannelBot,
+            onToggleChannelKeepBot = vm::setChannelKeepBot,
             onToggleCatBot = vm::setCategoryBot,
             membersOpen = state.membersOpen,
             onToggleMembers = vm::toggleMembers,
@@ -1618,6 +1621,7 @@ private fun Sidebar(
     mutedChannels: Set<String>,
     onToggleChannelMute: (channelId: String) -> Unit,
     onToggleChannelBot: (serverId: String, channelId: String, ligar: Boolean) -> Unit,
+    onToggleChannelKeepBot: (serverId: String, channelId: String, guardar: Boolean) -> Unit,
     onToggleCatBot: (serverId: String, categoryId: String, ligar: Boolean) -> Unit,
     membersOpen: Boolean,
     onToggleMembers: () -> Unit,
@@ -1723,6 +1727,7 @@ private fun Sidebar(
                                     mutedChannels = mutedChannels,
                                     onToggleChannelMute = onToggleChannelMute,
                                     onToggleChannelBot = { cid, on -> srv?.let { onToggleChannelBot(it.id, cid, on) } },
+                                    onToggleChannelKeepBot = { cid, on -> srv?.let { onToggleChannelKeepBot(it.id, cid, on) } },
                                     onToggleCatBot = { catId, on -> srv?.let { onToggleCatBot(it.id, catId, on) } },
                                 )
                             }
@@ -1894,6 +1899,7 @@ private fun OrbitList(
     mutedChannels: Set<String>,
     onToggleChannelMute: (channelId: String) -> Unit,
     onToggleChannelBot: (channelId: String, ligar: Boolean) -> Unit,
+    onToggleChannelKeepBot: (channelId: String, guardar: Boolean) -> Unit,
     onToggleCatBot: (categoryId: String, ligar: Boolean) -> Unit,
 ) {
     if (server == null) return
@@ -1923,6 +1929,7 @@ private fun OrbitList(
             ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
         },
         onToggleBot = onToggleChannelBot,
+        onToggleKeepBot = onToggleChannelKeepBot,
     )
 
     // Cascata (F6): a posição corrida na lista decide o atraso de entrada.
@@ -2315,6 +2322,14 @@ private fun OrbitEntry(
                             icon = if (temBot) Lucide.BotOff else Lucide.Bot,
                         ) { menu.onToggleBot(ch.id, !temBot) },
                     )
+                    // Só faz sentido com a bot atendendo aqui: sem resposta não
+                    // há o que guardar, e a opção viraria enfeite morto no menu.
+                    if (temBot) add(
+                        MenuEntry.Item(
+                            if (ch.botKeepReplies) "não guardar as respostas" else "guardar as respostas aqui",
+                            icon = if (ch.botKeepReplies) Lucide.EyeOff else Lucide.Archive,
+                        ) { menu.onToggleKeepBot(ch.id, !ch.botKeepReplies) },
+                    )
                     add(MenuEntry.Item("renomear", icon = Lucide.Pencil) { menu.onRename(ch.id, ch.name) })
                     add(MenuEntry.Item("excluir órbita", danger = true, icon = Lucide.Trash2) { confirmDelCh = true })
                 }
@@ -2424,6 +2439,7 @@ private class ChannelMenu(
     // A bot atende nesta órbita? (já vem com a herança da categoria resolvida)
     val botAtende: (ChannelDto) -> Boolean,
     val onToggleBot: (channelId: String, ligar: Boolean) -> Unit,
+    val onToggleKeepBot: (channelId: String, guardar: Boolean) -> Unit,
 )
 
 // Centraliza o dialogo na JANELA (ignora a ancora) — modal flutuante estilo Discord.

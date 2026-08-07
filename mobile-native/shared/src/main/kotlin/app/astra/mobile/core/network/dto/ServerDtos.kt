@@ -36,6 +36,10 @@ data class ChannelDto(
     // Nao e o mesmo que false — sem o nulo nao daria pra desligar uma categoria
     // inteira e reativar uma orbita dentro dela.
     val botEnabled: Boolean? = null,
+    // Guardar a conversa com a bot (comando + resposta) no historico da orbita.
+    // Sem nulo: aqui nao ha heranca de categoria, cada orbita decide a sua. O
+    // default true vale tambem pro backend antigo, que nao manda este campo.
+    val botKeepReplies: Boolean = true,
 )
 
 @Serializable
@@ -100,6 +104,10 @@ data class UpdateChannelNameRequest(val name: String)
 // pra esta orbita. E o comportamento certo mesmo: quem decidiu na mao, decidiu.
 @Serializable
 data class UpdateChannelBotRequest(val botEnabled: Boolean)
+
+// Guardar (ou nao) a conversa com a bot nesta orbita.
+@Serializable
+data class UpdateChannelKeepRequest(val botKeepReplies: Boolean)
 
 // Reordenar / mover canal (drag na sidebar). O backend (PATCH .../channels/:cid) aceita
 // name/categoryId/position. position = ordem na secao; categoryId != null MOVE pra dentro

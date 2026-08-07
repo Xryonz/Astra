@@ -16,17 +16,25 @@ import { channels, channelCategories } from '../db/schema'
 // Por isso as duas colunas sao NULAVEIS: sem o "nao decidi" nao daria pra
 // desligar uma categoria inteira e ainda assim reativar UMA orbita dentro dela.
 
-export async function botPodeFalar(channelId: string): Promise<boolean> {
+// `guarda` sai daqui junto e nao de uma consulta propria: e a MESMA linha do
+// Channel que ja foi buscada. Duas idas ao banco pra ler duas colunas vizinhas
+// seria pagar latencia (Neon) por nada.
+export type RegraDaBot = { fala: boolean; guarda: boolean }
+
+export async function botNaOrbita(channelId: string): Promise<RegraDaBot> {
   const [ch] = await db.select({
-    botEnabled: channels.botEnabled,
-    categoryId: channels.categoryId,
+    botEnabled:     channels.botEnabled,
+    botKeepReplies: channels.botKeepReplies,
+    categoryId:     channels.categoryId,
   }).from(channels).where(eq(channels.id, channelId)).limit(1)
 
-  if (!ch) return false
-  if (ch.botEnabled !== null) return ch.botEnabled
-  if (!ch.categoryId) return true
+  if (!ch) return { fala: false, guarda: false }
+  const guarda = ch.botKeepReplies
+
+  if (ch.botEnabled !== null) return { fala: ch.botEnabled, guarda }
+  if (!ch.categoryId) return { fala: true, guarda }
 
   const [cat] = await db.select({ botEnabled: channelCategories.botEnabled })
     .from(channelCategories).where(eq(channelCategories.id, ch.categoryId)).limit(1)
-  return cat?.botEnabled ?? true
+  return { fala: cat?.botEnabled ?? true, guarda }
 }

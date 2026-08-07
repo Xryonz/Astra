@@ -243,6 +243,10 @@ export const channels = pgTable('Channel', {
   // nulavel: com boolean cru nao haveria como dizer "nao decidi", e desligar a
   // categoria nao alcancaria as orbitas dela.
   botEnabled: boolean('botEnabled'),
+  // A resposta da bot vira mensagem de verdade (com o comando junto) ou some ao
+  // trocar de órbita? NOT NULL de proposito: aqui nao existe "nao decidi" —
+  // guardar ou nao guardar e uma decisao local da orbita, sem heranca.
+  botKeepReplies: boolean('botKeepReplies').notNull().default(true),
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
   byServer:   index('Channel_serverId_idx').on(t.serverId),

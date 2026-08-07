@@ -14,7 +14,7 @@ import { xpPorMensagem } from '../lib/xp'
 import { eventoDeMissao } from '../lib/missoes'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
-import { botPodeFalar } from '../lib/botScope'
+import { botNaOrbita } from '../lib/botScope'
 
 const userSockets = new Map<string, Set<string>>()
 
@@ -474,7 +474,8 @@ export function setupSocket(io: Server) {
       // Bot desligada aqui: sai calada. Responder "estou desligada" seria falar
       // justamente onde pediram silencio — e o cliente ja nem mostra a caixinha
       // de comandos nestas orbitas, entao ninguem chega aqui por engano.
-      if (!(await botPodeFalar(channelId))) return
+      const regra = await botNaOrbita(channelId)
+      if (!regra.fala) return
 
       const botId = await getBotId()
       if (!botId) return
@@ -510,6 +511,47 @@ export function setupSocket(io: Server) {
         }
       }
 
+      const autorBot = {
+        id: botId, username: 'astra_bot',
+        displayName: persona.nome, avatarUrl: persona.avatar,
+      }
+
+      // ---- Orbita que GUARDA a conversa ----
+      // Vira mensagem de verdade, no banco, e o comando vai junto: resposta
+      // sozinha no historico e uma resposta sem pergunta — em papo livre com a
+      // IA, ninguem entende amanha o que foi perguntado hoje.
+      if (regra.guarda) {
+        const [autor, membership] = await Promise.all([
+          selectAuthorById.execute({ userId }).then((r) => r[0]),
+          selectMemberColor.execute({ userId, serverId }).then((r) => r[0]),
+        ])
+
+        const [msgComando] = await db.insert(messages).values({
+          content, channelId, authorId: userId,
+          authorColor: membership?.nameColor ?? null,
+        }).returning()
+
+        // createdAt cravado 1ms depois: a listagem ordena por createdAt e
+        // desempata por id, que e cuid2 — sem ordem nenhuma. Se os dois caissem
+        // no mesmo milissegundo, a resposta podia aparecer ACIMA da pergunta.
+        const depois = new Date(
+          (msgComando.createdAt instanceof Date ? msgComando.createdAt : new Date()).getTime() + 1,
+        )
+        const [msgResposta] = await db.insert(messages).values({
+          content: reply, channelId, authorId: botId, createdAt: depois,
+        }).returning()
+
+        const enfeita = (m: typeof msgComando, author: unknown) => ({
+          ...m, author, reactions: [], mentions: [], attachments: [], replyTo: null,
+        })
+        io.to(`channel:${channelId}`).emit('new_message', enfeita(msgComando, autor))
+        io.to(`channel:${channelId}`).emit('new_message', enfeita(msgResposta, autorBot))
+        return
+      }
+
+      // ---- Orbita que NAO guarda ----
+      // Mensagem sintetica: vive na tela e morre na troca de orbita, igual a
+      // barra do Discord.
       const botMsg = {
         id: `bot-${randomUUID()}`,
         content: reply, channelId,
@@ -527,7 +569,7 @@ export function setupSocket(io: Server) {
         // sintetica, id `bot-...`), entao ela nao herda nada do User como as outras —
         // com null cravado, a bot aparecia com foto no cartao de perfil e sem foto na
         // propria mensagem que acabou de mandar.
-        author: { id: botId, username: 'astra_bot', displayName: persona.nome, avatarUrl: persona.avatar },
+        author: autorBot,
       }
       io.to(`channel:${channelId}`).emit('new_message', botMsg)
     })

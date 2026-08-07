@@ -130,6 +130,8 @@ import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Ban
 import com.composables.icons.lucide.Archive
 import com.composables.icons.lucide.Bot
+import com.composables.icons.lucide.Phone
+import com.composables.icons.lucide.Video
 import com.composables.icons.lucide.EyeOff
 import com.composables.icons.lucide.BotOff
 import com.composables.icons.lucide.Bell
@@ -214,6 +216,9 @@ fun ShellScreen(
     // Trocar de órbita não desconecta mais — so desligar (ou entrar noutra sala).
     val voice = remember { VoiceSession(scope, koin) }
     DisposableEffect(Unit) { onDispose { voice.leave() } }
+    // O VM nasce antes da sessão de voz (ele é criado no `remember` acima), então
+    // a ligação é feita aqui. É por ela que uma chamada atendida entra na sala.
+    remember(voice) { vm.voiceSession = voice }
     var settingsOpen by remember { mutableStateOf(false) }
     // Aba em que o takeover abre: a engrenagem cai em Conta, o avatar do rodape
     // cai em Perfil.
@@ -514,8 +519,18 @@ fun ShellScreen(
             // Entrar de verdade: conecta E anuncia. O anuncio mora aqui (e nao no
             // openVoice) porque abrir a antessala nao e entrar na call.
             onJoinVoice = { state.voiceChannel?.let { voice.join(it); vm.announceVoiceJoin(it.id) } },
-            // Desligar = sair de verdade e limpar o palco.
-            onLeaveVoice = { voice.leave(); vm.leaveVoice() },
+            // Desligar = sair de verdade e limpar o palco. Em sussurro passa pelo
+            // VM: ele avisa o servidor ANTES de sair, e é esse aviso que fecha a
+            // duração gravada no histórico.
+            onLeaveVoice = {
+                if (voice.emSussurro) vm.desligarSussurro() else { voice.leave(); vm.leaveVoice() }
+            },
+            onLigarSussurro = { alvo, video ->
+                // A foto vem da lista de conversas: a tela de chamada mostra o
+                // rosto de quem você chamou, não só o nome.
+                val foto = state.dms.find { it.id == alvo.id }?.otherUser?.avatarUrl
+                vm.ligarNoSussurro(alvo.id, alvo.title, foto, video)
+            },
             createChatVm = createChatVm,
             members = state.members,
             me = state.me,
@@ -739,6 +754,12 @@ fun ShellScreen(
         // O aviso fica FORA do AnimatedVisibility das telas: missao pode fechar com
         // qualquer coisa aberta (ou nada), e o aviso tem que aparecer do mesmo jeito.
         MissaoToaster()
+
+        // Chamada tocando: por cima de TUDO, inclusive das configurações abertas.
+        // Telefone tocando não espera você fechar uma tela.
+        state.chamada?.let { c ->
+            ChamadaScreen(c, onAtender = vm::atenderChamada, onRecusar = vm::recusarChamada)
+        }
     }
     }
 }
@@ -3028,6 +3049,26 @@ private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose
     }
 }
 
+// Botão de ligar no topo do sussurro. Sem moldura em repouso: dois círculos
+// permanentes no cabeçalho competiriam com o nome da pessoa, que é o que importa
+// ali. No hover a borda acende e o glifo vai pro âmbar.
+@Composable
+private fun BotaoDeLigar(icone: ImageVector, titulo: String, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    Box(
+        Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, if (hov) Obsidian.accentDim else Color.Transparent, RoundedCornerShape(8.dp))
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(icone, tint = if (hov) Obsidian.accent else Obsidian.text3, size = 15.dp)
+    }
+}
+
 // ---- Palco central ----
 
 @Composable
@@ -3040,6 +3081,8 @@ private fun Stage(
     voicePresence: List<String>,
     onJoinVoice: () -> Unit,
     onLeaveVoice: () -> Unit,
+    // Ligar pra alguém no sussurro (voz ou vídeo).
+    onLigarSussurro: (ChatTarget.Dm, video: Boolean) -> Unit,
     createChatVm: (ChatTarget) -> ChatVm,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
@@ -3103,6 +3146,14 @@ private fun Stage(
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
                     )
+                }
+                // Ligar — só em sussurro aberto e só fora de call. Em órbita já se
+                // entra pela sala de voz; oferecer o mesmo aqui daria dois jeitos
+                // de fazer a mesma coisa.
+                if (chat is ChatTarget.Dm && voiceChannel == null) {
+                    BotaoDeLigar(Lucide.Phone, "ligar") { onLigarSussurro(chat, false) }
+                    Spacer(Modifier.width(4.dp))
+                    BotaoDeLigar(Lucide.Video, "chamada de vídeo") { onLigarSussurro(chat, true) }
                 }
             }
             HairRule()

@@ -35,8 +35,26 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     fun engineFor(channel: ChannelDto?): VoiceEngine? =
         if (channel != null && joined?.id == channel.id) engine else null
 
-    fun join(channel: ChannelDto) {
-        if (joined?.id == channel.id) return
+    fun join(channel: ChannelDto) = entrar("channel", channel)
+
+    // Chamada de sussurro. A sala do LiveKit e `dm:<conversationId>` e o token
+    // dela ja existia — o `connect` sempre foi generico, so ninguem chamava com
+    // "dm".
+    //
+    // O ChannelDto aqui e SINTETICO: `id` = conversa, `name` = nome da pessoa.
+    // Ele existe porque a tela de call inteira (VoiceView) e desenhada a partir
+    // dele, e os participantes de la ja vem do LiveKit, nao da lista de membros
+    // da constelacao — entao a mesma tela serve pra sussurro sem mudanca.
+    fun joinDm(conversationId: String, titulo: String) =
+        entrar("dm", ChannelDto(id = conversationId, name = titulo, type = "VOICE"))
+
+    // `emSussurro` diz de que tipo e a sala conectada. A UI precisa porque num
+    // sussurro nao ha soundboard nem lista de membros pra oferecer.
+    var emSussurro by mutableStateOf(false)
+        private set
+
+    private fun entrar(tipo: String, sala: ChannelDto) {
+        if (joined?.id == sala.id) return
         // Entrar noutra sala sai da anterior: uma call por vez (como o Discord).
         engine?.dispose()
         engine = VoiceEngine(
@@ -44,13 +62,15 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
             koin.get<VoiceApi>(),
             koin.get<OkHttpClient>(named("plain")),
             koin.get<DesktopPrefs>(),
-        ).also { it.connect("channel", channel.id) }
-        joined = channel
+        ).also { it.connect(tipo, sala.id) }
+        joined = sala
+        emSussurro = tipo == "dm"
     }
 
     fun leave() {
         engine?.dispose()
         engine = null
         joined = null
+        emSussurro = false
     }
 }

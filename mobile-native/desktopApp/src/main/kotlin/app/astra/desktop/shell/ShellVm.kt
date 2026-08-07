@@ -39,6 +39,13 @@ import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.MyPermsDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.VoicePresenceEventDto
+import app.astra.mobile.core.network.dto.ChamadaAtendidaDto
+import app.astra.mobile.core.network.dto.ChamadaChegandoDto
+import app.astra.mobile.core.network.dto.ChamadaEncerradaDto
+import app.astra.desktop.voice.Sfx
+import app.astra.desktop.voice.VoiceSession
+import app.astra.desktop.voice.VoiceStatus
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -119,10 +126,29 @@ data class ShellUiState(
     // quem ve "configurações" no menu da rail. So da selecionada: buscar de todas
     // seria uma requisicao por constelação no boot, e a API dorme no Render free.
     val myPerms: MyPermsDto? = null,
+    // Chamada de sussurro acontecendo agora. Uma so: o Astra nao faz duas calls
+    // ao mesmo tempo, e um estado unico impede a tela de ficar em dois lugares.
+    val chamada: ChamadaNaTela? = null,
 ) {
     val selectedServer: ServerDto?
         get() = (selection as? Selection.Server)?.let { sel -> servers.find { it.id == sel.id } }
 }
+
+// Chamada de sussurro na tela.
+//
+// `euLiguei` decide TUDO que difere nos dois lados: o toque (grave e baixo pra
+// quem liga, alto e repetido pra quem recebe), o texto ("chamando…" x "está te
+// chamando") e quais botoes aparecem (desistir x atender/recusar).
+data class ChamadaNaTela(
+    val conversationId: String,
+    val nome: String,
+    val avatarUrl: String?,
+    val video: Boolean,
+    val euLiguei: Boolean,
+    // Ainda tocando. Depois de atendida a tela sai e quem manda na call passa a
+    // ser a VoiceSession, como em qualquer outra sala.
+    val tocando: Boolean = true,
+)
 
 // Estado do shell. Sem ViewModel no desktop: classe simples presa ao escopo da
 // composicao (rememberCoroutineScope).
@@ -198,6 +224,124 @@ class ShellVm(
                 }
             }
         }
+
+        // ---- Chamada de sussurro ----
+        scope.launch {
+            socket.chamadaChegando.collect { raw ->
+                val ev = runCatching { json.decodeFromString<ChamadaChegandoDto>(raw) }.getOrNull()
+                    ?: return@collect
+                // Ja em call (de órbita ou de sussurro): não deixo o toque
+                // atropelar a conversa em andamento. O servidor desiste sozinho em
+                // 45s e grava a perdida — a pessoa vê a linha depois.
+                if (voiceSession?.joined != null || _state.value.chamada != null) return@collect
+                _state.update {
+                    it.copy(chamada = ChamadaNaTela(
+                        conversationId = ev.conversationId,
+                        nome = ev.fromDisplayName.ifBlank { ev.fromUsername },
+                        avatarUrl = ev.fromAvatarUrl,
+                        video = ev.video,
+                        euLiguei = false,
+                    ))
+                }
+                Sfx.ringStart(souEuQueLiguei = false)
+            }
+        }
+        scope.launch {
+            socket.chamadaAtendida.collect { raw ->
+                val ev = runCatching { json.decodeFromString<ChamadaAtendidaDto>(raw) }.getOrNull()
+                    ?: return@collect
+                val c = _state.value.chamada ?: return@collect
+                if (c.conversationId != ev.conversationId) return@collect
+                Sfx.ringStop()
+                // Só quem LIGOU entra aqui: quem atendeu já entrou na sala no
+                // próprio clique, sem esperar a volta do servidor (esperar poria
+                // uma ida e volta de rede entre apertar 'atender' e ouvir).
+                if (c.euLiguei) entrarNaChamada(c)
+                _state.update { it.copy(chamada = null) }
+            }
+        }
+        scope.launch {
+            socket.chamadaEncerrada.collect { raw ->
+                val ev = runCatching { json.decodeFromString<ChamadaEncerradaDto>(raw) }.getOrNull()
+                    ?: return@collect
+                Sfx.ringStop()
+                _state.update {
+                    if (it.chamada?.conversationId != ev.conversationId) it
+                    else it.copy(chamada = null)
+                }
+                // Desligou do outro lado enquanto eu estava na sala: saio junto.
+                // Sem isto eu ficaria sozinho numa call que acabou, sem entender.
+                val sessao = voiceSession
+                if (sessao?.emSussurro == true && sessao.joined?.id == ev.conversationId) {
+                    sessao.leave()
+                    _state.update { it.copy(voiceChannel = null) }
+                }
+            }
+        }
+    }
+
+    // A sessao de voz mora no shell (acima da navegacao) e e injetada depois da
+    // construcao — o ShellVm nasce antes dela. Nula = ainda montando a tela.
+    var voiceSession: VoiceSession? = null
+
+    fun ligarNoSussurro(conversationId: String, titulo: String, avatarUrl: String?, video: Boolean) {
+        if (voiceSession?.joined != null || _state.value.chamada != null) return
+        socket.ligarNoSussurro(conversationId, video)
+        _state.update {
+            it.copy(chamada = ChamadaNaTela(conversationId, titulo, avatarUrl, video, euLiguei = true))
+        }
+        Sfx.ringStart(souEuQueLiguei = true)
+    }
+
+    fun atenderChamada() {
+        val c = _state.value.chamada ?: return
+        Sfx.ringStop()
+        socket.atenderSussurro(c.conversationId)
+        entrarNaChamada(c)
+        _state.update { it.copy(chamada = null) }
+    }
+
+    fun recusarChamada() {
+        val c = _state.value.chamada ?: return
+        Sfx.ringStop()
+        socket.desligarSussurro(c.conversationId)
+        _state.update { it.copy(chamada = null) }
+    }
+
+    private fun entrarNaChamada(c: ChamadaNaTela) {
+        val sessao = voiceSession ?: return
+        sessao.joinDm(c.conversationId, c.nome)
+        // Palco na sala: a call de sussurro reusa a VoiceView inteira, então ela
+        // precisa estar selecionada pra aparecer.
+        _state.update { it.copy(voiceChannel = sessao.joined) }
+        // Chamada de VÍDEO já entra com a câmera ligada — foi o que a pessoa
+        // pediu ao apertar o botão de vídeo. `silent` porque o som de "comecei a
+        // transmitir" no primeiro segundo da call soaria como erro.
+        //
+        // ESPERA o engine conectar. A `factory` do WebRTC nasce dentro da
+        // corrotina do connect(), então aqui, uma linha depois, ela ainda é nula —
+        // e `startCameraShare` desiste calada nesse caso. Sem esta espera, a
+        // chamada de vídeo entrava sem vídeo e nada indicava o porquê.
+        //
+        // Sem câmera no PC, segue só com voz em vez de falhar: a chamada é o que
+        // importa, e quem tem câmera do outro lado continua sendo visto.
+        if (c.video) {
+            val engine = sessao.engine ?: return
+            scope.launch {
+                engine.status.first { it is VoiceStatus.Connected }
+                engine.cameras().firstOrNull()?.let { engine.startCameraShare(it, silent = true) }
+            }
+        }
+    }
+
+    // Desligar uma call de sussurro em andamento: avisa o servidor (que grava a
+    // duração no histórico) ANTES de sair da sala.
+    fun desligarSussurro() {
+        val sessao = voiceSession ?: return
+        val id = sessao.joined?.id
+        if (sessao.emSussurro && id != null) socket.desligarSussurro(id)
+        sessao.leave()
+        _state.update { it.copy(voiceChannel = null) }
     }
 
     // Recarrega so o proprio perfil (pos-edicao no card do rodape).

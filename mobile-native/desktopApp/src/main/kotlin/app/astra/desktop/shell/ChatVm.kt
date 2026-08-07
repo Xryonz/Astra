@@ -19,6 +19,7 @@ import app.astra.mobile.core.network.dto.MessageDeletedEventDto
 import app.astra.mobile.core.network.dto.MessageEditedEventDto
 import app.astra.mobile.core.network.dto.CreatePollRequest
 import app.astra.mobile.core.network.dto.MsgAuthorDto
+import app.astra.mobile.core.network.dto.CallLogDto
 import app.astra.mobile.core.network.dto.PollDto
 import app.astra.mobile.core.network.dto.PollUpdateDto
 import app.astra.mobile.core.network.dto.ReactRequest
@@ -76,6 +77,9 @@ data class ChatMessage(
     // Enquete: a mensagem VIRA a enquete (nao e anexo). O backend guarda o objeto
     // inteiro numa coluna da propria mensagem, entao ela chega e atualiza junto.
     val poll: PollDto? = null,
+    // Registro de CHAMADA (so sussurro). Mesma ideia da enquete: a mensagem VIRA
+    // a chamada. Nulo = mensagem normal.
+    val call: CallLogDto? = null,
     // Marcada pra sumir: a UI anima o fade-out e o VM tira da lista em seguida.
     val deleting: Boolean = false,
     // --- Envio otimista (so canal, texto puro) ---
@@ -874,5 +878,6 @@ class ChatVm(
         replyTo = replyTo,
         attachments = attachments,
         clientNonce = clientNonce,
+        call = call,
     )
 }

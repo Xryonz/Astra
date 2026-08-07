@@ -100,6 +100,15 @@ class DesktopSocket(
     private val _voicePresence = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val voicePresence: SharedFlow<String> = _voicePresence.asSharedFlow()
 
+    // Chamada no sussurro: toque chegando / atendida / encerrada. Mesmos eventos
+    // que o web ja falava, entao web e desktop se ligam um pro outro.
+    private val _chamadaChegando = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val chamadaChegando: SharedFlow<String> = _chamadaChegando.asSharedFlow()
+    private val _chamadaAtendida = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val chamadaAtendida: SharedFlow<String> = _chamadaAtendida.asSharedFlow()
+    private val _chamadaEncerrada = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val chamadaEncerrada: SharedFlow<String> = _chamadaEncerrada.asSharedFlow()
+
     // Constelacao mexeu (sala server:<id>). Sao PINGS, nao deltas: quem recebe
     // refaz a busca. Canal privado faz cada membro ver uma lista diferente, entao
     // mesclar no cliente erraria — quem decide o que cada um enxerga e o backend.
@@ -373,6 +382,18 @@ class DesktopSocket(
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }
         }
+        s.on("dm_call_invite") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _chamadaChegando.tryEmit(it.toString()) }
+        }
+        s.on("dm_call_accept") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _chamadaAtendida.tryEmit(it.toString()) }
+        }
+        // `dm_call_ended` e o rico (traz o desfecho). O `dm_call_reject` que o
+        // servidor manda junto e so pro web antigo — escutar os dois aqui faria a
+        // tela fechar duas vezes.
+        s.on("dm_call_ended") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _chamadaEncerrada.tryEmit(it.toString()) }
+        }
         // Soundboard: toca DIRETO daqui, sem passar pela UI. O som e um efeito da
         // call, nao um estado de tela — mandar isso subir ate um ViewModel pra
         // descer de novo so adiaria o audio e criaria uma dependencia entre tocar
@@ -533,6 +554,26 @@ class DesktopSocket(
             "content" to content,
         )))
         return true
+    }
+
+    // ---- Chamada no sussurro ----
+    // O `toUserId` NAO vai: o servidor tira o outro lado da propria conversa.
+    // Mandar daqui era o furo antigo — dava pra tocar o telefone de qualquer um.
+    fun ligarNoSussurro(conversationId: String, video: Boolean) {
+        socket?.emit("dm_call_invite", JSONObject(mapOf(
+            "conversationId" to conversationId,
+            "video" to video,
+        )))
+    }
+
+    fun atenderSussurro(conversationId: String) {
+        socket?.emit("dm_call_accept", JSONObject(mapOf("conversationId" to conversationId)))
+    }
+
+    // Recusar, desistir e desligar sao o mesmo evento: quem decide se virou
+    // "perdida" ou "chamada de N min" e o servidor, olhando se alguem atendeu.
+    fun desligarSussurro(conversationId: String) {
+        socket?.emit("dm_call_end", JSONObject(mapOf("conversationId" to conversationId)))
     }
 
     fun joinDm(id: String) {

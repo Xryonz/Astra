@@ -41,6 +41,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import app.astra.mobile.core.network.dto.CallLogDto
+import com.composables.icons.lucide.Phone
+import com.composables.icons.lucide.PhoneMissed
+import com.composables.icons.lucide.Video
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -625,6 +629,13 @@ private fun MessageRow(
     onJumpTo: (String) -> Unit,
     onStartDm: (String, String) -> Unit,
 ) {
+    // Registro de chamada: sai antes de tudo. Não tem avatar, nome, hover,
+    // reação, responder nem editar — é um marco da conversa, não uma fala.
+    msg.call?.let { c ->
+        LinhaDeChamada(c, minha = msg.mine)
+        return
+    }
+
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     // A pill vive num Popup (camada propria): hover nela tira o hover da linha,
@@ -920,6 +931,45 @@ private fun ContentBlock(
             )
         }
     }
+}
+
+// Registro de chamada no sussurro: linha centralizada entre dois fios, com o
+// ícone dizendo o desfecho. Perdida vai em vermelho — é a única que pede uma
+// ação sua; uma chamada que aconteceu é só registro, e fica discreta.
+@Composable
+private fun LinhaDeChamada(c: CallLogDto, minha: Boolean) {
+    val perdida = c.status != "ended"
+    val cor = if (perdida) Obsidian.danger else Obsidian.text3
+    val texto = when {
+        !perdida -> "chamada de " + duracaoCurta(c.durationSec)
+        // Do lado de quem ligou não houve perda nenhuma: ninguém atendeu.
+        minha -> "ninguém atendeu"
+        else -> "chamada perdida"
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+        Row(
+            Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LIcon(
+                if (c.video) Lucide.Video else if (perdida) Lucide.PhoneMissed else Lucide.Phone,
+                tint = cor, size = 12.dp,
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(texto, style = TextStyle(color = cor, fontSize = 11.sp, fontFamily = DmMono))
+        }
+        Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
+    }
+}
+
+private fun duracaoCurta(seg: Int): String = when {
+    seg < 60 -> "${seg}s"
+    seg < 3600 -> "${seg / 60} min"
+    else -> "${seg / 3600}h ${(seg % 3600) / 60}min"
 }
 
 // Lado maior da figurinha na conversa. Mesma ordem de grandeza do Discord: grande

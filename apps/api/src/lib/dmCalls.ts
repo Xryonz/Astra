@@ -70,12 +70,17 @@ async function gravarRegistro(io: SocketServer, c: Chamada, fim: FimDaChamada) {
   const duracaoSeg = c.atendidaEm ? Math.max(1, Math.round((Date.now() - c.atendidaEm) / 1000)) : 0
   const texto = fim === 'ended' ? `Chamada de ${rotuloDeDuracao(duracaoSeg)}` : 'Chamada perdida'
 
+  // Guarda como texto (e uma coluna text, igual ao `poll`) mas VIAJA como objeto:
+  // o cliente nao deve ter dois formatos pra mesma coisa dependendo de a linha ter
+  // vindo pelo socket ou do historico.
+  const registro = { status: fim, video: c.video, durationSec: duracaoSeg }
+
   const [inserida] = await db.insert(directMessages).values({
     content:        texto,
     senderId:       c.quemLigou,
     receiverId:     c.quemRecebe,
     conversationId: c.conversationId,
-    call: JSON.stringify({ status: fim, video: c.video, durationSec: duracaoSeg }),
+    call:           JSON.stringify(registro),
   }).returning()
   if (!inserida) return
 
@@ -87,7 +92,7 @@ async function gravarRegistro(io: SocketServer, c: Chamada, fim: FimDaChamada) {
   // Mesmo evento das mensagens normais: quem esta com a conversa aberta ve a
   // linha aparecer na hora, sem caminho novo no cliente.
   io.to(`dm:${c.conversationId}`).emit('new_dm', {
-    ...inserida, attachments: [], replyTo: null, author: autor,
+    ...inserida, call: registro, attachments: [], replyTo: null, author: autor,
   })
   await db.update(dmConversations).set({ updatedAt: new Date() })
     .where(eq(dmConversations.id, c.conversationId))

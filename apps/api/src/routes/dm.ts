@@ -217,6 +217,9 @@ export function createDMRouter(io: SocketServer) {
       const shaped = items.map((m) => ({
         ...m,
         attachments: safeJson<unknown[]>(m.attachments, []),
+        // Objeto, não a string crua da coluna: é assim que a linha chega pelo
+        // socket, e o cliente não deve ter dois formatos pra mesma coisa.
+        call:        m.call ? safeJson<unknown>(m.call, null) : null,
         replyTo:     m.replyToId ? replyMap.get(m.replyToId) ?? null : null,
       }))
 

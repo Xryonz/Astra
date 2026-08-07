@@ -15,6 +15,7 @@ import { eventoDeMissao } from '../lib/missoes'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
 import { botNaOrbita } from '../lib/botScope'
+import { registrarChamadasDeSussurro } from '../lib/dmCalls'
 
 const userSockets = new Map<string, Set<string>>()
 
@@ -149,37 +150,12 @@ export function setupSocket(io: Server) {
       socket.leave(`dm:${conversationId}`)
     })
 
-    socket.on('dm_call_invite', async (p: { conversationId: string; toUserId: string }) => {
-      if (!p || typeof p.conversationId !== 'string' || typeof p.toUserId !== 'string') return
-      const ok = await userCanAccessDM(userId, p.conversationId)
-      if (!ok) return
-      io.to(`user:${p.toUserId}`).emit('dm_call_invite', {
-        conversationId: p.conversationId,
-        fromUserId:     userId,
-        fromUsername:   socket.data.username,
-        fromDisplayName: socket.data.displayName,
-      })
-    })
-
-    socket.on('dm_call_accept', async (p: { conversationId: string; toUserId: string }) => {
-      if (!p || typeof p.conversationId !== 'string' || typeof p.toUserId !== 'string') return
-      const ok = await userCanAccessDM(userId, p.conversationId)
-      if (!ok) return
-      io.to(`user:${p.toUserId}`).emit('dm_call_accept', {
-        conversationId: p.conversationId,
-        byUserId:       userId,
-      })
-    })
-
-    socket.on('dm_call_reject', async (p: { conversationId: string; toUserId: string }) => {
-      if (!p || typeof p.conversationId !== 'string' || typeof p.toUserId !== 'string') return
-      const ok = await userCanAccessDM(userId, p.conversationId)
-      if (!ok) return
-      io.to(`user:${p.toUserId}`).emit('dm_call_reject', {
-        conversationId: p.conversationId,
-        byUserId:       userId,
-      })
-    })
+    // Chamada de voz/vídeo no sussurro. Os handlers moraram AQUI como relay puro
+    // (sem estado, sem cronômetro, sem registro) e foram pra lib/dmCalls.ts —
+    // MESMOS nomes de evento e mesmo formato, pra o web continuar funcionando e
+    // conseguir se ligar pro desktop. Não recriar os relays aqui: dois handlers
+    // pro mesmo evento fariam cada toque disparar duas vezes.
+    registrarChamadasDeSussurro(io, socket, userId)
 
     socket.on('typing_start', (channelId: string) => {
       if (typeof channelId !== 'string' || !channelId) return

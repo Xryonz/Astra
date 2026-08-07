@@ -401,6 +401,13 @@ export const directMessages = pgTable('DirectMessage', {
 
   replyToId:      text('replyToId'),
 
+  // Registro de CHAMADA (JSON), no mesmo espirito do `poll` das mensagens de
+  // canal: a linha e uma mensagem de verdade, mas desenha diferente. Guardar a
+  // chamada como uma linha do historico e o unico jeito de a pessoa descobrir
+  // que ligaram enquanto o app estava fechado — e essa e justamente a chamada
+  // que importa.
+  call:           text('call'),
+
   expiresAt:      timestamp('expiresAt', { precision: 3 }),
   edited:         boolean('edited').notNull().default(false),
   deletedAt:      timestamp('deletedAt', { precision: 3 }),

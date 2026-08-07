@@ -304,4 +304,8 @@ CREATE TABLE IF NOT EXISTS "ServerSticker" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "ServerSticker_serverId_name_key" ON "ServerSticker" USING btree ("serverId", "name");
 CREATE INDEX IF NOT EXISTS "ServerSticker_serverId_idx" ON "ServerSticker" USING btree ("serverId");
+
+-- ===== Chamada de voz/vídeo no sussurro =====
+-- Nulo = mensagem normal. Preenchido = a linha e um registro de chamada.
+ALTER TABLE "DirectMessage" ADD COLUMN IF NOT EXISTS "call" text;
 `

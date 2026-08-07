@@ -168,6 +168,9 @@ export function createDMRouter(io: SocketServer) {
         conversationId: directMessages.conversationId,
         attachments:    directMessages.attachments,
         replyToId:      directMessages.replyToId,
+        // Sem isto a chamada volta do banco como mensagem comum: a linha existe,
+        // mas perde o desenho próprio na hora de recarregar a conversa.
+        call:           directMessages.call,
         expiresAt:      directMessages.expiresAt,
         edited:         directMessages.edited,
         deletedAt:      directMessages.deletedAt,

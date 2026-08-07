@@ -277,7 +277,7 @@ object PermissoesWindows {
         return when {
             ativas.any { it.contains("|action=block|") } -> Checagem(
                 Permissao.REDE, Acesso.BLOQUEADO,
-                "Existe uma regra bloqueando o Astra no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não conecta assim.",
+                "Existe uma regra bloqueando o Astra no firewall — provavelmente de um \"Cancelar\" no aviso do Windows. A call não conecta assim. Liberar remove o bloqueio.",
                 "windowsdefender://network/",
             )
             ativas.any { it.contains("|action=allow|") } -> Checagem(
@@ -285,10 +285,67 @@ object PermissoesWindows {
             )
             else -> Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
-                "O Windows vai perguntar na sua primeira call. Quando perguntar, escolha Permitir — se cancelar, a call para de conectar.",
+                "O Windows vai perguntar na sua primeira call. Liberar agora resolve antes, e evita o susto de cancelar o aviso sem querer.",
                 "windowsdefender://network/",
             )
         }
+    }
+
+    // Cria a regra de liberação no firewall. Pede elevação — uma janela do UAC.
+    //
+    // Esta é a única linha do painel com uma ação DE VERDADE; as outras só
+    // conseguem levar a pessoa até o interruptor certo do Windows, porque quem
+    // decide ali é uma chave global do sistema. Aqui não: regra de firewall
+    // qualquer administrador escreve.
+    //
+    // O roteiro APAGA todas as regras deste executável antes de criar as duas
+    // novas, e isso é o ponto inteiro. Regra de bloqueio vence regra de liberação,
+    // então só acrescentar um "permitir" não conserta o caso mais comum de call
+    // que não conecta: quem clicou Cancelar naquele aviso do Windows ganhou um
+    // bloqueio permanente. Achar essa regra na mão, no meio de ~750 outras, não é
+    // coisa que se peça a ninguém.
+    //
+    // Vai por arquivo .ps1, e não por linha de comando, por causa das aspas: o
+    // caminho do executável entra dentro de um argumento do netsh que já é
+    // `program="..."`, e escapar isso através de cmd -> powershell -> netsh dá
+    // exatamente o tipo de erro que só aparece na máquina de outra pessoa. O BOM
+    // é obrigatório: sem ele o Windows PowerShell lê o arquivo como ANSI e um
+    // caminho acentuado (C:\Users\João\...) chega corrompido no netsh.
+    //
+    // false = a pessoa recusou o UAC, ou não há executável (rodando pelo Gradle).
+    fun liberarNoFirewall(): Boolean {
+        val exe = System.getProperty("jpackage.app-path") ?: return false
+        val roteiro = java.io.File(System.getProperty("java.io.tmpdir"), "astra-liberar-firewall.ps1")
+        // Aspa simples dobrada: um nome de usuário com apóstrofo quebraria a
+        // string do PowerShell no meio.
+        val caminho = exe.replace("'", "''")
+        val cifrao = '$'
+        roteiro.writeText(
+            "\uFEFF" + """
+            ${cifrao}exe = '$caminho'
+            netsh advfirewall firewall delete rule name=all program="${cifrao}exe" | Out-Null
+            netsh advfirewall firewall add rule name="Astra" dir=in  action=allow program="${cifrao}exe" enable=yes profile=any | Out-Null
+            netsh advfirewall firewall add rule name="Astra" dir=out action=allow program="${cifrao}exe" enable=yes profile=any | Out-Null
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+        // -ErrorAction Stop + catch: sem isso, recusar o UAC vira um erro NÃO
+        // terminante e o powershell de fora sai com código 0 — o app diria
+        // "liberado" para quem acabou de clicar em Não.
+        val comando = "try { Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait " +
+            "-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"${roteiro.absolutePath}\"' " +
+            "-ErrorAction Stop } catch { exit 1 }"
+        val ok = runCatching {
+            val p = ProcessBuilder("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", comando)
+                .redirectErrorStream(true)
+                .start()
+            // Teto: a janela do UAC pode ficar aberta pra sempre se ninguém
+            // responder, e uma corrotina presa nisso seguraria o painel.
+            if (p.waitFor(2, java.util.concurrent.TimeUnit.MINUTES)) p.exitValue() == 0
+            else { p.destroy(); false }
+        }.getOrDefault(false)
+        roteiro.delete()
+        return ok
     }
 
     // `start` do cmd é o que entende ms-settings: e windowsdefender: — Desktop.browse()

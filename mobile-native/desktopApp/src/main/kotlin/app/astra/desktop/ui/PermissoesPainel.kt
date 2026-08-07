@@ -101,22 +101,36 @@ fun PainelDePermissoes(
 
     LaunchedEffect(Unit) { conferirTudo() }
 
+    suspend fun reconferir(p: Permissao): Acesso {
+        val novo = withContext(Dispatchers.IO) { PermissoesWindows.uma(p) }
+        val i = itens.indexOfFirst { it.permissao == novo.permissao }
+        if (i >= 0) itens[i] = novo
+        return novo.acesso
+    }
+
     fun permitir(c: Checagem) {
         if (vigiando.contains(c.permissao)) return
-        // Avisos não têm interruptor: o Windows só registra o app no primeiro
-        // aviso. Mandar um é literalmente o ato de permitir.
-        if (c.permissao == Permissao.AVISOS && c.acesso == Acesso.PENDENTE) onTestarAviso()
-        else PermissoesWindows.abrirAjustes(c.ajustes ?: return)
-
         vigiando.add(c.permissao)
         escopo.launch {
             try {
+                when {
+                    // Avisos não têm interruptor: o Windows só registra o app no
+                    // primeiro aviso. Mandar um é literalmente o ato de permitir.
+                    c.permissao == Permissao.AVISOS && c.acesso == Acesso.PENDENTE -> onTestarAviso()
+                    // Rede é a única com ação de VERDADE: escreve a regra no
+                    // firewall, com uma janela do UAC. As outras só conseguem
+                    // abrir o interruptor certo do Windows e ficar conferindo.
+                    c.permissao == Permissao.REDE ->
+                        withContext(Dispatchers.IO) { PermissoesWindows.liberarNoFirewall() }
+                    else -> PermissoesWindows.abrirAjustes(c.ajustes ?: return@launch)
+                }
+                // Confere JA, antes do primeiro intervalo. A rede resolve no
+                // instante em que o UAC fecha — esperar 2s ali só faria o botão
+                // parecer travado depois de a pessoa já ter autorizado.
+                if (reconferir(c.permissao) == Acesso.OK) return@launch
                 repeat(TENTATIVAS) {
                     delay(ESPERA_MS)
-                    val novo = withContext(Dispatchers.IO) { PermissoesWindows.uma(c.permissao) }
-                    val i = itens.indexOfFirst { it.permissao == novo.permissao }
-                    if (i >= 0) itens[i] = novo
-                    if (novo.acesso == Acesso.OK) return@launch
+                    if (reconferir(c.permissao) == Acesso.OK) return@launch
                 }
             } finally {
                 vigiando.remove(c.permissao)
@@ -250,6 +264,10 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
         pronto -> "permitido"
         esperando -> "esperando…"
         !temAcao -> "—"
+        // "liberar", e não "permitir", só nesta: é a única que abre uma janela do
+        // Windows pedindo autorização de administrador. O rótulo tem que deixar a
+        // consequencia do clique legivel ANTES do clique.
+        c.permissao == Permissao.REDE -> "liberar"
         else -> "permitir"
     }
     val ativo = !pronto && !esperando && temAcao

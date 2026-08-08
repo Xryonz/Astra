@@ -14,7 +14,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -128,6 +127,7 @@ import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmMono
+import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
@@ -324,21 +324,23 @@ fun SettingsScreen(
                     Spacer(Modifier.height(18.dp))
                 }
 
-                // Troca de secao com fade + leve zoom (decisao do dono).
+                // Troca de secao: SO fade. A ENTRADA e a cascata, e ela e vertical.
                 //
-                // O SizeTransform explicito e o que faz a animacao ser SEMPRE a
-                // mesma. O fade e o zoom ja eram fixos; quem variava era o
-                // redimensionamento do container, que por padrao e uma MOLA — e mola
-                // tem duracao proporcional a distancia. Trocar entre duas abas de
-                // altura parecida dava um ajuste curto e seco; sair da aba mais alta
-                // pra mais baixa dava um deslize longo. Mesma acao, animacoes
-                // diferentes, sem que nada no codigo dissesse isso. Com tween a
-                // duracao e a mesma nos dois casos, e igual a do conteudo.
+                // O `scaleIn(0.98)` que morava aqui escalava a partir do CENTRO. Num
+                // painel largo, 2% de escala sao ~7dp em cada lado: a borda esquerda
+                // do conteudo nascia deslocada pra dentro e corria pra fora. Lido de
+                // perto, isso e exatamente "a aba entrou pela esquerda" — e so
+                // aparecia em aba larga, o que explica o "de vez em quando". Duas
+                // animacoes de entrada disputando a mesma troca; ficou a que foi
+                // pedida.
+                //
+                // O SizeTransform explicito continua: o padrao dele e MOLA, e mola
+                // tem duracao proporcional a distancia — a mesma troca de aba saia
+                // curta ou longa conforme a diferenca de altura.
                 AnimatedContent(
                     targetState = tab,
                     transitionSpec = {
-                        (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f))
-                            .togetherWith(fadeOut(tween(120))) using
+                        fadeIn(tween(140)).togetherWith(fadeOut(tween(100))) using
                             SizeTransform(clip = false) { _, _ -> tween(180) }
                     },
                     label = "settingsSection",
@@ -2737,9 +2739,12 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 // O alpha e o deslocamento vao no placeWithLayer, ou seja, na fase de PLACEMENT:
 // o relogio avancando re-executa o posicionamento, nunca a recomposicao. Numa tela
 // com previa ao vivo, recompor 30 controles por frame seria bem caro.
-private const val CASCATA_PASSO_MS = 34
-private const val CASCATA_DURACAO_MS = 260
+private const val CASCATA_PASSO_MS = 40
+private const val CASCATA_DURACAO_MS = 380
 private const val CASCATA_DEGRAUS = 16
+// Sobe mais do que antes (era 10dp). Curso curto demais com curva suave vira
+// tremida: o olho ve o movimento comecar e acabar quase no mesmo lugar.
+private val CASCATA_SUBIDA = 14.dp
 
 @Composable
 private fun CascataVertical(
@@ -2754,9 +2759,15 @@ private fun CascataVertical(
     LaunchedEffect(chave) {
         if (deveAnimar) relogio.animateTo(1f, tween(totalMs, easing = LinearEasing))
     }
-    val deslocamento = with(LocalDensity.current) { 10.dp.toPx() }
+    val deslocamento = with(LocalDensity.current) { CASCATA_SUBIDA.toPx() }
     Layout(content = content, modifier = modifier) { medidos, constraints ->
-        val filhos = medidos.map { it.measure(constraints.copy(minHeight = 0)) }
+        // minWidth = 0 TAMBEM, nao so minHeight. Este Layout recebe
+        // fillMaxWidth(), ou seja, constraints com minWidth == maxWidth: repassar
+        // isso pros filhos OBRIGA cada um a ocupar a largura inteira. Era por isto
+        // que "derrubar todas as outras", "salvar" e "procurar atualizações"
+        // apareciam esticados de ponta a ponta — um botao de texto curto medindo
+        // 700dp. Botao deve ter a largura do que ele diz.
+        val filhos = medidos.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
         val largura = if (constraints.hasBoundedWidth) constraints.maxWidth
         else filhos.maxOfOrNull { it.width } ?: 0
         layout(largura, filhos.sumOf { it.height }) {
@@ -2766,9 +2777,14 @@ private fun CascataVertical(
             filhos.forEach { filho ->
                 val conta = filho.width > 0 && filho.height > 0
                 val meu = if (conta) degrau++ else degrau
-                val progresso =
+                val bruto =
                     ((agora - meu.coerceAtMost(CASCATA_DEGRAUS) * CASCATA_PASSO_MS) / CASCATA_DURACAO_MS)
                         .coerceIn(0f, 1f)
+                // O relogio mestre e LINEAR de proposito (ele so distribui o tempo);
+                // a curva vive aqui, em cada filho. Sem ela cada controle subia com
+                // velocidade constante e parava seco no fim — e isso que se sente
+                // como cascata "dura". EaseOutSoft chega desacelerando.
+                val progresso = EaseOutSoft.transform(bruto)
                 filho.placeWithLayer(0, y) {
                     alpha = progresso
                     translationY = (1f - progresso) * deslocamento

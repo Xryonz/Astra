@@ -115,6 +115,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.CircleAlert
+import com.composables.icons.lucide.CloudOff
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.FileImage
@@ -276,7 +277,15 @@ fun ChatView(
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when {
+                state.loading && state.acordando -> AcordandoOServidor()
                 state.loading -> ChatSkeleton()
+                // Falha de carga NAO pode cair no "nada por aqui ainda": vazio ali
+                // e uma afirmacao sobre a conversa, e a conversa nem foi lida.
+                state.error != null && state.messages.isEmpty() -> PalcoQueFalhou(
+                    motivo = state.error!!,
+                    podeTentar = !state.errorPermanente,
+                    onRetry = vm::tentarDeNovo,
+                )
                 state.messages.isEmpty() -> EmptyChat()
                 else -> LazyColumn(
                     state = listState,
@@ -351,21 +360,25 @@ fun ChatView(
                     }
                 }
             }
-            if (state.error != null) {
-                // O aviso vinha sozinho, e sem saida: a unica forma de sair dele era
-                // trocar de conversa e voltar. Agora vem com a acao ao lado.
+            // Falha de CARGA com o palco vazio ja e contada no palco (PalcoQueFalhou);
+            // repetir aqui embaixo diria a mesma coisa duas vezes. Esta linha fica
+            // pros erros de acao — enviar, reagir, apagar — que acontecem com a
+            // conversa na tela.
+            if (state.error != null && state.messages.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
-                    Spacer(Modifier.width(10.dp))
-                    val src = remember { MutableInteractionSource() }
-                    Text(
-                        "Tentar novamente",
-                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable(interactionSource = src, indication = null) { vm.tentarDeNovo() }
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
+                    if (!state.errorPermanente) {
+                        Spacer(Modifier.width(10.dp))
+                        val src = remember { MutableInteractionSource() }
+                        Text(
+                            "Tentar novamente",
+                            style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable(interactionSource = src, indication = null) { vm.tentarDeNovo() }
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -1568,6 +1581,65 @@ private fun EmptyChat() {
                 "nada por aqui ainda — comece a conversa",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
             )
+        }
+    }
+}
+
+// A primeira tentativa caiu e o app esta insistindo. NAO e erro: e espera, e a
+// espera pode passar de um minuto porque a API dorme no plano free. Um minuto de
+// esqueleto parado le como travamento — dizer o que esta acontecendo custa uma
+// linha e evita a pessoa fechar o app achando que quebrou.
+@Composable
+private fun AcordandoOServidor() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            TypingDots(Obsidian.accent)
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "o servidor está acordando",
+                style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "isto pode levar até um minuto depois de um tempo parado",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+        }
+    }
+}
+
+// A carga falhou de vez. Isto ocupa o palco INTEIRO de proposito: antes a falha
+// aparecia como uma linha vermelha de 12sp junto do campo de escrever, enquanto o
+// palco mostrava "nada por aqui ainda" — ou seja, a tela afirmava que a conversa
+// estava vazia quando ela nem tinha sido lida.
+@Composable
+private fun PalcoQueFalhou(motivo: String, podeTentar: Boolean, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.raised)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+        ) {
+            LIcon(Lucide.CloudOff, tint = Obsidian.text3, size = 20.dp, rotulo = null)
+            Spacer(Modifier.height(12.dp))
+            Text(motivo, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
+            if (podeTentar) {
+                Spacer(Modifier.height(14.dp))
+                val src = remember { MutableInteractionSource() }
+                Text(
+                    "tentar de novo",
+                    style = TextStyle(color = Obsidian.accent, fontSize = 12.sp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickScale(src)
+                        .background(Obsidian.overlay)
+                        .clickable(interactionSource = src, indication = null, onClick = onRetry)
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+            }
         }
     }
 }

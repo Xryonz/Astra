@@ -2,6 +2,7 @@ package app.astra.desktop.shell
 
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.net.insistindoOuNulo
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.InviteApi
@@ -157,11 +158,6 @@ data class ChamadaNaTela(
 const val HISTORICO_DESTINOS = "historicoDestinos"
 const val SEP_HISTORICO = "\u0001"
 private const val TETO_HISTORICO = 12
-// Carga de boot: quantas tentativas, e a espera ENTRE elas (duas esperas pra
-// tres tentativas — a ultima falha nao espera ninguem). Insistir na hora contra
-// um servidor que ainda esta acordando so gasta a tentativa.
-private const val TENTATIVAS_DE_BOOT = 3
-private val ESPERA_DE_BOOT_MS = longArrayOf(1_500L, 4_000L)
 
 class ShellVm(
     private val scope: CoroutineScope,
@@ -363,32 +359,25 @@ class ShellVm(
         }
     }
 
-    // Tres tentativas com espera crescente. A API dorme no plano free do Render
-    // depois de 15min parada e acorda em ate ~50s: a PRIMEIRA chamada depois do
-    // sono cai. No boot isso era caro — a lista de sussurros voltava vazia, e
-    // lista vazia ali nao e "nao carregou", e uma AFIRMACAO: "voce nao tem
-    // conversa nenhuma". Uma tela mentindo com confianca total.
+    // Insiste com a politica unica do app (net/Insistencia.kt). No boot isto e
+    // caro: a lista de sussurros voltava vazia, e lista vazia ali nao e "nao
+    // carregou", e uma AFIRMACAO — "voce nao tem conversa nenhuma". Uma tela
+    // mentindo com confianca total.
     //
-    // Devolve null so quando as tres falharam. Resposta bem-sucedida e VAZIA
-    // (lista sem itens) volta na primeira, sem insistir: vazio de verdade e uma
-    // resposta legitima.
-    private suspend fun <T : Any> insistindo(bloco: suspend () -> T?): T? {
-        repeat(TENTATIVAS_DE_BOOT) { tentativa ->
-            runCatching { bloco() }.getOrNull()?.let { return it }
-            if (tentativa < TENTATIVAS_DE_BOOT - 1) delay(ESPERA_DE_BOOT_MS[tentativa])
-        }
-        return null
-    }
+    // Devolve null so quando a janela inteira falhou. Resposta bem-sucedida e
+    // VAZIA volta na primeira, sem insistir: vazio de verdade e legitimo.
+    private suspend fun <T : Any> insistindo(oQue: String, bloco: suspend () -> T?): T? =
+        insistindoOuNulo(oQue, bloco)
 
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch {
             val meD = async { runCatching { userApi.me().data?.user }.getOrNull() }
-            val serversD = async { insistindo { serverApi.servers().data.orEmpty() } }
-            val dmsD = async { insistindo { dmApi.conversations().data.orEmpty() } }
-            val channelReadsD = async { insistindo { serverApi.channelReads().data.orEmpty() } }
-            val unreadCountsD = async { insistindo { serverApi.channelUnreadCounts().data.orEmpty() } }
-            val dmReadsD = async { insistindo { dmApi.dmReads().data.orEmpty() } }
+            val serversD = async { insistindo("suas constelações") { serverApi.servers().data.orEmpty() } }
+            val dmsD = async { insistindo("seus sussurros") { dmApi.conversations().data.orEmpty() } }
+            val channelReadsD = async { insistindo("suas leituras") { serverApi.channelReads().data.orEmpty() } }
+            val unreadCountsD = async { insistindo("as não lidas") { serverApi.channelUnreadCounts().data.orEmpty() } }
+            val dmReadsD = async { insistindo("as leituras dos sussurros") { dmApi.dmReads().data.orEmpty() } }
 
             val servers = serversD.await()
             if (servers == null) {

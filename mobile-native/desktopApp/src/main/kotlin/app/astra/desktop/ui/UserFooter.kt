@@ -344,11 +344,16 @@ private fun FooterIcon(icon: ImageVector, danger: Boolean, onClick: () -> Unit) 
         },
         tween(120),
     )
+    val fundo by animateColorAsState(if (hovered) Obsidian.hover else Color.Transparent, tween(120))
     Box(
         Modifier
             .size(26.dp)
-            .clickScale(interaction)
+            // 0.90 e nao 0.96: em alvo de 26dp, 4% de encolhimento sao meio pixel.
+            // A forma do anel acompanha o clip do proprio botao — anel de 8dp em
+            // volta de um canto de 6dp desenha duas curvas diferentes.
+            .clickScale(interaction, pressedScale = 0.90f, formaDoFoco = RoundedCornerShape(6.dp))
             .clip(RoundedCornerShape(6.dp))
+            .background(fundo)
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,

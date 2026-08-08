@@ -1,7 +1,9 @@
 package app.astra.desktop.shell
 
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.net.FalhaDeRede
 import app.astra.desktop.net.FastSendResult
+import app.astra.desktop.net.insistir
 import app.astra.mobile.core.network.ChannelApi
 import app.astra.mobile.core.network.DmApi
 import app.astra.mobile.core.network.UploadApi
@@ -114,13 +116,15 @@ data class ChatUiState(
     // Anexos pendentes (drag&drop) que saem na próxima mensagem.
     val pending: List<PendingFile> = emptyList(),
     val error: String? = null,
+    // A carga falhou e o app esta insistindo. Nao e erro ainda: e espera. A tela
+    // diz isso em voz neutra em vez de mostrar vermelho por 70 segundos.
+    val acordando: Boolean = false,
+    // Erro que nao melhora tentando de novo (403/404/401). A tela esconde o
+    // "tentar novamente": botao que nao pode dar certo e armadilha.
+    val errorPermanente: Boolean = false,
 )
 
 private const val PAGE = 50
-// Carga da conversa: quantas tentativas, e quanto esperar ENTRE elas. Duas
-// esperas pra tres tentativas — a ultima falha nao espera ninguem.
-private const val TENTATIVAS_DE_CARGA = 3
-private val ESPERA_ENTRE_CARGAS_MS = longArrayOf(1_500L, 4_000L)
 private const val FADE_OUT_MS = 340L
 // Se nem o ack nem o broadcast voltarem nesse tempo, a bolha otimista vira falha.
 private const val FAST_SEND_TIMEOUT_MS = 6_000L
@@ -162,6 +166,10 @@ class ChatVm(
     val state = _state.asStateFlow()
 
     private var liveJob: Job? = null
+    // A carga pode durar mais de um minuto agora. Sem cancelar a anterior, um
+    // "tentar novamente" (ou um reconnect do socket) poe DUAS cargas correndo, e
+    // quem terminar por ultimo ganha — inclusive a que ja tinha falhado.
+    private var cargaJob: Job? = null
     private var typingIdleJob: Job? = null
     private var lastTypingEmit = 0L
     private val typingExpiry = mutableMapOf<String, Job>()
@@ -177,6 +185,7 @@ class ChatVm(
 
     fun dispose() {
         liveJob?.cancel()
+        cargaJob?.cancel()
         stopTypingEmit()
         if (target is ChatTarget.Channel) socket.leaveChannel(target.id)
     }
@@ -186,33 +195,49 @@ class ChatVm(
     fun tentarDeNovo() = load()
 
     private fun load() {
-        scope.launch {
-            _state.update { it.copy(loading = true, error = null) }
-            // TRES tentativas com espera crescente, e não uma só. A API dorme no
-            // plano free do Render depois de 15min parada e acorda em ate ~50s: a
-            // primeira chamada depois do sono cai, e uma tentativa unica
-            // transformava isso num beco sem saida — a conversa ficava com o aviso
-            // vermelho ate a pessoa perceber sozinha que era so sair e voltar.
-            // A espera cresce (1,5s -> 4s) porque tentar de novo na hora, contra um
-            // servidor que ainda esta subindo, so gasta a tentativa.
-            repeat(TENTATIVAS_DE_CARGA) { tentativa ->
-                val r = runCatching {
-                    when (target) {
-                        is ChatTarget.Channel ->
-                            channelApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
-                        is ChatTarget.Dm ->
-                            dmApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
-                    }
+        cargaJob?.cancel()
+        cargaJob = scope.launch {
+            _state.update { it.copy(loading = true, error = null, acordando = false) }
+            // A politica de repeticao mora em net/Insistencia.kt — a janela aqui
+            // era de 5,5s contra um servidor que acorda em ate 50s (ver la).
+            // A partir da segunda tentativa a tela para de dizer "carregando" e
+            // passa a dizer que esta esperando o servidor: a espera pode chegar a
+            // um minuto, e um minuto de silencio parece travamento.
+            insistir(
+                oQue = "esta conversa",
+                aoTentarDeNovo = { _state.update { it.copy(acordando = true) } },
+            ) {
+                when (target) {
+                    is ChatTarget.Channel ->
+                        channelApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
+                    is ChatTarget.Dm ->
+                        dmApi.messages(target.id, null, PAGE).data?.items.orEmpty().map { it.toChat() }
                 }
-                r.onSuccess { list ->
+            }
+                .onSuccess { list ->
                     // Backend pagina do mais novo pro mais velho; o palco mostra
                     // do mais velho (topo) pro mais novo (base).
-                    _state.update { it.copy(loading = false, error = null, messages = list.sortedBy { m -> m.createdAt ?: "" }) }
-                    return@launch
+                    _state.update {
+                        it.copy(
+                            loading = false, error = null, acordando = false,
+                            messages = list.sortedBy { m -> m.createdAt ?: "" },
+                        )
+                    }
                 }
-                if (tentativa < TENTATIVAS_DE_CARGA - 1) delay(ESPERA_ENTRE_CARGAS_MS[tentativa])
-            }
-            _state.update { it.copy(loading = false, error = "Não foi possível carregar a conversa.") }
+                .onFailure { t ->
+                    // O MOTIVO REAL, não "não foi possível": 403 e "você não tem
+                    // acesso", 404 e "não existe mais", e nenhum dos dois melhora
+                    // com "tentar novamente". Dizer qual e o caso e a diferenca
+                    // entre a pessoa saber o que fazer e ficar clicando.
+                    val f = (t as? FalhaDeRede)?.falha
+                    _state.update {
+                        it.copy(
+                            loading = false, acordando = false,
+                            error = f?.motivo ?: "Não foi possível carregar esta conversa.",
+                            errorPermanente = f?.permanente == true,
+                        )
+                    }
+                }
         }
     }
 

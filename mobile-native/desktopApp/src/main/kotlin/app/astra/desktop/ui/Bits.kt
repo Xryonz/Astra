@@ -42,6 +42,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -90,6 +92,18 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 //    clickScale entra cedo na cadeia, uma borda comum aqui seria coberta pelo
 //    background que vem logo adiante; desenhar por cima e o unico jeito de o anel
 //    sobreviver a qualquer ordem de clip/background do chamador.
+//
+// O ANEL SO APARECE PRA QUEM VEIO DE TECLADO. Clicar com o mouse tambem da foco
+// ao alvo — e por isso a borda ficava acesa depois de cada clique, o que o dono
+// (com razao) leu como sujeira. Quem separa os dois casos e o
+// `LocalInputModeManager`: o Compose troca pra InputMode.Keyboard quando alguem
+// anda de Tab e pra Touch quando mexe o mouse. E o mesmo mecanismo que o
+// :focus-visible do CSS resolve na web. Apagar o anel de vez nao era opcao: sem
+// ele, quem navega so de teclado fica sem saber onde esta.
+//
+// No lugar do anel, o mouse ganha LUZ: um halo curto no accent atras do alvo
+// enquanto ele esta apertado. Halo em vez de borda porque borda desenha um limite
+// novo (mais uma linha na tela) e luz so ilumina o limite que ja existe.
 @Composable
 fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
@@ -101,17 +115,42 @@ fun Modifier.clickScale(
     val reduce = LocalReduceMotion.current
     val pressed by interactionSource.collectIsPressedAsState()
     var focado by remember { mutableStateOf(false) }
+    val modoDeEntrada = LocalInputModeManager.current
     val scale by animateFloatAsState(
         targetValue = if (pressed && !reduce) pressedScale else 1f,
         animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
         label = "clickScale",
     )
+    // Acende rapido e apaga devagar: acender junto com o dedo, apagar deixando
+    // rastro. O contrario (apagar seco) faz o clique parecer que nao pegou.
+    val brilho by animateFloatAsState(
+        targetValue = if (pressed && !reduce) 1f else 0f,
+        animationSpec = tween(durationMillis = if (pressed) 90 else 320),
+        label = "clickGlow",
+    )
     val corDoFoco = Obsidian.accent
     return onFocusChanged { focado = it.isFocused }
         .graphicsLayer { scaleX = scale; scaleY = scale }
+        .drawBehind {
+            if (brilho <= 0.01f) return@drawBehind
+            // Raio maior que a caixa pra a luz vazar pra fora das bordas — dentro
+            // dela o background do chamador cobriria quase tudo.
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        corDoFoco.copy(alpha = 0.34f * brilho),
+                        corDoFoco.copy(alpha = 0.10f * brilho),
+                        Color.Transparent,
+                    ),
+                    center = center,
+                    radius = size.minDimension * 0.95f,
+                ),
+                radius = size.minDimension * 0.95f,
+            )
+        }
         .drawWithContent {
             drawContent()
-            if (!focado) return@drawWithContent
+            if (!focado || modoDeEntrada.inputMode != InputMode.Keyboard) return@drawWithContent
             val traco = Stroke(width = 2.dp.toPx())
             when (val contorno = formaDoFoco.createOutline(size, layoutDirection, this)) {
                 is Outline.Rectangle -> drawRect(corDoFoco, style = traco)

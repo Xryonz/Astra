@@ -1205,10 +1205,7 @@ private fun Rail(
             }
         }
         Spacer(Modifier.height(12.dp))
-        // Divisoria CURTA e centrada, no lugar do traco de borda a borda: traco
-        // inteiro le como linha de tabela, e o que se quer aqui e quebra de
-        // capitulo.
-        Box(Modifier.width(24.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+        DivisoriaDaRail()
         Spacer(Modifier.height(12.dp))
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -1362,14 +1359,36 @@ private fun Rail(
             item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
         }
         // Bussola (Descobrir) fixada no rodape da rail — padrao Discord.
-        Spacer(Modifier.height(8.dp))
-        HairRule()
-        Spacer(Modifier.height(8.dp))
-        RailItem(
-            active = selection is Selection.Discover,
-            onClick = { onSelect(Selection.Discover) },
+        //
+        // MESMO tratamento da marca do Astra no topo: divisoria curta e centrada
+        // (o HairRule que morava aqui ia de borda a borda e lia como linha de
+        // tabela) mais o halo por tras. As duas pontas da rail sao lugares, nao
+        // constelacoes — e agora as duas dizem isso do mesmo jeito.
+        Spacer(Modifier.height(12.dp))
+        DivisoriaDaRail()
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier.size(72.dp).drawBehind {
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Obsidian.accent.copy(alpha = 0.16f),
+                            Obsidian.accent.copy(alpha = 0.05f),
+                            Color.Transparent,
+                        ),
+                        center = center,
+                        radius = size.minDimension * 0.52f,
+                    ),
+                )
+            },
+            contentAlignment = Alignment.Center,
         ) {
-            LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp)
+            RailItem(
+                active = selection is Selection.Discover,
+                onClick = { onSelect(Selection.Discover) },
+            ) {
+                LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp, rotulo = "descobrir")
+            }
         }
         Spacer(Modifier.height(10.dp))
     }
@@ -1480,6 +1499,14 @@ private object RailMenuBeside : PopupPositionProvider {
     )
 }
 
+// Quebra de capitulo da rail: traco CURTO e centrado, nao borda a borda. Usado
+// nas duas pontas (marca do Astra em cima, bussola embaixo) — sao os dois itens
+// que nao sao constelacao, e a mesma marca visual diz isso nos dois lugares.
+@Composable
+private fun DivisoriaDaRail() {
+    Box(Modifier.width(24.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+}
+
 @Composable
 private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
@@ -1490,9 +1517,23 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
     // e constante e so fundo e borda transicionam; 8dp e o mesmo raio dos botoes do
     // compositor e das linhas de navegacao, entao o rail para de falar sozinho.
     val shape = RoundedCornerShape(8.dp)
-    val bg by animateColorAsState(if (active) Obsidian.overlay else Obsidian.raised, tween(140))
+    // Hover sobe UM DEGRAU da rampa e clareia a borda — o mesmo vocabulario das
+    // linhas de canal e dos menus. O `hovered` ja era coletado aqui e nao servia
+    // pra nada: a rail era a unica superficie do app que nao respondia ao mouse.
+    val bg by animateColorAsState(
+        when {
+            active -> Obsidian.overlay
+            hovered -> Obsidian.hover
+            else -> Obsidian.raised
+        },
+        tween(140),
+    )
     val borderColor by animateColorAsState(
-        if (active) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+        when {
+            active -> Obsidian.accent.copy(alpha = 0.55f)
+            hovered -> Obsidian.borderMid
+            else -> Obsidian.borderDim
+        },
         tween(140),
     )
     Box(

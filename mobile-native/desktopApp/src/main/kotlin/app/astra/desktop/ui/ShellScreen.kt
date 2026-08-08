@@ -3383,6 +3383,21 @@ private fun Stage(
             modifier = Modifier.fillMaxSize(),
         ) { target ->
             if (target != null) {
+                // UM ChatVm POR CONVERSA — e o `key` e o que garante isso.
+                //
+                // Sem ele, este `remember` guarda UM slot so na composicao: o
+                // primeiro ChatVm criado na sessao era devolvido pra TODA conversa
+                // aberta depois. Trocar de sussurro trocava o cabecalho e nada mais;
+                // as mensagens continuavam vindo do VM da PRIMEIRA conversa, e o
+                // "tentar de novo" pedia de novo o alvo dela, nao o que estava na
+                // tela. Se essa primeira carga pegou o servidor dormindo e falhou,
+                // o palco ficava vazio pro resto da sessao, em qualquer conversa,
+                // com o servidor de pe — que e exatamente o sintoma relatado.
+                //
+                // `openChat` nunca passa por nulo entre uma conversa e outra (ver
+                // ShellVm), entao o ramo do `if` nunca era abandonado e o slot nunca
+                // era descartado. So reiniciar o app dava um VM novo.
+                key(target.id) {
                 val chatVm = remember { createChatVm(target) }
                 DisposableEffect(Unit) { onDispose { chatVm.dispose() } }
                 // Heranca: orbita decide; se nao decidiu, a categoria; se nem ela,
@@ -3400,6 +3415,7 @@ private fun Stage(
                     serverId = server?.id,
                     membros = if (target is ChatTarget.Channel) members else emptyList(),
                 )
+                }
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     when {

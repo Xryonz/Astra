@@ -153,7 +153,11 @@ fun UserFooter(
     }
 
     // Botao direito no rodape: definir status / abrir perfil / copiar ID / configurações / sair.
-    EditorialContextMenu(entries = {
+    //
+    // O `modifier` do CHAMADOR entra AQUI, e nao na Row la embaixo: quem ancora o
+    // rodape no canto inferior esquerdo do shell e este Box de fora. Na Row, o
+    // alinhamento morria dentro do proprio menu.
+    EditorialContextMenu(modifier = modifier, entries = {
         buildList {
             add(MenuEntry.Item("definir status", icon = Lucide.CircleDot) { statusOpen = true })
             add(MenuEntry.Item("abrir perfil", icon = Lucide.User) { profileOpen = true })
@@ -170,8 +174,8 @@ fun UserFooter(
     // (void, um abaixo da sidebar em `base`).
     val forma = RoundedCornerShape(10.dp)
     Row(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = Modifier
+            .fillMaxSize()
             // Recuo pequeno das bordas do bloco pra a borda ter onde existir: sem
             // ele, os lados do cartao caem em cima da borda do shell e a curva do
             // canto inferior esquerdo brigaria com a curva da janela.

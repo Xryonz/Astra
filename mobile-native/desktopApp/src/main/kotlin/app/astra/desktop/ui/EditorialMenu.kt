@@ -92,14 +92,22 @@ internal class AtPointer(private val at: IntOffset) : PopupPositionProvider {
 
 // Envolve o alvo: botao direito abre o menu no ponto do clique. So OBSERVA os
 // eventos (não consome) — cliques normais seguem funcionando por baixo.
+//
+// O `modifier` E OBRIGATORIO NUM CONTAINER, e a falta dele ja custou caro: quem
+// chama passa o modificador pro conteudo la dentro, o Box daqui fica sem nada, e
+// intencao de LAYOUT se perde no caminho. Foi o que jogou o rodape do usuario pro
+// canto SUPERIOR esquerdo: o `.align(BottomStart)` chegava num filho deste Box
+// (que envolve o conteudo) em vez de chegar no Box de fora, onde o alinhamento
+// significa alguma coisa. Tamanho aplicava, posicao nao.
 @Composable
 fun EditorialContextMenu(
     entries: () -> List<MenuEntry>,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     var menuAt by remember { mutableStateOf<IntOffset?>(null) }
     Box(
-        Modifier.pointerInput(Unit) {
+        modifier.pointerInput(Unit) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent()

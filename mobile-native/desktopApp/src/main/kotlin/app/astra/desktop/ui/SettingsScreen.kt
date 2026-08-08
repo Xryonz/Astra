@@ -209,6 +209,7 @@ private val LARGURA_PREVIA = 420.dp
 // outras abas a previa e uma nota de rodape ao vivo (um aviso deslizando, um
 // medidor) e crescer so tiraria largura dos controles.
 private val LARGURA_PREVIA_PERFIL = 470.dp
+private val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
@@ -222,26 +223,13 @@ fun SettingsScreen(
     initialTab: SettingsTab = SettingsTab.ACCOUNT,
     onTestarNotificacao: () -> Unit = {},
 ) {
-    // ROLAGEM UNICA, sem troca de aba (pedido do dono, referencia do Discord): as
-    // nove secoes coexistem numa pagina so e o menu da esquerda virou indice.
-    //
-    // Quem manda na previa e no destaque do menu e a secao NO TOPO DA JANELA, nao
-    // um estado de aba — e por isso `tab` deixou de existir como variavel. O
-    // `derivedStateOf` importa: sem ele, cada pixel de rolagem recomporia a tela
-    // inteira; com ele, so recompoe quando o INDICE muda de fato.
-    val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    var rolandoPara by remember { mutableStateOf<SettingsTab?>(null) }
-    val tabVisivel by remember {
-        derivedStateOf { abasVisiveis.getOrElse(listState.firstVisibleItemIndex) { abasVisiveis.first() } }
-    }
-    val tabAtiva = rolandoPara ?: tabVisivel
-    // Abrir pela engrenagem cai na Conta; abrir por um atalho (ex.: Perfil) rola
-    // direto pra la, sem animar — animar aqui seria a tela nascer se mexendo.
-    LaunchedEffect(initialTab) {
-        val i = abasVisiveis.indexOf(initialTab)
-        if (i > 0) listState.scrollToItem(i)
-    }
+    // ABA DE VOLTA. A rolagem unica (0.1.95) foi testada e reprovada pelo dono: a
+    // secao trocava sozinha conforme a pagina descia, e o item aceso no menu
+    // virava consequencia da rolagem em vez de escolha. Uma pagina por aba devolve
+    // o controle — e o cartao grande, que veio junto, ja da a sensacao de
+    // sobreposicao que o Discord tem sem precisar da rolagem continua.
+    var tab by remember(initialTab) { mutableStateOf(initialTab) }
+    val tabAtiva = tab
     // Abas que ja fizeram a cascata NESTA visita as configuracoes.
     //
     // O `remember` sem chave e o mecanismo inteiro: ele morre quando a tela sai da
@@ -273,8 +261,36 @@ fun SettingsScreen(
         // aurora/estrelas montadas e esconde o proprio conteudo enquanto isto abre ->
         // nada vaza atrás. Aqui so um veu segura a leitura. Pintar aurora nova aqui
         // era o "salto de posição" ao abrir configurações (relogio independente).
-        Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.5f)))
-        Row(Modifier.fillMaxSize()) {
+        // Scrim mais escuro que o veu antigo: as configuracoes deixaram de tomar a
+        // tela e viraram um CARTAO GRANDE por cima do shell (referencia do dono, o
+        // Discord). Com o app aparecendo nas beiradas, o veu precisa empurrar o
+        // fundo pra tras — senao os dois competem pela leitura.
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClose,
+                ),
+        )
+        Row(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 40.dp, vertical = 30.dp)
+                .widthIn(max = 1180.dp)
+                .clip(FORMA_DO_CARTAO_DE_CONFIG)
+                .background(Obsidian.base)
+                .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
+                // Engole o clique: sem isto, clicar dentro do cartao fecha, porque
+                // o scrim atras continua ouvindo.
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                ),
+        ) {
             // Nav das secoes
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
@@ -285,19 +301,8 @@ fun SettingsScreen(
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                abasVisiveis.forEachIndexed { i, t ->
-                    NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) {
-                        // O menu virou INDICE: clicar rola ate a secao em vez de
-                        // trocar a pagina. `rolandoPara` segura o destaque durante
-                        // a rolagem — sem ele o item aceso pularia por todas as
-                        // secoes do caminho, que e exatamente o pisca-pisca que a
-                        // rolagem animada provoca.
-                        rolandoPara = t
-                        scope.launch {
-                            listState.animateScrollToItem(i)
-                            rolandoPara = null
-                        }
-                    }
+                abasVisiveis.forEach { t ->
+                    NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) { tab = t }
                 }
             }
 
@@ -322,16 +327,24 @@ fun SettingsScreen(
             // baixo dela: a previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
                 if (pinned) minOf(720.dp, (maxWidth - larguraPrevia - 76.dp).coerceAtLeast(280.dp)) else 720.dp
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.align(Alignment.TopStart).widthIn(max = contentMax)
-                    .fillMaxWidth().fillMaxHeight(),
-                // O RECUO DE BAIXO E ESTRUTURAL, nao estetico: sem ele a ultima
-                // secao nunca chega ao topo da janela, e clicar "Sobre" no indice
-                // deixaria o item aceso sem nada acontecer na tela.
-                contentPadding = PaddingValues(start = 28.dp, end = 28.dp, top = 22.dp, bottom = 360.dp),
+            Column(
+                Modifier.align(Alignment.TopStart).widthIn(max = contentMax).fillMaxWidth()
+                    .fillMaxHeight().verticalScroll(rememberScrollState())
+                    .padding(horizontal = 28.dp, vertical = 22.dp),
             ) {
-                itemsIndexed(abasVisiveis, key = { _, t -> t.name }) { _, current ->
+                // Troca de secao: SO fade. A entrada de verdade e a cascata, e ela
+                // e vertical. O SizeTransform explicito continua sendo necessario —
+                // o padrao dele e MOLA, e mola tem duracao proporcional a
+                // distancia, entao a mesma troca de aba saia curta ou longa
+                // conforme a diferenca de altura entre as duas.
+                AnimatedContent(
+                    targetState = tab,
+                    transitionSpec = {
+                        fadeIn(tween(140)).togetherWith(fadeOut(tween(100))) using
+                            SizeTransform(clip = false) { _, _ -> tween(180) }
+                    },
+                    label = "settingsSection",
+                ) { current ->
                     // Sobre/Sessões/Permissões/Diagnostico não tem previa — são
                     // listas e ações, não ajustes com efeito visual.
                     val temPrevia = current != SettingsTab.ABOUT &&
@@ -346,14 +359,13 @@ fun SettingsScreen(
                     // exatamente a regra que o dono pediu.
                     val jaVisto = current in jaAnimaram
                     LaunchedEffect(current) { jaAnimaram += current }
-                    // O Column NAO e decorativo: um item de LazyColumn com mais de
-                    // um filho na raiz empilha todos no MESMO Y. E a mesma
-                    // pegadinha que o AnimatedContent tinha aqui antes.
+                    // O Column NAO e decorativo: o container do AnimatedContent
+                    // empilha os filhos da raiz no MESMO Y. Era o bug dos "textos
+                    // sobrepostos".
                     Column(Modifier.fillMaxWidth()) {
                     Text(
                         current.label,
                         style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif),
-                        modifier = Modifier.padding(top = if (current == abasVisiveis.first()) 0.dp else 34.dp),
                     )
                     Spacer(Modifier.height(18.dp))
                     // Janela estreita: a previa nao cabe ao lado, entao entra AQUI,

@@ -121,6 +121,7 @@ fun UserFooter(
     onOpenSettings: (SettingsTab) -> Unit,
     onAbrirJornada: () -> Unit,
     onLogout: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
     val status = userStatus(me?.effectiveStatus)
@@ -169,7 +170,7 @@ fun UserFooter(
     // (void, um abaixo da sidebar em `base`).
     val forma = RoundedCornerShape(10.dp)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             // Recuo pequeno das bordas do bloco pra a borda ter onde existir: sem
             // ele, os lados do cartao caem em cima da borda do shell e a curva do

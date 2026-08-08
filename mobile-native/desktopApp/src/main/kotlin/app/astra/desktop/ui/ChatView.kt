@@ -683,10 +683,14 @@ private fun MessageRow(
     // sem fulano existir nao acende barra nenhuma, que e o certo.
     val meMencionou = LocalMinhaConta.current.id?.let { it in msg.mentions } == true
     val rowAlpha = animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS), label = "rowAlpha")
+    // HOVER NAO CLAREIA MAIS O FUNDO DA MENSAGEM (pedido do dono). A faixa clara
+    // atras do texto era ruido em cima do unico conteudo que importa na tela — e
+    // a barra de acoes que aparece no canto ja diz, sozinha, qual linha esta sob o
+    // mouse. O destaque de "pulei pra esta mensagem" (highlighted) FICA: aquele e
+    // um evento, nao um estado de mouse.
     val bg = animateColorAsState(
         when {
             highlighted -> Obsidian.accentDim
-            hovered -> Obsidian.hover.copy(alpha = 0.35f)
             else -> Color.Transparent
         },
         tween(150),

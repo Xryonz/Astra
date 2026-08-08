@@ -36,8 +36,20 @@ private fun classificar(t: Throwable, oQue: String): Falha = when (t) {
     }
     // Timeout, DNS, conexao recusada, 502/503 do roteador do Render enquanto a
     // instancia sobe — tudo isto passa. E o caso que a insistencia existe pra cobrir.
-    is IOException -> Falha("Sem conexão com o servidor.", permanente = false)
-    else -> Falha("Não foi possível carregar $oQue.", permanente = false)
+    //
+    // O MOTIVO CRU VAI JUNTO. Sem ele, "sem conexão" cobre timeout, DNS quebrado,
+    // certificado recusado e proxy do trabalho com a mesma frase — e foi por isso
+    // que a primeira investigacao desta tela terminou em palpite. Fica entre
+    // parenteses e em minuscula: informacao pra quem for consertar, nao susto pra
+    // quem so queria conversar.
+    is IOException -> Falha(
+        "Sem conexão com o servidor" + (t.message?.take(90)?.let { " ($it)" } ?: "") + ".",
+        permanente = false,
+    )
+    else -> Falha(
+        "Não foi possível carregar $oQue (${t::class.simpleName}).",
+        permanente = false,
+    )
 }
 
 // Insiste ate conseguir, ate esbarrar num erro permanente, ou ate acabar a janela.

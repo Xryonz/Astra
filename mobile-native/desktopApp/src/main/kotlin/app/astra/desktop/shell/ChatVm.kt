@@ -192,9 +192,22 @@ class ChatVm(
 
     // Botao "tentar de novo" da tela de erro. Publica de proposito: sem isto a
     // unica saida do erro era trocar de conversa e voltar.
-    fun tentarDeNovo() = load()
+    fun tentarDeNovo() = load(forcar = true)
 
-    private fun load() {
+    // CARGA EM ANDAMENTO NAO E CANCELADA POR OUTRA CARGA. Isto e um conserto de
+    // uma armadilha que a propria janela longa de repeticao criou:
+    //
+    // `listenLive()` chama load() a cada reconexao do socket. Com a janela antiga
+    // (5,5s) as duas coisas quase nunca se cruzavam. Com 72 segundos, cruzam o
+    // tempo todo — e como a API dorme no plano free, a queda do socket e a carga
+    // lenta acontecem exatamente juntas. Cada reconexao matava a carga em voo e
+    // recomecava do zero: um laco que nunca termina, e a conversa fica vazia pra
+    // sempre com o servidor de pe.
+    //
+    // Quem cancela de verdade e so o clique em "tentar de novo" (o usuario pediu
+    // do zero) e o dispose (a conversa fechou).
+    private fun load(forcar: Boolean = false) {
+        if (!forcar && cargaJob?.isActive == true) return
         cargaJob?.cancel()
         cargaJob = scope.launch {
             _state.update { it.copy(loading = true, error = null, acordando = false) }

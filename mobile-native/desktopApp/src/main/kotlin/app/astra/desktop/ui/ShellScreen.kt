@@ -437,13 +437,14 @@ fun ShellScreen(
         // O clip vai no bloco, nao em cada painel: e ele que arredonda as quatro
         // quinas de uma vez, e por isso a rail e o painel de membros podem seguir
         // quadrados por dentro sem vazar pra fora.
-        Row(
+        Box(
             Modifier
                 .fillMaxSize()
                 .padding(RESPIRO_DA_JANELA)
                 .clip(FORMA_DO_SHELL)
                 .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), FORMA_DO_SHELL),
         ) {
+        Row(Modifier.fillMaxSize()) {
         // Quem pode abrir as configurações da constelação, e como abrir. Sao os
         // MESMOS dois pra rail e pra engrenagem abaixo do banner — duas rotas pra
         // mesma tela, uma regra so.
@@ -531,14 +532,10 @@ fun ShellScreen(
             firstSteps = firstSteps,
         )
         }
-        UserFooter(
-            me = state.me,
-            fallbackName = session.displayName,
-            onEdited = vm::refreshMe,
-            onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
-            onAbrirJornada = onAbrirMissoes,
-            onLogout = onLogout,
-        )
+        // Vaga reservada pro rodape, que NAO mora mais nesta coluna: ele passou a
+        // ser desenhado por cima de tudo (ver o fim deste Box). Sem esta vaga, a
+        // lista de orbitas correria por baixo dele.
+        Spacer(Modifier.height(ALTURA_DO_RODAPE))
         }
         Stage(
             state.selectedServer,
@@ -604,6 +601,28 @@ fun ShellScreen(
                 onBan = { uid -> state.selectedServer?.id?.let { vm.banMember(it, uid) } },
             )
         }
+        }
+        // O RODAPE DO USUARIO E DESENHADO POR CIMA, e passa da coluna da esquerda.
+        //
+        // Ele nao e mais filho da coluna: e irmao do Row inteiro, ancorado no canto
+        // inferior esquerdo com uma sobra pra direita. E o que faz ele SOBREPOR o
+        // palco em vez de terminar onde a sidebar termina — a referencia do dono e
+        // o cartao do Discord, que se apoia por cima do que esta atras.
+        //
+        // A sobra so funciona porque ele vem DEPOIS do Row nesta Box: em Compose,
+        // quem e escrito por ultimo desenha em cima.
+        UserFooter(
+            me = state.me,
+            fallbackName = session.displayName,
+            onEdited = vm::refreshMe,
+            onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
+            onAbrirJornada = onAbrirMissoes,
+            onLogout = onLogout,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .width(LARGURA_RAIL + LARGURA_SIDEBAR + SOBRA_DO_RODAPE)
+                .height(ALTURA_DO_RODAPE),
+        )
         }
         }
 
@@ -802,6 +821,10 @@ private val LARGURA_SIDEBAR = 260.dp
 // Respiro entre o bloco do app e a moldura da janela, e a forma do bloco.
 private val RESPIRO_DA_JANELA = 10.dp
 private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
+// Rodape do usuario: altura fixa (a do Discord, ~52dp de conteudo mais o recuo do
+// cartao) e quanto ele passa pra DIREITA da sidebar, sobrepondo o palco.
+private val ALTURA_DO_RODAPE = 62.dp
+private val SOBRA_DO_RODAPE = 26.dp
 
 // Superficie do shell. Os quatro paineis (rail, sidebar, palco, membros) se
 // ENCOSTAM: nao ha folga entre eles, nem canto arredondado, nem borda.

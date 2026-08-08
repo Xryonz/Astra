@@ -157,6 +157,11 @@ data class ChamadaNaTela(
 const val HISTORICO_DESTINOS = "historicoDestinos"
 const val SEP_HISTORICO = "\u0001"
 private const val TETO_HISTORICO = 12
+// Carga de boot: quantas tentativas, e a espera ENTRE elas (duas esperas pra
+// tres tentativas — a ultima falha nao espera ninguem). Insistir na hora contra
+// um servidor que ainda esta acordando so gasta a tentativa.
+private const val TENTATIVAS_DE_BOOT = 3
+private val ESPERA_DE_BOOT_MS = longArrayOf(1_500L, 4_000L)
 
 class ShellVm(
     private val scope: CoroutineScope,
@@ -196,9 +201,14 @@ class ShellVm(
                 val voiceIds = _state.value.selectedServer
                     ?.channels?.filter { it.type == "VOICE" }?.map { it.id }.orEmpty()
                 if (voiceIds.isNotEmpty()) {
-                    val pres = runCatching { voiceApi.presence(voiceIds.joinToString(",")).data.orEmpty() }
-                        .getOrDefault(emptyMap())
-                    _state.update { if (it.voicePresence != pres) it.copy(voicePresence = pres) else it }
+                    // onSuccess: uma consulta que falha MANTEM o que se sabia. Com
+                    // getOrDefault(emptyMap()), um unico erro de rede esvaziava as
+                    // salas de voz na barra lateral — todo mundo sumia da call por
+                    // 20 segundos, ate o proximo giro, sem nada ter acontecido.
+                    runCatching { voiceApi.presence(voiceIds.joinToString(",")).data.orEmpty() }
+                        .onSuccess { pres ->
+                            _state.update { if (it.voicePresence != pres) it.copy(voicePresence = pres) else it }
+                        }
                 } else if (_state.value.voicePresence.isNotEmpty()) {
                     _state.update { it.copy(voicePresence = emptyMap()) }
                 }
@@ -353,22 +363,42 @@ class ShellVm(
         }
     }
 
+    // Tres tentativas com espera crescente. A API dorme no plano free do Render
+    // depois de 15min parada e acorda em ate ~50s: a PRIMEIRA chamada depois do
+    // sono cai. No boot isso era caro — a lista de sussurros voltava vazia, e
+    // lista vazia ali nao e "nao carregou", e uma AFIRMACAO: "voce nao tem
+    // conversa nenhuma". Uma tela mentindo com confianca total.
+    //
+    // Devolve null so quando as tres falharam. Resposta bem-sucedida e VAZIA
+    // (lista sem itens) volta na primeira, sem insistir: vazio de verdade e uma
+    // resposta legitima.
+    private suspend fun <T : Any> insistindo(bloco: suspend () -> T?): T? {
+        repeat(TENTATIVAS_DE_BOOT) { tentativa ->
+            runCatching { bloco() }.getOrNull()?.let { return it }
+            if (tentativa < TENTATIVAS_DE_BOOT - 1) delay(ESPERA_DE_BOOT_MS[tentativa])
+        }
+        return null
+    }
+
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch {
             val meD = async { runCatching { userApi.me().data?.user }.getOrNull() }
-            val serversD = async { runCatching { serverApi.servers().data.orEmpty() }.getOrNull() }
-            val dmsD = async { runCatching { dmApi.conversations().data.orEmpty() }.getOrDefault(emptyList()) }
-            val channelReadsD = async { runCatching { serverApi.channelReads().data.orEmpty() }.getOrDefault(emptyMap()) }
-            val unreadCountsD = async { runCatching { serverApi.channelUnreadCounts().data.orEmpty() }.getOrDefault(emptyMap()) }
-            val dmReadsD = async { runCatching { dmApi.dmReads().data.orEmpty() }.getOrDefault(emptyMap()) }
+            val serversD = async { insistindo { serverApi.servers().data.orEmpty() } }
+            val dmsD = async { insistindo { dmApi.conversations().data.orEmpty() } }
+            val channelReadsD = async { insistindo { serverApi.channelReads().data.orEmpty() } }
+            val unreadCountsD = async { insistindo { serverApi.channelUnreadCounts().data.orEmpty() } }
+            val dmReadsD = async { insistindo { dmApi.dmReads().data.orEmpty() } }
 
             val servers = serversD.await()
             if (servers == null) {
                 _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
                 return@launch
             }
-            val dms = dmsD.await()
+            // Se as constelações vieram e os sussurros não, e falha PARCIAL: nao
+            // vale derrubar o app inteiro por isso, entao segue com a lista vazia
+            // (ja depois de tres tentativas). O resto do boot ja aconteceu.
+            val dms = dmsD.await().orEmpty()
 
             // Entra na sala de todas as DMs: typing/new_dm so chegam pra quem
             // está na sala (o rejoin pos-reconnect já cobre estas também).
@@ -376,8 +406,8 @@ class ShellVm(
 
             // Não lida = última mensagem depois da última leitura (sem leitura
             // registrada também conta). DM mutada ou cuja última e minha, não.
-            val channelReads = channelReadsD.await()
-            val dmReads = dmReadsD.await()
+            val channelReads = channelReadsD.await().orEmpty()
+            val dmReads = dmReadsD.await().orEmpty()
             val unreadChannels = servers.flatMap { it.channels }
                 .filter { ch -> ch.lastMessageAt?.let { last -> channelReads[ch.id]?.let { last > it } ?: true } ?: false }
                 .map { it.id }
@@ -434,7 +464,7 @@ class ShellVm(
                     chat = restoredChat,
                     friendsOpen = restoredFriends,
                     unread = (unreadChannels + unreadDms).toSet() - setOfNotNull(restoredChat?.id),
-                    unreadCounts = unreadCountsD.await() - setOfNotNull(restoredChat?.id),
+                    unreadCounts = unreadCountsD.await().orEmpty() - setOfNotNull(restoredChat?.id),
                 )
             }
             store.setUiPref("lastSelection", finalSelection.encode())

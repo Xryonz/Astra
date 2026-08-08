@@ -97,10 +97,14 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
     var loading by remember { mutableStateOf(true) }
 
     suspend fun reload() {
-        val f = runCatching { api.friends().data.orEmpty() }.getOrDefault(emptyList())
-        friends = f.sortedWith(
-            compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
-        )
+        // Mesma regra das outras duas listas (e o mesmo motivo): falha de rede
+        // nao pode virar "voce nao tem amigo nenhum". Este ficou de fora do
+        // conserto anterior — a lista principal era justamente a que faltava.
+        runCatching { api.friends().data.orEmpty() }.onSuccess { f ->
+            friends = f.sortedWith(
+                compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
+            )
+        }
         // onSuccess, e nao getOrDefault(emptyList()): falha de rede virava lista
         // VAZIA, e lista vazia aqui e uma afirmacao — "voce nao tem pedido
         // nenhum". Com a API dormindo no plano free do Render, a primeira carga

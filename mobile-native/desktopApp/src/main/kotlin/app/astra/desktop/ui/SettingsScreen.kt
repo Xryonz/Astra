@@ -42,6 +42,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -218,7 +222,26 @@ fun SettingsScreen(
     initialTab: SettingsTab = SettingsTab.ACCOUNT,
     onTestarNotificacao: () -> Unit = {},
 ) {
-    var tab by remember(initialTab) { mutableStateOf(initialTab) }
+    // ROLAGEM UNICA, sem troca de aba (pedido do dono, referencia do Discord): as
+    // nove secoes coexistem numa pagina so e o menu da esquerda virou indice.
+    //
+    // Quem manda na previa e no destaque do menu e a secao NO TOPO DA JANELA, nao
+    // um estado de aba — e por isso `tab` deixou de existir como variavel. O
+    // `derivedStateOf` importa: sem ele, cada pixel de rolagem recomporia a tela
+    // inteira; com ele, so recompoe quando o INDICE muda de fato.
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var rolandoPara by remember { mutableStateOf<SettingsTab?>(null) }
+    val tabVisivel by remember {
+        derivedStateOf { abasVisiveis.getOrElse(listState.firstVisibleItemIndex) { abasVisiveis.first() } }
+    }
+    val tabAtiva = rolandoPara ?: tabVisivel
+    // Abrir pela engrenagem cai na Conta; abrir por um atalho (ex.: Perfil) rola
+    // direto pra la, sem animar — animar aqui seria a tela nascer se mexendo.
+    LaunchedEffect(initialTab) {
+        val i = abasVisiveis.indexOf(initialTab)
+        if (i > 0) listState.scrollToItem(i)
+    }
     // Abas que ja fizeram a cascata NESTA visita as configuracoes.
     //
     // O `remember` sem chave e o mecanismo inteiro: ele morre quando a tela sai da
@@ -262,8 +285,19 @@ fun SettingsScreen(
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                abasVisiveis.forEach { t ->
-                    NavRow(t.icon, t.label, t.sub, active = t == tab) { tab = t }
+                abasVisiveis.forEachIndexed { i, t ->
+                    NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) {
+                        // O menu virou INDICE: clicar rola ate a secao em vez de
+                        // trocar a pagina. `rolandoPara` segura o destaque durante
+                        // a rolagem — sem ele o item aceso pularia por todas as
+                        // secoes do caminho, que e exatamente o pisca-pisca que a
+                        // rolagem animada provoca.
+                        rolandoPara = t
+                        scope.launch {
+                            listState.animateScrollToItem(i)
+                            rolandoPara = null
+                        }
+                    }
                 }
             }
 
@@ -272,94 +306,62 @@ fun SettingsScreen(
             // encostada a esquerda; os controles leem como uma coluna so em vez de
             // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-            // Sobre/Sessões/Permissões não tem previa — são listas e ações, não
-            // ajustes com efeito visual.
-            val showPreview =
-                tab != SettingsTab.ABOUT && tab != SettingsTab.SESSIONS && tab != SettingsTab.PERMISSIONS
-            // Previa SEMPRE fixa no topo-direita (decisao do dono), em toda aba: ela
-            // não rola junto, entao o efeito do que se mexe fica a vista mesmo
-            // editando o rodape do formulario. Empilhada no fim, como era, a previa
-            // do Perfil (a aba mais alta) so aparecia depois de rolar tudo — uma
-            // previa ao vivo que ninguem ve não e previa.
-            val larguraPrevia = if (tab == SettingsTab.PROFILE) LARGURA_PREVIA_PERFIL else LARGURA_PREVIA
-            // PISO derivado da propria previa, e nao mais o 700dp fixo: com a
-            // previa do Perfil maior, 700 deixaria a coluna de conteudo com menos
-            // de 300dp e os controles quebrariam. 280 e o minimo em que um campo
-            // com rotulo ainda cabe numa linha.
-            val pinned = showPreview && maxWidth > larguraPrevia + 280.dp
+            // LARGURA DA PREVIA FIXA PRA PAGINA INTEIRA, e nao mais por aba.
+            //
+            // Antes ela variava (a do Perfil e maior), e a coluna de conteudo era
+            // calculada em cima dela. Numa pagina unica isso seria veneno: a
+            // coluna inteira mudaria de largura no meio da rolagem, so porque a
+            // secao do Perfil entrou na tela. Layout que se remexe enquanto se
+            // rola e pior que uma previa 50dp menor em duas secoes.
+            val larguraPrevia = LARGURA_PREVIA_PERFIL
+            // PISO derivado da propria previa, e nao um numero fixo: 280dp e o
+            // minimo em que um campo com rotulo ainda cabe numa linha. Abaixo
+            // disso a previa desce pra dentro de cada secao.
+            val pinned = maxWidth > larguraPrevia + 280.dp
             // Com a previa fixa, a coluna de conteudo encolhe pra não correr por
             // baixo dela: a previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
                 if (pinned) minOf(720.dp, (maxWidth - larguraPrevia - 76.dp).coerceAtLeast(280.dp)) else 720.dp
-            Column(
-                Modifier.align(Alignment.TopStart).widthIn(max = contentMax).fillMaxWidth()
-                    .fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(horizontal = 28.dp, vertical = 22.dp),
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.align(Alignment.TopStart).widthIn(max = contentMax)
+                    .fillMaxWidth().fillMaxHeight(),
+                // O RECUO DE BAIXO E ESTRUTURAL, nao estetico: sem ele a ultima
+                // secao nunca chega ao topo da janela, e clicar "Sobre" no indice
+                // deixaria o item aceso sem nada acontecer na tela.
+                contentPadding = PaddingValues(start = 28.dp, end = 28.dp, top = 22.dp, bottom = 360.dp),
             ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        tab.label,
-                        style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif),
-                        modifier = Modifier.weight(1f),
-                    )
-                    // Fechar (ESC também, via foco no shell) volta pro shell.
-                    val hov = remember { MutableInteractionSource() }
-                    val h by hov.collectIsHoveredAsState()
-                    Box(
-                        Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(if (h) Obsidian.hover else Obsidian.overlay)
-                            .border(1.dp, Obsidian.borderMid, CircleShape)
-                            .hoverable(hov)
-                            .clickable(onClick = onClose),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp)
-                    }
-                }
-                Spacer(Modifier.height(20.dp))
-
-                // Janela estreita: a previa nao cabe ao lado, entao entra AQUI —
-                // logo abaixo do titulo, antes dos controles. Empilhada no fim (como
-                // era) ela ficava depois do formulario INTEIRO: numa aba alta so
-                // aparecia depois de rolar tudo, e uma previa ao vivo que ninguem ve
-                // enquanto edita nao e previa.
-                if (!pinned && showPreview) {
-                    SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
-                    Spacer(Modifier.height(18.dp))
-                    SettingsDivider()
-                    Spacer(Modifier.height(18.dp))
-                }
-
-                // Troca de secao: SO fade. A ENTRADA e a cascata, e ela e vertical.
-                //
-                // O `scaleIn(0.98)` que morava aqui escalava a partir do CENTRO. Num
-                // painel largo, 2% de escala sao ~7dp em cada lado: a borda esquerda
-                // do conteudo nascia deslocada pra dentro e corria pra fora. Lido de
-                // perto, isso e exatamente "a aba entrou pela esquerda" — e so
-                // aparecia em aba larga, o que explica o "de vez em quando". Duas
-                // animacoes de entrada disputando a mesma troca; ficou a que foi
-                // pedida.
-                //
-                // O SizeTransform explicito continua: o padrao dele e MOLA, e mola
-                // tem duracao proporcional a distancia — a mesma troca de aba saia
-                // curta ou longa conforme a diferenca de altura.
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = {
-                        fadeIn(tween(140)).togetherWith(fadeOut(tween(100))) using
-                            SizeTransform(clip = false) { _, _ -> tween(180) }
-                    },
-                    label = "settingsSection",
-                ) { current ->
-                    // Cada secao emite varios filhos DIRETO — e e justamente isso que
-                    // permite a cascata enxergar um por um (ver CascataVertical).
-                    // Sem um container que relaie em vertical, o container do
-                    // AnimatedContent os empilha no mesmo Y (era o bug dos "textos
-                    // sobrepostos").
+                itemsIndexed(abasVisiveis, key = { _, t -> t.name }) { _, current ->
+                    // Sobre/Sessões/Permissões/Diagnostico não tem previa — são
+                    // listas e ações, não ajustes com efeito visual.
+                    val temPrevia = current != SettingsTab.ABOUT &&
+                        current != SettingsTab.SESSIONS && current != SettingsTab.PERMISSIONS &&
+                        current != SettingsTab.DIAGNOSTICS
+                    // A CASCATA agora acontece quando a secao ENTRA NA TELA pela
+                    // primeira vez, e nao quando se troca de aba. O conjunto
+                    // `jaAnimaram` continua sendo o que impede o replay: a
+                    // LazyColumn descarta o item que sai da tela e o recompoe ao
+                    // voltar, entao sem ele a cascata tocaria de novo a cada
+                    // rolagem pra cima. Ele morre quando as configuracoes fecham —
+                    // exatamente a regra que o dono pediu.
                     val jaVisto = current in jaAnimaram
                     LaunchedEffect(current) { jaAnimaram += current }
+                    // O Column NAO e decorativo: um item de LazyColumn com mais de
+                    // um filho na raiz empilha todos no MESMO Y. E a mesma
+                    // pegadinha que o AnimatedContent tinha aqui antes.
+                    Column(Modifier.fillMaxWidth()) {
+                    Text(
+                        current.label,
+                        style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif),
+                        modifier = Modifier.padding(top = if (current == abasVisiveis.first()) 0.dp else 34.dp),
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    // Janela estreita: a previa nao cabe ao lado, entao entra AQUI,
+                    // logo abaixo do titulo da secao a que ela pertence.
+                    if (!pinned && temPrevia) {
+                        SettingsPreview(current, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
+                        Spacer(Modifier.height(18.dp))
+                    }
                     CascataVertical(chave = current, animar = !jaVisto, modifier = Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me)
@@ -391,26 +393,58 @@ fun SettingsScreen(
                         SettingsTab.DIAGNOSTICS -> DiagnosticsSection()
                     }
                     }
-                }
-
-                // O botao de salvar segue no PE do formulario (a previa subiu, ele
-                // nao): salvar e o fim da tarefa, e o lugar dele e onde a tarefa
-                // acaba.
-                if (!pinned && showPreview && tab == SettingsTab.PROFILE) {
-                    Spacer(Modifier.height(14.dp))
-                    ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
+                    // O botao de salvar segue no PE do formulario do Perfil quando
+                    // a previa esta empilhada: salvar e o fim da tarefa, e o lugar
+                    // dele e onde a tarefa acaba.
+                    if (!pinned && current == SettingsTab.PROFILE) {
+                        Spacer(Modifier.height(14.dp))
+                        ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
+                    }
+                    }
                 }
             }
-                // Previa como card fixo no topo-direita: não rola junto, fica ao lado
-                // dos controles desde o primeiro campo.
+                // Coluna fixa da direita: fechar em cima, previa embaixo. Ela nao
+                // rola junto — e a previa acompanha a secao que esta NO TOPO da
+                // rolagem, com um fade curto na troca. Sem o fade, rolar entre duas
+                // secoes com previa trocaria o cartao de uma vez so, seco.
                 if (pinned) {
                     Column(
                         Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(larguraPrevia),
+                        horizontalAlignment = Alignment.End,
                     ) {
-                        SettingsPreview(tab, me, prefState, draft, Modifier.fillMaxWidth())
-                        if (tab == SettingsTab.PROFILE) {
-                            Spacer(Modifier.height(14.dp))
-                            ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.fillMaxWidth())
+                        // Fechar (ESC também) volta pro shell. Subiu pra ca: com
+                        // uma pagina so, ele nao pertence mais a nenhuma secao.
+                        val hov = remember { MutableInteractionSource() }
+                        val h by hov.collectIsHoveredAsState()
+                        Box(
+                            Modifier
+                                .size(30.dp)
+                                .clickScale(hov, formaDoFoco = CircleShape)
+                                .clip(CircleShape)
+                                .background(if (h) Obsidian.hover else Obsidian.overlay)
+                                .border(1.dp, Obsidian.borderMid, CircleShape)
+                                .hoverable(hov)
+                                .clickable(interactionSource = hov, indication = null, onClick = onClose),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "fechar")
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        AnimatedContent(
+                            targetState = tabAtiva,
+                            transitionSpec = {
+                                fadeIn(tween(160)).togetherWith(fadeOut(tween(120))) using
+                                    SizeTransform(clip = false) { _, _ -> tween(200) }
+                            },
+                            label = "previaDaSecao",
+                        ) { secao ->
+                            Column(Modifier.fillMaxWidth()) {
+                                SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth())
+                                if (secao == SettingsTab.PROFILE) {
+                                    Spacer(Modifier.height(14.dp))
+                                    ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.fillMaxWidth())
+                                }
+                            }
                         }
                     }
                 }

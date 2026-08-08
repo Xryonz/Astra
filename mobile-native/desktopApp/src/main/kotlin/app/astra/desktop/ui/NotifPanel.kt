@@ -131,6 +131,24 @@ fun NotifPanel(
         scope.launch { runCatching { api.readAll() }; onAfterRead() }
     }
 
+    // LIMPAR e diferente de MARCAR TUDO, e por isso sao dois botoes: marcar zera o
+    // sino e mantem o historico; limpar apaga. A lista some na hora (otimista) e
+    // VOLTA se o servidor recusar — sumir e reaparecer e chato, mas fingir que
+    // apagou o que continua la e pior.
+    var limpando by remember { mutableStateOf(false) }
+    fun limparTudo() {
+        if (limpando) return
+        val antes = items
+        limpando = true
+        items = emptyList()
+        scope.launch {
+            runCatching { api.clearAll() }
+                .onSuccess { onAfterRead() }
+                .onFailure { items = antes }
+            limpando = false
+        }
+    }
+
     // Scrim: clique fora fecha. Painel ancorado no topo-direita (sob o sino).
     Box(
         Modifier
@@ -161,6 +179,21 @@ fun NotifPanel(
                         "marcar tudo",
                         style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = 11.sp),
                         modifier = Modifier.hoverable(src).clickable(interactionSource = src, indication = null) { readAll() },
+                    )
+                }
+                if (items.isNotEmpty()) {
+                    Spacer(Modifier.width(12.dp))
+                    val srcLimpar = remember { MutableInteractionSource() }
+                    val hovLimpar by srcLimpar.collectIsHoveredAsState()
+                    Text(
+                        if (limpando) "limpando…" else "limpar",
+                        style = TextStyle(
+                            color = if (hovLimpar) Obsidian.danger else Obsidian.text3,
+                            fontSize = 11.sp,
+                        ),
+                        modifier = Modifier
+                            .hoverable(srcLimpar)
+                            .clickable(interactionSource = srcLimpar, indication = null) { limparTudo() },
                     )
                 }
             }

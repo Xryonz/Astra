@@ -30,6 +30,10 @@ interface NotificationApi {
     @POST("api/notifications/read-all")
     suspend fun readAll()
 
+    // Apaga o historico inteiro (nao e o mesmo que marcar tudo como lido).
+    @DELETE("api/notifications")
+    suspend fun clearAll()
+
     // ---- Preferencias de notificacao (silenciar): backend em channelNotifPrefs.ts.
     // mode = "all" | "mentions" | "mute". Silenciar = "mute"; reativar = clear (default "all").
     @GET("api/channels/notification-prefs")

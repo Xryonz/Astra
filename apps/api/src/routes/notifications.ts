@@ -115,6 +115,18 @@ router.post(
   })
 )
 
+// LIMPAR: apaga de verdade, nao marca como lida. Sao duas intencoes diferentes —
+// "read-all" zera o sino e mantem o historico; isto e a pessoa dizendo que nao
+// quer mais ver aquilo. Apagar so as do proprio usuario, obviamente.
+router.delete(
+  '/notifications',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    await db.delete(notifications).where(eq(notifications.userId, req.userId!))
+    res.json({ data: { ok: true } })
+  })
+)
+
 const PrefsSchema = z.object({
   mentions:   z.boolean().optional(),
   dms:        z.boolean().optional(),

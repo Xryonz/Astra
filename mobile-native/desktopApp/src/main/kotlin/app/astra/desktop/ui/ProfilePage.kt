@@ -93,8 +93,14 @@ import java.util.Locale
 // (scrim + card + cascata das secoes) segue o idioma do CenteredConfirmDialog;
 // fable refina a coreografia depois. Respeita LocalReduceMotion.
 
-// Largura do painel inteiro: a coluna do cartao (330) + a dos vinculos (~330).
-val LARGURA_PAGINA_PERFIL = 660.dp
+// Proporcoes do painel, calcadas na referencia do Discord: ~1290x940 com a coluna
+// da identidade em ~40% da largura. Aqui: 840 de largura, 380 pra coluna do
+// cartao e o resto pros vinculos. A ALTURA e fixa (nao "o que o conteudo pedir"),
+// porque uma conta nova tem duas linhas de conteudo e o painel encolheria pra um
+// retangulo estranho no meio da tela.
+val LARGURA_PAGINA_PERFIL = 840.dp
+val LARGURA_COLUNA_DO_CARTAO = 380.dp
+val ALTURA_PAGINA_PERFIL = 640.dp
 
 // Rodape dissolvido. Quando o conteudo passa da altura maxima, o scroll FATIA o
 // texto no meio e o corte seco parece quina dura; este veu faz o conteudo sumir
@@ -200,7 +206,7 @@ fun ProfilePage(
                             translationY = (1f - appear.value) * 16.dp.toPx()
                         }
                         .width(LARGURA_PAGINA_PERFIL)
-                        .heightIn(max = 720.dp)
+                        .height(ALTURA_PAGINA_PERFIL)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Obsidian.base)
                         .border(1.dp, Obsidian.borderMid, RoundedCornerShape(16.dp))
@@ -218,13 +224,24 @@ fun ProfilePage(
                         val nome = d.user.displayName ?: d.user.username
                         // Coluna da identidade. Rola sozinha: bio longa nao pode
                         // empurrar a coluna dos vinculos pra fora da tela.
+                        // fillMaxHeight NO CARTAO, e nao so na coluna: o cartao tem
+                        // fundo e borda proprios, entao parar na altura do conteudo
+                        // deixava um retangulo curto boiando num painel alto — foi
+                        // exatamente o que o dono viu. Com a altura toda, ele vira a
+                        // coluna da esquerda de verdade.
+                        // SEM verticalScroll aqui, e isso e deliberado: dentro de um
+                        // scroll a altura maxima e INFINITA, e `fillMaxHeight` com
+                        // maximo infinito nao faz nada — o cartao continuaria curto.
+                        // Era essa a armadilha. Bio muito longa fica cortada com o
+                        // veu no pe avisando; a coluna da direita e que rola.
                         Column(
                             Modifier
-                                .width(LARGURA_CARTAO_COMPLETO)
-                                .verticalScroll(rememberScrollState())
+                                .width(LARGURA_COLUNA_DO_CARTAO)
+                                .fillMaxHeight()
                                 .veuNoPe(),
                         ) {
                             ProfileCard(
+                                modifier = Modifier.fillMaxHeight(),
                                 dados = d.user.paraCartao(),
                                 variante = CardVariante.COMPLETO,
                                 // Os servidores em comum saem daqui: eles sao

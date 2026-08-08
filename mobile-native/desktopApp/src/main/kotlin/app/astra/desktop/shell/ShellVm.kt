@@ -102,6 +102,11 @@ data class ShellUiState(
     // Presenca por userId dos membros da constelação atual (ONLINE/IDLE/DND/OFFLINE).
     // Snapshot no load + patch ao vivo via socket presence_update. Ausente = OFFLINE.
     val memberPresence: Map<String, String> = emptyMap(),
+    // Presenca de quem está do outro lado dos SUSSURROS. Mapa proprio, e nao o
+    // memberPresence: aquele e limpo toda vez que se troca de constelação (ele
+    // pertence a constelação selecionada), e a lista de sussurros nao tem
+    // constelação nenhuma — herdar dali faria a bolinha piscar e sumir.
+    val dmPresence: Map<String, String> = emptyMap(),
     val membersOpen: Boolean = true,
     val chat: ChatTarget? = null,
     // "Amigos" aberto no palco (area dos sussurros) — some ao abrir uma conversa.
@@ -458,6 +463,19 @@ class ShellVm(
             }
             store.setUiPref("lastSelection", finalSelection.encode())
             if (finalSelection is Selection.Server) loadMembers(finalSelection.id)
+            carregarPresencaDosSussurros()
+        }
+    }
+
+    // Bolinha de status na foto da lista de sussurros. Um mget so, como o dos
+    // membros. Falhou = mapa vazio = todo mundo apagado; a lista continua de pe.
+    private fun carregarPresencaDosSussurros() {
+        scope.launch {
+            val ids = _state.value.dms.mapNotNull { it.otherUser?.id }.distinct()
+            if (ids.isEmpty()) return@launch
+            val p = runCatching { userApi.presence(ids.joinToString(",")).data.orEmpty() }.getOrNull()
+                ?: return@launch
+            _state.update { it.copy(dmPresence = it.dmPresence + p) }
         }
     }
 
@@ -633,6 +651,7 @@ class ShellVm(
                     .getOrDefault(_state.value.dms)
                 dms.forEach { socket.joinDm(it.id) }
                 _state.update { it.copy(dms = dms) }
+                carregarPresencaDosSussurros()
             }
             _state.update {
                 it.copy(
@@ -1108,10 +1127,18 @@ class ShellVm(
                     // So mexe se o user já e membro visivel da constelação atual —
                     // evita recompor o painel a cada presenca do app inteiro.
                     _state.update {
-                        if (it.members.any { m -> m.userId == ev.userId }) {
-                            val norm = if (ev.status == "INVISIBLE") "OFFLINE" else ev.status
-                            it.copy(memberPresence = it.memberPresence + (ev.userId to norm))
-                        } else it
+                        val norm = if (ev.status == "INVISIBLE") "OFFLINE" else ev.status
+                        val ehMembro = it.members.any { m -> m.userId == ev.userId }
+                        val ehSussurro = it.dms.any { c -> c.otherUser?.id == ev.userId }
+                        when {
+                            ehMembro && ehSussurro -> it.copy(
+                                memberPresence = it.memberPresence + (ev.userId to norm),
+                                dmPresence = it.dmPresence + (ev.userId to norm),
+                            )
+                            ehMembro -> it.copy(memberPresence = it.memberPresence + (ev.userId to norm))
+                            ehSussurro -> it.copy(dmPresence = it.dmPresence + (ev.userId to norm))
+                            else -> it
+                        }
                     }
                 }
             }

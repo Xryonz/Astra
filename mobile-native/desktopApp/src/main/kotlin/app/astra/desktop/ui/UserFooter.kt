@@ -161,18 +161,17 @@ fun UserFooter(
             add(MenuEntry.Item("sair", danger = true, icon = Lucide.LogOut) { confirmLogout = true })
         }
     }) {
-    // Cartao flutuante estilo Discord: inset das bordas da sidebar, cantos
-    // arredondados e borda fina — parece sobreposto ao painel, com a aurora
-    // vazando por baixo (translucido).
+    // FAIXA, nao mais cartao flutuante. Ele atravessa a rail E a sidebar (ver
+    // ShellScreen): era um cartao de 244dp dentro da sidebar, e os 72dp embaixo da
+    // rail ficavam vazios. Sem canto arredondado e sem borda porque agora ele e uma
+    // superficie do shell como as outras — quem separa e o degrau de elevacao
+    // (void, um abaixo da sidebar em `base`).
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Obsidian.void.copy(alpha = 0.46f))
-            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .background(Obsidian.void.copy(alpha = 0.72f))
             .hoverable(hoverCartao)
-            .padding(horizontal = 10.dp, vertical = 9.dp),
+            .padding(start = 14.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // O anel vive AQUI, no Box de fora: o de dentro tem .clip(CircleShape) e

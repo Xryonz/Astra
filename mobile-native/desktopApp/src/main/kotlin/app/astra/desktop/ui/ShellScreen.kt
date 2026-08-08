@@ -428,10 +428,7 @@ fun ShellScreen(
             enter = fadeIn(tween(160)),
             exit = fadeOut(tween(160)),
         ) {
-        Row(
-            Modifier.fillMaxSize().padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Row(Modifier.fillMaxSize()) {
         // Quem pode abrir as configurações da constelação, e como abrir. Sao os
         // MESMOS dois pra rail e pra engrenagem abaixo do banner — duas rotas pra
         // mesma tela, uma regra so.
@@ -445,6 +442,12 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
+        // COLUNA ESQUERDA: rail + sidebar em cima, rodape do usuario atravessando
+        // as duas embaixo. O rodape morava dentro da sidebar e parava na borda dela,
+        // deixando a faixa embaixo da rail sem uso nenhum — 72dp de nada. Atravessar
+        // e o que o Discord faz, e devolve largura pro nome e pro status.
+        Column(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
+        Row(Modifier.weight(1f)) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -473,8 +476,7 @@ fun ShellScreen(
             unread = state.unread,
             unreadCounts = state.unreadCounts,
             dmTyping = state.dmTyping,
-            me = state.me,
-            meFallback = session.displayName,
+            dmPresence = state.dmPresence,
             loading = state.loading,
             members = state.members,
             voicePresence = state.voicePresence,
@@ -490,10 +492,6 @@ fun ShellScreen(
             onToggleMute = vm::toggleDmMute,
             onMarkRead = vm::markDmRead,
             onCloseDm = vm::closeDm,
-            onEditedProfile = vm::refreshMe,
-            onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
-            onAbrirJornada = onAbrirMissoes,
-            onLogout = onLogout,
             friendsOpen = state.friendsOpen,
             onOpenFriends = vm::openFriends,
             onCreateChannel = vm::createChannel,
@@ -517,6 +515,16 @@ fun ShellScreen(
             onOpenServerSettings = abrirConfigDaConstelacao,
             firstSteps = firstSteps,
         )
+        }
+        UserFooter(
+            me = state.me,
+            fallbackName = session.displayName,
+            onEdited = vm::refreshMe,
+            onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
+            onAbrirJornada = onAbrirMissoes,
+            onLogout = onLogout,
+        )
+        }
         Stage(
             state.selectedServer,
             chat = chat,
@@ -771,20 +779,26 @@ fun ShellScreen(
     }
 }
 
-// Cartao translucido do shell (estilo mobile): cantos arredondados + fundo baixo
-// (a aurora vaza por baixo) + borda fina. O gap entre cartoes na Row vira a
-// "linha arredondada" que da a sensacao de sobreposicao.
-private fun Modifier.panelCard(bg: Color, alpha: Float): Modifier {
-    // 8dp, e nao mais 14dp (pedido do dono): mais quadrado, ainda com o canto
-    // quebrado. Vale pros QUATRO paineis que usam isto — rail, sidebar, palco e
-    // membros. Arredondar so a sidebar deixaria ela falando um dialeto diferente
-    // dos vizinhos colados nela, que e pior que o raio anterior.
-    val shape = RoundedCornerShape(8.dp)
-    return this
-        .clip(shape)
-        .background(bg.copy(alpha = alpha))
-        .border(1.dp, Obsidian.borderMid.copy(alpha = 0.5f), shape)
-}
+// Largura dos dois paineis da esquerda. Viraram constantes porque agora TRES
+// lugares precisam concordar: a rail, a sidebar e a coluna que embrulha as duas
+// pra o rodape do usuario atravessar exatamente a soma delas.
+private val LARGURA_RAIL = 72.dp
+private val LARGURA_SIDEBAR = 260.dp
+
+// Superficie do shell. Os quatro paineis (rail, sidebar, palco, membros) se
+// ENCOSTAM: nao ha folga entre eles, nem canto arredondado, nem borda.
+//
+// Era o contrario — cada painel era um cartao flutuante com 8dp de respiro em
+// volta, e o respiro fazia o papel de separador. O dono apontou o problema: sobra
+// e espaco que nao carrega nada, e tres sobras somam ~24dp de largura que
+// poderiam estar mostrando conversa. Agora quem separa e a RAMPA DE ELEVACAO —
+// void na rail, base na sidebar, raised no palco. Mais claro = mais perto = mais
+// importante, que e a norma 2 do projeto e o que o Discord faz.
+//
+// O canto arredondado da JANELA nao se perde: quem clipa e a raiz (windowShape,
+// em Main.kt), entao os paineis podem ser quadrados sem vazar pra fora.
+private fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
+    this.background(bg.copy(alpha = alpha))
 
 // Confirmacao "Tem certeza?" reusavel: popup obsidiana no ponto, ação em danger.
 // Usada por todo delete/sair (canal, categoria, constelação, expulsar, banir,
@@ -1147,7 +1161,7 @@ private fun Rail(
     var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
     Column(
         // Cartao translucido: a aurora vaza por baixo (estilo mobile).
-        modifier = Modifier.width(72.dp).fillMaxHeight().panelCard(Obsidian.void, 0.34f),
+        modifier = Modifier.width(LARGURA_RAIL).fillMaxHeight().panelSurface(Obsidian.void, 0.72f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(12.dp))
@@ -1714,8 +1728,8 @@ private fun Sidebar(
     unread: Set<String>,
     unreadCounts: Map<String, Int>,
     dmTyping: Set<String>,
-    me: ProfileUserDto?,
-    meFallback: String,
+    // Presenca de quem está do outro lado de cada sussurro (bolinha na foto).
+    dmPresence: Map<String, String>,
     loading: Boolean,
     members: List<ServerMemberDto>,
     voicePresence: Map<String, List<String>>,
@@ -1728,11 +1742,6 @@ private fun Sidebar(
     onToggleMute: (ConversationDto) -> Unit,
     onMarkRead: (String) -> Unit,
     onCloseDm: (String) -> Unit,
-    onEditedProfile: () -> Unit,
-    onOpenSettings: (SettingsTab) -> Unit,
-    // Abre "sua jornada" (nivel, missoes, conquistas) — o clique na foto.
-    onAbrirJornada: () -> Unit,
-    onLogout: () -> Unit,
     friendsOpen: Boolean,
     onOpenFriends: () -> Unit,
     onCreateChannel: (serverId: String, name: String, type: String, categoryId: String?) -> Unit,
@@ -1760,7 +1769,7 @@ private fun Sidebar(
     // Dialogo de nome (nova órbita / nova categoria / renomear) — centralizado na
     // janela. So o dono da constelação dispara pelos menus de botao direito.
     var chanDialog by remember { mutableStateOf<ChanDialog?>(null) }
-    Column(Modifier.width(260.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
+    Column(Modifier.width(LARGURA_SIDEBAR).fillMaxHeight().panelSurface(Obsidian.base, 0.62f)) {
         // Transicao ao trocar na rail (sussurros <-> constelação): header + lista
         // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
         // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
@@ -1834,7 +1843,7 @@ private fun Sidebar(
                         loading -> SidebarSkeleton()
                         sel is Selection.Dms -> Column(Modifier.fillMaxSize()) {
                             FriendsNavRow(active = friendsOpen, onClick = onOpenFriends)
-                            DmList(dms, servers, onToggleMute, onMarkRead, onCloseDm, activeChatId, unread, dmTyping, onOpenChat)
+                            DmList(dms, servers, onToggleMute, onMarkRead, onCloseDm, activeChatId, unread, dmTyping, dmPresence, onOpenChat)
                         }
                         sel is Selection.Discover -> DiscoverSidebarMap()
                         else -> {
@@ -1890,17 +1899,8 @@ private fun Sidebar(
             fs()
             Spacer(Modifier.height(8.dp))
         }
-
-        // Rodape do usuário: cartao flutuante estilo Discord (bordas arredondadas
-        // sobre a aurora). A propria borda do cartao já separa da lista — sem HairRule.
-        UserFooter(
-            me = me,
-            fallbackName = meFallback,
-            onEdited = onEditedProfile,
-            onOpenSettings = onOpenSettings,
-            onAbrirJornada = onAbrirJornada,
-            onLogout = onLogout,
-        )
+        // O rodape do usuario NAO mora mais aqui: ele atravessa rail + sidebar e
+        // por isso e irmao desta coluna, nao filho dela (ver ShellScreen).
     }
 
     when (val d = chanDialog) {
@@ -2808,8 +2808,14 @@ private fun OrbitItem(
     }
 }
 
-// Badge de não-lidas: circulo ambar com o numero (cap 99+). Numero escuro
-// (Obsidian.base) pra contraste no ambar — marca da constelação, não vermelho.
+// Badge de não-lidas: circulo BRANCO com o numero preto (cap 99+), nao vermelho
+// e nao mais ambar (pedido do dono).
+//
+// Branco funciona melhor do que parece: o accent de fabrica JA e um branco
+// quebrado, e o accent e configuravel — pintar o badge de accent fazia a
+// contagem trocar de cor junto com o tema, e num preset escuro ela quase sumia.
+// Branco puro sobre obsidiana e o maior contraste que a paleta tem, e e o unico
+// lugar do app que usa ele: por isso ele so pode aparecer onde importa.
 //
 // `internal` (era private) porque as abas de Amigos passaram a usar o MESMO
 // badge. Contagem redonda e o vocabulario do app pra "isto tem um numero"; ter
@@ -2826,14 +2832,14 @@ internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
             .height(18.dp)
             .widthIn(min = 18.dp)
             .clip(RoundedCornerShape(9.dp))
-            .background(if (destaque) Obsidian.accent else Obsidian.raised)
+            .background(if (destaque) Color.White else Obsidian.raised)
             .padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             if (count > 99) "99+" else count.toString(),
             style = TextStyle(
-                color = if (destaque) Obsidian.base else Obsidian.text2,
+                color = if (destaque) Color.Black else Obsidian.text2,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
@@ -2880,6 +2886,8 @@ private fun DmList(
     activeChatId: String?,
     unread: Set<String>,
     dmTyping: Set<String>,
+    // userId -> ONLINE|IDLE|DND|OFFLINE. Ausente = apagado.
+    dmPresence: Map<String, String>,
     onOpenChat: (ChatTarget) -> Unit,
 ) {
     if (dms.isEmpty()) {
@@ -3042,7 +3050,21 @@ private fun DmList(
                 ) {
                     // Hover na LINHA inteira dispara o anel 360 em volta da foto
                     // (não so o hover direto na foto) -> a hitbox toda fica viva.
-                    DesktopAvatar(u?.avatarUrl, name, 28, externalHover = hovered)
+                    //
+                    // A bolinha de presenca fica NUM BOX POR FORA do avatar: o
+                    // DesktopAvatar clipa em circulo, e qualquer coisa desenhada
+                    // dentro dele seria cortada na borda da foto.
+                    Box {
+                        DesktopAvatar(u?.avatarUrl, name, 28, externalHover = hovered)
+                        StatusDot(
+                            status = userStatus(dmPresence[u?.id]),
+                            size = 10.dp,
+                            bordered = true,
+                            borderColor = Obsidian.base,
+                            cutoutColor = Obsidian.base,
+                            modifier = Modifier.align(Alignment.BottomEnd),
+                        )
+                    }
                     Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -3220,7 +3242,7 @@ private fun Stage(
 ) {
     // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
     // os outros paineis pra leitura (aurora aparece, mas não briga com a mensagem).
-    Column(modifier.fillMaxHeight().panelCard(Obsidian.base, 0.32f)) {
+    Column(modifier.fillMaxHeight().panelSurface(Obsidian.raised, 0.52f)) {
         // Amigos ocupa o palco inteiro (cabecalho + abas proprios).
         if (showFriends) {
             FriendsView(onStartDm, Modifier.fillMaxSize())
@@ -3355,7 +3377,7 @@ private fun MembersPanel(
     // MEMBROS). Dentro de cada secao: online antes de offline. Recalcula so quando
     // a lista ou a presenca muda — não a cada recomposicao.
     val rows = remember(members, presence, myId) { buildMemberRows(members, presence, myId) }
-    Column(Modifier.width(240.dp).fillMaxHeight().panelCard(Obsidian.raised, 0.20f)) {
+    Column(Modifier.width(240.dp).fillMaxHeight().panelSurface(Obsidian.base, 0.62f)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
             items(rows, key = { row -> row.key }) { row ->
                 when (row) {

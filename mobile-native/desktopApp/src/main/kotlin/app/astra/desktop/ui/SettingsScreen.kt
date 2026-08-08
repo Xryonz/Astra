@@ -200,6 +200,11 @@ private val abasVisiveis: List<SettingsTab> =
 // lado a lado sobravam ~145dp pra cada cartao, e um cartao encolhido a 40% vira
 // mancha — da pra ver que ha um cartao, nao COMO ele esta.
 private val LARGURA_PREVIA = 420.dp
+// A aba Perfil e a UNICA em que a previa e o assunto, e nao o comentario: o que
+// se edita ali e o cartao, entao ver o cartao grande e ver o resultado. Nas
+// outras abas a previa e uma nota de rodape ao vivo (um aviso deslizando, um
+// medidor) e crescer so tiraria largura dos controles.
+private val LARGURA_PREVIA_PERFIL = 470.dp
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
@@ -276,14 +281,16 @@ fun SettingsScreen(
             // editando o rodape do formulario. Empilhada no fim, como era, a previa
             // do Perfil (a aba mais alta) so aparecia depois de rolar tudo — uma
             // previa ao vivo que ninguem ve não e previa.
-            // PISO de 700dp: abaixo disso não ha largura pra duas colunas (a de
-            // conteudo ficaria com menos de 300dp e os controles quebrariam), entao
-            // volta a empilhar embaixo em vez de espremer as duas.
-            val pinned = showPreview && maxWidth > 700.dp
+            val larguraPrevia = if (tab == SettingsTab.PROFILE) LARGURA_PREVIA_PERFIL else LARGURA_PREVIA
+            // PISO derivado da propria previa, e nao mais o 700dp fixo: com a
+            // previa do Perfil maior, 700 deixaria a coluna de conteudo com menos
+            // de 300dp e os controles quebrariam. 280 e o minimo em que um campo
+            // com rotulo ainda cabe numa linha.
+            val pinned = showPreview && maxWidth > larguraPrevia + 280.dp
             // Com a previa fixa, a coluna de conteudo encolhe pra não correr por
-            // baixo dela: 300 da previa + 32 do respiro na borda + 44 de vao.
+            // baixo dela: a previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
-                if (pinned) minOf(720.dp, (maxWidth - LARGURA_PREVIA - 76.dp).coerceAtLeast(300.dp)) else 720.dp
+                if (pinned) minOf(720.dp, (maxWidth - larguraPrevia - 76.dp).coerceAtLeast(280.dp)) else 720.dp
             Column(
                 Modifier.align(Alignment.TopStart).widthIn(max = contentMax).fillMaxWidth()
                     .fillMaxHeight().verticalScroll(rememberScrollState())
@@ -319,7 +326,7 @@ fun SettingsScreen(
                 // aparecia depois de rolar tudo, e uma previa ao vivo que ninguem ve
                 // enquanto edita nao e previa.
                 if (!pinned && showPreview) {
-                    SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = LARGURA_PREVIA).fillMaxWidth())
+                    SettingsPreview(tab, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
                     Spacer(Modifier.height(18.dp))
                     SettingsDivider()
                     Spacer(Modifier.height(18.dp))
@@ -391,14 +398,14 @@ fun SettingsScreen(
                 // acaba.
                 if (!pinned && showPreview && tab == SettingsTab.PROFILE) {
                     Spacer(Modifier.height(14.dp))
-                    ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = LARGURA_PREVIA).fillMaxWidth())
+                    ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
                 }
             }
                 // Previa como card fixo no topo-direita: não rola junto, fica ao lado
                 // dos controles desde o primeiro campo.
                 if (pinned) {
                     Column(
-                        Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(LARGURA_PREVIA),
+                        Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(larguraPrevia),
                     ) {
                         SettingsPreview(tab, me, prefState, draft, Modifier.fillMaxWidth())
                         if (tab == SettingsTab.PROFILE) {

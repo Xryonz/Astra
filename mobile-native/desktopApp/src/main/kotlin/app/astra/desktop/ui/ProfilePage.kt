@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,6 +52,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +80,7 @@ import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import coil3.compose.AsyncImage
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -88,6 +92,27 @@ import java.util.Locale
 // do GET /api/profile/:id -> ProfileViewWrapper; o card so descartava). A entrada
 // (scrim + card + cascata das secoes) segue o idioma do CenteredConfirmDialog;
 // fable refina a coreografia depois. Respeita LocalReduceMotion.
+
+// Largura do painel inteiro: a coluna do cartao (330) + a dos vinculos (~330).
+val LARGURA_PAGINA_PERFIL = 660.dp
+
+// Rodape dissolvido. Quando o conteudo passa da altura maxima, o scroll FATIA o
+// texto no meio e o corte seco parece quina dura; este veu faz o conteudo sumir
+// em vez de ser cortado. Fica ANTES do verticalScroll de proposito: assim ele
+// desenha no espaco da JANELA (fixo no pe da coluna) e nao rola junto.
+private fun Modifier.veuNoPe(): Modifier = drawWithContent {
+    drawContent()
+    val h = 26.dp.toPx()
+    drawRect(
+        brush = Brush.verticalGradient(
+            listOf(Color.Transparent, Obsidian.void.copy(alpha = 0.85f)),
+            startY = size.height - h,
+            endY = size.height,
+        ),
+        topLeft = Offset(0f, size.height - h),
+        size = Size(size.width, h),
+    )
+}
 
 private object CenterFill : PopupPositionProvider {
     override fun calculatePosition(
@@ -156,9 +181,16 @@ fun ProfilePage(
                         onClick = { requestClose() },
                     ),
             )
-            // Card central.
+            // Card central. DUAS COLUNAS (referencia do dono: o perfil do Discord):
+            // a esquerda e quem a pessoa E — banner, foto, nome, bio, desde quando.
+            // A direita e o que voces tem EM COMUM. Antes era uma coluna so, e as
+            // constelacoes em comum ficavam no pe de um cartao que ja rolava.
+            //
+            // A aba "Atividade" da referencia ficou de FORA de proposito: nao
+            // existe fonte pra ela (nem rota, nem tabela). Uma aba que so sabe
+            // dizer "nada aqui" e pior que nao ter aba.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(
+                Row(
                     Modifier
                         .graphicsLayer {
                             alpha = appear.value.coerceIn(0f, 1f)
@@ -167,71 +199,184 @@ fun ProfilePage(
                             scaleY = s
                             translationY = (1f - appear.value) * 16.dp.toPx()
                         }
-                        .width(LARGURA_CARTAO_COMPLETO)
+                        .width(LARGURA_PAGINA_PERFIL)
                         .heightIn(max = 720.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        // Rodape dissolvido: os cantos já eram arredondados, mas quando o
-                        // conteudo passa da altura maxima o scroll FATIA o texto no meio e
-                        // o corte seco parece quina dura. Este veu na borda de baixo faz o
-                        // conteudo sumir em vez de ser cortado. Fica ANTES do verticalScroll
-                        // de proposito: assim ele desenha no espaco da JANELA (fixo no pe do
-                        // cartao) e não rola junto com o conteudo.
-                        .drawWithContent {
-                            drawContent()
-                            val h = 26.dp.toPx()
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    listOf(Color.Transparent, Obsidian.void.copy(alpha = 0.85f)),
-                                    startY = size.height - h,
-                                    endY = size.height,
-                                ),
-                                topLeft = Offset(0f, size.height - h),
-                                size = Size(size.width, h),
-                            )
-                        }
+                        .background(Obsidian.base)
+                        .border(1.dp, Obsidian.borderMid, RoundedCornerShape(16.dp))
                         // Engole o clique (senao o scrim fecha ao clicar no card).
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = {},
-                        )
-                        .verticalScroll(rememberScrollState()),
+                        ),
                 ) {
                     val d = data
                     if (d == null) {
-                        PageSkeleton()
+                        Column(Modifier.fillMaxWidth()) { PageSkeleton() }
                     } else {
                         val nome = d.user.displayName ?: d.user.username
-                        ProfileCard(
-                            dados = d.user.paraCartao(),
-                            variante = CardVariante.COMPLETO,
-                            servidoresEmComum = d.mutualServers,
-                            aoFechar = { requestClose() },
-                            rodape = if (isMe) null else ({
-                                val src = remember { MutableInteractionSource() }
-                                Text(
-                                    "enviar sussurro",
-                                    style = TextStyle(
-                                        color = Obsidian.void, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                                        textAlign = TextAlign.Center,
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickScale(src)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Obsidian.accent)
-                                        .clickable(interactionSource = src, indication = null) {
-                                            onStartDm(d.user.username, nome)
-                                        }
-                                        .padding(vertical = 11.dp),
-                                    maxLines = 1,
-                                )
-                            }),
+                        // Coluna da identidade. Rola sozinha: bio longa nao pode
+                        // empurrar a coluna dos vinculos pra fora da tela.
+                        Column(
+                            Modifier
+                                .width(LARGURA_CARTAO_COMPLETO)
+                                .verticalScroll(rememberScrollState())
+                                .veuNoPe(),
+                        ) {
+                            ProfileCard(
+                                dados = d.user.paraCartao(),
+                                variante = CardVariante.COMPLETO,
+                                // Os servidores em comum saem daqui: eles sao
+                                // VINCULO, e vinculo mora na coluna da direita.
+                                servidoresEmComum = emptyList(),
+                                rodape = if (isMe) null else ({
+                                    val src = remember { MutableInteractionSource() }
+                                    Text(
+                                        "enviar sussurro",
+                                        style = TextStyle(
+                                            color = Obsidian.void, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                                            textAlign = TextAlign.Center,
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickScale(src)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Obsidian.accent)
+                                            .clickable(interactionSource = src, indication = null) {
+                                                onStartDm(d.user.username, nome)
+                                            }
+                                            .padding(vertical = 11.dp),
+                                        maxLines = 1,
+                                    )
+                                }),
+                            )
+                        }
+                        ColunaDeVinculos(
+                            nome = nome,
+                            isMe = isMe,
+                            amigosEmComum = d.mutualFriends,
+                            constelacoes = d.mutualServers,
+                            onFechar = { requestClose() },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                 }
             }
         }
+    }
+}
+
+// A coluna da direita: o que voces tem EM COMUM. Cada bloco e um cartao, nao um
+// item separado por traco — e a mesma regra do resto do app.
+//
+// Nao ha aba aqui. A referencia tem tres ("Atividade", "N amigos mutuos",
+// "N servidores mutuos"), mas duas delas seriam abas de UMA lista curta cada, e
+// a terceira nao tem dado nenhum por tras. Aba que esconde tres linhas custa um
+// clique pra economizar nada.
+@Composable
+private fun ColunaDeVinculos(
+    nome: String,
+    isMe: Boolean,
+    amigosEmComum: Int,
+    constelacoes: List<MutualServerDto>,
+    onFechar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(18.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (isMe) "seus vínculos" else "vínculos",
+                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+                modifier = Modifier.weight(1f),
+            )
+            val src = remember { MutableInteractionSource() }
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clickScale(src, formaDoFoco = CircleShape)
+                    .clip(CircleShape)
+                    .background(Obsidian.overlay)
+                    .border(1.dp, Obsidian.borderMid, CircleShape)
+                    .clickable(interactionSource = src, indication = null, onClick = onFechar),
+                contentAlignment = Alignment.Center,
+            ) {
+                LIcon(Lucide.X, tint = Obsidian.text2, size = 14.dp, rotulo = "fechar")
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+
+        if (!isMe) {
+            CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
+                Text(
+                    "AMIGOS EM COMUM",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when (amigosEmComum) {
+                        0 -> "nenhum ainda"
+                        1 -> "1 pessoa que vocês dois conhecem"
+                        else -> "$amigosEmComum pessoas que vocês dois conhecem"
+                    },
+                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
+            Text(
+                if (isMe) "SUAS CONSTELAÇÕES" else "CONSTELAÇÕES EM COMUM",
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+            )
+            Spacer(Modifier.height(8.dp))
+            if (constelacoes.isEmpty()) {
+                Text(
+                    if (isMe) "você ainda não entrou em nenhuma"
+                    else "vocês ainda não dividem nenhuma",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                )
+            } else {
+                constelacoes.forEachIndexed { i, s ->
+                    if (i > 0) Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(26.dp).clip(RoundedCornerShape(7.dp)).background(Obsidian.overlay),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (!s.iconUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = s.iconUrl,
+                                    contentDescription = s.name,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Text(
+                                    s.name.take(1).uppercase(),
+                                    style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmSerif),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            s.name,
+                            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        // Dito em voz alta em vez de escondido numa aba vazia: o app nao guarda
+        // atividade, e prometer uma aba que nunca tem nada seria pior.
+        Text(
+            if (isMe) "o Astra ainda não guarda histórico de atividade."
+            else "o Astra ainda não mostra o que $nome anda fazendo.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        )
     }
 }
 

@@ -104,8 +104,8 @@ internal enum class ServerTab(val label: String, val sub: String, val icon: Imag
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
     ROLES("Cargos", "permissões e cor do nome", Lucide.Shield, true),
     BANS("Banimentos", "quem não pode voltar", Lucide.Ban, true),
-    SOUNDS("Efeitos sonoros", "sons pra tocar em call", Lucide.Volume2, true),
-    STICKERS("Figurinhas", "imagens pra mandar no chat", Lucide.Sticker, true),
+    SOUNDS("Efeitos sonoros", "sons para tocar em call", Lucide.Volume2, true),
+    STICKERS("Figurinhas", "imagens para mandar no chat", Lucide.Sticker, true),
 }
 
 @Composable
@@ -361,7 +361,7 @@ private fun OverviewSection(
                     val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
                     busyIcon = false
                     r.onSuccess { iconUrl = it }
-                        .onFailure { msg = "não deu pra ler essa imagem" to false }
+                        .onFailure { msg = "não foi possível ler essa imagem" to false }
                 }
             }
             val iconAtual = iconUrl
@@ -377,7 +377,7 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a imagem e reduzida pra 512px e vira parte da constelação (máximo 5MB).",
+        "a imagem é reduzida para 512px e vira parte da constelação (máximo 5MB).",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -428,7 +428,7 @@ private fun OverviewSection(
     )
     if (bannerAnimated) {
         Spacer(Modifier.height(6.dp))
-        Text("arraste na imagem pra enquadrar.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text("arraste na imagem para enquadrar.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
         Spacer(Modifier.height(10.dp))
         ServerZoomTrack(bannerScale) { bannerScale = it }
     }
@@ -456,7 +456,7 @@ private fun OverviewSection(
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
                 r.onSuccess { bannerUrl = it; bannerPositionY = 50; bannerScale = 100 }
-                    .onFailure { msg = "não deu pra ler essa imagem" to false }
+                    .onFailure { msg = "não foi possível ler essa imagem" to false }
             }
         }
         if (!bannerNow.isNullOrBlank()) {
@@ -535,7 +535,7 @@ private fun OverviewSection(
     SettingsDivider()
     ToggleRow(
         "Constelação pública",
-        "aparece na Descoberta pra quem procura onde entrar",
+        "aparece na Descoberta para quem procura onde entrar",
         isPublic,
     ) { isPublic = it }
 
@@ -548,8 +548,8 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        if (retention == 0) "as mensagens ficam pra sempre."
-        else "mensagens com mais de $retention dia(s) somem sozinhas — não da pra recuperar.",
+        if (retention == 0) "as mensagens ficam para sempre."
+        else "mensagens com mais de $retention dia(s) somem sozinhas — não há como recuperar.",
         style = TextStyle(color = if (retention == 0) Obsidian.text3 else Obsidian.warning, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -558,8 +558,8 @@ private fun OverviewSection(
     SettingsDivider()
     FieldLabel("zona de perigo")
     Text(
-        if (isOwner) "excluir apaga a constelação pra todo mundo. Não da pra desfazer."
-        else "sair remove teu acesso; pra voltar precisa de convite.",
+        if (isOwner) "excluir apaga a constelação para todo mundo. Não da para desfazer."
+        else "sair remove teu acesso; para voltar precisa de convite.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -572,7 +572,7 @@ private fun OverviewSection(
     ) { confirmDanger = true }
     if (confirmDanger) {
         ConfirmPopup(
-            message = if (isOwner) "excluir ${server.name}? apaga pra todos — não da pra desfazer."
+            message = if (isOwner) "excluir ${server.name}? apaga para todos — não há como desfazer."
             else "sair de ${server.name}?",
             confirmLabel = if (isOwner) "excluir" else "sair",
             onConfirm = {
@@ -839,7 +839,7 @@ private fun ServerConfigPreview(
                 ServerIconPreview(iconUrl, name, iconScale, 54.dp)
             }
         }
-        Spacer(Modifier.height(32.dp)) // espaco pro ícone sobreposto
+        Spacer(Modifier.height(32.dp)) // espaco para o ícone sobreposto
         Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp)) {
             Text(
                 name.ifBlank { "constelação" },

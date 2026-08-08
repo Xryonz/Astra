@@ -80,10 +80,10 @@ private val PERMISSIONS = listOf(
     Triple("MANAGE_SERVER", "Gerenciar a constelação", "mudar nome, imagens, convite e visibilidade"),
     Triple("MANAGE_ROLES", "Gerenciar cargos", "criar, editar e dar cargos a outras pessoas"),
     Triple("MANAGE_CHANNELS", "Gerenciar órbitas", "criar, renomear, mover e apagar canais"),
-    Triple("KICK_MEMBERS", "Expulsar membros", "remove da constelação; da pra voltar com convite"),
+    Triple("KICK_MEMBERS", "Expulsar membros", "remove da constelação; é possível voltar com convite"),
     Triple("BAN_MEMBERS", "Banir membros", "remove e impede de voltar"),
     Triple("MANAGE_MESSAGES", "Gerenciar mensagens", "apagar mensagem de outros e fixar"),
-    Triple("MENTION_EVERYONE", "Mencionar todos", "usar @everyone pra avisar a constelação inteira"),
+    Triple("MENTION_EVERYONE", "Mencionar todos", "usar @everyone para avisar a constelação inteira"),
 )
 
 // Paleta de cargos: tons que se leem sobre o obsidiana sem virar neon. Quem quer

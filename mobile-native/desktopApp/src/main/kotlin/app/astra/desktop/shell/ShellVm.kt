@@ -932,7 +932,7 @@ class ShellVm(
                 reloadServers()
                 onResult(null)
             } else {
-                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra salvar"))
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível salvar"))
             }
         }
     }
@@ -949,7 +949,7 @@ class ShellVm(
                 loadMembers(serverId)
                 onResult(null)
             } else {
-                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra adicionar essa pessoa"))
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível adicionar essa pessoa"))
             }
         }
     }
@@ -980,7 +980,7 @@ class ShellVm(
                 reloadServers()
                 onResult(null)
             } else {
-                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra gerar um convite novo"))
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível gerar um convite novo"))
             }
         }
     }
@@ -992,7 +992,7 @@ class ShellVm(
         scope.launch {
             val r = runCatching { serverApi.roles(serverId).data.orEmpty() }
             r.onSuccess { onResult(it, null) }
-                .onFailure { onResult(null, apiMessage(it, "Não deu pra carregar os cargos")) }
+                .onFailure { onResult(null, apiMessage(it, "Não foi possível carregar os cargos")) }
         }
     }
 
@@ -1008,7 +1008,7 @@ class ShellVm(
                 _state.value.selectedServer?.id?.let { if (it == serverId) loadMembers(it) }
                 onResult(null)
             } else {
-                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra salvar o cargo"))
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível salvar o cargo"))
             }
         }
     }
@@ -1020,7 +1020,7 @@ class ShellVm(
                 loadMembers(serverId)
                 onResult(null)
             } else {
-                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra excluir o cargo"))
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível excluir o cargo"))
             }
         }
     }
@@ -1036,7 +1036,7 @@ class ShellVm(
                 loadMembers(serverId)
                 onResult(null)
             } else {
-                onResult(apiMessage(r.exceptionOrNull(), "Não deu pra mudar o cargo do membro"))
+                onResult(apiMessage(r.exceptionOrNull(), "Não foi possível mudar o cargo do membro"))
             }
         }
     }
@@ -1046,7 +1046,7 @@ class ShellVm(
         scope.launch {
             val r = runCatching { serverApi.bans(serverId).data.orEmpty() }
             r.onSuccess { onResult(it, null) }
-                .onFailure { onResult(null, apiMessage(it, "Não deu pra carregar os banimentos")) }
+                .onFailure { onResult(null, apiMessage(it, "Não foi possível carregar os banimentos")) }
         }
     }
 
@@ -1054,7 +1054,7 @@ class ShellVm(
     fun unbanUser(serverId: String, userId: String, onResult: (String?) -> Unit) {
         scope.launch {
             val r = runCatching { serverApi.unban(serverId, userId) }
-            onResult(if (r.isSuccess) null else apiMessage(r.exceptionOrNull(), "Não deu pra revogar o banimento"))
+            onResult(if (r.isSuccess) null else apiMessage(r.exceptionOrNull(), "Não foi possível revogar o banimento"))
         }
     }
 

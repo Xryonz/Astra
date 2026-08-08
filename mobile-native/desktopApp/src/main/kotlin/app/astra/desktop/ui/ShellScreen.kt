@@ -281,7 +281,7 @@ fun ShellScreen(
             message = if (p.tipo == "banido") "você foi banido$onde" else "você foi removido$onde",
             detalhe = when {
                 !p.motivo.isNullOrBlank() -> "motivo: ${p.motivo}"
-                p.tipo == "banido" -> "não dá pra entrar de novo enquanto o banimento valer."
+                p.tipo == "banido" -> "não há como entrar de novo enquanto o banimento valer."
                 else -> "você pode entrar de novo se receber um convite."
             },
             confirmLabel = "entendi",
@@ -1054,7 +1054,7 @@ private fun CommandPalette(
                     Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) {
                         if (query.isEmpty()) {
                             Text(
-                                "pular pra um canal ou sussurro…",
+                                "pular para um canal ou sussurro…",
                                 style = TextStyle(color = Obsidian.text3, fontSize = 15.sp),
                             )
                         }
@@ -1302,7 +1302,7 @@ private fun Rail(
                                 .padding(14.dp),
                         ) {
                             Text(
-                                "excluir ${srv.name}? apaga a constelação pra todos — não da pra desfazer.",
+                                "excluir ${srv.name}? apaga a constelação para todos — não há como desfazer.",
                                 style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
                                 modifier = Modifier.widthIn(max = 240.dp),
                             )
@@ -1893,7 +1893,7 @@ private fun Sidebar(
             onConfirm = { name, _ -> onRenameChannel(d.serverId, d.channelId, name) },
         )
         is ChanDialog.DeleteChannel -> ConfirmDialog(
-            text = "excluir #${d.name}? apaga as mensagens dela — não da pra desfazer.",
+            text = "excluir #${d.name}? apaga as mensagens dela — não há como desfazer.",
             confirmLabel = "excluir",
             onDismiss = { chanDialog = null },
             onConfirm = { onDeleteChannel(d.serverId, d.channelId) },
@@ -2096,7 +2096,7 @@ private fun OrbitList(
                         }) {
                             head()
                             if (confirmDelCat) ConfirmPopup(
-                                message = "excluir a categoria ${cat.name}? não dá pra desfazer.",
+                                message = "excluir a categoria ${cat.name}? não há como desfazer.",
                                 confirmLabel = "excluir",
                                 onConfirm = { onDeleteCat(cat.id) },
                                 onDismiss = { confirmDelCat = false },
@@ -2417,7 +2417,7 @@ private fun OrbitEntry(
         }) {
             OrbitItem(ch, active, unread, unreadCount, onOpenChat, onOpenVoice, dragCtx)
             if (confirmDelCh) ConfirmPopup(
-                message = "excluir a órbita ${ch.name}? apaga as mensagens dela — não dá pra desfazer.",
+                message = "excluir a órbita ${ch.name}? apaga as mensagens dela — não há como desfazer.",
                 confirmLabel = "excluir",
                 onConfirm = { menu.onDelete(ch.id, ch.name) },
                 onDismiss = { confirmDelCh = false },

@@ -52,7 +52,7 @@ object GoogleAuthFlow {
                     "unreg"
                 }
                 else -> {
-                    complete(deferred, Result.failure(Exception("Não deu pra entrar com o Google")))
+                    complete(deferred, Result.failure(Exception("Não foi possível entrar com o Google")))
                     "err"
                 }
             }
@@ -65,7 +65,7 @@ object GoogleAuthFlow {
                 "ok" -> "Conectado ao Astra. Pode fechar esta aba e voltar ao app."
                 "unreg" -> "Esse Google ainda não tem conta no Astra — crie uma conta primeiro."
                 "nonce" -> "Não foi possível confirmar o login. Tente de novo."
-                else -> "Não deu pra entrar com o Google."
+                else -> "Não foi possível entrar com o Google."
             }
             serveHtml(ex, page(msg, ok = s == "ok"))
         }

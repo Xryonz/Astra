@@ -138,7 +138,7 @@ internal fun DiagnosticsSection() {
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "o mesmo vai pro arquivo voz.txt (na pasta do Astra) — dá pra mandar inteiro pra quem estiver ajudando.",
+                "o mesmo vai para o arquivo voz.txt (na pasta do Astra) — é possível mandar inteiro para quem estiver ajudando.",
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             )
         }

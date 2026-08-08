@@ -249,7 +249,7 @@ class ChatVm(
                     }.getOrNull()
                 }
                 if (uploaded.isNullOrEmpty()) {
-                    _state.update { it.copy(sending = false, error = "Não deu pra subir o anexo") }
+                    _state.update { it.copy(sending = false, error = "Não foi possível subir o anexo") }
                     return@launch
                 }
                 uploaded
@@ -387,7 +387,7 @@ class ChatVm(
         }
         parsed?.error?.takeIf { it.isNotBlank() }?.let { return it }
         return when (http.code()) {
-            403 -> "Sem permissão pra falar aqui"
+            403 -> "Sem permissão para falar aqui"
             404 -> "Esta órbita não existe mais"
             else -> "$fallback (erro ${http.code()})"
         }
@@ -593,7 +593,7 @@ class ChatVm(
         scope.launch {
             runCatching { channelApi.react(channelId, messageId, ReactRequest(emoji)) }
                 .onSuccess { res -> res.data?.let { setReactions(messageId, it.reactions) } }
-                .onFailure { _state.update { it.copy(error = "Não deu pra reagir") } }
+                .onFailure { _state.update { it.copy(error = "Não foi possível reagir") } }
         }
     }
 
@@ -612,7 +612,7 @@ class ChatVm(
                         })
                     }
                 }
-                .onFailure { _state.update { it.copy(error = "Não deu pra editar") } }
+                .onFailure { _state.update { it.copy(error = "Não foi possível editar") } }
         }
     }
 
@@ -626,7 +626,7 @@ class ChatVm(
             }
             result
                 .onSuccess { fadeOutAndRemove(messageId) }
-                .onFailure { _state.update { it.copy(error = "Não deu pra apagar") } }
+                .onFailure { _state.update { it.copy(error = "Não foi possível apagar") } }
         }
     }
 
@@ -635,7 +635,7 @@ class ChatVm(
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         scope.launch {
             runCatching { channelApi.pin(channelId, messageId) }
-                .onFailure { _state.update { it.copy(error = "Não deu pra fixar") } }
+                .onFailure { _state.update { it.copy(error = "Não foi possível fixar") } }
         }
     }
 
@@ -704,7 +704,7 @@ class ChatVm(
         scope.launch {
             runCatching { channelApi.closePoll(channelId, messageId).data?.poll }
                 .onSuccess { p -> if (p != null) setPoll(messageId, p) }
-                .onFailure { _state.update { it.copy(error = "Não deu pra encerrar a enquete") } }
+                .onFailure { _state.update { it.copy(error = "Não foi possível encerrar a enquete") } }
         }
     }
 

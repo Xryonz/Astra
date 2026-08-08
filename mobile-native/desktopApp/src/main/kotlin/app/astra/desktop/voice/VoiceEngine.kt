@@ -440,7 +440,7 @@ class VoiceEngine(
                 // chega e ninguem ouve" — que le exatamente como um bug de rede.
                 VoiceLog.nota(
                     "1b! aparelho de saida salvo (\"" + name + "\") NAO esta na lista deste momento — " +
-                        "o som vai pro padrao do WebRTC, que pode ser outro aparelho",
+                        "o som vai para o padrao do WebRTC, que pode ser outro aparelho",
                 )
                 return@runCatching
             }
@@ -588,7 +588,7 @@ class VoiceEngine(
                 // linha sequer no diario explicando por que.
                 val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|')
                 if (ownerSid.isNullOrBlank()) {
-                    VoiceLog.nota("7. chegou audio/video SEM dono no nome do stream (streams=${streams.size}) — da pra ouvir, mas nao da pra saber de quem e")
+                    VoiceLog.nota("7. chegou audio/video SEM dono no nome do stream (streams=${streams.size}) — da para ouvir, mas nao da para saber de quem e")
                     return
                 }
                 when (val track = receiver.track) {
@@ -1196,7 +1196,7 @@ class VoiceEngine(
                     pacotes <= 0L ->
                         "inscritos, mas ZERO pacote chegou — a midia nao esta vindo (rede/servidor)"
                     else ->
-                        "o audio CHEGA ($pacotes pacotes) — se nao da pra ouvir, o problema e a saida de som"
+                        "o audio CHEGA ($pacotes pacotes) — se nao da para ouvir, o problema e a saida de som"
                 }
                 VoiceLog.nota("9. entrada de audio: $receptores receptor(es), $fontes fonte(s), $pacotes pacotes -> $veredito")
             }

@@ -56,11 +56,11 @@ fun EmptyStage(isServer: Boolean) {
             )
             Spacer(Modifier.height(5.dp))
             Text(
-                if (isServer) "pra abrir a conversa" else "ou comece uma nova",
+                if (isServer) "para abrir a conversa" else "ou comece uma nova",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
             )
             Spacer(Modifier.height(20.dp))
-            KbdHint(if (isServer) "pra pular entre órbitas" else "pra pular entre sussurros")
+            KbdHint(if (isServer) "para pular entre órbitas" else "para pular entre sussurros")
         }
     }
 }

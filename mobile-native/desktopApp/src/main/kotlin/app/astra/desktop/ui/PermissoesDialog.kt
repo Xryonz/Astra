@@ -41,7 +41,7 @@ fun PermissoesDialog(onTestarAviso: () -> Unit, onClose: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             "O Windows controla quem pode usar microfone e câmera, e quando ele bloqueia não avisa " +
-                "ninguém — o som simplesmente não chega. Conferi agora pra você não descobrir no meio da conversa.",
+                "ninguém — o som simplesmente não chega. Conferi agora para você não descobrir no meio da conversa.",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 17.sp),
         )
         Spacer(Modifier.height(16.dp))

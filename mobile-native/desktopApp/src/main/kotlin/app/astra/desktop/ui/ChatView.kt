@@ -611,7 +611,7 @@ fun ChatView(
                 LIcon(Lucide.Download, tint = Obsidian.accent, size = 34.dp)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "solte pra anexar em ${target.title}",
+                    "solte para anexar em ${target.title}",
                     style = TextStyle(color = Obsidian.text1, fontSize = 14.sp),
                 )
             }
@@ -715,7 +715,7 @@ private fun MessageRow(
     }) {
     if (confirmDelete) {
         ConfirmPopup(
-            message = "apagar esta mensagem? não da pra desfazer.",
+            message = "apagar esta mensagem? não há como desfazer.",
             confirmLabel = "apagar",
             onConfirm = { confirmDelete = false; onDelete() },
             onDismiss = { confirmDelete = false },

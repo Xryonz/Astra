@@ -75,7 +75,7 @@ internal fun SoundsSection(serverId: String, podeGerenciar: Boolean) {
     suspend fun recarregar() {
         runCatching { soundApi.listar(serverId).sounds }
             .onSuccess { sons = it }
-            .onFailure { msg = "não deu pra carregar os sons" to false }
+            .onFailure { msg = "não foi possível carregar os sons" to false }
     }
     LaunchedEffect(serverId) { recarregar() }
 
@@ -98,7 +98,7 @@ internal fun SoundsSection(serverId: String, podeGerenciar: Boolean) {
                 escopo.launch {
                     runCatching { soundApi.apagar(serverId, som.id) }
                         .onSuccess { recarregar(); msg = "som apagado" to true }
-                        .onFailure { msg = "não deu pra apagar" to false }
+                        .onFailure { msg = "não foi possível apagar" to false }
                 }
             },
         )
@@ -140,7 +140,7 @@ internal fun SoundsSection(serverId: String, podeGerenciar: Boolean) {
                     }
                     ocupado = false
                     r.onSuccess { recarregar(); msg = "som adicionado" to true }
-                        .onFailure { msg = (it.message ?: "não deu pra subir") to false }
+                        .onFailure { msg = (it.message ?: "não foi possível subir") to false }
                 }
             }
             Spacer(Modifier.width(10.dp))

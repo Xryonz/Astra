@@ -97,7 +97,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         if (query.isNotBlank()) delay(400)
         val res = runCatching { api.discover(query.trim().ifBlank { null }).data.orEmpty() }
         results = res.getOrDefault(emptyList())
-        error = if (res.isFailure) "Não deu pra carregar a Descoberta" else null
+        error = if (res.isFailure) "Não foi possível carregar a Descoberta" else null
         loading = false
     }
 
@@ -111,7 +111,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
             when {
                 r.isSuccess -> onJoined(id)
                 (r.exceptionOrNull() as? HttpException)?.code() == 409 -> onJoined(id)
-                else -> error = "Não deu pra entrar nessa constelação"
+                else -> error = "Não foi possível entrar nessa constelação"
             }
         }
     }

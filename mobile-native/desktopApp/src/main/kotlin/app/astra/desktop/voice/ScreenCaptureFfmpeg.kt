@@ -119,7 +119,7 @@ class ScreenCaptureFfmpeg(
 
     fun stop() {
         running = false
-        synchronized(previewLock) { previewLock.notifyAll() } // acorda o worker pra sair do wait
+        synchronized(previewLock) { previewLock.notifyAll() } // acorda o worker para sair do wait
         process?.let { runCatching { it.destroyForcibly() } }
         process = null
     }

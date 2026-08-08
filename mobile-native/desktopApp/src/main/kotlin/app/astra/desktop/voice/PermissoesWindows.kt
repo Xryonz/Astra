@@ -67,7 +67,7 @@ enum class Permissao(val titulo: String, val oQueE: String) {
     ),
     TELA(
         "Transmitir a tela",
-        "Mostrar o que está na sua tela pra quem está na call.",
+        "Mostrar o que está na sua tela para quem está na call.",
     ),
     REDE(
         "Rede",
@@ -141,7 +141,7 @@ object PermissoesWindows {
         } else {
             Checagem(
                 Permissao.AVISOS, Acesso.PENDENTE,
-                "O Windows registra o Astra no primeiro aviso. Clique em permitir pra mandar um agora.",
+                "O Windows registra o Astra no primeiro aviso. Clique em permitir para mandar um agora.",
                 "ms-settings:notifications",
             )
         }
@@ -188,7 +188,7 @@ object PermissoesWindows {
         return when {
             !abriu -> Checagem(
                 Permissao.MICROFONE, Acesso.BLOQUEADO,
-                "O Windows não deixou o Astra abrir o microfone. Ligue o acesso pra aplicativos da área de trabalho.",
+                "O Windows não deixou o Astra abrir o microfone. Ligue o acesso para aplicativos da área de trabalho.",
                 "ms-settings:privacy-microphone",
             )
             soZeros -> Checagem(
@@ -236,7 +236,7 @@ object PermissoesWindows {
                 "O componente de captura não veio no pacote. Reinstale o Astra.",
             )
         } else {
-            Checagem(Permissao.TELA, Acesso.OK, "Pronto — o Windows não pede permissão pra isto.")
+            Checagem(Permissao.TELA, Acesso.OK, "Pronto — o Windows não pede permissão para isto.")
         }
     }
 
@@ -259,7 +259,7 @@ object PermissoesWindows {
         val exe = System.getProperty("jpackage.app-path")?.lowercase()
             ?: return Checagem(
                 Permissao.REDE, Acesso.PENDENTE,
-                "Rodando pelo Gradle — não há executável do Astra pra procurar no firewall.",
+                "Rodando pelo Gradle — não há executável do Astra para procurar no firewall.",
             )
 
         val minhas = runCatching {
@@ -269,7 +269,7 @@ object PermissoesWindows {
                 .filter { it.contains("|app=$exe|") || it.endsWith("|app=$exe") }
         }.getOrNull() ?: return Checagem(
             Permissao.REDE, Acesso.PENDENTE,
-            "Não deu pra ler as regras do firewall. Se a call não conectar, confira o Astra na lista de aplicativos permitidos.",
+            "Não foi possível ler as regras do firewall. Se a call não conectar, confira o Astra na lista de aplicativos permitidos.",
             "windowsdefender://network/",
         )
 

@@ -123,7 +123,7 @@ fun PollBlock(
                         fim -> append("  ·  prazo esgotado")
                         else -> restante(poll)?.let { append("  ·  $it") }
                     }
-                    if (meuVoto && !travada) append("  ·  clique de novo pra tirar o voto")
+                    if (meuVoto && !travada) append("  ·  clique de novo para tirar o voto")
                 },
                 style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
             )

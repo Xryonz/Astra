@@ -189,7 +189,7 @@ object ImageCrop {
         val gap = ix0 > sx + 0.5f || iy0 > sy + 0.5f || ix1 < sx + sw - 0.5f || iy1 < sy + sh - 0.5f
         val alpha = gap || src.hasAlpha
         val data = out.encodeToData(if (alpha) EncodedImageFormat.PNG else EncodedImageFormat.JPEG, 92)
-            ?: error("não deu pra gerar a imagem")
+            ?: error("não foi possível gerar a imagem")
         val bytes = data.bytes
         runCatching { data.close() }
         runCatching { out.close() }
@@ -326,9 +326,9 @@ fun CropDialog(
                 // "HTTP 404" pra quem só queria mexer no banner não ajuda ninguém a
                 // fazer a única coisa que resolve: subir a imagem de novo.
                 err = if ("404" in motivo) {
-                    "essa imagem não está mais no servidor. escolha o arquivo de novo pra subir outra vez."
+                    "essa imagem não está mais no servidor. escolha o arquivo de novo para subir outra vez."
                 } else {
-                    "não deu pra ler: " + (motivo.take(120).ifBlank { e::class.simpleName ?: "erro desconhecido" })
+                    "não foi possível ler: " + (motivo.take(120).ifBlank { e::class.simpleName ?: "erro desconhecido" })
                 }
             }
     }
@@ -384,7 +384,7 @@ fun CropDialog(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "arraste pra enquadrar · a roda do mouse da zoom.",
+                    "arraste para enquadrar · a roda do mouse aproxima.",
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                 )
                 Spacer(Modifier.height(14.dp))
@@ -477,7 +477,7 @@ fun CropDialog(
                             val r = withContext(Dispatchers.IO) { ImageCrop.bake(i, sx, sy, sw, sh, outW) }
                             busy = false
                             r.onSuccess { onApply(it); onClose() }
-                                .onFailure { err = "não deu pra recortar essa imagem" }
+                                .onFailure { err = "não foi possível recortar essa imagem" }
                         }
                     }
                 }

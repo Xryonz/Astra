@@ -548,7 +548,7 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "é assim que os outros te veem — clique pra ver em tamanho real",
+            "é assim que os outros te veem — clique para ver em tamanho real",
             style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
         )
     }
@@ -838,7 +838,7 @@ private fun costWord(v: Float) = when {
 private fun costVerdict(gpu: Float, cpu: Float): String {
     val m = maxOf(gpu, cpu)
     return when {
-        m < 0.36f -> "leve — sobra folga pra jogar ou transmitir junto."
+        m < 0.36f -> "leve — sobra folga para jogar ou transmitir junto."
         m < 0.68f -> "equilibrado — visual completo sem pesar."
         else -> "pesado — o modo desempenho corta isso num toque."
     }
@@ -1037,7 +1037,7 @@ private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "abaixo desse nível o mic não transmite. 0 = sempre aberto. teste o mic acima pra calibrar.",
+            "abaixo desse nível o mic não transmite. 0 = sempre aberto. teste o mic acima para calibrar.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         )
     }
@@ -1082,7 +1082,7 @@ private fun ProfileSection(
                     val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
                     busyAvatar = false
                     r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
-                        .onFailure { msg = "não deu pra ler essa imagem" to false }
+                        .onFailure { msg = "não foi possível ler essa imagem" to false }
                 }
             }
             val avatarAtual = draft.avatarUrl
@@ -1096,7 +1096,7 @@ private fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a imagem e reduzida pra 512px e guardada no teu perfil (máximo 5MB).",
+        "a imagem é reduzida para 512px e guardada no seu perfil (máximo 5MB).",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -1154,7 +1154,7 @@ private fun ProfileSection(
                 val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
                 busyBanner = false
                 r.onSuccess { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) }
-                    .onFailure { msg = "não deu pra ler essa imagem" to false }
+                    .onFailure { msg = "não foi possível ler essa imagem" to false }
             }
         }
         val bannerNow = draft.bannerUrl
@@ -1211,7 +1211,7 @@ private fun ProfileSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a cor atravessa o cartao inteiro. com imagem de banner, ela aparece do banner pra baixo.",
+        "a cor atravessa o cartao inteiro. com imagem de banner, ela aparece do banner para baixo.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 420.dp),
     )
@@ -1335,7 +1335,7 @@ private fun saveErrorMessage(t: Throwable?): String {
     val parsed = body?.let {
         runCatching { Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }.getOrNull()
     }
-    return parsed?.takeIf { it.isNotBlank() } ?: "não deu pra salvar (erro ${http.code()})"
+    return parsed?.takeIf { it.isNotBlank() } ?: "não foi possível salvar (erro ${http.code()})"
 }
 
 // Zoom do banner (bannerScale 0..300%): trilha arrastavel simples. Abaixo de 100%
@@ -1449,7 +1449,7 @@ private fun ResizeBannerDialog(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "é isto que os outros veem. arraste na imagem pra enquadrar.",
+                    "é isto que os outros veem. arraste na imagem para enquadrar.",
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                 )
                 Spacer(Modifier.height(16.dp))
@@ -1864,7 +1864,7 @@ private fun AccountSection(me: ProfileUserDto?) {
     Spacer(Modifier.height(4.dp))
     if (me?.hasPassword == false) {
         Text(
-            "conta google sem senha — defina uma pra entrar por email também.",
+            "conta google sem senha — defina uma para entrar por email também.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         )
     }
@@ -1938,7 +1938,7 @@ private fun SessionsSection() {
                             val r = runCatching { koin.get<SessionApi>().revoke(s.id) }
                             busy = false
                             msg = if (r.isSuccess) "sessão derrubada" to true
-                            else "não deu pra derrubar" to false
+                            else "não foi possível derrubar" to false
                             reload++
                         }
                     }
@@ -1964,7 +1964,7 @@ private fun SessionsSection() {
             val r = runCatching { koin.get<SessionApi>().revokeOthers(RevokeOthersRequest(token)) }
             busy = false
             msg = r.map { "derrubadas: ${it.data?.revokedCount ?: 0}" to true }
-                .getOrElse { "não deu pra derrubar as outras" to false }
+                .getOrElse { "não foi possível derrubar as outras" to false }
             reload++
         }
     }
@@ -2060,7 +2060,7 @@ private fun AboutSection() {
             )
         }
         is UpdateState.Ready -> {
-            AboutStatus("${s.version} baixada — reinicie pra aplicar")
+            AboutStatus("${s.version} baixada — reinicie para aplicar")
             Spacer(Modifier.height(10.dp))
             AboutButton("reiniciar agora", accent = true) { updater.restartToInstall() }
         }
@@ -2409,7 +2409,7 @@ private fun InfoNote(title: String, body: String) {
 @Composable
 private fun PermissionsSection(onTestarAviso: () -> Unit) {
     Text(
-        "o Windows decide o que cada programa pode usar — e quando ele bloqueia, não avisa: o microfone entrega silêncio, o aviso não aparece, a call não conecta. aqui dá pra ver o que está liberado e liberar o que faltar.",
+        "o Windows decide o que cada programa pode usar — e quando ele bloqueia, não avisa: o microfone entrega silêncio, o aviso não aparece, a call não conecta. aqui é possível ver o que está liberado e liberar o que faltar.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp, lineHeight = 16.sp),
         modifier = Modifier.widthIn(max = 560.dp),
     )
@@ -2420,11 +2420,11 @@ private fun PermissionsSection(onTestarAviso: () -> Unit) {
         "Por que não aparece a janelinha de \"permitir\"",
         "No navegador, um site pede permissão e você responde num pop-up. Programa " +
             "instalado no Windows não tem esse pedido: quem manda é um interruptor do " +
-            "próprio sistema, o mesmo pra todos os programas de área de trabalho.\n\n" +
+            "próprio sistema, o mesmo para todos os programas de área de trabalho.\n\n" +
             "Por isso o botão \"permitir\" aqui abre a página exata das Configurações do " +
             "Windows em vez de perguntar — e continua conferindo sozinho depois. Você liga " +
-            "o interruptor lá, volta pra cá, e a linha já está verde sem precisar clicar de novo.\n\n" +
-            "Duas fogem da regra. Avisos não têm interruptor pra ligar: o Windows só " +
+            "o interruptor lá, volta para cá, e a linha já está verde sem precisar clicar de novo.\n\n" +
+            "Duas fogem da regra. Avisos não têm interruptor para ligar: o Windows só " +
             "registra o Astra quando ele manda o primeiro aviso, então permitir manda um. " +
             "E transmitir a tela não pede permissão nenhuma no Windows — inventar um " +
             "cadeado ali seria teatro.",
@@ -2456,8 +2456,8 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             "faz esse trabalho neste app). Cada quadro da prévia consome processador " +
             "que sairia da compressão — e quando falta, quem engasga é a transmissão " +
             "de quem está te assistindo, não a sua janelinha.\n\n" +
-            "30 quadros já são fluidos pra conferir o que você está mostrando, e " +
-            "devolvem metade desse custo pra quem importa: quem está do outro lado.",
+            "30 quadros já são fluidos para conferir o que você está mostrando, e " +
+            "devolvem metade desse custo para quem importa: quem está do outro lado.",
     )
 
     // As permissões do Windows moram na aba Permissões. Ficavam aqui como um
@@ -2559,7 +2559,7 @@ private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect:
 private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     ToggleRow(
         "Modo desempenho",
-        "desliga aurora + estrelas e reduz animações de uma vez — pra jogar ou transmitir",
+        "desliga aurora + estrelas e reduz animações de uma vez — para jogar ou transmitir",
         p.performanceMode, prefs::setPerformanceMode,
     )
     Spacer(Modifier.height(6.dp))
@@ -2600,7 +2600,7 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(6.dp))
     ToggleRow(
         "Fechar de vez ao fechar o app",
-        "o X encerra o Astra em vez de minimizar pra bandeja — sem nada em segundo plano",
+        "o X encerra o Astra em vez de minimizar para bandeja — sem nada em segundo plano",
         p.exitOnClose, prefs::setExitOnClose,
     )
 }
@@ -2800,12 +2800,22 @@ private fun aplicarFundo(prefs: DesktopPrefs, f: FundoPref) {
     prefs.setStarsEnabled(f != FundoPref.LISO)
 }
 
-// Linha separadora entre grupos de configuração (legibilidade — pedido do dono).
+// Quebra entre grupos de configuração.
+//
+// Traço CURTO e centralizado, e não mais de borda a borda. Linha inteira lê como
+// linha de tabela: o olho passa a ver uma grade e conta as células em vez de ler
+// o conteúdo. Curta, ela lê como quebra de capítulo — que é o que ela é.
+//
+// O respiro também cresceu (12/20 no lugar de 8/16): com o traço menor, quem
+// separa de verdade passa a ser o espaço, e espaço curto demais faz o traço
+// parecer enfeite solto no meio do nada.
 @Composable
 internal fun SettingsDivider() {
-    Spacer(Modifier.height(8.dp))
-    HairRule()
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(12.dp))
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(Modifier.width(28.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
+    }
+    Spacer(Modifier.height(20.dp))
 }
 
 @Composable

@@ -73,7 +73,7 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
     suspend fun recarregar() {
         runCatching { stickerApi.listar(serverId).stickers }
             .onSuccess { figurinhas = it }
-            .onFailure { msg = "não deu pra carregar as figurinhas" to false }
+            .onFailure { msg = "não foi possível carregar as figurinhas" to false }
     }
     LaunchedEffect(serverId) { recarregar() }
 
@@ -92,7 +92,7 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
                 escopo.launch {
                     runCatching { stickerApi.apagar(serverId, fig.id) }
                         .onSuccess { recarregar(); msg = "figurinha apagada" to true }
-                        .onFailure { msg = "não deu pra apagar" to false }
+                        .onFailure { msg = "não foi possível apagar" to false }
                 }
             },
         )
@@ -139,7 +139,7 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
                     }
                     ocupado = false
                     r.onSuccess { recarregar(); msg = "figurinha adicionada" to true }
-                        .onFailure { msg = (it.message ?: "não deu pra subir") to false }
+                        .onFailure { msg = (it.message ?: "não foi possível subir") to false }
                 }
             }
             Spacer(Modifier.width(10.dp))

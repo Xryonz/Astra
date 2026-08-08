@@ -272,7 +272,7 @@ class UpdateService(private val http: OkHttpClient) {
     private fun failureReason(e: Throwable): String = when (e) {
         is UnknownHostException -> "sem internet"
         is IOException -> "sem conexão com o GitHub"
-        else -> "não deu pra verificar agora"
+        else -> "não foi possível verificar agora"
     }
 
     // semver simples: a > b por campo (major.minor.patch). Campos não-numericos = 0.
@@ -355,7 +355,7 @@ class UpdateService(private val http: OkHttpClient) {
             e is UnknownHostException -> "sem internet — tente pelo site"
             m.contains("HTTP 404") -> "essa versão ainda não está no GitHub"
             m.startsWith("HTTP") -> "o GitHub recusou ($m) — tente pelo site"
-            m.contains("space", true) || m.contains("espaco", true) -> "sem espaco em disco pra atualizar"
+            m.contains("space", true) || m.contains("espaco", true) -> "sem espaco em disco para atualizar"
             m.contains("incompleto") -> "o download veio incompleto — tente de novo"
             e is IOException -> "a conexão caiu no meio — tente de novo"
             else -> "falha ao baixar — tente pelo site"

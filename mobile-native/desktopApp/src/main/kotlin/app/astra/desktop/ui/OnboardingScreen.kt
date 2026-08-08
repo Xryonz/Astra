@@ -255,7 +255,7 @@ private fun PhotoStep(displayName: String, avatarUrl: String?, busy: Boolean, on
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "opcional — dá pra mudar quando quiser nas configurações.",
+            "opcional — é possível mudar quando quiser nas configurações.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, textAlign = TextAlign.Center),
         )
     }
@@ -282,7 +282,7 @@ private fun PermsStep(onTestarAviso: () -> Unit) {
         Spacer(Modifier.height(10.dp))
         Text(
             "O Windows guarda microfone, câmera e avisos atrás de um interruptor — e quando ele " +
-                "bloqueia, não avisa ninguém: some o som e pronto. Dá pra liberar agora, ou depois, " +
+                "bloqueia, não avisa ninguém: some o som e pronto. É possível liberar agora ou depois, " +
                 "em Configurações > Permissões.",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.5.sp, lineHeight = 18.sp),
         )

@@ -161,7 +161,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     val rotulo = when (val s = st) {
         is UpdateState.Available   -> Rotulo("nova versão ${s.version}")
         is UpdateState.Downloading -> Rotulo("baixando ${s.version}", baixando = true)
-        is UpdateState.Ready       -> Rotulo("reiniciando pra aplicar")
+        is UpdateState.Ready       -> Rotulo("reiniciando para aplicar")
         is UpdateState.Failed      -> Rotulo(s.reason)
         else                       -> Rotulo(spaceWord(barProgress))
     }

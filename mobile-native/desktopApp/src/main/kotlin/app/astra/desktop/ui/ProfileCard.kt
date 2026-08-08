@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,9 +48,11 @@ import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.dto.MemberRoleDto
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -149,9 +152,17 @@ fun ProfileCard(
     variante: CardVariante = CardVariante.NORMAL,
     modifier: Modifier = Modifier,
     servidoresEmComum: List<MutualServerDto> = emptyList(),
+    // Quantos amigos voces tem em comum. So aparece no compacto, como texto.
+    amigosEmComum: Int = 0,
+    // Cargos da pessoa NESTA constelação. Vazio quando nao ha constelação em
+    // maos (cartao aberto pelo chat) — a secao some junto.
+    cargos: List<MemberRoleDto> = emptyList(),
     // Botao de fechar no canto do banner. null = sem botao (o popup pequeno e a
     // previa fecham por fora).
     aoFechar: (() -> Unit)? = null,
+    // Fileira de acoes redondas no canto do banner (chamar, adicionar amigo…).
+    // Fica ao lado do fechar, na mesma linha.
+    acoesNoBanner: (@Composable RowScope.() -> Unit)? = null,
     // A previa desliga a coreografia: ela recompoe a cada tecla digitada, e a
     // cascata reiniciando a cada letra transformaria a previa num pisca-pisca.
     animar: Boolean = true,
@@ -185,18 +196,26 @@ fun ProfileCard(
             if (completo && animar) {
                 BannerSweep(dados.username, Modifier.fillMaxWidth().aspectRatio(aspectoBanner))
             }
-            if (aoFechar != null) {
-                val fecharSrc = remember { MutableInteractionSource() }
-                Box(
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
-                        .clip(CircleShape)
-                        .background(Obsidian.void.copy(alpha = 0.5f))
-                        .clickable(interactionSource = fecharSrc, indication = null) { aoFechar() },
-                    contentAlignment = Alignment.Center,
+            if (aoFechar != null || acoesNoBanner != null) {
+                Row(
+                    Modifier.align(Alignment.TopEnd).padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, modifier = Modifier.padding(5.dp))
+                    acoesNoBanner?.invoke(this)
+                    if (aoFechar != null) {
+                        val fecharSrc = remember { MutableInteractionSource() }
+                        Box(
+                            Modifier
+                                .clickScale(fecharSrc, formaDoFoco = CircleShape)
+                                .clip(CircleShape)
+                                .background(Obsidian.void.copy(alpha = 0.5f))
+                                .clickable(interactionSource = fecharSrc, indication = null) { aoFechar() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LIcon(Lucide.X, tint = Obsidian.text2, size = 15.dp, rotulo = "Fechar", modifier = Modifier.padding(5.dp))
+                        }
+                    }
                 }
             }
         }
@@ -205,7 +224,7 @@ fun ProfileCard(
             AvatarDoCartao(dados, completo, animar)
             Column(Modifier.offset(y = if (completo) (-24).dp else (-40).dp)) {
                 if (completo) CorpoCompleto(dados, servidoresEmComum, animar, rodape)
-                else CorpoCompacto(dados, rodape)
+                else CorpoCompacto(dados, amigosEmComum, servidoresEmComum, cargos, rodape)
                 Spacer(Modifier.height(if (completo) 20.dp else 12.dp))
             }
         }
@@ -257,9 +276,45 @@ private fun AvatarDoCartao(dados: DadosDoCartao, completo: Boolean, animar: Bool
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CorpoCompacto(dados: DadosDoCartao, rodape: @Composable (() -> Unit)?) {
+private fun CorpoCompacto(
+    dados: DadosDoCartao,
+    amigosEmComum: Int,
+    servidoresEmComum: List<MutualServerDto>,
+    cargos: List<MemberRoleDto>,
+    rodape: @Composable (() -> Unit)?,
+) {
     NomeELinha(dados, tamanhoNome = 19, tamanhoPonto = 10)
+
+    // O QUE VOCES TEM EM COMUM, numa linha so. No cartao completo isto vira duas
+    // secoes com os icones das constelacoes; aqui e um resumo — a graca do cartao
+    // pequeno e caber, e uma grade de icones aberta sobre a lista de membros e
+    // exatamente a poluicao que o dono pediu pra evitar.
+    val vinculos = buildList {
+        if (amigosEmComum > 0) {
+            add(if (amigosEmComum == 1) "1 amigo em comum" else "$amigosEmComum amigos em comum")
+        }
+        if (servidoresEmComum.isNotEmpty()) {
+            add(
+                if (servidoresEmComum.size == 1) "1 constelação em comum"
+                else "${servidoresEmComum.size} constelações em comum",
+            )
+        }
+    }
+    if (vinculos.isNotEmpty()) {
+        Spacer(Modifier.height(7.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                vinculos.joinToString(" · "),
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+
     if (!dados.recado.isNullOrBlank() || !dados.statusEmoji.isNullOrBlank()) {
         Spacer(Modifier.height(9.dp))
         Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
@@ -281,9 +336,69 @@ private fun CorpoCompacto(dados: DadosDoCartao, rodape: @Composable (() -> Unit)
             )
         }
     }
+
+    // CARGOS. So chegam quando o cartao abre pelo painel de membros — de dentro
+    // do chat nao ha constelacao em maos, e cargo e por constelacao. Cartao sem a
+    // secao e melhor que cartao com uma secao vazia dizendo "sem cargos".
+    if (cargos.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Obsidian.void.copy(alpha = 0.38f))
+                .padding(horizontal = 11.dp, vertical = 9.dp),
+        ) {
+            Text(
+                "CARGOS",
+                style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.sp),
+            )
+            Spacer(Modifier.height(7.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                cargos.forEach { EtiquetaDeCargo(it) }
+            }
+        }
+    }
+
+    membroDesde(dados.criadoEm)?.let { desde ->
+        Spacer(Modifier.height(9.dp))
+        Text(
+            "nas estrelas desde $desde",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            maxLines = 1,
+        )
+    }
+
     if (rodape != null) {
         Spacer(Modifier.height(12.dp))
         rodape()
+    }
+}
+
+// Etiqueta de cargo: bolinha na cor do cargo + nome. A cor entra no PONTO, e nao
+// no texto nem no fundo — cargo com cor viva viraria a coisa mais berrante do
+// cartao, competindo com o nome, que e o que a pessoa foi ali ler.
+@Composable
+private fun EtiquetaDeCargo(cargo: MemberRoleDto) {
+    val cor = memberRoleColor(cargo.color) ?: Obsidian.text3
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(6.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(cor))
+        Spacer(Modifier.width(5.dp))
+        Text(
+            cargo.name,
+            style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { and, desc, eq, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, ne, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
 import { users, servers, serverMembers, profileNotes, friendships } from '../db/schema'
@@ -253,7 +253,26 @@ router.get(
       mutualServers = srvs.map((s) => ({ ...s, role: roleByServer.get(s.id) ?? 'MEMBER' }))
     }
 
-    res.json({ data: { user, mutualServers } })
+    // Amigos em comum. A amizade e guardada como UM par (userAId/userBId) sem
+    // lado fixo — quem pediu pode estar em qualquer coluna. Entao "os amigos de
+    // X" e a uniao das duas colunas, tirando o proprio X.
+    //
+    // Duas consultas e uma intersecao em memoria, e nao um JOIN: a lista de
+    // amigos de uma pessoa e pequena (dezenas), e um self-join com OR nas duas
+    // colunas nao usa nenhum dos dois indices por status que a tabela tem.
+    const amigosDe = async (id: string) => {
+      const rows = await db.select({ a: friendships.userAId, b: friendships.userBId })
+        .from(friendships)
+        .where(and(eq(friendships.status, 'accepted'), or(eq(friendships.userAId, id), eq(friendships.userBId, id))))
+      return new Set(rows.map((r) => (r.a === id ? r.b : r.a)))
+    }
+    let mutualFriends = 0
+    if (!isSelf) {
+      const [meus, deles] = await Promise.all([amigosDe(req.userId!), amigosDe(targetId)])
+      for (const id of deles) if (meus.has(id)) mutualFriends++
+    }
+
+    res.json({ data: { user, mutualServers, mutualFriends } })
   })
 )
 

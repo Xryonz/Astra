@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +53,10 @@ import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.UserApi
-import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.MemberRoleDto
+import app.astra.mobile.core.network.dto.ProfileViewWrapper
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
 import org.koin.core.context.GlobalContext
 import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
@@ -62,9 +66,12 @@ import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 // (mesma politica do ProfileHoverCard do web).
 
 private const val CACHE_MS = 5 * 60_000L
-private val profileCache = mutableMapOf<String, Pair<ProfileUserDto, Long>>()
+// Guarda o ENVELOPE inteiro, e nao so o usuario. Os vinculos (constelacoes e
+// amigos em comum) vem na mesma resposta e estavam sendo jogados fora — o card
+// pedia o dado, recebia, e descartava antes de desenhar.
+private val profileCache = mutableMapOf<String, Pair<ProfileViewWrapper, Long>>()
 
-private fun cached(userId: String): ProfileUserDto? =
+private fun cached(userId: String): ProfileViewWrapper? =
     profileCache[userId]?.takeIf { System.currentTimeMillis() - it.second < CACHE_MS }?.first
 
 // Alguem editou o perfil -> a copia guardada envelheceu na hora. Sem isto o cache
@@ -113,6 +120,10 @@ fun ProfileAnchor(
     userId: String,
     isMe: Boolean,
     onStartDm: (username: String, title: String) -> Unit,
+    // Cargos da pessoa NESTA constelação. So o painel de membros tem isso em
+    // maos; do chat vem vazio, e a secao de cargos some junto. Cartao sem a secao
+    // e melhor que cartao com uma secao vazia.
+    cargos: List<MemberRoleDto> = emptyList(),
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -139,6 +150,7 @@ fun ProfileAnchor(
                 ProfilePopupCard(
                     userId = userId,
                     isMe = isMe,
+                    cargos = cargos,
                     onStartDm = { u, t ->
                         open = false
                         onStartDm(u, t)
@@ -160,12 +172,18 @@ fun ProfileAnchor(
 }
 
 @Composable
-private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, String) -> Unit, onOpenFull: () -> Unit) {
+private fun ProfilePopupCard(
+    userId: String,
+    isMe: Boolean,
+    cargos: List<MemberRoleDto>,
+    onStartDm: (String, String) -> Unit,
+    onOpenFull: () -> Unit,
+) {
     val koin = GlobalContext.get()
-    var profile by remember(userId) { mutableStateOf(cached(userId)) }
+    var visao by remember(userId) { mutableStateOf(cached(userId)) }
     LaunchedEffect(userId) {
-        if (profile == null) {
-            profile = runCatching { koin.get<UserApi>().profile(userId).data?.user }.getOrNull()
+        if (visao == null) {
+            visao = runCatching { koin.get<UserApi>().profile(userId).data }.getOrNull()
                 ?.also { profileCache[userId] = it to System.currentTimeMillis() }
         }
     }
@@ -177,14 +195,15 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
         enter = fadeIn(tween(240, easing = EaseSpring)) +
             slideInVertically(tween(280, easing = EaseSpring)) { it / 10 },
     ) {
-        val p = profile
-        if (p == null) {
+        val v = visao
+        if (v == null) {
             Column(
                 Modifier.width(320.dp).clip(RoundedCornerShape(12.dp))
                     .profileCardBackdrop(null)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
             ) { CardSkeleton() }
         } else {
+            val p = v.user
             // MESMO desenho da previa das Configuracoes (ProfileCard) — nao existem
             // mais duas copias pra divergir. O que e proprio DAQUI sao os botoes,
             // que so fazem sentido no cartao de verdade.
@@ -192,6 +211,18 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                 dados = p.paraCartao(),
                 variante = CardVariante.NORMAL,
                 modifier = Modifier.width(320.dp),
+                servidoresEmComum = v.mutualServers,
+                amigosEmComum = v.mutualFriends,
+                cargos = cargos,
+                // As acoes sobem pro banner (estilo Discord): o rodape fica so com
+                // "ver perfil completo", e o cartao encurta uma linha inteira.
+                acoesNoBanner = if (isMe) null else {
+                    {
+                        AcaoRedonda(Lucide.MessageCircle, "Enviar sussurro") {
+                            onStartDm(p.username, p.displayName ?: p.username)
+                        }
+                    }
+                },
             ) {
                 val fullSrc = remember { MutableInteractionSource() }
                 Text(
@@ -206,22 +237,26 @@ private fun ProfilePopupCard(userId: String, isMe: Boolean, onStartDm: (String, 
                         .padding(vertical = 8.dp),
                     maxLines = 1,
                 )
-                if (!isMe) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "enviar sussurro",
-                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, textAlign = TextAlign.Center),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                            .clickable { onStartDm(p.username, p.displayName ?: p.username) }
-                            .padding(vertical = 8.dp),
-                        maxLines = 1,
-                    )
-                }
             }
         }
+    }
+}
+
+// Acao redonda no canto do banner. Fundo escuro semitransparente porque ela
+// pousa sobre uma IMAGEM que pode ser de qualquer cor — sem o veu, um banner
+// claro engole o icone.
+@Composable
+private fun AcaoRedonda(icone: ImageVector, rotulo: String, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .clickScale(src, formaDoFoco = CircleShape)
+            .clip(CircleShape)
+            .background(Obsidian.void.copy(alpha = 0.5f))
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LIcon(icone, tint = Obsidian.text2, size = 15.dp, rotulo = rotulo, modifier = Modifier.padding(5.dp))
     }
 }
 

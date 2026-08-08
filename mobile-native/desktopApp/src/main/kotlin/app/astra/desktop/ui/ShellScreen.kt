@@ -3439,7 +3439,10 @@ private fun MemberRow(
                     onDismiss = { confirmMember = null },
                 )
             }
-            ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm) {
+            // Os cargos vao junto: e AQUI que eles existem (a lista de membros ja
+            // carrega m.roles), e buscar de novo no card seria uma chamada a mais
+            // pra um dado que ja esta na mao.
+            ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -3460,7 +3463,9 @@ private fun MemberRow(
 }
 
 // "#rrggbb" -> Color; invalido/nulo = null (a UI cai no cinza).
-private fun memberRoleColor(hex: String?): Color? {
+// internal: as etiquetas de cargo do cartao de perfil leem a MESMA cor que a
+// lista de membros. Duas conversoes de hex e uma delas errando sozinha.
+internal fun memberRoleColor(hex: String?): Color? {
     val h = hex?.trim()?.removePrefix("#") ?: return null
     if (h.length != 6) return null
     val v = h.toLongOrNull(16) ?: return null

@@ -33,6 +33,9 @@ data class ProfileUserDto(
 data class ProfileViewWrapper(
     val user: ProfileUserDto,
     val mutualServers: List<MutualServerDto> = emptyList(),
+    // Quantos amigos voce e a outra pessoa tem em comum. Zero quando o perfil e
+    // o SEU: "voce tem 4 amigos em comum com voce mesmo" nao quer dizer nada.
+    val mutualFriends: Int = 0,
 )
 
 @Serializable

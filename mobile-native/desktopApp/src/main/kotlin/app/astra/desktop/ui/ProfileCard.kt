@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -509,11 +510,16 @@ private fun recadoInteiro(dados: DadosDoCartao) = listOfNotNull(
     dados.recado?.ifBlank { null },
 ).joinToString(" ")
 
+// Cada secao do cartao virou um CARTAO, e nao mais um bloco antecedido por
+// traco. Com tres ou quatro secoes seguidas, o traco em cima de cada uma
+// desenhava uma grade — o olho lia tabela, nao perfil.
+//
+// `hover` e nao `raised`: o cartao de perfil ja mora num popup em `overlay`, e
+// subir pra `raised` seria DESCER na rampa (raised vem antes de overlay). Este e
+// o degrau seguinte de verdade.
 @Composable
 private fun Secao(titulo: String, conteudo: @Composable () -> Unit) {
-    Column {
-        HairRule()
-        Spacer(Modifier.height(10.dp))
+    CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(horizontal = 11.dp, vertical = 9.dp)) {
         Text(
             titulo.uppercase(),
             style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),

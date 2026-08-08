@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -626,11 +627,13 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
                         }
                         Spacer(Modifier.height(6.dp))
                     }
-                    Spacer(Modifier.height(4.dp))
-                    HairRule()
-                    Spacer(Modifier.height(10.dp))
-                    FieldLabel("código hex")
-                    RoleHexField(selected) { onPick(it) }
+                    Spacer(Modifier.height(6.dp))
+                    // Cartao no lugar do traco: escolher da paleta e digitar o hex
+                    // sao dois caminhos pro mesmo fim, e o segundo e o avancado.
+                    CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(10.dp)) {
+                        FieldLabel("código hex")
+                        RoleHexField(selected) { onPick(it) }
+                    }
                 }
             }
         }

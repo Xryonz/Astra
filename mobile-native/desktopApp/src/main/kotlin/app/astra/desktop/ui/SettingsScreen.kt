@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -728,13 +729,20 @@ private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
             Spacer(Modifier.width(6.dp))
             Text("geral", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
         }
-        HairRule()
-        Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
+        // As duas mensagens ganham superficie propria — a previa passa a imitar o
+        // proprio shell (cabecalho, palco, campo de escrever em degraus), que e
+        // exatamente o que ela promete mostrar. Os dois tracos que havia aqui
+        // faziam a mini-janela parecer uma tabela de tres linhas.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(Obsidian.overlay.copy(alpha = 0.5f))
+                .padding(horizontal = 13.dp, vertical = 11.dp),
+        ) {
             SampleMsg("ana", "e ai, bora marcar a call?", s)
             Spacer(Modifier.height((density.topDp).dp))
             SampleMsg("você", "fechou, 21h entao", s)
         }
-        HairRule()
         Box(
             Modifier.padding(11.dp).fillMaxWidth().clip(RoundedCornerShape(9.dp))
                 .background(Obsidian.void.copy(alpha = 0.5f))
@@ -1579,12 +1587,14 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
                 ) {
                     FieldLabel("código hex")
                     HexField(selected, onPick)
-                    Spacer(Modifier.height(14.dp))
-                    HairRule()
-                    Spacer(Modifier.height(14.dp))
-                    FieldLabel("gradientes")
-                    Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
-                        GradientGrid(selected) { onPick(it); open = false }
+                    Spacer(Modifier.height(12.dp))
+                    // Cor solida e gradiente sao duas escolhas irmas; cada uma no
+                    // seu cartao le melhor que uma linha entre elas.
+                    CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(10.dp)) {
+                        FieldLabel("gradientes")
+                        Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                            GradientGrid(selected) { onPick(it); open = false }
+                        }
                     }
                 }
             }

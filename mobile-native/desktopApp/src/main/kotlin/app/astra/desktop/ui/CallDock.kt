@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -187,11 +188,19 @@ fun BoxScope.CallDock(
                     }
                 }
             }
-            HairRule()
+            Spacer(Modifier.height(8.dp))
             // Acoes: calar/abrir mic e desligar. Desligar e a UNICA saida da call
             // agora que navegar não desconecta mais.
+            //
+            // Faixa propria em vez de traco em cima: os dois botoes aqui embaixo
+            // sao a unica parte CLICAVEL do dock, e uma superficie propria diz
+            // isso melhor do que uma linha.
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Obsidian.overlay)
+                    .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {

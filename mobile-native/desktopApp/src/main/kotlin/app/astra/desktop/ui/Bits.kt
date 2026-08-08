@@ -24,10 +24,16 @@ import app.astra.desktop.ui.theme.EaseOutStd
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -158,6 +164,37 @@ fun Modifier.clickScale(
                 is Outline.Generic -> drawPath(contorno.path, corDoFoco, style = traco)
             }
         }
+}
+
+// CARTAO DENTRO DE CARTAO — a estrutura preferida do projeto, e o que substituiu
+// as 14 linhas de separacao que existiam no app.
+//
+// A regra que ele materializa: conteudo se separa por ANINHAMENTO DE SUPERFICIE,
+// nao por traco. Um painel e um cartao; dentro dele, cada bloco e outro cartao,
+// um degrau mais claro. Traco de borda a borda le como linha de tabela, e o olho
+// passa a ver grade em vez de conteudo.
+//
+// `fundo` fica exposto porque o degrau depende de onde o cartao mora: dentro de
+// um popup (que ja e `overlay`) subir pra `overlay` de novo nao mostraria nada —
+// ali o passo certo e `hover`, que e o degrau seguinte da rampa.
+@Composable
+fun CartaoInterno(
+    modifier: Modifier = Modifier,
+    fundo: Color = Obsidian.raised,
+    borda: Boolean = true,
+    padding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+    conteudo: @Composable ColumnScope.() -> Unit,
+) {
+    val forma = RoundedCornerShape(8.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(forma)
+            .background(fundo)
+            .then(if (borda) Modifier.border(1.dp, Obsidian.borderDim, forma) else Modifier)
+            .padding(padding),
+        content = conteudo,
+    )
 }
 
 // Icone Lucide tingido. O desktop NAO tem material (sem Icon()), entao renderiza

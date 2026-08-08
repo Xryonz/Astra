@@ -146,8 +146,6 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                 Spacer(Modifier.weight(1f))
                 BotaoFechar(onClose)
             }
-            HairRule()
-
             // CARTÃO DENTRO DO CARTÃO: o estado da conta mora num degrau acima do
             // painel, e é o que separa "quem você é aqui" da lista do que falta
             // fazer — sem precisar de traço entre os dois.

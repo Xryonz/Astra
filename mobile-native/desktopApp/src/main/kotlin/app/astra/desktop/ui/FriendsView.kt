@@ -162,9 +162,9 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
             ) { tab = FriendsTab.PENDING }
             TabPill("Adicionar", null, tab == FriendsTab.ADD) { tab = FriendsTab.ADD }
         }
-        Spacer(Modifier.height(6.dp))
-        HairRule()
-        Spacer(Modifier.height(14.dp))
+        // Sem traco embaixo das abas: as pilhas ja sao cartoes, e a que esta
+        // ativa ja diz onde voce esta. A linha so acrescentava uma grade.
+        Spacer(Modifier.height(16.dp))
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             // Troca de aba: cross-fade + deslize leve. Reduzir movimento = corte seco.

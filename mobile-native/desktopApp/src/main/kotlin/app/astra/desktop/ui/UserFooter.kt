@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -429,13 +430,16 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                         )
                     }
                     if (!me.bio.isNullOrBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        HairRule()
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            me.bio.orEmpty(),
-                            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
-                        )
+                        Spacer(Modifier.height(10.dp))
+                        // A bio ganhou cartao proprio no lugar do traco. `hover`
+                        // porque este cartao vive dentro de um popup em `overlay`:
+                        // `raised` seria um degrau pra BAIXO, e o bloco sumiria.
+                        CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(horizontal = 10.dp, vertical = 9.dp)) {
+                            Text(
+                                me.bio.orEmpty(),
+                                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
+                            )
+                        }
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

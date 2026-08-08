@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -222,30 +223,33 @@ fun InvitePeopleDialog(
 
         if (inviteCode != null) {
             Spacer(Modifier.height(16.dp))
-            HairRule()
-            Spacer(Modifier.height(16.dp))
-            Text("ou mande este link", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
-            Spacer(Modifier.height(7.dp))
-            val link = remember(inviteCode) { inviteLink(inviteCode) }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(Obsidian.overlay)
-                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                ) {
-                    Text(
-                        link,
-                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, fontFamily = DmMono),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                DialogButton(if (copied) "copiado" else "copiar", accent = false) {
-                    clipboard.setText(AnnotatedString(link))
-                    copied = true
+            // O segundo caminho (mandar o link) virou CARTAO. Sao duas maneiras
+            // diferentes de convidar a mesma pessoa; o traco dizia "acabou uma
+            // coisa, comecou outra", e o cartao mostra as duas lado a lado.
+            CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(12.dp)) {
+                Text("ou mande este link", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+                Spacer(Modifier.height(7.dp))
+                val link = remember(inviteCode) { inviteLink(inviteCode) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(Obsidian.overlay)
+                            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            link,
+                            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, fontFamily = DmMono),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    DialogButton(if (copied) "copiado" else "copiar", accent = false) {
+                        clipboard.setText(AnnotatedString(link))
+                        copied = true
+                    }
                 }
             }
         }

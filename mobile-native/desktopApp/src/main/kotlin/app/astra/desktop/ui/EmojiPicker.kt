@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -135,7 +136,9 @@ fun EmojiPicker(onPick: (String) -> Unit) {
                 )
             }
         }
-        HairRule()
+        // Sem traco aqui: o campo de busca logo acima JA e um cartao com borda
+        // propria, entao a linha so repetia o limite que ele ja desenha.
+        Spacer(Modifier.height(2.dp))
 
         // ---- grade ----
         LazyVerticalGrid(
@@ -172,9 +175,14 @@ fun EmojiPicker(onPick: (String) -> Unit) {
         // Escondidos durante a busca: pular pra "natureza" no meio de um resultado
         // filtrado levaria pra um lugar que nao existe naquela lista.
         if (!buscando) {
-            HairRule()
+            // Faixa propria (um degrau acima do popup) no lugar do traco: os
+            // atalhos sao NAVEGACAO, nao mais uma fileira de emoji — e sem
+            // superficie propria eles se confundiam com a ultima linha da grade.
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .background(Obsidian.hover)
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 for (c in CATEGORIAS_EMOJI) {

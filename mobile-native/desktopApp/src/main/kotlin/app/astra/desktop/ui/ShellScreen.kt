@@ -1834,8 +1834,9 @@ private fun Sidebar(
                         onAbrirConfig = { onOpenServerSettings(srv.id) },
                     )
                 } else {
+                    // Sem traco embaixo do cabecalho: a sidebar inteira ja e uma
+                    // superficie propria, e a lista abaixo tem os cartoes dela.
                     header()
-                    HairRule()
                 }
 
                 Box(Modifier.weight(1f)) {
@@ -3259,8 +3260,14 @@ private fun Stage(
         // sussurro aberto, voz) mantem o top bar. O botao de membros saiu.
         val bareLanding = chat == null && voiceChannel == null
         if (!bareLanding) {
+            // A faixa do topo do palco virou SUPERFICIE, e nao mais um bloco
+            // seguido de traco: um degrau acima do palco basta pra dizer que ela
+            // e chrome e nao conversa.
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Obsidian.overlay.copy(alpha = 0.45f))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val leadIcon = when {
@@ -3298,7 +3305,6 @@ private fun Stage(
                     BotaoDeLigar(Lucide.Video, "chamada de vídeo") { onLigarSussurro(chat, true) }
                 }
             }
-            HairRule()
         }
 
         // Sala de voz ocupa o palco. Sem engine = você abriu a sala mas ainda não
@@ -3543,11 +3549,6 @@ internal fun memberRoleColor(hex: String?): Color? {
 }
 
 // ---- Pecinhas ----
-
-@Composable
-fun HairRule() {
-    Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
-}
 
 // Botao "Amigos" no topo dos sussurros (padrao Discord) — abre a tela de amigos
 // no palco. Ativo = destaque ambar.

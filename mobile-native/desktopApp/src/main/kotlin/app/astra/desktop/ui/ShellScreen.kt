@@ -428,7 +428,22 @@ fun ShellScreen(
             enter = fadeIn(tween(160)),
             exit = fadeOut(tween(160)),
         ) {
-        Row(Modifier.fillMaxSize()) {
+        // O SHELL INTEIRO E UM CARTAO. Os paineis continuam encostados entre si —
+        // o que mudou e a relacao com a JANELA: antes o conteudo morria colado na
+        // moldura dos quatro lados. Agora ha 10dp de respiro em volta, e o conjunto
+        // ganha canto e borda propria. O app le como uma peca apoiada no fundo em
+        // vez de papel de parede.
+        //
+        // O clip vai no bloco, nao em cada painel: e ele que arredonda as quatro
+        // quinas de uma vez, e por isso a rail e o painel de membros podem seguir
+        // quadrados por dentro sem vazar pra fora.
+        Row(
+            Modifier
+                .fillMaxSize()
+                .padding(RESPIRO_DA_JANELA)
+                .clip(FORMA_DO_SHELL)
+                .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), FORMA_DO_SHELL),
+        ) {
         // Quem pode abrir as configurações da constelação, e como abrir. Sao os
         // MESMOS dois pra rail e pra engrenagem abaixo do banner — duas rotas pra
         // mesma tela, uma regra so.
@@ -784,6 +799,9 @@ fun ShellScreen(
 // pra o rodape do usuario atravessar exatamente a soma delas.
 private val LARGURA_RAIL = 72.dp
 private val LARGURA_SIDEBAR = 260.dp
+// Respiro entre o bloco do app e a moldura da janela, e a forma do bloco.
+private val RESPIRO_DA_JANELA = 10.dp
+private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
 
 // Superficie do shell. Os quatro paineis (rail, sidebar, palco, membros) se
 // ENCOSTAM: nao ha folga entre eles, nem canto arredondado, nem borda.
@@ -1371,40 +1389,45 @@ private fun Rail(
             // "+" colado logo abaixo do último servidor (rola junto com a lista,
             // não fica preso no rodape da rail).
             item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
-        }
-        // Bussola (Descobrir) fixada no rodape da rail — padrao Discord.
-        //
-        // MESMO tratamento da marca do Astra no topo: divisoria curta e centrada
-        // (o HairRule que morava aqui ia de borda a borda e lia como linha de
-        // tabela) mais o halo por tras. As duas pontas da rail sao lugares, nao
-        // constelacoes — e agora as duas dizem isso do mesmo jeito.
-        Spacer(Modifier.height(12.dp))
-        DivisoriaDaRail()
-        Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier.size(72.dp).drawBehind {
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Obsidian.accent.copy(alpha = 0.16f),
-                            Obsidian.accent.copy(alpha = 0.05f),
-                            Color.Transparent,
-                        ),
-                        center = center,
-                        radius = size.minDimension * 0.52f,
-                    ),
-                )
-            },
-            contentAlignment = Alignment.Center,
-        ) {
-            RailItem(
-                active = selection is Selection.Discover,
-                onClick = { onSelect(Selection.Discover) },
-            ) {
-                LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp, rotulo = "descobrir")
+            // A BUSSOLA ENTROU NA LISTA (pedido do dono): antes ela era ancorada no
+            // rodape da rail, o que deixava um vazio enorme entre a ultima
+            // constelacao e ela. Agora ela vem logo depois do "+", colada.
+            //
+            // O preco assumido: com constelacao demais, ela sai da tela junto com a
+            // lista. Vale porque Descobrir tambem esta no Ctrl+K, e um botao que
+            // some quando ha muita coisa e melhor que um vazio permanente quando ha
+            // pouca.
+            item(key = "descobrir") {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(4.dp))
+                    DivisoriaDaRail()
+                    Spacer(Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier.size(72.dp).drawBehind {
+                            drawRect(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Obsidian.accent.copy(alpha = 0.16f),
+                                        Obsidian.accent.copy(alpha = 0.05f),
+                                        Color.Transparent,
+                                    ),
+                                    center = center,
+                                    radius = size.minDimension * 0.52f,
+                                ),
+                            )
+                        },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        RailItem(
+                            active = selection is Selection.Discover,
+                            onClick = { onSelect(Selection.Discover) },
+                        ) {
+                            LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp, rotulo = "descobrir")
+                        }
+                    }
+                }
             }
         }
-        Spacer(Modifier.height(10.dp))
     }
     inviteFor?.let { srv ->
         InvitePeopleDialog(
@@ -1690,7 +1713,20 @@ private fun FaixaDaConstelacao(
 
 @Composable
 private fun ServerHeaderBanner(srv: ServerDto) {
-    Box(Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect)) {
+    // O banner virou CARTAO: recuado das bordas da sidebar, canto de 10dp e borda
+    // fina. Antes ele sangrava de ponta a ponta e encostava no topo da janela —
+    // uma imagem colada na moldura le como fundo de tela, nao como a capa da
+    // constelacao. O `clipToBounds` do proprio clip e o que segura a imagem
+    // dentro do canto arredondado.
+    val forma = RoundedCornerShape(10.dp)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .aspectRatio(ServerBannerAspect)
+            .clip(forma)
+            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.6f), forma),
+    ) {
         if (!srv.bannerUrl.isNullOrBlank()) {
             ProfileBanner(
                 css = null,
@@ -3383,7 +3419,20 @@ private fun MembersPanel(
     // MEMBROS). Dentro de cada secao: online antes de offline. Recalcula so quando
     // a lista ou a presenca muda — não a cada recomposicao.
     val rows = remember(members, presence, myId) { buildMemberRows(members, presence, myId) }
-    Column(Modifier.width(240.dp).fillMaxHeight().panelSurface(Obsidian.base, 0.62f)) {
+    // PAINEL DE MEMBROS "POR CIMA": curva so nos dois cantos da ESQUERDA, mais uma
+    // borda daquele lado. O lado direito continua colado na moldura do shell — e
+    // justamente isso que faz ele parecer uma folha apoiada sobre a conversa em
+    // vez de mais um cartao solto. Curvar os quatro cantos traria de volta a
+    // gramatica flutuante que acabou de sair dos outros paineis.
+    val forma = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp, topEnd = 0.dp, bottomEnd = 0.dp)
+    Column(
+        Modifier
+            .width(240.dp)
+            .fillMaxHeight()
+            .clip(forma)
+            .panelSurface(Obsidian.base, 0.62f)
+            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.5f), forma),
+    ) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
             items(rows, key = { row -> row.key }) { row ->
                 when (row) {

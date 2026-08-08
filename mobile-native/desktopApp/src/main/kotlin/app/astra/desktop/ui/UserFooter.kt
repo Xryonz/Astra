@@ -167,12 +167,19 @@ fun UserFooter(
     // rail ficavam vazios. Sem canto arredondado e sem borda porque agora ele e uma
     // superficie do shell como as outras — quem separa e o degrau de elevacao
     // (void, um abaixo da sidebar em `base`).
+    val forma = RoundedCornerShape(10.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // Recuo pequeno das bordas do bloco pra a borda ter onde existir: sem
+            // ele, os lados do cartao caem em cima da borda do shell e a curva do
+            // canto inferior esquerdo brigaria com a curva da janela.
+            .padding(horizontal = 7.dp, vertical = 7.dp)
+            .clip(forma)
             .background(Obsidian.void.copy(alpha = 0.72f))
+            .border(1.dp, Obsidian.borderMid.copy(alpha = 0.65f), forma)
             .hoverable(hoverCartao)
-            .padding(start = 14.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
+            .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // O anel vive AQUI, no Box de fora: o de dentro tem .clip(CircleShape) e

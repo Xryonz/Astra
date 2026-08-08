@@ -2850,21 +2850,29 @@ private fun CascataVertical(
 // auroraEnabled + starsEnabled como uma escada de custo. "Aurora sem estrelas"
 // era uma combinacao possivel que ninguem pedia, e cada combinacao a mais e uma
 // pergunta a mais pra quem so quer decidir como o app parece.
+// AURORA E ESTRELAS SAO INDEPENDENTES no `DesktopPrefs` — sempre foram. Quem
+// amarrava as duas era esta escada: "Aurora" acendia as estrelas junto, e nao
+// havia como pedir aurora SEM elas. O dono quis as duas soltas, entao a escada
+// ganhou o quarto degrau em vez de virar dois interruptores: quatro opcoes
+// nomeadas dizem o custo de cada escolha, dois interruptores fariam a pessoa
+// descobrir a combinacao cara sozinha.
 private enum class FundoPref(val label: String) {
     LISO("Liso"),
     ESTRELAS("Estrelas"),
     AURORA("Aurora"),
+    AMBOS("Aurora e estrelas"),
 }
 
 private fun fundoAtual(p: DesktopPrefs.Prefs): FundoPref = when {
+    p.auroraEnabled && p.starsEnabled -> FundoPref.AMBOS
     p.auroraEnabled -> FundoPref.AURORA
     p.starsEnabled -> FundoPref.ESTRELAS
     else -> FundoPref.LISO
 }
 
 private fun aplicarFundo(prefs: DesktopPrefs, f: FundoPref) {
-    prefs.setAuroraEnabled(f == FundoPref.AURORA)
-    prefs.setStarsEnabled(f != FundoPref.LISO)
+    prefs.setAuroraEnabled(f == FundoPref.AURORA || f == FundoPref.AMBOS)
+    prefs.setStarsEnabled(f == FundoPref.ESTRELAS || f == FundoPref.AMBOS)
 }
 
 // Quebra entre grupos de configuração.

@@ -118,6 +118,7 @@ fun UserFooter(
     fallbackName: String,
     onEdited: () -> Unit,
     onOpenSettings: (SettingsTab) -> Unit,
+    onAbrirJornada: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
@@ -189,10 +190,14 @@ fun UserFooter(
             Box(
                 Modifier
                     .clip(CircleShape)
-                    // Clicar no avatar vai direto pra aba Perfil das configurações:
-                    // e la que se edita de verdade (avatar, banner, tema, fonte). O
-                    // card so de leitura continua no botao direito > "abrir perfil".
-                    .clickable(onClick = { onOpenSettings(SettingsTab.PROFILE) }),
+                    // Clicar na foto abre SUA JORNADA — nível, missões e conquistas —
+                    // e não mais a aba Perfil das configurações.
+                    //
+                    // A troca é do dono, e a razão é boa: a foto com o anel de XP em
+                    // volta promete progresso, não formulário. Quem clica ali quer
+                    // saber onde chegou; quem quer editar avatar e banner vai pela
+                    // engrenagem, que está a três centímetros de distância.
+                    .clickable(onClick = onAbrirJornada),
             ) {
                 DesktopAvatar(me?.avatarUrl, name, 30)
             }

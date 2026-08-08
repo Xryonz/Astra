@@ -197,6 +197,9 @@ fun ShellScreen(
     notifOpen: Boolean = false,
     onCloseNotif: () -> Unit = {},
     missoesOpen: Boolean = false,
+    // Abrir vem separado do fechar porque o estado mora no Main (a barra de
+    // titulo tambem abre). Sem isto o rodape nao teria como acender a tela.
+    onAbrirMissoes: () -> Unit = {},
     onCloseMissoes: () -> Unit = {},
     onNotifUnread: (Int) -> Unit = {},
 ) {
@@ -489,6 +492,7 @@ fun ShellScreen(
             onCloseDm = vm::closeDm,
             onEditedProfile = vm::refreshMe,
             onOpenSettings = { t -> settingsTab = t; settingsOpen = true },
+            onAbrirJornada = onAbrirMissoes,
             onLogout = onLogout,
             friendsOpen = state.friendsOpen,
             onOpenFriends = vm::openFriends,
@@ -733,7 +737,7 @@ fun ShellScreen(
             enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f)),
             exit = fadeOut(tween(110)) + scaleOut(tween(110), targetScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f)),
         ) {
-            MissoesOverlay(onClose = onCloseMissoes)
+            MissoesOverlay(me = state.me, onClose = onCloseMissoes)
         }
 
         // Convite aberto pela faixa do banner. Mora AQUI, no Box de fora, e nao
@@ -1685,6 +1689,8 @@ private fun Sidebar(
     onCloseDm: (String) -> Unit,
     onEditedProfile: () -> Unit,
     onOpenSettings: (SettingsTab) -> Unit,
+    // Abre "sua jornada" (nivel, missoes, conquistas) — o clique na foto.
+    onAbrirJornada: () -> Unit,
     onLogout: () -> Unit,
     friendsOpen: Boolean,
     onOpenFriends: () -> Unit,
@@ -1851,6 +1857,7 @@ private fun Sidebar(
             fallbackName = meFallback,
             onEdited = onEditedProfile,
             onOpenSettings = onOpenSettings,
+            onAbrirJornada = onAbrirJornada,
             onLogout = onLogout,
         )
     }

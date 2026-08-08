@@ -491,6 +491,7 @@ fun main() {
                                             notifOpen = notifOpen,
                                             onCloseNotif = { notifOpen = false },
                                             missoesOpen = missoesOpen,
+                                            onAbrirMissoes = { missoesOpen = true },
                                             onCloseMissoes = { missoesOpen = false },
                                             onNotifUnread = { notifUnread = it },
                                         )

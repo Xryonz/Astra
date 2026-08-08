@@ -44,6 +44,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import app.astra.desktop.xp.XpStore
+import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.ProgressoDto
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
@@ -90,9 +95,13 @@ private fun faltando(alvoMs: Long, agoraMs: Long): String {
 }
 
 @Composable
-fun MissoesOverlay(onClose: () -> Unit) {
+fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
     val store = remember { GlobalContext.get().get<MissoesStore>() }
     val painel by store.painel.collectAsState()
+    val xpStore = remember { GlobalContext.get().get<XpStore>() }
+    val progresso by xpStore.progresso.collectAsState()
+    val visualXp = rememberVisualDeXp(xpStore)
+    LaunchedEffect(Unit) { xpStore.recarregar() }
 
     // Busca toda vez que abre. O socket mantem o "concluida" em dia sozinho, mas o
     // progresso PARCIAL (2 de 5) so a busca sabe — e a hora de saber e agora, que e
@@ -128,14 +137,21 @@ fun MissoesOverlay(onClose: () -> Unit) {
                 Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 14.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // "Sua jornada", e não mais "missões": a tela deixou de ser só a
+                // lista de tarefas quando ganhou o estado da conta em cima.
                 Text(
-                    "missões",
+                    "sua jornada",
                     style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
                 )
                 Spacer(Modifier.weight(1f))
                 BotaoFechar(onClose)
             }
             HairRule()
+
+            // CARTÃO DENTRO DO CARTÃO: o estado da conta mora num degrau acima do
+            // painel, e é o que separa "quem você é aqui" da lista do que falta
+            // fazer — sem precisar de traço entre os dois.
+            EstadoDaConta(me, progresso, visualXp)
 
             val p = painel
             if (p == null) {
@@ -171,6 +187,79 @@ fun MissoesOverlay(onClose: () -> Unit) {
                 Secao("conquistas", "não expiram")
                 p.conquistas.itens.forEachIndexed { i, m -> LinhaDeMissao(m, depoisDaSemana + i) }
             }
+        }
+    }
+}
+
+// O estado da conta: quem você é, em que nível está e quanto falta pro próximo.
+//
+// O anel em volta da foto é o MESMO do rodapé (anelDeXp + rememberVisualDeXp), e
+// isso importa: a pessoa vê aquele anel o dia inteiro no canto da tela sem saber
+// o que ele mede. Aqui ele aparece grande, ao lado do número — é onde o anel
+// finalmente se explica.
+//
+// A barra embaixo repete a mesma fração de propósito. O anel é bonito e vago; a
+// barra com "340 / 500" é a leitura exata. Quem quer sentir olha o anel, quem
+// quer saber lê a barra.
+@Composable
+private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDeXp) {
+    val nome = me?.displayName ?: me?.username ?: "você"
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.anelDeXp(
+                fracao = visual.fracao,
+                aceso = visual.aceso,
+                varredura = visual.varredura,
+                cor = Obsidian.accent,
+                trilho = Obsidian.borderDim,
+                espessura = 2.5.dp,
+            ),
+        ) {
+            DesktopAvatar(me?.avatarUrl, nome, 44)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                nome,
+                style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                "nível ${p.nivel} · ${p.xp} de brilho acumulado",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                maxLines = 1,
+            )
+            Spacer(Modifier.height(8.dp))
+            // Trilho fino, do mesmo vocabulário da barra do gate de boot.
+            val fracao = fracaoDe(p)
+            Canvas(Modifier.fillMaxWidth().height(3.dp)) {
+                val r = CornerRadius(size.height / 2f)
+                drawRoundRect(color = Obsidian.void, size = size, cornerRadius = r)
+                val w = (size.width * fracao).coerceIn(0f, size.width)
+                if (w > 0f) {
+                    drawRoundRect(
+                        color = Obsidian.accent,
+                        size = androidx.compose.ui.geometry.Size(w, size.height),
+                        cornerRadius = r,
+                    )
+                }
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "${p.noNivel} / ${p.paraOProximo} para o nível ${p.nivel + 1}",
+                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                maxLines = 1,
+            )
         }
     }
 }

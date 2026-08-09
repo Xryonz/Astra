@@ -208,8 +208,8 @@ fun ProfileCard(
                         val fecharSrc = remember { MutableInteractionSource() }
                         Box(
                             Modifier
-                                .clickScale(fecharSrc, formaDoFoco = CircleShape)
-                                .clip(CircleShape)
+                                .clickScale(fecharSrc, formaDoFoco = FormaDeBotao)
+                                .clip(FormaDeBotao)
                                 .background(Obsidian.void.copy(alpha = 0.5f))
                                 .clickable(interactionSource = fecharSrc, indication = null) { aoFechar() },
                             contentAlignment = Alignment.Center,

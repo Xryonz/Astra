@@ -23,6 +23,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,6 +68,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.focusable
@@ -80,6 +82,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -126,6 +129,7 @@ import app.astra.desktop.shell.ShellVm
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutSoft
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Ban
 import com.composables.icons.lucide.Archive
@@ -1233,6 +1237,7 @@ private fun Rail(
                 RailItem(
                     active = selection is Selection.Dms,
                     onClick = { onSelect(Selection.Dms) },
+                    rotulo = "sussurros",
                 ) {
                     // Marca do Astra = a logo TRANSPARENTE (astra-glyph.png: so o planeta
                     // branco, sem quadrado de fundo), a mesma da tela de procura por update.
@@ -1392,6 +1397,7 @@ private fun Rail(
                 RailItem(
                     active = (selection as? Selection.Server)?.id == srv.id,
                     onClick = { onSelect(Selection.Server(srv.id)) },
+                    rotulo = srv.name,
                 ) {
                     if (!srv.iconUrl.isNullOrBlank()) {
                         AsyncImage(
@@ -1444,6 +1450,7 @@ private fun Rail(
                         RailItem(
                             active = selection is Selection.Discover,
                             onClick = { onSelect(Selection.Discover) },
+                            rotulo = "descobrir",
                         ) {
                             LIcon(Lucide.Compass, tint = Obsidian.accent, size = 20.dp, rotulo = "descobrir")
                         }
@@ -1474,7 +1481,13 @@ private fun CreateServerButton(
     // null = fechado; false = constelação; true = grupo.
     var kind by remember { mutableStateOf<Boolean?>(null) }
     Box {
-        RailItem(active = false, onClick = { menuOpen = true }) {
+        // Sem balao quando o menu esta aberto: o cartao do menu ja ocupa o lugar
+        // dele, e os dois juntos empilhariam duas superficies no mesmo ponto.
+        RailItem(
+            active = false,
+            onClick = { menuOpen = true },
+            rotulo = if (menuOpen) null else "adicionar",
+        ) {
             Text("+", style = TextStyle(color = Obsidian.accent, fontSize = 22.sp))
         }
         if (menuOpen) {
@@ -1567,10 +1580,92 @@ private fun DivisoriaDaRail() {
     Box(Modifier.width(24.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
 }
 
+// Atraso curto antes do balao: correr o mouse pela rail de cima a baixo nao pode
+// virar pisca-pisca. 90ms e o tempo que separa "passei por cima" de "parei aqui".
+private const val ATRASO_DO_BALAO_MS = 90L
+private const val ENTRADA_DO_BALAO_MS = 120
+
+// Balao do nome, a DIREITA do icone. Centrado na vertical do item, nao alinhado
+// pelo topo: o bico precisa apontar pro meio do icone pra dizer de quem fala.
+private class BalaoDaRail(private val margem: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset(
+        x = (anchorBounds.right + margem).coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0),
+        y = (anchorBounds.top + anchorBounds.height / 2 - popupContentSize.height / 2)
+            .coerceAtMost(windowSize.height - popupContentSize.height).coerceAtLeast(0),
+    )
+}
+
 @Composable
-private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+private fun BalaoDoNome(nome: String) {
+    val reduzir = LocalReduceMotion.current
+    val entrada = remember { Animatable(if (reduzir) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!reduzir) entrada.animateTo(1f, tween(ENTRADA_DO_BALAO_MS, easing = EaseOutStd))
+    }
+    val desliza = with(LocalDensity.current) { 6.dp.toPx() }
+    val forma = RoundedCornerShape(8.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        // graphicsLayer e nao alpha()/offset(): a leitura da animacao fica na fase
+        // de desenho, entao o balao entrando nao remede a rail inteira.
+        modifier = Modifier.graphicsLayer {
+            alpha = entrada.value
+            translationX = -(1f - entrada.value) * desliza
+        },
+    ) {
+        // Bico. Sem ele o cartao flutua solto ao lado da rail e nao diz a qual
+        // icone pertence — que e a unica informacao que ele existe pra dar.
+        Canvas(Modifier.size(width = 5.dp, height = 10.dp)) {
+            drawPath(
+                Path().apply {
+                    moveTo(size.width, 0f)
+                    lineTo(0f, size.height / 2f)
+                    lineTo(size.width, size.height)
+                    close()
+                },
+                Obsidian.overlay,
+            )
+        }
+        Text(
+            nome,
+            style = TextStyle(color = Obsidian.text1, fontSize = 12.5.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .widthIn(max = 220.dp)
+                .clip(forma)
+                .background(Obsidian.overlay)
+                .border(1.dp, Obsidian.borderDim, forma)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun RailItem(
+    active: Boolean,
+    onClick: () -> Unit,
+    rotulo: String? = null,
+    content: @Composable () -> Unit,
+) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    // O balao so nasce depois do atraso, e morre no instante em que o mouse sai —
+    // sair tem que ser imediato, senao o cartao persegue o cursor pela lista.
+    var balaoAberto by remember { mutableStateOf(false) }
+    LaunchedEffect(hovered) {
+        if (!hovered) {
+            balaoAberto = false
+        } else {
+            delay(ATRASO_DO_BALAO_MS)
+            balaoAberto = true
+        }
+    }
     // Quadrado de canto quebrado SEMPRE (pedido do dono). Antes o item nascia
     // circulo (22dp) e so virava quadrado no hover/ativo — o morph de forma fazia a
     // fila inteira parecer respirar quando o mouse passava de raspao. Agora a forma
@@ -1606,7 +1701,15 @@ private fun RailItem(active: Boolean, onClick: () -> Unit, content: @Composable 
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { content() }
+    ) {
+        content()
+        if (rotulo != null && balaoAberto) {
+            val margem = with(LocalDensity.current) { 10.dp.roundToPx() }
+            Popup(popupPositionProvider = remember(margem) { BalaoDaRail(margem) }) {
+                BalaoDoNome(rotulo)
+            }
+        }
+    }
 }
 
 // ---- Sidebar (260dp): órbitas da constelação OU sussurros + painel do user ----

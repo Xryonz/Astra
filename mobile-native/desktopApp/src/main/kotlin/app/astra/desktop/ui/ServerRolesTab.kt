@@ -614,12 +614,12 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
                                 Box(
                                     Modifier
                                         .size(28.dp)
-                                        .clip(CircleShape)
+                                        .clip(FormaDeBotao)
                                         .background(roleColor(hex) ?: Obsidian.text3)
                                         .border(
                                             if (active) 2.dp else 1.dp,
                                             if (active) Obsidian.text1 else Obsidian.borderDim,
-                                            CircleShape,
+                                            FormaDeBotao,
                                         )
                                         .clickable { onPick(hex); open = false },
                                 )

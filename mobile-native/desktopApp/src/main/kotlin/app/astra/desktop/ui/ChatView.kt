@@ -29,6 +29,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -72,6 +73,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -104,6 +106,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -762,60 +765,16 @@ private fun MessageRow(
             .hoverable(interaction),
     ) {
         val dens = LocalMsgDensity.current
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp)
-                .padding(top = if (grouped) dens.groupedTopDp.dp else dens.topDp.dp, bottom = 2.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            if (grouped) {
-                // Calha do avatar: hora exata aparece no hover.
-                Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
-                    if (hovered) {
-                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
-                }
-            } else {
-                // Clique no avatar abre o card de perfil (F3).
-                ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
-                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    msg.replyTo?.let { ref ->
-                        ReplyRef(ref, onJumpTo)
-                    }
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = msg.authorName,
-                            style = TextStyle(
-                                color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                // null (não escolheu fonte) fica com o padrao do chat —
-                                // profileFontFamily cairia no serif e mudaria TODO nome.
-                                fontFamily = msg.authorFont?.let { profileFontFamily(it) },
-                            ),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-                    }
-                    Spacer(Modifier.height(2.dp))
-                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
-                }
-            }
-        }
-
-        val density = LocalDensity.current
+        // A PILULA SEGUE O FIM DO TEXTO, e nao a borda direita do palco.
+        //
+        // Ela morava num Popup ancorado em TopEnd: um "oi" de dois caracteres tinha
+        // os botoes de responder e apagar a meia tela de distancia, sem nada ligando
+        // um ao outro. Agora ela e medida junto do conteudo (ver PilulaJuntoDoTexto)
+        // e encosta onde a mensagem acaba — grudando na borda direita so quando o
+        // texto de fato chega la.
         val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
-        if (showPill) {
-            Popup(
-                alignment = Alignment.TopEnd,
-                offset = with(density) { IntOffset(-10.dp.roundToPx(), (-12).dp.roundToPx()) },
-            ) {
+        val pilula: @Composable () -> Unit = {
+            if (showPill) {
                 // Entrada fade+subida; o MutableTransitionState nasce false e vira
                 // true na primeira composicao pra animação rodar.
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -839,6 +798,54 @@ private fun MessageRow(
                 }
             }
         }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+                .padding(top = if (grouped) dens.groupedTopDp.dp else dens.topDp.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            if (grouped) {
+                // Calha do avatar: hora exata aparece no hover.
+                Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
+                    if (hovered) {
+                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula) {
+                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
+                }
+            } else {
+                // Clique no avatar abre o card de perfil (F3).
+                ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
+                    DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
+                }
+                Spacer(Modifier.width(10.dp))
+                PilulaJuntoDoTexto(Modifier.weight(1f), pilula = pilula) {
+                    msg.replyTo?.let { ref ->
+                        ReplyRef(ref, onJumpTo)
+                    }
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = msg.authorName,
+                            style = TextStyle(
+                                color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                // null (não escolheu fonte) fica com o padrao do chat —
+                                // profileFontFamily cairia no serif e mudaria TODO nome.
+                                fontFamily = msg.authorFont?.let { profileFontFamily(it) },
+                            ),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
+                }
+            }
+        }
+
+        val density = LocalDensity.current
         if (pickerOpen) {
             Popup(
                 alignment = Alignment.TopEnd,
@@ -1353,6 +1360,48 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+// CONTEUDO DA MENSAGEM + PILULA DE ACOES, com a pilula ancorada no FIM DO TEXTO.
+//
+// Nao da pra fazer isso com Row comum: a pilula so aparece no hover, e um filho
+// que entra e sai do layout empurraria o texto — a mensagem inteira refluiria
+// debaixo do mouse. Aqui ela e medida FORA da faixa do conteudo e posicionada por
+// cima, entao aparecer e sumir nao move um pixel do texto.
+//
+// A regra de posicao e uma linha so: encosta no fim do texto; se nao couber, gruda
+// na borda direita. Mensagem curta ganha a pilula ao lado; mensagem que ocupa a
+// largura toda mantem o comportamento antigo, que ali e o unico possivel.
+@Composable
+private fun PilulaJuntoDoTexto(
+    modifier: Modifier = Modifier,
+    pilula: @Composable () -> Unit,
+    conteudo: @Composable ColumnScope.() -> Unit,
+) {
+    val densidade = LocalDensity.current
+    val respiro = with(densidade) { 8.dp.roundToPx() }
+    // Sobe um pouco pra montar na quina de cima do bloco, como estava no Popup.
+    val subida = with(densidade) { 10.dp.roundToPx() }
+    Layout(
+        contents = listOf({ Column(content = conteudo) }, pilula),
+        modifier = modifier,
+    ) { (medidosConteudo, medidosPilula), constraints ->
+        // minWidth = 0 E O PONTO. O pai e uma faixa de largura fixa (weight do Row);
+        // sem relaxar o minimo, a coluna nasce esticada ate a borda e "fim do texto"
+        // vira sempre "borda direita" — que e exatamente o defeito sendo corrigido.
+        val conteudoMedido = medidosConteudo.first().measure(constraints.copy(minWidth = 0))
+        val pilulaMedida = medidosPilula.firstOrNull()?.measure(Constraints())
+        val largura = constraints.maxWidth
+        layout(largura, conteudoMedido.height) {
+            conteudoMedido.place(0, 0)
+            if (pilulaMedida != null) {
+                val x = (conteudoMedido.width + respiro)
+                    .coerceAtMost(largura - pilulaMedida.width)
+                    .coerceAtLeast(0)
+                pilulaMedida.place(x, -subida)
+            }
+        }
     }
 }
 

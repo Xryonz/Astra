@@ -242,16 +242,16 @@ private fun ProfilePopupCard(
     }
 }
 
-// Acao redonda no canto do banner. Fundo escuro semitransparente porque ela
-// pousa sobre uma IMAGEM que pode ser de qualquer cor — sem o veu, um banner
-// claro engole o icone.
+// Acao no canto do banner. Fundo escuro semitransparente porque ela pousa sobre
+// uma IMAGEM que pode ser de qualquer cor — sem o veu, um banner claro engole o
+// icone.
 @Composable
 private fun AcaoRedonda(icone: ImageVector, rotulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     Box(
         Modifier
-            .clickScale(src, formaDoFoco = CircleShape)
-            .clip(CircleShape)
+            .clickScale(src, formaDoFoco = FormaDeBotao)
+            .clip(FormaDeBotao)
             .background(Obsidian.void.copy(alpha = 0.5f))
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,

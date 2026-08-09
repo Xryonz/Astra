@@ -431,10 +431,10 @@ fun SettingsScreen(
                         Box(
                             Modifier
                                 .size(30.dp)
-                                .clickScale(hov, formaDoFoco = CircleShape)
-                                .clip(CircleShape)
+                                .clickScale(hov, formaDoFoco = FormaDeBotao)
+                                .clip(FormaDeBotao)
                                 .background(if (h) Obsidian.hover else Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderMid, CircleShape)
+                                .border(1.dp, Obsidian.borderMid, FormaDeBotao)
                                 .hoverable(hov)
                                 .clickable(interactionSource = hov, indication = null, onClick = onClose),
                             contentAlignment = Alignment.Center,

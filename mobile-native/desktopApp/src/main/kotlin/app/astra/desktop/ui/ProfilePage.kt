@@ -311,10 +311,10 @@ private fun ColunaDeVinculos(
             Box(
                 Modifier
                     .size(28.dp)
-                    .clickScale(src, formaDoFoco = CircleShape)
-                    .clip(CircleShape)
+                    .clickScale(src, formaDoFoco = FormaDeBotao)
+                    .clip(FormaDeBotao)
                     .background(Obsidian.overlay)
-                    .border(1.dp, Obsidian.borderMid, CircleShape)
+                    .border(1.dp, Obsidian.borderMid, FormaDeBotao)
                     .clickable(interactionSource = src, indication = null, onClick = onFechar),
                 contentAlignment = Alignment.Center,
             ) {

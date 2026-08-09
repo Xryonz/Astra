@@ -203,9 +203,9 @@ fun ServerSettingsScreen(
                         Box(
                             Modifier
                                 .size(30.dp)
-                                .clip(CircleShape)
+                                .clip(FormaDeBotao)
                                 .background(if (h) Obsidian.hover else Obsidian.overlay)
-                                .border(1.dp, Obsidian.borderMid, CircleShape)
+                                .border(1.dp, Obsidian.borderMid, FormaDeBotao)
                                 .hoverable(hov)
                                 .clickable(onClick = onClose),
                             contentAlignment = Alignment.Center,

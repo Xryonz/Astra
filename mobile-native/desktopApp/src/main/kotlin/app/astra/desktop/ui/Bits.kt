@@ -110,6 +110,16 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 // No lugar do anel, o mouse ganha LUZ: um halo curto no accent atras do alvo
 // enquanto ele esta apertado. Halo em vez de borda porque borda desenha um limite
 // novo (mais uma linha na tela) e luz so ilumina o limite que ja existe.
+// FORMA DE TODO BOTAO DE ICONE DO APP: quadrado de pontas quebradas, nunca
+// circulo. O circulo sobrou de quando cada tela resolvia sozinha, e deixava o app
+// falando dois idiomas — o rail, o compositor e os menus ja eram 8dp; so os "X" de
+// fechar e as acoes de banner continuavam redondos.
+//
+// O que SEGUE redondo, e de proposito: foto de perfil, bolinha de status e anel de
+// XP (sao identidade, nao botao) e os controles de chamada, onde o circulo e
+// convencao universal — o vermelho redondo se le como "desligar" sem precisar ler.
+val FormaDeBotao = RoundedCornerShape(8.dp)
+
 @Composable
 fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,

@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -501,8 +500,8 @@ private fun RowIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector,
         Modifier
             .size(32.dp)
             .clickScale(src)
-            .clip(CircleShape)
-            .border(1.dp, Obsidian.borderDim, CircleShape)
+            .clip(FormaDeBotao)
+            .border(1.dp, Obsidian.borderDim, FormaDeBotao)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

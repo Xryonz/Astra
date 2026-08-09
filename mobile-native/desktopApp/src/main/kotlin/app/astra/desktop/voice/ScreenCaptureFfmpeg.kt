@@ -63,6 +63,11 @@ class ScreenCaptureFfmpeg(
     private var previewNative: NativeI420Buffer? = null       // reusado por resolucao
     private var previewNativeW = 0
     private var previewNativeH = 0
+    // Anel do caminho da TRANSMISSAO (ver pushI420). So a thread de captura toca.
+    private val anel = arrayOfNulls<NativeI420Buffer>(3)
+    private var anelIdx = 0
+    private var anelW = 0
+    private var anelH = 0
     private var smallI420 = ByteArray(0)                      // I420 ja reduzido (Metodo B)
     private val argbBufs = arrayOf(ByteArray(0), ByteArray(0)) // saida já reduzida (2 buffers)
     private var argbIdx = 0
@@ -99,6 +104,10 @@ class ScreenCaptureFfmpeg(
                 pushI420(buf, width, height)
                 firstFrame.countDown()
             }
+            // O anel e liberado AQUI, pela thread que o criou e a unica que o usa.
+            // Fazer isso no stop() seria soltar memoria nativa que este laco ainda
+            // pode estar preenchendo — e ai nao e quadro rasgado, e fechar do nada.
+            liberarAnel()
         }, "ffmpeg-cap").apply { isDaemon = true; start() }
 
         // Thread de preview: converte o I420 mais recente em ARGB fora do caminho
@@ -135,10 +144,30 @@ class ScreenCaptureFfmpeg(
     }
 
     // yuv420p do ffmpeg (Y | U | V empacotados) -> NativeI420Buffer (respeitando o
-    // stride nativo) -> VideoFrame -> pushFrame. Ref-count no idioma do webrtc-java:
-    // a VideoFrame assume o ref do buffer; release() dela solta tudo depois do push.
+    // stride nativo) -> VideoFrame -> pushFrame.
+    //
+    // ANEL DE TRES BUFFERS, no lugar de um NativeI420Buffer.allocate() por quadro.
+    // A 60fps em 720p aquilo era um malloc nativo de 1,4MB sessenta vezes por
+    // segundo — 83MB/s de aloca-e-libera que o alocador nativo nunca devolve todo
+    // ao sistema. Agora sao tres blocos vivos e nada mais.
+    //
+    // POR QUE TRES, e nao dois nem dez: o webrtc segura no maximo DOIS quadros de
+    // cada vez (um esperando na fila do encoder, um sendo codificado — o
+    // VideoStreamEncoder descarta o pendente velho quando chega outro). Tres da
+    // exatamente um de folga. Reusar o buffer que o encoder ainda le produziria um
+    // quadro rasgado, com dois instantes misturados.
+    //
+    // E o dimensionamento TEM que vir desse raciocinio porque a lib nao deixa
+    // perguntar: RefCountedObject expoe retain() e release(), e nada que diga
+    // "quantos ainda seguram isto" (o pool do proprio libwebrtc usa HasOneRef, que
+    // o binding Java nao publica).
+    //
+    // Ref-count: o buffer nasce com uma referencia NOSSA, que o anel guarda ate o
+    // stop(). O retain() antes de cada VideoFrame paga a referencia que ela vai
+    // consumir no release() depois do push. Sem ele, o primeiro quadro liberaria a
+    // memoria embaixo do anel — e ai nao seria quadro rasgado, seria fechar do nada.
     private fun pushI420(src: ByteArray, w: Int, h: Int) {
-        val buffer = NativeI420Buffer.allocate(w, h)
+        val buffer = bufferDoAnel(w, h) ?: return
         val frame = try {
             val cW = w / 2
             val cH = h / 2
@@ -148,9 +177,9 @@ class ScreenCaptureFfmpeg(
             copyPlane(src, ySize, cW, buffer.dataU, buffer.strideU, cW, cH)
             copyPlane(src, ySize + cSize, cW, buffer.dataV, buffer.strideV, cW, cH)
             handoffPreview(src, w, h)
+            buffer.retain()
             VideoFrame(buffer, System.nanoTime())
         } catch (t: Throwable) {
-            runCatching { buffer.release() }
             return
         }
         try {
@@ -158,6 +187,31 @@ class ScreenCaptureFfmpeg(
         } finally {
             runCatching { frame.release() }
         }
+    }
+
+    // Proximo slot do anel. Troca de resolucao (o dono mudou o preset no meio da
+    // transmissão) joga o anel inteiro fora: buffer de tamanho errado nao se
+    // reaproveita, e manter os antigos vivos seria segurar memoria que nao serve
+    // mais pra nada.
+    private fun bufferDoAnel(w: Int, h: Int): NativeI420Buffer? {
+        if (anelW != w || anelH != h) {
+            liberarAnel()
+            anelW = w; anelH = h
+        }
+        val i = anelIdx
+        anelIdx = (anelIdx + 1) % anel.size
+        anel[i]?.let { return it }
+        val novo = runCatching { NativeI420Buffer.allocate(w, h) }.getOrNull() ?: return null
+        anel[i] = novo
+        return novo
+    }
+
+    private fun liberarAnel() {
+        for (i in anel.indices) {
+            anel[i]?.let { runCatching { it.release() } }
+            anel[i] = null
+        }
+        anelIdx = 0
     }
 
     // NA thread de captura: barato. Throttle com tolerancia (90% do intervalo), copia
@@ -270,7 +324,19 @@ class ScreenCaptureFfmpeg(
         }
     }
 
+    // Copia um plano respeitando o stride do destino.
+    //
+    // Caminho rapido quando os dois strides sao a propria largura (o caso comum: o
+    // ffmpeg entrega empacotado e o webrtc costuma alinhar em w): o plano inteiro vai
+    // num put so, em vez de 720 chamadas de put + position por quadro. Sao ~2200
+    // travessias de ByteBuffer a menos por quadro em 720p, 130 mil por segundo a
+    // 60fps. Mesmos bytes no destino — nao ha diferenca de imagem, so de caminho.
     private fun copyPlane(src: ByteArray, srcOff: Int, srcStride: Int, dst: ByteBuffer, dstStride: Int, w: Int, h: Int) {
+        if (srcStride == w && dstStride == w) {
+            dst.position(0)
+            dst.put(src, srcOff, w * h)
+            return
+        }
         var s = srcOff
         for (row in 0 until h) {
             dst.position(row * dstStride)

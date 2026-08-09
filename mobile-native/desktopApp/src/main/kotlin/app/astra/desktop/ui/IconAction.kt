@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,7 +134,8 @@ fun BotaoIcone(
             }
         }
         if (mostrarDica && !ocupado) {
-            Popup(popupPositionProvider = AbaixoCentralizado) {
+            val margem = with(LocalDensity.current) { 6.dp.roundToPx() }
+            Popup(popupPositionProvider = remember(margem) { AbaixoCentralizado(margem) }) {
                 Box(
                     Modifier
                         .popupReveal(originX = 0.5f, originY = 0f)
@@ -152,7 +154,11 @@ fun BotaoIcone(
     }
 }
 
-private object AbaixoCentralizado : PopupPositionProvider {
+// `calculatePosition` fala PIXEL, nao dp — e o `margem` chega ja convertido pelo
+// chamador. Somar 6 cru dava ~4dp numa tela a 150% e ~3dp a 200%: o respiro
+// encolhia justamente onde a tela e maior e a dica encosta no botao. Mesmo
+// tropeco do cartao de perfil, que ja foi consertado uma vez.
+private class AbaixoCentralizado(private val margem: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -163,9 +169,9 @@ private object AbaixoCentralizado : PopupPositionProvider {
             .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
         // Abaixo por padrao; se nao couber, vira pra cima — a fileira do banner fica
         // perto do fim do painel e a dica sairia da janela.
-        val abaixo = anchorBounds.bottom + 6
+        val abaixo = anchorBounds.bottom + margem
         val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
-        else (anchorBounds.top - popupContentSize.height - 6).coerceAtLeast(0)
+        else (anchorBounds.top - popupContentSize.height - margem).coerceAtLeast(0)
         return IntOffset(x, y)
     }
 }

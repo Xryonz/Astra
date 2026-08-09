@@ -795,6 +795,23 @@ private fun MessageRow(
                         onDelete = { confirmDelete = true },
                         modifier = Modifier.hoverable(pillInteraction),
                     )
+                    // O SELETOR DE EMOJI ANCORA NA PILULA, e nao mais na linha.
+                    //
+                    // Enquanto a pilula vivia colada na direita, "abaixo da linha, a
+                    // direita" e "abaixo do botao" eram o mesmo lugar. Agora que ela
+                    // segue o texto, ancorar na linha abriria o painel longe do botao
+                    // que o chamou — e o painel tem que sair de onde se clicou.
+                    if (pickerOpen) {
+                        Popup(
+                            popupPositionProvider = SobOAlvo,
+                            onDismissRequest = { pickerOpen = false },
+                            properties = PopupProperties(focusable = true),
+                        ) {
+                            PopupReveal(originX = 0f, originY = 0f) {
+                                ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -845,20 +862,25 @@ private fun MessageRow(
             }
         }
 
-        val density = LocalDensity.current
-        if (pickerOpen) {
-            Popup(
-                alignment = Alignment.TopEnd,
-                offset = with(density) { IntOffset(-10.dp.roundToPx(), 24.dp.roundToPx()) },
-                onDismissRequest = { pickerOpen = false },
-                properties = PopupProperties(focusable = true),
-            ) {
-                PopupReveal(originX = 1f, originY = 0f) {
-                    ReactionPicker(onPick = { emoji -> onReact(emoji); pickerOpen = false })
-                }
-            }
-        }
     }
+    }
+}
+
+// Logo abaixo do alvo, alinhado pela esquerda dele, preso dentro da janela nos
+// dois eixos. Se nao couber embaixo (mensagem no pe da conversa), sobe pra cima.
+private object SobOAlvo : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = anchorBounds.left
+            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val abaixo = anchorBounds.bottom + 6
+        val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
+        else (anchorBounds.top - popupContentSize.height - 6).coerceAtLeast(0)
+        return IntOffset(x, y)
     }
 }
 

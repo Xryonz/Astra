@@ -1,7 +1,10 @@
 {
   "name": "astra",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "predev": "node scripts/predev.mjs",
     "dev": "npm run build -w packages/types && concurrently \"npm run dev -w apps/web\" \"npm run dev -w apps/api\"",

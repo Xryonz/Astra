@@ -18,6 +18,7 @@ import { getMuteExpiry, isUserMuted, muteUser, trackMessage } from '../lib/spamD
 import { getBotId } from '../lib/bot'
 import { notify } from '../lib/notifications'
 import { PERMS, getMemberPerms, userCanSeeChannel } from '../lib/permissions'
+import { primeiroAnexoNaoPermitido } from '../lib/storage'
 import { AUDIT, audit } from '../lib/audit'
 import { safeParsePoll } from './polls'
 import { messagesSentTotal } from '../lib/metrics'
@@ -291,6 +292,10 @@ export function createMessagesRouter(io: SocketServer) {
           })
         }
       }
+
+      // Anexo so aponta pro armazenamento do app ou pra CDN de GIF (ver storage.ts).
+      const anexoRuim = primeiroAnexoNaoPermitido(Array.isArray(attachments) ? attachments : [])
+      if (anexoRuim) return res.status(400).json({ error: `Anexo com URL não permitida: ${anexoRuim}` })
 
       const attachmentsJson = JSON.stringify(Array.isArray(attachments) ? attachments.slice(0, 10) : [])
       const expiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null

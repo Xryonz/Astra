@@ -13,6 +13,7 @@ import { notify } from '../lib/notifications'
 import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { haBloqueio } from '../lib/blocks'
+import { primeiroAnexoNaoPermitido } from '../lib/storage'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
@@ -305,6 +306,12 @@ export function createDMRouter(io: SocketServer) {
     asyncHandler(async (req: Request, res: Response) => {
       const { conversationId } = req.params
       const { content, attachments = [], replyToId, ttlSeconds } = req.body as z.infer<typeof SendDMSchema>
+
+      // Anexo so aponta pro armazenamento do app ou pra CDN de GIF (ver storage.ts).
+      // No sussurro isto pesa mais que no canal: sao duas pessoas, entao uma URL
+      // externa entrega o IP e o horario de leitura de UMA pessoa especifica.
+      const anexoRuim = primeiroAnexoNaoPermitido(attachments)
+      if (anexoRuim) return res.status(400).json({ error: `Anexo com URL não permitida: ${anexoRuim}` })
 
       const [conv] = await db.select().from(dmConversations)
         .where(and(

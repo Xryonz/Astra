@@ -84,6 +84,52 @@ export function isOwnStorageUrl(url: string | null | undefined): boolean {
   catch { return false }
 }
 
+// Hosts de GIF que o PROPRIO app oferece. O seletor de GIF devolve a URL da CDN
+// do Giphy e o cliente manda ela como anexo — entao "so armazenamento proprio"
+// quebraria o recurso. Estes sao os unicos terceiros aceitos.
+const CDN_DE_GIF = ['giphy.com', 'media.giphy.com']
+
+// ANEXO SO PODE APONTAR PRA ONDE O APP CONHECE.
+//
+// O AttachmentSchema aceita qualquer http(s), e anexo e a unica coisa que o
+// cliente manda e todo mundo na conversa BAIXA sozinho. Com URL livre, mandar uma
+// mensagem com anexo apontando pro seu proprio servidor entrega, de graca, o IP e
+// o horario de leitura de cada pessoa da sala — o velho pixel de rastreio, so que
+// dentro de um sussurro. E a URL pode servir uma imagem hoje e outra coisa amanha,
+// porque quem hospeda e o remetente.
+//
+// Por isso a checagem e de HOST e nao de extensao: o que importa nao e o que o
+// arquivo parece ser, e sim quem responde por ele.
+export function urlDeAnexoPermitida(url: string | null | undefined): boolean {
+  if (!url) return false
+  if (isOwnStorageUrl(url)) return true
+  try {
+    const { hostname, protocol } = new URL(url)
+    if (protocol !== 'https:') return false
+    return CDN_DE_GIF.some((h) => hostname === h || hostname.endsWith(`.${h}`))
+  } catch { return false }
+}
+
+// Devolve a primeira URL reprovada (pra mensagem de erro dizer QUAL), ou null.
+export function primeiroAnexoNaoPermitido(
+  anexos: ReadonlyArray<{ url?: string; thumbUrl?: string }> | undefined,
+): string | null {
+  for (const a of anexos ?? []) {
+    if (!urlDeAnexoPermitida(a.url)) return a.url ?? '(vazia)'
+    if (a.thumbUrl && !urlDeAnexoPermitida(a.thumbUrl)) return a.thumbUrl
+  }
+  return null
+}
+
+// So imagem/video/audio abrem no navegador; o resto BAIXA. O serving local ja
+// fazia isso (Content-Disposition no express.static do /uploads), mas o bucket
+// nao — e o bucket e o caminho de producao. Sem isto, o mesmo arquivo que o
+// caminho local se recusa a renderizar abre inline quando vem do S3.
+function abreInline(mime: string): boolean {
+  const base = mime.split(';')[0].trim().toLowerCase()
+  return base.startsWith('image/') || base.startsWith('video/') || base.startsWith('audio/')
+}
+
 export async function putAttachment(key: string, body: Buffer, mime: string): Promise<string> {
   if (s3) {
     await s3.send(new PutObjectCommand({
@@ -91,6 +137,7 @@ export async function putAttachment(key: string, body: Buffer, mime: string): Pr
       Key: key,
       Body: body,
       ContentType: mime,
+      ...(abreInline(mime) ? {} : { ContentDisposition: 'attachment' }),
 
       CacheControl: 'public, max-age=31536000, immutable',
     }))

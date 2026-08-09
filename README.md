@@ -1,38 +1,118 @@
 # Astra
 
-Plataforma de mensagens em tempo real — editorial-dark, anti-Discord. Servidores, canais, DMs, voz, threads, reações, bookmarks, mentions, push notifications.
+Plataforma de mensagens em tempo real — editorial-dark, anti-Discord. Constelações
+(servidores), órbitas (canais), sussurros (DMs), voz e vídeo, cargos, reações,
+enquetes, busca, notificações, XP e missões.
 
-Dois clientes sobre a mesma API: **web** (React) e **app nativo Android** (Kotlin/Compose, em `mobile-native/`).
+**Três clientes sobre uma API só:**
+
+| Cliente | Onde | Stack | Estado |
+|---|---|---|---|
+| **Desktop** | `mobile-native/desktopApp` | Kotlin · Compose Multiplatform/JVM | **fase ativa** |
+| **Android** | `mobile-native/app` | Kotlin · Jetpack Compose | em produção, atrás do desktop |
+| **Web** | `apps/web` | React 19 · Vite | congelado, serve de referência de paridade |
+
+O desktop é onde o trabalho acontece hoje. O web ficou congelado depois de servir
+de mapa: o que ele já resolvia virou o alvo de paridade dos clientes nativos.
 
 ---
 
 ## Stack
 
-**Frontend** (`apps/web`)
-- React 19 · Vite 8 · TypeScript 5.4
-- Tailwind v4 · shadcn/ui (Radix) · motion/react
+**Backend** (`apps/api`) — 35 grupos de rota
+- Express 4 · TypeScript · Drizzle ORM 0.45
+- PostgreSQL (Neon) · Redis (Upstash, presença + cache) · Socket.io (realtime)
+- LiveKit (voz/vídeo) · armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
+- IA da bot: Groq (Gemini como alternativa; `IA_PROVIDER` desempata)
+
+**Desktop** (`mobile-native/desktopApp`) — a fase ativa
+- Kotlin 2.3 · Compose Multiplatform 1.11 · janela sem moldura (título próprio)
+- **Koin** (DI) · Retrofit/OkHttp · kotlinx.serialization · Coroutines/Flow
+- **webrtc-java** — voz e transmissão de tela nativas, sem LiveKit no desktop
+- Coil3 · socket.io-client · JNA (bandeja, atalho, prioridade) · RikkaUI · Haze · Lucide
+- Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
+
+**Android** (`mobile-native/app`)
+- Kotlin 2.3 · Jetpack Compose · Material3 (minSdk 24 · compileSdk 36)
+- Hilt (DI/KSP) · Room (cache offline-first) · DataStore · Baseline Profile
+- LiveKit Android · FCM (push)
+
+**Web** (`apps/web`, congelado)
+- React 19 · Vite 8 · TypeScript · Tailwind v4 · shadcn/ui · motion/react
 - Zustand · React Query 5 · React Router 6
 
-**Backend** (`apps/api`)
-- Express 4 · TypeScript · Drizzle ORM 0.45
-- PostgreSQL · Redis (ioredis) · Socket.io · LiveKit
+**Monorepo:** npm workspaces · `packages/types` (Zod compartilhado). O projeto
+nativo é um build Gradle à parte em `mobile-native/`.
 
-**Mobile — nativo Android** (`mobile-native`)
-- Kotlin 2.3 · Jetpack Compose · Material3 (minSdk 24 · compileSdk 36)
-- Hilt (DI/KSP) · Room (cache offline-first) · DataStore
-- Retrofit · OkHttp · kotlinx.serialization · Coroutines
-- Coil3 (imagens, GIF/WebP animado) · Socket.io client (realtime) · LiveKit Android (voz/vídeo)
-- FCM (push) · RikkaUI · Lucide · Haze (blur)
+> **`:shared` não é KMP.** Apesar do nome, ele tem só o source set `main`, é
+> Kotlin/JVM puro e carrega apenas a camada de rede (`core/network`) e os DTOs.
+> **A UI não é compartilhada** entre Android e desktop — cada um tem as próprias
+> telas. Paridade entre eles é reescrita, não reuso; planejar como se fosse reuso
+> já custou tempo aqui.
 
-**Monorepo:** npm workspaces · `packages/types` (Zod compartilhado). O app nativo é um projeto Gradle à parte em `mobile-native/`.
+**Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Neon ·
+Redis → Upstash · voz → LiveKit Cloud · arquivos → bucket S3.
 
-**Hospedagem:** front → Vercel · API → Render (US East) · Postgres → Neon · Redis → Upstash.
+---
+
+## O que o app faz
+
+**Conversa**
+Órbitas de texto e de voz, categorias, sussurros (DM), grupos, respostas, edição,
+menções com `@` e autocomplete, reações, enquetes, GIFs, figurinhas por
+constelação, emojis, anexos com prévia e lightbox, marcadores, busca global,
+histórico de destinos, tradução, fixar mensagem e menus de botão-direito em tudo.
+
+**Voz e vídeo**
+Sala de voz por órbita com antessala, chamada de voz e vídeo dentro do sussurro
+com registro no histórico ("Chamada perdida", "Chamada de 12 min"), transmissão
+de tela, painel flutuante da call ao navegar, soundboard por constelação.
+
+**Pessoas**
+Amigos com pedidos nos dois sentidos, presença ao vivo (online/ausente/ocupado/
+invisível), bloqueio, perfil com avatar, banner, pronomes, bio, recado, cor e
+fonte próprias, recorte de imagem embutido, cartão de perfil completo, cargos com
+cores/hierarquia/permissões, banimentos, convites e prévia de convite.
+
+**Descoberta e chegada**
+Descobrir constelações públicas, entrada por convite, onboarding com checklist de
+primeiros passos, constelação nova nasce povoada.
+
+**Sinal**
+Notificações com painel, badge, marcar tudo como lido e limpar histórico,
+silenciar por canal e por constelação, não-lidos com contagem, push (Android).
+
+**Progressão**
+XP por mensagem e por tempo em call, níveis com anel em volta da foto, missões
+com aviso, distintivos.
+
+**Casa da máquina (desktop)**
+Auto-update por zip-swap com verificação SHA-256, bandeja do sistema, atalho no
+menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede e permissões,
+configurações com prévia ao vivo por aba, aparência (aurora, estrelas, ou as
+duas), 18 cores de acento, três níveis de gráficos, modo de reduzir movimento.
+
+---
+
+## Acessibilidade
+
+Não é item de backlog aqui — é regra de aceite pra tela nova:
+
+- Todo botão só-ícone tem nome pro leitor de tela.
+- Foco de teclado é sempre visível, e o anel só aparece na navegação por teclado
+  (o equivalente ao `:focus-visible` da web) — clicar com o mouse não desenha anel.
+- Alvo de clique mínimo de 24dp; o padrão do app é 26–34dp.
+- Toda animação respeita "reduzir movimento". O app cobre **WCAG 2.3.3 (AAA)**.
+- Contraste mira **AA, não AAA**: passar do ponto produz halação, que cansa em
+  sessão longa à noite — que é o uso real.
+- Windows: o leitor de tela enxerga via Java Access Bridge, então o módulo
+  `jdk.accessibility` precisa continuar no empacotamento.
 
 ---
 
 ## Setup local
 
-Requer Node 20+, PostgreSQL e Redis rodando.
+Requer Node 20+, PostgreSQL e Redis. Pro desktop, JDK 21.
 
 ```bash
 # 1. Instalar deps
@@ -51,65 +131,102 @@ npm run dev
 
 Front em `http://localhost:5173` · API em `http://localhost:3001`.
 
+**Desktop:**
+
+```bash
+cd mobile-native
+./gradlew :desktopApp:run                  # roda
+./gradlew :desktopApp:compileKotlin        # só compila (checagem rápida)
+./gradlew :desktopApp:zipDistributable     # zip distribuível
+```
+
+**Android:**
+
+```bash
+cd mobile-native
+./gradlew :app:assembleDebug
+```
+
 ---
 
 ## Deploy
 
-### Frontend → Vercel
+### Web → Vercel
 
 1. New Project → Import repo
-2. Root Directory: deixe na raiz (vercel.json no root cuida)
+2. Root Directory: deixe na raiz (`vercel.json` na raiz cuida)
 3. Environment Variables:
-   - `VITE_API_URL` = URL pública da API Render (sem barra final)
+   - `VITE_API_URL` = URL pública da API no Render (sem barra final)
    - `VITE_SENTRY_DSN` (opcional)
 4. Deploy
 
-`vercel.json` já configura: `npm run build:web` → `apps/web/dist` + SPA rewrites + cache headers pra assets.
+`vercel.json` já configura: `npm run build:web` → `apps/web/dist` + SPA rewrites +
+cache headers pra assets.
 
-### Backend → Render (+ Neon + Upstash)
+### API → Render (+ Neon + Upstash)
 
-Postgres e Redis são serviços externos (Neon e Upstash), não add-ons do Render.
+Postgres e Redis são serviços externos, não add-ons do Render.
 
 1. Neon → cria um Postgres, copia a connection string → `DATABASE_URL`
 2. Upstash → cria um Redis, copia a URL (TLS `rediss://`) → `REDIS_URL`
 3. Render → New Web Service → conecta o repo
    - Build Command: `npm run build:api`
    - Start Command: `npm run start:api`
-   - Auto-Deploy: **On** (senão os pushes não sobem sozinhos)
-4. Environment Variables (ver `apps/api/.env.example` pra lista completa):
+   - Auto-Deploy: **On** (senão os pushes não sobem sozinhos — isso já custou
+     uma caçada a um bug que estava corrigido no código e não no ar)
+4. Environment Variables (lista completa em `apps/api/.env.example`):
    - `DATABASE_URL` (Neon) · `REDIS_URL` (Upstash)
-   - `JWT_ACCESS_SECRET` + `JWT_REFRESH_SECRET` (gere com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
+   - `JWT_ACCESS_SECRET` + `JWT_REFRESH_SECRET`
+     (gere com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
    - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
-   - `CLIENT_URL` = URL do front Vercel (sem barra final)
+   - `CLIENT_URL` = URL do web na Vercel (sem barra final)
    - `API_URL` = URL pública desta API (sem barra final)
 
-Sem passo de migration: o schema é garantido no boot por `ensureSchema` (idempotente).
+Sem passo de migration: o schema é garantido no boot por `ensureSchema`
+(DDL idempotente).
+
 O plano free dorme após ~15min sem tráfego — mantenha vivo com um pinger externo
 (ex: cron-job.org) batendo em **`/live`**.
 
-> Aponte o pinger pro `/live`, **não** pro `/health`. O `/health` consulta Postgres e Redis a cada
-> chamada: pingado de minuto em minuto ele impede o Neon de autossuspender e queima a cota de
-> compute do plano free (erro `53000: exceeded the compute time quota`, que derruba o deploy).
-> `/live` só responde uptime — segura o Render acordado sem tocar no banco.
+> Aponte o pinger pro `/live`, **não** pro `/health`. O `/health` consulta Postgres
+> e Redis a cada chamada: pingado de minuto em minuto ele impede o Neon de
+> autossuspender e queima a cota de compute do plano free (erro `53000: exceeded
+> the compute time quota`, que derruba o deploy). `/live` só responde uptime —
+> segura o Render acordado sem tocar no banco.
+
+### Desktop → GitHub Releases
+
+Publicar é **só subir a versão**. Não há tag pra criar nem zip pra arrastar:
+
+1. `mobile-native/desktopApp/build.gradle.kts` → `astraVersion = "x.y.z"`
+2. commit + push na `main`
+
+O workflow `desktop-release.yml` monta o zip, calcula o SHA-256, cria a tag
+`desktop-v<versão>` e publica o asset `Astra-<versão>-win-x64.zip`. O app procura
+sozinho, confere o hash e troca os arquivos na próxima abertura.
+
+> O app minimiza pra bandeja em vez de fechar. Pra testar um build novo, use
+> **Sair** na bandeja e reabra — fechar a janela não encerra o processo.
 
 ### Pós-deploy
 
-1. Atualizar `CLIENT_URL` na API com URL Vercel
-2. Atualizar `VITE_API_URL` no Vercel com URL Railway
-3. Em Google Console: adicionar `https://<vercel-url>/auth/callback` em "Authorized redirect URIs"
+1. `CLIENT_URL` na API = URL da Vercel
+2. `VITE_API_URL` na Vercel = URL do Render
+3. Google Console: adicionar `https://<vercel-url>/auth/callback` em
+   "Authorized redirect URIs"
 
 ---
 
 ## Scripts úteis
 
 ```bash
-npm run dev          # front + api juntos (com predev hook)
+npm run dev          # web + api juntos (com predev hook)
 npm run dev:fast     # mesmo, sem predev (skip migrate + port check)
 npm run build        # build types + api + web
 npm run build:api    # só API
-npm run build:web    # só front
+npm run build:web    # só web
 npm run test:e2e     # playwright smoke + mobile
-npm run db:migrate   # rodar migrations Drizzle
+npm run db:migrate   # migrations Drizzle
 
 # API workspace
 npm test -w apps/api          # vitest
@@ -118,29 +235,55 @@ npm run db:studio -w apps/api # Drizzle Studio
 
 ---
 
-## Stack opcionais
+## Variáveis opcionais
 
-API roda com qualquer um destes vazio (feature fica off em fallback):
+A API sobe com qualquer uma destas vazia — a funcionalidade fica desligada em
+fallback, e não quebra o boot:
 
-- `LIVEKIT_*` — sem isso, voz/vídeo off
-- `ANTHROPIC_API_KEY` — sem isso, bot/AI off
-- `GIPHY_API_KEY` — sem isso, picker GIF escondido
-- `VAPID_*` — sem isso, push notifications off
+- `LIVEKIT_*` — sem isso, voz/vídeo off no web e no Android
+- `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
+- `S3_*` / `R2_*` — sem isso, o upload cai pro disco local (`storageMode = local`)
+- `BREVO_API_KEY` + `MAIL_FROM` — sem isso, e-mail off
+- `GIPHY_API_KEY` — sem isso, o seletor de GIF some
+- `VAPID_*` — sem isso, push off
 - `SENTRY_DSN` — sem isso, sem error tracking
-- `METRICS_TOKEN` — sem isso, `/metrics` retorna 404 em prod
-
----
-
-## Em desenvolvimento
-
-- **App nativo Android** (`mobile-native/`) — cliente 100% nativo em Kotlin + Jetpack Compose, substituindo o wrapper Capacitor anterior. Foco atual: paridade completa com o web (rail de constelações, canais, voz, perfil, descobrir) e performance Discord-tier (baseline profile, offline-first via Room).
-- **App desktop** — próximo passo depois do mobile: Compose Multiplatform (KMP), reaproveitando a camada de UI/domínio do Android.
-- **Config do usuário** — tema e fonte de texto configuráveis (hoje o texto sai branco/neutro por padrão).
+- `METRICS_TOKEN` — sem isso, `/metrics` responde 404 em produção
 
 ---
 
 ## Design
 
-Editorial-dark "obsidiana" · accent customizável (18 cores) · dark-only por design · ShadCN como camada primitiva apenas · DM Serif Display + DM Sans + DM Mono + Great Vibes.
+Editorial-dark "obsidiana", dark-only por escolha. O acento de fábrica é
+**branco** (`#D4D8E0`, preset "Obsidiana") — âmbar é uma opção entre 18, não o
+padrão. O fundo padrão é liso; aurora e estrelas são escolha em
+*Aparência › Fundo*, e dá pra ligar as duas.
 
-Veja `apps/web/src/index.css` pra paleta completa de tokens.
+Três regras carregam o resto:
+
+1. **Cartão dentro de cartão.** Conteúdo se separa por aninhamento de superfície,
+   não por linha divisória. Traço de borda a borda lê como grade de tabela; quando
+   um separador é mesmo necessário, ele é curto e centralizado.
+2. **Hierarquia por elevação, não por cor.** A rampa `void → base → raised →
+   overlay → hover → active` é a ferramenta principal de "isto importa mais". Cor
+   entra por último e em pouca área — o acento nunca vira fundo.
+3. **Movimento com orçamento.** Movimento é sinal, não enfeite: gasta-se nos
+   eventos que importam (mensagem nova, alguém entrando na call, entrada de tela)
+   e mantém-se hover e repouso quietos. App que pisca por tudo ensina a ignorar o
+   piscar.
+
+Tipografia: DM Serif Display + DM Sans + DM Mono + Great Vibes.
+Paleta completa de tokens do web em `apps/web/src/index.css`; a do desktop em
+`mobile-native/desktopApp/…/ui/theme/`.
+
+---
+
+## Adiante
+
+- **Paridade do Android** com o desktop — hoje o desktop está na frente.
+- **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
+  também no sussurro.
+- **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
+- **Remoção do Capacitor** — o wrapper antigo ainda vive em `apps/web`; sai quando
+  o Android nativo cobrir tudo.
+- **Backlog de segurança** auditado e ainda não corrigido (escalação de cargos,
+  refresh token no localStorage, rate limiter fail-open, upload).

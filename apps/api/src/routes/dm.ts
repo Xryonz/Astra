@@ -14,6 +14,8 @@ import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { haBloqueio } from '../lib/blocks'
 import { primeiroAnexoNaoPermitido } from '../lib/storage'
+import { getBotId } from '../lib/bot'
+import { responderNoSussurro } from '../lib/botSussurro'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
@@ -415,6 +417,25 @@ export function createDMRouter(io: SocketServer) {
           }
         })()
       })
+
+      // A BOT RESPONDE NO SUSSURRO.
+      //
+      // Ela sempre foi um usuario de verdade, entao abrir conversa com ela ja
+      // funcionava — e ficava no vacuo, porque todo o caminho que a faz falar
+      // morava no `bot_command` do socket, que exige canal E constelacao.
+      //
+      // Aqui NAO se exige prefixo, e essa e a diferenca que importa: num canal o
+      // prefixo existe pra separar "estou falando com a bot" de "estou falando com
+      // a sala". Numa conversa de duas pessoas onde a outra e ela, tudo que se
+      // escreve ja e endereçado a ela — pedir `/sparkle` antes de cada frase seria
+      // cerimonia sem funcao. Os comandos seguem valendo pra quem quiser usar.
+      //
+      // Em segundo plano de proposito: a IA leva segundos, e a SUA mensagem tem
+      // que aparecer na hora. A resposta chega depois pelo socket, como a de
+      // qualquer pessoa que estivesse digitando.
+      if (receiverId === (await getBotId())) {
+        setImmediate(() => { void responderNoSussurro({ io, conversationId, userId: req.userId!, receiverId, content, username: author?.username ?? 'você' }) })
+      }
     })
   )
 

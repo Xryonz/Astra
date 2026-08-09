@@ -8,6 +8,7 @@ import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence } from '../lib/redis'
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
 import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
+import { responderNoSussurro } from '../lib/botSussurro'
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
 import { xpPorMensagem } from '../lib/xp'
@@ -432,6 +433,18 @@ export function setupSocket(io: Server) {
             }
           })()
         })
+
+        // A bot responde por AQUI tambem. O desktop manda sussurro pelo caminho
+        // rapido, entao so ligar a resposta na rota HTTP deixaria a bot muda
+        // justamente no cliente que e a fase ativa.
+        if (receiverId === (await getBotId())) {
+          setImmediate(() => {
+            void responderNoSussurro({
+              io, conversationId, userId, receiverId,
+              content: trimmed, username: socket.data.username,
+            })
+          })
+        }
       } catch (e) {
         console.error('[fast_send_dm]', e)
         safeAck({ ok: false, error: 'Erro interno' })

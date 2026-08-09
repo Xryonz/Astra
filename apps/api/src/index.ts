@@ -32,6 +32,7 @@ import inviteRouter          from './routes/invites'
 import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
 import { attachRealtime }                from './lib/realtime'
+import { ligarAvisosDaBot, agendarTrocaDeTurno } from './lib/botAvisos'
 import { iniciarRelogioDeCall }          from './lib/xp'
 import { eventoDeMissao }                from './lib/missoes'
 import { createMessagesRouter }          from './routes/messages'
@@ -111,6 +112,7 @@ if (process.env.SOCKET_ADAPTER === 'redis') {
 setupSocket(io)
 // Rotas que emitem por socket sao routers `const` (nao factory) — io por setter.
 attachRealtime(io)
+ligarAvisosDaBot(io)
 
 app.use(hidePoweredBy)
 app.use(secureHeaders)
@@ -278,6 +280,9 @@ httpServer.listen(env.PORT, async () => {
   // ja existiam ganham a bot no painel, mas ninguem espera o servidor subir por
   // causa disso.
   void garantirBotEmTodas()
+  // A passagem de turno entre a Sparkle e a Sparxie. Checagem preguicosa e
+  // idempotente em vez de timer pra meia-noite — ver botAvisos.ts.
+  agendarTrocaDeTurno()
   // Diz QUAL cerebro acordou. "Eu pus a chave no painel" e "a chave chegou no
   // processo" sao coisas diferentes, e sem esta linha a unica forma de saber a
   // diferenca era adivinhar.

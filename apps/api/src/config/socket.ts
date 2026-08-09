@@ -12,6 +12,7 @@ import { responderNoSussurro } from '../lib/botSussurro'
 import { socketConnections, socketEventsTotal, messagesSentTotal } from '../lib/metrics'
 import { parseMentions } from '../lib/mentions'
 import { xpPorMensagem } from '../lib/xp'
+import { comemorarNivel } from '../lib/botAvisos'
 import { eventoDeMissao } from '../lib/missoes'
 import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
@@ -292,7 +293,9 @@ export function setupSocket(io: Server) {
         // XP DEPOIS do ack, sem await: a bolha da mensagem nao espera progressao.
         // A propria funcao decide se conta (trava de 1 min, teto do dia) e ela
         // engole os proprios erros — nao ha caso em que XP derrube uma mensagem.
-        void xpPorMensagem(userId)
+        void xpPorMensagem(userId).then((g) => {
+          if (g?.subiuDeNivel) void comemorarNivel(userId, channelId, g.progresso.nivel)
+        })
         void eventoDeMissao(userId, 'mensagem', { channelId })
 
         setImmediate(() => {

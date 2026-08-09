@@ -6,6 +6,7 @@ import { servers, serverMembers, channels, channelCategories, channelRolePerms, 
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
+import { saudarNovoMembro } from '../lib/botAvisos'
 import { CreateServerSchema, CreateChannelSchema } from '@astra/types'
 import { PERMS, getMemberPerms, filterVisibleChannels } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
@@ -325,6 +326,7 @@ serversRouter.post(
     void invalidateMembersCache(serverId)
     joinedServer(friendUserId, serverId)
     membersChanged(serverId)
+    void saudarNovoMembro(serverId, friendUserId)
     await db.insert(notifications).values({
       userId: friendUserId,
       type:   'server_invite',
@@ -511,6 +513,7 @@ serversRouter.post(
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id })
     void invalidateMembersCache(server.id)
     membersChanged(server.id)
+    void saudarNovoMembro(server.id, req.userId!)
     res.json({ data: server })
   })
 )
@@ -614,6 +617,7 @@ serversRouter.post(
     void invalidateMembersCache(serverId)
     joinedServer(target.id, serverId)
     membersChanged(serverId)
+    void saudarNovoMembro(serverId, target.id)
     res.json({ message: `${target.displayName} adicionado com sucesso` })
   })
 )

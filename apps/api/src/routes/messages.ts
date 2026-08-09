@@ -23,6 +23,7 @@ import { AUDIT, audit } from '../lib/audit'
 import { safeParsePoll } from './polls'
 import { messagesSentTotal } from '../lib/metrics'
 import { xpPorMensagem } from '../lib/xp'
+import { comemorarNivel } from '../lib/botAvisos'
 import { eventoDeMissao } from '../lib/missoes'
 
 interface CursorPayload {
@@ -330,7 +331,9 @@ export function createMessagesRouter(io: SocketServer) {
       // O mesmo XP do caminho por socket. Os dois precisam creditar: quem manda
       // anexo, resposta ou usa o mobile cai AQUI, e so instrumentar o socket daria
       // um sistema que paga uns e nao paga outros — sem ninguem entender por que.
-      void xpPorMensagem(req.userId!)
+      void xpPorMensagem(req.userId!).then((g) => {
+        if (g?.subiuDeNivel) void comemorarNivel(req.userId!, channelId, g.progresso.nivel)
+      })
       // Missao ao lado do XP, mas independente dele: quem ja bateu o teto do dia
       // continua avancando missao. Resposta so conta se for resposta de verdade —
       // e por isso que este caminho (o unico que aceita replyToId) dispara os dois.

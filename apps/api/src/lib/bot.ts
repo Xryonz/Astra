@@ -29,17 +29,14 @@ export const BOT_EMAIL       = 'bot@astra.internal'
 
 // ============ PERSONA POR DIA ============
 //
-// Mesma conta, dois turnos: de segunda a sexta quem atende e a Sparkle; sabado e
-// domingo entra a Sparxie, com comandos que so existem no fim de semana.
+// Mesma conta, dois turnos: a Sparxie pega SEXTA e SABADO; o resto da semana
+// (domingo a quinta) e da Sparkle. A troca em si e anunciada no canal — ver
+// botAvisos.ts.
 //
 // UMA conta de proposito. Duas contas separariam o historico de mensagens em
-// dois autores diferentes, e uma conversa de sexta ficaria com o nome errado pra
-// sempre no sabado — sem contar dois cadastros pra manter. Aqui o que muda e o
+// dois autores diferentes, e uma conversa de quinta ficaria com o nome errado pra
+// sempre na sexta — sem contar dois cadastros pra manter. Aqui o que muda e o
 // nome exibido e o tom; a memoria, os comandos e o id continuam os mesmos.
-//
-// O dia e o de SAO PAULO, nao o do servidor. O Render roda em UTC: sem isto, a
-// Sparxie entraria de turno as 21h de sexta e a Sparkle voltaria as 21h de
-// domingo — errado nas duas pontas.
 export interface Persona {
   chave:   'sparkle' | 'sparxie'
   nome:    string
@@ -60,20 +57,29 @@ const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
   chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
-  tom: 'Você é a Sparkle, de plantão nos dias de semana. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
+  tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
   chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
-  tom: 'Você é a Sparxie, que assume nos fins de semana. Tom mais solto e brincalhão que o da Sparkle (sua irmã de plantão nos dias úteis), sem virar palhaçada. É fim de semana: puxa papo, sugere programa, celebra.',
+  tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 
-export function ehFimDeSemana(agora: Date = new Date()): boolean {
+// O TURNO DA SPARXIE E SEXTA E SABADO, nao sabado e domingo (escolha do dono).
+//
+// A virada e a meia-noite de SEXTA: e la que o fim de semana comeca pra quem vive
+// o app — sexta a noite e quando a call enche. E domingo 00h a Sparkle volta,
+// porque domingo ja e vespera de semana, nao festa.
+//
+// O dia e o de SAO PAULO, nao o do servidor. O Render roda em UTC: sem isto, a
+// Sparxie entraria de turno as 21h de quinta e sairia as 21h de sabado — errado
+// nas duas pontas.
+export function ehTurnoDaSparxie(agora: Date = new Date()): boolean {
   const dia = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(agora)
-  return dia === 'Sat' || dia === 'Sun'
+  return dia === 'Fri' || dia === 'Sat'
 }
 
 export function personaDoDia(agora: Date = new Date()): Persona {
-  return ehFimDeSemana(agora) ? SPARXIE : SPARKLE
+  return ehTurnoDaSparxie(agora) ? SPARXIE : SPARKLE
 }
 
 // Os DOIS nomes respondem sempre, mesmo fora do turno — e `/astra` continua
@@ -442,9 +448,9 @@ export async function handleBotCommand(
       `**${persona.nome} ${persona.emoji} — comandos de hoje:**`,
       ...comandosDeHoje().map((c) => `\`${c.name}\` — ${c.description}`),
       '',
-      ehFimDeSemana()
-        ? '_É fim de semana: os comandos de festa e desejo só existem agora._'
-        : '_Sábado e domingo quem atende é a Sparxie, com comandos que só rolam no fim de semana._',
+      ehTurnoDaSparxie()
+        ? '_Sexta e sábado são meus: os comandos de festa e desejo só existem agora._'
+        : '_Sexta e sábado quem atende é a Sparxie, com comandos que só rolam no turno dela._',
       '',
       'Tenho ferramentas pra buscar mensagens, resumir o canal e olhar info de membros. Pergunta naturalmente.',
     ].join('\n') + nota
@@ -505,12 +511,12 @@ export async function handleBotCommand(
     return '🔊 Você não está silenciado.' + nota
   }
 
-  // ---- so no fim de semana ----
-  // Fora do fim de semana a resposta explica QUANDO volta, em vez de fingir que o
+  // ---- so no turno da Sparxie (sexta e sabado) ----
+  // Fora do turno dela a resposta explica QUANDO volta, em vez de fingir que o
   // comando nunca existiu (foi visto na caixinha do "/" no sabado).
   if (verbo === 'desejo' || verbo === 'festa') {
-    if (!ehFimDeSemana()) {
-      return `${persona.emoji} \`${verbo}\` é coisa da Sparxie — volta sábado. Até lá quem cuida do plantão sou eu, ${persona.nome}.`
+    if (!ehTurnoDaSparxie()) {
+      return `${persona.emoji} \`${verbo}\` é coisa da Sparxie — ela entra sexta. Até lá quem cuida do plantão sou eu, ${persona.nome}.`
     }
     if (verbo === 'festa') {
       const escolha = PROGRAMAS_DE_FDS[Math.floor(Math.random() * PROGRAMAS_DE_FDS.length)]

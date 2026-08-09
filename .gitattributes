@@ -15,7 +15,3 @@ gradlew text eol=lf
 # elas nao devem e contar como codigo do projeto.
 mobile-native/desktopApp/src/main/java/livekit/**  linguist-generated=true
 mobile-native/desktopApp/src/main/java/logger/**   linguist-generated=true
-
-# Andaime do Capacitor (projeto Android gerado por template, nao escrito aqui).
-# Vendored ate a remocao do Capacitor; depois disso a pasta some inteira.
-apps/web/android/**  linguist-vendored=true

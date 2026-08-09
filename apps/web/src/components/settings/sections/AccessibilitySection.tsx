@@ -4,7 +4,6 @@ import { Vibrate } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { SectionHeader, Row } from './_shared'
 import { isHapticsEnabled, setHapticsEnabled, hapticMedium } from '@/lib/haptics'
-import { isNative } from '@/lib/native'
 
 export default function AccessibilitySection() {
   const { t } = useTranslation()
@@ -25,13 +24,12 @@ export default function AccessibilitySection() {
 
       <Row
         label={t('settings.accessibility.haptics')}
-        hint={isNative ? t('settings.accessibility.hapticsHint') : t('settings.accessibility.hapticsWebHint')}
+        hint={t('settings.accessibility.hapticsWebHint')}
       >
         <div className="flex items-center gap-2 self-start">
           <Vibrate className="size-4 text-(--text-3)" />
           <Switch
             checked={haptics}
-            disabled={!isNative}
             onCheckedChange={(v: boolean) => toggleHaptics(v)}
           />
         </div>

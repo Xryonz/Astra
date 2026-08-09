@@ -2,10 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { bootstrapAuth } from '@/lib/bootstrap'
-import { hydrateRefreshFromNative } from '@/lib/api'
 import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
-import { registerNativePush } from '@/lib/pushNative'
-import { isAppLockEnabled, verifyAppLock, isVerifyingAppLock } from '@/lib/appLock'
 import { AppShellSkeleton } from '@/components/skeletons/AppShellSkeleton'
 import { Toaster } from '@/components/ui/sonner'
 import { ConfirmProvider } from '@/hooks/useConfirm'
@@ -39,67 +36,17 @@ function RequireOnboarded({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [booted, setBooted] = useState(false)
 
-  const [locked, setLocked] = useState(isAppLockEnabled)
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-
   useEffect(() => {
 
     void (async () => {
-      try { await hydrateRefreshFromNative() } catch { }
       try { await bootstrapAuth() } catch { }
       setBooted(true)
     })()
   }, [])
 
-  useEffect(() => {
-    if (isAuthenticated) void registerNativePush()
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    if (locked) void verifyAppLock().then((ok) => { if (ok) setLocked(false) })
-  }, [locked])
-
-  useEffect(() => {
-    if (!isAppLockEnabled()) return
-    const GRACE_MS = 30_000
-    let bgAt = 0
-    let remove: (() => void) | undefined
-    void import('@capacitor/app').then(async ({ App }) => {
-      const handle = await App.addListener('appStateChange', ({ isActive }) => {
-
-        if (isVerifyingAppLock()) return
-        if (!isActive) {
-          if (!bgAt) bgAt = Date.now()
-          return
-        }
-
-        const away = bgAt ? Date.now() - bgAt : 0
-        bgAt = 0
-        if (away > GRACE_MS) setLocked(true)
-      })
-      remove = () => handle.remove()
-    }).catch(() => {})
-    return () => remove?.()
-  }, [])
-
   useVisibilityRefresh()
 
   if (!booted) return <SplashScreen />
-
-  if (locked) {
-    return (
-      <div className="h-screen-safe flex flex-col items-center justify-center gap-6 bg-(--void)">
-        <img src="/favicon.svg" alt="" width={72} height={72} draggable={false} />
-        <p className="text-(--text-2) text-sm m-0">Astra bloqueado</p>
-        <button
-          onClick={() => void verifyAppLock().then((ok) => { if (ok) setLocked(false) })}
-          className="px-5 py-2.5 rounded-xl border border-(--accent)/50 text-(--accent) text-sm cursor-pointer hover:bg-(--accent-dim) transition-colors"
-        >
-          Desbloquear com digital
-        </button>
-      </div>
-    )
-  }
 
   return (
     <BrowserRouter>

@@ -1,7 +1,11 @@
-# Astra — cliente nativo Android (Kotlin + Jetpack Compose)
+# Astra — clientes nativos (Kotlin + Compose)
 
-Cliente nativo do zero. Substitui o híbrido React/Capacitor a longo prazo
-(o Capacitor continua na raiz como app que shipa até este aqui ter paridade).
+Projeto Gradle com os dois clientes nativos: `:app` (Android) e `:desktopApp`
+(Compose Multiplatform/JVM), sobre `:shared` (rede + DTOs, Kotlin/JVM puro — **não**
+é KMP, e a UI não é compartilhada).
+
+O híbrido React/Capacitor que existia na raiz foi **removido**; o web em
+`apps/web` seguiu como app de navegador e referência de paridade.
 
 ## Stack
 - **Kotlin 2.0.21 (K2)** · **Jetpack Compose** (Material3) · **Coroutines**

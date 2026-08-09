@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { openGoogleLogin } from '@/lib/native'
+import { openGoogleLogin } from '@/lib/oauth'
 
 export default function GoogleButton() {
   const { t } = useTranslation()

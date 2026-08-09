@@ -12,7 +12,7 @@ import { useVoiceCall, useVoiceConfig, useVoiceChannelPresence, parseRoomName } 
 import { useUsersMini } from '@/hooks/useUsersMini'
 import { api, resolveApiUrl } from '@/lib/api'
 import { prefetchChannelMessages } from '@/lib/prefetch'
-import { isNative, shareInvite } from '@/lib/native'
+import { shareInvite } from '@/lib/share'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { useUnread } from '@/hooks/useUnread'
@@ -140,7 +140,7 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
     if (!menu.server.isGroup) {
       items.push({
 
-        icon: '🔗', label: isNative ? t('sidebar.shareInvite') : t('sidebar.copyInvite'),
+        icon: '🔗', label: t('sidebar.copyInvite'),
         onClick: () => { void shareInvite(menu.server.inviteCode) },
       })
     }

@@ -5,12 +5,10 @@ import { useAuthStore } from '@/store/authStore'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { LogOut, Fingerprint, KeyRound } from 'lucide-react'
+import { LogOut, KeyRound } from 'lucide-react'
 import { SectionHeader, Row, SaveStatus } from './_shared'
 import { api } from '@/lib/api'
 import { toast } from '@/components/ui/sonner'
-import { isAppLockEnabled, setAppLockEnabled, isBiometricAvailable, verifyAppLock } from '@/lib/appLock'
 import { UpdateProfileSchema, ChangePasswordSchema } from '@astra/types'
 
 export default function AccountSection() {
@@ -82,21 +80,6 @@ export default function AccountSection() {
     onError: (e: any) => toast.error(e?.response?.data?.error ?? t('settings.account.passwordChangeError')),
   })
 
-  const [bioAvailable, setBioAvailable] = useState(false)
-  const [lockOn, setLockOn] = useState(isAppLockEnabled())
-  useEffect(() => { void isBiometricAvailable().then(setBioAvailable) }, [])
-
-  const toggleLock = async (on: boolean) => {
-    if (on) {
-      setAppLockEnabled(true)
-      const ok = await verifyAppLock()
-      if (!ok) { setAppLockEnabled(false); return }
-      setLockOn(true)
-    } else {
-      setAppLockEnabled(false)
-      setLockOn(false)
-    }
-  }
 
   return (
     <div>
@@ -147,15 +130,6 @@ export default function AccountSection() {
       <Row label={t('settings.account.internalId')} hint={t('settings.account.internalIdHint')}>
         <p className="text-xs font-mono text-(--text-3) m-0 break-all">{user?.id ?? '—'}</p>
       </Row>
-
-      {bioAvailable && (
-        <Row label={t('settings.account.appLock')} hint={t('settings.account.appLockHint')}>
-          <div className="flex items-center gap-2 self-start">
-            <Fingerprint className="size-4 text-(--text-3)" />
-            <Switch checked={lockOn} onCheckedChange={(v: boolean) => void toggleLock(v)} />
-          </div>
-        </Row>
-      )}
 
       <Row label={t('settings.account.logoutSession')} hint={t('settings.account.logoutSessionHint')}>
         <Button variant="outline" onClick={() => logout()} className="gap-2 self-start">

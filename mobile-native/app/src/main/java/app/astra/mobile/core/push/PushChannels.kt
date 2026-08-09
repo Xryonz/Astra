@@ -5,7 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 
-// Canais em paridade com o web/Capacitor (pushNative.ts) e com o backend
+// Canais em paridade com o backend
 // (lib/fcm.ts escolhe channelId = mentions | dms | general).
 object PushChannels {
     const val MENTIONS = "mentions"

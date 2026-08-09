@@ -806,36 +806,6 @@ body {
   .min-h-screen-safe { min-height: 100svh; }
 }
 
-/* ── App nativo (Capacitor seta .astra-native no <html>) ──────
-   Respiro no topo: env(safe-area-inset-top) cobre o caso do Android 15
-   edge-to-edge (WebView desenha sob a status bar — inset real ~24-40px);
-   o piso de 16px garante respiro mesmo quando a status bar é reservada
-   (inset 0). Requer viewport-fit=cover no index.html. */
-.astra-native .h-screen-safe {
-  padding-top: max(16px, env(safe-area-inset-top));
-  box-sizing: border-box;
-  background: var(--void);
-}
-
-/* Teclado nativo abrindo/fechando (lib/native.ts seta a classe): congela
-   transições e animações pra o re-layout do resize assentar em 1 frame.
-   Sem isso, cada frame do teclado re-anima tudo = jank. */
-.astra-kb-resizing *,
-.astra-kb-resizing *::before,
-.astra-kb-resizing *::after {
-  transition: none !important;
-  animation-play-state: paused !important;
-}
-
-/* Teclado ABERTO (lib/native.ts seta .astra-kb-open): a tab bar some e o
-   respiro dela zera. Sem isso sobrava uma faixa de ~70px entre o composer
-   e o teclado — norma WhatsApp/Discord é digitar com composer colado. */
-.astra-kb-open .astra-bottom-nav { display: none; }
-.astra-kb-open .astra-shell { padding-bottom: 0; }
-/* O composer troca o respiro cheio de safe-area por um respiro mínimo
-   enquanto digita: sem a faixa morta, mas sem colar no topo do teclado. */
-.astra-kb-open .astra-composer { padding-bottom: 0.375rem; }
-
 /* Morph mic↔seta do botão de ação do composer (key troca → re-anima).
    Compositor-only: transform + opacity. */
 @keyframes astraMorphIn {

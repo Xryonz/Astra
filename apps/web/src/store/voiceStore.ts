@@ -6,7 +6,6 @@ import type {
   LocalParticipant, Participant,
 } from 'livekit-client'
 import { api } from '@/lib/api'
-import { setPipEnabled, setCallActive } from '@/lib/native'
 import { playCallJoin, playCallLeave } from '@/lib/callSounds'
 
 export type CallState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error'
@@ -183,14 +182,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     if (activeRoom && lkNs) {
       const participants = snapshot(activeRoom, lkNs.Track)
       set({ participants })
-
-      setPipEnabled(participants.some((p) => p.isCameraEnabled || p.isScreenSharing))
     }
   }
   const handleDisc = () => {
     activeRoom = null
-    setPipEnabled(false)
-    setCallActive(false)
     set({ state: 'idle', roomName: null, participants: [], error: null })
   }
 
@@ -276,7 +271,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         activeRoom = room
         void applyMicNoiseFilter(get().noiseFilter)
 
-        setCallActive(true)
         playCallJoin()
         set({
           state:        'connected',
@@ -296,8 +290,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       set({ state: 'disconnecting' })
       try { await activeRoom.disconnect() } catch {}
       activeRoom = null
-      setPipEnabled(false)
-      setCallActive(false)
       set({ state: 'idle', roomName: null, participants: [] })
     },
 

@@ -283,7 +283,6 @@ Paleta completa de tokens do web em `apps/web/src/index.css`; a do desktop em
 - **Bot mascote** com persona celeste, anunciando entrada e saída, e respondendo
   também no sussurro.
 - **XP com recompensas** — a mecânica já grava; falta o que ela destrava.
-- **Remoção do Capacitor** — o wrapper antigo ainda vive em `apps/web`; sai quando
-  o Android nativo cobrir tudo.
+- **Segurança do upload e do refresh token** — ver o backlog abaixo.
 - **Backlog de segurança** auditado e ainda não corrigido (escalação de cargos,
   refresh token no localStorage, rate limiter fail-open, upload).

@@ -1,6 +1,6 @@
 /* Fontes self-hosted (baixadas do Google Fonts, subsets latin + latin-ext).
    Por quê: sem request externa no primeiro load e tipografia garantida
-   OFFLINE no app nativo (Capacitor empacota /public). Gerado por script. */
+   garantida sem rede no primeiro load. Gerado por script. */
 
 /* latin-ext */
 @font-face {

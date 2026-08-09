@@ -11,12 +11,10 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { migrateLocalStorage } from '@/lib/migrateLocalStorage'
 import { setupOfflineCache } from '@/lib/offlineCache'
 import { setupMessageCache } from '@/lib/messageCache'
-import { initNativeApp } from '@/lib/native'
 
 migrateLocalStorage()
 initSentry()
 restoreTheme()
-void initNativeApp()
 
 const apiUrl = (import.meta as any).env?.VITE_API_URL as string | undefined
 if (apiUrl && /^https?:/.test(apiUrl)) {

@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import { sentry } from '@/lib/sentry'
-import { saveRefreshNative, loadRefreshNative, clearRefreshNative } from '@/lib/secureStore'
 
 const API_URL = (import.meta as any).env?.VITE_API_URL ?? ''
 export const apiBaseUrl = API_URL
@@ -11,20 +10,8 @@ export const resolveApiUrl = (url: string) =>
 
 const REFRESH_KEY = 'astra-refresh'
 export const getStoredRefreshToken = () => localStorage.getItem(REFRESH_KEY) || null
-export const setStoredRefreshToken = (token: string) => {
-  localStorage.setItem(REFRESH_KEY, token)
-  void saveRefreshNative(token)
-}
-export const clearStoredRefreshToken = () => {
-  localStorage.removeItem(REFRESH_KEY)
-  void clearRefreshNative()
-}
-
-export async function hydrateRefreshFromNative(): Promise<void> {
-  if (getStoredRefreshToken()) return
-  const native = await loadRefreshNative()
-  if (native) localStorage.setItem(REFRESH_KEY, native)
-}
+export const setStoredRefreshToken = (token: string) => localStorage.setItem(REFRESH_KEY, token)
+export const clearStoredRefreshToken = () => localStorage.removeItem(REFRESH_KEY)
 
 export const api = axios.create({ baseURL: API_URL })
 

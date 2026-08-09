@@ -1,19 +1,9 @@
-
-import { isNative } from '@/lib/native'
-
 export type SaveResult = 'saved' | 'downloaded' | 'error'
 
+// Salvar imagem. O ramo 'saved' era a galeria do Android via Capacitor; sobrou o
+// download do navegador, que e o que o web sempre fez. O tipo mantem 'saved' pra
+// nao mexer em quem le o resultado — hoje ele so nao acontece mais.
 export async function saveImageToGallery(url: string, name: string): Promise<SaveResult> {
-  if (isNative) {
-    try {
-      const { Media } = await import('@capacitor-community/media')
-      await Media.savePhoto({ path: url, fileName: name })
-      return 'saved'
-    } catch {
-      return 'error'
-    }
-  }
-
   try {
     const res  = await fetch(url)
     const blob = await res.blob()

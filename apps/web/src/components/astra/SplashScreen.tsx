@@ -1,16 +1,7 @@
-import { useEffect } from 'react'
 import { motion } from 'motion/react'
 import AstraLogo from '@/components/AstraLogo'
-import { isNative } from '@/lib/native'
 
 export default function SplashScreen({ visible = true }: { visible?: boolean }) {
-
-  useEffect(() => {
-    if (!isNative) return
-    void import('@capacitor/splash-screen')
-      .then(({ SplashScreen: Native }) => Native.hide({ fadeOutDuration: 150 }))
-      .catch(() => {})
-  }, [])
 
   return (
     <motion.div

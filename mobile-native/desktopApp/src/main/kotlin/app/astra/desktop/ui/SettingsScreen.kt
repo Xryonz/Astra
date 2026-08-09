@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.focus.FocusRequester
@@ -345,11 +346,7 @@ fun SettingsScreen(
                     },
                     label = "settingsSection",
                 ) { current ->
-                    // Sobre/Sessões/Permissões/Diagnostico não tem previa — são
-                    // listas e ações, não ajustes com efeito visual.
-                    val temPrevia = current != SettingsTab.ABOUT &&
-                        current != SettingsTab.SESSIONS && current != SettingsTab.PERMISSIONS &&
-                        current != SettingsTab.DIAGNOSTICS
+                    val temPrevia = temPrevia(current)
                     // A CASCATA agora acontece quando a secao ENTRA NA TELA pela
                     // primeira vez, e nao quando se troca de aba. O conjunto
                     // `jaAnimaram` continua sendo o que impede o replay: a
@@ -451,7 +448,14 @@ fun SettingsScreen(
                             label = "previaDaSecao",
                         ) { secao ->
                             Column(Modifier.fillMaxWidth()) {
-                                SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth())
+                                // A regra de "esta secao tem previa?" vale AQUI
+                                // tambem. Ela existia so no ramo empilhado, entao na
+                                // coluna fixa Sessões, Permissões e Sobre mostravam o
+                                // rotulo "previa" com o vazio embaixo — anunciando
+                                // uma coisa que nao ha como existir nessas telas.
+                                if (temPrevia(secao)) {
+                                    SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth())
+                                }
                                 if (secao == SettingsTab.PROFILE) {
                                     Spacer(Modifier.height(14.dp))
                                     ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.fillMaxWidth())
@@ -463,6 +467,16 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+// Sessões, Permissões, Sobre e Diagnostico sao listas e acoes — nao ha estado
+// visual pra antecipar. Uma unica regra pros DOIS jeitos de mostrar a previa
+// (empilhada embaixo do titulo e fixa na coluna da direita): duplicada, ela
+// divergiu, e foi assim que o rotulo "previa" apareceu sozinho nessas telas.
+private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
+    SettingsTab.SESSIONS, SettingsTab.PERMISSIONS,
+    SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS -> false
+    else -> true
 }
 
 // Previa ao vivo (lado das configs). Cada aba mostra o efeito real do que se
@@ -479,16 +493,40 @@ private fun SettingsPreview(
 ) {
     Column(modifier) {
         FieldLabel("previa")
-        when (tab) {
-            // Conta = teu perfil SALVO; Perfil = o rascunho ao vivo (cada tecla).
-            SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
-            SettingsTab.PROFILE -> ProfileCardPreview(me, draft)
-            SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
-            SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
-            SettingsTab.PERFORMANCE -> CostMeter(p)
-            SettingsTab.VOICE -> VoicePreview(p)
-            // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
-            SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.PERMISSIONS -> Unit
+        // A PREVIA NAO RESPONDE AO PONTEIRO.
+        //
+        // Ela e feita dos componentes DE VERDADE (o mesmo ProfileCard do popup, o
+        // mesmo aviso da bandeja) — e era esse o objetivo, pra previa e realidade
+        // nao divergirem. O efeito colateral e que os cliques deles vinham junto:
+        // clicar no cartao da previa abria o perfil por cima das configuracoes.
+        //
+        // O veu por cima resolve num lugar so. A alternativa seria uma bandeira
+        // "sou previa" em cada componente compartilhado, espalhando pelo app inteiro
+        // uma regra que e desta tela.
+        Box {
+            when (tab) {
+                // Conta = teu perfil SALVO; Perfil = o rascunho ao vivo (cada tecla).
+                SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
+                SettingsTab.PROFILE -> ProfileCardPreview(me, draft)
+                SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
+                SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
+                SettingsTab.PERFORMANCE -> CostMeter(p)
+                SettingsTab.VOICE -> VoicePreview(p)
+                // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
+                SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.PERMISSIONS -> Unit
+            }
+            Box(Modifier.matchParentSize().engoleOPonteiro())
+        }
+    }
+}
+
+// Come todo evento de ponteiro antes que ele chegue em quem esta embaixo.
+// `matchParentSize` + este modificador = a subarvore vira imagem: nao clica, nao
+// mostra hover, nao troca o cursor.
+private fun Modifier.engoleOPonteiro(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
         }
     }
 }

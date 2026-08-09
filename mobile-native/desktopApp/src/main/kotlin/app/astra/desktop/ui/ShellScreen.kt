@@ -462,12 +462,14 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
-        // COLUNA ESQUERDA: rail + sidebar em cima, rodape do usuario atravessando
-        // as duas embaixo. O rodape morava dentro da sidebar e parava na borda dela,
-        // deixando a faixa embaixo da rail sem uso nenhum — 72dp de nada. Atravessar
-        // e o que o Discord faz, e devolve largura pro nome e pro status.
-        Column(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
-        Row(Modifier.weight(1f)) {
+        // COLUNA ESQUERDA: a rail desce do topo ao pe, e o rodape do usuario ocupa
+        // so a largura da sidebar.
+        //
+        // Ele atravessava a rail desde o 0.1.92 e, do 0.1.97 em diante, ainda passava
+        // 26dp por cima do palco. O dono pediu as duas de volta — e a referencia da
+        // razao a ele: no Discord o painel do usuario para na borda da lista de
+        // canais, e a coluna dos servidores e que desce inteira.
+        Row(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -487,6 +489,10 @@ fun ShellScreen(
             onAddMember = vm::addMember,
             onJoinInvite = vm::joinByInvite,
         )
+        // A vaga do rodape e reservada AQUI DENTRO, e nao mais na coluna inteira:
+        // e a sidebar que perde 62dp no pe, enquanto a rail segue ate o fim.
+        Column(Modifier.width(LARGURA_SIDEBAR).fillMaxHeight()) {
+        Box(Modifier.weight(1f)) {
         Sidebar(
             selection = state.selection,
             servers = state.servers,
@@ -536,10 +542,10 @@ fun ShellScreen(
             firstSteps = firstSteps,
         )
         }
-        // Vaga reservada pro rodape, que NAO mora mais nesta coluna: ele passou a
-        // ser desenhado por cima de tudo (ver o fim deste Box). Sem esta vaga, a
-        // lista de orbitas correria por baixo dele.
+        // Vaga do rodape, que e desenhado por cima de tudo (ver o fim deste Box).
+        // Sem ela, a lista de orbitas correria por baixo dele.
         Spacer(Modifier.height(ALTURA_DO_RODAPE))
+        }
         }
         Stage(
             state.selectedServer,
@@ -562,6 +568,14 @@ fun ShellScreen(
                 val foto = state.dms.find { it.id == alvo.id }?.otherUser?.avatarUrl
                 vm.ligarNoSussurro(alvo.id, alvo.title, foto, video)
             },
+            // Chamada é coisa de gente. A bot é uma conta de verdade no banco, e por
+            // isso o sussurro dela vinha com os mesmos dois botões de qualquer
+            // sussurro — só que do outro lado não há ninguém pra atender, e a chamada
+            // tocava até desistir sozinha. O servidor recusa também (dmCalls.ts):
+            // esconder botão não é proibir ação.
+            botDoOutroLado = (chat as? ChatTarget.Dm)?.let { alvo ->
+                state.dms.find { it.id == alvo.id }?.otherUser?.username == USUARIO_DA_BOT
+            } == true,
             createChatVm = createChatVm,
             members = state.members,
             me = state.me,
@@ -606,15 +620,14 @@ fun ShellScreen(
             )
         }
         }
-        // O RODAPE DO USUARIO E DESENHADO POR CIMA, e passa da coluna da esquerda.
+        // O RODAPE DO USUARIO E DESENHADO POR CIMA, na faixa que a sidebar reservou.
         //
-        // Ele nao e mais filho da coluna: e irmao do Row inteiro, ancorado no canto
-        // inferior esquerdo com uma sobra pra direita. E o que faz ele SOBREPOR o
-        // palco em vez de terminar onde a sidebar termina — a referencia do dono e
-        // o cartao do Discord, que se apoia por cima do que esta atras.
+        // Ele nao e filho da coluna: e irmao do Row inteiro, ancorado no canto
+        // inferior esquerdo e deslocado pela largura da rail. Desenhar por cima (em
+        // Compose, quem vem por ultimo na Box) e o que deixa o cartao ter sombra e
+        // borda proprias sem empurrar a lista de orbitas.
         //
-        // A sobra so funciona porque ele vem DEPOIS do Row nesta Box: em Compose,
-        // quem e escrito por ultimo desenha em cima.
+        // Ele NAO passa da sidebar: nem por cima da rail, nem por cima do palco.
         UserFooter(
             me = state.me,
             fallbackName = session.displayName,
@@ -624,7 +637,8 @@ fun ShellScreen(
             onLogout = onLogout,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .width(LARGURA_RAIL + LARGURA_SIDEBAR + SOBRA_DO_RODAPE)
+                .padding(start = LARGURA_RAIL)
+                .width(LARGURA_SIDEBAR)
                 .height(ALTURA_DO_RODAPE),
         )
         }
@@ -820,15 +834,18 @@ fun ShellScreen(
 // Largura dos dois paineis da esquerda. Viraram constantes porque agora TRES
 // lugares precisam concordar: a rail, a sidebar e a coluna que embrulha as duas
 // pra o rodape do usuario atravessar exatamente a soma delas.
+// A conta da bot. Uma so pras duas personas: o nome exibido e a foto trocam com o
+// turno (Sparkle / Sparxie), o `username` nao.
+private const val USUARIO_DA_BOT = "astra_bot"
+
 private val LARGURA_RAIL = 72.dp
 private val LARGURA_SIDEBAR = 260.dp
 // Respiro entre o bloco do app e a moldura da janela, e a forma do bloco.
 private val RESPIRO_DA_JANELA = 10.dp
 private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
 // Rodape do usuario: altura fixa (a do Discord, ~52dp de conteudo mais o recuo do
-// cartao) e quanto ele passa pra DIREITA da sidebar, sobrepondo o palco.
+// cartao). Largura e a da sidebar — ele nao passa dela pra lado nenhum.
 private val ALTURA_DO_RODAPE = 62.dp
-private val SOBRA_DO_RODAPE = 26.dp
 
 // Superficie do shell. Os quatro paineis (rail, sidebar, palco, membros) se
 // ENCOSTAM: nao ha folga entre eles, nem canto arredondado, nem borda.
@@ -1264,7 +1281,12 @@ private fun Rail(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        // 2dp, e nao 12: a caixa do halo tem 72dp em volta de um botao de 44, entao
+        // ja existem 14dp de vazio entre o icone e o fim dela. Somados aos 12 de
+        // antes, o buraco ate o traco dava 26dp — que e o "espaco grande" que o dono
+        // viu. Espaco de layout nao se conta pelo numero no Spacer, e sim pelo que
+        // sobra depois que o conteudo se acomodou dentro da propria caixa.
+        Spacer(Modifier.height(2.dp))
         DivisoriaDaRail()
         Spacer(Modifier.height(12.dp))
         LazyColumn(
@@ -1430,7 +1452,9 @@ private fun Rail(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(4.dp))
                     DivisoriaDaRail()
-                    Spacer(Modifier.height(12.dp))
+                    // Mesma conta do topo, espelhada: o halo da bussola ja carrega
+                    // 14dp de folga dentro dele.
+                    Spacer(Modifier.height(2.dp))
                     Box(
                         modifier = Modifier.size(72.dp).drawBehind {
                             drawRect(
@@ -3388,6 +3412,7 @@ private fun Stage(
     onLeaveVoice: () -> Unit,
     // Ligar pra alguém no sussurro (voz ou vídeo).
     onLigarSussurro: (ChatTarget.Dm, video: Boolean) -> Unit,
+    botDoOutroLado: Boolean,
     createChatVm: (ChatTarget) -> ChatVm,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
@@ -3458,10 +3483,10 @@ private fun Stage(
                         modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
                     )
                 }
-                // Ligar — só em sussurro aberto e só fora de call. Em órbita já se
-                // entra pela sala de voz; oferecer o mesmo aqui daria dois jeitos
-                // de fazer a mesma coisa.
-                if (chat is ChatTarget.Dm && voiceChannel == null) {
+                // Ligar — só em sussurro aberto, só fora de call e só com gente do
+                // outro lado. Em órbita já se entra pela sala de voz; oferecer o
+                // mesmo aqui daria dois jeitos de fazer a mesma coisa.
+                if (chat is ChatTarget.Dm && voiceChannel == null && !botDoOutroLado) {
                     BotaoDeLigar(Lucide.Phone, "ligar") { onLigarSussurro(chat, false) }
                     Spacer(Modifier.width(4.dp))
                     BotaoDeLigar(Lucide.Video, "chamada de vídeo") { onLigarSussurro(chat, true) }

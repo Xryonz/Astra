@@ -3,6 +3,7 @@ import { and, eq, or } from 'drizzle-orm'
 import { db } from '../db'
 import { dmConversations, directMessages, users } from '../db/schema'
 import { haBloqueio } from './blocks'
+import { getBotId } from './bot'
 
 // CHAMADA DE VOZ/VIDEO NO SUSSURRO.
 //
@@ -125,6 +126,22 @@ export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userI
     const lados = await ladosDaConversa(conversationId, userId)
     if (!lados) return
     if (await haBloqueio(lados.eu, lados.outro)) return
+
+    // A BOT NAO ATENDE TELEFONE. Ela e uma conta de verdade no banco, entao o
+    // sussurro com ela tinha os mesmos botoes de qualquer sussurro — e ligar
+    // deixava a pessoa ouvindo chamada pra sempre, porque do outro lado nao ha
+    // ninguem pra atender. Chamada e coisa de gente.
+    //
+    // A tela ja esconde os botoes; isto aqui existe porque esconder botao nao e
+    // proibir acao: qualquer cliente antigo (ou um socket na mao) ainda mandaria
+    // o convite. Devolve `dm_call_ended` pra quem ligou em vez de calar: o
+    // cronometro dele fecha na hora, e nada e gravado no historico.
+    const botId = await getBotId()
+    if (botId && lados.outro === botId) {
+      io.to(`user:${lados.eu}`).emit('dm_call_ended', { conversationId, status: 'missed' })
+      return
+    }
+
     // Segundo invite na mesma conversa e ruido: duplo clique, ou os dois ligando
     // ao mesmo tempo. O primeiro vale.
     if (emCurso.has(conversationId)) return

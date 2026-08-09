@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,9 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
@@ -95,6 +100,29 @@ fun BoxScope.CallDock(
     var dx by remember { mutableFloatStateOf(0f) }
     var dy by remember { mutableFloatStateOf(0f) }
 
+    // O ARRASTO PARA NA BORDA. Nada segurava o cartao: dava pra empurrar ele pra
+    // fora da janela e perder de vista o unico botao de desligar que existe depois
+    // que navegar deixou de desconectar. Sumir com o controle da call e pior do que
+    // qualquer limitacao de onde ele pode ficar.
+    //
+    // O limite e conferido nos DOIS lugares de proposito: no gesto (senao o dx
+    // acumula pra sempre e voltar exige arrastar a mesma distancia de volta) e na
+    // hora de posicionar (senao encolher a janela deixaria o cartao do lado de fora
+    // sem ninguem ter arrastado nada).
+    var meu by remember { mutableStateOf(IntSize.Zero) }
+    var pai by remember { mutableStateOf(IntSize.Zero) }
+    val densidade = LocalDensity.current
+    val folga = with(densidade) { 8.dp.toPx() }      // margem minima ate a borda
+    val descanso = with(densidade) { 18.dp.toPx() }  // onde ele nasce (padding abaixo)
+
+    // minOf(): antes da primeira medida o pai e 0x0, e ai o minimo passaria do
+    // maximo — coerceIn com faixa invertida estoura.
+    fun faixa(tamanhoMeu: Int, tamanhoPai: Int): ClosedFloatingPointRange<Float> {
+        val maximo = descanso - folga
+        val minimo = folga + descanso + tamanhoMeu - tamanhoPai
+        return minOf(minimo.toFloat(), maximo)..maximo
+    }
+
     val connected = status as? VoiceStatus.Connected
     val speakers = connected?.others?.filter { it.speaking }.orEmpty()
     val anySpeaking = speakers.isNotEmpty() || connected?.mySpeaking == true
@@ -104,7 +132,14 @@ fun BoxScope.CallDock(
         Modifier
             .align(Alignment.BottomEnd)
             .padding(end = 18.dp, bottom = 18.dp)
-            .offset { IntOffset(dx.roundToInt(), dy.roundToInt()) }
+            .offset {
+                IntOffset(
+                    dx.coerceIn(faixa(meu.width, pai.width)).roundToInt(),
+                    dy.coerceIn(faixa(meu.height, pai.height)).roundToInt(),
+                )
+            }
+            .onPlaced { c -> c.parentLayoutCoordinates?.size?.let { pai = it } }
+            .onSizeChanged { meu = it }
             .width(232.dp)
             // O card sumia no fundo, e por dois motivos somados: ele flutua sobre a
             // AURORA (que e escura e viva, entao nao serve de contraste estavel) e
@@ -122,8 +157,8 @@ fun BoxScope.CallDock(
             .pointerInput(Unit) {
                 detectDragGestures { change, drag ->
                     change.consume()
-                    dx += drag.x
-                    dy += drag.y
+                    dx = (dx + drag.x).coerceIn(faixa(meu.width, pai.width))
+                    dy = (dy + drag.y).coerceIn(faixa(meu.height, pai.height))
                 }
             },
     ) {

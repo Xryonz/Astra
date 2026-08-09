@@ -30,6 +30,25 @@ object Obsidian {
     var accentDim by mutableStateOf(Color(0x33D4D8E0))
         private set
 
+    // AS BORDAS SEGUEM O TEMA. Eram fixas (#363741 e #494A54) e por isso a mesma
+    // linha azul-acinzentada aparecia por cima de qualquer fundo: no tema Eclipse,
+    // de vinho, o cartao ficava contornado por uma cor fria que nao existia em
+    // lugar nenhum da tela — parecia recortado de outro app.
+    //
+    // Elas nao ganharam cor propria: sao a rampa de elevacao levada dois degraus
+    // adiante, a partir do MESMO `raised` do tema. Assim o tom acompanha o fundo
+    // de graca, e nao entra cor nova no sistema pra resolver hierarquia (que e o
+    // que as normas do produto proibem).
+    //
+    // O passo foi calibrado pra Obsidiana continuar praticamente identica: 1,6:1
+    // contra o `raised`, igual ao que era. Borda de 1dp entre duas superficies e
+    // separador, nao componente — perseguir os 3:1 de UI aqui desenharia um risco
+    // duro em volta de cada cartao, que e exatamente o que o app evita.
+    var borderDim by mutableStateOf(Color(0xFF363741))
+        private set
+    var borderMid by mutableStateOf(Color(0xFF494A54))
+        private set
+
     // Fixos (independentes do tema).
     //
     // text1 desceu de #F5F5F7 pra #E4E4EB, e o motivo NAO e contraste — e o
@@ -44,8 +63,6 @@ object Obsidian {
     val text1 = Color(0xFFE4E4EB)
     val text2 = Color(0xFFC0C0C6)
     val text3 = Color(0xFF8C8C94)
-    val borderDim = Color(0xFF363741)
-    val borderMid = Color(0xFF494A54)
     val danger = Color(0xFFE07A7A)
     val success = Color(0xFF6FCFA0)
     val warning = Color(0xFFE8B86D)

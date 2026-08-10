@@ -1820,8 +1820,10 @@ private fun FaixaDaConstelacao(
     podeConfigurar: Boolean,
     onAbrirConfig: () -> Unit,
 ) {
+    // `end = 0`: a fileira de acoes vai ate a borda da sidebar de proposito (ver
+    // AcoesDaFaixa). O recuo da direita agora e do CARTAO das acoes, nao da Row.
     Row(
-        Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -1848,15 +1850,61 @@ private fun FaixaDaConstelacao(
             }
         }
         Spacer(Modifier.width(8.dp))
+        AcoesDaFaixa(
+            membrosAbertos = membrosAbertos,
+            podeConfigurar = podeConfigurar,
+            onConvidar = onConvidar,
+            onToggleMembros = onToggleMembros,
+            onAbrirConfig = onAbrirConfig,
+        )
+    }
+}
+
+// AS TRES ACOES NUM CARTAO SO, E O CARTAO CORRE ATE A BEIRADA.
+//
+// Antes cada botao tinha moldura propria: tres retangulos iguais lado a lado, que
+// e ruido de borda pra dizer uma coisa so ("aqui se clica"). Agora a moldura e uma,
+// em volta do grupo — e o grupo passa da borda direita da sidebar, que o corta.
+//
+// Cortar e o ponto, nao um efeito colateral: quadrado inteiro no canto le como
+// selo; quadrado cortado le como cartao que CONTINUA por baixo do painel de trás.
+// E a mesma leitura do painel de membros, que e onde o dono viu isso primeiro.
+//
+// O canto arredondado fica so na esquerda pelo mesmo motivo — curva do lado que
+// sai da tela desenharia justamente a borda que nao deveria existir.
+@Composable
+private fun AcoesDaFaixa(
+    membrosAbertos: Boolean,
+    podeConfigurar: Boolean,
+    onConvidar: () -> Unit,
+    onToggleMembros: () -> Unit,
+    onAbrirConfig: () -> Unit,
+) {
+    val forma = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp, topEnd = 0.dp, bottomEnd = 0.dp)
+    Row(
+        Modifier
+            // Empurra pra fora da sidebar: o que passar daqui e cortado pelo clip do
+            // bloco do shell. `offset` porque padding nao aceita negativo.
+            .offset(x = SANGRIA_DAS_ACOES)
+            .clip(forma)
+            .background(Obsidian.void.copy(alpha = 0.5f))
+            .border(1.dp, Obsidian.borderDim, forma)
+            .padding(start = 6.dp, end = SANGRIA_DAS_ACOES + 6.dp, top = 5.dp, bottom = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         BotaoDaFaixa(Lucide.UserPlus, onClick = onConvidar)
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(4.dp))
         BotaoDaFaixa(Lucide.Users, aceso = membrosAbertos, onClick = onToggleMembros)
         if (podeConfigurar) {
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(4.dp))
             BotaoDaFaixa(Lucide.Settings, onClick = onAbrirConfig)
         }
     }
 }
+
+// Quanto o cartao das acoes passa da borda da sidebar. O mesmo valor volta como
+// recuo interno a direita, pra o ultimo icone nao encostar na quina.
+private val SANGRIA_DAS_ACOES = 10.dp
 
 @Composable
 private fun ServerHeaderBanner(srv: ServerDto) {

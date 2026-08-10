@@ -1252,9 +1252,24 @@ private fun ProfileSection(
                     cropBanner = CropSource.Local(file)
                     return@launch
                 }
-                val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
+                val r = withContext(Dispatchers.IO) {
+                    AvatarPicker.encodeComMedidas(file, AvatarPicker.BANNER_DIM)
+                }
                 busyBanner = false
-                r.onSuccess { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) }
+                // Chega JA PREENCHENDO a faixa. O estatico e assado em 3,5:1 pelo
+                // recorte e cai exato; o animado pula o recorte (recortar mataria a
+                // animação) e vinha com zoom 100, que em Fit quer dizer "cabe
+                // inteira" — e uma imagem 16:9 numa faixa 3,5:1 cabe inteira
+                // ocupando metade da largura, com tarja preta dos lados.
+                r.onSuccess { img ->
+                    onChange(
+                        draft.copy(
+                            bannerUrl = img.dataUri,
+                            bannerPositionY = 50,
+                            bannerScale = AvatarPicker.zoomQueCobre(img.largura, img.altura, ProfileBannerAspect),
+                        ),
+                    )
+                }
                     .onFailure { msg = "não foi possível ler essa imagem" to false }
             }
         }

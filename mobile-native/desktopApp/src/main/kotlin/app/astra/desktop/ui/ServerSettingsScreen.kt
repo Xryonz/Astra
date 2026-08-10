@@ -453,9 +453,17 @@ private fun OverviewSection(
                     cropBanner = CropSource.Local(file)
                     return@launch
                 }
-                val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file, AvatarPicker.BANNER_DIM) }
+                val r = withContext(Dispatchers.IO) {
+                    AvatarPicker.encodeComMedidas(file, AvatarPicker.BANNER_DIM)
+                }
                 busyBanner = false
-                r.onSuccess { bannerUrl = it; bannerPositionY = 50; bannerScale = 100 }
+                // Mesma conta do banner de perfil: o animado pula o recorte, entao o
+                // zoom de chegada e o que COBRE a faixa em vez de "cabe inteira".
+                r.onSuccess {
+                    bannerUrl = it.dataUri
+                    bannerPositionY = 50
+                    bannerScale = AvatarPicker.zoomQueCobre(it.largura, it.altura, ServerBannerAspect)
+                }
                     .onFailure { msg = "não foi possível ler essa imagem" to false }
             }
         }

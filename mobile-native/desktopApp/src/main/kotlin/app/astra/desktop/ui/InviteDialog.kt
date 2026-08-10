@@ -1,5 +1,9 @@
 package app.astra.desktop.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,14 +24,17 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -45,9 +52,11 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.shared.AstraShared
+import kotlinx.coroutines.launch
 
 // Convite nativo do Astra. Dois caminhos, porque resolvem coisas diferentes:
 //   - por @usuario: entra na hora, a outra ponta não faz nada (backend checa
@@ -70,23 +79,60 @@ private object CenterOverlay : PopupPositionProvider {
 
 @Composable
 internal fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
+    // ENTRADA E SAIDA ANIMADAS, aqui e nao em cada dialogo: o DialogShell e o casco
+    // do convite E da enquete, entao animar num lugar so anima os dois e impede que
+    // um dia eles animem diferente.
+    //
+    // Mesma coreografia do perfil completo (ProfilePage): o scrim faz fade, o cartao
+    // escala de 0,94 e sobe 16dp. Aparecer seco e o que fazia o dialogo "piscar" na
+    // tela — sem movimento nenhum, o olho nao acompanha de onde ele veio.
+    val reduce = LocalReduceMotion.current
+    val scope = rememberCoroutineScope()
+    val entrada = remember { Animatable(if (reduce) 1f else 0f) }
+    var fechando by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (entrada.value < 1f) {
+            entrada.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow))
+        }
+    }
+    // Fecha TOCANDO A CURVA DE VOLTA antes de avisar quem chamou; `fechando` trava a
+    // reentrada (clique duplo no scrim, ou scrim + botao ao mesmo tempo).
+    fun pedirFechar() {
+        if (fechando) return
+        fechando = true
+        if (reduce) { onClose(); return }
+        scope.launch {
+            entrada.animateTo(0f, tween(160, easing = EaseOutStd))
+            onClose()
+        }
+    }
+
     Popup(
         popupPositionProvider = CenterOverlay,
-        onDismissRequest = onClose,
+        onDismissRequest = { pedirFechar() },
         properties = PopupProperties(focusable = true),
     ) {
         Box(
             Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = entrada.value.coerceIn(0f, 1f) }
                 .background(Obsidian.void.copy(alpha = 0.72f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                ) { onClose() },
+                ) { pedirFechar() },
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 Modifier
+                    .graphicsLayer {
+                        val v = entrada.value.coerceIn(0f, 1f)
+                        alpha = v
+                        val s = 0.94f + 0.06f * v
+                        scaleX = s
+                        scaleY = s
+                        translationY = (1f - v) * 16.dp.toPx()
+                    }
                     .width(400.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(Obsidian.raised)

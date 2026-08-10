@@ -34,11 +34,23 @@ object AvatarPicker {
         return File(dir, name)
     }
 
+    // A imagem pronta pra virar avatar/banner, COM as medidas dela.
+    //
+    // As medidas existem porque quem envia um banner precisa saber a proporcao pra
+    // calcular o zoom que enche a faixa. Elas ja estavam em maos aqui dentro e eram
+    // jogadas fora; recuperar depois exigiria decodificar o data-uri de novo.
+    // largura/altura = 0 quando o gif passa cru (nao decodificamos).
+    data class Imagem(val dataUri: String, val largura: Int, val altura: Int)
+
+    // Atalho pra quem so quer o data-uri (a maioria dos chamadores).
+    fun encode(file: File, dim: Int = AVATAR_DIM): Result<String> =
+        encodeComMedidas(file, dim).map { it.dataUri }
+
     // Le, reduz e codifica. Pesado -> rodar fora da thread de UI.
-    fun encode(file: File, dim: Int = AVATAR_DIM): Result<String> = runCatching {
+    fun encodeComMedidas(file: File, dim: Int = AVATAR_DIM): Result<Imagem> = runCatching {
         val raw = file.readBytes()
         if (file.name.lowercase().endsWith(".gif") && raw.size <= GIF_MAX) {
-            return@runCatching dataUri("image/gif", raw)
+            return@runCatching Imagem(dataUri("image/gif", raw), 0, 0)
         }
         val src = ImageIO.read(file) ?: error("formato de imagem não suportado")
         val fitted = fit(src, dim)
@@ -48,8 +60,27 @@ object AvatarPicker {
         if (alpha) ImageIO.write(fitted, "png", out) else escreverJpeg(fitted, out)
         val bytes = out.toByteArray()
         require(bytes.size <= HARD_MAX) { "imagem muito grande" }
-        dataUri(if (alpha) "image/png" else "image/jpeg", bytes)
+        Imagem(dataUri(if (alpha) "image/png" else "image/jpeg", bytes), fitted.width, fitted.height)
     }
+
+    // Zoom que faz a imagem COBRIR uma faixa de proporcao `aspectoDaFaixa`, em
+    // porcento, pronto pro bannerScale.
+    //
+    // Ele existe porque o banner desenha com ContentScale.Fit: "caber inteira" numa
+    // faixa 3,5:1 quer dizer encolher ate a ALTURA caber, e uma foto 16:9 chega
+    // ocupando pouco mais da metade da largura, com tarja preta dos dois lados. Era
+    // isso o "banner fica pequeno". O fator e a razao entre cobrir e caber.
+    //
+    // Capado em ZOOM_MAX_BANNER: uma imagem muito alta (um print de celular em pe)
+    // pediria 600% pra cobrir, e a 600% ninguem reconhece o que esta vendo.
+    fun zoomQueCobre(largura: Int, altura: Int, aspectoDaFaixa: Float): Int {
+        if (largura <= 0 || altura <= 0) return 100
+        val aspectoDaImagem = largura.toFloat() / altura
+        val fator = max(aspectoDaFaixa / aspectoDaImagem, aspectoDaImagem / aspectoDaFaixa)
+        return (fator * 100).toInt().coerceIn(100, ZOOM_MAX_BANNER)
+    }
+
+    const val ZOOM_MAX_BANNER = 300
 
     // REDUZ EM ETAPAS, metade por vez. Era isto que deixava a foto "pixelada".
     //

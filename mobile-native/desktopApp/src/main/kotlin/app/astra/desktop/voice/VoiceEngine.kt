@@ -300,6 +300,7 @@ class VoiceEngine(
     private var sessionQualityCap: ScreenQuality? = null
     private var streakCpu = 0
     private var streakBanda = 0
+    private var streakLimpo = 0
 
     // Preset pro qual o app desceu SOZINHO nesta transmissao, ou null se nao desceu.
     //
@@ -1064,6 +1065,7 @@ class VoiceEngine(
         statsJob?.cancel()
         streakCpu = 0
         streakBanda = 0
+        streakLimpo = 0
         statsJob = scope.launch {
             while (isActive && _screenOn.value) {
                 val pc = pub
@@ -1092,7 +1094,7 @@ class VoiceEngine(
             }
         }
         _screenStats.value = ScreenStats(capture, send, limit)
-        maybeAutoStepDown(limit)
+        maybeAutoStepDown(limit, send)
     }
 
     // Limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So desce,
@@ -1103,11 +1105,44 @@ class VoiceEngine(
     // app NUNCA descia — ficava eternamente tentando mandar 4Mbps por um cano que nao
     // comporta. Como cada degrau da escada baixa pixels E bitrate ao mesmo tempo, a
     // mesma descida serve pros dois casos.
-    private fun maybeAutoStepDown(limit: String) {
-        when (limit) {
-            "cpu" -> { streakCpu++; streakBanda = 0 }
-            "bandwidth" -> { streakBanda++; streakCpu = 0 }
-            else -> { streakCpu = 0; streakBanda = 0 }
+    private fun maybeAutoStepDown(limit: String, send: Int) {
+        // O fps de envio decide se a limitacao esta DOENDO ou sendo absorvida.
+        //
+        // Isto muda o significado de 'bandwidth'. O WebRTC ja trata falta de banda
+        // sozinho, baixando o bitrate — quando ele consegue absorver, o fps continua
+        // no alvo e a imagem so fica um pouco menos nitida. Descer o preset nesse caso
+        // nao devolve banda nenhuma: so tira qualidade de quem ja estava bem. So conta
+        // como problema quando o fps DESABA junto.
+        val alvo = screenQ.fps
+        val fpsSaudavel = send >= alvo * 6 / 10
+
+        when {
+            limit == "cpu" -> { streakCpu++; streakBanda = 0; streakLimpo = 0 }
+            limit == "bandwidth" && !fpsSaudavel -> { streakBanda++; streakCpu = 0; streakLimpo = 0 }
+            (limit == "none" || limit.isBlank()) && fpsSaudavel -> { streakLimpo++; streakCpu = 0; streakBanda = 0 }
+            else -> { streakCpu = 0; streakBanda = 0; streakLimpo = 0 }
+        }
+
+        // VOLTAR A SUBIR — o que faltava, e o que o dono pediu ("que nem o Discord").
+        //
+        // O ajuste so descia, e estava escrito no codigo que era de proposito: "so
+        // desce, nunca sobe (evita ficar oscilando)". O efeito real era pior que
+        // oscilar — um engasgo de dez segundos no comeco da call rebaixava a
+        // transmissao pelo resto dela, mesmo com a rede tendo voltado ao normal em
+        // seguida. A pessoa passava uma hora em 720p30 por causa de um instante ruim.
+        //
+        // A histerese e ASSIMETRICA de proposito: cair exige 3 leituras (~4,5s), voltar
+        // exige 20 (~30s) TODAS limpas. Piorar rapido e melhorar devagar e o que impede
+        // o vaivem — e errar pro lado de descer custa nitidez, errar pro lado de subir
+        // custa a transmissao engasgar de novo.
+        if (streakLimpo >= 20) {
+            streakLimpo = 0
+            val teto = prefs.state.value.screenQuality
+            val acima = screenQ.stepUp()
+            if (sessionQualityCap != null && acima != null && acima.fps <= teto.fps && acima.width <= teto.width) {
+                scope.launch { autoStepUpTo(acima, teto) }
+            }
+            return
         }
         // DOIS CONTADORES, e a banda precisa de MUITO mais paciencia que a CPU.
         //
@@ -1132,6 +1167,7 @@ class VoiceEngine(
         val next = screenQ.stepDownForCpu() ?: run { streakCpu = 0; streakBanda = 0; return } // já no piso
         streakCpu = 0
         streakBanda = 0
+        streakLimpo = 0
         // Fora da thread do getStats (callback nativo) -> pro escopo do engine.
         scope.launch { autoStepDownTo(next) }
     }
@@ -1144,6 +1180,27 @@ class VoiceEngine(
         ScreenQuality.SMOOTH_720_60 -> ScreenQuality.LIGHT_720_30
         ScreenQuality.LIGHT_720_30  -> ScreenQuality.TINY_540_30
         ScreenQuality.TINY_540_30   -> null
+    }
+
+    // O caminho de volta. Nunca passa da escolha do dono: quem pediu 720p30 na mao nao
+    // vai receber 720p60 porque a rede melhorou — a escolha dele nao e um piso, e a
+    // decisao dele.
+    private fun ScreenQuality.stepUp(): ScreenQuality? = when (this) {
+        ScreenQuality.TINY_540_30   -> ScreenQuality.LIGHT_720_30
+        ScreenQuality.LIGHT_720_30  -> ScreenQuality.SMOOTH_720_60
+        ScreenQuality.SMOOTH_720_60 -> null
+    }
+
+    private suspend fun autoStepUpTo(q: ScreenQuality, teto: ScreenQuality) {
+        // Chegou de volta no que a pessoa escolheu: o teto de sessao deixa de existir,
+        // senao a proxima republicacao voltaria a rebaixar sozinha.
+        sessionQualityCap = if (q == teto) null else q
+        if (!_screenOn.value) return
+        val src = lastScreenSource
+        stopScreenShare(silent = true)
+        delay(350)
+        startScreenShare(src, silent = true)
+        _quedaAutomatica.value = if (sessionQualityCap == null) null else q
     }
 
     // Reinicia a captura no preset menor SEM persistir (respeita a escolha do usuário

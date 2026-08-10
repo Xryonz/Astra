@@ -46,7 +46,24 @@ enum class ScreenQuality(
     // croma anda de dois em dois).
     TINY_540_30("t54030", "540p 30fps — economica", 960, 540, 30, 1_200_000);
     companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: SMOOTH_720_60
+        fun from(raw: String?) = entries.find { it.key == raw } ?: padraoDaMaquina()
+
+        // O preset de estreia sai da MAQUINA, e nao de um valor fixo.
+        //
+        // Todo mundo comecava em 720p60 e so descia depois de sofrer — e quem tem PC
+        // fraco costuma ser exatamente quem nao sabe que existe uma tela de
+        // configuracao pra mexer. A primeira transmissao dele era a ruim.
+        //
+        // O corte e por processador logico porque o encoder H264 por SOFTWARE custa
+        // ~1,25 nucleo em 720p60, medido. Numa maquina de 4 threads isso e um terco do
+        // computador so pra codificar, com o jogo, o navegador e o proprio Astra
+        // disputando o resto. A escolha continua sendo do dono: isto e so o ponto de
+        // partida de quem nunca escolheu.
+        fun padraoDaMaquina(): ScreenQuality = when (Runtime.getRuntime().availableProcessors()) {
+            in 0..4 -> TINY_540_30
+            in 5..6 -> LIGHT_720_30
+            else -> SMOOTH_720_60
+        }
     }
 }
 

@@ -1090,7 +1090,7 @@ class VoiceEngine(
             }
         }
         _screenStats.value = ScreenStats(capture, send, limit)
-        maybeAutoStepDown(limit)
+        maybeAutoStepDown(limit, capture, send)
     }
 
     // Limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So desce,
@@ -1101,10 +1101,26 @@ class VoiceEngine(
     // app NUNCA descia — ficava eternamente tentando mandar 4Mbps por um cano que nao
     // comporta. Como cada degrau da escada baixa pixels E bitrate ao mesmo tempo, a
     // mesma descida serve pros dois casos.
-    private fun maybeAutoStepDown(limit: String) {
+    private fun maybeAutoStepDown(limit: String, capture: Int, send: Int) {
         if (limit == "cpu" || limit == "bandwidth") cpuStreak++ else cpuStreak = 0
-        if (cpuStreak < 3) return
-        val next = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // já no piso
+
+        // COLAPSO: envio abaixo de um terco do capturado nao e "degradou um pouco", e
+        // a maquina desistindo — e a assinatura do MAINTAIN_RESOLUTION do libwebrtc,
+        // que pra conteudo de tela prefere derrubar o fps a perder nitidez. Foi o
+        // "envio 2fps · captura 60fps" relatado.
+        //
+        // Nesse caso uma leitura basta e a queda e de DOIS degraus. Esperar 4,5s pra
+        // descer um degrau que provavelmente tambem nao vai dar conta significa deixar
+        // a pessoa nove segundos assistindo a propria transmissao travada.
+        //
+        // A leitura de limite ainda manda: com 'none' o contador fica em zero e nada
+        // acontece. Isso protege o inicio da transmissao, quando o envio e zero por um
+        // instante so porque os primeiros quadros ainda nao sairam.
+        val colapso = capture > 0 && send * 3 < capture
+        if (cpuStreak < (if (colapso) 1 else 3)) return
+
+        val umDegrau = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // já no piso
+        val next = if (colapso) umDegrau.stepDownForCpu() ?: umDegrau else umDegrau
         cpuStreak = 0
         // Fora da thread do getStats (callback nativo) -> pro escopo do engine.
         scope.launch { autoStepDownTo(next) }

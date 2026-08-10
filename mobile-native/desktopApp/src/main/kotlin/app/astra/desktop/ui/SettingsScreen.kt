@@ -127,6 +127,7 @@ import com.composables.icons.lucide.X
 import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.voice.AudioDevices
 import app.astra.desktop.voice.GStreamerPack
+import app.astra.desktop.voice.GstScreenEncoder
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
@@ -2609,6 +2610,8 @@ private fun AceleracaoPorHardware() {
                     "construída. Enquanto isso, os presets menores continuam sendo a " +
                     "resposta para computador que engasga.",
             )
+            Spacer(Modifier.height(10.dp))
+            MedirGanhoDaGpu()
         } else {
             InfoNote(
                 "Nenhuma aceleração encontrada",
@@ -2619,6 +2622,62 @@ private fun AceleracaoPorHardware() {
                     "do que custa 720p a 60.",
             )
         }
+    }
+}
+
+// Roda o caminho novo (captura e compressão sem tirar o quadro da placa) por alguns
+// segundos e diz quanto custou NESTA máquina.
+//
+// Existe porque o ganho medido aqui — 0,07 núcleo contra 0,84 do caminho atual — foi
+// medido num computador só, o do dono. Antes de reescrever a voz por causa de máquina
+// fraca, quem tem a máquina fraca precisa conseguir provar o ganho nela.
+@Composable
+private fun MedirGanhoDaGpu() {
+    val escopo = rememberCoroutineScope()
+    var medindo by remember { mutableStateOf(false) }
+    var medida by remember { mutableStateOf<Result<GstScreenEncoder.Medicao>?>(null) }
+
+    AboutButton(if (medindo) "medindo… (uns 12 segundos)" else "medir o ganho nesta máquina", accent = !medindo) {
+        if (medindo) return@AboutButton
+        medindo = true
+        escopo.launch {
+            val http = GlobalContext.get().get<OkHttpClient>(named("plain"))
+            medida = GstScreenEncoder.medir(http)
+            medindo = false
+        }
+    }
+
+    medida?.let { res ->
+        Spacer(Modifier.height(10.dp))
+        res.fold(
+            onSuccess = { m ->
+                // 0,84 e a medida do caminho de HOJE (720p60, quadro descendo pra CPU +
+                // encoder por software) na maquina do dono. Serve de regua, e esta dito
+                // que e regua e nao medida local — comparar sem avisar seria trapaça.
+                val vezes = if (m.nucleos > 0.01) (0.84 / m.nucleos) else 0.0
+                InfoNote(
+                    "Medido: ${"%.2f".format(m.nucleos)} núcleo a 720p60",
+                    "Encoder usado: ${m.encoder}. Quadros por segundo: ${"%.0f".format(m.fps)}.\n\n" +
+                        (if (vezes >= 2) "O caminho de hoje custa cerca de 0,84 núcleo no mesmo teste — " +
+                            "ou seja, aqui o caminho novo sai por volta de ${"%.0f".format(vezes)}× mais barato. "
+                        else "O caminho de hoje custa cerca de 0,84 núcleo no mesmo teste. ") +
+                        "Esse 0,84 é régua, medido em outro computador; o número acima é o " +
+                        "desta máquina.\n\n" +
+                        "Se os quadros por segundo estiverem bem abaixo de 60, a placa não está " +
+                        "dando conta do preset e o número de núcleos engana — custa pouco porque " +
+                        "está fazendo pouco.",
+                )
+            },
+            onFailure = { e ->
+                InfoNote(
+                    "Não deu para medir",
+                    "Motivo: ${e.message ?: e.javaClass.simpleName}.\n\n" +
+                        "Isso não quebra nada: a transmissão continua pelo caminho de sempre. " +
+                        "Só significa que este computador não vai aproveitar a mudança que " +
+                        "está sendo construída.",
+                )
+            },
+        )
     }
 }
 

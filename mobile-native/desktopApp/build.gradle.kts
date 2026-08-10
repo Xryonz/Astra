@@ -70,7 +70,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.1"
+val astraVersion = "0.2.2"
 
 dependencies {
     implementation(project(":shared"))
@@ -101,6 +101,10 @@ dependencies {
     // Voz nativa (fase V1+): WebRTC pra JVM + natives do Windows por classifier.
     implementation(libs.webrtc.java)
     runtimeOnly("dev.onvoid.webrtc:webrtc-java:${libs.versions.webrtcJava.get()}:windows-x86_64")
+    // GStreamer: SO os bindings (JNA), ~1MB. O runtime nativo (62MB) e baixado sob
+    // demanda pelo GStreamerPack e vive em %LOCALAPPDATA%, fora do app — ver la o
+    // porque. Sem o pacote em disco, estes bindings simplesmente nao sao usados.
+    implementation(libs.gst.java)
     // Signaling do LiveKit: runtime do protobuf. As classes Java ficam
     // COMMITADAS em src/main/java/livekit (geradas 1x na mao) porque o protoc,
     // como o jpackage, nao engole o path com acento do repo. Pra regenerar
@@ -301,7 +305,11 @@ compose.desktop {
             // no pacote, todo o trabalho de rotular botao e invisivel — nem quem
             // ligasse o Access Bridge no proprio Windows (jabswitch /enable)
             // conseguiria usar o Astra por leitor de tela.
-            modules("jdk.httpserver", "java.management", "jdk.accessibility")
+            // jdk.management: o com.sun.management.OperatingSystemMXBean (quanto
+            // processador ESTE processo gastou) mora nele, e nao no java.management.
+            // Sem o modulo, a medicao de custo da transmissao compila e explode so no
+            // app empacotado — a mesma pegadinha que ja custou o jdk.httpserver.
+            modules("jdk.httpserver", "java.management", "jdk.management", "jdk.accessibility")
             // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
             // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
             // System.getProperty("compose.application.resources.dir"). O binario e

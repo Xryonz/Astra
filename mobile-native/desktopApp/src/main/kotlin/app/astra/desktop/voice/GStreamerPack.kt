@@ -238,6 +238,16 @@ object GStreamerPack {
         val path = System.getenv("PATH").orEmpty()
         k.SetEnvironmentVariable("PATH", "${binDir.absolutePath};$path")
 
+        // A JNA nao le o PATH do processo: ela monta a lista de candidatos a partir de
+        // `jna.library.path`. Os bindings do GStreamer carregam por ela, entao sem esta
+        // linha o PATH acima serve pras DEPENDENCIAS (que o loader do Windows resolve) e
+        // nao pra biblioteca principal — que e justamente a primeira a ser procurada.
+        val jna = System.getProperty("jna.library.path")
+        System.setProperty(
+            "jna.library.path",
+            if (jna.isNullOrBlank()) binDir.absolutePath else "${binDir.absolutePath}${File.pathSeparator}$jna",
+        )
+
         k.SetEnvironmentVariable("GST_PLUGIN_PATH", pluginDir.absolutePath)
 
         // VAZIO DE PROPOSITO, e esta e a linha mais importante do arquivo.

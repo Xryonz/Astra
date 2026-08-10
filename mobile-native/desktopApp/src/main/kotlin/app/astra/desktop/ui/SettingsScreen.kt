@@ -621,24 +621,19 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
         }
     }
 
+    // UM cartao so, e grande. Eram dois lado a lado (completo e o do avatar), cada
+    // um em metade da coluna: dois desenhos pequenos demais pra conferir qualquer
+    // coisa, e o segundo mostrando um recorte do primeiro. Com a largura inteira o
+    // completo aparece no tamanho em que da pra julgar foto, banner e bio — que e
+    // pra isso que a previa existe. O cartao pequeno continua a um clique daqui.
     Column(Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CartaoDaPrevia(
-                rotulo = "cartão completo",
-                larguraReal = LARGURA_CARTAO_COMPLETO,
-                modifier = Modifier.weight(1f),
-                aoClicar = { ampliada = CardVariante.COMPLETO },
-            ) {
-                ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth(), servidoresEmComum = mutuais, animar = false)
-            }
-            CartaoDaPrevia(
-                rotulo = "ao clicar no avatar",
-                larguraReal = LARGURA_CARTAO_NORMAL,
-                modifier = Modifier.weight(1f),
-                aoClicar = { ampliada = CardVariante.NORMAL },
-            ) {
-                ProfileCard(dados, CardVariante.NORMAL, Modifier.fillMaxWidth(), animar = false)
-            }
+        CartaoDaPrevia(
+            rotulo = "cartão completo",
+            larguraReal = LARGURA_CARTAO_COMPLETO,
+            modifier = Modifier.fillMaxWidth(),
+            aoClicar = { ampliada = CardVariante.COMPLETO },
+        ) {
+            ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth(), servidoresEmComum = mutuais, animar = false)
         }
         Spacer(Modifier.height(8.dp))
         Text(

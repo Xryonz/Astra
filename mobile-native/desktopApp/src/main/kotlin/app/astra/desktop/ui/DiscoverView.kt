@@ -59,13 +59,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
+import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.DiscoverApi
 import app.astra.mobile.core.network.dto.DiscoverServerDto
 import coil3.compose.AsyncImage
-import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ArrowRight
 import com.composables.icons.lucide.Compass
 import com.composables.icons.lucide.LogIn
 import com.composables.icons.lucide.Lucide
@@ -175,7 +176,16 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
                     // Cascata de entrada ao carregar/buscar (re-dispara quando o
                     // conjunto muda de tamanho). GPU-only (fade + leve subida).
                     CascadeIn(i, results.size) {
-                        DiscoverCard(s, joining = joining == s.id, isMember = s.id in joinedIds, onJoin = { join(s.id) })
+                        DiscoverCard(
+                            s,
+                            joining = joining == s.id,
+                            isMember = s.id in joinedIds,
+                            onJoin = { join(s.id) },
+                            // Abrir reusa o mesmo callback do "entrou": la no shell ele
+                            // recarrega a lista e SELECIONA a constelacao — que e
+                            // exatamente o que abrir quer dizer.
+                            onAbrir = { onJoined(s.id) },
+                        )
                     }
                 }
             }
@@ -184,7 +194,13 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
 }
 
 @Composable
-private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boolean, onJoin: () -> Unit) {
+private fun DiscoverCard(
+    s: DiscoverServerDto,
+    joining: Boolean,
+    isMember: Boolean,
+    onJoin: () -> Unit,
+    onAbrir: () -> Unit,
+) {
     Column(
         Modifier
             .clip(RoundedCornerShape(12.dp))
@@ -214,6 +230,21 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // A CONTAGEM SUBIU pro canto direito, na linha do nome, e perdeu a
+                // moldura. Ela e um dado, nao um alvo de clique: chip com borda
+                // prometia que dava pra clicar e disputava atencao com o botao de
+                // entrar, que e a unica coisa clicavel do cartao. Aqui em cima ela
+                // se le junto com o nome ("Autism Gang, 5 pessoas") e o rodape fica
+                // livre pra acao.
+                Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "${s.members}",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, fontFamily = DmMono),
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             // Altura fixa (2 linhas) pra os cards alinharem no grid mesmo sem descrição.
@@ -225,36 +256,27 @@ private fun DiscoverCard(s: DiscoverServerDto, joining: Boolean, isMember: Boole
             )
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Chip da contagem de membros (borda pra destacar).
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        "${s.members}",
-                        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-                    )
-                }
                 Spacer(Modifier.weight(1f))
                 val joinSrc = remember { MutableInteractionSource() }
                 if (isMember) {
-                    // Ja e membro: chip com borda (destaque), no lugar do "entrar".
-                    // So o tique. O chip ocupa o lugar exato do "entrar", entao a
-                    // comparacao entre os cartoes ja diz o que ele significa: onde
-                    // os outros oferecem entrada, este diz que ja esta resolvido.
-                    Box(
+                    // JA E MEMBRO: o botao vira ABRIR, e nao um tique.
+                    //
+                    // O tique com moldura anunciava um estado ocupando o lugar de uma
+                    // acao — e um alvo do tamanho de um botao que nao faz nada convida
+                    // o clique e devolve silencio. "abrir" e a mesma moldura fazendo
+                    // algo util: leva pra constelacao. Estado que vira acao.
+                    Row(
                         Modifier
+                            .clickScale(joinSrc)
                             .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, Obsidian.accentDim, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
+                            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+                            .clickable(interactionSource = joinSrc, indication = null, onClick = onAbrir)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        LIcon(Lucide.Check, tint = Obsidian.accent, size = 13.dp)
+                        LIcon(Lucide.ArrowRight, tint = Obsidian.text2, size = 13.dp)
+                        Text("abrir", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
                     }
                 } else {
                     Row(

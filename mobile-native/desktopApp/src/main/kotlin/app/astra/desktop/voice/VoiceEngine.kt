@@ -1093,10 +1093,16 @@ class VoiceEngine(
         maybeAutoStepDown(limit)
     }
 
-    // 'cpu'-limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So
-    // desce, nunca sobe (evita ficar oscilando). O cap vale so nesta sessão.
+    // Limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So desce,
+    // nunca sobe (evita ficar oscilando). O cap vale so nesta sessão.
+    //
+    // 'bandwidth' conta junto com 'cpu', e nao contava. Era um buraco: numa conexao de
+    // subida fraca o WebRTC reporta 'bandwidth', o contador zerava a cada leitura e o
+    // app NUNCA descia — ficava eternamente tentando mandar 4Mbps por um cano que nao
+    // comporta. Como cada degrau da escada baixa pixels E bitrate ao mesmo tempo, a
+    // mesma descida serve pros dois casos.
     private fun maybeAutoStepDown(limit: String) {
-        if (limit == "cpu") cpuStreak++ else cpuStreak = 0
+        if (limit == "cpu" || limit == "bandwidth") cpuStreak++ else cpuStreak = 0
         if (cpuStreak < 3) return
         val next = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // já no piso
         cpuStreak = 0

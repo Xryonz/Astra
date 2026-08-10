@@ -230,6 +230,12 @@ Write-Host ("  pasta : {0} MB" -f (Peso $Destino))
 Write-Host ("  zip   : {0} MB   {1}" -f ([math]::Round((Get-Item $zip).Length/1MB,1)), $zip) -ForegroundColor Green
 Write-Host ("  sha256: {0}" -f $hash) -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "PUBLICAR: crie a tag 'gstreamer-$versao' no repo Xryonz/Astra e suba os DOIS" -ForegroundColor Yellow
-Write-Host "arquivos como assets (o .zip e o .zip.sha256). O pacote e versionado pelo" -ForegroundColor Yellow
-Write-Host "GStreamer, nao pelo Astra: atualizar o app nao rebaixa nada." -ForegroundColor Yellow
+Write-Host "PUBLICAR (o --prerelease NAO e opcional, ver abaixo):" -ForegroundColor Yellow
+Write-Host "  gh release create gstreamer-$versao --repo Xryonz/Astra --prerelease ``" -ForegroundColor Gray
+Write-Host "    --title 'GStreamer $versao (pacote de runtime do Astra)' ``" -ForegroundColor Gray
+Write-Host "    '$zip' '$zip.sha256'" -ForegroundColor Gray
+Write-Host ""
+Write-Host "POR QUE --prerelease: o auto-update do app le github.com/<repo>/releases/latest," -ForegroundColor Yellow
+Write-Host "e o GitHub aponta esse endereco pra release normal mais recente. Publicar o" -ForegroundColor Yellow
+Write-Host "pacote como release normal o tornaria 'latest' e o app pararia de enxergar as" -ForegroundColor Yellow
+Write-Host "versoes novas do Astra. Pre-release fica FORA desse calculo." -ForegroundColor Yellow

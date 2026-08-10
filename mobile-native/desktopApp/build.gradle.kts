@@ -62,7 +62,15 @@ java {
 // Versao unica do desktop: alimenta o packageVersion do jpackage E entra no app
 // via -Dastra.version -> o auto-update compara com a ultima release do GitHub.
 // Bumpar aqui (1 lugar) a cada release.
-val astraVersion = "0.1.114"
+//
+// A LINHA 0.1.x MORREU NA 0.1.114. Passamos de cem versoes de patch dentro de um
+// unico minor, o que fazia o numero perder a funcao: "0.1.113 -> 0.1.114" nao dizia
+// nada sobre o tamanho da mudanca. Daqui pra frente o minor sobe.
+//
+// A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
+// como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
+// diria a mesma coisa por acaso, mas e o campo a campo que vale.
+val astraVersion = "0.2.0"
 
 dependencies {
     implementation(project(":shared"))

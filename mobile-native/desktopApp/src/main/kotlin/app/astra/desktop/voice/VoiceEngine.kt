@@ -298,7 +298,8 @@ class VoiceEngine(
     // 1 degrau de preset (priorizando o framerate). sessionQualityCap = teto SO desta
     // sessão — NAO mexe na pref explicita do usuário (zera quando ele escolhe na mao).
     private var sessionQualityCap: ScreenQuality? = null
-    private var cpuStreak = 0
+    private var streakCpu = 0
+    private var streakBanda = 0
 
     // Preset pro qual o app desceu SOZINHO nesta transmissao, ou null se nao desceu.
     //
@@ -1061,7 +1062,8 @@ class VoiceEngine(
     // da degradacao. E como saber SE bateu 60 e, se não, ONDE travou (captura/cpu/banda).
     private fun startScreenStats() {
         statsJob?.cancel()
-        cpuStreak = 0
+        streakCpu = 0
+        streakBanda = 0
         statsJob = scope.launch {
             while (isActive && _screenOn.value) {
                 val pc = pub
@@ -1090,7 +1092,7 @@ class VoiceEngine(
             }
         }
         _screenStats.value = ScreenStats(capture, send, limit)
-        maybeAutoStepDown(limit, capture, send)
+        maybeAutoStepDown(limit)
     }
 
     // Limitado por ~3 leituras (≈4.5s) seguidas => baixa 1 degrau sozinho. So desce,
@@ -1101,27 +1103,35 @@ class VoiceEngine(
     // app NUNCA descia — ficava eternamente tentando mandar 4Mbps por um cano que nao
     // comporta. Como cada degrau da escada baixa pixels E bitrate ao mesmo tempo, a
     // mesma descida serve pros dois casos.
-    private fun maybeAutoStepDown(limit: String, capture: Int, send: Int) {
-        if (limit == "cpu" || limit == "bandwidth") cpuStreak++ else cpuStreak = 0
-
-        // COLAPSO: envio abaixo de um terco do capturado nao e "degradou um pouco", e
-        // a maquina desistindo — e a assinatura do MAINTAIN_RESOLUTION do libwebrtc,
-        // que pra conteudo de tela prefere derrubar o fps a perder nitidez. Foi o
-        // "envio 2fps · captura 60fps" relatado.
+    private fun maybeAutoStepDown(limit: String) {
+        when (limit) {
+            "cpu" -> { streakCpu++; streakBanda = 0 }
+            "bandwidth" -> { streakBanda++; streakCpu = 0 }
+            else -> { streakCpu = 0; streakBanda = 0 }
+        }
+        // DOIS CONTADORES, e a banda precisa de MUITO mais paciencia que a CPU.
         //
-        // Nesse caso uma leitura basta e a queda e de DOIS degraus. Esperar 4,5s pra
-        // descer um degrau que provavelmente tambem nao vai dar conta significa deixar
-        // a pessoa nove segundos assistindo a propria transmissao travada.
+        // Isto e conserto de uma regressao minha, e a regressao ensina o porque: eu
+        // tinha juntado 'bandwidth' com 'cpu' no mesmo contador e ainda criado uma
+        // regra de "colapso" que descia DOIS degraus com UMA leitura quando o envio
+        // estava abaixo de um terco do capturado. Numa maquina otima (RTX 4060, 16
+        // threads) a transmissao caiu pra 540p30 em segundos.
         //
-        // A leitura de limite ainda manda: com 'none' o contador fica em zero e nada
-        // acontece. Isso protege o inicio da transmissao, quando o envio e zero por um
-        // instante so porque os primeiros quadros ainda nao sairam.
-        val colapso = capture > 0 && send * 3 < capture
-        if (cpuStreak < (if (colapso) 1 else 3)) return
+        // A razao: os primeiros segundos de qualquer transmissao TEM essa cara. O
+        // estimador de banda do WebRTC comeca baixo de proposito e sobe testando a
+        // rede — durante a subida ele reporta 'bandwidth' e o envio fica bem abaixo da
+        // captura. Isso nao e a maquina desistindo, e a rede sendo medida. A regra de
+        // colapso lia esse momento como catastrofe e punia quem nao tinha problema
+        // nenhum.
+        //
+        // Agora: CPU derruba em 3 leituras (~4,5s) porque falta de processador e
+        // imediata e nao melhora sozinha; BANDA precisa de 8 (~12s), tempo de sobra
+        // pro estimador terminar de subir. E a queda voltou a ser de um degrau por vez.
+        if (streakCpu < 3 && streakBanda < 8) return
 
-        val umDegrau = screenQ.stepDownForCpu() ?: run { cpuStreak = 0; return } // já no piso
-        val next = if (colapso) umDegrau.stepDownForCpu() ?: umDegrau else umDegrau
-        cpuStreak = 0
+        val next = screenQ.stepDownForCpu() ?: run { streakCpu = 0; streakBanda = 0; return } // já no piso
+        streakCpu = 0
+        streakBanda = 0
         // Fora da thread do getStats (callback nativo) -> pro escopo do engine.
         scope.launch { autoStepDownTo(next) }
     }

@@ -63,17 +63,36 @@ function Achar-Jstack {
 $nomes = @{}
 $jstack = Achar-Jstack
 if ($jstack) {
-  $dump = & cmd /c "`"$jstack`" $($proc.Id) 2>nul"
+  # O erro do jstack vem JUNTO (2>&1) e nao pro nada (2>nul). A primeira versao disto
+  # engolia a mensagem, e quando o jstack nao anexou o script disse so "sem nomes" --
+  # inutil pra saber o que fazer. O motivo real costuma ser: o Astra rodando com
+  # privilegio diferente do terminal, ou o JDK do sistema mais NOVO que o runtime
+  # empacotado do app (o attach so vai de igual pra igual, ou de menor pra maior).
+  $tmpErr = Join-Path $env:TEMP 'astra-jstack.err'
+  $dump = & cmd /c "`"$jstack`" $($proc.Id) 2>`"$tmpErr`""
+  # -Raw devolve $null em arquivo VAZIO (nao string vazia), e ai o .Trim() explode.
+  $erro = if (Test-Path $tmpErr) { "$(Get-Content $tmpErr -Raw)".Trim() } else { '' }
   foreach ($linha in $dump) {
-    # "nome" #12 daemon prio=5 os_prio=0 cpu=123.45ms ... nid=0x1a2b ...
-    $m = [regex]::Match($linha, '^"(?<nome>[^"]+)".*nid=0x(?<nid>[0-9a-fA-F]+)')
-    if ($m.Success) { $nomes[[Convert]::ToInt32($m.Groups['nid'].Value, 16)] = $m.Groups['nome'].Value }
+    # DOIS FORMATOS, porque o JDK 21 mudou e me pegou:
+    #   ate o 17: "nome" #12 daemon prio=5 ... nid=0x1a2b ...      (HEXADECIMAL)
+    #   do 21:    "nome" #12 [6699] daemon prio=5 ... nid=6699 ... (DECIMAL)
+    # O regex antigo exigia o "0x" e nao casava NADA no 21 -- o script rodava, dizia
+    # "sem nomes" e a saida vinha anonima, que e pior que falhar: parece que funcionou.
+    $m = [regex]::Match($linha, '^"(?<nome>[^"]+)".*\snid=(?<nid>0x[0-9a-fA-F]+|\d+)')
+    if ($m.Success) {
+      $raw = $m.Groups['nid'].Value
+      $id  = if ($raw.StartsWith('0x')) { [Convert]::ToInt32($raw.Substring(2), 16) } else { [int]$raw }
+      $nomes[$id] = $m.Groups['nome'].Value
+    }
   }
 }
 if ($nomes.Count -gt 0) {
   Write-Host ("  {0} threads Java identificadas por nome" -f $nomes.Count) -ForegroundColor DarkGray
 } else {
-  Write-Host "  sem nomes (jstack nao anexou) -- o consumo sai anonimo, mas sai" -ForegroundColor Yellow
+  Write-Host "  sem nomes -- o consumo sai anonimo, mas sai" -ForegroundColor Yellow
+  if ($erro) { Write-Host ("  motivo: {0}" -f ($erro -split "`n")[0]) -ForegroundColor Yellow }
+  Write-Host "  tente: abrir este terminal como ADMINISTRADOR (o attach exige mesmo nivel" -ForegroundColor DarkGray
+  Write-Host "  de privilegio que o processo alvo)." -ForegroundColor DarkGray
 }
 
 # --- duas leituras ----------------------------------------------------------------

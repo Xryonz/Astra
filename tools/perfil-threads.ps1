@@ -106,10 +106,20 @@ function Snapshot {
   return $r
 }
 
+# O ffmpeg.exe da captura e processo SEPARADO, e precisa ser medido na MESMA janela
+# de tempo -- medir depois seria comparar dois momentos diferentes da tela.
+function CpuFfmpeg {
+  $f = Get-Process -Name 'ffmpeg' -ErrorAction SilentlyContinue
+  if (-not $f) { return $null }
+  return ($f | Measure-Object -Property CPU -Sum).Sum
+}
+
 $a  = Snapshot
+$ff0 = CpuFfmpeg
 $t0 = Get-Date
 Start-Sleep -Seconds $Segundos
 $b  = Snapshot
+$ff1 = CpuFfmpeg
 $dt = ((Get-Date) - $t0).TotalSeconds
 
 $linhas = @()
@@ -136,9 +146,12 @@ $linhas | Select-Object -First $Top | ForEach-Object {
 Write-Host ""
 Write-Host ("  TOTAL do Astra: {0:N2} nucleos ({1:N1}% da maquina)" -f $total, ($total/$cores*100)) -ForegroundColor Cyan
 
-$ff = Get-Process -Name 'ffmpeg' -ErrorAction SilentlyContinue
-if ($ff) {
-  Write-Host "  (o ffmpeg.exe da captura e processo SEPARADO -- rode tools\medir-desempenho.ps1 pra ele)" -ForegroundColor DarkGray
+if ($null -ne $ff0 -and $null -ne $ff1) {
+  $ffN = [math]::Round(($ff1 - $ff0) / $dt, 3)
+  Write-Host ("  ffmpeg.exe (captura, processo a parte): {0:N3} nucleos" -f $ffN) -ForegroundColor Cyan
+  Write-Host ("  SOMA (Astra + ffmpeg): {0:N2} nucleos ({1:N1}% da maquina)" -f ($total + $ffN), (($total + $ffN)/$cores*100)) -ForegroundColor Cyan
+} else {
+  Write-Host "  (ffmpeg.exe nao esta rodando -- voce nao esta transmitindo, ou a captura caiu pro GDI)" -ForegroundColor Yellow
 }
 
 Write-Host ""

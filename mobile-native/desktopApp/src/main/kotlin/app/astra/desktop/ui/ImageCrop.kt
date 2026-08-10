@@ -174,11 +174,16 @@ object ImageCrop {
 
         val k = outW / sw
         val surface = Surface.makeRasterN32Premul(outW, outH)
+        // MITCHELL, e nao LINEAR. O bilinear le so 2x2 pixeis vizinhos: numa
+        // reducao de 4x (a fonte vem capada em 2048 e o avatar sai em 512) ele
+        // ignora quase toda a informacao e devolve serrilhado — era isso o
+        // "pixelado", nao o tamanho final. O cubico do Mitchell amostra uma
+        // vizinhanca maior e foi desenhado justamente pra reduzir.
         surface.canvas.drawImageRect(
             src.img,
             SkRect.makeLTRB(ix0, iy0, ix1, iy1),
             SkRect.makeLTRB((ix0 - sx) * k, (iy0 - sy) * k, (ix1 - sx) * k, (iy1 - sy) * k),
-            SamplingMode.LINEAR,
+            SamplingMode.MITCHELL,
             null,
             true,
         )

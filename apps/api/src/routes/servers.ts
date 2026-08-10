@@ -203,7 +203,10 @@ const UpdateServerSchema = z.object({
   isPublic:    z.boolean().optional(),
   description: z.string().max(200).optional().nullable(),
   bannerPositionY: z.number().int().min(0).max(100).optional(),
-  bannerScale:     z.number().int().min(100).max(300).optional(),
+  // 50..300, a mesma faixa do banner de perfil (packages/types). Aqui o piso era
+  // 100, la era 50 e o teto 200, e o slider do desktop e o mesmo componente nos
+  // dois — entao o mesmo gesto passava num lugar e era recusado no outro.
+  bannerScale:     z.number().int().min(50).max(300).optional(),
   iconScale:       z.number().int().min(100).max(300).optional(),
 })
 

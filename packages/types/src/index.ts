@@ -46,7 +46,13 @@ export const UpdateProfileSchema = z.object({
   bannerColor:  z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
   profileTheme: z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
   bannerPositionY: z.number().int().min(0).max(100).optional(),
-  bannerScale:     z.number().int().min(50).max(200).optional(),
+  // 50..300, a MESMA faixa do banner de constelação (servers.ts) e a mesma que o
+  // slider do desktop oferece. Eram três números diferentes pra mesma ideia — aqui
+  // 50..200, lá 100..300, e o slider indo de 0 a 300 —, então dar zoom acima de 200
+  // fazia o servidor recusar o PATCH INTEIRO: sumia o salvamento do nome, da bio e
+  // de tudo mais junto, com um "Dados inválidos" que não dizia de qual campo.
+  // Abaixo de 50 a imagem vira um ponto no meio do cartão; esse piso fica.
+  bannerScale:     z.number().int().min(50).max(300).optional(),
   bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),
   bannerTextColor: z.string().regex(HEX_COLOR_RE, 'Use hex #RRGGBB').optional().nullable(),
   pronouns:        z.string().max(32, 'Máx 32 caracteres').optional().nullable(),

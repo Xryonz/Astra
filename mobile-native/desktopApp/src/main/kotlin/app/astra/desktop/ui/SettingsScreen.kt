@@ -1439,13 +1439,20 @@ private fun saveErrorMessage(t: Throwable?): String {
     return parsed?.takeIf { it.isNotBlank() } ?: "não foi possível salvar (erro ${http.code()})"
 }
 
-// Zoom do banner (bannerScale 0..300%): trilha arrastavel simples. Abaixo de 100%
-// a imagem encolhe dentro da caixa (revela o fundo em volta) ate sumir no 0% —
-// permite "afastar" pra enquadrar sem so cortar. Slider proprio pra não puxar
-// componente novo so por isto.
+// Zoom do banner: trilha arrastavel simples, de 50% a 300%.
+//
+// A FAIXA E A DO SERVIDOR, e nao um numero escolhido aqui. Ela ia de 0 a 300 e o
+// schema aceitava 50 a 200: passar de 200 (ou ficar abaixo de 50) fazia o servidor
+// recusar o PATCH INTEIRO com "Dados inválidos" — sumia o salvamento do nome e da
+// bio junto, sem dizer de qual campo. O teto virou 300 nos dois lados; o piso de 50
+// ficou, porque abaixo disso a imagem vira um ponto no meio da faixa.
+private const val ZOOM_MIN = 50
+private const val ZOOM_MAX = 300
+
 @Composable
 private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
-    val pct = (scale / 300f).coerceIn(0f, 1f)
+    val faixa = (ZOOM_MAX - ZOOM_MIN).toFloat()
+    val pct = ((scale - ZOOM_MIN) / faixa).coerceIn(0f, 1f)
     Row(
         Modifier.widthIn(max = 420.dp).fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1459,7 +1466,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
                         val f = (change.position.x / size.width).coerceIn(0f, 1f)
-                        onChange((f * 300).toInt())
+                        onChange(ZOOM_MIN + (f * faixa).toInt())
                     }
                 },
             contentAlignment = Alignment.CenterStart,

@@ -35,15 +35,21 @@ object Obsidian {
     // de vinho, o cartao ficava contornado por uma cor fria que nao existia em
     // lugar nenhum da tela — parecia recortado de outro app.
     //
-    // Elas nao ganharam cor propria: sao a rampa de elevacao levada dois degraus
-    // adiante, a partir do MESMO `raised` do tema. Assim o tom acompanha o fundo
-    // de graca, e nao entra cor nova no sistema pra resolver hierarquia (que e o
-    // que as normas do produto proibem).
+    // Elas nao ganharam cor propria: saem do MESMO `raised` do tema. Assim o tom
+    // acompanha o fundo de graca, e nao entra cor nova no sistema pra resolver
+    // hierarquia (que e o que as normas do produto proibem).
     //
-    // O passo foi calibrado pra Obsidiana continuar praticamente identica: 1,6:1
-    // contra o `raised`, igual ao que era. Borda de 1dp entre duas superficies e
-    // separador, nao componente — perseguir os 3:1 de UI aqui desenharia um risco
-    // duro em volta de cada cartao, que e exatamente o que o app evita.
+    // NAO E `lift`, E `clarear`, E A DIFERENCA E O BUG QUE ISTO CONSERTA. A primeira
+    // versao somava a mesma quantidade nos tres canais. Somar preserva a diferenca
+    // ABSOLUTA entre eles e destroi a RELATIVA: o raised da Aurora (#0C1A10) mais
+    // 0,145 vira #313F35 — verde na conta, cinza no olho, porque 14/255 de vantagem
+    // do verde sobre um nivel alto nao se enxerga. Multiplicar ANTES de somar
+    // preserva a proporcao, e a cor sobrevive ao clareamento.
+    //
+    // O passo foi calibrado pra Obsidiana continuar em ~1,6:1 contra o `raised`,
+    // igual ao que era. Borda de 1dp entre duas superficies e separador, nao
+    // componente — perseguir os 3:1 de UI aqui desenharia um risco duro em volta de
+    // cada cartao, que e exatamente o que o app evita.
     var borderDim by mutableStateOf(Color(0xFF363741))
         private set
     var borderMid by mutableStateOf(Color(0xFF494A54))
@@ -82,6 +88,8 @@ object Obsidian {
         active = lift(bg.raisedC, 0.085f)
         accent = a
         accentDim = a.copy(alpha = 0.2f)
+        borderDim = clarear(bg.raisedC, 1.55f, 0.115f)
+        borderMid = clarear(bg.raisedC, 1.85f, 0.17f)
     }
 }
 
@@ -89,5 +97,20 @@ private fun lift(c: Color, amount: Float): Color = Color(
     red = (c.red + amount).coerceAtMost(1f),
     green = (c.green + amount).coerceAtMost(1f),
     blue = (c.blue + amount).coerceAtMost(1f),
+    alpha = c.alpha,
+)
+
+// Clareia MANTENDO a cor. `lift` soma o mesmo valor nos tres canais, o que preserva
+// a diferenca absoluta entre eles e afunda a relativa: sobre um nivel alto, os
+// 14/255 de vantagem do verde da Aurora deixam de ser enxergados e a borda le como
+// cinza. Multiplicar antes de somar mantem a proporcao entre os canais — o ganho
+// e o mesmo, a cor sobrevive.
+//
+// Serve pras BORDAS. A rampa de superficie continua no `lift`, e de proposito: ali
+// o que se quer e justamente subir um degrau sem mexer no tom do fundo.
+private fun clarear(c: Color, ganho: Float, piso: Float): Color = Color(
+    red = (c.red * ganho + piso).coerceIn(0f, 1f),
+    green = (c.green * ganho + piso).coerceIn(0f, 1f),
+    blue = (c.blue * ganho + piso).coerceIn(0f, 1f),
     alpha = c.alpha,
 )

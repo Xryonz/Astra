@@ -1,6 +1,7 @@
 package app.astra.desktop.net
 
 import kotlinx.coroutines.delay
+import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -16,8 +17,20 @@ import java.io.IOException
 // A janela agora cobre o sono inteiro. E a espera cresce rapido de proposito:
 // insistir de segundo em segundo contra um servidor que ainda esta subindo so
 // gasta tentativa e enche o log dele.
-private val ESPERAS_MS = longArrayOf(1_000L, 3_000L, 6_000L, 12_000L, 20_000L, 30_000L)
-val TENTATIVAS = ESPERAS_MS.size + 1   // 7 tentativas, ~72s de espera somada
+// A janela cobria 72s, o suficiente pro SONO (que acorda em ate ~50s). Nao cobria
+// o DEPLOY: publicar no Render free tira a instancia do ar por 2 a 5 minutos, e
+// nesse intervalo as sete tentativas queimavam e a tela cravava erro — inclusive
+// erro de PARSE, porque durante a troca o roteador devolve pagina de HTML no lugar
+// do JSON. Agora vai ate ~3 minutos.
+//
+// O preco assumido: um erro que nao melhora esperando (resposta que o app nao sabe
+// ler por bug de verdade) demora tres minutos pra aparecer na tela em vez de um.
+// Vale — quem esta esperando ve "o servidor está acordando" o tempo todo, e a
+// alternativa e mandar a pessoa recarregar do lado de fora de uma falha temporaria.
+private val ESPERAS_MS = longArrayOf(
+    1_000L, 3_000L, 6_000L, 12_000L, 20_000L, 30_000L, 45_000L, 60_000L,
+)
+val TENTATIVAS = ESPERAS_MS.size + 1   // 9 tentativas, ~177s de espera somada
 
 // Por que a chamada falhou, do jeito que a tela pode dizer em voz alta.
 //
@@ -44,6 +57,18 @@ private fun classificar(t: Throwable, oQue: String): Falha = when (t) {
     // quem so queria conversar.
     is IOException -> Falha(
         "Sem conexão com o servidor" + (t.message?.take(90)?.let { " ($it)" } ?: "") + ".",
+        permanente = false,
+    )
+    // RESPOSTA ILEGIVEL. Quase sempre nao e bug de contrato: e o roteador do Render
+    // devolvendo uma pagina de HTML enquanto a instancia troca de versao, com status
+    // 200. O parser reclama de JSON malformado e a tela dizia
+    // "(JsonDecodingException)" — nome de classe Java na cara de quem so queria
+    // conversar, e ainda por cima acusando o app de um problema que e do servidor.
+    //
+    // Nao e permanente: insistir e exatamente o certo aqui, porque em um minuto a
+    // instancia nova responde JSON de verdade.
+    is SerializationException -> Falha(
+        "O servidor respondeu algo que não deu para ler (deve estar reiniciando).",
         permanente = false,
     )
     else -> Falha(

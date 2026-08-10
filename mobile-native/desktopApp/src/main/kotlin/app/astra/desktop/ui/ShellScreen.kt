@@ -1745,57 +1745,58 @@ private fun RailItem(
 // Antes era um AstraImage cru com ContentScale.Crop numa altura fixa de 104dp — ou
 // seja, outra proporcao E sem enquadramento nenhum, entao o que se via aqui nunca
 // batia com o que a previa prometia.
-// Interruptor do painel de membros, logo abaixo do banner.
+// Botao de icone da faixa abaixo do banner. SEM MOLDURA NENHUMA: o mesmo gesto da
+// engrenagem e do sair no rodape — em repouso e so o icone apagado, e o fundo so
+// aparece debaixo do mouse.
 //
-// A borda ACESA quando o painel está aberto (pedido do dono) resolve o problema
-// clássico do botão que alterna: sem estado visível, cada clique é um palpite.
-// Com o painel aberto ela pulsa de leve — o brilho fica vivo em vez de ser só
-// uma cor diferente —, e fechado volta pra borda apagada.
-// Botao de icone da faixa abaixo do banner. Quadrado, so borda, sem fundo — o
-// mesmo vocabulario dos botoes do compositor.
+// Duas tentativas de moldura vieram antes. Primeiro cada botao com a sua: tres
+// retangulos iguais lado a lado, ruido de borda pra dizer uma coisa so ("aqui se
+// clica"). Depois uma moldura em volta do grupo, atravessando a beirada da sidebar
+// pra ler como cartao continuando por baixo — e ai os proprios icones e que
+// batiam na quina. Sobreposicao so funciona quando o que o corte atravessa e
+// superficie; conteudo cortado le como bug, porque e.
 //
-// `aceso` faz a borda PULSAR no accent. E o que resolve o problema classico do
-// botao que alterna: sem estado visivel, cada clique vira palpite. Pulsar (e nao
-// so trocar de cor) deixa o estado vivo em vez de ser mais um tom no escuro.
+// `aceso` (painel de membros aberto) fica com fundo de accent apagado e o icone no
+// accent. A pulsacao saiu junto com a borda: ela existia pra dar peso a uma linha
+// de 1px, e uma coisa piscando pra sempre num canto e o que a norma de movimento
+// manda evitar. Fundo preenchido diz "ligado" parado.
 @Composable
 private fun BotaoDaFaixa(
     icone: ImageVector,
-
+    rotulo: String,
     aceso: Boolean = false,
     onClick: () -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
-    val reduzir = LocalReduceMotion.current
-    // Respiro do brilho: 1.6s de ida e volta. Com "reduzir movimento" fica fixo
-    // no meio — o estado continua legivel, sem nada se mexendo.
-    val respiro = if (reduzir || !aceso) 0.5f else {
-        val t = rememberInfiniteTransition(label = "faixaGlow")
-        t.animateFloat(
-            initialValue = 0.35f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1600, easing = EaseOutSoft), RepeatMode.Reverse),
-            label = "faixaGlowV",
-        ).value
-    }
-    val corBorda = when {
-        aceso -> Obsidian.accent.copy(alpha = 0.35f + 0.45f * respiro)
-        hov -> Obsidian.borderMid
-        else -> Obsidian.borderDim
-    }
+    val forma = RoundedCornerShape(8.dp)
+    val fundo by animateColorAsState(
+        when {
+            aceso -> Obsidian.accent.copy(alpha = 0.14f)
+            hov -> Obsidian.hover
+            else -> Color.Transparent
+        },
+        tween(120),
+    )
+    val cor by animateColorAsState(
+        when {
+            aceso -> Obsidian.accent
+            hov -> Obsidian.text1
+            else -> Obsidian.text3
+        },
+        tween(120),
+    )
     Box(
         Modifier
             .size(30.dp)
-            .clip(RoundedCornerShape(9.dp))
-            .border(1.dp, corBorda, RoundedCornerShape(9.dp))
+            .clickScale(src, pressedScale = 0.92f, formaDoFoco = forma)
+            .clip(forma)
+            .background(fundo)
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(
-            icone,
-            tint = if (aceso || hov) Obsidian.accent else Obsidian.text3,
-            size = 15.dp,
-        )
+        LIcon(icone, tint = cor, size = 15.dp, rotulo = rotulo)
     }
 }
 
@@ -1820,10 +1821,8 @@ private fun FaixaDaConstelacao(
     podeConfigurar: Boolean,
     onAbrirConfig: () -> Unit,
 ) {
-    // `end = 0`: a fileira de acoes vai ate a borda da sidebar de proposito (ver
-    // AcoesDaFaixa). O recuo da direita agora e do CARTAO das acoes, nao da Row.
     Row(
-        Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -1860,18 +1859,10 @@ private fun FaixaDaConstelacao(
     }
 }
 
-// AS TRES ACOES NUM CARTAO SO, E O CARTAO CORRE ATE A BEIRADA.
-//
-// Antes cada botao tinha moldura propria: tres retangulos iguais lado a lado, que
-// e ruido de borda pra dizer uma coisa so ("aqui se clica"). Agora a moldura e uma,
-// em volta do grupo — e o grupo passa da borda direita da sidebar, que o corta.
-//
-// Cortar e o ponto, nao um efeito colateral: quadrado inteiro no canto le como
-// selo; quadrado cortado le como cartao que CONTINUA por baixo do painel de trás.
-// E a mesma leitura do painel de membros, que e onde o dono viu isso primeiro.
-//
-// O canto arredondado fica so na esquerda pelo mesmo motivo — curva do lado que
-// sai da tela desenharia justamente a borda que nao deveria existir.
+// As tres acoes, soltas na faixa. Sem cartao em volta e sem sangria pra fora da
+// sidebar: quem separa esse grupo do texto a esquerda e o respiro, e quem diz "aqui
+// se clica" e o fundo que acende no hover. O espacamento de 2dp e o mesmo do par
+// engrenagem/sair do rodape, de proposito — sao a mesma coisa em dois lugares.
 @Composable
 private fun AcoesDaFaixa(
     membrosAbertos: Boolean,
@@ -1880,31 +1871,21 @@ private fun AcoesDaFaixa(
     onToggleMembros: () -> Unit,
     onAbrirConfig: () -> Unit,
 ) {
-    val forma = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp, topEnd = 0.dp, bottomEnd = 0.dp)
-    Row(
-        Modifier
-            // Empurra pra fora da sidebar: o que passar daqui e cortado pelo clip do
-            // bloco do shell. `offset` porque padding nao aceita negativo.
-            .offset(x = SANGRIA_DAS_ACOES)
-            .clip(forma)
-            .background(Obsidian.void.copy(alpha = 0.5f))
-            .border(1.dp, Obsidian.borderDim, forma)
-            .padding(start = 6.dp, end = SANGRIA_DAS_ACOES + 6.dp, top = 5.dp, bottom = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        BotaoDaFaixa(Lucide.UserPlus, onClick = onConvidar)
-        Spacer(Modifier.width(4.dp))
-        BotaoDaFaixa(Lucide.Users, aceso = membrosAbertos, onClick = onToggleMembros)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BotaoDaFaixa(Lucide.UserPlus, rotulo = "convidar pessoas", onClick = onConvidar)
+        Spacer(Modifier.width(2.dp))
+        BotaoDaFaixa(
+            Lucide.Users,
+            rotulo = if (membrosAbertos) "ocultar membros" else "mostrar membros",
+            aceso = membrosAbertos,
+            onClick = onToggleMembros,
+        )
         if (podeConfigurar) {
-            Spacer(Modifier.width(4.dp))
-            BotaoDaFaixa(Lucide.Settings, onClick = onAbrirConfig)
+            Spacer(Modifier.width(2.dp))
+            BotaoDaFaixa(Lucide.Settings, rotulo = "configurações da constelação", onClick = onAbrirConfig)
         }
     }
 }
-
-// Quanto o cartao das acoes passa da borda da sidebar. O mesmo valor volta como
-// recuo interno a direita, pra o ultimo icone nao encostar na quina.
-private val SANGRIA_DAS_ACOES = 10.dp
 
 @Composable
 private fun ServerHeaderBanner(srv: ServerDto) {

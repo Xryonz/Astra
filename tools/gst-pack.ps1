@@ -217,8 +217,19 @@ if (Test-Path $zip) { Remove-Item $zip -Force }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($Destino, $zip)
 
+# Hash ao lado do zip, no formato do `sha256sum` ("<hash>  <nome>"). E a mesma
+# convencao que o auto-update do app ja usa (UpdateService.conferirHash), entao o
+# GStreamerPack le do mesmo jeito. Sem isso, um zip trocado no caminho viraria DLL
+# desconhecida carregada dentro do processo -- o pior lugar possivel pra confiar.
+$hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+"$hash  $(Split-Path $zip -Leaf)" | Out-File "$zip.sha256" -Encoding ascii -NoNewline
+
 Write-Host ""
 Write-Host "=== RESULTADO ===" -ForegroundColor Cyan
 Write-Host ("  pasta : {0} MB" -f (Peso $Destino))
 Write-Host ("  zip   : {0} MB   {1}" -f ([math]::Round((Get-Item $zip).Length/1MB,1)), $zip) -ForegroundColor Green
-Write-Host "  Este zip e o asset que o Astra baixa sozinho na primeira transmissao." -ForegroundColor DarkGray
+Write-Host ("  sha256: {0}" -f $hash) -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "PUBLICAR: crie a tag 'gstreamer-$versao' no repo Xryonz/Astra e suba os DOIS" -ForegroundColor Yellow
+Write-Host "arquivos como assets (o .zip e o .zip.sha256). O pacote e versionado pelo" -ForegroundColor Yellow
+Write-Host "GStreamer, nao pelo Astra: atualizar o app nao rebaixa nada." -ForegroundColor Yellow

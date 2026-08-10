@@ -34,7 +34,17 @@ enum class ScreenQuality(
     val width: Int, val height: Int, val fps: Int, val bitrate: Int,
 ) {
     SMOOTH_720_60("s72060", "720p 60fps — fluida", 1280, 720, 60, 4_000_000),
-    LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000);
+    LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000),
+
+    // O degrau pra maquina fraca. Existe porque o custo do H264 por SOFTWARE e
+    // praticamente constante em NUCLEOS: o mesmo encoder que ocupa 8% de um PC forte
+    // ocupa mais da metade de um de quatro nucleos. 720p30 ja e metade do trabalho de
+    // 720p60; 540p30 tira mais 44% dos pixels em cima disso.
+    //
+    // 960x540 e exatamente metade de 1080p em cada eixo, entao a reducao cai em
+    // limite de pixel inteiro, e os dois lados sao pares (o I420 exige, porque o
+    // croma anda de dois em dois).
+    TINY_540_30("t54030", "540p 30fps — economica", 960, 540, 30, 1_200_000);
     companion object {
         fun from(raw: String?) = entries.find { it.key == raw } ?: SMOOTH_720_60
     }

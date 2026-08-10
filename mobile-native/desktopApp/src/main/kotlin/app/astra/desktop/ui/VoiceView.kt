@@ -70,7 +70,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import app.astra.mobile.core.network.SoundApi
 import app.astra.mobile.core.network.dto.ServerSoundDto
 import app.astra.mobile.core.network.dto.TocarSomRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.ScreenShare
 import com.composables.icons.lucide.Settings
@@ -146,6 +148,7 @@ fun VoiceView(
     // direto pro LocalPreviewView (State lido na fase de desenho).
     val directPreview by engine.directPreview.collectAsState()
     val screenStats by engine.screenStats.collectAsState()
+    val quedaAutomatica by engine.quedaAutomatica.collectAsState()
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
@@ -255,6 +258,16 @@ fun VoiceView(
                             else -> Obsidian.text3
                         }
                         Text(txt, style = TextStyle(color = txtColor, fontSize = 11.sp))
+                        // A queda automatica de qualidade dita em voz alta. Fica so na
+                        // MINHA transmissao: quem assiste nao tem o que fazer com isso.
+                        val queda = quedaAutomatica
+                        if (w.isMe && queda != null) {
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                "a qualidade baixou para ${queda.label.substringBefore(" —")} — este computador não estava dando conta do preset anterior",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                            )
+                        }
                         // Abas so quando ha mais de uma transmissão (a minha + de outros).
                         if (streams.size > 1) {
                             Spacer(Modifier.height(6.dp))
@@ -292,6 +305,9 @@ fun VoiceView(
 
         // Controles minimalistas (Discord): botoes de simbolo com borda, sem texto.
         var shareChoices by remember { mutableStateOf<List<ShareChoice>?>(null) }
+        // Enquanto a enumeracao de telas/cameras roda (fora da UI, pode levar segundos
+        // em maquina fraca), o botao fica aceso: sem isso ele parece nao ter respondido.
+        var procurandoFontes by remember { mutableStateOf(false) }
         var settingsOpen by remember { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CallIconButton(
@@ -361,16 +377,23 @@ fun VoiceView(
             Box {
                 CallIconButton(
                     icon = Lucide.ScreenShare,
-                    tone = if (screenOn) CallTone.Active else CallTone.Normal,
+                    tone = if (screenOn || procurandoFontes) CallTone.Active else CallTone.Normal,
                     onClick = {
                         if (screenOn) {
                             engine.stopScreenShare()
-                        } else {
-                            val choices = shareChoicesOf(engine)
-                            when {
-                                choices.isEmpty() -> {}
-                                choices.size == 1 -> startShare(engine, choices.first())
-                                else -> shareChoices = choices
+                        } else if (!procurandoFontes) {
+                            // A busca demora o que demorar (em maquina fraca, segundos):
+                            // a guarda evita empilhar uma enumeracao nativa por clique
+                            // de quem acha que o botao nao respondeu.
+                            procurandoFontes = true
+                            escopoSons.launch {
+                                val choices = shareChoicesOf(engine)
+                                procurandoFontes = false
+                                when {
+                                    choices.isEmpty() -> {}
+                                    choices.size == 1 -> startShare(engine, choices.first())
+                                    else -> shareChoices = choices
+                                }
                             }
                         }
                     },
@@ -456,7 +479,6 @@ private fun CallSettingsPanel(
     onPickInput: (String?) -> Unit,
     onPickOutput: (String?) -> Unit,
 ) {
-    val is60 = current.fps >= 60
     Column(
         Modifier
             .width(232.dp)
@@ -465,13 +487,19 @@ private fun CallSettingsPanel(
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
             .padding(8.dp),
     ) {
-        // So 720p (foco de perf: o encoder e software, 1080p não segura o fps). O
-        // eixo de resolucao saiu; sobra a fluidez, 720p60 fluida vs 720p30 leve.
-        PanelHeader("Transmissao · 720p")
+        // 1080p continua fora (o encoder e software e nao segura o fps). O terceiro
+        // degrau nao e "mais uma opcao": e o unico preset que roda decente em PC de
+        // quatro nucleos, onde o mesmo encoder que custa 8% num PC forte passa da
+        // metade da maquina.
+        PanelHeader("Transmissao")
         CallSegmented(
-            options = listOf("60fps — fluida" to true, "30fps — leve" to false),
-            selected = is60,
-            onPick = { f -> onPick(if (f) ScreenQuality.SMOOTH_720_60 else ScreenQuality.LIGHT_720_30) },
+            options = listOf(
+                "720p60" to ScreenQuality.SMOOTH_720_60,
+                "720p30" to ScreenQuality.LIGHT_720_30,
+                "540p30" to ScreenQuality.TINY_540_30,
+            ),
+            selected = current,
+            onPick = onPick,
         )
         Spacer(Modifier.height(10.dp))
         PanelHeader("Entrada (microfone)")
@@ -620,17 +648,23 @@ private sealed interface ShareChoice {
     data class Camera(val device: VideoDevice, override val label: String) : ShareChoice
 }
 
-private fun shareChoicesOf(engine: VoiceEngine): List<ShareChoice> {
-    // s.title vem do webrtc-java (Java, pode ser null) — protege contra o NPE que já
-    // mordeu no seletor so-de-telas.
-    val screens = engine.screens().mapIndexed { i, s ->
-        ShareChoice.Screen(s, (s.title ?: "").ifBlank { "tela ${i + 1}" })
+// NUNCA na thread da UI. As duas enumeracoes aqui sao nativas e bloqueantes: a de
+// telas constroi um ScreenCapturer, e a de cameras acorda o subsistema de captura do
+// Windows e carrega os drivers de webcam dentro do processo. Rodando no clique, isso
+// aparecia como um pico de CPU e RAM assim que o menu abria — antes de existir
+// qualquer transmissao, o que fazia parecer culpa do encoder.
+private suspend fun shareChoicesOf(engine: VoiceEngine): List<ShareChoice> =
+    withContext(Dispatchers.IO) {
+        // s.title vem do webrtc-java (Java, pode ser null) — protege contra o NPE que já
+        // mordeu no seletor so-de-telas.
+        val screens = engine.screens().mapIndexed { i, s ->
+            ShareChoice.Screen(s, (s.title ?: "").ifBlank { "tela ${i + 1}" })
+        }
+        val cams = engine.cameras().mapIndexed { i, d ->
+            ShareChoice.Camera(d, d.name.ifBlank { "camera ${i + 1}" })
+        }
+        screens + cams
     }
-    val cams = engine.cameras().mapIndexed { i, d ->
-        ShareChoice.Camera(d, d.name.ifBlank { "camera ${i + 1}" })
-    }
-    return screens + cams
-}
 
 private fun startShare(engine: VoiceEngine, choice: ShareChoice) {
     when (choice) {

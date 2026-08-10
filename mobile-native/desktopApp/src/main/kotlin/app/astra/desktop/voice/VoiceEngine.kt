@@ -300,6 +300,20 @@ class VoiceEngine(
     private var sessionQualityCap: ScreenQuality? = null
     private var cpuStreak = 0
 
+    // Preset pro qual o app desceu SOZINHO nesta transmissao, ou null se nao desceu.
+    //
+    // Existe pra a queda ser dita em voz alta. Baixar a qualidade em silencio faz a
+    // pessoa ver a propria transmissao piorar sem motivo aparente — e a conclusao
+    // dela nao vai ser "meu PC nao aguentou", vai ser "o Astra e ruim".
+    private val _quedaAutomatica = MutableStateFlow<ScreenQuality?>(null)
+    val quedaAutomatica = _quedaAutomatica.asStateFlow()
+
+    // Ultima enumeracao de telas. Guardada porque a chamada nativa e cara (constroi
+    // um ScreenCapturer, varre os monitores e descarta) e o caminho de transmitir a
+    // fazia DUAS vezes: uma pro seletor montar a lista, outra pro startFastCapture
+    // descobrir o indice do monitor escolhido — que e posicao NESTA mesma lista.
+    private var telasCache: List<DesktopSource> = emptyList()
+
     // Ultima fonte transmitida — pra reiniciar a captura no MESMO monitor quando o
     // dono troca a qualidade ao vivo pelo gear da call.
     private var lastScreenSource: DesktopSource? = null
@@ -846,10 +860,12 @@ class VoiceEngine(
     }
 
     // Monitores disponiveis (id + titulo). Enumeracao pontual; capturer descartado.
+    //
+    // CARA e BLOQUEANTE — chamar sempre fora da thread da UI.
     fun screens(): List<DesktopSource> {
-        val cap = runCatching { ScreenCapturer() }.getOrNull() ?: return emptyList()
+        val cap = runCatching { ScreenCapturer() }.getOrNull() ?: return telasCache
         return try {
-            cap.desktopSources
+            cap.desktopSources.also { telasCache = it }
         } finally {
             runCatching { cap.dispose() }
         }
@@ -860,7 +876,12 @@ class VoiceEngine(
     private fun startFastCapture(source: DesktopSource?, q: ScreenQuality): VideoTrackSource? {
         if (factory == null) return null
         val ffPath = FfmpegLocator.path ?: return null
-        val outIdx = source?.let { s -> screens().indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
+        // O `output_idx` do ddagrab e a POSICAO do monitor na enumeracao. Reusar a
+        // lista que o seletor acabou de montar e mais correto que enumerar de novo:
+        // e dela que o `source` saiu. Enumera so se nao houver lista nenhuma (ex.:
+        // republicacao automatica logo apos abrir o app).
+        val lista = telasCache.ifEmpty { screens() }
+        val outIdx = source?.let { s -> lista.indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
         val custom = CustomVideoSource()
         // makeRaster AQUI (thread 'ffmpeg-preview', fora da UI): a UI so desenha o
         // ImageBitmap pronto. Antes a UI fazia o raster por frame e engasgava no
@@ -1083,10 +1104,14 @@ class VoiceEngine(
         scope.launch { autoStepDownTo(next) }
     }
 
-    // So 720p agora: único degrau possível e cair o fps (60 -> 30). Piso = 720p30.
+    // Primeiro cai o fps (60 -> 30), depois a resolucao (720p -> 540p). Nessa ordem
+    // porque fps e o que o olho perdoa menos numa tela em movimento, mas e tambem o
+    // que corta mais custo por degrau: o encoder por software gasta quase em linha
+    // reta com a taxa de quadros. Piso = 540p30.
     private fun ScreenQuality.stepDownForCpu(): ScreenQuality? = when (this) {
         ScreenQuality.SMOOTH_720_60 -> ScreenQuality.LIGHT_720_30
-        ScreenQuality.LIGHT_720_30  -> null
+        ScreenQuality.LIGHT_720_30  -> ScreenQuality.TINY_540_30
+        ScreenQuality.TINY_540_30   -> null
     }
 
     // Reinicia a captura no preset menor SEM persistir (respeita a escolha do usuário
@@ -1098,6 +1123,9 @@ class VoiceEngine(
         stopScreenShare(silent = true)
         delay(350) // deixa a renegociacao do stop assentar antes de republicar
         startScreenShare(src, silent = true)
+        // DEPOIS de republicar: o stopScreenShare limpa este aviso, entao marcar antes
+        // seria marcar pra ninguem. Quem le isto e a linha de status da transmissao.
+        _quedaAutomatica.value = q
     }
 
     // Fala: a MINHA vem do RMS do mic (onMicLevel -> mySpeakUntil); a dos OUTROS vem
@@ -1314,6 +1342,7 @@ class VoiceEngine(
         _directPreview.value = false
         statsJob?.cancel()
         _screenStats.value = null
+        _quedaAutomatica.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
         screenSender = null
         // A ESPERA IMPORTA, pelo mesmo motivo do microfone logo abaixo no dispose():
@@ -1352,6 +1381,7 @@ class VoiceEngine(
     // novo preset (o ffmpeg e spawnado com w/h/fps assados -> so reiniciando muda).
     fun setScreenQuality(q: ScreenQuality) {
         sessionQualityCap = null // escolha manual = usuário no controle; limpa o auto-cap
+        _quedaAutomatica.value = null // e o aviso da queda automatica sai junto
         prefs.setScreenQuality(q)
         if (!_screenOn.value) return
         val src = lastScreenSource

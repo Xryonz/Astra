@@ -462,14 +462,17 @@ fun ShellScreen(
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
-        // COLUNA ESQUERDA: a rail desce do topo ao pe, e o rodape do usuario ocupa
-        // so a largura da sidebar.
+        // COLUNA ESQUERDA: rail + sidebar em cima, e o rodape do usuario atravessando
+        // as duas embaixo.
         //
-        // Ele atravessava a rail desde o 0.1.92 e, do 0.1.97 em diante, ainda passava
-        // 26dp por cima do palco. O dono pediu as duas de volta — e a referencia da
-        // razao a ele: no Discord o painel do usuario para na borda da lista de
-        // canais, e a coluna dos servidores e que desce inteira.
-        Row(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
+        // O caminho ate aqui, porque ele explica o desenho: o rodape atravessava a
+        // rail desde o 0.1.92 e, do 0.1.97 em diante, ainda passava 26dp por cima do
+        // PALCO. Os 26dp incomodavam; a travessia, nao. Tirar as duas de uma vez
+        // deixou um vazio de 72dp no pe da rail, e foi ele que o dono viu. Entao:
+        // atravessa a rail (o cartao tem a largura das duas colunas), e para na borda
+        // da sidebar (nada de sobra por cima do palco).
+        Column(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
+        Row(Modifier.weight(1f)) {
         Rail(
             servers = state.servers,
             selection = state.selection,
@@ -489,10 +492,6 @@ fun ShellScreen(
             onAddMember = vm::addMember,
             onJoinInvite = vm::joinByInvite,
         )
-        // A vaga do rodape e reservada AQUI DENTRO, e nao mais na coluna inteira:
-        // e a sidebar que perde 62dp no pe, enquanto a rail segue ate o fim.
-        Column(Modifier.width(LARGURA_SIDEBAR).fillMaxHeight()) {
-        Box(Modifier.weight(1f)) {
         Sidebar(
             selection = state.selection,
             servers = state.servers,
@@ -543,9 +542,9 @@ fun ShellScreen(
         )
         }
         // Vaga do rodape, que e desenhado por cima de tudo (ver o fim deste Box).
-        // Sem ela, a lista de orbitas correria por baixo dele.
+        // Ela vale pras DUAS colunas: a rail tambem para 62dp antes do fim, porque
+        // o cartao passa por baixo dela.
         Spacer(Modifier.height(ALTURA_DO_RODAPE))
-        }
         }
         Stage(
             state.selectedServer,
@@ -620,14 +619,13 @@ fun ShellScreen(
             )
         }
         }
-        // O RODAPE DO USUARIO E DESENHADO POR CIMA, na faixa que a sidebar reservou.
+        // O RODAPE DO USUARIO E DESENHADO POR CIMA, na faixa que a coluna reservou.
         //
         // Ele nao e filho da coluna: e irmao do Row inteiro, ancorado no canto
-        // inferior esquerdo e deslocado pela largura da rail. Desenhar por cima (em
-        // Compose, quem vem por ultimo na Box) e o que deixa o cartao ter sombra e
-        // borda proprias sem empurrar a lista de orbitas.
+        // inferior esquerdo. Desenhar por cima (em Compose, quem vem por ultimo na
+        // Box) e o que deixa o cartao ter borda propria sem empurrar a lista.
         //
-        // Ele NAO passa da sidebar: nem por cima da rail, nem por cima do palco.
+        // Largura = rail + sidebar. Ele atravessa a rail e PARA na borda da sidebar.
         UserFooter(
             me = state.me,
             fallbackName = session.displayName,
@@ -637,8 +635,7 @@ fun ShellScreen(
             onLogout = onLogout,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = LARGURA_RAIL)
-                .width(LARGURA_SIDEBAR)
+                .width(LARGURA_RAIL + LARGURA_SIDEBAR)
                 .height(ALTURA_DO_RODAPE),
         )
         }

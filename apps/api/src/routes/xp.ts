@@ -33,4 +33,18 @@ router.get('/regras', requireAuth, asyncHandler(async (_req: Request, res: Respo
   })
 }))
 
+// O progresso de OUTRA pessoa, pro cartão de perfil completo.
+//
+// Mesma função do /me — não há cálculo paralelo pra divergir. Nada aqui é privado:
+// nível e XP são vaidade pública, do mesmo naipe de "membro desde". O que NÃO sai
+// (e por isso a rota devolve o progresso e nada mais) é de ONDE o XP veio: quantas
+// mensagens, em quais órbitas, quanto tempo em call. Isso desenharia a rotina da
+// pessoa pra quem abrisse o perfil dela.
+//
+// POR ÚLTIMO, obrigatoriamente: `/:userId` casa com qualquer coisa, inclusive com
+// as palavras "me" e "regras". Declarada antes delas, engoliria as duas.
+router.get('/:userId', requireAuth, asyncHandler(async (req: Request, res: Response) => {
+  res.json({ data: await progressoDe(req.params.userId) })
+}))
+
 export default router

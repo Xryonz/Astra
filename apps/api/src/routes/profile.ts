@@ -267,12 +267,25 @@ router.get(
       return new Set(rows.map((r) => (r.a === id ? r.b : r.a)))
     }
     let mutualFriends = 0
+    // Os ROSTOS, e não só a contagem: a tela mostra quem são. Vem limitada porque
+    // uma conta velha pode ter dezenas em comum e o cartão cabe meia dúzia — o
+    // número inteiro continua em `mutualFriends`, então "+12" ainda é dizível sem
+    // carregar doze avatares que ninguém vai ver.
+    let mutualFriendsList: Array<{ id: string; username: string; displayName: string | null; avatarUrl: string | null }> = []
+    const ROSTOS_EM_COMUM = 8
     if (!isSelf) {
       const [meus, deles] = await Promise.all([amigosDe(req.userId!), amigosDe(targetId)])
-      for (const id of deles) if (meus.has(id)) mutualFriends++
+      const emComum: string[] = []
+      for (const id of deles) if (meus.has(id)) { mutualFriends++; emComum.push(id) }
+      if (emComum.length > 0) {
+        mutualFriendsList = await db.select({
+          id: users.id, username: users.username,
+          displayName: users.displayName, avatarUrl: users.avatarUrl,
+        }).from(users).where(inArray(users.id, emComum.slice(0, ROSTOS_EM_COMUM)))
+      }
     }
 
-    res.json({ data: { user, mutualServers, mutualFriends } })
+    res.json({ data: { user, mutualServers, mutualFriends, mutualFriendsList } })
   })
 )
 

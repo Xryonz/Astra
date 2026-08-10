@@ -36,6 +36,9 @@ data class ProfileViewWrapper(
     // Quantos amigos voce e a outra pessoa tem em comum. Zero quando o perfil e
     // o SEU: "voce tem 4 amigos em comum com voce mesmo" nao quer dizer nada.
     val mutualFriends: Int = 0,
+    // Os ROSTOS desses amigos, ate oito. A contagem acima continua sendo a
+    // verdadeira — e por ela que a tela diz "+12" sem baixar doze fotos.
+    val mutualFriendsList: List<UserDto> = emptyList(),
 )
 
 @Serializable

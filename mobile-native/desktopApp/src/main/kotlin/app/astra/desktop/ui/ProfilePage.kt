@@ -72,9 +72,14 @@ import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.BadgeApi
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.XpApi
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
+import app.astra.mobile.core.network.dto.ProgressoDto
+import app.astra.mobile.core.network.dto.UserBadgesDto
+import app.astra.mobile.core.network.dto.UserDto
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
@@ -139,8 +144,21 @@ fun ProfilePage(
 ) {
     val koin = GlobalContext.get()
     var data by remember(userId) { mutableStateOf<ProfileViewWrapper?>(null) }
+    // Progressão e insígnias chegam por FORA do /profile, em duas leituras próprias.
+    //
+    // Elas não bloqueiam o cartão: o perfil aparece com o que já tem e os dois blocos
+    // entram quando chegam. Amarrá-los ao mesmo `await` faria o cartão inteiro
+    // esperar pela informação menos importante dele.
+    var progresso by remember(userId) { mutableStateOf<ProgressoDto?>(null) }
+    var insignias by remember(userId) { mutableStateOf<UserBadgesDto?>(null) }
     LaunchedEffect(userId) {
         data = runCatching { koin.get<UserApi>().profile(userId).data }.getOrNull()
+    }
+    LaunchedEffect(userId) {
+        progresso = runCatching { koin.get<XpApi>().de(userId).data }.getOrNull()
+    }
+    LaunchedEffect(userId) {
+        insignias = runCatching { koin.get<BadgeApi>().de(userId).data }.getOrNull()
     }
 
     // Entrada: scrim faz fade, o card escala/sobe de leve. Uma passada; reduzir
@@ -273,7 +291,10 @@ fun ProfilePage(
                             nome = nome,
                             isMe = isMe,
                             amigosEmComum = d.mutualFriends,
+                            rostosEmComum = d.mutualFriendsList,
                             constelacoes = d.mutualServers,
+                            progresso = progresso,
+                            insignias = insignias,
                             onFechar = { requestClose() },
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
@@ -296,7 +317,10 @@ private fun ColunaDeVinculos(
     nome: String,
     isMe: Boolean,
     amigosEmComum: Int,
+    rostosEmComum: List<UserDto>,
     constelacoes: List<MutualServerDto>,
+    progresso: ProgressoDto?,
+    insignias: UserBadgesDto?,
     onFechar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -323,6 +347,63 @@ private fun ColunaDeVinculos(
         }
         Spacer(Modifier.height(14.dp))
 
+        // PROGRESSÃO. Fica no topo porque é sobre a pessoa, e o resto da coluna é
+        // sobre o que vocês dividem. Some enquanto a leitura não chega — bloco
+        // vazio prometendo número é pior que bloco nenhum.
+        progresso?.let { p ->
+            CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (isMe) "SUA PROGRESSÃO" else "PROGRESSÃO",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "nível ${p.nivel}",
+                        style = TextStyle(color = Obsidian.accent, fontSize = 12.sp, fontFamily = DmMono),
+                    )
+                }
+                Spacer(Modifier.height(9.dp))
+                BarraDeNivel(p)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "${p.noNivel} / ${p.paraOProximo} para o próximo",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // INSÍGNIAS. Só aparece quando há alguma — conta nova não tem nenhuma, e
+        // "nenhuma insígnia ainda" seria um bloco inteiro pra dizer que não há nada.
+        val globais = insignias?.global.orEmpty()
+        val deServidor = insignias?.server.orEmpty()
+        if (globais.isNotEmpty() || deServidor.isNotEmpty()) {
+            CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
+                Text(
+                    "INSÍGNIAS",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
+                )
+                Spacer(Modifier.height(9.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    globais.forEach { Insignia(it.icon, it.name, it.color) }
+                    // A de constelação carrega DE ONDE ela veio: "Veterano" sozinho
+                    // não diz veterano de onde, e a mesma palavra pode ser concedida
+                    // por duas constelações diferentes querendo dizer coisas opostas.
+                    // Sem o nome (o campo é opcional), fica só a insígnia — melhor
+                    // que um "· null" pendurado.
+                    deServidor.forEach { b ->
+                        val nome = b.serverName?.let { "${b.name} · $it" } ?: b.name
+                        Insignia(b.icon, nome, b.color)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
         if (!isMe) {
             CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
                 Text(
@@ -330,14 +411,46 @@ private fun ColunaDeVinculos(
                     style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold),
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    when (amigosEmComum) {
-                        0 -> "nenhum ainda"
-                        1 -> "1 pessoa que vocês dois conhecem"
-                        else -> "$amigosEmComum pessoas que vocês dois conhecem"
-                    },
-                    style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
-                )
+                if (rostosEmComum.isEmpty()) {
+                    Text(
+                        if (amigosEmComum == 0) "nenhum ainda" else "$amigosEmComum em comum",
+                        style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+                    )
+                } else {
+                    // Rosto em vez de número. Os avatares se sobrepõem levemente (a
+                    // pilha do Discord): oito lado a lado não caberiam na coluna, e
+                    // sobrepostos eles leem como GRUPO em vez de lista.
+                    Spacer(Modifier.height(3.dp))
+                    // A sobreposição é feita com `offset`, e não com espaçamento
+                    // negativo: padding e width recusam valor negativo em Compose (é
+                    // exceção, não layout torto). O offset é só desenho — a linha
+                    // continua medindo a largura cheia, e por isso o "+N" também
+                    // precisa do mesmo recuo pra não flutuar longe da pilha.
+                    val recuo = 6
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        rostosEmComum.forEachIndexed { i, amigo ->
+                            Box(
+                                Modifier
+                                    .offset(x = (-recuo * i).dp)
+                                    .clip(CircleShape)
+                                    .background(Obsidian.raised)
+                                    .padding(1.5.dp),
+                            ) {
+                                DesktopAvatar(amigo.avatarUrl, amigo.displayName ?: amigo.username, 26)
+                            }
+                        }
+                        val sobrando = amigosEmComum - rostosEmComum.size
+                        if (sobrando > 0) {
+                            Text(
+                                "+$sobrando",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                                modifier = Modifier
+                                    .offset(x = (-recuo * (rostosEmComum.size - 1)).dp)
+                                    .padding(start = 8.dp),
+                            )
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -381,7 +494,21 @@ private fun ColunaDeVinculos(
                             s.name,
                             style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        // O cargo já vinha na resposta e era jogado fora. "Dono" e
+                        // "admin" dizem mais sobre a pessoa do que qualquer bio, e
+                        // custaram zero: nenhuma requisição a mais.
+                        //
+                        // MEMBRO não é rótulo: é o padrão, e etiquetar o padrão em
+                        // toda linha viraria ruído que some por repetição.
+                        cargoLegivel(s.role)?.let { rotulo ->
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                rotulo,
+                                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, letterSpacing = 0.5.sp),
+                            )
+                        }
                     }
                 }
             }
@@ -394,6 +521,52 @@ private fun ColunaDeVinculos(
             else "o Astra ainda não mostra o que $nome anda fazendo.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
         )
+    }
+}
+
+// O papel da pessoa na constelação, em português e em minúscula. null = MEMBER,
+// que é o padrão e não vira etiqueta.
+private fun cargoLegivel(role: String): String? = when (role.uppercase()) {
+    "OWNER" -> "dono"
+    "ADMIN" -> "admin"
+    "MODERATOR", "MOD" -> "moderação"
+    else -> null
+}
+
+// Barra fina do nível. Desenhada, não composta: são dois retângulos, e um Box com
+// fundo dentro de outro Box com fundo custaria dois nós de layout pra dizer o mesmo.
+@Composable
+private fun BarraDeNivel(p: ProgressoDto) {
+    val fracao = if (p.paraOProximo > 0) (p.noNivel.toFloat() / p.paraOProximo).coerceIn(0f, 1f) else 0f
+    Box(
+        Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).drawBehind {
+            drawRect(Obsidian.overlay)
+            drawRect(Obsidian.accent, size = Size(size.width * fracao, size.height))
+        },
+    )
+}
+
+// Uma insígnia: emoji + nome, num cartão do tamanho do conteúdo.
+//
+// A cor vem do servidor e é usada só na BORDA e no texto — nunca como fundo. Ela é
+// escolhida por quem criou a insígnia e pode ser qualquer coisa, inclusive um tom
+// que engole texto claro; como borda ela identifica sem apostar em contraste.
+@Composable
+private fun Insignia(icone: String, nome: String, corHex: String?) {
+    val cor = corHex?.removePrefix("#")?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } ?: Obsidian.accent
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, cor.copy(alpha = 0.45f), RoundedCornerShape(7.dp))
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icone.isNotBlank()) {
+            Text(icone, style = TextStyle(fontSize = 12.sp))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(nome, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

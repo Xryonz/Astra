@@ -207,8 +207,14 @@ if (-not $SemEncolher) {
 }
 
 # O gst-inspect era so pra validar; nao vai no pacote.
-Remove-Item $inspectPack -Force -ErrorAction SilentlyContinue
-Remove-Item $launchPack  -Force -ErrorAction SilentlyContinue
+# O gst-launch era so pra validar e sai. O gst-inspect FICA, e de proposito.
+#
+# Ele custa ~50KB e permite ao Astra descobrir se a maquina tem encoder de hardware
+# SEM carregar o GStreamer dentro do proprio processo. Um Gst.init() que falha de forma
+# nativa nao lanca excecao em Kotlin: derruba o app. Perguntar num processo filho troca
+# "o Astra fechou" por "o processo respondeu com erro" -- e a pergunta e justamente a
+# que nao da pra responder a distancia hoje, quando o PC problematico e de outra pessoa.
+Remove-Item $launchPack -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $Destino 'registry.bin') -Force -ErrorAction SilentlyContinue
 
 # --- zip ----------------------------------------------------------------------

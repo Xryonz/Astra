@@ -14,6 +14,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.time.Duration
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 
 // O pacote do GStreamer que o Astra baixa SOZINHO, uma vez, na primeira transmissao.
@@ -253,6 +254,69 @@ object GStreamerPack {
 
         ambientePronto = true
         return true
+    }
+
+    // ---- Sonda de aceleracao por hardware ----
+
+    // Ordem = preferencia. So encoders de HARDWARE: x264/openh264 ficam de fora de
+    // proposito, porque encontrar um deles seria o mesmo custo que ja temos hoje.
+    private val ENCODERS = listOf(
+        "nvh264enc" to "NVIDIA NVENC",
+        "qsvh264enc" to "Intel Quick Sync",
+        "amfh264enc" to "AMD AMF",
+        "d3d11h264enc" to "Direct3D 11",
+        "mfh264enc" to "Media Foundation",
+    )
+
+    data class Aceleracao(val encoders: List<String>, val motivo: String?) {
+        val temHardware get() = encoders.isNotEmpty()
+    }
+
+    // Descobre se ESTA maquina consegue codificar video por hardware.
+    //
+    // Existe pra responder a distancia uma pergunta que hoje so se responde sentado na
+    // maquina: "o PC dele tem encoder de hardware?". Quem esta com o computador lento
+    // aperta um botao e le a resposta — nao precisa instalar GStreamer nem rodar script.
+    suspend fun detectarAceleracao(http: OkHttpClient): Aceleracao {
+        if (!garantir(http)) {
+            val motivo = (_estado.value as? Estado.Falhou)?.motivo ?: "pacote indisponivel"
+            return Aceleracao(emptyList(), motivo)
+        }
+        return withContext(Dispatchers.IO) {
+            val achados = ENCODERS.filter { temElemento(it.first) }.map { it.second }
+            Aceleracao(achados, if (achados.isEmpty()) "nenhum encoder de video por hardware" else null)
+        }
+    }
+
+    // Pergunta num PROCESSO FILHO, e essa e a decisao de desenho aqui.
+    //
+    // Carregar o GStreamer dentro do Astra (Gst.init) para descobrir isto seria trocar
+    // uma pergunta por um risco: falha de carregamento nativo nao lanca excecao em
+    // Kotlin, derruba o processo inteiro. Num filho, o pior caso e um codigo de saida
+    // diferente de zero.
+    private fun temElemento(nome: String): Boolean {
+        val exe = File(binDir, "gst-inspect-1.0.exe")
+        if (!exe.isFile) return false
+        return runCatching {
+            val pb = ProcessBuilder(exe.absolutePath, nome)
+            pb.environment().apply {
+                put("PATH", binDir.absolutePath)
+                put("GST_PLUGIN_PATH", pluginDir.absolutePath)
+                put("GST_PLUGIN_SYSTEM_PATH", "")
+                put("GST_REGISTRY", File(raiz, "registry.bin").absolutePath)
+            }
+            pb.redirectErrorStream(true)
+            val p = pb.start()
+            // Drenar a saida ANTES do waitFor: um processo que enche o pipe e ninguem
+            // le fica bloqueado escrevendo, e o waitFor espera pra sempre.
+            p.inputStream.use { it.readBytes() }
+            if (!p.waitFor(20, TimeUnit.SECONDS)) {
+                p.destroyForcibly()
+                false
+            } else {
+                p.exitValue() == 0
+            }
+        }.getOrDefault(false)
     }
 
     private fun motivoLegivel(e: Throwable): String {

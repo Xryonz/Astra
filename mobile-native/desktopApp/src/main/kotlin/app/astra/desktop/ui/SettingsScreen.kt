@@ -126,6 +126,7 @@ import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
 import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.voice.AudioDevices
+import app.astra.desktop.voice.GStreamerPack
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.prefs.DesktopPrefs
@@ -158,7 +159,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
+import org.koin.core.qualifier.named
 import retrofit2.HttpException
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
@@ -2551,12 +2554,82 @@ private fun PermissionsSection(onTestarAviso: () -> Unit) {
     )
 }
 
+// Descobre se ESTE computador consegue comprimir video pela placa de video.
+//
+// Existe porque a pergunta que mais importa pro desempenho da transmissao — "esta
+// maquina tem encoder de hardware?" — hoje so se responde sentado nela, instalando
+// GStreamer e rodando script. Aqui e um botao: quem esta com o computador lento aperta
+// e le a resposta em voz de gente.
+//
+// A verificacao BAIXA ~23MB na primeira vez, entao ela nunca acontece sozinha: e
+// sempre o dono do computador que pede.
+@Composable
+private fun AceleracaoPorHardware() {
+    val escopo = rememberCoroutineScope()
+    var checando by remember { mutableStateOf(false) }
+    var resultado by remember { mutableStateOf<GStreamerPack.Aceleracao?>(null) }
+
+    Text("Aceleração por hardware", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "hoje quem comprime o vídeo da sua transmissão é o processador. placas de vídeo " +
+            "modernas fazem isso sozinhas, e muito mais barato. esta verificação diz se a " +
+            "sua faz — é o que decide se vale a pena mudarmos o motor de vídeo do Astra.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+
+    val estado by GStreamerPack.estado.collectAsState()
+    val rotulo = when {
+        !checando -> if (resultado == null) "verificar" else "verificar de novo"
+        estado is GStreamerPack.Estado.Baixando ->
+            "baixando… ${((estado as GStreamerPack.Estado.Baixando).fracao * 100).toInt()}%"
+        else -> "verificando…"
+    }
+    AboutButton(rotulo, accent = !checando) {
+        if (checando) return@AboutButton
+        checando = true
+        escopo.launch {
+            val http = GlobalContext.get().get<OkHttpClient>(named("plain"))
+            resultado = GStreamerPack.detectarAceleracao(http)
+            checando = false
+        }
+    }
+
+    resultado?.let { r ->
+        Spacer(Modifier.height(10.dp))
+        if (r.temHardware) {
+            InfoNote(
+                "Esta placa de vídeo comprime vídeo sozinha",
+                "Encontrado: ${r.encoders.joinToString(", ")}.\n\n" +
+                    "Isso significa que a compressão pode sair do processador e ir para a " +
+                    "placa de vídeo, que faz o mesmo trabalho por uma fração do custo. " +
+                    "O Astra ainda não usa esse caminho — é a mudança que está sendo " +
+                    "construída. Enquanto isso, os presets menores continuam sendo a " +
+                    "resposta para computador que engasga.",
+            )
+        } else {
+            InfoNote(
+                "Nenhuma aceleração encontrada",
+                "Motivo: ${r.motivo}.\n\n" +
+                    "Neste computador a compressão vai continuar sendo trabalho do " +
+                    "processador, e mudar o motor de vídeo não traria ganho nenhum. " +
+                    "O caminho aqui é o preset: 540p a 30 quadros custa cerca de um quarto " +
+                    "do que custa 720p a 60.",
+            )
+        }
+    }
+}
+
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
     Text(
-        "vale ao iniciar a transmissão. o padrao 1080p60 e o mínimo que combinamos.",
+        "vale ao iniciar a transmissão. o padrão de estreia sai da força do computador — " +
+            "quem tem quatro núcleos ou menos começa em 540p, porque comprimir vídeo aqui " +
+            "é trabalho do processador.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
@@ -2583,6 +2656,9 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     // As permissões do Windows moram na aba Permissões. Ficavam aqui como um
     // atalho que abria um diálogo com a MESMA lista — duas casas pra uma coisa só
     // envelhece mal (uma das duas deixa de ser atualizada).
+
+    SettingsDivider()
+    AceleracaoPorHardware()
 
     SettingsDivider()
     Text("Ninguém te escuta?", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))

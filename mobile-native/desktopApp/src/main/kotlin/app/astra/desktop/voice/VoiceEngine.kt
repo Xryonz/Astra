@@ -869,8 +869,8 @@ class VoiceEngine(
             _localPreview.value = ScreenPreview(previewRasters.wrap(argb, w, h), w, h)
         }
         if (!cap.start(outIdx, q.width, q.height, q.fps)) {
-            cap.stop()
-            runCatching { custom.dispose() }
+            // So descarta a fonte se a thread de captura morreu (ver ScreenCaptureFfmpeg.stop).
+            if (cap.stop()) runCatching { custom.dispose() }
             return null
         }
         customSource = custom
@@ -1312,15 +1312,27 @@ class VoiceEngine(
         _localScreen.value = null
         _localPreview.value = null
         _directPreview.value = false
-        previewRasters.dispose()
         statsJob?.cancel()
         _screenStats.value = null
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
         screenSender = null
-        ffmpegCap?.stop()
+        // A ESPERA IMPORTA, pelo mesmo motivo do microfone logo abaixo no dispose():
+        // o stop() so volta depois que a thread da captura morreu, e e isso que
+        // autoriza soltar a fonte nativa que ela usa a cada 16ms. Antes o dispose
+        // corria por cima de um pushFrame em andamento e a thread morria com
+        // "Object handle is null" — que, numa thread solta, leva o app junto.
+        val capturaParou = ffmpegCap?.stop() ?: true
         ffmpegCap = null
-        runCatching { customSource?.dispose() }
+        if (capturaParou) {
+            runCatching { customSource?.dispose() }
+        } else {
+            VoiceLog.nota("a captura de tela nao encerrou a tempo — fonte de video nao liberada (seguro, mas anormal)")
+        }
         customSource = null
+        // Depois da captura, nunca antes: o wrap() destes rasters roda na thread de
+        // preview, que so para junto com ela. Fechar as imagens Skia com a thread
+        // ainda viva e a mesma corrida, um andar acima.
+        previewRasters.dispose()
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }
@@ -1427,10 +1439,15 @@ class VoiceEngine(
         reavaliarAec()
         _localScreen.value = null
         _localPreview.value = null
-        ffmpegCap?.stop()
+        val capturaParou = runCatching { ffmpegCap?.stop() ?: true }.getOrDefault(false)
         ffmpegCap = null
-        runCatching { customSource?.dispose() }
+        if (capturaParou) {
+            runCatching { customSource?.dispose() }
+        } else {
+            VoiceLog.nota("a captura de tela nao encerrou a tempo — fonte de video nao liberada (seguro, mas anormal)")
+        }
         customSource = null
+        previewRasters.dispose()
         runCatching { screenSource?.stop() }
         runCatching { screenTrack?.dispose() }
         runCatching { screenSource?.dispose() }

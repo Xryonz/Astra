@@ -34,6 +34,18 @@ class ScreenCaptureFfmpeg(
 ) {
     private var process: Process? = null
     @Volatile private var running = false
+
+    // A thread da captura, guardada pra `stop()` conseguir ESPERAR por ela.
+    //
+    // E o mesmo buraco que o MicCapture ja tapou (ver la o comentario do "o Astra
+    // fecha sozinho"): `stop()` baixava a bandeira e voltava na hora, quem chamava
+    // seguia adiante e dava dispose() na CustomVideoSource — que e memoria nativa.
+    // Se a thread estivesse a um passo do pushFrame (e a 60fps ela esta a 16ms de
+    // distancia), o push caia num objeto ja descartado. O webrtc-java confere o
+    // ponteiro antes de usar, entao aqui sai "NullPointerException: Object handle is
+    // null" em vez de heap corrompido — sorte nossa, mas o app morre igual, porque
+    // excecao nao tratada numa thread solta derruba tudo.
+    private var capThread: Thread? = null
     // Preview LIGADO/DESLIGADO em runtime. Com a janela escondida (bandeja/minimizada)
     // ninguem esta olhando o auto-preview, mas ele continuava convertendo e enviando
     // frame a 60fps — CPU jogada fora. Desligando, a transmissão pros OUTROS continua
@@ -96,19 +108,31 @@ class ScreenCaptureFfmpeg(
 
         val frameSize = width * height * 3 / 2
         val firstFrame = CountDownLatch(1)
-        Thread({
+        val cap = Thread({
             val input = BufferedInputStream(proc.inputStream, frameSize)
             val buf = ByteArray(frameSize)
-            while (running) {
-                if (!readFully(input, buf)) break
-                pushI420(buf, width, height)
-                firstFrame.countDown()
+            try {
+                while (running) {
+                    if (!readFully(input, buf)) break
+                    // Conta o primeiro quadro ANTES de empurrar: o que o start() quer
+                    // saber e se o ffmpeg esta PRODUZINDO. Se o push falhar, isso e
+                    // outro problema — declarar "a captura nao subiu" mandaria a
+                    // maquina inteira pro fallback GDI por engano.
+                    firstFrame.countDown()
+                    pushI420(buf, width, height)
+                }
+            } finally {
+                // O anel e liberado AQUI, pela thread que o criou e a unica que o usa.
+                // Fazer isso no stop() seria soltar memoria nativa que este laco ainda
+                // pode estar preenchendo — e ai nao e quadro rasgado, e fechar do nada.
+                // No `finally` porque saida por excecao tambem tem que devolver os tres
+                // blocos: senao some ~4MB de memoria nativa por transmissao interrompida.
+                liberarAnel()
             }
-            // O anel e liberado AQUI, pela thread que o criou e a unica que o usa.
-            // Fazer isso no stop() seria soltar memoria nativa que este laco ainda
-            // pode estar preenchendo — e ai nao e quadro rasgado, e fechar do nada.
-            liberarAnel()
-        }, "ffmpeg-cap").apply { isDaemon = true; start() }
+        }, "ffmpeg-cap")
+        capThread = cap
+        cap.isDaemon = true
+        cap.start()
 
         // Thread de preview: converte o I420 mais recente em ARGB fora do caminho
         // quente. So existe quando ha um consumidor de preview.
@@ -126,11 +150,25 @@ class ScreenCaptureFfmpeg(
         return true
     }
 
-    fun stop() {
+    // Devolve `true` quando a thread de captura morreu DE FATO.
+    //
+    // Quem chama so pode dar dispose() na CustomVideoSource depois de um `true`. Com
+    // `false`, o certo e deixar a fonte vazar: alguns KB ate a proxima call custam
+    // menos que derrubar o app no meio de uma. E o mesmo contrato do MicCapture.stop().
+    fun stop(): Boolean {
+        // Ordem obrigatoria: bandeira primeiro, processo depois. Ao contrario, o
+        // read() volta com erro enquanto o laco ainda acha que deve rodar.
         running = false
         synchronized(previewLock) { previewLock.notifyAll() } // acorda o worker para sair do wait
+        // Matar o ffmpeg e o que DESBLOQUEIA o read(): sem isso a thread ficaria
+        // parada esperando o proximo quadro de um processo que ninguem mais alimenta.
         process?.let { runCatching { it.destroyForcibly() } }
         process = null
+
+        val t = capThread
+        capThread = null
+        if (t == null || t === Thread.currentThread()) return true
+        return runCatching { t.join(FIM_MS); !t.isAlive }.getOrDefault(false)
     }
 
     private fun readFully(input: InputStream, buf: ByteArray): Boolean {
@@ -183,7 +221,17 @@ class ScreenCaptureFfmpeg(
             return
         }
         try {
-            source.pushFrame(frame)
+            // A bandeira e conferida DE NOVO aqui. Ela nao fecha a corrida sozinha
+            // (nao ha trava entre esta linha e o dispose la fora) — quem fecha e o
+            // join do stop(). Isto so encolhe a janela pro menor tamanho possivel.
+            if (running) source.pushFrame(frame)
+        } catch (t: Throwable) {
+            // Ultima rede, e ela existe por um motivo especifico: esta thread e solta,
+            // entao excecao aqui nao "falha o quadro", derruba o processo inteiro.
+            // Parar de empurrar e a unica resposta certa — repetir 60 vezes por
+            // segundo num objeto morto nao conserta nada.
+            running = false
+            VoiceLog.nota("a captura de tela parou: a fonte de video recusou o quadro (${t.javaClass.simpleName})")
         } finally {
             runCatching { frame.release() }
         }
@@ -346,6 +394,11 @@ class ScreenCaptureFfmpeg(
     }
 
     companion object {
+        // Quanto o stop() espera a thread de captura morrer. Meio segundo e o mesmo
+        // teto do MicCapture: o read() ja esta desbloqueado quando chegamos aqui, so
+        // falta a thread terminar o quadro que tem na mao.
+        private const val FIM_MS = 500L
+
         // Teto de fps da PREVIA LOCAL — de propósito METADE da transmissão.
         //
         // A transmissão pros outros continua nos 60fps do preset: ela e o produto.

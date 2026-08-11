@@ -1,11 +1,12 @@
 package app.astra.desktop.voice
 
-import org.freedesktop.gstreamer.Bin
+import org.freedesktop.gstreamer.Bus
 import org.freedesktop.gstreamer.Buffer
 import org.freedesktop.gstreamer.Caps
 import org.freedesktop.gstreamer.Element
 import org.freedesktop.gstreamer.ElementFactory
 import org.freedesktop.gstreamer.Gst
+import org.freedesktop.gstreamer.Pad
 import org.freedesktop.gstreamer.Pipeline
 import org.freedesktop.gstreamer.Promise
 import org.freedesktop.gstreamer.SDPMessage
@@ -20,41 +21,48 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-// BANCO DE TESTES do transporte novo. NAO VAI PRO APP -- apagar antes do commit.
+// BANCO DE TESTES do transporte novo. Roda negociacao WebRTC de verdade FORA do app:
+//   gradlew :desktopApp:ensaioGst
 //
-// Existe porque tres pecas do desenho nao dava pra confirmar lendo documentacao, e as
-// tres tem a mesma consequencia quando falham: a call sobe e ninguem se ouve. Descobrir
-// isso dentro do VoiceEngine seria descobrir com a voz de alguem no meio.
+// Existe porque as pecas que faltavam confirmar falham todas do mesmo jeito -- a call
+// sobe e ninguem se ouve -- e o GStreamer nao levanta excecao quando um elemento falha:
+// ele posta a queixa no BARRAMENTO e o cano segue vivo, so que sem aquele ramo.
 //
-//   1. o `msid` que o LiveKit usa pra casar a faixa -- da pra reescrever no SDP?
-//   2. o rtpgccbwe (adaptacao de banda) -- da pra pendurar pelo request-aux-sender?
-//   3. o get-stats do webrtcbin -- responde o que o auto-ajuste de qualidade le hoje?
+// JA PROVADO (e corrigido no app):
+//   . nvh264enc e o modo CUDA e RECUSA quadro em memoria D3D11 -> nvd3d11h264enc
+//   . Gst.init sem versao pede a BASELINE (1.8) e tranca setLocalDescription
+//   . encoding-params=2 com opusenc mono -> "Internal data stream error" no appsrc
+//   . remendar o SDP funciona: o webrtcbin aceita a oferta reescrita
+//   . request-aux-sender conecta, get-stats responde, ICE junta 28 caminhos
 //
-// Roda com:  gradlew :desktopApp:ensaioGst
+// O QUE ESTA RODADA MEDE, e e a ultima duvida do desenho:
+//
+//   O LiveKit da UMA conexao de publicacao pra tudo que sai. O microfone vive nela a
+//   call inteira; a tela entra e sai no meio. Ou seja: o ramo de video tem que nascer e
+//   morrer com o cano ANDANDO, sem levar o audio junto. Se isso nao der, comecar a
+//   transmitir corta a voz de quem transmite -- e ai o caminho novo nao serve.
 object EnsaioGst
 
 private const val CID_AUDIO = "mic-teste01"
 private const val CID_VIDEO = "screen-teste1"
 
+private class RamoDeVideo(val elementos: List<Element>, val pad: Pad)
+
 fun main() {
-    // Cao de guarda. Negociacao WebRTC trava de varios jeitos (promessa que nunca
-    // responde, pipeline que nao sai de PAUSED), e um banco de testes que pendura pra
-    // sempre nao ensina nada -- so come o tempo de quem esta esperando resposta.
     Thread({
-        Thread.sleep(90_000)
+        Thread.sleep(120_000)
         p("")
-        p("!!! ESTOUROU O TEMPO (90s) -- alguma etapa pendurou. Ultima linha acima e onde.")
+        p("!!! ESTOUROU O TEMPO (120s) -- alguma etapa pendurou. A ultima linha acima e onde.")
         System.out.flush()
         Runtime.getRuntime().halt(2)
     }, "cao-de-guarda").apply { isDaemon = true; start() }
 
-    linha("preparando o pacote")
+    linha("preparando")
     if (!GStreamerPack.iniciarGst()) {
-        p("  FALHOU: o pacote nao esta instalado ou o GStreamer nao carregou")
+        p("  FALHOU: pacote nao instalado ou GStreamer nao carregou")
         return
     }
-    p("  GStreamer ${Gst.getVersionString()}")
-
+    p("  ${Gst.getVersionString()}")
     val enc = listOf("nvd3d11h264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
         .firstOrNull { runCatching { ElementFactory.find(it) != null }.getOrDefault(false) }
     if (enc == null) {
@@ -63,151 +71,237 @@ fun main() {
     }
     p("  encoder: $enc")
 
-    // --- 1. o cano -------------------------------------------------------------
-    linha("montando o cano (audio + video num webrtcbin so)")
+    // --- o cano nasce SO com audio, como numa call em que ninguem transmite ---
+    linha("1. cano so com o microfone")
     val descricao =
         "webrtcbin name=envio bundle-policy=max-bundle latency=0 " +
-            // AUDIO: e o mesmo formato que o MicCapture ja entrega depois do
-            // processamento (48kHz mono 16 bits), entao nao ha reamostragem no caminho.
             "appsrc name=mic is-live=true format=time do-timestamp=true " +
             "caps=audio/x-raw,format=S16LE,rate=48000,channels=1,layout=interleaved " +
             "! audioconvert ! audioresample ! opusenc bitrate=64000 " +
             "! rtpopuspay pt=111 " +
-            // Sem `encoding-params`: eu tinha posto 2 (estereo) e o opusenc aqui e MONO.
-            // O desencontro nao aparece como erro de formato -- aparece como
-            // "Internal data stream error" no appsrc, tres elementos antes.
             "! application/x-rtp,media=audio,encoding-name=OPUS,payload=111,clock-rate=48000 " +
-            "! envio. " +
-            // VIDEO: o quadro nasce e morre dentro da placa.
-            "d3d11screencapturesrc ! d3d11convert " +
-            "! video/x-raw(memory:D3D11Memory),format=NV12,width=1280,height=720,framerate=30/1 " +
-            "! $enc ! h264parse config-interval=-1 " +
-            "! rtph264pay pt=96 config-interval=-1 aggregate-mode=zero-latency " +
-            // clock-rate EXPLICITO nos dois. Sem ele o webrtcbin nao consegue montar
-            // uma descricao de midia valida e desliga a linha (porta 0) em silencio.
-            "! application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000 " +
             "! envio."
-
     val pipeline = runCatching { Gst.parseLaunch(descricao) as Pipeline }.getOrElse {
         p("  FALHOU ao montar: ${it.javaClass.simpleName} ${it.message}")
         return
     }
     val bin = pipeline.getElementByName("envio") as WebRTCBin
-    p("  montado")
 
-    // --- 2. adaptacao de banda -------------------------------------------------
-    linha("2. rtpgccbwe pelo request-aux-sender")
-    val bweOk = pendurarBwe(bin)
-    p(if (bweOk) "  pendurado (o retorno so vem quando a conexao negocia)" else "  NAO deu pra pendurar")
-
-    // --- 3. nomear as faixas ---------------------------------------------------
-    linha("3. msid nos pads de entrada")
-    val pads = listOf("sink_0", "sink_1")
-    pads.forEachIndexed { i, nome ->
-        val cid = if (i == 0) CID_AUDIO else CID_VIDEO
-        val pad = bin.getStaticPad(nome)
-        if (pad == null) {
-            p("  $nome: NAO EXISTE")
-        } else {
-            runCatching { pad.set("msid", cid) }
-            p("  $nome <- msid=$cid  (leitura: ${runCatching { pad.get("msid") }.getOrNull()})")
-        }
-    }
+    pipeline.bus.connect(Bus.ERROR { fonte, _, msg -> p("  [ERRO] ${fonte.name}: $msg") })
+    pipeline.bus.connect(Bus.WARNING { fonte, _, msg -> p("  [aviso] ${fonte.name}: $msg") })
 
     val candidatos = ConcurrentLinkedQueue<String>()
     bin.connect(WebRTCBin.ON_ICE_CANDIDATE { _, c -> candidatos.add(c) })
+    pendurarBwe(bin)
+    runCatching { bin.getStaticPad("sink_0")?.set("msid", CID_AUDIO) }
 
-    // O BARRAMENTO, que faltava na primeira rodada.
-    //
-    // Elemento que falha no GStreamer nao levanta excecao: ele posta a queixa no
-    // barramento do cano e o cano segue vivo, so que sem aquele ramo. Sem ouvir aqui,
-    // "o video saiu com porta zero" e todo o diagnostico disponivel -- o motivo fica
-    // guardado numa mensagem que ninguem leu.
-    pipeline.bus.connect(org.freedesktop.gstreamer.Bus.ERROR { fonte, _, msg ->
-        p("  [ERRO] ${fonte.name}: $msg")
-    })
-    pipeline.bus.connect(org.freedesktop.gstreamer.Bus.WARNING { fonte, _, msg ->
-        p("  [aviso] ${fonte.name}: $msg")
-    })
-
-    val oferta = CountDownLatch(1)
-    var sdpCru: String? = null
-
-    linha("4. subindo o cano")
     pipeline.play()
     alimentarSilencio(pipeline)
-    // Espera o cano chegar em PLAYING DE VERDADE em vez de contar ate um numero. O
-    // NVENC leva um tempo pra acordar, e pedir a oferta antes de o video ter formato
-    // negociado e o caminho mais curto pra uma linha de midia desligada.
-    val estado = pipeline.getState(5_000_000_000L)
-    p("  estado: $estado")
+    p("  estado: ${pipeline.getState(5_000_000_000L)}")
+    p("  formato do audio: ${if (esperarFormato(bin, "sink_0", 8000) != null) "negociado" else "NAO NEGOCIOU"}")
 
-    // ESPERAR O FORMATO, e nao um relogio.
-    //
-    // O webrtcbin escreve a descricao da sessao com o que sabe NO INSTANTE em que a
-    // oferta e pedida. Se o encoder ainda nao disse qual formato vai produzir, aquela
-    // midia entra na descricao DESLIGADA (porta 0) -- e nao ha erro, nao ha aviso, a
-    // oferta sai inteira e bem formada, so que sem video. Foi exatamente o que
-    // aconteceu duas rodadas seguidas, e nas duas o relogio de 1,2s parecia generoso.
-    //
-    // O formato so aparece depois que o primeiro quadro entra no encoder, e quando
-    // isso acontece nao e escolha nossa: depende da placa acordar. Entao a espera e
-    // pelo FATO, com prazo -- nao por um numero que pareca suficiente.
-    listOf("sink_0" to "audio", "sink_1" to "video").forEach { (pad, nome) ->
-        val caps = esperarFormato(bin, pad, 8000)
-        p("  formato de $nome: " + (caps ?: "NAO NEGOCIOU EM 8s"))
-    }
+    linha("2. oferta com o microfone so")
+    mostrarMidias(pedirOferta(bin) ?: return encerrar(pipeline))
 
-    linha("5. oferta")
-    bin.createOffer { desc ->
-        sdpCru = runCatching { desc.getSDPMessage().toString() }.getOrNull()
-        oferta.countDown()
+    // --- a tela entra COM O CANO ANDANDO ---
+    linha("3. acrescentando a tela sem parar o audio")
+    val ramo = acrescentarVideo(pipeline, bin, enc)
+    if (ramo == null) {
+        p("  FALHOU: nao consegui montar o ramo de video")
+        return encerrar(pipeline)
     }
-    if (!oferta.await(8, TimeUnit.SECONDS) || sdpCru == null) {
-        p("  FALHOU: a oferta nao ficou pronta")
-        encerrar(pipeline)
-        return
-    }
-    val cru = sdpCru!!
-    // PORTA ZERO NEM SEMPRE E FALHA -- e eu tinha escrito que era.
-    //
-    // Com `bundle-policy=max-bundle` todas as midias dividem UMA conexao, e a regra do
-    // BUNDLE manda oferecer as linhas seguintes com porta 0 e `a=bundle-only`: e o jeito
-    // de dizer "so aceite isto agrupado". Ou seja, a mesma porta 0 significa "midia
-    // morta" quando o encoder nao ligou e "midia agrupada, tudo certo" aqui.
-    //
-    // O que separa os dois casos e o `a=bundle-only` e o formato negociado no pad -- nao
-    // a porta. Imprimir a oferta INTEIRA custa vinte linhas de log e me impede de
-    // inventar significado pra numero solto, que foi o que eu acabei de fazer.
-    p("  oferta completa:")
-    cru.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.forEach { p("    $it") }
+    p("  ramo ligado no pad ${ramo.pad.name}")
+    runCatching { ramo.pad.set("msid", CID_VIDEO) }
+    p("  formato do video: ${if (esperarFormato(bin, ramo.pad.name, 10000) != null) "negociado" else "NAO NEGOCIOU"}")
+    p("  audio continua? ${if (esperarFormato(bin, "sink_0", 1000) != null) "SIM" else "PERDEU O FORMATO"}")
 
-    // --- 5. reescrever o msid --------------------------------------------------
-    //
-    // O LiveKit casa a faixa pelo `cid`, e o cliente de hoje (webrtc-java) manda o
-    // MESMO valor no fluxo e na faixa: `a=msid:<cid> <cid>`. Produzir byte a byte o
-    // que ja funciona hoje troca uma aposta por uma certeza -- em vez de descobrir o
-    // que o servidor aceita, a gente entrega o que ele ja aceita.
-    linha("5. reescrevendo o msid pro formato que o LiveKit ja aceita")
-    val remendado = remendarMsid(cru)
-    remendado.lineSequence().map { it.trim() }.filter { it.startsWith("a=msid") }
+    linha("4. oferta com microfone + tela")
+    val comVideo = pedirOferta(bin) ?: return encerrar(pipeline)
+    mostrarMidias(comVideo)
+
+    linha("5. remendando o msid pro formato que o LiveKit ja aceita")
+    val remendado = remendarMsid(comVideo)
+    remendado.lineSequence().map { it.trim() }.filter { it.startsWith("a=msid") || it.contains(" msid:") }
         .forEach { p("    $it") }
+    runCatching {
+        bin.setLocalDescription(WebRTCSessionDescription(WebRTCSDPType.OFFER, SDPMessage().apply { parseBuffer(remendado) }))
+    }.onSuccess { p("  aceito pelo webrtcbin") }.onFailure { p("  RECUSADO: ${it.message}") }
 
-    val msg = SDPMessage().apply { parseBuffer(remendado) }
-    val descRemendada = WebRTCSessionDescription(WebRTCSDPType.OFFER, msg)
-    runCatching { bin.setLocalDescription(descRemendada) }
-        .onSuccess { p("  aceito pelo webrtcbin") }
-        .onFailure { p("  RECUSADO: ${it.javaClass.simpleName} ${it.message}") }
-
-    Thread.sleep(4000)
+    Thread.sleep(3000)
     p("  candidatos de rede: ${candidatos.size}")
 
-    // --- 6. estatisticas -------------------------------------------------------
-    linha("6. get-stats (o que alimenta o auto-ajuste de qualidade)")
+    linha("6. estatisticas")
     lerStats(bin)
+
+    // --- a tela sai, e o audio tem que sobreviver ---
+    linha("7. tirando a tela sem parar o audio")
+    tirarVideo(pipeline, bin, ramo)
+    Thread.sleep(1500)
+    p("  audio continua? ${if (esperarFormato(bin, "sink_0", 2000) != null) "SIM" else "PERDEU O FORMATO"}")
+    p("  estado do cano: ${pipeline.getState(3_000_000_000L)}")
+
+    linha("8. oferta depois de tirar a tela")
+    pedirOferta(bin)?.let { mostrarMidias(it) }
 
     encerrar(pipeline)
     linha("fim")
+}
+
+// Monta o ramo de video e pendura no webrtcbin com o cano ANDANDO.
+//
+// Cada elo e conferido. O parseLaunch engole falha de ligacao com um aviso (foi como o
+// encoder errado passou batido duas rodadas), entao aqui a ligacao e explicita e um
+// `false` interrompe na hora, no elo exato.
+private fun acrescentarVideo(pipeline: Pipeline, bin: WebRTCBin, enc: String): RamoDeVideo? {
+    val fonte = ElementFactory.make("d3d11screencapturesrc", "tela") ?: return null
+    val conv = ElementFactory.make("d3d11convert", "conv") ?: return null
+    val filtro = ElementFactory.make("capsfilter", "formato") ?: return null
+    val encoder = ElementFactory.make(enc, "encoder") ?: return null
+    val parser = ElementFactory.make("h264parse", "parser") ?: return null
+    val pay = ElementFactory.make("rtph264pay", "pay") ?: return null
+    val filtroRtp = ElementFactory.make("capsfilter", "formatoRtp") ?: return null
+
+    filtro.set("caps", Caps.fromString("video/x-raw(memory:D3D11Memory),format=NV12,width=1280,height=720,framerate=30/1"))
+    parser.set("config-interval", -1)
+    pay.set("pt", 96)
+    pay.set("config-interval", -1)
+    filtroRtp.set("caps", Caps.fromString("application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000"))
+
+    val elementos = listOf(fonte, conv, filtro, encoder, parser, pay, filtroRtp)
+    pipeline.addMany(*elementos.toTypedArray())
+    for (i in 0 until elementos.size - 1) {
+        if (!elementos[i].link(elementos[i + 1])) {
+            p("  nao ligou: ${elementos[i].name} -> ${elementos[i + 1].name}")
+            return null
+        }
+    }
+
+    val pad = bin.getRequestPad("sink_%u") ?: run { p("  o webrtcbin nao deu pad"); return null }
+    val saida = filtroRtp.getStaticPad("src") ?: return null
+    // Pad.link LANCA em vez de devolver codigo -- ao contrario de Element.link, que
+    // devolve boolean. Duas convencoes na mesma biblioteca; confundir uma com a outra
+    // e como o erro passaria calado.
+    runCatching { saida.link(pad) }.onFailure {
+        p("  nao ligou o ramo no webrtcbin: ${it.message}")
+        return null
+    }
+    // O CANO PARA, O RAMO ENTRA, O CANO VOLTA A ANDAR.
+    //
+    // Herdar o tempo-base e chamar syncStateWithParent NAO BASTA -- medido: a fonte
+    // fica em PLAYING, negocia formato e entrega ZERO quadro em tres segundos. Fonte ao
+    // vivo acrescentada a um cano que ja anda simplesmente nao arranca, e nao reclama.
+    //
+    // Passar pelo repouso poe o ramo novo pra nascer junto com o resto, que e o unico
+    // caminho que a gente ja viu funcionar. O preco e um engasgo curto no audio ao
+    // comecar e ao parar a transmissao -- a conexao, o ICE e a criptografia SOBREVIVEM
+    // ao repouso (nao e reconexao), entao o custo e o engasgo e nada alem dele.
+    val t0 = System.currentTimeMillis()
+    pipeline.setState(State.PAUSED)
+    pipeline.getState(3_000_000_000L)
+    elementos.forEach { it.syncStateWithParent() }
+    pipeline.setState(State.PLAYING)
+    pipeline.getState(5_000_000_000L)
+    // O tamanho do engasgo importa: e uma regressao visivel (hoje comecar a transmitir
+    // nao mexe na voz). Medir e o que separa "custa pouco" de "custa pouco, eu acho".
+    p("  o audio ficou parado por ${System.currentTimeMillis() - t0} ms")
+    elementos.forEach { e ->
+        val st = runCatching { e.getState(3_000_000_000L) }.getOrNull()
+        if (st != State.PLAYING) p("  ${e.name} ficou em $st")
+    }
+
+    // FORMATO NEGOCIADO NAO E QUADRO ENTREGUE, e confundir os dois me custou duas
+    // rodadas. Um pad ganha `currentCaps` quando um EVENTO de formato passa por ele --
+    // e isso acontece na negociacao, sem um unico quadro ter sido produzido. Contar
+    // buffer e a unica pergunta que separa "a fonte nao esta gerando" de "o encoder
+    // esta recebendo e engolindo".
+    val contagem = elementos.associate { e ->
+        val n = java.util.concurrent.atomic.AtomicInteger(0)
+        runCatching {
+            e.getStaticPad("src")?.addProbe(org.freedesktop.gstreamer.PadProbeType.BUFFER) { _, _ ->
+                n.incrementAndGet()
+                org.freedesktop.gstreamer.PadProbeReturn.OK
+            }
+        }
+        e.name to n
+    }
+
+    // ONDE o quadro para, em vez de so "nao chegou".
+    //
+    // Um pad so ganha formato depois que passa dado por ele. Perguntar elo a elo
+    // transforma "o video nao negociou" em "parou entre X e Y" -- que e a diferenca
+    // entre consertar e adivinhar. Sem isto eu ja tinha trocado o encoder e mexido no
+    // relogio no chute, e nenhum dos dois era o problema.
+    Thread.sleep(3000)
+    p("  quadros SAINDO de cada elo em 3s (e o formato negociado):")
+    elementos.forEach { e ->
+        val c = runCatching { e.getStaticPad("src")?.currentCaps?.toString() }.getOrNull()
+        p("    ${e.name.padEnd(12)} ${(contagem[e.name]?.get() ?: -1).toString().padStart(4)} quadros  ${if (c == null) "sem formato" else "formato ok"}")
+    }
+    return RamoDeVideo(elementos, pad)
+}
+
+// Desmonta o ramo.
+//
+// A PRIMEIRA VERSAO DISTO CORROMPEU A MEMORIA NATIVA (0xC0000374) e derrubou o processo.
+// Ela desligava os elementos com o cano ANDANDO e quadros em voo -- soltar a memoria de
+// um elemento que ainda esta processando e exatamente o mesmo erro que o `pushFrame`
+// depois do `dispose` na captura de tela, um andar abaixo.
+//
+// E o mais instrutivo: essa remocao PASSOU nas rodadas anteriores. So que naquelas o
+// ramo nunca produzira um unico quadro -- nao havia nada em voo pra atropelar. O defeito
+// estava escondido atras do outro defeito, e so apareceu quando o video comecou a
+// funcionar. Teste que passa porque a funcionalidade nao existe nao prova nada.
+//
+// Agora: o cano DESCANSA primeiro (todo mundo para de processar), depois desliga. Mesmo
+// caminho da entrada, e pelo mesmo motivo.
+private fun tirarVideo(pipeline: Pipeline, bin: WebRTCBin, ramo: RamoDeVideo) {
+    val t0 = System.currentTimeMillis()
+    pipeline.setState(State.PAUSED)
+    pipeline.getState(3_000_000_000L)
+    runCatching { ramo.elementos.last().getStaticPad("src")?.unlink(ramo.pad) }
+    runCatching { bin.releaseRequestPad(ramo.pad) }
+    ramo.elementos.forEach {
+        runCatching { it.setState(State.NULL) }
+        runCatching { it.getState(2_000_000_000L) }
+    }
+    runCatching { pipeline.removeMany(*ramo.elementos.toTypedArray()) }
+    pipeline.setState(State.PLAYING)
+    pipeline.getState(5_000_000_000L)
+    p("  o audio ficou parado por ${System.currentTimeMillis() - t0} ms")
+}
+
+private fun pedirOferta(bin: WebRTCBin): String? {
+    val pronto = CountDownLatch(1)
+    val caixa = arrayOfNulls<String>(1)
+    bin.createOffer { desc ->
+        caixa[0] = runCatching { desc.getSDPMessage().toString() }.getOrNull()
+        pronto.countDown()
+    }
+    if (!pronto.await(10, TimeUnit.SECONDS)) {
+        p("  a oferta nao ficou pronta em 10s")
+        return null
+    }
+    return caixa[0]
+}
+
+// Porta 0 SOZINHA nao quer dizer nada: em max-bundle a regra manda oferecer as linhas
+// seguintes com porta 0 + a=bundle-only. O que distingue midia viva de midia morta e o
+// a=bundle-only estar la.
+private fun mostrarMidias(sdp: String) {
+    val linhas = sdp.lineSequence().map { it.trim() }.toList()
+    var atual: String? = null
+    linhas.forEach { l ->
+        when {
+            l.startsWith("m=") -> {
+                atual = l
+                p("  $l")
+            }
+            l == "a=bundle-only" -> p("      (agrupada -- porta 0 aqui e o esperado)")
+            l == "a=inactive" -> p("      !!! INATIVA")
+            l.startsWith("a=rtpmap:") -> p("      $l")
+        }
+    }
+    if (atual == null) p("  (nenhuma midia)")
 }
 
 private fun esperarFormato(bin: WebRTCBin, pad: String, prazoMs: Long): String? {
@@ -220,9 +314,6 @@ private fun esperarFormato(bin: WebRTCBin, pad: String, prazoMs: Long): String? 
     return null
 }
 
-// O request-aux-sender pede um elemento que fica no caminho do RTP e estima a banda.
-// A assinatura em C devolve GstElement*, e por isso o retorno do callback importa:
-// devolver nada aqui e o mesmo que nao ter adaptacao nenhuma.
 private interface AuxSender : GstAPI.GstCallback {
     fun callback(bin: Element, transporte: Element): Element?
 }
@@ -231,34 +322,25 @@ private fun pendurarBwe(bin: WebRTCBin): Boolean = runCatching {
     val alvo = object : AuxSender {
         override fun callback(b: Element, transporte: Element): Element? {
             val bwe = ElementFactory.make("rtpgccbwe", null)
-            p("    [sinal] request-aux-sender -> ${if (bwe != null) "rtpgccbwe entregue" else "rtpgccbwe NAO existe"}")
+            p("    [sinal] request-aux-sender -> ${if (bwe != null) "rtpgccbwe entregue" else "NAO existe"}")
             return bwe
         }
     }
     bin.connect("request-aux-sender", AuxSender::class.java, alvo, alvo)
     true
-}.getOrElse {
-    p("    ${it.javaClass.simpleName}: ${it.message}")
-    false
-}
+}.getOrElse { p("    bwe: ${it.message}"); false }
 
-// Troca `a=msid:<qualquer> <qualquer>` pelo `<cid> <cid>` da faixa daquela m-line.
-// A ordem das m-lines segue a ordem em que os pads entraram: audio primeiro.
 private fun remendarMsid(sdp: String): String {
     val saida = StringBuilder()
-    var cidAtual: String? = null
-    sdp.lineSequence().forEach { linhaCrua ->
-        val l = linhaCrua.trimEnd('\r')
+    var cid: String? = null
+    sdp.lineSequence().forEach { crua ->
+        val l = crua.trimEnd('\r')
         when {
-            l.startsWith("m=audio") -> { cidAtual = CID_AUDIO; saida.append(l).append("\r\n") }
-            l.startsWith("m=video") -> { cidAtual = CID_VIDEO; saida.append(l).append("\r\n") }
-            l.startsWith("a=msid:") && cidAtual != null ->
-                saida.append("a=msid:$cidAtual $cidAtual").append("\r\n")
-            // O msid tambem viaja no atributo de ssrc, e o LiveKit le esse tambem.
-            l.startsWith("a=ssrc:") && l.contains(" msid:") && cidAtual != null -> {
-                val ssrc = l.substringBefore(" msid:")
-                saida.append("$ssrc msid:$cidAtual $cidAtual").append("\r\n")
-            }
+            l.startsWith("m=audio") -> { cid = CID_AUDIO; saida.append(l).append("\r\n") }
+            l.startsWith("m=video") -> { cid = CID_VIDEO; saida.append(l).append("\r\n") }
+            l.startsWith("a=msid:") && cid != null -> saida.append("a=msid:$cid $cid").append("\r\n")
+            l.startsWith("a=ssrc:") && l.contains(" msid:") && cid != null ->
+                saida.append(l.substringBefore(" msid:")).append(" msid:$cid $cid").append("\r\n")
             else -> saida.append(l).append("\r\n")
         }
     }
@@ -267,12 +349,6 @@ private fun remendarMsid(sdp: String): String {
 
 private fun lerStats(bin: WebRTCBin) {
     runCatching {
-        // A promessa responde por CALLBACK, e nao pelo waitResult().
-        //
-        // `gst_promise_wait` bloqueia ate alguem responder, e "alguem" aqui e o
-        // webrtcbin -- que pode simplesmente nao responder se o pedido nao servir. Sem
-        // prazo, o banco de testes fica pendurado pra sempre esperando a resposta que
-        // era justamente o que ele veio medir.
         val pronto = CountDownLatch(1)
         val caixa = arrayOfNulls<Structure>(1)
         val promessa = Promise(Promise.PROMISE_CHANGE { pr ->
@@ -280,35 +356,23 @@ private fun lerStats(bin: WebRTCBin) {
             pronto.countDown()
         })
         bin.emit("get-stats", null, promessa)
-        if (!pronto.await(5, TimeUnit.SECONDS)) {
-            p("  o webrtcbin nao respondeu em 5s")
-            return
-        }
-        val r: Structure? = caixa[0]
-        if (r == null) {
-            p("  veio vazio")
-            return
-        }
-        // Interessa saber SE existem os campos que o auto-ajuste le hoje:
-        // framesPerSecond (envio) e a razao de limitacao.
-        val texto = r.toString()
-        p("  tamanho do relatorio: ${texto.length} caracteres")
-        listOf("frames-per-second", "framesPerSecond", "bitrate", "packets-sent", "rtp-outbound", "outbound-rtp")
-            .forEach { chave -> if (texto.contains(chave)) p("    contem: $chave") }
-        p("  amostra: " + texto.take(400))
-    }.onFailure { p("  FALHOU: ${it.javaClass.simpleName} ${it.message}") }
+        if (!pronto.await(5, TimeUnit.SECONDS)) { p("  nao respondeu em 5s"); return }
+        val texto = caixa[0]?.toString() ?: run { p("  veio vazio"); return }
+        p("  ${texto.length} caracteres")
+        listOf("rtp-outbound", "frames-per-second", "bitrate", "packets-sent", "codec-stats")
+            .forEach { if (texto.contains(it)) p("    contem: $it") }
+    }.onFailure { p("  FALHOU: ${it.message}") }
 }
 
-// O appsrc precisa de dados senao o audio nunca negocia de verdade.
 private fun alimentarSilencio(pipeline: Pipeline) {
     val mic = pipeline.getElementByName("mic") as? AppSrc ?: return
     Thread({
         val quadro = ByteArray(960 * 2) // 10ms de 48kHz mono 16 bits
-        repeat(600) {
+        while (true) {
             val buf = Buffer(quadro.size)
             buf.map(true)?.put(quadro)
             buf.unmap()
-            runCatching { mic.pushBuffer(buf) }
+            if (runCatching { mic.pushBuffer(buf) }.isFailure) return@Thread
             Thread.sleep(10)
         }
     }, "silencio").apply { isDaemon = true; start() }
@@ -316,7 +380,7 @@ private fun alimentarSilencio(pipeline: Pipeline) {
 
 private fun encerrar(pipeline: Pipeline) {
     runCatching { pipeline.setState(State.NULL) }
-    runCatching { (pipeline as Bin).dispose() }
+    runCatching { pipeline.dispose() }
 }
 
 private fun linha(t: String) {
@@ -324,11 +388,9 @@ private fun linha(t: String) {
     p("=== $t ===")
 }
 
-// Imprime E DESCARREGA. O Gradle liga o stdout num cano, e cano deixa a saida
-// TOTALMENTE tamponada -- a primeira tentativa deste banco de testes rodou, pendurou e
-// devolveu um arquivo de zero byte. Nao havia nada errado com o codigo: as linhas
-// estavam vivas dentro do buffer, esperando um fim que nao veio. Num programa que pode
-// travar, saida sem descarga e saida que nao existe.
+// Imprime E DESCARREGA: o Gradle liga o stdout num cano, e cano deixa a saida
+// totalmente tamponada. A primeira rodada deste banco pendurou e devolveu um arquivo de
+// zero byte -- as linhas estavam vivas dentro do buffer, esperando um fim que nao veio.
 private fun p(s: String) {
     println(s)
     System.out.flush()

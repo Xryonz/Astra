@@ -6,7 +6,7 @@
 #
 # A instalacao oficial do GStreamer tem 2 GB, dos quais 1,6 GB sao bibliotecas
 # estaticas (.a) que nunca embarcam. Sobram ~303 MB de DLL. Dessas, o nosso caminho
-# (captura D3D11 -> encoder de hardware -> livekitwebrtcsink) usa uma fracao: o resto
+# (captura D3D11 -> encoder de hardware -> webrtcbin) usa uma fracao: o resto
 # e encoder de HEVC, encoder de AV1, ffmpeg inteiro, renderizador de SVG e a GTK.
 #
 # Este script COPIA o necessario e depois ENCOLHE por experimento: tira uma DLL
@@ -59,10 +59,18 @@ $plugins = [ordered]@{
   'gstmediafoundation'   = 'encoder generico do Windows (o fallback de hardware)'
   'gstvideoconvertscale' = 'conversao de cor e reducao'
   'gstvideoparsersbad'   = 'h264parse'
-  'gstrswebrtc'          = 'webrtcsink e livekitwebrtcsink'
-  'gstwebrtc'            = 'a base WebRTC do GStreamer'
+  # gstrswebrtc (livekitwebrtcsink) NAO entra, e sozinho ele eram 15,3 dos 62 MB.
+  # Ele abre a PROPRIA conexao com o LiveKit e entra na sala como um participante
+  # separado -- apareceria um segundo "voce" na chamada. Descartado o sink, o webrtcbin
+  # cru faz o mesmo trabalho pela nossa sinalizacao, e o pacote emagrece um quarto.
+  'gstwebrtc'            = 'webrtcbin -- o transporte, negociado pela sinalizacao do Astra'
   'gstrtp'               = 'empacotamento RTP'
   'gstrtpmanager'        = 'jitter buffer, sessao RTP'
+  # rtpgccbwe: o estimador de banda do WebRTC (Google Congestion Control). Sem ele o
+  # webrtcbin manda no bitrate fixo do encoder e nao desce quando a subida aperta --
+  # o video congela em vez de perder nitidez. O webrtc-java de hoje ja traz isso de
+  # fabrica, entao ficar sem seria REGREDIR justamente pra quem tem internet ruim.
+  'gstrsrtp'             = 'rtpgccbwe -- adaptacao de bitrate a banda disponivel'
   'gstdtls'              = 'DTLS -- a criptografia obrigatoria do WebRTC'
   'gstsrtp'              = 'SRTP -- a midia cifrada'
   'gstnice'              = 'ICE (libnice) -- travessia de NAT'
@@ -104,7 +112,16 @@ Copy-Item (Join-Path $Raiz 'bin\gst-launch-1.0.exe') $dBin -Force
 $inspectPack = Join-Path $dBin 'gst-inspect-1.0.exe'
 $launchPack  = Join-Path $dBin 'gst-launch-1.0.exe'
 
-$criticos = @('d3d11screencapturesrc','mfh264enc','livekitwebrtcsink','h264parse','opusenc','videoconvert')
+# Elementos que TEM que existir em qualquer maquina Windows. Encoder de fabricante
+# (nvh264enc, qsvh264enc, amfh264enc) NAO entra: eles so se registram se a placa
+# correspondente existir, e exigir isso aqui reprovaria o pacote na maquina errada.
+# Quem cobre esse caso e a checagem 0 da Valida, que nao depende de hardware nenhum.
+$criticos = @(
+  'd3d11screencapturesrc','d3d11convert','mfh264enc','h264parse','videoconvert',
+  # o transporte: webrtcbin publicando no lugar da PeerConnection do webrtc-java
+  'webrtcbin','rtph264pay','rtpopuspay','opusenc','appsrc','audioconvert','audioresample',
+  'rtpgccbwe'
+)
 
 # NUNCA remover, mesmo que o teste diga que da.
 #
@@ -122,6 +139,47 @@ $protegidas = @(
 
 function Valida {
   $ok = $true
+
+  # 0) ALGUM plugin deixou de carregar?
+  #
+  # ESTA CHECAGEM NASCEU DE UM ERRO QUE PASSOU. O primeiro pacote publicado saiu sem
+  # `gstd3d12-1.0-0.dll` (0,7 MB), e o gstnvcodec e o gstqsv dependem dela no 1.28. Os
+  # dois plugins morriam calados na carga: quem tem RTX ou Quick Sync caia no
+  # mfh264enc sem nunca saber que o encoder bom estava ali.
+  #
+  # A validacao nao pegou porque perguntava por ELEMENTO, e `gst-inspect mfh264enc`
+  # passa numerinho redondo mesmo com o nvcodec quebrado ao lado. Perguntar "algum
+  # plugin falhou?" nao depende de hardware, nao precisa de lista pra manter, e pega
+  # de uma vez qualquer dependencia que o encolhimento tirar demais.
+  #
+  # O registro e apagado ANTES: com cache valido o gst-inspect responde pela memoria e
+  # nao chega a abrir DLL nenhuma -- passaria sem testar nada.
+  # A saida vai pra ARQUIVO, pelo cmd, e nao pra cano redirecionado.
+  #
+  # A primeira versao disto usava RedirectStandardOutput/Error como o resto do script e
+  # TRAVOU o build por 17 minutos. O gst-inspect pelado despeja um catalogo inteiro no
+  # stdout; enquanto o PowerShell le esse stdout ate o fim, o processo enche o cano de
+  # stderr (4 KB no Windows) com os avisos de plugin quebrado e para de escrever. Os dois
+  # ficam esperando um ao outro. Nas checagens 1 e 2 o padrao passa porque a saida cabe
+  # no cano -- aqui nao cabe.
+  $reg = Join-Path $Destino 'registry.bin'
+  Remove-Item $reg -Force -ErrorAction SilentlyContinue
+  $errFile = Join-Path $Destino '..\astra-gst-inspect.err'
+  $psi = New-Object Diagnostics.ProcessStartInfo
+  $psi.FileName  = "$env:SystemRoot\system32\cmd.exe"
+  $psi.Arguments = "/c `"`"$inspectPack`" >nul 2>`"$errFile`"`""
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $true
+  $psi.EnvironmentVariables['PATH'] = $dBin
+  $psi.EnvironmentVariables['GST_PLUGIN_PATH'] = $dPlug
+  $psi.EnvironmentVariables['GST_PLUGIN_SYSTEM_PATH'] = ''
+  $psi.EnvironmentVariables['GST_REGISTRY'] = $reg
+  $p0 = [Diagnostics.Process]::Start($psi)
+  if (-not $p0.WaitForExit(60000)) { try { $p0.Kill() } catch {}; return $false }
+  # -Raw devolve $null em arquivo vazio, e ai o -match explodiria.
+  $err0 = if (Test-Path $errFile) { "$(Get-Content $errFile -Raw)" } else { '' }
+  if ($err0 -match 'Failed to load plugin') { return $false }
+
   # 1) os elementos carregam?
   foreach ($e in $criticos) {
     $psi = New-Object Diagnostics.ProcessStartInfo

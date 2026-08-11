@@ -48,28 +48,6 @@ object GstScreenEncoder {
         val nucleosParado: Double,
     )
 
-    @Volatile private var iniciado = false
-
-    // Carrega o GStreamer nativo. UMA vez por processo — Gst.init duas vezes e
-    // comportamento indefinido do lado nativo.
-    //
-    // O catch e de Throwable, nao Exception, e isso e deliberado: falha de carregamento
-    // de biblioteca nativa chega como UnsatisfiedLinkError/NoClassDefFoundError, que sao
-    // Error. Um catch de Exception deixaria passar exatamente o caso que se quer conter.
-    @Synchronized
-    private fun garantirGst(): Boolean {
-        if (iniciado) return true
-        if (!GStreamerPack.prepararAmbiente()) return false
-        return try {
-            Gst.init("Astra")
-            iniciado = true
-            true
-        } catch (t: Throwable) {
-            VoiceLog.nota("GStreamer nao carregou: ${t.javaClass.simpleName} ${t.message.orEmpty()}")
-            false
-        }
-    }
-
     private fun primeiroEncoderDisponivel(): String? =
         ENCODERS.firstOrNull { runCatching { ElementFactory.find(it) != null }.getOrDefault(false) }
 
@@ -81,7 +59,7 @@ object GstScreenEncoder {
     suspend fun medir(http: OkHttpClient, segundos: Int = 8): Result<Medicao> {
         if (!GStreamerPack.garantir(http)) return Result.failure(IllegalStateException("pacote indisponivel"))
         return withContext(Dispatchers.IO) {
-            if (!garantirGst()) return@withContext Result.failure(IllegalStateException("GStreamer nao carregou"))
+            if (!GStreamerPack.iniciarGst()) return@withContext Result.failure(IllegalStateException("GStreamer nao carregou"))
             val enc = primeiroEncoderDisponivel()
                 ?: return@withContext Result.failure(IllegalStateException("sem encoder de hardware"))
 

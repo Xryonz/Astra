@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.freedesktop.gstreamer.Gst
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -39,9 +40,17 @@ import java.util.zip.ZipFile
 // pipeline de proposito: ela nao toca em uma linha de voz, entao nao pode quebrar call.
 object GStreamerPack {
 
-    // Versao do GStreamer, nao do Astra. O pacote e publicado numa tag propria
-    // (`gstreamer-<versao>`) e sobrevive as atualizacoes do app.
-    const val VERSAO = "1.28.6"
+    // Versao do PACOTE, nao do Astra e nao exatamente a do GStreamer: o sufixo conta
+    // quantas vezes o conteudo mudou sem o GStreamer mudar. Publicado numa tag propria
+    // (`gstreamer-<versao>`), sobrevive as atualizacoes do app.
+    //
+    // O `-2` existe porque o `-1` saiu quebrado de um jeito silencioso: faltava
+    // `gstd3d12-1.0-0.dll` (0,7 MB) e, sem ela, os plugins do NVENC e do Quick Sync
+    // morriam na carga sem reclamar. Quem tem placa boa caia no encoder generico do
+    // Windows sem nunca saber. Trocar de versao (em vez de republicar o mesmo arquivo) e
+    // o que faz quem ja baixou o pacote velho baixar o novo — a marca `.completo` nao
+    // olha pra dentro da pasta.
+    const val VERSAO = "1.28.6-2"
 
     private const val REPO = "Xryonz/Astra"
     private val ZIP_URL =
@@ -116,6 +125,20 @@ object GStreamerPack {
         raiz.parentFile.mkdirs()
         if (!tmp.renameTo(raiz)) error("nao consegui mover o pacote pra $raiz")
         File(raiz, ".completo").writeText(VERSAO)
+        limparVersoesAntigas()
+    }
+
+    // Cada versao do pacote sao ~60 MB descompactados. Sem esta faxina, subir a versao
+    // deixaria a anterior parada em disco pra sempre — e o publico deste caminho e
+    // justamente quem tem computador apertado.
+    //
+    // So roda DEPOIS da troca atomica: apagar antes deixaria a pessoa sem caminho nenhum
+    // se a instalacao nova falhasse no meio.
+    private fun limparVersoesAntigas() {
+        val pai = raiz.parentFile ?: return
+        pai.listFiles()?.forEach { f ->
+            if (f.isDirectory && f.name != VERSAO) runCatching { f.deleteRecursively() }
+        }
     }
 
     // Mesmo desenho do download do auto-update: retoma de onde parou (Range) e confere o
@@ -264,6 +287,31 @@ object GStreamerPack {
 
         ambientePronto = true
         return true
+    }
+
+    // Carrega o GStreamer DENTRO do processo. Uma vez so: Gst.init duas vezes e
+    // comportamento indefinido do lado nativo.
+    //
+    // Mora aqui, e nao em quem usa, porque ja sao dois donos (a medicao e o transporte) e
+    // "uma vez por processo" nao e algo que se combine entre iguais — precisa de um lugar.
+    //
+    // O catch e de Throwable, nao Exception, e isso e deliberado: falha ao carregar
+    // biblioteca nativa chega como UnsatisfiedLinkError/NoClassDefFoundError, que sao
+    // Error. Um catch de Exception deixaria passar exatamente o caso que se quer conter.
+    @Volatile private var gstPronto = false
+
+    @Synchronized
+    fun iniciarGst(): Boolean {
+        if (gstPronto) return true
+        if (!prepararAmbiente()) return false
+        return try {
+            Gst.init("Astra")
+            gstPronto = true
+            true
+        } catch (t: Throwable) {
+            VoiceLog.nota("GStreamer nao carregou: ${t.javaClass.simpleName} ${t.message.orEmpty()}")
+            false
+        }
     }
 
     // ---- Sonda de aceleracao por hardware ----

@@ -127,6 +127,7 @@ import com.composables.icons.lucide.X
 import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.voice.AudioDevices
 import app.astra.desktop.voice.GStreamerPack
+import app.astra.desktop.voice.GstPublisher
 import app.astra.desktop.voice.GstScreenEncoder
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
@@ -2612,6 +2613,8 @@ private fun AceleracaoPorHardware() {
             )
             Spacer(Modifier.height(10.dp))
             MedirGanhoDaGpu()
+            Spacer(Modifier.height(10.dp))
+            EnsaioDoTransporte()
         } else {
             InfoNote(
                 "Nenhuma aceleração encontrada",
@@ -2680,6 +2683,67 @@ private fun MedirGanhoDaGpu() {
         )
     }
 }
+
+// Ensaia o caminho novo por inteiro — capturar, comprimir na placa e DESCREVER a
+// sessão — sem mandar nada para lugar nenhum.
+//
+// Medir o custo já foi feito no botão de cima. O que falta saber é se a conversa chega a
+// existir: se a criptografia obrigatória do WebRTC sobe, se a busca de caminho de rede
+// sobe, e se a faixa sai com o nome que o servidor espera. Nada disso o teste de custo
+// responde, e nenhum deles avisa quando falha — a chamada só fica muda.
+@Composable
+private fun EnsaioDoTransporte() {
+    val escopo = rememberCoroutineScope()
+    var ensaiando by remember { mutableStateOf(false) }
+    var ensaio by remember { mutableStateOf<Result<GstPublisher.Ensaio>?>(null) }
+
+    AboutButton(if (ensaiando) "ensaiando… (uns 8 segundos)" else "ensaiar o motor novo", accent = !ensaiando) {
+        if (ensaiando) return@AboutButton
+        ensaiando = true
+        escopo.launch {
+            val http = GlobalContext.get().get<OkHttpClient>(named("plain"))
+            ensaio = GstPublisher.ensaiar(http)
+            ensaiando = false
+        }
+    }
+
+    ensaio?.let { res ->
+        Spacer(Modifier.height(10.dp))
+        res.fold(
+            onSuccess = { e ->
+                val inteiro = e.temFingerprint && e.temUfrag && e.candidatos > 0 && e.midias.isNotEmpty()
+                InfoNote(
+                    if (inteiro) "O motor novo fecha o caminho inteiro" else "O motor novo subiu pela metade",
+                    "Encoder: ${e.encoder}. Faixas descritas: ${e.midias.size}.\n\n" +
+                        "Criptografia da sessão: ${sinal(e.temFingerprint)}\n" +
+                        "Busca de caminho de rede: ${sinal(e.temUfrag)}\n" +
+                        "Caminhos encontrados: ${e.candidatos}\n" +
+                        "Identificação da faixa: ${e.linhaMsid ?: "não saiu no descritivo"}" +
+                        (if (e.linhaMsid != null && !e.cidNaOferta) " — o nome esperado pelo servidor não apareceu aí" else "") +
+                        "\n\n" +
+                        if (inteiro) {
+                            "Isto é ensaio: nada foi transmitido e nenhuma chamada foi tocada. " +
+                                "Significa que o computador tem tudo o que o motor novo precisa " +
+                                "para publicar vídeo direto da placa de vídeo."
+                        } else {
+                            "Alguma peça não subiu. O Astra continua transmitindo pelo caminho " +
+                                "de sempre — isto aqui não estava ligado em nada."
+                        },
+                )
+            },
+            onFailure = { e ->
+                InfoNote(
+                    "O ensaio não foi até o fim",
+                    "Motivo: ${e.message ?: e.javaClass.simpleName}.\n\n" +
+                        "Nada quebrou: o ensaio roda separado da chamada, e a transmissão " +
+                        "continua pelo caminho de sempre.",
+                )
+            },
+        )
+    }
+}
+
+private fun sinal(ok: Boolean) = if (ok) "subiu" else "não subiu"
 
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {

@@ -328,6 +328,9 @@ class VoiceEngine(
     // dono troca a qualidade ao vivo pelo gear da call.
     private var lastScreenSource: DesktopSource? = null
 
+    // Tamanho que a webcam entrega, guardado pro motor novo montar o cano com ele.
+    private var tamanhoDaCamera: Pair<Int, Int>? = null
+
     fun connect(roomKind: String, roomId: String) {
         VoiceLog.nota("--- entrando em $roomKind:$roomId ---")
         Sfx.callJoin() // entrar na call: som fino/agudo
@@ -483,7 +486,11 @@ class VoiceEngine(
     // Troca a ENTRADA ao vivo: persiste + reabre so a captura (mesma track/source).
     fun setInputDevice(name: String?) {
         prefs.setAudioInput(name)
-        val src = micSource ?: return
+        val src = micSource
+        // No motor novo NAO HA `micSource` — o PCM vai direto pro cano. Sair aqui por
+        // `?: return` faria a troca de microfone no meio da call virar um botao que nao
+        // faz nada, e so pra quem estivesse no caminho novo.
+        if (src == null && gstPub == null) return
         runCatching { micCapture?.stop() }
         val p = prefs.state.value
         val cap = MicCapture(destinoDoMic(src), p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, name, p.micSensitivity) { level -> onMicLevel(level) }
@@ -497,7 +504,7 @@ class VoiceEngine(
     // fonte de hoje — a decisao mora aqui pra a troca ser UMA linha, e nao uma caçada
     // pelos dois pontos que constroem MicCapture (um deles e a troca de aparelho ao
     // vivo, que e fácil de esquecer e so quebra pra quem troca de microfone no meio).
-    private fun destinoDoMic(fonte: CustomAudioSource): DestinoDeAudio {
+    private fun destinoDoMic(fonte: CustomAudioSource?): DestinoDeAudio {
         val gst = gstPub
         if (gst != null) {
             return DestinoDeAudio { pcm, bits, taxa, canais, quadros ->
@@ -505,8 +512,60 @@ class VoiceEngine(
             }
         }
         return DestinoDeAudio { pcm, bits, taxa, canais, quadros ->
-            fonte.pushAudio(pcm, bits, taxa, canais, quadros)
+            fonte?.pushAudio(pcm, bits, taxa, canais, quadros)
         }
+    }
+
+    // Tenta subir o motor novo. `false` = siga pelo caminho de sempre, sem drama.
+    //
+    // Tres portoes, e a ordem importa: a pessoa tem que ter PEDIDO (a chave nas
+    // configuracoes), o pacote tem que estar em disco, e a maquina tem que ter encoder
+    // de hardware. Faltando qualquer um, nada acontece e ninguem fica sabendo -- e o
+    // mesmo contrato do ddagrab caindo pro GDI.
+    private fun subirMotorNovo(iceServers: List<LivekitRtc.ICEServer>): Boolean {
+        if (!prefs.state.value.motorNovo) return false
+        val cid = "mic-" + UUID.randomUUID().toString().take(8)
+        // O LiveKit manda os servidores como `stun:host:porta`; o GStreamer quer
+        // `stun://host:porta`. Sem TURN por ora: se a rede exigir TURN, o motor novo nao
+        // conecta e o certo e a pessoa voltar a chave -- por isso ela existe.
+        val stun = iceServers.asSequence()
+            .flatMap { it.urlsList.asSequence() }
+            .firstOrNull { it.startsWith("stun:") }
+            ?.replaceFirst("stun:", "stun://")
+        val p = GstPublisher(
+            onOferta = { sdp -> enviarOferta(sdp) },
+            onCandidato = { mlinha, cand -> enviarTrickleDoMotorNovo(mlinha, cand) },
+            onPrevia = { rgba, largura, altura ->
+                _localPreview.value = ScreenPreview(previewRasters.wrap(rgba, largura, altura), largura, altura)
+            },
+        )
+        if (!p.iniciar(cid, stun)) return false
+        gstPub = p
+        micCid = cid
+        VoiceLog.nota("4b. motor novo no ar (video direto da placa)")
+        return true
+    }
+
+    private fun enviarOferta(sdp: String) {
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setOffer(LivekitRtc.SessionDescription.newBuilder().setType("offer").setSdp(sdp))
+            .build()
+        ws?.send(req.toByteArray().toByteString())
+    }
+
+    private fun enviarTrickleDoMotorNovo(mlinha: Int, candidato: String) {
+        val init = buildJsonObject {
+            put("candidate", candidato)
+            put("sdpMLineIndex", mlinha)
+        }
+        val req = LivekitRtc.SignalRequest.newBuilder()
+            .setTrickle(
+                LivekitRtc.TrickleRequest.newBuilder()
+                    .setCandidateInit(init.toString())
+                    .setTarget(LivekitRtc.SignalTarget.PUBLISHER),
+            )
+            .build()
+        ws?.send(req.toByteArray().toByteString())
     }
 
     private fun handleSignal(res: LivekitRtc.SignalResponse) {
@@ -519,7 +578,10 @@ class VoiceEngine(
                 others.clear()
                 res.join.otherParticipantsList.forEach { others[it.identity] = it.remote() }
                 createSubscriber(res.join.iceServersList)
-                createPublisher(res.join.iceServersList)
+                // A ESCOLHA DO TRANSPORTE ACONTECE AQUI E VALE A CALL INTEIRA. O
+                // LiveKit da uma conexao de publicacao so; trocar no meio seria derrubar
+                // e refazer tudo com a voz de alguem em cima.
+                if (!subirMotorNovo(res.join.iceServersList)) createPublisher(res.join.iceServersList)
                 publishMic()
                 startSpeakingPoll()
                 startPing(res.join.pingInterval)
@@ -733,6 +795,12 @@ class VoiceEngine(
                 if (subRemoteSet) sub?.addIceCandidate(candidate) else pendingCandidates.add(candidate)
             }
         } else {
+            // O motor novo nao precisa da fila de espera: o webrtcbin guarda sozinho os
+            // candidatos que chegam antes da resposta assentar.
+            gstPub?.let {
+                it.candidatoRemoto(init["sdpMLineIndex"]?.jsonPrimitive?.int ?: 0, candidate.sdp)
+                return
+            }
             synchronized(pubPendingCandidates) {
                 if (pubRemoteSet) pub?.addIceCandidate(candidate) else pubPendingCandidates.add(candidate)
             }
@@ -758,14 +826,18 @@ class VoiceEngine(
         // e roda em qualquer maquina. O MicCapture passa cada bloco pelo APM do WebRTC
         // (NS + high-pass + AGC, saida 48k mono) conforme as prefs de Voz — sem isso a
         // voz saia "robo com ruido". Sem mic não derruba a sala: segue so ouvindo.
-        val source = runCatching { CustomAudioSource() }.getOrNull() ?: run {
+        // No motor novo o PCM vai pro cano do GStreamer: nao ha fonte nem faixa do
+        // webrtc-java pra criar. O `cid` ja foi escolhido ao subir o motor, porque o cano
+        // precisa dele pra nomear a faixa antes de qualquer oferta.
+        val gst = gstPub
+        val source = if (gst != null) null else runCatching { CustomAudioSource() }.getOrNull() ?: run {
             VoiceLog.nota("5. mic: nao consegui criar a fonte de audio")
             return
         }
-        val cid = "mic-" + UUID.randomUUID().toString().take(8)
+        val cid = micCid ?: ("mic-" + UUID.randomUUID().toString().take(8))
         micCid = cid
         micSource = source
-        micTrack = f.createAudioTrack(cid, source)
+        if (source != null) micTrack = f.createAudioTrack(cid, source)
         val p = prefs.state.value
         val cap = MicCapture(destinoDoMic(source), p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
@@ -796,6 +868,9 @@ class VoiceEngine(
     }
 
     private fun attachMic(cid: String) {
+        // No motor novo o microfone ja esta no cano desde o `iniciar`: o servidor
+        // aceitou a publicacao, entao so falta descrever a sessao.
+        gstPub?.let { it.negociar(); return }
         val track = micTrack ?: return
         val init = RTCRtpTransceiverInit().apply {
             direction = RTCRtpTransceiverDirection.SEND_ONLY
@@ -861,6 +936,7 @@ class VoiceEngine(
     }
 
     private fun onServerAnswer(sdp: String) {
+        gstPub?.let { it.aplicarResposta(sdp); return }
         val pc = pub ?: return
         pc.setRemoteDescription(
             RTCSessionDescription(RTCSdpType.ANSWER, sdp),
@@ -959,13 +1035,23 @@ class VoiceEngine(
         // — o equivalente desktop da captura de hardware que o mobile ganha do
         // MediaProjection. Se falhar nesta maquina, FALLBACK pro GDI (VideoDesktopSource,
         // ~20-30fps) — assim roda em todo PC, so muda o fps.
-        val trackSource: VideoTrackSource? = startFastCapture(source, q) ?: startGdiCapture(source, q)
-        if (trackSource == null) return
-
-        val cid = "screen-" + UUID.randomUUID().toString().take(8)
-        screenCid = cid
-        screenTrack = f.createVideoTrack(cid, trackSource)
-        _localScreen.value = screenTrack // preview local já com os frames da captura
+        // No motor novo a captura NAO acontece aqui: o cano so sobe quando o servidor
+        // aceitar a publicacao (attachScreen), porque e la que o `cid` vira o nome da
+        // faixa. Aqui so se anuncia a intencao.
+        val gst = gstPub
+        if (gst == null) {
+            val trackSource: VideoTrackSource? = startFastCapture(source, q) ?: startGdiCapture(source, q)
+            if (trackSource == null) return
+            val cidAntigo = "screen-" + UUID.randomUUID().toString().take(8)
+            screenCid = cidAntigo
+            screenTrack = f.createVideoTrack(cidAntigo, trackSource)
+            _localScreen.value = screenTrack // preview local já com os frames da captura
+        } else {
+            screenCid = "screen-" + UUID.randomUUID().toString().take(8)
+            // A previa vem do appsink do cano; a UI escolhe esse caminho por aqui.
+            _directPreview.value = true
+        }
+        val cid = screenCid ?: return
         _sharingCamera.value = false
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -1005,22 +1091,35 @@ class VoiceEngine(
         val caps = runCatching { MediaDevices.getVideoCaptureCapabilities(device) }.getOrDefault(emptyList())
         val cap = caps.filter { it.width <= 1280 && it.height <= 720 }.maxByOrNull { it.width * it.height + it.frameRate }
             ?: caps.firstOrNull()
-        val src = runCatching {
-            VideoDeviceSource().apply {
-                setVideoCaptureDevice(device)
-                cap?.let { setVideoCaptureCapability(it) }
-                start()
-            }
-        }.getOrNull() ?: return
-        cameraSource = src
-
         val w = cap?.width ?: 1280
         val h = cap?.height ?: 720
         val cid = "camera-" + UUID.randomUUID().toString().take(8)
+
+        // No motor novo a camera tambem sobe pelo cano do GStreamer: MISTURAR OS DOIS
+        // TRANSPORTES NAO E OPCAO, porque o LiveKit da uma conexao de publicacao so.
+        // Abrir a webcam aqui pelo webrtc-java e publicar pelo GStreamer daria uma faixa
+        // anunciada que nunca receberia quadro -- camera "ligada" e imagem preta.
+        val gst = gstPub
+        if (gst == null) {
+            val src = runCatching {
+                VideoDeviceSource().apply {
+                    setVideoCaptureDevice(device)
+                    cap?.let { setVideoCaptureCapability(it) }
+                    start()
+                }
+            }.getOrNull() ?: return
+            cameraSource = src
+            screenTrack = f.createVideoTrack(cid, src)
+            _localScreen.value = screenTrack
+            _localPreview.value = null // camera não tem tee ffmpeg -> RemoteVideoView renderiza a track
+        } else {
+            // A previa da camera vem do mesmo appsink da tela.
+            _directPreview.value = true
+            // O tamanho da CAMERA, e nao o preset da tela: o `screenQ` fala de
+            // transmissao de tela e nao tem relacao com o que a webcam entrega.
+            tamanhoDaCamera = w to h
+        }
         screenCid = cid
-        screenTrack = f.createVideoTrack(cid, src)
-        _localScreen.value = screenTrack
-        _localPreview.value = null // camera não tem tee ffmpeg -> RemoteVideoView renderiza a track
         _sharingCamera.value = true
         _screenOn.value = true
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -1045,6 +1144,26 @@ class VoiceEngine(
     }
 
     private fun attachScreen(cid: String) {
+        gstPub?.let { gst ->
+            // A POSICAO do monitor na lista e o que o capturador entende, e e a mesma
+            // lista que o seletor montou -- reusar evita enumerar de novo (caro).
+            val lista = telasCache.ifEmpty { screens() }
+            val indice = lastScreenSource?.let { s -> lista.indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
+            val ok = if (_sharingCamera.value) {
+                val (lc, ac) = tamanhoDaCamera ?: (1280 to 720)
+                gst.publicarCamera(cid, lc, ac)
+            } else {
+                gst.publicarTela(cid, indice, screenQ)
+            }
+            if (!ok) {
+                VoiceLog.nota("motor novo: a tela nao subiu; encerrando a transmissao")
+                stopScreenShare(silent = true)
+                return
+            }
+            gst.negociar()
+            scope.launch { delay(1200); startScreenStats() }
+            return
+        }
         val track = screenTrack ?: return
         val init = RTCRtpTransceiverInit().apply {
             direction = RTCRtpTransceiverDirection.SEND_ONLY
@@ -1094,10 +1213,23 @@ class VoiceEngine(
         streakLimpo = 0
         statsJob = scope.launch {
             while (isActive && _screenOn.value) {
-                val pc = pub
-                val sender = screenSender
-                if (pc != null && sender != null) {
-                    runCatching { pc.getStats(sender) { report -> parseScreenStats(report) } }
+                val gst = gstPub
+                if (gst != null) {
+                    // NO MOTOR NOVO A ESCADA DE PRESET NAO CORRE, e isso e desenho, nao
+                    // esquecimento. Ela existia porque o encoder era SOFTWARE e nao dava
+                    // conta: derrubar o preset era a unica forma de aliviar o processador.
+                    // Com o encoder da placa (0,07 nucleo contra 0,84) essa pressao
+                    // acabou, e a falta de banda passa a ser tratada pelo rtpgccbwe, que
+                    // baixa o BITRATE continuamente -- perder nitidez sem perder quadro e
+                    // melhor que pular degraus de resolucao.
+                    val e = withContext(Dispatchers.IO) { gst.estatisticas() }
+                    if (e != null) _screenStats.value = ScreenStats(screenQ.fps, e.fpsEnvio, e.limite)
+                } else {
+                    val pc = pub
+                    val sender = screenSender
+                    if (pc != null && sender != null) {
+                        runCatching { pc.getStats(sender) { report -> parseScreenStats(report) } }
+                    }
                 }
                 delay(1500)
             }
@@ -1458,6 +1590,13 @@ class VoiceEngine(
         statsJob?.cancel()
         _screenStats.value = null
         _quedaAutomatica.value = null
+        // Motor novo: o ramo de video sai do cano e a linha de midia vira inativa na
+        // renegociacao, que e o que faz o servidor despublicar.
+        gstPub?.let { gst ->
+            gst.pararVideo()
+            screenCid = null
+            gst.negociar()
+        }
         screenSender?.let { runCatching { pub?.removeTrack(it) } }
         screenSender = null
         // A ESPERA IMPORTA, pelo mesmo motivo do microfone logo abaixo no dispose():
@@ -1488,7 +1627,7 @@ class VoiceEngine(
         screenSource = null
         screenCid = null
         // m-line desativada na renegociacao => o server despublica a track.
-        negotiatePublisher()
+        if (gstPub == null) negotiatePublisher()
     }
 
     // Troca a qualidade/fluidez da transmissão ao vivo (gear da call): persiste a
@@ -1510,9 +1649,15 @@ class VoiceEngine(
     // Mute local (track para de mandar frames) + aviso pro server (ícone de mute
     // aparece pros outros).
     fun toggleMic() {
-        val track = micTrack ?: return
+        val gst = gstPub
+        val track = micTrack
+        if (gst == null && track == null) return
         val on = !_micOn.value
-        track.isEnabled = on
+        // No motor novo o silencio e feito zerando as amostras, e nao parando de
+        // empurrar: manter a cadencia de 10ms custa quase nada (o Opus comprime silencio
+        // a ~1kbps) e evita que o outro lado veja a faixa morrer e reaja a isso.
+        gst?.mudo(!on)
+        track?.isEnabled = on
         _micOn.value = on
         val sid = micSid ?: return
         val req = LivekitRtc.SignalRequest.newBuilder()
@@ -1620,6 +1765,10 @@ class VoiceEngine(
             VoiceLog.nota("a captura do mic nao encerrou a tempo — fonte de audio nao liberada (seguro, mas anormal)")
         }
         micSource = null
+        // Antes de fechar o resto: o cano do GStreamer tem memoria NATIVA e threads
+        // proprias, e o `parar()` so volta depois que o cano descansou.
+        runCatching { gstPub?.parar() }
+        gstPub = null
         runCatching { pub?.close() }
         pub = null
         runCatching { sub?.close() }

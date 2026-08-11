@@ -125,6 +125,12 @@ class DesktopPrefs(private val store: SessionStore) {
         val density: DensityPref = DensityPref.COMFORTABLE,
         // --- Voz & Transmissao ---
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
+        // Motor de video novo (GStreamer publicando direto da placa). DESLIGADO por
+        // padrao ate rodar em call de verdade: ele troca TUDO o que sai (microfone
+        // inclusive), e um defeito aqui nao aparece como tela preta -- aparece como
+        // ninguem te ouvindo. Ligado, ainda cai sozinho pro caminho de sempre se faltar
+        // o pacote ou o encoder de hardware.
+        val motorNovo: Boolean = false,
         // Processamento do microfone (aplica ao ENTRAR na próxima sala de voz).
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
@@ -176,6 +182,7 @@ class DesktopPrefs(private val store: SessionStore) {
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
+        motorNovo = store.uiPref("motorNovo") == "1",
         micAutoGain = store.uiPref("micAutoGain") != "0",
         micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
@@ -276,6 +283,14 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setMicEchoCancel(v: Boolean) {
         persist("micEchoCancel", v)
         _state.update { it.copy(micEchoCancel = v) }
+    }
+
+    // Vale na PROXIMA call: o LiveKit da uma conexao de publicacao so, e trocar de
+    // transporte com a chamada no ar seria derrubar e refazer tudo com a voz de alguem
+    // em cima.
+    fun setMotorNovo(v: Boolean) {
+        persist("motorNovo", v)
+        _state.update { it.copy(motorNovo = v) }
     }
 
     fun setMicAutoGain(v: Boolean) {

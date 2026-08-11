@@ -517,14 +517,24 @@ class GstPublisher(
             b.emit("get-stats", null, promessa)
             if (!pronto.await(2, TimeUnit.SECONDS)) return null
             val texto = caixa[0]?.toString() ?: return null
-            Estatisticas(extrairInteiro(texto, "frames-per-second"), "none")
+            // O relatorio do webrtcbin vem como texto de GstStructure aninhada e
+            // ESCAPADA (`frames\-per\-second\=\(double\)29.9`), entao a leitura e por
+            // regex mesmo -- montar o parser da linguagem inteira pra tirar um numero
+            // seria caro e fragil do mesmo jeito.
+            //
+            // Nao ha equivalente ao `qualityLimitationReason` do libwebrtc aqui, e por
+            // isso o limite sai sempre "none": no motor novo quem trata falta de banda e
+            // o rtpgccbwe, baixando o bitrate sozinho. A linha de status continua
+            // mostrando captura e envio, que e o que responde "esta fluindo?".
+            Estatisticas(extrairNumero(texto, "frames-per-second"), "none")
         }.getOrNull()
     }
 
-    private fun extrairInteiro(texto: String, chave: String): Int {
+    private fun extrairNumero(texto: String, chave: String): Int {
         val i = texto.indexOf(chave)
         if (i < 0) return 0
-        return Regex("\\d+").find(texto.substring(i))?.value?.toIntOrNull() ?: 0
+        return Regex("(\\d+(?:\\.\\d+)?)").find(texto.substring(i, minOf(texto.length, i + 60)))
+            ?.value?.toDoubleOrNull()?.toInt() ?: 0
     }
 
     private companion object {

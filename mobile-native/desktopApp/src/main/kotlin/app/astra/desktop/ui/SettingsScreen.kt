@@ -2718,6 +2718,38 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     // envelhece mal (uma das duas deixa de ser atualizada).
 
     SettingsDivider()
+    Text("Motor de vídeo novo", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "comprime a transmissão na placa de vídeo, sem trazer o quadro para o processador. " +
+            "vale ao entrar na próxima chamada — não muda uma que já esteja em andamento.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    ToggleRow(
+        "Usar o motor novo",
+        "em teste. sem o pacote ou sem placa compatível, a chamada segue pelo caminho de sempre",
+        p.motorNovo,
+        prefs::setMotorNovo,
+    )
+    if (p.motorNovo) {
+        Spacer(Modifier.height(10.dp))
+        InfoNote(
+            "O que muda com ele ligado",
+            "A compressão sai do processador e vai para a placa de vídeo — nas medições, " +
+                "de 0,84 para 0,07 de um núcleo. Tudo o que sai passa a ir por esse " +
+                "caminho, o microfone inclusive.\n\n" +
+                "O ajuste automático de qualidade deixa de baixar o preset sozinho, e isso " +
+                "é de propósito: ele existia porque o processador não dava conta de " +
+                "comprimir. Agora quem trata falta de banda é o estimador do WebRTC, " +
+                "reduzindo a taxa continuamente — perder nitidez sem perder fluidez é " +
+                "melhor que pular degraus de resolução.\n\n" +
+                "Se alguma coisa sair errada numa chamada, desligue aqui e entre de novo.",
+        )
+    }
+
+    SettingsDivider()
     AceleracaoPorHardware()
 
     SettingsDivider()

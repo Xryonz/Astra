@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.freedesktop.gstreamer.Gst
+import org.freedesktop.gstreamer.Version
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -305,7 +306,19 @@ object GStreamerPack {
         if (gstPronto) return true
         if (!prepararAmbiente()) return false
         return try {
-            Gst.init("Astra")
+            // A VERSAO PEDIDA NAO E DETALHE, e custou uma sessao de banco de testes.
+            //
+            // `Gst.init("Astra")` sem versao pede a BASELINE (1.8), e o gst1-java-core
+            // TRANCA por versao cada funcao nativa que nasceu depois: chamar uma delas
+            // levanta "Not supported by requested GStreamer version" -- mesmo com o
+            // GStreamer 1.28 carregado e a funcao ali, presente. Foi o que derrubou o
+            // setLocalDescription no ensaio, e o erro nao aponta pra versao pedida: ele
+            // parece defeito da biblioteca.
+            //
+            // 1.20 cobre a API de WebRTC/SDP inteira e fica bem abaixo do que o pacote
+            // entrega (1.28.6), que e nosso e nao muda debaixo da gente -- o
+            // GST_PLUGIN_SYSTEM_PATH vazio garante que nunca carregamos a do sistema.
+            Gst.init(Version.of(1, 20), "Astra")
             gstPronto = true
             true
         } catch (t: Throwable) {
@@ -318,11 +331,19 @@ object GStreamerPack {
 
     // Ordem = preferencia. So encoders de HARDWARE: x264/openh264 ficam de fora de
     // proposito, porque encontrar um deles seria o mesmo custo que ja temos hoje.
+    //
+    // `nvh264enc` NAO ESTA AQUI, e a ausencia dele e o achado que mais custou.
+    //
+    // A NVIDIA publica TRES elementos, e o nome nao diz qual serve: `nvh264enc` e o modo
+    // CUDA, `nvd3d11h264enc` e o modo Direct3D 11, `nvautogpuh264enc` escolhe sozinho.
+    // So o do meio aceita quadro que ja esta na placa. Com o `nvh264enc` o cano nem
+    // liga -- e o GStreamer nao trata isso como erro: ele AVISA e monta o cano assim
+    // mesmo, sem o ramo de video. O ensaio subiu, negociou audio, e a linha de video
+    // saiu com porta zero. Uma transmissao que nao transmite, sem uma unica excecao.
     private val ENCODERS = listOf(
-        "nvh264enc" to "NVIDIA NVENC",
+        "nvd3d11h264enc" to "NVIDIA NVENC",
         "qsvh264enc" to "Intel Quick Sync",
         "amfh264enc" to "AMD AMF",
-        "d3d11h264enc" to "Direct3D 11",
         "mfh264enc" to "Media Foundation",
     )
 

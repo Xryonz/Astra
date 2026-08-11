@@ -42,7 +42,9 @@ object GstPublisher {
     // Ordem de preferencia. Todos aceitam memoria D3D11 direto (a condicao pra o quadro
     // nao descer pra CPU). Encoder por software nao entra: com ele o caminho inteiro
     // perde a razao de existir.
-    private val ENCODERS = listOf("nvh264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
+    // `nvd3d11h264enc`, e nao `nvh264enc`: o segundo e o modo CUDA e recusa quadro em
+    // memoria D3D11 -- o cano nem liga, e o GStreamer so AVISA (ver GStreamerPack).
+    private val ENCODERS = listOf("nvd3d11h264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
 
     data class Ensaio(
         val encoder: String,

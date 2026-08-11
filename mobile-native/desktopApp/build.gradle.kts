@@ -70,7 +70,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.5"
+val astraVersion = "0.2.6"
 
 dependencies {
     implementation(project(":shared"))
@@ -152,6 +152,16 @@ tasks.register<Zip>("zipDistributable") {
     from(layout.buildDirectory.dir("compose/binaries/main/app"))
     archiveFileName.set("Astra-$astraVersion-win-x64.zip")
     destinationDirectory.set(layout.buildDirectory)
+}
+
+// Banco de testes do transporte novo (webrtcbin). TEMPORARIO -- sai junto com o
+// EnsaioGst.kt quando as pecas estiverem provadas. Existe pra rodar negociacao WebRTC
+// de verdade fora do app: descobrir que o msid nao casa, ou que o get-stats nao
+// responde, DENTRO de uma call seria descobrir com a voz de alguem no meio.
+tasks.register<JavaExec>("ensaioGst") {
+    group = "verification"
+    mainClass.set("app.astra.desktop.voice.EnsaioGstKt")
+    classpath = sourceSets["main"].runtimeClasspath
 }
 
 compose.desktop {

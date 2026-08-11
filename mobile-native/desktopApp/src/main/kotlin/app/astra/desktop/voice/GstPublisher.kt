@@ -64,6 +64,9 @@ class GstPublisher(
     private var cidMic: String? = null
     private var cidVideo: String? = null
 
+    private var taxaAtual = 48000
+    private var canaisAtuais = 1
+
     @Volatile private var mudo = false
     @Volatile var vivo = false
         private set
@@ -142,12 +145,28 @@ class GstPublisher(
 
     // ---- microfone ----
 
-    // Recebe o PCM ja processado do MicCapture. `mudo` zera as amostras em vez de parar
-    // de empurrar: manter a cadencia de 10ms custa quase nada (o Opus comprime silencio
-    // a ~1kbps) e evita que o outro lado veja a faixa morrer e reaja a isso.
-    fun empurrarAudio(pcm: ByteArray, bytes: Int) {
+    // Recebe o PCM do MicCapture. `mudo` zera as amostras em vez de parar de empurrar:
+    // manter a cadencia de 10ms custa quase nada (o Opus comprime silencio a ~1kbps) e
+    // evita que o outro lado veja a faixa morrer e reaja a isso.
+    //
+    // O FORMATO VEM JUNTO E PODE MUDAR. O caminho feliz entrega 48kHz mono (o APM ja
+    // converteu), mas o MicCapture tem um caminho de recuperacao: se o APM falhar, ele
+    // manda o PCM CRU do aparelho pra nao deixar a pessoa muda. Se o appsrc estivesse
+    // preso a 48k mono, quem caisse nesse caminho ficaria mudo no transporte novo -- ou,
+    // pior, sairia com a voz acelerada. Declarar o formato que de fato chegou deixa o
+    // `audioconvert ! audioresample` do cano fazer a conversao que o Opus precisa.
+    fun empurrarAudio(pcm: ByteArray, bits: Int, taxa: Int, canais: Int, quadros: Int) {
         val fonte = mic ?: return
+        val bytes = quadros * canais * (bits / 8)
+        if (bytes <= 0 || bytes > pcm.size) return
         runCatching {
+            if (taxa != taxaAtual || canais != canaisAtuais) {
+                fonte.caps = Caps.fromString(
+                    "audio/x-raw,format=S16LE,rate=$taxa,channels=$canais,layout=interleaved",
+                )
+                taxaAtual = taxa
+                canaisAtuais = canais
+            }
             val buf = Buffer(bytes)
             val destino = buf.map(true) ?: return
             if (mudo) destino.put(ByteArray(bytes)) else destino.put(pcm, 0, bytes)

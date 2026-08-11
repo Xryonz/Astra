@@ -28,8 +28,20 @@ import javax.sound.sampled.TargetDataLine
 // independente que roda em qualquer maquina; o APM roda por fora, na mao.
 //
 // onLevel recebe o RMS (0..1) de cada bloco — usado pra "quem está falando".
+//
+// PARA ONDE O PCM VAI virou escolha de quem constroi, porque agora ha dois transportes:
+// o `CustomAudioSource` do webrtc-java (o de sempre) e o `appsrc` do GStreamer. O que
+// acontece ANTES — abrir o mic, o APM, o gate, o RMS — e identico nos dois, e e a parte
+// que custou caro pra acertar. Duplicar esta classe pra trocar a ultima linha seria
+// manter dois lugares onde a voz pode quebrar de forma diferente.
+fun interface DestinoDeAudio {
+    // bits/taxa/canais viajam junto porque o caminho de fallback (sem APM) entrega o
+    // formato CRU do aparelho, e nao os 48kHz mono do caminho feliz.
+    fun empurrar(pcm: ByteArray, bits: Int, taxa: Int, canais: Int, quadros: Int)
+}
+
 class MicCapture(
-    private val source: CustomAudioSource,
+    private val destino: DestinoDeAudio,
     private val noiseSuppress: Boolean,
     private val autoGain: Boolean,
     private val echoCancel: Boolean,
@@ -136,13 +148,13 @@ class MicCapture(
                     val level = rms(outBuf)
                     onLevel(level)
                     val buf = if (gateOpen(level)) outBuf else silenceOut
-                    runCatching { source.pushAudio(buf, 16, 48000, 1, outFrames) }
+                    runCatching { destino.empurrar(buf, 16, 48000, 1, outFrames) }
                 } else {
                     // Sem APM (ou processStream falhou): cai pro cru pra não ficar mudo.
                     val level = rms(inBuf)
                     onLevel(level)
                     val buf = if (gateOpen(level)) inBuf else silenceIn
-                    runCatching { source.pushAudio(buf, 16, rate, channels, inFrames) }
+                    runCatching { destino.empurrar(buf, 16, rate, channels, inFrames) }
                 }
             }
         }, "mic-capture").also { thread = it }.apply {

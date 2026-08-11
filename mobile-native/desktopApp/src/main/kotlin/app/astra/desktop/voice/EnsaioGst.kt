@@ -125,7 +125,7 @@ private fun alimentarSilencio(pub: GstPublisher) {
     Thread({
         val quadro = ByteArray(480 * 2) // 10ms de 48kHz mono 16 bits
         while (pub.vivo) {
-            pub.empurrarAudio(quadro, quadro.size)
+            pub.empurrarAudio(quadro, 16, 48000, 1, 480)
             Thread.sleep(10)
         }
     }, "silencio").apply { isDaemon = true; start() }

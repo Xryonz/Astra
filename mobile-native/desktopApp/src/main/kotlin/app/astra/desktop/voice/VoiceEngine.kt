@@ -237,6 +237,14 @@ class VoiceEngine(
     private var micCid: String? = null
     private var micSid: String? = null
 
+    // Transporte de saida pelo GStreamer. `null` = esta call vai pelo caminho de sempre.
+    //
+    // A ESCOLHA E POR CALL E NAO MUDA NO MEIO, porque o LiveKit da uma conexao de
+    // publicacao so: trocar de transporte com a call no ar seria derrubar e refazer a
+    // conexao inteira, com a voz de alguem em cima. Quem nao tiver o pacote ou encoder
+    // de hardware simplesmente segue pelo caminho de hoje, sem aviso e sem perda.
+    private var gstPub: GstPublisher? = null
+
     // Mic comeca ligado ao entrar (padrao Discord); toggleMic() alterna.
     private val _micOn = MutableStateFlow(true)
     val micOn = _micOn.asStateFlow()
@@ -478,9 +486,27 @@ class VoiceEngine(
         val src = micSource ?: return
         runCatching { micCapture?.stop() }
         val p = prefs.state.value
-        val cap = MicCapture(src, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, name, p.micSensitivity) { level -> onMicLevel(level) }
+        val cap = MicCapture(destinoDoMic(src), p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, name, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
         cap.start()
+    }
+
+    // Para onde o PCM do microfone vai.
+    //
+    // Enquanto o transporte novo nao estiver ligado numa call, isto devolve sempre a
+    // fonte de hoje — a decisao mora aqui pra a troca ser UMA linha, e nao uma caçada
+    // pelos dois pontos que constroem MicCapture (um deles e a troca de aparelho ao
+    // vivo, que e fácil de esquecer e so quebra pra quem troca de microfone no meio).
+    private fun destinoDoMic(fonte: CustomAudioSource): DestinoDeAudio {
+        val gst = gstPub
+        if (gst != null) {
+            return DestinoDeAudio { pcm, bits, taxa, canais, quadros ->
+                gst.empurrarAudio(pcm, bits, taxa, canais, quadros)
+            }
+        }
+        return DestinoDeAudio { pcm, bits, taxa, canais, quadros ->
+            fonte.pushAudio(pcm, bits, taxa, canais, quadros)
+        }
     }
 
     private fun handleSignal(res: LivekitRtc.SignalResponse) {
@@ -741,7 +767,7 @@ class VoiceEngine(
         micSource = source
         micTrack = f.createAudioTrack(cid, source)
         val p = prefs.state.value
-        val cap = MicCapture(source, p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
+        val cap = MicCapture(destinoDoMic(source), p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
         // ESTE e o passo que decide se te OUVEM. false = nao abriu o microfone
         // (privacidade do Windows fechada, sem aparelho, ou aparelho ocupado).

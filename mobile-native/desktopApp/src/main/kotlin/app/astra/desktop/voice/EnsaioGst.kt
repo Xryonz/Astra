@@ -36,9 +36,16 @@ fun main() {
     val ofertas = ConcurrentLinkedQueue<String>()
     val candidatos = ConcurrentLinkedQueue<String>()
 
+    val previas = java.util.concurrent.atomic.AtomicInteger(0)
+    val tamanhoPrevia = arrayOfNulls<String>(1)
+
     val pub = GstPublisher(
         onOferta = { ofertas.add(it) },
         onCandidato = { _, c -> candidatos.add(c) },
+        onPrevia = { _, largura, altura ->
+            previas.incrementAndGet()
+            tamanhoPrevia[0] = "${largura}x$altura"
+        },
     )
 
     linha("1. subindo o transporte com o microfone")
@@ -75,7 +82,11 @@ fun main() {
     mostrar(ofertas.poll())
     p("  candidatos de rede: ${candidatos.size}")
 
-    linha("5. estatisticas")
+    linha("5. previa local")
+    p("  quadros entregues: ${previas.get()}  tamanho: ${tamanhoPrevia[0] ?: "nenhum"}")
+    if (previas.get() == 0) p("  !!! SEM PREVIA -- quem transmitir nao ve a propria tela")
+
+    linha("6. estatisticas")
     p("  ${pub.estatisticas()}")
 
     linha("6. saindo da tela (o audio nao pode cair)")

@@ -60,6 +60,14 @@ class GstPublisher(
     private var mic: AppSrc? = null
     private var ramoVideo: List<Element> = emptyList()
     private var padVideo: Pad? = null
+    // QUEM esta ligado no webrtcbin, guardado explicitamente.
+    //
+    // Antes o desmonte usava `ramoVideo.last()`, e isso quebrou no instante em que a
+    // previa entrou na mesma lista: o ultimo passou a ser o appsink da previa, o
+    // desligamento soltou o elemento errado, e o que continuava ligado no transporte foi
+    // pra NULL ainda conectado -- memoria nativa corrompida e processo derrubado. Posicao
+    // numa lista nao e identidade.
+    private var saidaRtp: Element? = null
 
     private var cidMic: String? = null
     private var cidVideo: String? = null
@@ -240,15 +248,40 @@ class GstPublisher(
             Caps.fromString("application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000"),
         )
 
-        val elementos = listOf(fonte, conv, formato, encoder, parser, pay, formatoRtp)
+        // A PREVIA SAI DE UM TEE, e a reducao acontece NA PLACA antes de baixar.
+        //
+        // O ponto da migracao inteira e o quadro nao descer pra memoria principal. A
+        // previa e a unica coisa que ainda obriga a descer -- entao ela desce o MENOR
+        // quadro possivel: reduzir pra ~960px na placa e baixar isso da ~23 MB/s, contra
+        // 83 MB/s do quadro inteiro a 60fps. Baixar primeiro e reduzir depois seria pagar
+        // o preco cheio pra jogar 80% fora.
+        //
+        // `leaky=downstream max-size-buffers=1`: se a interface atrasar, o quadro velho
+        // e DESCARTADO em vez de segurar a fila. Previa atrasada nao vale um engasgo na
+        // transmissao de quem esta assistindo.
+        val ramoPrevia = if (onPrevia != null) montarPrevia(largura, altura) else emptyList()
+        val tee = if (ramoPrevia.isNotEmpty()) ElementFactory.make("tee", "tee") else null
+
+        val principal = listOf(fonte, conv, formato) +
+            (if (tee != null) listOf(tee) else emptyList()) +
+            listOf(encoder, parser, pay, formatoRtp)
+        val elementos = principal + ramoPrevia
         return runCatching {
             p.addMany(*elementos.toTypedArray())
             // Ligacao CONFERIDA elo a elo. O parseLaunch engole falha de ligacao com um
             // aviso, e foi assim que o encoder errado passou batido por duas rodadas.
-            for (i in 0 until elementos.size - 1) {
-                if (!elementos[i].link(elementos[i + 1])) {
-                    error("nao ligou ${elementos[i].name} -> ${elementos[i + 1].name}")
+            for (i in 0 until principal.size - 1) {
+                if (!principal[i].link(principal[i + 1])) {
+                    error("nao ligou ${principal[i].name} -> ${principal[i + 1].name}")
                 }
+            }
+            if (tee != null) {
+                for (i in 0 until ramoPrevia.size - 1) {
+                    if (!ramoPrevia[i].link(ramoPrevia[i + 1])) {
+                        error("previa: nao ligou ${ramoPrevia[i].name} -> ${ramoPrevia[i + 1].name}")
+                    }
+                }
+                if (!tee.link(ramoPrevia.first())) error("previa: o tee nao ligou no ramo")
             }
             val pad = b.getRequestPad("sink_%u") ?: error("o webrtcbin nao deu pad")
             formatoRtp.getStaticPad("src")?.link(pad) ?: error("sem pad de saida")
@@ -262,6 +295,7 @@ class GstPublisher(
 
             ramoVideo = elementos
             padVideo = pad
+            saidaRtp = formatoRtp
             cidVideo = cid
             true
         }.getOrElse { e ->
@@ -269,6 +303,74 @@ class GstPublisher(
             runCatching { p.removeMany(*elementos.toTypedArray()) }
             false
         }
+    }
+
+    // O ramo da previa: reduz na placa, baixa pequeno, entrega BGRA pra interface.
+    //
+    // Devolve vazio se qualquer peca faltar -- e a previa some, nao a transmissao. Ela e
+    // conferencia ("estou mostrando a tela certa"); quem esta do outro lado importa mais.
+    private fun montarPrevia(larguraFonte: Int, alturaFonte: Int): List<Element> {
+        val fila = ElementFactory.make("queue", "filaPrevia") ?: return emptyList()
+        val reduz = ElementFactory.make("d3d11convert", "reduzPrevia") ?: return emptyList()
+        val tamanho = ElementFactory.make("capsfilter", "tamanhoPrevia") ?: return emptyList()
+        val baixa = ElementFactory.make("d3d11download", "baixaPrevia") ?: return emptyList()
+        val cor = ElementFactory.make("videoconvert", "corPrevia") ?: return emptyList()
+        val corFiltro = ElementFactory.make("capsfilter", "corFiltroPrevia") ?: return emptyList()
+        val saida = ElementFactory.make("appsink", "previa") ?: return emptyList()
+
+        runCatching {
+            fila.set("leaky", 2) // descarta o VELHO; previa atrasada nao segura a fila
+            fila.set("max-size-buffers", 1)
+            fila.set("max-size-bytes", 0)
+            fila.set("max-size-time", 0L)
+        }
+        // ALTURA EXPLICITA, calculada da proporcao da fonte.
+        //
+        // So `width` nao preserva proporcao: pedindo 960 de largura numa fonte 1280x720 o
+        // d3d11convert devolveu 960x720 -- a tela da pessoa esticada na propria previa.
+        // Par obrigatorio (NV12 tem croma pela metade em cada eixo; dimensao impar nao
+        // existe nesse formato).
+        val alturaPrevia = ((alturaFonte.toLong() * PREVIA_LARGURA / larguraFonte.coerceAtLeast(1)).toInt())
+            .coerceAtLeast(2) and 1.inv()
+        tamanho.set(
+            "caps",
+            Caps.fromString("video/x-raw(memory:D3D11Memory),format=NV12,width=$PREVIA_LARGURA,height=$alturaPrevia"),
+        )
+        // RGBA, e nao BGRA. Quem consome isto e o `PreviewRasters.wrap`, que monta a
+        // imagem com `ColorType.RGBA_8888` -- ou seja, espera R,G,B,A NA ORDEM DA
+        // MEMORIA. O `BGRA` do GStreamer e literalmente B,G,R,A na memoria: a previa
+        // sairia com azul e vermelho trocados, e o erro nao aparece em nenhum log --
+        // aparece na cara de quem transmite, com a propria tela em cores erradas.
+        corFiltro.set("caps", Caps.fromString("video/x-raw,format=RGBA"))
+
+        val sink = saida as? org.freedesktop.gstreamer.elements.AppSink ?: return emptyList()
+        sink.set("emit-signals", true)
+        sink.set("sync", false)
+        sink.set("max-buffers", 1)
+        sink.set("drop", true)
+        sink.connect(org.freedesktop.gstreamer.elements.AppSink.NEW_SAMPLE { s ->
+            // Puxar E soltar sempre: sem o pull o appsink enche e trava o cano inteiro
+            // depois de max-buffers -- e ai a TRANSMISSAO para junto com a previa.
+            val amostra = s.pullSample()
+            if (amostra != null) {
+                runCatching {
+                    val estrutura = amostra.caps.getStructure(0)
+                    val largura = estrutura.getInteger("width")
+                    val altura = estrutura.getInteger("height")
+                    val buf = amostra.buffer
+                    val bytes = buf.map(false)
+                    if (bytes != null) {
+                        val copia = ByteArray(bytes.remaining())
+                        bytes.get(copia)
+                        onPrevia?.invoke(copia, largura, altura)
+                    }
+                    buf.unmap()
+                }
+                amostra.dispose()
+            }
+            org.freedesktop.gstreamer.FlowReturn.OK
+        })
+        return listOf(fila, reduz, tamanho, baixa, cor, corFiltro, saida)
     }
 
     // Desmonta o ramo de video.
@@ -282,14 +384,19 @@ class GstPublisher(
         val b = bin ?: return
         val elementos = ramoVideo
         val pad = padVideo
+        val saida = saidaRtp
         if (elementos.isEmpty()) return
         ramoVideo = emptyList()
         padVideo = null
+        saidaRtp = null
         cidVideo = null
 
         p.setState(State.PAUSED)
         p.getState(3_000_000_000L)
-        runCatching { elementos.last().getStaticPad("src")?.unlink(pad) }
+        // `saida`, e nao `elementos.last()`: com a previa na lista o ultimo e o appsink
+        // dela, e soltar o elemento errado deixa o certo indo pra NULL ainda ligado no
+        // transporte -- foi assim que o processo caiu com a memoria corrompida.
+        runCatching { saida?.getStaticPad("src")?.unlink(pad) }
         runCatching { pad?.let { b.releaseRequestPad(it) } }
         elementos.forEach {
             runCatching { it.setState(State.NULL) }
@@ -424,5 +531,9 @@ class GstPublisher(
         // Mesmo teto do caminho de hoje: o padrao do WebRTC pra voz e ~32kbps, calibrado
         // pra rede de celular de uma decada atras. TETO, nao piso -- rede ruim desce.
         const val OPUS_BITRATE = 64_000
+
+        // Largura da previa local. Mesma do caminho de hoje: previa e conferencia de
+        // enquadramento, nao precisa da resolucao da transmissao.
+        const val PREVIA_LARGURA = 960
     }
 }

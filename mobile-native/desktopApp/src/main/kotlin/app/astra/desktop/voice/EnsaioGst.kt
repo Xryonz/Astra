@@ -105,6 +105,7 @@ private fun mostrar(sdp: String?) {
             l.startsWith("m=") -> { cid = null; p("  $l") }
             l == "a=bundle-only" -> p("      (agrupada -- porta 0 aqui e o esperado)")
             l == "a=sendonly" -> p("      so envia (correto pra publicacao)")
+            l == "a=inactive" -> p("      inativa (o servidor despublica -- correto depois de parar)")
             l == "a=sendrecv" -> p("      !!! sendrecv -- o remendo nao pegou nesta midia")
             l.startsWith("a=rtpmap:") -> p("      $l")
             l.contains(" msid:") -> {

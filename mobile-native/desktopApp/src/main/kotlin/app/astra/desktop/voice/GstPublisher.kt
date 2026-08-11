@@ -325,17 +325,30 @@ class GstPublisher(
     // `sendonly`, que e o que esta conexao de fato faz.
     private fun remendar(sdp: String): String {
         val saida = StringBuilder()
+        fun linha(t: String) { saida.append(t).append("\r\n") }
+        // null = esta midia nao tem faixa nossa agora (ex.: a tela que acabou de sair).
         var cid: String? = null
+        var emMidia = false
         sdp.lineSequence().forEach { crua ->
             val l = crua.trimEnd('\r')
             when {
-                l.startsWith("m=audio") -> { cid = cidMic; saida.append(l).append("\r\n") }
-                l.startsWith("m=video") -> { cid = cidVideo; saida.append(l).append("\r\n") }
-                l == "a=sendrecv" -> saida.append("a=sendonly").append("\r\n")
-                l.startsWith("a=msid:") && cid != null -> saida.append("a=msid:$cid $cid").append("\r\n")
-                l.startsWith("a=ssrc:") && l.contains(" msid:") && cid != null ->
-                    saida.append(l.substringBefore(" msid:")).append(" msid:$cid $cid").append("\r\n")
-                else -> saida.append(l).append("\r\n")
+                l.startsWith("m=audio") -> { emMidia = true; cid = cidMic; linha(l) }
+                l.startsWith("m=video") -> { emMidia = true; cid = cidVideo; linha(l) }
+                // A MIDIA ORFA PRECISA DIZER QUE ESTA ORFA.
+                //
+                // Parar de transmitir nao apaga a linha de midia do SDP -- ela fica, e o
+                // webrtcbin a reaproveita com um nome inventado (`webrtctransceiverN`).
+                // Sem isto a oferta seguinte anunciava "continuo enviando" apontando pra
+                // uma faixa que o servidor nunca ouviu falar: a transmissao ficaria
+                // pendurada do lado de la depois de parar. `inactive` e o que faz o
+                // servidor despublicar, e e o mesmo contrato do caminho de hoje.
+                l == "a=sendrecv" || l == "a=sendonly" ->
+                    linha(if (emMidia && cid == null) "a=inactive" else "a=sendonly")
+                // Sem faixa nossa, o nome sai fora em vez de sair errado.
+                l.startsWith("a=msid:") -> cid?.let { linha("a=msid:$it $it") }
+                l.startsWith("a=ssrc:") && l.contains(" msid:") ->
+                    cid?.let { linha(l.substringBefore(" msid:") + " msid:$it $it") }
+                else -> linha(l)
             }
         }
         return saida.toString()

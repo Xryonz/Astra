@@ -1255,8 +1255,12 @@ class VoiceEngine(
                     // acabou, e a falta de banda passa a ser tratada pelo rtpgccbwe, que
                     // baixa o BITRATE continuamente -- perder nitidez sem perder quadro e
                     // melhor que pular degraus de resolucao.
+                    // Os DOIS numeros vem medidos do cano agora. Antes a captura era o
+                    // `screenQ.fps` — o numero do preset repetido de volta, que apareceria
+                    // como "captura 60fps" mesmo com o cano inteiro parado. Foi o que
+                    // escondeu, por uma versao inteira, que o encoder e que estava mudo.
                     val e = withContext(Dispatchers.IO) { gst.estatisticas() }
-                    if (e != null) _screenStats.value = ScreenStats(screenQ.fps, e.fpsEnvio, e.limite)
+                    if (e != null) _screenStats.value = ScreenStats(e.fpsCaptura, e.fpsEnvio, e.limite)
                 } else {
                     val pc = pub
                     val sender = screenSender

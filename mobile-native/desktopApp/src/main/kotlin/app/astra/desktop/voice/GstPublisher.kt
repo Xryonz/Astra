@@ -8,17 +8,16 @@ import org.freedesktop.gstreamer.Element
 import org.freedesktop.gstreamer.ElementFactory
 import org.freedesktop.gstreamer.Gst
 import org.freedesktop.gstreamer.Pad
+import org.freedesktop.gstreamer.PadProbeReturn
+import org.freedesktop.gstreamer.PadProbeType
 import org.freedesktop.gstreamer.Pipeline
-import org.freedesktop.gstreamer.Promise
 import org.freedesktop.gstreamer.SDPMessage
 import org.freedesktop.gstreamer.State
-import org.freedesktop.gstreamer.Structure
 import org.freedesktop.gstreamer.elements.AppSrc
 import org.freedesktop.gstreamer.webrtc.WebRTCBin
 import org.freedesktop.gstreamer.webrtc.WebRTCSDPType
 import org.freedesktop.gstreamer.webrtc.WebRTCSessionDescription
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 // O TRANSPORTE de saida pelo GStreamer: quem publica deixa de ser a PeerConnection do
 // webrtc-java e passa a ser o `webrtcbin`.
@@ -52,7 +51,7 @@ class GstPublisher(
     // como erro, apenas avisa e monta sem o ramo de video.
     private val ENCODERS = listOf("nvd3d11h264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
 
-    data class Estatisticas(val fpsEnvio: Int, val limite: String)
+    data class Estatisticas(val fpsCaptura: Int, val fpsEnvio: Int, val limite: String)
 
     private var pipeline: Pipeline? = null
     private var bin: WebRTCBin? = null
@@ -78,8 +77,22 @@ class GstPublisher(
     @Volatile var vivo = false
         private set
 
-    // Promessas de estatistica que estouraram o prazo. Ver `estatisticas()`.
-    private val promessasTardias = ArrayDeque<Promise>()
+    // QUADROS CONTADOS NO PROPRIO CANO, e nao perguntados a ninguem.
+    //
+    // A linha de status dizia "captura 60fps . envio 0fps", e os dois numeros estavam
+    // errados de maneiras diferentes: a captura era o numero do PRESET repetido de volta
+    // (nunca foi medida), e o envio saia de uma varredura por texto no relatorio do
+    // webrtcbin, que devolvia zero sem dizer se era "nao esta enviando" ou "nao achei o
+    // campo". Duas mentiras, e a segunda escondia a primeira.
+    //
+    // Contar buffer na porta e a unica resposta honesta pra "esta fluindo?": formato
+    // negociado nao prova quadro entregue -- uma porta ganha `currentCaps` de um EVENTO
+    // de negociacao, com zero quadro produzido.
+    private val quadrosCapturados = java.util.concurrent.atomic.AtomicLong(0)
+    private val quadrosCodificados = java.util.concurrent.atomic.AtomicLong(0)
+    private var marcoQuando = 0L
+    private var marcoCapturados = 0L
+    private var marcoCodificados = 0L
 
     val encoderDisponivel: String?
         get() = ENCODERS.firstOrNull { runCatching { ElementFactory.find(it) != null }.getOrDefault(false) }
@@ -208,6 +221,11 @@ class GstPublisher(
         publicarVideo(cid, q.width, q.height, q.fps, q.bitrate) {
             ElementFactory.make("d3d11screencapturesrc", "tela")?.apply {
                 runCatching { set("monitor-index", monitor) }
+                // O PONTEIRO DO MOUSE ENTRA NA IMAGEM. O padrao deste elemento e nao
+                // desenhar, e quem assiste alguem mostrando a tela precisa saber pra onde
+                // a pessoa esta apontando -- sem o ponteiro, "olha aqui" nao aponta nada.
+                // O caminho de sempre (ddagrab) ja desenhava; a falta era regressao.
+                runCatching { set("show-cursor", true) }
             }
         }
 
@@ -303,6 +321,27 @@ class GstPublisher(
             val pad = b.getRequestPad("sink_%u") ?: error("o webrtcbin nao deu pad")
             formatoRtp.getStaticPad("src")?.link(pad) ?: error("sem pad de saida")
             runCatching { pad.set("msid", cid) }
+
+            // Os dois pontos que decidem se a transmissao existe: o quadro SAINDO da
+            // fonte, e o quadro JA COMPRIMIDO saindo do parser. Se o primeiro anda e o
+            // segundo nao, o encoder e quem esta parado -- e essa distincao e a diferenca
+            // entre procurar na captura e procurar na placa.
+            //
+            // O parser, e nao o payloader: o rtph264pay quebra um quadro em varios pacotes
+            // RTP, e contar pacote como quadro daria um numero inflado e sem sentido.
+            quadrosCapturados.set(0)
+            quadrosCodificados.set(0)
+            marcoQuando = 0L
+            marcoCapturados = 0L
+            marcoCodificados = 0L
+            runCatching {
+                fonte.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, _ ->
+                    quadrosCapturados.incrementAndGet(); PadProbeReturn.OK
+                }
+                parser.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, _ ->
+                    quadrosCodificados.incrementAndGet(); PadProbeReturn.OK
+                }
+            }
 
             p.setState(State.PAUSED)
             p.getState(3_000_000_000L)
@@ -557,57 +596,44 @@ class GstPublisher(
 
     // ---- estatisticas ----
 
-    // A promessa responde por CALLBACK e nao pelo waitResult(): `gst_promise_wait`
-    // bloqueia ate alguem responder, e "alguem" aqui e o webrtcbin -- que pode nao
-    // responder. Sem prazo, o poll de qualidade penduraria a coroutine pra sempre.
+    // Quadros por segundo MEDIDOS na porta, no intervalo desde a leitura anterior.
+    //
+    // SUBSTITUIU a consulta `get-stats` ao webrtcbin, e a troca conserta tres coisas de
+    // uma vez:
+    //
+    //   . o numero de envio saia de uma varredura por texto no relatorio e devolvia zero
+    //     sem distinguir "nao esta enviando" de "nao achei o campo" -- foi o que fez o
+    //     dono ver "envio 0fps" sem ninguem saber o que aquilo significava;
+    //   . o de captura nem era medido: quem chamava repetia o numero do PRESET de volta,
+    //     entao "captura 60fps" apareceria igual com o cano inteiro parado;
+    //   . a promessa da consulta precisava ser mantida viva na mao pra o coletor nao
+    //     derrubar o processo, e esse risco some junto com a consulta.
+    //
+    // Contador na porta e mais barato (um incremento por quadro), nao tem prazo pra
+    // estourar, e responde a pergunta certa: quadro ENTREGUE, nao formato negociado.
     fun estatisticas(): Estatisticas? {
-        val b = bin ?: return null
-        return runCatching {
-            val pronto = CountDownLatch(1)
-            val caixa = arrayOfNulls<Structure>(1)
-            val promessa = Promise(Promise.PROMISE_CHANGE { pr ->
-                caixa[0] = runCatching { pr.getReply() }.getOrNull()
-                pronto.countDown()
-            })
-            b.emit("get-stats", null, promessa)
-            if (!pronto.await(2, TimeUnit.SECONDS)) {
-                // NAO RESPONDEU NO PRAZO -> a promessa tem que sobreviver ao coletor.
-                //
-                // O gst1-java-core guarda a funcao de retorno DENTRO do objeto Java da
-                // promessa. Se o coletor levar a promessa e o webrtcbin responder depois,
-                // o lado nativo chama um endereco que nao existe mais -- a mesma familia
-                // de defeito que derrubava a call, agora armada durante a transmissao.
-                //
-                // O prazo estoura justamente quando o cano esta ocupado (entrar ou sair da
-                // tela passa pelo repouso), e e nesse momento que esta funcao e chamada de
-                // dois em dois segundos. Nao e hipotese.
-                //
-                // Segura as ultimas 64. Objeto minusculo, e 64 x 2s cobrem dois minutos --
-                // muito depois de o webrtcbin ter desistido.
-                synchronized(promessasTardias) {
-                    promessasTardias.addLast(promessa)
-                    while (promessasTardias.size > 64) promessasTardias.removeFirst()
-                }
-                return null
-            }
-            val texto = caixa[0]?.toString() ?: return null
-            // O relatorio do webrtcbin vem como texto de GstStructure aninhada e
-            // ESCAPADA (`frames\-per\-second\=\(double\)29.9`), entao a leitura e por
-            // regex mesmo -- montar o parser da linguagem inteira pra tirar um numero
-            // seria caro e fragil do mesmo jeito.
-            //
-            // Nao ha equivalente ao `qualityLimitationReason` do libwebrtc aqui, e por
-            // isso o limite sai sempre "none". A linha de status continua mostrando
-            // captura e envio, que e o que responde "esta fluindo?".
-            Estatisticas(extrairNumero(texto, "frames-per-second"), "none")
-        }.getOrNull()
-    }
-
-    private fun extrairNumero(texto: String, chave: String): Int {
-        val i = texto.indexOf(chave)
-        if (i < 0) return 0
-        return Regex("(\\d+(?:\\.\\d+)?)").find(texto.substring(i, minOf(texto.length, i + 60)))
-            ?.value?.toDoubleOrNull()?.toInt() ?: 0
+        if (ramoVideo.isEmpty()) return null
+        val agora = System.nanoTime()
+        val cap = quadrosCapturados.get()
+        val cod = quadrosCodificados.get()
+        val antes = marcoQuando
+        val dCap = cap - marcoCapturados
+        val dCod = cod - marcoCodificados
+        marcoQuando = agora
+        marcoCapturados = cap
+        marcoCodificados = cod
+        // A primeira leitura nao tem intervalo com que dividir: ela so finca o marco.
+        if (antes == 0L) return null
+        val segundos = (agora - antes) / 1_000_000_000.0
+        if (segundos <= 0.0) return null
+        return Estatisticas(
+            fpsCaptura = (dCap / segundos).roundToInt(),
+            fpsEnvio = (dCod / segundos).roundToInt(),
+            // Nao ha equivalente ao `qualityLimitationReason` do libwebrtc aqui. Os dois
+            // numeros ja dizem o essencial: captura andando com envio parado aponta pra
+            // placa; os dois parados apontam pra captura.
+            limite = "none",
+        )
     }
 
     private companion object {

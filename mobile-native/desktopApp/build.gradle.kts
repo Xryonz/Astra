@@ -70,7 +70,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.9"
+val astraVersion = "0.2.10"
 
 dependencies {
     implementation(project(":shared"))
@@ -162,6 +162,9 @@ tasks.register<JavaExec>("ensaioGst") {
     group = "verification"
     mainClass.set("app.astra.desktop.voice.EnsaioGstKt")
     classpath = sourceSets["main"].runtimeClasspath
+    // Pra investigar uma categoria a fundo sem republicar nada:
+    //   ./gradlew :desktopApp:ensaioGst -Pgstdebug=2,d3d11*:5
+    providers.gradleProperty("gstdebug").orNull?.let { systemProperty("astra.gstdebug", it) }
 }
 
 compose.desktop {

@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,6 +58,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,6 +74,8 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -135,6 +139,7 @@ import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmMono
+import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
@@ -159,6 +164,7 @@ import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
@@ -756,8 +762,19 @@ private fun RotuloDaPrevia(texto: String) {
     )
 }
 
-// --- Notificacoes: um toast que desliza da direita, segura e sai — em loop.
-// reduceMotion trava ele parado e visivel (respeita o ajuste de movimento). ---
+// --- Notificacoes: o aviso entra, segura e sai — em loop.
+//
+// SIMPLIFICADO (pedido do dono). Antes percorria 44dp em movimento LINEAR: um retângulo
+// atravessando a tela em velocidade constante, que é a assinatura de movimento
+// mecânico — nada no mundo começa e para instantaneamente na mesma velocidade.
+//
+// Agora anda 14dp com curva: sai devagar no fim ao entrar, ganha velocidade ao sair.
+// A distância curta é o ponto — o aviso ASSENTA no lugar em vez de viajar até ele, e o
+// olho lê "chegou" sem precisar acompanhar a viagem.
+//
+// reduceMotion trava parado e visível (respeita o ajuste de movimento). ---
+private const val PASSEIO_DO_AVISO = 14f
+
 @Composable
 private fun NotifPreviewCard(reduceMotion: Boolean) {
     val t = rememberInfiniteTransition(label = "toast")
@@ -769,10 +786,20 @@ private fun NotifPreviewCard(reduceMotion: Boolean) {
     var dx = 0f
     var a = 1f
     if (!reduceMotion) {
+        // O ciclo corre linear porque ele é só o RELÓGIO; a curva entra em cada trecho,
+        // que é onde ela significa alguma coisa.
         when {
-            cycle < 0.14f -> { val k = cycle / 0.14f; dx = (1f - k) * 44f; a = k }
-            cycle < 0.82f -> { dx = 0f; a = 1f }
-            else -> { val k = (cycle - 0.82f) / 0.18f; dx = k * 44f; a = 1f - k }
+            cycle < 0.12f -> {
+                val k = EaseOutStd.transform(cycle / 0.12f)
+                dx = (1f - k) * PASSEIO_DO_AVISO
+                a = k
+            }
+            cycle < 0.84f -> { dx = 0f; a = 1f }
+            else -> {
+                val k = EaseOutSoft.transform((cycle - 0.84f) / 0.16f)
+                dx = k * PASSEIO_DO_AVISO
+                a = 1f - k
+            }
         }
     }
     Box(Modifier.fillMaxWidth().offset(x = dx.dp).alpha(a)) {
@@ -1216,27 +1243,15 @@ private fun ProfileSection(
 
     SettingsDivider()
     FieldLabel("banner")
-    // Previa ESTATICA. Antes o enquadramento era arrastando DIRETO nesta previa, e
-    // cada arrasto recompunha a aba inteira -> a main thread saturava e o ticker do
-    // gif do banner parava ("a animação que para"). Agora o enquadramento e no modal
-    // "redimensionar" (fora da coluna), entao aqui a animação nunca e interrompida.
+    // SEM MINI-PRÉVIA AQUI (pedido do dono). A mesma imagem aparecia duas vezes na
+    // mesma tela: nesta faixa e no cartão completo à direita, que é onde ela de fato
+    // vale — lá ela está no contexto em que os outros vão vê-la, com avatar, nome e
+    // corpo por cima. Duas cópias da mesma coisa competem entre si e ainda fazem a
+    // coluna do formulário crescer sem necessidade.
+    //
+    // O que fica são os botões, que continuam operando o banner: trocar, reenquadrar
+    // (ou reposicionar, se for animado) e remover.
     var resizeOpen by remember { mutableStateOf(false) }
-    ProfileBanner(
-        css = draft.bannerColor,
-        imageUrl = draft.bannerUrl,
-        positionY = draft.bannerPositionY,
-        scale = draft.bannerScale,
-        fallback = Obsidian.overlay,
-        modifier = Modifier
-            .widthIn(max = 420.dp)
-            .fillMaxWidth()
-            // Mesma proporcao dos cards (popup/pagina/previa): o que você enquadra aqui e
-            // exatamente o que aparece neles.
-            .aspectRatio(ProfileBannerAspect)
-            .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp)),
-    )
-    Spacer(Modifier.height(10.dp))
     // Só ícone: a fileira fica logo abaixo do banner que ela opera. Os três nomes
     // por extenso ocupavam a largura inteira do painel.
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2201,7 +2216,93 @@ private fun AboutSection() {
     }
 
     Spacer(Modifier.height(16.dp))
-    AboutButton("procurar atualizações", accent = false, icone = Lucide.RefreshCw) { scope.launch { updater.check() } }
+    BotaoProcurarAtualizacao { updater.check() }
+}
+
+// O botão de procurar atualização, com PISO DE TEMPO.
+//
+// O piso é a funcionalidade, não um atraso enfeitando. A busca real termina em menos de
+// um segundo, e um "procurando" que pisca e some lê como botão quebrado — a pessoa clica
+// de novo achando que não funcionou. Com o piso, "tudo em dia" chega como RESPOSTA, e não
+// como ausência de resposta.
+//
+// As duas frases nomeiam passos que de fato acontecem — consultar o repositório e
+// comparar as versões —, então o tempo é ganho e não enchido. Frase genérica ("aguarde…")
+// teria o custo do piso sem o proveito.
+//
+// Se a busca demorar MAIS que o piso, não há espera extra: o piso é chão, não teto.
+private const val PISO_DA_BUSCA = 1_800L
+private val ETAPAS_DA_BUSCA = listOf("consultando o repositório…", "comparando versões…")
+
+@Composable
+private fun BotaoProcurarAtualizacao(procurar: suspend () -> Unit) {
+    val escopo = rememberCoroutineScope()
+    var procurando by remember { mutableStateOf(false) }
+    var etapa by remember { mutableIntStateOf(0) }
+
+    Column {
+        AboutButton(
+            label = if (procurando) ETAPAS_DA_BUSCA[etapa] else "procurar atualizações",
+            accent = false,
+            icone = Lucide.RefreshCw,
+        ) {
+            if (procurando) return@AboutButton
+            procurando = true
+            etapa = 0
+            escopo.launch {
+                val comecou = System.currentTimeMillis()
+                val trabalho = launch { runCatching { procurar() } }
+                delay(PISO_DA_BUSCA / ETAPAS_DA_BUSCA.size)
+                etapa = 1
+                trabalho.join()
+                val resta = PISO_DA_BUSCA - (System.currentTimeMillis() - comecou)
+                if (resta > 0) delay(resta)
+                procurando = false
+            }
+        }
+        if (procurando) {
+            Spacer(Modifier.height(6.dp))
+            BarraDeVarredura()
+        }
+    }
+}
+
+// Uma linha fina varrendo — o mesmo vocabulário da tela de atualização, que já usa barra
+// fina em vez de roda girando.
+//
+// `tween` explícito e não mola: mola tem duração proporcional à distância, e a mesma
+// varredura sairia com ritmos diferentes conforme a largura do botão, sem nada no código
+// dizer isso.
+@Composable
+private fun BarraDeVarredura() {
+    val reduzMovimento = LocalReduceMotion.current
+    val transicao = rememberInfiniteTransition(label = "varredura")
+    val posicao by transicao.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart),
+        label = "posicao",
+    )
+    Canvas(Modifier.fillMaxWidth().height(2.dp)) {
+        drawRect(color = Obsidian.borderDim, size = size)
+        // Com movimento reduzido a barra fica inteira e parada: continua dizendo "estou
+        // ocupado" sem nada percorrendo a tela (WCAG 2.3.3, que o app cobre hoje).
+        if (reduzMovimento) {
+            drawRect(color = Obsidian.accentDim, size = size)
+        } else {
+            val largura = size.width * 0.35f
+            // Entra pela esquerda e sai pela direita, sem saltar de volta.
+            val x = posicao * (size.width + largura) - largura
+            drawRect(
+                color = Obsidian.accentDim,
+                topLeft = Offset(x.coerceAtLeast(0f), 0f),
+                size = Size(
+                    width = (x + largura).coerceAtMost(size.width) - x.coerceAtLeast(0f),
+                    height = size.height,
+                ),
+            )
+        }
+    }
 }
 
 // "agora mesmo" / "há 12 min" / "há 2 h". Precisao grossa de proposito: o que

@@ -303,7 +303,10 @@ object GStreamerPack {
         //
         // Nivel 2 = so ERRO e AVISO. Rotina fica de fora e o arquivo nao passa de alguns
         // kilobytes numa sessao inteira; o GStreamer o reabre do zero a cada boot.
-        k.SetEnvironmentVariable("GST_DEBUG", "2")
+        // O nivel e ajustavel por propriedade pra investigar sem republicar o app:
+        //   ./gradlew :desktopApp:ensaioGst -Dastra.gstdebug=2,d3d11*:5
+        // O padrao continua 2 (erro + aviso), que e o que cabe numa sessao normal.
+        k.SetEnvironmentVariable("GST_DEBUG", System.getProperty("astra.gstdebug") ?: "2")
         k.SetEnvironmentVariable("GST_DEBUG_FILE", File(pastaDeDados, "gst.txt").absolutePath)
         k.SetEnvironmentVariable("GST_DEBUG_NO_COLOR", "1")
 

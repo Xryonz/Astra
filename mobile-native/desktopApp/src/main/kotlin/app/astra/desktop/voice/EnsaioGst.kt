@@ -97,12 +97,20 @@ fun main() {
         tamanhoPrevia[0] = null
         val t = System.currentTimeMillis()
         val subiu = pub.publicarTela(CID_TELA, 0, q)
-        Thread.sleep(2500)
+        Thread.sleep(1200)
+        pub.estatisticas() // finca o marco; a primeira leitura nao tem intervalo
+        Thread.sleep(2000)
+        val fps = pub.estatisticas()
         val quadros = previas.get()
         p("  ${q.label}: publicou=$subiu . previa=$quadros quadro(s) ${tamanhoPrevia[0] ?: ""} . ${System.currentTimeMillis() - t} ms")
-        if (subiu && quadros == 0) {
-            p("      !!! SUBIU E NAO ENTREGOU QUADRO -- e exatamente o que o dono ve")
+        p("      captura ${fps?.fpsCaptura ?: "?"} fps . COMPRIMIDO ${fps?.fpsEnvio ?: "?"} fps")
+        // O caso do dono: a previa aparece (a fonte esta produzindo) e o envio e zero.
+        // Se a captura anda e o comprimido nao, quem esta parado e o ENCODER -- e ai o
+        // lugar de procurar e a placa, nao a captura.
+        if (subiu && (fps?.fpsEnvio ?: 0) == 0) {
+            p("      !!! NADA COMPRIMIDO -- e exatamente o que o dono ve (envio 0fps)")
         }
+        if (subiu && quadros == 0) p("      !!! SEM PREVIA")
         pub.pararVideo()
         Thread.sleep(400)
     }

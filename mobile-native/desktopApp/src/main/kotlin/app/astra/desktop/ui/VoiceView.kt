@@ -208,17 +208,23 @@ fun VoiceView(
             }
         }
 
-        val streams = remember(localScreen, videos, sharingCamera) {
+        val streams = remember(localScreen, videos, sharingCamera, directPreview) {
             buildList {
-                localScreen?.let { add(StageStream(if (sharingCamera) "sua camera" else "sua tela", it, isMe = true)) }
-                videos.forEach { add(StageStream(it.ownerLabel, it.track, isMe = false)) }
+                val meuRotulo = if (sharingCamera) "sua camera" else "sua tela"
+                // A minha transmissao entra por UM dos dois caminhos, nunca os dois:
+                // com faixa (caminho de sempre) ou so com a previa do cano (motor novo).
+                when {
+                    localScreen != null -> add(StageStream("eu", meuRotulo, localScreen, isMe = true))
+                    directPreview -> add(StageStream("eu", meuRotulo, null, isMe = true))
+                }
+                videos.forEachIndexed { i, v -> add(StageStream("${v.ownerSid}#$i", v.ownerLabel, v.track, isMe = false)) }
             }
         }
-        var watchingTrack by remember { mutableStateOf<VideoTrack?>(null) }
+        var watchingId by remember { mutableStateOf<String?>(null) }
         LaunchedEffect(streams) {
-            if (streams.none { it.track === watchingTrack }) watchingTrack = streams.firstOrNull()?.track
+            if (streams.none { it.id == watchingId }) watchingId = streams.firstOrNull()?.id
         }
-        val watching = streams.find { it.track === watchingTrack }
+        val watching = streams.find { it.id == watchingId }
 
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
             if (streams.isEmpty()) {
@@ -238,7 +244,7 @@ fun VoiceView(
                         // não entrega frames do CustomVideoSource). Sem preview direto
                         // (fallback GDI) cai pro sink da track.
                         if (w.isMe && directPreview) LocalPreviewView(engine, stageMod)
-                        else RemoteVideoView(w.track, stageMod)
+                        else w.track?.let { RemoteVideoView(it, stageMod) }
                         Spacer(Modifier.height(6.dp))
                         // Na MINHA transmissão mostro os fps reais (envio + captura) e
                         // o motivo se o WebRTC degradou — e como saber se bateu 60.
@@ -273,7 +279,7 @@ fun VoiceView(
                             Spacer(Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 streams.forEach { s ->
-                                    val on = s.track === watchingTrack
+                                    val on = s.id == watchingId
                                     Text(
                                         s.label,
                                         style = TextStyle(
@@ -283,7 +289,7 @@ fun VoiceView(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(999.dp))
                                             .border(1.dp, if (on) Obsidian.accent else Obsidian.borderDim, RoundedCornerShape(999.dp))
-                                            .clickable { watchingTrack = s.track }
+                                            .clickable { watchingId = s.id }
                                             .padding(horizontal = 10.dp, vertical = 4.dp),
                                     )
                                 }
@@ -639,7 +645,16 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
 }
 
 // Uma transmissão no palco: minha tela (auto-preview) OU de outro participante.
-private data class StageStream(val label: String, val track: VideoTrack, val isMe: Boolean)
+// `track` PODE SER NULA, e essa e a diferenca que apagou a propria transmissao da tela.
+//
+// No motor novo o video nao passa por objeto nenhum do webrtc-java: ele nasce e morre
+// dentro do cano do GStreamer. Nao existe `VideoTrack` pra pendurar aqui. Enquanto este
+// campo era obrigatorio, a lista de transmissoes saia VAZIA quem estava transmitindo --
+// o palco nao aparecia, e ficava parecendo que nada estava sendo enviado.
+//
+// Por isso a selecao passou a ser por `id` e nao pelo objeto da faixa: sem faixa, nao ha
+// objeto pra comparar.
+private data class StageStream(val id: String, val label: String, val track: VideoTrack?, val isMe: Boolean)
 
 // Uma fonte transmissivel: uma tela (monitor) OU uma camera. So uma por vez.
 private sealed interface ShareChoice {

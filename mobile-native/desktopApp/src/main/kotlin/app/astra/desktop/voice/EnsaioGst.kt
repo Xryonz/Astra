@@ -86,6 +86,29 @@ fun main() {
     Thread.sleep(2500)
     mostrar(ofertas.poll())
 
+    // TODA QUALIDADE QUE O DONO PODE ESCOLHER, e nao so a que eu escolhi pra testar.
+    //
+    // O ensaio exercitava 720p30 e passava. O dono usa 720p60 -- e a transmissao dele nao
+    // aparecia pra ninguem, nem na propria previa. Um preset que nao sobe e invisivel aqui
+    // e fatal la, e a diferenca entre os dois e uma linha de configuracao.
+    linha("2b. cada qualidade que o dono pode escolher")
+    ScreenQuality.entries.forEach { q ->
+        previas.set(0)
+        tamanhoPrevia[0] = null
+        val t = System.currentTimeMillis()
+        val subiu = pub.publicarTela(CID_TELA, 0, q)
+        Thread.sleep(2500)
+        val quadros = previas.get()
+        p("  ${q.label}: publicou=$subiu . previa=$quadros quadro(s) ${tamanhoPrevia[0] ?: ""} . ${System.currentTimeMillis() - t} ms")
+        if (subiu && quadros == 0) {
+            p("      !!! SUBIU E NAO ENTREGOU QUADRO -- e exatamente o que o dono ve")
+        }
+        pub.pararVideo()
+        Thread.sleep(400)
+    }
+    previas.set(0)
+    tamanhoPrevia[0] = null
+
     linha("3. entrando com a tela (o audio nao pode cair)")
     val t0 = System.currentTimeMillis()
     val entrou = pub.publicarTela(CID_TELA, 0, ScreenQuality.LIGHT_720_30)

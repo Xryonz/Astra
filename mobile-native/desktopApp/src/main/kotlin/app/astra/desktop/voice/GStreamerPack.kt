@@ -341,6 +341,10 @@ object GStreamerPack {
             // GST_PLUGIN_SYSTEM_PATH vazio garante que nunca carregamos a do sistema.
             Gst.init(Version.of(1, 20), "Astra")
             gstPronto = true
+            // Diz ONDE o log do GStreamer foi parar. Sem esta linha, "o gst.txt nao mudou"
+            // tem duas leituras -- nao houve nada pra registrar, ou a variavel de ambiente
+            // nao pegou -- e as duas pedem investigacoes opostas.
+            VoiceLog.nota("GStreamer no ar; o log dele vai para ${File(pastaDeDados, "gst.txt").absolutePath}")
             true
         } catch (t: Throwable) {
             VoiceLog.nota("GStreamer nao carregou: ${t.javaClass.simpleName} ${t.message.orEmpty()}")

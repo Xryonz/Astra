@@ -1075,6 +1075,13 @@ class VoiceEngine(
             screenCid = "screen-" + UUID.randomUUID().toString().take(8)
             // A previa vem do appsink do cano; a UI escolhe esse caminho por aqui.
             _directPreview.value = true
+            // A INTENCAO FICA REGISTRADA, e nao so o resultado.
+            //
+            // Quando a transmissao nao apareceu pra ninguem, o log nao tinha UMA linha
+            // entre entrar na call e sair dela -- e "nao aconteceu nada" era compativel
+            // com tres historias diferentes: o pedido nao saiu, o servidor nao respondeu,
+            // ou o cano subiu e nao mandou nada. Sem distinguir, so restava adivinhar.
+            VoiceLog.nota("8a. pedi para transmitir (motor novo, ${q.label}) — esperando o servidor aceitar")
         }
         val cid = screenCid ?: return
         _sharingCamera.value = false
@@ -1181,10 +1188,11 @@ class VoiceEngine(
                 gst.publicarTela(cid, indice, screenQ)
             }
             if (!ok) {
-                VoiceLog.nota("motor novo: a tela nao subiu; encerrando a transmissao")
+                VoiceLog.nota("8b! o servidor aceitou, mas o cano de video nao subiu — encerrando a transmissao")
                 stopScreenShare(silent = true)
                 return
             }
+            VoiceLog.nota("8b. o servidor aceitou e o cano de video subiu (monitor $indice) — renegociando")
             gst.negociar()
             scope.launch { delay(1200); startScreenStats() }
             return

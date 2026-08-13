@@ -1,0 +1,63 @@
+#!/bin/sh
+# Marca com [skip render] todo commit que NAO toca no servidor.
+#
+# POR QUE EXISTE. O Render redeploya a cada push na main, sem olhar o que mudou. Como
+# toda release do desktop e um push na main, publicar o app derrubava a API por 2 a 5
+# minutos -- e o dono via isso como "o servidor fica acordando". Nao era sono do plano
+# gratuito: era eu reiniciando o servidor a cada versao que publicava. O `/health`
+# mostrava o `uptimeS` zerando um minuto depois de cada push.
+#
+# O Render aceita `[skip render]` na mensagem do commit pra pular o deploy. Isto poe a
+# marca sozinho, porque "eu lembro de escrever" nao e conserto -- e o commit em que eu
+# esquecesse seria justamente o que derrubaria a API.
+#
+# CONSERVADOR DE PROPOSITO: se o commit encostar em `apps/` ou `packages/`, o deploy e
+# legitimo e a marca NAO entra. Errar pra esse lado custa um redeploy a mais; errar pro
+# outro lado publicaria API sem subir, que e muito pior e silencioso.
+#
+# Instalar (uma vez por clone):
+#   cp tools/git-hooks/prepare-commit-msg .git/hooks/ && chmod +x .git/hooks/prepare-commit-msg
+
+arquivo="$1"
+origem="$2"
+
+# So em `git commit -m` / `-F`. No modo editor a mensagem vem cheia de linhas de
+# comentario do proprio git, e inserir texto no meio delas so daria confusao.
+[ "$origem" = "message" ] || exit 0
+
+# Ja marcado (rebase, amend, marca escrita a mao): nao duplica.
+#
+# A LINHA INTEIRA, nao "contem". Com `grep -F` simples, um commit que MENCIONE a marca no
+# corpo -- este projeto documenta as proprias decisoes na mensagem -- se dava por marcado
+# e saia sem inserir nada. Aconteceu no primeiro commit que usou o hook.
+grep -qE '^\[skip render\][[:space:]]*$' "$arquivo" && exit 0
+
+mudou=$(git diff --cached --name-only)
+[ -z "$mudou" ] && exit 0
+
+# Mexeu no servidor ou no que ele importa? Entao o deploy tem que acontecer.
+printf '%s\n' "$mudou" | grep -qE '^(apps/|packages/)' && exit 0
+
+# A marca entra como PARAGRAFO PROPRIO, antes do bloco de trailers.
+#
+# Colar ela depois do `Co-Authored-By:` quebraria o bloco: o git so reconhece trailers
+# no ultimo paragrafo e se ele for so trailers. Uma linha solta ali dentro e o
+# co-autor deixa de ser creditado.
+awk '
+  { linha[NR] = $0 }
+  END {
+    inicio = 1
+    for (i = NR; i >= 1; i--) {
+      if (linha[i] ~ /^[[:space:]]*$/) { inicio = i + 1; break }
+    }
+    trailers = 0
+    for (i = inicio; i <= NR; i++) {
+      if (linha[i] ~ /^[A-Za-z][A-Za-z-]*:[[:space:]]/) trailers = 1
+    }
+    for (i = 1; i <= NR; i++) {
+      if (trailers && i == inicio) { print "[skip render]"; print "" }
+      print linha[i]
+    }
+    if (!trailers) { print ""; print "[skip render]" }
+  }
+' "$arquivo" > "$arquivo.novo" && mv "$arquivo.novo" "$arquivo"

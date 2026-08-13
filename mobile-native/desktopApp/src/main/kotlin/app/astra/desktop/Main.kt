@@ -114,9 +114,36 @@ private fun writeDiagnostics() = runCatching {
         // que nao ter dica nenhuma: parece que nao houve registro.
         appendLine("(sem falhas.txt = a JVM morreu por fora, em código nativo. O laudo é")
         appendLine(" hs_err_pid<numero>.log, na pasta da instalação — ${pastaDaInstalacao()})")
+        // Terceiro caso, e o mais traicoeiro dos tres: morte NATIVA SEM laudo nenhum.
+        // Quando o GLib aborta, ele desliga o relatorio de falhas do Windows antes de
+        // morrer, e como o app nao tem console a mensagem se perde. Foi assim que a call
+        // com o motor novo derrubou o Astra tres vezes sem deixar um bilhete. O gst.txt
+        // existe justamente pra esse caso.
+        appendLine("(nem falhas.txt nem hs_err, e estava numa call? veja gst.txt, aqui do lado.)")
     }
     java.io.File(dir, "diagnostico.txt").writeText(txt)
     println(txt)
+}
+
+// QUAL JANELA SOMOS: a principal, ou uma segunda conta aberta pra teste.
+//
+// Tres lugares precisam saber disto e precisam CONCORDAR — a trava de instancia única,
+// a pasta da sessão e o atualizador. Quando cada um lia a flag por conta própria, bastava
+// um deles enxergar diferente pra sair um caso absurdo: duas janelas com a MESMA conta,
+// ou a segunda se atualizando por cima da instalação principal.
+//
+// Le a variável de ambiente ASTRA_MULTI **e** a propriedade -Dastra.multi. A variável é
+// a que importa hoje: ela é o único canal que atravessa o Astra.exe do jpackage sem
+// editar o Astra.cfg de dentro da instalação — e era editar o cfg que obrigava a manter
+// uma CÓPIA inteira do app em disco, cópia que vivia atrasada uma versão. A propriedade
+// fica pro modo dev (`./gradlew :desktopApp:run -Pastra.multi`).
+object Multi {
+    // "1", "2", "3"… — vira o apelido da pasta de sessão. null = janela principal.
+    val slot: String? =
+        System.getProperty("astra.multi")?.let { if (it.isBlank() || it == "true") "1" else it }
+            ?: System.getenv("ASTRA_MULTI")?.takeIf { it.isNotBlank() }
+
+    val ligado: Boolean get() = slot != null
 }
 
 // Instancia única: lock por ServerSocket no loopback. Se já tem Astra rodando (a
@@ -128,8 +155,8 @@ object SingleInstance {
     private var server: ServerSocket? = null
 
     // Abre um SEGUNDO Astra na mesma maquina, com sessão propria:
+    //   wscript C:\Astra\launch.vbs 2      (o atalho "Astra (2a conta)")
     //   ./gradlew :desktopApp:run -Pastra.multi
-    //   (ou o .exe com -Dastra.multi=1)
     //
     // Por que isto existe: a maioria dos bugs que aparecem aqui e do tipo
     // "funciona pra quem fez a ação, não funciona pro outro" — canal novo que não
@@ -137,7 +164,7 @@ object SingleInstance {
     // surgia. Nenhum deles e azar: e consequencia de so dar pra testar com UMA
     // conta. Com duas janelas lado a lado, cada um desses aparece em segundos, na
     // hora de escrever o codigo, em vez de semanas depois pela boca de um amigo.
-    val multi: Boolean = System.getProperty("astra.multi") != null
+    val multi: Boolean get() = Multi.ligado
 
     // Solta a trava. Existe pro AUTO-UPDATE: o processo velho abre o Astra novo e
     // so depois morre — se ele ainda estivesse segurando a porta, o novo concluiria

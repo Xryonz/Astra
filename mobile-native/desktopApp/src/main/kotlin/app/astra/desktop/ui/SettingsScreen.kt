@@ -2742,9 +2742,10 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
                 "caminho, o microfone inclusive.\n\n" +
                 "O ajuste automático de qualidade deixa de baixar o preset sozinho, e isso " +
                 "é de propósito: ele existia porque o processador não dava conta de " +
-                "comprimir. Agora quem trata falta de banda é o estimador do WebRTC, " +
-                "reduzindo a taxa continuamente — perder nitidez sem perder fluidez é " +
-                "melhor que pular degraus de resolução.\n\n" +
+                "comprimir, e essa pressão acabou.\n\n" +
+                "Em troca, este caminho ainda não reage à falta de banda. Se a sua " +
+                "internet de subida apertar, o vídeo engasga em vez de perder nitidez — " +
+                "baixe a qualidade à mão na engrenagem da chamada. A voz não muda.\n\n" +
                 "Se alguma coisa sair errada numa chamada, desligue aqui e entre de novo.",
         )
     }

@@ -543,7 +543,32 @@ class VoiceEngine(
         gstPub = p
         micCid = cid
         VoiceLog.nota("4b. motor novo no ar (video direto da placa)")
+        acompanharConexao(p)
         return true
+    }
+
+    // Anota no log de voz a conexao do motor novo chegando -- ou nao chegando.
+    //
+    // Existe por causa de como o motor novo falhou da primeira vez: o log parava na linha
+    // do join e o processo sumia. Sem uma linha entre "entrei na sala" e "estou
+    // transmitindo", nao dava pra saber se a conexao tinha sequer sido tentada — e essa
+    // duvida custou horas. Trinta segundos cobrem a subida inteira; depois disso o estado
+    // so muda se a rede cair, e ai quem conta e a reconexao.
+    private fun acompanharConexao(p: GstPublisher) {
+        scope.launch {
+            var anterior = ""
+            repeat(30) {
+                if (!p.vivo) return@launch
+                val agora = p.estadoDaConexao()
+                if (agora != anterior) {
+                    VoiceLog.nota("4c. conexao do motor novo: $agora")
+                    anterior = agora
+                }
+                if (agora == "connected" || agora == "failed" || agora == "closed") return@launch
+                delay(1000)
+            }
+            VoiceLog.nota("4c. o motor novo NAO conectou em 30s (parou em \"$anterior\") — se ninguem te ouve, desligue a chave em Configuracoes > Voz")
+        }
     }
 
     private fun enviarOferta(sdp: String) {

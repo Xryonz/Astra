@@ -1,5 +1,6 @@
 package app.astra.desktop.update
 
+import app.astra.desktop.Multi
 import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
@@ -90,18 +91,15 @@ class UpdateService(private val http: OkHttpClient) {
 
     // So o app empacotado (Astra.exe) tem pasta pra versionar. Dev/IDE = nulo.
     //
-    // A COPIA DE TESTE (-Dastra.multi) NAO ATUALIZA, de proposito. Ela e um retrato
-    // congelado pra simular outra pessoa, e atualizar quebrava de duas formas ao
-    // mesmo tempo:
-    //   1. ela extrai em versions/<v>/ — a MESMA pasta da instalacao principal, ou
-    //      seja, as duas copias disputando o mesmo diretorio;
-    //   2. ela reiniciava apontando pra esse versions/<v>/Astra.exe, que NAO tem a
-    //      flag -Dastra.multi. Sem a flag a trava de instancia unica volta a valer,
-    //      ela via o Astra principal aberto e saia calada. Era exatamente o
-    //      "reinicia e nao liga de novo".
-    // Pra testar versao nova na copia: rode o preparar-multi.ps1 de novo, que ele
-    // recopia da versao mais recente.
-    val installed: Boolean get() = System.getProperty("astra.multi") == null && appRootDir() != null
+    // A SEGUNDA CONTA NAO ATUALIZA, e agora nem precisa: ela abre o mesmo Astra.exe da
+    // instalacao principal, entao ja nasce na versao mais nova. Quem baixa e instala e a
+    // janela principal, uma vez, pra as duas.
+    //
+    // Continua desligado aqui porque duas janelas baixando e trocando a MESMA pasta ao
+    // mesmo tempo e receita de instalacao pela metade — e porque a segunda reiniciaria
+    // sem a variavel de ambiente, caindo na trava de instancia unica e saindo calada.
+    // Era exatamente o antigo "reinicia e nao liga de novo".
+    val installed: Boolean get() = !Multi.ligado && appRootDir() != null
 
     // Astra.exe da versão nova, já extraida em versions/<v>/. Setado no stage.
     private var stagedExe: File? = null

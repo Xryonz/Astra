@@ -14,7 +14,6 @@ import org.freedesktop.gstreamer.SDPMessage
 import org.freedesktop.gstreamer.State
 import org.freedesktop.gstreamer.Structure
 import org.freedesktop.gstreamer.elements.AppSrc
-import org.freedesktop.gstreamer.lowlevel.GstAPI
 import org.freedesktop.gstreamer.webrtc.WebRTCBin
 import org.freedesktop.gstreamer.webrtc.WebRTCSDPType
 import org.freedesktop.gstreamer.webrtc.WebRTCSessionDescription
@@ -79,6 +78,9 @@ class GstPublisher(
     @Volatile var vivo = false
         private set
 
+    // Promessas de estatistica que estouraram o prazo. Ver `estatisticas()`.
+    private val promessasTardias = ArrayDeque<Promise>()
+
     val encoderDisponivel: String?
         get() = ENCODERS.firstOrNull { runCatching { ElementFactory.find(it) != null }.getOrDefault(false) }
 
@@ -121,7 +123,22 @@ class GstPublisher(
 
             servidorStun?.let { runCatching { b.setStunServer(it) } }
             b.connect(WebRTCBin.ON_ICE_CANDIDATE { mlinha, cand -> onCandidato(mlinha, cand) })
-            pendurarAdaptacaoDeBanda(b)
+            // SEM `rtpgccbwe` POR ORA -- e uma ausencia deliberada, nao um esquecimento.
+            //
+            // Ele e o estimador de banda do WebRTC, e so entra pelo sinal
+            // `request-aux-sender`. Esse sinal nao tem binding pronto nesta biblioteca, e
+            // o que eu escrevi na mao estava errado em dois pontos: o segundo argumento e
+            // um `GstWebRTCDTLSTransport`, e eu o declarei como `Element`; e o elemento
+            // devolvido passa a ser do webrtcbin, sem jeito de o Java tirar a mao -- a
+            // mesma armadilha de dois donos que acabou de derrubar a call.
+            //
+            // Ele tambem nao estava terminado: estimar banda so serve se alguem OUVIR a
+            // estimativa e baixar o bitrate do encoder, e essa metade nunca existiu.
+            // Entao o que sai daqui e um risco, nao uma funcionalidade. Volta como fatia
+            // propria, com o laco fechado.
+            //
+            // O que se perde ate la: em subida apertada o video ENGASGA em vez de perder
+            // nitidez. O audio nao muda -- o Opus ja lida com isso sozinho.
             runCatching { b.getStaticPad("sink_0")?.set("msid", cidDoMic) }
 
             pipeline = p
@@ -398,9 +415,27 @@ class GstPublisher(
         // transporte -- foi assim que o processo caiu com a memoria corrompida.
         runCatching { saida?.getStaticPad("src")?.unlink(pad) }
         runCatching { pad?.let { b.releaseRequestPad(it) } }
-        elementos.forEach {
+        // DE TRAS PRA FRENTE, e isto e o conserto de um travamento de verdade.
+        //
+        // Desligando da fonte pra saida, o cano PENDURA PRA SEMPRE. O motivo: a thread da
+        // fonte pode estar parada dentro de um `push` esperando quem esta abaixo aceitar o
+        // quadro. Mandar a FONTE parar exige que essa thread termine -- e ela nao termina,
+        // porque quem a segura ainda esta de pe. Um esperando o outro.
+        //
+        // Ao contrario funciona porque desligar um elemento marca as portas dele como "em
+        // descarga": qualquer `push` que chegue ali volta na hora em vez de esperar. Cada
+        // elemento que para solta o de cima, e a fila se desfaz sozinha ate a fonte.
+        //
+        // Custava um travamento a cada duas transmissoes encerradas -- e `stopScreenShare`
+        // roda na thread da interface, entao o travamento era a JANELA INTEIRA congelada.
+        elementos.reversed().forEach {
+            val t0 = System.currentTimeMillis()
             runCatching { it.setState(State.NULL) }
             runCatching { it.getState(2_000_000_000L) }
+            val gasto = System.currentTimeMillis() - t0
+            // O caso saudavel inteiro leva ~10ms; 200 num elemento so ja e anormal.
+            // Sem o NOME, "pendurou no desmonte" nao diz em que peca olhar.
+            if (gasto > 200) VoiceLog.nota("transporte novo: '${it.name}' levou ${gasto}ms pra desligar")
         }
         runCatching { p.removeMany(*elementos.toTypedArray()) }
         p.setState(State.PLAYING)
@@ -412,12 +447,21 @@ class GstPublisher(
     fun negociar() {
         val b = bin ?: return
         b.createOffer { oferta ->
-            val cru = runCatching { oferta.getSDPMessage().toString() }.getOrNull() ?: return@createOffer
+            // O `getSDPMessage` devolve uma COPIA nossa -- essa pode ser lida a vontade.
+            val cru = runCatching { oferta.getSDPMessage().toString() }.getOrNull()
+            // A OFERTA EM SI NAO E NOSSA, e e o segundo dono duplicado desta migracao.
+            //
+            // Ela vem de dentro da promessa, e a biblioteca a embrulha marcando "o Java e
+            // o dono" -- so que `g_value_get_boxed`, de onde ela sai, nao transfere posse
+            // nenhuma. Quem manda na memoria e a promessa, que se desfaz assim que este
+            // bloco termina. Depois disso o coletor de lixo passa, libera de novo o que ja
+            // morreu, e o processo cai com 0xC0000374 -- longe daqui, sem pilha e sem
+            // laudo. `invalidate()` e o Java tirando a mao.
+            runCatching { oferta.invalidate() }
+            if (cru == null) return@createOffer
             val pronto = remendar(cru)
             runCatching {
-                b.setLocalDescription(
-                    WebRTCSessionDescription(WebRTCSDPType.OFFER, SDPMessage().apply { parseBuffer(pronto) }),
-                )
+                b.setLocalDescription(descricao(WebRTCSDPType.OFFER, pronto))
             }.onFailure {
                 VoiceLog.nota("transporte novo: o webrtcbin recusou a propria oferta remendada (${it.message})")
                 return@createOffer
@@ -429,15 +473,46 @@ class GstPublisher(
     fun aplicarResposta(sdp: String) {
         val b = bin ?: return
         runCatching {
-            b.setRemoteDescription(
-                WebRTCSessionDescription(WebRTCSDPType.ANSWER, SDPMessage().apply { parseBuffer(sdp) }),
-            )
+            b.setRemoteDescription(descricao(WebRTCSDPType.ANSWER, sdp))
         }.onFailure { VoiceLog.nota("transporte novo: resposta do servidor recusada (${it.message})") }
+    }
+
+    // Monta a descricao SEM deixar DOIS DONOS para o mesmo pedaco de memoria.
+    //
+    // ISTO DERRUBAVA O APP AO ENTRAR NA CALL, e foi o defeito mais caro da migracao.
+    //
+    // `gst_webrtc_session_description_new` FICA com o SDPMessage que recebe -- na
+    // linguagem do GStreamer, `transfer full`. O binding Java de hoje nao marca esse
+    // parametro como entregue (marca so o retorno, com @CallerOwnsReturn). Entao o objeto
+    // Java continua achando que o SDP e dele e, quando o coletor de lixo passa, libera
+    // memoria que o GStreamer ja tinha adotado. O segundo `free` corrompe o monte nativo
+    // e o processo evapora com 0xC0000374.
+    //
+    // POR QUE NINGUEM VIU ANTES: nao quebra na hora. Quebra quando o coletor decide
+    // passar, e ele nao passa num ensaio de trinta segundos. Quem pagava era a call de
+    // verdade, que negocia tres vezes so pra entrar -- e a morte nao deixava rastro
+    // nenhum: sem excecao Java, sem hs_err, sem registro no Windows.
+    //
+    // `invalidate()` e a mesma saida que a propria biblioteca usa no `getSDPMessage`:
+    // o Java tira a mao do objeto sem liberar nada.
+    private fun descricao(tipo: WebRTCSDPType, sdp: String): WebRTCSessionDescription {
+        val mensagem = SDPMessage().apply { parseBuffer(sdp) }
+        val pronta = WebRTCSessionDescription(tipo, mensagem)
+        mensagem.invalidate()
+        return pronta
     }
 
     fun candidatoRemoto(mlinha: Int, candidato: String) {
         runCatching { bin?.addIceCandidate(mlinha, candidato) }
     }
+
+    // "new" / "connecting" / "connected" / "failed" / "closed".
+    //
+    // Existe porque "a call subiu" e "a call CONECTOU" sao coisas diferentes, e so a
+    // segunda importa pra quem esta do outro lado. Sem isto, uma conexao que nunca fecha
+    // e indistinguivel de uma que fechou e nao tem o que enviar.
+    fun estadoDaConexao(): String =
+        runCatching { bin?.connectionState?.name?.lowercase() }.getOrNull() ?: "?"
 
     // O REMENDO QUE FAZ O LIVEKIT RECONHECER A FAIXA.
     //
@@ -480,26 +555,6 @@ class GstPublisher(
         return saida.toString()
     }
 
-    // ---- adaptacao de banda ----
-
-    // O rtpgccbwe e o estimador de banda do WebRTC. Sem ele o webrtcbin manda no bitrate
-    // fixo do encoder e nao desce quando a subida aperta -- o video CONGELA em vez de
-    // perder nitidez. O webrtc-java de hoje traz isso de fabrica, entao ficar sem seria
-    // regredir justamente pra quem tem internet ruim.
-    private interface PedidoDeAuxiliar : GstAPI.GstCallback {
-        fun callback(bin: Element, transporte: Element): Element?
-    }
-
-    private fun pendurarAdaptacaoDeBanda(b: WebRTCBin) {
-        runCatching {
-            val alvo = object : PedidoDeAuxiliar {
-                override fun callback(bin: Element, transporte: Element): Element? =
-                    ElementFactory.make("rtpgccbwe", null)
-            }
-            b.connect("request-aux-sender", PedidoDeAuxiliar::class.java, alvo, alvo)
-        }.onFailure { VoiceLog.nota("transporte novo: sem adaptacao de banda (${it.message})") }
-    }
-
     // ---- estatisticas ----
 
     // A promessa responde por CALLBACK e nao pelo waitResult(): `gst_promise_wait`
@@ -515,7 +570,26 @@ class GstPublisher(
                 pronto.countDown()
             })
             b.emit("get-stats", null, promessa)
-            if (!pronto.await(2, TimeUnit.SECONDS)) return null
+            if (!pronto.await(2, TimeUnit.SECONDS)) {
+                // NAO RESPONDEU NO PRAZO -> a promessa tem que sobreviver ao coletor.
+                //
+                // O gst1-java-core guarda a funcao de retorno DENTRO do objeto Java da
+                // promessa. Se o coletor levar a promessa e o webrtcbin responder depois,
+                // o lado nativo chama um endereco que nao existe mais -- a mesma familia
+                // de defeito que derrubava a call, agora armada durante a transmissao.
+                //
+                // O prazo estoura justamente quando o cano esta ocupado (entrar ou sair da
+                // tela passa pelo repouso), e e nesse momento que esta funcao e chamada de
+                // dois em dois segundos. Nao e hipotese.
+                //
+                // Segura as ultimas 64. Objeto minusculo, e 64 x 2s cobrem dois minutos --
+                // muito depois de o webrtcbin ter desistido.
+                synchronized(promessasTardias) {
+                    promessasTardias.addLast(promessa)
+                    while (promessasTardias.size > 64) promessasTardias.removeFirst()
+                }
+                return null
+            }
             val texto = caixa[0]?.toString() ?: return null
             // O relatorio do webrtcbin vem como texto de GstStructure aninhada e
             // ESCAPADA (`frames\-per\-second\=\(double\)29.9`), entao a leitura e por
@@ -523,9 +597,8 @@ class GstPublisher(
             // seria caro e fragil do mesmo jeito.
             //
             // Nao ha equivalente ao `qualityLimitationReason` do libwebrtc aqui, e por
-            // isso o limite sai sempre "none": no motor novo quem trata falta de banda e
-            // o rtpgccbwe, baixando o bitrate sozinho. A linha de status continua
-            // mostrando captura e envio, que e o que responde "esta fluindo?".
+            // isso o limite sai sempre "none". A linha de status continua mostrando
+            // captura e envio, que e o que responde "esta fluindo?".
             Estatisticas(extrairNumero(texto, "frames-per-second"), "none")
         }.getOrNull()
     }

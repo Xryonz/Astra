@@ -71,13 +71,16 @@ object GStreamerPack {
     // baixariam o mesmo arquivo duas vezes por cima uma da outra.
     private val trava = Mutex()
 
-    // %LOCALAPPDATA%\Astra\gstreamer\<versao>\  — fora do diretorio do app DE PROPOSITO:
-    // a pasta do app pode ser somente-leitura, e e trocada inteira a cada atualizacao.
-    private val raiz: File by lazy {
+    // %LOCALAPPDATA%\Astra\ — onde ja moram voz.txt, diagnostico.txt e falhas.txt.
+    private val pastaDeDados: File by lazy {
         val base = System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }
             ?: System.getProperty("user.home")
-        File(File(base, "Astra"), "gstreamer/$VERSAO")
+        File(base, "Astra")
     }
+
+    // %LOCALAPPDATA%\Astra\gstreamer\<versao>\  — fora do diretorio do app DE PROPOSITO:
+    // a pasta do app pode ser somente-leitura, e e trocada inteira a cada atualizacao.
+    private val raiz: File by lazy { File(pastaDeDados, "gstreamer/$VERSAO") }
 
     private val binDir get() = File(raiz, "bin")
     private val pluginDir get() = File(raiz, "lib/gstreamer-1.0")
@@ -285,6 +288,24 @@ object GStreamerPack {
         // O GStreamer escreve um cache do registro de plugins na primeira execucao. O
         // padrao cai em lugar que pode nao ser gravavel; aqui fica junto do pacote.
         k.SetEnvironmentVariable("GST_REGISTRY", File(raiz, "registry.bin").absolutePath)
+
+        // O LOG EM ARQUIVO, e esta e a licao mais cara da migracao.
+        //
+        // O app morreu tres vezes ao entrar na call sem deixar NADA: sem excecao Java, sem
+        // hs_err, sem registro no Visualizador de Eventos do Windows. O motivo estava
+        // sendo impresso o tempo todo -- na saida de erro, que num app de janela do
+        // jpackage nao existe. Horas de investigacao pra ler algo que o proprio GStreamer
+        // ja estava dizendo.
+        //
+        // Por variavel de ambiente, e nao por argumento do `Gst.init`: os argumentos NAO
+        // chegam ao `gst_init` por este binding (testado -- o arquivo simplesmente nao
+        // nascia). Estas o codigo nativo le direto.
+        //
+        // Nivel 2 = so ERRO e AVISO. Rotina fica de fora e o arquivo nao passa de alguns
+        // kilobytes numa sessao inteira; o GStreamer o reabre do zero a cada boot.
+        k.SetEnvironmentVariable("GST_DEBUG", "2")
+        k.SetEnvironmentVariable("GST_DEBUG_FILE", File(pastaDeDados, "gst.txt").absolutePath)
+        k.SetEnvironmentVariable("GST_DEBUG_NO_COLOR", "1")
 
         ambientePronto = true
         return true

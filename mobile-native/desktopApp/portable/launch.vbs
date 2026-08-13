@@ -8,8 +8,20 @@
 '
 ' O auto-update do app baixa versoes novas em versions\; este launcher garante
 ' que abrir o Astra sempre cai na mais nova, sem depender do swap in-place.
+'
+' SEGUNDA CONTA:  wscript launch.vbs 2
+' Abre uma segunda janela com sessao propria, pra testar "o outro ve na hora?" sem
+' um segundo PC. O numero vira o apelido da sessao (%APPDATA%\Astra-teste2), entao
+' da pra ter quantas quiser: 2, 3, 4...
+'
+' ANTES ISTO ERA UMA COPIA INTEIRA DO APP em C:\Astra\multi, espelhada por um script
+' a cada abertura. Nao era so o desperdicio de 300 MB: a copia so se atualizava se a
+' pessoa abrisse pelo atalho certo, e abrir pelo .exe direto (o caminho obvio) deixava
+' ela parada numa versao velha, calada. Comparar duas janelas so vale se as duas
+' rodam o MESMO build -- entao a segunda janela passou a ser o proprio app instalado,
+' aberto com uma variavel de ambiente a mais. Nao ha copia pra ficar pra tras.
 Option Explicit
-Dim fso, shell, baseDir, versionsDir, best, bestKey, f, k, exe
+Dim fso, shell, baseDir, versionsDir, best, bestKey, f, k, exe, conta
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 baseDir = fso.GetParentFolderName(WScript.ScriptFullName)
@@ -39,6 +51,15 @@ If best = "" Then
 End If
 
 exe = fso.BuildPath(best, "Astra.exe")
+
+' A variavel de ambiente e o unico canal que atravessa o Astra.exe do jpackage sem
+' mexer no Astra.cfg de dentro da instalacao -- e era mexer no cfg que obrigava a
+' manter a copia separada. Escrita no ambiente DESTE processo; o app nasce dele e
+' herda.
+conta = ""
+If WScript.Arguments.Count > 0 Then conta = Trim(WScript.Arguments(0))
+If conta <> "" Then shell.Environment("Process")("ASTRA_MULTI") = conta
+
 ' 1 = janela normal do app; False = nao espera o app fechar (launcher encerra ja).
 shell.Run """" & exe & """", 1, False
 

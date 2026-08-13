@@ -61,6 +61,21 @@ foreach ($lp in @((Join-Path $root "Astra.lnk"), (Join-Path ([Environment]::GetF
   $lnk.Save()
 }
 
+# Segunda conta: MESMO launcher, mesmo binario, com o numero da conta como argumento.
+#
+# Ate a 0.2.7 isto era uma COPIA inteira do app em C:\Astra\multi, espelhada por um
+# script (tools\preparar-multi.ps1, ja removido). A copia so se atualizava quando a
+# pessoa abria pelo atalho certo; abrir o .exe direto - o caminho obvio - deixava ela
+# parada numa versao velha sem avisar, e ai as duas janelas nao serviam mais pra
+# comparar nada. Agora nao existe copia pra ficar pra tras.
+$l2 = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) "Astra (2a conta).lnk"))
+$l2.TargetPath = "$env:SystemRoot\System32\wscript.exe"
+$l2.Arguments = '"' + (Join-Path $root "launch.vbs") + '" 2'
+$l2.WorkingDirectory = $root
+$l2.IconLocation = (Join-Path $root "astra.ico")
+$l2.Description = "Astra - segunda conta (mesma versao, sessao propria)"
+$l2.Save()
+
 $best = Get-ChildItem $versions -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'Astra.exe') } |
   Sort-Object { [version]($_.Name) } | Select-Object -Last 1
 Write-Host "OK. versions: $((Get-ChildItem $versions -Directory).Name -join ', ')"

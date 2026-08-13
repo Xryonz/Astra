@@ -86,17 +86,16 @@ private class AcimaDoBotao(private val pelaDireita: Boolean) : PopupPositionProv
 private val AcimaPelaDireita = AcimaDoBotao(pelaDireita = true)
 private val AcimaPelaEsquerda = AcimaDoBotao(pelaDireita = false)
 
-// A moldura comum dos botoes: quadrado de 28, SEM fundo — no hover a borda e o
-// glifo acendem no accent, sem preencher (estilo pedido pelo dono).
+// A moldura comum dos botoes: quadrado de 28, SEM fundo e SEM borda — no hover so
+// o glifo acende no accent.
 //
-// comBorda = false no '+' (tambem pedido do dono). Faz sentido alem do gosto: a
-// borda agrupa os botoes que ABREM UM PAINEL (emoji, GIF). O '+' abre um menu e
-// a seta envia — acoes de outra natureza, e ficarem sem moldura separa os grupos
-// sem precisar de linha divisoria.
+// A borda saiu (pedido do dono). Ela era a unica linha desenhada dentro do
+// compositor, que ja tem a propria borda: tres retangulos menores encostados na
+// barra liam como grade, e nao como botao. Sem elas o olho ve os glifos, que e o
+// que se clica. O alvo continua de 28dp — some o desenho, nao a area.
 @Composable
 private fun MolduraDoCompositor(
     onClick: () -> Unit,
-    comBorda: Boolean = true,
     conteudo: @Composable (aceso: Boolean) -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
@@ -105,13 +104,6 @@ private fun MolduraDoCompositor(
         modifier = Modifier
             .size(28.dp)
             .clip(RoundedCornerShape(8.dp))
-            .then(
-                if (comBorda) Modifier.border(
-                    1.dp,
-                    if (hov) Obsidian.accentDim else Obsidian.borderDim,
-                    RoundedCornerShape(8.dp),
-                ) else Modifier,
-            )
             .hoverable(src)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -122,10 +114,9 @@ private fun MolduraDoCompositor(
 private fun IconeDoCompositor(
     glifo: String,
     tamanho: Int = 13,
-    comBorda: Boolean = true,
     onClick: () -> Unit,
 ) {
-    MolduraDoCompositor(onClick, comBorda) { hov ->
+    MolduraDoCompositor(onClick) { hov ->
         Text(
             glifo,
             style = TextStyle(color = if (hov) Obsidian.accent else Obsidian.text3, fontSize = tamanho.sp),
@@ -204,7 +195,7 @@ fun ComposerPlusButton(
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconeDoCompositor("+", tamanho = 17, comBorda = false) { open = !open }
+        IconeDoCompositor("+", tamanho = 17) { open = !open }
         if (open) {
             Popup(
                 popupPositionProvider = AcimaPelaEsquerda,

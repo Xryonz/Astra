@@ -47,6 +47,7 @@ import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
+import app.astra.desktop.voice.Transmitindo
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.ptr.IntByReference
@@ -614,10 +615,20 @@ fun main() {
                     // O mesmo vale pro ceu e pro login, que vivem acima do ShellScreen:
                     // fora da frente, "reduzir movimento" ligado. Ver o comentario longo
                     // no provedor equivalente do ShellScreen.
+                    //
+                    // E TRANSMITINDO O CEU SAI DA FRENTE. O dono relatou a transmissao
+                    // caindo de 47 pra 35 fps na 0.2.18 — a versao em que o teto de fps do
+                    // ceu saiu e ele voltou a rodar na taxa do monitor (165Hz). Neste
+                    // notebook a MESMA placa integrada desenha a tela, captura os quadros e
+                    // comprime; um shader de tela cheia a 165Hz disputa exatamente com o
+                    // compressor. A transmissao e o produto, o fundo e enfeite — enquanto
+                    // uma esta no ar, o outro espera.
+                    val transmitindo by Transmitindo.ativo.collectAsState()
                     CompositionLocalProvider(
                         LocalRenderPrefs provides
                             RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
-                        LocalReduceMotion provides (prefState.reduceMotionEff || !janelaComFoco),
+                        LocalReduceMotion provides
+                            (prefState.reduceMotionEff || !janelaComFoco || transmitindo),
                     ) {
                         if (prefState.auroraOn) {
                             // Camada propria (graphicsLayer): so ela invalida por frame —

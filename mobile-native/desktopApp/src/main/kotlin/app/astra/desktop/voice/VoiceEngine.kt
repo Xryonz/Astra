@@ -1167,6 +1167,7 @@ class VoiceEngine(
         val cid = screenCid ?: return
         _sharingCamera.value = false
         _screenOn.value = true
+        Transmitindo.marcar(true)
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
                 LivekitRtc.AddTrackRequest.newBuilder()
@@ -1236,6 +1237,7 @@ class VoiceEngine(
         screenCid = cid
         _sharingCamera.value = true
         _screenOn.value = true
+        Transmitindo.marcar(true)
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setAddTrack(
                 LivekitRtc.AddTrackRequest.newBuilder()
@@ -1722,6 +1724,7 @@ class VoiceEngine(
         if (!_screenOn.value) return
         if (!silent) Sfx.shareStop() // parar transmissão: 3 fases descendo (invertido)
         _screenOn.value = false
+        Transmitindo.marcar(false)
         _sharingCamera.value = false
         _localScreen.value = null
         _localPreview.value = null

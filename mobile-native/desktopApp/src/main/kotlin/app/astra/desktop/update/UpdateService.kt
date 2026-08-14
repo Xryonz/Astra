@@ -1,5 +1,7 @@
 package app.astra.desktop.update
 
+import app.astra.desktop.ARG_POS_ATUALIZACAO
+import app.astra.desktop.FocoDoSistema
 import app.astra.desktop.Multi
 import app.astra.desktop.SingleInstance
 import kotlinx.coroutines.Dispatchers
@@ -498,17 +500,26 @@ class UpdateService(private val http: OkHttpClient) {
     // 3. stagedExe NULO. Ele so existe na sessão em que a versão foi baixada. Quem
     //    baixou, fechou e reabriu caia num `return` mudo — a tela dizia "reiniciando"
     //    e nada acontecia. O fallback acha a maior versão instalada no disco.
+    // 4. A JANELA NOVA NASCIA ATRAS DE TUDO. O Windows nao deixa um processo roubar a
+    //    frente de quem voce esta usando, e nao passa esse direito de pai pra filho
+    //    sozinho — entao o Astra novo abria por baixo do navegador e parecia que o app
+    //    tinha sumido. Duas metades resolvem, e as duas sao necessarias: o velho CEDE o
+    //    direito (AllowSetForegroundWindow) e o novo PEDE a frente ao abrir. Ceder sem
+    //    pedir nao move nada; pedir sem ceder e negado.
     fun restartToInstall() {
         val exe = stagedExe?.takeIf { it.isFile } ?: exeDaMaiorVersao() ?: return
         SingleInstance.release()
-        val subiu = runCatching {
-            ProcessBuilder(exe.absolutePath)
+        val novo = runCatching {
+            ProcessBuilder(exe.absolutePath, ARG_POS_ATUALIZACAO)
                 .directory(exe.parentFile)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
-        }.isSuccess
-        if (subiu) exitProcess(0)
+        }.getOrNull()
+        if (novo != null) {
+            FocoDoSistema.cederAFrenteA(novo.pid())
+            exitProcess(0)
+        }
     }
 
     // Maior versão presente em versions/. Ordena por semver, nao por texto: por

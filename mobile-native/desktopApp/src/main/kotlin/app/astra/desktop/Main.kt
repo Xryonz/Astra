@@ -156,15 +156,34 @@ private fun escolherPlacaDaInterface() = runCatching {
 // sao janelas separadas mas NOSSAS, entao continuam contando como "o app esta na frente"
 // e o ceu nao congela a cada clique com o botao direito — que era a objecao original a
 // gatear por foco.
-private object FocoDoSistema {
+internal object FocoDoSistema {
     interface U32 : StdCallLibrary {
         fun GetForegroundWindow(): Pointer?
         fun GetWindowThreadProcessId(janela: Pointer?, pid: IntByReference): Int
+        fun AllowSetForegroundWindow(pid: Int): Boolean
         companion object {
             val I: U32? = runCatching {
                 Native.load("user32", U32::class.java, W32APIOptions.DEFAULT_OPTIONS)
             }.getOrNull()
         }
+    }
+
+    // CEDE A VEZ DE IR PRA FRENTE a outro processo.
+    //
+    // O Windows não deixa um programa qualquer roubar a frente de quem você está
+    // usando — e faz muito bem. A consequência é que um processo que ABRE outro não
+    // passa esse direito adiante automaticamente: o filho nasce atrás de tudo.
+    //
+    // Era exatamente isso na atualização: o Astra velho abria o novo e saía, e a
+    // janela nova aparecia ATRÁS do navegador. Da poltrona parecia que o app tinha
+    // sumido ou ficado só na bandeja.
+    //
+    // Isto só funciona quando QUEM CEDE está na frente — que é o caso normal (você
+    // acabou de abrir o Astra e ele se atualizou). Se o Astra estava atrás, ninguém
+    // tem direito nenhum pra ceder, e o filho nasce atrás também. Isso é o correto:
+    // app que se atualiza sozinho no fundo não deveria pular na sua frente.
+    fun cederAFrenteA(pid: Long) {
+        runCatching { U32.I?.AllowSetForegroundWindow(pid.toInt()) }
     }
 
     private val meuPid = runCatching { ProcessHandle.current().pid().toInt() }.getOrDefault(-1)
@@ -314,7 +333,13 @@ object SingleInstance {
     }
 }
 
-fun main() {
+// Marca que este processo foi aberto pela ATUALIZACAO, e não por uma pessoa. So
+// nesse caso o app pede pra ir pra frente — num boot normal a janela ja nasce na
+// frente porque foi voce que abriu, e pedir de novo seria um app que se impoe.
+const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
+
+fun main(args: Array<String>) {
+    val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
     // ANTES de tudo: sem isto, excecao não tratada mata o app em silencio (jpackage
     // não tem console) — era o "fecha do nada" sem rastro nenhum.
     CrashLog.install()
@@ -442,6 +467,18 @@ fun main() {
             // conteudo (polish). Toggle em Settings > Desempenho (aplica ao reiniciar).
             transparent = transparentWindow,
         ) {
+            // A outra metade do conserto da atualizacao (ver UpdateService): o processo
+            // velho cedeu o direito de ir pra frente, e aqui a janela nova o USA. Sem
+            // este pedido o direito cedido nao move nada — ele autoriza, nao levanta.
+            //
+            // O respiro existe porque `toFront` so vale depois de a janela existir de
+            // verdade pro sistema; chamado no mesmo instante da composicao, cai no vazio.
+            if (voltandoDeAtualizacao) {
+                LaunchedEffect(Unit) {
+                    delay(400)
+                    runCatching { window.toFront(); window.requestFocus() }
+                }
+            }
             // Coil global: data-URIs (avatares no banco) + URLs relativas /uploads.
             // + cache em disco (300MB) pra não rebaixar a mesma imagem toda vez —
             // vive no cache do SO (fora da instalacao, sobrevive a updates). Coil

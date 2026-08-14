@@ -57,7 +57,16 @@ class GstPublisher(
         System.getProperty("astra.encoder")?.let { listOf(it) }
             ?: listOf("nvd3d11h264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
 
-    data class Estatisticas(val fpsCaptura: Int, val fpsEnvio: Int, val limite: String)
+    // `kbpsReal` e o que SAIU comprimido; `kbpsPedido` e o que se pediu ao encoder. Os
+    // dois juntos, e nao so o segundo: e a diferenca entre eles que diz se o encoder esta
+    // obedecendo. Um sozinho nao responde nada.
+    data class Estatisticas(
+        val fpsCaptura: Int,
+        val fpsEnvio: Int,
+        val limite: String,
+        val kbpsReal: Int = 0,
+        val kbpsPedido: Int = 0,
+    )
 
     private var pipeline: Pipeline? = null
     private var bin: WebRTCBin? = null
@@ -96,14 +105,37 @@ class GstPublisher(
     // de negociacao, com zero quadro produzido.
     private val quadrosCapturados = java.util.concurrent.atomic.AtomicLong(0)
     private val quadrosCodificados = java.util.concurrent.atomic.AtomicLong(0)
+    // Bytes que sairam comprimidos. Contar quadro diz se ESTA FLUINDO; contar byte diz
+    // QUANTO esta custando -- e sem esse segundo numero nao da pra saber se um pedido de
+    // bitrate foi obedecido. Pedir e nao conferir e o mesmo que nao pedir.
+    private val bytesCodificados = java.util.concurrent.atomic.AtomicLong(0)
     private var marcoQuando = 0L
     private var marcoCapturados = 0L
     private var marcoCodificados = 0L
+    private var marcoBytes = 0L
 
     // Contador por elo, so pra depuracao (`-Dastra.contarelos`). Ver `elosAgora()`.
     private val elos = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong>()
 
     fun elosAgora(): String = elos.entries.sortedBy { it.key }.joinToString(" . ") { "${it.key}=${it.value.get()}" }
+
+    // O encoder do ramo atual e o ultimo teto pedido a ele, em kbps.
+    private var encoderVivo: Element? = null
+    @Volatile private var tetoPedido = 0
+
+    // PEDE um teto novo ao encoder. Devolve false se nao havia a quem pedir.
+    //
+    // "Pede" e nao "define", e a diferenca nao e modestia: o `qsvh264enc` NAO declara a
+    // propriedade como alteravel com o cano andando (o `nvd3d11h264enc` declara). Sem essa
+    // marca, o GStreamer aceita a escrita e o elemento pode simplesmente ignora-la ate a
+    // proxima renegociacao. Por isso quem chama tem que CONFERIR no `kbpsReal` das
+    // estatisticas se o pedido virou realidade -- um laco de controle mandando numero que
+    // ninguem obedece e pior do que nao ter laco: ele acha que consertou.
+    fun pedirBitrate(kbps: Int): Boolean {
+        val e = encoderVivo ?: return false
+        tetoPedido = kbps
+        return runCatching { e.set("bitrate", kbps) }.isSuccess
+    }
 
     val encoderDisponivel: String?
         get() = encoderEscolhido ?: ENCODERS.firstOrNull { existe(it) }
@@ -439,6 +471,8 @@ class GstPublisher(
         )
         runCatching { encoder.set("bitrate", bitrate / 1000) } // kbps na maioria dos encoders
         aoVivo(encoder, enc)
+        encoderVivo = encoder
+        tetoPedido = bitrate / 1000
         // config-interval=-1 nos dois: o WebRTC exige que SPS/PPS voltem junto de todo
         // quadro-chave. Sem isso quem entra no meio da transmissao ve tela preta ate o
         // proximo, e "ate o proximo" pode ser meio minuto.
@@ -501,10 +535,12 @@ class GstPublisher(
             // RTP, e contar pacote como quadro daria um numero inflado e sem sentido.
             quadrosCapturados.set(0)
             quadrosCodificados.set(0)
+            bytesCodificados.set(0)
             elos.clear() // por transmissao, senao a leitura soma as anteriores e mente
             marcoQuando = 0L
             marcoCapturados = 0L
             marcoCodificados = 0L
+            marcoBytes = 0L
             // ELO A ELO, so quando o banco de testes pede. Em producao sao dois contadores;
             // com `astra.contarelos` cada porta do ramo ganha o seu, e a primeira que
             // parar de crescer e o elemento que esta segurando o cano.
@@ -524,8 +560,26 @@ class GstPublisher(
                 fonte.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, _ ->
                     quadrosCapturados.incrementAndGet(); PadProbeReturn.OK
                 }
-                parser.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, _ ->
-                    quadrosCodificados.incrementAndGet(); PadProbeReturn.OK
+                parser.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, info ->
+                    quadrosCodificados.incrementAndGet()
+                    // O TAMANHO do quadro comprimido, e nao so a contagem. E o unico jeito
+                    // honesto de saber se um pedido de bitrate foi ATENDIDO: o valor da
+                    // propriedade conta o que se pediu, nao o que saiu.
+                    //
+                    // Este binding nao expoe o tamanho do buffer, entao e preciso mapear.
+                    // O custo e o de devolver um ponteiro -- o ramo da previa ja mapeia na
+                    // mesma cadencia e ainda COPIA o quadro inteiro; isto aqui e uma
+                    // fracao disso. O `unmap` mora no mesmo bloco que o `map`: mapear sem
+                    // soltar vaza memoria nativa, que ja custou caro neste app.
+                    val buf = info.buffer
+                    if (buf != null) {
+                        runCatching {
+                            val bytes = buf.map(false)
+                            if (bytes != null) bytesCodificados.addAndGet(bytes.remaining().toLong())
+                            buf.unmap()
+                        }
+                    }
+                    PadProbeReturn.OK
                 }
             }
 
@@ -855,12 +909,15 @@ class GstPublisher(
         val agora = System.nanoTime()
         val cap = quadrosCapturados.get()
         val cod = quadrosCodificados.get()
+        val bytes = bytesCodificados.get()
         val antes = marcoQuando
         val dCap = cap - marcoCapturados
         val dCod = cod - marcoCodificados
+        val dBytes = bytes - marcoBytes
         marcoQuando = agora
         marcoCapturados = cap
         marcoCodificados = cod
+        marcoBytes = bytes
         // A primeira leitura nao tem intervalo com que dividir: ela so finca o marco.
         if (antes == 0L) return null
         val segundos = (agora - antes) / 1_000_000_000.0
@@ -872,6 +929,8 @@ class GstPublisher(
             // numeros ja dizem o essencial: captura andando com envio parado aponta pra
             // placa; os dois parados apontam pra captura.
             limite = "none",
+            kbpsReal = (dBytes * 8 / 1000.0 / segundos).roundToInt(),
+            kbpsPedido = tetoPedido,
         )
     }
 

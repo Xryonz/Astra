@@ -410,6 +410,7 @@ private fun conexaoDeVerdade() {
     medir(pub, binEco, ofertas, "tela 720p60", 8) {
         pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)
     }
+    provarAtuador(pub, binEco, ofertas)
     piscante.parar()
 
     // A CAMERA TAMBEM AQUI DENTRO, e nao la em cima com as outras fontes.
@@ -475,8 +476,49 @@ private fun medir(
     repeat(segundos) {
         Thread.sleep(1000)
         val e = pub.estatisticas()
-        p("    ${it + 1}s: captura ${e?.fpsCaptura ?: "?"} . comprimido ${e?.fpsEnvio ?: "?"}")
+        p(
+            "    ${it + 1}s: captura ${e?.fpsCaptura ?: "?"} . comprimido ${e?.fpsEnvio ?: "?"}" +
+                " . ${e?.kbpsReal ?: "?"} kbps (pedido ${e?.kbpsPedido ?: "?"})",
+        )
         pub.elosAgora().takeIf { s -> s.isNotBlank() }?.let { s -> p("        $s") }
+    }
+    pub.pararVideo()
+    Thread.sleep(400)
+}
+
+// O ATUADOR DO CONTROLE DE CONGESTIONAMENTO, provado antes de existir controle nenhum.
+//
+// Um laco que mede a rede e pede menos bitrate so serve se o encoder OBEDECER. E o
+// `gst-inspect` levanta uma duvida seria: o `nvd3d11h264enc` declara a propriedade como
+// alteravel com o cano andando, e o `qsvh264enc` -- que e o encoder desta maquina -- NAO
+// declara. Sem essa marca o GStreamer aceita a escrita e o elemento pode ignora-la ate a
+// proxima renegociacao.
+//
+// Entao: metade do teto no meio da transmissao, e olha-se o kbps REAL. Se ele nao descer,
+// nao adianta escrever o laco -- ele mandaria numeros pra ninguem.
+private fun provarAtuador(pub: GstPublisher, binEco: WebRTCBin, ofertas: java.util.Queue<String>) {
+    p("  o encoder obedece um teto novo com o cano andando?")
+    if (!pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)) {
+        p("    !!! nao publicou")
+        return
+    }
+    pub.negociar()
+    esperar(8_000) { ofertas.poll() }?.let { responder(binEco, pub, it) }
+    Thread.sleep(1500)
+    pub.estatisticas()
+    repeat(3) {
+        Thread.sleep(1000)
+        val e = pub.estatisticas()
+        p("    antes  ${it + 1}s: ${e?.kbpsReal ?: "?"} kbps (pedido ${e?.kbpsPedido ?: "?"})")
+    }
+    val novo = 800
+    p("    --> pedindo $novo kbps: aceito=${pub.pedirBitrate(novo)}")
+    Thread.sleep(1000)
+    pub.estatisticas() // marco novo, pra a media nao misturar os dois regimes
+    repeat(4) {
+        Thread.sleep(1000)
+        val e = pub.estatisticas()
+        p("    depois ${it + 1}s: ${e?.kbpsReal ?: "?"} kbps (pedido ${e?.kbpsPedido ?: "?"})")
     }
     pub.pararVideo()
     Thread.sleep(400)

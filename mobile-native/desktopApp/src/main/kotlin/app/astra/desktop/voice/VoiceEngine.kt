@@ -91,7 +91,14 @@ sealed interface VoiceStatus {
 data class VoiceParticipant(val identity: String, val label: String, val speaking: Boolean, val avatarUrl: String? = null)
 
 // Transmissao de outro participante (track de video remota; render no VoiceView).
-class RemoteVideo(val ownerSid: String, val ownerLabel: String, val track: VideoTrack)
+// `trackSid` e o endereco da faixa no servidor -- e o que permite dizer "pausa esta".
+// Vem do proprio nome do MediaStream, que o LiveKit monta como "dono|faixa".
+class RemoteVideo(
+    val ownerSid: String,
+    val ownerLabel: String,
+    val track: VideoTrack,
+    val trackSid: String,
+)
 
 // Metricas da MINHA transmissão (poll de getStats). captureFps = fps que o
 // capturer de tela produz; sendFps = fps que sai codificado; limit = por que o
@@ -218,6 +225,9 @@ class VoiceEngine(
     // sozinha no device padrao.
     private val _remoteVideos = MutableStateFlow<List<RemoteVideo>>(emptyList())
     val remoteVideos = _remoteVideos.asStateFlow()
+
+    // Qual transmissao esta no palco. Null = nenhuma.
+    private var faixaNoPalco: String? = null
 
     // Subscriber PC (server -> a gente). Callbacks nativos chegam em threads do
     // WebRTC e o signaling na thread do WS — dai o lock nos candidatos pendentes
@@ -724,7 +734,8 @@ class VoiceEngine(
                 // normalmente (o ADM nativo nao passa por aqui), entao nada parecia
                 // errado — so o anel de "quem esta falando" nunca acendia, sem uma
                 // linha sequer no diario explicando por que.
-                val ownerSid = streams.firstOrNull()?.id()?.substringBefore('|')
+                val nomeDoStream = streams.firstOrNull()?.id()
+                val ownerSid = nomeDoStream?.substringBefore('|')
                 if (ownerSid.isNullOrBlank()) {
                     VoiceLog.nota("7. chegou audio/video SEM dono no nome do stream (streams=${streams.size}) — da para ouvir, mas nao da para saber de quem e")
                     return
@@ -732,7 +743,12 @@ class VoiceEngine(
                 when (val track = receiver.track) {
                     is VideoTrack -> {
                         val label = others.values.find { it.sid == ownerSid }?.label ?: "transmissão"
-                        _remoteVideos.value = _remoteVideos.value + RemoteVideo(ownerSid, label, track)
+                        val faixa = nomeDoStream.substringAfter('|', "")
+                        _remoteVideos.value = _remoteVideos.value + RemoteVideo(ownerSid, label, track, faixa)
+                        // Chega PAUSADA se ninguem estiver olhando pra ela. Sem isto, entrar
+                        // numa call com tres transmissoes baixa as tres antes de a interface
+                        // ter chance de dizer qual esta no palco.
+                        aplicarPausas()
                     }
                     // Audio remoto toca sozinho no device padrao; guardamos o receiver so
                     // pra medir o nível de fala (inchada do card de quem fala).
@@ -967,6 +983,45 @@ class VoiceEngine(
                 override fun onFailure(error: String) = Unit
             },
         )
+    }
+
+    // A INTERFACE DIZ O QUE ESTA OLHANDO, e o servidor para de mandar o resto.
+    //
+    // Antes disto o Astra entrava na sala com `auto_subscribe=1` e BAIXAVA TUDO: numa call
+    // com tres transmissoes, chegavam as tres, as tres eram decodificadas, e o palco
+    // mostrava uma. Duas transmissoes de banda e de processador jogadas fora, e a conta
+    // piora exatamente quando a call enche -- que e quando ja esta mais apertado.
+    //
+    // `disabled` e nao "cancelar a assinatura": a faixa fica de pe, so para de receber
+    // dado. Cancelar exigiria renegociar pra voltar, e trocar de transmissao no palco
+    // ficaria com meio segundo de tela preta em vez de ser imediato.
+    //
+    // Aqui a interface so informa; quem decide sao os dados. Se o palco esta vazio, tudo
+    // pausa -- inclusive o caso comum de estar numa call de voz sem ninguem transmitindo.
+    fun assistir(trackSid: String?) {
+        if (faixaNoPalco == trackSid) return
+        faixaNoPalco = trackSid
+        aplicarPausas()
+    }
+
+    private fun aplicarPausas() {
+        val faixas = _remoteVideos.value
+        if (faixas.isEmpty()) return
+        val alvo = faixaNoPalco
+        // Uma mensagem por estado, e nao uma por faixa: o protocolo aceita lista, e duas
+        // mensagens dizem a mesma coisa que dez.
+        faixas.groupBy { it.trackSid == alvo }.forEach { (assistindo, grupo) ->
+            val sids = grupo.map { it.trackSid }.filter { it.isNotBlank() }
+            if (sids.isEmpty()) return@forEach
+            val req = LivekitRtc.SignalRequest.newBuilder()
+                .setTrackSetting(
+                    LivekitRtc.UpdateTrackSettings.newBuilder()
+                        .addAllTrackSids(sids)
+                        .setDisabled(!assistindo),
+                )
+                .build()
+            ws?.send(req.toByteArray().toByteString())
+        }
     }
 
     private fun onServerAnswer(sdp: String) {

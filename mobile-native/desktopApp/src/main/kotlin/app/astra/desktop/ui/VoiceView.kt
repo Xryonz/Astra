@@ -217,7 +217,9 @@ fun VoiceView(
                     localScreen != null -> add(StageStream("eu", meuRotulo, localScreen, isMe = true))
                     directPreview -> add(StageStream("eu", meuRotulo, null, isMe = true))
                 }
-                videos.forEachIndexed { i, v -> add(StageStream("${v.ownerSid}#$i", v.ownerLabel, v.track, isMe = false)) }
+                videos.forEachIndexed { i, v ->
+                    add(StageStream("${v.ownerSid}#$i", v.ownerLabel, v.track, isMe = false, faixa = v.trackSid))
+                }
             }
         }
         var watchingId by remember { mutableStateOf<String?>(null) }
@@ -225,6 +227,9 @@ fun VoiceView(
             if (streams.none { it.id == watchingId }) watchingId = streams.firstOrNull()?.id
         }
         val watching = streams.find { it.id == watchingId }
+        // AVISA O SERVIDOR o que esta no palco, pra ele parar de mandar o resto. A minha
+        // propria transmissao tem `faixa` nula: ela nao vem da rede, nasce aqui.
+        LaunchedEffect(watching?.faixa) { engine.assistir(watching?.faixa) }
 
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
             if (streams.isEmpty()) {
@@ -654,7 +659,15 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
 //
 // Por isso a selecao passou a ser por `id` e nao pelo objeto da faixa: sem faixa, nao ha
 // objeto pra comparar.
-private data class StageStream(val id: String, val label: String, val track: VideoTrack?, val isMe: Boolean)
+// `faixa` = o SID da faixa no servidor, pra poder pedir "pausa as outras". Nula na minha
+// propria transmissao, que nao vem da rede.
+private data class StageStream(
+    val id: String,
+    val label: String,
+    val track: VideoTrack?,
+    val isMe: Boolean,
+    val faixa: String? = null,
+)
 
 // Uma fonte transmissivel: uma tela (monitor) OU uma camera. So uma por vez.
 private sealed interface ShareChoice {

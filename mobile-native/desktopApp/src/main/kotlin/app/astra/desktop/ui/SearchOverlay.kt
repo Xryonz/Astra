@@ -169,10 +169,20 @@ fun SearchOverlay(
             }
             Spacer(Modifier.height(10.dp))
             // Abas + toggle de escopo.
+            //
+            // AS ABAS SO APARECEM QUANDO HA O QUE FILTRAR. Com o campo vazio a lista
+            // mostra os destinos RECENTES, e aquele ramo nao le a aba nenhuma — entao as
+            // abas ficavam ali, clicaveis, mudando de cor e nao mudando mais nada. Abrir
+            // a lupa e clicar em "Canais" sem ter digitado era exatamente a cara de
+            // "os filtros nao funcionam", e era: um controle que nao tem sobre o que agir
+            // e pior do que um controle ausente.
+            val temBusca = query.trim().length >= 2
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SearchTab.entries.forEach { t ->
-                    TabPill(t.label, active = tab == t) { tab = t }
-                    Spacer(Modifier.width(6.dp))
+                if (temBusca) {
+                    SearchTab.entries.forEach { t ->
+                        TabPill(t.label, active = tab == t) { tab = t }
+                        Spacer(Modifier.width(6.dp))
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 if (currentServerId != null) {
@@ -183,7 +193,17 @@ fun SearchOverlay(
             Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
             Spacer(Modifier.height(8.dp))
 
-            val empty = msgs.isEmpty() && chans.isEmpty() && people.isEmpty()
+            // VAZIO E POR ABA, nao no total. Era `msgs && chans && people` todos vazios —
+            // entao, com resultados de mensagem e nenhuma pessoa, clicar em "Pessoas"
+            // caia no ramo da lista e desenhava uma lista SEM NADA DENTRO: sem resposta,
+            // sem explicacao, do jeito que um filtro quebrado se pareceria. Agora a aba
+            // ativa e quem decide se ha o que mostrar, e quando nao ha, ela diz.
+            val showMsgs = tab == SearchTab.ALL || tab == SearchTab.MESSAGES
+            val showChans = tab == SearchTab.ALL || tab == SearchTab.CHANNELS
+            val showPeople = tab == SearchTab.ALL || tab == SearchTab.PEOPLE
+            val empty = (!showMsgs || msgs.isEmpty()) &&
+                (!showChans || chans.isEmpty()) &&
+                (!showPeople || people.isEmpty())
             when {
                 // Campo vazio deixou de ser uma tela morta com uma instrucao. Os
                 // ultimos destinos transformam a lupa em atalho pra onde voce estava
@@ -208,10 +228,6 @@ fun SearchOverlay(
                     Modifier.heightIn(max = 420.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    val showMsgs = tab == SearchTab.ALL || tab == SearchTab.MESSAGES
-                    val showChans = tab == SearchTab.ALL || tab == SearchTab.CHANNELS
-                    val showPeople = tab == SearchTab.ALL || tab == SearchTab.PEOPLE
-
                     if (showChans && chans.isNotEmpty()) {
                         item { SectionLabel("canais") }
                         items(chans.size) { i ->

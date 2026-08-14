@@ -199,16 +199,9 @@ fun main() {
     Thread.sleep(2500)
     mostrar(ofertas.poll())
 
-    // A CAMERA, que ate agora nunca tinha rodado -- nem aqui nem em call de ninguem.
-    //
-    // Este bloco existe pelo mesmo motivo do 2b: uma fonte nao exercitada e uma fonte que
-    // nao funciona. Achou dois defeitos em duas rodadas -- primeiro a ligacao que nunca
-    // fechava (`mfvideosrc` entrega em memoria principal, `d3d11convert` so aceita memoria
-    // de placa), depois o encoder recusando o quadro que a ligacao consertada passou a
-    // entregar ("Could not encode stream").
-    linha("9. a camera (a fonte que nunca foi exercitada)")
-    camera(pub, previas, tamanhoPrevia)
-
+    // A CAMERA MUDOU DE LUGAR: agora e medida no estagio 8, dentro da conexao viva.
+    // Aqui ela so podia dar zero -- este cano nunca negociou video -- e um teste que nao
+    // consegue dar outra resposta nao e teste.
     pub.parar()
 
     conexaoDeVerdade()
@@ -346,57 +339,6 @@ private class Piscante {
     }
 }
 
-// Exercita a webcam pelo cano novo, e confere a ponte de NOME entre as duas bibliotecas.
-//
-// A interface lista camera pelo webrtc-java; o cano abre camera pelo `mfvideosrc`. Se os
-// dois nao chamarem o mesmo aparelho pelo mesmo nome, quem tem duas cameras escolhe uma e
-// transmite a outra -- e esse defeito nao aparece em log nenhum, so na cara de quem esta
-// do outro lado. Aqui os dois nomes ficam impressos um debaixo do outro.
-private fun camera(
-    pub: GstPublisher,
-    previas: java.util.concurrent.atomic.AtomicInteger,
-    tamanhoPrevia: Array<String?>,
-) {
-    val aparelhos = runCatching { dev.onvoid.webrtc.media.MediaDevices.getVideoCaptureDevices() }
-        .getOrElse {
-            p("  nao consegui listar cameras (${it.javaClass.simpleName}) -- webrtc-java fora do ar aqui")
-            emptyList()
-        }
-    if (aparelhos.isEmpty()) {
-        p("  NENHUMA CAMERA nesta maquina -- o cano da camera fica sem prova")
-        return
-    }
-    aparelhos.forEach { p("  o webrtc-java ve: \"${it.name}\"") }
-
-    // TODAS, e a ordem da lista NAO E ESTAVEL. A primeira rodada pegou `first()` e caiu na
-    // "OBS Virtual Camera", que entrega zero quadro com o OBS fechado -- e zero quadro por
-    // camera desligada e zero quadro por cano quebrado sao a mesma linha no relatorio.
-    // Teste que nao consegue falhar honestamente nao e teste. Na rodada seguinte a ordem
-    // se inverteu sozinha, o que fecha a questao: escolher pela posicao era sorteio.
-    aparelhos.forEach { aparelho ->
-        val nome = aparelho.name
-        previas.set(0)
-        tamanhoPrevia[0] = null
-        val subiu = pub.publicarCamera(CID_TELA, nome, 1280, 720)
-        p("  \"$nome\" a 1280x720: publicarCamera = $subiu")
-        if (!subiu) {
-            p("      !!! O CANO NAO SUBIU -- esta camera nao tem caminho no motor novo")
-            return@forEach
-        }
-        Thread.sleep(1200)
-        previas.set(0)
-        pub.estatisticas() // finca o marco
-        Thread.sleep(2000)
-        val fps = pub.estatisticas()
-        p("      nos mesmos 2s: captura ${fps?.fpsCaptura ?: "?"} fps . COMPRIMIDO ${fps?.fpsEnvio ?: "?"} fps . previa ${previas.get()} quadro(s) ${tamanhoPrevia[0] ?: ""}")
-        // Webcam FISICA nao tem a desculpa da tela parada: entrega quadro ate apontada pra
-        // parede. Camera virtual sem o programa dela aberto entrega zero e esta certa.
-        if ((fps?.fpsCaptura ?: 0) == 0) p("      zero capturado -- defeito se a camera for fisica, esperado se for virtual e estiver desligada")
-        pub.pararVideo()
-        Thread.sleep(400)
-    }
-}
-
 private fun conexaoDeVerdade() {
     linha("8. conexao de verdade (os dois lados aqui dentro)")
 
@@ -465,33 +407,79 @@ private fun conexaoDeVerdade() {
     p("  agora a TELA, dentro da conexao viva:")
     val piscante = Piscante().apply { comecar() }
     Thread.sleep(500)
-    if (pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)) {
-        // A SEGUNDA OFERTA TAMBEM PRECISA DE RESPOSTA, e esquecer isso invalidou tres
-        // rodadas de medicao. Entrar com a tela renegocia; se ninguem responde, a linha de
-        // video existe na oferta e NAO EXISTE no transporte. O `webrtcbin` entao aceita
-        // exatamente um quadro e trava -- e o log mostrou a fonte presa nove segundos e
-        // meio dentro de um unico `gst_pad_push`. Eu quase registrei isso como defeito do
-        // aplicativo; era defeito do meu banco de testes, que so sabia responder uma vez.
-        pub.negociar()
-        val oferta2 = esperar(8_000) { ofertas.poll() }
-        if (oferta2 == null) p("    !!! a segunda oferta (com video) nao saiu")
-        else responder(binEco, pub, oferta2)
-        Thread.sleep(1500)
-        pub.estatisticas() // finca o marco
-        repeat(8) {
-            Thread.sleep(1000)
-            val e = pub.estatisticas()
-            p("    ${it + 1}s: captura ${e?.fpsCaptura ?: "?"} . comprimido ${e?.fpsEnvio ?: "?"}")
-            pub.elosAgora().takeIf { s -> s.isNotBlank() }?.let { s -> p("        $s") }
-        }
-        pub.pararVideo()
-    } else {
-        p("    !!! nao publicou a tela dentro da conexao")
+    medir(pub, binEco, ofertas, "tela 720p60", 8) {
+        pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)
     }
     piscante.parar()
 
+    // A CAMERA TAMBEM AQUI DENTRO, e nao la em cima com as outras fontes.
+    //
+    // Ela morava num estagio proprio, num cano que nunca negociou video -- exatamente o
+    // erro que fez a tela parecer morta por tres rodadas. Naquele lugar a camera SO PODIA
+    // dar zero, e eu teria concluido "a camera nao funciona" de um teste que nao
+    // conseguia dar outra resposta. Fonte de video so pode ser medida com transporte
+    // negociado do outro lado.
+    val aparelhos = runCatching { dev.onvoid.webrtc.media.MediaDevices.getVideoCaptureDevices() }
+        .getOrElse {
+            p("  nao consegui listar cameras (${it.javaClass.simpleName})")
+            emptyList()
+        }
+    if (aparelhos.isEmpty()) p("  NENHUMA CAMERA nesta maquina -- o cano da camera fica sem prova")
+    aparelhos.forEach { aparelho ->
+        // O QUE A CAMERA DIZ QUE SABE FAZER, ao lado do que ela de fato entregou. Sem esta
+        // linha, "17 fps" e um numero sem regua: pode ser cano ruim ou pode ser o limite do
+        // aparelho, e as duas leituras mandam procurar em lugares opostos.
+        runCatching { dev.onvoid.webrtc.media.MediaDevices.getVideoCaptureCapabilities(aparelho) }
+            .getOrDefault(emptyList())
+            .filter { it.width in 641..1280 }
+            .distinctBy { "${it.width}x${it.height}@${it.frameRate}" }
+            .take(8)
+            .forEach { p("    o aparelho anuncia ${it.width}x${it.height} @ ${it.frameRate}fps") }
+        // Todas, e nao a primeira: a ordem da lista se inverteu sozinha entre duas rodadas,
+        // e a "OBS Virtual Camera" entrega zero com o OBS fechado -- zero por camera
+        // desligada e zero por cano quebrado sao a mesma linha no relatorio.
+        medir(pub, binEco, ofertas, "camera \"${aparelho.name}\"", 4) {
+            pub.publicarCamera(CID_TELA, aparelho.name, 1280, 720)
+        }
+    }
+
     pub.parar()
     runCatching { eco.setState(State.NULL); eco.dispose() }
+}
+
+// Publica uma fonte de video DENTRO da conexao viva, responde a renegociacao e mede.
+//
+// A RESPOSTA A SEGUNDA OFERTA E O CORACAO DISTO. Entrar com video renegocia; se ninguem
+// responde, a linha de video existe na oferta e NAO EXISTE no transporte. O `webrtcbin`
+// aceita entao exatamente um quadro e trava -- o log mostrou a fonte presa nove segundos e
+// meio dentro de um unico `gst_pad_push`. Eu quase registrei isso como defeito do
+// aplicativo; era defeito do banco de testes, que so sabia responder uma vez.
+private fun medir(
+    pub: GstPublisher,
+    binEco: WebRTCBin,
+    ofertas: java.util.Queue<String>,
+    rotulo: String,
+    segundos: Int,
+    publicar: () -> Boolean,
+) {
+    p("  $rotulo:")
+    if (!publicar()) {
+        p("    !!! nao publicou")
+        return
+    }
+    pub.negociar()
+    val oferta = esperar(8_000) { ofertas.poll() }
+    if (oferta == null) p("    !!! a oferta com video nao saiu") else responder(binEco, pub, oferta)
+    Thread.sleep(1500)
+    pub.estatisticas() // finca o marco; a primeira leitura nao tem intervalo
+    repeat(segundos) {
+        Thread.sleep(1000)
+        val e = pub.estatisticas()
+        p("    ${it + 1}s: captura ${e?.fpsCaptura ?: "?"} . comprimido ${e?.fpsEnvio ?: "?"}")
+        pub.elosAgora().takeIf { s -> s.isNotBlank() }?.let { s -> p("        $s") }
+    }
+    pub.pararVideo()
+    Thread.sleep(400)
 }
 
 // O eco recebe uma oferta e devolve a resposta. Serve pra PRIMEIRA e pra toda

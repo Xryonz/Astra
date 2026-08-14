@@ -370,8 +370,21 @@ fun ShellScreen(
     // Desempenho (Settings): reduzir movimento + prefs de render descem por
     // CompositionLocal. auroraOn/starsOn/reduceMotionEff já aplicam o modo
     // desempenho (kill-switch) por cima dos toggles individuais.
+    // APP FORA DA FRENTE = "REDUZIR MOVIMENTO" LIGADO.
+    //
+    // Medido: com o Astra atras de outra janela, congelar so o ceu levou o custo de 0,42
+    // pra 0,28 nucleo — e a aurora ja estava comprovadamente parada (dois quadros com 4s
+    // de intervalo diferiam em 15 pixels de 8600). Ou seja, o que sobrava nao era o ceu:
+    // era o RESTO do movimento pedindo quadro, e cada quadro repinta a aurora inteira.
+    // Ligando "reduzir movimento" no app todo, o mesmo cenario cai pra 0,003 nucleo.
+    //
+    // O sinal vem do `LocalWindowActive`, que ja carrega visibilidade + foco (Main.kt).
+    // Escolher este caminho, em vez de sair gateando animacao por animacao, tem uma razao
+    // que vai valer pro codigo futuro: toda animacao nova ja nasce respeitando o
+    // "reduzir movimento" por norma do projeto, entao ja nasce gratis em segundo plano.
+    val emSegundoPlano = !LocalWindowActive.current
     CompositionLocalProvider(
-        LocalReduceMotion provides prefState.reduceMotionEff,
+        LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano),
         LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
         LocalMinhaConta provides MinhaConta(session.userId, state.me?.username),
     ) {

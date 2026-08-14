@@ -285,6 +285,9 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         }
     }
     val paint = remember { Paint() }
+    // Chave do ultimo shader construido (tempo, tamanho, cor, pulso). Enquanto ela nao
+    // muda, o shader anterior serve — ver o CORTE 9 la embaixo.
+    val chave = remember { FloatArray(8) { Float.NaN } }
     // Guarda o shader que ESTE modifier criou no último frame, pra fecha-lo na mao
     // antes de criar o próximo (ver CORTE 2 abaixo). Array de 1 = celula mutavel
     // barata que sobrevive entre frames sem recompor.
@@ -294,10 +297,33 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         // uv = fragCoord/0 = NaN -> half4 com NaN -> quadro preto. Sem tamanho
         // valido, pinta so o void do tema e sai (nada de shader).
         if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@drawBehind }
-        builder.uniform("uTime", timeSec)
-        builder.uniform("uSize", size.width, size.height)
         // Pulso de login lido AQUI (draw phase): clareia o accent em ate 15% e some.
         val boost = 1f + 0.15f * pulse().coerceIn(0f, 1f)
+
+        // CORTE 9 — a aurora PARADA custava quase tanto quanto a aurora andando.
+        //
+        // Com o gate de foco funcionando, o relogio da aurora congela e `timeSec` para de
+        // mudar. Mas o `drawBehind` continua rodando: quem pede o frame nao e so a aurora,
+        // e um frame pedido por qualquer outro motivo repassa por aqui. E aqui se
+        // reconstruia um Shader Skia NOVO a cada passagem, com uniforms identicos aos da
+        // vez anterior — trabalho nativo puro, jogado fora no frame seguinte.
+        //
+        // Medido: ceu desligado 0,037 nucleo; ceu ligado e CONGELADO 0,29. A diferenca era
+        // isto. Com a chave, quadro parado reaproveita o shader e volta a custar quase
+        // nada; quadro que muda de fato reconstroi como antes.
+        val mesmo = chave[0] == timeSec && chave[1] == size.width && chave[2] == size.height &&
+            chave[3] == boost && chave[4] == accent.red && chave[5] == accent.green &&
+            chave[6] == accent.blue && chave[7] == voidC.red
+        if (mesmo && lastShader[0] != null) {
+            paint.shader = lastShader[0]
+            drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
+            return@drawBehind
+        }
+        chave[0] = timeSec; chave[1] = size.width; chave[2] = size.height; chave[3] = boost
+        chave[4] = accent.red; chave[5] = accent.green; chave[6] = accent.blue; chave[7] = voidC.red
+
+        builder.uniform("uTime", timeSec)
+        builder.uniform("uSize", size.width, size.height)
         builder.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
         builder.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
         // CORTE 2 (parado/idle): makeShader() aloca um Shader Skia NATIVO por frame.

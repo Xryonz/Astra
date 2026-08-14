@@ -110,9 +110,11 @@ class DesktopPrefs(private val store: SessionStore) {
         // salva prevalece.
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
-        // 60 e nao livre: livre segue a taxa do monitor (165Hz aqui) e o ceu custava
-        // 2,5x mais sem nada a mostrar — nada nele se move rapido. Ver `migrarCeu`.
-        val uiFps: UiFps = UiFps.CAP60,
+        // LIVRE, por decisao do dono: com o Astra na frente ele usa o processador e a
+        // placa que precisar; o unico recurso com teto e a RAM. Quem paga a conta do
+        // segundo plano e o gate de foco (Main.kt), nao um teto de fps. O ajuste continua
+        // em Configuracoes > Desempenho pra quem tiver maquina apertada.
+        val uiFps: UiFps = UiFps.FREE,
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
         // de criacao da janela). Opaca = mais nitido/leve.
         val windowTransparent: Boolean = true,
@@ -182,15 +184,19 @@ class DesktopPrefs(private val store: SessionStore) {
     // efeito nenhum, e que portanto nunca foi testada por ele. Entao os dois voltam pro
     // padrao bom uma unica vez, marcado por `ceuMigrado`. A partir daqui a tela manda.
     //
-    // 60fps e o padrao novo (era livre): medido nesta maquina, parado, o ceu custava
-    // 0,416 nucleo em 165Hz contra 0,166 em 60 — e a aurora leva 20s pra dar uma volta,
-    // entao nao ha o que ver a mais em 165.
+    // Os dois voltam pro padrao: aurora ALTA (a que o dono sempre viu, porque era o
+    // default que vinha valendo) e fps LIVRE — na frente o Astra nao tem teto de
+    // processador nem de placa, so de RAM. O que segura o custo em segundo plano e o
+    // gate de foco no Main.kt, e nao um teto que valeria tambem com o app na frente.
+    // A marca e VERSIONADA porque esta migracao ja rodou uma vez com outro alvo: a 0.2.17
+    // pos os fps em 60, e a 0.2.18 mudou a politica pra "sem teto na frente, gate de foco
+    // atras". Marca booleana teria deixado quem instalou a 0.2.17 preso nos 60 pra sempre.
     private fun migrarCeu() {
-        if (store.uiPref("ceuMigrado") == "1") return
-        store.setUiPref("ceuMigrado", "1")
+        if (store.uiPref("ceuMigrado") == "2") return
+        store.setUiPref("ceuMigrado", "2")
         store.setUiPref("auroraQuality", AuroraQuality.HIGH.key)
-        store.setUiPref("uiFps", UiFps.CAP60.key)
-        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.CAP60) }
+        store.setUiPref("uiFps", UiFps.FREE.key)
+        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.FREE) }
     }
 
     // Ausente = default (toasts ligados; reduceMotion/perfMode desligados; aurora

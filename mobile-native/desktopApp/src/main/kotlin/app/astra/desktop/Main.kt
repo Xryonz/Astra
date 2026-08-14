@@ -10,6 +10,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,9 +47,15 @@ import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.update.UpdateService
+import com.sun.jna.Native
+import com.sun.jna.Pointer
+import com.sun.jna.ptr.IntByReference
+import com.sun.jna.win32.StdCallLibrary
+import com.sun.jna.win32.W32APIOptions
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.AstraTitleBar
+import app.astra.desktop.ui.LocalReduceMotion
 import app.astra.desktop.ui.LocalRenderPrefs
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.RenderPrefs
@@ -126,6 +133,65 @@ private fun escolherPlacaDaInterface() = runCatching {
         return@runCatching
     }
     System.setProperty("skiko.gpu.priority", if (placa.dedicada) "discrete" else "integrated")
+}
+
+// FOCO REAL DA JANELA, perguntado ao AWT — e o `window.isFocused` do inicio importa
+// tanto quanto os eventos.
+//
+// A primeira tentativa gateava por `LocalWindowInfo.isWindowFocused` e nao economizava
+// nada. Instrumentado, o motivo apareceu: quando o Astra abre ATRAS de outra janela ele
+// nunca GANHA foco, entao nunca dispara o evento de perder — e um sinal que so existe por
+// evento fica preso no valor inicial pra sempre. O `KeyboardFocusManager` tinha o mesmo
+// defeito por outro caminho: disparava uma vez ao ganhar e nunca mais voltava a nulo.
+//
+// Terceira tentativa, e a que funciona: perguntar ao WINDOWS quem esta em primeiro plano
+// e comparar com o nosso processo. Instrumentado, o AWT deste app registra "GANHOU foco"
+// no arranque e NUNCA mais dispara nada — a janela e frameless e translucida, e nessa
+// configuracao os eventos de foco do AWT simplesmente nao chegam. Um sinal que so existe
+// por evento fica preso no valor inicial pra sempre, e foi por isso que as duas versoes
+// anteriores mediram exatamente a mesma coisa com e sem foco.
+//
+// Comparar o PROCESSO, e nao a janela, tem um bonus: menu de contexto e popup do Compose
+// sao janelas separadas mas NOSSAS, entao continuam contando como "o app esta na frente"
+// e o ceu nao congela a cada clique com o botao direito — que era a objecao original a
+// gatear por foco.
+private object FocoDoSistema {
+    interface U32 : StdCallLibrary {
+        fun GetForegroundWindow(): Pointer?
+        fun GetWindowThreadProcessId(janela: Pointer?, pid: IntByReference): Int
+        companion object {
+            val I: U32? = runCatching {
+                Native.load("user32", U32::class.java, W32APIOptions.DEFAULT_OPTIONS)
+            }.getOrNull()
+        }
+    }
+
+    private val meuPid = runCatching { ProcessHandle.current().pid().toInt() }.getOrDefault(-1)
+
+    // "Alguma janela DESTE processo esta em primeiro plano?" — inclui popup e menu, que
+    // sao janelas separadas mas nossas.
+    fun appNaFrente(): Boolean {
+        val u = U32.I ?: return true // sem JNA nao ha como saber; nunca congelar e o seguro
+        val janela = u.GetForegroundWindow() ?: return false
+        val dono = IntByReference()
+        u.GetWindowThreadProcessId(janela, dono)
+        return dono.value == meuPid
+    }
+}
+
+@Composable
+private fun lembrarFocoDoApp(): Boolean {
+    var foco by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            foco = FocoDoSistema.appNaFrente()
+            // 400ms: uma chamada de user32 nesse ritmo e ruido (microssegundos), e o olho
+            // nao percebe o ceu voltando a andar 4 decimos depois do clique. Poll e feio,
+            // mas e o unico sinal que se provou confiavel aqui — ver o paragrafo abaixo.
+            delay(400)
+        }
+    }
+    return foco
 }
 
 private fun writeDiagnostics() = runCatching {
@@ -415,6 +481,9 @@ fun main() {
             val koin = GlobalContext.get()
             // Foco da janela (nao e o mesmo que visivel): alimenta a regra de aviso.
             val windowInfo = LocalWindowInfo.current
+            // Perguntado ao AWT, com o estado inicial lido do sistema — e o que decide se
+            // o ceu anima. Ver `lembrarFocoDoApp`.
+            val janelaComFoco = lembrarFocoDoApp()
             val store = remember { koin.get<SessionStore>() }
             val authRepo = remember { koin.get<AuthRepository>() }
             var session by remember { mutableStateOf(store.load()) }
@@ -472,11 +541,22 @@ fun main() {
                     // Logo abaixo da barra de titulo, acima de tudo: vale no login e no
                     // shell, porque a espera pela API acontece nos dois.
                     ServidorAcordandoStrip()
-                    // Ativa = visivel & não minimizada: aurora/estrelas so pedem
-                    // frame quando ativa (poupam na bandeja) SEM congelar quando um
-                    // popup rouba o foco (isso e visibilidade, não foco).
+                    // ATIVA = VISIVEL, NAO MINIMIZADA **E COM O APP NA FRENTE**.
+                    //
+                    // O foco entrou aqui porque congelar so o ceu nao bastava: medido, com
+                    // o ceu ja parado o app ainda gastava 0,28 nucleo em segundo plano. O
+                    // motivo e que ALGUEM continuava pedindo quadro, e cada quadro repinta
+                    // a aurora inteira. Quem pedia era o resto do enfeite que le este
+                    // mesmo sinal — em especial o pulso do marcador de nao-lida, que e um
+                    // relogio POR CANAL nao lido, e o dono tem varios.
+                    //
+                    // Quem mais depende disto (conferido antes de mexer): a estrela de
+                    // quem fala na call e a PREVIA da propria transmissao. Os dois so
+                    // fazem sentido com alguem olhando, e a previa desligada nao muda nada
+                    // do que os outros recebem. O video dos outros nao passa por aqui.
                     CompositionLocalProvider(
-                        LocalWindowActive provides (windowVisible && !state.isMinimized),
+                        LocalWindowActive provides
+                            (windowVisible && !state.isMinimized && janelaComFoco),
                     ) {
                     // O CEU DA JANELA: aurora + estrelas atrás do login E do shell.
                     // Morava dentro do ShellScreen, e o login pintava a propria aurora
@@ -505,17 +585,14 @@ fun main() {
                     // "Nao minimizada" nao e o mesmo que "visivel": o Windows nao para de
                     // entregar frames pra janela coberta.
                     //
-                    // POR QUE FOCO DA JANELA e nao a janela ativa do processo: tentei o
-                    // KeyboardFocusManager primeiro, justamente pra que um popup nosso
-                    // continuasse contando como "o app tem foco". Instrumentei e ele
-                    // dispara UMA vez, ao ganhar foco, e nunca mais — nem `activeWindow`
-                    // nem `focusedWindow` voltam a null quando a pessoa vai pra outro
-                    // programa. `isWindowFocused` e o sinal que este app ja usa e que
-                    // funciona (e o mesmo que decide se a notificacao aparece).
+                    // A POLITICA, decidida pelo dono: NA FRENTE sem teto nenhum — o Astra
+                    // usa o processador e a placa que precisar pra tudo ficar liso. ATRAS,
+                    // o mais perto de zero possivel. O unico recurso com teto e a RAM.
                     //
-                    // PRECO ACEITO: enquanto um menu de contexto focavel estiver aberto, o
-                    // ceu fica parado, porque o menu e outra janela. Some ao fechar. Vale
-                    // 0,31 nucleo.
+                    // E o gate de foco que sustenta essa conta: sem ele, "sem teto"
+                    // significaria 0,42 nucleo o dia inteiro em segundo plano. Ver
+                    // `lembrarFocoDoApp` pra saber por que o sinal vem do Windows e nao do
+                    // AWT — as duas tentativas em cima do AWT nao economizaram nada.
                     //
                     // So aqui dentro: LocalWindowActive continua significando visibilidade
                     // pro resto (video de call nao pode congelar porque a pessoa clicou
@@ -534,11 +611,13 @@ fun main() {
                     // O ceu subiu pro Main quando o login e o shell passaram a dividir o
                     // mesmo ceu; o provedor ficou pra tras, e como CompositionLocal cai no
                     // default em silencio, nada quebrou visivelmente — so parou de obedecer.
+                    // O mesmo vale pro ceu e pro login, que vivem acima do ShellScreen:
+                    // fora da frente, "reduzir movimento" ligado. Ver o comentario longo
+                    // no provedor equivalente do ShellScreen.
                     CompositionLocalProvider(
                         LocalRenderPrefs provides
                             RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
-                        LocalWindowActive provides
-                            (windowVisible && !state.isMinimized && windowInfo.isWindowFocused),
+                        LocalReduceMotion provides (prefState.reduceMotionEff || !janelaComFoco),
                     ) {
                         if (prefState.auroraOn) {
                             // Camada propria (graphicsLayer): so ela invalida por frame —

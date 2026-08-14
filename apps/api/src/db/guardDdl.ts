@@ -308,4 +308,15 @@ CREATE INDEX IF NOT EXISTS "ServerSticker_serverId_idx" ON "ServerSticker" USING
 -- ===== Chamada de voz/vídeo no sussurro =====
 -- Nulo = mensagem normal. Preenchido = a linha e um registro de chamada.
 ALTER TABLE "DirectMessage" ADD COLUMN IF NOT EXISTS "call" text;
+
+-- ===== Órbita dos avisos da bot =====
+-- Onde a bot fala sem ser chamada (troca de turno, boas-vindas). Nulo = escolhe
+-- sozinha, a primeira órbita de texto em que ela tem voz (o comportamento antigo).
+--
+-- SEM chave estrangeira de propósito: se a órbita for apagada, a coluna aponta pra
+-- um id que não existe mais e o código simplesmente não acha o canal -> cai no
+-- automático. Com ON DELETE SET NULL o efeito final seria o mesmo, mas apagar um
+-- canal passaria a escrever na tabela Server, e a operação de apagar canal não
+-- precisa desse acoplamento.
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "botNoticeChannelId" text;
 `

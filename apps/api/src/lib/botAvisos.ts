@@ -1,7 +1,7 @@
 import type { Server as SocketServer } from 'socket.io'
 import { and, asc, eq } from 'drizzle-orm'
 import { db } from '../db'
-import { channels, messages, serverMembers, users } from '../db/schema'
+import { channels, messages, serverMembers, servers, users } from '../db/schema'
 import { redis } from './redis'
 import { logger } from './logger'
 import { botNaOrbita } from './botScope'
@@ -25,10 +25,38 @@ import { getBotId, personaDoDia, sincronizaPersona, type Persona } from './bot'
 let io: SocketServer | null = null
 export function ligarAvisosDaBot(server: SocketServer) { io = server }
 
-// Onde ela fala numa constelação: a primeira órbita de TEXTO em que ela tem voz.
-// Ordem por posição, que é a mesma que a pessoa vê na barra lateral — então a
-// escolha do código bate com a expectativa de quem olha a tela.
+// Onde ela fala numa constelação.
+//
+// PRIMEIRO a escolha do dono (Server.botNoticeChannelId). Ela vale pra tudo que a
+// bot diz sem ser chamada — chegada de gente e troca de turno. Subir de nível não
+// passa por aqui de propósito: aquele aviso é sobre a conversa em que a pessoa
+// estava, não sobre a constelação.
+//
+// A escolha é RECONFERIDA a cada aviso, e não confiada. O id pode ter virado uma
+// órbita apagada, privada, de voz, ou uma em que a bot foi silenciada depois —
+// nada disso avisa esta tabela quando acontece. Se não passar, cai no automático:
+// a primeira órbita de texto em que ela tem voz, por posição, que é a mesma ordem
+// que a pessoa vê na barra lateral.
+//
+// Cair no automático (e não calar) é decisão do dono: sair no lugar errado é um
+// aviso fora de lugar; não sair é um recurso que morre em silêncio.
 async function canalDeAvisos(serverId: string): Promise<string | null> {
+  const [escolha] = await db.select({ id: servers.botNoticeChannelId })
+    .from(servers).where(eq(servers.id, serverId)).limit(1)
+
+  if (escolha?.id) {
+    const [c] = await db.select({ id: channels.id })
+      .from(channels)
+      .where(and(
+        eq(channels.id, escolha.id),
+        eq(channels.serverId, serverId),
+        eq(channels.type, 'TEXT'),
+        eq(channels.isPrivate, false),
+      ))
+      .limit(1)
+    if (c && (await botNaOrbita(c.id)).fala) return c.id
+  }
+
   const lista = await db.select({ id: channels.id })
     .from(channels)
     .where(and(eq(channels.serverId, serverId), eq(channels.type, 'TEXT'), eq(channels.isPrivate, false)))

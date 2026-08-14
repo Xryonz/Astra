@@ -300,6 +300,11 @@ private fun OverviewSection(
     var bannerPositionY by remember(server) { mutableStateOf(server.bannerPositionY) }
     var bannerScale by remember(server) { mutableStateOf(server.bannerScale) }
     var iconScale by remember(server) { mutableStateOf(server.iconScale) }
+    // null = automática (a bot escolhe). So órbita de TEXTO entra na lista: a bot
+    // escreve, e oferecer uma sala de voz aqui seria oferecer uma escolha que o
+    // servidor recusa.
+    var orbitaAvisos by remember(server) { mutableStateOf(server.botNoticeChannelId) }
+    val orbitasDeTexto = remember(server) { server.channels.filter { it.type == "TEXT" && !it.isPrivate } }
 
     var saving by remember { mutableStateOf(false) }
     var busyIcon by remember { mutableStateOf(false) }
@@ -328,7 +333,8 @@ private fun OverviewSection(
         retention != (server.messageRetentionDays ?: 0) ||
         bannerPositionY != server.bannerPositionY ||
         bannerScale != server.bannerScale ||
-        iconScale != server.iconScale
+        iconScale != server.iconScale ||
+        orbitaAvisos != server.botNoticeChannelId
 
     // Form (esquerda) + card de previa ao vivo (direita). O form segue no fluxo
     // scrollavel do pai; a previa acompanha no topo-direita.
@@ -562,6 +568,33 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
+    // ---- Órbita dos avisos da bot ----
+    // Vale pra tudo que ela diz sem ser chamada: troca de turno e chegada de gente.
+    // Subir de nível não entra aqui de propósito — aquele aviso é sobre a conversa
+    // em que a pessoa estava, não sobre a constelação.
+    SettingsDivider()
+    FieldLabel("órbita dos avisos da bot")
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    ) {
+        ChoiceChip("automática", selected = orbitaAvisos == null) { orbitaAvisos = null }
+        orbitasDeTexto.forEach { c ->
+            ChoiceChip("#${c.name}", selected = orbitaAvisos == c.id) { orbitaAvisos = c.id }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        if (orbitaAvisos == null) {
+            "sem escolha, ela fala na primeira órbita de texto em que tem voz."
+        } else {
+            "se essa órbita for apagada ou a bot for silenciada nela, o aviso volta a sair na automática."
+        },
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+
     // ---- Zona de perigo ----
     SettingsDivider()
     FieldLabel("zona de perigo")
@@ -639,6 +672,10 @@ private fun OverviewSection(
                           // 0 = "pra sempre"; o backend traduz 0 em null.
                           messageRetentionDays = retention,
                           isPublic = isPublic,
+                          // "" e nao null: campo nulo nao vai no corpo, entao null
+                          // aqui significaria "nao mexi nisto" e nunca daria pra
+                          // voltar ao automatico. O backend traduz vazio em nulo.
+                          botNoticeChannelId = orbitaAvisos.orEmpty(),
                       ),
                   ) { err ->
                       saving = false
@@ -656,6 +693,7 @@ private fun OverviewSection(
                       bannerPositionY = server.bannerPositionY
                       bannerScale = server.bannerScale
                       iconScale = server.iconScale
+                      orbitaAvisos = server.botNoticeChannelId
                       msg = null
                   }
               }

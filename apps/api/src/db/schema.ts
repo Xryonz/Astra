@@ -119,6 +119,10 @@ export const servers = pgTable('Server', {
   description: text('description'),
 
   messageRetentionDays: integer('messageRetentionDays'),
+
+  // Órbita onde a bot fala sem ser chamada. Nulo = ela escolhe sozinha.
+  botNoticeChannelId: text('botNoticeChannelId'),
+
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt:  timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
 })

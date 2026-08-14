@@ -18,6 +18,8 @@ data class ServerDto(
     val inviteCode: String? = null,
     val isPublic: Boolean = false,
     val isGroup: Boolean = false,
+    // Órbita onde a bot fala sem ser chamada. null = ela escolhe sozinha.
+    val botNoticeChannelId: String? = null,
     val channels: List<ChannelDto> = emptyList(),
     val categories: List<CategoryDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,
@@ -67,6 +69,10 @@ data class UpdateServerRequest(
     val description: String? = null,
     val messageRetentionDays: Int? = null,
     val isPublic: Boolean? = null,
+    // Órbita dos avisos da bot. Campo nulo não vai no corpo (encodeDefaults=false),
+    // então "voltar ao automático" se manda como STRING VAZIA — o backend traduz
+    // vazio em nulo. Sem essa distinção não haveria como desfazer a escolha.
+    val botNoticeChannelId: String? = null,
 )
 
 @Serializable

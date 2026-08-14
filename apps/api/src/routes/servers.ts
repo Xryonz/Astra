@@ -208,6 +208,8 @@ const UpdateServerSchema = z.object({
   // dois — entao o mesmo gesto passava num lugar e era recusado no outro.
   bannerScale:     z.number().int().min(50).max(300).optional(),
   iconScale:       z.number().int().min(100).max(300).optional(),
+  // Órbita dos avisos da bot. null (ou "") = volta a escolher sozinha.
+  botNoticeChannelId: z.string().optional().nullable(),
 })
 
 serversRouter.patch(
@@ -216,10 +218,11 @@ serversRouter.patch(
   validate(UpdateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description, bannerPositionY, bannerScale, iconScale } = req.body as {
+    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description, bannerPositionY, bannerScale, iconScale, botNoticeChannelId } = req.body as {
       name?: string; iconUrl?: string | null; bannerUrl?: string | null
       messageRetentionDays?: number | null; isPublic?: boolean; description?: string | null
       bannerPositionY?: number; bannerScale?: number; iconScale?: number
+      botNoticeChannelId?: string | null
     }
 
     const m = await getMemberPerms(req.userId!, serverId)
@@ -245,6 +248,21 @@ serversRouter.patch(
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
     if (isPublic    !== undefined) patch.isPublic    = isPublic
     if (description !== undefined) patch.description = description?.trim() || null
+    // Órbita dos avisos da bot. Confere que o canal é DESTA constelação antes de
+    // gravar: sem isso um id de outro servidor entraria na tabela e o dono acharia
+    // que escolheu — a checagem na hora de falar rejeitaria em silêncio, todo aviso,
+    // pra sempre. Vazio = volta ao automático.
+    if (botNoticeChannelId !== undefined) {
+      const alvo = botNoticeChannelId?.trim() || null
+      if (alvo) {
+        const [c] = await db.select({ id: channels.id })
+          .from(channels)
+          .where(and(eq(channels.id, alvo), eq(channels.serverId, serverId), eq(channels.type, 'TEXT')))
+          .limit(1)
+        if (!c) return res.status(422).json({ error: 'Essa órbita não é de texto desta constelação' })
+      }
+      patch.botNoticeChannelId = alvo
+    }
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })
 
     await db.update(servers).set(patch).where(eq(servers.id, serverId))

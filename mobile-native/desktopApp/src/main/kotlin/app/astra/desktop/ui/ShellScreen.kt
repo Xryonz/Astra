@@ -3666,7 +3666,16 @@ private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String
     // snapshot inicial pode ter pego antes do socket subir. Sem isso meu nome ficava
     // apagado mesmo online. Os demais vem da presenca real (o heartbeat a mantem viva).
     fun online(uid: String) = uid == myId || presence[uid]?.let { it != "OFFLINE" } == true
-    fun nameOf(m: ServerMemberDto) = (m.user.displayName ?: m.user.username).lowercase()
+    // A chave de ordenacao sai UMA VEZ por membro, e nao dentro do comparador.
+    //
+    // `sortedBy { nome.lowercase() }` parece inocente e nao e: o comparador roda O(n log n)
+    // vezes e cada passada alocava uma String nova. Numa constelacao de cinquenta pessoas
+    // isso e perto de mil Strings descartaveis -- a cada mudanca de presenca de qualquer
+    // um, que e o evento mais frequente que existe aqui. O resultado e identico; o lixo
+    // gerado, nao.
+    val chave = HashMap<String, String>(members.size)
+    for (m in members) chave[m.userId] = (m.user.displayName ?: m.user.username).lowercase()
+    fun nameOf(m: ServerMemberDto) = chave[m.userId].orEmpty()
 
     // membro -> cargo hoist mais alto (position maior). Sem cargo hoist = "" (MEMBROS).
     val roleById = HashMap<String, MemberRoleDto>()

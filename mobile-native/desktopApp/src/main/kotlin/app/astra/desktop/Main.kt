@@ -117,6 +117,16 @@ private fun writeDiagnostics() = runCatching {
         appendLine("versao       : ${System.getProperty("astra.version") ?: "dev"}")
         appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
         appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
+        // QUAL PLACA DESENHA A INTERFACE. Sem esta linha, "o Astra esta lagado" numa
+        // maquina de duas placas e uma frase sem resposta possivel: o Skiko sem escolha
+        // explicita cai em "Auto", e Auto pega o adaptador padrao -- que num notebook
+        // hibrido e a INTEGRADA, com a dedicada parada do lado. Adivinhar isso custa uma
+        // sessao; ler custa uma linha.
+        appendLine("placa (pedido): ${System.getProperty("skiko.gpu.priority") ?: "auto (o Skiko decide)"}")
+        Placas.todas.forEach {
+            val papel = if (it.desenhaATela) "desenha a tela" else "so renderiza"
+            appendLine("placa        : ${it.nome} — $papel, ${if (it.dedicada) "dedicada" else "integrada"}")
+        }
         appendLine("GC           : ${gcName()}")
         appendLine("heap maximo  : ${rt.maxMemory() / 1024 / 1024} MB")
         appendLine("nucleos      : ${rt.availableProcessors()}")

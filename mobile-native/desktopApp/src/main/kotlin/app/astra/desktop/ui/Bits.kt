@@ -331,6 +331,26 @@ val LocalReduceMotion = compositionLocalOf { false }
 data class MinhaConta(val id: String? = null, val usuario: String? = null)
 val LocalMinhaConta = staticCompositionLocalOf { MinhaConta() }
 
+// Clique num @usuario dentro da mensagem -> mini card de perfil no ponto do clique.
+//
+// E uma CLASSE com campo mutavel, e não uma lambda, e o motivo esta em onde a
+// mencao e montada. O texto estilizado da mensagem e memoizado (`remember`) porque
+// remonta-lo e o caminho mais quente do app — e o que entra nesse texto fica preso
+// ali ate a chave do remember mudar.
+//
+// Uma lambda que enxergasse a lista de membros trocaria de identidade quando a
+// lista chegasse da rede, e a mensagem ja memoizada continuaria segurando a VELHA,
+// a que ainda não conhecia ninguem. O @ simplesmente não abriria nada — so nas
+// conversas abertas antes dos membros carregarem. Bug intermitente e por tempo, o
+// tipo mais caro de achar.
+//
+// Com o objeto estavel, a mensagem guarda a REFERENCIA e le o campo na hora do
+// clique, que e quando a resposta certa existe.
+class MencaoClicavel {
+    var abrir: (usuario: String) -> Unit = {}
+}
+val LocalMencaoClicavel = staticCompositionLocalOf { MencaoClicavel() }
+
 // Janela "ativa" = visivel E não minimizada (provido no Main a partir do estado
 // da janela). Aurora e estrelas gastam frame SO quando ativa — na bandeja/
 // minimizada param (guardrail do dono). IMPORTANTE: e diferente de "focada".

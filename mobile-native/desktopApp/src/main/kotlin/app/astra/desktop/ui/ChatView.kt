@@ -62,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -84,6 +85,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
@@ -98,8 +101,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -157,6 +163,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
@@ -267,16 +274,61 @@ fun ChatView(
     var lightboxUrl by remember { mutableStateOf<String?>(null) }
     lightboxUrl?.let { Lightbox(it) { lightboxUrl = null } }
 
+    // CLIQUE NO @: quem sabe traduzir o nome escrito em uma pessoa e ESTA camada, não
+    // a mensagem. A mensagem so tem o texto; a lista de membros da constelacao mora
+    // aqui. Por isso a mencao pergunta pra ca em vez de resolver sozinha.
+    //
+    // Em sussurro `membros` vem vazio de proposito (mencionar a unica outra pessoa da
+    // conversa não serve pra nada), entao la o @ não tem quem procurar e o clique não
+    // faz nada — em vez de abrir o card de alguem parecido.
+    val mencao = remember { MencaoClicavel() }
+    var perfilDaMencao by remember(target.id) { mutableStateOf<Pair<String, IntOffset>?>(null) }
+    // Onde o cursor estava no ultimo evento. Um array cru e não um State, e a
+    // diferenca não e estilo: isto muda a cada pixel de movimento do mouse, e um
+    // State faria a conversa inteira recompor so por passar o mouse por cima dela.
+    // Ninguem le este valor durante a composicao — so no instante do clique.
+    val ponteiro = remember { intArrayOf(0, 0) }
+    SideEffect {
+        mencao.abrir = { usuario ->
+            membros.firstOrNull { it.user.username.equals(usuario, ignoreCase = true) }?.let { m ->
+                perfilDaMencao = m.userId to IntOffset(ponteiro[0], ponteiro[1])
+            }
+        }
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalOpenImage provides { url -> lightboxUrl = url },
         LocalMsgFontScale provides prefState.fontSize.scale,
         LocalMsgDensity provides MsgDensity(prefState.density.topDp, prefState.density.groupedTopDp),
+        LocalMencaoClicavel provides mencao,
     ) {
     Box(
         Modifier
             .fillMaxSize()
+            // Passe INITIAL e sem consumir: so observa por onde o cursor anda, antes
+            // de qualquer filho decidir o que fazer com o evento. O card do @ precisa
+            // nascer onde o dedo tocou, e o clique de um link não carrega posicao.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val p = awaitPointerEvent(PointerEventPass.Initial)
+                            .changes.firstOrNull()?.position ?: continue
+                        ponteiro[0] = p.x.roundToInt()
+                        ponteiro[1] = p.y.roundToInt()
+                    }
+                }
+            }
             .dragAndDropTarget(shouldStartDragAndDrop = { true }, target = dndTarget),
     ) {
+        perfilDaMencao?.let { (uid, onde) ->
+            ProfileCardNoPonto(
+                userId = uid,
+                at = onde,
+                isMe = uid == vm.myId,
+                onStartDm = { u, t -> perfilDaMencao = null; onStartDm(u, t) },
+                onClose = { perfilDaMencao = null },
+            )
+        }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             when {
@@ -927,11 +979,15 @@ private fun ContentBlock(
         // mensagem nova, mudar a densidade). E o caminho mais quente do app.
         // Entra na chave do remember: trocar de conta muda QUAL @ ganha fundo.
         val meuUsuario = LocalMinhaConta.current.usuario
+        // FORA das chaves do remember de proposito: o objeto e estavel e so o campo
+        // dentro dele muda (ver MencaoClicavel). Entrar como chave remontaria todo o
+        // texto do chat a cada ida e volta da lista de membros.
+        val aoClicarNaMencao = LocalMencaoClicavel.current
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
                 text = remember(msg.content, msg.edited, meuUsuario) {
                     buildAnnotatedString {
-                        appendInlineCoded(msg.content, meuUsuario)
+                        appendInlineCoded(msg.content, meuUsuario, aoClicarNaMencao)
                         if (msg.edited) {
                             withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
                         }
@@ -944,7 +1000,9 @@ private fun ContentBlock(
                 if (i > 0) Spacer(Modifier.height(4.dp))
                 when (seg) {
                     is Seg.Txt -> Text(
-                        text = remember(seg.s, meuUsuario) { buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario) } },
+                        text = remember(seg.s, meuUsuario) {
+                            buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario, aoClicarNaMencao) }
+                        },
                         style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
                     )
                     is Seg.Code -> CodeBox(seg)
@@ -1165,16 +1223,20 @@ private fun parseSegments(content: String): List<Seg> {
 
 // `inline code` vira span DM Mono com fundo. Fora das crases, @usuario vira mencao.
 // A ordem importa: `@fulano` dentro de crase e codigo, nao mencao.
-private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(s: String, meuUsuario: String? = null) {
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
+    s: String,
+    meuUsuario: String? = null,
+    aoClicar: MencaoClicavel,
+) {
     var i = 0
     while (true) {
         val a = s.indexOf('`', i)
         val b = if (a >= 0) s.indexOf('`', a + 1) else -1
         if (a < 0 || b < 0) {
-            appendComMencoes(s.substring(i), meuUsuario)
+            appendComMencoes(s.substring(i), meuUsuario, aoClicar)
             return
         }
-        appendComMencoes(s.substring(i, a), meuUsuario)
+        appendComMencoes(s.substring(i, a), meuUsuario, aoClicar)
         withStyle(SpanStyle(fontFamily = DmMono, background = Obsidian.base, fontSize = 12.sp)) {
             append(s.substring(a + 1, b))
         }
@@ -1240,17 +1302,38 @@ private val REGEX_MENCAO = Regex("@([A-Za-z0-9_]+)")
 // @usuario em ambar; o MEU ganha fundo. Ambar sozinho ja diz "tem gente marcada",
 // mas nao diz "e voce" — e essa e a unica distincao que muda o que voce faz com a
 // mensagem. Por isso o peso visual fica reservado pro seu caso.
-private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(s: String, meuUsuario: String?) {
+//
+// Clicar abre o mesmo mini card do avatar. Isso e feito com LinkAnnotation e nao
+// com hit-test na mao: o BasicText ja sabe em que span o cursor esta, entao o
+// hover e o clique saem de graca e certos, inclusive quando a mencao quebra de
+// linha no meio — que e justamente onde calcular na mao erra.
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(
+    s: String,
+    meuUsuario: String?,
+    aoClicar: MencaoClicavel,
+) {
     var i = 0
     for (m in REGEX_MENCAO.findAll(s)) {
         append(s.substring(i, m.range.first))
-        val minha = !meuUsuario.isNullOrBlank() && m.groupValues[1].equals(meuUsuario, ignoreCase = true)
-        withStyle(
-            SpanStyle(
-                color = Obsidian.accent,
-                fontWeight = FontWeight.Medium,
-                background = if (minha) Obsidian.accent.copy(alpha = 0.16f) else Color.Transparent,
-            ),
+        val usuario = m.groupValues[1]
+        val minha = !meuUsuario.isNullOrBlank() && usuario.equals(meuUsuario, ignoreCase = true)
+        val repouso = SpanStyle(
+            color = Obsidian.accent,
+            fontWeight = FontWeight.Medium,
+            background = if (minha) Obsidian.accent.copy(alpha = 0.16f) else Color.Transparent,
+        )
+        // A SUA mencao ja nasce acesa, entao o hover dela sobe MAIS um degrau em vez
+        // de repetir o mesmo tom. Se os dois usassem 0.16 aconteceriam duas coisas
+        // ruins de uma vez: passar o mouse na propria mencao nao daria retorno
+        // nenhum, e o fundo deixaria de significar "e voce" pra significar "o mouse
+        // esta aqui" — perdendo a unica distincao que muda o que voce faz com a
+        // mensagem.
+        val aceso = repouso.copy(background = Obsidian.accent.copy(alpha = if (minha) 0.30f else 0.14f))
+        withLink(
+            LinkAnnotation.Clickable(
+                tag = usuario,
+                styles = TextLinkStyles(style = repouso, hoveredStyle = aceso, pressedStyle = aceso),
+            ) { aoClicar.abrir(usuario) },
         ) { append(m.value) }
         i = m.range.last + 1
     }

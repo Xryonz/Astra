@@ -171,6 +171,48 @@ fun ProfileAnchor(
     }
 }
 
+// O MESMO card, aberto NO PONTO DO CLIQUE — o caminho do @ dentro da mensagem.
+//
+// O ProfileAnchor acima não serve aqui, e a diferenca e de natureza: ele envolve um
+// ALVO (avatar, linha de membro) e ancora o popup nos limites desse alvo. Uma mencao
+// não e um alvo — e um pedaco de texto no meio de um paragrafo, que pode ate quebrar
+// de linha. O unico ponto que significa alguma coisa e onde o cursor tocou.
+@Composable
+fun ProfileCardNoPonto(
+    userId: String,
+    at: IntOffset,
+    isMe: Boolean,
+    onStartDm: (username: String, title: String) -> Unit,
+    onClose: () -> Unit,
+) {
+    var full by remember(userId) { mutableStateOf(false) }
+    if (!full) {
+        Popup(
+            popupPositionProvider = remember(at) { AtPointer(at) },
+            onDismissRequest = onClose,
+            properties = PopupProperties(focusable = true),
+        ) {
+            ProfilePopupCard(
+                userId = userId,
+                isMe = isMe,
+                // Do texto da mensagem não da pra saber os cargos da pessoa NESTA
+                // constelacao — so o painel de membros tem isso. Card sem a secao de
+                // cargos e melhor que card com uma secao vazia (mesma regra do chat).
+                cargos = emptyList(),
+                onStartDm = { u, t -> onStartDm(u, t) },
+                onOpenFull = { full = true },
+            )
+        }
+    } else {
+        ProfilePage(
+            userId = userId,
+            isMe = isMe,
+            onStartDm = { u, t -> onStartDm(u, t) },
+            onClose = onClose,
+        )
+    }
+}
+
 @Composable
 private fun ProfilePopupCard(
     userId: String,

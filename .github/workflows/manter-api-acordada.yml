@@ -1,0 +1,57 @@
+# Mantem a API do Astra acordada nas horas em que alguem usa.
+#
+# POR QUE ISTO EXISTE
+# O plano free do Render desliga a instancia depois de 15 minutos sem nenhuma
+# requisicao, e religar leva perto de um minuto. Quem abre o Astra nesse minuto ve
+# a tela de carregar parada, sem saber se travou. Um GET a cada 10 minutos conta
+# como trafego e a instancia nunca chega nos 15.
+#
+# POR QUE NAO 24 HORAS POR DIA
+# O free tem teto de 750 HORAS DE INSTANCIA por mes na conta inteira. Um mes de 31
+# dias tem 744 horas: ficar acordado o tempo todo gasta 744 das 750 e deixa 6 horas
+# de folga pro mes inteiro. Estourar o teto nao deixa a API lenta -- SUSPENDE ela
+# ate o dia 1 do mes seguinte. A janela de 09h as 02h (BRT) custa ~527 horas e
+# deixa 220 de folga; de madrugada a instancia dorme, e a primeira abertura do dia
+# paga o minuto de sono (com aviso na tela, que o app agora sabe dar).
+#
+# HORARIO: o cron do GitHub e sempre UTC, e o Brasil esta em UTC-3.
+#   12-23 UTC = 09h as 20h59 BRT
+#   0-4   UTC = 21h as 01h59 BRT
+# Junto: 09h -> 02h da manha, 17 horas por dia.
+#
+# CUSTO: zero. Repositorio publico tem minutos de Actions ilimitados.
+#
+# GOTCHA: o GitHub desliga workflows agendados de repositorio que passa 60 dias sem
+# nenhuma atividade. Este aqui recebe commit quase todo dia, entao nao encosta
+# nisso -- mas se o projeto parar por dois meses, o agendamento volta desligado e
+# precisa ser religado na aba Actions.
+name: manter a API acordada
+
+on:
+  schedule:
+    - cron: '*/10 0-4,12-23 * * *'
+  # Botao manual na aba Actions, pra acordar na hora sem esperar o proximo ciclo.
+  workflow_dispatch:
+
+# Sem permissao nenhuma: o job so faz uma requisicao HTTP pra fora.
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: acordar a API
+        run: |
+          # --max-time 90: acordar do sono leva ate ~60s, e um timeout curto aqui
+          # marcaria a execucao como falha justo na vez em que ela mais serviu.
+          # -o /dev/null: a resposta do /health nao interessa, so o fato de chegar.
+          codigo=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 \
+            https://astra-kwzc.onrender.com/health || echo 000)
+          echo "/health respondeu $codigo"
+          # 503 e resposta VALIDA aqui: significa que a API esta de pe e so o banco
+          # ou o Redis nao responderam. A instancia acordou, que e o objetivo.
+          case "$codigo" in
+            200|503) exit 0 ;;
+            *) echo "::warning::a API nao respondeu ($codigo)"; exit 1 ;;
+          esac

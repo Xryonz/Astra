@@ -3041,13 +3041,22 @@ private fun PlacaDeVideoSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         ) { prefs.setPlacaVideo("") }
 
         placas.forEach { placa ->
+            val daTela = placas.firstOrNull { it.desenhaATela }?.nome ?: "outra placa"
             PlacaLinha(
                 nome = placa.nome,
                 detalhe = if (placa.dedicada) "dedicada" else "integrada",
                 aviso = if (placa.desenhaATela) null else
-                    "nao transmite tela: o quadro nasce na ${placas.firstOrNull { it.desenhaATela }?.nome ?: "outra placa"} " +
-                        "e so ela consegue le-lo. A transmissao continua por la.",
+                    "quem apresenta na tela é a $daTela. Desenhar aqui obriga a copiar cada " +
+                        "quadro de volta para lá antes de aparecer, e a cópia custa mais do que " +
+                        "a placa mais forte devolve — o Astra fica menos fluido, não mais. " +
+                        "Transmitir a tela também não funciona por aqui: o quadro nasce na " +
+                        "$daTela e só ela consegue lê-lo.",
                 ativa = p.placaVideo == placa.id,
+                // AVISAR E NAO DEIXAR (decisao do dono). A opcao continua visivel com o
+                // motivo escrito: esconder faria a pessoa procurar pelo resto da vida por
+                // um ajuste que ela jura ter visto, e nunca saber por que a placa boa nao
+                // aparece.
+                bloqueada = !placa.desenhaATela,
             ) { prefs.setPlacaVideo(placa.id) }
         }
     }
@@ -3065,31 +3074,54 @@ private fun PlacaLinha(
     detalhe: String,
     aviso: String?,
     ativa: Boolean,
+    bloqueada: Boolean = false,
     onClick: () -> Unit,
 ) {
     val hov = remember { MutableInteractionSource() }
     val h by hov.collectIsHoveredAsState()
     val toque = remember { MutableInteractionSource() }
+    // Bloqueada nao reage a nada: sem hover, sem clique, sem anel de foco. Um alvo que
+    // acende ao passar o mouse promete que vai obedecer ao clique.
+    val fundo = when {
+        bloqueada -> Obsidian.raised
+        ativa -> Obsidian.active
+        h -> Obsidian.hover
+        else -> Obsidian.overlay
+    }
     Column(
         Modifier
             .fillMaxWidth()
-            .clickScale(toque)
+            .then(if (bloqueada) Modifier else Modifier.clickScale(toque))
             .clip(RoundedCornerShape(8.dp))
-            .background(if (ativa) Obsidian.active else if (h) Obsidian.hover else Obsidian.overlay)
-            .hoverable(hov)
-            .clickable(interactionSource = toque, indication = null, onClick = onClick)
+            .background(fundo)
+            .then(
+                if (bloqueada) Modifier
+                else Modifier
+                    .hoverable(hov)
+                    .clickable(interactionSource = toque, indication = null, onClick = onClick),
+            )
             .padding(horizontal = 10.dp, vertical = 9.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 nome,
-                style = TextStyle(color = if (ativa) Obsidian.accent else Obsidian.text1, fontSize = 12.sp),
+                style = TextStyle(
+                    color = when {
+                        bloqueada -> Obsidian.text3
+                        ativa -> Obsidian.accent
+                        else -> Obsidian.text1
+                    },
+                    fontSize = 12.sp,
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
             )
             Spacer(Modifier.width(8.dp))
-            Text(detalhe, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Text(
+                if (bloqueada) "$detalhe · indisponível" else detalhe,
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
         }
         if (aviso != null) {
             Spacer(Modifier.height(3.dp))

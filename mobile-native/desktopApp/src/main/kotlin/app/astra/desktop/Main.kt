@@ -11,7 +11,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,6 +41,7 @@ import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.di.appModule
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.net.Servidor
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
 import app.astra.desktop.prefs.DesktopPrefs
@@ -47,6 +50,7 @@ import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.LocalWindowActive
+import app.astra.desktop.ui.ServidorAcordandoStrip
 import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.OnboardingScreen
 import app.astra.desktop.ui.ShellScreen
@@ -102,9 +106,46 @@ private fun pastaDaInstalacao(): String =
 // aparelho especifico. Entao a escolha do dono, que e por PLACA, vira um dos tres. A parte
 // do video nao passa por aqui e usa o aparelho exato.
 private fun escolherPlacaDaInterface() = runCatching {
-    val id = GlobalContext.get().get<DesktopPrefs>().state.value.placaVideo
-    val placa = Placas.porId(id) ?: return@runCatching
+    val prefs = GlobalContext.get().get<DesktopPrefs>()
+    val placa = Placas.porId(prefs.state.value.placaVideo) ?: return@runCatching
+    // PEDIR A PLACA QUE NAO DESENHA O MONITOR DEIXA O APP MAIS LENTO, nao mais rapido.
+    //
+    // Num notebook hibrido a dedicada renderiza, mas quem apresenta na tela e a
+    // integrada: cada quadro desenhado na dedicada tem que ser COPIADO de volta pro
+    // adaptador do monitor antes de aparecer. A copia atravessa o PCIe todo frame, e o
+    // ganho de desenhar numa placa mais forte vai embora na conta — o dono ligou a
+    // dedicada e sentiu o app ficar MENOS fluido, que e exatamente o previsto.
+    //
+    // Entao a escolha se apaga sozinha em vez de ficar valendo em silencio. Apagar e nao
+    // so ignorar: se ficasse gravada, a tela de configuracoes continuaria mostrando uma
+    // opcao marcada que nao faz nada, e uma opcao que mente e pior que uma que falta.
+    if (!placa.desenhaATela) {
+        prefs.setPlacaVideo("")
+        return@runCatching
+    }
     System.setProperty("skiko.gpu.priority", if (placa.dedicada) "discrete" else "integrated")
+}
+
+// FOCO DO APP, e nao da janela principal — a diferenca aqui nao e sutileza, e a razao de
+// o gate original ser visibilidade.
+//
+// Um Popup focavel do Compose Desktop e uma JANELA AWT separada. Perguntar "a janela
+// principal esta ativa?" responde NAO toda vez que um menu de contexto abre, e o ceu
+// congelaria no meio do uso, a cada clique com o botao direito. O KeyboardFocusManager
+// guarda a janela ativa DO PROCESSO: nao-nula significa "alguma janela nossa esta ativa",
+// popup incluido. Nula significa que a pessoa foi pra outro programa — e ai o enfeite nao
+// tem publico e nao deve custar nada.
+@Composable
+private fun lembrarFocoDoApp(): Boolean {
+    var foco by remember { mutableStateOf(true) }
+    DisposableEffect(Unit) {
+        val gerente = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+        val ouvinte = java.beans.PropertyChangeListener { ev -> foco = ev.newValue != null }
+        gerente.addPropertyChangeListener("activeWindow", ouvinte)
+        foco = gerente.activeWindow != null
+        onDispose { gerente.removePropertyChangeListener("activeWindow", ouvinte) }
+    }
+    return foco
 }
 
 private fun writeDiagnostics() = runCatching {
@@ -262,6 +303,9 @@ fun main() {
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
 
+        // Alguma janela nossa tem o foco? (o ceu so anima quando sim — ver o gate abaixo)
+        val appEmFoco = lembrarFocoDoApp()
+
         // Outro processo tentou abrir o Astra -> traz esta janela (a única) pra frente.
         val activate by SingleInstance.activate.collectAsState()
         LaunchedEffect(activate) {
@@ -286,22 +330,38 @@ fun main() {
         // quebrado e o app morrer antes disso, a versao anterior sobrevive e o
         // launcher volta pra ela.
         LaunchedEffect(Unit) { updater.agendarFaxina(escopoDaJanela) }
+        // Pergunta ao /health se a API esta de pe. Nao acelera o arranque em nada — so
+        // permite que a tela diga "acordando o servidor" em vez de ficar parada calada
+        // durante o minuto que a hospedagem gratuita leva pra religar.
+        LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }
 
-        // Bandeja so quando NAO e "fechar de vez": ligado o exitOnClose, o X ja encerra
-        // o app, entao um icone de bandeja seria presenca inutil em segundo plano.
-        if (!exitOnClose) {
-            Tray(
-                state = trayState,
-                icon = appIcon,
-                tooltip = "Astra",
-                onAction = { windowVisible = true }, // duplo clique no ícone reabre
-                menu = {
+        // A BANDEJA E SEMPRE CRIADA, e isso nao e detalhe de enfeite: no Windows o
+        // aviso do sistema SAI DO ICONE DA BANDEJA. Sem icone nao existe dono pro aviso,
+        // e o sendNotification vai pro vazio, calado.
+        //
+        // Antes ela so nascia quando o X minimizava ("com exitOnClose ligado um icone
+        // seria presenca inutil em segundo plano"). O raciocinio parecia certo e estava
+        // errado pelo meio: com exitOnClose ligado nao ha segundo plano nenhum — o app
+        // encerra no X — e o que aquela condicao desligava de fato era a NOTIFICACAO.
+        // Quem tinha "fechar de vez" marcado nunca recebeu um aviso de mensagem, e o
+        // botao "testar notificação" respondia "mandei — olhe o canto da tela" sobre uma
+        // mensagem que nunca teve por onde sair. Era o caso do dono.
+        //
+        // O item "Abrir o Astra" so faz sentido quando ha janela escondida pra reabrir;
+        // com exitOnClose a bandeja fica so com o icone e o "Sair".
+        Tray(
+            state = trayState,
+            icon = appIcon,
+            tooltip = "Astra",
+            onAction = { windowVisible = true }, // duplo clique no ícone reabre
+            menu = {
+                if (!exitOnClose) {
                     Item("Abrir o Astra", onClick = { windowVisible = true })
                     Separator()
-                    Item("Sair", onClick = ::exitApplication)
-                },
-            )
-        }
+                }
+                Item("Sair", onClick = ::exitApplication)
+            },
+        )
 
         // Gate de update primeiro: verifica a versão (logo + estrelas girando) e,
         // se houver nova, baixa com barra de progresso; senao segue pro app. So
@@ -432,6 +492,9 @@ fun main() {
                         onOpenNotifications = { notifOpen = !notifOpen },
                         onOpenMissions = { missoesOpen = !missoesOpen },
                     )
+                    // Logo abaixo da barra de titulo, acima de tudo: vale no login e no
+                    // shell, porque a espera pela API acontece nos dois.
+                    ServidorAcordandoStrip()
                     // Ativa = visivel & não minimizada: aurora/estrelas so pedem
                     // frame quando ativa (poupam na bandeja) SEM congelar quando um
                     // popup rouba o foco (isso e visibilidade, não foco).
@@ -449,14 +512,29 @@ fun main() {
                     // no draw da aurora (não recompoe); disparado no onLoggedIn abaixo.
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
-                    if (prefState.auroraOn) {
-                        // Camada propria (graphicsLayer): so ela invalida por frame —
-                        // os paineis translucidos por cima não redesenham com o shader.
-                        Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground { auroraPulse.value })
-                    } else {
-                        Box(Modifier.fillMaxSize().background(Obsidian.void))
+                    // O ENFEITE PARA QUANDO NINGUEM ESTA OLHANDO.
+                    //
+                    // Medido: com o Astra ATRAS do navegador, sem nada acontecendo, o
+                    // processo gastava 0,27 nucleo — e quase tudo era o skiko redesenhando
+                    // aurora e estrelas pra uma janela ocluida. "Nao minimizada" nao e o
+                    // mesmo que "visivel": o Windows nao para de entregar frames pra
+                    // janela coberta, entao o custo corria o dia inteiro em segundo plano.
+                    //
+                    // O gate e FOCO DO APP, e so aqui dentro: LocalWindowActive continua
+                    // significando visibilidade pro resto (video de call nao pode congelar
+                    // porque a pessoa clicou noutra janela do segundo monitor).
+                    CompositionLocalProvider(
+                        LocalWindowActive provides (windowVisible && !state.isMinimized && appEmFoco),
+                    ) {
+                        if (prefState.auroraOn) {
+                            // Camada propria (graphicsLayer): so ela invalida por frame —
+                            // os paineis translucidos por cima não redesenham com o shader.
+                            Box(Modifier.fillMaxSize().graphicsLayer {}.auroraBackground { auroraPulse.value })
+                        } else {
+                            Box(Modifier.fillMaxSize().background(Obsidian.void))
+                        }
+                        if (prefState.starsOn) StarField(Modifier.fillMaxSize())
                     }
-                    if (prefState.starsOn) StarField(Modifier.fillMaxSize())
 
                     // Entrada do Astra: um reveal único (uma vez por abertura) quando o
                     // conteudo aparece depois do gate — o app sobe com fade + escala

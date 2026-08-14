@@ -264,6 +264,23 @@ class VoiceEngine(
     private var screenSource: VideoDesktopSource? = null
     private var customSource: CustomVideoSource? = null
     private var ffmpegCap: ScreenCaptureFfmpeg? = null
+
+    // A FILA DO CANO DE VIDEO — subir e derrubar acontecem AQUI, nunca no clique.
+    //
+    // Derrubar o cano e uma sequencia de esperas nativas: cada elemento do GStreamer tem
+    // de chegar em NULL (ate 2s cada), o cano inteiro volta pra PLAYING (ate 5s) e o
+    // stop() da captura so retorna quando a thread dela morreu. Somado, e facil passar de
+    // um segundo. Isso rodava dentro do onClick do botao de transmitir, ou seja na thread
+    // da interface: a JANELA INTEIRA congelava ate o desmonte terminar. O comentario do
+    // pararVideo ja avisava disso; faltava tirar dali.
+    //
+    // Uma thread SO, e nao um pool: subir e derrubar mexem nos mesmos objetos nativos, e
+    // dois desses ao mesmo tempo e corrupcao de memoria, nao lentidao. Enfileirar tambem
+    // resolve o caso de parar e transmitir de novo depressa -- o segundo pedido espera o
+    // primeiro terminar em vez de correr por cima dele.
+    private val filaDoCano = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "astra-cano-video").apply { isDaemon = true }
+    }
     private var screenTrack: VideoTrack? = null
     private var screenCid: String? = null
     private var screenSender: RTCRtpSender? = null
@@ -1246,20 +1263,26 @@ class VoiceEngine(
             // lista que o seletor montou -- reusar evita enumerar de novo (caro).
             val lista = telasCache.ifEmpty { screens() }
             val indice = lastScreenSource?.let { s -> lista.indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
-            val ok = if (_sharingCamera.value) {
-                val (lc, ac) = tamanhoDaCamera ?: (1280 to 720)
-                gst.publicarCamera(cid, nomeDaCamera, lc, ac)
-            } else {
-                gst.publicarTela(cid, indice, screenQ)
+            // MESMA FILA do desmonte. Subir um cano novo enquanto o anterior ainda esta
+            // sendo derrubado significa dois desmontes/montagens mexendo nos mesmos
+            // objetos nativos ao mesmo tempo -- e isso nao da lentidao, da queda. Parar e
+            // transmitir de novo depressa e um gesto normal; a fila e o que o torna seguro.
+            filaDoCano.execute {
+                val ok = if (_sharingCamera.value) {
+                    val (lc, ac) = tamanhoDaCamera ?: (1280 to 720)
+                    gst.publicarCamera(cid, nomeDaCamera, lc, ac)
+                } else {
+                    gst.publicarTela(cid, indice, screenQ)
+                }
+                if (!ok) {
+                    VoiceLog.nota("8b! o servidor aceitou, mas o cano de video nao subiu — encerrando a transmissao")
+                    stopScreenShare(silent = true)
+                    return@execute
+                }
+                VoiceLog.nota("8b. o servidor aceitou e o cano de video subiu (monitor $indice) — renegociando")
+                gst.negociar()
+                scope.launch { delay(1200); startScreenStats() }
             }
-            if (!ok) {
-                VoiceLog.nota("8b! o servidor aceitou, mas o cano de video nao subiu — encerrando a transmissao")
-                stopScreenShare(silent = true)
-                return
-            }
-            VoiceLog.nota("8b. o servidor aceitou e o cano de video subiu (monitor $indice) — renegociando")
-            gst.negociar()
-            scope.launch { delay(1200); startScreenStats() }
             return
         }
         val track = screenTrack ?: return
@@ -1706,44 +1729,62 @@ class VoiceEngine(
         statsJob?.cancel()
         _screenStats.value = null
         _quedaAutomatica.value = null
-        // Motor novo: o ramo de video sai do cano e a linha de midia vira inativa na
-        // renegociacao, que e o que faz o servidor despublicar.
-        gstPub?.let { gst ->
-            gst.pararVideo()
-            screenCid = null
-            gst.negociar()
-        }
-        screenSender?.let { runCatching { pub?.removeTrack(it) } }
-        screenSender = null
-        // A ESPERA IMPORTA, pelo mesmo motivo do microfone logo abaixo no dispose():
-        // o stop() so volta depois que a thread da captura morreu, e e isso que
-        // autoriza soltar a fonte nativa que ela usa a cada 16ms. Antes o dispose
-        // corria por cima de um pushFrame em andamento e a thread morria com
-        // "Object handle is null" — que, numa thread solta, leva o app junto.
-        val capturaParou = ffmpegCap?.stop() ?: true
+
+        // AS REFERENCIAS SAEM AGORA, na thread que chamou. Isto e o que torna seguro
+        // adiar o desmonte: a partir desta linha ninguem mais enxerga estes objetos,
+        // entao um segundo clique nao consegue mandar desmontar duas vezes os mesmos
+        // ponteiros nativos. O trabalho lento leva as copias locais.
+        val gst = gstPub
+        val captura = ffmpegCap
+        val fonteCustom = customSource
+        val enviador = screenSender
+        val fonteTela = screenSource
+        val faixaTela = screenTrack
+        val fonteCamera = cameraSource
         ffmpegCap = null
-        if (capturaParou) {
-            runCatching { customSource?.dispose() }
-        } else {
-            VoiceLog.nota("a captura de tela nao encerrou a tempo — fonte de video nao liberada (seguro, mas anormal)")
-        }
         customSource = null
-        // Depois da captura, nunca antes: o wrap() destes rasters roda na thread de
-        // preview, que so para junto com ela. Fechar as imagens Skia com a thread
-        // ainda viva e a mesma corrida, um andar acima.
-        previewRasters.dispose()
-        runCatching { screenSource?.stop() }
-        runCatching { screenTrack?.dispose() }
-        runCatching { screenSource?.dispose() }
-        // Camera (quando a fonte era webcam): para e libera a fonte nativa.
-        runCatching { cameraSource?.stop() }
-        runCatching { cameraSource?.dispose() }
-        cameraSource = null
-        screenTrack = null
+        screenSender = null
         screenSource = null
+        screenTrack = null
+        cameraSource = null
         screenCid = null
-        // m-line desativada na renegociacao => o server despublica a track.
-        if (gstPub == null) negotiatePublisher()
+
+        // Daqui pra baixo e tudo nativo e lento — vai pra fila, e o clique volta na hora.
+        // A ORDEM E A MESMA DE ANTES, e cada passo dela custou um travamento ou uma queda:
+        // desmontar o ramo antes de renegociar, esperar a captura morrer antes de soltar a
+        // fonte que ela usa a cada 16ms, e fechar as imagens Skia so depois disso.
+        filaDoCano.execute {
+            // Motor novo: o ramo de video sai do cano e a linha de midia vira inativa na
+            // renegociacao, que e o que faz o servidor despublicar.
+            gst?.let {
+                it.pararVideo()
+                it.negociar()
+            }
+            enviador?.let { runCatching { pub?.removeTrack(it) } }
+            // A ESPERA IMPORTA, pelo mesmo motivo do microfone la no dispose(): o stop()
+            // so volta depois que a thread da captura morreu, e e isso que autoriza soltar
+            // a fonte nativa que ela usa a cada 16ms. Antes o dispose corria por cima de um
+            // pushFrame em andamento e a thread morria com "Object handle is null" — que,
+            // numa thread solta, leva o app junto.
+            val capturaParou = captura?.stop() ?: true
+            if (capturaParou) {
+                runCatching { fonteCustom?.dispose() }
+            } else {
+                VoiceLog.nota("a captura de tela nao encerrou a tempo — fonte de video nao liberada (seguro, mas anormal)")
+            }
+            // Depois da captura, nunca antes: o wrap() destes rasters roda na thread de
+            // preview, que so para junto com ela. Fechar as imagens Skia com a thread
+            // ainda viva e a mesma corrida, um andar acima.
+            previewRasters.dispose()
+            runCatching { fonteTela?.stop() }
+            runCatching { faixaTela?.dispose() }
+            runCatching { fonteTela?.dispose() }
+            // Camera (quando a fonte era webcam): para e libera a fonte nativa.
+            runCatching { fonteCamera?.stop() }
+            runCatching { fonteCamera?.dispose() }
+            // m-line desativada na renegociacao => o server despublica a track.
+            if (gst == null) negotiatePublisher()
+        }
     }
 
     // Troca a qualidade/fluidez da transmissão ao vivo (gear da call): persiste a
@@ -1823,6 +1864,14 @@ class VoiceEngine(
 
     fun dispose() {
         disposed = true
+        // A FILA DO CANO ESVAZIA PRIMEIRO. Um desmonte ainda em andamento mexe nos mesmos
+        // ponteiros nativos que este dispose vai soltar logo abaixo, e essa corrida e das
+        // que o Windows derruba sem deixar log nenhum. Sair da call enquanto se transmite
+        // e um gesto comum -- e ele encadeia exatamente esses dois.
+        runCatching {
+            filaDoCano.shutdown()
+            filaDoCano.awaitTermination(6, java.util.concurrent.TimeUnit.SECONDS)
+        }
         connectJob?.cancel()
         Sfx.callLeave() // sair da call: som grosso/grave
         pingJob?.cancel()

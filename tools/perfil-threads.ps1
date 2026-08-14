@@ -28,7 +28,12 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-$proc = Get-Process -Name 'Astra' -ErrorAction SilentlyContinue | Select-Object -First 1
+# DOIS processos se chamam Astra.exe: o lancador do jpackage (uns 8 MB, zero CPU, so
+# segura o filho) e a JVM de verdade (centenas de MB, todas as threads). Pegar "o
+# primeiro" pegava o LANCADOR -- e o laudo saia "0,0% da maquina, voce nao esta
+# transmitindo" no meio de uma transmissao. Escolhe pelo tamanho: o app e o gordo.
+$proc = Get-Process -Name 'Astra' -ErrorAction SilentlyContinue |
+  Sort-Object -Property WorkingSet64 -Descending | Select-Object -First 1
 if (-not $proc) {
   Write-Host ""
   Write-Host "O Astra nao esta aberto." -ForegroundColor Red

@@ -546,6 +546,7 @@ class VoiceEngine(
             onPrevia = { rgba, largura, altura ->
                 _localPreview.value = ScreenPreview(previewRasters.wrap(rgba, largura, altura), largura, altura)
             },
+            placaPedida = app.astra.desktop.Placas.porId(prefs.state.value.placaVideo)?.marca,
         )
         if (!p.iniciar(cid, stun)) return false
         gstPub = p

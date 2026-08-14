@@ -123,6 +123,13 @@ class DesktopPrefs(private val store: SessionStore) {
         val bgId: String = "void",
         val fontSize: FontSizePref = FontSizePref.MD,
         val density: DensityPref = DensityPref.COMFORTABLE,
+        // Placa de video preferida, pelo id de PCI (ver `Placas`). Vazio = automatico,
+        // que e o certo pra quase todo mundo: o Astra usa a placa que desenha a tela,
+        // que e a unica que consegue comprimir a captura dela.
+        //
+        // A parte do VIDEO vale na proxima transmissao; a parte da INTERFACE so no
+        // proximo arranque, porque o Skiko le essa escolha uma vez, ao criar a janela.
+        val placaVideo: String = "",
         // --- Voz & Transmissao ---
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
         // Motor de video novo (GStreamer publicando direto da placa). DESLIGADO por
@@ -179,6 +186,7 @@ class DesktopPrefs(private val store: SessionStore) {
         bgId = store.uiPref("bgId") ?: "void",
         fontSize = FontSizePref.from(store.uiPref("fontSize")),
         density = DensityPref.from(store.uiPref("density")),
+        placaVideo = store.uiPref("placaVideo").orEmpty(),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
@@ -242,6 +250,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setExitOnClose(v: Boolean) {
         persist("exitOnClose", v)
         _state.update { it.copy(exitOnClose = v) }
+    }
+
+    fun setPlacaVideo(id: String) {
+        store.setUiPref("placaVideo", id)
+        _state.update { it.copy(placaVideo = id) }
     }
 
     fun setScreenQuality(v: ScreenQuality) {

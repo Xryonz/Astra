@@ -91,6 +91,22 @@ private fun pastaDaInstalacao(): String =
     System.getProperty("jpackage.app-path")?.let { java.io.File(it).parent }
         ?: System.getProperty("user.dir").orEmpty().ifBlank { "?" }
 
+// A placa que desenha a INTERFACE, escolhida em Configuracoes > Desempenho.
+//
+// TEM QUE SER AQUI, antes de `application {}`. O Skiko le esta propriedade UMA vez, no
+// instante em que cria a primeira janela, e nunca mais olha -- por isso a tela de
+// configuracoes avisa que esta metade so vale no proximo arranque. Trocar depois nao
+// falharia com erro: simplesmente nao teria efeito, que e pior.
+//
+// O Skiko so aceita tres respostas -- automatico, integrada, dedicada -- e nao um
+// aparelho especifico. Entao a escolha do dono, que e por PLACA, vira um dos tres. A parte
+// do video nao passa por aqui e usa o aparelho exato.
+private fun escolherPlacaDaInterface() = runCatching {
+    val id = GlobalContext.get().get<DesktopPrefs>().state.value.placaVideo
+    val placa = Placas.porId(id) ?: return@runCatching
+    System.setProperty("skiko.gpu.priority", if (placa.dedicada) "discrete" else "integrated")
+}
+
 private fun writeDiagnostics() = runCatching {
     val os = System.getProperty("os.name").orEmpty()
     val dir = CrashLog.dataDir()
@@ -211,9 +227,10 @@ fun main() {
     WindowsAppId.aplicar()
     // Segundo processo: pede pro Astra aberto aparecer e encerra aqui mesmo.
     if (!SingleInstance.acquireOrSignal()) return
+    startKoin { modules(appModule) }
+    escolherPlacaDaInterface()
     // Retrato do boot (API grafica do Skia, GC, heap) num arquivo legivel.
     writeDiagnostics()
-    startKoin { modules(appModule) }
     // Avisar o servidor ao sair, pra a pessoa ficar offline na hora em vez de
     // depois do timeout de ping. Aqui e nao dentro do application{}: precisa valer
     // pra qualquer saida, inclusive as que nunca passam pela janela.

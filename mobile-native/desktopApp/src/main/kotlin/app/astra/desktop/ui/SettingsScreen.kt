@@ -128,6 +128,7 @@ import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
+import app.astra.desktop.Placas
 import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.voice.AudioDevices
 import app.astra.desktop.voice.GStreamerPack
@@ -2993,6 +2994,108 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "o X encerra o Astra em vez de minimizar para bandeja — sem nada em segundo plano",
         p.exitOnClose, prefs::setExitOnClose,
     )
+
+    Spacer(Modifier.height(10.dp))
+    PlacaDeVideoSection(p, prefs)
+}
+
+// Escolha da placa de video.
+//
+// So aparece em maquina com MAIS DE UMA placa. Com uma so nao ha escolha a fazer, e um
+// ajuste de uma opcao so e ruido: ocupa espaco, sugere que ha algo a decidir e nao
+// decide nada.
+//
+// A LINHA SOBRE TRANSMITIR NAO E RESSALVA, e o ajuste inteiro. Quadro de captura de tela
+// nasce no aparelho da placa que desenha o monitor, e so ela consegue comprimi-lo -- pedir
+// pra outra nao da erro, da silencio. Entao a placa que nao desenha a tela e mostrada,
+// escolhivel para a interface, e dita como incapaz de transmitir, com o motivo. Esconder
+// isso deixaria a pessoa achando que escolheu e nao funcionou.
+@Composable
+private fun PlacaDeVideoSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    val placas = remember { Placas.todas }
+    if (placas.size < 2) return
+
+    Text("Placa de video", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+    Text(
+        "qual placa desenha o Astra e comprime o video das chamadas",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+    )
+    Spacer(Modifier.height(8.dp))
+
+    Column(
+        Modifier
+            .widthIn(max = 460.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.raised)
+            .padding(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        PlacaLinha(
+            nome = "Automatico",
+            detalhe = placas.firstOrNull { it.desenhaATela }
+                ?.let { "usa a ${it.nome}, que desenha a sua tela" }
+                ?: "o Astra decide",
+            aviso = null,
+            ativa = Placas.porId(p.placaVideo) == null,
+        ) { prefs.setPlacaVideo("") }
+
+        placas.forEach { placa ->
+            PlacaLinha(
+                nome = placa.nome,
+                detalhe = if (placa.dedicada) "dedicada" else "integrada",
+                aviso = if (placa.desenhaATela) null else
+                    "nao transmite tela: o quadro nasce na ${placas.firstOrNull { it.desenhaATela }?.nome ?: "outra placa"} " +
+                        "e so ela consegue le-lo. A transmissao continua por la.",
+                ativa = p.placaVideo == placa.id,
+            ) { prefs.setPlacaVideo(placa.id) }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "a parte do video vale na proxima transmissao; a da interface, no proximo arranque do Astra.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+}
+
+@Composable
+private fun PlacaLinha(
+    nome: String,
+    detalhe: String,
+    aviso: String?,
+    ativa: Boolean,
+    onClick: () -> Unit,
+) {
+    val hov = remember { MutableInteractionSource() }
+    val h by hov.collectIsHoveredAsState()
+    val toque = remember { MutableInteractionSource() }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickScale(toque)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (ativa) Obsidian.active else if (h) Obsidian.hover else Obsidian.overlay)
+            .hoverable(hov)
+            .clickable(interactionSource = toque, indication = null, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                nome,
+                style = TextStyle(color = if (ativa) Obsidian.accent else Obsidian.text1, fontSize = 12.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(detalhe, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        }
+        if (aviso != null) {
+            Spacer(Modifier.height(3.dp))
+            Text(aviso, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        }
+    }
 }
 
 // Rotulo + subtitulo + um controle embaixo (usado com o SegmentedRow).

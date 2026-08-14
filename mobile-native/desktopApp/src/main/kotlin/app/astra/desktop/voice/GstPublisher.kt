@@ -44,6 +44,10 @@ class GstPublisher(
     private val onOferta: (String) -> Unit,
     private val onCandidato: (Int, String) -> Unit,
     private val onPrevia: ((ByteArray, Int, Int) -> Unit)? = null,
+    // Fabricante da placa que o dono escolheu em Configuracoes ("Intel", "NVIDIA",
+    // "AMD"), ou nulo pra automatico. Ver `encoderQueComprime`: e um pedido, e a captura
+    // de tela so o atende quando ele coincide com a placa que desenha o monitor.
+    private val placaPedida: String? = null,
 ) {
 
     // `nvd3d11h264enc`, e nao `nvh264enc`: o segundo e o modo CUDA da NVIDIA e RECUSA
@@ -354,12 +358,20 @@ class GstPublisher(
     // Teste que responde diferente pra mesma pergunta nao decide nada.
     //
     // Se nada casar, segue a ordem de sempre -- maquina de uma placa so nao tem conflito.
+    //
+    // A ESCOLHA DO DONO (Configuracoes > Desempenho) entra aqui, mas NAO PODE emudecer a
+    // transmissao. Ela vale enquanto a placa escolhida for a que desenha a tela; se for a
+    // outra, a captura de tela continua na placa certa -- nao ha o que negociar, o quadro
+    // nasce onde nasce. A tela de configuracoes ja diz isso ao lado da opcao, entao aqui
+    // nao ha surpresa: ha coerencia com o que estava escrito.
     private fun encoderQueComprime(): String? {
         encoderEscolhido?.let { return it }
         val candidatos = ENCODERS.filter { existe(it) }
         if (candidatos.isEmpty()) return null
         val marca = marcaDaTela()
-        val escolhido = candidatos.firstOrNull { marca != null && marcaDe(nomeLongo(it)) == marca }
+        val pedida = placaPedida?.takeIf { it == marca }
+        val alvo = pedida ?: marca
+        val escolhido = candidatos.firstOrNull { alvo != null && marcaDe(nomeLongo(it)) == alvo }
             ?: candidatos.first()
         encoderEscolhido = escolhido
         VoiceLog.nota(

@@ -70,7 +70,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.10"
+val astraVersion = "0.2.11"
 
 dependencies {
     implementation(project(":shared"))
@@ -165,6 +165,12 @@ tasks.register<JavaExec>("ensaioGst") {
     // Pra investigar uma categoria a fundo sem republicar nada:
     //   ./gradlew :desktopApp:ensaioGst -Pgstdebug=2,d3d11*:5
     providers.gradleProperty("gstdebug").orNull?.let { systemProperty("astra.gstdebug", it) }
+    // Um contador por elo do ramo de video, pra achar QUEM segura o cano:
+    //   ./gradlew :desktopApp:ensaioGst -Pcontarelos
+    providers.gradleProperty("contarelos").orNull?.let { systemProperty("astra.contarelos", "1") }
+    // Forca um encoder especifico, pra comparar dois na mesma medicao:
+    //   ./gradlew :desktopApp:ensaioGst -Pencoder=nvd3d11h264enc
+    providers.gradleProperty("encoder").orNull?.let { systemProperty("astra.encoder", it) }
 }
 
 compose.desktop {

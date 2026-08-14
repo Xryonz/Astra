@@ -47,6 +47,10 @@ fun main() {
                 pilha.take(12).forEach { p("      $it") }
             }
         System.out.flush()
+        runCatching {
+            val k = com.sun.jna.platform.win32.Kernel32.INSTANCE
+            k.TerminateProcess(k.GetCurrentProcess(), 2)
+        }
         Runtime.getRuntime().halt(2)
     }, "cao-de-guarda").apply { isDaemon = true; start() }
 
@@ -92,21 +96,40 @@ fun main() {
     // aparecia pra ninguem, nem na propria previa. Um preset que nao sobe e invisivel aqui
     // e fatal la, e a diferenca entre os dois e uma linha de configuracao.
     linha("2b. cada qualidade que o dono pode escolher")
+    // A AREA DE TRABALHO PRECISA MEXER, senao o numero medido nao quer dizer nada.
+    //
+    // O Desktop Duplication do Windows so entrega quadro quando a tela MUDA: com o
+    // desktop parado a fonte da ~1 quadro por segundo, e "0 fps" seria a resposta certa
+    // pra uma pergunta que ninguem quis fazer. Foi assim que eu quase confundi captura
+    // dormindo com captura quebrada -- e o dono ia esperar por um conserto do lado errado.
+    val agitador = Agitador().apply { comecar() }
     ScreenQuality.entries.forEach { q ->
         previas.set(0)
         tamanhoPrevia[0] = null
         val t = System.currentTimeMillis()
         val subiu = pub.publicarTela(CID_TELA, 0, q)
         Thread.sleep(1200)
+        // A PREVIA E OS CONTADORES TEM QUE OLHAR A MESMA JANELA DE TEMPO.
+        //
+        // Antes a previa somava desde o arranque e os fps mediam so os 2s do fim -- e a
+        // leitura saia "previa=5 quadros, captura 0 fps", que parece contradicao e nao e:
+        // os 5 quadros tinham chegado todos no arranque. Comparar dois numeros medidos em
+        // periodos diferentes nao prova nada, e essa aparente contradicao quase me fez
+        // procurar defeito numa sonda que estava certa.
+        previas.set(0)
         pub.estatisticas() // finca o marco; a primeira leitura nao tem intervalo
         Thread.sleep(2000)
         val fps = pub.estatisticas()
         val quadros = previas.get()
-        p("  ${q.label}: publicou=$subiu . previa=$quadros quadro(s) ${tamanhoPrevia[0] ?: ""} . ${System.currentTimeMillis() - t} ms")
-        p("      captura ${fps?.fpsCaptura ?: "?"} fps . COMPRIMIDO ${fps?.fpsEnvio ?: "?"} fps")
-        // O caso do dono: a previa aparece (a fonte esta produzindo) e o envio e zero.
-        // Se a captura anda e o comprimido nao, quem esta parado e o ENCODER -- e ai o
-        // lugar de procurar e a placa, nao a captura.
+        p("  ${q.label}: publicou=$subiu . ${System.currentTimeMillis() - t} ms")
+        p("      nos mesmos 2s: captura ${fps?.fpsCaptura ?: "?"} fps . COMPRIMIDO ${fps?.fpsEnvio ?: "?"} fps . previa $quadros quadro(s) ${tamanhoPrevia[0] ?: ""}")
+        // Tres numeros da mesma janela, e cada combinacao aponta um lugar diferente:
+        //   captura anda + comprimido parado -> a placa
+        //   os tres parados                  -> a captura (ou a tela nao mudou)
+        //   previa anda + captura zerada     -> a SONDA esta mentindo, nao o cano
+        if (subiu && (fps?.fpsCaptura ?: 0) == 0 && quadros > 0) {
+            p("      !!! A SONDA MENTE: chegou previa sem quadro contado na fonte")
+        }
         if (subiu && (fps?.fpsEnvio ?: 0) == 0) {
             p("      !!! NADA COMPRIMIDO -- e exatamente o que o dono ve (envio 0fps)")
         }
@@ -114,6 +137,34 @@ fun main() {
         pub.pararVideo()
         Thread.sleep(400)
     }
+    agitador.parar()
+    previas.set(0)
+    tamanhoPrevia[0] = null
+
+    // SEGUNDO A SEGUNDO, num preset so, com movimento de verdade na tela.
+    //
+    // A media de 2s escondia a forma da curva. "captura 0 fps" pode ser tres coisas
+    // diferentes -- nunca produziu, produziu no arranque e parou, ou produz devagar -- e
+    // as tres pedem consertos em lugares distintos. Dez leituras de um segundo mostram
+    // qual das tres e, sem interpretacao.
+    linha("2c. dez segundos num preset so, com a tela mexendo")
+    val piscante = Piscante().apply { comecar() }
+    Thread.sleep(500)
+    previas.set(0)
+    if (pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)) {
+        pub.estatisticas() // finca o marco
+        repeat(10) {
+            val antes = previas.get()
+            Thread.sleep(1000)
+            val e = pub.estatisticas()
+            p("  ${it + 1}s: captura ${e?.fpsCaptura ?: "?"} . comprimido ${e?.fpsEnvio ?: "?"} . previa ${previas.get() - antes}")
+        }
+        pub.pararVideo()
+        Thread.sleep(400)
+    } else {
+        p("  nao publicou")
+    }
+    piscante.parar()
     previas.set(0)
     tamanhoPrevia[0] = null
 
@@ -148,6 +199,16 @@ fun main() {
     Thread.sleep(2500)
     mostrar(ofertas.poll())
 
+    // A CAMERA, que ate agora nunca tinha rodado -- nem aqui nem em call de ninguem.
+    //
+    // Este bloco existe pelo mesmo motivo do 2b: uma fonte nao exercitada e uma fonte que
+    // nao funciona. Achou dois defeitos em duas rodadas -- primeiro a ligacao que nunca
+    // fechava (`mfvideosrc` entrega em memoria principal, `d3d11convert` so aceita memoria
+    // de placa), depois o encoder recusando o quadro que a ligacao consertada passou a
+    // entregar ("Could not encode stream").
+    linha("9. a camera (a fonte que nunca foi exercitada)")
+    camera(pub, previas, tamanhoPrevia)
+
     pub.parar()
 
     conexaoDeVerdade()
@@ -161,8 +222,21 @@ fun main() {
     // rodadas eu tinha SETE ensaios fantasmas segurando as vagas. A rodada seguinte
     // travava no desmonte, e o travamento parecia defeito do app. Nao era: era sujeira
     // deixada pelo proprio banco de testes.
+    // PELO WINDOWS, e nao pelo JVM. O `halt` era a versao anterior disto e NAO BASTA:
+    // medido em tres rodadas seguidas, o processo ficava vivo por mais de sete minutos
+    // depois do "fim" -- e nem o `jstack` o alcancava, porque as threads do GStreamer
+    // estavam presas em codigo nativo e o JVM nunca chegava a um safepoint. Cada rodada
+    // custava sete minutos e um `Stop-Process` na mao.
+    //
+    // `TerminateProcess` sobre o proprio processo nao pede licenca a ninguem dentro do
+    // JVM: o Windows derruba tudo, incluindo quem esta preso em nativo.
     System.out.flush()
-    Runtime.getRuntime().halt(0)
+    System.err.flush()
+    runCatching {
+        val k = com.sun.jna.platform.win32.Kernel32.INSTANCE
+        k.TerminateProcess(k.GetCurrentProcess(), 0)
+    }
+    Runtime.getRuntime().halt(0) // se ate isso falhar, ao menos tenta o caminho antigo
 }
 
 // A CONEXAO DE VERDADE, com os dois lados dentro deste processo.
@@ -180,6 +254,149 @@ fun main() {
 // Um segundo webrtcbin respondendo a oferta e trocando candidatos basta pra nascer o
 // DTLS. E o nascimento do DTLS que dispara o `request-aux-sender` -- o unico sinal que
 // nenhum ensaio anterior chegou a encostar, e por isso o unico defeito que sobreviveu.
+// Mexe o PONTEIRO DO MOUSE, so pra a area de trabalho ter o que mudar.
+//
+// Nao e enfeite: o Desktop Duplication do Windows so entrega quadro quando a tela MUDA.
+// Com o desktop parado a fonte entrega um punhado no arranque e depois cala -- e "0 fps"
+// vira a resposta certa pra uma pergunta que ninguem quis fazer. Medir captura de tela
+// sem nada mexendo e como medir microfone numa sala em silencio.
+//
+// PELO PONTEIRO, e nao por uma janela que pisca. A primeira versao abria um JFrame
+// sempre-no-topo repintando a 60Hz. Funcionou como movimento e DEIXOU O PROCESSO
+// IMORTAL: as threads do AWT somadas ao `halt` ja pouco confiavel do GStreamer davam um
+// JVM que nem o `jstack` conseguia parar -- ele nao alcancava safepoint, porque estava
+// presa em codigo nativo. Mover o ponteiro nao cria janela, nao acorda o AWT, e ainda
+// exercita o `show-cursor` que faltava: quem se move na imagem passa a ser exatamente a
+// coisa que estava invisivel.
+private class Agitador {
+    private val vivo = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun comecar() {
+        val u = runCatching { com.sun.jna.platform.win32.User32.INSTANCE }.getOrNull()
+        if (u == null) {
+            p("  (sem agitador: o User32 nao respondeu -- os fps da tela vao sair baixos)")
+            return
+        }
+        vivo.set(true)
+        Thread({
+            var i = 0
+            while (vivo.get()) {
+                // Circulo pequeno num canto: movimento continuo sem passar por cima de
+                // nada clicavel. So a posicao muda -- nenhum clique, nenhum atalho.
+                val ang = i * 0.2
+                runCatching {
+                    u.SetCursorPos(
+                        (300 + 120 * kotlin.math.cos(ang)).toLong(),
+                        (300 + 120 * kotlin.math.sin(ang)).toLong(),
+                    )
+                }
+                i++
+                Thread.sleep(16)
+            }
+        }, "agitador").apply { isDaemon = true; start() }
+    }
+
+    fun parar() = vivo.set(false)
+}
+
+// Uma janelinha que troca de cor 60 vezes por segundo. PIXEL MUDANDO DE VERDADE.
+//
+// O `Agitador` acima mexe so o ponteiro, e isso testa o `show-cursor` -- mas nao serve
+// de prova quando a pergunta e "a captura esta viva?". O Desktop Duplication distingue
+// as duas coisas: movimento de ponteiro chega como atualizacao de POSICAO, sem quadro
+// novo, enquanto pixel trocando de cor forca quadro. Medir captura com o ponteiro era
+// arriscar concluir "morta" de uma fonte apenas quieta.
+//
+// A versao anterior disto deixava o processo imortal (threads do AWT + `halt` fraco do
+// GStreamer). Voltou a ser usavel porque a saida agora e `TerminateProcess`, que o
+// Windows executa sem pedir licenca a ninguem dentro do JVM.
+private class Piscante {
+    private var janela: javax.swing.JFrame? = null
+    private val vivo = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun comecar() {
+        runCatching {
+            javax.swing.SwingUtilities.invokeAndWait {
+                janela = javax.swing.JFrame().apply {
+                    isUndecorated = true
+                    isAlwaysOnTop = true
+                    setSize(320, 240)
+                    setLocation(60, 60)
+                    isVisible = true
+                }
+            }
+            val alvo = janela ?: return@runCatching
+            vivo.set(true)
+            Thread({
+                var i = 0
+                while (vivo.get()) {
+                    val cor = java.awt.Color.getHSBColor((i % 60) / 60f, 0.95f, 0.95f)
+                    javax.swing.SwingUtilities.invokeLater { alvo.contentPane.background = cor; alvo.repaint() }
+                    i++
+                    Thread.sleep(16)
+                }
+            }, "piscante").apply { isDaemon = true; start() }
+        }.onFailure { p("  (sem piscante: ${it.javaClass.simpleName} -- a tela vai ficar parada e os fps vao mentir)") }
+    }
+
+    fun parar() {
+        vivo.set(false)
+        runCatching { javax.swing.SwingUtilities.invokeLater { janela?.dispose() } }
+        janela = null
+    }
+}
+
+// Exercita a webcam pelo cano novo, e confere a ponte de NOME entre as duas bibliotecas.
+//
+// A interface lista camera pelo webrtc-java; o cano abre camera pelo `mfvideosrc`. Se os
+// dois nao chamarem o mesmo aparelho pelo mesmo nome, quem tem duas cameras escolhe uma e
+// transmite a outra -- e esse defeito nao aparece em log nenhum, so na cara de quem esta
+// do outro lado. Aqui os dois nomes ficam impressos um debaixo do outro.
+private fun camera(
+    pub: GstPublisher,
+    previas: java.util.concurrent.atomic.AtomicInteger,
+    tamanhoPrevia: Array<String?>,
+) {
+    val aparelhos = runCatching { dev.onvoid.webrtc.media.MediaDevices.getVideoCaptureDevices() }
+        .getOrElse {
+            p("  nao consegui listar cameras (${it.javaClass.simpleName}) -- webrtc-java fora do ar aqui")
+            emptyList()
+        }
+    if (aparelhos.isEmpty()) {
+        p("  NENHUMA CAMERA nesta maquina -- o cano da camera fica sem prova")
+        return
+    }
+    aparelhos.forEach { p("  o webrtc-java ve: \"${it.name}\"") }
+
+    // TODAS, e a ordem da lista NAO E ESTAVEL. A primeira rodada pegou `first()` e caiu na
+    // "OBS Virtual Camera", que entrega zero quadro com o OBS fechado -- e zero quadro por
+    // camera desligada e zero quadro por cano quebrado sao a mesma linha no relatorio.
+    // Teste que nao consegue falhar honestamente nao e teste. Na rodada seguinte a ordem
+    // se inverteu sozinha, o que fecha a questao: escolher pela posicao era sorteio.
+    aparelhos.forEach { aparelho ->
+        val nome = aparelho.name
+        previas.set(0)
+        tamanhoPrevia[0] = null
+        val subiu = pub.publicarCamera(CID_TELA, nome, 1280, 720)
+        p("  \"$nome\" a 1280x720: publicarCamera = $subiu")
+        if (!subiu) {
+            p("      !!! O CANO NAO SUBIU -- esta camera nao tem caminho no motor novo")
+            return@forEach
+        }
+        Thread.sleep(1200)
+        previas.set(0)
+        pub.estatisticas() // finca o marco
+        Thread.sleep(2000)
+        val fps = pub.estatisticas()
+        p("      nos mesmos 2s: captura ${fps?.fpsCaptura ?: "?"} fps . COMPRIMIDO ${fps?.fpsEnvio ?: "?"} fps . previa ${previas.get()} quadro(s) ${tamanhoPrevia[0] ?: ""}")
+        // Webcam FISICA nao tem a desculpa da tela parada: entrega quadro ate apontada pra
+        // parede. Camera virtual sem o programa dela aberto entrega zero e esta certa.
+        if ((fps?.fpsCaptura ?: 0) == 0) p("      zero capturado -- defeito se a camera for fisica, esperado se for virtual e estiver desligada")
+        pub.pararVideo()
+        Thread.sleep(400)
+    }
+}
+
 private fun conexaoDeVerdade() {
     linha("8. conexao de verdade (os dois lados aqui dentro)")
 
@@ -210,17 +427,7 @@ private fun conexaoDeVerdade() {
     }
     p("  oferta feita (${oferta.lineSequence().count()} linhas)")
 
-    binEco.setRemoteDescription(
-        WebRTCSessionDescription(WebRTCSDPType.OFFER, SDPMessage().apply { parseBuffer(oferta) }),
-    )
-    binEco.createAnswer { resposta ->
-        runCatching {
-            binEco.setLocalDescription(resposta)
-            val sdp = resposta.getSDPMessage().toString()
-            resposta.invalidate() // mesma armadilha da oferta: a dona e a promessa
-            pub.aplicarResposta(sdp)
-        }.onFailure { p("  !!! o eco nao respondeu: ${it.message}") }
-    }
+    responder(binEco, pub, oferta)
 
     // O estado e impresso a CADA MUDANCA, e nao so no fim: se o processo morrer no meio,
     // a ultima linha impressa diz ate onde a conexao tinha chegado.
@@ -247,8 +454,61 @@ private fun conexaoDeVerdade() {
     }
     p("  SOBREVIVEU 15s conectado -- estado final: ${pub.estadoDaConexao()}")
 
+    // A TELA AQUI DENTRO, e este e o unico lugar do ensaio onde medir fps significa algo.
+    //
+    // O 2c mede a tela num cano que NUNCA NEGOCIOU: sem conexao, o `webrtcbin` engole uns
+    // poucos quadros e para de aceitar, o `tee` trava junto (o ramo do encoder nao tem
+    // fila) e a fonte fica parada dentro de um `push` que nao volta. O log do GStreamer
+    // mostrou isso em letras miudas: cinco "Capture done" a 60fps e silencio absoluto
+    // depois. Concluir dali que "a captura morre" seria culpar a fonte por um cano sem
+    // saida -- eu quase fiz exatamente isso.
+    p("  agora a TELA, dentro da conexao viva:")
+    val piscante = Piscante().apply { comecar() }
+    Thread.sleep(500)
+    if (pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)) {
+        // A SEGUNDA OFERTA TAMBEM PRECISA DE RESPOSTA, e esquecer isso invalidou tres
+        // rodadas de medicao. Entrar com a tela renegocia; se ninguem responde, a linha de
+        // video existe na oferta e NAO EXISTE no transporte. O `webrtcbin` entao aceita
+        // exatamente um quadro e trava -- e o log mostrou a fonte presa nove segundos e
+        // meio dentro de um unico `gst_pad_push`. Eu quase registrei isso como defeito do
+        // aplicativo; era defeito do meu banco de testes, que so sabia responder uma vez.
+        pub.negociar()
+        val oferta2 = esperar(8_000) { ofertas.poll() }
+        if (oferta2 == null) p("    !!! a segunda oferta (com video) nao saiu")
+        else responder(binEco, pub, oferta2)
+        Thread.sleep(1500)
+        pub.estatisticas() // finca o marco
+        repeat(8) {
+            Thread.sleep(1000)
+            val e = pub.estatisticas()
+            p("    ${it + 1}s: captura ${e?.fpsCaptura ?: "?"} . comprimido ${e?.fpsEnvio ?: "?"}")
+            pub.elosAgora().takeIf { s -> s.isNotBlank() }?.let { s -> p("        $s") }
+        }
+        pub.pararVideo()
+    } else {
+        p("    !!! nao publicou a tela dentro da conexao")
+    }
+    piscante.parar()
+
     pub.parar()
     runCatching { eco.setState(State.NULL); eco.dispose() }
+}
+
+// O eco recebe uma oferta e devolve a resposta. Serve pra PRIMEIRA e pra toda
+// renegociacao -- entrar com a tela produz uma segunda oferta, e sem resposta pra ela o
+// video fica anunciado e sem transporte.
+private fun responder(binEco: WebRTCBin, pub: GstPublisher, oferta: String) {
+    binEco.setRemoteDescription(
+        WebRTCSessionDescription(WebRTCSDPType.OFFER, SDPMessage().apply { parseBuffer(oferta) }),
+    )
+    binEco.createAnswer { resposta ->
+        runCatching {
+            binEco.setLocalDescription(resposta)
+            val sdp = resposta.getSDPMessage().toString()
+            resposta.invalidate() // mesma armadilha da oferta: a dona e a promessa
+            pub.aplicarResposta(sdp)
+        }.onFailure { p("  !!! o eco nao respondeu: ${it.message}") }
+    }
 }
 
 private fun <T> esperar(ms: Long, tentar: () -> T?): T? {

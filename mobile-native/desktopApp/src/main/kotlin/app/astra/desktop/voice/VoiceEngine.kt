@@ -331,6 +331,14 @@ class VoiceEngine(
     // Tamanho que a webcam entrega, guardado pro motor novo montar o cano com ele.
     private var tamanhoDaCamera: Pair<Int, Int>? = null
 
+    // QUAL webcam, pelo nome. O motor novo abre a camera pelo `mfvideosrc`, que sem
+    // endereco pega a primeira que a maquina listar -- quem tem duas escolheria uma na
+    // interface e transmitiria a outra.
+    private var nomeDaCamera: String? = null
+
+    // A primeira medida da transmissao ja foi pro diario? (uma por transmissao)
+    private var medidaAnotada = false
+
     fun connect(roomKind: String, roomId: String) {
         VoiceLog.nota("--- entrando em $roomKind:$roomId ---")
         Sfx.callJoin() // entrar na call: som fino/agudo
@@ -1150,6 +1158,7 @@ class VoiceEngine(
             // O tamanho da CAMERA, e nao o preset da tela: o `screenQ` fala de
             // transmissao de tela e nao tem relacao com o que a webcam entrega.
             tamanhoDaCamera = w to h
+            nomeDaCamera = runCatching { device.name }.getOrNull()
         }
         screenCid = cid
         _sharingCamera.value = true
@@ -1183,7 +1192,7 @@ class VoiceEngine(
             val indice = lastScreenSource?.let { s -> lista.indexOfFirst { it.id == s.id } }?.coerceAtLeast(0) ?: 0
             val ok = if (_sharingCamera.value) {
                 val (lc, ac) = tamanhoDaCamera ?: (1280 to 720)
-                gst.publicarCamera(cid, lc, ac)
+                gst.publicarCamera(cid, nomeDaCamera, lc, ac)
             } else {
                 gst.publicarTela(cid, indice, screenQ)
             }
@@ -1241,6 +1250,7 @@ class VoiceEngine(
     // da degradacao. E como saber SE bateu 60 e, se não, ONDE travou (captura/cpu/banda).
     private fun startScreenStats() {
         statsJob?.cancel()
+        medidaAnotada = false
         streakCpu = 0
         streakBanda = 0
         streakLimpo = 0
@@ -1260,7 +1270,20 @@ class VoiceEngine(
                     // como "captura 60fps" mesmo com o cano inteiro parado. Foi o que
                     // escondeu, por uma versao inteira, que o encoder e que estava mudo.
                     val e = withContext(Dispatchers.IO) { gst.estatisticas() }
-                    if (e != null) _screenStats.value = ScreenStats(e.fpsCaptura, e.fpsEnvio, e.limite)
+                    if (e != null) {
+                        _screenStats.value = ScreenStats(e.fpsCaptura, e.fpsEnvio, e.limite)
+                        // A PRIMEIRA MEDIDA VAI PRO DIARIO, uma vez por transmissao.
+                        //
+                        // Sem isto, "a transmissao nao aparece" chega como frase e nao como
+                        // numero, e as duas historias possiveis pedem consertos em lugares
+                        // opostos: se a captura anda e o comprimido nao, o problema e local;
+                        // se os dois andam, o quadro esta saindo e quem nao recebe e o outro
+                        // lado. O arquivo o dono manda inteiro; a tela de status, nao.
+                        if (!medidaAnotada) {
+                            medidaAnotada = true
+                            VoiceLog.nota("8c. transmissao medida: captura ${e.fpsCaptura} fps, comprimido ${e.fpsEnvio} fps")
+                        }
+                    }
                 } else {
                     val pc = pub
                     val sender = screenSender

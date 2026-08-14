@@ -49,7 +49,9 @@ class GstPublisher(
     // `nvd3d11h264enc`, e nao `nvh264enc`: o segundo e o modo CUDA da NVIDIA e RECUSA
     // quadro em memoria D3D11. Com ele o cano nem liga -- e o GStreamer nao trata isso
     // como erro, apenas avisa e monta sem o ramo de video.
-    private val ENCODERS = listOf("nvd3d11h264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
+    private val ENCODERS =
+        System.getProperty("astra.encoder")?.let { listOf(it) }
+            ?: listOf("nvd3d11h264enc", "qsvh264enc", "amfh264enc", "mfh264enc")
 
     data class Estatisticas(val fpsCaptura: Int, val fpsEnvio: Int, val limite: String)
 
@@ -94,8 +96,17 @@ class GstPublisher(
     private var marcoCapturados = 0L
     private var marcoCodificados = 0L
 
+    // Contador por elo, so pra depuracao (`-Dastra.contarelos`). Ver `elosAgora()`.
+    private val elos = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong>()
+
+    fun elosAgora(): String = elos.entries.sortedBy { it.key }.joinToString(" . ") { "${it.key}=${it.value.get()}" }
+
     val encoderDisponivel: String?
-        get() = ENCODERS.firstOrNull { runCatching { ElementFactory.find(it) != null }.getOrDefault(false) }
+        get() = encoderEscolhido ?: ENCODERS.firstOrNull { existe(it) }
+
+    // Qual encoder de fato comprimiu, descoberto na primeira transmissao da sessao.
+    // Depois disso ninguem mais paga o custo de descobrir.
+    @Volatile private var encoderEscolhido: String? = null
 
     // ---- ciclo de vida ----
 
@@ -219,19 +230,55 @@ class GstPublisher(
 
     fun publicarTela(cid: String, monitor: Int, q: ScreenQuality): Boolean =
         publicarVideo(cid, q.width, q.height, q.fps, q.bitrate) {
-            ElementFactory.make("d3d11screencapturesrc", "tela")?.apply {
-                runCatching { set("monitor-index", monitor) }
-                // O PONTEIRO DO MOUSE ENTRA NA IMAGEM. O padrao deste elemento e nao
-                // desenhar, e quem assiste alguem mostrando a tela precisa saber pra onde
-                // a pessoa esta apontando -- sem o ponteiro, "olha aqui" nao aponta nada.
-                // O caminho de sempre (ddagrab) ja desenhava; a falta era regressao.
-                runCatching { set("show-cursor", true) }
-            }
+            // O quadro ja NASCE na placa: nada a subir, o d3d11convert recebe direto.
+            val tela = ElementFactory.make("d3d11screencapturesrc", "tela") ?: return@publicarVideo null
+            runCatching { tela.set("monitor-index", monitor) }
+            // O PONTEIRO DO MOUSE ENTRA NA IMAGEM. O padrao deste elemento e nao
+            // desenhar, e quem assiste alguem mostrando a tela precisa saber pra onde
+            // a pessoa esta apontando -- sem o ponteiro, "olha aqui" nao aponta nada.
+            // O caminho de sempre (ddagrab) ja desenhava; a falta era regressao.
+            runCatching { tela.set("show-cursor", true) }
+            listOf(tela)
         }
 
-    fun publicarCamera(cid: String, largura: Int, altura: Int): Boolean =
-        publicarVideo(cid, largura, altura, 30, 2_000_000) {
-            ElementFactory.make("mfvideosrc", "camera")
+    // A CAMERA NAO E A TELA, e o cano precisava saber disso.
+    //
+    // Esta funcao existia e NAO PODIA ter funcionado nunca: ela entregava o `mfvideosrc`
+    // direto no `d3d11convert`, e as portas dos dois nao se encontram. Conferido no
+    // gst-inspect do proprio pacote:
+    //
+    //   mfvideosrc   src  -> video/x-raw (memoria principal) | image/jpeg
+    //   d3d11convert sink -> video/x-raw(memory:D3D11Memory) SO
+    //
+    // Sem interseccao nao ha ligacao, e `publicarVideo` devolvia false calado. A diferenca
+    // e de origem, nao de configuracao: quadro de tela nasce NA PLACA (o capturador le a
+    // area de trabalho de onde ela ja mora), quadro de webcam nasce na MEMORIA PRINCIPAL
+    // (o cabo USB entrega ali). Pra webcam a subida pra placa e inevitavel -- o que se
+    // evita e o vaivem, e por isso ela sobe UMA vez e nao desce mais ate a previa.
+    //
+    // As tres pecas novas, cada uma por um motivo:
+    //   . capsfilter video/x-raw -- fecha a porta pro `image/jpeg`. Camera que oferece os
+    //     dois entrega JPEG na maior resolucao, e o pacote enxuto NAO leva decodificador
+    //     de JPEG: a negociacao acharia um caminho que nao existe.
+    //   . d3d11upload -- a subida propriamente dita.
+    //
+    // A CADENCIA NAO E FIXADA (fps=0 la embaixo), e isso e obrigacao e nao preguica.
+    // Webcam anuncia 30000/1001 (29,97) tanto quanto 30/1, e um filtro pedindo 30/1 exato
+    // mataria a negociacao por causa de um milesimo. O conserto natural seria um
+    // `videorate` -- que NAO EXISTE NESTE PACOTE (conferido: o pacote leva 23 plugins e
+    // esse nao esta entre eles). Entao a camera manda a cadencia dela, e o encoder aceita.
+    //
+    // `nomeDoAparelho` existe porque quem tem duas cameras escolhe uma na interface, e o
+    // `mfvideosrc` sem endereco abre a primeira que achar -- a pessoa apontaria a webcam
+    // do rosto e transmitiria a do teto.
+    fun publicarCamera(cid: String, nomeDoAparelho: String?, largura: Int, altura: Int): Boolean =
+        publicarVideo(cid, largura, altura, 0, 2_000_000) {
+            val cam = ElementFactory.make("mfvideosrc", "camera")
+            if (!nomeDoAparelho.isNullOrBlank()) runCatching { cam.set("device-name", nomeDoAparelho) }
+            val cru = ElementFactory.make("capsfilter", "cruDaCamera")
+            val sobe = ElementFactory.make("d3d11upload", "sobeCamera")
+            cru.set("caps", Caps.fromString("video/x-raw,width=$largura,height=$altura"))
+            listOf(cam, cru, sobe)
         }
 
     // Monta o ramo de video e pendura no webrtcbin.
@@ -249,14 +296,119 @@ class GstPublisher(
         altura: Int,
         fps: Int,
         bitrate: Int,
-        criarFonte: () -> Element?,
+        // A ENTRADA E UMA LISTA, e nao um elemento: quem produz o quadro decide quantas
+        // pecas precisa ate entregar em memoria de placa. Tela entrega uma; camera entrega
+        // quatro (ver `publicarCamera`). Daqui pra frente o cano e o mesmo pros dois.
+        criarFonte: () -> List<Element>?,
+    ): Boolean {
+        if (ramoVideo.isNotEmpty()) pararVideo()
+
+        // ESCOLHE O ENCODER MEDINDO, e nao por lista de preferencia.
+        //
+        // A lista dizia `nvd3d11h264enc` primeiro, e nesta maquina ele NAO CODIFICA NADA:
+        // um quadro entra, nenhum sai, o cano congela. A causa e que o notebook tem duas
+        // placas -- a tela e desenhada pela Intel, e e no aparelho D3D11 DELA que o quadro
+        // capturado nasce. A NVIDIA e outro aparelho: ela nao consegue ler aquela textura,
+        // e a queixa que sobrava no log era so um `assertion 'GST_IS_D3D11_DEVICE'
+        // failed`, sem erro no barramento e sem nada na tela.
+        //
+        // Medido lado a lado, mesmo cano, so trocando o encoder:
+        //     qsvh264enc      captura 60 fps . comprimido 60 fps  (oito segundos firmes)
+        //     nvd3d11h264enc  captura  1     . comprimido  0      (morto no primeiro)
+        //
+        // POR QUE MEDIR EM VEZ DE SO INVERTER A LISTA: inverter conserta este notebook e
+        // quebra a maquina de mesa onde a NVIDIA desenha a tela -- la a Intel e que seria
+        // a placa errada. Nenhuma ordem fixa esta certa nas duas. O que vale nas duas e
+        // "usa quem realmente comprime", e isso e uma pergunta com resposta medida: sobe o
+        // ramo, olha se saiu quadro, e se nao saiu tenta o proximo. Custa ate meio segundo
+        // uma vez por sessao -- o acerto fica guardado.
+        val enc = encoderQueComprime() ?: return false
+        return montarRamo(cid, largura, altura, fps, bitrate, enc, criarFonte)
+    }
+
+    private fun existe(nome: String) =
+        runCatching { ElementFactory.find(nome) != null }.getOrDefault(false)
+
+    // Escolhe o encoder pela PLACA QUE DESENHA A TELA, e essa e a regra inteira.
+    //
+    // Um quadro de captura de tela nasce no aparelho D3D11 da placa que desenha o monitor,
+    // e um encoder so consegue ler textura da PROPRIA placa. Notebook com duas placas --
+    // Intel desenhando a tela, NVIDIA so renderizando -- e o caso comum, e nele a NVENC
+    // recebe uma textura que nao e dela e nao devolve nada: um quadro entra, nenhum sai, o
+    // cano congela e o unico vestigio e um `assertion 'GST_IS_D3D11_DEVICE' failed`.
+    //
+    // O GSTREAMER JA DIZ QUEM E QUEM, no nome longo de cada elemento. O decodificador sem
+    // sufixo e sempre o do adaptador 0, que e o do monitor:
+    //
+    //     d3d11h264dec         "... H.264 Intel(R) UHD Graphics Decoder"      <- a tela
+    //     d3d11h264device1dec  "... H.264 NVIDIA GeForce RTX 4060 ... Decoder"
+    //     qsvh264enc           "... Intel(R) UHD Graphics H.264 Encoder"      <- combina
+    //     nvd3d11h264enc       "NVENC H.264 Video Encoder Direct3D11 Mode"
+    //
+    // Entao basta perguntar de que fabricante e a placa da tela e preferir o encoder do
+    // mesmo. Nao e adivinhacao de plataforma: e ler a resposta que ja esta escrita.
+    //
+    // TENTEI ANTES por medicao -- subir um cano de prova e ver se saia quadro comprimido.
+    // Nao presta: o resultado MUDOU entre duas provas na mesma maquina, porque o GStreamer
+    // guarda os aparelhos D3D11 que ja criou e a prova cai num ou noutro conforme a ordem.
+    // Teste que responde diferente pra mesma pergunta nao decide nada.
+    //
+    // Se nada casar, segue a ordem de sempre -- maquina de uma placa so nao tem conflito.
+    private fun encoderQueComprime(): String? {
+        encoderEscolhido?.let { return it }
+        val candidatos = ENCODERS.filter { existe(it) }
+        if (candidatos.isEmpty()) return null
+        val marca = marcaDaTela()
+        val escolhido = candidatos.firstOrNull { marca != null && marcaDe(nomeLongo(it)) == marca }
+            ?: candidatos.first()
+        encoderEscolhido = escolhido
+        VoiceLog.nota(
+            "transporte novo: a tela e desenhada por ${marca ?: "placa desconhecida"}; " +
+                "comprimindo com '$escolhido' (tinha ${candidatos.joinToString()})",
+        )
+        return escolhido
+    }
+
+    private fun nomeLongo(fabrica: String) =
+        runCatching { ElementFactory.find(fabrica)?.longName }.getOrNull().orEmpty()
+
+    // O decodificador D3D11 SEM sufixo de aparelho e o do adaptador 0 -- o do monitor.
+    private fun marcaDaTela(): String? =
+        listOf("d3d11h264dec", "d3d11vp9dec", "d3d11h265dec")
+            .firstNotNullOfOrNull { marcaDe(nomeLongo(it)) }
+
+    private fun marcaDe(texto: String): String? {
+        val t = texto.lowercase()
+        return when {
+            t.contains("nvidia") || t.contains("geforce") || t.contains("nvenc") -> "NVIDIA"
+            t.contains("intel") || t.contains("quick sync") -> "Intel"
+            t.contains("amd") || t.contains("radeon") -> "AMD"
+            else -> null
+        }
+    }
+
+    private fun montarRamo(
+        cid: String,
+        largura: Int,
+        altura: Int,
+        fps: Int,
+        bitrate: Int,
+        enc: String,
+        criarFonte: () -> List<Element>?,
     ): Boolean {
         val p = pipeline ?: return false
         val b = bin ?: return false
-        if (ramoVideo.isNotEmpty()) pararVideo()
-
-        val enc = encoderDisponivel ?: return false
-        val fonte = criarFonte() ?: return false
+        // `ElementFactory.make` LANCA quando o plugin nao esta no pacote -- nao devolve
+        // nulo. Descobri isso pelo pior caminho: pedi um `videorate` que o pacote enxuto
+        // nao leva, e a excecao subiu por `publicarCamera` ate quem chamou, que nao
+        // esperava nenhuma. Fonte que nao pode ser montada tem que virar "false" aqui, do
+        // mesmo jeito que maquina sem encoder -- um caminho a menos, nunca uma call
+        // quebrada.
+        val entrada = runCatching { criarFonte() }
+            .onFailure { VoiceLog.nota("transporte novo: nao montei a fonte de video (${it.message})") }
+            .getOrNull()
+            ?.takeIf { it.isNotEmpty() } ?: return false
+        val fonte = entrada.first()
         val conv = ElementFactory.make("d3d11convert", "conv") ?: return false
         val formato = ElementFactory.make("capsfilter", "formato") ?: return false
         val encoder = ElementFactory.make(enc, "encoder") ?: return false
@@ -264,11 +416,17 @@ class GstPublisher(
         val pay = ElementFactory.make("rtph264pay", "pay") ?: return false
         val formatoRtp = ElementFactory.make("capsfilter", "formatoRtp") ?: return false
 
+        // `fps = 0` quer dizer "a fonte manda". Fixar cadencia so faz sentido pra tela, que
+        // e capturada sob demanda e entrega o que se pedir; webcam entrega a cadencia dela
+        // e nao negocia -- pedir 30/1 exato de quem oferece 30000/1001 derruba a
+        // negociacao inteira por causa de um milesimo.
+        val cadencia = if (fps > 0) ",framerate=$fps/1" else ""
         formato.set(
             "caps",
-            Caps.fromString("video/x-raw(memory:D3D11Memory),format=NV12,width=$largura,height=$altura,framerate=$fps/1"),
+            Caps.fromString("video/x-raw(memory:D3D11Memory),format=NV12,width=$largura,height=$altura$cadencia"),
         )
         runCatching { encoder.set("bitrate", bitrate / 1000) } // kbps na maioria dos encoders
+        aoVivo(encoder, enc)
         // config-interval=-1 nos dois: o WebRTC exige que SPS/PPS voltem junto de todo
         // quadro-chave. Sem isso quem entra no meio da transmissao ve tela preta ate o
         // proximo, e "ate o proximo" pode ser meio minuto.
@@ -297,7 +455,7 @@ class GstPublisher(
         val ramoPrevia = if (onPrevia != null) montarPrevia(largura, altura) else emptyList()
         val tee = if (ramoPrevia.isNotEmpty()) ElementFactory.make("tee", "tee") else null
 
-        val principal = listOf(fonte, conv, formato) +
+        val principal = entrada + listOf(conv, formato) +
             (if (tee != null) listOf(tee) else emptyList()) +
             listOf(encoder, parser, pay, formatoRtp)
         val elementos = principal + ramoPrevia
@@ -331,9 +489,25 @@ class GstPublisher(
             // RTP, e contar pacote como quadro daria um numero inflado e sem sentido.
             quadrosCapturados.set(0)
             quadrosCodificados.set(0)
+            elos.clear() // por transmissao, senao a leitura soma as anteriores e mente
             marcoQuando = 0L
             marcoCapturados = 0L
             marcoCodificados = 0L
+            // ELO A ELO, so quando o banco de testes pede. Em producao sao dois contadores;
+            // com `astra.contarelos` cada porta do ramo ganha o seu, e a primeira que
+            // parar de crescer e o elemento que esta segurando o cano.
+            if (System.getProperty("astra.contarelos") != null) {
+                principal.forEach { elo ->
+                    val nome = elo.name
+                    runCatching {
+                        elo.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, _ ->
+                            elos.computeIfAbsent(nome) { java.util.concurrent.atomic.AtomicLong(0) }
+                                .incrementAndGet()
+                            PadProbeReturn.OK
+                        }
+                    }
+                }
+            }
             runCatching {
                 fonte.getStaticPad("src")?.addProbe(PadProbeType.BUFFER) { _, _ ->
                     quadrosCapturados.incrementAndGet(); PadProbeReturn.OK
@@ -355,9 +529,62 @@ class GstPublisher(
             cidVideo = cid
             true
         }.getOrElse { e ->
-            VoiceLog.nota("transporte novo: a tela nao subiu (${e.message})")
+            VoiceLog.nota("transporte novo: o ramo de video nao subiu (${e.message})")
             runCatching { p.removeMany(*elementos.toTypedArray()) }
             false
+        }
+    }
+
+    // POE O ENCODER EM MODO AO VIVO. Sem isto a transmissao NAO EXISTE -- e nao "fica
+    // ruim": para de sair depois de um quadro.
+    //
+    // ISTO ERA O DEFEITO DO "envia 0fps". Medido elo a elo, com a conexao viva:
+    //
+    //     tela=5 . conv=5 . formato=5 . encoder=1 . parser=1 . pay=1 . formatoRtp=1
+    //
+    // A fonte entregou cinco quadros, o encoder devolveu UM, e o cano inteiro congelou --
+    // pra sempre. O que sai do encoder atravessa o resto sem tropeco (parser, payloader e
+    // saida receberam o mesmo 1), entao o `webrtcbin` nunca foi o culpado, apesar de ser
+    // sempre o primeiro suspeito.
+    //
+    // POR QUE ELE TRAVA. Encoder de hardware, na configuracao de fabrica, encoda pra
+    // ARQUIVO: usa quadros B e olha alguns quadros a frente antes de decidir. Pra isso ele
+    // SEGURA os quadros de entrada. So que os quadros de entrada nao sao dele -- sao do
+    // conjunto que o capturador de tela empresta, e esse conjunto tem cerca de cinco. O
+    // encoder segurou os cinco, a fonte pediu o sexto, nao havia sexto, e ela ficou parada
+    // esperando um quadro que so voltaria se o encoder soltasse -- o que so aconteceria se
+    // chegasse mais quadro. Um esperando o outro, calados, sem erro no barramento.
+    //
+    // Nada disso deveria existir numa chamada ao vivo de qualquer jeito: quadro B atrasa a
+    // imagem de proposito, e atraso e exatamente o que nao se pode gastar aqui. A
+    // configuracao certa pra tempo real e a mesma que conserta o travamento.
+    //
+    // Cada fabricante com seus nomes; `runCatching` em cada um porque versao de plugin
+    // muda propriedade, e um nome que sumiu nao pode derrubar a transmissao inteira.
+    private fun aoVivo(encoder: Element, nome: String) {
+        when (nome) {
+            "qsvh264enc" -> {
+                runCatching { encoder.set("low-latency", true) }
+                runCatching { encoder.set("b-frames", 0) }
+                runCatching { encoder.set("ref-frames", 1) }
+                runCatching { encoder.set("target-usage", 7) } // 7 = mais rapido
+                runCatching { encoder.set("rate-control", 1) } // 1 = cbr, o que a rede pede
+            }
+            "nvd3d11h264enc", "nvautogpuh264enc", "nvh264enc" -> {
+                runCatching { encoder.set("zerolatency", true) }
+                runCatching { encoder.set("bframes", 0) }
+                runCatching { encoder.set("rc-lookahead", 0) }
+                runCatching { encoder.set("rc-mode", 2) } // 2 = cbr
+                runCatching { encoder.set("tune", 3) } // 3 = ultra-low-latency
+            }
+            "amfh264enc" -> {
+                runCatching { encoder.set("usage", 1) } // 1 = ultra-low-latency
+                runCatching { encoder.set("rate-control", 3) } // 3 = cbr
+            }
+            "mfh264enc" -> {
+                runCatching { encoder.set("low-latency", true) }
+                runCatching { encoder.set("bframes", 0) }
+            }
         }
     }
 

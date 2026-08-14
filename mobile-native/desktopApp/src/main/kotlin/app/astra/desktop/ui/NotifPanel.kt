@@ -149,17 +149,27 @@ fun NotifPanel(
         }
     }
 
-    // Scrim: clique fora fecha. Painel ancorado no topo-direita (sob o sino).
+    // NO MEIO DA TELA (pedido do dono). Era um dropdown colado sob o sino, e o
+    // dropdown tem um defeito que so aparece com a lista cheia: ele desce a partir do
+    // canto superior direito, ou seja, obriga o olho a ler a coisa mais importante no
+    // ponto mais distante de onde ele estava. Centralizado, a lista nasce onde o olho
+    // ja esta — e a largura pode crescer sem espremer o conteudo contra a borda.
+    //
+    // O veu escuro e o mesmo da Busca de proposito: as duas sao "isto toma a tela ate
+    // voce resolver", e duas coisas com a mesma funcao devem falar a mesma lingua.
     Box(
         Modifier
             .fillMaxSize()
+            .background(Obsidian.void.copy(alpha = 0.55f))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 6.dp, end = 8.dp)
-                .width(390.dp)
+                // Cresce do proprio centro: o painel nao vem mais "de" lugar nenhum,
+                // entao a origem da escala e ele mesmo.
+                .popupReveal(originX = 0.5f, originY = 0.5f)
+                .width(520.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))

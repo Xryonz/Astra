@@ -110,7 +110,9 @@ class DesktopPrefs(private val store: SessionStore) {
         // salva prevalece.
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
-        val uiFps: UiFps = UiFps.FREE,
+        // 60 e nao livre: livre segue a taxa do monitor (165Hz aqui) e o ceu custava
+        // 2,5x mais sem nada a mostrar — nada nele se move rapido. Ver `migrarCeu`.
+        val uiFps: UiFps = UiFps.CAP60,
         // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
         // de criacao da janela). Opaca = mais nitido/leve.
         val windowTransparent: Boolean = true,
@@ -164,6 +166,33 @@ class DesktopPrefs(private val store: SessionStore) {
     private val _state = MutableStateFlow(read())
     val state = _state.asStateFlow()
 
+    init { migrarCeu() }
+
+    // AJUSTE QUE NUNCA VALEU NAO E ESCOLHA — e por isso este remendo de uma vez so.
+    //
+    // O `LocalRenderPrefs` era provido dentro do ShellScreen, e o ceu (aurora + estrelas)
+    // mora ACIMA dele na arvore desde que o login e o shell passaram a dividir o mesmo
+    // fundo. CompositionLocal que nao acha provedor cai no default em silencio: nada
+    // quebrou visivelmente, os dois ajustes so pararam de obedecer. Por tempo indefinido
+    // a aurora desenhou em ALTA e sem teto de fps, qualquer que fosse o que estivesse
+    // marcado na tela de Desempenho.
+    //
+    // Consertado o provedor, o valor gravado passaria a valer DE REPENTE — e o dono
+    // veria o fundo mudar de aparencia sozinho, por uma escolha que ele fez uma vez, sem
+    // efeito nenhum, e que portanto nunca foi testada por ele. Entao os dois voltam pro
+    // padrao bom uma unica vez, marcado por `ceuMigrado`. A partir daqui a tela manda.
+    //
+    // 60fps e o padrao novo (era livre): medido nesta maquina, parado, o ceu custava
+    // 0,416 nucleo em 165Hz contra 0,166 em 60 — e a aurora leva 20s pra dar uma volta,
+    // entao nao ha o que ver a mais em 165.
+    private fun migrarCeu() {
+        if (store.uiPref("ceuMigrado") == "1") return
+        store.setUiPref("ceuMigrado", "1")
+        store.setUiPref("auroraQuality", AuroraQuality.HIGH.key)
+        store.setUiPref("uiFps", UiFps.CAP60.key)
+        _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.CAP60) }
+    }
+
     // Ausente = default (toasts ligados; reduceMotion/perfMode desligados; aurora
     // e estrelas DESLIGADAS; qualidade media; fps livre; janela translucida).
     //
@@ -177,6 +206,8 @@ class DesktopPrefs(private val store: SessionStore) {
         notifyChannels = store.uiPref("notifyChannels") != "0",
         performanceMode = store.uiPref("performanceMode") == "1",
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
+        // MIGRACAO DE UMA VEZ (ver `migrarCeu` abaixo): o que estava gravado nestes dois
+        // nunca chegou a valer, entao nao era escolha de ninguem.
         auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
         starsEnabled = store.uiPref("starsEnabled") == "1",
         uiFps = UiFps.from(store.uiPref("uiFps")),

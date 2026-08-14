@@ -49,7 +49,9 @@ import app.astra.desktop.update.UpdateService
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.AstraTitleBar
+import app.astra.desktop.ui.LocalRenderPrefs
 import app.astra.desktop.ui.LocalWindowActive
+import app.astra.desktop.ui.RenderPrefs
 import app.astra.desktop.ui.ServidorAcordandoStrip
 import app.astra.desktop.ui.LoginScreen
 import app.astra.desktop.ui.OnboardingScreen
@@ -124,28 +126,6 @@ private fun escolherPlacaDaInterface() = runCatching {
         return@runCatching
     }
     System.setProperty("skiko.gpu.priority", if (placa.dedicada) "discrete" else "integrated")
-}
-
-// FOCO DO APP, e nao da janela principal — a diferenca aqui nao e sutileza, e a razao de
-// o gate original ser visibilidade.
-//
-// Um Popup focavel do Compose Desktop e uma JANELA AWT separada. Perguntar "a janela
-// principal esta ativa?" responde NAO toda vez que um menu de contexto abre, e o ceu
-// congelaria no meio do uso, a cada clique com o botao direito. O KeyboardFocusManager
-// guarda a janela ativa DO PROCESSO: nao-nula significa "alguma janela nossa esta ativa",
-// popup incluido. Nula significa que a pessoa foi pra outro programa — e ai o enfeite nao
-// tem publico e nao deve custar nada.
-@Composable
-private fun lembrarFocoDoApp(): Boolean {
-    var foco by remember { mutableStateOf(true) }
-    DisposableEffect(Unit) {
-        val gerente = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
-        val ouvinte = java.beans.PropertyChangeListener { ev -> foco = ev.newValue != null }
-        gerente.addPropertyChangeListener("activeWindow", ouvinte)
-        foco = gerente.activeWindow != null
-        onDispose { gerente.removePropertyChangeListener("activeWindow", ouvinte) }
-    }
-    return foco
 }
 
 private fun writeDiagnostics() = runCatching {
@@ -302,9 +282,6 @@ fun main() {
         // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
         val appIcon = painterResource("astra-icon.png")
         val trayState = rememberTrayState()
-
-        // Alguma janela nossa tem o foco? (o ceu so anima quando sim — ver o gate abaixo)
-        val appEmFoco = lembrarFocoDoApp()
 
         // Outro processo tentou abrir o Astra -> traz esta janela (a única) pra frente.
         val activate by SingleInstance.activate.collectAsState()
@@ -512,19 +489,56 @@ fun main() {
                     // no draw da aurora (não recompoe); disparado no onLoggedIn abaixo.
                     val auroraPulse = remember { Animatable(0f) }
                     val pulseScope = rememberCoroutineScope()
-                    // O ENFEITE PARA QUANDO NINGUEM ESTA OLHANDO.
+                    // O ENFEITE PARA QUANDO NINGUEM ESTA OLHANDO — e este e o maior custo
+                    // parado do app inteiro, medido.
                     //
-                    // Medido: com o Astra ATRAS do navegador, sem nada acontecendo, o
-                    // processo gastava 0,27 nucleo — e quase tudo era o skiko redesenhando
-                    // aurora e estrelas pra uma janela ocluida. "Nao minimizada" nao e o
-                    // mesmo que "visivel": o Windows nao para de entregar frames pra
-                    // janela coberta, entao o custo corria o dia inteiro em segundo plano.
+                    // Com a conversa carregada e nada acontecendo:
+                    //     ceu ligado, janela visivel ....... 0,35 nucleo
+                    //     ceu desligado, janela visivel .... 0,037 nucleo
+                    //     minimizado ....................... 0,047 nucleo
+                    // Ou seja: a aurora sozinha custa ~0,31 nucleo o tempo todo, inclusive
+                    // com o Astra atras do navegador. O perfil (JFR) mostra onde: 90% das
+                    // amostras da thread do skiko estao em Direct3DContextHandler.flush,
+                    // esperando a GPU — a janela apresenta a 165Hz (a taxa do monitor)
+                    // porque ha sempre um frame novo pedido.
                     //
-                    // O gate e FOCO DO APP, e so aqui dentro: LocalWindowActive continua
-                    // significando visibilidade pro resto (video de call nao pode congelar
-                    // porque a pessoa clicou noutra janela do segundo monitor).
+                    // "Nao minimizada" nao e o mesmo que "visivel": o Windows nao para de
+                    // entregar frames pra janela coberta.
+                    //
+                    // POR QUE FOCO DA JANELA e nao a janela ativa do processo: tentei o
+                    // KeyboardFocusManager primeiro, justamente pra que um popup nosso
+                    // continuasse contando como "o app tem foco". Instrumentei e ele
+                    // dispara UMA vez, ao ganhar foco, e nunca mais — nem `activeWindow`
+                    // nem `focusedWindow` voltam a null quando a pessoa vai pra outro
+                    // programa. `isWindowFocused` e o sinal que este app ja usa e que
+                    // funciona (e o mesmo que decide se a notificacao aparece).
+                    //
+                    // PRECO ACEITO: enquanto um menu de contexto focavel estiver aberto, o
+                    // ceu fica parado, porque o menu e outra janela. Some ao fechar. Vale
+                    // 0,31 nucleo.
+                    //
+                    // So aqui dentro: LocalWindowActive continua significando visibilidade
+                    // pro resto (video de call nao pode congelar porque a pessoa clicou
+                    // noutra janela do segundo monitor).
+                    // E O `LocalRenderPrefs` TEM QUE VIR DAQUI, nao do ShellScreen.
+                    //
+                    // Ele e provido la embaixo, dentro do ShellScreen — e o ceu mora AQUI
+                    // EM CIMA, acima daquele provedor na arvore. Resultado: a aurora e as
+                    // estrelas sempre leram o valor PADRAO (`RenderPrefs()`), ou seja
+                    // 3 oitavas e teto de fps ZERO. Na pratica, dois ajustes de
+                    // Configuracoes › Desempenho nao faziam nada ha tempo:
+                    //   - "qualidade da aurora" (baixa/media/alta) — sempre alta;
+                    //   - "teto de FPS" (60/30) — sempre livre, ou seja a taxa do monitor.
+                    // O dono estava com aurora em "baixa" e o app desenhava em alta.
+                    //
+                    // O ceu subiu pro Main quando o login e o shell passaram a dividir o
+                    // mesmo ceu; o provedor ficou pra tras, e como CompositionLocal cai no
+                    // default em silencio, nada quebrou visivelmente — so parou de obedecer.
                     CompositionLocalProvider(
-                        LocalWindowActive provides (windowVisible && !state.isMinimized && appEmFoco),
+                        LocalRenderPrefs provides
+                            RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
+                        LocalWindowActive provides
+                            (windowVisible && !state.isMinimized && windowInfo.isWindowFocused),
                     ) {
                         if (prefState.auroraOn) {
                             // Camada propria (graphicsLayer): so ela invalida por frame —

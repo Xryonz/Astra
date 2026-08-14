@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import app.astra.desktop.ui.theme.Obsidian
 import kotlin.math.sqrt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -248,7 +249,6 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
             return@produceState
         }
         var acc = 0f
-        var lastEmit = 0L
         while (true) {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
@@ -264,13 +264,23 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
                     acc += dt
                     if (acc >= AURORA_LOOP) acc -= AURORA_LOOP
                     last = now
-                    val cap = fpsCap.value
-                    val minInterval = if (cap <= 0) 0L else 1_000_000_000L / cap
-                    if (minInterval == 0L || now - lastEmit >= minInterval) {
-                        lastEmit = now
-                        value = acc
-                    }
+                    value = acc
                 }
+                // O TETO DE FPS TEM QUE DORMIR, e nao so deixar de emitir.
+                //
+                // Antes o laco pedia `withFrameNanos` TODO frame e apenas segurava a
+                // emissao do valor quando o teto ainda nao tinha vencido. Isso nao poupava
+                // nada: pedir frame e o que faz o Compose compor, o Skia desenhar e o
+                // Direct3D apresentar — e no perfil (JFR) 90% das amostras da thread do
+                // skiko estao exatamente em `Direct3DContextHandler.flush`, esperando a
+                // GPU. Ou seja, o custo era o FRAME, nao o valor; o teto mexia no lado que
+                // nao pesava e o app seguia apresentando a 165Hz (a taxa do monitor).
+                //
+                // Dormindo entre um frame e o outro, ninguem pede frame nesse intervalo e o
+                // app fica de fato parado. A aurora deriva devagar: a 30 quadros por
+                // segundo ela e indistinguivel de 165, e custa cinco vezes menos.
+                val cap = fpsCap.value
+                if (cap > 0) delay(1_000L / cap)
             }
         }
     }

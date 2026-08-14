@@ -411,6 +411,8 @@ private fun conexaoDeVerdade() {
         pub.publicarTela(CID_TELA, 0, ScreenQuality.SMOOTH_720_60)
     }
     provarAtuador(pub, binEco, ofertas)
+    p("  pecas dentro do webrtcbin: ${pub.pecasInternas()}")
+    provarSensor(pub, binEco, ofertas)
     piscante.parar()
 
     // A CAMERA TAMBEM AQUI DENTRO, e nao la em cima com as outras fontes.
@@ -481,6 +483,46 @@ private fun medir(
                 " . ${e?.kbpsReal ?: "?"} kbps (pedido ${e?.kbpsPedido ?: "?"})",
         )
         pub.elosAgora().takeIf { s -> s.isNotBlank() }?.let { s -> p("        $s") }
+    }
+    pub.pararVideo()
+    Thread.sleep(400)
+}
+
+// O SENSOR, martelado com o COLETOR DE LIXO em cima.
+//
+// Ler propriedade encaixotada e onde este binding ja matou o processo duas vezes, e a
+// falha nao aparece na hora: ela aparece quando o coletor passa e libera de novo o que o
+// lado nativo ja tinha liberado. Um ensaio de trinta segundos sem pressao de memoria
+// PASSA e a call de verdade morre -- foi exatamente assim que o defeito da oferta chegou
+// ate o dono.
+//
+// Entao aqui e o contrario: le, cobra o coletor, le de novo, trinta vezes, com a conexao
+// viva e a tela transmitindo. Se este bloco sobrevive, o sensor pode subir pro app. Se
+// derruba, derruba nesta maquina e nao na call de ninguem -- que e a razao de o banco de
+// testes existir.
+private fun provarSensor(pub: GstPublisher, binEco: WebRTCBin, ofertas: java.util.Queue<String>) {
+    p("  o sensor de rede aguenta o coletor de lixo?")
+    if (!pub.publicarTela(CID_TELA, 0, ScreenQuality.LIGHT_720_30)) {
+        p("    !!! nao publicou")
+        return
+    }
+    pub.negociar()
+    esperar(8_000) { ofertas.poll() }?.let { responder(binEco, pub, it) }
+    Thread.sleep(1500)
+    var lidos = 0
+    var vazios = 0
+    repeat(30) {
+        val r = pub.rede()
+        if (r == null) vazios++ else lidos++
+        if (it % 10 == 0) p("    ${it}: ${r?.let { v -> "perda ${v.perdaPct}% . recebendo ${v.kbpsRecebido} kbps" } ?: "sem leitura"}")
+        System.gc()
+        Thread.sleep(300)
+        if (!pub.vivo) { p("    !!! O TRANSPORTE MORREU na leitura $it -- o sensor NAO pode subir"); return }
+    }
+    p("    SOBREVIVEU 30 leituras com GC: $lidos com valor, $vazios sem")
+    if (lidos == 0) {
+        p("    (sem valor nenhum: o twcc-stats so enche se a extensao TWCC foi negociada;")
+        p("     o eco daqui pode nao anuncia-la. Nao prova defeito, prova que este banco nao mede isso.)")
     }
     pub.pararVideo()
     Thread.sleep(400)

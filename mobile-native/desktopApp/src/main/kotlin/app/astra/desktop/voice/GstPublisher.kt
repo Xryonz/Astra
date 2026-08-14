@@ -13,6 +13,7 @@ import org.freedesktop.gstreamer.PadProbeType
 import org.freedesktop.gstreamer.Pipeline
 import org.freedesktop.gstreamer.SDPMessage
 import org.freedesktop.gstreamer.State
+import org.freedesktop.gstreamer.Structure
 import org.freedesktop.gstreamer.elements.AppSrc
 import org.freedesktop.gstreamer.webrtc.WebRTCBin
 import org.freedesktop.gstreamer.webrtc.WebRTCSDPType
@@ -118,6 +119,56 @@ class GstPublisher(
     private val elos = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong>()
 
     fun elosAgora(): String = elos.entries.sortedBy { it.key }.joinToString(" . ") { "${it.key}=${it.value.get()}" }
+
+    // A rede vista de dentro: perda e o que o outro lado esta de fato recebendo.
+    data class Rede(val perdaPct: Double, val kbpsRecebido: Int)
+
+    private var sessaoRtp: Element? = null
+
+    // O SENSOR do controle de congestionamento. Devolve null quando nao ha o que ler --
+    // e "nao sei" tem que ser distinguivel de "esta tudo bem", senao o laco reage a uma
+    // leitura que nunca existiu.
+    //
+    // LE O `twcc-stats`, E NAO O `stats`, e a escolha e sobre RISCO e nao sobre gosto.
+    // Ler propriedade encaixotada e onde este binding ja matou o processo duas vezes: ele
+    // embrulha o ponteiro como se fosse dono, e quando o dono verdadeiro tambem libera, o
+    // monte nativo corrompe e o app evapora sem excecao, sem pilha e sem laudo -- na call
+    // de alguem. O `stats` e uma estrutura que contem um VETOR de estruturas (uma por
+    // fonte): tres camadas de posse pra atravessar. O `twcc-stats` e PLANO e ja traz a
+    // perda em porcentagem: uma camada. Menos superficie, mesma resposta.
+    //
+    // Tudo em `runCatching` e devolvendo null: um sensor que lanca excecao no meio de uma
+    // transmissao troca um problema de qualidade por um problema de call caida.
+    fun rede(): Rede? {
+        val b = bin ?: return null
+        val sessao = sessaoRtp ?: runCatching {
+            b.elementsRecursive.firstOrNull { it.name.startsWith("rtpsession") }
+        }.getOrNull()?.also { sessaoRtp = it } ?: return null
+        return runCatching {
+            val s = sessao.get("twcc-stats") as? Structure ?: return null
+            val perda = if (s.hasField("packet-loss-pct")) s.getDouble("packet-loss-pct") else return null
+            val kbps = if (s.hasField("bitrate-recv")) (s.getInteger("bitrate-recv") / 1000) else 0
+            Rede(perda, kbps)
+        }.getOrNull()
+    }
+
+    // O QUE MORA DENTRO DO WEBRTCBIN, so pra o banco de testes olhar.
+    //
+    // A perda de pacote so existe no relatorio RTCP, e quem o recebe e uma `rtpsession`
+    // escondida dentro do `webrtcbin`. Antes de tentar LER qualquer coisa dela, e preciso
+    // saber se ela e alcancavel -- e enumerar nao le valor nenhum, entao nao encosta na
+    // armadilha de posse que ja derrubou o app duas vezes.
+    fun pecasInternas(): String {
+        val b = bin ?: return "(sem bin)"
+        return runCatching {
+            b.elementsRecursive
+                .map { it.name }
+                .filter { it.contains("session", true) || it.contains("rtpbin", true) || it.contains("bwe", true) }
+                .distinct()
+                .joinToString(" . ")
+                .ifBlank { "nenhuma peca com 'session'/'rtpbin' no nome" }
+        }.getOrElse { "falhou: ${it.message}" }
+    }
 
     // O encoder do ramo atual e o ultimo teto pedido a ele, em kbps.
     private var encoderVivo: Element? = null

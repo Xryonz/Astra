@@ -91,12 +91,16 @@ import kotlin.math.sin
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
 
-    // Tempo mínimo de tela (pedido do dono: mais demorada pra aproveitar a animação):
-    // mesmo com a checagem instantanea o gate fica no ar ~4.8s, tempo de sobra pra ver
-    // a constelação se formar e a barra encher com as palavras espaciais antes de cair
-    // no app. So conta pro caminho "atualizado".
+    // PISO, e nao duracao. O portao dura o que a verificacao de versao durar; isto aqui
+    // so garante que ele nao PISQUE quando a resposta vem instantanea.
+    //
+    // Era 4800ms fixos, pedido pra dar tempo de aproveitar a animação. Medido tres vezes
+    // na maquina do dono: o Astra instalado abria em ~9,3s, dos quais ~4,8s eram esta
+    // espera — metade do carregamento era decoracao esperando a si mesma. Com o piso de
+    // 1,2s a abertura cai pra ~4,5s. A entrada da constelação foi encurtada junto (abaixo)
+    // pra caber: animação curta inteira e melhor que animação longa cortada no meio.
     val gateStart = remember { System.currentTimeMillis() }
-    val holdMs = 4800L
+    val holdMs = 1200L
     suspend fun holdThenDone() {
         val left = holdMs - (System.currentTimeMillis() - gateStart)
         if (left > 0) delay(left)
@@ -130,7 +134,10 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         LaunchedEffect(Unit) { started = true }
         animateFloatAsState(
             targetValue = if (started) 1f else 0f,
-            animationSpec = tween(2600, easing = LinearEasing),
+            // 1100ms e nao 2600: tem de caber dentro do piso do portao (1200ms), senao a
+            // constelação e interrompida no meio do caminho toda vez que a verificacao
+            // responde rapido — que e o caso normal.
+            animationSpec = tween(1100, easing = LinearEasing),
             label = "gateEntrance",
         )
     }

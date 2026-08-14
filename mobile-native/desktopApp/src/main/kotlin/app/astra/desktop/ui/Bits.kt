@@ -1,6 +1,8 @@
 package app.astra.desktop.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -39,6 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.astra.desktop.ui.theme.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -306,7 +309,20 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolea
 // fundo (aurora, cascata, pulsos) param. Provido no ShellScreen a partir do
 // DesktopPrefs; muda em tempo real. Modifiers @Composable (auroraBackground,
 // CascadeIn) e os pulsos leem daqui.
-val LocalReduceMotion = staticCompositionLocalOf { false }
+//
+// NAO E `static`, E ISSO MUDOU DE PROPOSITO.
+//
+// CompositionLocal estatico nao anota quem leu: quando o valor muda, ele nao tem
+// como avisar so os leitores, entao invalida a SUBARVORE INTEIRA do provider. Isso
+// era barato enquanto "reduzir movimento" so mudava quando alguem mexia na
+// configuracao — uma vez por mes, e recompor o app todo naquele instante nao custa
+// nada.
+//
+// Deixou de ser barato quando este valor passou a significar tambem "o app esta
+// atras de outra janela". Ai ele flipa a cada alt-tab e a cada minimizar/voltar, e
+// cada flip mandava o app inteiro recompor duas vezes (na ida e na volta). Era
+// metade do "ao minimizar e abrir de novo ele carrega tudo de novo".
+val LocalReduceMotion = compositionLocalOf { false }
 
 // Quem sou eu, pra quem desenha mensagem. Vem por CompositionLocal e nao por
 // parametro porque o destaque de mencao mora na FOLHA da arvore (o span de texto
@@ -321,7 +337,9 @@ val LocalMinhaConta = staticCompositionLocalOf { MinhaConta() }
 // Popups focaveis do desktop (menu de botao direito, dialogs) roubam o foco da
 // janela, entao gatear por FOCO congelava a aurora toda vez que abria um menu
 // (o "cortada de vez em quando"). Visibilidade não pisca com popup -> sem corte.
-val LocalWindowActive = staticCompositionLocalOf { true }
+// Nao e `static` pelo mesmo motivo do LocalReduceMotion acima: muda toda vez que a
+// janela sai da frente, e static faria isso recompor o app inteiro.
+val LocalWindowActive = compositionLocalOf { true }
 
 // Prefs de RENDER das animações de fundo (Settings > Desempenho), desacopladas
 // dos enums de prefs: octaves do FBM da aurora e teto de FPS (0 = livre). O
@@ -353,18 +371,41 @@ fun CascadeIn(
     translateY: Dp = 10.dp,
     content: @Composable () -> Unit,
 ) {
-    // Reduzir movimento: entra pronto, sem stagger.
-    if (LocalReduceMotion.current) {
-        content()
-        return
-    }
+    // O "REDUZIR MOVIMENTO" NAO PODE SER UM DESVIO DE ESTRUTURA. Aqui era:
+    //
+    //     if (LocalReduceMotion.current) { content(); return }
+    //     ... Box { content() }
+    //
+    // Duas chamadas de content() em lugares diferentes da funcao sao dois GRUPOS
+    // diferentes pro Compose. Ele nao "reaproveita" um no outro: ao trocar de ramo,
+    // descarta o grupo antigo (com todo `remember`, `LaunchedEffect` e requisicao de
+    // imagem que morava la dentro) e compoe o outro do zero.
+    //
+    // Enquanto isso so dependia da configuracao, ninguem via. Quando "reduzir
+    // movimento" passou a valer tambem pro app em segundo plano, cada minimizar-e-
+    // voltar virou dois descartes de subarvore em fila — a lista de canais, a de
+    // membros, a de sussurros, os avatares. E como o `enter` renascia em 0f, a
+    // cascata tocava de novo na volta: o app parecia estar carregando o que ja
+    // estava carregado, porque estava mesmo.
+    //
+    // Agora a estrutura e uma so, e o "reduzir movimento" decide apenas o VALOR da
+    // animacao. Norma do projeto: gatear animacao por valor, nunca por ramo — o ramo
+    // leva junto o conteudo que nao tem nada a ver com a animacao.
+    val semMovimento = LocalReduceMotion.current
     val animate = index in 0 until CASCADE_MAX
-    val enter = remember(listKey) { Animatable(if (animate) 0f else 1f) }
-    LaunchedEffect(listKey) {
-        if (enter.value < 1f) {
-            delay(startDelayMs + index * stepMs)
-            enter.animateTo(1f, tween(230, easing = EaseOutStd))
+    // `semMovimento` de proposito fora das chaves do remember: ele decide so o ponto
+    // de PARTIDA, na primeira composicao. Virar chave traria de volta o reinicio.
+    val enter = remember(listKey) { Animatable(if (animate && !semMovimento) 0f else 1f) }
+    LaunchedEffect(listKey, semMovimento) {
+        if (enter.value >= 1f) return@LaunchedEffect
+        // Desligou o movimento no meio da entrada (ou a janela saiu da frente):
+        // assenta onde deveria terminar, sem pular pro escuro.
+        if (semMovimento) {
+            enter.snapTo(1f)
+            return@LaunchedEffect
         }
+        delay(startDelayMs + index * stepMs)
+        enter.animateTo(1f, tween(230, easing = EaseOutStd))
     }
     Box(
         Modifier.graphicsLayer {
@@ -420,23 +461,23 @@ fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
 // Uso: envolver cada item de uma lista que muda, com `key` = id da pessoa. O
 // AnimatedVisibility precisa nascer com visible=false e virar true no 1o frame,
 // senao ele considera o item "ja estava la" e não anima.
-// Reduzir movimento -> aparece pronto, sem estouro.
+// Reduzir movimento -> aparece pronto, sem estouro. Pelo mesmo motivo do CascadeIn,
+// isso e escolha de TRANSICAO e não desvio de ramo: trocar de ramo descartaria a
+// pessoa inteira da lista da call (avatar, medidor de voz) so pra parar um pop.
 @Composable
 fun PopIn(content: @Composable () -> Unit) {
-    if (LocalReduceMotion.current) {
-        content()
-        return
-    }
+    val semMovimento = LocalReduceMotion.current
     val vis = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(
         visibleState = vis,
-        enter = scaleIn(
+        enter = if (semMovimento) EnterTransition.None else scaleIn(
             // dampingRatio baixo = passa do alvo e volta (o "pop"). Sem isso vira
             // um fade escalado, que não comunica "alguem chegou".
             animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
             initialScale = 0.4f,
         ) + fadeIn(tween(120)),
-        exit = scaleOut(tween(150), targetScale = 0.55f) + fadeOut(tween(130)),
+        exit = if (semMovimento) ExitTransition.None else
+            scaleOut(tween(150), targetScale = 0.55f) + fadeOut(tween(130)),
     ) {
         content()
     }

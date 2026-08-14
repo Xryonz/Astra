@@ -135,10 +135,18 @@ object GoogleAuthFlow {
         }
     }
 
-    // Tela editorial minima (obsidian + ambar). ok = login concluido (mensagem
-    // em verde); senao a mensagem sai neutra.
+    // PALETA DO ASTRA: prata sobre preto. Esta pagina e servida pelo proprio app num
+    // servidor local, entao ela nao le os tokens do Obsidian — os valores estao aqui na
+    // mao, e sao os mesmos: void #06060E, text1 #E4E4EB, text2 #C0C0C6, text3 #8C8C94,
+    // accent de fabrica #D4D8E0.
+    //
+    // Era ambar (#c9a96e) no simbolo e VERDE (#6ec98a) no sucesso. Os dois estavam fora
+    // do vocabulario: o accent de fabrica e branco, nao ambar (o ambar e uma opcao entre
+    // 18), e verde de "deu certo" e linguagem de formulario web -- o Astra diz o que
+    // aconteceu com texto, sem semaforo. E esta e a primeira coisa que alguem ve depois
+    // de entrar; se ela parece outro produto, e outro produto.
     private fun page(msg: String, ok: Boolean): String {
-        val msgColor = if (ok) "#6ec98a" else "#8c8c94"
+        val msgColor = if (ok) "#c0c0c6" else "#8c8c94"
         return """
             <!doctype html><html lang="pt-br"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -146,11 +154,11 @@ object GoogleAuthFlow {
             <style>
             :root{color-scheme:dark}
             *{margin:0;box-sizing:border-box}
-            body{background:#06060e;color:#e8e6e3;
+            body{background:#06060e;color:#e4e4eb;
             font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
             display:flex;align-items:center;justify-content:center;min-height:100vh}
             .card{text-align:center;padding:44px 52px}
-            .glyph{font-size:46px;color:#c9a96e;line-height:1;margin-bottom:22px}
+            .glyph{font-size:46px;color:#d4d8e0;line-height:1;margin-bottom:22px}
             h1{font-weight:300;letter-spacing:5px;font-size:22px;margin-bottom:14px}
             p{font-size:14px;line-height:1.5;max-width:300px;color:$msgColor}
             </style></head>

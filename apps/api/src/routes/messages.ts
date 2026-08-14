@@ -56,6 +56,25 @@ function safeParseAttachments(raw: unknown): any[] {
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : [] } catch { return [] }
 }
 
+// `mentions` e uma COLUNA DE TEXTO com ids separados por virgula (schema.ts), e essa
+// coluna vinha sendo devolvida CRUA no histórico — enquanto o POST e o socket sempre
+// mandaram um array. Ou seja: o mesmo campo tinha dois formatos dependendo de por onde
+// a mensagem chegava.
+//
+// O desktop, que declara `mentions: List<String>`, engasgava no primeiro item do
+// histórico e NENHUMA conversa carregava. Como o erro era de leitura de resposta, a
+// política de repetição o tratava como falha temporária e a tela dizia "o servidor está
+// acordando" — para sempre, com o servidor no ar e respondendo em 200 ms. Um defeito de
+// contrato disfarçado de problema de hospedagem.
+//
+// A conversão fica AQUI e não no app: o cliente que se adaptasse ao formato duplo
+// deixaria a inconsistência viva pro próximo cliente encontrar de novo.
+function mentionsArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw as string[]
+  if (typeof raw !== 'string' || raw.length === 0) return []
+  return raw.split(',').filter(Boolean)
+}
+
 async function attachReactions<T extends { id: string }>(messageList: T[]) {
   if (messageList.length === 0) return messageList
   const ids = messageList.map((m) => m.id)
@@ -200,6 +219,7 @@ export function createMessagesRouter(io: SocketServer) {
       const shaped = items.map((r: any) => ({
         ...r,
         attachments: safeParseAttachments(r.attachments),
+        mentions:    mentionsArray(r.mentions),
         poll:        safeParsePoll(r.poll),
         replyTo: r.parentId ? {
           id:           r.parentId,
@@ -566,7 +586,8 @@ export function createMessagesRouter(io: SocketServer) {
         .orderBy(desc(messages.createdAt))
         .limit(50)
 
-      res.json({ data: rows })
+      // Mesmo contrato do histórico: array, nunca a coluna de texto crua.
+      res.json({ data: rows.map((r: any) => ({ ...r, mentions: mentionsArray(r.mentions) })) })
     })
   )
 

@@ -89,10 +89,27 @@ suspend fun <T> insistir(
     bloco: suspend () -> T,
 ): Result<T> {
     var ultima = Falha("Não foi possível carregar $oQue.", permanente = false)
+    var ilegiveis = 0
     repeat(TENTATIVAS) { tentativa ->
         runCatching { bloco() }
             .onSuccess { return Result.success(it) }
             .onFailure { t ->
+                // O motivo CRU vai pro rede.txt antes de virar frase amigavel. Sem isto,
+                // "o servidor está acordando" cobre tempo esgotado, 500, resposta ilegivel
+                // e conexao recusada com a mesma cara, e nao ha como distinguir depois.
+                RedeLog.falhou(oQue, tentativa + 1, t)
+                // RESPOSTA ILEGIVEL DUAS VEZES NAO E REINICIO, E CONTRATO QUEBRADO.
+                //
+                // Insistir aqui foi o que escondeu um defeito real por versoes a fio: o
+                // historico do canal vinha com um campo em formato diferente do que o app
+                // sabia ler, o parser falhava IDENTICO nas nove tentativas, e a tela
+                // passava tres minutos dizendo "o servidor está acordando" com o servidor
+                // no ar respondendo em 200ms. Duas tentativas ainda cobrem o caso legitimo
+                // (o roteador devolvendo HTML durante uma troca de versao); da terceira em
+                // diante, o problema nao vai melhorar sozinho e a pessoa merece saber.
+                if (t is SerializationException && ++ilegiveis >= 2) {
+                    return Result.failure(FalhaDeRede(classificar(t, oQue)))
+                }
                 ultima = classificar(t, oQue)
                 if (ultima.permanente) return Result.failure(FalhaDeRede(ultima))
             }

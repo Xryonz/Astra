@@ -764,6 +764,14 @@ fun main(args: Array<String>) {
                                             },
                                             notify = { title, body ->
                                                 trayState.sendNotification(Notification(title, body, Notification.Type.None))
+                                                // Som JUNTO do aviso da bandeja, no mesmo
+                                                // funil: quem decide QUANDO avisar é o
+                                                // ShellScreen (só com a janela fora de
+                                                // foco), e o som não pode ter uma regra
+                                                // própria — tocar sem o aviso na tela, ou
+                                                // com o app na frente, seria barulho sem
+                                                // referente.
+                                                tocarAvisoDeMensagem()
                                             },
                                             onLogout = {
                                                 authRepo.logout()

@@ -41,6 +41,15 @@ import com.composables.icons.lucide.Pencil
 // Reaproveita o MenuCard dos menus de botão-direito de propósito: o app já ensinou
 // como um menu dele se parece, e um segundo desenho pra mesma função seria uma
 // segunda convenção pra ninguém aprender.
+// Portador do menu do banner: o FORMULÁRIO monta as ações (ele tem o rascunho e
+// hospeda os diálogos) e a PRÉVIA as consome. Os dois são irmãos na tela de
+// Configurações, então nenhum pode receber do outro por parâmetro sem mudar de
+// lugar. Classe estável com campo mutável — mesmo padrão do MencaoClicavel, pelo
+// mesmo motivo: publicar o fechamento mais recente sem forçar recomposição.
+class AcoesDoBanner {
+    var construir: () -> List<MenuEntry> = { emptyList() }
+}
+
 @Composable
 fun FotoEditavel(
     forma: Shape,

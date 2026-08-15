@@ -30,13 +30,10 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Notification
-import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
-import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
@@ -374,7 +371,9 @@ fun main(args: Array<String>) {
         val onCloseApp = { if (exitOnClose) exitApplication() else { windowVisible = false } }
         // Logo real do Astra (planeta) — mesma do PWA/favicon do site.
         val appIcon = painterResource("astra-icon.png")
-        val trayState = rememberTrayState()
+        // Alça pros avisos da bandeja. Criada aqui, e não dentro da bandeja, porque
+        // quem avisa (o ShellScreen) nasce antes de o ícone existir — ver Bandeja.
+        val bandeja = remember { Bandeja() }
 
         // Outro processo tentou abrir o Astra -> traz esta janela (a única) pra frente.
         val activate by SingleInstance.activate.collectAsState()
@@ -427,17 +426,19 @@ fun main(args: Array<String>) {
         //
         // O item "Abrir o Astra" so faz sentido quando ha janela escondida pra reabrir;
         // com exitOnClose a bandeja fica so com o icone e o "Sair".
-        Tray(
-            state = trayState,
-            icon = appIcon,
-            tooltip = "Astra",
-            onAction = { windowVisible = true }, // duplo clique no ícone reabre
-            menu = {
-                if (!exitOnClose) {
-                    Item("Abrir o Astra", onClick = { windowVisible = true })
-                    Separator()
+        // MENU DESENHADO PELO ASTRA, e não o do Windows. O `Tray` do Compose usa o
+        // `PopupMenu` do AWT, que é um menu Win32: quem pinta é o sistema, e ele não
+        // aceita cor, fonte, canto nem espaçamento. Era o único pedaço do app que
+        // não parecia o app. Ver BandejaDoAstra.kt.
+        BandejaComMenu(
+            bandeja = bandeja,
+            dica = "Astra",
+            aoAtivar = { windowVisible = true }, // duplo clique no ícone reabre
+            itens = {
+                buildList {
+                    if (!exitOnClose) add(ItemDaBandeja("Abrir o Astra") { windowVisible = true })
+                    add(ItemDaBandeja("Sair", perigo = true) { exitApplication() })
                 }
-                Item("Sair", onClick = ::exitApplication)
             },
         )
 
@@ -737,9 +738,7 @@ fun main(args: Array<String>) {
                                             // um toast desenhado dentro do app não
                                             // registraria nada.
                                             onTestarAviso = {
-                                                trayState.sendNotification(
-                                                    Notification("Astra", "Pronto — os avisos do Astra estão liberados.", Notification.Type.None),
-                                                )
+                                                bandeja.avisar("Astra", "Pronto — os avisos do Astra estão liberados.")
                                             },
                                             onDone = {
                                                 store.setUiPref("onboarded:${s.userId}", "1")
@@ -763,7 +762,7 @@ fun main(args: Array<String>) {
                                                 !windowVisible || state.isMinimized || !windowInfo.isWindowFocused
                                             },
                                             notify = { title, body ->
-                                                trayState.sendNotification(Notification(title, body, Notification.Type.None))
+                                                bandeja.avisar(title, body)
                                                 // Som JUNTO do aviso da bandeja, no mesmo
                                                 // funil: quem decide QUANDO avisar é o
                                                 // ShellScreen (só com a janela fora de

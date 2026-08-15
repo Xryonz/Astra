@@ -1433,12 +1433,13 @@ private fun Rail(
                     onClick = { onSelect(Selection.Server(srv.id)) },
                     rotulo = srv.name,
                 ) {
-                    if (!srv.iconUrl.isNullOrBlank()) {
+                    if (!srv.iconUrl.isNullOrBlank() && !imagemMorreu(srv.iconUrl)) {
                         AsyncImage(
                             model = srv.iconUrl,
                             contentDescription = srv.name,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
+                            onState = { lembrarQueMorreu(srv.iconUrl, it) },
                         )
                     } else {
                         Text(

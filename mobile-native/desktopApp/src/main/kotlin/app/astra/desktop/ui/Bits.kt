@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -288,12 +289,13 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolea
             modifier = Modifier.fillMaxSize().clip(CircleShape).background(Obsidian.overlay),
             contentAlignment = Alignment.Center,
         ) {
-            if (!url.isNullOrBlank()) {
+            if (!url.isNullOrBlank() && !imagemMorreu(url)) {
                 AsyncImage(
                     model = url,
                     contentDescription = name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                    onState = { lembrarQueMorreu(url, it) },
                 )
             } else {
                 Text(
@@ -501,4 +503,36 @@ fun PopIn(content: @Composable () -> Unit) {
     ) {
         content()
     }
+}
+
+// IMAGEM QUE MORREU: volta pra inicial em vez de deixar um buraco pra sempre.
+//
+// O caso real: as imagens salvas quando o storage ainda era o disco da instância
+// viraram endereços `/uploads/…` que hoje dão 404 permanente — o arquivo foi
+// embora num redeploy e o endereço ficou no banco. Sem isto, o avatar dessas
+// contas é um círculo vazio; COM isto, é a letra inicial, que é exatamente o que
+// aparece pra quem nunca subiu foto nenhuma.
+//
+// Não é remendo pro caso antigo só: vale pra qualquer URL que pare de responder
+// (CDN fora, imagem apagada no bucket). O estado de erro do Coil é a informação
+// certa, e ela estava sendo jogada fora.
+//
+// O registro é GLOBAL e não por composable de propósito. A mesma foto aparece em
+// dezenas de lugares ao mesmo tempo (lista de membros, autor de cada mensagem,
+// cartão), e um estado por peça faria cada uma descobrir sozinha que a URL está
+// morta — dezenas de requisições condenadas por rolagem. Descobriu uma vez, todo
+// mundo já sabe.
+//
+// Teto de 512 pra não virar vazamento numa sessão longa; quando estoura, esquece
+// e no máximo se tenta de novo — que é o comportamento certo se a URL voltar.
+private val urlsMortas = object : LinkedHashMap<String, Boolean>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 512
+}
+
+internal fun imagemMorreu(url: String?): Boolean =
+    url != null && synchronized(urlsMortas) { urlsMortas.containsKey(url) }
+
+internal fun lembrarQueMorreu(url: String?, estado: AsyncImagePainter.State) {
+    if (url == null || estado !is AsyncImagePainter.State.Error) return
+    synchronized(urlsMortas) { urlsMortas[url] = true }
 }

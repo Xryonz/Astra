@@ -475,12 +475,13 @@ private fun ColunaDeVinculos(
                             Modifier.size(26.dp).clip(RoundedCornerShape(7.dp)).background(Obsidian.overlay),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (!s.iconUrl.isNullOrBlank()) {
+                            if (!s.iconUrl.isNullOrBlank() && !imagemMorreu(s.iconUrl)) {
                                 AsyncImage(
                                     model = s.iconUrl,
                                     contentDescription = s.name,
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop,
+                                    onState = { lembrarQueMorreu(s.iconUrl, it) },
                                 )
                             } else {
                                 Text(

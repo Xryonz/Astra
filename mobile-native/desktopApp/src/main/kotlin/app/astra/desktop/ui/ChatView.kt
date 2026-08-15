@@ -21,7 +21,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -399,20 +398,32 @@ fun ChatView(
 
         // Composer
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-            // Slot fixo: aparecer/sumir o "digitando…" não pode pular o layout.
-            Box(Modifier.fillMaxWidth().height(16.dp)) {
-                if (state.typing.isNotEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TypingDots(Obsidian.accent)
-                        Spacer(Modifier.width(6.dp))
-                        val names = state.typing.values.toList()
-                        val label = when (names.size) {
-                            1 -> "${names[0]} esta digitando…"
-                            2 -> "${names[0]} e ${names[1]} estão digitando…"
-                            else -> "varias pessoas estão digitando…"
-                        }
-                        Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            // ERA UM SLOT FIXO DE 16dp, sempre reservado pra o "digitando…" caber sem
+            // empurrar o layout. O preço aparecia o tempo todo: uma faixa vazia
+            // permanente entre a conversa e o compositor, que com a barra de resposta
+            // aberta virava um degrau escuro sem função nenhuma.
+            //
+            // A troca é pelo MESMO idioma que a barra de resposta logo abaixo já usa:
+            // cresce de altura zero em vez de existir vazia. Não há pulo — há
+            // animação, que é o que o slot fixo estava tentando evitar do jeito caro.
+            val reduzirMovimento = LocalReduceMotion.current
+            AnimatedVisibility(
+                visible = state.typing.isNotEmpty(),
+                enter = expandVertically(tween(if (reduzirMovimento) 0 else 140, easing = EaseOutStd)) +
+                    fadeIn(tween(if (reduzirMovimento) 0 else 120)),
+                exit = shrinkVertically(tween(if (reduzirMovimento) 0 else 120, easing = EaseOutStd)) +
+                    fadeOut(tween(if (reduzirMovimento) 0 else 80)),
+            ) {
+                Row(Modifier.height(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TypingDots(Obsidian.accent)
+                    Spacer(Modifier.width(6.dp))
+                    val names = state.typing.values.toList()
+                    val label = when (names.size) {
+                        1 -> "${names[0]} esta digitando…"
+                        2 -> "${names[0]} e ${names[1]} estão digitando…"
+                        else -> "varias pessoas estão digitando…"
                     }
+                    Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
                 }
             }
             // Falha de CARGA com o palco vazio ja e contada no palco (PalcoQueFalhou);

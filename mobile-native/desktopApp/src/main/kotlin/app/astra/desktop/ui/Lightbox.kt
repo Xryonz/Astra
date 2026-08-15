@@ -4,7 +4,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -112,6 +111,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                     indication = null,
                     onClick = onClose,
                 )
+                .semCursorDeClique()
                 .onPointerEvent(PointerEventType.Scroll) { e ->
                     val delta = e.changes.firstOrNull()?.scrollDelta?.y ?: return@onPointerEvent
                     scale = (scale * if (delta < 0) 1.12f else 0.89f).coerceIn(0.4f, 6f)

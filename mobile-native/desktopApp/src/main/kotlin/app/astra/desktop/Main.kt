@@ -67,7 +67,7 @@ import app.astra.desktop.ui.OnboardingScreen
 import app.astra.desktop.ui.ShellScreen
 import app.astra.desktop.ui.StarField
 import app.astra.desktop.ui.auroraBackground
-import app.astra.desktop.ui.UpdateBanner
+
 import app.astra.desktop.ui.UpdaterGate
 import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
@@ -584,6 +584,7 @@ fun main(args: Array<String>) {
                         onOpenSearch = { searchOpen = true },
                         onOpenNotifications = { notifOpen = !notifOpen },
                         onOpenMissions = { missoesOpen = !missoesOpen },
+                        atualizacao = updater,
                     )
                     // Logo abaixo da barra de titulo, acima de tudo: vale no login e no
                     // shell, porque a espera pela API acontece nos dois.
@@ -783,7 +784,9 @@ fun main(args: Array<String>) {
                         }
                         // Banner de update (topo): lembrete quando adiado ("depois")
                         // ou achado na checagem manual — conduz o mesmo mini-fluxo.
-                        UpdateBanner(updater)
+                        // O aviso saiu do canto inferior direito e virou o ponto na
+                        // barra-titulo (ver TitleBar.PontoDeAtualizacao). Manter os
+                        // dois seria a mesma coisa dita em dois cantos da tela.
                     }
                     }
                     }

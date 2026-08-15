@@ -122,6 +122,10 @@ export const servers = pgTable('Server', {
 
   // Órbita onde a bot fala sem ser chamada. Nulo = ela escolhe sozinha.
   botNoticeChannelId: text('botNoticeChannelId'),
+  // Comandos DESLIGADOS nesta constelacao, separados por virgula. Nulo/vazio =
+  // todos ligados. Guarda o que esta desligado pra comando novo nascer ligado.
+  botDisabledCommands: text('botDisabledCommands'),
+
 
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt:  timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),

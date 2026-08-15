@@ -319,4 +319,31 @@ ALTER TABLE "DirectMessage" ADD COLUMN IF NOT EXISTS "call" text;
 -- canal passaria a escrever na tabela Server, e a operação de apagar canal não
 -- precisa desse acoplamento.
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "botNoticeChannelId" text;
+
+-- ===== Aparência das personas da bot =====
+-- Sobreposição do que está escrito no código (lib/bot.ts). Uma linha por irmã, e a
+-- chave é a persona ('sparkle' / 'sparxie') e NÃO o id do usuário: as duas dividem
+-- a MESMA conta, trocando de rosto na virada do turno, então guardar por usuário
+-- daria uma configuração só pras duas.
+--
+-- Coluna nula = "usa o que está no código". Isso mantém a arte de fábrica como
+-- verdade e faz a personalização ser só o que foi realmente mexido — apagar a
+-- linha devolve tudo ao original, sem precisar saber quais eram os valores.
+CREATE TABLE IF NOT EXISTS "BotPersona" (
+  "chave"           text PRIMARY KEY,
+  "displayName"     text,
+  "avatarUrl"       text,
+  "bannerUrl"       text,
+  "bannerColor"     text,
+  "bannerScale"     integer,
+  "bannerPositionY" integer,
+  "updatedAt"       timestamp(3) NOT NULL DEFAULT now()
+);
+
+-- ===== Comandos da bot por constelação =====
+-- Lista separada por vírgula dos comandos DESLIGADOS ali. Guarda o que está
+-- desligado e não o que está ligado de propósito: comando novo entra ligado pra
+-- todo mundo sem precisar de migração, que é o comportamento certo pra uma lista
+-- que cresce.
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "botDisabledCommands" text;
 `

@@ -71,6 +71,17 @@ const EnvSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET:            z.string().optional(),
   R2_PUBLIC_URL:        z.string().url().optional(),
+
+  // QUEM MANDA NAS BOTS. O @ de quem pode editar a aparencia da Sparkle e da
+  // Sparxie (uma so pessoa; a lista com virgula existe pra o dia em que houver
+  // duas maquinas ou uma conta de teste).
+  //
+  // Variavel de ambiente e NAO coluna no banco, de proposito: coluna e algo que
+  // uma falha de permissao em qualquer rota pode ligar pra outra pessoa. Aqui a
+  // unica forma de virar dono e ter acesso ao painel da hospedagem — que ja e o
+  // nivel de acesso que isto concede. Vazio = ninguem edita, e as bots ficam com
+  // a aparencia de fabrica.
+  ASTRA_OWNER_USERNAMES: z.string().optional(),
 })
 
 const result = EnvSchema.safeParse(process.env)

@@ -229,6 +229,14 @@ private fun ProfilePopupCard(
                 ?.also { profileCache[userId] = it to System.currentTimeMillis() }
         }
     }
+    // Atividade FORA do cache do perfil, e isso é o ponto: o perfil fica guardado 5
+    // minutos porque nome e foto não mudam nesse intervalo. "O que está usando"
+    // muda, e servir isso do cache mostraria o jogo de cinco minutos atrás com a
+    // cara de informação atual. Uma consulta por abertura, sempre fresca.
+    var atividade by remember(userId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(userId) {
+        atividade = runCatching { koin.get<UserApi>().activity(userId).data?.get(userId) }.getOrNull()
+    }
 
     // Entrada: fade + subida leve (curva do mobile).
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -250,7 +258,7 @@ private fun ProfilePopupCard(
             // mais duas copias pra divergir. O que e proprio DAQUI sao os botoes,
             // que so fazem sentido no cartao de verdade.
             ProfileCard(
-                dados = p.paraCartao(),
+                dados = p.paraCartao().copy(atividade = atividade),
                 variante = CardVariante.NORMAL,
                 modifier = Modifier.width(320.dp),
                 servidoresEmComum = v.mutualServers,

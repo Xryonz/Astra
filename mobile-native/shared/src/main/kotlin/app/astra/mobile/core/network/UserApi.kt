@@ -41,6 +41,12 @@ interface UserApi {
     @GET("api/profile/presence")
     suspend fun presence(@Query("ids") ids: String): ApiEnvelope<Map<String, String>>
 
+    // Atividade em lote ("o que a pessoa está usando"), por userId. Quem não tem
+    // atividade simplesmente NÃO VEM no mapa — a resposta traz só os poucos que
+    // estão em alguma coisa, e não uma linha vazia por membro do painel.
+    @GET("api/profile/activity")
+    suspend fun activity(@Query("ids") ids: String): ApiEnvelope<Map<String, String>>
+
     // Recado (custom status). Mora sob /api/friends no backend, mas e edicao de
     // perfil — fica aqui pra o desktop nao precisar de uma FriendsApi so por isto
     // (a do Android vive no modulo :app). Limpar = mandar "".

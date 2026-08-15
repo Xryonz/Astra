@@ -623,6 +623,7 @@ fun ShellScreen(
             MembersPanel(
                 members = state.members,
                 presence = state.memberPresence,
+                atividade = state.memberActivity,
                 myId = session.userId,
                 serverId = state.selectedServer?.id,
                 isOwner = state.selectedServer?.ownerId == session.userId,
@@ -3614,6 +3615,10 @@ private fun Stage(
 private fun MembersPanel(
     members: List<ServerMemberDto>,
     presence: Map<String, String>,
+    // "O que cada um está usando". Fora do `remember` que monta as linhas de
+    // propósito: a atividade muda sozinha ao vivo, e entrar naquela chave faria o
+    // painel inteiro reagrupar por cargo toda vez que alguém trocasse de programa.
+    atividade: Map<String, String>,
     myId: String?,
     serverId: String?,
     isOwner: Boolean,
@@ -3646,6 +3651,7 @@ private fun MembersPanel(
                     is MemberPanelRow.Person -> MemberRow(
                         m = row.m,
                         online = row.online,
+                        atividade = atividade[row.m.userId],
                         cascadeIndex = row.cascadeIndex,
                         cascadeTotal = members.size,
                         isMe = row.m.userId == myId,
@@ -3739,6 +3745,8 @@ private fun MemberSectionHeader(label: String, count: Int, iconUrl: String?) {
 private fun MemberRow(
     m: ServerMemberDto,
     online: Boolean,
+    // null = a pessoa não está mostrando nada (o padrão: o recurso nasce desligado).
+    atividade: String?,
     cascadeIndex: Int,
     cascadeTotal: Int,
     isMe: Boolean,
@@ -3791,11 +3799,27 @@ private fun MemberRow(
                         DesktopAvatar(m.user.avatarUrl, name, 26)
                     }
                     Spacer(Modifier.width(9.dp))
-                    Text(
-                        text = name,
-                        style = TextStyle(color = nameColor, fontSize = 13.sp),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
+                    // Nome + (se houver) o que a pessoa está usando. A segunda linha
+                    // só existe quando há o que dizer: reservar altura pra ela sempre
+                    // deixaria a lista frouxa pra mostrar nada na maioria das vezes,
+                    // que é o caso normal — o recurso nasce desligado.
+                    Column {
+                        Text(
+                            text = name,
+                            style = TextStyle(color = nameColor, fontSize = 13.sp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        if (atividade != null) {
+                            Text(
+                                text = atividade,
+                                // text3 e um corpo menor: é contexto, não identidade.
+                                // No mesmo peso do nome, a lista viraria duas colunas
+                                // de informação competindo, e o nome é o que se procura.
+                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -171,6 +171,12 @@ data class MemberUserDto(
 @Serializable
 data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 
+// `activity` nulo = a pessoa parou de mostrar (desligou, fechou o app, ou o
+// registro venceu no servidor). Nulo e string vazia significam a mesma coisa aqui,
+// e quem consome trata os dois como "apaga a linha".
+@Serializable
+data class ActivityUpdateDto(val userId: String, val activity: String? = null)
+
 // Aviso de que algo mudou numa constelacao (server_channels / server_members /
 // server_joined). So carrega o id: e um PING pra refazer a busca, nao um delta —
 // canal privado faz cada membro ver uma lista diferente, e so o backend sabe qual.

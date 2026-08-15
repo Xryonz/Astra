@@ -42,6 +42,7 @@ import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.di.appModule
 import app.astra.desktop.net.DesktopSocket
+import app.astra.desktop.net.AtividadePublicador
 import app.astra.desktop.net.Servidor
 import app.astra.desktop.net.DataUriMapper
 import app.astra.desktop.net.RelativeUrlMapper
@@ -403,6 +404,14 @@ fun main(args: Array<String>) {
         // permite que a tela diga "acordando o servidor" em vez de ficar parada calada
         // durante o minuto que a hospedagem gratuita leva pra religar.
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }
+        // Atividade ("o que estou usando"). O laço nasce sempre, mas confere a
+        // preferência antes de olhar o sistema — desligado, ele não lê nada.
+        LaunchedEffect(Unit) {
+            AtividadePublicador(
+                GlobalContext.get().get(),
+                GlobalContext.get().get(),
+            ).iniciar(escopoDaJanela)
+        }
 
         // A BANDEJA E SEMPRE CRIADA, e isso nao e detalhe de enfeite: no Windows o
         // aviso do sistema SAI DO ICONE DA BANDEJA. Sem icone nao existe dono pro aviso,

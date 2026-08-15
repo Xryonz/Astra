@@ -91,6 +91,13 @@ class DesktopSocket(
     private val _presenceUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
     val presenceUpdate: SharedFlow<String> = _presenceUpdate.asSharedFlow()
 
+    // "O que a pessoa está usando" mudou. Ao vivo e não por poll: a atividade troca
+    // quando alguém abre outro programa, que é um instante — descobrir dois minutos
+    // depois mostraria o jogo anterior, e informação de presença atrasada é pior que
+    // ausente. `activity` nulo = a pessoa parou de mostrar.
+    private val _activityUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
+    val activityUpdate: SharedFlow<String> = _activityUpdate.asSharedFlow()
+
     // Notificacao nova (o backend ja emitia 'notification' pra sala user:<id>; o
     // desktop so não escutava e descobria pelo poll de 30s do sino).
     private val _notification = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -201,6 +208,10 @@ class DesktopSocket(
     // Avisa a constelação que entrei/sai da call — o resto ve na hora.
     fun voiceJoin(channelId: String) { socket?.emit("voice_join", channelId) }
     fun voiceLeave(channelId: String) { socket?.emit("voice_leave", channelId) }
+
+    // Atividade ("o que voce esta usando agora"). Texto vazio = apaga.
+    // Quem decide o que entra aqui e o AtividadePublicador; este metodo so leva.
+    fun enviarAtividade(texto: String) { socket?.emit("set_activity", texto) }
 
     // ================= CONEXAO =================
     //
@@ -375,6 +386,9 @@ class DesktopSocket(
         }
         s.on("presence_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _presenceUpdate.tryEmit(it.toString()) }
+        }
+        s.on("activity_update") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _activityUpdate.tryEmit(it.toString()) }
         }
         s.on("notification") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _notification.tryEmit(it.toString()) }

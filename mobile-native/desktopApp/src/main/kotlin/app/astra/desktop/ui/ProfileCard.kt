@@ -128,6 +128,10 @@ data class DadosDoCartao(
     val fonte: String? = null,
     val status: String? = null,
     val criadoEm: String? = null,
+    // "O que está usando agora". Não vem do perfil (que é o que a pessoa escreveu
+    // sobre si) e sim da presença — por isso entra por fora, preenchido por quem
+    // abre o cartão, e some sozinho quando ela para de mostrar.
+    val atividade: String? = null,
 )
 
 fun ProfileUserDto.paraCartao() = DadosDoCartao(
@@ -319,6 +323,13 @@ private fun CorpoCompacto(
     if (!dados.recado.isNullOrBlank() || !dados.statusEmoji.isNullOrBlank()) {
         Spacer(Modifier.height(9.dp))
         Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+    }
+    // DEPOIS do recado, e um degrau abaixo dele. O recado é o que a pessoa
+    // ESCOLHEU dizer; a atividade é o que a máquina observou. Empatar os dois em
+    // peso daria à leitura automática a mesma autoridade da fala dela.
+    dados.atividade?.takeIf { it.isNotBlank() }?.let {
+        Spacer(Modifier.height(5.dp))
+        Text(it, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
     }
     if (!dados.bio.isNullOrBlank()) {
         Spacer(Modifier.height(10.dp))

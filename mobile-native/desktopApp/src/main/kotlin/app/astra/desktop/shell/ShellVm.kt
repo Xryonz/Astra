@@ -30,6 +30,7 @@ import app.astra.mobile.core.network.dto.DmMessageDto
 import app.astra.mobile.core.network.dto.LastMessageDto
 import app.astra.mobile.core.network.dto.DmTypingEventDto
 import app.astra.mobile.core.network.dto.OpenDmRequest
+import app.astra.mobile.core.network.dto.ActivityUpdateDto
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ServerScopedEventDto
 import app.astra.desktop.ui.invalidateProfileCache
@@ -102,6 +103,9 @@ data class ShellUiState(
     // Presenca por userId dos membros da constelação atual (ONLINE/IDLE/DND/OFFLINE).
     // Snapshot no load + patch ao vivo via socket presence_update. Ausente = OFFLINE.
     val memberPresence: Map<String, String> = emptyMap(),
+    // "O que a pessoa está usando", por userId. Quem não aparece aqui não está
+    // mostrando nada — e isso inclui quem tem o recurso desligado, que é o padrão.
+    val memberActivity: Map<String, String> = emptyMap(),
     // Presenca de quem está do outro lado dos SUSSURROS. Mapa proprio, e nao o
     // memberPresence: aquele e limpo toda vez que se troca de constelação (ele
     // pertence a constelação selecionada), e a lista de sussurros nao tem
@@ -1143,6 +1147,20 @@ class ShellVm(
                 }
             }
             launch {
+                socket.activityUpdate.collect { raw ->
+                    val ev = decode<ActivityUpdateDto>(raw) ?: return@collect
+                    _state.update {
+                        // Mesma economia da presenca: quem nao esta na lista aberta
+                        // nao mexe em nada. O app inteiro emite atividade, e sem este
+                        // filtro o painel recomporia por gente que nao esta na tela.
+                        if (it.members.none { m -> m.userId == ev.userId }) return@update it
+                        val texto = ev.activity?.takeIf { t -> t.isNotBlank() }
+                        if (texto == null) it.copy(memberActivity = it.memberActivity - ev.userId)
+                        else it.copy(memberActivity = it.memberActivity + (ev.userId to texto))
+                    }
+                }
+            }
+            launch {
                 socket.newDm.collect { raw ->
                     val msg = decode<DmMessageDto>(raw) ?: return@collect
                     dmTypingStopped(msg.conversationId, msg.senderId)
@@ -1331,14 +1349,21 @@ class ShellVm(
             val perms = permsD.await()
             // Presenca dos membros num único mget (ONLINE colorido / OFFLINE apagado).
             // Fail-safe: se cair, mapa vazio -> todos aparecem offline, sem quebrar.
+            val ids = members.joinToString(",") { it.userId }
             val presence = if (members.isNotEmpty()) {
-                val ids = members.joinToString(",") { it.userId }
                 runCatching { userApi.presence(ids).data.orEmpty() }.getOrDefault(emptyMap())
+            } else emptyMap()
+            // Atividade ("o que a pessoa está usando"). Chamada à parte da presença
+            // de propósito: são dois recursos com vidas diferentes, e juntá-los numa
+            // resposta obrigaria os quatro clientes a mudar de contrato pra economizar
+            // um pedido por painel aberto. Falhou = mapa vazio = ninguém em nada.
+            val atividade = if (members.isNotEmpty()) {
+                runCatching { userApi.activity(ids).data.orEmpty() }.getOrDefault(emptyMap())
             } else emptyMap()
             // So aplica se a selecao não mudou enquanto carregava.
             _state.update {
                 if ((it.selection as? Selection.Server)?.id == serverId) {
-                    it.copy(members = members, memberPresence = presence, myPerms = perms)
+                    it.copy(members = members, memberPresence = presence, memberActivity = atividade, myPerms = perms)
                 } else it
             }
         }

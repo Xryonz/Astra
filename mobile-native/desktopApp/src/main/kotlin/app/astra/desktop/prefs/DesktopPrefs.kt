@@ -97,6 +97,12 @@ class DesktopPrefs(private val store: SessionStore) {
         // Toast na bandeja quando chega DM / atividade de canal (janela oculta).
         val notifyDms: Boolean = true,
         val notifyChannels: Boolean = true,
+        // Privacidade: mostrar aos outros o programa em primeiro plano.
+        // NASCE DESLIGADO, e isso e a decisao mais importante do recurso. Recurso
+        // que conta o que voce esta fazendo tem que ser um ato seu — ligado por
+        // padrao ele seria uma coisa que aconteceu com voce, mesmo com interruptor
+        // disponivel, porque quase ninguem visita a tela de configuracoes.
+        val atividadeVisivel: Boolean = false,
         // --- Desempenho & Graficos ---
         // Modo desempenho: kill-switch gamer (aurora+estrelas OFF + reduz movimento).
         val performanceMode: Boolean = false,
@@ -210,6 +216,9 @@ class DesktopPrefs(private val store: SessionStore) {
         reduceMotion = store.uiPref("reduceMotion") == "1",
         notifyDms = store.uiPref("notifyDms") != "0",
         notifyChannels = store.uiPref("notifyChannels") != "0",
+        // "1" e a UNICA forma de ligar. Ausente, vazio ou lixo = desligado — o
+        // padrao seguro tem que valer tambem pro arquivo corrompido.
+        atividadeVisivel = store.uiPref("atividadeVisivel") == "1",
         performanceMode = store.uiPref("performanceMode") == "1",
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
         // MIGRACAO DE UMA VEZ (ver `migrarCeu` abaixo): o que estava gravado nestes dois
@@ -247,6 +256,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setNotifyDms(v: Boolean) {
         persist("notifyDms", v)
         _state.update { it.copy(notifyDms = v) }
+    }
+
+    fun setAtividadeVisivel(v: Boolean) {
+        persist("atividadeVisivel", v)
+        _state.update { it.copy(atividadeVisivel = v) }
     }
 
     fun setNotifyChannels(v: Boolean) {

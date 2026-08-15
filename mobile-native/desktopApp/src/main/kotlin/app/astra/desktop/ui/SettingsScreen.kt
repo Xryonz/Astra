@@ -123,6 +123,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Eye
 import com.composables.icons.lucide.ShieldCheck
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.User
@@ -135,6 +136,7 @@ import app.astra.desktop.voice.GStreamerPack
 import app.astra.desktop.voice.GstScreenEncoder
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
+import app.astra.desktop.AtividadeDoSistema
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ScreenQuality
@@ -189,6 +191,7 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
     SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
+    PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
     APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
@@ -405,6 +408,7 @@ fun SettingsScreen(
                             Spacer(Modifier.height(16.dp))
                             TestarNotificacao(onTestarNotificacao)
                         }
+                        SettingsTab.PRIVACY -> PrivacySection(prefState, prefs)
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
@@ -520,6 +524,7 @@ private fun SettingsPreview(
                 SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft)
                 SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
+                SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
                 SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
                 SettingsTab.PERFORMANCE -> CostMeter(p)
                 SettingsTab.VOICE -> VoicePreview(p)
@@ -775,6 +780,84 @@ private fun RotuloDaPrevia(texto: String) {
 //
 // reduceMotion trava parado e visível (respeita o ajuste de movimento). ---
 private const val PASSEIO_DO_AVISO = 14f
+
+// PRIVACIDADE. Hoje tem um item só, e ainda assim ganha aba própria: um
+// interruptor que conta aos outros o que você está usando não pode morar em
+// "Notificações" nem em "Conta". Onde uma configuração mora é parte do que ela
+// diz, e esta precisa dizer "isto é sobre o que sai de você".
+@Composable
+private fun PrivacySection(prefState: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    Column {
+        ToggleRow(
+            "Mostrar o que estou usando",
+            "quem te vê passa a ver o nome do programa em primeiro plano",
+            prefState.atividadeVisivel,
+            prefs::setAtividadeVisivel,
+        )
+        Spacer(Modifier.height(14.dp))
+        // O TEXTO É A METADE HONESTA DO RECURSO. Interruptor de privacidade sem
+        // dizer exatamente o que sai é um pedido de confiança em branco — e o que
+        // NÃO sai importa tanto quanto o que sai.
+        Text(
+            "sai apenas o nome do programa, o mesmo que o Windows mostra no Gerenciador de Tarefas.",
+            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "o título da janela nunca é lido. Ele entregaria arquivo aberto, aba, endereço e busca — " +
+                "por isso navegador aparece só como “Navegando”, sem dizer qual nem o quê.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "nada disso é guardado: some sozinho um minuto depois de você fechar o Astra, " +
+                "e desligar aqui apaga na hora.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "desligado, o Astra nem chega a olhar qual programa está na frente.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+    }
+}
+
+// Prévia da aba: o que os OUTROS passam a ver de você. Um interruptor de
+// privacidade que não mostra o resultado obriga a pessoa a ligar pra descobrir o
+// que ligou — e descobrir depois é tarde.
+@Composable
+private fun AtividadePreview(ligado: Boolean) {
+    val agora = if (ligado) {
+        remember { AtividadeDoSistema.emPrimeiroPlano() } ?: "Navegando"
+    } else null
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(30.dp).clip(CircleShape).background(Obsidian.base))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text("você", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+                if (agora != null) {
+                    Text(agora, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            if (ligado) "é isto que aparece pra quem te vê." else "ninguém vê nada além do seu nome.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        )
+    }
+}
 
 @Composable
 private fun NotifPreviewCard(reduceMotion: Boolean) {

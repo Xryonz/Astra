@@ -23,6 +23,29 @@ export const presenceKeys = {
   user: (userId: string) => `presence:user:${userId}`,
 }
 
+// ATIVIDADE ("o que a pessoa está usando agora"). Mesma vida da presença: 60s de
+// TTL, renovada pelo cliente enquanto ele estiver aberto e com o recurso ligado.
+//
+// SÓ NO REDIS, nunca no Postgres. Isto é estado de sessão, não histórico — e a
+// diferença não é de arquitetura, é de promessa: quem liga isto está dizendo "pode
+// mostrar o que estou fazendo AGORA", não "pode guardar o que eu fiz". Uma tabela
+// transformaria um recurso de presença num registro de hábitos, que é outra coisa
+// e precisaria de outro consentimento.
+//
+// O TTL também é a rede de segurança: app fechado à força, queda de luz, processo
+// morto — em 60s a linha some sozinha, sem depender de ninguém avisar.
+export const activityKeys = {
+  user: (userId: string) => `activity:user:${userId}`,
+}
+
+export async function setUserActivity(userId: string, texto: string): Promise<void> {
+  try { await redis.setex(activityKeys.user(userId), PRESENCE_TTL, texto) } catch { /* cache off */ }
+}
+
+export async function clearUserActivity(userId: string): Promise<void> {
+  try { await redis.del(activityKeys.user(userId)) } catch { /* cache off */ }
+}
+
 // Redis aqui é cache + presença — NUNCA crítico. Se o servidor estiver fora ou
 // capado (ex.: limite de requests do plano free do Upstash), o comando rejeita
 // com um ReplyError POR-COMANDO — que o `redis.on('error')` (só nível de conexão)

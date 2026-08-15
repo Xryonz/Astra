@@ -1,6 +1,7 @@
 
 import { Router, Request, Response } from 'express'
 import { and, desc, eq, ilike, sql } from 'drizzle-orm'
+import { NAO_E_BOT_CRU } from '../lib/contagemDeMembros'
 import { db } from '../db'
 import { servers, serverMembers, serverBans } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -21,7 +22,7 @@ router.get(
     // Drizzle renderiza a coluna SEM tabela ("id"), e dentro da subquery esse "id"
     // pelado casa com "ServerMember"."id" (a PK do membro) em vez do id do servidor
     // -> serverId = id-do-membro nunca bate -> count 0 pra todos. Qualificar corrige.
-    const memberCount = sql<number>`(select count(*)::int from "ServerMember" where "ServerMember"."serverId" = "Server"."id")`
+    const memberCount = sql<number>`(select count(*)::int from "ServerMember" where "ServerMember"."serverId" = "Server"."id" and ${NAO_E_BOT_CRU})`
 
     const rows = await db.select({
       id:          servers.id,

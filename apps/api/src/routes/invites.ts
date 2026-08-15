@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import crypto from 'crypto'
 import { and, asc, eq, sql } from 'drizzle-orm'
+import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
 import { servers, serverMembers, channels, serverBans } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -28,7 +29,7 @@ router.get(
     if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' })
 
     const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(serverMembers).where(eq(serverMembers.serverId, server.id))
+      .from(serverMembers).where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT))
 
     res.json({ data: { ...server, _count: { members: count } } })
   })
@@ -66,7 +67,7 @@ router.post(
 
     const [chRows, [countRow]] = await Promise.all([
       db.select().from(channels).where(eq(channels.serverId, server.id)).orderBy(asc(channels.createdAt)),
-      db.select({ count: sql<number>`count(*)::int` }).from(serverMembers).where(eq(serverMembers.serverId, server.id)),
+      db.select({ count: sql<number>`count(*)::int` }).from(serverMembers).where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT)),
     ])
 
     res.json({ data: { ...server, channels: chRows, _count: { members: countRow?.count ?? 0 } } })

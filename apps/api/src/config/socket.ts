@@ -5,7 +5,7 @@ import { db } from '../db'
 import { users, dmConversations, directMessages, channels, messages, serverMembers } from '../db/schema'
 import { notify } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
-import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence } from '../lib/redis'
+import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence, setUserActivity, clearUserActivity } from '../lib/redis'
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
 import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
@@ -127,6 +127,29 @@ export function setupSocket(io: Server) {
     socket.on('heartbeat', () => {
       socketEventsTotal.inc({ event: 'heartbeat', direction: 'in' })
       refreshPresence(userId)
+    })
+
+    // ATIVIDADE: o cliente manda o nome do programa em primeiro plano; "" apaga.
+    //
+    // O SERVIDOR NÃO DESCOBRE NADA — ele recebe uma string já pronta e não tem
+    // como saber de onde veio. Isso é de propósito: quem decide se publica, e o
+    // que publica, é a máquina da pessoa. O interruptor mora lá, e desligado ele
+    // simplesmente para de emitir; não existe um "servidor pediu e o cliente
+    // obedeceu" nesse caminho.
+    //
+    // O corte em 64 caracteres é limite de ARMAZENAMENTO, não de confiança: nome
+    // de programa não passa disso, e o que passar é lixo ou tentativa de enfiar
+    // texto grande num campo que todo mundo lê.
+    socket.on('set_activity', async (texto: unknown) => {
+      if (typeof texto !== 'string') return
+      const limpo = texto.replace(/[\r\n\t]/g, ' ').trim().slice(0, 64)
+      if (!limpo) {
+        await clearUserActivity(userId)
+        socket.broadcast.emit('activity_update', { userId, activity: null })
+        return
+      }
+      await setUserActivity(userId, limpo)
+      socket.broadcast.emit('activity_update', { userId, activity: limpo })
     })
 
     socket.on('join_channel', async (channelId: string) => {
@@ -573,6 +596,12 @@ export function setupSocket(io: Server) {
         userSockets.delete(userId)
         await setUserOffline(userId)
         socket.broadcast.emit('presence_update', { userId, status: 'OFFLINE' })
+        // A atividade morre junto com a última janela. O TTL de 60s já limparia
+        // sozinho, mas deixar a linha viva por um minuto depois de a pessoa fechar
+        // o app diria "está em Palworld" sobre alguém que saiu — e um recurso de
+        // presença errado é pior que ausente.
+        await clearUserActivity(userId)
+        socket.broadcast.emit('activity_update', { userId, activity: null })
       }
       socketConnections.dec()
     })

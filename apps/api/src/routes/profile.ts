@@ -7,7 +7,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
-import { getUserStatus, setUserOnline, redis, presenceKeys } from '../lib/redis'
+import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys } from '../lib/redis'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
@@ -151,6 +151,31 @@ router.get(
       if (!s || s === 'INVISIBLE') out[id] = 'OFFLINE'
       else out[id] = s as 'ONLINE'|'IDLE'|'DND'
     })
+    res.json({ data: out })
+  })
+)
+
+// Atividade em lote — o par de /presence, e separado dele de propósito.
+//
+// Juntar os dois numa resposta só seria mais barato em requisições e mais caro em
+// tudo o mais: /presence devolve `Record<string,string>` hoje, e todo cliente já
+// declara esse formato. Trocar por um objeto quebraria os quatro de uma vez pra
+// economizar um round-trip que acontece uma vez por painel aberto.
+//
+// Quem não tem atividade simplesmente NÃO APARECE no mapa — nada de string vazia
+// pra cada pessoa da lista. O painel de membros manda 200 ids e recebe de volta só
+// os poucos que estão em alguma coisa.
+router.get(
+  '/activity',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
+    if (ids.length === 0) return res.json({ data: {} })
+
+    const out: Record<string, string> = {}
+    let live: (string | null)[] = []
+    try { live = await redis.mget(ids.map((id) => activityKeys.user(id))) } catch { live = [] }
+    ids.forEach((id, i) => { if (live[i]) out[id] = live[i]! })
     res.json({ data: out })
   })
 )

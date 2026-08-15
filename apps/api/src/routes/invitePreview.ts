@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
+import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
 import { servers, serverMembers } from '../db/schema'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -30,7 +31,7 @@ router.get(
     if (!server) return res.redirect(target)
 
     const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(serverMembers).where(eq(serverMembers.serverId, server.id))
+      .from(serverMembers).where(and(eq(serverMembers.serverId, server.id), NAO_E_BOT))
 
     const apiBase = `${req.protocol}://${req.get('host')}`
     const toPublicUrl = (u: string | null): string | null => {

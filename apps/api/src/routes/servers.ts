@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
 import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -76,7 +77,7 @@ async function listServersForUser(userId: string) {
     db.select().from(channels).where(inArray(channels.serverId, serverIds)).orderBy(asc(channels.position), asc(channels.createdAt)),
     db.select({ serverId: serverMembers.serverId, count: sql<number>`count(*)::int` })
       .from(serverMembers)
-      .where(inArray(serverMembers.serverId, serverIds))
+      .where(and(inArray(serverMembers.serverId, serverIds), NAO_E_BOT))
       .groupBy(serverMembers.serverId),
     safeCategoryRows(serverIds),
     onlineCountByServer(serverIds),
@@ -127,7 +128,7 @@ async function serverWithChannelsAndCount(serverId: string) {
     db.select().from(channels).where(eq(channels.serverId, serverId)).orderBy(asc(channels.position), asc(channels.createdAt)),
     db.select({ count: sql<number>`count(*)::int` })
       .from(serverMembers)
-      .where(eq(serverMembers.serverId, serverId)),
+      .where(and(eq(serverMembers.serverId, serverId), NAO_E_BOT)),
     safeCategoryRows([serverId]),
     onlineCountByServer([serverId]),
   ])

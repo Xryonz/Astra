@@ -1271,46 +1271,79 @@ private fun ProfileSection(
     var cropAvatar by remember { mutableStateOf<CropSource?>(null) }
     var cropBanner by remember { mutableStateOf<CropSource?>(null) }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        DesktopAvatar(draft.avatarUrl, draft.displayName.ifBlank { me?.username ?: "você" }, 64)
-        Spacer(Modifier.width(16.dp))
-        // Só ícone: estão colados na foto que operam.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BotaoIcone(Lucide.Upload, "trocar avatar", accent = true, ocupado = busyAvatar) {
-                // O dialogo nativo bloqueia (modal) — normal. O peso (ler/decodificar)
-                // vai pra fora da thread de UI.
-                val file = AvatarPicker.choose() ?: return@BotaoIcone
-                busyAvatar = true
-                msg = null
-                scope.launch {
-                    // Animado não pode ser assado num recorte -> caminho antigo.
-                    val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
-                    if (!animated) {
-                        busyAvatar = false
-                        cropAvatar = CropSource.Local(file)
-                        return@launch
-                    }
-                    val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
-                    busyAvatar = false
-                    r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
-                        .onFailure { msg = "não foi possível ler essa imagem" to false }
-                }
+    // Trocar a foto: o dialogo nativo bloqueia (modal) — normal. O peso (ler e
+    // decodificar) vai pra fora da thread de UI.
+    fun escolherAvatar() {
+        val file = AvatarPicker.choose() ?: return
+        busyAvatar = true
+        msg = null
+        scope.launch {
+            // Animado não pode ser assado num recorte -> caminho antigo.
+            val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
+            if (!animated) {
+                busyAvatar = false
+                cropAvatar = CropSource.Local(file)
+                return@launch
             }
-            val avatarAtual = draft.avatarUrl
-            if (avatarAtual != null && !ImageCrop.isAnimated(avatarAtual)) {
-                BotaoIcone(Lucide.Crop, "reenquadrar") { cropAvatar = CropSource.Remote(avatarAtual) }
-            }
-            if (draft.avatarUrl != null) {
-                BotaoIcone(Lucide.Trash2, "remover avatar", danger = true) { onChange(draft.copy(avatarUrl = null)) }
-            }
+            val r = withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
+            busyAvatar = false
+            r.onSuccess { onChange(draft.copy(avatarUrl = it)) }
+                .onFailure { msg = "não foi possível ler essa imagem" to false }
         }
     }
-    Spacer(Modifier.height(6.dp))
-    Text(
-        "a imagem é guardada em 1024px, resolução suficiente para tela de alta densidade (máximo 10MB).",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // A FOTO É O BOTÃO. Os três ícones soltos que moravam aqui ao lado viraram
+        // um menu que nasce da própria imagem — ver FotoEditavel.
+        FotoEditavel(
+            forma = CircleShape,
+            rotulo = "editar a foto do perfil",
+            modifier = Modifier.size(64.dp),
+            acoes = {
+                val atual = draft.avatarUrl
+                buildList {
+                    add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherAvatar() })
+                    // Reenquadrar só existe pra imagem PARADA: recortar um gif
+                    // exigiria recodificar a animação, e o app prefere não oferecer
+                    // a ação a oferecer uma que estraga o que ela promete cuidar.
+                    if (atual != null && !ImageCrop.isAnimated(atual)) {
+                        add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
+                            cropAvatar = CropSource.Remote(atual)
+                        })
+                    }
+                    if (atual != null) {
+                        add(MenuEntry.Separator)
+                        add(MenuEntry.Item("remover", danger = true, icon = Lucide.Trash2) {
+                            onChange(draft.copy(avatarUrl = null))
+                        })
+                    }
+                }
+            },
+        ) { aceso ->
+            // `externalHover` pra a foto reagir ao hover da PEÇA e não só ao dela:
+            // o alvo clicável é o círculo inteiro, então o brilho tem que acender
+            // pelo mesmo gesto que acende o véu.
+            DesktopAvatar(
+                draft.avatarUrl,
+                draft.displayName.ifBlank { me?.username ?: "você" },
+                64,
+                externalHover = aceso,
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(
+                if (busyAvatar) "lendo a imagem…" else "clique na foto para trocar, reenquadrar ou remover.",
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                "guardada em 1024px, resolução suficiente para tela de alta densidade (máximo 10MB).",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                modifier = Modifier.widthIn(max = 460.dp),
+            )
+        }
+    }
 
     SettingsDivider()
     ProfileField("nome", draft.displayName, me?.username ?: "seu nome") {

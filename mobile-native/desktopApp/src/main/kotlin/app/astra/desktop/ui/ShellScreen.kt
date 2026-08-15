@@ -337,6 +337,13 @@ fun ShellScreen(
                 val msg = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull() ?: return@collect
                 if (msg.senderId == session.userId) return@collect
                 if (vm.state.value.dms.any { it.id == msg.conversationId && it.muted }) return@collect
+                // Aviso discreto: nem quem escreveu, nem o que escreveu. Continua
+                // dizendo QUE TIPO chegou — dá pra decidir se vale interromper o que
+                // se está fazendo sem que a tela conte nada a quem estiver vendo.
+                if (prefs.state.value.avisoDiscreto) {
+                    notify("Astra", "sussurro novo")
+                    return@collect
+                }
                 val name = msg.author?.displayName ?: msg.author?.username ?: "alguem"
                 notify(name, msg.content.ifBlank { "anexo" }.take(120))
             }
@@ -346,6 +353,12 @@ fun ShellScreen(
                 if (!windowInactive() || !prefs.state.value.notifyChannels) return@collect
                 val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
                 val ch = vm.state.value.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
+                // O nome do canal também é conteúdo: "#planejamento-demissoes" numa
+                // transmissão diz mais que a mensagem em si.
+                if (prefs.state.value.avisoDiscreto) {
+                    notify("Astra", "mensagem numa constelação")
+                    return@collect
+                }
                 notify("#${ch.name}", "nova mensagem")
             }
         }

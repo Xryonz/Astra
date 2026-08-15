@@ -160,6 +160,10 @@ class DesktopPrefs(private val store: SessionStore) {
         // o pacote ou o encoder de hardware.
         val motorNovo: Boolean = false,
         // Processamento do microfone (aplica ao ENTRAR na próxima sala de voz).
+        // Aviso SEM conteudo: nem quem escreveu, nem o que escreveu. Existe pra quem
+        // transmite a tela -- o aviso da bandeja aparece POR CIMA de tudo, inclusive
+        // do que esta sendo gravado.
+        val avisoDiscreto: Boolean = false,
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,
@@ -254,6 +258,7 @@ class DesktopPrefs(private val store: SessionStore) {
         density = DensityPref.from(store.uiPref("density")),
         placaVideo = store.uiPref("placaVideo").orEmpty(),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
+        avisoDiscreto = store.uiPref("avisoDiscreto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
         motorNovo = store.uiPref("motorNovo") == "1",
@@ -361,6 +366,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setDensity(v: DensityPref) {
         store.setUiPref("density", v.key)
         _state.update { it.copy(density = v) }
+    }
+
+    fun setAvisoDiscreto(v: Boolean) {
+        persist("avisoDiscreto", v)
+        _state.update { it.copy(avisoDiscreto = v) }
     }
 
     fun setMicNoiseSuppression(v: Boolean) {

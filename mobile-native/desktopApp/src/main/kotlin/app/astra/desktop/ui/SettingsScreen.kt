@@ -435,10 +435,25 @@ fun SettingsScreen(
                                 "Atividade de canal", "avisa nova mensagem nas constelações",
                                 prefState.notifyChannels, prefs::setNotifyChannels,
                             )
+                            ToggleRow(
+                                "Aviso sem conteúdo",
+                                "some quem escreveu e o que escreveu — fica só “sussurro novo”",
+                                prefState.avisoDiscreto, prefs::setAvisoDiscreto,
+                            )
                             Spacer(Modifier.height(10.dp))
                             Text(
                                 "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
                                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                modifier = Modifier.widthIn(max = 460.dp),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            // Por que isto existe, em uma linha: o aviso da bandeja é
+                            // desenhado pelo Windows POR CIMA de tudo — inclusive do
+                            // que está sendo gravado ou transmitido.
+                            Text(
+                                "o aviso sem conteúdo serve para transmitir a tela: o balão do Windows " +
+                                    "aparece por cima de tudo, e o que estiver escrito nele entra na gravação.",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
                                 modifier = Modifier.widthIn(max = 460.dp),
                             )
                             Spacer(Modifier.height(16.dp))
@@ -562,7 +577,7 @@ private fun SettingsPreview(
                 // Conta = teu perfil SALVO; Perfil = o rascunho ao vivo (cada tecla).
                 SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
-                SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
+                SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff, p.avisoDiscreto)
                 SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
                 SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
                 SettingsTab.PERFORMANCE -> CostMeter(p)
@@ -999,7 +1014,7 @@ private fun AtividadePreview(ligado: Boolean) {
 }
 
 @Composable
-private fun NotifPreviewCard(reduceMotion: Boolean) {
+private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
     val t = rememberInfiniteTransition(label = "toast")
     val cycle by t.animateFloat(
         0f, 1f,
@@ -1043,8 +1058,17 @@ private fun NotifPreviewCard(reduceMotion: Boolean) {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("Astra", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-                Text("novo sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
-                Text("e assim que um aviso chega na bandeja.", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                // A prévia mostra o aviso QUE VAI SAIR, e não um aviso genérico: com
+                // "sem conteúdo" ligado, ver aqui um nome e uma frase que o balão real
+                // nunca vai ter é a prévia mentindo sobre a única coisa que ela existe
+                // pra mostrar.
+                if (discreto) {
+                    Text("sussurro novo", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+                    Text("sem nome e sem texto — é tudo que aparece.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                } else {
+                    Text("novo sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+                    Text("e assim que um aviso chega na bandeja.", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                }
             }
         }
     }

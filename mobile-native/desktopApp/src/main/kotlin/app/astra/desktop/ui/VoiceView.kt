@@ -117,6 +117,8 @@ fun VoiceView(
     // O engine vem de fora (VoiceSession, no shell). Não pode nascer aqui: era o
     // DisposableEffect desta tela que desconectava a call ao navegar.
     engine: VoiceEngine,
+    // Mesmo motivo do CallDock: quem guarda o mudo e a VoiceSession.
+    aoAlternarMudo: () -> Unit,
     onLeave: () -> Unit,
     // So pra soundboard: ChannelDto nao carrega a constelacao, e a rota de tocar
     // precisa dela pra checar se voce e membro.
@@ -323,7 +325,7 @@ fun VoiceView(
             CallIconButton(
                 icon = if (micOn) Lucide.Mic else Lucide.MicOff,
                 tone = if (micOn) CallTone.Normal else CallTone.Danger,
-                onClick = engine::toggleMic,
+                onClick = aoAlternarMudo,
             )
             // SOUNDBOARD. Clicar num som NAO mistura audio no seu microfone: o
             // servidor avisa a sala e cada um toca o arquivo original localmente

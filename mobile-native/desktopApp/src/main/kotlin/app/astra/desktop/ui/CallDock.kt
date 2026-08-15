@@ -87,6 +87,9 @@ import kotlin.math.roundToInt
 fun BoxScope.CallDock(
     channel: ChannelDto,
     engine: VoiceEngine,
+    // O mudo passa pela VoiceSession, e nao pelo motor: o botao do rodape e este
+    // aqui mexem no MESMO estado, e a sessao e quem o guarda.
+    aoAlternarMudo: () -> Unit,
     meName: String,
     meAvatar: String?,
     onExpand: () -> Unit,
@@ -242,7 +245,7 @@ fun BoxScope.CallDock(
                     icon = if (micOn) Lucide.Mic else Lucide.MicOff,
                     tint = if (micOn) Obsidian.text1 else Obsidian.danger,
                     bg = if (micOn) Obsidian.raised else Obsidian.danger.copy(alpha = 0.16f),
-                    onClick = engine::toggleMic,
+                    onClick = aoAlternarMudo,
                 )
                 Spacer(Modifier.width(10.dp))
                 DockAction(

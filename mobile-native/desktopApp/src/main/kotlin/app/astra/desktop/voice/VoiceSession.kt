@@ -53,6 +53,53 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     var emSussurro by mutableStateOf(false)
         private set
 
+    // MUDO E ENSURDECER MORAM AQUI, e nao no motor, por um motivo simples: os
+    // botoes ficam no rodape, que esta na tela o tempo todo, e o motor so existe
+    // durante a call. Estado na sessao = a escolha atravessa entrar e sair de sala,
+    // e chegar mudo na proxima e uma decisao que da pra tomar antes de entrar.
+    //
+    // O motor nao guarda nada disto: recebe a ordem ao nascer e a cada mudanca.
+    var mudo by mutableStateOf(false)
+        private set
+    var ensurdecido by mutableStateOf(false)
+        private set
+
+    // Quem ensurdece fica mudo junto (padrao Discord: nao se conversa com quem nao
+    // se ouve). Ao voltar a ouvir, o microfone volta pro que ERA antes — quem ja
+    // estava mudo continua mudo, e nao ganha o mic aberto de brinde.
+    private var mudoAntesDeEnsurdecer = false
+
+    fun alternarMudo() {
+        if (ensurdecido) {
+            // Voltar a falar devolve o ouvido junto. "Falo mas nao ouco" nao e uma
+            // intencao que alguem tenha — e so um estado de onde nao se sai clicando
+            // no lugar obvio.
+            ensurdecido = false
+            mudo = false
+        } else {
+            mudo = !mudo
+        }
+        aplicar()
+    }
+
+    fun alternarEnsurdecer() {
+        ensurdecido = !ensurdecido
+        if (ensurdecido) {
+            mudoAntesDeEnsurdecer = mudo
+            mudo = true
+        } else {
+            mudo = mudoAntesDeEnsurdecer
+        }
+        aplicar()
+    }
+
+    private fun aplicar() {
+        engine?.let {
+            it.setMic(!mudo)
+            it.setEnsurdecido(ensurdecido)
+        }
+    }
+
     private fun entrar(tipo: String, sala: ChannelDto) {
         // "JA ESTOU NESTA SALA" TEM QUE INCLUIR TER MOTOR, e nao so o id bater.
         //
@@ -76,6 +123,9 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
         ).also { it.connect(tipo, sala.id) }
         joined = sala
         emSussurro = tipo == "dm"
+        // A escolha do rodape vale na sala nova. `connect` e assincrono, mas o motor
+        // guarda a ordem e as pecas nascem obedecendo (ver publishMic/onAddTrack).
+        aplicar()
     }
 
     fun leave() {

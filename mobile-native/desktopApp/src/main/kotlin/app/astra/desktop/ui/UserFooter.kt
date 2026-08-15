@@ -40,8 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -65,7 +68,10 @@ import app.astra.desktop.ui.theme.Text
 import com.composables.icons.lucide.CircleDot
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Headphones
 import com.composables.icons.lucide.LogOut
+import com.composables.icons.lucide.Mic
+import com.composables.icons.lucide.MicOff
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.User
 import app.astra.desktop.xp.XpStore
@@ -120,6 +126,10 @@ fun UserFooter(
     onOpenSettings: (SettingsTab) -> Unit,
     onAbrirJornada: () -> Unit,
     onLogout: () -> Unit,
+    mudo: Boolean,
+    ensurdecido: Boolean,
+    onAlternarMudo: () -> Unit,
+    onAlternarEnsurdecer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val name = me?.displayName ?: me?.username ?: fallbackName
@@ -289,9 +299,30 @@ fun UserFooter(
                 }
             }
         }
-        FooterIcon(Lucide.Settings, danger = false, onClick = { onOpenSettings(SettingsTab.ACCOUNT) })
+        // MUDO E ENSURDECER FICAM AQUI O TEMPO TODO, e nao so durante a call
+        // (escolha do dono, mesmo lugar do Discord). Chegar mudo na proxima sala e
+        // uma decisao que se toma ANTES de entrar — e e por isso que o estado mora
+        // na VoiceSession e nao no motor, que so existe enquanto a call existe.
+        FooterIcon(
+            icon = if (mudo) Lucide.MicOff else Lucide.Mic,
+            rotulo = if (mudo) "voltar a falar" else "ficar mudo",
+            danger = false,
+            aceso = mudo,
+            onClick = onAlternarMudo,
+        )
         Spacer(Modifier.width(2.dp))
-        FooterIcon(Lucide.LogOut, danger = true, onClick = { confirmLogout = true })
+        FooterIcon(
+            icon = Lucide.Headphones,
+            rotulo = if (ensurdecido) "voltar a ouvir" else "ensurdecer",
+            danger = false,
+            aceso = ensurdecido,
+            riscado = ensurdecido,
+            onClick = onAlternarEnsurdecer,
+        )
+        Spacer(Modifier.width(2.dp))
+        FooterIcon(Lucide.Settings, rotulo = "configurações", danger = false, onClick = { onOpenSettings(SettingsTab.ACCOUNT) })
+        Spacer(Modifier.width(2.dp))
+        FooterIcon(Lucide.LogOut, rotulo = "sair da conta", danger = true, onClick = { confirmLogout = true })
     }
     if (confirmLogout) CenteredConfirmDialog(
         message = "sair da conta?",
@@ -343,19 +374,39 @@ private fun StatusMenu(current: UserStatus, onPick: (UserStatus) -> Unit) {
     }
 }
 
+// `aceso` = estado LIGADO e permanente (mudo, ensurdecido): vermelho sem depender
+// de hover, porque a informacao tem de estar na tela mesmo com o mouse longe.
+// `riscado` desenha a diagonal por cima do glifo — o Lucide 1.1 tem `MicOff` mas
+// nao tem um fone cortado, e trocar a metafora (fone -> alto-falante com X) so pra
+// ter um icone pronto faria os dois botoes falarem de coisas diferentes.
 @Composable
-private fun FooterIcon(icon: ImageVector, danger: Boolean, onClick: () -> Unit) {
+private fun FooterIcon(
+    icon: ImageVector,
+    rotulo: String,
+    danger: Boolean,
+    onClick: () -> Unit,
+    aceso: Boolean = false,
+    riscado: Boolean = false,
+) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val color by animateColorAsState(
         when {
+            aceso -> Obsidian.danger
             hovered && danger -> Obsidian.danger
             hovered -> Obsidian.text1
             else -> Obsidian.text3
         },
         tween(120),
     )
-    val fundo by animateColorAsState(if (hovered) Obsidian.hover else Color.Transparent, tween(120))
+    val fundo by animateColorAsState(
+        when {
+            aceso -> Obsidian.danger.copy(alpha = if (hovered) 0.22f else 0.14f)
+            hovered -> Obsidian.hover
+            else -> Color.Transparent
+        },
+        tween(120),
+    )
     Box(
         Modifier
             .size(26.dp)
@@ -369,7 +420,23 @@ private fun FooterIcon(icon: ImageVector, danger: Boolean, onClick: () -> Unit) 
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = color, size = 15.dp)
+        LIcon(
+            icon,
+            tint = color,
+            size = 15.dp,
+            rotulo = rotulo,
+            modifier = if (!riscado) Modifier else Modifier.drawWithContent {
+                drawContent()
+                val m = size.minDimension
+                drawLine(
+                    color = color,
+                    start = Offset(m * 0.12f, m * 0.12f),
+                    end = Offset(m * 0.88f, m * 0.88f),
+                    strokeWidth = m * 0.11f,
+                    cap = StrokeCap.Round,
+                )
+            },
+        )
     }
 }
 

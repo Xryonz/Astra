@@ -255,9 +255,21 @@ class VoiceEngine(
     // de hardware simplesmente segue pelo caminho de hoje, sem aviso e sem perda.
     private var gstPub: GstPublisher? = null
 
-    // Mic comeca ligado ao entrar (padrao Discord); toggleMic() alterna.
+    // Mic comeca ligado ao entrar (padrao Discord). Quem MANDA nisto e a
+    // VoiceSession, que carrega a escolha de uma call pra outra — o motor so
+    // executa. Este flow segue publico porque a tela de call le dele pra desenhar.
     private val _micOn = MutableStateFlow(true)
     val micOn = _micOn.asStateFlow()
+
+    // ENSURDECER: nao ouvir ninguem.
+    //
+    // NAO usa o `setSpeakerMute` do webrtc-java de proposito. Ele desce ate o
+    // IAudioEndpointVolume do Windows, que e o mudo do APARELHO: silenciaria o
+    // navegador, o jogo e o resto da maquina junto — e deixaria o mudo ligado no
+    // sistema se o app morresse no meio. Desligar as faixas remotas uma a uma e
+    // silencio DENTRO do Astra, que e o que a palavra promete.
+    private val _ensurdecido = MutableStateFlow(false)
+    val ensurdecido = _ensurdecido.asStateFlow()
 
     // Transmissao de tela (V5). screenSource = capturador GDI (fallback); quando o
     // caminho rapido (ffmpeg DXGI) pega, a fonte e a customSource + ffmpegCap.
@@ -773,6 +785,8 @@ class VoiceEngine(
                         VoiceLog.nota("7. audio de alguem chegou (" + (others.values.find { it.sid == ownerSid }?.label ?: ownerSid) + ")")
                         remoteAudioReceivers[ownerSid] = receiver
                         remoteAudioTracks[ownerSid] = track
+                        // Ensurdecido: quem chega depois chega calado tambem.
+                        if (_ensurdecido.value) runCatching { track.isEnabled = false }
                         reavaliarAec()
                     }
                     else -> Unit
@@ -905,6 +919,12 @@ class VoiceEngine(
         micCid = cid
         micSource = source
         if (source != null) micTrack = f.createAudioTrack(cid, source)
+        // Entrou mudo: a faixa nasce desligada. Sem isto, quem chega mudo fala os
+        // primeiros segundos antes de qualquer aviso alcancar a sala.
+        if (!_micOn.value) {
+            gst?.mudo(true)
+            micTrack?.isEnabled = false
+        }
         val p = prefs.state.value
         val cap = MicCapture(destinoDoMic(source), p.micNoiseSuppression, p.micAutoGain, p.micEchoCancel, p.audioInput, p.micSensitivity) { level -> onMicLevel(level) }
         micCapture = cap
@@ -929,6 +949,10 @@ class VoiceEngine(
             micCid -> {
                 micSid = res.track.sid
                 attachMic(res.cid)
+                // Agora ha sid, entao agora da pra contar. Quem entrou mudo so vira
+                // "mudo" pros outros a partir deste instante — antes disto nao havia
+                // faixa pra o servidor marcar.
+                if (!_micOn.value) avisaMute(false)
             }
             screenCid -> attachScreen(res.cid)
         }
@@ -1860,22 +1884,43 @@ class VoiceEngine(
 
     // Mute local (track para de mandar frames) + aviso pro server (ícone de mute
     // aparece pros outros).
-    fun toggleMic() {
-        val gst = gstPub
-        val track = micTrack
-        if (gst == null && track == null) return
-        val on = !_micOn.value
+    fun toggleMic() = setMic(!_micOn.value)
+
+    // SEM guarda de "so se ja existe faixa". Ela existia e estava errada: quem
+    // chegasse mudo na sala tinha o pedido engolido porque a faixa ainda nao tinha
+    // nascido, e entrava falando. Agora o estado e anotado sempre e cada peca e
+    // acionada se existir; quem nasce depois nasce ja obedecendo (ver publishMic).
+    fun setMic(on: Boolean) {
+        _micOn.value = on
         // No motor novo o silencio e feito zerando as amostras, e nao parando de
         // empurrar: manter a cadencia de 10ms custa quase nada (o Opus comprime silencio
         // a ~1kbps) e evita que o outro lado veja a faixa morrer e reaja a isso.
-        gst?.mudo(!on)
-        track?.isEnabled = on
-        _micOn.value = on
+        gstPub?.mudo(!on)
+        micTrack?.isEnabled = on
+        avisaMute(on)
+    }
+
+    // Conta pro servidor, que repassa pros outros (o ícone de mudo no card). So faz
+    // sentido depois que a faixa foi publicada e tem sid.
+    private fun avisaMute(on: Boolean) {
         val sid = micSid ?: return
         val req = LivekitRtc.SignalRequest.newBuilder()
             .setMute(LivekitRtc.MuteTrackRequest.newBuilder().setSid(sid).setMuted(!on))
             .build()
         ws?.send(req.toByteArray().toByteString())
+    }
+
+    // Silencia (ou devolve) todo mundo. Vale pra quem ja esta na sala; quem publicar
+    // depois nasce silenciado pelo mesmo flag, no onAddTrack.
+    //
+    // A faixa desligada continua CHEGANDO pela rede — WebRTC nao tem "pare de me
+    // mandar isto" sem renegociar a sessao inteira, e renegociar pra ensurdecer
+    // seria derrubar e refazer a conexao com a voz de alguem em cima. O custo e
+    // banda que ja estava sendo gasta; o ganho e o silencio ser imediato e
+    // reversivel no mesmo instante.
+    fun setEnsurdecido(on: Boolean) {
+        _ensurdecido.value = on
+        remoteAudioTracks.values.forEach { runCatching { it.isEnabled = !on } }
     }
 
     // O servidor derruba quem fica mudo: ping no intervalo do JoinResponse.

@@ -163,6 +163,8 @@ const SYSTEM_PROMPT = `Você é a assistente oficial da plataforma de chat Astra
 Comportamento:
 - Português brasileiro, conciso (1-3 parágrafos curtos).
 - Útil, direto, sem floreios. Use markdown leve quando ajudar (negrito, listas).
+- NUNCA use blocos de código nem crases. Você está conversando, não documentando:
+  se precisar citar um comando ou um nome técnico, escreva ele no texto corrido.
 - Você tem memória das últimas conversas neste canal (24h, expira automaticamente).
 - Nunca diga que é "a Astra": Astra é a plataforma. Seu nome é o que vier no bloco de persona.
 - Você tem ferramentas pra buscar mensagens, resumir o canal, ver info de servidor/usuário. Use quando fizer sentido.
@@ -171,6 +173,38 @@ Comportamento:
 - NUNCA execute @everyone ou tente acionar notificações em massa.
 
 Quando o user pedir algo que precise contexto que você não tem, use a ferramenta apropriada antes de responder.`
+
+// A BOT NÃO FALA EM BLOCO DE CÓDIGO (pedido do dono).
+//
+// Ela conversa; ela não documenta. Caixa de código no meio de uma conversa faz a
+// resposta parecer saída de terminal — que é o oposto da persona, e some com o
+// registro editorial do resto do produto.
+//
+// PEDIR NO PROMPT NÃO BASTA, e é por isso que isto existe além da instrução. Modelo
+// de linguagem trata regra de formato como preferência forte, não como contrato:
+// pergunte de um jeito que "peça" código e a crase volta. Instrução reduz a
+// frequência; esta função decide o resultado.
+//
+// Vale SÓ pro texto que o modelo gerou. As falas fixas da bot (boas-vindas, troca de
+// turno) usam crase de propósito pra mostrar um comando — `/astra ajuda` só se lê
+// como comando por causa dela.
+export function semMarcaDeCodigo(texto: string): string {
+  return texto
+    // Bloco cercado: fica o conteúdo, sai a cerca (e a linguagem, se declarada).
+    // Apagar o bloco inteiro perderia a resposta; o que incomoda é a caixa.
+    .replace(/```[a-zA-Z0-9_+-]*\r?\n?([\s\S]*?)```/g, '$1')
+    // Cerca órfã: o modelo abriu e não fechou (acontece quando a resposta é cortada
+    // no limite de tokens). Sem esta linha, sobra uma cerca solta que o cliente
+    // renderiza como caixa aberta até o fim da mensagem.
+    // Come a quebra de linha logo depois, igual à regra de cima — senão a cerca vira
+    // uma linha em branco no lugar dela, e o texto sai com um buraco.
+    .replace(/```[a-zA-Z0-9_+-]*\r?\n?/g, '')
+    // Crase simples. O `+` cobre ``x`` (usado quando o conteúdo tem crase dentro).
+    .replace(/`+/g, '')
+    // A remoção pode deixar linha em branco onde havia a cerca.
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
 export interface AskBotOpts {
   userMessage: string
@@ -298,6 +332,7 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   }
 
   if (!finalText.trim()) finalText = 'Não consegui formular uma resposta. Tente reformular?'
+  finalText = semMarcaDeCodigo(finalText)
 
   await pushTurn(ctx.userId, ctx.channelId, { role: 'assistant', content: finalText, ts: Date.now() })
 

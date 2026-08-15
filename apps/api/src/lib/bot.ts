@@ -43,6 +43,13 @@ export interface Persona {
   prefixo: string
   emoji:   string
   avatar:  string
+  // Banner animado do perfil (GIF), e a cor que fica ATRÁS dele enquanto carrega.
+  // As duas irmãs têm paleta própria (escolha do dono): a Sparxie em rosa com
+  // branco, a Sparkle em vermelho com roxo escuro. A cor não é enfeite redundante
+  // — um GIF de alguns MB demora, e sem ela o topo do cartão é um buraco preto até
+  // o primeiro quadro chegar.
+  banner:  string
+  bannerCor: string
   tom:     string
 }
 
@@ -57,10 +64,12 @@ const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
   chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
+  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030',
   tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
   chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
+  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730',
   tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 
@@ -107,11 +116,26 @@ export function semPrefixo(content: string): string {
 export async function sincronizaPersona(botId: string): Promise<Persona> {
   const persona = personaDoDia()
   try {
-    const [atual] = await db.select({ displayName: users.displayName, avatarUrl: users.avatarUrl })
-      .from(users).where(eq(users.id, botId)).limit(1)
-    if (atual && (atual.displayName !== persona.nome || atual.avatarUrl !== persona.avatar)) {
+    // O BANNER ENTRA NA COMPARAÇÃO, e isso importa mais do que parece: sem ele
+    // aqui, a troca de turno mudaria nome e foto e deixaria o banner da irmã
+    // anterior no ar até alguém trocar o nome na mão. As duas identidades ficariam
+    // misturadas justamente no momento em que a diferença entre elas é o assunto.
+    const [atual] = await db.select({
+      displayName: users.displayName, avatarUrl: users.avatarUrl,
+      bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
+    }).from(users).where(eq(users.id, botId)).limit(1)
+    const mudou = atual && (
+      atual.displayName !== persona.nome ||
+      atual.avatarUrl !== persona.avatar ||
+      atual.bannerUrl !== persona.banner ||
+      atual.bannerColor !== persona.bannerCor
+    )
+    if (mudou) {
       await db.update(users)
-        .set({ displayName: persona.nome, avatarUrl: persona.avatar })
+        .set({
+          displayName: persona.nome, avatarUrl: persona.avatar,
+          bannerUrl: persona.banner, bannerColor: persona.bannerCor,
+        })
         .where(eq(users.id, botId))
       profileChanged(botId)
       logger.info('Bot', `persona do dia: ${persona.nome}`)

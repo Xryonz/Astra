@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -66,6 +67,11 @@ import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 // (mesma politica do ProfileHoverCard do web).
 
 private const val CACHE_MS = 5 * 60_000L
+
+// Piso do cartão pequeno. Calçado no cartão CHEIO (banner + foto + nome + @ +
+// vínculos + recado + bio + cargos + "nas estrelas desde" + botão): é a altura em
+// que ele já parece o mesmo objeto, com ou sem conteúdo opcional.
+private val ALTURA_MIN_CARTAO = 420.dp
 // Guarda o ENVELOPE inteiro, e nao so o usuario. Os vinculos (constelacoes e
 // amigos em comum) vem na mesma resposta e estavam sendo jogados fora — o card
 // pedia o dado, recebia, e descartava antes de desenhar.
@@ -260,7 +266,19 @@ private fun ProfilePopupCard(
             ProfileCard(
                 dados = p.paraCartao().copy(atividade = atividade),
                 variante = CardVariante.NORMAL,
-                modifier = Modifier.width(320.dp),
+                // ALTURA MÍNIMA, não altura fixa (pedido do dono: o cartão de quem
+                // não tem bio nem cargo saía atarracado ao lado do da bot).
+                //
+                // O cartão do Astra é um objeto reconhecível, e objeto que muda de
+                // tamanho conforme quem está dentro deixa de ser um objeto: passa a
+                // ser uma caixa. Quem acabou de criar conta tem duas linhas de
+                // conteúdo, e o cartão encolhia até virar um retângulo estranho —
+                // exatamente o motivo pelo qual a página de perfil inteira já tem
+                // altura calçada (ver ALTURA_PAGINA_PERFIL).
+                //
+                // Mínima e não fixa porque bio longa + vários cargos precisam crescer.
+                // Piso dá consistência; teto cortaria conteúdo.
+                modifier = Modifier.width(320.dp).heightIn(min = ALTURA_MIN_CARTAO),
                 servidoresEmComum = v.mutualServers,
                 amigosEmComum = v.mutualFriends,
                 cargos = cargos,

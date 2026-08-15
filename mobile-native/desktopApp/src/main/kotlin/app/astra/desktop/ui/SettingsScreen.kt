@@ -106,6 +106,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.Bot
 import com.composables.icons.lucide.ChartColumn
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
@@ -156,6 +157,7 @@ import app.astra.desktop.update.UpdateService
 import app.astra.desktop.update.UpdateState
 import app.astra.desktop.auth.SessionStore
 import app.astra.mobile.core.network.SessionApi
+import app.astra.mobile.core.network.BotPersonaApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.MutualServerDto
 import app.astra.mobile.core.network.dto.RevokeOthersRequest
@@ -198,6 +200,9 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
     PERMISSIONS("Permissoes", "o que o Windows libera", Lucide.ShieldCheck),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
+    // SO PRO DONO DO ASTRA. A rota /api/bots responde 404 pra todo mundo mais, e a
+    // aba so entra na lista quando essa chamada da certo — ver `abaDeBots` abaixo.
+    BOTS("Bots", "aparencia da Sparkle e da Sparxie", Lucide.Bot),
     // SO PRA DEV (decisao do dono). Ver `abaDeDev` abaixo.
     DIAGNOSTICS("Diagnostico", "o que o app esta vendo agora", Lucide.CircleDot),
 }
@@ -213,8 +218,15 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
 private val abaDeDev: Boolean =
     System.getProperty("jpackage.app-path") == null || System.getProperty("astra.dev") != null
 
+// A aba Bots FICA DE FORA desta lista de propósito: quem a libera é o servidor.
+// Só o dono do Astra recebe resposta em /api/bots (pra todo mundo mais a rota
+// responde "não existe"), e a aba entra quando essa chamada dá certo — ver
+// `ehDonoDoAstra` abaixo. Uma bandeira local seria só uma sugestão: o portão de
+// verdade está no servidor, e a tela apenas evita oferecer o que ia dar erro.
 private val abasVisiveis: List<SettingsTab> =
-    SettingsTab.entries.filter { it != SettingsTab.DIAGNOSTICS || abaDeDev }
+    SettingsTab.entries.filter {
+        (it != SettingsTab.DIAGNOSTICS || abaDeDev) && it != SettingsTab.BOTS
+    }
 
 // Largura da coluna de previa. Era 300 fixa (e 420 empilhada): com DUAS previas
 // lado a lado sobravam ~145dp pra cada cartao, e um cartao encolhido a 40% vira
@@ -317,7 +329,19 @@ fun SettingsScreen(
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                abasVisiveis.forEach { t ->
+                // Uma consulta ao abrir as Configurações. Falhou (404 pra quem não
+                // é dono, ou servidor fora) = a aba não aparece, e é o resultado
+                // certo nos dois casos: sem servidor ela não teria o que editar.
+                var ehDono by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    ehDono = runCatching {
+                        GlobalContext.get().get<BotPersonaApi>().personas().data != null
+                    }.getOrDefault(false)
+                }
+                val abas = remember(ehDono) {
+                    if (ehDono) abasVisiveis + SettingsTab.BOTS else abasVisiveis
+                }
+                abas.forEach { t ->
                     NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) { tab = t }
                 }
             }
@@ -421,6 +445,7 @@ fun SettingsScreen(
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
                         SettingsTab.DIAGNOSTICS -> DiagnosticsSection()
+                        SettingsTab.BOTS -> BotsSection()
                     }
                     }
                     // O botao de salvar segue no PE do formulario do Perfil quando
@@ -496,7 +521,7 @@ fun SettingsScreen(
 // divergiu, e foi assim que o rotulo "previa" apareceu sozinho nessas telas.
 private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     SettingsTab.SESSIONS, SettingsTab.PERMISSIONS,
-    SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS -> false
+    SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS -> false
     else -> true
 }
 
@@ -537,7 +562,11 @@ private fun SettingsPreview(
                 SettingsTab.PERFORMANCE -> CostMeter(p)
                 SettingsTab.VOICE -> VoicePreview(p)
                 // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
-                SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.PERMISSIONS -> Unit
+                // Bots também não: lá o cartão de cada irmã JÁ é a prévia, e é nele
+                // que se arrasta o enquadramento — uma segunda cópia à direita
+                // mostraria a mesma coisa longe do controle que a muda.
+                SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
+                SettingsTab.PERMISSIONS, SettingsTab.BOTS -> Unit
             }
             // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
             // se trocam clicando neles — e engolir o ponteiro mataria exatamente a

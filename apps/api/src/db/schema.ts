@@ -593,4 +593,20 @@ export const badgeGrants = pgTable('BadgeGrant', {
   byUser: index('BadgeGrant_userId_idx').on(t.userId),
 }))
 
+// Aparencia das personas da bot, sobrepondo o que esta no codigo (lib/bot.ts).
+//
+// A chave e a PERSONA e nao o id do usuario: as duas irmas dividem a mesma conta e
+// trocam de rosto na virada do turno, entao guardar por usuario daria uma unica
+// configuracao pras duas. Coluna nula = "usa o que esta no codigo".
+export const botPersonas = pgTable('BotPersona', {
+  chave:           text('chave').primaryKey(),
+  displayName:     text('displayName'),
+  avatarUrl:       text('avatarUrl'),
+  bannerUrl:       text('bannerUrl'),
+  bannerColor:     text('bannerColor'),
+  bannerScale:     integer('bannerScale'),
+  bannerPositionY: integer('bannerPositionY'),
+  updatedAt:       timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
+})
+
 export const _sqlMarker = sql`1`

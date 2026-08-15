@@ -28,6 +28,7 @@ import './config/passport'
 
 import authRouter            from './routes/auth'
 import profileRouter         from './routes/profile'
+import botPersonaRouter      from './routes/botPersona'
 import inviteRouter          from './routes/invites'
 import invitePreviewRouter   from './routes/invitePreview'
 import { serversRouter, channelsRouter } from './routes/servers'
@@ -144,6 +145,8 @@ app.use(httpMetrics)
 // binario do cliente (ImageCrop.HARD_MAX) mais o inchaco de 33% do base64.
 app.use('/api/profile', express.json({ limit: '16mb' }))
 app.use('/api/servers', express.json({ limit: '16mb' }))
+// Foto e banner das bots sobem por aqui, no mesmo formato data-uri do perfil.
+app.use('/api/bots', express.json({ limit: '16mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)
@@ -156,6 +159,7 @@ app.use(globalLimiter)
 
 app.use('/api/auth',     authRouter)
 app.use('/api/profile',  profileRouter)
+app.use('/api/bots',     botPersonaRouter)
 app.use('/api/invites',  inviteRouter)
 
 app.use('/i',            invitePreviewRouter)

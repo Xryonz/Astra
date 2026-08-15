@@ -1,7 +1,7 @@
 
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { users, wishingStars } from '../db/schema'
+import { users, wishingStars, botPersonas } from '../db/schema'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from './coordinate'
 import { redis } from './redis'
@@ -62,6 +62,10 @@ export interface Persona {
   // Fica na persona e nao numa conta em tempo de execucao porque o servidor
   // nunca abre o GIF: ele so guarda a URL. Trocar a arte pede recalcular isto.
   bannerZoom: number
+  // Enquadramento vertical (0 = topo, 50 = centro, 100 = base). Com o zoom que
+  // cobre, sobra arte pra fora em cima e embaixo — e qual metade aparece e
+  // escolha, nao detalhe. 50 e o padrao porque e onde o rosto esta nos dois GIFs.
+  bannerY: number
   tom:     string
 }
 
@@ -76,12 +80,12 @@ const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
   chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
-  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 250,
+  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 250, bannerY: 50,
   tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
   chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
-  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730', bannerZoom: 250,
+  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730', bannerZoom: 250, bannerY: 50,
   tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 
@@ -125,8 +129,36 @@ export function semPrefixo(content: string): string {
 // barata, e o UPDATE so acontece no dia em que a persona de fato muda (2x por
 // semana) — ou uma unica vez, depois de trocar a arte. O aviso de perfil faz o
 // rosto trocar na tela de quem esta com o app aberto, sem precisar reabrir nada.
+// A PERSONA DO DIA, JA COM O QUE O DONO MEXEU POR CIMA.
+//
+// O codigo continua sendo a arte de fabrica; a tabela BotPersona guarda so o que
+// foi realmente trocado (coluna nula = "usa o do codigo"). Isso e o que permite
+// apagar a linha e ter tudo de volta sem precisar lembrar quais eram os valores
+// originais — e o que faz uma arte nova no codigo valer sozinha pra quem nunca
+// personalizou nada.
+export async function personaComAjustes(): Promise<Persona> {
+  const base = personaDoDia()
+  try {
+    const [ajuste] = await db.select().from(botPersonas)
+      .where(eq(botPersonas.chave, base.chave)).limit(1)
+    if (!ajuste) return base
+    return {
+      ...base,
+      nome:      ajuste.displayName ?? base.nome,
+      avatar:    ajuste.avatarUrl ?? base.avatar,
+      banner:    ajuste.bannerUrl ?? base.banner,
+      bannerCor: ajuste.bannerColor ?? base.bannerCor,
+      bannerZoom: ajuste.bannerScale ?? base.bannerZoom,
+      bannerY:   ajuste.bannerPositionY ?? base.bannerY,
+    }
+  } catch {
+    // Tabela indisponivel nao pode derrubar a bot: sem ajuste, vale o codigo.
+    return base
+  }
+}
+
 export async function sincronizaPersona(botId: string): Promise<Persona> {
-  const persona = personaDoDia()
+  const persona = await personaComAjustes()
   try {
     // O BANNER ENTRA NA COMPARAÇÃO, e isso importa mais do que parece: sem ele
     // aqui, a troca de turno mudaria nome e foto e deixaria o banner da irmã
@@ -135,7 +167,7 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
     const [atual] = await db.select({
       displayName: users.displayName, avatarUrl: users.avatarUrl,
       bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
-      bannerScale: users.bannerScale,
+      bannerScale: users.bannerScale, bannerPositionY: users.bannerPositionY,
     }).from(users).where(eq(users.id, botId)).limit(1)
     const mudou = atual && (
       atual.displayName !== persona.nome ||
@@ -145,7 +177,11 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
       // O zoom entra na comparacao pelo mesmo motivo do banner: as duas irmas tem
       // arte de proporcao diferente, entao herdar o zoom da anterior deixaria a
       // faixa cortada ou com tarja no meio do turno.
-      atual.bannerScale !== persona.bannerZoom
+      atual.bannerScale !== persona.bannerZoom ||
+      // Sem esta linha, arrastar SO o enquadramento vertical nao gravava nada: a
+      // comparacao dizia "igual" e o UPDATE nunca rodava. O dono mexeria, veria a
+      // previa mudar e o valor voltaria sozinho no proximo carregamento.
+      atual.bannerPositionY !== persona.bannerY
     )
     if (mudou) {
       await db.update(users)
@@ -154,7 +190,7 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
           bannerUrl: persona.banner, bannerColor: persona.bannerCor,
           // Enquadramento neutro na vertical: com o zoom que cobre, o centro da
           // arte e o que aparece — que e onde o rosto esta nos dois GIFs.
-          bannerScale: persona.bannerZoom, bannerPositionY: 50,
+          bannerScale: persona.bannerZoom, bannerPositionY: persona.bannerY,
         })
         .where(eq(users.id, botId))
       profileChanged(botId)

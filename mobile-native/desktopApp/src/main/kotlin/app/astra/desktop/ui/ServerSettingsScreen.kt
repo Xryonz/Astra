@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -94,9 +95,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Configuracoes da CONSTELACAO — takeover no mesmo idioma do SettingsScreen (nav
-// de 220dp a esquerda, coluna de conteudo capada em 720dp), pra as duas telas de
-// configuração se lerem como a mesma coisa.
+// Configuracoes da CONSTELACAO — o MESMO cartao das configuracoes do usuario (veu
+// preto, painel com teto de 1180dp, nav de 220dp a esquerda, coluna de conteudo
+// capada em 720dp), pra as duas telas de configuração se lerem como a mesma coisa.
 //
 // As tres abas estão prontas. `ready` fica no enum de proposito: e o interruptor
 // pra listar uma aba futura apagada e inerte, sem mudar a forma da navegacao.
@@ -164,8 +165,42 @@ fun ServerSettingsScreen(
     ) {
         // Veu sobre o ceu da janela: a aurora continua viva por baixo, sem pintar
         // uma nova (mesmo motivo do SettingsScreen).
-        Box(Modifier.matchParentSize().background(Obsidian.base.copy(alpha = 0.5f)))
-        Row(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClose,
+                ),
+        )
+        // CARTAO, e nao tela cheia. Era um Row(fillMaxSize) com a coluna de conteudo
+        // capada em 720 e encostada a esquerda: 220 + 720 = 940dp usados, e num
+        // monitor largo sobrava METADE da tela de veu vazio a direita — a tela lia
+        // como algo que nao terminou de carregar.
+        //
+        // A moldura e a MESMA das configuracoes do usuario (padding, teto de 1180,
+        // fundo base, borda, cantos de 16). Nao e coincidencia: sao duas telas
+        // irmas, abertas do mesmo jeito, com a mesma nav de 220 a esquerda. O vazio
+        // some porque a tela deixa de ser tela e vira painel, e o teto de 1180
+        // impede o esparramo em qualquer resolucao daqui pra frente.
+        Row(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 40.dp, vertical = 30.dp)
+                .widthIn(max = 1180.dp)
+                .clip(FORMA_DO_CARTAO_DE_CONFIG)
+                .background(Obsidian.base)
+                .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
+                // Engole o clique: sem isto, clicar dentro do cartao fecha, porque o
+                // veu atras continua ouvindo.
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                ),
+        ) {
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),

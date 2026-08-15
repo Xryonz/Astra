@@ -237,7 +237,10 @@ private val LARGURA_PREVIA = 420.dp
 // outras abas a previa e uma nota de rodape ao vivo (um aviso deslizando, um
 // medidor) e crescer so tiraria largura dos controles.
 private val LARGURA_PREVIA_PERFIL = 470.dp
-private val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
+// internal e nao private: a tela de configuracoes da CONSTELACAO usa a mesma
+// moldura. Duas telas irmas com dois raios diferentes seria o tipo de divergencia
+// que ninguem nota de proposito e todo mundo sente.
+internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
 // Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
 // nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),

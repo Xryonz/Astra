@@ -273,10 +273,22 @@ router.get(
     else effectiveStatus = liveStatus
     ;(user as any).effectiveStatus = effectiveStatus
 
-    const [myMems, theirMems] = await Promise.all([
-      db.select({ serverId: serverMembers.serverId }).from(serverMembers).where(eq(serverMembers.userId, req.userId!)),
-      db.select({ serverId: serverMembers.serverId, role: serverMembers.role }).from(serverMembers).where(eq(serverMembers.userId, targetId)),
-    ])
+    // "EM COMUM" NÃO EXISTE CONSIGO MESMO.
+    //
+    // Vendo o próprio perfil, TODA constelação sua é comum com você: a conta fecha
+    // e o resultado não quer dizer nada. A seção listava de volta o que a pessoa já
+    // sabe, sob um rótulo que promete ligação com OUTRA pessoa.
+    //
+    // O `isSelf` já existia e já guardava os AMIGOS em comum, logo abaixo — as
+    // constelações é que ficaram de fora quando a guarda foi escrita. Aqui ela
+    // também poupa duas consultas no caso mais comum de todos, que é a pessoa
+    // abrir o próprio cartão.
+    const [myMems, theirMems] = isSelf
+      ? [[] as Array<{ serverId: string }>, [] as Array<{ serverId: string; role: string }>]
+      : await Promise.all([
+        db.select({ serverId: serverMembers.serverId }).from(serverMembers).where(eq(serverMembers.userId, req.userId!)),
+        db.select({ serverId: serverMembers.serverId, role: serverMembers.role }).from(serverMembers).where(eq(serverMembers.userId, targetId)),
+      ])
     const mySet = new Set(myMems.map((m) => m.serverId))
     const mutualIds = theirMems.map((m) => m.serverId).filter((id) => mySet.has(id))
 

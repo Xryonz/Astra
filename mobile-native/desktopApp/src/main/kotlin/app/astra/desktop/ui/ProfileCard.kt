@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -177,6 +178,14 @@ fun ProfileCard(
     // A previa desliga a coreografia: ela recompoe a cada tecla digitada, e a
     // cascata reiniciando a cada letra transformaria a previa num pisca-pisca.
     animar: Boolean = true,
+    // EDIÇÃO NO PRÓPRIO CARTÃO. Só a prévia das Configurações passa isto — é o
+    // único cartão que é seu e editável; em todo o resto ele é peça de leitura.
+    //
+    // Fica aqui e não no formulário porque é aqui que as imagens existem, no
+    // tamanho e no contexto em que os outros vão vê-las. O padrão "passa o mouse,
+    // acende o lápis" precisa de algo embaixo do mouse, e o formulário não tem.
+    acoesDaFoto: (() -> List<MenuEntry>)? = null,
+    acoesDoBanner: (() -> List<MenuEntry>)? = null,
     rodape: @Composable (() -> Unit)? = null,
 ) {
     val completo = variante == CardVariante.COMPLETO
@@ -207,6 +216,21 @@ fun ProfileCard(
             if (completo && animar) {
                 BannerSweep(dados.username, Modifier.fillMaxWidth().aspectRatio(aspectoBanner))
             }
+            // POR CIMA da faixa já desenhada, com conteúdo vazio: o véu e o lápis
+            // escurecem a imagem que está embaixo. Assim o cartão continua tendo UM
+            // desenho de banner só — a edição é uma camada, não uma segunda cópia.
+            //
+            // Antes do bloco de fechar/ações: aqueles botões precisam ficar por cima
+            // desta camada, senão o clique neles cairia no menu do banner.
+            acoesDoBanner?.let { acoes ->
+                FotoEditavel(
+                    forma = RectangleShape,
+                    rotulo = "editar o banner do perfil",
+                    glifo = 22.dp,
+                    acoes = acoes,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(aspectoBanner),
+                ) { /* a imagem já está desenhada por baixo */ }
+            }
             if (aoFechar != null || acoesNoBanner != null) {
                 Row(
                     Modifier.align(Alignment.TopEnd).padding(10.dp),
@@ -232,7 +256,7 @@ fun ProfileCard(
         }
 
         Column(Modifier.padding(horizontal = recuoH)) {
-            AvatarDoCartao(dados, completo, animar)
+            AvatarDoCartao(dados, completo, animar, acoesDaFoto)
             Column(Modifier.offset(y = if (completo) (-24).dp else (-40).dp)) {
                 if (completo) CorpoCompleto(dados, servidoresEmComum, animar, rodape)
                 else CorpoCompacto(dados, amigosEmComum, servidoresEmComum, cargos, rodape)
@@ -246,7 +270,12 @@ fun ProfileCard(
 // cartao assenta — o unico momento bouncy do perfil, de proposito: um so chama
 // atencao, varios viram brinquedo.
 @Composable
-private fun AvatarDoCartao(dados: DadosDoCartao, completo: Boolean, animar: Boolean) {
+private fun AvatarDoCartao(
+    dados: DadosDoCartao,
+    completo: Boolean,
+    animar: Boolean,
+    acoesDaFoto: (() -> List<MenuEntry>)? = null,
+) {
     // 99->88 e 72->64. A foto tinha crescido junto com o cartao e nao voltou a
     // encolher quando o cartao ficou mais estreito e mais alto: a 99 ela ocupava
     // quase um terco da largura, e um retrato desse tamanho rouba a atencao do
@@ -283,7 +312,21 @@ private fun AvatarDoCartao(dados: DadosDoCartao, completo: Boolean, animar: Bool
             .background(Obsidian.raised)
             .padding(3.dp),
     ) {
-        DesktopAvatar(dados.avatarUrl, dados.nome, px)
+        if (acoesDaFoto != null) {
+            // O véu segue a forma da foto: quadrado sobre um retrato redondo
+            // deixaria quatro cantos escuros para fora do círculo.
+            FotoEditavel(
+                forma = CircleShape,
+                rotulo = "editar a foto do perfil",
+                glifo = if (completo) 20.dp else 16.dp,
+                acoes = acoesDaFoto,
+                modifier = Modifier.size(px.dp),
+            ) { aceso ->
+                DesktopAvatar(dados.avatarUrl, dados.nome, px, externalHover = aceso)
+            }
+        } else {
+            DesktopAvatar(dados.avatarUrl, dados.nome, px)
+        }
     }
 }
 

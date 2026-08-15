@@ -59,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -338,6 +339,11 @@ fun SettingsScreen(
             // minimo em que um campo com rotulo ainda cabe numa linha. Abaixo
             // disso a previa desce pra dentro de cada secao.
             val pinned = maxWidth > larguraPrevia + 280.dp
+            // Ponte entre o FORMULÁRIO (dono das ações: tem o rascunho e hospeda os
+            // diálogos de recorte) e a PRÉVIA (onde as imagens existem pra serem
+            // clicadas). Os dois são irmãos nesta tela, e um portador mutável evita
+            // mudar o cartão de lugar só pra dar acesso.
+            val acoesDoCartao = remember { AcoesDoCartao() }
             // Com a previa fixa, a coluna de conteudo encolhe pra não correr por
             // baixo dela: a previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
@@ -382,13 +388,13 @@ fun SettingsScreen(
                     // Janela estreita: a previa nao cabe ao lado, entao entra AQUI,
                     // logo abaixo do titulo da secao a que ela pertence.
                     if (!pinned && temPrevia) {
-                        SettingsPreview(current, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
+                        SettingsPreview(current, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth(), acoesDoCartao)
                         Spacer(Modifier.height(18.dp))
                     }
                     CascataVertical(chave = current, animar = !jaVisto, modifier = Modifier.fillMaxWidth()) {
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me)
-                        SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved)
+                        SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
                             ToggleRow(
@@ -469,7 +475,7 @@ fun SettingsScreen(
                                 // rotulo "previa" com o vazio embaixo — anunciando
                                 // uma coisa que nao ha como existir nessas telas.
                                 if (temPrevia(secao)) {
-                                    SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth())
+                                    SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth(), acoesDoCartao)
                                 }
                                 if (secao == SettingsTab.PROFILE) {
                                     Spacer(Modifier.height(14.dp))
@@ -505,6 +511,8 @@ private fun SettingsPreview(
     p: DesktopPrefs.Prefs,
     draft: ProfileDraft,
     modifier: Modifier = Modifier,
+    // Menus de foto e banner, montados pelo formulário (ver AcoesDoCartao).
+    acoesDoCartao: AcoesDoCartao? = null,
 ) {
     Column(modifier) {
         FieldLabel("previa")
@@ -522,7 +530,7 @@ private fun SettingsPreview(
             when (tab) {
                 // Conta = teu perfil SALVO; Perfil = o rascunho ao vivo (cada tecla).
                 SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
-                SettingsTab.PROFILE -> ProfileCardPreview(me, draft)
+                SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
                 SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff)
                 SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
                 SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
@@ -531,7 +539,18 @@ private fun SettingsPreview(
                 // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.PERMISSIONS -> Unit
             }
-            Box(Modifier.matchParentSize().engoleOPonteiro())
+            // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
+            // se trocam clicando neles — e engolir o ponteiro mataria exatamente a
+            // interação que a aba passou a existir pra ter.
+            //
+            // É seguro porque o motivo do véu não se aplica a este cartão: o
+            // ProfileCard tem UM alvo clicável só (o "fechar" do canto do banner), e
+            // ele é nulo na prévia, então nunca é desenhado. O que sobra é o clique
+            // do CartaoDaPrevia — "ver em tamanho real" —, que continua valendo por
+            // fora das duas imagens; nelas, o alvo de dentro consome primeiro.
+            if (tab != SettingsTab.PROFILE) {
+                Box(Modifier.matchParentSize().engoleOPonteiro())
+            }
         }
     }
 }
@@ -597,7 +616,12 @@ private data class ProfileDraft(
 // draft = null -> perfil SALVO (aba Conta); draft != null -> rascunho ao vivo
 // (aba Perfil), campo a campo, antes de salvar.
 @Composable
-private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
+private fun ProfileCardPreview(
+    me: ProfileUserDto?,
+    draft: ProfileDraft?,
+    // Só a aba Perfil manda: lá o cartão é rascunho editável; na Conta é o salvo.
+    acoes: AcoesDoCartao? = null,
+) {
     if (me == null) {
         Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
             Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
@@ -649,7 +673,15 @@ private fun ProfileCardPreview(me: ProfileUserDto?, draft: ProfileDraft?) {
             modifier = Modifier.fillMaxWidth(),
             aoClicar = { ampliada = CardVariante.COMPLETO },
         ) {
-            ProfileCard(dados, CardVariante.COMPLETO, Modifier.fillMaxWidth(), servidoresEmComum = mutuais, animar = false)
+            ProfileCard(
+                dados,
+                CardVariante.COMPLETO,
+                Modifier.fillMaxWidth(),
+                servidoresEmComum = mutuais,
+                animar = false,
+                acoesDaFoto = acoes?.let { { it.foto() } },
+                acoesDoBanner = acoes?.let { { it.banner() } },
+            )
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -1262,6 +1294,9 @@ private fun ProfileSection(
     draft: ProfileDraft,
     onChange: (ProfileDraft) -> Unit,
     onSaved: () -> Unit,
+    // Onde este formulário publica os menus de foto e banner. Quem os DESENHA é a
+    // prévia, porque é lá que as imagens existem — ver AcoesDoCartao.
+    acoesDoCartao: AcoesDoCartao,
 ) {
     val scope = rememberCoroutineScope()
     var busyAvatar by remember { mutableStateOf(false) }
@@ -1292,56 +1327,49 @@ private fun ProfileSection(
         }
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        // A FOTO É O BOTÃO. Os três ícones soltos que moravam aqui ao lado viraram
-        // um menu que nasce da própria imagem — ver FotoEditavel.
-        FotoEditavel(
-            forma = CircleShape,
-            rotulo = "editar a foto do perfil",
-            modifier = Modifier.size(64.dp),
-            acoes = {
-                val atual = draft.avatarUrl
-                buildList {
-                    add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherAvatar() })
-                    // Reenquadrar só existe pra imagem PARADA: recortar um gif
-                    // exigiria recodificar a animação, e o app prefere não oferecer
-                    // a ação a oferecer uma que estraga o que ela promete cuidar.
-                    if (atual != null && !ImageCrop.isAnimated(atual)) {
-                        add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
-                            cropAvatar = CropSource.Remote(atual)
-                        })
-                    }
-                    if (atual != null) {
-                        add(MenuEntry.Separator)
-                        add(MenuEntry.Item("remover", danger = true, icon = Lucide.Trash2) {
-                            onChange(draft.copy(avatarUrl = null))
-                        })
-                    }
+    // SEM CONTROLES DE IMAGEM AQUI. Foto e banner se editam no CARTÃO ao lado:
+    // passar o mouse escurece a imagem e acende um lápis, o clique abre as opções.
+    //
+    // A escolha é a mesma que o dono já tinha feito pro banner e agora vale pros
+    // dois: a imagem só precisa aparecer uma vez na tela, e o lugar em que ela vale
+    // é o cartão — lá ela está no tamanho e no contexto em que os outros vão vê-la.
+    // Um retrato no formulário seria uma segunda cópia competindo com a primeira, e
+    // uma fileira de ícones ao lado dele obrigaria a ler três rótulos pra descobrir
+    // qual mexe na foto. Aqui fica só a frase que diz onde clicar.
+    Text(
+        if (busyAvatar || busyBanner) "lendo a imagem…"
+        else "a foto e o banner se editam no cartão ao lado: passe o mouse por cima e clique.",
+        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(3.dp))
+    Text(
+        "a foto é guardada em 1024px e o banner em 2560px — resolução suficiente para tela de alta densidade (máximo 10MB cada).",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    // SideEffect e não LaunchedEffect: isto só publica a versão mais recente do
+    // fechamento (que captura o rascunho de agora), sem nada assíncrono envolvido.
+    SideEffect {
+        acoesDoCartao.foto = {
+            val atual = draft.avatarUrl
+            buildList {
+                add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherAvatar() })
+                // Reenquadrar só existe pra imagem PARADA: recortar um gif exigiria
+                // recodificar a animação, e o app prefere não oferecer a ação a
+                // oferecer uma que estraga o que ela promete cuidar.
+                if (atual != null && !ImageCrop.isAnimated(atual)) {
+                    add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
+                        cropAvatar = CropSource.Remote(atual)
+                    })
                 }
-            },
-        ) { aceso ->
-            // `externalHover` pra a foto reagir ao hover da PEÇA e não só ao dela:
-            // o alvo clicável é o círculo inteiro, então o brilho tem que acender
-            // pelo mesmo gesto que acende o véu.
-            DesktopAvatar(
-                draft.avatarUrl,
-                draft.displayName.ifBlank { me?.username ?: "você" },
-                64,
-                externalHover = aceso,
-            )
-        }
-        Spacer(Modifier.width(16.dp))
-        Column {
-            Text(
-                if (busyAvatar) "lendo a imagem…" else "clique na foto para trocar, reenquadrar ou remover.",
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "guardada em 1024px, resolução suficiente para tela de alta densidade (máximo 10MB).",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                modifier = Modifier.widthIn(max = 460.dp),
-            )
+                if (atual != null) {
+                    add(MenuEntry.Separator)
+                    add(MenuEntry.Item("remover", danger = true, icon = Lucide.Trash2) {
+                        onChange(draft.copy(avatarUrl = null))
+                    })
+                }
+            }
         }
     }
 
@@ -1358,62 +1386,62 @@ private fun ProfileSection(
         onChange(draft.copy(bio = it))
     }
 
-    SettingsDivider()
-    FieldLabel("banner")
-    // SEM MINI-PRÉVIA AQUI (pedido do dono). A mesma imagem aparecia duas vezes na
-    // mesma tela: nesta faixa e no cartão completo à direita, que é onde ela de fato
-    // vale — lá ela está no contexto em que os outros vão vê-la, com avatar, nome e
-    // corpo por cima. Duas cópias da mesma coisa competem entre si e ainda fazem a
-    // coluna do formulário crescer sem necessidade.
-    //
-    // O que fica são os botões, que continuam operando o banner: trocar, reenquadrar
-    // (ou reposicionar, se for animado) e remover.
+    // O BANNER TAMBÉM SE EDITA NO CARTÃO. Aqui ficam só a lógica de escolher o
+    // arquivo e os diálogos; o alvo clicável é a faixa da prévia.
     var resizeOpen by remember { mutableStateOf(false) }
-    // Só ícone: a fileira fica logo abaixo do banner que ela opera. Os três nomes
-    // por extenso ocupavam a largura inteira do painel.
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        BotaoIcone(Lucide.Upload, "subir imagem", accent = true, ocupado = busyBanner) {
-            val file = AvatarPicker.choose("Escolher banner") ?: return@BotaoIcone
-            busyBanner = true
-            msg = null
-            scope.launch {
-                val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
-                if (!animated) {
-                    busyBanner = false
-                    cropBanner = CropSource.Local(file)
-                    return@launch
-                }
-                val r = withContext(Dispatchers.IO) {
-                    AvatarPicker.encodeComMedidas(file, AvatarPicker.BANNER_DIM)
-                }
+    fun escolherBanner() {
+        val file = AvatarPicker.choose("Escolher banner") ?: return
+        busyBanner = true
+        msg = null
+        scope.launch {
+            val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
+            if (!animated) {
                 busyBanner = false
-                // Chega JA PREENCHENDO a faixa. O estatico e assado em 3,5:1 pelo
-                // recorte e cai exato; o animado pula o recorte (recortar mataria a
-                // animação) e vinha com zoom 100, que em Fit quer dizer "cabe
-                // inteira" — e uma imagem 16:9 numa faixa 3,5:1 cabe inteira
-                // ocupando metade da largura, com tarja preta dos lados.
-                r.onSuccess { img ->
-                    onChange(
-                        draft.copy(
-                            bannerUrl = img.dataUri,
-                            bannerPositionY = 50,
-                            bannerScale = AvatarPicker.zoomQueCobre(img.largura, img.altura, ProfileBannerAspect),
-                        ),
-                    )
-                }
-                    .onFailure { msg = "não foi possível ler essa imagem" to false }
+                cropBanner = CropSource.Local(file)
+                return@launch
             }
+            val r = withContext(Dispatchers.IO) {
+                AvatarPicker.encodeComMedidas(file, AvatarPicker.BANNER_DIM)
+            }
+            busyBanner = false
+            // Chega JA PREENCHENDO a faixa. O estatico e assado em 3,5:1 pelo
+            // recorte e cai exato; o animado pula o recorte (recortar mataria a
+            // animação) e vinha com zoom 100, que em Fit quer dizer "cabe
+            // inteira" — e uma imagem 16:9 numa faixa 3,5:1 cabe inteira
+            // ocupando metade da largura, com tarja preta dos lados.
+            r.onSuccess { img ->
+                onChange(
+                    draft.copy(
+                        bannerUrl = img.dataUri,
+                        bannerPositionY = 50,
+                        bannerScale = AvatarPicker.zoomQueCobre(img.largura, img.altura, ProfileBannerAspect),
+                    ),
+                )
+            }
+                .onFailure { msg = "não foi possível ler essa imagem" to false }
         }
-        val bannerNow = draft.bannerUrl
-        if (!bannerNow.isNullOrBlank()) {
-            // Animado continua no modal de posição+zoom (a animação sobrevive);
-            // estatico abre o recorte, que ASSA o enquadramento na imagem.
-            if (ImageCrop.isAnimated(bannerNow)) {
-                BotaoIcone(Lucide.Move, "redimensionar") { resizeOpen = true }
-            } else {
-                BotaoIcone(Lucide.Crop, "reenquadrar") { cropBanner = CropSource.Remote(bannerNow) }
+    }
+    SideEffect {
+        acoesDoCartao.banner = {
+            val atual = draft.bannerUrl
+            buildList {
+                add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherBanner() })
+                if (!atual.isNullOrBlank()) {
+                    // Animado vai pro modal de posição+zoom (a animação sobrevive);
+                    // parado abre o recorte, que ASSA o enquadramento na imagem.
+                    if (ImageCrop.isAnimated(atual)) {
+                        add(MenuEntry.Item("reposicionar", icon = Lucide.Move) { resizeOpen = true })
+                    } else {
+                        add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
+                            cropBanner = CropSource.Remote(atual)
+                        })
+                    }
+                    add(MenuEntry.Separator)
+                    add(MenuEntry.Item("remover", danger = true, icon = Lucide.Trash2) {
+                        onChange(draft.copy(bannerUrl = null))
+                    })
+                }
             }
-            BotaoIcone(Lucide.Trash2, "remover imagem", danger = true) { onChange(draft.copy(bannerUrl = null)) }
         }
     }
     if (resizeOpen && !draft.bannerUrl.isNullOrBlank()) {

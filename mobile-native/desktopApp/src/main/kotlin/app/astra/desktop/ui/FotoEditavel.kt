@@ -50,6 +50,16 @@ class AcoesDoBanner {
     var construir: () -> List<MenuEntry> = { emptyList() }
 }
 
+// Portador dos menus do cartão: o FORMULÁRIO monta as ações (ele tem o rascunho e
+// hospeda os diálogos de recorte) e a PRÉVIA as consome. Os dois são irmãos na tela
+// de Configurações, então nenhum recebe do outro por parâmetro sem mudar de lugar.
+// Classe estável com campos mutáveis — mesmo padrão do MencaoClicavel, pelo mesmo
+// motivo: publicar o fechamento mais recente sem forçar recomposição.
+class AcoesDoCartao {
+    var foto: () -> List<MenuEntry> = { emptyList() }
+    var banner: () -> List<MenuEntry> = { emptyList() }
+}
+
 @Composable
 fun FotoEditavel(
     forma: Shape,

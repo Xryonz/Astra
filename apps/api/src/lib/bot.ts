@@ -76,12 +76,12 @@ const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
   chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
-  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 216,
+  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 250,
   tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
   chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
-  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730', bannerZoom: 197,
+  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730', bannerZoom: 250,
   tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 

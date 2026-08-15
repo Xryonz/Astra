@@ -118,6 +118,7 @@ fun VoiceView(
     // DisposableEffect desta tela que desconectava a call ao navegar.
     engine: VoiceEngine,
     // Mesmo motivo do CallDock: quem guarda o mudo e a VoiceSession.
+    mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     onLeave: () -> Unit,
     // So pra soundboard: ChannelDto nao carrega a constelacao, e a rota de tocar
@@ -140,7 +141,10 @@ fun VoiceView(
     val prefState by prefs.state.collectAsState()
     val status by engine.status.collectAsState()
     val screenOn by engine.screenOn.collectAsState()
-    val micOn by engine.micOn.collectAsState()
+    // O icone mostra a INTENCAO (mudo), e nao o que o motor esta transmitindo neste
+    // milissegundo. Com apertar-para-falar o motor liga e desliga a cada tecla, e um
+    // icone vermelho piscando dezenas de vezes por minuto nao informa nada.
+    val micOn = !mudo
     val videos by engine.remoteVideos.collectAsState()
     val localScreen by engine.localScreen.collectAsState()
     val sharingCamera by engine.sharingCamera.collectAsState()

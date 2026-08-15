@@ -4,10 +4,15 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.ModoDeFala
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.core.Koin
 import org.koin.core.qualifier.named
@@ -69,6 +74,58 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     // estava mudo continua mudo, e nao ganha o mic aberto de brinde.
     private var mudoAntesDeEnsurdecer = false
 
+    // APERTAR PARA FALAR. Não é um terceiro estado de mudo: é uma permissão que se
+    // soma. O mudo manual continua ganhando de tudo — segurar a tecla não abre o
+    // microfone de quem escolheu ficar calado.
+    private var falaSegurada by mutableStateOf(false)
+
+    private val prefs = koin.get<DesktopPrefs>()
+
+    init {
+        // Re-registra os atalhos quando as teclas (ou o modo) mudam, e aplica na
+        // hora: trocar pra apertar-para-falar no meio de uma call tem de fechar o
+        // microfone imediatamente, não na próxima sala.
+        scope.launch {
+            prefs.state
+                .map { listOf(it.modoDeFala.ordinal, it.teclaFalar, it.teclaMudo, it.teclaEnsurdecer) }
+                .distinctUntilChanged()
+                .collect {
+                    if (prefs.state.value.modoDeFala != ModoDeFala.APERTAR) falaSegurada = false
+                    registrarAtalhos()
+                    aplicar()
+                }
+        }
+    }
+
+    private fun registrarAtalhos() {
+        val p = prefs.state.value
+        // Um mapa e não três registros: a mesma tecla em dois papéis viraria dois
+        // avisos pro mesmo apertar. Aqui o último ganha, e é um só.
+        val mapa = buildMap<Int, (Boolean) -> Unit> {
+            if (p.teclaMudo != 0) put(p.teclaMudo) { desceu -> if (desceu) naUi { alternarMudo() } }
+            if (p.teclaEnsurdecer != 0) put(p.teclaEnsurdecer) { desceu -> if (desceu) naUi { alternarEnsurdecer() } }
+            if (p.modoDeFala == ModoDeFala.APERTAR && p.teclaFalar != 0) {
+                put(p.teclaFalar) { desceu -> naUi { segurarFala(desceu) } }
+            }
+        }
+        AtalhosGlobais.observar(mapa)
+    }
+
+    // O aviso chega na thread do gancho. Tudo daqui pra frente mexe em estado de
+    // tela e no motor, então volta pro escopo da interface antes de tocar em nada.
+    private fun naUi(acao: () -> Unit) {
+        scope.launch { acao() }
+    }
+
+    // Segurar tecla repete WM_KEYDOWN dezenas de vezes por segundo. Sem esta
+    // guarda, cada repetição viraria um `setMic(true)` e um pedido de sinalização
+    // pro servidor — que é como se transforma uma tecla segurada em enxurrada.
+    private fun segurarFala(apertado: Boolean) {
+        if (falaSegurada == apertado) return
+        falaSegurada = apertado
+        aplicar()
+    }
+
     fun alternarMudo() {
         if (ensurdecido) {
             // Voltar a falar devolve o ouvido junto. "Falo mas nao ouco" nao e uma
@@ -94,8 +151,10 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     }
 
     private fun aplicar() {
+        val apertarParaFalar = prefs.state.value.modoDeFala == ModoDeFala.APERTAR
+        val podeFalar = !mudo && (!apertarParaFalar || falaSegurada)
         engine?.let {
-            it.setMic(!mudo)
+            it.setMic(podeFalar)
             it.setEnsurdecido(ensurdecido)
         }
     }
@@ -126,6 +185,15 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
         // A escolha do rodape vale na sala nova. `connect` e assincrono, mas o motor
         // guarda a ordem e as pecas nascem obedecendo (ver publishMic/onAddTrack).
         aplicar()
+    }
+
+    // Fim da sessão inteira (sair da conta, fechar o shell) — não é o mesmo que
+    // desligar de uma call. Solta o gancho de teclado junto: gancho global
+    // instalado depois que a tela morreu é a sobra que ninguém vê e todo mundo
+    // sente, porque o processo segue escutando o teclado sem ninguém pra ouvir.
+    fun encerrar() {
+        leave()
+        AtalhosGlobais.observar(emptyMap())
     }
 
     fun leave() {

@@ -67,6 +67,17 @@ enum class ScreenQuality(
     }
 }
 
+// Como o microfone decide transmitir. O portão de sensibilidade (micSensitivity)
+// continua valendo nos dois — ele corta silêncio; isto decide se há permissão pra
+// falar em primeiro lugar.
+enum class ModoDeFala(val key: String, val label: String) {
+    VOZ("voz", "Transmitir quando eu falar"),
+    APERTAR("apertar", "Apertar para falar");
+    companion object {
+        fun from(raw: String?) = entries.find { it.key == raw } ?: VOZ
+    }
+}
+
 // Tamanho da fonte das mensagens (multiplicador). Espelha o FontSizePref do mobile.
 enum class FontSizePref(val key: String, val label: String, val scale: Float) {
     SM("sm", "Pequena", 0.9f), MD("md", "Padrao", 1.0f), LG("lg", "Grande", 1.12f), XL("xl", "Maior", 1.25f);
@@ -159,6 +170,15 @@ class DesktopPrefs(private val store: SessionStore) {
         // mic (Java Sound); saida = alto-falante (ADM do WebRTC).
         val audioInput: String? = null,
         val audioOutput: String? = null,
+        // COMO FALAR. Voz = transmite sempre (o portão de sensibilidade acima ainda
+        // vale). Apertar = só transmite enquanto a tecla estiver segurada.
+        val modoDeFala: ModoDeFala = ModoDeFala.VOZ,
+        // Teclas de atalho GLOBAIS, em código virtual do Windows. 0 = nenhuma.
+        // Ficam aqui e não no servidor porque são preferência de MÁQUINA: o teclado
+        // é este, não a conta.
+        val teclaFalar: Int = 0,
+        val teclaMudo: Int = 0,
+        val teclaEnsurdecer: Int = 0,
         // Emojis usados por ultimo, do mais recente pro mais antigo. Local e nao no
         // backend de proposito: e preferencia de MAQUINA (o teclado que voce usa
         // aqui), nao de conta — e sincronizar isso custaria uma escrita no servidor
@@ -241,6 +261,10 @@ class DesktopPrefs(private val store: SessionStore) {
         micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
         audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
+        modoDeFala = ModoDeFala.from(store.uiPref("modoDeFala")),
+        teclaFalar = store.uiPref("teclaFalar")?.toIntOrNull() ?: 0,
+        teclaMudo = store.uiPref("teclaMudo")?.toIntOrNull() ?: 0,
+        teclaEnsurdecer = store.uiPref("teclaEnsurdecer")?.toIntOrNull() ?: 0,
         // Separados por espaco: nenhum emoji contem espaco, entao nao ha o que
         // escapar.
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
@@ -371,6 +395,26 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setAudioInput(v: String?) {
         store.setUiPref("audioInput", v ?: "")
         _state.update { it.copy(audioInput = v) }
+    }
+
+    fun setModoDeFala(v: ModoDeFala) {
+        store.setUiPref("modoDeFala", v.key)
+        _state.update { it.copy(modoDeFala = v) }
+    }
+
+    fun setTeclaFalar(vk: Int) {
+        store.setUiPref("teclaFalar", vk.toString())
+        _state.update { it.copy(teclaFalar = vk) }
+    }
+
+    fun setTeclaMudo(vk: Int) {
+        store.setUiPref("teclaMudo", vk.toString())
+        _state.update { it.copy(teclaMudo = vk) }
+    }
+
+    fun setTeclaEnsurdecer(vk: Int) {
+        store.setUiPref("teclaEnsurdecer", vk.toString())
+        _state.update { it.copy(teclaEnsurdecer = vk) }
     }
 
     fun setAudioOutput(v: String?) {

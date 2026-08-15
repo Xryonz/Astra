@@ -89,6 +89,7 @@ fun BoxScope.CallDock(
     engine: VoiceEngine,
     // O mudo passa pela VoiceSession, e nao pelo motor: o botao do rodape e este
     // aqui mexem no MESMO estado, e a sessao e quem o guarda.
+    mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     meName: String,
     meAvatar: String?,
@@ -97,7 +98,10 @@ fun BoxScope.CallDock(
 ) {
     val status by engine.status.collectAsState()
     val inicio by engine.inicio.collectAsState()
-    val micOn by engine.micOn.collectAsState()
+    // O icone mostra a INTENCAO (mudo), e nao o que o motor esta transmitindo neste
+    // milissegundo. Com apertar-para-falar o motor liga e desliga a cada tecla, e um
+    // icone vermelho piscando dezenas de vezes por minuto nao informa nada.
+    val micOn = !mudo
 
     var dx by remember { mutableFloatStateOf(0f) }
     var dy by remember { mutableFloatStateOf(0f) }

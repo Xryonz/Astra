@@ -221,7 +221,7 @@ fun ShellScreen(
     // Call VIVA acima da navegacao: o engine mora aqui, não dentro da VoiceView.
     // Trocar de órbita não desconecta mais — so desligar (ou entrar noutra sala).
     val voice = remember { VoiceSession(scope, koin) }
-    DisposableEffect(Unit) { onDispose { voice.leave() } }
+    DisposableEffect(Unit) { onDispose { voice.encerrar() } }
     // O VM nasce antes da sessão de voz (ele é criado no `remember` acima), então
     // a ligação é feita aqui. É por ela que uma chamada atendida entra na sala.
     remember(voice) { vm.voiceSession = voice }
@@ -563,6 +563,7 @@ fun ShellScreen(
             chat = chat,
             voiceChannel = state.voiceChannel,
             voiceEngine = voice.engineFor(state.voiceChannel),
+            mudo = voice.mudo,
             aoAlternarMudo = voice::alternarMudo,
             voicePresence = state.voiceChannel?.let { state.voicePresence[it.id] }.orEmpty(),
             // Entrar de verdade: conecta E anuncia. O anuncio mora aqui (e nao no
@@ -668,6 +669,7 @@ fun ShellScreen(
             CallDock(
                 channel = joined,
                 engine = joinedEngine,
+                mudo = voice.mudo,
                 aoAlternarMudo = voice::alternarMudo,
                 meName = state.me?.displayName ?: state.me?.username ?: "você",
                 meAvatar = state.me?.avatarUrl,
@@ -3470,6 +3472,7 @@ private fun Stage(
     // Engine so quando a sala do palco E a que você entrou; null = antessala.
     voiceEngine: VoiceEngine?,
     // Alternar o mudo passa pela VoiceSession (dona do estado), nao pelo motor.
+    mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     voicePresence: List<String>,
     onJoinVoice: () -> Unit,
@@ -3561,7 +3564,7 @@ private fun Stage(
         // Sala de voz ocupa o palco. Sem engine = você abriu a sala mas ainda não
         // entrou -> antessala com quem esta la e o botao verde.
         if (voiceChannel != null) {
-            if (voiceEngine != null) VoiceView(voiceChannel, members, me, voiceEngine, aoAlternarMudo, onLeaveVoice, server?.id)
+            if (voiceEngine != null) VoiceView(voiceChannel, members, me, voiceEngine, mudo, aoAlternarMudo, onLeaveVoice, server?.id)
             else VoiceLobby(voiceChannel, members, voicePresence, onJoinVoice)
             return@Column
         }

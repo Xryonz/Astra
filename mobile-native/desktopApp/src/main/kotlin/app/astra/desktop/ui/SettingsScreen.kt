@@ -137,9 +137,11 @@ import app.astra.desktop.voice.GStreamerPack
 import app.astra.desktop.voice.GstScreenEncoder
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
+import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.AtividadeDoSistema
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
+import app.astra.desktop.prefs.ModoDeFala
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmMono
@@ -3063,6 +3065,48 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     DeviceDropdown(ins, p.audioInput, prefs::setAudioInput)
 
     SettingsDivider()
+    Text("Como falar", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "as teclas abaixo valem com o Astra no fundo — é o ponto delas. elas não são " +
+            "engolidas: a mesma tecla continua chegando no jogo.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    RadioList(
+        ModoDeFala.entries.map { it.label to it },
+        p.modoDeFala, prefs::setModoDeFala,
+    )
+    if (p.modoDeFala == ModoDeFala.APERTAR) {
+        Spacer(Modifier.height(12.dp))
+        CapturaDeTecla("tecla para falar", p.teclaFalar, prefs::setTeclaFalar)
+        if (p.teclaFalar == 0) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "sem tecla escolhida, ninguém te ouve. escolha uma ou volte para o modo de cima.",
+                style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
+                modifier = Modifier.widthIn(max = 460.dp),
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    CapturaDeTecla("tecla de mudo", p.teclaMudo, prefs::setTeclaMudo)
+    Spacer(Modifier.height(8.dp))
+    CapturaDeTecla("tecla de ensurdecer", p.teclaEnsurdecer, prefs::setTeclaEnsurdecer)
+    Spacer(Modifier.height(10.dp))
+    InfoNote(
+        "O que o Astra escuta do seu teclado",
+        "Para uma tecla funcionar com o jogo em primeiro plano, o Windows exige um " +
+            "gancho de teclado do sistema — não existe outro caminho, e é o mesmo que " +
+            "Discord e TeamSpeak usam.\n\n" +
+            "O que o Astra faz com ele: compara a tecla apertada com as três escolhidas " +
+            "aqui em cima. Só isso. Nada é guardado, contado ou enviado para lugar " +
+            "nenhum, e a tecla segue o caminho dela normalmente.\n\n" +
+            "Sem nenhuma tecla escolhida, o gancho nem chega a ser instalado.",
+    )
+
+    SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
     ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
@@ -3076,6 +3120,80 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
+}
+
+// Escolher uma tecla apertando ela, e não caçando o nome numa lista de duzentas.
+//
+// Quem lê a tecla é o PRÓPRIO gancho global, e não um `onKeyEvent` do Compose. Duas
+// razões: o gancho entrega o código virtual do Windows, que é exatamente o que vai
+// ser gravado (traduzir do código da JVM pro do Windows tem exceções que só
+// aparecem em teclado ABNT2); e a mesma peça que vai escutar a tecla depois é a que
+// escuta agora — se ela não estiver funcionando, você descobre aqui, escolhendo, e
+// não no meio de uma partida.
+@Composable
+private fun CapturaDeTecla(rotulo: String, vk: Int, onEscolher: (Int) -> Unit) {
+    var ouvindo by remember { mutableStateOf(false) }
+    val escopo = rememberCoroutineScope()
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    // Recalcula só quando a tecla muda: nomear passa por duas chamadas ao Windows.
+    val nome = remember(vk) { AtalhosGlobais.nomeDaTecla(vk) }
+
+    DisposableEffect(Unit) { onDispose { AtalhosGlobais.cancelarCaptura() } }
+
+    Row(
+        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(rotulo, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
+            Text(
+                if (ouvindo) "aperte a tecla — esc deixa sem nenhuma" else "clique para trocar",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Box(
+            Modifier
+                .clickScale(interaction, pressedScale = 0.97f, formaDoFoco = RoundedCornerShape(8.dp))
+                .widthIn(min = 116.dp)
+                .clip(FormaDeBotao)
+                .background(
+                    when {
+                        ouvindo -> Obsidian.accent.copy(alpha = 0.16f)
+                        hovered -> Obsidian.hover
+                        else -> Obsidian.raised
+                    },
+                )
+                .border(
+                    1.dp,
+                    if (ouvindo) Obsidian.accent.copy(alpha = 0.55f) else Obsidian.borderDim,
+                    FormaDeBotao,
+                )
+                .hoverable(interaction)
+                .clickable(interactionSource = interaction, indication = null) {
+                    ouvindo = true
+                    AtalhosGlobais.capturarProxima { escolhida ->
+                        escopo.launch {
+                            ouvindo = false
+                            onEscolher(escolhida)
+                        }
+                    }
+                }
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                if (ouvindo) "ouvindo…" else nome,
+                style = TextStyle(
+                    color = if (ouvindo) Obsidian.accent else if (vk == 0) Obsidian.text3 else Obsidian.text1,
+                    fontSize = 12.sp,
+                    fontFamily = DmMono,
+                ),
+                maxLines = 1,
+            )
+        }
+    }
 }
 
 // Lista de opção única (radio) — pra escolhas com rotulos longos (presets).

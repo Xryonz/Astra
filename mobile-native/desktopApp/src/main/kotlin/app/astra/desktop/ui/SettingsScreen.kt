@@ -148,6 +148,7 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.desktop.ui.theme.ThemePreset
+import app.astra.desktop.ui.theme.FamiliaDeTema
 import app.astra.desktop.ui.theme.ThemePresets
 import app.astra.desktop.ui.theme.accentOption
 import app.astra.desktop.ui.theme.bgOption
@@ -3463,17 +3464,37 @@ private fun PresetGrid(selAccent: String, selBg: String, onPick: (ThemePreset) -
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ThemePresets.chunked(2).forEach { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                pair.forEach { preset ->
-                    PresetCard(
-                        preset,
-                        active = selAccent == preset.accentId && selBg == preset.bgId,
-                        onClick = { onPick(preset) },
-                        modifier = Modifier.weight(1f),
-                    )
+        // AGRUPADO POR FAMILIA DE COR (escolha do dono). Quinze cartoes iguais em
+        // duas colunas nao davam ao olho por onde comecar: achar o que se quer
+        // exigia ler os quinze nomes, e nome de tema ("Nortada", "Véspera") nao diz
+        // a cor. Com os grupos, a busca vira "quero algo frio" — que e como a
+        // escolha acontece na cabeca de quem escolhe.
+        //
+        // A ordem dos GRUPOS vem do enum, nao da lista de presets: assim a tela nao
+        // depende de ninguem lembrar de manter a lista ordenada por familia ao
+        // acrescentar um tema novo.
+        FamiliaDeTema.entries.forEach { familia ->
+            val doGrupo = ThemePresets.filter { it.familia == familia }
+            if (doGrupo.isEmpty()) return@forEach
+            // Titulo em text3 e corpo pequeno: ele ORGANIZA, nao compete. No peso do
+            // resto viraria mais uma coisa pra ler entre voce e os temas.
+            Text(
+                familia.titulo.uppercase(),
+                style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
+                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+            )
+            doGrupo.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { preset ->
+                        PresetCard(
+                            preset,
+                            active = selAccent == preset.accentId && selBg == preset.bgId,
+                            onClick = { onPick(preset) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

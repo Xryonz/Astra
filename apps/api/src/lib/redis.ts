@@ -38,8 +38,43 @@ export const activityKeys = {
   user: (userId: string) => `activity:user:${userId}`,
 }
 
-export async function setUserActivity(userId: string, texto: string): Promise<void> {
-  try { await redis.setex(activityKeys.user(userId), PRESENCE_TTL, texto) } catch { /* cache off */ }
+// A atividade guarda DESDE QUANDO, pro cartão poder dizer "há 2h 14min".
+export type Atividade = { texto: string; desde: number }
+
+// Formato guardado: "<epochMs>|<texto>". O separador é o PRIMEIRO "|" — nome de
+// programa pode conter o caractere, e o texto é todo o resto da linha.
+// Linha sem "|" é do formato antigo (chave viva de antes deste deploy): vale como
+// texto e começa a contar agora, em vez de virar lixo na tela por um minuto.
+export function leAtividade(cru: string | null | undefined): Atividade | null {
+  if (!cru) return null
+  const corte = cru.indexOf('|')
+  if (corte < 0) return { texto: cru, desde: Date.now() }
+  const texto = cru.slice(corte + 1)
+  if (!texto) return null
+  const desde = Number(cru.slice(0, corte))
+  return { texto, desde: Number.isFinite(desde) && desde > 0 ? desde : Date.now() }
+}
+
+// O "DESDE" NÃO PODE REINICIAR A CADA RENOVAÇÃO.
+//
+// O publicador reenvia a MESMA atividade a cada 45s só pra segurar o TTL de 60s.
+// Se cada reenvio gravasse um instante novo, o contador voltaria pra "agora mesmo"
+// três vezes por minuto e nunca passaria de um minuto — um cronômetro que só sabe
+// dizer zero. Por isso lê o que está lá antes: mesmo texto, mesmo início.
+//
+// Custa um GET a mais por renovação. É o preço de o número significar algo.
+export async function setUserActivity(userId: string, texto: string): Promise<Atividade | null> {
+  try {
+    const chave = activityKeys.user(userId)
+    const anterior = leAtividade(await redis.get(chave))
+    const desde = anterior?.texto === texto ? anterior.desde : Date.now()
+    await redis.setex(chave, PRESENCE_TTL, `${desde}|${texto}`)
+    return { texto, desde }
+  } catch {
+    // Redis fora: a atividade não persiste, mas quem está com o app aberto ainda
+    // recebe o evento ao vivo. Melhor isso do que sumir com o recurso inteiro.
+    return { texto, desde: Date.now() }
+  }
 }
 
 export async function clearUserActivity(userId: string): Promise<void> {

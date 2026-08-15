@@ -1,6 +1,7 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.AtividadeDto
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.CustomStatusRequest
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
@@ -44,8 +45,10 @@ interface UserApi {
     // Atividade em lote ("o que a pessoa está usando"), por userId. Quem não tem
     // atividade simplesmente NÃO VEM no mapa — a resposta traz só os poucos que
     // estão em alguma coisa, e não uma linha vazia por membro do painel.
+    // Cada entrada traz o texto E desde quando (ver AtividadeDto) — o cartao de
+    // perfil mostra "há 2h 14min" ao lado do nome do programa.
     @GET("api/profile/activity")
-    suspend fun activity(@Query("ids") ids: String): ApiEnvelope<Map<String, String>>
+    suspend fun activity(@Query("ids") ids: String): ApiEnvelope<Map<String, AtividadeDto>>
 
     // Recado (custom status). Mora sob /api/friends no backend, mas e edicao de
     // perfil — fica aqui pra o desktop nao precisar de uma FriendsApi so por isto

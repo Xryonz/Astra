@@ -174,8 +174,22 @@ data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 // `activity` nulo = a pessoa parou de mostrar (desligou, fechou o app, ou o
 // registro venceu no servidor). Nulo e string vazia significam a mesma coisa aqui,
 // e quem consome trata os dois como "apaga a linha".
+// `since` = epoch em ms de quando a pessoa ABRIU aquilo. Vem do servidor e nao do
+// relogio local porque ele so muda quando a ATIVIDADE muda: a renovacao de 45s que
+// segura o registro vivo reenvia o mesmo instante. Calcular aqui zeraria o
+// cronometro tres vezes por minuto.
 @Serializable
-data class ActivityUpdateDto(val userId: String, val activity: String? = null)
+data class ActivityUpdateDto(
+    val userId: String,
+    val activity: String? = null,
+    val since: Long? = null,
+)
+
+// O que a pessoa esta usando AGORA, com desde quando. Um par e nao duas colunas
+// paralelas: texto sem instante (ou instante sem texto) nao existe, e manter dois
+// mapas em sincronia e o tipo de coisa que sai do lugar num caminho de erro.
+@Serializable
+data class AtividadeDto(val text: String, val since: Long = 0L)
 
 // Aviso de que algo mudou numa constelacao (server_channels / server_members /
 // server_joined). So carrega o id: e um PING pra refazer a busca, nao um delta —

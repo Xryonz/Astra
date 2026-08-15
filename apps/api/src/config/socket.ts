@@ -159,11 +159,18 @@ export function setupSocket(io: Server) {
       const salas = [...socket.rooms].filter((r) => r.startsWith('server:'))
       if (!limpo) {
         await clearUserActivity(userId)
-        if (salas.length) socket.to(salas).emit('activity_update', { userId, activity: null })
+        if (salas.length) socket.to(salas).emit('activity_update', { userId, activity: null, since: null })
         return
       }
-      await setUserActivity(userId, limpo)
-      if (salas.length) socket.to(salas).emit('activity_update', { userId, activity: limpo })
+      // O `since` vem do Redis e NÃO de Date.now() aqui: quando a atividade é a
+      // mesma de antes (renovação de 45s), o instante guardado é o original. Usar
+      // a hora local do evento zeraria o cronômetro a cada renovação.
+      const viva = await setUserActivity(userId, limpo)
+      if (salas.length) {
+        socket.to(salas).emit('activity_update', {
+          userId, activity: limpo, since: viva?.desde ?? Date.now(),
+        })
+      }
     })
 
     socket.on('join_channel', async (channelId: string) => {
@@ -620,7 +627,7 @@ export function setupSocket(io: Server) {
         // mais lista pra mirar. Acontece uma vez por saída — a frequência que fazia o
         // broadcast doer no outro caso simplesmente não existe aqui.
         await clearUserActivity(userId)
-        socket.broadcast.emit('activity_update', { userId, activity: null })
+        socket.broadcast.emit('activity_update', { userId, activity: null, since: null })
       }
       socketConnections.dec()
     })

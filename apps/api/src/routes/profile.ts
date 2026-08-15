@@ -7,7 +7,7 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
-import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys } from '../lib/redis'
+import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
@@ -175,10 +175,17 @@ router.get(
     const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
     if (ids.length === 0) return res.json({ data: {} })
 
-    const out: Record<string, string> = {}
+    // { texto, desde } e não string pura: o cartão de perfil mostra "há 2h 14min"
+    // junto do nome do programa, e o instante de início mora no mesmo lugar que o
+    // texto (uma linha só no Redis, ver leAtividade). Mudar o formato é seguro
+    // porque só o desktop lê esta rota — ela nasceu com ele.
+    const out: Record<string, { text: string; since: number }> = {}
     let live: (string | null)[] = []
     try { live = await redis.mget(ids.map((id) => activityKeys.user(id))) } catch { live = [] }
-    ids.forEach((id, i) => { if (live[i]) out[id] = live[i]! })
+    ids.forEach((id, i) => {
+      const a = leAtividade(live[i])
+      if (a) out[id] = { text: a.texto, since: a.desde }
+    })
     res.json({ data: out })
   })
 )

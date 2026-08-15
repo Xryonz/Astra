@@ -28,7 +28,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,6 +135,10 @@ data class DadosDoCartao(
     // sobre si) e sim da presença — por isso entra por fora, preenchido por quem
     // abre o cartão, e some sozinho quando ela para de mostrar.
     val atividade: String? = null,
+    // Epoch em ms de quando ela abriu aquilo. Vem do servidor junto do texto: ele
+    // só muda quando a atividade muda, então a renovação que segura o registro
+    // vivo não zera o cronômetro. 0 = desconhecido (registro antigo) -> sem tempo.
+    val atividadeDesde: Long = 0L,
 )
 
 fun ProfileUserDto.paraCartao() = DadosDoCartao(
@@ -327,14 +334,49 @@ private fun CorpoCompacto(
     // DEPOIS do recado, e um degrau abaixo dele. O recado é o que a pessoa
     // ESCOLHEU dizer; a atividade é o que a máquina observou. Empatar os dois em
     // peso daria à leitura automática a mesma autoridade da fala dela.
-    dados.atividade?.takeIf { it.isNotBlank() }?.let {
-        Spacer(Modifier.height(5.dp))
-        // Mesmo ponto do painel de membros: o destaque tem que ser o MESMO nos dois
-        // lugares, senão vira duas convenções pro mesmo fato e nenhuma se aprende.
+    dados.atividade?.takeIf { it.isNotBlank() }?.let { programa ->
+        Spacer(Modifier.height(8.dp))
+        val arte = arteDaAtividade(programa, Obsidian.accent)
+        // O CRONÔMETRO ANDA SOZINHO enquanto o cartão está aberto. Sem isto ele
+        // congelaria no valor do instante em que abriu — e "há 12min" parado por
+        // meia hora é pior que nenhum número, porque parece atual.
+        //
+        // 30s e não 1s: a menor unidade que ele mostra é o minuto, então acordar a
+        // cada segundo gastaria 30 recomposições pra mudar texto uma vez.
+        var agora by remember { mutableStateOf(System.currentTimeMillis()) }
+        LaunchedEffect(programa) {
+            while (true) {
+                delay(30_000)
+                agora = System.currentTimeMillis()
+            }
+        }
+        val decorrido = tempoDeAtividade(dados.atividadeDesde, agora)
+        // A MARCA vive só aqui, e não no painel de membros: lá a linha tem 26dp e
+        // texto de 10sp, onde um quadrado de 32 não cabe sem virar outra lista. A
+        // divisão é a mesma do resto do app — a lista dá o sinal, o cartão dá o
+        // detalhe. O ponto de cor continua sendo a convenção da lista.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(4.dp).clip(CircleShape).background(Obsidian.accent.copy(alpha = 0.85f)))
-            Spacer(Modifier.width(5.dp))
-            Text(it, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(arte.cor.copy(alpha = 0.14f))
+                    .border(1.dp, arte.cor.copy(alpha = 0.22f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                LIcon(arte.glifo, tint = arte.cor, size = 16.dp)
+            }
+            Spacer(Modifier.width(9.dp))
+            Column {
+                Text(
+                    programa,
+                    style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                if (decorrido != null) {
+                    Text(decorrido, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                }
+            }
         }
     }
     if (!dados.bio.isNullOrBlank()) {

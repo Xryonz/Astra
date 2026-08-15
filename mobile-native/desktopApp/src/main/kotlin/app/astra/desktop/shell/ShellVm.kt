@@ -1411,8 +1411,13 @@ class ShellVm(
             // de propósito: são dois recursos com vidas diferentes, e juntá-los numa
             // resposta obrigaria os quatro clientes a mudar de contrato pra economizar
             // um pedido por painel aberto. Falhou = mapa vazio = ninguém em nada.
+            // SÓ O TEXTO aqui. A resposta traz também desde quando, mas a linha do
+            // painel mostra só o nome do programa — guardar o instante no estado da
+            // lista seria carregar em memória, por membro, um dado que só o cartão
+            // de perfil usa (e que ele já busca sozinho, fresco, ao abrir).
             val atividade = if (members.isNotEmpty()) {
-                runCatching { userApi.activity(ids).data.orEmpty() }.getOrDefault(emptyMap())
+                runCatching { userApi.activity(ids).data.orEmpty().mapValues { it.value.text } }
+                    .getOrDefault(emptyMap())
             } else emptyMap()
             // So aplica se a selecao não mudou enquanto carregava.
             _state.update {

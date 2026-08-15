@@ -54,6 +54,7 @@ import app.astra.desktop.ui.theme.EaseSpring
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.UserApi
+import app.astra.mobile.core.network.dto.AtividadeDto
 import app.astra.mobile.core.network.dto.MemberRoleDto
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
 import com.composables.icons.lucide.Lucide
@@ -239,7 +240,8 @@ private fun ProfilePopupCard(
     // minutos porque nome e foto não mudam nesse intervalo. "O que está usando"
     // muda, e servir isso do cache mostraria o jogo de cinco minutos atrás com a
     // cara de informação atual. Uma consulta por abertura, sempre fresca.
-    var atividade by remember(userId) { mutableStateOf<String?>(null) }
+    // O par inteiro (texto + desde quando), porque o cartão mostra o cronômetro.
+    var atividade by remember(userId) { mutableStateOf<AtividadeDto?>(null) }
     LaunchedEffect(userId) {
         atividade = runCatching { koin.get<UserApi>().activity(userId).data?.get(userId) }.getOrNull()
     }
@@ -264,7 +266,10 @@ private fun ProfilePopupCard(
             // mais duas copias pra divergir. O que e proprio DAQUI sao os botoes,
             // que so fazem sentido no cartao de verdade.
             ProfileCard(
-                dados = p.paraCartao().copy(atividade = atividade),
+                dados = p.paraCartao().copy(
+                    atividade = atividade?.text,
+                    atividadeDesde = atividade?.since ?: 0L,
+                ),
                 variante = CardVariante.NORMAL,
                 // ALTURA MÍNIMA, não altura fixa (pedido do dono: o cartão de quem
                 // não tem bio nem cargo saía atarracado ao lado do da bot).

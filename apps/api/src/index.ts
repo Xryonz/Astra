@@ -136,7 +136,14 @@ app.use(cookieParser())
 app.use(reqContext)
 app.use(httpMetrics)
 
-app.use('/api/profile', express.json({ limit: '8mb' }))
+// AS DUAS ROTAS QUE RECEBEM IMAGEM NO CORPO (avatar/banner de perfil e
+// icone/banner de constelacao) andam em data-uri, nao em multipart. Com o cliente
+// salvando em 2560/1024 pra nao borrar em tela 4K, um banner PNG com
+// transparencia passa folgado dos 8mb antigos — e passar do limite aqui vira 413
+// no meio do "salvar perfil", sem dizer o motivo. 16mb cobre o teto de 10MB
+// binario do cliente (ImageCrop.HARD_MAX) mais o inchaco de 33% do base64.
+app.use('/api/profile', express.json({ limit: '16mb' }))
+app.use('/api/servers', express.json({ limit: '16mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)

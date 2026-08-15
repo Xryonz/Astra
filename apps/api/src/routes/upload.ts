@@ -76,14 +76,19 @@ async function makeBlurhash(input: Buffer): Promise<string | undefined> {
   }
 }
 
-// Largura da miniatura. A bolha do chat mostra a imagem com ~400px de largura, e
-// ate agora ela baixava o WebP inteiro de 2048px pra isso — dez a vinte vezes mais
-// bytes do que a tela usa. 720 cobre a bolha com folga pra tela grande e continua
-// sendo uma fracao do original.
-const THUMB_PX = 720
-// Abaixo disso a miniatura seria do tamanho do original: gerar duas copias quase
-// iguais so gastaria espaco no bucket (que e de 1 GB) e uma requisicao a mais.
-const THUMB_MIN_PX = 1000
+// Largura da miniatura — o que a BOLHA do chat baixa (o original so vem quando
+// alguem abre em tela cheia).
+//
+// Eram 720px em qualidade 74, e era isso que se via como "foto pixelada na
+// conversa": a bolha tem 320dp, que num Windows a 200% de escala sao 640 pixeis
+// FISICOS, entao os 720 chegavam sem folga nenhuma — e a 74 o WebP ja deixa bloco
+// visivel em degrade e em texto de print. 1280/88 tira as duas coisas e continua
+// pesando uma fracao do original.
+const THUMB_PX = 1280
+// So vale gerar miniatura quando ela e uma reducao DE VERDADE. Abaixo disto a
+// bolha usa o proprio original — que e, por definicao, a melhor qualidade
+// possivel — em vez de mostrar uma copia recomprimida do mesmo tamanho.
+const THUMB_MIN_PX = 1400
 
 async function maybeTranscode(file: Express.Multer.File): Promise<{
   buffer:   Buffer
@@ -121,7 +126,7 @@ async function maybeTranscode(file: Express.Multer.File): Promise<{
       thumb = await sharp(file.buffer, { failOn: 'none' })
         .rotate()
         .resize({ width: THUMB_PX, height: THUMB_PX, fit: 'inside', withoutEnlargement: true })
-        .webp({ quality: 74, effort: 4 })
+        .webp({ quality: 88, effort: 4, smartSubsample: true })
         .toBuffer()
     }
 

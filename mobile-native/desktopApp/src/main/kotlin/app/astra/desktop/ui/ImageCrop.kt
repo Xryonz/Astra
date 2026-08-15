@@ -117,14 +117,31 @@ class CropImage(val img: SkiaImage, val hasAlpha: Boolean) {
 }
 
 object ImageCrop {
-    const val BANNER_OUT_W = 1280
-    const val AVATAR_OUT_W = 512
+    // DOBRO DA TELA, de proposito. Estes numeros sao a resolucao que FICA salva —
+    // depois deles nao existe volta, entao errar pra baixo e irreversivel.
+    //
+    // Eram 1280/512, calculados como "o tamanho que a tela desenha". A conta
+    // esquecia a densidade: no Windows a 150% (o padrao de fabrica em quase todo
+    // notebook novo) um banner de 840dp pede 1260 pixeis FISICOS, e o de 1280
+    // chegava sem folga nenhuma; a 175% ou num monitor 4K ele era ESTICADO. Era
+    // isso o "pixelado" — a imagem sendo ampliada na hora de desenhar.
+    //
+    // O dobro cobre 200% de escala sem nunca ampliar, que e o teto que o Windows
+    // oferece. Custo: o arquivo salvo fica ~3x maior (a area quadruplica, o WebP
+    // do servidor come a maior parte). Isso e espaco em bucket, nao memoria de
+    // quem usa — o Coil3 decodifica no tamanho que vai desenhar, nao no do arquivo.
+    const val BANNER_OUT_W = 2560
+    const val AVATAR_OUT_W = 1024
 
-    // Teto da FONTE em memoria: uma foto de 6000x4000 seriam ~96MB de raster vivo
-    // enquanto o modal esta aberto. Reduzir pra 2048 não tira qualidade visivel
-    // (o maior destino e 1280 de largura).
-    private const val SRC_MAX = 2048
-    private const val HARD_MAX = 5_000_000
+    // Teto da FONTE em memoria enquanto o modal esta aberto. Precisa ficar ACIMA
+    // do maior destino (2560), senao a fonte ja chega reduzida e o recorte so
+    // reamplia o que foi jogado fora. 3200 da folga pra um zoom leve e mantem o
+    // pior caso em ~41MB de raster (x2, porque o preview guarda a copia dele).
+    private const val SRC_MAX = 3200
+    // Teto do data-uri que sobe. Subiu junto com a resolucao: um banner 2560 com
+    // transparencia sai em PNG e passa folgado dos 5MB antigos. O servidor aceita
+    // 10MB nas rotas de perfil/constelacao (ver index.ts).
+    private const val HARD_MAX = 10_000_000
 
     private val http by lazy { GlobalContext.get().get<OkHttpClient>(named("authed")) }
     private val plain by lazy { OkHttpClient() }
@@ -161,7 +178,13 @@ object ImageCrop {
     // precisa manter a janela de corte na proporcao certa.
     fun bake(src: CropImage, sx: Float, sy: Float, sw: Float, sh: Float, outW: Int): Result<String> = runCatching {
         require(sw > 0f && sh > 0f) { "recorte vazio" }
-        val outH = max(1, (outW * (sh / sw)).roundToInt())
+        // NUNCA AMPLIAR NA HORA DE ASSAR. Se o pedaco escolhido tem menos pixeis
+        // que o destino, esticar ate `outW` nao inventa detalhe — so assa borrao
+        // no arquivo e multiplica o peso. Salvar no tamanho real da o MESMO
+        // resultado na tela (quem desenha amplia de qualquer jeito, com filtro) e
+        // um arquivo menor. Acontece com fonte pequena ou zoom alto.
+        val larguraFinal = min(outW, max(1, sw.roundToInt()))
+        val outH = max(1, (larguraFinal * (sh / sw)).roundToInt())
 
         // Interseção do recorte com a imagem: o pedaço pedido pode passar das
         // bordas (zoom abaixo do "cobre"). Fora da imagem fica TRANSPARENTE — o
@@ -172,8 +195,8 @@ object ImageCrop {
         val iy1 = ceil(sy + sh).coerceIn(0f, src.h.toFloat())
         require(ix1 > ix0 && iy1 > iy0) { "recorte fora da imagem" }
 
-        val k = outW / sw
-        val surface = Surface.makeRasterN32Premul(outW, outH)
+        val k = larguraFinal / sw
+        val surface = Surface.makeRasterN32Premul(larguraFinal, outH)
         // MITCHELL, e nao LINEAR. O bilinear le so 2x2 pixeis vizinhos: numa
         // reducao de 4x (a fonte vem capada em 2048 e o avatar sai em 512) ele
         // ignora quase toda a informacao e devolve serrilhado — era isso o
@@ -193,7 +216,11 @@ object ImageCrop {
         // (mesma regra do AvatarPicker: JPEG não carrega canal alfa).
         val gap = ix0 > sx + 0.5f || iy0 > sy + 0.5f || ix1 < sx + sw - 0.5f || iy1 < sy + sh - 0.5f
         val alpha = gap || src.hasAlpha
-        val data = out.encodeToData(if (alpha) EncodedImageFormat.PNG else EncodedImageFormat.JPEG, 92)
+        // 95 e nao 92: o servidor ainda re-encoda isto em WebP, entao o JPEG daqui
+        // e um INTERMEDIARIO — todo artefato que ele criar e herdado pelo arquivo
+        // final e ainda serve de material pra segunda compressao errar em cima.
+        // Perda dupla e o que mais estraga foto de pele e ceu.
+        val data = out.encodeToData(if (alpha) EncodedImageFormat.PNG else EncodedImageFormat.JPEG, 95)
             ?: error("não foi possível gerar a imagem")
         val bytes = data.bytes
         runCatching { data.close() }
@@ -219,7 +246,10 @@ object ImageCrop {
             img,
             SkRect.makeWH(img.width.toFloat(), img.height.toFloat()),
             SkRect.makeWH(w.toFloat(), h.toFloat()),
-            SamplingMode.LINEAR,
+            // MITCHELL aqui tambem. Esta reducao acontece ANTES do recorte, entao o
+            // serrilhado que o bilinear deixa e assado junto e nao sai mais — o
+            // cubico do `bake` estaria so reamostrando um borrao.
+            SamplingMode.MITCHELL,
             null,
             true,
         )

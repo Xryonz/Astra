@@ -14,17 +14,22 @@ import kotlin.math.max
 
 // Avatar do Astra NAO usa o endpoint de upload: vive como DATA-URI na coluna
 // avatarUrl (mesmo padrao do mobile e do web; o Coil do desktop já resolve
-// data-uri, ver Main.kt). O backend recusa acima de 5MB, entao reduzimos pra
+// data-uri, ver Main.kt). O backend recusa acima de 10MB, entao reduzimos pra
 // AVATAR_DIM antes de codificar. GIF pequeno passa CRU pra não matar a animação.
 object AvatarPicker {
-    private const val AVATAR_DIM = 512
-    private const val GIF_MAX = 4_500_000
-    private const val HARD_MAX = 5_000_000
+    // Mesmos numeros do ImageCrop, e pelo mesmo motivo: o dobro do que a tela pede,
+    // pra cobrir monitor a 150%/200% sem AMPLIAR na hora de desenhar. Este caminho
+    // e o do GIF animado (que nao passa pelo recorte), entao ele tambem precisa
+    // chegar na resolucao certa — deixar so o recorte subir faria a foto parada
+    // sair nitida e a animada sair borrada.
+    private const val AVATAR_DIM = 1024
+    private const val GIF_MAX = 9_000_000
+    private const val HARD_MAX = 10_000_000
 
     // Abre o seletor nativo do SO. Bloqueia (modal) — chamar da thread de UI e o
     // comportamento normal de um file dialog. null = o usuário cancelou.
     // Banner e mais largo que o avatar -> mais resolucao antes de virar data-uri.
-    const val BANNER_DIM = 1280
+    const val BANNER_DIM = 2560
 
     fun choose(title: String = "Escolher imagem"): File? {
         val dlg = FileDialog(null as Frame?, title, FileDialog.LOAD)
@@ -130,13 +135,14 @@ object AvatarPicker {
 
     // JPEG com qualidade EXPLICITA. O ImageIO.write(…, "jpg", …) usa o padrao do
     // JDK, que e 0.75 — visivel como bloco em volta de contorno e em area de cor
-    // chapada. 0.92 e o mesmo numero que o recorte (ImageCrop) ja usava; ficar nos
-    // dois em 0.92 e o que faz a foto sair igual pelos dois caminhos.
+    // chapada. 0.95 e o mesmo numero que o recorte (ImageCrop) usa; ficar nos dois
+    // em 0.95 e o que faz a foto sair igual pelos dois caminhos. Alto de proposito:
+    // isto e um INTERMEDIARIO, o servidor re-encoda em WebP por cima.
     private fun escreverJpeg(img: BufferedImage, out: ByteArrayOutputStream) {
         val escritor = ImageIO.getImageWritersByFormatName("jpg").next()
         val params = escritor.defaultWriteParam.apply {
             compressionMode = ImageWriteParam.MODE_EXPLICIT
-            compressionQuality = 0.92f
+            compressionQuality = 0.95f
         }
         ImageIO.createImageOutputStream(out).use { saida ->
             escritor.output = saida

@@ -383,7 +383,7 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "a imagem é reduzida para 512px e vira parte da constelação (máximo 5MB).",
+        "a imagem é guardada em 1024px e vira parte da constelação (máximo 10MB).",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )

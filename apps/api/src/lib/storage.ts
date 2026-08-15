@@ -203,7 +203,22 @@ export async function persistDataUri<T extends string | null | undefined>(value:
   let ext = mimeExt(mime)
   if (mime.startsWith('image/') && mime !== 'image/gif' && mime !== 'image/webp') {
     try {
-      body = await sharp(input).webp({ quality: 82 }).toBuffer()
+      // ESTE E O ULTIMO ENCODE DA IMAGEM — o que sair daqui e o que todo mundo ve,
+      // pra sempre. O 82 era o mesmo numero usado pra miniatura de anexo, onde a
+      // imagem aparece pequena; num banner desenhado com 2560px de largura ele
+      // aparece como bloco em ceu, em pele e em degrade. E a perda soma com a do
+      // JPEG que o recorte ja fez: comprimir duas vezes a 82 nao da 82.
+      //
+      // 92 e o joelho da curva do WebP — acima disso o arquivo cresce rapido e o
+      // olho para de ver diferenca. effort 6 (o padrao e 4) procura mais tempo pela
+      // codificacao menor: gasta CPU no upload, uma vez, e devolve arquivo menor
+      // COM a mesma qualidade. alphaQuality 100 mantem a transparencia exata (por
+      // padrao o canal alfa tambem e comprimido, e borda de PNG recortado fica
+      // suja). smartSubsample preserva a informacao de cor: sem ele o WebP joga
+      // fora 3/4 do croma, e e por isso que vermelho e laranja saiam chapados.
+      body = await sharp(input)
+        .webp({ quality: 92, effort: 6, alphaQuality: 100, smartSubsample: true })
+        .toBuffer()
       outMime = 'image/webp'
       ext = 'webp'
     } catch { /* imagem estranha: guarda o original */ }

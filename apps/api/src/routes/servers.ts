@@ -186,14 +186,17 @@ function isAllowedIcon(url: string | null | undefined): boolean {
   try { const { hostname } = new URL(url); return ALLOWED_ICON_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`)) }
   catch { return false }
 }
+// 10MB nos dois: e o teto que o cliente ja respeita (ImageCrop.HARD_MAX). Subiu de
+// 5/8MB junto com a resolucao de saida (1024 no icone, 2560 no banner) — no tamanho
+// novo, PNG com transparencia estourava o limite antigo e o salvar falhava.
 function isIconTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
-  return url.length * 0.75 > 5 * 1024 * 1024
+  return url.length * 0.75 > 10 * 1024 * 1024
 }
 
 function isBannerTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
-  return url.length * 0.75 > 8 * 1024 * 1024
+  return url.length * 0.75 > 10 * 1024 * 1024
 }
 
 const UpdateServerSchema = z.object({

@@ -39,10 +39,13 @@ function isAllowedImageUrl(url: string | null | undefined): boolean {
   }
 }
 
+// 10MB = o teto que o cliente ja aplica (ImageCrop.HARD_MAX). Subiu de 6MB junto
+// com a resolucao de saida (avatar 1024, banner 2560), senao o proprio app produz
+// um arquivo que o proprio servidor recusa.
 function isDataUriTooLarge(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   const bytes = url.length * 0.75
-  return bytes > 6 * 1024 * 1024
+  return bytes > 10 * 1024 * 1024
 }
 
 router.get(

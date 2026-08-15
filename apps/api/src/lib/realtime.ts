@@ -14,6 +14,14 @@ let io: SocketServer | null = null
 
 export function attachRealtime(server: SocketServer) { io = server }
 
+// Pro `notify()`, que precisa do servidor de socket e nao de um helper pronto.
+//
+// As rotas que notificam hoje recebem o `io` por parametro porque nasceram como
+// fabrica (createReactionsRouter(io)). A de amizades nasceu como Router simples, e
+// transforma-la em fabrica so pra isso mexeria na montagem do index — muito
+// estrago pra uma dependencia que ja mora aqui neste arquivo.
+export function servidorDeSocket(): SocketServer | null { return io }
+
 // A lista de canais/categorias mudou -> todo mundo da constelacao refaz o
 // GET /servers. Refetch em vez de delta de proposito: posicao, visibilidade e
 // permissao sao decididas no backend, e um merge no cliente erraria em canal
@@ -46,6 +54,28 @@ export function joinedServer(userId: string, serverId: string) {
 // tiver essa pessoa na tela. So o id vai: quem se importa rebusca.
 export function profileChanged(userId: string) {
   io?.emit('profile_updated', { userId })
+}
+
+// AMIZADE MUDOU — pros DOIS lados, sempre.
+//
+// Esta função não existia, e a falta dela era o buraco de tempo real mais visível
+// do app: aceitar um pedido atualizava a tela de quem aceitou (que tinha a resposta
+// do POST em mãos) e deixava a do outro dizendo "pendente" até ele recarregar. Do
+// lado dele nada tinha acontecido.
+//
+// Os dois ids sempre, em toda transição — pedido, aceite, recusa, remoção. Avisar
+// só "o outro" parece economia e não é: quem age pode ter DUAS janelas abertas (o
+// Astra multi é exatamente isso), e a segunda ficaria tão desatualizada quanto a do
+// outro. Um evento a mais custa nada; uma tela mentindo custa a confiança no app.
+//
+// O payload não carrega a amizade inteira de propósito: o cliente já sabe pedir a
+// lista, e mandar o objeto obrigaria a inventar o formato "como o outro lado vê"
+// (quem é o solicitante muda a leitura da mesma linha). O evento diz "mudou, olhe
+// de novo" — que é a única coisa que ele sabe com certeza sobre os dois lados.
+export function amizadeMudou(a: string, b: string, motivo: 'pedido' | 'aceito' | 'removido') {
+  for (const id of new Set([a, b])) {
+    io?.to(`user:${id}`).emit('friends_changed', { motivo })
+  }
 }
 
 // Ganhou XP. Vai so pra quem ganhou: progressao e assunto de uma pessoa so, e

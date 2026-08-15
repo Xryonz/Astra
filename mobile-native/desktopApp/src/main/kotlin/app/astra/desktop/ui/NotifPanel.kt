@@ -50,6 +50,7 @@ import com.composables.icons.lucide.Heart
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageSquare
 import com.composables.icons.lucide.Reply
+import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -262,6 +263,11 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
         "reaction"      -> "$author reagiu ${p.emoji ?: ""}".trim() to channelSub(p)
         "dm"            -> author to (p.preview ?: "sussurro")
         "server_invite" -> "entrou em ${p.serverName ?: "uma constelação"}" to "convite"
+        // Sem destino próprio: clicar não navega (o `open` não trata este tipo), e
+        // isso é deliberado — a ação mora na tela de Amigos, e mandar a pessoa pra
+        // lá com um clique atravessaria o que ela estava fazendo. A notificação
+        // avisa; aceitar continua sendo uma ida consciente.
+        "friend_request" -> "$author quer te adicionar" to "pedido de amizade"
         else            -> author to (p.preview ?: "")
     }
     Row(
@@ -316,6 +322,7 @@ private fun iconFor(type: String) = when (type) {
     "reaction"      -> Lucide.Heart
     "dm"            -> Lucide.MessageSquare
     "server_invite" -> Lucide.Users
+    "friend_request" -> Lucide.UserPlus
     else            -> Lucide.Bell
 }
 

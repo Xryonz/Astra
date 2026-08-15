@@ -133,6 +133,20 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
         }
     }
 
+    // AMIZADE MUDOU DO OUTRO LADO. A tela só se atualizava quando VOCÊ agia: quem
+    // aceitava via a lista mudar (tinha a resposta do POST em mãos) e quem tinha
+    // mandado o pedido continuava vendo "pendente" até reabrir a tela. Do lado dele
+    // nada tinha acontecido — e era esse o "tempo real não está bom".
+    //
+    // Recarrega as três listas em vez de aplicar delta: o mesmo evento significa
+    // coisas diferentes nos dois lados (pra quem mandou some de "enviados", pra quem
+    // recebeu sai de "pendentes" e entra em "amigos"), e um delta teria que carregar
+    // esse ponto de vista. Recarregar são três consultas pequenas, num evento que
+    // acontece algumas vezes por dia.
+    LaunchedEffect(Unit) {
+        GlobalContext.get().get<DesktopSocket>().friendsChanged.collect { reload() }
+    }
+
     // Acao otimista-simples: roda e recarrega as tres listas.
     fun act(block: suspend () -> Unit) {
         scope.launch { runCatching { block() }; reload() }

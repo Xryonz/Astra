@@ -6,7 +6,7 @@ import { sendPush, type PushPayload } from './push'
 import { logger } from './logger'
 import type { Server as SocketServer } from 'socket.io'
 
-export type NotificationType = 'mention' | 'dm' | 'reaction' | 'reply'
+export type NotificationType = 'mention' | 'dm' | 'reaction' | 'reply' | 'friend_request'
 
 export interface NotificationPrefs {
 
@@ -63,6 +63,12 @@ function typeEnabled(type: NotificationType, prefs: NotificationPrefs): boolean 
     case 'dm':       return prefs.dms
     case 'reaction': return prefs.reactions
     case 'reply':    return prefs.replies
+    // SEM INTERRUPTOR PRÓPRIO, e de propósito. Pedido de amizade é raro, é
+    // dirigido a você pessoalmente e é acionável — não tem como virar ruído do
+    // jeito que menção e reação têm. Um toggle aqui seria uma linha a mais na
+    // tela de configurações protegendo contra um incômodo que não existe.
+    // Silêncio e horário de descanso continuam valendo (são checados fora daqui).
+    case 'friend_request': return true
   }
 }
 

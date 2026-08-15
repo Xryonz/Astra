@@ -54,7 +54,18 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
         private set
 
     private fun entrar(tipo: String, sala: ChannelDto) {
-        if (joined?.id == sala.id) return
+        // "JA ESTOU NESTA SALA" TEM QUE INCLUIR TER MOTOR, e nao so o id bater.
+        //
+        // `joined` e o motor sao dois campos, e nada garantia que andassem juntos:
+        // bastava um caminho deixar `joined` apontando pra sala e o motor nulo
+        // (connect que falhou, dispose sem limpar) pra esta funcao virar um beco —
+        // ela devolvia na hora, achando que ja estavamos dentro, e NUNCA mais se
+        // entrava naquela sala. Sem erro, sem log: o botao simplesmente nao fazia
+        // nada, que e o formato do "aceitei a chamada e nao entrei em call nenhuma".
+        //
+        // Com o motor na condicao, o estado inconsistente se conserta sozinho na
+        // proxima tentativa em vez de travar pra sempre.
+        if (joined?.id == sala.id && engine != null) return
         // Entrar noutra sala sai da anterior: uma call por vez (como o Discord).
         engine?.dispose()
         engine = VoiceEngine(

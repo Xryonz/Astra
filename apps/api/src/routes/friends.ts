@@ -11,7 +11,27 @@ import { badRequest, notFound } from '../lib/errors'
 import { redis } from '../lib/redis'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { isValidCoordinate, normalizeCoordinate } from '../lib/coordinate'
-import { profileChanged } from '../lib/realtime'
+import { profileChanged, amizadeMudou, servidorDeSocket } from '../lib/realtime'
+import { notify } from '../lib/notifications'
+
+// Aviso de pedido de amizade: sino + toast na bandeja.
+//
+// Fora do fluxo da rota (`void ...`) porque avisar não pode atrasar nem derrubar o
+// pedido em si: se o sino falhar, a amizade continua pedida — o contrário seria
+// perder a ação por causa do enfeite dela.
+//
+// Sem `serverId`/`channelId` no payload: clicar nesta notificação não leva a uma
+// órbita, leva à tela de Amigos. Quem desenha decide o destino; aqui só se conta o
+// que aconteceu.
+async function avisarPedidoDeAmizade(paraQuem: string, deQuem: string): Promise<void> {
+  const io = servidorDeSocket()
+  if (!io) return
+  await notify({
+    io, userId: paraQuem, actorId: deQuem, type: 'friend_request',
+    payload: {},
+    push: { title: 'Pedido de amizade', body: 'alguém quer te adicionar' },
+  })
+}
 import { haBloqueio } from '../lib/blocks'
 
 const router = Router()
@@ -141,6 +161,10 @@ router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async
         .returning()
 
       getOrCreateConversation(req.userId!, target.id).catch(() => {})
+      // Mandar pedido pra quem já tinha mandado pra você VIRA um aceite. Sem este
+      // aviso, o caminho mais bonito do recurso ("nos adicionamos ao mesmo tempo")
+      // era justamente o que deixava a tela do outro presa em "pendente".
+      amizadeMudou(req.userId!, target.id, 'aceito')
       return res.json({ data: accepted })
     }
     return res.json({ data: existing })
@@ -149,6 +173,8 @@ router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async
   const [created] = await db.insert(friendships).values({
     userAId: a, userBId: b, requesterId: req.userId!, status: 'pending',
   }).returning()
+  amizadeMudou(req.userId!, target.id, 'pedido')
+  void avisarPedidoDeAmizade(target.id, req.userId!)
   res.status(201).json({ data: created })
 }))
 
@@ -168,6 +194,7 @@ router.post('/:id/accept', requireAuth, asyncHandler(async (req: Request, res: R
 
   const otherId = row.userAId === req.userId ? row.userBId : row.userAId
   getOrCreateConversation(req.userId!, otherId).catch(() => {})
+  amizadeMudou(req.userId!, otherId, 'aceito')
   res.json({ data: updated })
 }))
 
@@ -177,6 +204,10 @@ router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Respon
   if (!row) return res.json({ data: { ok: true } })
   if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
   await db.delete(friendships).where(eq(friendships.id, id))
+  // Cobre recusar pedido E desfazer amizade — é a mesma rota. Recusa sem aviso
+  // deixava o pedido no ar pra quem mandou, e desfazer sem aviso mantinha o outro
+  // te vendo na lista de amigos.
+  amizadeMudou(row.userAId, row.userBId, 'removido')
   res.json({ data: { ok: true } })
 }))
 

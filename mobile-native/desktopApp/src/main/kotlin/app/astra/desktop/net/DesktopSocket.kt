@@ -98,6 +98,12 @@ class DesktopSocket(
     private val _activityUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
     val activityUpdate: SharedFlow<String> = _activityUpdate.asSharedFlow()
 
+    // Amizade mudou (pedido, aceite, recusa, remoção) — vem pros DOIS lados. O
+    // evento não carrega a amizade: ele diz "mudou, olhe de novo", porque a mesma
+    // linha se lê diferente de cada lado (quem mandou x quem recebeu).
+    private val _friendsChanged = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val friendsChanged: SharedFlow<String> = _friendsChanged.asSharedFlow()
+
     // Notificacao nova (o backend ja emitia 'notification' pra sala user:<id>; o
     // desktop so não escutava e descobria pelo poll de 30s do sino).
     private val _notification = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -389,6 +395,10 @@ class DesktopSocket(
         }
         s.on("activity_update") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _activityUpdate.tryEmit(it.toString()) }
+        }
+        s.on("friends_changed") { args ->
+            // O payload não importa (é só o motivo, pra log): quem escuta recarrega.
+            _friendsChanged.tryEmit((args.firstOrNull() as? JSONObject)?.toString().orEmpty())
         }
         s.on("notification") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _notification.tryEmit(it.toString()) }

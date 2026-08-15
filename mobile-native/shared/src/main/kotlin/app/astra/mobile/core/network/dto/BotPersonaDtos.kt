@@ -46,3 +46,17 @@ data class BotPersonaPatch(
     val bannerScale: Int? = null,
     val bannerPositionY: Int? = null,
 )
+
+// Um comando como ele aparece na tela de configuração da constelação: a chave
+// estável (que vai pro banco), o nome curto e a categoria pra agrupar. Sem prefixo
+// e sem exemplo — ali a pergunta é "isto fica ligado?", não "como se usa".
+@Serializable
+data class BotComandoDto(
+    val chave: String,
+    val rotulo: String,
+    val categoria: String = "",
+    val descricao: String = "",
+)
+
+@Serializable
+data class BotCatalogoWrapper(val comandos: List<BotComandoDto> = emptyList())

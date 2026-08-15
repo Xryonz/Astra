@@ -17,6 +17,7 @@ import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
 import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
+import { catalogoDeComandos } from '../lib/bot'
 import { channelsChanged, membersChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
 
 export const serversRouter = Router()
@@ -212,6 +213,10 @@ const UpdateServerSchema = z.object({
   // dois — entao o mesmo gesto passava num lugar e era recusado no outro.
   bannerScale:     z.number().int().min(50).max(300).optional(),
   iconScale:       z.number().int().min(100).max(300).optional(),
+  // Comandos da bot DESLIGADOS aqui. Lista de chaves; vazia = tudo ligado.
+  // Chega como array e e guardada como texto separado por virgula: sao poucos
+  // itens e uma coluna simples evita mais uma tabela pra uma lista de chaveamento.
+  botDisabledCommands: z.array(z.string().max(40)).max(60).optional(),
   // Órbita dos avisos da bot. null (ou "") = volta a escolher sozinha.
   botNoticeChannelId: z.string().optional().nullable(),
 })
@@ -222,10 +227,10 @@ serversRouter.patch(
   validate(UpdateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
-    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description, bannerPositionY, bannerScale, iconScale, botNoticeChannelId } = req.body as {
+    const { name, iconUrl, bannerUrl, messageRetentionDays, isPublic, description, bannerPositionY, bannerScale, iconScale, botNoticeChannelId, botDisabledCommands } = req.body as {
       name?: string; iconUrl?: string | null; bannerUrl?: string | null
       messageRetentionDays?: number | null; isPublic?: boolean; description?: string | null
-      bannerPositionY?: number; bannerScale?: number; iconScale?: number
+      bannerPositionY?: number; bannerScale?: number; iconScale?: number; botDisabledCommands?: string[]
       botNoticeChannelId?: string | null
     }
 
@@ -248,6 +253,13 @@ serversRouter.patch(
     if (bannerPositionY !== undefined) patch.bannerPositionY = bannerPositionY
     if (bannerScale     !== undefined) patch.bannerScale     = bannerScale
     if (iconScale       !== undefined) patch.iconScale       = iconScale
+    // Guarda so as chaves conhecidas: um item inventado ficaria na coluna pra
+    // sempre, sem nada pra desligar e sem forma de aparecer na tela pra ser tirado.
+    if (botDisabledCommands !== undefined) {
+      const validas = new Set(catalogoDeComandos().map((c) => c.chave))
+      const limpa = [...new Set(botDisabledCommands.filter((c) => validas.has(c)))]
+      patch.botDisabledCommands = limpa.length ? limpa.join(',') : null
+    }
     if (messageRetentionDays !== undefined)
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
     if (isPublic    !== undefined) patch.isPublic    = isPublic

@@ -20,6 +20,8 @@ data class ServerDto(
     val isGroup: Boolean = false,
     // Órbita onde a bot fala sem ser chamada. null = ela escolhe sozinha.
     val botNoticeChannelId: String? = null,
+    // Comandos da bot DESLIGADOS aqui, separados por virgula. Vazio = tudo ligado.
+    val botDisabledCommands: String? = null,
     val channels: List<ChannelDto> = emptyList(),
     val categories: List<CategoryDto> = emptyList(),
     @SerialName("_count") val count: ServerCountDto? = null,
@@ -73,6 +75,9 @@ data class UpdateServerRequest(
     // então "voltar ao automático" se manda como STRING VAZIA — o backend traduz
     // vazio em nulo. Sem essa distinção não haveria como desfazer a escolha.
     val botNoticeChannelId: String? = null,
+    // Lista COMPLETA do que fica desligado (nao um delta): mandar a lista inteira
+    // evita ter que inventar "adiciona" e "remove" pra um conjunto de meia duzia.
+    val botDisabledCommands: List<String>? = null,
 )
 
 @Serializable

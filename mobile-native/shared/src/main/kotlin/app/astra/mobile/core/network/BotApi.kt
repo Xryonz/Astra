@@ -1,6 +1,7 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.BotCatalogoWrapper
 import app.astra.mobile.core.network.dto.BotCommandDto
 import retrofit2.http.GET
 
@@ -10,4 +11,10 @@ import retrofit2.http.GET
 interface BotApi {
     @GET("api/bot/commands")
     suspend fun commands(): ApiEnvelope<List<BotCommandDto>>
+
+    // O catalogo CRU, com a chave estavel de cada comando. Separado do de cima:
+    // aquele e "o que digitar hoje" (muda com o plantao), este e "o que existe pra
+    // ligar e desligar" — a chave nao pode mudar com o dia da semana.
+    @GET("api/bot/catalog")
+    suspend fun catalogo(): ApiEnvelope<BotCatalogoWrapper>
 }

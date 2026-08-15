@@ -1,7 +1,7 @@
 
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { users, wishingStars, botPersonas } from '../db/schema'
+import { users, wishingStars, botPersonas, servers } from '../db/schema'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from './coordinate'
 import { redis } from './redis'
@@ -507,6 +507,42 @@ const COMANDOS: ComandoBot[] = [
   { sufixo: 'festa', category: 'Fim de semana', description: 'sorteia um programa pro fim de semana', so: 'sparxie' },
 ]
 
+// CHAVE ESTAVEL de um comando, pro banco e pra tela de configuracao. A conversa
+// com IA tem sufixo vazio (e o `/sparkle <pergunta>` puro), e "" nao serve de
+// chave — vira 'conversa'.
+export function chaveDoComando(sufixo: string): string {
+  return sufixo === '' ? 'conversa' : sufixo.replace(/\s+/g, '-')
+}
+
+// O catalogo que a tela de configuracao da constelacao lista. Sem o prefixo e sem
+// os exemplos: ali a pergunta e "isto fica ligado?", nao "como se usa".
+export function catalogoDeComandos(): Array<{ chave: string; rotulo: string; categoria: string; descricao: string }> {
+  return COMANDOS.map((c) => ({
+    chave:     chaveDoComando(c.sufixo),
+    rotulo:    c.sufixo || 'conversa',
+    categoria: c.category,
+    descricao: c.description,
+  }))
+}
+
+// COMANDOS DESLIGADOS NESTA CONSTELACAO.
+//
+// A coluna guarda o que esta DESLIGADO (e nao o que esta ligado) pra comando novo
+// nascer ligado pra todo mundo sem migracao — numa lista que cresce, e o padrao
+// certo. Sem serverId (sussurro) nao ha constelacao pra desligar nada: tudo vale.
+export async function comandosDesligados(serverId?: string): Promise<ReadonlySet<string>> {
+  if (!serverId) return new Set()
+  try {
+    const [s] = await db.select({ lista: servers.botDisabledCommands })
+      .from(servers).where(eq(servers.id, serverId)).limit(1)
+    if (!s?.lista) return new Set()
+    return new Set(s.lista.split(',').map((x: string) => x.trim()).filter(Boolean))
+  } catch {
+    // Falha de leitura NAO pode desligar comando: o erro seguro e "tudo ligado".
+    return new Set()
+  }
+}
+
 // O que aparece na caixinha do "/" HOJE: prefixo do plantao + os extras de fim
 // de semana so quando e fim de semana.
 export function comandosDeHoje(agora: Date = new Date()): Array<{ name: string; description: string; category: string }> {
@@ -547,6 +583,30 @@ export async function handleBotCommand(
   const arg     = semPrefixo(content)
   const lower   = arg.toLowerCase()
   const verbo   = lower.split(/\s+/)[0] ?? ''
+
+  // DESLIGADO NESTA CONSTELACAO?
+  //
+  // Responde dizendo, em vez de ficar mudo: quem digitou um comando merece saber
+  // por que nada aconteceu. Silencio aqui seria lido como bot quebrada, e a
+  // pessoa tentaria de novo — que e o pior dos dois mundos.
+  //
+  const desligados = await comandosDesligados(extras.serverId)
+  if (desligados.size > 0) {
+    // A CONVERSA E O QUE SOBRA, e nao o texto vazio: quem chama a bot com algo que
+    // nao e comando conhecido cai na IA. Testar so `arg === ''` deixaria "desligar
+    // a conversa" sem efeito em 99% dos casos — que sao justamente as perguntas.
+    //
+    // "quem mandou" e o unico de duas palavras; o resto casa pelo primeiro verbo.
+    const conhecido = COMANDOS.find((c) =>
+      c.sufixo !== '' && (lower === c.sufixo || lower.startsWith(`${c.sufixo} `)),
+    )
+    const chave = conhecido ? chaveDoComando(conhecido.sufixo) : 'conversa'
+    if (desligados.has(chave)) {
+      return conhecido
+        ? `\`${persona.prefixo} ${conhecido.sufixo}\` está desligado nesta constelação.`
+        : 'a conversa comigo está desligada nesta constelação. os comandos continuam valendo.'
+    }
+  }
 
   // Chamou pelo nome de quem esta de folga: responde do mesmo jeito e aproveita
   // pra apresentar quem esta de plantao. Recusar seria so um erro a mais.

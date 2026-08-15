@@ -75,6 +75,7 @@ import app.astra.mobile.core.network.dto.ServerDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Bot
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Crop
@@ -105,6 +106,7 @@ internal enum class ServerTab(val label: String, val sub: String, val icon: Imag
     BANS("Banimentos", "quem não pode voltar", Lucide.Ban, true),
     SOUNDS("Efeitos sonoros", "sons para tocar em call", Lucide.Volume2, true),
     STICKERS("Figurinhas", "imagens para mandar no chat", Lucide.Sticker, true),
+    BOT("Bot", "o que a Sparkle pode fazer aqui", Lucide.Bot, true),
 }
 
 @Composable
@@ -267,6 +269,20 @@ fun ServerSettingsScreen(
                                     serverId = server.id,
                                     podeGerenciar = isOwner || "MANAGE_SERVER" in myPermissions,
                                 )
+                                // Aqui a regra é do LUGAR e não de quem olha: som e
+                                // figurinha todo mundo vê (ouvir o que existe antes
+                                // de tocar é cortesia), mas o que a bot pode fazer
+                                // é decisão de quem cuida da constelação.
+                                ServerTab.BOT -> if (isOwner || "MANAGE_SERVER" in myPermissions) {
+                                    ServerBotTab(server.botDisabledCommands) { lista ->
+                                        onSave(pedidoDeComandos(lista)) {}
+                                    }
+                                } else {
+                                    Text(
+                                        "só quem administra a constelação mexe nos comandos da bot.",
+                                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    )
+                                }
                             }
                         }
                     }

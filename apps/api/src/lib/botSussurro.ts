@@ -4,6 +4,7 @@ import { db } from '../db'
 import { dmConversations, directMessages } from '../db/schema'
 import { askBot, getBotId, handleBotCommand, sincronizaPersona } from './bot'
 import { messagesSentTotal } from './metrics'
+import { entregarSussurro } from './realtime'
 
 interface Pedido {
   io:             SocketServer
@@ -81,7 +82,7 @@ export async function responderNoSussurro({
       displayName: persona.nome, avatarUrl: persona.avatar, displayFont: null,
     }
 
-    io.to(`dm:${conversationId}`).emit('new_dm', {
+    entregarSussurro(io, conversationId, [botId, userId], 'new_dm', {
       ...linha, attachments: [], replyTo: null, author: autor,
     })
     messagesSentTotal.inc({ kind: 'dm' })

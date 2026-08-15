@@ -18,6 +18,7 @@ import { selectAuthorById, selectMemberColor } from '../db/prepared'
 import { haBloqueio } from '../lib/blocks'
 import { botNaOrbita } from '../lib/botScope'
 import { registrarChamadasDeSussurro } from '../lib/dmCalls'
+import { entregarSussurro } from '../lib/realtime'
 
 const userSockets = new Map<string, Set<string>>()
 
@@ -436,7 +437,7 @@ export function setupSocket(io: Server) {
           clientNonce: clientNonce ?? null,
         }
 
-        io.to(`dm:${conversationId}`).emit('new_dm', message)
+        entregarSussurro(io, conversationId, [userId, receiverId], 'new_dm', message)
         messagesSentTotal.inc({ kind: 'dm' })
         safeAck({ ok: true, msg: message })
 

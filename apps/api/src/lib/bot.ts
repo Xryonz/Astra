@@ -50,6 +50,18 @@ export interface Persona {
   // o primeiro quadro chegar.
   banner:  string
   bannerCor: string
+  // ZOOM QUE FAZ O BANNER COBRIR A FAIXA, em porcento.
+  //
+  // O cartao desenha o banner com "cabe inteiro", e a faixa e 3,5:1 enquanto os
+  // dois GIFs sao quase 16:9. Caber inteiro numa faixa MUITO mais larga que a
+  // imagem quer dizer encolher ate a ALTURA caber — e a arte chegava no meio, com
+  // tarja preta dos dois lados. E o mesmo calculo do AvatarPicker.zoomQueCobre no
+  // desktop (3,5 dividido pela proporcao da imagem), so que aqui as medidas sao
+  // conhecidas: sparxie 480x270 -> 197%, sparkle 498x307 -> 216%.
+  //
+  // Fica na persona e nao numa conta em tempo de execucao porque o servidor
+  // nunca abre o GIF: ele so guarda a URL. Trocar a arte pede recalcular isto.
+  bannerZoom: number
   tom:     string
 }
 
@@ -64,12 +76,12 @@ const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
   chave: 'sparkle', nome: 'Sparkle', prefixo: '/sparkle', emoji: '✦', avatar: `${raizPublica}/static/bot/sparkle.jpg`,
-  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030',
+  banner: `${raizPublica}/static/bot/sparkle.gif`, bannerCor: '#3a1030', bannerZoom: 216,
   tom: 'Você é a Sparkle, de plantão de domingo a quinta. Tom prestativo e direto, com brilho discreto — a pessoa está no meio da rotina.',
 }
 const SPARXIE: Persona = {
   chave: 'sparxie', nome: 'Sparxie', prefixo: '/sparxie', emoji: '✧', avatar: `${raizPublica}/static/bot/sparxie.jpg`,
-  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730',
+  banner: `${raizPublica}/static/bot/sparxie.gif`, bannerCor: '#3d1730', bannerZoom: 197,
   tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 
@@ -123,18 +135,26 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
     const [atual] = await db.select({
       displayName: users.displayName, avatarUrl: users.avatarUrl,
       bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
+      bannerScale: users.bannerScale,
     }).from(users).where(eq(users.id, botId)).limit(1)
     const mudou = atual && (
       atual.displayName !== persona.nome ||
       atual.avatarUrl !== persona.avatar ||
       atual.bannerUrl !== persona.banner ||
-      atual.bannerColor !== persona.bannerCor
+      atual.bannerColor !== persona.bannerCor ||
+      // O zoom entra na comparacao pelo mesmo motivo do banner: as duas irmas tem
+      // arte de proporcao diferente, entao herdar o zoom da anterior deixaria a
+      // faixa cortada ou com tarja no meio do turno.
+      atual.bannerScale !== persona.bannerZoom
     )
     if (mudou) {
       await db.update(users)
         .set({
           displayName: persona.nome, avatarUrl: persona.avatar,
           bannerUrl: persona.banner, bannerColor: persona.bannerCor,
+          // Enquadramento neutro na vertical: com o zoom que cobre, o centro da
+          // arte e o que aparece — que e onde o rosto esta nos dois GIFs.
+          bannerScale: persona.bannerZoom, bannerPositionY: 50,
         })
         .where(eq(users.id, botId))
       profileChanged(botId)

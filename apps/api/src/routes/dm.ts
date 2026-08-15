@@ -16,6 +16,7 @@ import { haBloqueio } from '../lib/blocks'
 import { primeiroAnexoNaoPermitido } from '../lib/storage'
 import { getBotId } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
+import { entregarSussurro } from '../lib/realtime'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
@@ -375,7 +376,7 @@ export function createDMRouter(io: SocketServer) {
         author,
       }
 
-      io.to(`dm:${conversationId}`).emit('new_dm', message)
+      entregarSussurro(io, conversationId, [req.userId, receiverId], 'new_dm', message)
       messagesSentTotal.inc({ kind: 'dm' })
       res.status(201).json({ data: message })
 
@@ -458,7 +459,12 @@ export function createDMRouter(io: SocketServer) {
 
       await db.update(directMessages).set({ deletedAt: new Date() }).where(eq(directMessages.id, messageId))
 
-      io.to(`dm:${conversationId}`).emit('dm_deleted', { messageId, conversationId })
+      // Mesma regra do new_dm: quem nao esta com a conversa aberta tambem precisa
+      // saber que a mensagem sumiu, senao ela fica na tela do outro ate o reload.
+      entregarSussurro(
+        io, conversationId, [message.senderId, message.receiverId],
+        'dm_deleted', { messageId, conversationId },
+      )
       res.json({ message: 'Mensagem removida' })
     })
   )

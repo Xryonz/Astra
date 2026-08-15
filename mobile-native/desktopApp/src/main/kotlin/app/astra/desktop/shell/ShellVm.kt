@@ -1191,6 +1191,28 @@ class ShellVm(
                 socket.newDm.collect { raw ->
                     val msg = decode<DmMessageDto>(raw) ?: return@collect
                     dmTypingStopped(msg.conversationId, msg.senderId)
+                    // CONVERSA QUE AINDA NAO EXISTIA NA LISTA.
+                    //
+                    // Agora o servidor entrega o sussurro na sala PESSOAL alem da
+                    // sala da conversa, entao a primeira mensagem de alguem chega
+                    // mesmo sem a conversa existir aqui. Sem este ramo o evento
+                    // chegava e era descartado em silencio (o indexOfFirst nao
+                    // acha, o update nao muda nada) — e a conversa so aparecia no
+                    // proximo boot, que e onde a lista e rebuscada.
+                    if (_state.value.dms.none { it.id == msg.conversationId }) {
+                        val novas = runCatching { dmApi.conversations().data.orEmpty() }.getOrNull()
+                        if (!novas.isNullOrEmpty()) {
+                            // Entra na sala da conversa nova: o proximo evento dela
+                            // (digitando, edicao) ja chega pelo caminho normal.
+                            novas.forEach { socket.joinDm(it.id) }
+                            _state.update { st ->
+                                val naoLida = if (msg.senderId != myId) st.unread + msg.conversationId else st.unread
+                                st.copy(dms = novas, unread = naoLida)
+                            }
+                            carregarPresencaDosSussurros()
+                        }
+                        return@collect
+                    }
                     // DELTA da barra lateral: aplica a previa ("Você: ..."/texto) e sobe a
                     // conversa pro topo na hora. Antes so marcava não-lida e a previa/ordem
                     // ficavam velhas ate um reload — o classico "chegou mensagem mas a lista
@@ -1327,6 +1349,11 @@ class ShellVm(
                     reloadServers()
                     (_state.value.selection as? Selection.Server)?.id?.let { loadMembers(it) }
                     runCatching { dmApi.conversations().data.orEmpty() }.getOrNull()?.let { dms ->
+                        // Entra nas salas DE NOVO a partir da lista fresca. O rejoin
+                        // do socket so refaz as salas que ele ja conhecia; conversa
+                        // criada enquanto o app estava sem conexao nao estava nessa
+                        // lista, e ficava sem sala (sem digitando, sem edicao).
+                        dms.forEach { socket.joinDm(it.id) }
                         _state.update { it.copy(dms = dms) }
                     }
                 }

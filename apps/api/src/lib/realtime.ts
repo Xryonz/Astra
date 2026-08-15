@@ -78,6 +78,38 @@ export function amizadeMudou(a: string, b: string, motivo: 'pedido' | 'aceito' |
   }
 }
 
+// SUSSURRO CHEGA MESMO COM A CONVERSA FECHADA.
+//
+// `new_dm` so ia pra sala `dm:<id>`, e nela so entra quem chamou `join_dm`. O
+// cliente entra em todas as conversas que EXISTIAM quando ele abriu o app — e era
+// exatamente esse o buraco: conversa criada DEPOIS disso (alguem te manda a
+// primeira mensagem, ou voce ganha uma conversa nova enquanto o app esta aberto)
+// nao tem sala nenhuma do seu lado, e a mensagem nao chega de jeito nenhum. So
+// aparecia no proximo boot, porque e ai que a lista e rebuscada e as salas sao
+// refeitas. Era o "preciso fechar e abrir o Astra pra receber as mensagens".
+//
+// A sala pessoal `user:<id>` conserta porque ela nao depende de nada que o cliente
+// tenha feito: todo socket entra nela no instante em que autentica (config/socket).
+// Mandar pras duas NAO duplica — o Socket.IO entrega uma vez por socket, mesmo que
+// ele esteja nas duas salas.
+//
+// Recebe o `io` por parametro (e nao usa o do modulo) porque tres dos quatro
+// chamadores sao fabricas que ja tem o proprio: dm.ts, config/socket.ts e
+// lib/dmCalls.ts.
+export function entregarSussurro(
+  server: SocketServer,
+  conversationId: string,
+  participantes: ReadonlyArray<string | null | undefined>,
+  evento: string,
+  dados: unknown,
+) {
+  let alvo = server.to(`dm:${conversationId}`)
+  for (const id of new Set(participantes.filter(Boolean) as string[])) {
+    alvo = alvo.to(`user:${id}`)
+  }
+  alvo.emit(evento, dados)
+}
+
 // Ganhou XP. Vai so pra quem ganhou: progressao e assunto de uma pessoa so, e
 // mandar pra sala do servidor faria todo mundo receber um evento por mensagem de
 // todo mundo. O payload ja leva o progresso inteiro pra o anel do rodape nao ter

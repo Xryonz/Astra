@@ -4,6 +4,7 @@ import { db } from '../db'
 import { dmConversations, directMessages, users } from '../db/schema'
 import { haBloqueio } from './blocks'
 import { getBotId } from './bot'
+import { entregarSussurro } from './realtime'
 
 // CHAMADA DE VOZ/VIDEO NO SUSSURRO.
 //
@@ -92,7 +93,7 @@ async function gravarRegistro(io: SocketServer, c: Chamada, fim: FimDaChamada) {
 
   // Mesmo evento das mensagens normais: quem esta com a conversa aberta ve a
   // linha aparecer na hora, sem caminho novo no cliente.
-  io.to(`dm:${c.conversationId}`).emit('new_dm', {
+  entregarSussurro(io, c.conversationId, [c.quemLigou, c.quemRecebe], 'new_dm', {
     ...inserida, call: registro, attachments: [], replyTo: null, author: autor,
   })
   await db.update(dmConversations).set({ updatedAt: new Date() })

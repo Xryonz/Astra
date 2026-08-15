@@ -284,8 +284,23 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
         // Ponto de não-lida (some quando lida).
         Box(Modifier.padding(top = 5.dp).size(6.dp).clip(CircleShape).background(if (unread) Obsidian.accent else Color.Transparent))
         Spacer(Modifier.width(8.dp))
-        Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Obsidian.base), contentAlignment = Alignment.Center) {
-            LIcon(iconFor(item.type), tint = Obsidian.text2, size = 15.dp)
+        // O ROSTO RESPONDE "QUEM", que é a primeira pergunta de quem abre o sino.
+        //
+        // Aqui havia o ícone do TIPO, e ele era informação repetida: o título já diz
+        // "mencionou você", "respondeu você", "reagiu ❤" com todas as letras. Um
+        // balãozinho igual em cada linha fazia a lista inteira parecer a mesma coisa
+        // — o painel ficava sendo uma coluna de nomes, e reconhecer quem escreveu
+        // exigia LER, em vez de bater o olho.
+        //
+        // Sem autor (convite de constelação) o ícone continua: não há rosto pra
+        // mostrar, e um espaço vazio seria pior que o símbolo.
+        val quem = p.authorName ?: p.authorUsername
+        if (quem != null || p.authorAvatar != null) {
+            DesktopAvatar(p.authorAvatar, quem ?: "?", 30)
+        } else {
+            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Obsidian.base), contentAlignment = Alignment.Center) {
+                LIcon(iconFor(item.type), tint = Obsidian.text2, size = 15.dp)
+            }
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {

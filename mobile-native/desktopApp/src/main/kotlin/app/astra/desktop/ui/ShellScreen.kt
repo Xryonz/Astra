@@ -3810,14 +3810,33 @@ private fun MemberRow(
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (atividade != null) {
-                            Text(
-                                text = atividade,
-                                // text3 e um corpo menor: é contexto, não identidade.
-                                // No mesmo peso do nome, a lista viraria duas colunas
-                                // de informação competindo, e o nome é o que se procura.
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                            // DESTAQUE POR PONTO, não por cor no texto (escolha do dono).
+                            //
+                            // O accent entra em pouca área e por isso continua
+                            // significando algo — 60-30-10. Pintar o texto inteiro de
+                            // accent poria duas cores na mesma linha, disputando com o
+                            // nome colorido do cargo, que é o único uso de cor no painel
+                            // hoje. Duas cores competindo e nenhuma manda.
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    Modifier
+                                        .size(4.dp)
+                                        .clip(CircleShape)
+                                        // Sem pulsar. Movimento é orçamento, e um ponto
+                                        // piscando por pessoa numa lista de vinte ensina
+                                        // a ignorar o piscar — inclusive onde ele importa.
+                                        .background(Obsidian.accent.copy(alpha = if (online) 0.85f else 0.4f)),
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    text = atividade,
+                                    // text3 e um corpo menor: é contexto, não identidade.
+                                    // No mesmo peso do nome, a lista viraria duas colunas
+                                    // de informação competindo, e o nome é o que se procura.
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }

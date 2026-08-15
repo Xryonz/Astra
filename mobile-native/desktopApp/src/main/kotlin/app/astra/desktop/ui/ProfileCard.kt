@@ -329,7 +329,13 @@ private fun CorpoCompacto(
     // peso daria à leitura automática a mesma autoridade da fala dela.
     dados.atividade?.takeIf { it.isNotBlank() }?.let {
         Spacer(Modifier.height(5.dp))
-        Text(it, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        // Mesmo ponto do painel de membros: o destaque tem que ser o MESMO nos dois
+        // lugares, senão vira duas convenções pro mesmo fato e nenhuma se aprende.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(4.dp).clip(CircleShape).background(Obsidian.accent.copy(alpha = 0.85f)))
+            Spacer(Modifier.width(5.dp))
+            Text(it, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        }
     }
     if (!dados.bio.isNullOrBlank()) {
         Spacer(Modifier.height(10.dp))

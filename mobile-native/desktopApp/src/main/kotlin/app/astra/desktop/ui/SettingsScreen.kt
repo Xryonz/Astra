@@ -443,7 +443,7 @@ fun SettingsScreen(
                             Spacer(Modifier.height(16.dp))
                             TestarNotificacao(onTestarNotificacao)
                         }
-                        SettingsTab.PRIVACY -> PrivacySection(prefState, prefs)
+                        SettingsTab.PRIVACY -> PrivacySection(prefState, prefs, me, onProfileSaved)
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
@@ -852,8 +852,34 @@ private const val PASSEIO_DO_AVISO = 14f
 // "Notificações" nem em "Conta". Onde uma configuração mora é parte do que ela
 // diz, e esta precisa dizer "isto é sobre o que sai de você".
 @Composable
-private fun PrivacySection(prefState: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+private fun PrivacySection(
+    prefState: DesktopPrefs.Prefs,
+    prefs: DesktopPrefs,
+    me: ProfileUserDto?,
+    onSalvou: () -> Unit,
+) {
     Column {
+        Text("Quem pode te mandar sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "vale para conversa NOVA. quem já está falando com você continua falando — " +
+                "apertar isto não cala ninguém que você já estava respondendo.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+        Spacer(Modifier.height(10.dp))
+        FiltroDeSussurro(me, onSalvou)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "quem for barrado recebe a mesma recusa de quem foi bloqueado. não dá para " +
+                "descobrir, do outro lado, qual é o seu ajuste.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+
+        SettingsDivider()
+        Text("O que os outros veem", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+        Spacer(Modifier.height(10.dp))
         ToggleRow(
             "Mostrar o que estou usando",
             "quem te vê passa a ver o nome do programa em primeiro plano",
@@ -889,6 +915,52 @@ private fun PrivacySection(prefState: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             modifier = Modifier.widthIn(max = 460.dp),
         )
+    }
+}
+
+// SALVA NO CLIQUE, sem botão de "salvar". É o comportamento certo pra um ajuste
+// de UMA escolha: não há rascunho pra revisar nem outro campo pra combinar, e um
+// filtro de privacidade que fica esperando confirmação é um filtro que a pessoa
+// pensa que ligou e não ligou.
+//
+// Enquanto o servidor não responde, a escolha já aparece marcada (o `escolhido`
+// local): a alternativa é o rádio ficar parado meio segundo depois do clique, que
+// se lê como "não pegou". Se falhar, ele volta para onde estava e diz por quê.
+@Composable
+private fun FiltroDeSussurro(me: ProfileUserDto?, onSalvou: () -> Unit) {
+    val koin = GlobalContext.get()
+    val escopo = rememberCoroutineScope()
+    val doServidor = me?.dmPrivacy ?: "all"
+    var escolhido by remember(doServidor) { mutableStateOf(doServidor) }
+    var erro by remember { mutableStateOf<String?>(null) }
+
+    RadioList(
+        listOf(
+            "qualquer pessoa" to "all",
+            "quem divide constelação comigo" to "shared",
+            "só meus amigos" to "friends",
+        ),
+        escolhido,
+    ) { novo ->
+        if (novo == escolhido) return@RadioList
+        val anterior = escolhido
+        escolhido = novo
+        erro = null
+        escopo.launch {
+            val r = runCatching {
+                koin.get<UserApi>().updateProfile(UpdateProfileRequest(dmPrivacy = novo))
+            }
+            if (r.isSuccess) {
+                onSalvou()
+            } else {
+                escolhido = anterior
+                erro = "não deu para salvar. verifique a conexão e tente de novo."
+            }
+        }
+    }
+    erro?.let {
+        Spacer(Modifier.height(6.dp))
+        Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
     }
 }
 

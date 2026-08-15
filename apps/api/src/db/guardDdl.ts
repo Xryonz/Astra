@@ -200,6 +200,7 @@ CREATE INDEX IF NOT EXISTS "DirectMessage_expiresAt_idx" ON "DirectMessage" USIN
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL DEFAULT 50;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL DEFAULT 100;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerBorder"    text    NOT NULL DEFAULT 'none';
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "dmPrivacy"       text    NOT NULL DEFAULT 'all';
 
 -- ===== Constelacao: enquadramento do banner (posicao/zoom) + zoom do icone =====
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL DEFAULT 50;

@@ -56,6 +56,8 @@ export const UpdateProfileSchema = z.object({
   bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),
   bannerTextColor: z.string().regex(HEX_COLOR_RE, 'Use hex #RRGGBB').optional().nullable(),
   pronouns:        z.string().max(32, 'Máx 32 caracteres').optional().nullable(),
+  // Quem pode ABRIR sussurro comigo. Conversa que ja existe passa sempre.
+  dmPrivacy:       z.enum(['all', 'shared', 'friends']).optional(),
   statusEmoji:     z.string().max(8, 'Apenas 1 emoji').optional().nullable(),
   displayFont:     z.enum(DISPLAY_FONTS).optional(),
 })

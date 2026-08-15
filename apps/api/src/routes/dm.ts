@@ -13,6 +13,7 @@ import { notify } from '../lib/notifications'
 import { messagesSentTotal } from '../lib/metrics'
 import { getOrCreateConversation } from '../lib/dmCore'
 import { haBloqueio } from '../lib/blocks'
+import { aceitaSussurroNovo, RECUSA_DE_SUSSURRO } from '../lib/privacidadeDm'
 import { primeiroAnexoNaoPermitido } from '../lib/storage'
 import { getBotId } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
@@ -111,7 +112,12 @@ export function createDMRouter(io: SocketServer) {
       // Mensagem neutra de proposito: quem foi bloqueado nao deve descobrir que
       // foi, e um "você foi bloqueado" aqui contaria.
       if (await haBloqueio(req.userId!, target.id)) {
-        return res.status(403).json({ error: 'Não é possível conversar com essa pessoa' })
+        return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
+      }
+      // Mesma recusa, palavra por palavra: resposta diferente contaria qual e o
+      // ajuste de privacidade do outro lado.
+      if (!(await aceitaSussurroNovo(req.userId!, target.id))) {
+        return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
       }
 
       const conversation = await getOrCreateConversation(req.userId!, target.id)
@@ -130,6 +136,14 @@ export function createDMRouter(io: SocketServer) {
 
       if (!target) return res.status(404).json({ error: 'Usuário não encontrado' })
       if (target.id === req.userId) return res.status(400).json({ error: 'Você não pode abrir um DM consigo mesmo' })
+      // Esta rota NAO tinha nem a checagem de bloqueio — abrir por nome de usuario
+      // era o caminho de volta pra quem tinha sido barrado por id.
+      if (await haBloqueio(req.userId!, target.id)) {
+        return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
+      }
+      if (!(await aceitaSussurroNovo(req.userId!, target.id))) {
+        return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
+      }
 
       const conversation = await getOrCreateConversation(req.userId!, target.id)
       res.json({ data: { conversationId: conversation.id, otherUser: target } })

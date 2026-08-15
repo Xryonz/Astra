@@ -41,6 +41,9 @@ const userSafeColumns = {
   statusEmoji:     users.statusEmoji,
   customStatus:    users.customStatus,
   displayFont:     users.displayFont,
+  // So aparece no PROPRIO usuario. O GET /profile/:userId de outra pessoa nao
+  // devolve isto de proposito: o ajuste de quem pode te falar e informacao sua.
+  dmPrivacy:       users.dmPrivacy,
   onboardedAt:     users.onboardedAt,
   emailVerifiedAt: users.emailVerifiedAt,
 }

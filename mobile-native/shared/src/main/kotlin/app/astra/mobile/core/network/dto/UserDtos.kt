@@ -25,6 +25,9 @@ data class ProfileUserDto(
     val bannerPositionY: Int? = null,
     val bannerScale: Int? = null,
     val displayFont: String? = null,
+    // Quem pode ABRIR sussurro comigo: all | shared | friends. So vem no MEU
+    // perfil -- o de outra pessoa nao carrega isto.
+    val dmPrivacy: String? = null,
     val onboardedAt: String? = null,
     val emailVerifiedAt: String? = null,
 )
@@ -59,6 +62,7 @@ data class UpdateProfileRequest(
     val bannerUrl: String? = null,
     val bannerColor: String? = null,
     val pronouns: String? = null,
+    val dmPrivacy: String? = null,
     val profileTheme: String? = null,
     val bannerPositionY: Int? = null,
     val bannerScale: Int? = null,

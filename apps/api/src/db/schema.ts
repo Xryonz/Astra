@@ -30,6 +30,10 @@ export const users = pgTable('User', {
 
   bannerBorder:    text('bannerBorder').notNull().default('none'),
 
+  // Quem pode ABRIR sussurro com esta pessoa: all | shared | friends.
+  // Conversa que ja existe passa sempre — ver lib/privacidadeDm.ts.
+  dmPrivacy:    text('dmPrivacy').notNull().default('all'),
+
   pronouns:     text('pronouns'),
 
   statusEmoji:  text('statusEmoji'),

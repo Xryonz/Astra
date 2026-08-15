@@ -1585,8 +1585,60 @@ class VoiceEngine(
         entradaJob = scope.launch {
             delay(6_000)
             fotografarEntrada()
+            fotografarSaida()
             delay(14_000)
             fotografarEntrada()
+            fotografarSaida()
+        }
+    }
+
+    // A OUTRA METADE DA MESMA PERGUNTA, e a falta dela ja custou uma rodada inteira.
+    //
+    // A foto acima conta o que CHEGA. Quando ela diz "inscritos, mas ZERO pacote
+    // chegou", ainda restam duas causas opostas: o outro lado nao esta MANDANDO, ou
+    // esta mandando e nao chega. Sem contar o que sai, escolher entre elas e chute —
+    // e as duas tem conserto em pontas opostas do codigo (captura/publicacao aqui,
+    // rede/servidor la).
+    //
+    // Foi exatamente o buraco do "nao ouco a conta principal no Astra multi": os dois
+    // lados registraram o silencio e nenhum registrou se havia som saindo.
+    //
+    // `bytes` junto com `pacotes` de proposito: microfone mudo com DTX ligado ainda
+    // manda pacote, so que quase vazio. Pacote subindo com byte parado e "estou
+    // publicando silencio", que e uma terceira resposta e nao aparece so na contagem.
+    private fun fotografarSaida() {
+        val pc = pub ?: run {
+            VoiceLog.nota("9b. saida de audio: NAO ha conexao de publicacao — nada esta sendo enviado")
+            return
+        }
+        val faixas = runCatching {
+            pc.getSenders().count { runCatching { it.track is AudioTrack }.getOrDefault(false) }
+        }.getOrDefault(-1)
+        runCatching {
+            pc.getStats { r ->
+                var fontes = 0
+                var pacotes = 0L
+                var bytes = 0L
+                r.stats.values.forEach { s ->
+                    if (s.type != RTCStatsType.OUTBOUND_RTP) return@forEach
+                    val a = s.attributes
+                    if ((a["kind"] as? String) != "audio") return@forEach
+                    fontes++
+                    pacotes += (a["packetsSent"] as? Number)?.toLong() ?: 0L
+                    bytes += (a["bytesSent"] as? Number)?.toLong() ?: 0L
+                }
+                val veredito = when {
+                    faixas <= 0 && fontes == 0 ->
+                        "o microfone NAO esta publicado — o problema e na captura/publicacao, aqui deste lado"
+                    pacotes <= 0L ->
+                        "publicado, mas ZERO pacote saiu — a midia nao esta subindo (captura parada ou rede)"
+                    bytes < pacotes * 8 ->
+                        "sai pacote e quase nenhum byte ($bytes B) — estamos publicando SILENCIO (mic mudo ou sem sinal)"
+                    else ->
+                        "o audio SAI ($pacotes pacotes, $bytes B) — se o outro lado nao ouve, o problema nao e a captura"
+                }
+                VoiceLog.nota("9b. saida de audio: $faixas faixa(s), $fontes fonte(s), $pacotes pacotes, $bytes B -> $veredito")
+            }
         }
     }
 

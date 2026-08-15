@@ -2966,10 +2966,20 @@ private fun OrbitItem(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val isUnread = !active && unread
-    val itemBg by animateColorAsState(
-        if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
-        tween(120),
-    )
+    // HOVER INSTANTANEO (pedido do dono), e o motivo e de percepcao, nao de gosto.
+    //
+    // Realce de hover nao e uma transicao de estado da tela: e a RESPOSTA ao gesto de
+    // apontar. Qualquer curva entre o cursor chegar e o realce acender e lida como
+    // atraso do app, mesmo curta — e 120ms e o suficiente pra sensacao de peso, porque
+    // o olho compara com o proprio movimento do mouse, que e continuo.
+    //
+    // A SELECAO continua animada. Sao dois sinais diferentes: hover responde a onde
+    // voce esta apontando (tem que ser imediato) e selecao conta que a pagina mudou
+    // (a curva ajuda a nao piscar). Instantaneo nos dois faria a troca de orbita
+    // estalar; animado nos dois faz o app parecer lento.
+    val alvo = if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent
+    val fundoAnimado by animateColorAsState(alvo, tween(120))
+    val itemBg = if (hovered && !active) alvo else fundoAnimado
     val dSt = dragCtx?.state
     // A órbita arrastada fica esmaecida no lugar (a bolha e a copia "levantada").
     val lifted = dSt != null && dSt.dragging && dSt.id == ch.id
@@ -3197,10 +3207,14 @@ private fun DmList(
             val hovered by interaction.collectIsHoveredAsState()
             val active = conv.id == activeChatId
             val isUnread = !active && conv.id in unread
-            val itemBg by animateColorAsState(
-                if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent,
-                tween(120),
-            )
+            // Hover instantaneo, MESMA regra da órbita (ver OrbitItem): apontar é
+            // gesto, e a resposta ao gesto não pode ter curva. A seleção segue
+            // animada, que é o outro sinal. As duas listas da barra lateral têm que
+            // responder igual — o mesmo gesto no mesmo lugar da tela não pode ter
+            // duas velocidades dependendo de a linha ser órbita ou sussurro.
+            val alvo = if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent
+            val fundoAnimado by animateColorAsState(alvo, tween(120))
+            val itemBg = if (hovered && !active) alvo else fundoAnimado
             // Cascata no boot (F6) + botao direito: mutar/desmutar + marcar lida (F4).
             CascadeIn(cascadeRow, Unit) {
             EditorialContextMenu(entries = {

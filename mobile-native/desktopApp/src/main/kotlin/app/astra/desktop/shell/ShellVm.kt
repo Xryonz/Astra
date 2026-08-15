@@ -212,7 +212,34 @@ class ShellVm(
                     // 20 segundos, ate o proximo giro, sem nada ter acontecido.
                     runCatching { voiceApi.presence(voiceIds.joinToString(",")).data.orEmpty() }
                         .onSuccess { pres ->
-                            _state.update { if (it.voicePresence != pres) it.copy(voicePresence = pres) else it }
+                            // RASTRO SO QUANDO MUDA. "Alguem em call so aparece depois
+                            // que eu entro" tem tres causas possiveis e silencio
+                            // identico: o servidor nao devolve a pessoa, devolve um id
+                            // que nao casa com nenhum membro carregado, ou devolve certo
+                            // e a lista nao desenha. Registrar O QUE VEIO separa as tres
+                            // numa reproducao so.
+                            //
+                            // So na mudanca porque a cada 20s a resposta e a mesma, e um
+                            // diagnostico que repete vira um arquivo que ninguem le.
+                            _state.update { st ->
+                                if (st.voicePresence == pres) return@update st
+                                val resumo = pres.entries
+                                    .filter { it.value.isNotEmpty() }
+                                    .joinToString("; ") { (canal, ids) ->
+                                        val nomes = ids.joinToString(",") { id ->
+                                            // Casa com a lista carregada: id que nao casa
+                                            // aparece como "?<id>" e ja aponta o defeito.
+                                            st.members.find { m -> m.userId == id }
+                                                ?.user?.username ?: "?$id"
+                                        }
+                                        "$canal=[$nomes]"
+                                    }
+                                socket.noteLocal(
+                                    if (resumo.isBlank()) "· voz: ninguem em call (${voiceIds.size} orbita(s) de voz)"
+                                    else "· voz: $resumo",
+                                )
+                                st.copy(voicePresence = pres)
+                            }
                         }
                 } else if (_state.value.voicePresence.isNotEmpty()) {
                     _state.update { it.copy(voicePresence = emptyMap()) }

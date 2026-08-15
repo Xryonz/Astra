@@ -30,6 +30,15 @@ const AjusteSchema = z.object({
   bannerColor:     z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   bannerScale:     z.number().int().min(100).max(300).nullable().optional(),
   bannerPositionY: z.number().int().min(0).max(100).nullable().optional(),
+  // VOLTAR AO ORIGINAL, por campo.
+  //
+  // Existe porque o cliente NAO consegue mandar null explicito: o Json do app usa
+  // `encodeDefaults=false`, entao campo nulo nem entra no corpo — "nao mexi" e
+  // "desfaz" chegariam iguais. Uma lista de nomes contorna isso sem inventar um
+  // formato novo pro resto dos campos.
+  limpar: z.array(z.enum([
+    'displayName', 'avatarUrl', 'bannerUrl', 'bannerColor', 'bannerScale', 'bannerPositionY',
+  ])).max(6).optional(),
 })
 
 async function exigeDono(req: Request, res: Response): Promise<boolean> {
@@ -116,6 +125,9 @@ router.patch(
     }
     if ('avatarUrl' in corpo) patch.avatarUrl = corpo.avatarUrl ? await persistDataUri(corpo.avatarUrl) : null
     if ('bannerUrl' in corpo) patch.bannerUrl = corpo.bannerUrl ? await persistDataUri(corpo.bannerUrl) : null
+    // Depois dos campos normais de proposito: se os dois vierem no mesmo pedido,
+    // "voltar ao original" vence. E o unico que a pessoa pediu explicitamente.
+    for (const campo of corpo.limpar ?? []) patch[campo] = null
     if (Object.keys(patch).length === 0) return res.json({ data: await efetiva(chave) })
 
     patch.updatedAt = new Date()

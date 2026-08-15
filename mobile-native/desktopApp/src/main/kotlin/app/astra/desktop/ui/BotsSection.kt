@@ -39,6 +39,7 @@ import app.astra.mobile.core.network.BotPersonaApi
 import app.astra.mobile.core.network.dto.BotPersonaDto
 import app.astra.mobile.core.network.dto.BotPersonaPatch
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.RotateCcw
 import com.composables.icons.lucide.Upload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -158,7 +159,21 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                 forma = RectangleShape,
                 rotulo = "trocar o banner da ${p.displayName}",
                 glifo = 22.dp,
-                acoes = { listOf(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolher(true) }) },
+                acoes = {
+                    buildList {
+                        add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolher(true) })
+                        // Só aparece quando há para onde voltar. Oferecer "voltar ao
+                        // original" numa imagem que JÁ é a original seria um botão
+                        // que não faz nada — e um botão inerte ensina a desconfiar
+                        // dos outros.
+                        if (p.personalizado.bannerUrl) {
+                            add(MenuEntry.Separator)
+                            add(MenuEntry.Item("voltar ao original", icon = Lucide.RotateCcw) {
+                                aoMudar(BotPersonaPatch(limpar = listOf("bannerUrl")))
+                            })
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().aspectRatio(ProfileBannerAspect),
             ) {}
         }
@@ -178,7 +193,17 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                     forma = CircleShape,
                     rotulo = "trocar a foto da ${p.displayName}",
                     glifo = 16.dp,
-                    acoes = { listOf(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolher(false) }) },
+                    acoes = {
+                        buildList {
+                            add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolher(false) })
+                            if (p.personalizado.avatarUrl) {
+                                add(MenuEntry.Separator)
+                                add(MenuEntry.Item("voltar ao original", icon = Lucide.RotateCcw) {
+                                    aoMudar(BotPersonaPatch(limpar = listOf("avatarUrl")))
+                                })
+                            }
+                        }
+                    },
                     modifier = Modifier.size(52.dp),
                 ) { aceso ->
                     DesktopAvatar(p.avatarUrl, p.displayName, 52, externalHover = aceso)
@@ -203,9 +228,24 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
             // Grava SÓ ao soltar, e não a cada pixel arrastado: a trilha emite
             // dezenas de valores por segundo, e cada um seria uma escrita no banco
             // mais um aviso de perfil pra todo mundo que está com o app aberto.
-            BotaoSalvarEnquadramento(
-                mudou = zoom != p.bannerScale || posY != p.bannerPositionY,
-            ) { aoMudar(BotPersonaPatch(bannerScale = zoom, bannerPositionY = posY)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BotaoSalvarEnquadramento(
+                    mudou = zoom != p.bannerScale || posY != p.bannerPositionY,
+                ) { aoMudar(BotPersonaPatch(bannerScale = zoom, bannerPositionY = posY)) }
+                if (p.personalizado.bannerScale || p.personalizado.bannerPositionY) {
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "voltar ao original",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                aoMudar(BotPersonaPatch(limpar = listOf("bannerScale", "bannerPositionY")))
+                            }
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                    )
+                }
+            }
         }
     }
 }

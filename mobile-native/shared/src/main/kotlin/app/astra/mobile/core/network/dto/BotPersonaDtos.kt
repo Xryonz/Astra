@@ -33,10 +33,9 @@ data class BotPersonasWrapper(val personas: List<BotPersonaDto> = emptyList())
 // Campo nulo = NAO MEXI. Com `encodeDefaults=false` no Json do app, nulo nem
 // chega a ser serializado, entao o corpo carrega so o que foi trocado.
 //
-// LIMITE CONHECIDO: por isso mesmo, esta rota nao tem como dizer "desfaz e volta
-// pro que esta no codigo" — nulo omitido e "nao mexi", e o servidor nao consegue
-// distinguir os dois. O servidor JA aceita o null explicito (as colunas sao
-// nullable de proposito); falta so um caminho no cliente que consiga envia-lo.
+// E por isso que "voltar ao original" NAO pode ser um nulo: ele sairia igual a
+// "nao mexi" e o servidor nao teria como distinguir os dois. Daí `limpar`, que
+// lista pelo NOME os campos que devem voltar ao que esta no codigo.
 @Serializable
 data class BotPersonaPatch(
     val displayName: String? = null,
@@ -45,6 +44,7 @@ data class BotPersonaPatch(
     val bannerColor: String? = null,
     val bannerScale: Int? = null,
     val bannerPositionY: Int? = null,
+    val limpar: List<String>? = null,
 )
 
 // Um comando como ele aparece na tela de configuração da constelação: a chave

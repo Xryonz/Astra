@@ -71,6 +71,23 @@ object AtividadeDoSistema {
         "floorp.exe", "waterfox.exe", "thorium.exe", "chromium.exe",
     )
 
+    // ESTE RECURSO NAO PODE CUSTAR NADA, e o motivo e onde ele roda: a pessoa esta
+    // JOGANDO. Um engasgo de 8ms a cada 5s nao aparece em medicao de media e aparece
+    // como quadro perdido na tela dela. Entao a conta e feita UMA vez por programa,
+    // e depois disso o laco custa duas chamadas de Win32 que respondem em nanosegundos.
+    //
+    // Onde estava o custo (e era real):
+    //  - `ProcessHandle.info()` conversa com o sistema pra achar o caminho do exe;
+    //  - ler a assinatura do executavel e LEITURA DE DISCO.
+    // Os dois aconteciam a cada 5s, sempre sobre o mesmo programa, sempre com a
+    // mesma resposta. Um jogo aberto por duas horas fazia isso 1440 vezes pra
+    // descobrir 1440 vezes que ainda era o mesmo jogo.
+    private var ultimoPid = -1L
+    private var ultimaResposta: String? = null
+    // Chave = caminho do executavel. Fica pequeno sozinho: e a quantidade de
+    // programas DIFERENTES que ficaram na frente desde que o app abriu.
+    private val nomePorCaminho = HashMap<String, String?>()
+
     // Resultado: null = "nao ha nada pra contar agora" (janela do sistema, o proprio
     // Astra, ou nao deu pra descobrir). Diferente de "" — este objeto nunca apaga
     // nada, so responde o que ve; quem decide apagar e o publicador.
@@ -82,20 +99,41 @@ object AtividadeDoSistema {
         val pid = ref.value.toLong()
         if (pid <= 0L || pid == meuPid) return null
 
+        // MESMO PROCESSO DE ANTES: a resposta ja e conhecida e nada abaixo daqui
+        // precisa rodar. E o caso esmagadoramente comum — ninguem troca de programa
+        // a cada cinco segundos.
+        //
+        // Reaproveitar pid tem um risco conhecido: o Windows reusa numero de processo
+        // depois que o antigo morre. O estrago possivel e mostrar o programa errado
+        // por ate 5s, ate a proxima espiada de um pid diferente. Trocar isso por uma
+        // consulta a mais a cada volta seria pagar sempre pra evitar um engano raro e
+        // que se corrige sozinho.
+        if (pid == ultimoPid) return ultimaResposta
+
         // ProcessHandle e Java puro: nao precisa de OpenProcess nem de fechar
         // handle, e ja resolve o caminho do executavel pra processos do mesmo
         // usuario — que sao todos os que interessam aqui.
         val caminho = runCatching { ProcessHandle.of(pid).orElse(null)?.info()?.command()?.orElse(null) }
             .getOrNull() ?: return null
 
+        val resposta = nomeDoCaminho(caminho)
+        ultimoPid = pid
+        ultimaResposta = resposta
+        return resposta
+    }
+
+    // A parte cara, isolada e memoizada por caminho. Um jogo fechado e reaberto ganha
+    // pid novo mas continua no mesmo caminho — e ai nem a leitura de disco se repete.
+    private fun nomeDoCaminho(caminho: String): String? = nomePorCaminho.getOrPut(caminho) {
         val arquivo = File(caminho)
         val exe = arquivo.name.lowercase(Locale.ROOT)
-        if (exe in DO_SISTEMA) return null
-        if (exe in NAVEGADORES) return "Navegando"
-        // O proprio Astra por outro caminho (multi-conta, versao antiga aberta).
-        if (exe == "astra.exe") return null
-
-        return nomeBonito(arquivo) ?: nomeCru(arquivo.name)
+        when {
+            exe in DO_SISTEMA -> null
+            exe in NAVEGADORES -> "Navegando"
+            // O proprio Astra por outro caminho (multi-conta, versao antiga aberta).
+            exe == "astra.exe" -> null
+            else -> nomeBonito(arquivo) ?: nomeCru(arquivo.name)
+        }
     }
 
     // ---- nome legivel ----

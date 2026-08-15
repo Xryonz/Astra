@@ -140,16 +140,29 @@ export function setupSocket(io: Server) {
     // O corte em 64 caracteres é limite de ARMAZENAMENTO, não de confiança: nome
     // de programa não passa disso, e o que passar é lixo ou tentativa de enfiar
     // texto grande num campo que todo mundo lê.
+    // NÃO VAI PRA TODO MUNDO — vai só pras constelações de que a pessoa participa.
+    //
+    // `presence_update` usa broadcast geral e sempre usou, e nisso ele passa: status
+    // muda umas poucas vezes por sessão. Atividade muda quando alguém abre outro
+    // programa, que é uma ordem de grandeza mais frequente. Com broadcast geral, um
+    // servidor com N pessoas entrega N-1 eventos a cada troca de janela de qualquer
+    // uma delas — e cada cliente ainda paga o custo de ler o JSON pra descobrir que
+    // é de alguém que ele nem tem na tela.
+    //
+    // As salas `server:<id>` já existem (o socket entra nelas ao conectar), e elas
+    // são exatamente quem pode VER esta atividade. Emitir pra uma lista de salas
+    // numa chamada só faz o socket.io entregar uma vez a quem está em duas.
     socket.on('set_activity', async (texto: unknown) => {
       if (typeof texto !== 'string') return
       const limpo = texto.replace(/[\r\n\t]/g, ' ').trim().slice(0, 64)
+      const salas = [...socket.rooms].filter((r) => r.startsWith('server:'))
       if (!limpo) {
         await clearUserActivity(userId)
-        socket.broadcast.emit('activity_update', { userId, activity: null })
+        if (salas.length) socket.to(salas).emit('activity_update', { userId, activity: null })
         return
       }
       await setUserActivity(userId, limpo)
-      socket.broadcast.emit('activity_update', { userId, activity: limpo })
+      if (salas.length) socket.to(salas).emit('activity_update', { userId, activity: limpo })
     })
 
     socket.on('join_channel', async (channelId: string) => {
@@ -600,6 +613,11 @@ export function setupSocket(io: Server) {
         // sozinho, mas deixar a linha viva por um minuto depois de a pessoa fechar
         // o app diria "está em Palworld" sobre alguém que saiu — e um recurso de
         // presença errado é pior que ausente.
+        //
+        // Aqui é broadcast geral, ao contrário do `set_activity` acima, e de propósito:
+        // no evento 'disconnect' as salas do socket JÁ FORAM esvaziadas, então não há
+        // mais lista pra mirar. Acontece uma vez por saída — a frequência que fazia o
+        // broadcast doer no outro caso simplesmente não existe aqui.
         await clearUserActivity(userId)
         socket.broadcast.emit('activity_update', { userId, activity: null })
       }

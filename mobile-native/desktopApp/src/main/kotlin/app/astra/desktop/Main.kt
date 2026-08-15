@@ -336,8 +336,14 @@ object SingleInstance {
 // frente porque foi voce que abriu, e pedir de novo seria um app que se impoe.
 const val ARG_POS_ATUALIZACAO = "--depois-da-atualizacao"
 
+// Nascer direto na bandeja, sem janela. Quem pede isto é o arranque do Windows
+// (ver InicioComWindows) — abrir sessão e levar uma janela na cara de um app que
+// você não mandou abrir agora é o oposto do que "abrir junto" deveria significar.
+const val ARG_MINIMIZADO = "--minimizado"
+
 fun main(args: Array<String>) {
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
+    val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     // ANTES de tudo: sem isto, excecao não tratada mata o app em silencio (jpackage
     // não tem console) — era o "fecha do nada" sem rastro nenhum.
     CrashLog.install()
@@ -358,7 +364,7 @@ fun main(args: Array<String>) {
     GlobalContext.get().get<DesktopSocket>().registrarDespedida()
     application {
         // Fechar a janela NAO mata o app: minimiza pra bandeja (decisao do dono).
-        var windowVisible by remember { mutableStateOf(true) }
+        var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
         // Transparencia e param de CRIACAO da janela -> le a pref UMA vez no boot
         // (Settings > Desempenho avisa "aplica ao reiniciar"). Opaca = mais leve.
@@ -390,7 +396,11 @@ fun main(args: Array<String>) {
         val updater = remember { GlobalContext.get().get<UpdateService>() }
         val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
         LaunchedEffect(Unit) { Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId) }
-        var gateDone by remember { mutableStateOf(!updater.installed) }
+        // Nascendo escondido, o gate NÃO aparece: ele é uma janela alwaysOnTop, e
+        // pular na frente de quem acabou de ligar o computador é exatamente o que
+        // "abrir minimizado" pediu para não acontecer. Não se perde a atualização —
+        // a ronda logo abaixo continua procurando enquanto o app estiver de pé.
+        var gateDone by remember { mutableStateOf(!updater.installed || nascerEscondido) }
         // Ronda: o app deixa de depender de reiniciar pra saber que saiu versao
         // nova. Vive no escopo da janela — some junto com ela.
         val escopoDaJanela = rememberCoroutineScope()

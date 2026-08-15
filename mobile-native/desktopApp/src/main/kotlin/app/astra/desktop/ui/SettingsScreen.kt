@@ -139,6 +139,7 @@ import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.AtividadeDoSistema
+import app.astra.desktop.InicioComWindows
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ModoDeFala
@@ -3361,9 +3362,57 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "o X encerra o Astra em vez de minimizar para bandeja — sem nada em segundo plano",
         p.exitOnClose, prefs::setExitOnClose,
     )
+    Spacer(Modifier.height(6.dp))
+    ArranqueComWindows()
 
     Spacer(Modifier.height(10.dp))
     PlacaDeVideoSection(p, prefs)
+}
+
+// Abrir junto com o Windows. Sem preferência local por trás: quem responde é o
+// próprio registro (ver InicioComWindows), que é o mesmo lugar que o Gerenciador
+// de Tarefas mexe. Se a pessoa desligar por lá, este interruptor já nasce
+// desligado na próxima vez que a aba abrir — em vez de afirmar uma coisa que o
+// Windows não vai cumprir.
+@Composable
+private fun ArranqueComWindows() {
+    if (!InicioComWindows.disponivel()) return
+    var ligado by remember { mutableStateOf(InicioComWindows.ligado()) }
+    var escondido by remember { mutableStateOf(InicioComWindows.escondido()) }
+    var falhou by remember { mutableStateOf(false) }
+
+    // Uma função só pros dois interruptores: qualquer mudança reescreve a entrada
+    // inteira, porque o "abrir escondido" mora dentro do comando registrado.
+    fun gravar(novoLigado: Boolean, novoEscondido: Boolean) {
+        val ok = InicioComWindows.aplicar(novoLigado, novoEscondido)
+        falhou = !ok
+        if (!ok) return
+        ligado = novoLigado
+        escondido = novoEscondido
+    }
+
+    ToggleRow(
+        "Abrir junto com o Windows",
+        "o Astra já sobe na bandeja ao ligar o computador — sem esperar você lembrar dele",
+        ligado,
+    ) { gravar(it, escondido) }
+    if (ligado) {
+        Spacer(Modifier.height(6.dp))
+        ToggleRow(
+            "Ao subir assim, começar sem janela",
+            "só o ícone na bandeja: nada aparece na frente de quem acabou de ligar o PC",
+            escondido,
+        ) { gravar(true, it) }
+    }
+    if (falhou) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "o Windows recusou a mudança no arranque. dá para ligar e desligar isto também " +
+                "pelo Gerenciador de Tarefas, na aba Inicializar.",
+            style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+    }
 }
 
 // Escolha da placa de video.

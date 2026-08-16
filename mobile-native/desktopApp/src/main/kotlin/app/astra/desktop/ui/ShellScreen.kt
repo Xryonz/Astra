@@ -352,7 +352,14 @@ fun ShellScreen(
             socket.channelActivity.collect { raw ->
                 if (!windowInactive() || !prefs.state.value.notifyChannels) return@collect
                 val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
-                val ch = vm.state.value.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
+                val estado = vm.state.value
+                val ch = estado.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
+                // SILÊNCIO DA ÓRBITA VALE AQUI, no cliente, e não tem como ser no
+                // servidor: o `channel_activity` é o MESMO evento que acende a bolinha
+                // de não-lido, e ele precisa chegar sempre. Filtrar na origem apagaria
+                // o não-lido junto com o aviso — silenciar viraria "fingir que não
+                // chegou mensagem", que é outra coisa.
+                if (estado.orbitaSilenciada(ev.channelId)) return@collect
                 // O nome do canal também é conteúdo: "#planejamento-demissoes" numa
                 // transmissão diz mais que a mensagem em si.
                 if (prefs.state.value.avisoDiscreto) {
@@ -554,7 +561,7 @@ fun ShellScreen(
             onRenameChannel = vm::renameChannel,
             onDeleteChannel = vm::deleteChannel,
             onMarkChannelRead = vm::markChannelRead,
-            mutedChannels = state.mutedChannels,
+            silenciada = state::orbitaSilenciada,
             onToggleChannelMute = vm::toggleChannelMute,
             onToggleChannelBot = vm::setChannelBot,
             onToggleChannelKeepBot = vm::setChannelKeepBot,
@@ -2003,7 +2010,7 @@ private fun Sidebar(
     onRenameChannel: (serverId: String, channelId: String, name: String) -> Unit,
     onDeleteChannel: (serverId: String, channelId: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
-    mutedChannels: Set<String>,
+    silenciada: (channelId: String) -> Boolean,
     onToggleChannelMute: (channelId: String) -> Unit,
     onToggleChannelBot: (serverId: String, channelId: String, ligar: Boolean) -> Unit,
     onToggleChannelKeepBot: (serverId: String, channelId: String, guardar: Boolean) -> Unit,
@@ -2110,7 +2117,7 @@ private fun Sidebar(
                                     onOpenChannelRename = { cid, cur -> srv?.let { chanDialog = ChanDialog.RenameChannel(it.id, cid, cur) } },
                                     onOpenChannelDelete = { cid, name -> srv?.let { chanDialog = ChanDialog.DeleteChannel(it.id, cid, name) } },
                                     onMarkChannelRead = onMarkChannelRead,
-                                    mutedChannels = mutedChannels,
+                                    silenciada = silenciada,
                                     onToggleChannelMute = onToggleChannelMute,
                                     onToggleChannelBot = { cid, on -> srv?.let { onToggleChannelBot(it.id, cid, on) } },
                                     onToggleChannelKeepBot = { cid, on -> srv?.let { onToggleChannelKeepBot(it.id, cid, on) } },
@@ -2274,7 +2281,7 @@ private fun OrbitList(
     onOpenChannelRename: (channelId: String, current: String) -> Unit,
     onOpenChannelDelete: (channelId: String, name: String) -> Unit,
     onMarkChannelRead: (channelId: String) -> Unit,
-    mutedChannels: Set<String>,
+    silenciada: (channelId: String) -> Boolean,
     onToggleChannelMute: (channelId: String) -> Unit,
     onToggleChannelBot: (channelId: String, ligar: Boolean) -> Unit,
     onToggleChannelKeepBot: (channelId: String, guardar: Boolean) -> Unit,
@@ -2300,7 +2307,7 @@ private fun OrbitList(
     val drag = remember(server.id) { ChannelDragState() }
     // Acoes do botao-direito da órbita (serverId já embutido nas lambdas de cima).
     val chMenu = ChannelMenu(
-        isOwner, mutedChannels, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute,
+        isOwner, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute,
         // Herança resolvida aqui, uma vez: órbita decide; se não decidiu, a
         // categoria; se nem ela, a bot atende.
         botAtende = { ch ->
@@ -2689,7 +2696,8 @@ private fun OrbitEntry(
         EditorialContextMenu(entries = {
             buildList {
                 if (unread) add(MenuEntry.Item("marcar como lido", icon = Lucide.Check) { menu.onMarkRead(ch.id) })
-                add(MenuEntry.Item(if (ch.id in menu.mutedChannels) "reativar órbita" else "silenciar órbita", icon = if (ch.id in menu.mutedChannels) Lucide.Bell else Lucide.BellOff) { menu.onToggleMute(ch.id) })
+                val calada = menu.silenciada(ch.id)
+                add(MenuEntry.Item(if (calada) "reativar órbita" else "silenciar órbita", icon = if (calada) Lucide.Bell else Lucide.BellOff) { menu.onToggleMute(ch.id) })
                 add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(ch.id)) })
                 if (menu.isOwner) {
                     add(MenuEntry.Separator)
@@ -2809,7 +2817,8 @@ private sealed interface ChanDialog {
 // se e dono) e passado adiante pro OrbitEntry. serverId já fica embutido nas lambdas.
 private class ChannelMenu(
     val isOwner: Boolean,
-    val mutedChannels: Set<String>,
+    // Cascata resolvida (orbita > constelacao) — ver ShellUiState.orbitaSilenciada.
+    val silenciada: (channelId: String) -> Boolean,
     val onMarkRead: (channelId: String) -> Unit,
     val onRename: (channelId: String, current: String) -> Unit,
     val onDelete: (channelId: String, name: String) -> Unit,

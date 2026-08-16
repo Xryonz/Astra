@@ -127,6 +127,11 @@ data class ShellUiState(
     // Canais/constelações silenciados (mode "mute" no backend de notif prefs).
     val mutedChannels: Set<String> = emptySet(),
     val mutedServers: Set<String> = emptySet(),
+    // Órbitas que dizem "me avise" em VOZ ALTA (mode "all" explícito). Existem só
+    // pra discordar da constelação: sem elas, reativar uma órbita dentro de uma
+    // constelação calada não teria como ser expressado — apagar a preferência faz
+    // a órbita herdar o silêncio de volta.
+    val avisoForcado: Set<String> = emptySet(),
     // Conversas DM com alguem digitando agora (sidebar mostra "digitando…").
     val dmTyping: Set<String> = emptySet(),
     // Quem esta em cada canal de voz (channelId -> userIds), via poll ~5s do
@@ -142,6 +147,20 @@ data class ShellUiState(
 ) {
     val selectedServer: ServerDto?
         get() = (selection as? Selection.Server)?.let { sel -> servers.find { it.id == sel.id } }
+
+    // CASCATA: órbita > constelação > avisa. A MESMA ordem do servidor
+    // (apps/api/src/lib/silencioDeCanal.ts) — as duas metades têm de concordar,
+    // senão o sino fica quieto e a bandeja avisa, ou o contrário.
+    //
+    // A escolha mais específica vence porque quem calou a constelação inteira e
+    // depois reativou uma órbita disse exatamente isso; devolver o silêncio ali
+    // seria ignorar a segunda frase por causa da primeira.
+    fun orbitaSilenciada(channelId: String): Boolean {
+        if (channelId in mutedChannels) return true
+        if (channelId in avisoForcado) return false
+        val srv = servers.find { s -> s.channels.any { it.id == channelId } } ?: return false
+        return srv.id in mutedServers
+    }
 }
 
 // Chamada de sussurro na tela.
@@ -858,19 +877,45 @@ class ShellVm(
         scope.launch {
             val ch = async { runCatching { notifApi.channelNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
             val sv = async { runCatching { notifApi.serverNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
-            val mutedCh = ch.await().filter { it.mode == "mute" }.map { it.channelId }.toSet()
+            val doCanal = ch.await()
+            val mutedCh = doCanal.filter { it.mode == "mute" }.map { it.channelId }.toSet()
+            val forcados = doCanal.filter { it.mode == "all" }.map { it.channelId }.toSet()
             val mutedSv = sv.await().filter { it.mode == "mute" }.map { it.serverId }.toSet()
-            _state.update { it.copy(mutedChannels = mutedCh, mutedServers = mutedSv) }
+            _state.update { it.copy(mutedChannels = mutedCh, mutedServers = mutedSv, avisoForcado = forcados) }
         }
     }
 
     fun toggleChannelMute(channelId: String) {
-        val muted = channelId in _state.value.mutedChannels
-        _state.update { it.copy(mutedChannels = if (muted) it.mutedChannels - channelId else it.mutedChannels + channelId) }
+        val s = _state.value
+        val silenciada = s.orbitaSilenciada(channelId)
+        val constelacaoCalada = s.servers
+            .find { sv -> sv.channels.any { it.id == channelId } }
+            ?.let { it.id in s.mutedServers } == true
+
+        if (!silenciada) {
+            _state.update {
+                it.copy(mutedChannels = it.mutedChannels + channelId, avisoForcado = it.avisoForcado - channelId)
+            }
+            scope.launch { runCatching { notifApi.setChannelNotifPref(channelId, NotifModeRequest("mute")) } }
+            return
+        }
+
+        // REATIVAR DENTRO DE UMA CONSTELAÇÃO CALADA PRECISA DE "all" EXPLÍCITO.
+        //
+        // Apagar a preferência era o que se fazia antes, e ali o clique não fazia
+        // NADA visível: sem preferência própria, a órbita herdava o silêncio da
+        // constelação de volta no instante seguinte. O menu voltava a oferecer
+        // "silenciar órbita" sobre uma órbita que continuava calada.
+        _state.update {
+            it.copy(
+                mutedChannels = it.mutedChannels - channelId,
+                avisoForcado = if (constelacaoCalada) it.avisoForcado + channelId else it.avisoForcado - channelId,
+            )
+        }
         scope.launch {
             runCatching {
-                if (muted) notifApi.clearChannelNotifPref(channelId)
-                else notifApi.setChannelNotifPref(channelId, NotifModeRequest("mute"))
+                if (constelacaoCalada) notifApi.setChannelNotifPref(channelId, NotifModeRequest("all"))
+                else notifApi.clearChannelNotifPref(channelId)
             }
         }
     }

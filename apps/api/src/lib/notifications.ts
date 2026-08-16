@@ -4,6 +4,7 @@ import { db } from '../db'
 import { users, notifications } from '../db/schema'
 import { sendPush, type PushPayload } from './push'
 import { logger } from './logger'
+import { avisoPassa, modoDoCanal } from './silencioDeCanal'
 import type { Server as SocketServer } from 'socket.io'
 
 export type NotificationType = 'mention' | 'dm' | 'reaction' | 'reply' | 'friend_request'
@@ -105,6 +106,15 @@ export async function notify(opts: NotifyOpts): Promise<NotifyResult> {
     const prefs = parsePrefs(user.notificationPrefs)
 
     if (!typeEnabled(type, prefs)) {
+      return { notificationId: null, pushed: false, skipped: 'pref' }
+    }
+
+    // Órbita silenciada. AQUI e não em cada chamador: todo aviso de canal passa
+    // por esta função, então o silêncio vale pro sino, pro contador e pro push de
+    // uma vez só — e o próximo tipo de aviso que alguém criar já nasce
+    // respeitando, sem precisar lembrar.
+    const canalDoAviso = typeof payload.channelId === 'string' ? payload.channelId : null
+    if (canalDoAviso && !avisoPassa(await modoDoCanal(userId, canalDoAviso), type)) {
       return { notificationId: null, pushed: false, skipped: 'pref' }
     }
 

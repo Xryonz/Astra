@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.Obsidian
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlin.math.PI
 import kotlin.math.cos
@@ -96,6 +95,9 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
             while (active.value) {
+                // Marco do inicio do quadro: o teto la embaixo dorme o RESTO do periodo,
+                // e nao um tempo fixo por cima do que o quadro ja gastou.
+                val inicioDoQuadro = System.nanoTime()
                 withFrameNanos { now ->
                     // Mesmo clamp da aurora (CORTE 3): janela ocluida (alt-tab) para de
                     // receber frames com 'active' true; na volta o dt gigante faria as
@@ -110,8 +112,7 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
                 // Pedir frame e o que custa (o flush do Direct3D esperando a GPU), nao
                 // atualizar o valor — segurar a emissao e continuar pedindo frame nao
                 // poupava nada. Ver o comentario longo em Aurora.kt.
-                val cap = fpsCap.value
-                if (cap > 0) delay(1_000L / cap)
+                esperarPeloTeto(fpsCap.value, inicioDoQuadro)
             }
         }
     }

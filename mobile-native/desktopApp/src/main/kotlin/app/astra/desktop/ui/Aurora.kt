@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import app.astra.desktop.ui.theme.Obsidian
 import kotlin.math.sqrt
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -253,6 +252,9 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
             while (active.value) {
+                // Marco do inicio do quadro: o teto la embaixo dorme o RESTO do periodo,
+                // e nao um tempo fixo por cima do que o quadro ja gastou.
+                val inicioDoQuadro = System.nanoTime()
                 withFrameNanos { now ->
                     // CORTE 3 (ao voltar pra aba): alt-tab / outro monitor NAO mexem em
                     // windowVisible nem isMinimized -> 'active' segue true, mas o SO para
@@ -279,8 +281,7 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
                 // Dormindo entre um frame e o outro, ninguem pede frame nesse intervalo e o
                 // app fica de fato parado. A aurora deriva devagar: a 30 quadros por
                 // segundo ela e indistinguivel de 165, e custa cinco vezes menos.
-                val cap = fpsCap.value
-                if (cap > 0) delay(1_000L / cap)
+                esperarPeloTeto(fpsCap.value, inicioDoQuadro)
             }
         }
     }

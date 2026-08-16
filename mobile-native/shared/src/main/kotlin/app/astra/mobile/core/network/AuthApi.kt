@@ -1,6 +1,8 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.ApagarContaRequest
+import app.astra.mobile.core.network.dto.ContaApagadaDto
 import app.astra.mobile.core.network.dto.AuthData
 import app.astra.mobile.core.network.dto.LoginRequest
 import app.astra.mobile.core.network.dto.RegisterRequest
@@ -28,4 +30,9 @@ interface AuthApi {
     // Reenvia o codigo (backend auto-verifica se o mailer estiver desligado).
     @POST("api/auth/email/resend")
     suspend fun resendEmailCode()
+
+    // Apagar a conta. `Response` cru e nao envelope: o 409 traz a LISTA de
+    // constelacoes que impedem, e essa lista precisa chegar na tela.
+    @POST("api/auth/apagar-conta")
+    suspend fun apagarConta(@Body body: ApagarContaRequest): Response<ApiEnvelope<ContaApagadaDto>>
 }

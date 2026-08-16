@@ -201,6 +201,7 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL D
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerScale"     integer NOT NULL DEFAULT 100;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bannerBorder"    text    NOT NULL DEFAULT 'none';
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "dmPrivacy"       text    NOT NULL DEFAULT 'all';
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp(3);
 
 -- ===== Constelacao: enquadramento do banner (posicao/zoom) + zoom do icone =====
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "bannerPositionY" integer NOT NULL DEFAULT 50;

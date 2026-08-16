@@ -751,6 +751,7 @@ fun ShellScreen(
                 // Salvou o perfil -> re-hidrata o `me` do shell (rodape, chat e a
                 // propria previa passam a ler o valor novo).
                 onProfileSaved = { vm.refreshMe() },
+                aoSairDaConta = onLogout,
                 // O teste usa o MESMO caminho do aviso de verdade (bandeja do SO).
                 // Um "toast falso" desenhado dentro do app provaria nada — o que
                 // costuma falhar e justamente o SO: foco de notificacao desligado,

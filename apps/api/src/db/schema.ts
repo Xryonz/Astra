@@ -30,6 +30,10 @@ export const users = pgTable('User', {
 
   bannerBorder:    text('bannerBorder').notNull().default('none'),
 
+  // Conta apagada por lapide: a linha sobrevive vazia pras mensagens antigas nao
+  // deixarem buraco na conversa de terceiros. Ver lib/apagarConta.ts.
+  deletedAt:    timestamp('deletedAt', { precision: 3 }),
+
   // Quem pode ABRIR sussurro com esta pessoa: all | shared | friends.
   // Conversa que ja existe passa sempre — ver lib/privacidadeDm.ts.
   dmPrivacy:    text('dmPrivacy').notNull().default('all'),

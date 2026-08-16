@@ -168,7 +168,11 @@ import app.astra.mobile.core.network.dto.RevokeOthersRequest
 import app.astra.mobile.core.network.dto.SessionDto
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.CustomStatusRequest
+import app.astra.mobile.core.network.AuthApi
+import app.astra.mobile.core.network.dto.ApagarContaRequest
 import app.astra.mobile.core.network.dto.ProfileUserDto
+import app.astra.mobile.core.network.dto.RecusaDeApagar
+import kotlinx.serialization.json.Json
 import app.astra.mobile.core.network.dto.SetPasswordRequest
 import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import kotlinx.coroutines.Dispatchers
@@ -257,6 +261,10 @@ fun SettingsScreen(
     onProfileSaved: () -> Unit = {},
     initialTab: SettingsTab = SettingsTab.ACCOUNT,
     onTestarNotificacao: () -> Unit = {},
+    // Apagar a conta termina em LOGOUT, e o logout e de quem segura a sessao (o
+    // Main). Chamar o repositorio daqui apagaria o token e deixaria a tela de pe
+    // com uma sessao morta — o app parecendo logado sem conta do outro lado.
+    aoSairDaConta: () -> Unit = {},
 ) {
     // ABA DE VOLTA. A rolagem unica (0.1.95) foi testada e reprovada pelo dono: a
     // secao trocava sozinha conforme a pagina descia, e o item aceso no menu
@@ -424,7 +432,7 @@ fun SettingsScreen(
                     }
                     CascataVertical(chave = current, animar = !jaVisto, modifier = Modifier.fillMaxWidth()) {
                     when (current) {
-                        SettingsTab.ACCOUNT -> AccountSection(me)
+                        SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
@@ -2321,7 +2329,7 @@ private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
 }
 
 @Composable
-private fun AccountSection(me: ProfileUserDto?) {
+private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     // Em transmissão o e-mail vira máscara. É a única coisa desta aba que não é
     // pública: o @ todo mundo já vê, a senha nunca aparece. Máscara e não sumiço
     // porque a linha some do lugar e a aba muda de forma na frente de todo mundo —
@@ -2348,6 +2356,115 @@ private fun AccountSection(me: ProfileUserDto?) {
     }
     Spacer(Modifier.height(12.dp))
     PasswordForm(hasPassword = me?.hasPassword != false)
+
+    SettingsDivider()
+    ApagarConta(me, aoSairDaConta)
+}
+
+// APAGAR CONTA. Fica no fim da aba, e isso é layout com opinião: é a última coisa
+// da última seção, longe de tudo que se clica por engano.
+//
+// O que acontece está escrito ANTES do botão, e não num aviso depois do clique:
+// "some para sempre" e "suas mensagens continuam nas conversas" são as duas
+// perguntas que a pessoa tem, e responder só depois que ela decidiu é responder
+// tarde.
+@Composable
+private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
+    val koin = GlobalContext.get()
+    val escopo = rememberCoroutineScope()
+    var aberto by remember { mutableStateOf(false) }
+    var confirmacao by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }
+    var indo by remember { mutableStateOf(false) }
+    var erro by remember { mutableStateOf<String?>(null) }
+    var presas by remember { mutableStateOf<List<String>>(emptyList()) }
+    val temSenha = me?.hasPassword != false
+    val arroba = me?.username.orEmpty()
+
+    Text("Apagar conta", style = TextStyle(color = Obsidian.danger, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "o acesso acaba na hora e não há como voltar atrás: e-mail, foto, nome, recado e " +
+            "amizades somem, e você sai de todas as constelações.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "o que você escreveu FICA, assinado “conta apagada”. a conversa é de duas pessoas, " +
+            "e você ir embora não deveria abrir buracos no que a outra leu e respondeu.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(12.dp))
+
+    if (!aberto) {
+        AboutButton("apagar minha conta", accent = false, icone = Lucide.Trash2) {
+            aberto = true; confirmacao = ""; senha = ""; erro = null; presas = emptyList()
+        }
+        return
+    }
+
+    Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+        ProfileField("digite @$arroba para confirmar", confirmacao, "@$arroba", max = 40) { confirmacao = it }
+        if (temSenha) {
+            Spacer(Modifier.height(10.dp))
+            FieldLabel("sua senha")
+            PasswordField("senha atual", senha) { senha = it }
+        }
+        // A lista de constelações presas é o caso mais provável de recusa, e é o
+        // único em que a pessoa PODE resolver sozinha — então ela vem por nome, e
+        // não como "não foi possível".
+        if (presas.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "você ainda é dono de: ${presas.joinToString(", ")}. transfira ou exclua " +
+                    "antes — constelação com gente dentro não some junto com a sua conta.",
+                style = TextStyle(color = Obsidian.danger, fontSize = 11.sp, lineHeight = 16.sp),
+            )
+        } else erro?.let {
+            Spacer(Modifier.height(10.dp))
+            Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AboutButton(if (indo) "apagando…" else "apagar para sempre", accent = false, icone = Lucide.Trash2) {
+                if (indo || confirmacao.trim().lowercase().removePrefix("@") != arroba.lowercase()) {
+                    erro = "digite exatamente @$arroba."
+                    return@AboutButton
+                }
+                indo = true; erro = null; presas = emptyList()
+                escopo.launch {
+                    val r = runCatching {
+                        koin.get<AuthApi>().apagarConta(
+                            ApagarContaRequest(confirmacao.trim().removePrefix("@"), senha.ifBlank { null }),
+                        )
+                    }.getOrNull()
+                    indo = false
+                    when {
+                        r?.isSuccessful == true -> {
+                            // Sem tela de despedida: a conta não existe mais, então
+                            // qualquer coisa depois disto seria o app fingindo que
+                            // ainda há alguém logado. O logout é a resposta honesta.
+                            aoSairDaConta()
+                        }
+                        r?.code() == 409 -> {
+                            val corpo = runCatching {
+                                koin.get<Json>().decodeFromString<RecusaDeApagar>(
+                                    r.errorBody()?.string().orEmpty(),
+                                )
+                            }.getOrNull()
+                            presas = corpo?.constelacoes?.map { it.name }.orEmpty()
+                            if (presas.isEmpty()) erro = corpo?.error ?: "não foi possível apagar."
+                        }
+                        r?.code() == 401 -> erro = "senha incorreta."
+                        else -> erro = "não foi possível apagar. verifique a conexão."
+                    }
+                }
+            }
+            AboutButton("cancelar", accent = false) { aberto = false }
+        }
+    }
 }
 
 // Aba Sessões: cada login vivo da conta (um refresh token). Serve pra ver de

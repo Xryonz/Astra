@@ -12,6 +12,7 @@ import {
   hashToken,
 } from '../lib/jwt'
 import { requireAuth } from '../middleware/auth'
+import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -354,6 +355,49 @@ router.post(
     const [u] = await db.select({ onboardedAt: users.onboardedAt })
       .from(users).where(eq(users.id, req.userId!)).limit(1)
     res.json({ data: { onboardedAt: u?.onboardedAt ?? new Date() } })
+  })
+)
+
+// APAGAR CONTA. POST e nao DELETE porque leva corpo (senha + confirmacao), e
+// DELETE com corpo e mal suportado por proxy e cliente HTTP.
+//
+// Duas travas, e as duas de proposito:
+//   1. digitar o proprio @ — protege contra o clique errado;
+//   2. a senha atual, quando existe — protege contra a maquina destravada.
+// Conta de Google nao tem senha pra pedir, entao ali a primeira trava e a unica.
+router.post(
+  '/apagar-conta',
+  requireAuth,
+  authLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { confirmacao, password } = (req.body ?? {}) as { confirmacao?: string; password?: string }
+
+    const [u] = await db.select({
+      username: users.username, passwordHash: users.passwordHash,
+    }).from(users).where(eq(users.id, req.userId!)).limit(1)
+    if (!u) return res.status(404).json({ error: 'Usuário não encontrado' })
+
+    if ((confirmacao ?? '').trim().toLowerCase() !== u.username.toLowerCase()) {
+      return res.status(400).json({ error: 'Digite seu nome de usuário para confirmar.' })
+    }
+    if (u.passwordHash) {
+      const ok = password ? await bcrypt.compare(password, u.passwordHash) : false
+      if (!ok) return res.status(401).json({ error: 'Senha incorreta' })
+    }
+
+    // Dona de constelacao NAO apaga: a recusa vem com a lista do que resolver.
+    // Sem isto o banco recusaria assim mesmo (Server.ownerId nao tem cascade),
+    // mas com um erro de chave estrangeira que nao diz nada a ninguem.
+    const presas = await constelacoesQueImpedem(req.userId!)
+    if (presas.length > 0) {
+      return res.status(409).json({
+        error: 'Você ainda é dono de uma constelação. Transfira ou exclua antes de apagar a conta.',
+        constelacoes: presas,
+      })
+    }
+
+    await virarLapide(req.userId!)
+    res.json({ data: { apagada: true } })
   })
 )
 

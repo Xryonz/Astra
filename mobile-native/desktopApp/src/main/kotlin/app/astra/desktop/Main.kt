@@ -413,6 +413,9 @@ fun main(args: Array<String>) {
         // permite que a tela diga "acordando o servidor" em vez de ficar parada calada
         // durante o minuto que a hospedagem gratuita leva pra religar.
         LaunchedEffect(Unit) { Servidor.vigiar(escopoDaJanela) }
+        // Modo transmissão. O laço nasce sempre, mas a varredura de processos só
+        // roda com o automático ligado — desligado, ele não olha nada.
+        LaunchedEffect(Unit) { ModoTransmissao.vigiar(escopoDaJanela, GlobalContext.get().get()) }
         // Atividade ("o que estou usando"). O laço nasce sempre, mas confere a
         // preferência antes de olhar o sistema — desligado, ele não lê nada.
         LaunchedEffect(Unit) {
@@ -773,6 +776,11 @@ fun main(args: Array<String>) {
                                             },
                                             notify = { title, body ->
                                                 bandeja.avisar(title, body)
+                                                // Em transmissão, o som não toca: ele
+                                                // entra no áudio da gravação igual, e
+                                                // "chegou mensagem agora" é informação
+                                                // sobre você mesmo sem texto nenhum.
+                                                if (ModoTransmissao.ativo.value) return@ShellScreen
                                                 // Som JUNTO do aviso da bandeja, no mesmo
                                                 // funil: quem decide QUANDO avisar é o
                                                 // ShellScreen (só com a janela fora de

@@ -164,6 +164,10 @@ class DesktopPrefs(private val store: SessionStore) {
         // transmite a tela -- o aviso da bandeja aparece POR CIMA de tudo, inclusive
         // do que esta sendo gravado.
         val avisoDiscreto: Boolean = false,
+        // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
+        // automatico e opt-in porque exige varrer a lista de processos.
+        val modoTransmissao: Boolean = false,
+        val modoTransmissaoAuto: Boolean = false,
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,
@@ -259,6 +263,8 @@ class DesktopPrefs(private val store: SessionStore) {
         placaVideo = store.uiPref("placaVideo").orEmpty(),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         avisoDiscreto = store.uiPref("avisoDiscreto") == "1",
+        modoTransmissao = store.uiPref("modoTransmissao") == "1",
+        modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
         motorNovo = store.uiPref("motorNovo") == "1",
@@ -366,6 +372,16 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setDensity(v: DensityPref) {
         store.setUiPref("density", v.key)
         _state.update { it.copy(density = v) }
+    }
+
+    fun setModoTransmissao(v: Boolean) {
+        persist("modoTransmissao", v)
+        _state.update { it.copy(modoTransmissao = v) }
+    }
+
+    fun setModoTransmissaoAuto(v: Boolean) {
+        persist("modoTransmissaoAuto", v)
+        _state.update { it.copy(modoTransmissaoAuto = v) }
     }
 
     fun setAvisoDiscreto(v: Boolean) {

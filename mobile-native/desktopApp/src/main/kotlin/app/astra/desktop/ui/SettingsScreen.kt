@@ -140,6 +140,7 @@ import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.AtividadeDoSistema
 import app.astra.desktop.InicioComWindows
+import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
 import app.astra.desktop.prefs.ModoDeFala
@@ -894,6 +895,9 @@ private fun PrivacySection(
         )
 
         SettingsDivider()
+        ModoTransmissaoBloco(prefState, prefs)
+
+        SettingsDivider()
         Text("O que os outros veem", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
         Spacer(Modifier.height(10.dp))
         ToggleRow(
@@ -930,6 +934,59 @@ private fun PrivacySection(
             "desligado, o Astra nem chega a olhar qual programa está na frente.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
             modifier = Modifier.widthIn(max = 460.dp),
+        )
+    }
+}
+
+// Modo transmissão. Os três efeitos ficam LISTADOS na tela em vez de escondidos
+// atrás de um nome bonito: um interruptor que muda três comportamentos de uma vez
+// precisa dizer quais, senão vira fé.
+@Composable
+private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    val detectado by ModoTransmissao.detectado.collectAsState()
+    val ativo by ModoTransmissao.ativo.collectAsState()
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Modo transmissão", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+        // O aviso de "está valendo agora" importa mais aqui que em qualquer outro
+        // ajuste: com o automático ligado, o modo entra sozinho, e não saber que
+        // ele entrou é o mesmo que não ter o recurso.
+        if (ativo) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (detectado && !p.modoTransmissao) "valendo — programa de transmissão aberto" else "valendo",
+                style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
+            )
+        }
+    }
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "com ele valendo: o aviso da bandeja perde nome e texto, o som de aviso não toca, " +
+            "e o seu e-mail vira máscara na aba Conta.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+    ToggleRow(
+        "Ligar agora", "vale enquanto estiver marcado",
+        p.modoTransmissao, prefs::setModoTransmissao,
+    )
+    ToggleRow(
+        "Ligar sozinho quando eu abrir o OBS",
+        "também vale para Streamlabs, XSplit e Twitch Studio",
+        p.modoTransmissaoAuto, prefs::setModoTransmissaoAuto,
+    )
+    if (p.modoTransmissaoAuto) {
+        Spacer(Modifier.height(10.dp))
+        InfoNote(
+            "O que o Astra olha para detectar",
+            "Para saber que o OBS está aberto é preciso olhar a lista de programas em " +
+                "execução — uma leitura mais ampla que a do “o que estou usando”, que só " +
+                "olha a janela da frente. Por isso isto é uma escolha sua, e não o padrão.\n\n" +
+                "O que se faz com essa lista: comparar o nome do executável com quatro " +
+                "nomes conhecidos de programas de transmissão. Nada além disso é lido — " +
+                "título de janela continua sendo o que o Astra nunca olha.\n\n" +
+                "O resultado é um sim ou não que fica nesta máquina. Nem o servidor vê.",
         )
     }
 }
@@ -2265,7 +2322,12 @@ private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
 
 @Composable
 private fun AccountSection(me: ProfileUserDto?) {
-    ReadRow(Lucide.Mail, me?.email ?: "—")
+    // Em transmissão o e-mail vira máscara. É a única coisa desta aba que não é
+    // pública: o @ todo mundo já vê, a senha nunca aparece. Máscara e não sumiço
+    // porque a linha some do lugar e a aba muda de forma na frente de todo mundo —
+    // e ainda dá pra conferir que é a conta certa pelo começo.
+    val emTransmissao by ModoTransmissao.ativo.collectAsState()
+    ReadRow(Lucide.Mail, me?.email?.let { if (emTransmissao) mascarar(it) else it } ?: "—")
     Spacer(Modifier.height(8.dp))
     ReadRow(Lucide.User, me?.let { "@${it.username}" } ?: "—")
     Spacer(Modifier.height(22.dp))
@@ -3391,6 +3453,15 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     Spacer(Modifier.height(10.dp))
     PlacaDeVideoSection(p, prefs)
+}
+
+// Mantém a primeira letra e o domínio: dá pra reconhecer a conta sem entregar o
+// endereço. Domínio fica porque ele não identifica ninguém sozinho — "@gmail.com"
+// é a metade que não é sua.
+private fun mascarar(email: String): String {
+    val arroba = email.indexOf('@')
+    if (arroba <= 0) return "•••"
+    return email.first() + "•••" + email.substring(arroba)
 }
 
 // Abrir junto com o Windows. Sem preferência local por trás: quem responde é o

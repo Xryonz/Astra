@@ -119,6 +119,7 @@ import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.XpStore
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.shell.ChatTarget
@@ -340,7 +341,7 @@ fun ShellScreen(
                 // Aviso discreto: nem quem escreveu, nem o que escreveu. Continua
                 // dizendo QUE TIPO chegou — dá pra decidir se vale interromper o que
                 // se está fazendo sem que a tela conte nada a quem estiver vendo.
-                if (prefs.state.value.avisoDiscreto) {
+                if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
                     notify("Astra", "sussurro novo")
                     return@collect
                 }
@@ -362,7 +363,7 @@ fun ShellScreen(
                 if (estado.orbitaSilenciada(ev.channelId)) return@collect
                 // O nome do canal também é conteúdo: "#planejamento-demissoes" numa
                 // transmissão diz mais que a mensagem em si.
-                if (prefs.state.value.avisoDiscreto) {
+                if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
                     notify("Astra", "mensagem numa constelação")
                     return@collect
                 }

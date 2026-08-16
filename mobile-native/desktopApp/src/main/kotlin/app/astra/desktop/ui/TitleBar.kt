@@ -57,6 +57,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Minus
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Square
+import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.Target
 import com.composables.icons.lucide.X
 import androidx.compose.foundation.shape.CircleShape
@@ -76,6 +77,7 @@ fun WindowScope.AstraTitleBar(
     onOpenSearch: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenMissions: () -> Unit = {},
+    onOpenDesejos: () -> Unit = {},
     // null = não há atualização pendente (o ponto nem nasce).
     atualizacao: UpdateService? = null,
 ) {
@@ -105,6 +107,10 @@ fun WindowScope.AstraTitleBar(
                 // Missoes por ultimo dos tres: e o menos frequente. Busca e sino sao
                 // reacao a alguma coisa; missao e quando a pessoa QUER olhar.
                 TitleBarButton(Lucide.Target, "Missões", onClick = onOpenMissions)
+                // Desejos por ultimo: e o menos frequente dos quatro. Busca e sino sao
+                // reacao; missao e progresso proprio; desejo e curiosidade sobre o que
+                // os outros pediram — o unico que ninguem abre com pressa.
+                TitleBarButton(Lucide.Sparkles, "Estrela dos desejos", onClick = onOpenDesejos)
             }
             TitleBarButton(Lucide.Minus, "Minimizar") { state.isMinimized = true }
             val maximizada = state.placement == WindowPlacement.Maximized

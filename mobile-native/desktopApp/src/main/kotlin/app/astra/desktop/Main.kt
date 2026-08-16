@@ -559,6 +559,7 @@ fun main(args: Array<String>) {
             // shell (onde vive o vm de navegacao). Estado hasteado aqui no meio.
             var searchOpen by remember { mutableStateOf(false) }
             var notifOpen by remember { mutableStateOf(false) }
+            var desejosOpen by remember { mutableStateOf(false) }
             var missoesOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
 
@@ -603,6 +604,7 @@ fun main(args: Array<String>) {
                         onOpenSearch = { searchOpen = true },
                         onOpenNotifications = { notifOpen = !notifOpen },
                         onOpenMissions = { missoesOpen = !missoesOpen },
+                        onOpenDesejos = { desejosOpen = !desejosOpen },
                         atualizacao = updater,
                     )
                     // Logo abaixo da barra de titulo, acima de tudo: vale no login e no
@@ -803,6 +805,8 @@ fun main(args: Array<String>) {
                                             onCloseSearch = { searchOpen = false },
                                             notifOpen = notifOpen,
                                             onCloseNotif = { notifOpen = false },
+                                            desejosOpen = desejosOpen,
+                                            onCloseDesejos = { desejosOpen = false },
                                             missoesOpen = missoesOpen,
                                             onAbrirMissoes = { missoesOpen = true },
                                             onCloseMissoes = { missoesOpen = false },

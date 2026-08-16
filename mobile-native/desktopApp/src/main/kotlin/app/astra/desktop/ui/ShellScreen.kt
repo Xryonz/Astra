@@ -200,6 +200,8 @@ fun ShellScreen(
     onCloseSearch: () -> Unit = {},
     notifOpen: Boolean = false,
     onCloseNotif: () -> Unit = {},
+    desejosOpen: Boolean = false,
+    onCloseDesejos: () -> Unit = {},
     missoesOpen: Boolean = false,
     // Abrir vem separado do fechar porque o estado mora no Main (a barra de
     // titulo tambem abre). Sem isto o rodape nao teria como acender a tela.
@@ -828,6 +830,16 @@ fun ShellScreen(
                 onOpenServer = { sid -> vm.select(Selection.Server(sid)) },
                 onAfterRead = { notifRefresh++ },
             )
+        }
+
+        // Estrela dos desejos: mesma moldura e mesma entrada do sino. As duas sao
+        // conteudo global que nao pertence a constelacao nenhuma.
+        AnimatedVisibility(
+            visible = desejosOpen,
+            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
+            exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
+        ) {
+            DesejosPanel(onClose = onCloseDesejos)
         }
 
         // Missoes (alvo no titlebar). Nasce do topo-direita como o sino — os dois

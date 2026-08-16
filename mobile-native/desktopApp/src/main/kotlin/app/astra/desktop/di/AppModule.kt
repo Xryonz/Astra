@@ -33,6 +33,7 @@ import app.astra.mobile.core.network.UploadApi
 import app.astra.mobile.core.network.SessionApi
 import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.VoiceApi
+import app.astra.mobile.core.network.WishApi
 import app.astra.shared.AstraShared
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
@@ -115,6 +116,7 @@ val appModule = module {
     single<BadgeApi> { get<Retrofit>(named("authed")).create(BadgeApi::class.java) }
     single<MissionApi> { get<Retrofit>(named("authed")).create(MissionApi::class.java) }
     single<NotificationApi> { get<Retrofit>(named("authed")).create(NotificationApi::class.java) }
+    single<WishApi> { get<Retrofit>(named("authed")).create(WishApi::class.java) }
     single<BotPersonaApi> { get<Retrofit>(named("authed")).create(BotPersonaApi::class.java) }
     single<BotApi> { get<Retrofit>(named("authed")).create(BotApi::class.java) }
     single<BlockApi> { get<Retrofit>(named("authed")).create(BlockApi::class.java) }

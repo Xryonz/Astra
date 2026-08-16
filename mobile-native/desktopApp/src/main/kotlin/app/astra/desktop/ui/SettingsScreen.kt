@@ -3745,6 +3745,26 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 
     SettingsDivider()
+    Text("Acessibilidade", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(10.dp))
+    ToggleRow(
+        "Alto contraste",
+        "clareia texto e bordas — vale na hora, em todas as telas",
+        p.altoContraste, prefs::setAltoContraste,
+    )
+    Spacer(Modifier.height(8.dp))
+    // A honestidade aqui é o recurso. O padrão do app foi ESCURECIDO de propósito
+    // (ver Obsidian.kt), e quem liga isto merece saber que está trocando uma coisa
+    // por outra em vez de "melhorando" um descuido.
+    Text(
+        "o padrão do Astra é mais suave de propósito: contraste alto demais em fundo escuro " +
+            "faz a borda da letra vibrar, e isso cansa em sessão longa à noite. ligue isto se " +
+            "o padrão for difícil de ler — a troca é sua, e legibilidade ganha de conforto.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+
+    SettingsDivider()
     LabeledControl("Tamanho da fonte", "das mensagens no chat") {
         SegmentedRow(FontSizePref.entries.map { it.label to it }, p.fontSize, prefs::setFontSize)
     }

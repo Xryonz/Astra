@@ -66,9 +66,20 @@ object Obsidian {
     //
     // Se algum dia isto parecer apagado demais, o caminho e subir ESTE numero, e
     // nao mexer no fundo: a rampa de elevacao inteira e calibrada a partir do void.
-    val text1 = Color(0xFFE4E4EB)
-    val text2 = Color(0xFFC0C0C6)
-    val text3 = Color(0xFF8C8C94)
+    // VIRARAM `var` POR CAUSA DO ALTO CONTRASTE, e o parágrafo acima continua
+    // valendo inteiro: ele descreve o PADRÃO, que não mudou. A halação é real e é
+    // por isso que ninguém é empurrado pra cima dela.
+    //
+    // Mas "o padrão é calibrado pra sessão longa à noite" e "existe gente que não
+    // enxerga esse padrão" são duas verdades ao mesmo tempo, e a segunda não tem
+    // escapatória sem isto. Quem liga o alto contraste está dizendo que troca o
+    // conforto pela legibilidade — e essa troca é dela, não minha.
+    var text1 by mutableStateOf(TEXT1_PADRAO)
+        private set
+    var text2 by mutableStateOf(TEXT2_PADRAO)
+        private set
+    var text3 by mutableStateOf(TEXT3_PADRAO)
+        private set
     val danger = Color(0xFFE07A7A)
     val success = Color(0xFF6FCFA0)
     val warning = Color(0xFFE8B86D)
@@ -88,10 +99,38 @@ object Obsidian {
         active = lift(bg.raisedC, 0.085f)
         accent = a
         accentDim = a.copy(alpha = 0.2f)
-        borderDim = clarear(bg.raisedC, 1.55f, 0.115f)
-        borderMid = clarear(bg.raisedC, 1.85f, 0.17f)
+        ultimoRaised = bg.raisedC
+        // As bordas saem daqui E do contraste, então quem manda nelas é uma função
+        // só. Sem isto, trocar de tema com alto contraste ligado devolveria as
+        // bordas fracas em silêncio — e ninguém liga o alto contraste de novo pra
+        // testar se ele sobreviveu à troca de cor.
+        aplicarContraste(altoContraste)
     }
+
+    // ALTO CONTRASTE. Sobe texto e borda; NÃO mexe no fundo, e isso é regra: a
+    // rampa de elevação inteira (void → active) é calibrada a partir do void, e
+    // clarear o fundo pra ganhar contraste destruiria a hierarquia que ela existe
+    // pra criar — o remédio apagaria a estrutura da tela.
+    //
+    // text3 é o que mais sobe. Ele é o terciário, o primeiro a sumir pra quem tem
+    // baixa visão, e no padrão ele vive perto do piso de propósito.
+    fun aplicarContraste(alto: Boolean) {
+        altoContraste = alto
+        text1 = if (alto) Color(0xFFF7F7FA) else TEXT1_PADRAO
+        text2 = if (alto) Color(0xFFE0E0E6) else TEXT2_PADRAO
+        text3 = if (alto) Color(0xFFB8B8C0) else TEXT3_PADRAO
+        val r = ultimoRaised
+        borderDim = if (alto) clarear(r, 2.30f, 0.235f) else clarear(r, 1.55f, 0.115f)
+        borderMid = if (alto) clarear(r, 2.70f, 0.310f) else clarear(r, 1.85f, 0.17f)
+    }
+
+    private var altoContraste = false
+    private var ultimoRaised = Color(0xFF0F0F24)
 }
+
+private val TEXT1_PADRAO = Color(0xFFE4E4EB)
+private val TEXT2_PADRAO = Color(0xFFC0C0C6)
+private val TEXT3_PADRAO = Color(0xFF8C8C94)
 
 private fun lift(c: Color, amount: Float): Color = Color(
     red = (c.red + amount).coerceAtMost(1f),

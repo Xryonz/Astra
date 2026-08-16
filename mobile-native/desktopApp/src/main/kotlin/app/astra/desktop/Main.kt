@@ -395,7 +395,11 @@ fun main(args: Array<String>) {
         // estrelas orbitando) sai no accent que o usuário escolheu.
         val updater = remember { GlobalContext.get().get<UpdateService>() }
         val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
-        LaunchedEffect(Unit) { Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId) }
+        LaunchedEffect(Unit) {
+            // Contraste ANTES do tema: o apply() re-deriva as bordas a partir dele.
+            Obsidian.aplicarContraste(bootPrefs.altoContraste)
+            Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId)
+        }
         // Nascendo escondido, o gate NÃO aparece: ele é uma janela alwaysOnTop, e
         // pular na frente de quem acabou de ligar o computador é exatamente o que
         // "abrir minimizado" pediu para não acontecer. Não se perde a atualização —
@@ -563,6 +567,7 @@ fun main(args: Array<String>) {
             val prefs = remember { koin.get<DesktopPrefs>() }
             val prefState by prefs.state.collectAsState()
             LaunchedEffect(prefState.accentId, prefState.bgId) {
+                Obsidian.aplicarContraste(prefState.altoContraste)
                 Obsidian.apply(prefState.accentId, prefState.bgId)
             }
 

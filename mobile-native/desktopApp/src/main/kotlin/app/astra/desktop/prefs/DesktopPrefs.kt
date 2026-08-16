@@ -139,6 +139,9 @@ class DesktopPrefs(private val store: SessionStore) {
         // false = minimiza pra bandeja (comportamento antigo). Ligado, tambem some
         // o icone da bandeja — zero presenca em segundo plano ao fechar.
         val exitOnClose: Boolean = false,
+        // Acessibilidade: sobe texto e borda. Opt-in — o padrao e calibrado pra
+        // sessao longa a noite (ver Obsidian.kt), e ninguem e empurrado pra ca.
+        val altoContraste: Boolean = false,
         // --- Aparencia ---
         val accentId: String = "white",
         val bgId: String = "void",
@@ -256,6 +259,7 @@ class DesktopPrefs(private val store: SessionStore) {
         uiFps = UiFps.from(store.uiPref("uiFps")),
         windowTransparent = store.uiPref("windowTransparent") != "0",
         exitOnClose = store.uiPref("exitOnClose") == "1",
+        altoContraste = store.uiPref("altoContraste") == "1",
         accentId = store.uiPref("accentId") ?: "white",
         bgId = store.uiPref("bgId") ?: "void",
         fontSize = FontSizePref.from(store.uiPref("fontSize")),
@@ -331,6 +335,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setWindowTransparent(v: Boolean) {
         persist("windowTransparent", v)
         _state.update { it.copy(windowTransparent = v) }
+    }
+
+    fun setAltoContraste(v: Boolean) {
+        persist("altoContraste", v)
+        _state.update { it.copy(altoContraste = v) }
     }
 
     fun setExitOnClose(v: Boolean) {

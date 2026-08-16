@@ -7,6 +7,10 @@ import app.astra.mobile.core.network.UserApi
 import app.astra.mobile.core.network.dto.ApiError
 import app.astra.mobile.core.network.dto.LoginRequest
 import app.astra.mobile.core.network.dto.RegisterRequest
+import app.astra.mobile.core.network.dto.LogoutRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import java.io.IOException
 
@@ -108,14 +112,42 @@ class AuthRepository(
         Result.failure(Exception(e.message ?: "Não foi possível entrar com Google"))
     }
 
-    // Limpa a sessão PRIMEIRO — e a parte critica: apaga o session.bin do disco,
-    // senao reabrir o app loga de novo na conta que "saiu". So depois desconecta o
-    // socket, e defensivo: se disconnect() estourasse, não pode levar o clear()
-    // junto (era esse o bug — a sessão sobrevivia ao logout). O socket precisa cair
-    // mesmo: e single do Koin, e sem desconectar o connect() da próxima conta ve
-    // connected()==true e o servidor segue te tratando como a conta anterior.
-    fun logout() {
-        store.clear()
+    // AVISAR O SERVIDOR FAZ PARTE DE SAIR.
+    //
+    // Antes isto só esquecia o token deste lado. O refresh token seguia VÁLIDO no
+    // servidor até expirar sozinho — quem tivesse uma cópia (session.bin de um PC
+    // emprestado, backup, máquina roubada) continuava emitindo access token novo
+    // depois de você ter saído. E a sua sessão seguia listada na aba Sessões,
+    // dizendo que a conta estava aberta num lugar de onde você já tinha saído.
+    //
+    // A ORDEM TEM UMA ARMADILHA, e ela custou pensar: o interceptor lê o access
+    // token DO PRÓPRIO `store`. Limpar antes de avisar faz a chamada sair sem
+    // credencial e voltar 401 — o servidor nunca revoga nada. Mas limpar só depois
+    // reabre um bug que já mordeu este app: se o processo morrer no meio, o
+    // session.bin sobrevive e reabrir o Astra entra de novo na conta que saiu.
+    //
+    // Então: avisa primeiro, limpa em `finally`, e a espera tem TETO. Três segundos
+    // é o bastante pra um POST e curto o bastante pra ninguém ficar com o disco
+    // sujo por causa de uma rede ruim. Estourou o teto ou deu erro, limpa do mesmo
+    // jeito — o pior caso volta a ser o de antes (token expira sozinho), e o caso
+    // bom passa a revogar na hora.
+    //
+    // O socket cai ANTES de tudo: ele é single do Koin, e sem desconectar o
+    // connect() da próxima conta vê connected()==true e o servidor segue te
+    // tratando como a conta anterior.
+    fun logout(escopo: CoroutineScope) {
         runCatching { socket.disconnect() }
+        val refresh = store.load()?.refreshToken
+        if (refresh.isNullOrBlank()) {
+            store.clear()
+            return
+        }
+        escopo.launch {
+            try {
+                withTimeoutOrNull(3_000) { runCatching { api.logout(LogoutRequest(refresh)) } }
+            } finally {
+                store.clear()
+            }
+        }
     }
 }

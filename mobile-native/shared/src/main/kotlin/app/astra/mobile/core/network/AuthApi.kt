@@ -3,6 +3,7 @@ package app.astra.mobile.core.network
 import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.ApagarContaRequest
 import app.astra.mobile.core.network.dto.ContaApagadaDto
+import app.astra.mobile.core.network.dto.LogoutRequest
 import app.astra.mobile.core.network.dto.AuthData
 import app.astra.mobile.core.network.dto.LoginRequest
 import app.astra.mobile.core.network.dto.RegisterRequest
@@ -30,6 +31,12 @@ interface AuthApi {
     // Reenvia o codigo (backend auto-verifica se o mailer estiver desligado).
     @POST("api/auth/email/resend")
     suspend fun resendEmailCode()
+
+    // Encerrar a sessao NO SERVIDOR: revoga o refresh token e poe o access token
+    // atual na lista negra. Sem isto, "sair" so esquece o token do lado de ca --
+    // ele continua valido ate expirar sozinho.
+    @POST("api/auth/logout")
+    suspend fun logout(@Body body: LogoutRequest)
 
     // Apagar a conta. `Response` cru e nao envelope: o 409 traz a LISTA de
     // constelacoes que impedem, e essa lista precisa chegar na tela.

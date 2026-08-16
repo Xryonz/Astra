@@ -24,3 +24,9 @@ data class RecusaDeApagar(
 
 @Serializable
 data class ConstelacaoPresaDto(val id: String, val name: String)
+
+// O refresh token vai no CORPO porque o cabecalho Authorization carrega o access
+// token. Sao dois segredos diferentes e o servidor precisa dos dois: um pra saber
+// quem esta pedindo, outro pra saber qual sessao revogar.
+@Serializable
+data class LogoutRequest(val refreshToken: String)

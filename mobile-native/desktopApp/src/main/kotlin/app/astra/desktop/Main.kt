@@ -798,7 +798,11 @@ fun main(args: Array<String>) {
                                                 tocarAvisoDeMensagem()
                                             },
                                             onLogout = {
-                                                authRepo.logout()
+                                                // O escopo e o da JANELA, e nao o do shell: o
+                                                // shell sai da composicao no instante em que a
+                                                // sessao vira nula, e um escopo morto
+                                                // cancelaria o aviso de logout antes de ele sair.
+                                                authRepo.logout(escopoDaJanela)
                                                 session = null
                                             },
                                             searchOpen = searchOpen,

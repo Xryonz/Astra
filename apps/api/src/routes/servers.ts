@@ -157,11 +157,30 @@ serversRouter.post(
         name, iconUrl, isGroup, ownerId: req.userId!,
       }).returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
-      await tx.insert(channels).values({ name: 'geral', type: 'TEXT', serverId: s.id, position: 0 })
+      // COM O QUE UMA CONSTELACAO NASCE.
+      //
+      // Nascia so com "geral", e faltava o principal: NAO HAVIA ONDE FALAR. Num app
+      // em que a voz e metade do produto, quem criava e chamava os amigos descobria
+      // que precisava criar canal antes de conseguir uma call — o primeiro ato do
+      // grupo esbarrava numa tela de configuracao.
+      //
+      // "anuncios" vem junto porque ele so tem valor se ja existir quando a
+      // constelacao cresce: criado depois, ninguem migra o habito pra ele.
+      //
+      // Os tres numa insercao so: sao a MESMA decisao ("o que existe no dia zero"),
+      // e tres chamadas separadas convidariam alguem a mexer numa sem as outras.
+      await tx.insert(channels).values([
+        { name: 'geral',    type: 'TEXT',  serverId: s.id, position: 0 },
+        { name: 'anuncios', type: 'TEXT',  serverId: s.id, position: 1 },
+        // Nome com espaco e maiuscula de proposito: sala de voz nao e endereco de
+        // texto (nao se digita "#sala-de-estar" pra mencionar), entao ela nao herda
+        // a convencao de minuscula-com-hifen das orbitas de texto.
+        { name: 'Sala de estar', type: 'VOICE', serverId: s.id, position: 2 },
+      ])
       return s
     })
 
-    // Sem categoria default: a constelacao nasce so com o canal "geral" solto
+    // Sem categoria default: a constelacao nasce com as tres orbitas SOLTAS
     // (decisao do dono). Categorias ("tabelas") sao criadas depois, na mao.
 
     // A bot entra junto, com o cargo BOT. Fora da transacao de proposito: se algo

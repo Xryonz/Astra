@@ -10,10 +10,8 @@ import { applySlashCommand } from '@/lib/slashCommands'
 import { compressImages } from '@/lib/imageCompress'
 import { hapticLight } from '@/lib/haptics'
 import { enqueueOutbox } from '@/lib/outbox'
-import { parseReminderCommand } from '@/lib/reminderCommand'
 import { useAuthStore } from '@/store/authStore'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import type { MessageWithAuthor, Attachment } from '@astra/types'
 
@@ -226,20 +224,6 @@ export default function MessageInput({
       setContent('')
       stopTyping()
       try { getSocket().emit('bot_command', { channelId, serverId, content: trimmed }) } catch {}
-      return
-    }
-
-    const rem = parseReminderCommand(trimmed)
-    if (rem) {
-      setContent('')
-      stopTyping()
-      try {
-        await api.post('/api/reminders', { content: rem.content, durationMs: rem.durationMs, channelId })
-        toast.success(t('chat.composer.reminderSet', { content: rem.content }))
-      } catch (e: any) {
-        console.error('[lembre]', e?.response?.data ?? e?.message)
-        toast.error(e?.response?.data?.error ?? t('chat.composer.reminderFail'))
-      }
       return
     }
 

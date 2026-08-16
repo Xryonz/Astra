@@ -58,13 +58,11 @@ import { serverBadgesRouter, userBadgesRouter } from './routes/badges'
 import { healthRouter }                  from './routes/health'
 import notificationsRouter               from './routes/notifications'
 import botCommandsRouter                 from './routes/botCommands'
-import bookmarksRouter                    from './routes/bookmarks'
-import remindersRouter                    from './routes/reminders'
-import translateRouter                    from './routes/translate'
 import friendsRouter                      from './routes/friends'
 import blocksRouter                       from './routes/blocks'
 import voiceRouter                        from './routes/voice'
 import wishesRouter                       from './routes/wishes'
+import translateRouter                    from './routes/translate'
 import xpRouter                           from './routes/xp'
 import missionsRouter                     from './routes/missions'
 import sessionsRouter                     from './routes/sessions'
@@ -182,8 +180,14 @@ app.use('/api/servers', serverBadgesRouter)
 app.use('/api/users',   userBadgesRouter)
 app.use('/api',         notificationsRouter)
 app.use('/api/bot',     botCommandsRouter)
-app.use('/api/bookmarks', bookmarksRouter)
-app.use('/api/reminders', remindersRouter)
+// Marcadores e as rotas HTTP de lembrete SAIRAM (2026-08-16, decisao do dono): nao
+// tinham porta no desktop, e a do web foi removida junto. O WORKER de lembrete
+// continua (lib/reminders.ts, importado acima) porque a Sparkle marca lembrete por
+// comando e a entrega funciona -- isso nao era superficie morta.
+//
+// TRADUCAO FICOU. Ela parecia morta olhando desktop e web, mas o :app ANDROID usa em
+// producao (Translator -> ChannelChatViewModel e DmChatViewModel). Auditoria de
+// superficie morta tem de olhar os TRES clientes, nao dois.
 app.use('/api/translate', translateRouter)
 app.use('/api/friends',   friendsRouter)
 app.use('/api/blocks',    blocksRouter)

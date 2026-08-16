@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Smile, Reply, Pencil, Pin, PinOff, Trash2, Copy, Bookmark, BookmarkCheck } from 'lucide-react'
+import { Smile, Reply, Pencil, Pin, PinOff, Trash2, Copy } from 'lucide-react'
 import { hapticLight, hapticMedium } from '@/lib/haptics'
 
 interface MessageMobileActionsProps {
@@ -9,21 +9,19 @@ interface MessageMobileActionsProps {
   onClose:     () => void
   isMine:      boolean
   isPinned:    boolean
-  isBookmarked?: boolean
   authorName:  string
   contentPreview: string
   onPickEmoji: () => void
   onReply:     () => void
   onEdit?:     () => void
   onTogglePin: () => void
-  onToggleBookmark?: () => void
   onDelete?:   () => void
   onCopy?:     () => void
 }
 
 export default function MessageMobileActions({
-  open, onClose, isMine, isPinned, isBookmarked, authorName, contentPreview,
-  onPickEmoji, onReply, onEdit, onTogglePin, onToggleBookmark, onDelete, onCopy,
+  open, onClose, isMine, isPinned, authorName, contentPreview,
+  onPickEmoji, onReply, onEdit, onTogglePin, onDelete, onCopy,
 }: MessageMobileActionsProps) {
   const { t } = useTranslation()
   const QUICK = ['👍','❤️','😂','😮','😢','🔥']
@@ -65,13 +63,6 @@ export default function MessageMobileActions({
             label={isPinned ? t('msgActions.unpin') : t('msgActions.pin')}
             onClick={wrap(onTogglePin)}
           />
-          {onToggleBookmark && (
-            <ActionRow
-              icon={isBookmarked ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
-              label={isBookmarked ? t('msgActions.removeSaved') : t('msgActions.save')}
-              onClick={wrap(onToggleBookmark)}
-            />
-          )}
           {onCopy && <ActionRow icon={<Copy className="size-4" />} label={t('msgActions.copyText')} onClick={wrap(onCopy)} />}
           {isMine && onEdit   && <ActionRow icon={<Pencil className="size-4" />} label={t('msgActions.edit')} onClick={wrap(onEdit)} />}
           {isMine && onDelete && <ActionRow icon={<Trash2 className="size-4" />} label={t('msgActions.delete')} onClick={wrap(onDelete)} danger />}

@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { ptBR, enUS } from 'date-fns/locale'
-import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, Bookmark, BookmarkCheck, Copy } from 'lucide-react'
+import { Smile, Pencil, Trash2, Pin, PinOff, Reply, CornerDownRight, Copy } from 'lucide-react'
 import { EditorialContextMenu, type EditorialMenuItem } from '@/components/EditorialContextMenu'
 import { ProfileHoverCard } from '@/components/ProfileHoverCard'
 import { toast } from '@/components/ui/sonner'
@@ -20,7 +20,6 @@ import Lightbox from '@/components/Lightbox'
 const FullEmojiPicker = lazy(() => import('@/components/chat/FullEmojiPicker'))
 import PollCard from '@/components/chat/PollCard'
 import EditHistoryPopover from '@/components/chat/EditHistoryPopover'
-import { useIsBookmarked, useToggleBookmark } from '@/hooks/useBookmarks'
 import { cn } from '@/lib/utils'
 import { FONT_FAMILY, type DisplayFont } from '@/components/profile/profileFonts'
 import type { MessageWithAuthor } from '@astra/types'
@@ -411,8 +410,6 @@ function MessageItemImpl({
   const { t, i18n }  = useTranslation()
   const currentUser = useAuthStore((s) => s.user)
   const qc           = useQueryClient()
-  const isBookmarked  = useIsBookmarked(message.id, 'message')
-  const toggleBookmark = useToggleBookmark()
   const emojiMap       = useEmojiMap()
 
   const expiresAt = (message as any).expiresAt as string | null | undefined
@@ -601,12 +598,6 @@ function MessageItemImpl({
       label: (message as any).pinned ? t('msgActions.unpinMsg') : t('msgActions.pinMsg'),
       onSelect: () => handleTogglePin(!(message as any).pinned),
     })
-    ctxItems.push({
-      kind: 'item',
-      icon: isBookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />,
-      label: isBookmarked ? t('msgActions.removeBookmark') : t('msgActions.saveBookmark'),
-      onSelect: () => toggleBookmark.mutate({ targetId: message.id, kind: 'message', action: isBookmarked ? 'delete' : 'create' }),
-    })
     if (isMine) {
       ctxItems.push({ kind: 'separator' })
       ctxItems.push({ kind: 'item', icon: <Pencil className="size-3.5" />, label: t('msgActions.edit'), onSelect: () => setShowEdit(true) })
@@ -646,13 +637,11 @@ function MessageItemImpl({
           <MessageToolbar
             isMine={isMine}
             isPinned={!!(message as any).pinned}
-            isBookmarked={isBookmarked}
             onPickEmoji={() => setShowEmoji((v) => !v)}
             onReply={onReply ? () => onReply(message) : undefined}
             onEdit={isMine ? () => setShowEdit(true) : undefined}
             onDelete={isMine ? () => setShowDeleteConfirm(true) : undefined}
             onTogglePin={() => handleTogglePin(!(message as any).pinned)}
-            onToggleBookmark={() => toggleBookmark.mutate({ targetId: message.id, kind: 'message', action: isBookmarked ? 'delete' : 'create' })}
           />
         )}
 
@@ -792,14 +781,12 @@ function MessageItemImpl({
         onClose={() => setShowMobileActions(false)}
         isMine={isMine}
         isPinned={!!(message as any).pinned}
-        isBookmarked={isBookmarked}
         authorName={author.displayName}
         contentPreview={content}
         onPickEmoji={() => setShowEmoji(true)}
         onReply={() => onReply?.(message)}
         onEdit={isMine ? () => setShowEdit(true) : undefined}
         onTogglePin={() => handleTogglePin(!(message as any).pinned)}
-        onToggleBookmark={() => toggleBookmark.mutate({ targetId: message.id, kind: 'message', action: isBookmarked ? 'delete' : 'create' })}
         onDelete={isMine ? () => setShowDeleteConfirm(true) : undefined}
         onCopy={() => navigator.clipboard.writeText(content).catch(() => {})}
       />

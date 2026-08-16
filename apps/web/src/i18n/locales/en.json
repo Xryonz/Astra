@@ -77,7 +77,6 @@
       "search": "Search (Ctrl+K)",
       "membersThreads": "Members and threads",
       "pinned": "Pinned messages",
-      "saved": "Saved messages",
       "moreActions": "More actions"
     },
     "empty": {
@@ -116,8 +115,6 @@
       "holdToRecord": "Hold to record",
       "send": "Send",
       "sendEnter": "Send (Enter)",
-      "reminderSet": "Reminder set: \"{{content}}\"",
-      "reminderFail": "Failed to create reminder",
       "maxAttachments": "Max {{n}} attachments per message",
       "fileTooLarge": "{{name}} larger than 25MB",
       "uploadFail": "Upload failed",
@@ -247,10 +244,6 @@
     "thread": "Drop a comet (thread)",
     "threadShort": "Drop a comet",
     "createThread": "Create thread",
-    "save": "Save",
-    "removeSaved": "Remove from saved",
-    "saveBookmark": "Save bookmark",
-    "removeBookmark": "Remove bookmark",
     "pin": "Pin",
     "unpin": "Unpin",
     "pinMsg": "Pin message",

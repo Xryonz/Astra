@@ -9,7 +9,7 @@ import MobileNotificationsSheet from '@/components/notifications/MobileNotificat
 import MobileAvatarTrigger from '@/components/layout/MobileAvatarTrigger'
 import { PageTransition } from '@/components/anim/PageTransition'
 import { AnimatePresence } from 'motion/react'
-import { Pin, Search, Users as UsersIcon, Bookmark, MoreHorizontal } from 'lucide-react'
+import { Pin, Search, Users as UsersIcon, MoreHorizontal } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
@@ -39,7 +39,6 @@ const ServerSettingsPage  = lazy(() => import('@/pages/ServerSettingsPage'))
 const CommandPalette      = lazy(() => import('@/components/CommandPalette'))
 const PinnedMessagesSheet = lazy(() => import('@/components/chat/PinnedMessagesSheet'))
 const RightPanel          = lazy(() => import('@/components/chat/RightPanel'))
-const BookmarksSheet      = lazy(() => import('@/components/bookmarks/BookmarksSheet'))
 const FriendsPage         = lazy(() => import('@/pages/FriendsPage'))
 const DiscoverPage        = lazy(() => import('@/pages/DiscoverPage'))
 const CosmicOnboarding    = lazy(() => import('@/components/astra/CosmicOnboarding').then((m) => ({ default: m.CosmicOnboarding })))
@@ -56,7 +55,6 @@ function ChannelView() {
   const openCommandPalette = useUIStore((s) => s.openCommandPalette)
   const openRightPanel     = useUIStore((s) => s.openRightPanel)
   const [pinnedOpen, setPinnedOpen]     = useState(false)
-  const [bookmarksOpen, setBookmarksOpen] = useState(false)
   const [replyingTo, setReplyingTo]     = useState<MessageWithAuthor | null>(null)
 
   useEffect(() => { setReplyingTo(null) }, [activeChannel?.id])
@@ -168,14 +166,6 @@ function ChannelView() {
                 >
                   <Pin className="size-4" />
                 </button>
-                <button
-                  onClick={() => setBookmarksOpen(true)}
-                  className="size-8 hidden md:flex items-center justify-center text-(--text-3) hover:text-(--accent) transition-colors cursor-pointer"
-                  aria-label={t('chat.header.saved')}
-                  title={t('chat.header.saved')}
-                >
-                  <Bookmark className="size-4" />
-                </button>
                 <ChannelNotifButton channelId={activeChannel.id} />
 
                 {}
@@ -195,9 +185,6 @@ function ChannelView() {
                     <DropdownMenuItem onSelect={() => setPinnedOpen(true)}>
                       <Pin className="size-3.5" /> {t('chat.header.pinned')}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setBookmarksOpen(true)}>
-                      <Bookmark className="size-3.5" /> {t('chat.header.saved')}
-                    </DropdownMenuItem>
                     {}
                     <ChannelNotifMenuItems channelId={activeChannel.id} />
                   </DropdownMenuContent>
@@ -215,12 +202,6 @@ function ChannelView() {
                   open={pinnedOpen}
                   onClose={() => setPinnedOpen(false)}
                 />
-              </Suspense>
-            )}
-
-            {bookmarksOpen && (
-              <Suspense fallback={null}>
-                <BookmarksSheet open={bookmarksOpen} onClose={() => setBookmarksOpen(false)} />
               </Suspense>
             )}
 

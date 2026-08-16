@@ -1,7 +1,7 @@
 
 import { useTranslation } from 'react-i18next'
 import {
-  Smile, Reply, Bookmark, BookmarkCheck,
+  Smile, Reply,
   Pin, PinOff, Pencil, Trash2,
 } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
@@ -10,29 +10,22 @@ import { cn } from '@/lib/utils'
 interface Props {
   isMine:            boolean
   isPinned:          boolean
-  isBookmarked?:     boolean
   onPickEmoji:       () => void
   onReply?:          () => void
   onEdit?:           () => void
   onDelete?:         () => void
   onTogglePin?:      () => void
-  onToggleBookmark?: () => void
 }
 
 export function MessageToolbar({
-  isMine, isPinned, isBookmarked, onPickEmoji, onReply,
-  onEdit, onDelete, onTogglePin, onToggleBookmark,
+  isMine, isPinned, onPickEmoji, onReply,
+  onEdit, onDelete, onTogglePin,
 }: Props) {
   const { t } = useTranslation()
   return (
     <div className="absolute -top-3 right-3 z-10 flex gap-0 px-0 py-0 bg-(--overlay) border border-(--border-mid) shadow-3 animate-in fade-in-0 zoom-in-95 duration-150">
       <ToolBtn title={t('msgActions.react')} onClick={onPickEmoji}><Smile className="size-4" /></ToolBtn>
       {onReply && <ToolBtn title={t('msgActions.reply')} onClick={onReply}><Reply className="size-3.5" /></ToolBtn>}
-      {onToggleBookmark && (
-        <ToolBtn title={isBookmarked ? t('msgActions.removeSaved') : t('msgActions.save')} onClick={onToggleBookmark}>
-          {isBookmarked ? <BookmarkCheck className="size-3.5 text-(--accent)" /> : <Bookmark className="size-3.5" />}
-        </ToolBtn>
-      )}
       {onTogglePin && (
         <ToolBtn title={isPinned ? t('msgActions.unpin') : t('msgActions.pin')} onClick={onTogglePin}>
           {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}

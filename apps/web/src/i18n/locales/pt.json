@@ -77,7 +77,6 @@
       "search": "Buscar (Ctrl+K)",
       "membersThreads": "Membros e threads",
       "pinned": "Mensagens fixadas",
-      "saved": "Mensagens salvas",
       "moreActions": "Mais ações"
     },
     "empty": {
@@ -116,8 +115,6 @@
       "holdToRecord": "Segure para gravar",
       "send": "Enviar",
       "sendEnter": "Enviar (Enter)",
-      "reminderSet": "Lembrete agendado: \"{{content}}\"",
-      "reminderFail": "Falha ao criar lembrete",
       "maxAttachments": "Máximo {{n}} anexos por mensagem",
       "fileTooLarge": "{{name}} maior que 25MB",
       "uploadFail": "Falha no upload",
@@ -247,10 +244,6 @@
     "thread": "Soltar cometa (thread)",
     "threadShort": "Soltar cometa",
     "createThread": "Criar thread",
-    "save": "Salvar",
-    "removeSaved": "Remover dos salvos",
-    "saveBookmark": "Salvar bookmark",
-    "removeBookmark": "Remover bookmark",
     "pin": "Fixar",
     "unpin": "Desafixar",
     "pinMsg": "Fixar mensagem",

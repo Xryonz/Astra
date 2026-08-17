@@ -3984,6 +3984,21 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     SettingsDivider()
     TituloExplicavel(
+        "Companheiro",
+        "Um gato desenhado a traço que caminha por cima da interface. Ele passa a " +
+            "maior parte do tempo sentado e só anda em trechos curtos: movimento " +
+            "contínuo no canto do olho ensina o olho a ignorar o resto da tela. " +
+            "Levanta a cabeça quando chega mensagem, e some junto se você reduzir " +
+            "movimento.",
+    )
+    ToggleRow(
+        "Gato na tela",
+        "anda pela interface e reage a mensagem nova",
+        p.petLigado, prefs::setPetLigado,
+    )
+
+    SettingsDivider()
+    TituloExplicavel(
         "Movimento",
         "Congela a aurora e desliga as cascatas de entrada e os pulsos. Vale em todas " +
             "as telas, na hora. O Astra também obedece ao ajuste de movimento do próprio " +

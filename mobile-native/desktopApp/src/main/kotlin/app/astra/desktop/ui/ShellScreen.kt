@@ -350,6 +350,10 @@ fun ShellScreen(
             if (!silencioso && prefs.state.value.somDeAviso && !ModoTransmissao.ativo.value) {
                 Sfx.aviso()
             }
+            // O gato levanta a cabeça junto. Mesmo evento, mesma condição de
+            // silêncio: em não-perturbe ele também não se mexe — reagir seria
+            // chamar atenção justamente quando a pessoa pediu que não chamassem.
+            if (!silencioso) Pet.mensagemNova()
         }
     }
 
@@ -893,6 +897,11 @@ fun ShellScreen(
         ) {
             MissoesOverlay(me = state.me, onClose = onCloseMissoes)
         }
+
+        // O GATO. Última camada do shell de propósito — ele anda por cima de tudo,
+        // que é o que "livre pela tela toda" quer dizer. Não intercepta ponteiro
+        // (ver GatoDoAstra.kt), então estar por cima não custa um clique sequer.
+        GatoDoAstra(prefs.state.value.petLigado)
 
         // Convite aberto pela faixa do banner. Mora AQUI, no Box de fora, e nao
         // junto do Sidebar: um Popup escrito dentro daquele Row conta como filho

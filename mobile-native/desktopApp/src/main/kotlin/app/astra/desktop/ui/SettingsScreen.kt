@@ -119,6 +119,7 @@ import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.Upload
 import com.composables.icons.lucide.Key
+import com.composables.icons.lucide.Keyboard
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mail
@@ -206,6 +207,7 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
+    SHORTCUTS("Atalhos", "teclas do app", Lucide.Keyboard),
     PERMISSIONS("Permissoes", "o que o Windows libera", Lucide.ShieldCheck),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
     // SO PRO DONO DO ASTRA. A rota /api/bots responde 404 pra todo mundo mais, e a
@@ -491,6 +493,7 @@ fun SettingsScreen(
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
+                        SettingsTab.SHORTCUTS -> AtalhosSection(prefState, prefs)
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
                         SettingsTab.DIAGNOSTICS -> DiagnosticsSection()
@@ -570,7 +573,9 @@ fun SettingsScreen(
 // divergiu, e foi assim que o rotulo "previa" apareceu sozinho nessas telas.
 private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     SettingsTab.SESSIONS, SettingsTab.PERMISSIONS,
-    SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS -> false
+    SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS,
+    // Atalhos é a própria lista: as teclas já se mostram do jeito que ficam.
+    SettingsTab.SHORTCUTS -> false
     else -> true
 }
 
@@ -602,8 +607,12 @@ private fun SettingsPreview(
         // uma regra que e desta tela.
         Box {
             when (tab) {
-                // Conta = teu perfil SALVO; Perfil = o rascunho ao vivo (cada tecla).
-                SettingsTab.ACCOUNT -> ProfileCardPreview(me, null)
+                // Conta mostrava um SEGUNDO cartão de perfil, idêntico ao da aba
+                // Perfil e sem nada pra editar nele. Duas cópias da mesma imagem em
+                // duas abas vizinhas não ensinavam nada — o cartão vive na aba em
+                // que ele se edita. No lugar entra o estado da conta, que é o
+                // assunto desta aba e não tinha onde ser visto.
+                SettingsTab.ACCOUNT -> PainelDeSeguranca(me)
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
                 SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff, p.avisoDiscreto)
                 SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
@@ -614,8 +623,9 @@ private fun SettingsPreview(
                 // Bots também não: lá o cartão de cada irmã JÁ é a prévia, e é nele
                 // que se arrasta o enquadramento — uma segunda cópia à direita
                 // mostraria a mesma coisa longe do controle que a muda.
+                // Atalhos igual: a lista de teclas já é a própria demonstração.
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
-                SettingsTab.PERMISSIONS, SettingsTab.BOTS -> Unit
+                SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS -> Unit
             }
             // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
             // se trocam clicando neles — e engolir o ponteiro mataria exatamente a
@@ -761,11 +771,6 @@ private fun ProfileCardPreview(
                 acoesDoBanner = acoes?.let { { it.banner() } },
             )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "é assim que os outros te veem — clique para ver em tamanho real",
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
-        )
     }
 
     ampliada?.let { qual ->
@@ -1551,18 +1556,19 @@ private fun ProfileSection(
     // Um retrato no formulário seria uma segunda cópia competindo com a primeira, e
     // uma fileira de ícones ao lado dele obrigaria a ler três rótulos pra descobrir
     // qual mexe na foto. Aqui fica só a frase que diz onde clicar.
-    Text(
-        if (busyAvatar || busyBanner) "lendo a imagem…"
-        else "a foto e o banner se editam no cartão ao lado: passe o mouse por cima e clique.",
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
-    Spacer(Modifier.height(3.dp))
-    Text(
-        "a foto é guardada em 1024px e o banner em 2560px — resolução suficiente para tela de alta densidade (máximo 10MB cada).",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
+    // SÓ O ESTADO, sem a explicação. As duas frases que moravam aqui ("passe o
+    // mouse por cima e clique" e a das resoluções) saíram a pedido do dono, e o
+    // cartão não perde nada com isso: passar o mouse já acende um véu com ícone de
+    // lápis (ver FotoEditavel), que diz a mesma coisa sem ocupar linha. Resolução e
+    // limite de tamanho eram detalhe de implementação — quem sobe uma foto quer ver
+    // a foto, não saber em quantos pixels ela foi guardada.
+    if (busyAvatar || busyBanner) {
+        Text(
+            "lendo a imagem…",
+            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+    }
     // SideEffect e não LaunchedEffect: isto só publica a versão mais recente do
     // fechamento (que captura o rascunho de agora), sem nada assíncrono envolvido.
     SideEffect {
@@ -2402,27 +2408,31 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
 
     Text("Apagar conta", style = TextStyle(color = Obsidian.danger, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
+    // UMA FRASE, e não os dois parágrafos de antes. O conteúdo que importa antes de
+    // clicar cabe numa linha; o resto — que o texto escrito fica assinado "conta
+    // apagada" — é explicado no passo de confirmação, que é onde a pessoa realmente
+    // está decidindo. Explicar tudo antes do primeiro clique fazia ler dois blocos
+    // pra descobrir onde ficava o botão.
     Text(
-        "o acesso acaba na hora e não há como voltar atrás: e-mail, foto, nome, recado e " +
-            "amizades somem, e você sai de todas as constelações.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
-    Spacer(Modifier.height(6.dp))
-    Text(
-        "o que você escreveu FICA, assinado “conta apagada”. a conversa é de duas pessoas, " +
-            "e você ir embora não deveria abrir buracos no que a outra leu e respondeu.",
+        "acaba na hora e não tem volta.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(12.dp))
 
     if (!aberto) {
-        AboutButton("apagar minha conta", accent = false, icone = Lucide.Trash2) {
+        BotaoDePerigo("apagar minha conta", Lucide.Trash2) {
             aberto = true; confirmacao = ""; senha = ""; erro = null; presas = emptyList()
         }
         return
     }
+    Text(
+        "o que você escreveu fica, assinado “conta apagada” — a conversa é de duas " +
+            "pessoas, e sua saída não deveria abrir buracos no que a outra leu.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(12.dp))
 
     Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
         ProfileField("digite @$arroba para confirmar", confirmacao, "@$arroba", max = 40) { confirmacao = it }
@@ -2815,6 +2825,98 @@ private fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = nu
             Spacer(Modifier.width(7.dp))
         }
         Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
+    }
+}
+
+// O ESTADO DA CONTA EM QUATRO LINHAS. Substitui o cartão de perfil que ocupava
+// esta coluna sem ter o que ensinar.
+//
+// Quatro e não oito de propósito: o pedido era MENOS o que ler. Cada linha
+// responde uma pergunta que alguém abre esta aba pra responder, e nenhuma delas
+// precisa de frase — rótulo à esquerda, resposta à direita.
+//
+// "Entrou com Google" ficou de fora porque o perfil não devolve essa informação
+// (`ProfileUserDto` traz `hasPassword`, não `googleId`), e deduzir a partir da
+// ausência de senha erraria em quem tem os dois. Linha que às vezes mente é pior
+// que linha que não existe.
+@Composable
+private fun PainelDeSeguranca(me: ProfileUserDto?) {
+    var sessoes by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(me?.id) {
+        sessoes = runCatching { GlobalContext.get().get<SessionApi>().list().data?.sessions?.size }
+            .getOrNull()
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.raised.copy(alpha = 0.5f))
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        LinhaDeSeguranca("senha", if (me?.hasPassword != false) "definida" else "não definida")
+        LinhaDeSeguranca("e-mail", if (me?.emailVerifiedAt != null) "conferido" else "não conferido")
+        // Enquanto a contagem não chega, a linha mostra reticências em vez de "0":
+        // um zero aqui afirmaria que não há sessão aberta, o que nunca é verdade —
+        // você está numa agora.
+        LinhaDeSeguranca("sessões", sessoes?.let { if (it == 1) "1 aberta" else "$it abertas" } ?: "…")
+        LinhaDeSeguranca("membro desde", mesEAno(me?.createdAt), ultima = true)
+    }
+}
+
+@Composable
+private fun LinhaDeSeguranca(rotulo: String, valor: String, ultima: Boolean = false) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(rotulo, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.weight(1f))
+        Text(valor, style = TextStyle(color = Obsidian.text1, fontSize = 12.sp, fontFamily = DmMono))
+    }
+    if (!ultima) Spacer(Modifier.height(9.dp))
+}
+
+private fun mesEAno(iso: String?): String {
+    val data = iso?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } ?: return "—"
+    val meses = listOf(
+        "jan", "fev", "mar", "abr", "mai", "jun",
+        "jul", "ago", "set", "out", "nov", "dez",
+    )
+    return "${meses[data.monthValue - 1]} ${data.year}"
+}
+
+// BOTÃO DE AÇÃO DESTRUTIVA. O `AboutButton` normal desenha borda apagada e texto
+// cinza — do lado dos campos de senha, "apagar minha conta" ficava com o MESMO
+// peso visual de "salvar", e a única coisa que separava as duas era ler o rótulo.
+//
+// Aqui o vermelho está na borda e no texto em repouso, e só INVADE o fundo no
+// hover. Isso mantém a regra 60-30-10 da casa (cor em pouca área) e ainda assim
+// dá o susto certo no instante em que o ponteiro chega: quem passou por acidente
+// vê a superfície ficar vermelha antes de clicar.
+@Composable
+private fun BotaoDePerigo(label: String, icone: ImageVector, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    val fundo by animateColorAsState(
+        if (hov) Obsidian.danger.copy(alpha = 0.16f) else Color.Transparent, tween(140),
+    )
+    val borda by animateColorAsState(
+        if (hov) Obsidian.danger else Obsidian.danger.copy(alpha = 0.55f), tween(140),
+    )
+    Row(
+        modifier = Modifier
+            .clickScale(src)
+            .clip(RoundedCornerShape(8.dp))
+            .background(fundo)
+            .border(1.dp, borda, RoundedCornerShape(8.dp))
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LIcon(icone, tint = Obsidian.danger, size = 14.dp)
+        Spacer(Modifier.width(7.dp))
+        Text(
+            label,
+            style = TextStyle(color = Obsidian.danger, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+        )
     }
 }
 
@@ -3361,45 +3463,23 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     SettingsDivider()
     Text("Como falar", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-    Spacer(Modifier.height(4.dp))
-    Text(
-        "as teclas abaixo valem com o Astra no fundo — é o ponto delas. elas não são " +
-            "engolidas: a mesma tecla continua chegando no jogo.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
     Spacer(Modifier.height(10.dp))
     RadioList(
         ModoDeFala.entries.map { it.label to it },
         p.modoDeFala, prefs::setModoDeFala,
     )
-    if (p.modoDeFala == ModoDeFala.APERTAR) {
-        Spacer(Modifier.height(12.dp))
-        CapturaDeTecla("tecla para falar", p.teclaFalar, prefs::setTeclaFalar)
-        if (p.teclaFalar == 0) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "sem tecla escolhida, ninguém te ouve. escolha uma ou volte para o modo de cima.",
-                style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
-                modifier = Modifier.widthIn(max = 460.dp),
-            )
-        }
+    // O MODO fica aqui (é comportamento de voz); as TECLAS foram pra aba Atalhos.
+    // Quem escolhe "apertar para falar" precisa saber pra onde ir, e sem tecla
+    // escolhida ninguém o ouve — por isso este é o único aviso que sobreviveu à
+    // mudança, e só aparece quando ele é verdade.
+    if (p.modoDeFala == ModoDeFala.APERTAR && p.teclaFalar == 0) {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "sem tecla escolhida, ninguém te ouve — defina em Atalhos.",
+            style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
     }
-    Spacer(Modifier.height(12.dp))
-    CapturaDeTecla("tecla de mudo", p.teclaMudo, prefs::setTeclaMudo)
-    Spacer(Modifier.height(8.dp))
-    CapturaDeTecla("tecla de ensurdecer", p.teclaEnsurdecer, prefs::setTeclaEnsurdecer)
-    Spacer(Modifier.height(10.dp))
-    InfoNote(
-        "O que o Astra escuta do seu teclado",
-        "Para uma tecla funcionar com o jogo em primeiro plano, o Windows exige um " +
-            "gancho de teclado do sistema — não existe outro caminho, e é o mesmo que " +
-            "Discord e TeamSpeak usam.\n\n" +
-            "O que o Astra faz com ele: compara a tecla apertada com as três escolhidas " +
-            "aqui em cima. Só isso. Nada é guardado, contado ou enviado para lugar " +
-            "nenhum, e a tecla segue o caminho dela normalmente.\n\n" +
-            "Sem nenhuma tecla escolhida, o gancho nem chega a ser instalado.",
-    )
 
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -3425,6 +3505,74 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 // aparecem em teclado ABNT2); e a mesma peça que vai escutar a tecla depois é a que
 // escuta agora — se ela não estiver funcionando, você descobre aqui, escolhendo, e
 // não no meio de uma partida.
+// ABA ATALHOS. As três teclas moravam no fim da aba Voz, onde só as achava quem
+// tinha ido mexer no microfone — e a nota longa sobre o gancho do Windows ficava
+// entre elas e o resto. Aqui elas são o assunto, e a nota vira o rodapé.
+//
+// As FIXAS entram como lista, e não como mais três `CapturaDeTecla` desligados:
+// Ctrl+K, Esc e Enter estão cravados no código de várias telas, e desenhá-los com
+// a mesma casca das configuráveis prometeria uma troca que não existe.
+@Composable
+private fun AtalhosSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    CapturaDeTecla("falar", p.teclaFalar, prefs::setTeclaFalar)
+    if (p.modoDeFala != ModoDeFala.APERTAR) {
+        Spacer(Modifier.height(4.dp))
+        // A tecla continua VISÍVEL com o modo desligado — escondê-la faria quem
+        // veio configurá-la achar que ela não existe. Só se diz que ela está
+        // dormindo, e onde acordá-la.
+        Text(
+            "vale no modo “apertar para falar”, em Voz.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+    }
+    Spacer(Modifier.height(12.dp))
+    CapturaDeTecla("mudo", p.teclaMudo, prefs::setTeclaMudo)
+    Spacer(Modifier.height(12.dp))
+    CapturaDeTecla("ensurdecer", p.teclaEnsurdecer, prefs::setTeclaEnsurdecer)
+
+    SettingsDivider()
+    FieldLabel("fixas")
+    Spacer(Modifier.height(4.dp))
+    AtalhoFixo("Ctrl K", "buscar")
+    AtalhoFixo("Esc", "fechar o que estiver aberto")
+    AtalhoFixo("Enter", "enviar a mensagem")
+    AtalhoFixo("Shift Enter", "quebrar linha", ultima = true)
+
+    Spacer(Modifier.height(16.dp))
+    InfoNote(
+        "O que o Astra escuta do seu teclado",
+        "Para uma tecla funcionar com o jogo em primeiro plano, o Windows exige um " +
+            "gancho de teclado do sistema — não existe outro caminho, e é o mesmo que " +
+            "Discord e TeamSpeak usam.\n\n" +
+            "O que o Astra faz com ele: compara a tecla apertada com as três escolhidas " +
+            "aqui em cima. Só isso. Nada é guardado, contado ou enviado para lugar " +
+            "nenhum, e a tecla segue o caminho dela normalmente.\n\n" +
+            "Sem nenhuma tecla escolhida, o gancho nem chega a ser instalado.",
+    )
+}
+
+@Composable
+private fun AtalhoFixo(tecla: String, oQueFaz: String, ultima: Boolean = false) {
+    Row(
+        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            tecla,
+            style = TextStyle(color = Obsidian.text2, fontSize = 11.sp, fontFamily = DmMono),
+            modifier = Modifier
+                .widthIn(min = 92.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Obsidian.void.copy(alpha = 0.55f))
+                .padding(horizontal = 9.dp, vertical = 5.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(oQueFaz, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+    }
+    if (!ultima) Spacer(Modifier.height(7.dp))
+}
+
 @Composable
 private fun CapturaDeTecla(rotulo: String, vk: Int, onEscolher: (Int) -> Unit) {
     var ouvindo by remember { mutableStateOf(false) }

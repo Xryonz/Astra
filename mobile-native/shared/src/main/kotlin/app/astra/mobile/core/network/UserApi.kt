@@ -4,6 +4,8 @@ import app.astra.mobile.core.network.dto.ApiEnvelope
 import app.astra.mobile.core.network.dto.AtividadeDto
 import app.astra.mobile.core.network.dto.ChangePasswordRequest
 import app.astra.mobile.core.network.dto.CustomStatusRequest
+import app.astra.mobile.core.network.dto.PreferenciasRequest
+import app.astra.mobile.core.network.dto.PreferenciasWrapper
 import app.astra.mobile.core.network.dto.ProfileViewWrapper
 import app.astra.mobile.core.network.dto.SetPasswordRequest
 import app.astra.mobile.core.network.dto.SetStatusRequest
@@ -49,6 +51,14 @@ interface UserApi {
     // perfil mostra "há 2h 14min" ao lado do nome do programa.
     @GET("api/profile/activity")
     suspend fun activity(@Query("ids") ids: String): ApiEnvelope<Map<String, AtividadeDto>>
+
+    // Sacola de preferencias da CONTA (hoje: accent + fundo). O site ja escrevia
+    // aqui; o desktop passa a ler e escrever pra o tema seguir a pessoa.
+    @GET("api/profile/preferences")
+    suspend fun preferencias(): ApiEnvelope<PreferenciasWrapper>
+
+    @PATCH("api/profile/preferences")
+    suspend fun salvarPreferencias(@Body body: PreferenciasRequest): ApiEnvelope<PreferenciasWrapper>
 
     // Recado (custom status). Mora sob /api/friends no backend, mas e edicao de
     // perfil — fica aqui pra o desktop nao precisar de uma FriendsApi so por isto

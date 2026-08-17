@@ -120,6 +120,7 @@ import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.XpStore
 import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.TemaDaConta
 import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceEngine
@@ -366,6 +367,12 @@ fun ShellScreen(
     // caminhos que o servidor emite separados.
     val avisosDaConta = remember { koin.get<AvisosDaConta>() }
     LaunchedEffect(Unit) { avisosDaConta.carregar() }
+
+    // Tema da conta: adota o que a conta guarda e passa a empurrar as trocas.
+    // Fica AQUI (e não no Main) porque só faz sentido com sessão — e sair da
+    // conta tira o ShellScreen da composição, o que cancela o coletor sozinho.
+    val temaDaConta = remember { koin.get<TemaDaConta>() }
+    LaunchedEffect(Unit) { temaDaConta.sincronizar() }
     LaunchedEffect(Unit) {
         launch {
             socket.newDm.collect { raw ->

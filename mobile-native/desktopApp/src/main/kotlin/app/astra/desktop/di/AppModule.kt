@@ -10,6 +10,7 @@ import app.astra.desktop.xp.XpStore
 import app.astra.desktop.net.DesktopTokenAuthenticator
 import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.prefs.DesktopPrefs
+import app.astra.desktop.prefs.TemaDaConta
 import app.astra.desktop.update.UpdateService
 import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.ChannelApi
@@ -130,6 +131,7 @@ val appModule = module {
     single { AuthRepository(get(), get(), get(), get(), get(), get()) }
     single { DesktopPrefs(get()) }
     single { AvisosDaConta(get()) }
+    single { TemaDaConta(get(), get()) }
     // Auto-update DIY (zip-swap via GitHub Releases). Usa o OkHttp "plain" (mesmo
     // HTTPS que já funciona no app) — o HttpURLConnection falhava no JRE empacotado.
     single { UpdateService(get(named("plain"))) }

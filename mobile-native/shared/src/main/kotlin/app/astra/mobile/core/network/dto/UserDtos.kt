@@ -1,9 +1,28 @@
 package app.astra.mobile.core.network.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class UserWrapper(val user: ProfileUserDto)
+
+// A SACOLA DE PREFERÊNCIAS DA CONTA (/api/profile/preferences).
+//
+// `JsonObject` cru, e não uma classe com `accent` e `bg`, por um motivo concreto:
+// o servidor **substitui** a sacola inteira (`set({ preferences: serialized })`),
+// ele não faz merge. Uma classe tipada mandaria de volta só os campos que ela
+// conhece — e o dia em que o site guardasse uma chave nova, o desktop a apagaria
+// no primeiro clique de tema. Guardando o objeto inteiro, chave alheia sobrevive
+// ao ir e voltar mesmo sem ninguém aqui saber o que ela significa.
+@Serializable
+data class PreferenciasWrapper(
+    val preferences: JsonObject = JsonObject(emptyMap()),
+)
+
+@Serializable
+data class PreferenciasRequest(
+    val preferences: JsonObject,
+)
 
 @Serializable
 data class ProfileUserDto(

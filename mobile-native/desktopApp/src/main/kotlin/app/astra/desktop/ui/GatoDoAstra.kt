@@ -1,8 +1,8 @@
 package app.astra.desktop.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,13 +12,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.Obsidian
@@ -26,16 +31,17 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
+import org.jetbrains.skia.Image as SkiaImage
 
 // O GATO DO ASTRA — o "pet" que estava anotado como uma palavra só no ESTADO.md.
 //
-// Ele anda livre por cima da interface inteira (escolha do dono) e é desenhado em
-// VETOR, não em sprite. O dono pediu um bicho concreto, e concreto é sobre ser
-// reconhecível, não sobre ser bitmap: um gato de traço fecha as duas coisas ao
-// mesmo tempo — dá pra dizer "é um gato" à primeira olhada, e ele recolore junto do
-// tema, escala em qualquer monitor e não soma um byte ao instalador.
+// Ele anda livre por cima da interface inteira (escolha do dono) e é PIXEL ART:
+// sprites do pacote "Cat 2D Pixel Art", do Mattz Art (xzany). A licença do pacote
+// viaja junto da arte, em `resources/pet/LICENCA-cat-2d-pixel-art.txt`.
 //
 // TRÊS REGRAS QUE NÃO SE QUEBRAM, porque ele passa por cima de tudo:
 //
@@ -52,7 +58,7 @@ import kotlin.random.Random
 // TENSÃO COM A NORMA DO APP, dita em voz alta em vez de escondida: a norma diz
 // "movimento é sinal, não enfeite; repouso deliberadamente quieto". Um gato que
 // caminha é enfeite contínuo por definição, e contraria isso. O acordo é o ritmo:
-// ele passa a MAIOR PARTE do tempo sentado (pausas de 4 a 13 segundos) e caminha em
+// ele passa a MAIOR PARTE do tempo parado (pausas de 4 a 13 segundos) e caminha em
 // trechos curtos, para não virar um piscar de canto de olho que ensina o olho a
 // ignorar o resto do app. Mais interruptor próprio, para quem discordar do acordo.
 
@@ -66,10 +72,62 @@ object Pet {
     fun entrouEmCall() { _evento.tryEmit(PetEvento.CALL) }
 }
 
-private enum class Estado { SENTADO, ANDANDO, ESPREGUICANDO }
+// ---------------------------------------------------------------------------
+// GEOMETRIA DAS FOLHAS — medida no arquivo, não estimada.
+//
+// Cada folha é uma tira horizontal de quadros de 80x64. O gato ocupa só o miolo:
+// varrendo o alfa de todos os 42 quadros das quatro folhas, o conteúdo cabe em
+// x 7..64 e y 16..49. Recortar nessa caixa ÚNICA (a mesma para toda animação) é o
+// que mantém o alinhamento de graça — cada quadro continua no lugar exato em que o
+// artista o desenhou, só sem a margem vazia.
+//
+// As patas repousam em y=47 do quadro, ou seja, na linha 31 do recorte. É por isso
+// que a âncora do desenho é o PÉ e não o centro: com o pé fixo, o pulo sobe de
+// verdade em vez de o bicho inteiro escorregar pra cima.
+private const val QUADRO_W = 80
+private const val CORTE_X = 7
+private const val CORTE_Y = 16
+private const val CORTE_W = 58
+private const val CORTE_H = 34
+private const val CORTE_PES = 31
+
+// `velocidade` está em LARGURAS DE GATO POR SEGUNDO, não em pixels. Amarrado assim,
+// o passo casa com a passada em qualquer escala e em qualquer monitor: dobrar o
+// tamanho do bicho dobra a distância que ele cobre, e o pé nunca patina no chão.
+private enum class Anim(
+    val arquivo: String,
+    val quadros: Int,
+    val fps: Int,
+    val velocidade: Float,
+) {
+    PARADO("gato_parado.png", 8, 8, 0f),
+    ANDANDO("gato_andando.png", 12, 12, 1.05f),
+    CORRENDO("gato_correndo.png", 8, 14, 3.0f),
+    PULO("gato_pulo.png", 3, 9, 0f),
+}
+
+// Carrega as quatro folhas UMA vez, na primeira aparição do gato, e nunca mais.
+// São 12 KB de PNG somados; decodificados viram ~700 KB de bitmap, o que é menos
+// que um avatar de banner e some junto com o processo.
+//
+// `getOrNull` de propósito: se a folha faltar (recurso removido, jar estranho), o
+// gato cai pro desenho vetorial mais abaixo em vez de derrubar a tela inteira. Pet
+// quebrado não pode ser motivo de crash de app de conversa.
+private object FolhasDoGato {
+    val folhas: Map<Anim, ImageBitmap>? by lazy {
+        runCatching {
+            Anim.entries.associateWith { anim ->
+                val bytes = requireNotNull(
+                    FolhasDoGato::class.java.getResourceAsStream("/pet/" + anim.arquivo),
+                ) { "sprite ausente: " + anim.arquivo }.use { it.readBytes() }
+                SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
+            }
+        }.getOrNull()
+    }
+}
 
 private const val FPS = 30
-private val LARGURA_GATO = 34.dp
+private val LARGURA_VETOR = 34.dp
 
 @Composable
 fun GatoDoAstra(ligado: Boolean) {
@@ -80,30 +138,43 @@ fun GatoDoAstra(ligado: Boolean) {
     // sair da composição é mais barato que desenhar nada.
     if (!ligado || reduzir || !janelaAtiva) return
 
+    val folhas = FolhasDoGato.folhas
+
+    // Pixel art só fica nítida em MÚLTIPLO INTEIRO de pixel físico: em 2,5x metade
+    // das colunas do sprite ocupa 2 pixels e a outra metade 3, e o bicho ganha uma
+    // listra que o artista não desenhou. Por isso a escala é um inteiro derivado da
+    // densidade da tela, e não um valor em dp — assim o gato tem mais ou menos o
+    // mesmo tamanho aparente em 100% e em 200% de escala do Windows, sempre nítido.
+    val densidade = LocalDensity.current.density
+    val mult = (2f * densidade).roundToInt().coerceIn(2, 6)
+    val larguraPx = (CORTE_W * mult).toFloat()
+    val alturaPx = (CORTE_H * mult).toFloat()
+    val pesPx = (CORTE_PES * mult).toFloat()
+
     var area by remember { mutableStateOf(IntSize.Zero) }
     var x by remember { mutableStateOf(-1f) }
     var y by remember { mutableStateOf(-1f) }
     var alvoX by remember { mutableStateOf(0f) }
     var alvoY by remember { mutableStateOf(0f) }
-    var estado by remember { mutableStateOf(Estado.SENTADO) }
-    var olhandoPraDireita by remember { mutableStateOf(true) }
-    var passo by remember { mutableStateOf(0f) }
+    var anim by remember { mutableStateOf(Anim.PARADO) }
+    var tempoNaAnim by remember { mutableStateOf(0f) }
+    var olhandoPraDireita by remember { mutableStateOf(false) }
     var espera by remember { mutableStateOf(2f) }
+    var pulosRestantes by remember { mutableStateOf(0) }
     var piscada by remember { mutableStateOf(0f) }
-    var animacaoDeEvento by remember { mutableStateOf(0f) }
 
     LaunchedEffect(Unit) {
         Pet.evento.collect { ev ->
             // Reagir a evento vale mais que continuar o passeio: o gato para o que
-            // estava fazendo. É a única hora em que ele compete por atenção, e é
-            // justamente quando a atenção já foi chamada por outra coisa.
-            animacaoDeEvento = if (ev == PetEvento.CALL) 1.6f else 1f
-            estado = Estado.SENTADO
-            espera = 1.2f
+            // estava fazendo e pula. É a única hora em que ele compete por atenção,
+            // e é justamente quando a atenção já foi chamada por outra coisa.
+            pulosRestantes = if (ev == PetEvento.CALL) 2 else 1
+            anim = Anim.PULO
+            tempoNaAnim = 0f
         }
     }
 
-    LaunchedEffect(area) {
+    LaunchedEffect(area, mult) {
         if (area.width <= 0) return@LaunchedEffect
         if (x < 0f) { x = area.width * 0.5f; y = area.height * 0.72f }
         while (true) {
@@ -111,38 +182,60 @@ fun GatoDoAstra(ligado: Boolean) {
             val dt = 1f / FPS
 
             piscada += dt
-            if (animacaoDeEvento > 0f) animacaoDeEvento = (animacaoDeEvento - dt).coerceAtLeast(0f)
+            tempoNaAnim += dt
 
-            when (estado) {
-                Estado.SENTADO, Estado.ESPREGUICANDO -> {
+            when (anim) {
+                Anim.PARADO -> {
                     espera -= dt
                     if (espera <= 0f) {
                         // Alvo em qualquer lugar, menos a faixa de cima: ali moram a
-                        // barra de título e o cabeçalho do canal, e um gato sentado
-                        // em cima do nome da conversa atrapalha a leitura da única
-                        // linha que diz onde você está.
-                        alvoX = Random.nextFloat() * (area.width - 80) + 40
+                        // barra de título e o cabeçalho do canal, e um gato parado em
+                        // cima do nome da conversa atrapalha a leitura da única linha
+                        // que diz onde você está.
+                        val margem = larguraPx * 0.5f
+                        alvoX = margem + Random.nextFloat() * (area.width - margem * 2f).coerceAtLeast(1f)
                         alvoY = area.height * (0.35f + Random.nextFloat() * 0.55f)
                         olhandoPraDireita = alvoX > x
-                        estado = Estado.ANDANDO
+                        // Correr é raro e só pra longe. Um gato que corre sempre vira
+                        // ansiedade na tela; um que corre de vez em quando vira graça.
+                        val longe = abs(alvoX - x) > area.width * 0.45f
+                        anim = if (longe && Random.nextFloat() < 0.3f) Anim.CORRENDO else Anim.ANDANDO
+                        tempoNaAnim = 0f
                     }
                 }
-                Estado.ANDANDO -> {
+
+                Anim.ANDANDO, Anim.CORRENDO -> {
                     val dx = alvoX - x
                     val dy = alvoY - y
-                    val dist = kotlin.math.hypot(dx, dy)
-                    if (dist < 4f) {
-                        estado = if (Random.nextFloat() < 0.25f) Estado.ESPREGUICANDO else Estado.SENTADO
+                    val dist = hypot(dx, dy)
+                    val v = anim.velocidade * larguraPx * dt
+                    if (dist <= v) {
+                        x = alvoX
+                        y = alvoY
+                        anim = Anim.PARADO
+                        tempoNaAnim = 0f
                         // Pausa LONGA de propósito (4 a 13 segundos). Um gato que
                         // anda sem parar vira ruído periférico; um que passa a maior
                         // parte do tempo parado vira presença.
                         espera = 4f + Random.nextFloat() * 9f
-                        passo = 0f
                     } else {
-                        val v = 26f * dt
                         x += dx / dist * v
                         y += dy / dist * v
-                        passo += dt * 7f
+                    }
+                }
+
+                Anim.PULO -> {
+                    // Único one-shot: quando o último quadro passa, ou emenda outro
+                    // pulo (call) ou volta a ficar parado, com pausa curta — ele
+                    // acabou de reagir, então continuar o passeio na hora seria negar
+                    // a própria reação.
+                    if (tempoNaAnim >= Anim.PULO.quadros.toFloat() / Anim.PULO.fps) {
+                        pulosRestantes -= 1
+                        tempoNaAnim = 0f
+                        if (pulosRestantes <= 0) {
+                            anim = Anim.PARADO
+                            espera = 2.5f + Random.nextFloat() * 3f
+                        }
                     }
                 }
             }
@@ -161,24 +254,56 @@ fun GatoDoAstra(ligado: Boolean) {
     ) {
         if (area.width <= 0 || x < 0f) return@Box
         Canvas(Modifier.fillMaxSize()) {
-            val esc = LARGURA_GATO.toPx() / 34f
-            translate(x, y) {
-                desenharGato(
-                    esc = esc,
-                    paraDireita = olhandoPraDireita,
-                    andando = estado == Estado.ANDANDO,
-                    passo = passo,
-                    olhoFechado = (piscada % 4.2f) < 0.13f,
-                    animacaoDeEvento = animacaoDeEvento,
-                    pelo = Obsidian.text2,
-                    detalhe = Obsidian.accent,
+            val folha = folhas?.get(anim)
+            if (folha == null) {
+                // Reserva: o gato de traço. Vale quando o sprite não carregou, e é
+                // barato manter — quem desliga a arte ainda vê um gato.
+                translate(x, y) {
+                    desenharGato(
+                        esc = LARGURA_VETOR.toPx() / 34f,
+                        paraDireita = olhandoPraDireita,
+                        andando = anim == Anim.ANDANDO || anim == Anim.CORRENDO,
+                        passo = tempoNaAnim * 7f,
+                        olhoFechado = (piscada % 4.2f) < 0.13f,
+                        animacaoDeEvento = if (anim == Anim.PULO) 1f else 0f,
+                        pelo = Obsidian.text2,
+                        detalhe = Obsidian.accent,
+                    )
+                }
+                return@Canvas
+            }
+
+            val i = (tempoNaAnim * anim.fps).toInt().let {
+                if (anim == Anim.PULO) it.coerceIn(0, anim.quadros - 1) else it % anim.quadros
+            }
+            val esq = (x - larguraPx / 2f).roundToInt()
+            val topo = (y - pesPx).roundToInt()
+
+            // O gato do pacote olha pra ESQUERDA. Andando pra direita, a folha é
+            // espelhada no eixo do próprio bicho — de graça, e sem duplicar arte.
+            scale(
+                scaleX = if (olhandoPraDireita) -1f else 1f,
+                scaleY = 1f,
+                pivot = Offset(x, y),
+            ) {
+                drawImage(
+                    image = folha,
+                    srcOffset = IntOffset(i * QUADRO_W + CORTE_X, CORTE_Y),
+                    srcSize = IntSize(CORTE_W, CORTE_H),
+                    dstOffset = IntOffset(esq, topo),
+                    dstSize = IntSize(larguraPx.toInt(), alturaPx.toInt()),
+                    // SEM suavização. O padrão do Compose interpola, e interpolar
+                    // pixel art é borrar de propósito o que o artista desenhou
+                    // pixel a pixel. É o ponto inteiro do estilo.
+                    filterQuality = FilterQuality.None,
                 )
             }
         }
     }
 }
 
-// O gato, em traço. Corpo e cabeça são curvas fechadas; patas e cauda são linha.
+// O gato, em traço — a RESERVA de quando o sprite não carrega. Corpo e cabeça são
+// curvas fechadas; patas e cauda são linha.
 //
 // Ele é desenhado olhando pra DIREITA e espelhado quando anda pra esquerda — meia
 // figura pela metade do trabalho, e o espelho é exato porque nenhuma parte do

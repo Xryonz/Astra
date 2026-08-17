@@ -98,12 +98,13 @@ internal fun AvisosDaContaBloco() {
 
     LaunchedEffect(Unit) { avisos.carregar() }
 
-    // Otimista: o interruptor vira na hora e a rede corre atrás. Um toggle que
-    // espera a ida e volta do Render (que dorme) parece travado.
+    // O otimismo (e o desfazer) mora no AvisosDaConta — aqui só sobra dizer o que
+    // aconteceu. A frase do erro é explícita sobre a mudança ter voltado atrás:
+    // o interruptor visivelmente volta sozinho, e sem a frase isso pareceria bug.
     fun aplicar(novo: AvisosDaContaDto) {
         escopo.launch {
             erro = null
-            avisos.salvar(novo).onFailure { erro = "não foi possível salvar — a mudança não valeu" }
+            avisos.salvar(novo).onFailure { erro = "não foi possível salvar — a mudança voltou atrás" }
         }
     }
 

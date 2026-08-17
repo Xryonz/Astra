@@ -40,11 +40,23 @@ class AvisosDaConta(private val api: NotificationApi) {
             ?.let { _estado.value = it }
     }
 
-    // Devolve o estado que o servidor confirmou, e não o que se pediu: se o
-    // servidor recusar um campo, a tela mostra a verdade em vez do palpite.
-    suspend fun salvar(novo: AvisosDaContaDto): Result<Unit> = runCatching {
-        val resp = api.salvarAvisosDaConta(AvisosDaContaRequest.de(novo))
-        _estado.value = resp.data?.prefs ?: novo
+    // OTIMISTA COM DESFAZER. O interruptor vira no clique porque a API mora no
+    // Render, que dorme: esperar a ida e volta faria o toggle parecer travado por
+    // segundos, e a pessoa clicaria de novo.
+    //
+    // Mas o otimismo tem volta: se a chamada falhar, o estado retorna ao anterior.
+    // Deixar ligado o que o servidor recusou é a pior das três opções — a tela
+    // afirmaria uma configuração que não existe, e o erro só apareceria semanas
+    // depois, na forma de "não recebi seu aviso".
+    //
+    // No sucesso vale o que o SERVIDOR devolveu, não o que se pediu.
+    suspend fun salvar(novo: AvisosDaContaDto): Result<Unit> {
+        val anterior = _estado.value
+        _estado.value = novo
+        return runCatching {
+            val resp = api.salvarAvisosDaConta(AvisosDaContaRequest.de(novo))
+            _estado.value = resp.data?.prefs ?: novo
+        }.onFailure { _estado.value = anterior }
     }
 
     // ESPELHO EXATO do `isInQuietHours` em apps/api/src/lib/notifications.ts.

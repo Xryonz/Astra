@@ -134,8 +134,6 @@ import com.composables.icons.lucide.X
 import app.astra.desktop.Placas
 import app.astra.desktop.profile.AvatarPicker
 import app.astra.desktop.voice.AudioDevices
-import app.astra.desktop.voice.GStreamerPack
-import app.astra.desktop.voice.GstScreenEncoder
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.AtalhosGlobais
@@ -181,9 +179,7 @@ import kotlinx.coroutines.withContext
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
-import org.koin.core.qualifier.named
 import retrofit2.HttpException
 import zed.rainxch.rikkaui.components.ui.progress.Progress
 import zed.rainxch.rikkaui.components.ui.progress.ProgressAnimation
@@ -3164,6 +3160,59 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
     )
 }
 
+// TÍTULO QUE EXPLICA NO HOVER — ideia do dono, e ela resolve uma tensão real.
+//
+// O pedido era "menos o que ler". A resposta preguiçosa seria apagar as
+// explicações; a boa é tirá-las do caminho SEM perdê-las. Quem já sabe o que a
+// seção faz lê três palavras e segue; quem não sabe passa o mouse no título e
+// recebe o parágrafo inteiro. A tela em repouso fica com a densidade de um índice,
+// e a informação continua a um gesto de distância.
+//
+// O PONTINHO É OBRIGATÓRIO. Sem uma marca visível, a explicação só existiria pra
+// quem passasse o mouse por acaso — recurso escondido não é recurso. Ele é
+// discreto (4dp, cor terciária) e acende junto do título quando o ponteiro chega.
+@Composable
+private fun TituloExplicavel(titulo: String, explicacao: String) {
+    val src = remember { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    val cor by animateColorAsState(if (hov) Obsidian.accent else Obsidian.text3, tween(140))
+
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.hoverable(src),
+        ) {
+            Text(
+                titulo,
+                style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
+            )
+            Spacer(Modifier.width(7.dp))
+            Box(Modifier.size(4.dp).clip(CircleShape).background(cor))
+        }
+        if (hov) {
+            // `focusable = false`: o balão é leitura, não destino. Roubar o foco
+            // aqui tiraria o cursor de um campo de texto ao passar o mouse.
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = IntOffset(0, 30),
+                properties = PopupProperties(focusable = false),
+            ) {
+                Text(
+                    explicacao,
+                    style = TextStyle(color = Obsidian.text2, fontSize = 11.5.sp, lineHeight = 17.sp),
+                    modifier = Modifier
+                        .widthIn(max = 380.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(9.dp))
+                        .padding(horizontal = 13.dp, vertical = 11.dp),
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(10.dp))
+}
+
 // Nota explicativa ao lado do ajuste que ela explica. Comeca RECOLHIDA: quem so
 // quer mexer no ajuste não tem um paragrafo na frente, e quem estranhou o
 // comportamento acha a resposta onde procurou — em vez de num FAQ que não existe.
@@ -3233,162 +3282,18 @@ private fun PermissionsSection(onTestarAviso: () -> Unit) {
     )
 }
 
-// Descobre se ESTE computador consegue comprimir video pela placa de video.
-//
-// Existe porque a pergunta que mais importa pro desempenho da transmissao — "esta
-// maquina tem encoder de hardware?" — hoje so se responde sentado nela, instalando
-// GStreamer e rodando script. Aqui e um botao: quem esta com o computador lento aperta
-// e le a resposta em voz de gente.
-//
-// A verificacao BAIXA ~23MB na primeira vez, entao ela nunca acontece sozinha: e
-// sempre o dono do computador que pede.
-@Composable
-private fun AceleracaoPorHardware() {
-    val escopo = rememberCoroutineScope()
-    var checando by remember { mutableStateOf(false) }
-    var resultado by remember { mutableStateOf<GStreamerPack.Aceleracao?>(null) }
-
-    Text("Aceleração por hardware", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-    Spacer(Modifier.height(4.dp))
-    Text(
-        "hoje quem comprime o vídeo da sua transmissão é o processador. placas de vídeo " +
-            "modernas fazem isso sozinhas, e muito mais barato. esta verificação diz se a " +
-            "sua faz — é o que decide se vale a pena mudarmos o motor de vídeo do Astra.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
-    Spacer(Modifier.height(10.dp))
-
-    val estado by GStreamerPack.estado.collectAsState()
-    val rotulo = when {
-        !checando -> if (resultado == null) "verificar" else "verificar de novo"
-        estado is GStreamerPack.Estado.Baixando ->
-            "baixando… ${((estado as GStreamerPack.Estado.Baixando).fracao * 100).toInt()}%"
-        else -> "verificando…"
-    }
-    AboutButton(rotulo, accent = !checando) {
-        if (checando) return@AboutButton
-        checando = true
-        escopo.launch {
-            val http = GlobalContext.get().get<OkHttpClient>(named("plain"))
-            resultado = GStreamerPack.detectarAceleracao(http)
-            checando = false
-        }
-    }
-
-    resultado?.let { r ->
-        Spacer(Modifier.height(10.dp))
-        if (r.temHardware) {
-            InfoNote(
-                "Esta placa de vídeo comprime vídeo sozinha",
-                "Encontrado: ${r.encoders.joinToString(", ")}.\n\n" +
-                    "Isso significa que a compressão pode sair do processador e ir para a " +
-                    "placa de vídeo, que faz o mesmo trabalho por uma fração do custo. " +
-                    "O Astra ainda não usa esse caminho — é a mudança que está sendo " +
-                    "construída. Enquanto isso, os presets menores continuam sendo a " +
-                    "resposta para computador que engasga.",
-            )
-            Spacer(Modifier.height(10.dp))
-            MedirGanhoDaGpu()
-        } else {
-            InfoNote(
-                "Nenhuma aceleração encontrada",
-                "Motivo: ${r.motivo}.\n\n" +
-                    "Neste computador a compressão vai continuar sendo trabalho do " +
-                    "processador, e mudar o motor de vídeo não traria ganho nenhum. " +
-                    "O caminho aqui é o preset: 540p a 30 quadros custa cerca de um quarto " +
-                    "do que custa 720p a 60.",
-            )
-        }
-    }
-}
-
-// Roda o caminho novo (captura e compressão sem tirar o quadro da placa) por alguns
-// segundos e diz quanto custou NESTA máquina.
-//
-// Existe porque o ganho medido aqui — 0,07 núcleo contra 0,84 do caminho atual — foi
-// medido num computador só, o do dono. Antes de reescrever a voz por causa de máquina
-// fraca, quem tem a máquina fraca precisa conseguir provar o ganho nela.
-@Composable
-private fun MedirGanhoDaGpu() {
-    val escopo = rememberCoroutineScope()
-    var medindo by remember { mutableStateOf(false) }
-    var medida by remember { mutableStateOf<Result<GstScreenEncoder.Medicao>?>(null) }
-
-    AboutButton(if (medindo) "medindo… (uns 12 segundos)" else "medir o ganho nesta máquina", accent = !medindo) {
-        if (medindo) return@AboutButton
-        medindo = true
-        escopo.launch {
-            val http = GlobalContext.get().get<OkHttpClient>(named("plain"))
-            medida = GstScreenEncoder.medir(http)
-            medindo = false
-        }
-    }
-
-    medida?.let { res ->
-        Spacer(Modifier.height(10.dp))
-        res.fold(
-            onSuccess = { m ->
-                // 0,84 e a medida do caminho de HOJE (720p60, quadro descendo pra CPU +
-                // encoder por software) na maquina do dono. Serve de regua, e esta dito
-                // que e regua e nao medida local — comparar sem avisar seria trapaça.
-                val vezes = if (m.nucleos > 0.01) (0.84 / m.nucleos) else 0.0
-                InfoNote(
-                    "Medido: ${"%.2f".format(m.nucleos)} núcleo a 720p60",
-                    "Encoder usado: ${m.encoder}. Quadros por segundo: ${"%.0f".format(m.fps)}.\n\n" +
-                        (if (vezes >= 2) "O caminho de hoje custa cerca de 0,84 núcleo no mesmo teste — " +
-                            "ou seja, aqui o caminho novo sai por volta de ${"%.0f".format(vezes)}× mais barato. "
-                        else "O caminho de hoje custa cerca de 0,84 núcleo no mesmo teste. ") +
-                        "Esse 0,84 é régua, medido em outro computador; o número acima é o " +
-                        "desta máquina.\n\n" +
-                        "Se os quadros por segundo estiverem bem abaixo de 60, a placa não está " +
-                        "dando conta do preset e o número de núcleos engana — custa pouco porque " +
-                        "está fazendo pouco.",
-                )
-            },
-            onFailure = { e ->
-                InfoNote(
-                    "Não deu para medir",
-                    "Motivo: ${e.message ?: e.javaClass.simpleName}.\n\n" +
-                        "Isso não quebra nada: a transmissão continua pelo caminho de sempre. " +
-                        "Só significa que este computador não vai aproveitar a mudança que " +
-                        "está sendo construída.",
-                )
-            },
-        )
-    }
-}
-
 
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    Text("Transmissao de tela", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-    Spacer(Modifier.height(4.dp))
-    Text(
-        "vale ao iniciar a transmissão. o padrão de estreia sai da força do computador — " +
+    TituloExplicavel(
+        "Transmissao de tela",
+        "Vale ao iniciar a transmissão. O padrão de estreia sai da força do computador — " +
             "quem tem quatro núcleos ou menos começa em 540p, porque comprimir vídeo aqui " +
             "é trabalho do processador.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
     )
-    Spacer(Modifier.height(10.dp))
     RadioList(
         ScreenQuality.entries.map { it.label to it },
         p.screenQuality, prefs::setScreenQuality,
-    )
-    Spacer(Modifier.height(12.dp))
-    // Explicacao ao lado do que ela afeta. Sem isto o usuario ve a propria janelinha
-    // mais "travada" que a transmissão e acha que a transmissão esta ruim tambem.
-    InfoNote(
-        "Por que a sua prévia parece mais travada",
-        "Quem está assistindo recebe os 60 quadros por segundo do preset acima — " +
-            "isso não muda. A sua prévia aqui do lado é limitada a 30, de propósito.\n\n" +
-            "O motivo: seu processador é quem comprime o vídeo (a placa de vídeo não " +
-            "faz esse trabalho neste app). Cada quadro da prévia consome processador " +
-            "que sairia da compressão — e quando falta, quem engasga é a transmissão " +
-            "de quem está te assistindo, não a sua janelinha.\n\n" +
-            "30 quadros já são fluidos para conferir o que você está mostrando, e " +
-            "devolvem metade desse custo para quem importa: quem está do outro lado.",
     )
 
     // As permissões do Windows moram na aba Permissões. Ficavam aqui como um
@@ -3396,40 +3301,17 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     // envelhece mal (uma das duas deixa de ser atualizada).
 
     SettingsDivider()
-    Text("Motor de vídeo novo", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-    Spacer(Modifier.height(4.dp))
-    Text(
-        "comprime a transmissão na placa de vídeo, sem trazer o quadro para o processador. " +
-            "vale ao entrar na próxima chamada — não muda uma que já esteja em andamento.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
+    TituloExplicavel(
+        "Motor de vídeo novo",
+        "Comprime a transmissão na placa de vídeo, sem trazer o quadro para o processador. " +
+            "Vale ao entrar na próxima chamada — não muda uma que já esteja em andamento.",
     )
-    Spacer(Modifier.height(10.dp))
     ToggleRow(
         "Usar o motor novo",
         "em teste. sem o pacote ou sem placa compatível, a chamada segue pelo caminho de sempre",
         p.motorNovo,
         prefs::setMotorNovo,
     )
-    if (p.motorNovo) {
-        Spacer(Modifier.height(10.dp))
-        InfoNote(
-            "O que muda com ele ligado",
-            "A compressão sai do processador e vai para a placa de vídeo — nas medições, " +
-                "de 0,84 para 0,07 de um núcleo. Tudo o que sai passa a ir por esse " +
-                "caminho, o microfone inclusive.\n\n" +
-                "O ajuste automático de qualidade deixa de baixar o preset sozinho, e isso " +
-                "é de propósito: ele existia porque o processador não dava conta de " +
-                "comprimir, e essa pressão acabou.\n\n" +
-                "Em troca, este caminho ainda não reage à falta de banda. Se a sua " +
-                "internet de subida apertar, o vídeo engasga em vez de perder nitidez — " +
-                "baixe a qualidade à mão na engrenagem da chamada. A voz não muda.\n\n" +
-                "Se alguma coisa sair errada numa chamada, desligue aqui e entre de novo.",
-        )
-    }
-
-    SettingsDivider()
-    AceleracaoPorHardware()
 
     SettingsDivider()
     Text("Ninguém te escuta?", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))

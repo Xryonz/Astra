@@ -118,6 +118,7 @@ import com.composables.icons.lucide.Move
 import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.Upload
+import com.composables.icons.lucide.Accessibility
 import com.composables.icons.lucide.Key
 import com.composables.icons.lucide.Keyboard
 import com.composables.icons.lucide.LogOut
@@ -200,7 +201,8 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
-    APPEARANCE("Aparencia", "cores, fonte, densidade", Lucide.Palette),
+    APPEARANCE("Aparencia", "cores e fundo", Lucide.Palette),
+    ACCESSIBILITY("Acessibilidade", "leitura, contraste e movimento", Lucide.Accessibility),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
     SHORTCUTS("Atalhos", "teclas do app", Lucide.Keyboard),
@@ -487,6 +489,8 @@ fun SettingsScreen(
                         }
                         SettingsTab.PRIVACY -> PrivacySection(prefState, prefs, me, onProfileSaved)
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
+
+                        SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
                         SettingsTab.VOICE -> VoiceSection(prefState, prefs)
                         SettingsTab.SHORTCUTS -> AtalhosSection(prefState, prefs)
@@ -612,7 +616,7 @@ private fun SettingsPreview(
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
                 SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff, p.avisoDiscreto)
                 SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
-                SettingsTab.APPEARANCE -> UiSamplePreview(p.fontSize, p.density)
+                SettingsTab.APPEARANCE, SettingsTab.ACCESSIBILITY -> UiSamplePreview(p.fontSize, p.density)
                 SettingsTab.PERFORMANCE -> CostMeter(p)
                 SettingsTab.VOICE -> VoicePreview(p)
                 // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
@@ -1125,7 +1129,29 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
             }
         }
     }
-    Box(Modifier.fillMaxWidth().offset(x = dx.dp).alpha(a)) {
+    // O AVISO APARECE POR CIMA DE UMA CONVERSA, e não sozinho no vazio.
+    //
+    // Antes era um balão solto num retângulo grande e vazio, e ele não mostrava a
+    // única coisa que importa saber sobre um aviso de bandeja: que ele chega POR
+    // CIMA do que estiver na tela. Com a conversa por baixo (a mesma mini-janela da
+    // aba Aparência), a prévia passa a mostrar o comportamento, não só o balão — e
+    // de quebra ocupa a coluna inteira em vez de deixar dois terços de vazio.
+    //
+    // A conversa fica apagada de propósito: quem olha precisa ver o AVISO. Se as
+    // duas camadas tivessem o mesmo peso, o olho não saberia qual delas a aba está
+    // configurando.
+    Box(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().alpha(0.4f)) {
+            UiSamplePreview(FontSizePref.MD, DensityPref.COMFORTABLE)
+        }
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+                .fillMaxWidth(0.92f)
+                .offset(x = dx.dp)
+                .alpha(a),
+        ) {
         Row(
             Modifier.fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
@@ -1151,10 +1177,11 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
                     Text("sussurro novo", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
                     Text("sem nome e sem texto — é tudo que aparece.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
                 } else {
-                    Text("novo sussurro", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
-                    Text("e assim que um aviso chega na bandeja.", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                    Text("ana", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
+                    Text("e ai, bora marcar a call?", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
                 }
             }
+        }
         }
     }
 }
@@ -3593,7 +3620,9 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
                 p.uiFps, prefs::setUiFps,
             )
         }
-        ToggleRow("Reduzir movimento", "congela a aurora e desliga cascatas e pulsos", p.reduceMotion, prefs::setReduceMotion)
+        // "Reduzir movimento" mudou de casa: foi pra aba Acessibilidade. Aqui ele
+        // parecia ajuste de placa de vídeo, e não o que de fato é — necessidade de
+        // quem passa mal com animação.
     }
 
     Spacer(Modifier.height(6.dp))
@@ -3911,32 +3940,61 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 
     SettingsDivider()
-    Text("Acessibilidade", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-    Spacer(Modifier.height(10.dp))
-    ToggleRow(
-        "Alto contraste",
-        "clareia texto e bordas — vale na hora, em todas as telas",
-        p.altoContraste, prefs::setAltoContraste,
-    )
-    Spacer(Modifier.height(8.dp))
-    // A honestidade aqui é o recurso. O padrão do app foi ESCURECIDO de propósito
-    // (ver Obsidian.kt), e quem liga isto merece saber que está trocando uma coisa
-    // por outra em vez de "melhorando" um descuido.
-    Text(
-        "o padrão do Astra é mais suave de propósito: contraste alto demais em fundo escuro " +
-            "faz a borda da letra vibrar, e isso cansa em sessão longa à noite. ligue isto se " +
-            "o padrão for difícil de ler — a troca é sua, e legibilidade ganha de conforto.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
+    Spacer(Modifier.height(20.dp))
+}
 
-    SettingsDivider()
+// ABA ACESSIBILIDADE — no espírito da do Discord (pedido do dono).
+//
+// O que o Discord acerta e que aqui estava espalhado: acessibilidade é uma aba, não
+// um rodapé de "Aparência". Legibilidade, contraste e movimento são o mesmo assunto
+// — "consigo usar isto confortavelmente?" — e estavam em duas abas diferentes, com
+// "reduzir movimento" morando em Desempenho, onde ele parecia um ajuste de placa de
+// vídeo e não uma necessidade de quem passa mal com animação.
+//
+// A prévia ao lado é a mini-janela do chat, e ela reage AO VIVO ao tamanho e à
+// densidade — mesma ideia da prévia do Discord: mexer no controle e ver a frase
+// mudar de tamanho responde melhor que qualquer rótulo em pixels.
+@Composable
+private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    Text("Legibilidade do texto", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(10.dp))
     LabeledControl("Tamanho da fonte", "das mensagens no chat") {
         SegmentedRow(FontSizePref.entries.map { it.label to it }, p.fontSize, prefs::setFontSize)
     }
     LabeledControl("Densidade das mensagens", "respiro entre as mensagens") {
         SegmentedRow(DensityPref.entries.map { it.label to it }, p.density, prefs::setDensity)
     }
+
+    SettingsDivider()
+    // A honestidade aqui é o recurso, e ela cabe no balão: o padrão do app foi
+    // ESCURECIDO de propósito (ver Obsidian.kt), e quem liga isto merece saber que
+    // está trocando uma coisa por outra, não consertando um descuido.
+    TituloExplicavel(
+        "Contraste",
+        "O padrão do Astra é mais suave de propósito: contraste alto demais em fundo " +
+            "escuro faz a borda da letra vibrar, e isso cansa em sessão longa à noite. " +
+            "Ligue o alto contraste se o padrão for difícil de ler — a troca é sua, e " +
+            "legibilidade ganha de conforto.",
+    )
+    ToggleRow(
+        "Alto contraste",
+        "clareia texto e bordas — vale na hora, em todas as telas",
+        p.altoContraste, prefs::setAltoContraste,
+    )
+
+    SettingsDivider()
+    TituloExplicavel(
+        "Movimento",
+        "Congela a aurora e desliga as cascatas de entrada e os pulsos. Vale em todas " +
+            "as telas, na hora. O Astra também obedece ao ajuste de movimento do próprio " +
+            "Windows — este interruptor é para quando você quer parar tudo sem mexer no " +
+            "sistema inteiro.",
+    )
+    ToggleRow(
+        "Reduzir movimento",
+        "congela a aurora e desliga cascatas e pulsos",
+        p.reduceMotion, prefs::setReduceMotion,
+    )
     Spacer(Modifier.height(20.dp))
 }
 

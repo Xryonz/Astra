@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
+import app.astra.desktop.ui.theme.Babylonica
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Eye
@@ -205,9 +206,11 @@ fun LoginScreen(
                     text = "Astra",
                     style = TextStyle(
                         color = Obsidian.text1,
-                        fontSize = 56.sp,
-                        fontFamily = DmSerif,
-                        fontWeight = FontWeight.Light,
+                        // Maior que os 56 de antes porque a Babylonica desenha bem
+                        // menor no mesmo corpo: a altura-x dela é pequena e o traço é
+                        // fino, então 56 aqui pareceria um recuo, e não uma troca.
+                        fontSize = 72.sp,
+                        fontFamily = Babylonica,
                     ),
                 )
                 Spacer(Modifier.height(8.dp))

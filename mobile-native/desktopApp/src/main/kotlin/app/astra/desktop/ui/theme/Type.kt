@@ -45,6 +45,15 @@ val DmMono = FontFamily(
 
 val GreatVibes = FontFamily(Font(resource = "font/great_vibes.ttf"))
 
+// O LETREIRO "ASTRA" — e só ele.
+//
+// Babylonica é escrita à mão de traço fino e laçada larga. Medida nos tamanhos que
+// o app usa: soberba a 56px, boa a 32px, fraca a 20px e um borrão ilegível a 13px,
+// que é onde o nome aparece na barra de título. Por isso ela vale nas duas telas em
+// que "Astra" é LOGOTIPO (entrada e atualização) e não na barra, onde a mesma
+// palavra é só um rótulo — trocar lá compraria uma mancha em vez de assinatura.
+val Babylonica = FontFamily(Font(resource = "font/babylonica.ttf"))
+
 // DM Sans e o texto padrao do app. BasicText não le LocalTextStyle (isso e do
 // material), entao este Text aplica a familia por baixo — os call sites so
 // declaram cor/tamanho e herdam a fonte certa.

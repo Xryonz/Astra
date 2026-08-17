@@ -118,8 +118,10 @@ import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.xp.MissoesStore
 import app.astra.desktop.xp.XpStore
+import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ModoTransmissao
+import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceEngine
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.shell.ChatTarget
@@ -186,6 +188,9 @@ import app.astra.mobile.core.network.dto.ServerMemberDto
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.context.GlobalContext
 
 // Shell desktop (fatia 2): rail 72 | sidebar 260 | palco | membros 240.
@@ -322,21 +327,50 @@ fun ShellScreen(
             delay(120_000)
         }
     }
+    val json = remember { koin.get<Json>() }
     LaunchedEffect(Unit) {
-        socket.notification.collect {
+        socket.notification.collect { raw ->
             notifCount += 1
             onNotifUnread(notifCount)
+            // O SOM MORA NESTE EVENTO e não no do balão, por dois motivos. Primeiro:
+            // é o único que carrega o `silent` do servidor — a resposta autoritativa
+            // sobre não-perturbe e horário de descanso, calculada com as prefs da
+            // conta e não com um palpite local. Segundo: `notification` só nasce
+            // para o que é dirigido a você, então o som já herda a discrição certa
+            // sem precisar de mais nenhuma condição.
+            //
+            // Toca com a janela aberta também, de propósito: é assim que se percebe
+            // que chegou algo em outra órbita sem estar olhando pra ela.
+            val silencioso = runCatching {
+                json.parseToJsonElement(raw).jsonObject["silent"]?.jsonPrimitive?.boolean
+            }.getOrNull() ?: false
+            // Transmitindo, o som entra na gravação como qualquer outro áudio do
+            // sistema — mesma razão do aviso sem conteúdo.
+            if (!silencioso && prefs.state.value.somDeAviso && !ModoTransmissao.ativo.value) {
+                Sfx.aviso()
+            }
         }
     }
 
     // Toast na bandeja quando chega mensagem com a janela fechada/minimizada.
     // DM tem autor+conteudo (salas todas joinadas); canal so tem o id do
     // channel_activity -> notificação generica com o nome da órbita.
-    val json = remember { koin.get<Json>() }
+    // NÃO PERTURBE E HORÁRIO DE DESCANSO CALAM A BANDEJA — e até agora não calavam
+    // nada. O servidor já marcava `silent: true` no evento `notification` nos dois
+    // casos, e o desktop nunca leu esse campo: dava pra pôr o status em "não
+    // perturbe" e o balão do Windows pulava igual, de madrugada inclusive.
+    //
+    // A decisão é tomada AQUI, com o relógio local, em vez de esperar o `silent`:
+    // o balão nasce de `new_dm`/`channel_activity`, que são eventos diferentes do
+    // `notification`. Amarrar um ao outro criaria dependência de ordem entre dois
+    // caminhos que o servidor emite separados.
+    val avisosDaConta = remember { koin.get<AvisosDaConta>() }
+    LaunchedEffect(Unit) { avisosDaConta.carregar() }
     LaunchedEffect(Unit) {
         launch {
             socket.newDm.collect { raw ->
                 if (!windowInactive() || !prefs.state.value.notifyDms) return@collect
+                if (avisosDaConta.devoCalar(vm.state.value.me?.effectiveStatus)) return@collect
                 val msg = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull() ?: return@collect
                 if (msg.senderId == session.userId) return@collect
                 if (vm.state.value.dms.any { it.id == msg.conversationId && it.muted }) return@collect
@@ -354,6 +388,7 @@ fun ShellScreen(
         launch {
             socket.channelActivity.collect { raw ->
                 if (!windowInactive() || !prefs.state.value.notifyChannels) return@collect
+                if (avisosDaConta.devoCalar(vm.state.value.me?.effectiveStatus)) return@collect
                 val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
                 val estado = vm.state.value
                 val ch = estado.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect

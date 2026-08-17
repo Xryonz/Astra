@@ -54,6 +54,7 @@ import com.sun.jna.win32.W32APIOptions
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import app.astra.desktop.ui.AstraTextContextMenu
 import app.astra.desktop.ui.AstraTitleBar
+import app.astra.desktop.ui.EmblemaDaBarra
 import app.astra.desktop.ui.LocalReduceMotion
 import app.astra.desktop.ui.LocalRenderPrefs
 import app.astra.desktop.ui.LocalWindowActive
@@ -562,6 +563,12 @@ fun main(args: Array<String>) {
             var desejosOpen by remember { mutableStateOf(false) }
             var missoesOpen by remember { mutableStateOf(false) }
             var notifUnread by remember { mutableStateOf(0) }
+
+            // O círculo com o número, colado no ícone da barra de tarefas. Mora
+            // AQUI e não no ShellScreen porque precisa da janela do AWT, e porque
+            // o emblema tem que sobreviver a qualquer troca de tela lá dentro —
+            // ele é do aplicativo, não de uma página.
+            EmblemaDaBarra(window, notifUnread)
 
             // Tema do usuário (Settings > Aparencia): aplica o par accent/fundo nos
             // tokens reativos do Obsidian -> o app inteiro recolore ao vivo.

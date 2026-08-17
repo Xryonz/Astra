@@ -436,37 +436,56 @@ fun SettingsScreen(
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
-                            ToggleRow(
-                                "Sussurros (DMs)", "avisa quando chega mensagem privada",
-                                prefState.notifyDms, prefs::setNotifyDms,
-                            )
-                            ToggleRow(
-                                "Atividade de canal", "avisa nova mensagem nas constelações",
-                                prefState.notifyChannels, prefs::setNotifyChannels,
-                            )
-                            ToggleRow(
-                                "Aviso sem conteúdo",
-                                "some quem escreveu e o que escreveu — fica só “sussurro novo”",
-                                prefState.avisoDiscreto, prefs::setAvisoDiscreto,
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Text(
-                                "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                                modifier = Modifier.widthIn(max = 460.dp),
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            // Por que isto existe, em uma linha: o aviso da bandeja é
-                            // desenhado pelo Windows POR CIMA de tudo — inclusive do
-                            // que está sendo gravado ou transmitido.
-                            Text(
-                                "o aviso sem conteúdo serve para transmitir a tela: o balão do Windows " +
-                                    "aparece por cima de tudo, e o que estiver escrito nele entra na gravação.",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-                                modifier = Modifier.widthIn(max = 460.dp),
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            TestarNotificacao(onTestarNotificacao)
+                            // DOIS BLOCOS porque são dois escopos. O de cima manda no
+                            // balão desta máquina; o de baixo manda na conta inteira.
+                            // Antes só existia o de cima, e as preferências da conta
+                            // ficavam alcançáveis apenas pelo site — quem desligasse
+                            // "reações" por lá simplesmente parava de receber reação no
+                            // desktop, sem explicação e sem caminho de volta.
+                            BlocoDeAjustes(
+                                "neste computador",
+                                "mandam no balão da bandeja desta máquina. Não mudam o que o " +
+                                    "servidor envia, então o sino continua contando.",
+                            ) {
+                                ToggleRow(
+                                    "Sussurros (DMs)", "avisa quando chega mensagem privada",
+                                    prefState.notifyDms, prefs::setNotifyDms,
+                                )
+                                ToggleRow(
+                                    "Atividade de canal", "avisa nova mensagem nas constelações",
+                                    prefState.notifyChannels, prefs::setNotifyChannels,
+                                )
+                                ToggleRow(
+                                    "Som do aviso",
+                                    "duas notas curtas quando chega algo dirigido a você",
+                                    prefState.somDeAviso, prefs::setSomDeAviso,
+                                )
+                                ToggleRow(
+                                    "Aviso sem conteúdo",
+                                    "some quem escreveu e o que escreveu — fica só “sussurro novo”",
+                                    prefState.avisoDiscreto, prefs::setAvisoDiscreto,
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                    modifier = Modifier.widthIn(max = 460.dp),
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                // Por que isto existe, em uma linha: o aviso da bandeja é
+                                // desenhado pelo Windows POR CIMA de tudo — inclusive do
+                                // que está sendo gravado ou transmitido.
+                                Text(
+                                    "o aviso sem conteúdo serve para transmitir a tela: o balão do Windows " +
+                                        "aparece por cima de tudo, e o que estiver escrito nele entra na gravação.",
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+                                    modifier = Modifier.widthIn(max = 460.dp),
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                TestarNotificacao(onTestarNotificacao)
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            AvisosDaContaBloco()
                         }
                         SettingsTab.PRIVACY -> PrivacySection(prefState, prefs, me, onProfileSaved)
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)

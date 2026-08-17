@@ -4,6 +4,7 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import kotlin.concurrent.thread
 import kotlin.math.PI
+import kotlin.math.exp
 import kotlin.math.sin
 
 // Sons do app SINTETIZADOS em runtime (sem arquivos .wav): senoides curtas com
@@ -16,12 +17,35 @@ import kotlin.math.sin
 object Sfx {
     private const val RATE = 44100
 
-    private data class Tone(val hz: Float, val ms: Int, val gain: Float = 0.26f)
+    // `sino` troca o envelope: em vez do trapézio (sobe, segura, desce), o tom
+    // ataca em 4ms e cai exponencialmente, como corpo percutido. Ver `render`.
+    private data class Tone(val hz: Float, val ms: Int, val gain: Float = 0.26f, val sino: Boolean = false)
 
     fun callJoin()   = play(listOf(Tone(620f, 80), Tone(930f, 150)))
     fun callLeave()  = play(listOf(Tone(430f, 90), Tone(300f, 175)))
     fun shareStart() = play(listOf(Tone(500f, 95), Tone(680f, 95), Tone(920f, 155)))
     fun shareStop()  = play(listOf(Tone(920f, 95), Tone(680f, 95), Tone(500f, 155)))
+
+    // ---- Aviso de mensagem ----
+    //
+    // Duas notas subindo uma TERÇA MAIOR (Lá5 → Dó#6). Terça é consonante e soa
+    // como pergunta amável; segunda ou trítono soariam como alarme, e alarme é o
+    // que faz alguém desligar o som do app no terceiro dia.
+    //
+    // POR QUE NÃO É O TRAPÉZIO DOS OUTROS SONS: o envelope de sustentação plana
+    // soa como BIPE de aparelho. Aviso toca dezenas de vezes por dia — precisa
+    // desaparecer da consciência entre uma vez e outra, e é o decaimento rápido
+    // que faz isso. Junto vai uma 4ª harmônica fraca, que é o truque clássico do
+    // timbre de marimba: dá corpo de madeira a uma senóide sem custar nada.
+    //
+    // Total ~350ms e ganho abaixo do toque de chamada de propósito: isto avisa,
+    // não convoca.
+    fun aviso() = play(
+        listOf(
+            Tone(880f, 110, gain = 0.20f, sino = true),
+            Tone(1108.7f, 240, gain = 0.18f, sino = true),
+        ),
+    )
 
     // ---- Toque de chamada no sussurro ----
     //
@@ -93,13 +117,31 @@ object Sfx {
         for (t in seq) {
             val n = t.ms * RATE / 1000
             val fade = (n * 0.18f).toInt().coerceAtLeast(1)
+            // Ataque de 4ms: rápido o bastante pra soar percutido, longo o bastante
+            // pra não estalar. Ligar a senóide seca produz um clique que chega mais
+            // alto que a própria nota.
+            val ataqueN = (RATE * 0.004f).coerceAtLeast(1f)
+            // Solta de 3ms no fim. O decaimento exponencial ainda vale ~4% quando o
+            // tom acaba, e cair desses 4% direto pra zero é um degrau — audível
+            // como estalinho na emenda entre as duas notas.
+            val soltaN = (RATE * 0.003f).coerceAtLeast(1f)
             for (i in 0 until n) {
-                val env = when {
+                val env = if (t.sino) {
+                    val ataque = (i / ataqueN).coerceAtMost(1f)
+                    val queda = exp(-3.2f * i / n)
+                    val solta = ((n - i) / soltaN).coerceAtMost(1f)
+                    ataque * queda * solta
+                } else when {
                     i < fade -> i.toFloat() / fade
                     i > n - fade -> (n - i).toFloat() / fade
                     else -> 1f
                 }
-                val s = sin(2.0 * PI * t.hz * i / RATE).toFloat() * t.gain * env
+                val fase = 2.0 * PI * t.hz * i / RATE
+                // 4ª harmônica a 22%: duas oitavas acima do fundamental. É o que
+                // separa "madeira percutida" de "senóide pura" — e some junto com
+                // o fundamental porque compartilha o mesmo envelope.
+                val onda = if (t.sino) (sin(fase) + 0.22 * sin(4.0 * fase)) / 1.22 else sin(fase)
+                val s = onda.toFloat() * t.gain * env
                 val v = (s * Short.MAX_VALUE).toInt().coerceIn(-32768, 32767)
                 out[idx++] = (v and 0xFF).toByte()
                 out[idx++] = ((v shr 8) and 0xFF).toByte()

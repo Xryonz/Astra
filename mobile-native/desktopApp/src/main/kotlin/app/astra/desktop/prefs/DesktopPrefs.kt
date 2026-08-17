@@ -167,6 +167,9 @@ class DesktopPrefs(private val store: SessionStore) {
         // transmite a tela -- o aviso da bandeja aparece POR CIMA de tudo, inclusive
         // do que esta sendo gravado.
         val avisoDiscreto: Boolean = false,
+        // Som do aviso de mensagem (sintetizado no Sfx). Nasce LIGADO: som novo
+        // que precisa ser descoberto num menu não existe pra quem instalou hoje.
+        val somDeAviso: Boolean = true,
         // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
         // automatico e opt-in porque exige varrer a lista de processos.
         val modoTransmissao: Boolean = false,
@@ -267,6 +270,9 @@ class DesktopPrefs(private val store: SessionStore) {
         placaVideo = store.uiPref("placaVideo").orEmpty(),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         avisoDiscreto = store.uiPref("avisoDiscreto") == "1",
+        // Ausente = ligado. Só um "0" explícito desliga — quem nunca abriu a aba
+        // não deve herdar silêncio por causa de uma chave que ainda não existe.
+        somDeAviso = store.uiPref("somDeAviso") != "0",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
@@ -396,6 +402,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setAvisoDiscreto(v: Boolean) {
         persist("avisoDiscreto", v)
         _state.update { it.copy(avisoDiscreto = v) }
+    }
+
+    fun setSomDeAviso(v: Boolean) {
+        persist("somDeAviso", v)
+        _state.update { it.copy(somDeAviso = v) }
     }
 
     fun setMicNoiseSuppression(v: Boolean) {

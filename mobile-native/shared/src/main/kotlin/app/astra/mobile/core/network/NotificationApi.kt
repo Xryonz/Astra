@@ -1,6 +1,8 @@
 package app.astra.mobile.core.network
 
 import app.astra.mobile.core.network.dto.ApiEnvelope
+import app.astra.mobile.core.network.dto.AvisosDaContaRequest
+import app.astra.mobile.core.network.dto.AvisosDaContaResposta
 import app.astra.mobile.core.network.dto.ChannelNotifPrefDto
 import app.astra.mobile.core.network.dto.NotifModeRequest
 import app.astra.mobile.core.network.dto.NotificationsPageDto
@@ -9,6 +11,7 @@ import app.astra.mobile.core.network.dto.UnreadCountDto
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -53,4 +56,13 @@ interface NotificationApi {
 
     @DELETE("api/servers/{id}/notification-pref")
     suspend fun clearServerNotifPref(@Path("id") serverId: String): ApiEnvelope<ServerNotifPrefDto>
+
+    // ---- Avisos da CONTA (valem em todo dispositivo): backend em notifications.ts.
+    // Aqui se decide se o aviso existe; as prefs de canal/servidor acima decidem
+    // de ONDE ele pode vir.
+    @GET("api/notifications/prefs")
+    suspend fun avisosDaConta(): ApiEnvelope<AvisosDaContaResposta>
+
+    @PATCH("api/notifications/prefs")
+    suspend fun salvarAvisosDaConta(@Body body: AvisosDaContaRequest): ApiEnvelope<AvisosDaContaResposta>
 }

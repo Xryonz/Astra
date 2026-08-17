@@ -811,6 +811,12 @@ fun main(args: Array<String>) {
                                                 // cancelaria o aviso de logout antes de ele sair.
                                                 authRepo.logout(escopoDaJanela)
                                                 session = null
+                                                // O emblema da barra mora na JANELA, que sobrevive
+                                                // ao logout — sem zerar aqui, o círculo ficaria
+                                                // grudado no ícone anunciando mensagens de uma
+                                                // conta que já saiu, e ninguém teria como apagá-lo
+                                                // a não ser fechando o Astra.
+                                                notifUnread = 0
                                             },
                                             searchOpen = searchOpen,
                                             onCloseSearch = { searchOpen = false },

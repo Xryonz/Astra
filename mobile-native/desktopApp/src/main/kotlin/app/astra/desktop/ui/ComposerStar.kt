@@ -39,6 +39,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.dto.EmojiDto
 import app.astra.mobile.core.network.dto.GifResultDto
 import app.astra.mobile.core.network.dto.ServerStickerDto
 import com.composables.icons.lucide.ChartNoAxesColumn
@@ -151,6 +152,7 @@ internal fun ComposerPickerButton(
     onPickEmoji: (String) -> Unit = {},
     onPickGif: (GifResultDto) -> Unit = {},
     onPickSticker: (ServerStickerDto) -> Unit = {},
+    emojisDaSala: List<EmojiDto> = emptyList(),
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -175,7 +177,7 @@ internal fun ComposerPickerButton(
                         Seletor.FIGURINHA -> if (serverId != null) {
                             StickerPanel(serverId, onPick = { f -> open = false; onPickSticker(f) })
                         }
-                        Seletor.EMOJI -> ReactionPicker(onPick = onPickEmoji)
+                        Seletor.EMOJI -> ReactionPicker(onPick = onPickEmoji, personalizados = emojisDaSala)
                     }
                 }
             }

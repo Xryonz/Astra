@@ -1,6 +1,7 @@
 package app.astra.desktop.ui.theme
 
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
@@ -71,6 +72,18 @@ fun Text(
     overflow: TextOverflow = TextOverflow.Clip,
     softWrap: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
+    // Imagem NO MEIO do texto (emoji da constelacao). Vazio por padrao: quem não
+    // usa não paga nada, e nenhum call site existente muda.
+    inlineContent: Map<String, InlineTextContent> = mapOf(),
 ) {
-    BasicText(text, modifier, BaseStyle.merge(style), onTextLayout, overflow, softWrap, maxLines)
+    BasicText(
+        text = text,
+        modifier = modifier,
+        style = BaseStyle.merge(style),
+        onTextLayout = onTextLayout,
+        overflow = overflow,
+        softWrap = softWrap,
+        maxLines = maxLines,
+        inlineContent = inlineContent,
+    )
 }

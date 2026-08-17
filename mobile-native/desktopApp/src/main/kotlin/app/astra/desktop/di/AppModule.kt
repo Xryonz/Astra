@@ -24,6 +24,7 @@ import app.astra.mobile.core.network.NotificationApi
 import app.astra.mobile.core.network.RefreshApi
 import app.astra.mobile.core.network.BadgeApi
 import app.astra.mobile.core.network.SearchApi
+import app.astra.mobile.core.network.EmojiApi
 import app.astra.mobile.core.network.SoundApi
 import app.astra.mobile.core.network.StickerApi
 import app.astra.mobile.core.network.MissionApi
@@ -112,6 +113,7 @@ val appModule = module {
     single<SearchApi> { get<Retrofit>(named("authed")).create(SearchApi::class.java) }
     single<SoundApi> { get<Retrofit>(named("authed")).create(SoundApi::class.java) }
     single<StickerApi> { get<Retrofit>(named("authed")).create(StickerApi::class.java) }
+    single<EmojiApi> { get<Retrofit>(named("authed")).create(EmojiApi::class.java) }
     single<XpApi> { get<Retrofit>(named("authed")).create(XpApi::class.java) }
     single<BadgeApi> { get<Retrofit>(named("authed")).create(BadgeApi::class.java) }
     single<MissionApi> { get<Retrofit>(named("authed")).create(MissionApi::class.java) }

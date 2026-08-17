@@ -85,6 +85,7 @@ import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.LoaderCircle
 import com.composables.icons.lucide.Trash2
 import com.composables.icons.lucide.Upload
+import com.composables.icons.lucide.Smile
 import com.composables.icons.lucide.Sticker
 import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.Info
@@ -107,6 +108,7 @@ internal enum class ServerTab(val label: String, val sub: String, val icon: Imag
     BANS("Banimentos", "quem não pode voltar", Lucide.Ban, true),
     SOUNDS("Efeitos sonoros", "sons para tocar em call", Lucide.Volume2, true),
     STICKERS("Figurinhas", "imagens para mandar no chat", Lucide.Sticker, true),
+    EMOJIS("Emojis", "os que só existem aqui", Lucide.Smile, true),
     BOT("Bot", "o que a Sparkle pode fazer aqui", Lucide.Bot, true),
 }
 
@@ -303,6 +305,15 @@ fun ServerSettingsScreen(
                                 ServerTab.STICKERS -> StickersSection(
                                     serverId = server.id,
                                     podeGerenciar = isOwner || "MANAGE_SERVER" in myPermissions,
+                                )
+                                // MANAGE_CHANNELS, e não MANAGE_SERVER como as duas
+                                // abas acima: é o que a rota de emoji exige do lado do
+                                // servidor (routes/emojis.ts). Copiar a permissão da
+                                // vizinha deixaria o botão à mostra pra quem levaria
+                                // 403 ao clicar, e escondido de quem podia.
+                                ServerTab.EMOJIS -> EmojisSection(
+                                    serverId = server.id,
+                                    podeGerenciar = isOwner || "MANAGE_CHANNELS" in myPermissions,
                                 )
                                 // Aqui a regra é do LUGAR e não de quem olha: som e
                                 // figurinha todo mundo vê (ouvir o que existe antes

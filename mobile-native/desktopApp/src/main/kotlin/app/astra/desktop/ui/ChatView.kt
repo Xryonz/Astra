@@ -147,6 +147,7 @@ import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import org.koin.core.context.GlobalContext
 import app.astra.mobile.core.network.dto.AttachmentDto
+import app.astra.mobile.core.network.dto.EmojiDto
 import app.astra.mobile.core.network.dto.ReactionDto
 import app.astra.mobile.core.network.dto.ReplyToDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
@@ -295,11 +296,16 @@ fun ChatView(
         }
     }
 
+    // Emojis da constelacao: uma busca por constelacao, servindo a conversa (que os
+    // desenha) e o seletor do compositor (que os oferece). Em sussurro vem vazio.
+    val emojisDaSala = rememberEmojisDaSala(serverId)
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalOpenImage provides { url -> lightboxUrl = url },
         LocalMsgFontScale provides prefState.fontSize.scale,
         LocalMsgDensity provides MsgDensity(prefState.density.topDp, prefState.density.groupedTopDp),
         LocalMencaoClicavel provides mencao,
+        LocalEmojisDaSala provides emojisDaSala,
     ) {
     Box(
         Modifier
@@ -552,6 +558,25 @@ fun ChatView(
                     .take(8)
                     .toList()
             }
+            // Autocomplete de `:nome` — mesma leitura do fim do rascunho que o @ faz.
+            //
+            // EXIGE DUAS LETRAS depois dos dois-pontos, e o @ nao exige nenhuma. A
+            // diferenca nao e capricho: arroba solto praticamente nao aparece em
+            // conversa, enquanto dois-pontos aparece em hora ("20:"), em link
+            // ("https:") e no meio de frase. Abrir a lista no `:` sozinho poria uma
+            // caixinha na frente do texto varias vezes por conversa, sem ninguem ter
+            // pedido nada. Duas letras tambem e o minimo de um nome de emoji, entao
+            // nao se perde nenhum caso real.
+            val emojiAlvo = remember(draft, emojisDaSala) {
+                if (emojisDaSala.lista.isEmpty()) null else REGEX_EMOJI_ABERTO.find(draft)
+            }
+            val emojiCandidatos = remember(emojiAlvo, emojisDaSala) {
+                val q = emojiAlvo?.groupValues?.get(1)?.lowercase() ?: return@remember emptyList()
+                emojisDaSala.lista.asSequence()
+                    .filter { it.name.contains(q, ignoreCase = true) }
+                    .take(8)
+                    .toList()
+            }
             // Os prefixos VEM DA LISTA que o backend mandou (o 1o pedaco de cada
             // comando), nao de uma copia cravada aqui. Eles mudam de nome conforme
             // o dia (/sparkle na semana, /sparxie no fim de semana); uma lista
@@ -577,6 +602,15 @@ fun ChatView(
                 MencaoPalette(candidatos) { escolhido ->
                     val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
                     draft = draft.substring(0, inicio) + "@" + escolhido.user.username + " "
+                }
+                Spacer(Modifier.height(6.dp))
+            } else if (emojiCandidatos.isNotEmpty() && matches.isEmpty()) {
+                // `else if` e nao um terceiro `if`: as tres caixinhas moram no mesmo
+                // lugar da tela, logo acima do compositor. Empilhar duas empurraria o
+                // compositor pra baixo enquanto se digita.
+                EmojiPalette(emojiCandidatos) { escolhido ->
+                    val inicio = emojiAlvo?.range?.first ?: return@EmojiPalette
+                    draft = draft.substring(0, inicio) + ":" + escolhido.name + ": "
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -663,7 +697,11 @@ fun ChatView(
                     )
                     Spacer(Modifier.width(4.dp))
                 }
-                ComposerPickerButton(Seletor.EMOJI, onPickEmoji = { draft = (draft + it).take(4000) })
+                ComposerPickerButton(
+                    Seletor.EMOJI,
+                    onPickEmoji = { draft = (draft + it).take(4000) },
+                    emojisDaSala = emojisDaSala.lista,
+                )
                 Spacer(Modifier.width(4.dp))
                 SendButton(enabled = canSend) { submit() }
             }
@@ -994,27 +1032,41 @@ private fun ContentBlock(
         // dentro dele muda (ver MencaoClicavel). Entrar como chave remontaria todo o
         // texto do chat a cada ida e volta da lista de membros.
         val aoClicarNaMencao = LocalMencaoClicavel.current
+        // Emoji da constelacao entra NAS CHAVES do remember, ao contrario do clique
+        // da mencao: a lista muda quando alguem sobe ou apaga um emoji, e ai o texto
+        // TEM que ser remontado — senao o emoji novo so apareceria nas mensagens
+        // seguintes, e as antigas ficariam com o `:nome:` escrito pra sempre.
+        val emojis = LocalEmojisDaSala.current
+        val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
+        // Mensagem que e SO emoji desenha ao dobro; misturada com texto, fica no
+        // tamanho da leitura. A altura da linha sobe junto — sem isso o emoji, que
+        // mede 1.4 vezes a fonte, seria cortado pelo teto da linha.
+        val fator = if (realce.soEmoji) 2f else 1f
+        val corpo = (13 * scale * fator).sp
+        val linha = ((if (realce.temPersonalizado) 21 else 19) * scale * fator).sp
         if (segments.size == 1 && segments[0] is Seg.Txt) {
             Text(
-                text = remember(msg.content, msg.edited, meuUsuario) {
+                text = remember(msg.content, msg.edited, meuUsuario, emojis) {
                     buildAnnotatedString {
-                        appendInlineCoded(msg.content, meuUsuario, aoClicarNaMencao)
+                        appendInlineCoded(msg.content, meuUsuario, aoClicarNaMencao, emojis)
                         if (msg.edited) {
                             withStyle(SpanStyle(color = Obsidian.text3, fontSize = 10.sp)) { append("  (editado)") }
                         }
                     }
                 },
-                style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
+                style = TextStyle(color = Obsidian.text2, fontSize = corpo, lineHeight = linha),
+                inlineContent = emojis.inline,
             )
         } else {
             segments.forEachIndexed { i, seg ->
                 if (i > 0) Spacer(Modifier.height(4.dp))
                 when (seg) {
                     is Seg.Txt -> Text(
-                        text = remember(seg.s, meuUsuario) {
-                            buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario, aoClicarNaMencao) }
+                        text = remember(seg.s, meuUsuario, emojis) {
+                            buildAnnotatedString { appendInlineCoded(seg.s, meuUsuario, aoClicarNaMencao, emojis) }
                         },
-                        style = TextStyle(color = Obsidian.text2, fontSize = (13 * scale).sp, lineHeight = (19 * scale).sp),
+                        style = TextStyle(color = Obsidian.text2, fontSize = corpo, lineHeight = linha),
+                        inlineContent = emojis.inline,
                     )
                     is Seg.Code -> CodeBox(seg)
                 }
@@ -1238,16 +1290,17 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
     s: String,
     meuUsuario: String? = null,
     aoClicar: MencaoClicavel,
+    emojis: EmojisDaSala,
 ) {
     var i = 0
     while (true) {
         val a = s.indexOf('`', i)
         val b = if (a >= 0) s.indexOf('`', a + 1) else -1
         if (a < 0 || b < 0) {
-            appendComMencoes(s.substring(i), meuUsuario, aoClicar)
+            appendComMencoes(s.substring(i), meuUsuario, aoClicar, emojis)
             return
         }
-        appendComMencoes(s.substring(i, a), meuUsuario, aoClicar)
+        appendComMencoes(s.substring(i, a), meuUsuario, aoClicar, emojis)
         withStyle(SpanStyle(fontFamily = DmMono, background = Obsidian.base, fontSize = 12.sp)) {
             append(s.substring(a + 1, b))
         }
@@ -1306,6 +1359,60 @@ private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto
     }
 }
 
+// Emoji da constelacao ABERTO: `:` mais duas letras ou mais, colado no fim do
+// rascunho. O `:` que fecha o nome nao e caractere de nome, entao `:pronto:` ja
+// escrito nunca casa — a lista fecha sozinha quando o nome termina.
+private val REGEX_EMOJI_ABERTO = Regex(":([A-Za-z0-9_]{2,32})$")
+
+// Lista de emojis pra completar o `:`. Mesma casca da caixinha do @ — sao o mesmo
+// gesto (completar o que se esta digitando) e mudar a moldura entre os dois faria
+// parecerem coisas diferentes.
+@Composable
+private fun EmojiPalette(itens: List<EmojiDto>, onPick: (EmojiDto) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.overlay)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
+            .padding(4.dp),
+    ) {
+        itens.forEach { e ->
+            val src = remember(e.id) { MutableInteractionSource() }
+            val hov by src.collectIsHoveredAsState()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(if (hov) Obsidian.hover else Color.Transparent)
+                    .hoverable(src)
+                    .clickable(interactionSource = src, indication = null) { onPick(e) }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AstraImage(
+                    url = e.url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(22.dp),
+                )
+                Spacer(Modifier.width(9.dp))
+                // O nome sai COM os dois-pontos, exatamente como vai parar no texto:
+                // e assim que se aprende a digita-lo da proxima vez sem abrir lista.
+                Text(
+                    ":${e.name}:",
+                    style = TextStyle(
+                        color = if (hov) Obsidian.text1 else Obsidian.text2,
+                        fontSize = 12.sp,
+                        fontFamily = DmMono,
+                    ),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
 // Mesma regra do backend (lib/mentions.ts): @ seguido de letras, numeros e _.
 // Divergir aqui pintaria de ambar algo que o servidor nunca notificou.
 private val REGEX_MENCAO = Regex("@([A-Za-z0-9_]+)")
@@ -1322,10 +1429,11 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(
     s: String,
     meuUsuario: String?,
     aoClicar: MencaoClicavel,
+    emojis: EmojisDaSala,
 ) {
     var i = 0
     for (m in REGEX_MENCAO.findAll(s)) {
-        append(s.substring(i, m.range.first))
+        appendComEmojis(s.substring(i, m.range.first), emojis)
         val usuario = m.groupValues[1]
         val minha = !meuUsuario.isNullOrBlank() && usuario.equals(meuUsuario, ignoreCase = true)
         val repouso = SpanStyle(
@@ -1348,7 +1456,7 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(
         ) { append(m.value) }
         i = m.range.last + 1
     }
-    append(s.substring(i))
+    appendComEmojis(s.substring(i), emojis)
 }
 
 @Composable
@@ -1574,8 +1682,14 @@ private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean =
 // Popup ancorado ACIMA do gatilho (o composer fica no rodape), alinhado a direita.
 // Seletor de reacao: 6 rapidos + grade expansivel. internal: a aba Perfil das
 // configurações reusa esta mesma grade pro emoji do recado (não duplicar).
+//
+// `personalizados` VAZIO por padrao, e o padrao e o caso comum: quem escolhe aqui
+// e a reacao (que manda o emoji como texto pro servidor e volta em toda plataforma)
+// e o emoji do recado do perfil. Nos dois, um `:nome:` sairia escrito assim mesmo,
+// porque nao ha constelacao por perto pra traduzir o nome em imagem. So o
+// compositor — que grava o `:nome:` numa mensagem de uma constelacao — preenche.
 @Composable
-internal fun ReactionPicker(onPick: (String) -> Unit) {
+internal fun ReactionPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = emptyList()) {
     var expanded by remember { mutableStateOf(false) }
     Column(
         Modifier
@@ -1594,7 +1708,7 @@ internal fun ReactionPicker(onPick: (String) -> Unit) {
             // A grade de 28 glifos cravados virou o catalogo inteiro (EmojiPicker):
             // ~700 em oito categorias, com busca e recentes. Os seis rapidos de cima
             // continuam — eles resolvem 90% das reacoes sem abrir nada.
-            EmojiPicker(onPick = onPick)
+            EmojiPicker(onPick = onPick, personalizados = personalizados)
         }
     }
 }

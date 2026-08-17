@@ -307,6 +307,27 @@ CREATE TABLE IF NOT EXISTS "ServerSticker" (
 CREATE UNIQUE INDEX IF NOT EXISTS "ServerSticker_serverId_name_key" ON "ServerSticker" USING btree ("serverId", "name");
 CREATE INDEX IF NOT EXISTS "ServerSticker_serverId_idx" ON "ServerSticker" USING btree ("serverId");
 
+-- ===== Emojis da constelação =====
+-- Faltava aqui: a tabela existe desde a migration 0012, e migration NÃO roda no
+-- deploy do Render — por isso as duas vizinhas acima foram parar neste arquivo. O
+-- emoji personalizado nunca tinha sido pedido por um cliente rodando contra o Neon
+-- (o desktop não o tinha), então o buraco não aparecia: aparecia como 500 na
+-- primeira vez que alguém abrisse a aba.
+--
+-- "createdBy" SEM chave estrangeira, seguindo o schema.ts. A migration 0012 pedia
+-- REFERENCES ... ON DELETE SET NULL numa coluna NOT NULL, que é uma contradição:
+-- apagar o autor tentaria gravar nulo onde nulo é proibido e o banco recusaria.
+CREATE TABLE IF NOT EXISTS "ServerEmoji" (
+  "id" text PRIMARY KEY NOT NULL,
+  "serverId" text NOT NULL REFERENCES "Server"("id") ON DELETE CASCADE,
+  "name" text NOT NULL,
+  "url" text NOT NULL,
+  "createdBy" text NOT NULL,
+  "createdAt" timestamp (3) NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ServerEmoji_serverId_name_key" ON "ServerEmoji" USING btree ("serverId", "name");
+CREATE INDEX IF NOT EXISTS "ServerEmoji_serverId_idx" ON "ServerEmoji" USING btree ("serverId");
+
 -- ===== Chamada de voz/vídeo no sussurro =====
 -- Nulo = mensagem normal. Preenchido = a linha e um registro de chamada.
 ALTER TABLE "DirectMessage" ADD COLUMN IF NOT EXISTS "call" text;

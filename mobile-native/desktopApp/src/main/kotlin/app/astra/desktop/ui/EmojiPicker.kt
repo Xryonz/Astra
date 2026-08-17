@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,6 +41,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.mobile.core.network.dto.EmojiDto
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Search
 import kotlinx.coroutines.launch
@@ -69,7 +72,7 @@ private val ALTURA_GRADE = 260.dp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun EmojiPicker(onPick: (String) -> Unit) {
+fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = emptyList()) {
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
     val recentes by remember { derivedStateOf { prefs.state.value.emojiRecentes } }
     val prefState by prefs.state.collectAsState()
@@ -80,13 +83,20 @@ fun EmojiPicker(onPick: (String) -> Unit) {
     LaunchedEffect(Unit) { runCatching { foco.requestFocus() } }
 
     val resultados = remember(termo) { if (termo.isBlank()) emptyList() else buscarEmojis(termo) }
+    val achadosDaCasa = remember(termo, personalizados) {
+        if (termo.isBlank()) emptyList()
+        else personalizados.filter { it.name.contains(termo, ignoreCase = true) }
+    }
     val buscando = termo.isNotBlank()
 
     // Onde comeca cada categoria na grade linear. Calculado uma vez (a lista de
     // recentes e a unica parte que muda) e usado pelos atalhos de baixo.
-    val ancoras = remember(prefState.emojiRecentes.size) {
+    val ancoras = remember(prefState.emojiRecentes.size, personalizados.size) {
         val mapa = LinkedHashMap<String, Int>()
         var i = 0
+        if (personalizados.isNotEmpty()) {
+            i += 1 + linhas(personalizados.size)
+        }
         if (prefState.emojiRecentes.isNotEmpty()) {
             i += 1 + linhas(prefState.emojiRecentes.size)
         }
@@ -146,7 +156,15 @@ fun EmojiPicker(onPick: (String) -> Unit) {
             modifier = Modifier.height(ALTURA_GRADE).padding(horizontal = 6.dp),
         ) {
             if (buscando) {
-                if (resultados.isEmpty()) {
+                // Os da constelacao entram na busca TAMBEM. Sem isto eles apareceriam
+                // na primeira tela e sumiriam no instante em que se digita o nome
+                // deles — que e justamente quando se sabe qual se quer.
+                if (achadosDaCasa.isNotEmpty()) {
+                    items(achadosDaCasa, key = { "b_${it.id}" }) { e ->
+                        CelulaEmojiPersonalizado(e) { onPick(":${e.name}:") }
+                    }
+                }
+                if (resultados.isEmpty() && achadosDaCasa.isEmpty()) {
                     item(span = { GridItemSpan(COLUNAS) }) {
                         Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) {
                             Text(
@@ -159,6 +177,19 @@ fun EmojiPicker(onPick: (String) -> Unit) {
                     items(resultados, key = { it }) { g -> CelulaEmoji(g) { escolher(g) } }
                 }
             } else {
+                // Os da CONSTELACAO vem primeiro, antes ate dos recentes: sao poucos,
+                // sao os unicos que so existem aqui, e sao os que se procura quando se
+                // abre este painel numa constelacao que tem os seus. Escolher um
+                // insere `:nome:` no rascunho — o texto e que viaja, nao a imagem.
+                //
+                // Eles NAO entram nos recentes: a fileira de recentes desenha glifo de
+                // texto, e um `:nome:` la sairia escrito em vez de desenhado.
+                if (personalizados.isNotEmpty()) {
+                    item(span = { GridItemSpan(COLUNAS) }, key = "t_desta") { TituloSecao("esta constelação") }
+                    items(personalizados, key = { "p_${it.id}" }) { e ->
+                        CelulaEmojiPersonalizado(e) { onPick(":${e.name}:") }
+                    }
+                }
                 if (prefState.emojiRecentes.isNotEmpty()) {
                     item(span = { GridItemSpan(COLUNAS) }) { TituloSecao("recentes") }
                     items(prefState.emojiRecentes, key = { "r_$it" }) { g -> CelulaEmoji(g) { escolher(g) } }
@@ -211,6 +242,32 @@ private fun TituloSecao(nome: String) {
         ),
         modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 4.dp),
     )
+}
+
+// Mesma celula, com imagem no lugar do glifo. O nome vai no rotulo de
+// acessibilidade porque e ele que identifica o emoji — a imagem, sozinha, nao diz
+// nada pra quem usa leitor de tela.
+@Composable
+private fun CelulaEmojiPersonalizado(e: EmojiDto, onClick: () -> Unit) {
+    val src = remember(e.id) { MutableInteractionSource() }
+    val hov by src.collectIsHoveredAsState()
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(if (hov) Obsidian.hover else Color.Transparent)
+            .hoverable(src)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        AstraImage(
+            url = e.url,
+            contentDescription = ":${e.name}:",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 @Composable

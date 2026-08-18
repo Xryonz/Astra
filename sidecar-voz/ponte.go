@@ -39,6 +39,11 @@ type Comando struct {
 
 	// mudo / surdo
 	Ligado bool `json:"ligado,omitempty"`
+
+	// aparelho: qual sentido trocar e para qual id. `Id` vazio volta ao aparelho de
+	// comunicação padrão do Windows.
+	Sentido string `json:"sentido,omitempty"` // "entrada" ou "saida"
+	Id      string `json:"id,omitempty"`
 }
 
 type ServTurn struct {
@@ -59,6 +64,9 @@ type Evento struct {
 	Dados string `json:"dados,omitempty"`
 	V     string `json:"v,omitempty"`
 	Msg   string `json:"msg,omitempty"`
+
+	// A lista de aparelhos, no evento EvAparelhos. `Tipo` diz de que sentido é.
+	Aparelhos []Aparelho `json:"aparelhos,omitempty"`
 }
 
 // Os comandos aceitos. Constante em vez de texto solto no switch porque o outro
@@ -71,7 +79,11 @@ const (
 	CmdDesconectar = "desconectar"
 	CmdMudo        = "mudo"
 	CmdSurdo       = "surdo"
-	CmdSair        = "sair"
+	// Pede a lista de microfones e saídas; a resposta vem no evento EvAparelhos.
+	CmdAparelhos = "aparelhos"
+	// Escolhe qual usar num dos sentidos.
+	CmdUsarAparelho = "usar"
+	CmdSair         = "sair"
 )
 
 const (
@@ -80,7 +92,9 @@ const (
 	EvEstado = "estado"
 	// Alguém começou ou parou de falar. `V` é "1" ou "0"; `Par` vazio sou eu.
 	EvFala = "fala"
-	EvErro = "erro"
+	// A lista de microfones ou de saídas, em resposta a CmdAparelhos.
+	EvAparelhos = "aparelhos"
+	EvErro      = "erro"
 )
 
 // Os tipos de envelope do aperto de mão. Iguais dos dois lados da ponte e iguais

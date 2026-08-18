@@ -213,6 +213,30 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		a.motor.DefinirSurdo(cmd.Ligado)
 		return nil
 
+	case CmdAparelhos:
+		// Os dois sentidos numa resposta cada. `Tipo` diz de qual é a lista — sem
+		// ele o outro lado teria de adivinhar pela ordem de chegada, e ordem não é
+		// garantia de nada num canal assíncrono.
+		for _, s := range []struct {
+			nome    string
+			sentido int
+		}{{"entrada", sentidoEntrada}, {"saida", sentidoSaida}} {
+			lista, err := ListarNumaThreadPropria(s.sentido)
+			if err != nil {
+				return fmt.Errorf("listar aparelhos de %s: %w", s.nome, err)
+			}
+			a.saida.Manda(Evento{Ev: EvAparelhos, Tipo: s.nome, Aparelhos: lista})
+		}
+		return nil
+
+	case CmdUsarAparelho:
+		sentido := sentidoSaida
+		if cmd.Sentido == "entrada" {
+			sentido = sentidoEntrada
+		}
+		a.motor.DefinirAparelho(sentido, cmd.Id)
+		return nil
+
 	default:
 		return fmt.Errorf("comando desconhecido: %q", cmd.Cmd)
 	}

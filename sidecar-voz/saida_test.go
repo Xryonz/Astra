@@ -24,7 +24,7 @@ func TestTocarTom(t *testing.T) {
 	}
 	defer fecharCOM()
 
-	alto, err := AbrirSaida()
+	alto, err := AbrirSaida("")
 	if err != nil {
 		t.Fatalf("abrir saída: %v", err)
 	}

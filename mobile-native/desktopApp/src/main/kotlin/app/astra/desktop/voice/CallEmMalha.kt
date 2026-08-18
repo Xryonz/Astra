@@ -50,6 +50,16 @@ class CallEmMalha(
     private val _inicio = MutableStateFlow<Long?>(null)
     val inicio = _inicio.asStateFlow()
 
+    // Os aparelhos que o Windows tem. Chegam do processo de voz, que é quem fala
+    // WASAPI — a JVM enxerga uma lista diferente e incompleta, e listar por um
+    // caminho e abrir por outro é como se acaba escolhendo um aparelho e ouvindo
+    // outro.
+    private val _microfones = MutableStateFlow<List<AparelhoDeAudio>>(emptyList())
+    val microfones = _microfones.asStateFlow()
+
+    private val _saidas = MutableStateFlow<List<AparelhoDeAudio>>(emptyList())
+    val saidas = _saidas.asStateFlow()
+
     // ---- o que ele guarda para chegar naquilo ----
 
     // Concorrentes porque mexem neles o laço de presença, o aviso de socket e os
@@ -129,6 +139,40 @@ class CallEmMalha(
     }
 
     fun setEnsurdecido(on: Boolean) = sidecar.surdo(on)
+
+    // ---- aparelhos ----
+
+    // A ESCOLHA FICA GUARDADA AQUI, e não só enviada.
+    //
+    // O processo de voz pode reiniciar no meio da call (é justamente para isso que
+    // ele é um processo à parte). Quando volta, ele volta com o aparelho padrão do
+    // Windows — a escolha da pessoa mora do lado de cá. Sem reenviar no `pronto`, a
+    // primeira queda do processo desfaria silenciosamente a configuração dela.
+    @Volatile private var microfoneEscolhido: String? = null
+    @Volatile private var saidaEscolhida: String? = null
+
+    fun atualizarAparelhos() = sidecar.pedirAparelhos()
+
+    fun escolherMicrofone(id: String?) {
+        microfoneEscolhido = id
+        sidecar.usarAparelho("entrada", id)
+    }
+
+    fun escolherSaida(id: String?) {
+        saidaEscolhida = id
+        sidecar.usarAparelho("saida", id)
+    }
+
+    // Chamado pela sessão ao entrar, com o que estava salvo nas preferências.
+    fun lembrarAparelhos(microfone: String?, saida: String?) {
+        microfoneEscolhido = microfone
+        saidaEscolhida = saida
+    }
+
+    private fun aplicarAparelhos() {
+        microfoneEscolhido?.let { sidecar.usarAparelho("entrada", it) }
+        saidaEscolhida?.let { sidecar.usarAparelho("saida", it) }
+    }
 
     fun dispose() = sair()
 
@@ -302,6 +346,10 @@ class CallEmMalha(
                 "pronto" -> {
                     pronto = true
                     if (_inicio.value == null) _inicio.value = System.currentTimeMillis()
+                    // O aparelho escolhido e a lista, nesta ordem: aplicar primeiro
+                    // evita a call abrir alguns segundos no microfone errado.
+                    aplicarAparelhos()
+                    sidecar.pedirAparelhos()
                     // CONFERIR AGORA, e não daqui a quinze segundos. Este é o único
                     // instante em que sabemos que os comandos passam a chegar — e
                     // tudo que foi tentado antes disso se perdeu. Esperar o giro
@@ -321,6 +369,10 @@ class CallEmMalha(
                     VoiceLog.nota("[call] $quem: $valor")
                     aoMudarEstado(quem, valor)
                     publicar()
+                }
+                "aparelhos" -> {
+                    val lista = ev.aparelhos.orEmpty()
+                    if (ev.tipo == "entrada") _microfones.value = lista else _saidas.value = lista
                 }
                 "fala" -> {
                     // Par vazio sou eu — a convenção da ponte.

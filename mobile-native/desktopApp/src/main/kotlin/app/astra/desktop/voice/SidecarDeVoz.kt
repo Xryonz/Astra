@@ -46,7 +46,17 @@ data class ComandoDeVoz(
     val tipo: String? = null,
     val dados: String? = null,
     val ligado: Boolean? = null,
+    val sentido: String? = null,
+    val id: String? = null,
 )
+
+// Um microfone ou uma saída, do jeito que o processo de voz os enxerga.
+//
+// O `id` é o identificador do Windows, e é ele que viaja e é guardado — não o nome.
+// Nome muda com atualização de driver e é repetido entre aparelhos iguais; o
+// identificador é estável e único, e é por isso que a preferência guarda ele.
+@Serializable
+data class AparelhoDeAudio(val id: String, val nome: String)
 
 @Serializable
 data class EventoDeVoz(
@@ -56,6 +66,7 @@ data class EventoDeVoz(
     val dados: String? = null,
     @SerialName("v") val valor: String? = null,
     val msg: String? = null,
+    val aparelhos: List<AparelhoDeAudio>? = null,
 )
 
 class SidecarDeVoz(private val scope: CoroutineScope) {
@@ -112,6 +123,15 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     fun mudo(on: Boolean) = mandar(ComandoDeVoz(cmd = "mudo", ligado = on))
 
     fun surdo(on: Boolean) = mandar(ComandoDeVoz(cmd = "surdo", ligado = on))
+
+    // Pede a lista dos dois sentidos. A resposta não volta aqui: chega como dois
+    // eventos `aparelhos`, um por sentido, porque a ponte é assíncrona por natureza
+    // e fingir que isto é uma chamada com retorno esconderia essa verdade.
+    fun pedirAparelhos() = mandar(ComandoDeVoz(cmd = "aparelhos"))
+
+    // `id` vazio devolve o aparelho de comunicação padrão do Windows.
+    fun usarAparelho(sentido: String, id: String?) =
+        mandar(ComandoDeVoz(cmd = "usar", sentido = sentido, id = id.orEmpty()))
 
     // DEVOLVE SE A ORDEM SAIU MESMO, e quem chama precisa disso.
     //

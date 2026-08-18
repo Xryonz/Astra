@@ -198,7 +198,14 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
             koin.get<DesktopSocket>(),
             koin.get<VoiceApi>(),
             meuId,
-        ).also { it.entrar(sala.id) }
+        ).also {
+            // O aparelho escolhido vai ANTES de entrar: assim ele já é aplicado no
+            // primeiro `pronto` do processo, e a call não abre alguns segundos no
+            // microfone errado antes de corrigir.
+            val p = prefs.state.value
+            it.lembrarAparelhos(p.audioInput, p.audioOutput)
+            it.entrar(sala.id)
+        }
         joined = sala
         emSussurro = tipo == "dm"
         // A escolha do rodape vale na sala nova. As ordens de mudo chegam pela ponte

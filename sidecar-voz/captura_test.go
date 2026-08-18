@@ -31,7 +31,7 @@ func TestAbrirELerMicrofone(t *testing.T) {
 	}
 	defer fecharCOM()
 
-	mic, err := AbrirCaptura()
+	mic, err := AbrirCaptura("")
 	if err != nil {
 		t.Fatalf("abrir microfone: %v", err)
 	}

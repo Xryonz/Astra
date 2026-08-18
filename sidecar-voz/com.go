@@ -126,7 +126,41 @@ var (
 	// IID_IAudioRenderClient {F294ACFC-3146-4483-A7BF-ADDCA7C260E2}
 	iidClienteDeSaida = guid(0xF294ACFC, 0x3146, 0x4483,
 		[8]byte{0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2})
+
+	// PKEY_Device_FriendlyName — a chave do nome legível do aparelho, aquele que o
+	// Windows mostra em Configurações. É um par (GUID, índice), e não um GUID só:
+	// {A45C254E-DF1C-4EFD-8020-67D146A850E0}, índice 14.
+	chaveNomeAmigavel = chaveDePropriedade{
+		conjunto: guid(0xA45C254E, 0xDF1C, 0x4EFD,
+			[8]byte{0x80, 0x20, 0x67, 0xD1, 0x46, 0xA8, 0x50, 0xE0}),
+		id: 14,
+	}
 )
+
+// chaveDePropriedade é o PROPERTYKEY do Windows: um conjunto de propriedades mais
+// o índice dentro dele.
+type chaveDePropriedade struct {
+	conjunto windows.GUID
+	id       uint32
+}
+
+// propvariant é o PROPVARIANT do Windows, e o tamanho aqui não é chute.
+//
+// A união interna cabe em 16 bytes no x64 e o cabeçalho ocupa 8, então 24 bytes é o
+// que a estrutura mede. Declarar menos faz o `GetValue` escrever depois do fim do
+// que reservamos — corrupção de pilha que aparece longe da causa, do pior tipo
+// possível de caçar.
+//
+// Só interessa o caso de texto (`VT_LPWSTR`), em que os 8 bytes a partir do offset
+// 8 são o ponteiro para a string larga.
+type propvariant struct {
+	tipo      uint16
+	_         [3]uint16
+	ponteiro  uintptr
+	_         uintptr
+}
+
+const tipoTextoLargo = 31 // VT_LPWSTR
 
 // Índices de vtable. Cada lista segue a ORDEM DE DECLARAÇÃO no cabeçalho da
 // Microsoft, que é o que define a tabela — não a ordem alfabética nem a da
@@ -140,10 +174,19 @@ const (
 	_mmUnregisterEndpointNotify = 7
 
 	// IMMDevice (mmdeviceapi.h)
-	mmDeviceActivate = 3
-	_mmDeviceOpenPS  = 4
-	mmDeviceGetId    = 5
-	_mmDeviceGetSt   = 6
+	mmDeviceActivate  = 3
+	mmDeviceAbrirLoja = 4 // OpenPropertyStore
+	mmDeviceGetId     = 5
+	_mmDeviceGetSt    = 6
+
+	// IMMDeviceCollection (mmdeviceapi.h)
+	colContar = 3 // GetCount
+	colItem   = 4 // Item
+
+	// IPropertyStore (propsys.h)
+	_lojaContar = 3
+	_lojaChave  = 4
+	lojaLer     = 5 // GetValue
 
 	// IAudioClient (audioclient.h)
 	acInitialize         = 3

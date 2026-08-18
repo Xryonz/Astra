@@ -40,13 +40,14 @@ type Captura struct {
 	rodando     bool
 }
 
-// AbrirCaptura prepara o microfone de comunicação padrão do sistema.
+// AbrirCaptura prepara o microfone. `id` vazio significa o de comunicação padrão do
+// sistema, que é o certo como ponto de partida; um id escolhe outro.
 //
 // PRECISA ser chamada da mesma thread que vai ler — COM tem afinidade de thread, e
 // o `runtime.LockOSThread` do laço de leitura é o que garante isso. Quem chamar
 // isto de uma goroutine e ler de outra vai ver comportamento aleatório, que é o
 // pior tipo de defeito.
-func AbrirCaptura() (*Captura, error) {
+func AbrirCaptura(id string) (*Captura, error) {
 	c := &Captura{}
 	ok := false
 	// Desmonta pela metade se qualquer passo falhar. Sem isto, uma falha no meio
@@ -64,19 +65,14 @@ func AbrirCaptura() (*Captura, error) {
 	}
 	c.enumerador = enumerador
 
-	var dispositivo objeto
-	r := enumerador.chamar(mmGetDefaultAudioEndpoint,
-		uintptr(sentidoEntrada),
-		uintptr(papelComunicacao),
-		uintptr(unsafe.Pointer(&dispositivo)),
-	)
-	if err := hr(r, "pegar microfone padrão"); err != nil {
+	dispositivo, err := abrirDispositivo(enumerador, sentidoEntrada, id)
+	if err != nil {
 		return nil, err
 	}
 	c.dispositivo = dispositivo
 
 	var cliente objeto
-	r = dispositivo.chamar(mmDeviceActivate,
+	r := dispositivo.chamar(mmDeviceActivate,
 		uintptr(unsafe.Pointer(&iidClienteDeAudio)),
 		1, // CLSCTX_INPROC_SERVER
 		0, // sem parâmetros de ativação

@@ -50,6 +50,18 @@ type Motor struct {
 	mudo  atomic.Bool
 	surdo atomic.Bool
 
+	// Qual aparelho usar em cada sentido. Vazio = o de comunicação padrão do
+	// Windows. A GERAÇÃO ao lado é o que avisa o laço de que a escolha mudou: o laço
+	// a compara a cada volta e, quando difere, fecha o aparelho e abre o novo.
+	//
+	// Contador em vez de "mudou?" booleano porque duas trocas rápidas seguidas
+	// perderiam a segunda — o laço zeraria a bandeira depois de atender a primeira e
+	// nunca saberia da outra.
+	aparelhoEntrada atomic.Value
+	aparelhoSaida   atomic.Value
+	geracaoEntrada  atomic.Uint64
+	geracaoSaida    atomic.Uint64
+
 	// Caminho da biblioteca Opus, resolvido uma vez na abertura.
 	dllOpus string
 }
@@ -65,6 +77,31 @@ func (m *Motor) DefinirMudo(on bool) { m.mudo.Store(on) }
 // tem opinião sobre a política.
 func (m *Motor) DefinirSurdo(on bool) { m.surdo.Store(on) }
 
+// DefinirAparelho troca o microfone ou o alto-falante EM PLENA CALL.
+//
+// Não interrompe a chamada: só o laço daquele sentido fecha o aparelho e abre o
+// outro, o que custa alguns quadros de silêncio. As conexões continuam de pé, e é
+// por isso que a troca vive aqui e não no nível da sala.
+func (m *Motor) DefinirAparelho(sentido int, id string) {
+	if sentido == sentidoEntrada {
+		m.aparelhoEntrada.Store(id)
+		m.geracaoEntrada.Add(1)
+		return
+	}
+	m.aparelhoSaida.Store(id)
+	m.geracaoSaida.Add(1)
+}
+
+func (m *Motor) idEntrada() string {
+	s, _ := m.aparelhoEntrada.Load().(string)
+	return s
+}
+
+func (m *Motor) idSaida() string {
+	s, _ := m.aparelhoSaida.Load().(string)
+	return s
+}
+
 // Ligar sobe as duas goroutines. Elas morrem com o contexto.
 func (m *Motor) Ligar(ctx context.Context) error {
 	if err := AbrirOpus(m.dllOpus); err != nil {
@@ -76,6 +113,10 @@ func (m *Motor) Ligar(ctx context.Context) error {
 }
 
 // laçoDeCaptura: microfone -> Opus -> rede.
+//
+// DOIS LAÇOS, e o de fora existe por causa da troca de aparelho: quando a pessoa
+// escolhe outro microfone, o de dentro sai, o aparelho é fechado, e o de fora abre o
+// novo. As conexões nem ficam sabendo.
 func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	defer PrenderNaThread()()
 	if err := abrirCOM(); err != nil {
@@ -84,13 +125,9 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	}
 	defer fecharCOM()
 
-	mic, err := AbrirCaptura()
-	if err != nil {
-		m.reclamar("abrir microfone", err)
-		return
-	}
-	defer mic.Fechar()
-
+	// O codificador NÃO depende do aparelho: pedimos sempre 48 kHz mono e o Windows
+	// reamostra. Por isso ele nasce fora do laço e sobrevive às trocas — recriá-lo a
+	// cada troca jogaria fora o estado que o Opus usa para emendar os quadros.
 	cod, err := NovoCodificador(TaxaDeAmostragem, CanaisDeVoz)
 	if err != nil {
 		m.reclamar("criar codificador", err)
@@ -98,6 +135,39 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	}
 	defer cod.Fechar()
 
+	for ctx.Err() == nil {
+		geracao := m.geracaoEntrada.Load()
+		mic, err := AbrirCaptura(m.idEntrada())
+		if err != nil {
+			// TENTAR DE NOVO em vez de morrer. Antes, um microfone indisponível
+			// matava a captura para o resto da call — e microfone indisponível é
+			// coisa que passa: outro programa soltou o aparelho, o USB voltou.
+			m.reclamar("abrir microfone", err)
+			if !esperar(ctx, 2*time.Second) {
+				return
+			}
+			continue
+		}
+		m.bombearMicrofone(ctx, mic, cod, geracao)
+		mic.Fechar()
+	}
+}
+
+// esperar dorme, ou devolve false se o contexto morrer antes.
+func esperar(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
+}
+
+// bombearMicrofone lê deste microfone até o contexto morrer ou a escolha de
+// aparelho mudar.
+func (m *Motor) bombearMicrofone(ctx context.Context, mic *Captura, cod *Codificador, geracao uint64) {
 	// O microfone entrega blocos de tamanho variável; o Opus exige exatamente 20ms.
 	// Este acumulador é a ponte entre os dois, e é por isso que ele existe em vez de
 	// codificar direto o que o WASAPI devolveu.
@@ -109,12 +179,22 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	// que a minha voz nunca dá a volta pela rede — e pela razão menos óbvia de que
 	// esperar ela voltar mostraria o meu círculo com o atraso da internet.
 	var det DetectorDeFala
+	// Trocar de microfone com o círculo aceso o deixaria aceso durante a troca
+	// inteira: quem sai apaga o que acendeu.
+	defer func() {
+		if det.Calar() {
+			m.saida.Manda(Evento{Ev: EvFala, V: marcaDeFala(false)})
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+		}
+		if m.geracaoEntrada.Load() != geracao {
+			return
 		}
 
 		if err := mic.Esperar(200); err != nil {
@@ -191,6 +271,9 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 }
 
 // laçoDeSaida: rede -> mistura -> alto-falante.
+//
+// Mesma estrutura de dois laços da captura, e pelo mesmo motivo: trocar de saída em
+// plena call fecha só este aparelho.
 func (m *Motor) laçoDeSaida(ctx context.Context) {
 	defer PrenderNaThread()()
 	if err := abrirCOM(); err != nil {
@@ -199,13 +282,23 @@ func (m *Motor) laçoDeSaida(ctx context.Context) {
 	}
 	defer fecharCOM()
 
-	alto, err := AbrirSaida()
-	if err != nil {
-		m.reclamar("abrir alto-falante", err)
-		return
+	for ctx.Err() == nil {
+		geracao := m.geracaoSaida.Load()
+		alto, err := AbrirSaida(m.idSaida())
+		if err != nil {
+			m.reclamar("abrir alto-falante", err)
+			if !esperar(ctx, 2*time.Second) {
+				return
+			}
+			continue
+		}
+		m.bombearSaida(ctx, alto, geracao)
+		alto.Fechar()
 	}
-	defer alto.Fechar()
+}
 
+// bombearSaida toca nesta saída até o contexto morrer ou a escolha mudar.
+func (m *Motor) bombearSaida(ctx context.Context, alto *Saida, geracao uint64) {
 	quadro := make([]int16, AmostrasPorQuadro)
 
 	for {
@@ -213,6 +306,9 @@ func (m *Motor) laçoDeSaida(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+		}
+		if m.geracaoSaida.Load() != geracao {
+			return
 		}
 
 		if err := alto.Esperar(200); err != nil {

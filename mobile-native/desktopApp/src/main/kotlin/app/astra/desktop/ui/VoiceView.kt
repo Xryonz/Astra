@@ -54,6 +54,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
@@ -78,6 +80,7 @@ import kotlin.math.sin
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.voice.AparelhoDeAudio
 import app.astra.desktop.voice.CallEmMalha
 import app.astra.desktop.voice.VoiceStatus
 import app.astra.mobile.core.network.dto.ChannelDto
@@ -117,7 +120,10 @@ fun VoiceView(
         val sid = serverId ?: return@LaunchedEffect
         runCatching { sons = soundApi.listar(sid).sounds }
     }
+    val prefState by prefs.state.collectAsState()
     val status by call.status.collectAsState()
+    val microfones by call.microfones.collectAsState()
+    val saidas by call.saidas.collectAsState()
     // O icone mostra a INTENCAO (mudo), e nao o que o motor esta transmitindo neste
     // milissegundo. Com apertar-para-falar o motor liga e desliga a cada tecla, e um
     // icone vermelho piscando dezenas de vezes por minuto nao informa nada.
@@ -312,11 +318,31 @@ fun VoiceView(
                     onClick = { settingsOpen = !settingsOpen },
                 )
                 if (settingsOpen) {
+                    // Reconsulta ao ABRIR o painel, e não uma vez só: aparelho vai e
+                    // vem no meio de uma call — fone USB plugado, monitor com caixa
+                    // ligado. Uma lista buscada na entrada da sala estaria velha
+                    // justamente quando a pessoa foi lá procurar o aparelho novo.
+                    LaunchedEffect(Unit) { call.atualizarAparelhos() }
                     Popup(
                         onDismissRequest = { settingsOpen = false },
                         properties = PopupProperties(focusable = true),
                     ) {
-                        PopupReveal(originX = 0.5f, originY = 1f) { CallSettingsPanel() }
+                        PopupReveal(originX = 0.5f, originY = 1f) {
+                            CallSettingsPanel(
+                                microfones = microfones,
+                                saidas = saidas,
+                                microfoneAtual = prefState.audioInput,
+                                saidaAtual = prefState.audioOutput,
+                                aoTrocarMicrofone = {
+                                    prefs.setAudioInput(it)
+                                    call.escolherMicrofone(it)
+                                },
+                                aoTrocarSaida = {
+                                    prefs.setAudioOutput(it)
+                                    call.escolherSaida(it)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -325,39 +351,136 @@ fun VoiceView(
     }
 }
 
-// Config da call (gear).
+// Config da call (gear): escolher microfone e saída.
 //
-// O painel encolheu de propósito, e o motivo é honestidade: fluidez de transmissão
-// e escolha de dispositivo eram controles do motor antigo. O componente novo usa o
-// aparelho de COMUNICAÇÃO padrão do Windows — o mesmo que qualquer programa de
-// chamada usa — e ainda não sabe escolher outro.
+// A LISTA VEM DO PROCESSO DE VOZ, e essa é a parte que importa. Ele é quem fala
+// WASAPI e quem vai abrir o aparelho; a JVM enxerga uma lista diferente e menor.
+// Listar por um caminho e abrir por outro é como se acaba escolhendo um aparelho e
+// ouvindo outro — e ninguém consegue explicar por quê.
 //
-// Mostrar um seletor que não seleciona nada seria pior do que não mostrar: a pessoa
-// troca o microfone, nada muda, e passa a duvidar de tudo que o painel diz.
+// A escolha guarda o IDENTIFICADOR do Windows, não o nome: nome muda com atualização
+// de driver e se repete entre placas iguais.
 @Composable
-private fun CallSettingsPanel() {
+private fun CallSettingsPanel(
+    microfones: List<AparelhoDeAudio>,
+    saidas: List<AparelhoDeAudio>,
+    microfoneAtual: String?,
+    saidaAtual: String?,
+    aoTrocarMicrofone: (String?) -> Unit,
+    aoTrocarSaida: (String?) -> Unit,
+) {
     Column(
         Modifier
-            .width(232.dp)
+            .width(240.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderMid, RoundedCornerShape(10.dp))
             .padding(8.dp),
     ) {
-        PanelHeader("Audio")
+        PanelHeader("Microfone")
+        SeletorDeAparelho(microfones, microfoneAtual, aoTrocarMicrofone)
+        Spacer(Modifier.height(10.dp))
+        PanelHeader("Saida")
+        SeletorDeAparelho(saidas, saidaAtual, aoTrocarSaida)
+        Spacer(Modifier.height(10.dp))
         Text(
-            "Entrada e saida seguem o aparelho de comunicacao padrao do Windows.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            "Trocar vale na hora, sem sair da call.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 10.5.sp),
+            modifier = Modifier.padding(horizontal = 10.dp),
         )
-        Spacer(Modifier.height(6.dp))
-        PanelHeader("Em migracao")
+    }
+}
+
+// Seletor de aparelho: mostra o atual e abre a lista num popup.
+//
+// "Padrão do Windows" é uma opção de verdade e vem primeiro, porque é o certo para a
+// maioria — é o aparelho que a pessoa já escolheu no sistema para conversar.
+@Composable
+private fun SeletorDeAparelho(
+    opcoes: List<AparelhoDeAudio>,
+    atual: String?,
+    aoEscolher: (String?) -> Unit,
+) {
+    var aberto by remember { mutableStateOf(false) }
+    val nomeAtual = opcoes.firstOrNull { it.id == atual }?.nome ?: "Padrao do Windows"
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.base)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .clickable { aberto = true }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                nomeAtual,
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            LIcon(Lucide.ChevronDown, tint = Obsidian.text3, size = 14.dp)
+        }
+        if (aberto) {
+            Popup(
+                onDismissRequest = { aberto = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .width(240.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                        .padding(4.dp),
+                ) {
+                    LinhaDeAparelho("Padrao do Windows", atual == null) {
+                        aoEscolher(null); aberto = false
+                    }
+                    opcoes.forEach { ap ->
+                        LinhaDeAparelho(ap.nome, ap.id == atual) {
+                            aoEscolher(ap.id); aberto = false
+                        }
+                    }
+                    if (opcoes.isEmpty()) {
+                        Text(
+                            "procurando aparelhos…",
+                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LinhaDeAparelho(rotulo: String, ativo: Boolean, aoClicar: () -> Unit) {
+    val interacao = remember { MutableInteractionSource() }
+    val sobHover by interacao.collectIsHoveredAsState()
+    val fundo by animateColorAsState(if (sobHover) Obsidian.hover else Color.Transparent, tween(100))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(fundo)
+            .hoverable(interacao)
+            .clickable(interactionSource = interacao, indication = null, onClick = aoClicar)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            "Escolher microfone, escolher saida e transmitir tela voltam quando o " +
-                "componente novo de voz aprender cada um.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            rotulo,
+            style = TextStyle(color = if (ativo) Obsidian.accent else Obsidian.text2, fontSize = 12.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
+        if (ativo) {
+            Spacer(Modifier.width(6.dp))
+            LIcon(Lucide.Check, tint = Obsidian.accent, size = 13.dp)
+        }
     }
 }
 

@@ -28,11 +28,12 @@ type Saida struct {
 	rodando    bool
 }
 
-// AbrirSaida prepara o alto-falante de comunicação padrão do sistema.
+// AbrirSaida prepara o alto-falante. `id` vazio significa o de comunicação padrão
+// do sistema; um id escolhe outro.
 //
 // Mesma exigência da captura: chamar e usar na MESMA thread, presa com
 // PrenderNaThread.
-func AbrirSaida() (*Saida, error) {
+func AbrirSaida(id string) (*Saida, error) {
 	s := &Saida{}
 	ok := false
 	defer func() {
@@ -47,19 +48,14 @@ func AbrirSaida() (*Saida, error) {
 	}
 	s.enumerador = enumerador
 
-	var dispositivo objeto
-	r := enumerador.chamar(mmGetDefaultAudioEndpoint,
-		uintptr(sentidoSaida),
-		uintptr(papelComunicacao),
-		uintptr(unsafe.Pointer(&dispositivo)),
-	)
-	if err := hr(r, "pegar alto-falante padrão"); err != nil {
+	dispositivo, err := abrirDispositivo(enumerador, sentidoSaida, id)
+	if err != nil {
 		return nil, err
 	}
 	s.dispositivo = dispositivo
 
 	var cliente objeto
-	r = dispositivo.chamar(mmDeviceActivate,
+	r := dispositivo.chamar(mmDeviceActivate,
 		uintptr(unsafe.Pointer(&iidClienteDeAudio)),
 		1, // CLSCTX_INPROC_SERVER
 		0,

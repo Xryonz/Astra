@@ -309,6 +309,15 @@ A licença viaja junto da arte, em
 
 [Lucide](https://lucide.dev) — ISC License.
 
+### Bibliotecas nativas
+
+| Biblioteca | Para quê | Licença |
+| --- | --- | --- |
+| [Opus](https://opus-codec.org) (`opus-0.dll`) | codec de voz das chamadas | BSD 3-Clause |
+| [Pion WebRTC](https://github.com/pion/webrtc) | transporte das chamadas ponto a ponto | MIT |
+| [FFmpeg](https://ffmpeg.org) (`ffmpeg.exe`) | captura de tela | LGPL 2.1+ (build sem os codecs GPL) |
+| [GStreamer](https://gstreamer.freedesktop.org) | codificação de vídeo (baixado sob demanda) | LGPL 2.1+ |
+
 ---
 
 ## Adiante

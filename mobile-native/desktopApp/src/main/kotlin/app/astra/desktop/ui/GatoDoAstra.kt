@@ -172,6 +172,33 @@ enum class Bicho(
     val destino: IntArray,
     val passos: Map<Anim, Passo>,
 ) {
+    // TRAVESSO — um arquivo por animação, tira horizontal de 32px.
+    //
+    // Medido varrendo o alfa dos 14 quadros das cinco folhas (não estimado): o
+    // conteúdo cabe em x 3..26 e y 1..31, e as patas repousam na última linha do
+    // recorte. Fica em 1x porque 31px de altura já chega perto da foto do usuário —
+    // dobrar passaria do alvo e ele viraria obstáculo em vez de companhia.
+    //
+    // A rampa de pelo tem quatro degraus e o CONTORNO fica de fora de propósito.
+    // Contorno recolorido junto some quando a pelagem escurece: o bicho perde a
+    // silhueta e vira uma mancha. Deixá-lo escuro é o que pixel art faz, e é o que
+    // mantém o gato legível em qualquer uma das sete cores.
+    TRAVESSO(
+        "Travesso", 32, 3, 1, 24, 31, 31, 1, olhaParaDireita = true,
+        intArrayOf(0xFFFFFF, 0xB6C5CD, 0x869EAC, 0x688697), intArrayOf(0, 1, 2, 3),
+        mapOf(
+            Anim.PARADO to Passo("gato_travesso_parado.png", 0, 3, 4, 0f),
+            Anim.ANDANDO to Passo("gato_travesso_andando.png", 0, 3, 8, 1.0f),
+            Anim.CORRENDO to Passo("gato_travesso_correndo.png", 0, 4, 12, 2.6f),
+            // Um quadro só, e basta: é uma pose sustentada durante o arco do pulo,
+            // não uma animação. O artista desenhou assim.
+            Anim.PULO to Passo("gato_travesso_pulo.png", 0, 1, 1, 0f),
+            // A comemoração do pacote. É a razão de este gato ter entrado e o outro
+            // ter saído: carinho precisa de resposta, e aqui ela existe desenhada.
+            Anim.CARINHO to Passo("gato_travesso_carinho.png", 0, 3, 6, 0f),
+        ),
+    ),
+
     // Grade 8x10 de 32px, uma linha por animação. Conteúdo medido em x 7..24 e
     // y 14..31 — gato de 18px, patas na linha 17 do recorte.
     SIMPLES(

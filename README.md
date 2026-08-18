@@ -271,9 +271,42 @@ Três regras carregam o resto:
    e mantém-se hover e repouso quietos. App que pisca por tudo ensina a ignorar o
    piscar.
 
-Tipografia: DM Serif Display + DM Sans + DM Mono + Great Vibes.
+Tipografia: DM Serif Display + DM Sans + DM Mono + Great Vibes + Babylonica.
 Paleta completa de tokens do web em `apps/web/src/index.css`; a do desktop em
 `mobile-native/desktopApp/…/ui/theme/`.
+
+---
+
+## Créditos
+
+Nem tudo que dá cara ao Astra foi feito aqui. O que veio de fora está nomeado
+abaixo, com o autor e a origem.
+
+**Regra da casa:** todo asset de terceiro entra junto do texto da licença dele *e*
+de uma linha nesta seção, no mesmo commit. Várias dessas licenças pedem atribuição,
+e mesmo as que não pedem merecem — a arte é de quem a desenhou.
+
+### Arte
+
+| O quê | Autor | Origem |
+| --- | --- | --- |
+| Gato do companheiro (pixel art) | **Mattz Art** (`xzany`) | [Cat 2D Pixel Art](https://xzany.itch.io/cat-2d-pixel-art) |
+
+A licença viaja junto da arte, em
+`mobile-native/desktopApp/src/main/resources/pet/`. Notas de geometria e recorte em
+`tools/sprites/README.md`.
+
+### Tipografia
+
+| Fonte | Autor | Licença |
+| --- | --- | --- |
+| DM Serif Display · DM Sans · DM Mono | Colophon Foundry / Jonny Pinhorn | SIL Open Font License 1.1 |
+| Great Vibes | Robert Leuschke | SIL Open Font License 1.1 |
+| Babylonica | Robert Leuschke | SIL Open Font License 1.1 |
+
+### Ícones
+
+[Lucide](https://lucide.dev) — ISC License.
 
 ---
 

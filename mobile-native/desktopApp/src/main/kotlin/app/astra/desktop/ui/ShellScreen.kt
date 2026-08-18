@@ -901,7 +901,11 @@ fun ShellScreen(
         // O GATO. Última camada do shell de propósito — ele anda por cima de tudo,
         // que é o que "livre pela tela toda" quer dizer. Não intercepta ponteiro
         // (ver GatoDoAstra.kt), então estar por cima não custa um clique sequer.
-        GatoDoAstra(prefs.state.value.petLigado)
+        GatoDoAstra(
+            ligado = prefs.state.value.petLigado,
+            pelagem = prefs.state.value.petPelagem,
+            nome = prefs.state.value.petNome,
+        )
 
         // Convite aberto pela faixa do banner. Mora AQUI, no Box de fora, e nao
         // junto do Sidebar: um Popup escrito dentro daquele Row conta como filho

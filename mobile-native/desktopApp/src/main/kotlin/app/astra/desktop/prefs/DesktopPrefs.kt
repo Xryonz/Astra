@@ -173,6 +173,11 @@ class DesktopPrefs(private val store: SessionStore) {
         // O gato que anda pela tela. Nasce LIGADO: o dono pediu o bicho, e
         // recurso que estreia escondido num menu nao estreia.
         val petLigado: Boolean = true,
+        // Pelagem do gato (nome da constante em `Pelagem`). Guardado como texto pra
+        // uma pelagem removida no futuro virar o padrao em vez de derrubar a leitura.
+        val petPelagem: String = "LARANJA",
+        // Nome que o dono deu ao bicho. Vazio = sem nome, e ai nada e desenhado.
+        val petNome: String = "",
         // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
         // automatico e opt-in porque exige varrer a lista de processos.
         val modoTransmissao: Boolean = false,
@@ -277,6 +282,8 @@ class DesktopPrefs(private val store: SessionStore) {
         // não deve herdar silêncio por causa de uma chave que ainda não existe.
         somDeAviso = store.uiPref("somDeAviso") != "0",
         petLigado = store.uiPref("petLigado") != "0",
+        petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
+        petNome = store.uiPref("petNome") ?: "",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
@@ -416,6 +423,17 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setPetLigado(v: Boolean) {
         persist("petLigado", v)
         _state.update { it.copy(petLigado = v) }
+    }
+
+    fun setPetPelagem(v: String) {
+        store.setUiPref("petPelagem", v)
+        _state.update { it.copy(petPelagem = v) }
+    }
+
+    fun setPetNome(v: String) {
+        val limpo = v.trim().take(16)
+        store.setUiPref("petNome", limpo)
+        _state.update { it.copy(petNome = limpo) }
     }
 
     fun setMicNoiseSuppression(v: Boolean) {

@@ -10,7 +10,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
@@ -23,12 +25,22 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.astra.desktop.ui.theme.DmSans
 import app.astra.desktop.ui.theme.Obsidian
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import javax.imageio.ImageIO
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -106,23 +118,84 @@ private enum class Anim(
     PULO("gato_pulo.png", 3, 9, 0f),
 }
 
-// Carrega as quatro folhas UMA vez, na primeira aparição do gato, e nunca mais.
-// São 12 KB de PNG somados; decodificados viram ~700 KB de bitmap, o que é menos
-// que um avatar de banner e some junto com o processo.
+// PELAGEM — troca de cor do jeito que pixel art pede: remapeando a rampa que o
+// artista desenhou, cor por cor, e não jogando um filtro por cima.
+//
+// A folha inteira tem 12 cores. Só QUATRO são pelo (`RAMPA_BASE`, do mais claro ao
+// mais escuro); as outras oito são o peito branco, as patinhas cinza, o rosa do
+// focinho e da orelha, e o azul dos olhos. Trocar só as quatro é o que faz o gato
+// continuar sendo um gato quando muda de cor: filtro de matiz mexeria nos olhos e
+// no focinho junto, e o bicho viraria uma mancha monocromática.
+//
+// Cada pelagem foi gerada girando matiz e saturação sobre a rampa original e
+// PRESERVANDO o valor de cada degrau — ou seja, a sombra continua exatamente onde o
+// artista pôs. Foram revisadas a olho antes de entrar aqui.
+//
+// Não existe "preto": preto de verdade some no fundo escuro do app. `CARVAO` é o
+// mais escuro que ainda se enxerga, e chamá-lo de preto seria mentir no rótulo.
+private val RAMPA_BASE = intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836)
+private const val OPACO = 0xFF000000.toInt()
+
+enum class Pelagem(val rotulo: String, val rampa: IntArray) {
+    LARANJA("Laranja", intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836)),
+    CINZA("Cinza", intArrayOf(0xDEE4F1, 0xC6CFE1, 0xA2AABB, 0x757B87)),
+    CARVAO("Carvão", intArrayOf(0x757280, 0x676478, 0x545163, 0x3D3B48)),
+    BRANCO("Branco", intArrayOf(0xFFF9F1, 0xF5ECE0, 0xCEC6BA, 0x99938A)),
+    CHOCOLATE("Chocolate", intArrayOf(0xB18576, 0xA66750, 0x8A4F39, 0x63392A)),
+    CARAMELO("Caramelo", intArrayOf(0xF6E2B2, 0xE6C985, 0xBFA464, 0x8A7648)),
+    LILAS("Lilás", intArrayOf(0xDCC9E2, 0xCAAFD4, 0xA78DB0, 0x79667F)),
+    ;
+
+    // A cor que representa a pelagem no seletor: o degrau do meio, que é o que o
+    // olho lê como "a cor do bicho" — o mais claro engana pra branco em todas.
+    val amostra: Color get() = Color(0xFF000000.toInt() or rampa[1])
+
+    companion object {
+        fun de(nome: String?): Pelagem = entries.firstOrNull { it.name == nome } ?: LARANJA
+    }
+}
+
+// Carrega as quatro folhas UMA vez POR PELAGEM, sob demanda, e nunca mais. São 12 KB
+// de PNG somados; decodificados viram ~700 KB de bitmap por pelagem. O cache é por
+// pelagem porque trocar de cor no meio da sessão não pode custar recarregar arquivo,
+// e voltar pra anterior tem que ser instantâneo.
 //
 // `getOrNull` de propósito: se a folha faltar (recurso removido, jar estranho), o
 // gato cai pro desenho vetorial mais abaixo em vez de derrubar a tela inteira. Pet
 // quebrado não pode ser motivo de crash de app de conversa.
 private object FolhasDoGato {
-    val folhas: Map<Anim, ImageBitmap>? by lazy {
+    private val cache = mutableMapOf<Pelagem, Map<Anim, ImageBitmap>?>()
+
+    @Synchronized
+    fun folhas(pelagem: Pelagem): Map<Anim, ImageBitmap>? = cache.getOrPut(pelagem) {
         runCatching {
             Anim.entries.associateWith { anim ->
                 val bytes = requireNotNull(
                     FolhasDoGato::class.java.getResourceAsStream("/pet/" + anim.arquivo),
                 ) { "sprite ausente: " + anim.arquivo }.use { it.readBytes() }
-                SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
+                val img = ImageIO.read(ByteArrayInputStream(bytes))
+                    ?: error("PNG ilegível: " + anim.arquivo)
+                repintar(img, pelagem).toComposeImageBitmap()
             }
         }.getOrNull()
+    }
+
+    // Repinta pela rampa e reencoda em PNG, porque ler e escrever pixel avulso é
+    // trivial no BufferedImage e chato no Skia. Roda uma vez por pelagem: o custo
+    // (quatro folhas de 80x64, ~13 mil pixels) some no ruído de abrir a tela.
+    private fun repintar(src: BufferedImage, pelagem: Pelagem): SkiaImage {
+        if (pelagem != Pelagem.LARANJA) {
+            for (y in 0 until src.height) {
+                for (x in 0 until src.width) {
+                    val p = src.getRGB(x, y)
+                    val i = RAMPA_BASE.indexOf(p and 0xFFFFFF)
+                    if (i >= 0) src.setRGB(x, y, (p and OPACO) or pelagem.rampa[i])
+                }
+            }
+        }
+        val saida = ByteArrayOutputStream()
+        ImageIO.write(src, "png", saida)
+        return SkiaImage.makeFromEncoded(saida.toByteArray())
     }
 }
 
@@ -130,7 +203,7 @@ private const val FPS = 30
 private val LARGURA_VETOR = 34.dp
 
 @Composable
-fun GatoDoAstra(ligado: Boolean) {
+fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: String = "") {
     val reduzir = LocalReduceMotion.current
     val janelaAtiva = LocalWindowActive.current
     // As três condições numa só: `ligado` é a escolha, `reduzir` é a necessidade e
@@ -138,7 +211,9 @@ fun GatoDoAstra(ligado: Boolean) {
     // sair da composição é mais barato que desenhar nada.
     if (!ligado || reduzir || !janelaAtiva) return
 
-    val folhas = FolhasDoGato.folhas
+    val cor = Pelagem.de(pelagem)
+    val folhas = remember(cor) { FolhasDoGato.folhas(cor) }
+    val medidor = rememberTextMeasurer()
 
     // Pixel art só fica nítida em MÚLTIPLO INTEIRO de pixel físico: em 2,5x metade
     // das colunas do sprite ocupa 2 pixels e a outra metade 3, e o bicho ganha uma
@@ -162,6 +237,14 @@ fun GatoDoAstra(ligado: Boolean) {
     var espera by remember { mutableStateOf(2f) }
     var pulosRestantes by remember { mutableStateOf(0) }
     var piscada by remember { mutableStateOf(0f) }
+    // O NOME só aparece quando o bicho reage, e some sozinho.
+    //
+    // A ideia natural seria mostrar no hover. Não dá, e a razão está na regra 1 lá em
+    // cima: pra saber que o mouse está sobre o gato eu teria que registrar gesto na
+    // camada dele, e essa camada cobre a conversa inteira. Um pet que engole clique
+    // vale menos que um pet sem nome à mostra. Então o nome vem junto da reação — que
+    // é quando você olhou pra ele de qualquer forma.
+    var nomeVisivel by remember { mutableStateOf(0f) }
 
     LaunchedEffect(Unit) {
         Pet.evento.collect { ev ->
@@ -171,6 +254,7 @@ fun GatoDoAstra(ligado: Boolean) {
             pulosRestantes = if (ev == PetEvento.CALL) 2 else 1
             anim = Anim.PULO
             tempoNaAnim = 0f
+            nomeVisivel = 2.4f
         }
     }
 
@@ -183,6 +267,7 @@ fun GatoDoAstra(ligado: Boolean) {
 
             piscada += dt
             tempoNaAnim += dt
+            if (nomeVisivel > 0f) nomeVisivel = (nomeVisivel - dt).coerceAtLeast(0f)
 
             when (anim) {
                 Anim.PARADO -> {
@@ -297,6 +382,31 @@ fun GatoDoAstra(ligado: Boolean) {
                     // pixel a pixel. É o ponto inteiro do estilo.
                     filterQuality = FilterQuality.None,
                 )
+            }
+
+            // O nome vai FORA do `scale`: espelhar o gato não pode espelhar a
+            // escrita. Some com uma curva, não com um corte — os últimos 0,6s são
+            // o esmaecimento, e o resto é leitura tranquila.
+            if (nome.isNotBlank() && nomeVisivel > 0f) {
+                val opacidade = (nomeVisivel / 0.6f).coerceAtMost(1f)
+                val texto = medidor.measure(
+                    nome,
+                    style = TextStyle(
+                        fontFamily = DmSans,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Obsidian.text1.copy(alpha = opacidade),
+                    ),
+                )
+                val nx = x - texto.size.width / 2f
+                val ny = y - alturaPx - texto.size.height - 4f
+                drawRoundRect(
+                    color = Obsidian.overlay.copy(alpha = opacidade * 0.92f),
+                    topLeft = Offset(nx - 7f, ny - 3f),
+                    size = Size(texto.size.width + 14f, texto.size.height + 6f),
+                    cornerRadius = CornerRadius(8f, 8f),
+                )
+                drawText(texto, topLeft = Offset(nx, ny))
             }
         }
     }

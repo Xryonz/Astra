@@ -70,6 +70,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.focus.FocusRequester
@@ -3940,7 +3942,91 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 
     SettingsDivider()
+    PetNaAparencia(p, prefs)
+
+    SettingsDivider()
     Spacer(Modifier.height(20.dp))
+}
+
+// O GATO mora em Aparência, e o INTERRUPTOR dele mora em Acessibilidade. Não é
+// descuido: são duas perguntas diferentes. "Quero um bicho na tela?" é sobre
+// movimento e é decisão de acessibilidade; "de que cor e com que nome?" é gosto, e
+// gosto mora junto de tema e fundo.
+@Composable
+private fun PetNaAparencia(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    TituloExplicavel(
+        "Companheiro",
+        "A cor troca a rampa de pelo que o artista desenhou, degrau por degrau — os " +
+            "olhos, o focinho e as patinhas ficam como estão, e é isso que mantém o " +
+            "gato parecendo um gato em vez de virar uma mancha de uma cor só. O nome " +
+            "aparece sobre ele quando reage a uma mensagem.",
+    )
+
+    if (!p.petLigado) {
+        Text(
+            "O gato está desligado em Acessibilidade.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+        )
+        Spacer(Modifier.height(12.dp))
+    }
+
+    FieldLabel("pelagem")
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Pelagem.entries.forEach { pel ->
+            AmostraDePelagem(pel, pel.name == p.petPelagem) { prefs.setPetPelagem(pel.name) }
+        }
+    }
+    // UMA linha nomeando a escolhida, em vez de sete rótulos sob sete bolinhas.
+    // "Caramelo" e "Chocolate" não se distinguem por amostra sozinha, e escrever os
+    // sete devolveria à aba o texto que o dono pediu pra tirar.
+    Spacer(Modifier.height(8.dp))
+    Text(
+        Pelagem.de(p.petPelagem).rotulo,
+        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+    )
+
+    Spacer(Modifier.height(18.dp))
+    FieldLabel("nome")
+    Box(
+        Modifier.widthIn(max = 260.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        if (p.petNome.isEmpty()) {
+            Text("Sem nome", style = TextStyle(color = Obsidian.text3, fontSize = 13.sp))
+        }
+        BasicTextField(
+            value = p.petNome,
+            onValueChange = prefs::setPetNome,
+            singleLine = true,
+            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            cursorBrush = SolidColor(Obsidian.accent),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+// A amostra usa o degrau do MEIO da rampa, não o mais claro: em toda pelagem o
+// degrau claro puxa pro branco, e sete bolinhas quase brancas não escolhem nada.
+@Composable
+private fun AmostraDePelagem(pelagem: Pelagem, escolhida: Boolean, onClick: () -> Unit) {
+    val fonte = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(pelagem.amostra)
+            .border(
+                width = if (escolhida) 2.dp else 1.dp,
+                color = if (escolhida) Obsidian.accent else Obsidian.borderDim,
+                shape = CircleShape,
+            )
+            .clickable(interactionSource = fonte, indication = null, onClick = onClick)
+            .clickScale(fonte, formaDoFoco = CircleShape)
+            .semantics { contentDescription = pelagem.rotulo },
+    )
 }
 
 // ABA ACESSIBILIDADE — no espírito da do Discord (pedido do dono).
@@ -3985,11 +4071,11 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     SettingsDivider()
     TituloExplicavel(
         "Companheiro",
-        "Um gato desenhado a traço que caminha por cima da interface. Ele passa a " +
-            "maior parte do tempo sentado e só anda em trechos curtos: movimento " +
-            "contínuo no canto do olho ensina o olho a ignorar o resto da tela. " +
-            "Levanta a cabeça quando chega mensagem, e some junto se você reduzir " +
-            "movimento.",
+        "Um gato em pixel art que caminha por cima da interface. Ele passa a maior " +
+            "parte do tempo parado e só anda em trechos curtos: movimento contínuo " +
+            "no canto do olho ensina o olho a ignorar o resto da tela. Pula quando " +
+            "chega mensagem, e some junto se você reduzir movimento. A cor e o nome " +
+            "estão em Aparência.",
     )
     ToggleRow(
         "Gato na tela",

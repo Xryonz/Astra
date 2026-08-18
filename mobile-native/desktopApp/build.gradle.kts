@@ -140,8 +140,38 @@ val fetchFfmpeg = tasks.register("fetchFfmpeg") {
         logger.lifecycle("ffmpeg.exe -> ${ffmpegOut.length() / 1024 / 1024} MB")
     }
 }
+// Compila o sidecar de voz (Go) pro appResources. O binario e gerado, nao
+// versionado — quem clona o repo compila junto do empacote.
+//
+// O SIDECAR NAO PODE FALTAR NO PACOTE: sem ele nao ha voz nenhuma. Por isso esta
+// task NAO tem `onlyIf { !existe }` como a do ffmpeg — ela recompila sempre que o
+// fonte muda, senao um pacote sairia com a voz da semana passada dentro.
+//
+// Se o Go nao estiver instalado, falha com mensagem clara em vez de gerar um zip
+// mutilado que so daria erro na maquina do usuario. Os runners do GitHub para
+// Windows ja trazem Go.
+val sidecarFonte = project.file("../../sidecar-voz")
+val sidecarSaida = project.file("appResources/windows/astra-voz.exe")
+val compilarSidecarVoz = tasks.register("compilarSidecarVoz") {
+    inputs.dir(sidecarFonte).withPropertyName("fonte")
+    outputs.file(sidecarSaida)
+    doLast {
+        sidecarSaida.parentFile.mkdirs()
+        logger.lifecycle("Compilando o sidecar de voz (Go) ...")
+        val p = ProcessBuilder("go", "build", "-trimpath", "-ldflags=-s -w", "-o", sidecarSaida.absolutePath, ".")
+            .directory(sidecarFonte)
+            .redirectErrorStream(true)
+            .start()
+        val saida = p.inputStream.bufferedReader().readText()
+        if (p.waitFor() != 0) {
+            throw GradleException("go build falhou. Go instalado? Saida:\n$saida")
+        }
+        logger.lifecycle("astra-voz.exe -> ${sidecarSaida.length() / 1024} KB")
+    }
+}
+
 tasks.matching { it.name == "createDistributable" || it.name == "packageDistributionForCurrentOS" }
-    .configureEach { dependsOn(fetchFfmpeg) }
+    .configureEach { dependsOn(fetchFfmpeg, compilarSidecarVoz) }
 
 // Zipa o app-image (pasta Astra/) pro asset do GitHub Release que o auto-update
 // baixa. Rodar junto do empacote (mesmo path ASCII do jpackage):

@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -193,6 +195,10 @@ fun UserFooter(
             .background(Obsidian.void.copy(alpha = 0.72f))
             .border(1.dp, Obsidian.borderMid.copy(alpha = 0.65f), forma)
             .hoverable(hoverCartao)
+            // A borda de cima deste cartao e o CHAO do pet (ver PisoDoPet). Fica
+            // depois do padding externo de proposito: o gato tem que apoiar na
+            // borda desenhada, nao na caixa de layout que sobra em volta dela.
+            .onGloballyPositioned { PisoDoPet.caixa = it.boundsInWindow() }
             .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

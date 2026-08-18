@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -23,7 +24,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -82,6 +84,21 @@ object Pet {
 
     fun mensagemNova() { _evento.tryEmit(PetEvento.MENSAGEM) }
     fun entrouEmCall() { _evento.tryEmit(PetEvento.CALL) }
+}
+
+// O CHÃO do gato: a borda de cima do cartão do usuário, no rodapé da barra lateral.
+//
+// Ele andava solto pela tela inteira, e isso era pior do que parecia no papel. Bicho
+// flutuando no meio de uma conversa não lê como bicho, lê como adesivo colado no
+// vidro — falta o chão que diz "ele está APOIADO em alguma coisa". Uma prateleira
+// resolve as duas coisas de uma vez: dá peso ao gato e tira ele de cima do texto.
+//
+// O `UserFooter` publica a própria caixa aqui; quem desenha o gato lê. É um ponto de
+// encontro em vez de um `CompositionLocal` porque são dois pontos distantes da mesma
+// árvore, e passar isso de mão em mão atravessaria meia dúzia de telas que não têm
+// nada com o assunto.
+object PisoDoPet {
+    var caixa by mutableStateOf(Rect.Zero)
 }
 
 // ---------------------------------------------------------------------------
@@ -226,11 +243,13 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
     val alturaPx = (CORTE_H * mult).toFloat()
     val pesPx = (CORTE_PES * mult).toFloat()
 
-    var area by remember { mutableStateOf(IntSize.Zero) }
+    var origem by remember { mutableStateOf(Offset.Zero) }
+    // A prateleira em coordenadas DESTA camada. A caixa publicada é da janela; esta
+    // camada pode não começar no canto dela, então descontar a origem é o que impede
+    // o gato de andar deslocado do cartão.
+    val piso = PisoDoPet.caixa.translate(-origem.x, -origem.y)
     var x by remember { mutableStateOf(-1f) }
-    var y by remember { mutableStateOf(-1f) }
     var alvoX by remember { mutableStateOf(0f) }
-    var alvoY by remember { mutableStateOf(0f) }
     var anim by remember { mutableStateOf(Anim.PARADO) }
     var tempoNaAnim by remember { mutableStateOf(0f) }
     var olhandoPraDireita by remember { mutableStateOf(false) }
@@ -258,9 +277,15 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
         }
     }
 
-    LaunchedEffect(area, mult) {
-        if (area.width <= 0) return@LaunchedEffect
-        if (x < 0f) { x = area.width * 0.5f; y = area.height * 0.72f }
+    // Os limites do passeio: meio gato de folga em cada ponta, pra ele não sair
+    // metade fora da prateleira ao chegar no fim dela.
+    val limiteEsq = piso.left + larguraPx * 0.5f
+    val limiteDir = piso.right - larguraPx * 0.5f
+
+    LaunchedEffect(piso, mult) {
+        if (piso.width <= larguraPx) return@LaunchedEffect
+        if (x < 0f) x = piso.center.x
+        x = x.coerceIn(limiteEsq, limiteDir)
         while (true) {
             val inicio = System.nanoTime()
             val dt = 1f / FPS
@@ -273,17 +298,11 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
                 Anim.PARADO -> {
                     espera -= dt
                     if (espera <= 0f) {
-                        // Alvo em qualquer lugar, menos a faixa de cima: ali moram a
-                        // barra de título e o cabeçalho do canal, e um gato parado em
-                        // cima do nome da conversa atrapalha a leitura da única linha
-                        // que diz onde você está.
-                        val margem = larguraPx * 0.5f
-                        alvoX = margem + Random.nextFloat() * (area.width - margem * 2f).coerceAtLeast(1f)
-                        alvoY = area.height * (0.35f + Random.nextFloat() * 0.55f)
+                        alvoX = limiteEsq + Random.nextFloat() * (limiteDir - limiteEsq)
                         olhandoPraDireita = alvoX > x
                         // Correr é raro e só pra longe. Um gato que corre sempre vira
                         // ansiedade na tela; um que corre de vez em quando vira graça.
-                        val longe = abs(alvoX - x) > area.width * 0.45f
+                        val longe = abs(alvoX - x) > (limiteDir - limiteEsq) * 0.55f
                         anim = if (longe && Random.nextFloat() < 0.3f) Anim.CORRENDO else Anim.ANDANDO
                         tempoNaAnim = 0f
                     }
@@ -291,12 +310,9 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
 
                 Anim.ANDANDO, Anim.CORRENDO -> {
                     val dx = alvoX - x
-                    val dy = alvoY - y
-                    val dist = hypot(dx, dy)
                     val v = anim.velocidade * larguraPx * dt
-                    if (dist <= v) {
+                    if (abs(dx) <= v) {
                         x = alvoX
-                        y = alvoY
                         anim = Anim.PARADO
                         tempoNaAnim = 0f
                         // Pausa LONGA de propósito (4 a 13 segundos). Um gato que
@@ -304,8 +320,7 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
                         // parte do tempo parado vira presença.
                         espera = 4f + Random.nextFloat() * 9f
                     } else {
-                        x += dx / dist * v
-                        y += dy / dist * v
+                        x += if (dx > 0f) v else -v
                     }
                 }
 
@@ -331,13 +346,19 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
     Box(
         Modifier
             .fillMaxSize()
-            .onSizeChanged { area = it }
-            // NÃO CONSOME NADA. Um `pointerInput` que só suspende para sempre não
-            // registra gesto nenhum, então clique, hover e rolagem atravessam a
-            // camada e chegam na conversa por baixo.
-            .pointerInput(Unit) { },
+            .onGloballyPositioned { origem = it.positionInWindow() },
+        // NÃO HÁ MODIFICADOR DE PONTEIRO AQUI, e é obrigatório que continue assim.
+        //
+        // Já teve: um `pointerInput(Unit) { }` vazio, com um comentário jurando que
+        // bloco vazio não registra gesto. Mentira — o NÓ existe e entra no teste de
+        // acerto de qualquer jeito, e como esta camada cobre a tela toda ela virou o
+        // alvo de tudo: o app inteiro ficou sem clique. Um `Box` sem modificador de
+        // ponteiro simplesmente não é alvo, e é assim que os eventos atravessam.
     ) {
-        if (area.width <= 0 || x < 0f) return@Box
+        if (piso.width <= larguraPx || x < 0f) return@Box
+        // O pé apoia na BORDA DE CIMA do cartão. Um pixel a mais e ele flutua; um a
+        // menos e ele afunda — e as duas coisas o olho pega na hora.
+        val y = piso.top
         Canvas(Modifier.fillMaxSize()) {
             val folha = folhas?.get(anim)
             if (folha == null) {

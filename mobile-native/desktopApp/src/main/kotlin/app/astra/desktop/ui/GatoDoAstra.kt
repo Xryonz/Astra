@@ -148,12 +148,17 @@ enum class Bicho(
     val quadroW: Int,
     val cx: Int, val cy: Int, val cw: Int, val ch: Int, val pes: Int,
     val escala: Int,
+    // Pra que lado a ARTE olha, em repouso. Os dois artistas escolheram lados
+    // opostos, e essa é a única razão de este campo existir: sem ele, espelhar
+    // "quando anda pra direita" acerta um bicho e erra o outro — foi o que fez o
+    // gato Simples parecer que só sabia andar num sentido.
+    val olhaParaDireita: Boolean,
     val base: IntArray,
     val destino: IntArray,
     val passos: Map<Anim, Passo>,
 ) {
     MALHADO(
-        "Malhado", 80, 7, 16, 58, 34, 31, 1,
+        "Malhado", 80, 7, 16, 58, 34, 31, 1, olhaParaDireita = false,
         intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836), intArrayOf(0, 1, 2, 3),
         mapOf(
             Anim.PARADO to Passo("gato_parado.png", 0, 8, 8, 0f),
@@ -166,7 +171,7 @@ enum class Bicho(
     // Grade 8x10 de 32px, uma linha por animação. Conteúdo medido em x 7..24 e
     // y 14..31 — gato de 18px, patas na linha 17 do recorte.
     SIMPLES(
-        "Simples", 32, 7, 14, 18, 18, 17, 2,
+        "Simples", 32, 7, 14, 18, 18, 17, 2, olhaParaDireita = true,
         intArrayOf(0xE0E0E0, 0xB5B5B5), intArrayOf(0, 2),
         mapOf(
             Anim.PARADO to Passo("gato_simples.png", 0, 4, 5, 0f),
@@ -447,10 +452,10 @@ fun GatoDoAstra(
             val esq = (x - larguraPx / 2f).roundToInt()
             val topo = (y - pesPx).roundToInt()
 
-            // O gato do pacote olha pra ESQUERDA. Andando pra direita, a folha é
-            // espelhada no eixo do próprio bicho — de graça, e sem duplicar arte.
+            // Espelha só quando o rumo discorda do lado pra que a arte olha. Meia
+            // figura pelo dobro do uso, e sem duplicar arte nenhuma.
             scale(
-                scaleX = if (olhandoPraDireita) -1f else 1f,
+                scaleX = if (olhandoPraDireita != bicho.olhaParaDireita) -1f else 1f,
                 scaleY = 1f,
                 pivot = Offset(x, y),
             ) {

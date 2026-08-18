@@ -187,12 +187,6 @@ fun UserFooter(
     // (void, um abaixo da sidebar em `base`).
     val forma = RoundedCornerShape(10.dp)
 
-    // O CHAO DO PET SOME COM ESTE CARTAO. Sem isto, a caixa publicada continuava
-    // valendo depois que o rodape saia de cena, e o gato aparecia andando por cima
-    // das configuracoes -- no ar, sobre uma prateleira que ja nao existia. Assim o
-    // pet fica so onde este cartao esta, que e a tela inicial.
-    DisposableEffect(Unit) { onDispose { PisoDoPet.caixa = Rect.Zero } }
-
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -207,6 +201,12 @@ fun UserFooter(
             // A borda de cima deste cartao e o CHAO do pet (ver PisoDoPet). Fica
             // depois do padding externo de proposito: o gato tem que apoiar na
             // borda desenhada, nao na caixa de layout que sobra em volta dela.
+            //
+            // A caixa NAO e zerada quando o rodape sai de cena. Ja foi, e o preco
+            // era o gato PISCAR a cada ida e volta das configuracoes -- ele nascia
+            // e morria junto da navegacao. Guardar a ultima posicao conhecida deixa
+            // ele vivo e parado onde estava; quem esconde e a tela cheia desenhada
+            // por cima (ver a ordem das camadas no ShellScreen).
             .onGloballyPositioned { PisoDoPet.caixa = it.boundsInWindow() }
             .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

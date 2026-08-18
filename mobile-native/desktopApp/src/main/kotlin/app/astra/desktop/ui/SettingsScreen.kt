@@ -339,7 +339,6 @@ fun SettingsScreen(
             // Nav das secoes
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     "configurações",
@@ -358,8 +357,22 @@ fun SettingsScreen(
                 val abas = remember(ehDono) {
                     if (ehDono) abasVisiveis + SettingsTab.BOTS else abasVisiveis
                 }
-                abas.forEach { t ->
-                    NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) { tab = t }
+                // A LISTA ROLA; o título fica. Antes a coluna inteira era rígida e,
+                // quando as abas passaram de onze, o Compose fez a única coisa que
+                // podia: espremeu todas até o rótulo e o subtítulo se encostarem.
+                // Aba achatada não é aba menor — é aba ilegível.
+                //
+                // O `weight(1f)` é o que resolve: ele dá à lista exatamente a altura
+                // que sobra do título, e o `verticalScroll` transforma o excesso em
+                // rolagem em vez de compressão. Assim caber deixa de ser problema de
+                // layout e vira problema do dedo, que é onde ele deve estar.
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    abas.forEach { t ->
+                        NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) { tab = t }
+                    }
                 }
             }
 

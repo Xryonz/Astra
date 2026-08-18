@@ -784,6 +784,24 @@ fun ShellScreen(
             }
         }
 
+        // O GATO. Fica ACIMA da conversa e ABAIXO das telas cheias (configurações,
+        // paleta, busca) — e essa ordem é o recurso, não detalhe de arrumação.
+        //
+        // Ele já morou na última camada, por cima de tudo. O efeito era o bicho
+        // andando no ar sobre as configurações. Consertar zerando o chão quando o
+        // rodapé saía criou o defeito seguinte: o gato PISCAVA a cada ida e volta,
+        // porque nascia e morria junto da navegação.
+        //
+        // Aqui os dois somem de uma vez: ele nunca sai de cena, então não pisca; e
+        // as telas cheias desenham por cima dele, então não aparece onde não deve.
+        // Cobrir é mais barato e mais estável que criar e destruir.
+        GatoDoAstra(
+            ligado = prefs.state.value.petLigado,
+            bichoId = prefs.state.value.petBicho,
+            pelagem = prefs.state.value.petPelagem,
+            nome = prefs.state.value.petNome,
+        )
+
         // Settings em takeover (Discord): a MESMA aurora do shell segue viva por baixo
         // (o conteudo acima esconde-se no crossfade). Entra/sai com fade + leve zoom.
         AnimatedVisibility(
@@ -898,15 +916,6 @@ fun ShellScreen(
             MissoesOverlay(me = state.me, onClose = onCloseMissoes)
         }
 
-        // O GATO. Última camada do shell de propósito — ele anda por cima de tudo,
-        // que é o que "livre pela tela toda" quer dizer. Não intercepta ponteiro
-        // (ver GatoDoAstra.kt), então estar por cima não custa um clique sequer.
-        GatoDoAstra(
-            ligado = prefs.state.value.petLigado,
-            bichoId = prefs.state.value.petBicho,
-            pelagem = prefs.state.value.petPelagem,
-            nome = prefs.state.value.petNome,
-        )
 
         // Convite aberto pela faixa do banner. Mora AQUI, no Box de fora, e nao
         // junto do Sidebar: um Popup escrito dentro daquele Row conta como filho

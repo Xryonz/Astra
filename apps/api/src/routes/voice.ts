@@ -9,8 +9,8 @@ import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { env } from '../lib/env'
-import { getRoomService } from '../lib/livekit'
 import { userCanSeeChannel } from '../lib/permissions'
+import { redis } from '../lib/redis'
 import { forbidden, badRequest } from '../lib/errors'
 
 const router = Router()
@@ -104,9 +104,6 @@ router.get('/presence', requireAuth, asyncHandler(async (req: Request, res: Resp
   if (!parsed.success) {
     return res.json({ data: {} })
   }
-  const svc = getRoomService()
-  if (!svc) return res.json({ data: {} })
-
   const ids = parsed.data.channelIds.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 64)
   if (ids.length === 0) return res.json({ data: {} })
 
@@ -114,25 +111,37 @@ router.get('/presence', requireAuth, asyncHandler(async (req: Request, res: Resp
   const now = Date.now()
 
   await Promise.all(ids.map(async (channelId) => {
-    const roomName = `channel:${channelId}`
-    const cached = presenceCache.get(roomName)
+    const cached = presenceCache.get(channelId)
     if (cached && now - cached.at < PRESENCE_TTL_MS) {
-
-      const ok = await userCanSeeChannel(req.userId!, channelId)
-      if (ok) out[channelId] = cached.ids
+      if (await userCanSeeChannel(req.userId!, channelId)) out[channelId] = cached.ids
       return
     }
-    const ok = await userCanSeeChannel(req.userId!, channelId)
-    if (!ok) return
-    try {
-      const participants = await svc.listParticipants(roomName)
-      const identities = participants.map((p) => p.identity)
-      presenceCache.set(roomName, { at: now, ids: identities })
-      out[channelId] = identities
-    } catch {
+    if (!(await userCanSeeChannel(req.userId!, channelId))) return
 
-      presenceCache.set(roomName, { at: now, ids: [] })
-      out[channelId] = []
+    // A LISTA SAI DO REDIS, não mais do LiveKit.
+    //
+    // Com a call em ponto a ponto não há servidor de mídia por onde perguntar:
+    // o áudio vai direto de uma pessoa para outra. Cada cliente marca presença
+    // enquanto está na sala, e a marca expira sozinha (ver vozKeys) — o que
+    // resolve o fantasma melhor do que o LiveKit resolvia, porque não depende de
+    // uma chamada de rede a um terceiro que pode estar fora do ar.
+    //
+    // `scanStream` e não `keys`: `keys` varre o banco inteiro e trava o Redis
+    // enquanto varre. Num banco compartilhado como o nosso isso é problema de
+    // todo mundo, não só nosso.
+    try {
+      const prefixo = `voz:${channelId}:`
+      const encontrados: string[] = []
+      const fluxo = redis.scanStream({ match: `${prefixo}*`, count: 200 })
+      for await (const lote of fluxo as AsyncIterable<string[]>) {
+        for (const chave of lote) encontrados.push(chave.slice(prefixo.length))
+      }
+      presenceCache.set(channelId, { at: now, ids: encontrados })
+      out[channelId] = encontrados
+    } catch {
+      // Redis fora do ar MANTÉM o que se sabia, em vez de esvaziar a sala. Uma
+      // falha de rede não pode fazer todo mundo sumir da call na barra lateral.
+      out[channelId] = cached?.ids ?? []
     }
   }))
 

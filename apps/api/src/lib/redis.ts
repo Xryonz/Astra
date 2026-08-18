@@ -38,6 +38,31 @@ export const activityKeys = {
   user: (userId: string) => `activity:user:${userId}`,
 }
 
+// QUEM ESTÁ EM CALL. Mesma ideia da presença e da atividade, e pelo mesmo motivo.
+//
+// Antes isto era perguntado ao LiveKit (`listParticipants`), e o LiveKit sabia
+// porque a mídia passava por ele. Com a call em ponto a ponto, ninguém no meio
+// enxerga quem está lá — a mídia vai direto de uma pessoa para outra. Então a
+// lista passa a ser mantida aqui.
+//
+// UMA CHAVE POR PESSOA POR SALA, com TTL, em vez de um conjunto por sala. A
+// diferença importa: com um conjunto, quem cai sem avisar (queda de luz, processo
+// morto, internet caindo) fica no conjunto para sempre, e a sala aparece cheia de
+// gente que não está lá. Com uma chave por pessoa, a ausência do aviso de saída
+// vira simplesmente uma chave que expira — o fantasma some sozinho.
+//
+// O cliente renova enquanto estiver na call. Se parar de renovar, sai da lista em
+// menos de um minuto sem ninguém precisar fazer nada.
+export const vozKeys = {
+  membro: (channelId: string, userId: string) => `voz:${channelId}:${userId}`,
+  daSala: (channelId: string) => `voz:${channelId}:*`,
+}
+
+// Vida da marca de "estou em call". Três vezes o intervalo de renovação do
+// cliente (20s), para que uma renovação perdida por engasgo de rede não derrube
+// alguém da lista — só duas seguidas.
+export const VOZ_TTL_SEGUNDOS = 60
+
 // A atividade guarda DESDE QUANDO, pro cartão poder dizer "há 2h 14min".
 export type Atividade = { texto: string; desde: number }
 

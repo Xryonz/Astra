@@ -5,7 +5,7 @@ import { db } from '../db'
 import { users, dmConversations, directMessages, channels, messages, serverMembers } from '../db/schema'
 import { notify } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
-import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence, setUserActivity, clearUserActivity } from '../lib/redis'
+import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence, setUserActivity, clearUserActivity, redis, vozKeys, VOZ_TTL_SEGUNDOS } from '../lib/redis'
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
 import { getBotId, askBot, handleBotCommand, prefixoUsado, semPrefixo, sincronizaPersona, personaDoDia } from '../lib/bot'
 import { responderNoSussurro } from '../lib/botSussurro'
@@ -388,8 +388,46 @@ export function setupSocket(io: Server) {
         io.to(`user:${m.userId}`).emit('voice_presence', { channelId, userId, joined })
       }
     }
-    socket.on('voice_join', (channelId: string) => { void emitVoicePresence(channelId, true) })
-    socket.on('voice_leave', (channelId: string) => { void emitVoicePresence(channelId, false) })
+    // AS SALAS EM QUE ESTE SOCKET ESTA EM CALL.
+    //
+    // Precisa existir pra limpar na desconexao: quem fecha o app sem clicar em
+    // "sair" some da lista pelo TTL, mas isso leva ate um minuto -- e um minuto de
+    // gente fantasma numa sala de voz e tempo suficiente pra alguem tentar chamar
+    // quem ja foi embora.
+    const salasDeVoz = new Set<string>()
+
+    const marcarNaVoz = async (channelId: string) => {
+      await redis.set(vozKeys.membro(channelId, userId), '1', 'EX', VOZ_TTL_SEGUNDOS)
+    }
+    const tirarDaVoz = async (channelId: string) => {
+      await redis.del(vozKeys.membro(channelId, userId))
+    }
+
+    socket.on('voice_join', (channelId: string) => {
+      if (typeof channelId !== 'string' || !channelId) return
+      salasDeVoz.add(channelId)
+      void marcarNaVoz(channelId)
+      void emitVoicePresence(channelId, true)
+    })
+    socket.on('voice_leave', (channelId: string) => {
+      if (typeof channelId !== 'string' || !channelId) return
+      salasDeVoz.delete(channelId)
+      void tirarDaVoz(channelId)
+      void emitVoicePresence(channelId, false)
+    })
+
+    // RENOVACAO. O cliente bate aqui enquanto estiver em call; parar de bater tira
+    // a pessoa da lista em menos de um minuto, sozinho.
+    //
+    // Esta e a rede de seguranca que substitui o LiveKit: antes a verdade morava
+    // nele porque a midia passava por la. Em ponto a ponto ninguem no meio enxerga
+    // quem esta na sala, entao a presenca vira algo que o cliente AFIRMA e o tempo
+    // DESMENTE se ele sumir.
+    socket.on('voice_keepalive', (channelId: string) => {
+      if (typeof channelId !== 'string' || !channelId) return
+      if (!salasDeVoz.has(channelId)) return
+      void marcarNaVoz(channelId)
+    })
 
     // SINALIZACAO P2P (WebRTC) — o carteiro da call direta.
     //
@@ -640,6 +678,18 @@ export function setupSocket(io: Server) {
     })
 
     socket.on('disconnect', async () => {
+      // SAI DAS CALLS ANTES DE QUALQUER OUTRA COISA.
+      //
+      // O TTL ja limparia sozinho, mas leva ate um minuto -- e um minuto de gente
+      // fantasma numa sala de voz e tempo de sobra pra alguem tentar chamar quem ja
+      // foi embora e ficar esperando uma conexao que nunca vai fechar. O TTL e a
+      // rede de seguranca pra queda de luz; isto e o caminho normal.
+      for (const channelId of salasDeVoz) {
+        await tirarDaVoz(channelId)
+        void emitVoicePresence(channelId, false)
+      }
+      salasDeVoz.clear()
+
       const sockets = userSockets.get(userId)
       sockets?.delete(socket.id)
       if (!sockets?.size) {

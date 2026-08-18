@@ -2,7 +2,10 @@ module github.com/Xryonz/Astra/sidecar-voz
 
 go 1.26.5
 
-require github.com/pion/webrtc/v4 v4.2.18
+require (
+	github.com/pion/webrtc/v4 v4.2.18
+	golang.org/x/sys v0.47.0
+)
 
 require (
 	github.com/google/uuid v1.6.0 // indirect
@@ -24,6 +27,5 @@ require (
 	github.com/wlynxg/anet v0.0.5 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 )

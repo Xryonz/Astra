@@ -56,25 +56,41 @@ func main() {
 	// para todos os pares receberem a MESMA. Ver o comentário longo em NovoPar:
 	// o Opus passa a rodar uma vez por quadro em vez de uma vez por companheiro.
 	//
-	// Mono e 48 kHz porque é voz: estéreo dobraria a banda para carregar a mesma
-	// informação, já que microfone de fone não tem dois canais de verdade.
-	faixa, err := webrtc.NewTrackLocalStaticSample(
-		webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeOpus,
-			ClockRate: 48000,
-			Channels:  1,
-		},
-		"audio", "astra-microfone",
-	)
+	// O áudio é mono (voz não precisa de estéreo, e estéreo dobraria a banda para
+	// carregar a mesma informação). A declaração no SDP é outra coisa — ver
+	// CapacidadeOpus, que explica por que ela diz dois canais.
+	faixa, err := webrtc.NewTrackLocalStaticSample(CapacidadeOpus, "audio", "astra-microfone")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "criar faixa de microfone: %v\n", err)
 		os.Exit(1)
 	}
 
+	escritor := NewEscritor(os.Stdout)
+	misturador := NovoMisturador()
+
+	// A biblioteca Opus vem por caminho, não por busca: o Astra sabe onde ela está
+	// (ele empacotou), e procurar em pastas do sistema convidaria a carregar uma
+	// versão qualquer que estivesse por aí.
+	dllOpus := os.Getenv("ASTRA_OPUS_DLL")
+	if dllOpus == "" {
+		dllOpus = "opus-0.dll" // ao lado do executável
+	}
+
+	motor := NovoMotor(faixa, misturador, escritor, dllOpus)
+	if err := motor.Ligar(ctx); err != nil {
+		// Sem áudio não há voz, e continuar de pé fingindo que há seria pior do
+		// que sair: o Astra ao menos consegue dizer o que houve.
+		fmt.Fprintf(os.Stderr, "ligar o motor de áudio: %v\n", err)
+		escritor.Manda(Evento{Ev: EvErro, Msg: "áudio indisponível: " + err.Error()})
+		os.Exit(1)
+	}
+
 	app := &App{
-		saida: NewEscritor(os.Stdout),
-		faixa: faixa,
-		pares: make(map[string]*Par),
+		saida:      escritor,
+		faixa:      faixa,
+		misturador: misturador,
+		motor:      motor,
+		pares:      make(map[string]*Par),
 		// Sem TURN configurado, o padrão é o STUN público do Google: ele resolve a
 		// maioria das redes domésticas. As que ficam de fora são as de NAT
 		// simétrico, e para essas só um TURN resolve — o Astra manda a lista dele
@@ -97,9 +113,11 @@ func main() {
 // call. Tudo que mexe no mapa passa pelo mutex — os eventos do Pion chegam nas
 // goroutines dele, não na que lê a entrada padrão.
 type App struct {
-	saida  *Escritor
-	faixa  *webrtc.TrackLocalStaticSample
-	config webrtc.Configuration
+	saida      *Escritor
+	faixa      *webrtc.TrackLocalStaticSample
+	misturador *Misturador
+	motor      *Motor
+	config     webrtc.Configuration
 
 	mu    sync.Mutex
 	pares map[string]*Par
@@ -225,7 +243,7 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	if par, ok := a.pares[id]; ok {
 		return par, nil
 	}
-	par, err := NovoPar(id, a.config, a.faixa, a.saida)
+	par, err := NovoPar(id, a.config, a.faixa, a.misturador, a.saida)
 	if err != nil {
 		return nil, err
 	}
@@ -247,8 +265,8 @@ func (a *App) aplicarMudo(ligado bool) {
 	// O mudo é do MICROFONE, não das conexões: silenciar na fonte significa que
 	// nem sequer sai pacote, em vez de sair silêncio codificado para cada pessoa
 	// da sala. Em malha isso é a diferença entre gastar banda com nada e não
-	// gastar. A fonte de áudio entra aqui quando o backend de captura for ligado.
-	_ = ligado
+	// gastar, multiplicada pelo número de pessoas.
+	a.motor.DefinirMudo(ligado)
 }
 
 func (a *App) Fechar() {

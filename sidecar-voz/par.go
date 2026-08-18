@@ -16,9 +16,10 @@ import (
 // dos outros: quem coordena é o App, e essa ignorância é proposital — um par que
 // cai não pode arrastar os outros junto.
 type Par struct {
-	id    string
-	pc    *webrtc.PeerConnection
-	saida *Escritor
+	id         string
+	pc         *webrtc.PeerConnection
+	saida      *Escritor
+	misturador *Misturador
 
 	// Candidatos que chegaram ANTES da descrição remota.
 	//
@@ -48,6 +49,7 @@ func NovoPar(
 	id string,
 	config webrtc.Configuration,
 	faixa *webrtc.TrackLocalStaticSample,
+	mist *Misturador,
 	saida *Escritor,
 ) (*Par, error) {
 	pc, err := webrtc.NewPeerConnection(config)
@@ -55,7 +57,7 @@ func NovoPar(
 		return nil, fmt.Errorf("criar conexão: %w", err)
 	}
 
-	p := &Par{id: id, pc: pc, saida: saida}
+	p := &Par{id: id, pc: pc, saida: saida, misturador: mist}
 
 	if faixa != nil {
 		if _, err := pc.AddTrack(faixa); err != nil {
@@ -64,6 +66,24 @@ func NovoPar(
 			// por quê.
 			_ = pc.Close()
 			return nil, fmt.Errorf("publicar microfone: %w", err)
+		}
+	} else {
+		// SEM MICROFONE AINDA PRECISA DECLARAR QUE OUVE.
+		//
+		// Isto não é detalhe: em WebRTC, quem não anuncia nada não negocia nada. Um
+		// par sem faixa produz uma resposta sem áudio nenhum, e o outro lado falha
+		// com "codec não suportado" — foi exatamente assim que o teste de chamada
+		// completa quebrou na primeira vez.
+		//
+		// O caso é real e não é raro: entrar na call sem microfone, com o
+		// microfone tomado por outro programa, ou só para escutar. Sem esta linha,
+		// essas pessoas não ouviriam ninguém.
+		if _, err := pc.AddTransceiverFromKind(
+			webrtc.RTPCodecTypeAudio,
+			webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly},
+		); err != nil {
+			_ = pc.Close()
+			return nil, fmt.Errorf("declarar que ouve: %w", err)
 		}
 	}
 
@@ -88,26 +108,53 @@ func NovoPar(
 	})
 
 	pc.OnTrack(func(remota *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		// A faixa PRECISA ser drenada, mesmo antes de existir reprodução: pacote
-		// que não é lido fica se acumulando no buffer do Pion. Uma conexão sem
-		// leitor não é "silenciosa", é uma conexão que vaza memória enquanto a
-		// pessoa fala.
-		go p.drenar(remota)
+		// A faixa PRECISA ser lida sempre: pacote que não é consumido fica se
+		// acumulando no buffer do Pion. Uma conexão sem leitor não é "silenciosa",
+		// é uma conexão que vaza memória enquanto a pessoa fala.
+		go p.receber(remota)
 	})
 
 	return p, nil
 }
 
-// drenar lê a faixa remota até ela acabar.
+// receber lê a voz desta pessoa, decodifica e entrega ao misturador.
 //
-// Por ora só descarta: a decodificação e a mistura entram junto com a camada de
-// áudio. A goroutine morre sozinha quando `ReadRTP` devolve erro, o que acontece
-// quando o par fecha — então não há vazamento aqui, e é por isso que não precisa
-// de contexto nem de canal de parada.
-func (p *Par) drenar(remota *webrtc.TrackRemote) {
+// UMA GOROUTINE E UM DECODIFICADOR POR PESSOA, e isso é obrigatório, não escolha
+// de estilo: o decodificador Opus guarda estado entre quadros (é assim que ele
+// recupera perda e faz a transição suave), então dois fluxos passando pelo mesmo
+// decodificador produzem lixo. É também aqui que mora o custo que cresce com o
+// tamanho da call.
+//
+// A goroutine morre sozinha quando `ReadRTP` devolve erro, o que acontece quando o
+// par fecha — daí não precisar de contexto nem de canal de parada.
+func (p *Par) receber(remota *webrtc.TrackRemote) {
+	dec, err := NovoDecodificador(TaxaDeAmostragem, CanaisDeVoz)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "decodificador de %s: %v\n", p.id, err)
+		return
+	}
+	defer dec.Fechar()
+
+	pcm := make([]int16, AmostrasPorQuadro*6)
 	for {
-		if _, _, err := remota.ReadRTP(); err != nil {
+		pacote, _, err := remota.ReadRTP()
+		if err != nil {
 			return
+		}
+		// Pacote de 1 ou 2 bytes é o DTX dizendo "continuo aqui, calado". Passar
+		// isso ao decodificador é correto — ele gera o ruído de conforto — mas não
+		// há voz nenhuma ali, então não vale ocupar espaço na fila da mistura.
+		if len(pacote.Payload) <= 2 {
+			continue
+		}
+		n, err := dec.Decodificar(pacote.Payload, pcm, false)
+		if err != nil || n <= 0 {
+			// Quadro estragado acontece; derrubar a conexão por causa de um seria
+			// trocar um engasgo por uma queda.
+			continue
+		}
+		if p.misturador != nil {
+			p.misturador.Entregar(p.id, pcm[:n])
 		}
 	}
 }
@@ -218,6 +265,13 @@ func (p *Par) Fechar() {
 	}
 	p.fechado = true
 	p.mu.Unlock()
+
+	// Tira a voz da mistura junto. Sem isto, o buffer desta pessoa ficaria pendurado
+	// até o tempo de esquecimento correr — e nesse meio-tempo o que sobrou na fila
+	// dela ainda tocaria, dando a impressão de que alguém que já saiu continua ali.
+	if p.misturador != nil {
+		p.misturador.Esquecer(p.id)
+	}
 
 	if err := p.pc.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "fechar par %s: %v\n", p.id, err)

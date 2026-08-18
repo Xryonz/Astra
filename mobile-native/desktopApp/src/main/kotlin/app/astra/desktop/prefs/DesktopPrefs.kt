@@ -170,12 +170,15 @@ class DesktopPrefs(private val store: SessionStore) {
         // Som do aviso de mensagem (sintetizado no Sfx). Nasce LIGADO: som novo
         // que precisa ser descoberto num menu não existe pra quem instalou hoje.
         val somDeAviso: Boolean = true,
-        // O gato que anda pela tela. Nasce LIGADO: o dono pediu o bicho, e
-        // recurso que estreia escondido num menu nao estreia.
-        val petLigado: Boolean = true,
+        // O gato que anda pela tela. Nasce DESLIGADO, e isso e deliberado: um bicho
+        // andando por cima da conversa e uma escolha estetica forte, e ninguem deve
+        // receber isso sem ter pedido. Quem quer, liga em Acessibilidade.
+        val petLigado: Boolean = false,
         // Pelagem do gato (nome da constante em `Pelagem`). Guardado como texto pra
         // uma pelagem removida no futuro virar o padrao em vez de derrubar a leitura.
         val petPelagem: String = "LARANJA",
+        // Qual gato (nome da constante em `Bicho`): MALHADO ou SIMPLES.
+        val petBicho: String = "MALHADO",
         // Nome que o dono deu ao bicho. Vazio = sem nome, e ai nada e desenhado.
         val petNome: String = "",
         // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
@@ -281,8 +284,11 @@ class DesktopPrefs(private val store: SessionStore) {
         // Ausente = ligado. Só um "0" explícito desliga — quem nunca abriu a aba
         // não deve herdar silêncio por causa de uma chave que ainda não existe.
         somDeAviso = store.uiPref("somDeAviso") != "0",
-        petLigado = store.uiPref("petLigado") != "0",
+        // `== "1"`, nao `!= "0"`: ausente tem que significar DESLIGADO. Com `!= "0"`
+        // quem nunca tocou no ajuste ganhava o gato de brinde.
+        petLigado = store.uiPref("petLigado") == "1",
         petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
+        petBicho = store.uiPref("petBicho") ?: "MALHADO",
         petNome = store.uiPref("petNome") ?: "",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
@@ -423,6 +429,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setPetLigado(v: Boolean) {
         persist("petLigado", v)
         _state.update { it.copy(petLigado = v) }
+    }
+
+    fun setPetBicho(v: String) {
+        store.setUiPref("petBicho", v)
+        _state.update { it.copy(petBicho = v) }
     }
 
     fun setPetPelagem(v: String) {

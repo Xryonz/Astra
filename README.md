@@ -290,7 +290,8 @@ e mesmo as que não pedem merecem — a arte é de quem a desenhou.
 
 | O quê | Autor | Origem |
 | --- | --- | --- |
-| Gato do companheiro (pixel art) | **Mattz Art** (`xzany`) | [Cat 2D Pixel Art](https://xzany.itch.io/cat-2d-pixel-art) |
+| Gato do companheiro — "Malhado" | **Mattz Art** (`xzany`) | [Cat 2D Pixel Art](https://xzany.itch.io/cat-2d-pixel-art) |
+| Gato do companheiro — "Simples" | **Elthen** (ELV Games) | [2D Pixel Art Cat Sprites](https://elthen.itch.io/2d-pixel-art-cat-sprites) |
 
 A licença viaja junto da arte, em
 `mobile-native/desktopApp/src/main/resources/pet/`. Notas de geometria e recorte em

@@ -3970,6 +3970,14 @@ private fun PetNaAparencia(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         Spacer(Modifier.height(12.dp))
     }
 
+    FieldLabel("gato")
+    SegmentedRow(
+        Bicho.entries.map { it.rotulo to it.name },
+        p.petBicho,
+        prefs::setPetBicho,
+    )
+
+    Spacer(Modifier.height(18.dp))
     FieldLabel("pelagem")
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Pelagem.entries.forEach { pel ->

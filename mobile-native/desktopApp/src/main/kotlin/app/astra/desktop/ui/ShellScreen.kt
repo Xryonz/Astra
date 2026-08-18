@@ -903,6 +903,7 @@ fun ShellScreen(
         // (ver GatoDoAstra.kt), então estar por cima não custa um clique sequer.
         GatoDoAstra(
             ligado = prefs.state.value.petLigado,
+            bichoId = prefs.state.value.petBicho,
             pelagem = prefs.state.value.petPelagem,
             nome = prefs.state.value.petNome,
         )

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -184,6 +186,13 @@ fun UserFooter(
     // superficie do shell como as outras — quem separa e o degrau de elevacao
     // (void, um abaixo da sidebar em `base`).
     val forma = RoundedCornerShape(10.dp)
+
+    // O CHAO DO PET SOME COM ESTE CARTAO. Sem isto, a caixa publicada continuava
+    // valendo depois que o rodape saia de cena, e o gato aparecia andando por cima
+    // das configuracoes -- no ar, sobre uma prateleira que ja nao existia. Assim o
+    // pet fica so onde este cartao esta, que e a tela inicial.
+    DisposableEffect(Unit) { onDispose { PisoDoPet.caixa = Rect.Zero } }
+
     Row(
         modifier = Modifier
             .fillMaxSize()

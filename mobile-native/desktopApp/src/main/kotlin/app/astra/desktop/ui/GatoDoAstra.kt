@@ -113,27 +113,71 @@ object PisoDoPet {
 // As patas repousam em y=47 do quadro, ou seja, na linha 31 do recorte. É por isso
 // que a âncora do desenho é o PÉ e não o centro: com o pé fixo, o pulo sobe de
 // verdade em vez de o bicho inteiro escorregar pra cima.
-private const val QUADRO_W = 80
-private const val CORTE_X = 7
-private const val CORTE_Y = 16
-private const val CORTE_W = 58
-private const val CORTE_H = 34
-private const val CORTE_PES = 31
-
-// `velocidade` está em LARGURAS DE GATO POR SEGUNDO, não em pixels. Amarrado assim,
-// o passo casa com a passada em qualquer escala e em qualquer monitor: dobrar o
-// tamanho do bicho dobra a distância que ele cobre, e o pé nunca patina no chão.
-private enum class Anim(
+// Um QUADRO de uma animação, num dos dois bichos. `linha` só é usada por quem guarda
+// tudo numa grade só; quem tem um arquivo por animação deixa em 0.
+class Passo(
     val arquivo: String,
+    val linha: Int,
     val quadros: Int,
     val fps: Int,
+    // Em LARGURAS DE BICHO POR SEGUNDO, não em pixels. Amarrado assim, o passo casa
+    // com a passada em qualquer escala: dobrar o tamanho dobra a distância coberta,
+    // e o pé nunca patina no chão.
     val velocidade: Float,
+)
+
+// OS DOIS GATOS. As folhas vêm de artistas diferentes, com geometria e paleta
+// diferentes, então tudo que difere está aqui como DADO — o desenho e a máquina de
+// estados não sabem qual bicho estão animando.
+//
+// `escala` é o multiplicador base, e ele existe porque os dois têm tamanhos MUITO
+// diferentes: o do Mattz ocupa 58px de folha, o do Elthen só 18. Sem multiplicador
+// próprio, um sairia do tamanho de um botão ao lado do outro.
+//
+// `base` são as cores de pelo da folha e `destino` diz em que degrau da
+// `Pelagem.rampa` cada uma cai. O do Mattz tem quatro degraus e usa os quatro; o do
+// Elthen só tem dois, e eles vão pro degrau claro e pro escuro (0 e 2) pra manter
+// contraste — mandar os dois pra degraus vizinhos achataria o bicho.
+enum class Bicho(
+    val rotulo: String,
+    val quadroW: Int,
+    val cx: Int, val cy: Int, val cw: Int, val ch: Int, val pes: Int,
+    val escala: Int,
+    val base: IntArray,
+    val destino: IntArray,
+    val passos: Map<Anim, Passo>,
 ) {
-    PARADO("gato_parado.png", 8, 8, 0f),
-    ANDANDO("gato_andando.png", 12, 12, 1.05f),
-    CORRENDO("gato_correndo.png", 8, 14, 3.0f),
-    PULO("gato_pulo.png", 3, 9, 0f),
+    MALHADO(
+        "Malhado", 80, 7, 16, 58, 34, 31, 2,
+        intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836), intArrayOf(0, 1, 2, 3),
+        mapOf(
+            Anim.PARADO to Passo("gato_parado.png", 0, 8, 8, 0f),
+            Anim.ANDANDO to Passo("gato_andando.png", 0, 12, 12, 1.05f),
+            Anim.CORRENDO to Passo("gato_correndo.png", 0, 8, 14, 3.0f),
+            Anim.PULO to Passo("gato_pulo.png", 0, 3, 9, 0f),
+        ),
+    ),
+
+    // Grade 8x10 de 32px, uma linha por animação. Conteúdo medido em x 7..24 e
+    // y 14..31 — gato de 18px, patas na linha 17 do recorte.
+    SIMPLES(
+        "Simples", 32, 7, 14, 18, 18, 17, 6,
+        intArrayOf(0xE0E0E0, 0xB5B5B5), intArrayOf(0, 2),
+        mapOf(
+            Anim.PARADO to Passo("gato_simples.png", 0, 4, 5, 0f),
+            Anim.ANDANDO to Passo("gato_simples.png", 4, 8, 10, 1.0f),
+            Anim.CORRENDO to Passo("gato_simples.png", 9, 8, 14, 2.6f),
+            Anim.PULO to Passo("gato_simples.png", 8, 7, 11, 0f),
+        ),
+    ),
+    ;
+
+    companion object {
+        fun de(nome: String?): Bicho = entries.firstOrNull { it.name == nome } ?: MALHADO
+    }
 }
+
+enum class Anim { PARADO, ANDANDO, CORRENDO, PULO }
 
 // PELAGEM — troca de cor do jeito que pixel art pede: remapeando a rampa que o
 // artista desenhou, cor por cor, e não jogando um filtro por cima.
@@ -181,33 +225,38 @@ enum class Pelagem(val rotulo: String, val rampa: IntArray) {
 // gato cai pro desenho vetorial mais abaixo em vez de derrubar a tela inteira. Pet
 // quebrado não pode ser motivo de crash de app de conversa.
 private object FolhasDoGato {
-    private val cache = mutableMapOf<Pelagem, Map<Anim, ImageBitmap>?>()
+    private val cache = mutableMapOf<Pair<Bicho, Pelagem>, Map<Anim, ImageBitmap>?>()
 
     @Synchronized
-    fun folhas(pelagem: Pelagem): Map<Anim, ImageBitmap>? = cache.getOrPut(pelagem) {
-        runCatching {
-            Anim.entries.associateWith { anim ->
-                val bytes = requireNotNull(
-                    FolhasDoGato::class.java.getResourceAsStream("/pet/" + anim.arquivo),
-                ) { "sprite ausente: " + anim.arquivo }.use { it.readBytes() }
-                val img = ImageIO.read(ByteArrayInputStream(bytes))
-                    ?: error("PNG ilegível: " + anim.arquivo)
-                repintar(img, pelagem).toComposeImageBitmap()
-            }
-        }.getOrNull()
-    }
+    fun folhas(bicho: Bicho, pelagem: Pelagem): Map<Anim, ImageBitmap>? =
+        cache.getOrPut(bicho to pelagem) {
+            runCatching {
+                // Um arquivo pode servir a várias animações (o gato Simples guarda
+                // tudo numa grade só), então decodifica-se cada arquivo UMA vez e o
+                // resultado é compartilhado entre as animações que o usam.
+                val porArquivo = mutableMapOf<String, ImageBitmap>()
+                bicho.passos.mapValues { (_, passo) ->
+                    porArquivo.getOrPut(passo.arquivo) {
+                        val bytes = requireNotNull(
+                            FolhasDoGato::class.java.getResourceAsStream("/pet/" + passo.arquivo),
+                        ) { "sprite ausente: " + passo.arquivo }.use { it.readBytes() }
+                        val img = ImageIO.read(ByteArrayInputStream(bytes))
+                            ?: error("PNG ilegível: " + passo.arquivo)
+                        repintar(img, bicho, pelagem).toComposeImageBitmap()
+                    }
+                }
+            }.getOrNull()
+        }
 
     // Repinta pela rampa e reencoda em PNG, porque ler e escrever pixel avulso é
-    // trivial no BufferedImage e chato no Skia. Roda uma vez por pelagem: o custo
-    // (quatro folhas de 80x64, ~13 mil pixels) some no ruído de abrir a tela.
-    private fun repintar(src: BufferedImage, pelagem: Pelagem): SkiaImage {
-        if (pelagem != Pelagem.LARANJA) {
-            for (y in 0 until src.height) {
-                for (x in 0 until src.width) {
-                    val p = src.getRGB(x, y)
-                    val i = RAMPA_BASE.indexOf(p and 0xFFFFFF)
-                    if (i >= 0) src.setRGB(x, y, (p and OPACO) or pelagem.rampa[i])
-                }
+    // trivial no BufferedImage e chato no Skia. Roda uma vez por bicho e pelagem: o
+    // custo (poucos milhares de pixels) some no ruído de abrir a tela.
+    private fun repintar(src: BufferedImage, bicho: Bicho, pelagem: Pelagem): SkiaImage {
+        for (y in 0 until src.height) {
+            for (x in 0 until src.width) {
+                val p = src.getRGB(x, y)
+                val i = bicho.base.indexOf(p and 0xFFFFFF)
+                if (i >= 0) src.setRGB(x, y, (p and OPACO) or pelagem.rampa[bicho.destino[i]])
             }
         }
         val saida = ByteArrayOutputStream()
@@ -220,7 +269,12 @@ private const val FPS = 30
 private val LARGURA_VETOR = 34.dp
 
 @Composable
-fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: String = "") {
+fun GatoDoAstra(
+    ligado: Boolean,
+    bichoId: String = Bicho.MALHADO.name,
+    pelagem: String = Pelagem.LARANJA.name,
+    nome: String = "",
+) {
     val reduzir = LocalReduceMotion.current
     val janelaAtiva = LocalWindowActive.current
     // As três condições numa só: `ligado` é a escolha, `reduzir` é a necessidade e
@@ -228,8 +282,9 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
     // sair da composição é mais barato que desenhar nada.
     if (!ligado || reduzir || !janelaAtiva) return
 
+    val bicho = Bicho.de(bichoId)
     val cor = Pelagem.de(pelagem)
-    val folhas = remember(cor) { FolhasDoGato.folhas(cor) }
+    val folhas = remember(bicho, cor) { FolhasDoGato.folhas(bicho, cor) }
     val medidor = rememberTextMeasurer()
 
     // Pixel art só fica nítida em MÚLTIPLO INTEIRO de pixel físico: em 2,5x metade
@@ -238,10 +293,10 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
     // densidade da tela, e não um valor em dp — assim o gato tem mais ou menos o
     // mesmo tamanho aparente em 100% e em 200% de escala do Windows, sempre nítido.
     val densidade = LocalDensity.current.density
-    val mult = (2f * densidade).roundToInt().coerceIn(2, 6)
-    val larguraPx = (CORTE_W * mult).toFloat()
-    val alturaPx = (CORTE_H * mult).toFloat()
-    val pesPx = (CORTE_PES * mult).toFloat()
+    val mult = (bicho.escala * densidade).roundToInt().coerceAtLeast(1)
+    val larguraPx = (bicho.cw * mult).toFloat()
+    val alturaPx = (bicho.ch * mult).toFloat()
+    val pesPx = (bicho.pes * mult).toFloat()
 
     var origem by remember { mutableStateOf(Offset.Zero) }
     // A prateleira em coordenadas DESTA camada. A caixa publicada é da janela; esta
@@ -310,7 +365,7 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
 
                 Anim.ANDANDO, Anim.CORRENDO -> {
                     val dx = alvoX - x
-                    val v = anim.velocidade * larguraPx * dt
+                    val v = (bicho.passos[anim]?.velocidade ?: 1f) * larguraPx * dt
                     if (abs(dx) <= v) {
                         x = alvoX
                         anim = Anim.PARADO
@@ -329,7 +384,8 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
                     // pulo (call) ou volta a ficar parado, com pausa curta — ele
                     // acabou de reagir, então continuar o passeio na hora seria negar
                     // a própria reação.
-                    if (tempoNaAnim >= Anim.PULO.quadros.toFloat() / Anim.PULO.fps) {
+                    val p = bicho.passos[Anim.PULO]
+                    if (p == null || tempoNaAnim >= p.quadros.toFloat() / p.fps) {
                         pulosRestantes -= 1
                         tempoNaAnim = 0f
                         if (pulosRestantes <= 0) {
@@ -379,8 +435,9 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
                 return@Canvas
             }
 
-            val i = (tempoNaAnim * anim.fps).toInt().let {
-                if (anim == Anim.PULO) it.coerceIn(0, anim.quadros - 1) else it % anim.quadros
+            val passo = bicho.passos[anim] ?: return@Canvas
+            val i = (tempoNaAnim * passo.fps).toInt().let {
+                if (anim == Anim.PULO) it.coerceIn(0, passo.quadros - 1) else it % passo.quadros
             }
             val esq = (x - larguraPx / 2f).roundToInt()
             val topo = (y - pesPx).roundToInt()
@@ -394,8 +451,11 @@ fun GatoDoAstra(ligado: Boolean, pelagem: String = Pelagem.LARANJA.name, nome: S
             ) {
                 drawImage(
                     image = folha,
-                    srcOffset = IntOffset(i * QUADRO_W + CORTE_X, CORTE_Y),
-                    srcSize = IntSize(CORTE_W, CORTE_H),
+                    srcOffset = IntOffset(
+                        i * bicho.quadroW + bicho.cx,
+                        passo.linha * bicho.quadroW + bicho.cy,
+                    ),
+                    srcSize = IntSize(bicho.cw, bicho.ch),
                     dstOffset = IntOffset(esq, topo),
                     dstSize = IntSize(larguraPx.toInt(), alturaPx.toInt()),
                     // SEM suavização. O padrão do Compose interpola, e interpolar

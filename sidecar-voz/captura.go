@@ -135,15 +135,24 @@ func AbrirCaptura() (*Captura, error) {
 
 // Bandeiras que o WASAPI devolve junto de cada bloco (audioclient.h).
 const (
+	// AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY — houve buraco. Serve para avisar o
+	// outro lado, não para descartar o que veio.
+	blocoDescontinuo = 0x1
 	// AUDCLNT_BUFFERFLAGS_SILENT — o Windows diz "este trecho é silêncio e eu nem
 	// escrevi os bytes". Ler o buffer nesse caso é ler lixo: a documentação manda
 	// tratar como zeros. Ignorar esta bandeira produz estalos aleatórios que
 	// parecem defeito de microfone.
-	blocoSilencioso = 0x1
-	// AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY — houve buraco. Serve para avisar o
-	// outro lado, não para descartar o que veio.
-	blocoDescontinuo = 0x2
+	blocoSilencioso = 0x2
 )
+
+// ESTES DOIS NÚMEROS JÁ ESTIVERAM TROCADOS AQUI, e o teste não pegou — em sala
+// silenciosa e sem falha de escalonador, nenhuma das duas bandeiras acende. O
+// efeito seria pernicioso: zerar áudio válido quando houvesse engasgo, e reenviar
+// o bloco anterior quando houvesse silêncio de verdade.
+//
+// A ordem certa está no cabeçalho `audioclient.h` e vale conferir antes de mexer:
+// DATA_DISCONTINUITY vem PRIMEIRO (0x1), SILENT vem em SEGUIDO (0x2). A página da
+// Microsoft lista os nomes sem os valores, o que convida exatamente a este erro.
 
 var ErrSemAudio = errors.New("nada disponível agora")
 
@@ -163,7 +172,10 @@ func (c *Captura) Ler(destino []int16) (int, bool, error) {
 		return 0, false, ErrSemAudio
 	}
 
-	var dados uintptr
+	// `unsafe.Pointer` e não `uintptr` de propósito: é o que o Windows escreve
+	// aqui, e guardar como ponteiro de verdade evita a conversão que o `go vet`
+	// marca — corretamente — como suspeita.
+	var dados unsafe.Pointer
 	var quadros, bandeiras uint32
 	r := c.captor.chamar(capGetBuffer,
 		uintptr(unsafe.Pointer(&dados)),
@@ -189,7 +201,7 @@ func (c *Captura) Ler(destino []int16) (int, bool, error) {
 			destino[i] = 0
 		}
 	} else if n > 0 {
-		origem := unsafe.Slice((*int16)(unsafe.Pointer(dados)), n)
+		origem := unsafe.Slice((*int16)(dados), n)
 		copy(destino[:n], origem)
 	}
 

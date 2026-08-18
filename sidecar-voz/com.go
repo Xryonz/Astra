@@ -46,14 +46,20 @@ const (
 // conferindo alguma coisa.
 type objeto uintptr
 
-// tabela devolve a vtable do objeto.
-func (o objeto) tabela() **uintptr {
-	return (**uintptr)(unsafe.Pointer(o))
-}
-
-// metodo lê o endereço do método `indice`.
+// metodo lê o endereço do método `indice` na vtable.
+//
+// O `go vet` marca esta linha como "possível mau uso de unsafe.Pointer", e a
+// marcação é correta EM GERAL: converter uintptr em ponteiro é perigoso porque o
+// coletor de lixo do Go não enxerga uintptr e pode mover o que ele apontava.
+//
+// Aqui é seguro, e o motivo é específico: este endereço é de memória NATIVA,
+// alocada pelo COM, fora do heap do Go. Não há nada para o coletor mover. É o
+// mesmo motivo pelo qual todo interop com COM em Go tem esta linha — não existe
+// forma de expressá-la que o vet aceite sem mentir sobre o que ela faz.
+//
+// O 64 é um teto folgado: nenhuma interface usada aqui passa de 15 métodos.
 func (o objeto) metodo(indice int) uintptr {
-	vt := *(**[64]uintptr)(unsafe.Pointer(o))
+	vt := *(**[64]uintptr)(unsafe.Pointer(o)) //nolint:govet // ponteiro nativo, ver acima
 	return vt[indice]
 }
 

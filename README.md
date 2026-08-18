@@ -314,7 +314,9 @@ folha está documentada no `enum Bicho`, em `ui/GatoDoAstra.kt`.
 | --- | --- | --- |
 | [Opus](https://opus-codec.org) (`opus-0.dll`) | codec de voz das chamadas | BSD 3-Clause |
 | [Pion WebRTC](https://github.com/pion/webrtc) | transporte das chamadas ponto a ponto | MIT |
-| [FFmpeg](https://ffmpeg.org) (`ffmpeg.exe`) | captura de tela | LGPL 2.1+ (build sem os codecs GPL) |
+| [MP3SPI](https://github.com/pdudits/soundlibs) + [JLayer](http://www.javazoom.net/javalayer/javalayer.html) | leitura de MP3 nos sons da soundboard | LGPL 2.1+ |
+| [VorbisSPI](https://github.com/pdudits/soundlibs) + [JOrbis](https://www.jcraft.com/jorbis/) | leitura de OGG nos sons da soundboard | LGPL 2.1+ |
+| [Tritonus](https://www.tritonus.org) (`tritonus-share`) | base comum dos dois provedores acima | LGPL 2.1+ |
 | [GStreamer](https://gstreamer.freedesktop.org) | codificação de vídeo (baixado sob demanda) | LGPL 2.1+ |
 
 ---

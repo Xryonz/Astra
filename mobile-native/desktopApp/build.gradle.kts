@@ -1,7 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.net.URI
-import java.util.zip.ZipFile
 
 // :desktopApp — cliente desktop do Astra (Compose Multiplatform / JVM).
 // D0: so abre uma janela obsidiana. O codigo compartilhado (dominio/dados/UI)
@@ -70,7 +68,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.78"
+val astraVersion = "0.2.79"
 
 dependencies {
     implementation(project(":shared"))
@@ -114,37 +112,29 @@ dependencies {
     //   protoc --proto_path=C:/Astra/build/proto-tmp --java_out=<saida> \
     //     livekit_rtc.proto livekit_models.proto livekit_metrics.proto logger/options.proto
     implementation(libs.protobuf.java)
+    // Som da soundboard: MP3 e OGG entram direto pelo JavaSound. Ver ConversorDeSom
+    // -- trocaram um binario de 137,8 MB por ~300 KB de jar.
+    implementation(libs.mp3spi)
+    implementation(libs.vorbisspi)
 }
 
-// Baixa o ffmpeg.exe (com ddagrab) pro appResources se faltar — o binario e
-// grande e fica FORA do git. Num clone limpo: `./gradlew :desktopApp:fetchFfmpeg`
-// antes de empacotar (o createDistributable ja depende dele). Build lgpl (sem os
-// codecs GPL) porque so usamos captura+escala, nao encoders.
-// Paths resolvidos no topo (receiver Project); o lambda da task so ve estas vals.
-val ffmpegOut = project.file("appResources/windows/ffmpeg.exe")
-val ffmpegZip = layout.buildDirectory.file("ffmpeg-dl.zip").get().asFile
-val ffmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
-val fetchFfmpeg = tasks.register("fetchFfmpeg") {
-    outputs.file(ffmpegOut)
-    onlyIf { !ffmpegOut.exists() }
-    doLast {
-        ffmpegZip.parentFile.mkdirs()
-        logger.lifecycle("Baixando ffmpeg (ddagrab) ...")
-        URI(ffmpegUrl).toURL().openStream().use { i -> ffmpegZip.outputStream().use { i.copyTo(it) } }
-        ffmpegOut.parentFile.mkdirs()
-        ZipFile(ffmpegZip).use { zf ->
-            val e = zf.entries().asSequence().first { it.name.endsWith("bin/ffmpeg.exe") }
-            zf.getInputStream(e).use { i -> ffmpegOut.outputStream().use { i.copyTo(it) } }
-        }
-        ffmpegZip.delete()
-        logger.lifecycle("ffmpeg.exe -> ${ffmpegOut.length() / 1024 / 1024} MB")
-    }
-}
+// O FFMPEG SAIU DO PACOTE, e a conta explica sozinha por quê.
+//
+// Ele pesava 137,8 MB num instalador de 299 MB — quase metade do app, baixada por
+// todo mundo a cada atualização automática. Entrou para capturar tela; quando a
+// transmissão saiu do ar, sobrou com uma única função viva: converter o arquivo
+// que um administrador escolhe ao subir um som de soundboard.
+//
+// Hoje isso é feito por dois provedores do JavaSound, ~300 KB somados, dentro do
+// próprio processo (ver ConversorDeSom).
+//
+// Quando o vídeo voltar, ele volta em Go — não por aqui. Se um dia for preciso
+// ressuscitar esta tarefa, ela está no histórico do git.
 // Compila o sidecar de voz (Go) pro appResources. O binario e gerado, nao
 // versionado — quem clona o repo compila junto do empacote.
 //
 // O SIDECAR NAO PODE FALTAR NO PACOTE: sem ele nao ha voz nenhuma. Por isso esta
-// task NAO tem `onlyIf { !existe }` como a do ffmpeg — ela recompila sempre que o
+// task NAO tem `onlyIf { !existe }` — ela recompila sempre que o
 // fonte muda, senao um pacote sairia com a voz da semana passada dentro.
 //
 // Se o Go nao estiver instalado, falha com mensagem clara em vez de gerar um zip
@@ -185,7 +175,7 @@ tasks.matching {
     it.name == "createDistributable" ||
         it.name == "packageDistributionForCurrentOS" ||
         it.name == "prepareAppResources"
-}.configureEach { dependsOn(fetchFfmpeg, compilarSidecarVoz) }
+}.configureEach { dependsOn(compilarSidecarVoz) }
 
 // Zipa o app-image (pasta Astra/) pro asset do GitHub Release que o auto-update
 // baixa. Rodar junto do empacote (mesmo path ASCII do jpackage):
@@ -373,10 +363,10 @@ compose.desktop {
             // Sem o modulo, a medicao de custo da transmissao compila e explode so no
             // app empacotado — a mesma pegadinha que ja custou o jdk.httpserver.
             modules("jdk.httpserver", "java.management", "jdk.management", "jdk.accessibility")
-            // Recursos por-SO empacotados no app-image. appResources/windows/ffmpeg.exe
-            // = capturador DXGI (ddagrab) da transmissao 60fps; em runtime sai em
-            // System.getProperty("compose.application.resources.dir"). O binario e
-            // gitignored (grande) — quem for buildar roda `:desktopApp:fetchFfmpeg`.
+            // Recursos por-SO empacotados no app-image. Hoje sao dois:
+            // `astra-voz.exe` (o processo de voz, compilado do Go pelo
+            // compilarSidecarVoz) e `opus-0.dll` (o codec que ele carrega). Em
+            // runtime saem em System.getProperty("compose.application.resources.dir").
             appResourcesRootDir.set(project.file("appResources"))
             windows {
                 // Logo do Astra (mesmo favicon.ico do site) no Astra.exe.

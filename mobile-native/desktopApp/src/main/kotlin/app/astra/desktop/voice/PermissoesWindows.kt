@@ -228,17 +228,17 @@ object PermissoesWindows {
         }
     }
 
-    fun tela(): Checagem {
-        val ff = FfmpegLocator.path
-        return if (ff == null) {
-            Checagem(
-                Permissao.TELA, Acesso.SEM_APARELHO,
-                "O componente de captura não veio no pacote. Reinstale o Astra.",
-            )
-        } else {
-            Checagem(Permissao.TELA, Acesso.OK, "Pronto — o Windows não pede permissão para isto.")
-        }
-    }
+    // A CHECAGEM PASSOU A DIZER A VERDADE.
+    //
+    // Ela procurava o ffmpeg e, sem ele, mandava reinstalar o Astra. Agora que a
+    // transmissão está em migração e o ffmpeg saiu do pacote, essa mensagem seria
+    // pior do que inútil: manda a pessoa reinstalar um app que está inteiro, para
+    // resolver algo que nenhuma reinstalação resolve.
+    fun tela(): Checagem = Checagem(
+        Permissao.TELA, Acesso.SEM_APARELHO,
+        "Transmitir tela está fora do ar enquanto a voz migra para o componente novo. " +
+            "O Windows não pede permissão para isto — não há nada para você liberar.",
+    )
 
     // Firewall.
     //

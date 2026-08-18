@@ -1,52 +1,89 @@
 package app.astra.desktop.voice
 
 import java.io.File
-import java.util.concurrent.TimeUnit
+import javax.sound.sampled.AudioFileFormat
+import javax.sound.sampled.AudioFormat
+import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 
-// Converte qualquer arquivo de audio pra WAV, usando o ffmpeg que o app JA
-// empacota pra transmissao de tela (FfmpegLocator).
+// Converte o arquivo que a pessoa escolheu para WAV, no momento de subir um som da
+// soundboard. Roda UMA vez por som cadastrado — a reprodução depois só baixa o WAV
+// pronto e toca com o JavaSound.
 //
-// POR QUE CONVERTER, se o pedido foi "nao perder qualidade": decodificar um MP3 e
-// uma operacao EXATA — o WAV guarda exatamente o que saiu do decodificador, amostra
-// por amostra. Perda so existe quando se RE-ENCODA (MP3 -> MP3, ou MP3 -> AAC), e
-// nao e o que acontece aqui. O arquivo fica maior, so isso.
+// ISTO CUSTAVA 137,8 MB.
 //
-// E converter compensa porque o JDK toca WAV sozinho: aceitar MP3 direto exigiria
-// embarcar um decodificador so pra isso, com mais um formato pra dar problema em
-// maquina estranha.
+// Antes a conversão era um `ffmpeg.exe` completo, empacotado dentro do Astra. Ele
+// tinha entrado para capturar tela; quando a transmissão saiu, sobrou como o único
+// binário de 137,8 MB do instalador — **quase metade do app** — para atender a uma
+// ação que um administrador faz de vez em quando. E cada atualização automática
+// baixava ele de novo, para todo mundo.
+//
+// Hoje quem decodifica são dois provedores do JavaSound (~300 KB somados). Eles não
+// têm API para chamar: registram-se sozinhos no `AudioSystem`, e a partir daí abrir
+// um MP3 é igual a abrir um WAV. É por isso que não há nenhum import deles aqui.
+//
+// POR QUE CONVERTER, se o pedido foi "não perder qualidade": decodificar um MP3 é
+// uma operação EXATA — o WAV guarda exatamente o que saiu do decodificador, amostra
+// por amostra. Perda só existe ao RE-ENCODAR (MP3 → MP3), e não é o que acontece
+// aqui. O arquivo fica maior, só isso.
 object ConversorDeSom {
-    private const val TIMEOUT_S = 30L
 
-    // Ja e WAV? Devolve o proprio arquivo — reconverter nao acrescentaria nada e
-    // ainda gastaria um processo.
+    // TETO DE DURAÇÃO, e ele não é preciosismo.
+    //
+    // O áudio decodificado vai inteiro para a memória antes de virar arquivo, porque
+    // escrever WAV exige saber a contagem de quadros de antemão e um MP3 não a
+    // declara. Sem teto, escolher um álbum de uma hora por engano viraria ~600 MB de
+    // PCM num heap com teto de 1 GB — ou seja, o app fechando na cara da pessoa.
+    //
+    // Cinco minutos é generoso para soundboard (o uso real é de dois a dez segundos)
+    // e ainda deixa o pior caso em ~50 MB.
+    private const val SEGUNDOS_MAXIMOS = 300
+
+    // Já é WAV? Devolve o próprio arquivo — reconverter não acrescentaria nada.
     fun paraWav(entrada: File): File? {
         if (entrada.extension.equals("wav", ignoreCase = true)) return entrada
 
-        val ffmpeg = FfmpegLocator.path ?: return null
-        val saida = File.createTempFile("astra-som-", ".wav")
-        saida.delete() // o ffmpeg recusa sobrescrever sem -y; mais limpo apagar antes
+        return runCatching {
+            AudioSystem.getAudioInputStream(entrada).use { origem ->
+                // PCM de 16 bits: é o que placa de som toca sem conversão extra, e o
+                // que o JavaSound abre sem depender de codec do sistema.
+                //
+                // O formato de origem de um MP3 vem com taxa de quadros
+                // desconhecida; a taxa de AMOSTRAGEM é o campo confiável, e é dela
+                // que o formato de destino é montado.
+                val canais = origem.format.channels.coerceAtLeast(1)
+                val taxa = origem.format.sampleRate
+                val alvo = AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    taxa,
+                    16,
+                    canais,
+                    canais * 2,
+                    taxa,
+                    false, // little-endian, como manda o WAV
+                )
 
-        val proc = runCatching {
-            ProcessBuilder(
-                ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin",
-                "-i", entrada.absolutePath,
-                // PCM 16 bits: e o que placa de som toca sem conversao extra, e o
-                // que o javax.sound abre sem depender de codec do sistema.
-                "-c:a", "pcm_s16le",
-                saida.absolutePath,
-            ).redirectErrorStream(true).start()
-        }.getOrNull() ?: return null
+                AudioSystem.getAudioInputStream(alvo, origem).use { pcm ->
+                    val tetoDeBytes = (taxa * canais * 2 * SEGUNDOS_MAXIMOS).toLong()
+                    val bruto = pcm.readNBytes((tetoDeBytes + 1).toInt())
+                    if (bruto.size > tetoDeBytes) {
+                        error("som acima de ${SEGUNDOS_MAXIMOS / 60} minutos")
+                    }
 
-        // Drena a saida: sem isso o buffer do pipe enche e o ffmpeg trava pra sempre.
-        runCatching { proc.inputStream.use { it.readBytes() } }
-        val terminou = runCatching { proc.waitFor(TIMEOUT_S, TimeUnit.SECONDS) }.getOrDefault(false)
-        if (!terminou) {
-            runCatching { proc.destroyForcibly() }
-            saida.delete()
-            return null
-        }
-        return if (saida.isFile && saida.length() > 0) saida else null.also { saida.delete() }
+                    val quadros = bruto.size.toLong() / alvo.frameSize
+                    if (quadros <= 0) error("arquivo sem áudio")
+
+                    val saida = File.createTempFile("astra-som-", ".wav")
+                    // A contagem de quadros é passada explícita: sem ela o escritor
+                    // de WAV grava um cabeçalho com tamanho desconhecido, e o
+                    // arquivo abre mudo em metade dos tocadores.
+                    AudioInputStream(bruto.inputStream(), alvo, quadros).use {
+                        AudioSystem.write(it, AudioFileFormat.Type.WAVE, saida)
+                    }
+                    saida
+                }
+            }
+        }.getOrNull()
     }
 
     // Duracao lida UMA vez, no cadastro. Depois disso ela viaja no DTO — abrir o

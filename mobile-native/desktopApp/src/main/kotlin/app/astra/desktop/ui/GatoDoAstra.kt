@@ -131,8 +131,13 @@ class Passo(
 // estados não sabem qual bicho estão animando.
 //
 // `escala` é o multiplicador base, e ele existe porque os dois têm tamanhos MUITO
-// diferentes: o do Mattz ocupa 58px de folha, o do Elthen só 18. Sem multiplicador
+// diferentes na folha: o do Mattz ocupa 58px, o do Elthen só 18. Sem multiplicador
 // próprio, um sairia do tamanho de um botão ao lado do outro.
+//
+// O ALVO é a foto do usuário, ali do lado — uns 34dp. Um bicho de estimação tem que
+// caber no canto do olho; grande demais ele deixa de ser companhia e vira obstáculo
+// em cima da conversa. O do Mattz fica em 1x (a folha já nasce nesse tamanho, e 1:1
+// é o melhor que pixel art pode ficar); o do Elthen precisa de 2x pra chegar perto.
 //
 // `base` são as cores de pelo da folha e `destino` diz em que degrau da
 // `Pelagem.rampa` cada uma cai. O do Mattz tem quatro degraus e usa os quatro; o do
@@ -148,7 +153,7 @@ enum class Bicho(
     val passos: Map<Anim, Passo>,
 ) {
     MALHADO(
-        "Malhado", 80, 7, 16, 58, 34, 31, 2,
+        "Malhado", 80, 7, 16, 58, 34, 31, 1,
         intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836), intArrayOf(0, 1, 2, 3),
         mapOf(
             Anim.PARADO to Passo("gato_parado.png", 0, 8, 8, 0f),
@@ -161,7 +166,7 @@ enum class Bicho(
     // Grade 8x10 de 32px, uma linha por animação. Conteúdo medido em x 7..24 e
     // y 14..31 — gato de 18px, patas na linha 17 do recorte.
     SIMPLES(
-        "Simples", 32, 7, 14, 18, 18, 17, 6,
+        "Simples", 32, 7, 14, 18, 18, 17, 2,
         intArrayOf(0xE0E0E0, 0xB5B5B5), intArrayOf(0, 2),
         mapOf(
             Anim.PARADO to Passo("gato_simples.png", 0, 4, 5, 0f),

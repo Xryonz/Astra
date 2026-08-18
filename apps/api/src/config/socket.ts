@@ -391,6 +391,35 @@ export function setupSocket(io: Server) {
     socket.on('voice_join', (channelId: string) => { void emitVoicePresence(channelId, true) })
     socket.on('voice_leave', (channelId: string) => { void emitVoicePresence(channelId, false) })
 
+    // SINALIZACAO P2P (WebRTC) — o carteiro da call direta.
+    //
+    // A midia NAO passa por aqui: ela vai direto de uma pessoa pra outra. O que
+    // passa por este socket sao so os envelopes do aperto de mao (oferta, resposta
+    // e candidatos de rede), que somam alguns KB por chamada.
+    //
+    // TRES REGRAS DE SEGURANCA, porque isto encaminha dado de um usuario pra outro:
+    //
+    // 1. O REMETENTE NUNCA E DECLARADO PELO CLIENTE. O `de` sai do `userId` do
+    //    socket autenticado. Se viesse do corpo, qualquer um se passaria por
+    //    qualquer um e o aperto de mao inteiro seria sequestravel.
+    // 2. O conteudo do envelope e OPACO — nao lemos nem validamos SDP aqui. Isso e
+    //    proposital: parsear SDP no servidor seria superficie de ataque de graca,
+    //    e quem tem que recusar oferta malformada e a implementacao WebRTC.
+    // 3. Teto de tamanho. SDP de verdade tem alguns KB; sem teto, este canal virava
+    //    um jeito de mandar megabytes pra outra pessoa sem passar por moderacao.
+    const TETO_SINAL = 64 * 1024
+
+    socket.on('rtc_signal', (payload: unknown) => {
+      if (typeof payload !== 'object' || payload === null) return
+      const { para, tipo, dados } = payload as Record<string, unknown>
+      if (typeof para !== 'string' || !para) return
+      if (tipo !== 'oferta' && tipo !== 'resposta' && tipo !== 'candidato' && tipo !== 'tchau') return
+      if (typeof dados !== 'string' || dados.length > TETO_SINAL) return
+      // Falar consigo mesmo nao faz sentido e so serviria pra confundir o cliente.
+      if (para === userId) return
+      io.to(`user:${para}`).emit('rtc_signal', { de: userId, tipo, dados })
+    })
+
     // Irmao do fast_send_text pro SUSSURRO: mesma ideia (texto puro, sem anexo nem
     // resposta) pra a bolha aparecer na hora em vez de esperar o POST. Espelha a rota
     // HTTP de dm.ts — inclusive o notify em background, senao DM por este caminho

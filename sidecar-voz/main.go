@@ -209,6 +209,10 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		a.aplicarMudo(cmd.Ligado)
 		return nil
 
+	case CmdSurdo:
+		a.motor.DefinirSurdo(cmd.Ligado)
+		return nil
+
 	default:
 		return fmt.Errorf("comando desconhecido: %q", cmd.Cmd)
 	}

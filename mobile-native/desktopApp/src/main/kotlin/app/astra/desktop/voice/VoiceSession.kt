@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.astra.desktop.AtalhosGlobais
+import app.astra.desktop.auth.SessionStore
+import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.ModoDeFala
 import app.astra.mobile.core.network.VoiceApi
@@ -13,9 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
 import org.koin.core.Koin
-import org.koin.core.qualifier.named
 
 // Sessao de voz VIVA acima da navegacao.
 //
@@ -32,13 +32,20 @@ import org.koin.core.qualifier.named
 class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     var joined by mutableStateOf<ChannelDto?>(null)
         private set
-    var engine by mutableStateOf<VoiceEngine?>(null)
+
+    // A CALL AGORA É UMA MALHA, e não um motor falando com um servidor de mídia.
+    //
+    // O que trocou por baixo: a voz saiu da JVM e foi para um processo à parte, em
+    // Go. O motivo é concreto — objeto nativo liberado enquanto outra thread ainda o
+    // usava derrubava o Astra inteiro ao abrir e ao encerrar uma call. Num processo
+    // separado, o pior caso vira "a call caiu e voltou".
+    var call by mutableStateOf<CallEmMalha?>(null)
         private set
 
-    // Engine so quando a sala do palco E a sala conectada — o lobby (sala aberta
+    // Call so quando a sala do palco E a sala conectada — o lobby (sala aberta
     // mas não entrou) recebe null e desenha o botao de entrar.
-    fun engineFor(channel: ChannelDto?): VoiceEngine? =
-        if (channel != null && joined?.id == channel.id) engine else null
+    fun callFor(channel: ChannelDto?): CallEmMalha? =
+        if (channel != null && joined?.id == channel.id) call else null
 
     fun join(channel: ChannelDto) = entrar("channel", channel)
 
@@ -153,7 +160,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     private fun aplicar() {
         val apertarParaFalar = prefs.state.value.modoDeFala == ModoDeFala.APERTAR
         val podeFalar = !mudo && (!apertarParaFalar || falaSegurada)
-        engine?.let {
+        call?.let {
             it.setMic(podeFalar)
             it.setEnsurdecido(ensurdecido)
         }
@@ -171,19 +178,31 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
         //
         // Com o motor na condicao, o estado inconsistente se conserta sozinho na
         // proxima tentativa em vez de travar pra sempre.
-        if (joined?.id == sala.id && engine != null) return
+        if (joined?.id == sala.id && call != null) return
+
+        // SEM ID DE USUÁRIO NÃO HÁ MALHA. O id é o que decide quem oferece a
+        // conexão (regra determinística: o menor oferece), e sem ele os dois lados
+        // ofereceriam ao mesmo tempo — o encontro de ofertas, que produz uma conexão
+        // que nunca fecha.
+        val meuId = koin.get<SessionStore>().load()?.userId
+        if (meuId == null) {
+            VoiceLog.nota("[call] sem sessão carregada; não dá para entrar na sala")
+            return
+        }
+
         // Entrar noutra sala sai da anterior: uma call por vez (como o Discord).
-        engine?.dispose()
-        engine = VoiceEngine(
+        call?.dispose()
+        call = CallEmMalha(
             scope,
+            SidecarDeVoz(scope),
+            koin.get<DesktopSocket>(),
             koin.get<VoiceApi>(),
-            koin.get<OkHttpClient>(named("plain")),
-            koin.get<DesktopPrefs>(),
-        ).also { it.connect(tipo, sala.id) }
+            meuId,
+        ).also { it.entrar(sala.id) }
         joined = sala
         emSussurro = tipo == "dm"
-        // A escolha do rodape vale na sala nova. `connect` e assincrono, mas o motor
-        // guarda a ordem e as pecas nascem obedecendo (ver publishMic/onAddTrack).
+        // A escolha do rodape vale na sala nova. As ordens de mudo chegam pela ponte
+        // e valem assim que o processo sobe.
         aplicar()
     }
 
@@ -197,8 +216,8 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     }
 
     fun leave() {
-        engine?.dispose()
-        engine = null
+        call?.dispose()
+        call = null
         joined = null
         emSussurro = false
     }

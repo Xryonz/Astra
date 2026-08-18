@@ -63,7 +63,7 @@ import org.jetbrains.skia.Image as SkiaImage
 // O GATO DO ASTRA — o "pet" que estava anotado como uma palavra só no ESTADO.md.
 //
 // Ele anda livre por cima da interface inteira (escolha do dono) e é PIXEL ART:
-// sprites do pacote "Cat 2D Pixel Art", do Mattz Art (xzany). A licença do pacote
+// sprites do pacote "2D Pixel Art Cat Sprites", do Elthen (Ahmet Avci). A licença
 // viaja junto da arte, em `resources/pet/LICENCA-cat-2d-pixel-art.txt`.
 //
 // TRÊS REGRAS QUE NÃO SE QUEBRAM, porque ele passa por cima de tudo:
@@ -122,8 +122,8 @@ object PisoDoPet {
 // As patas repousam em y=47 do quadro, ou seja, na linha 31 do recorte. É por isso
 // que a âncora do desenho é o PÉ e não o centro: com o pé fixo, o pulo sobe de
 // verdade em vez de o bicho inteiro escorregar pra cima.
-// Um QUADRO de uma animação, num dos dois bichos. `linha` só é usada por quem guarda
-// tudo numa grade só; quem tem um arquivo por animação deixa em 0.
+// Um QUADRO de uma animação. `linha` é a linha da grade da folha — o gato do Elthen
+// guarda todas as animações num arquivo só, uma por linha.
 class Passo(
     val arquivo: String,
     val linha: Int,
@@ -135,23 +135,29 @@ class Passo(
     val velocidade: Float,
 )
 
-// OS DOIS GATOS. As folhas vêm de artistas diferentes, com geometria e paleta
-// diferentes, então tudo que difere está aqui como DADO — o desenho e a máquina de
-// estados não sabem qual bicho estão animando.
+// OS BICHOS. Tudo que muda de um pra outro está aqui como DADO — geometria, paleta,
+// para que lado a arte olha — e por isso o desenho e a máquina de estados não sabem
+// qual bicho estão animando. É o que permite somar um pet novo sem tocar em lógica.
 //
-// `escala` é o multiplicador base, e ele existe porque os dois têm tamanhos MUITO
-// diferentes na folha: o do Mattz ocupa 58px, o do Elthen só 18. Sem multiplicador
-// próprio, um sairia do tamanho de um botão ao lado do outro.
+// POR QUE SÓ UM POR ENQUANTO: havia um segundo gato (pacote grátis do Mattz Art) e
+// ele saiu. O pacote grátis não traz animação nenhuma de carinho — só andar, correr,
+// pular e parado — então o clique nele não tinha o que mostrar, e um pet que ignora
+// o carinho é pior do que um pet a menos.
 //
-// O ALVO é a foto do usuário, ali do lado — uns 34dp. Um bicho de estimação tem que
-// caber no canto do olho; grande demais ele deixa de ser companhia e vira obstáculo
-// em cima da conversa. O do Mattz fica em 1x (a folha já nasce nesse tamanho, e 1:1
-// é o melhor que pixel art pode ficar); o do Elthen precisa de 2x pra chegar perto.
+// `escala` é o multiplicador base, e existe porque folhas de artistas diferentes vêm
+// em tamanhos MUITO diferentes. O ALVO é a foto do usuário, ali do lado — uns 34dp:
+// um bicho de estimação tem que caber no canto do olho, e grande demais ele deixa de
+// ser companhia e vira obstáculo em cima da conversa. O do Elthen tem 18px na folha
+// e precisa de 2x pra chegar perto.
+//
+// A ESCALA TEM DE SER INTEIRA, e isso não é preciosismo. Em 2,5x metade das colunas
+// do sprite ocupa 2 pixels e metade ocupa 3 — aparece uma listra que o artista nunca
+// desenhou. Só múltiplo inteiro do pixel físico preserva o desenho.
 //
 // `base` são as cores de pelo da folha e `destino` diz em que degrau da
-// `Pelagem.rampa` cada uma cai. O do Mattz tem quatro degraus e usa os quatro; o do
-// Elthen só tem dois, e eles vão pro degrau claro e pro escuro (0 e 2) pra manter
-// contraste — mandar os dois pra degraus vizinhos achataria o bicho.
+// `Pelagem.rampa` cada uma cai. Este gato só tem dois tons, e eles vão pro degrau
+// claro e pro escuro (0 e 2) pra manter contraste — mandar os dois pra degraus
+// vizinhos achataria o bicho.
 enum class Bicho(
     val rotulo: String,
     val quadroW: Int,
@@ -166,22 +172,6 @@ enum class Bicho(
     val destino: IntArray,
     val passos: Map<Anim, Passo>,
 ) {
-    MALHADO(
-        "Malhado", 80, 7, 16, 58, 34, 31, 1, olhaParaDireita = false,
-        intArrayOf(0xF6CA9F, 0xE69C69, 0xBF6F4A, 0x8A4836), intArrayOf(0, 1, 2, 3),
-        mapOf(
-            Anim.PARADO to Passo("gato_parado.png", 0, 8, 8, 0f),
-            Anim.ANDANDO to Passo("gato_andando.png", 0, 12, 12, 1.05f),
-            Anim.CORRENDO to Passo("gato_correndo.png", 0, 8, 14, 3.0f),
-            Anim.PULO to Passo("gato_pulo.png", 0, 3, 9, 0f),
-            // O pacote GRÁTIS do Mattz não tem lamber. Então o carinho aqui é o
-            // parado tocado devagar: ele para e fica olhando. Menos expressivo que
-            // o do outro gato, e é uma limitação da arte, não do código — o pacote
-            // completo (US$ 3) traz Lick, Eat e Sleep.
-            Anim.CARINHO to Passo("gato_parado.png", 0, 8, 5, 0f),
-        ),
-    ),
-
     // Grade 8x10 de 32px, uma linha por animação. Conteúdo medido em x 7..24 e
     // y 14..31 — gato de 18px, patas na linha 17 do recorte.
     SIMPLES(
@@ -200,7 +190,7 @@ enum class Bicho(
     ;
 
     companion object {
-        fun de(nome: String?): Bicho = entries.firstOrNull { it.name == nome } ?: MALHADO
+        fun de(nome: String?): Bicho = entries.firstOrNull { it.name == nome } ?: SIMPLES
     }
 }
 
@@ -298,7 +288,7 @@ private val LARGURA_VETOR = 34.dp
 @Composable
 fun GatoDoAstra(
     ligado: Boolean,
-    bichoId: String = Bicho.MALHADO.name,
+    bichoId: String = Bicho.SIMPLES.name,
     pelagem: String = Pelagem.LARANJA.name,
     nome: String = "",
 ) {

@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -135,16 +137,46 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 	}
 	defer dec.Fechar()
 
+	var det DetectorDeFala
+	// Faixa que morre com a pessoa falando deixaria o círculo aceso para sempre na
+	// tela de quem ficou. Apagar na saída custa uma linha.
+	defer func() {
+		if det.Calar() {
+			p.avisarFala(false)
+		}
+	}()
+
 	pcm := make([]int16, AmostrasPorQuadro*6)
 	for {
+		// PRAZO DE LEITURA, e ele existe por um motivo específico.
+		//
+		// Quem está mudo não manda pacote NENHUM — o mudo corta na fonte, lá no
+		// motor. Sem prazo, `ReadRTP` simplesmente bloqueia, o detector nunca é
+		// alimentado, e o indicador de fala fica aceso até a pessoa sair da call.
+		// O prazo transforma "não chegou nada" em silêncio explícito, que é o que
+		// isso de fato é.
+		//
+		// Mais curto que a espera do detector, senão a espera nunca venceria.
+		_ = remota.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
 		pacote, _, err := remota.ReadRTP()
 		if err != nil {
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				if det.Alimentar(nil, time.Now()) {
+					p.avisarFala(det.Falando())
+				}
+				continue
+			}
 			return
 		}
 		// Pacote de 1 ou 2 bytes é o DTX dizendo "continuo aqui, calado". Passar
 		// isso ao decodificador é correto — ele gera o ruído de conforto — mas não
 		// há voz nenhuma ali, então não vale ocupar espaço na fila da mistura.
 		if len(pacote.Payload) <= 2 {
+			// O DTX dizendo "continuo aqui, calado". Vale como silêncio para o
+			// detector — é literalmente o que ele significa.
+			if det.Alimentar(nil, time.Now()) {
+				p.avisarFala(det.Falando())
+			}
 			continue
 		}
 		n, err := dec.Decodificar(pacote.Payload, pcm, false)
@@ -153,10 +185,17 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 			// trocar um engasgo por uma queda.
 			continue
 		}
+		if det.Alimentar(pcm[:n], time.Now()) {
+			p.avisarFala(det.Falando())
+		}
 		if p.misturador != nil {
 			p.misturador.Entregar(p.id, pcm[:n])
 		}
 	}
+}
+
+func (p *Par) avisarFala(falando bool) {
+	p.saida.Manda(Evento{Ev: EvFala, Par: p.id, V: marcaDeFala(falando)})
 }
 
 // Oferecer inicia o aperto de mão. Só um dos dois lados chama.

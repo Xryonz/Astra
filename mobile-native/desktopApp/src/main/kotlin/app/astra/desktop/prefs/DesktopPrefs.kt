@@ -177,8 +177,8 @@ class DesktopPrefs(private val store: SessionStore) {
         // Pelagem do gato (nome da constante em `Pelagem`). Guardado como texto pra
         // uma pelagem removida no futuro virar o padrao em vez de derrubar a leitura.
         val petPelagem: String = "LARANJA",
-        // Qual gato (nome da constante em `Bicho`): MALHADO ou SIMPLES.
-        val petBicho: String = "MALHADO",
+        // Qual bicho (nome da constante em `Bicho`).
+        val petBicho: String = "SIMPLES",
         // Nome que o dono deu ao bicho. Vazio = sem nome, e ai nada e desenhado.
         val petNome: String = "",
         // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
@@ -288,7 +288,7 @@ class DesktopPrefs(private val store: SessionStore) {
         // quem nunca tocou no ajuste ganhava o gato de brinde.
         petLigado = store.uiPref("petLigado") == "1",
         petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
-        petBicho = store.uiPref("petBicho") ?: "MALHADO",
+        petBicho = store.uiPref("petBicho") ?: "SIMPLES",
         petNome = store.uiPref("petNome") ?: "",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",

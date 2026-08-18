@@ -37,7 +37,7 @@ type Comando struct {
 	Tipo    string `json:"tipo,omitempty"`
 	Dados   string `json:"dados,omitempty"`
 
-	// mudo
+	// mudo / surdo
 	Ligado bool `json:"ligado,omitempty"`
 }
 
@@ -51,12 +51,14 @@ type ServTurn struct {
 type Evento struct {
 	Ev string `json:"ev"`
 
-	Par   string  `json:"par,omitempty"`
-	Tipo  string  `json:"tipo,omitempty"`
-	Dados string  `json:"dados,omitempty"`
-	V     string  `json:"v,omitempty"`
-	Nivel float64 `json:"nivel,omitempty"`
-	Msg   string  `json:"msg,omitempty"`
+	// `Par` vazio significa EU. Vale para o evento de fala, onde a alternativa
+	// seria o processo saber o próprio id — coisa que ele não sabe e não precisa
+	// saber: quem cuida de identidade é o Astra, aqui só existe "o outro" e "eu".
+	Par   string `json:"par,omitempty"`
+	Tipo  string `json:"tipo,omitempty"`
+	Dados string `json:"dados,omitempty"`
+	V     string `json:"v,omitempty"`
+	Msg   string `json:"msg,omitempty"`
 }
 
 // Os comandos aceitos. Constante em vez de texto solto no switch porque o outro
@@ -68,6 +70,7 @@ const (
 	CmdSinal       = "sinal"
 	CmdDesconectar = "desconectar"
 	CmdMudo        = "mudo"
+	CmdSurdo       = "surdo"
 	CmdSair        = "sair"
 )
 
@@ -75,8 +78,9 @@ const (
 	EvPronto = "pronto"
 	EvSinal  = "sinal"
 	EvEstado = "estado"
-	EvNivel  = "nivel"
-	EvErro   = "erro"
+	// Alguém começou ou parou de falar. `V` é "1" ou "0"; `Par` vazio sou eu.
+	EvFala = "fala"
+	EvErro = "erro"
 )
 
 // Os tipos de envelope do aperto de mão. Iguais dos dois lados da ponte e iguais

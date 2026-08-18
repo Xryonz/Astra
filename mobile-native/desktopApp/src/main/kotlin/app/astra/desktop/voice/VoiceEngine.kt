@@ -73,23 +73,6 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 
-// Estado da voz (plano em docs/plans/2026-07-10-astra-voz-nativa.md).
-sealed interface VoiceStatus {
-    data object Connecting : VoiceStatus
-
-    // Join aceito e ping/pong mantendo a sessão viva. audioLive = subscriber PC
-    // conectado (DTLS/RTP fluindo — audio remoto toca no device padrao).
-    data class Connected(
-        val others: List<VoiceParticipant>,
-        val audioLive: Boolean = false,
-        val mySpeaking: Boolean = false,
-    ) : VoiceStatus
-    data class Failed(val reason: String) : VoiceStatus
-    data object Closed : VoiceStatus
-}
-
-data class VoiceParticipant(val identity: String, val label: String, val speaking: Boolean, val avatarUrl: String? = null)
-
 // Transmissao de outro participante (track de video remota; render no VoiceView).
 // `trackSid` e o endereco da faixa no servidor -- e o que permite dizer "pausa esta".
 // Vem do proprio nome do MediaStream, que o LiveKit monta como "dono|faixa".

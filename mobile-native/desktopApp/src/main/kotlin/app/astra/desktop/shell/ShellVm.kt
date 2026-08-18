@@ -46,7 +46,7 @@ import app.astra.mobile.core.network.dto.ChamadaChegandoDto
 import app.astra.mobile.core.network.dto.ChamadaEncerradaDto
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.VoiceSession
-import app.astra.desktop.voice.VoiceStatus
+import app.astra.desktop.voice.VoiceLog
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -375,23 +375,14 @@ class ShellVm(
         // Palco na sala: a call de sussurro reusa a VoiceView inteira, então ela
         // precisa estar selecionada pra aparecer.
         _state.update { it.copy(voiceChannel = sessao.joined) }
-        // Chamada de VÍDEO já entra com a câmera ligada — foi o que a pessoa
-        // pediu ao apertar o botão de vídeo. `silent` porque o som de "comecei a
-        // transmitir" no primeiro segundo da call soaria como erro.
+        // A CHAMADA DE VÍDEO ENTRA SÓ COM VOZ enquanto a transmissão está em
+        // migração. O componente novo de voz ainda não carrega vídeo, e ligar a
+        // câmera aqui não faria nada além de acender a luz da webcam sem ninguém
+        // do outro lado receber imagem — que é pior do que não ligar.
         //
-        // ESPERA o engine conectar. A `factory` do WebRTC nasce dentro da
-        // corrotina do connect(), então aqui, uma linha depois, ela ainda é nula —
-        // e `startCameraShare` desiste calada nesse caso. Sem esta espera, a
-        // chamada de vídeo entrava sem vídeo e nada indicava o porquê.
-        //
-        // Sem câmera no PC, segue só com voz em vez de falhar: a chamada é o que
-        // importa, e quem tem câmera do outro lado continua sendo visto.
+        // A chamada em si funciona: era ela que importava quando a pessoa apertou.
         if (c.video) {
-            val engine = sessao.engine ?: return
-            scope.launch {
-                engine.status.first { it is VoiceStatus.Connected }
-                engine.cameras().firstOrNull()?.let { engine.startCameraShare(it, silent = true) }
-            }
+            VoiceLog.nota("[call] chamada de vídeo entrou só com voz: transmissão em migração")
         }
     }
 

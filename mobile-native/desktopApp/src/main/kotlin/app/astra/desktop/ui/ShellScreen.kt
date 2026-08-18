@@ -123,7 +123,7 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.TemaDaConta
 import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.voice.Sfx
-import app.astra.desktop.voice.VoiceEngine
+import app.astra.desktop.voice.CallEmMalha
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
@@ -307,12 +307,6 @@ fun ShellScreen(
         )
     }
 
-    // Janela escondida/minimizada = ninguem olha o auto-preview da transmissão. Ele
-    // custa conversao + upload de textura a 60fps, entao desliga enquanto não da pra
-    // ver e volta ao reaparecer. O que os OUTROS recebem não muda (encoder e outro
-    // caminho) — economia pura.
-    val windowActive = LocalWindowActive.current
-    LaunchedEffect(windowActive) { voice.engine?.setPreviewEnabled(windowActive) }
 
     // Badge do sino: o servidor AVISA (evento 'notification' na sala user:<id>), então
     // o badge sobe na hora em vez de esperar o próximo poll. O poll continua, mas
@@ -631,7 +625,7 @@ fun ShellScreen(
             state.selectedServer,
             chat = chat,
             voiceChannel = state.voiceChannel,
-            voiceEngine = voice.engineFor(state.voiceChannel),
+            call = voice.callFor(state.voiceChannel),
             mudo = voice.mudo,
             aoAlternarMudo = voice::alternarMudo,
             voicePresence = state.voiceChannel?.let { state.voicePresence[it.id] }.orEmpty(),
@@ -733,11 +727,11 @@ fun ShellScreen(
         // palco. Fica por cima de tudo (inclusive das configurações) — e o único
         // lugar com o botao de desligar depois que navegar deixou de desconectar.
         val joined = voice.joined
-        val joinedEngine = voice.engine
-        if (joined != null && joinedEngine != null && state.voiceChannel?.id != joined.id) {
+        val callAtiva = voice.call
+        if (joined != null && callAtiva != null && state.voiceChannel?.id != joined.id) {
             CallDock(
                 channel = joined,
-                engine = joinedEngine,
+                call = callAtiva,
                 mudo = voice.mudo,
                 aoAlternarMudo = voice::alternarMudo,
                 meName = state.me?.displayName ?: state.me?.username ?: "você",
@@ -3571,7 +3565,7 @@ private fun Stage(
     chat: ChatTarget?,
     voiceChannel: ChannelDto?,
     // Engine so quando a sala do palco E a que você entrou; null = antessala.
-    voiceEngine: VoiceEngine?,
+    call: CallEmMalha?,
     // Alternar o mudo passa pela VoiceSession (dona do estado), nao pelo motor.
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
@@ -3665,7 +3659,7 @@ private fun Stage(
         // Sala de voz ocupa o palco. Sem engine = você abriu a sala mas ainda não
         // entrou -> antessala com quem esta la e o botao verde.
         if (voiceChannel != null) {
-            if (voiceEngine != null) VoiceView(voiceChannel, members, me, voiceEngine, mudo, aoAlternarMudo, onLeaveVoice, server?.id)
+            if (call != null) VoiceView(voiceChannel, members, me, call, mudo, aoAlternarMudo, onLeaveVoice, server?.id)
             else VoiceLobby(voiceChannel, members, voicePresence, onJoinVoice)
             return@Column
         }

@@ -55,7 +55,6 @@ data class EventoDeVoz(
     val tipo: String? = null,
     val dados: String? = null,
     @SerialName("v") val valor: String? = null,
-    val nivel: Double? = null,
     val msg: String? = null,
 )
 
@@ -112,18 +111,27 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
 
     fun mudo(on: Boolean) = mandar(ComandoDeVoz(cmd = "mudo", ligado = on))
 
-    private fun mandar(c: ComandoDeVoz) {
-        val w = entrada.get() ?: return
+    fun surdo(on: Boolean) = mandar(ComandoDeVoz(cmd = "surdo", ligado = on))
+
+    // DEVOLVE SE A ORDEM SAIU MESMO, e quem chama precisa disso.
+    //
+    // O processo demora um instante para subir, e comando mandado antes disso não
+    // vai a lugar nenhum. Engolir esse caso em silêncio foi o que fez a malha achar
+    // que tinha conectado em gente que nunca recebeu ordem nenhuma — e como o
+    // conjunto de conectados já continha a pessoa, nenhuma conferência tentava de
+    // novo. Um par mudo pelo resto da call, sem erro em lugar nenhum.
+    private fun mandar(c: ComandoDeVoz): Boolean {
+        val w = entrada.get() ?: return false
         // Escrita SINCRONIZADA no escritor: os comandos nascem em várias
         // corrotinas (botão de mudo, socket, navegação) e duas escritas
         // concorrentes intercalariam bytes no meio de uma linha. O outro lado lê
         // linha a linha — meia linha de JSON é um erro que só aparece sob carga.
-        synchronized(w) {
+        return synchronized(w) {
             runCatching {
                 w.write(json.encodeToString(c))
                 w.newLine()
                 w.flush()
-            }
+            }.isSuccess
         }
     }
 

@@ -44,10 +44,11 @@ type Motor struct {
 	misturador *Misturador
 	saida      *Escritor
 
-	// Atômico porque o comando de mudo chega pela ponte, noutra goroutine, no meio
-	// do laço de captura. Um mutex aqui seria travar o caminho do áudio 50 vezes
-	// por segundo para ler um booleano.
-	mudo atomic.Bool
+	// Atômicos porque os comandos chegam pela ponte, noutra goroutine, no meio dos
+	// laços de áudio. Um mutex aqui seria travar o caminho do som 50 vezes por
+	// segundo para ler um booleano.
+	mudo  atomic.Bool
+	surdo atomic.Bool
 
 	// Caminho da biblioteca Opus, resolvido uma vez na abertura.
 	dllOpus string
@@ -58,6 +59,11 @@ func NovoMotor(faixa *webrtc.TrackLocalStaticSample, mist *Misturador, saida *Es
 }
 
 func (m *Motor) DefinirMudo(on bool) { m.mudo.Store(on) }
+
+// DefinirSurdo é "não quero ouvir ninguém". Quem ensurdece também fica mudo, mas
+// isso é decisão do Astra — aqui são dois comandos independentes, e o motor não
+// tem opinião sobre a política.
+func (m *Motor) DefinirSurdo(on bool) { m.surdo.Store(on) }
 
 // Ligar sobe as duas goroutines. Elas morrem com o contexto.
 func (m *Motor) Ligar(ctx context.Context) error {
@@ -99,6 +105,11 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	bloco := make([]int16, AmostrasPorQuadro*4)
 	pacote := make([]byte, 4000)
 
+	// O meu próprio indicador de fala. Sai daqui e não da rede, pela razão óbvia de
+	// que a minha voz nunca dá a volta pela rede — e pela razão menos óbvia de que
+	// esperar ela voltar mostraria o meu círculo com o atraso da internet.
+	var det DetectorDeFala
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -135,7 +146,22 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 			//
 			// O acumulador continua sendo consumido para não crescer sem fim
 			// enquanto a pessoa está muda.
-			if !m.mudo.Load() {
+			mudo := m.mudo.Load()
+
+			// MUDO É SILÊNCIO PARA O DETECTOR, e não "não medir".
+			//
+			// Alimentar com o quadro de verdade acenderia o meu círculo enquanto
+			// estou mudo — eu me veria falando enquanto ninguém me ouve, que é
+			// exatamente o engano que o indicador existe para evitar.
+			var paraODetector []int16
+			if !mudo {
+				paraODetector = quadro
+			}
+			if det.Alimentar(paraODetector, time.Now()) {
+				m.saida.Manda(Evento{Ev: EvFala, V: marcaDeFala(det.Falando())})
+			}
+
+			if !mudo {
 				bytes, err := cod.Codificar(quadro, pacote)
 				if err != nil {
 					m.reclamar("codificar voz", err)
@@ -207,18 +233,28 @@ func (m *Motor) laçoDeSaida(ctx context.Context) {
 		}
 		for livre >= AmostrasPorQuadro {
 			vozes := m.misturador.Puxar(quadro)
-			if vozes == 0 {
-				// Ninguém falando: avisa silêncio em vez de escrever zeros. Uma
-				// cópia de buffer a menos, e é o estado mais comum numa call.
-				if err := alto.Escrever(nil); err != nil {
-					m.reclamar("tocar silêncio", err)
-					return
-				}
-				break
+
+			// ENSURDECIDO CONTINUA PUXANDO, e joga fora.
+			//
+			// Parar de puxar deixaria as filas de todo mundo cheias, e ao voltar a
+			// ouvir a pessoa receberia de uma vez o que ficou represado — um jato de
+			// conversa velha. Puxar e descartar mantém a call andando no presente,
+			// que é onde ela tem de estar quando o ouvido voltar.
+			bloco := quadro
+			if vozes == 0 || m.surdo.Load() {
+				// Silêncio se avisa, não se escreve: uma cópia de buffer a menos, e
+				// é o estado mais comum numa call.
+				bloco = nil
 			}
-			if err := alto.Escrever(quadro); err != nil {
+			if err := alto.Escrever(bloco); err != nil {
 				m.reclamar("tocar voz", err)
 				return
+			}
+
+			// Sem ninguém falando não há nada represado para drenar; girar mais só
+			// encheria a saída de silêncio adiantado.
+			if vozes == 0 {
+				break
 			}
 			livre -= AmostrasPorQuadro
 		}

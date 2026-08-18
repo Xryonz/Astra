@@ -58,7 +58,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
-import app.astra.desktop.voice.VoiceEngine
+import app.astra.desktop.voice.CallEmMalha
 import app.astra.desktop.voice.VoiceStatus
 import app.astra.mobile.core.network.dto.ChannelDto
 import com.composables.icons.lucide.Lucide
@@ -86,7 +86,7 @@ import kotlin.math.roundToInt
 @Composable
 fun BoxScope.CallDock(
     channel: ChannelDto,
-    engine: VoiceEngine,
+    call: CallEmMalha,
     // O mudo passa pela VoiceSession, e nao pelo motor: o botao do rodape e este
     // aqui mexem no MESMO estado, e a sessao e quem o guarda.
     mudo: Boolean,
@@ -96,8 +96,8 @@ fun BoxScope.CallDock(
     onExpand: () -> Unit,
     onLeave: () -> Unit,
 ) {
-    val status by engine.status.collectAsState()
-    val inicio by engine.inicio.collectAsState()
+    val status by call.status.collectAsState()
+    val inicio by call.inicio.collectAsState()
     // O icone mostra a INTENCAO (mudo), e nao o que o motor esta transmitindo neste
     // milissegundo. Com apertar-para-falar o motor liga e desliga a cada tecla, e um
     // icone vermelho piscando dezenas de vezes por minuto nao informa nada.

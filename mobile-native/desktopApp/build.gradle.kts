@@ -170,8 +170,22 @@ val compilarSidecarVoz = tasks.register("compilarSidecarVoz") {
     }
 }
 
-tasks.matching { it.name == "createDistributable" || it.name == "packageDistributionForCurrentOS" }
-    .configureEach { dependsOn(fetchFfmpeg, compilarSidecarVoz) }
+// `prepareAppResources` ENTRA NA LISTA, e não é detalhe de arrumação.
+//
+// As duas tarefas acima escrevem dentro de `appResources/windows/`, que é
+// justamente a pasta que o `prepareAppResources` LÊ para montar o pacote. Amarrar
+// só o `createDistributable` deixava a ordem entre elas ao acaso: o Gradle podia
+// copiar os recursos antes de o Go ter compilado, e o zip sairia sem o componente
+// de voz — um app que instala, abre, e não tem call, sem nada no build indicando o
+// porquê.
+//
+// O Gradle 9 recusa isso na cara em vez de deixar passar ("uses this output without
+// declaring an explicit dependency"), e foi assim que apareceu.
+tasks.matching {
+    it.name == "createDistributable" ||
+        it.name == "packageDistributionForCurrentOS" ||
+        it.name == "prepareAppResources"
+}.configureEach { dependsOn(fetchFfmpeg, compilarSidecarVoz) }
 
 // Zipa o app-image (pasta Astra/) pro asset do GitHub Release que o auto-update
 // baixa. Rodar junto do empacote (mesmo path ASCII do jpackage):

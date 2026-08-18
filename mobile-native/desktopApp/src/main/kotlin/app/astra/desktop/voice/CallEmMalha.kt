@@ -63,6 +63,16 @@ class CallEmMalha(
     // existe porque o processo de voz não sabe (nem precisa saber) o meu id.
     private val falando = ConcurrentHashMap.newKeySet<String>()
 
+    // Quantas vezes seguidas tentamos refazer a conexão com cada pessoa. Zera assim
+    // que ela conecta — é o que faz a espera voltar a ser curta depois de uma queda
+    // isolada, em vez de carregar para sempre a punição de um problema já resolvido.
+    private val tentativas = ConcurrentHashMap<String, Int>()
+
+    // Uma corrotina por pessoa esperando para agir sobre a queda dela. Guardadas
+    // para poder cancelar: a conexão que volta sozinha tem de cancelar o resgate que
+    // estava a caminho, senão o resgate derruba justamente o que acabou de sarar.
+    private val resgates = ConcurrentHashMap<String, Job>()
+
     @Volatile private var salaAtual: String? = null
     @Volatile private var pronto = false
     private val tarefas = mutableListOf<Job>()
@@ -93,6 +103,11 @@ class CallEmMalha(
         conectados.clear()
         estadoDoPar.clear()
         falando.clear()
+        tentativas.clear()
+        // Resgate pendente de uma call que acabou reabriria conexão numa sala de que
+        // já se saiu. Cancelar aqui é o que impede o fantasma.
+        resgates.values.forEach { it.cancel() }
+        resgates.clear()
 
         tarefas.forEach { it.cancel() }
         tarefas.clear()
@@ -188,8 +203,79 @@ class CallEmMalha(
         if (!conectados.remove(outro)) return
         estadoDoPar.remove(outro)
         falando.remove(outro)
+        tentativas.remove(outro)
+        resgates.remove(outro)?.cancel()
         sidecar.desconectar(outro)
         publicar()
+    }
+
+    // ---- a conexão que cai no meio da call ----
+
+    // QUINZE SEGUNDOS É TEMPO DEMAIS PARA FICAR MUDO.
+    //
+    // A reconferência periódica já reabriria a conexão, mas só no próximo giro — e
+    // quinze segundos de alguém sumido é tempo suficiente para a pessoa concluir que
+    // a call quebrou e sair dela. O processo de voz já relata o estado de cada par;
+    // faltava alguém escutando.
+    private fun aoMudarEstado(quem: String, estado: String) {
+        when (estado) {
+            "connected" -> {
+                // Voltou. Cancela o resgate a caminho e perdoa o histórico: uma queda
+                // isolada não pode deixar a próxima tentativa lenta para sempre.
+                resgates.remove(quem)?.cancel()
+                tentativas.remove(quem)
+            }
+
+            // O ICE desistiu. Não volta sozinho — só refazendo.
+            "failed" -> agendarResgate(quem, imediato = true)
+
+            // ESPERAR ANTES DE AGIR, e essa espera é o ponto.
+            //
+            // `disconnected` é quase sempre passageiro: uma troca de rede, um pico de
+            // perda, o Wi-Fi hesitando. O ICE se recupera sozinho na maior parte das
+            // vezes. Derrubar e refazer na primeira suspeita transformaria um engasgo
+            // de dois segundos numa reconexão completa — trocar um tropeço por uma
+            // queda.
+            "disconnected" -> agendarResgate(quem, imediato = false)
+        }
+    }
+
+    private fun agendarResgate(quem: String, imediato: Boolean) {
+        if (salaAtual == null || !conectados.contains(quem)) return
+        resgates.remove(quem)?.cancel()
+
+        val n = tentativas.merge(quem, 1) { a, b -> a + b } ?: 1
+        // Espera crescente com teto: 1s, 2s, 4s, 8s, e daí em diante 10s. Sem o
+        // crescimento, um par que falha por um motivo permanente (rede que não deixa)
+        // viraria um laço de refazer conexão sem parar, gastando processador para
+        // não resolver nada.
+        val espera = if (imediato) (1_000L shl (n - 1).coerceAtMost(3)).coerceAtMost(10_000L)
+        else 6_000L
+
+        resgates[quem] = scope.launch {
+            delay(espera)
+            // Confere de novo DEPOIS de esperar: nesse meio-tempo a pessoa pode ter
+            // saído da call, ou a conexão pode ter voltado sozinha.
+            if (salaAtual == null || !conectados.contains(quem)) return@launch
+            if (estadoDoPar[quem] == "connected") return@launch
+
+            VoiceLog.nota("[call] refazendo a conexão com $quem (tentativa $n)")
+
+            // Fecha e reabre em vez de remendar. Refazer do zero é o caminho que já
+            // sabemos que funciona — é o mesmo que acontece quando alguém entra na
+            // sala — e não depende de o outro lado cooperar com uma renegociação.
+            //
+            // Os dois lados detectam a queda e refazem, mas isso não gera colisão: a
+            // regra de quem oferece continua sendo o id menor, e quem receber uma
+            // oferta de alguém que não está mais no conjunto abre a conexão ao
+            // recebê-la (ver `ouvirSinais`).
+            conectados.remove(quem)
+            estadoDoPar.remove(quem)
+            falando.remove(quem)
+            sidecar.desconectar(quem)
+            publicar()
+            abrirCom(quem)
+        }
     }
 
     // ---- a ponte de sinalização, nos dois sentidos ----
@@ -233,6 +319,7 @@ class CallEmMalha(
                     val valor = ev.valor.orEmpty()
                     estadoDoPar[quem] = valor
                     VoiceLog.nota("[call] $quem: $valor")
+                    aoMudarEstado(quem, valor)
                     publicar()
                 }
                 "fala" -> {
@@ -250,6 +337,12 @@ class CallEmMalha(
                     conectados.clear()
                     estadoDoPar.clear()
                     falando.clear()
+                    tentativas.clear()
+                    // Os resgates em voo miravam conexões de um processo que não
+                    // existe mais. Quem refaz tudo agora é o `pronto`, que vem a
+                    // seguir e dispara uma conferência inteira.
+                    resgates.values.forEach { it.cancel() }
+                    resgates.clear()
                     publicar()
                     VoiceLog.nota("[call] o componente de voz reiniciou; refazendo as conexões")
                 }

@@ -1,7 +1,13 @@
 package app.astra.desktop.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +33,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmSans
 import app.astra.desktop.ui.theme.Obsidian
+import app.astra.desktop.voice.Sfx
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.awt.image.BufferedImage
@@ -165,6 +174,11 @@ enum class Bicho(
             Anim.ANDANDO to Passo("gato_andando.png", 0, 12, 12, 1.05f),
             Anim.CORRENDO to Passo("gato_correndo.png", 0, 8, 14, 3.0f),
             Anim.PULO to Passo("gato_pulo.png", 0, 3, 9, 0f),
+            // O pacote GRÁTIS do Mattz não tem lamber. Então o carinho aqui é o
+            // parado tocado devagar: ele para e fica olhando. Menos expressivo que
+            // o do outro gato, e é uma limitação da arte, não do código — o pacote
+            // completo (US$ 3) traz Lick, Eat e Sleep.
+            Anim.CARINHO to Passo("gato_parado.png", 0, 8, 5, 0f),
         ),
     ),
 
@@ -178,6 +192,9 @@ enum class Bicho(
             Anim.ANDANDO to Passo("gato_simples.png", 4, 8, 10, 1.0f),
             Anim.CORRENDO to Passo("gato_simples.png", 9, 8, 14, 2.6f),
             Anim.PULO to Passo("gato_simples.png", 8, 7, 11, 0f),
+            // Linha 2 da grade: o gato se lambendo. É o gesto de gato satisfeito, e
+            // é exatamente o que o carinho deveria produzir.
+            Anim.CARINHO to Passo("gato_simples.png", 2, 4, 6, 0f),
         ),
     ),
     ;
@@ -187,7 +204,7 @@ enum class Bicho(
     }
 }
 
-enum class Anim { PARADO, ANDANDO, CORRENDO, PULO }
+enum class Anim { PARADO, ANDANDO, CORRENDO, PULO, CARINHO }
 
 // PELAGEM — troca de cor do jeito que pixel art pede: remapeando a rampa que o
 // artista desenhou, cor por cor, e não jogando um filtro por cima.
@@ -302,7 +319,8 @@ fun GatoDoAstra(
     // listra que o artista não desenhou. Por isso a escala é um inteiro derivado da
     // densidade da tela, e não um valor em dp — assim o gato tem mais ou menos o
     // mesmo tamanho aparente em 100% e em 200% de escala do Windows, sempre nítido.
-    val densidade = LocalDensity.current.density
+    val densidadeLocal = LocalDensity.current
+    val densidade = densidadeLocal.density
     val mult = (bicho.escala * densidade).roundToInt().coerceAtLeast(1)
     val larguraPx = (bicho.cw * mult).toFloat()
     val alturaPx = (bicho.ch * mult).toFloat()
@@ -321,14 +339,14 @@ fun GatoDoAstra(
     var espera by remember { mutableStateOf(2f) }
     var pulosRestantes by remember { mutableStateOf(0) }
     var piscada by remember { mutableStateOf(0f) }
-    // O NOME só aparece quando o bicho reage, e some sozinho.
+    // Quantos carinhos seguidos, e até quando ele está de mal.
     //
-    // A ideia natural seria mostrar no hover. Não dá, e a razão está na regra 1 lá em
-    // cima: pra saber que o mouse está sobre o gato eu teria que registrar gesto na
-    // camada dele, e essa camada cobre a conversa inteira. Um pet que engole clique
-    // vale menos que um pet sem nome à mostra. Então o nome vem junto da reação — que
-    // é quando você olhou pra ele de qualquer forma.
-    var nomeVisivel by remember { mutableStateOf(0f) }
+    // Gato de verdade aceita atenção por um tempo e depois se manda. Isso também dá
+    // de graça um travamento útil: clique repetido não consegue reiniciar a mesma
+    // animação para sempre, porque na terceira insistência ele sai andando.
+    var caricias by remember { mutableStateOf(0) }
+    var ultimaCaricia by remember { mutableStateOf(0L) }
+    var deMalAte by remember { mutableStateOf(0L) }
 
     LaunchedEffect(Unit) {
         Pet.evento.collect { ev ->
@@ -338,7 +356,6 @@ fun GatoDoAstra(
             pulosRestantes = if (ev == PetEvento.CALL) 2 else 1
             anim = Anim.PULO
             tempoNaAnim = 0f
-            nomeVisivel = 2.4f
         }
     }
 
@@ -357,7 +374,6 @@ fun GatoDoAstra(
 
             piscada += dt
             tempoNaAnim += dt
-            if (nomeVisivel > 0f) nomeVisivel = (nomeVisivel - dt).coerceAtLeast(0f)
 
             when (anim) {
                 Anim.PARADO -> {
@@ -389,6 +405,18 @@ fun GatoDoAstra(
                     }
                 }
 
+                Anim.CARINHO -> {
+                    // Uma volta da animação e ele volta a ficar parado, com pausa
+                    // curta: acabou de receber atenção, então sair andando na hora
+                    // seria estranho.
+                    val c = bicho.passos[Anim.CARINHO]
+                    if (c == null || tempoNaAnim >= c.quadros.toFloat() / c.fps) {
+                        anim = Anim.PARADO
+                        tempoNaAnim = 0f
+                        espera = 2f + Random.nextFloat() * 2.5f
+                    }
+                }
+
                 Anim.PULO -> {
                     // Único one-shot: quando o último quadro passa, ou emenda outro
                     // pulo (call) ou volta a ficar parado, com pausa curta — ele
@@ -413,18 +441,63 @@ fun GatoDoAstra(
         Modifier
             .fillMaxSize()
             .onGloballyPositioned { origem = it.positionInWindow() },
-        // NÃO HÁ MODIFICADOR DE PONTEIRO AQUI, e é obrigatório que continue assim.
+        // NESTA CAMADA, NENHUM MODIFICADOR DE PONTEIRO. É obrigatório que continue
+        // assim: ela cobre a tela inteira.
         //
-        // Já teve: um `pointerInput(Unit) { }` vazio, com um comentário jurando que
-        // bloco vazio não registra gesto. Mentira — o NÓ existe e entra no teste de
-        // acerto de qualquer jeito, e como esta camada cobre a tela toda ela virou o
-        // alvo de tudo: o app inteiro ficou sem clique. Um `Box` sem modificador de
-        // ponteiro simplesmente não é alvo, e é assim que os eventos atravessam.
+        // Já teve um `pointerInput(Unit) { }` vazio aqui, com um comentário jurando
+        // que bloco vazio não registra gesto. Mentira — o NÓ entra no teste de
+        // acerto de qualquer jeito, e o app inteiro ficou sem clique.
+        //
+        // Foi esse acidente que me fez concluir, errado, que o gato nunca poderia
+        // receber mouse. O problema nunca foi registrar gesto: foi registrar gesto
+        // do TAMANHO DA TELA. Numa caixa do tamanho do bicho — que é o que existe
+        // logo abaixo — hover e clique não tiram nada de ninguém.
     ) {
         if (piso.width <= larguraPx || x < 0f) return@Box
         // O pé apoia na BORDA DE CIMA do cartão. Um pixel a mais e ele flutua; um a
         // menos e ele afunda — e as duas coisas o olho pega na hora.
         val y = piso.top
+
+        val sobHover = remember { MutableInteractionSource() }
+        val comMouse by sobHover.collectIsHoveredAsState()
+
+        Box(
+            Modifier
+                .offset { IntOffset((x - larguraPx / 2f).roundToInt(), (y - pesPx).roundToInt()) }
+                .size(with(densidadeLocal) { larguraPx.toDp() }, with(densidadeLocal) { alturaPx.toDp() })
+                .hoverable(sobHover)
+                .clickable(interactionSource = sobHover, indication = null) {
+                    val agora = System.currentTimeMillis()
+                    if (agora < deMalAte) return@clickable
+
+                    // Janela de insistência: carinhos espaçados não somam. Cutucar
+                    // de dois em dois segundos é atenção; cutucar sem parar é
+                    // amolação, e o gato trata as duas coisas diferente.
+                    if (agora - ultimaCaricia > 4000) caricias = 0
+                    ultimaCaricia = agora
+                    caricias += 1
+
+                    if (caricias >= 3) {
+                        // Cansou. Sai andando pro lado oposto e ignora clique por
+                        // uns segundos. Além de ser o que gato faz, isso impede que
+                        // clique repetido reinicie a mesma animação pra sempre.
+                        deMalAte = agora + 6000
+                        caricias = 0
+                        alvoX = if (x < piso.center.x) limiteDir else limiteEsq
+                        olhandoPraDireita = alvoX > x
+                        anim = Anim.ANDANDO
+                        tempoNaAnim = 0f
+                    } else {
+                        anim = Anim.CARINHO
+                        tempoNaAnim = 0f
+                        // Vira pra quem fez carinho: o mouse está em cima dele, e
+                        // um bicho que recebe atenção olha para quem deu.
+                        Sfx.carinho()
+                    }
+                }
+                .semantics { contentDescription = if (nome.isBlank()) "Gato do Astra" else nome },
+        )
+
         Canvas(Modifier.fillMaxSize()) {
             val folha = folhas?.get(anim)
             if (folha == null) {
@@ -476,10 +549,11 @@ fun GatoDoAstra(
             }
 
             // O nome vai FORA do `scale`: espelhar o gato não pode espelhar a
-            // escrita. Some com uma curva, não com um corte — os últimos 0,6s são
-            // o esmaecimento, e o resto é leitura tranquila.
-            if (nome.isNotBlank() && nomeVisivel > 0f) {
-                val opacidade = (nomeVisivel / 0.6f).coerceAtMost(1f)
+            // escrita. E ele só aparece com o mouse em cima — em nenhum outro
+            // momento, que foi o pedido: o nome é uma coisa que você VAI VER, não
+            // que aparece sozinha por cima da conversa.
+            if (nome.isNotBlank() && comMouse) {
+                val opacidade = 1f
                 val texto = medidor.measure(
                     nome,
                     style = TextStyle(

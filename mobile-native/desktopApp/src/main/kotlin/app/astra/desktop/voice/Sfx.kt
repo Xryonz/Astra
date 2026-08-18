@@ -47,6 +47,24 @@ object Sfx {
         ),
     )
 
+    // ---- Carinho no gato ----
+    //
+    // Isto é um TRINADO, não um ronronar, e a diferença é honesta. Ronronar de
+    // verdade é ruído de banda larga modulado a ~25 Hz; com tons puros, a imitação
+    // sai como zumbido de motor. O trinado — aquele "prrup" curto de gato
+    // cumprimentando — é justamente uma nota subindo depressa, e essa este motor
+    // faz bem.
+    //
+    // Ganho baixo e 200ms no total: acontece quando você clica no bicho, ou seja,
+    // dezenas de vezes por sessão se a pessoa gostar. Som de interação frequente
+    // precisa ser mais curto e mais quieto do que o instinto pede.
+    fun carinho() = play(
+        listOf(
+            Tone(392f, 70, gain = 0.11f, sino = true),
+            Tone(523.3f, 130, gain = 0.09f, sino = true),
+        ),
+    )
+
     // ---- Toque de chamada no sussurro ----
     //
     // Repete ate alguem parar (atender, recusar ou o servidor desistir em 45s).

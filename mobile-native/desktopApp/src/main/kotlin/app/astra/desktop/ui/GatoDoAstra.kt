@@ -60,11 +60,11 @@ import kotlin.math.sin
 import kotlin.random.Random
 import org.jetbrains.skia.Image as SkiaImage
 
-// O GATO DO ASTRA — o "pet" que estava anotado como uma palavra só no ESTADO.md.
+// O COMPANHEIRO DO ASTRA — o "pet" que estava anotado como uma palavra só no
+// ESTADO.md, e que hoje já são três bichos.
 //
-// Ele anda livre por cima da interface inteira (escolha do dono) e é PIXEL ART:
-// sprites do pacote "2D Pixel Art Cat Sprites", do Elthen (Ahmet Avci). A licença
-// viaja junto da arte, em `resources/pet/LICENCA-cat-2d-pixel-art.txt`.
+// Ele anda livre por cima da interface inteira (escolha do dono) e é PIXEL ART. As
+// licenças viajam junto da arte, em `resources/pet/`.
 //
 // TRÊS REGRAS QUE NÃO SE QUEBRAM, porque ele passa por cima de tudo:
 //
@@ -139,16 +139,17 @@ class Passo(
 // para que lado a arte olha — e por isso o desenho e a máquina de estados não sabem
 // qual bicho estão animando. É o que permite somar um pet novo sem tocar em lógica.
 //
-// POR QUE SÓ UM POR ENQUANTO: havia um segundo gato (pacote grátis do Mattz Art) e
-// ele saiu. O pacote grátis não traz animação nenhuma de carinho — só andar, correr,
-// pular e parado — então o clique nele não tinha o que mostrar, e um pet que ignora
-// o carinho é pior do que um pet a menos.
+// O CRITÉRIO PARA ENTRAR É TER RESPOSTA AO CARINHO. Um quarto bicho existiu aqui
+// (pacote grátis do Mattz Art) e saiu: ele só tinha andar, correr, pular e parado,
+// então o clique nele não tinha o que mostrar. Pet que ignora carinho é pior do que
+// pet a menos, e por isso a pergunta "o que ele faz quando eu clico" vem antes de
+// qualquer medição de folha.
 //
 // `escala` é o multiplicador base, e existe porque folhas de artistas diferentes vêm
 // em tamanhos MUITO diferentes. O ALVO é a foto do usuário, ali do lado — uns 34dp:
 // um bicho de estimação tem que caber no canto do olho, e grande demais ele deixa de
 // ser companhia e vira obstáculo em cima da conversa. O do Elthen tem 18px na folha
-// e precisa de 2x pra chegar perto.
+// e precisa de 2x pra chegar perto; os outros dois já nascem perto e ficam em 1x.
 //
 // A ESCALA TEM DE SER INTEIRA, e isso não é preciosismo. Em 2,5x metade das colunas
 // do sprite ocupa 2 pixels e metade ocupa 3 — aparece uma listra que o artista nunca
@@ -184,7 +185,7 @@ enum class Bicho(
     // silhueta e vira uma mancha. Deixá-lo escuro é o que pixel art faz, e é o que
     // mantém o gato legível em qualquer uma das sete cores.
     TRAVESSO(
-        "Travesso", 32, 3, 1, 24, 31, 31, 1, olhaParaDireita = true,
+        "Travesso", 32, 3, 1, 24, 31, 30, 1, olhaParaDireita = true,
         intArrayOf(0xFFFFFF, 0xB6C5CD, 0x869EAC, 0x688697), intArrayOf(0, 1, 2, 3),
         mapOf(
             Anim.PARADO to Passo("gato_travesso_parado.png", 0, 3, 4, 0f),
@@ -196,6 +197,43 @@ enum class Bicho(
             // A comemoração do pacote. É a razão de este gato ter entrado e o outro
             // ter saído: carinho precisa de resposta, e aqui ela existe desenhada.
             Anim.CARINHO to Passo("gato_travesso_carinho.png", 0, 3, 6, 0f),
+        ),
+    ),
+
+    // SÁTIRO — o único que não é gato, e o único com escada de reações.
+    //
+    // Grade de 10 colunas por 11 linhas, 32px. A folha veio de um jogo, então a
+    // maior parte dela é combate e morte e fica de fora; o que se aproveita são as
+    // sete linhas abaixo. É por ter TRÊS reações desenhadas que ele ganha a escada
+    // de carinho — não foi uma regra inventada para ele, foi a folha que permitiu.
+    //
+    // Caixa medida sobre as sete linhas usadas: conteúdo em x 2..29 e y 3..28. As
+    // patas ficam na linha 23 do recorte, e não na última — porque o anel dourado
+    // da conjuração se abre ABAIXO dos pés, e a caixa precisa caber ele.
+    //
+    // Rampa de três degraus. O contorno escuro e os chifres ficam de fora: chifre
+    // recolorido para bege deixa de ler como chifre.
+    SATIRO(
+        "Sátiro", 32, 2, 3, 28, 26, 23, 1, olhaParaDireita = false,
+        intArrayOf(0xAD2F45, 0x781D4F, 0x4F1D4C), intArrayOf(0, 1, 2),
+        mapOf(
+            Anim.PARADO to Passo("satiro.png", 0, 6, 7, 0f),
+            Anim.ANDANDO to Passo("satiro.png", 1, 8, 10, 1.0f),
+            // Linha 8 é uma arrancada com rastro: começa borrado e desacelera em
+            // faíscas. Serve de corrida melhor que a caminhada acelerada.
+            Anim.CORRENDO to Passo("satiro.png", 8, 6, 13, 2.8f),
+            Anim.PULO to Passo("satiro.png", 2, 4, 10, 0f),
+            // A escada, na ordem em que o clique a percorre:
+            // 1) ACENDE — passa de vermelho a branco brilhante. É a reação mais
+            //    imediata que existe na folha: a mudança é grande demais para
+            //    passar despercebida.
+            Anim.CARINHO to Passo("satiro.png", 7, 4, 9, 0f),
+            // 2) CONJURA — um anel dourado floresce sob os pés e se desfaz em
+            //    faíscas. É ele se exibindo depois de já ter reagido uma vez.
+            Anim.FESTA to Passo("satiro.png", 3, 7, 11, 0f),
+            // 3) RECOLHE-SE — senta e se fecha. Cansou de tanto cutucão, e cansa no
+            //    lugar em vez de sair andando como o gato.
+            Anim.RECOLHE to Passo("satiro.png", 5, 6, 7, 0f),
         ),
     ),
 
@@ -221,7 +259,31 @@ enum class Bicho(
     }
 }
 
-enum class Anim { PARADO, ANDANDO, CORRENDO, PULO, CARINHO }
+// PARADO, ANDANDO, CORRENDO, PULO e CARINHO todo bicho tem. As duas últimas são
+// OPCIONAIS e existem porque uma folha pode ser mais rica que outra — o sátiro tem
+// três reações desenhadas, o gato tem uma. Quem não as declara simplesmente não
+// escala, e nada no código precisa saber de qual bicho se trata.
+enum class Anim {
+    PARADO, ANDANDO, CORRENDO, PULO,
+    CARINHO,
+    // Segunda reação: ele se exibe. O sátiro faz florescer um anel dourado.
+    FESTA,
+    // Reação de cansaço, para quem tem uma desenhada. Sem ela, cansar é sair
+    // andando — que é o que o gato faz e continua fazendo.
+    RECOLHE,
+}
+
+// A ESCADA DE CARINHO sai dos DADOS, não de um `if` por bicho.
+//
+// São as reações não-cansadas, na ordem em que aparecem. O gato tem só `CARINHO` e
+// por isso repete essa; o sátiro tem `CARINHO` e `FESTA` e por isso muda de reação
+// no segundo clique. Somar um bicho com quatro reações não exigiria tocar em nada
+// aqui — bastaria declará-las.
+val Bicho.escadaDeCarinho: List<Anim>
+    get() = listOf(Anim.CARINHO, Anim.FESTA).filter { it in passos }
+
+// Quantos carinhos seguidos ele aguenta antes de cansar. Vale para todos.
+private const val LIMITE_DE_CARINHO = 3
 
 // PELAGEM — troca de cor do jeito que pixel art pede: remapeando a rampa que o
 // artista desenhou, cor por cor, e não jogando um filtro por cima.
@@ -422,15 +484,18 @@ fun GatoDoAstra(
                     }
                 }
 
-                Anim.CARINHO -> {
-                    // Uma volta da animação e ele volta a ficar parado, com pausa
-                    // curta: acabou de receber atenção, então sair andando na hora
-                    // seria estranho.
-                    val c = bicho.passos[Anim.CARINHO]
+                Anim.CARINHO, Anim.FESTA, Anim.RECOLHE -> {
+                    // As três se comportam igual: tocam UMA volta e voltam a ficar
+                    // paradas. O que muda é quanto ele demora a se mexer depois —
+                    // quem acabou de sentar não levanta na mesma hora em que quem
+                    // acabou de ser acariciado volta a passear.
+                    val c = bicho.passos[anim]
                     if (c == null || tempoNaAnim >= c.quadros.toFloat() / c.fps) {
+                        val recolhido = anim == Anim.RECOLHE
                         anim = Anim.PARADO
                         tempoNaAnim = 0f
-                        espera = 2f + Random.nextFloat() * 2.5f
+                        espera = if (recolhido) 5f + Random.nextFloat() * 3f
+                        else 2f + Random.nextFloat() * 2.5f
                     }
                 }
 
@@ -494,25 +559,38 @@ fun GatoDoAstra(
                     ultimaCaricia = agora
                     caricias += 1
 
-                    if (caricias >= 3) {
-                        // Cansou. Sai andando pro lado oposto e ignora clique por
-                        // uns segundos. Além de ser o que gato faz, isso impede que
-                        // clique repetido reinicie a mesma animação pra sempre.
+                    if (caricias >= LIMITE_DE_CARINHO) {
+                        // Cansou. Ignora clique por uns segundos — o que, além de
+                        // ser o que bicho faz, impede que clique repetido reinicie a
+                        // mesma animação para sempre.
                         deMalAte = agora + 6000
                         caricias = 0
-                        alvoX = if (x < piso.center.x) limiteDir else limiteEsq
-                        olhandoPraDireita = alvoX > x
-                        anim = Anim.ANDANDO
                         tempoNaAnim = 0f
+
+                        val recolhe = bicho.passos[Anim.RECOLHE]
+                        if (recolhe != null) {
+                            // Quem tem cansaço DESENHADO cansa no lugar: o sátiro se
+                            // recolhe e senta. Mandá-lo sair andando desperdiçaria a
+                            // animação e ainda contaria a mesma história pior.
+                            anim = Anim.RECOLHE
+                        } else {
+                            // Sem animação de cansaço, cansar é ir embora — sai
+                            // andando para o lado oposto, que é o que o gato faz.
+                            alvoX = if (x < piso.center.x) limiteDir else limiteEsq
+                            olhandoPraDireita = alvoX > x
+                            anim = Anim.ANDANDO
+                        }
                     } else {
-                        anim = Anim.CARINHO
+                        // A escada: cada carinho seguido pede a próxima reação. Quem
+                        // só tem uma repete a mesma, e é exatamente o que o gato
+                        // sempre fez.
+                        val escada = bicho.escadaDeCarinho
+                        anim = escada.getOrNull(caricias - 1) ?: escada.lastOrNull() ?: Anim.CARINHO
                         tempoNaAnim = 0f
-                        // Vira pra quem fez carinho: o mouse está em cima dele, e
-                        // um bicho que recebe atenção olha para quem deu.
                         Sfx.carinho()
                     }
                 }
-                .semantics { contentDescription = if (nome.isBlank()) "Gato do Astra" else nome },
+                .semantics { contentDescription = if (nome.isBlank()) "Companheiro do Astra" else nome },
         )
 
         Canvas(Modifier.fillMaxSize()) {

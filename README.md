@@ -292,6 +292,7 @@ e mesmo as que não pedem merecem — a arte é de quem a desenhou.
 | --- | --- | --- |
 | Gato do companheiro — "Simples" | **Elthen** (ELV Games) | [2D Pixel Art Cat Sprites](https://elthen.itch.io/2d-pixel-art-cat-sprites) |
 | Gato do companheiro — "Travesso" | **Jump Button** ([@Jump_Button](https://twitter.com/Jump_Button)) | Cat Player — crédito exigido em uso comercial |
+| Companheiro — "Sátiro" | *autor a confirmar* | pacote sem arquivo de licença; uso liberado pelo autor ao dono do Astra |
 
 A licença viaja junto da arte, em
 `mobile-native/desktopApp/src/main/resources/pet/`. A geometria de recorte de cada

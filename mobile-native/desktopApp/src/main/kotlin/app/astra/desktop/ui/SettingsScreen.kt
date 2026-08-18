@@ -3969,21 +3969,22 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 private fun PetNaAparencia(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Companheiro",
-        "A cor troca a rampa de pelo que o artista desenhou, degrau por degrau — os " +
-            "olhos, o focinho e as patinhas ficam como estão, e é isso que mantém o " +
-            "gato parecendo um gato em vez de virar uma mancha de uma cor só. O nome " +
-            "aparece sobre ele quando reage a uma mensagem.",
+        "A cor troca a rampa que o artista desenhou, degrau por degrau — os olhos, o " +
+            "contorno e os detalhes ficam como estão, e é isso que mantém o bicho " +
+            "reconhecível em vez de virar uma mancha de uma cor só. O nome aparece " +
+            "sobre ele quando reage a uma mensagem. Clique nele para ver o que ele " +
+            "faz; insistir demais o cansa.",
     )
 
     if (!p.petLigado) {
         Text(
-            "O gato está desligado em Acessibilidade.",
+            "O companheiro está desligado em Acessibilidade.",
             style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
         )
         Spacer(Modifier.height(12.dp))
     }
 
-    FieldLabel("gato")
+    FieldLabel("bicho")
     SegmentedRow(
         Bicho.entries.map { it.rotulo to it.name },
         p.petBicho,
@@ -4092,11 +4093,11 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     SettingsDivider()
     TituloExplicavel(
         "Companheiro",
-        "Um gato em pixel art que caminha por cima da interface. Ele passa a maior " +
+        "Um bicho em pixel art que caminha por cima da interface. Ele passa a maior " +
             "parte do tempo parado e só anda em trechos curtos: movimento contínuo " +
             "no canto do olho ensina o olho a ignorar o resto da tela. Pula quando " +
-            "chega mensagem, e some junto se você reduzir movimento. A cor e o nome " +
-            "estão em Aparência.",
+            "chega mensagem, e some junto se você reduzir movimento. A escolha do " +
+            "bicho, a cor e o nome estão em Aparência.",
     )
     ToggleRow(
         "Gato na tela",

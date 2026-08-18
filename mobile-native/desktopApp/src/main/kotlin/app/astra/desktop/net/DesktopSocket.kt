@@ -215,6 +215,26 @@ class DesktopSocket(
     fun voiceJoin(channelId: String) { socket?.emit("voice_join", channelId) }
     fun voiceLeave(channelId: String) { socket?.emit("voice_leave", channelId) }
 
+    // Renova a marca de "estou nesta call". Sem isto a marca expira em 60s e a
+    // pessoa some da sala pros outros — a expiração é de propósito (ver vozKeys no
+    // servidor): é o que faz fantasma de queda de luz sumir sozinho.
+    fun voiceKeepalive(channelId: String) { socket?.emit("voice_keepalive", channelId) }
+
+    // SINALIZAÇÃO DA CALL PONTO A PONTO.
+    //
+    // Só os envelopes do aperto de mão passam por aqui — oferta, resposta e
+    // candidatos de rede, uns poucos KB por chamada. A voz em si nunca toca o
+    // servidor: vai direto de uma máquina para a outra.
+    private val _sinalRtc = MutableSharedFlow<String>(extraBufferCapacity = 128)
+    val sinalRtc: SharedFlow<String> = _sinalRtc.asSharedFlow()
+
+    fun mandarSinalRtc(para: String, tipo: String, dados: String) {
+        socket?.emit(
+            "rtc_signal",
+            JSONObject().put("para", para).put("tipo", tipo).put("dados", dados),
+        )
+    }
+
     // Atividade ("o que voce esta usando agora"). Texto vazio = apaga.
     // Quem decide o que entra aqui e o AtividadePublicador; este metodo so leva.
     fun enviarAtividade(texto: String) { socket?.emit("set_activity", texto) }
@@ -402,6 +422,9 @@ class DesktopSocket(
         }
         s.on("notification") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _notification.tryEmit(it.toString()) }
+        }
+        s.on("rtc_signal") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _sinalRtc.tryEmit(it.toString()) }
         }
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }

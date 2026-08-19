@@ -101,6 +101,45 @@ export async function userCanSeeChannel(userId: string, channelId: string): Prom
   return !!match
 }
 
+// O INVERSO do `userCanSeeChannel`: dado UM canal, quais destes membros o enxergam.
+//
+// Existe porque o aviso de mensagem nova é um leque — um canal, N destinatários — e
+// perguntar "esta pessoa pode ver?" uma vez por membro daria N idas ao banco no
+// caminho mais quente que existe. Aqui são no máximo duas, e zero no caso comum.
+//
+// CANAL PÚBLICO NÃO CONSULTA NADA. É a esmagadora maioria, e o curto-circuito é o que
+// permite esta checagem existir sem custo perceptível: só canal privado paga.
+export async function membrosQueVeemCanal(
+  channelId: string,
+  isPrivate: boolean,
+  ownerId: string,
+  memberIds: string[],
+): Promise<Set<string>> {
+  if (memberIds.length === 0) return new Set()
+  if (!isPrivate) return new Set(memberIds)
+
+  const permitido = new Set<string>()
+  // O dono da constelação vê tudo, inclusive canal a que nenhum cargo dele dá acesso.
+  if (memberIds.includes(ownerId)) permitido.add(ownerId)
+
+  const cargosComAcesso = await db.select({ roleId: channelRolePerms.roleId })
+    .from(channelRolePerms)
+    .where(eq(channelRolePerms.channelId, channelId))
+  // Privado e sem nenhum cargo liberado: só o dono. Sair aqui evita um `inArray`
+  // com lista vazia, que em SQL não é apenas inútil — é um erro de sintaxe.
+  if (cargosComAcesso.length === 0) return permitido
+
+  const comCargo = await db.select({ userId: serverMembers.userId })
+    .from(memberRoles)
+    .innerJoin(serverMembers, eq(serverMembers.id, memberRoles.memberId))
+    .where(and(
+      inArray(memberRoles.roleId, cargosComAcesso.map((c) => c.roleId)),
+      inArray(serverMembers.userId, memberIds),
+    ))
+  for (const linha of comCargo) permitido.add(linha.userId)
+  return permitido
+}
+
 export async function filterVisibleChannels(
   userId: string,
   channelIds: string[],

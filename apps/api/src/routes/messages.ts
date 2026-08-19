@@ -16,8 +16,8 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { SendMessageSchema, EditMessageSchema, MessageCursorSchema } from '@astra/types'
 import { getMuteExpiry, isUserMuted, muteUser, trackMessage } from '../lib/spamDetector'
 import { getBotId } from '../lib/bot'
-import { notify } from '../lib/notifications'
-import { PERMS, getMemberPerms, userCanSeeChannel } from '../lib/permissions'
+import { notify, resumoDaMensagem } from '../lib/notifications'
+import { PERMS, getMemberPerms, membrosQueVeemCanal, userCanSeeChannel } from '../lib/permissions'
 import { primeiroAnexoNaoPermitido } from '../lib/storage'
 import { AUDIT, audit } from '../lib/audit'
 import { safeParsePoll } from './polls'
@@ -367,14 +367,35 @@ export function createMessagesRouter(io: SocketServer) {
             const allMembers = await db.select({ userId: serverMembers.userId }).from(serverMembers)
               .where(eq(serverMembers.serverId, channel.serverId))
             const memberIds = allMembers.map((m) => m.userId).filter((id) => id !== req.userId)
+            // QUEM ENXERGA O CANAL, e só. Este leque sempre foi para todo membro da
+            // constelação, sem olhar visibilidade — o que já vazava a EXISTÊNCIA de
+            // conversa em canal privado, e passaria a vazar o CONTEÚDO agora que o
+            // evento carrega autor e trecho. Canal público não paga consulta nenhuma.
+            const veem = await membrosQueVeemCanal(
+              channelId, channel.isPrivate, channel.ownerId, memberIds,
+            )
             const notifModes = await getNotifModesFor(channelId, memberIds)
             const mentionedSet = new Set(mentionedIds)
             const now = inserted.createdAt.toISOString()
+            // QUEM e O QUÊ viajam junto do aviso. Sem isto o desktop só tinha o id do
+            // canal, e o balão do Windows era obrigado a dizer "nova mensagem" —
+            // informação suficiente pra interromper e insuficiente pra decidir se
+            // valia a pena ser interrompido.
+            const aviso = {
+              channelId,
+              lastMessageAt: now,
+              channelName: channel.channelName,
+              serverName:  channel.serverName,
+              authorName:  author.displayName || author.username,
+              authorAvatar: author.avatarUrl ?? null,
+              preview:     resumoDaMensagem(content, Array.isArray(attachments) ? attachments.length : 0),
+            }
             for (const userId of memberIds) {
+              if (!veem.has(userId)) continue
               const mode = notifModes.get(userId) ?? 'all'
               if (mode === 'mute') continue
               if (mode === 'mentions' && !mentionedSet.has(userId)) continue
-              io.to(`user:${userId}`).emit('channel_activity', { channelId, lastMessageAt: now })
+              io.to(`user:${userId}`).emit('channel_activity', aviso)
             }
 
             for (const userId of mentionedIds) {

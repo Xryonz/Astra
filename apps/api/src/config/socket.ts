@@ -2,8 +2,8 @@ import { Server, Socket } from 'socket.io'
 import { randomUUID } from 'node:crypto'
 import { and, eq, or } from 'drizzle-orm'
 import { db } from '../db'
-import { users, dmConversations, directMessages, channels, messages, serverMembers } from '../db/schema'
-import { notify } from '../lib/notifications'
+import { users, dmConversations, directMessages, channels, messages, serverMembers, servers } from '../db/schema'
+import { notify, resumoDaMensagem } from '../lib/notifications'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted, setUserOnline, setUserOffline, refreshPresence, setUserActivity, clearUserActivity, redis, vozKeys, VOZ_TTL_SEGUNDOS } from '../lib/redis'
 import { trackMessage, isUserMuted, muteUser, getMuteExpiry } from '../lib/spamDetector'
@@ -35,7 +35,7 @@ function shouldPersistStatus(userId: string, status: string): boolean {
   return false
 }
 
-import { userCanSeeChannel } from '../lib/permissions'
+import { membrosQueVeemCanal, userCanSeeChannel } from '../lib/permissions'
 async function userCanAccessChannel(userId: string, channelId: string): Promise<boolean> {
   return userCanSeeChannel(userId, channelId)
 }
@@ -286,8 +286,21 @@ export function setupSocket(io: Server) {
           return safeAck({ ok: false, error: 'Conteúdo inválido' })
         }
 
-        const [ch] = await db.select({ id: channels.id, serverId: channels.serverId })
-          .from(channels).where(eq(channels.id, channelId)).limit(1)
+        // O nome do canal, o da constelação, a visibilidade e o dono entram AQUI e
+        // não numa segunda consulta: o aviso de mensagem nova precisa dos quatro, e
+        // isto já era uma ida ao banco por mensagem enviada. Juntar `servers` na
+        // mesma volta é de graça perto de abrir outra.
+        const [ch] = await db.select({
+          id:         channels.id,
+          name:       channels.name,
+          serverId:   channels.serverId,
+          serverName: servers.name,
+          isPrivate:  channels.isPrivate,
+          ownerId:    servers.ownerId,
+        })
+          .from(channels)
+          .innerJoin(servers, eq(servers.id, channels.serverId))
+          .where(eq(channels.id, channelId)).limit(1)
         if (!ch) return safeAck({ ok: false, error: 'Canal não encontrado' })
         const canAccess = await userCanAccessChannel(userId, channelId)
         if (!canAccess) return safeAck({ ok: false, error: 'Acesso negado' })
@@ -348,9 +361,23 @@ export function setupSocket(io: Server) {
               const allMembers = await db.select({ userId: serverMembers.userId })
                 .from(serverMembers).where(eq(serverMembers.serverId, ch.serverId))
               const now = (inserted.createdAt instanceof Date ? inserted.createdAt : new Date()).toISOString()
-              for (const m of allMembers) {
-                if (m.userId === userId) continue
-                io.to(`user:${m.userId}`).emit('channel_activity', { channelId, lastMessageAt: now })
+              const outros = allMembers.map((m) => m.userId).filter((id) => id !== userId)
+              // Mesma regra do caminho REST: só quem enxerga o canal recebe o aviso.
+              // Os dois caminhos gravam a mesma mensagem, então divergir aqui daria um
+              // vazamento que aparece ou não dependendo de por onde a pessoa escreveu.
+              const veem = await membrosQueVeemCanal(channelId, ch.isPrivate, ch.ownerId, outros)
+              const aviso = {
+                channelId,
+                lastMessageAt: now,
+                channelName:  ch.name,
+                serverName:   ch.serverName,
+                authorName:   author?.displayName || author?.username,
+                authorAvatar: author?.avatarUrl ?? null,
+                preview:      resumoDaMensagem(trimmed, 0),
+              }
+              for (const id of outros) {
+                if (!veem.has(id)) continue
+                io.to(`user:${id}`).emit('channel_activity', aviso)
               }
               for (const targetId of mentionedIds) {
                 if (targetId === userId) continue

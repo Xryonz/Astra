@@ -107,6 +107,19 @@ data class ChannelTypingEventDto(
 data class ChannelActivityEventDto(
     val channelId: String,
     val lastMessageAt: String? = null,
+    // QUEM e O QUÊ, para o aviso de mensagem nova. Antes o evento trazia só o id do
+    // canal, e por isso o aviso do desktop era obrigado a dizer "nova mensagem" — o
+    // bastante para interromper e insuficiente para decidir se valia ser interrompido.
+    //
+    // Todos opcionais porque o mesmo evento é a fonte da BOLINHA de não-lido, e essa
+    // parte não pode depender de campo nenhum: um servidor mais antigo (ou um caminho
+    // que ainda não enriquece) continua acendendo o não-lido normalmente, só sem
+    // conteúdo no aviso.
+    val channelName: String? = null,
+    val serverName: String? = null,
+    val authorName: String? = null,
+    val authorAvatar: String? = null,
+    val preview: String? = null,
 )
 
 // Alguem entrou (joined=true) ou saiu de um canal de voz. Delta imediato pra barra

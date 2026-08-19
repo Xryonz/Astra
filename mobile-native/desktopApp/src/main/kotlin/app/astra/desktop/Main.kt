@@ -460,6 +460,11 @@ fun main(args: Array<String>) {
             },
         )
 
+        // OS AVISOS FICAM FORA DA JANELA PRINCIPAL, e é o ponto inteiro deles: eles
+        // aparecem justamente quando ela está escondida na bandeja. Montados aqui, no
+        // `application`, sobrevivem a ela sumir.
+        AvisosDeMensagem()
+
         // Gate de update primeiro: verifica a versão (logo + estrelas girando) e,
         // se houver nova, baixa com barra de progresso; senao segue pro app. So
         // enquanto não terminou (gateDone) — depois some e o app abre normal.
@@ -803,6 +808,10 @@ fun main(args: Array<String>) {
                                                 // com o app na frente, seria barulho sem
                                                 // referente.
                                                 tocarAvisoDeMensagem()
+                                            },
+                                            aoPedirJanela = {
+                                                windowVisible = true
+                                                state.isMinimized = false
                                             },
                                             onLogout = {
                                                 // O escopo e o da JANELA, e nao o do shell: o

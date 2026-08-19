@@ -113,6 +113,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import app.astra.desktop.AvisosNaTela
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
@@ -201,6 +202,10 @@ fun ShellScreen(
     session: Session,
     windowInactive: () -> Boolean,
     notify: (String, String) -> Unit,
+    // Traz a janela de volta. O aviso aparece justamente quando ela está escondida na
+    // bandeja, então clicar nele e navegar sem reabrir levaria a pessoa a uma conversa
+    // que ela não pode ver.
+    aoPedirJanela: () -> Unit,
     onLogout: () -> Unit,
     searchOpen: Boolean = false,
     onCloseSearch: () -> Unit = {},
@@ -351,9 +356,34 @@ fun ShellScreen(
         }
     }
 
-    // Toast na bandeja quando chega mensagem com a janela fechada/minimizada.
-    // DM tem autor+conteudo (salas todas joinadas); canal so tem o id do
-    // channel_activity -> notificação generica com o nome da órbita.
+    // O aviso do botão "testar" das configurações. Ele reproduz o desvio do aviso
+    // discreto de propósito: quem ligou o discreto e apertar testar precisa ver o
+    // balão curto, e não o cartão — senão o teste promete uma coisa e a mensagem de
+    // verdade entrega outra. Usa a própria foto porque é a única que o app tem certeza
+    // de poder mostrar, e porque "é assim que vai aparecer" só se entende com um rosto
+    // no lugar do rosto.
+    fun avisoDeTeste() {
+        if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
+            notify("Astra", "Se você está lendo isto, os avisos funcionam.")
+            return
+        }
+        val eu = state.me
+        AvisosNaTela.mostrar(
+            quem = eu?.displayName ?: eu?.username ?: "Astra",
+            onde = "teste",
+            trecho = "Se você está lendo isto, os avisos funcionam.",
+            avatarUrl = eu?.avatarUrl,
+        )
+    }
+
+    // Aviso quando chega mensagem com a janela fechada/minimizada/sem foco.
+    //
+    // OS DOIS CAMINHOS AGORA TÊM AUTOR E CONTEÚDO. Sussurro sempre teve (o `new_dm`
+    // carrega a mensagem inteira); canal não tinha, porque o `channel_activity` era só
+    // `{ channelId, lastMessageAt }` — e por isso o aviso de canal dizia "nova
+    // mensagem" e mais nada. O servidor passou a mandar quem escreveu, o trecho e a
+    // foto no mesmo evento, filtrado por quem enxerga o canal.
+    //
     // NÃO PERTURBE E HORÁRIO DE DESCANSO CALAM A BANDEJA — e até agora não calavam
     // nada. O servidor já marcava `silent: true` no evento `notification` nos dois
     // casos, e o desktop nunca leu esse campo: dava pra pôr o status em "não
@@ -382,12 +412,30 @@ fun ShellScreen(
                 // Aviso discreto: nem quem escreveu, nem o que escreveu. Continua
                 // dizendo QUE TIPO chegou — dá pra decidir se vale interromper o que
                 // se está fazendo sem que a tela conte nada a quem estiver vendo.
+                //
+                // O discreto continua saindo pelo BALÃO DO WINDOWS de propósito. O
+                // cartão do Astra existe pra mostrar rosto, nome e trecho; sem nada
+                // disso ele seria uma janela grande dizendo duas palavras — e uma
+                // janela que só aparece é mais chamativa que o balão do sistema, o
+                // oposto do que "discreto" pede.
                 if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
                     notify("Astra", "sussurro novo")
                     return@collect
                 }
-                val name = msg.author?.displayName ?: msg.author?.username ?: "alguem"
-                notify(name, msg.content.ifBlank { "anexo" }.take(120))
+                val name = msg.author?.displayName ?: msg.author?.username ?: "alguém"
+                AvisosNaTela.mostrar(
+                    quem = name,
+                    // Sussurro não tem "onde": o rosto já responde tudo que há pra
+                    // responder. Escrever "sussurro" ali só gastaria a linha.
+                    onde = "",
+                    trecho = msg.content.ifBlank { "enviou um anexo" }.take(140),
+                    avatarUrl = msg.author?.avatarUrl,
+                    abrir = {
+                        aoPedirJanela()
+                        vm.select(Selection.Dms)
+                        vm.openChat(ChatTarget.Dm(msg.conversationId, name))
+                    },
+                )
             }
         }
         launch {
@@ -409,7 +457,27 @@ fun ShellScreen(
                     notify("Astra", "mensagem numa constelação")
                     return@collect
                 }
-                notify("#${ch.name}", "nova mensagem")
+                // SEM AUTOR NO EVENTO, CAI PRO AVISO ANTIGO. Acontece com servidor
+                // ainda não atualizado — e nesse caso o cartão do Astra mostraria um
+                // rosto vazio e a palavra "alguém", que é pior que a linha honesta do
+                // balão dizendo só o nome do canal.
+                val quem = ev.authorName
+                if (quem == null) {
+                    notify("#${ch.name}", "nova mensagem")
+                    return@collect
+                }
+                AvisosNaTela.mostrar(
+                    quem = quem,
+                    onde = listOfNotNull("#${ev.channelName ?: ch.name}", ev.serverName).joinToString(" · "),
+                    trecho = ev.preview.orEmpty().ifBlank { "enviou um anexo" },
+                    avatarUrl = ev.authorAvatar,
+                    abrir = {
+                        aoPedirJanela()
+                        estado.servers.firstOrNull { s -> s.channels.any { it.id == ev.channelId } }
+                            ?.let { vm.select(Selection.Server(it.id)) }
+                        vm.openChat(ChatTarget.Channel(ev.channelId, ch.name))
+                    },
+                )
             }
         }
     }
@@ -812,13 +880,11 @@ fun ShellScreen(
                 // propria previa passam a ler o valor novo).
                 onProfileSaved = { vm.refreshMe() },
                 aoSairDaConta = onLogout,
-                // O teste usa o MESMO caminho do aviso de verdade (bandeja do SO).
-                // Um "toast falso" desenhado dentro do app provaria nada — o que
-                // costuma falhar e justamente o SO: foco de notificacao desligado,
-                // modo nao perturbe, icone escondido na bandeja.
-                onTestarNotificacao = {
-                    notify("Astra", "Se você está lendo isto, os avisos funcionam.")
-                },
+                // O teste usa o MESMO caminho do aviso de verdade, e agora isso quer
+                // dizer o cartão do Astra — inclusive o desvio do aviso discreto, que
+                // continua saindo pela bandeja do SO. Testar sempre pelo balão passou a
+                // provar a coisa errada: ele deixou de ser por onde a mensagem chega.
+                onTestarNotificacao = { avisoDeTeste() },
             )
         }
 

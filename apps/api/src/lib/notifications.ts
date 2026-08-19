@@ -73,6 +73,22 @@ function typeEnabled(type: NotificationType, prefs: NotificationPrefs): boolean 
   }
 }
 
+// O TRECHO que vai no aviso. Num lugar só porque o desktop, o push do celular e o
+// sino leem o mesmo campo, e três truncagens diferentes dariam três avisos diferentes
+// para a mesma mensagem.
+//
+// Mensagem só de anexo vira "enviou uma imagem" e não fica vazia: aspas em volta de
+// nada lê como falha do app, e o aviso perderia justamente a única coisa que tinha a
+// dizer. O limite de 140 é o que cabe num balão do Windows sem ser cortado pelo SO no
+// meio de uma palavra.
+export function resumoDaMensagem(content: string, quantosAnexos: number): string {
+  const limpo = content.trim()
+  if (limpo) return limpo.length > 140 ? limpo.slice(0, 139) + '…' : limpo
+  if (quantosAnexos > 1) return `enviou ${quantosAnexos} anexos`
+  if (quantosAnexos === 1) return 'enviou um anexo'
+  return ''
+}
+
 export interface NotifyOpts {
   io:         SocketServer
   userId:     string
@@ -149,10 +165,15 @@ export async function notify(opts: NotifyOpts): Promise<NotifyResult> {
       userId, type, payload: JSON.stringify(enriched),
     }).returning({ id: notifications.id, createdAt: notifications.createdAt })
 
+    // `enriched`, e não `payload`. Era `payload` — o cru, sem o nome e sem a foto de
+    // quem mandou. O banco guardava a versão enriquecida e o sino, que lê do banco,
+    // mostrava tudo certo; só o aviso AO VIVO saía anônimo. Isso deixava o defeito
+    // praticamente invisível em teste: bastava abrir o sino pra ver o nome lá,
+    // parecendo que o problema estava na tela e não no evento.
     io.to(`user:${userId}`).emit('notification', {
       id:        created.id,
       type,
-      payload,
+      payload:   enriched,
       createdAt: created.createdAt.toISOString(),
       silent:    muted,
     })

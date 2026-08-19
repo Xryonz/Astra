@@ -15,9 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.text.style.TextOverflow
 
-// Tipografia migrada do mobile (mesmos .ttf do :app): DM Sans variavel pro
-// corpo/UI, DM Serif Display pros titulos editoriais, DM Mono pra código e
-// timestamps, Great Vibes pra assinaturas.
+// Tipografia: DM Sans variavel pro corpo/UI, Cormorant pros titulos editoriais,
+// DM Mono pra código e timestamps, Great Vibes pra assinaturas, Babylonica pro
+// letreiro. Todas OFL — as licenças viajam creditadas no README.
 
 @OptIn(ExperimentalTextApi::class)
 private fun dmSans(weight: FontWeight) = Font(
@@ -33,9 +33,45 @@ val DmSans = FontFamily(
     dmSans(FontWeight.SemiBold),
 )
 
+// OS TÍTULOS SÃO CORMORANT, e o nome da variável continua `DmSerif` de propósito —
+// ela é usada em umas quarenta telas, e renomear tudo seria um diff enorme sobre uma
+// troca que é de arquivo, não de papel. O papel é o mesmo: a serifa editorial dos
+// títulos. (Se um dia isto incomodar, é um renomear mecânico e seguro; hoje não paga.)
+//
+// POR QUE TROCAR. O DM Serif Display é uma boa serifa de display e é genérica: ela
+// serve a qualquer produto editorial. A Cormorant tem contraste grosso/fino extremo,
+// terminais em gota e ascendentes muito altos — em corpo grande o fio fino é
+// literalmente a estética da gravura em cobre dos atlas estelares, que é o vocabulário
+// do produto (constelação, órbita) aparecendo na forma da letra e não só na palavra.
+//
+// O PESO PADRÃO É 600, E ISSO NÃO É GOSTO. A instância padrão da fonte variável é
+// LIGHT (300) — o próprio arquivo se chama "Cormorant Light". A 300, num fundo
+// #06060E, o traço fino da Cormorant desaparece: contraste alto de desenho encontra
+// contraste alto de fundo e a haste some. Foi medido em título de 15sp, que é o
+// tamanho real de "notificações" no painel do sino.
+//
+// Mapear `Normal` para o eixo em 600 resolve os dois lados de uma vez: mantém a cor
+// tipográfica parecida com a do DM Serif Display (que só tem um peso, e ele é cheio),
+// então nenhuma das telas existentes precisou ser tocada; e deixa os pesos reais
+// disponíveis para quem quiser um título mais leve num tamanho grande, onde o fio fino
+// vira qualidade em vez de defeito.
+@OptIn(ExperimentalTextApi::class)
+private fun cormorant(peso: FontWeight, noEixo: Int, estilo: FontStyle = FontStyle.Normal) = Font(
+    resource = if (estilo == FontStyle.Italic) "font/cormorant_italic.ttf" else "font/cormorant.ttf",
+    weight = peso,
+    style = estilo,
+    variationSettings = FontVariation.Settings(FontVariation.weight(noEixo)),
+)
+
 val DmSerif = FontFamily(
-    Font(resource = "font/dm_serif_display.ttf"),
-    Font(resource = "font/dm_serif_display_italic.ttf", style = FontStyle.Italic),
+    // O rótulo à esquerda é o que o call site pede; o número à direita é onde o eixo
+    // realmente vai. Os dois só coincidem no Bold — ver o parágrafo do peso acima.
+    cormorant(FontWeight.Light, 300),
+    cormorant(FontWeight.Normal, 600),
+    cormorant(FontWeight.Medium, 600),
+    cormorant(FontWeight.SemiBold, 600),
+    cormorant(FontWeight.Bold, 700),
+    cormorant(FontWeight.Normal, 600, FontStyle.Italic),
 )
 
 val DmMono = FontFamily(

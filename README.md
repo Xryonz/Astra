@@ -271,7 +271,7 @@ Três regras carregam o resto:
    e mantém-se hover e repouso quietos. App que pisca por tudo ensina a ignorar o
    piscar.
 
-Tipografia: DM Serif Display + DM Sans + DM Mono + Great Vibes + Babylonica.
+Tipografia: Cormorant (títulos) + DM Sans + DM Mono + Great Vibes + Babylonica.
 Paleta completa de tokens do web em `apps/web/src/index.css`; a do desktop em
 `mobile-native/desktopApp/…/ui/theme/`.
 
@@ -302,7 +302,8 @@ folha está documentada no `enum Bicho`, em `ui/GatoDoAstra.kt`.
 
 | Fonte | Autor | Licença |
 | --- | --- | --- |
-| DM Serif Display · DM Sans · DM Mono | Colophon Foundry / Jonny Pinhorn | SIL Open Font License 1.1 |
+| Cormorant | Christian Thalmann ([Catharsis Fonts](https://github.com/CatharsisFonts/Cormorant)) | SIL Open Font License 1.1 |
+| DM Sans · DM Mono | Colophon Foundry / Jonny Pinhorn | SIL Open Font License 1.1 |
 | Great Vibes | Robert Leuschke | SIL Open Font License 1.1 |
 | Babylonica | Robert Leuschke | SIL Open Font License 1.1 |
 

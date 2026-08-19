@@ -127,6 +127,7 @@ import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.Palette
+import com.composables.icons.lucide.PawPrint
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Eye
 import com.composables.icons.lucide.ShieldCheck
@@ -204,6 +205,12 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
     APPEARANCE("Aparencia", "cores e fundo", Lucide.Palette),
+    // ABA PRÓPRIA, e não um bloco dentro de Aparência como era. O que decidiu foi a
+    // VITRINE: escolher entre três bichos exige ver o que cada um faz, e o palco que
+    // mostra isso não cabe espremido no fim de uma aba que já trata de tema, fundo,
+    // fonte e densidade. O interruptor continua em Acessibilidade — "quero um bicho
+    // se mexendo na tela?" é pergunta de movimento, não de gosto.
+    PETS("Pets", "companheiro, cor e gestos", Lucide.PawPrint),
     ACCESSIBILITY("Acessibilidade", "leitura, contraste e movimento", Lucide.Accessibility),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
     VOICE("Voz", "microfone e transmissão", Lucide.Volume2),
@@ -504,6 +511,7 @@ fun SettingsScreen(
                         }
                         SettingsTab.PRIVACY -> PrivacySection(prefState, prefs, me, onProfileSaved)
                         SettingsTab.APPEARANCE -> AppearanceSection(prefState, prefs)
+                        SettingsTab.PETS -> PetsSection(prefState, prefs)
 
                         SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
@@ -590,7 +598,11 @@ private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     SettingsTab.SESSIONS, SettingsTab.PERMISSIONS,
     SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS,
     // Atalhos é a própria lista: as teclas já se mostram do jeito que ficam.
-    SettingsTab.SHORTCUTS -> false
+    SettingsTab.SHORTCUTS,
+    // Pets também: o palco JÁ é a prévia, e ele precisa da largura toda pra caber o
+    // bicho em tamanho que se julgue. Uma segunda cópia na coluna da direita
+    // mostraria a mesma coisa menor e longe dos botões que a mudam.
+    SettingsTab.PETS -> false
     else -> true
 }
 
@@ -640,7 +652,8 @@ private fun SettingsPreview(
                 // mostraria a mesma coisa longe do controle que a muda.
                 // Atalhos igual: a lista de teclas já é a própria demonstração.
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
-                SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS -> Unit
+                SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS,
+                SettingsTab.PETS -> Unit
             }
             // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
             // se trocam clicando neles — e engolir o ponteiro mataria exatamente a
@@ -3955,18 +3968,21 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 
     SettingsDivider()
-    PetNaAparencia(p, prefs)
-
-    SettingsDivider()
     Spacer(Modifier.height(20.dp))
 }
 
-// O GATO mora em Aparência, e o INTERRUPTOR dele mora em Acessibilidade. Não é
-// descuido: são duas perguntas diferentes. "Quero um bicho na tela?" é sobre
-// movimento e é decisão de acessibilidade; "de que cor e com que nome?" é gosto, e
-// gosto mora junto de tema e fundo.
+// ABA PETS. O interruptor do bicho mora em ACESSIBILIDADE, e continua lá de
+// propósito: são duas perguntas diferentes. "Quero um bicho se mexendo na tela?" é
+// sobre movimento, e quem precisa desligar movimento procura isso em Acessibilidade,
+// não numa aba de gosto. "Qual bicho, de que cor e com que nome?" é gosto, e é o que
+// esta aba responde.
+//
+// A ORDEM DA TELA É PROPOSITAL: palco, gestos, e só então as escolhas. Escolher
+// primeiro e ver depois obrigaria a decidir às cegas, que é exatamente o defeito que
+// esta aba existe pra corrigir — a diferença entre os três bichos não está na pose
+// parada, está em quantas reações cada um tem desenhada.
 @Composable
-private fun PetNaAparencia(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Companheiro",
         "A cor troca a rampa que o artista desenhou, degrau por degrau — os olhos, o " +
@@ -3977,13 +3993,40 @@ private fun PetNaAparencia(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
 
     if (!p.petLigado) {
-        Text(
-            "O companheiro está desligado em Acessibilidade.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
-        )
-        Spacer(Modifier.height(12.dp))
+        // Cartão, e não texto solto: numa aba inteira dedicada ao bicho, "ele está
+        // desligado" é a informação mais importante da tela, e uma linha cinza no meio
+        // do respiro passa batida. O palco continua abaixo — desligado não quer dizer
+        // que não se possa escolher a cor pra quando ligar.
+        Box(
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.raised)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+        ) {
+            Text(
+                "O companheiro está desligado. Ligue em Acessibilidade › movimento.",
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            )
+        }
+        Spacer(Modifier.height(16.dp))
     }
 
+    val bicho = Bicho.de(p.petBicho)
+    // O gesto escolhido é da TELA, não da conta: é jeito de olhar o bicho, e não uma
+    // preferência dele. Guardar isso nas prefs criaria um ajuste que a pessoa nunca
+    // pediu pra ter e que não muda nada fora desta aba.
+    var gesto by remember { mutableStateOf(Anim.PARADO) }
+    // Trocar de bicho pode tirar o gesto do mapa (só o sátiro tem exibição e cansaço),
+    // e um gesto que o bicho não tem desenhava palco vazio. Volta pro parado, que todo
+    // bicho tem por definição.
+    if (gesto !in bicho.passos) gesto = Anim.PARADO
+
+    PetPalco(bicho, Pelagem.de(p.petPelagem), gesto)
+    Spacer(Modifier.height(12.dp))
+    GestosDoBicho(bicho, gesto) { gesto = it }
+
+    SettingsDivider()
     FieldLabel("bicho")
     SegmentedRow(
         Bicho.entries.map { it.rotulo to it.name },
@@ -4028,6 +4071,9 @@ private fun PetNaAparencia(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             modifier = Modifier.fillMaxWidth(),
         )
     }
+
+    SettingsDivider()
+    Spacer(Modifier.height(20.dp))
 }
 
 // A amostra usa o degrau do MEIO da rampa, não o mais claro: em toda pelagem o

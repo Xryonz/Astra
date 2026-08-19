@@ -148,12 +148,23 @@ class Passo(
 // `escala` é o multiplicador base, e existe porque folhas de artistas diferentes vêm
 // em tamanhos MUITO diferentes. O ALVO é a foto do usuário, ali do lado — uns 34dp:
 // um bicho de estimação tem que caber no canto do olho, e grande demais ele deixa de
-// ser companhia e vira obstáculo em cima da conversa. O do Elthen tem 18px na folha
-// e precisa de 2x pra chegar perto; os outros dois já nascem perto e ficam em 1x.
+// ser companhia e vira obstáculo em cima da conversa.
 //
 // A ESCALA TEM DE SER INTEIRA, e isso não é preciosismo. Em 2,5x metade das colunas
 // do sprite ocupa 2 pixels e metade ocupa 3 — aparece uma listra que o artista nunca
 // desenhou. Só múltiplo inteiro do pixel físico preserva o desenho.
+//
+// E é essa regra que decide as escalas de cada um, medindo o CORPO desenhado (do topo
+// da cabeça até a linha dos pés), não a folha:
+//
+//     Travesso  30px em 1x    o artista já desenhou grande
+//     Simples   17px em 2x    = 34px
+//     Sátiro    23px em 2x    = 46px
+//
+// O sátiro ficava em 1x e saía com 23px — um quarto menor que os gatos, e lia como
+// erro. O meio-termo que resolveria (1,5x) é justamente o que a regra proíbe, então
+// ele foi para 2x e passou a ser o MAIOR dos três. Isso é aceitável onde não seria
+// entre dois gatos: ele é a outra espécie, e ser maior lê como espécie diferente.
 //
 // `base` são as cores de pelo da folha e `destino` diz em que degrau da
 // `Pelagem.rampa` cada uma cai. Este gato só tem dois tons, e eles vão pro degrau
@@ -214,7 +225,7 @@ enum class Bicho(
     // Rampa de três degraus. O contorno escuro e os chifres ficam de fora: chifre
     // recolorido para bege deixa de ler como chifre.
     SATIRO(
-        "Sátiro", 32, 2, 3, 28, 26, 23, 1, olhaParaDireita = false,
+        "Sátiro", 32, 2, 3, 28, 26, 23, 2, olhaParaDireita = false,
         intArrayOf(0xAD2F45, 0x781D4F, 0x4F1D4C), intArrayOf(0, 1, 2),
         mapOf(
             Anim.PARADO to Passo("satiro.png", 0, 6, 7, 0f),
@@ -263,14 +274,17 @@ enum class Bicho(
 // OPCIONAIS e existem porque uma folha pode ser mais rica que outra — o sátiro tem
 // três reações desenhadas, o gato tem uma. Quem não as declara simplesmente não
 // escala, e nada no código precisa saber de qual bicho se trata.
-enum class Anim {
-    PARADO, ANDANDO, CORRENDO, PULO,
-    CARINHO,
+// O `rotulo` é o que a vitrine em Configurações escreve sob cada gesto. Fica no
+// enum, e não numa tabela na tela, porque somar uma animação a um bicho novo já
+// obriga a passar por aqui — e assim é impossível declarar o gesto e esquecer o nome.
+enum class Anim(val rotulo: String) {
+    PARADO("parado"), ANDANDO("andando"), CORRENDO("correndo"), PULO("pulo"),
+    CARINHO("carinho"),
     // Segunda reação: ele se exibe. O sátiro faz florescer um anel dourado.
-    FESTA,
+    FESTA("exibição"),
     // Reação de cansaço, para quem tem uma desenhada. Sem ela, cansar é sair
     // andando — que é o que o gato faz e continua fazendo.
-    RECOLHE,
+    RECOLHE("cansaço"),
 }
 
 // A ESCADA DE CARINHO sai dos DADOS, não de um `if` por bicho.
@@ -330,7 +344,11 @@ enum class Pelagem(val rotulo: String, val rampa: IntArray) {
 // `getOrNull` de propósito: se a folha faltar (recurso removido, jar estranho), o
 // gato cai pro desenho vetorial mais abaixo em vez de derrubar a tela inteira. Pet
 // quebrado não pode ser motivo de crash de app de conversa.
-private object FolhasDoGato {
+// `internal` e não privado porque a vitrine de Configurações (`PetPalco.kt`) desenha
+// os MESMOS quadros já repintados. Deixar privado obrigaria a vitrine a decodificar e
+// repintar as folhas de novo — o mesmo trabalho e o dobro de bitmap na memória, para
+// mostrar exatamente a mesma coisa.
+internal object FolhasDoGato {
     private val cache = mutableMapOf<Pair<Bicho, Pelagem>, Map<Anim, ImageBitmap>?>()
 
     @Synchronized

@@ -213,6 +213,10 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		a.motor.DefinirSurdo(cmd.Ligado)
 		return nil
 
+	case CmdEco:
+		a.motor.DefinirCancelamentoDeEco(cmd.Ligado)
+		return nil
+
 	case CmdAparelhos:
 		// Os dois sentidos numa resposta cada. `Tipo` diz de qual é a lista — sem
 		// ele o outro lado teria de adivinhar pela ordem de chegada, e ordem não é

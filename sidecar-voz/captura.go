@@ -257,3 +257,8 @@ func PrenderNaThread() func() {
 	runtime.LockOSThread()
 	return runtime.UnlockOSThread
 }
+
+// Taxa é a amostragem que esta fonte entrega. A captura crua pede 48 kHz ao Windows
+// e é isso que ela devolve — o cancelador de eco, que é a outra fonte, trabalha em
+// outra taxa. Ver `FonteDeAudio`.
+func (c *Captura) Taxa() int { return TaxaDeAmostragem }

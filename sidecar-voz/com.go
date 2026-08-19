@@ -73,6 +73,27 @@ func (o objeto) chamar(indice int, args ...uintptr) uintptr {
 	return r
 }
 
+// consultar é o QueryInterface: pede OUTRA interface do mesmo objeto.
+//
+// Um objeto COM costuma implementar várias, e cada uma tem a própria tabela de
+// funções. O cancelador de eco é o caso vivo disto no projeto: a configuração dele
+// entra por `IPropertyStore` e o áudio sai por `IMediaObject`, no mesmo objeto.
+//
+// Quem recebe a interface nova precisa soltá-la separado — cada uma carrega a
+// própria contagem de referências.
+func (o objeto) consultar(iid *windows.GUID) (objeto, error) {
+	const consultarInterface = 0
+	var outra objeto
+	r := o.chamar(consultarInterface,
+		uintptr(unsafe.Pointer(iid)),
+		uintptr(unsafe.Pointer(&outra)),
+	)
+	if err := hr(r, "consultar interface"); err != nil {
+		return 0, err
+	}
+	return outra, nil
+}
+
 // soltar chama Release. Seguro em ponteiro nulo, porque desmontar coisa pela metade
 // é o caso normal quando algo falha no meio da abertura.
 func (o objeto) soltar() {
@@ -184,9 +205,11 @@ const (
 	colItem   = 4 // Item
 
 	// IPropertyStore (propsys.h)
-	_lojaContar = 3
-	_lojaChave  = 4
-	lojaLer     = 5 // GetValue
+	_lojaContar  = 3
+	_lojaChave   = 4
+	lojaLer      = 5 // GetValue
+	lojaEscrever = 6 // SetValue
+	_lojaFirmar  = 7 // Commit
 
 	// IAudioClient (audioclient.h)
 	acInitialize         = 3
@@ -311,6 +334,20 @@ type formatoDeOnda struct {
 	BitsPorAmos uint16
 	Extra       uint16
 }
+
+// O TAMANHO DE VERDADE DO WAVEFORMATEX SÃO 18 BYTES, e `unsafe.Sizeof` diz 20.
+//
+// O Go arredonda o struct para múltiplo do próprio alinhamento (4, por causa dos
+// campos de 32 bits); o `WAVEFORMATEX` do C é empacotado e termina no `cbSize`, sem
+// sobra. Todos os CAMPOS caem na posição certa nos dois — só o rabo difere.
+//
+// Isso passou despercebido por muito tempo porque o WASAPI lê o formato por posição
+// e nunca olha o tamanho declarado. O cancelador de eco OLHA: passar 20 fez o
+// `SetOutputType` recusar com "exceção não esperada", que não diz nada sobre
+// tamanho de struct e mandaria qualquer um procurar no lugar errado.
+//
+// Constante, e não `unsafe.Sizeof`, justamente para não voltar a mentir.
+const tamanhoDoFormatoDeOnda = 18
 
 // formatoPCM monta o formato que queremos: PCM de 16 bits, o que o Opus consome.
 func formatoPCM(taxa, canais int) formatoDeOnda {

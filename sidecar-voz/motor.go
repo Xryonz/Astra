@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -62,12 +63,57 @@ type Motor struct {
 	geracaoEntrada  atomic.Uint64
 	geracaoSaida    atomic.Uint64
 
+	// Passar o microfone pelo cancelador de eco do Windows. LIGADO por padrão: quem
+	// usa caixas de som em vez de fone devolve o áudio de todo mundo pelo próprio
+	// microfone, e essa pessoa é a última a perceber — quem sofre são os outros.
+	// Deixar desligado por padrão seria escolher o defeito.
+	cancelarEco atomic.Bool
+
+	// O CANCELADOR JÁ FOI TENTADO E NÃO PRODUZIU NESTA MÁQUINA.
+	//
+	// Separado da escolha da pessoa de propósito: `cancelarEco` é o que ela quer,
+	// isto é o que a máquina consegue. Sobrescrever a escolha dela faria o interruptor
+	// mentir — ele diria "ligado" para sempre enquanto nada acontece.
+	ecoReprovado atomic.Bool
+
+	// Fecha quando o alto-falante abre.
+	//
+	// O CANCELADOR DE ECO EXIGE UM FLUXO DE SAÍDA ATIVO, e isso não é suposição:
+	// medido. Sem saída aberta ele responde S_FALSE indefinidamente e não entrega uma
+	// amostra sequer; com ela, entrega 98% do tempo real. Faz sentido — é um
+	// cancelador de eco, e sem referência não há o que cancelar contra.
+	//
+	// Como as duas goroutines sobem juntas, sem este sinal a captura podia abrir o
+	// cancelador antes de existir saída, e ele nasceria mudo.
+	saidaPronta chan struct{}
+	avisarSaida sync.Once
+
 	// Caminho da biblioteca Opus, resolvido uma vez na abertura.
 	dllOpus string
 }
 
 func NovoMotor(faixa *webrtc.TrackLocalStaticSample, mist *Misturador, saida *Escritor, dllOpus string) *Motor {
-	return &Motor{faixa: faixa, misturador: mist, saida: saida, dllOpus: dllOpus}
+	m := &Motor{
+		faixa:       faixa,
+		misturador:  mist,
+		saida:       saida,
+		dllOpus:     dllOpus,
+		saidaPronta: make(chan struct{}),
+	}
+	m.cancelarEco.Store(true)
+	return m
+}
+
+// DefinirCancelamentoDeEco liga ou desliga o cancelador, em plena call.
+//
+// Reaproveita a geração da entrada porque o efeito é o mesmo de trocar de aparelho:
+// o laço fecha a fonte atual e abre outra. Um contador separado só para isto seria
+// duplicar mecanismo idêntico.
+func (m *Motor) DefinirCancelamentoDeEco(on bool) {
+	if m.cancelarEco.Swap(on) == on {
+		return // já estava assim; reabrir a fonte à toa cortaria o som sem motivo
+	}
+	m.geracaoEntrada.Add(1)
 }
 
 func (m *Motor) DefinirMudo(on bool) { m.mudo.Store(on) }
@@ -125,19 +171,19 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 	}
 	defer fecharCOM()
 
-	// O codificador NÃO depende do aparelho: pedimos sempre 48 kHz mono e o Windows
-	// reamostra. Por isso ele nasce fora do laço e sobrevive às trocas — recriá-lo a
-	// cada troca jogaria fora o estado que o Opus usa para emendar os quadros.
-	cod, err := NovoCodificador(TaxaDeAmostragem, CanaisDeVoz)
-	if err != nil {
-		m.reclamar("criar codificador", err)
-		return
-	}
-	defer cod.Fechar()
-
 	for ctx.Err() == nil {
 		geracao := m.geracaoEntrada.Load()
-		mic, err := AbrirCaptura(m.idEntrada())
+
+		// ESPERA A SAÍDA ABRIR antes de montar o cancelador — ele nasce mudo sem
+		// fluxo de saída ativo. Prazo curto: se a saída não abrir (máquina sem
+		// alto-falante), seguimos sem cancelador em vez de ficar sem microfone.
+		querEco := m.cancelarEco.Load() && !m.ecoReprovado.Load()
+		if querEco && !m.esperarSaida(ctx, 3*time.Second) {
+			fmt.Fprintln(os.Stderr, "alto-falante não abriu a tempo; seguindo sem cancelador de eco")
+			querEco = false
+		}
+
+		fonte, err := AbrirEntradaDeVoz(m.idEntrada(), querEco)
 		if err != nil {
 			// TENTAR DE NOVO em vez de morrer. Antes, um microfone indisponível
 			// matava a captura para o resto da call — e microfone indisponível é
@@ -148,8 +194,52 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 			}
 			continue
 		}
-		m.bombearMicrofone(ctx, mic, cod, geracao)
-		mic.Fechar()
+
+		// O CODIFICADOR NASCE COM A FONTE, e não antes dela.
+		//
+		// Ele era criado uma vez, fora do laço, quando toda fonte entregava 48 kHz.
+		// Com o cancelador de eco isso deixou de valer: ele entrega 16 kHz, e um
+		// codificador aberto na taxa errada não dá erro — produz voz acelerada ou
+		// arrastada, que soa como defeito de rede e manda procurar no lugar errado.
+		//
+		// Recriar por troca de aparelho é barato: acontece quando alguém mexe no
+		// seletor, não a cada quadro.
+		cod, err := NovoCodificador(fonte.Taxa(), CanaisDeVoz)
+		if err != nil {
+			m.reclamar("criar codificador", err)
+			fonte.Fechar()
+			return
+		}
+
+		ficouMuda := m.bombearMicrofone(ctx, fonte, cod, geracao)
+		cod.Fechar()
+		fonte.Fechar()
+
+		// CANCELADOR QUE NÃO PRODUZ É PIOR QUE CANCELADOR NENHUM: a call fica sem
+		// microfone e a pessoa só descobre quando alguém diz "não te ouço".
+		//
+		// Sala em silêncio NÃO cai aqui — o cancelador entrega amostras de silêncio,
+		// não ausência de amostras. Zero amostras por segundos é máquina em que ele
+		// não engatou, e aí a resposta certa é voz com eco em vez de voz nenhuma.
+		if ficouMuda && querEco {
+			m.ecoReprovado.Store(true)
+			m.reclamar("cancelador de eco",
+				fmt.Errorf("não entregou áudio nesta máquina; seguindo sem ele"))
+		}
+	}
+}
+
+// esperarSaida bloqueia até o alto-falante abrir, ou até o prazo acabar.
+func (m *Motor) esperarSaida(ctx context.Context, prazo time.Duration) bool {
+	t := time.NewTimer(prazo)
+	defer t.Stop()
+	select {
+	case <-m.saidaPronta:
+		return true
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return false
 	}
 }
 
@@ -165,14 +255,25 @@ func esperar(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// bombearMicrofone lê deste microfone até o contexto morrer ou a escolha de
-// aparelho mudar.
-func (m *Motor) bombearMicrofone(ctx context.Context, mic *Captura, cod *Codificador, geracao uint64) {
-	// O microfone entrega blocos de tamanho variável; o Opus exige exatamente 20ms.
+// bombearMicrofone lê desta fonte até o contexto morrer ou a escolha de aparelho
+// mudar.
+//
+// Devolve `true` quando a fonte ficou MUDA — nenhuma amostra por tempo demais. Quem
+// chama usa isso para desistir do cancelador de eco e voltar ao microfone cru.
+func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Codificador, geracao uint64) bool {
+	// O QUADRO SAI DA FONTE, e não da constante global.
+	//
+	// Vinte milissegundos são vinte milissegundos, mas quantas AMOSTRAS isso são
+	// depende da taxa: 960 na captura crua de 48 kHz, 320 no cancelador de eco de
+	// 16 kHz. Usar a constante global aqui mandaria 960 amostras ao Opus quando só
+	// existiam 320 — e o codificador aceitaria, produzindo voz arrastada.
+	porQuadro := mic.Taxa() * MilissegundosPorQuadro / 1000
+
+	// A fonte entrega blocos de tamanho variável; o Opus exige exatamente um quadro.
 	// Este acumulador é a ponte entre os dois, e é por isso que ele existe em vez de
-	// codificar direto o que o WASAPI devolveu.
-	acumulado := make([]int16, 0, AmostrasPorQuadro*4)
-	bloco := make([]int16, AmostrasPorQuadro*4)
+	// codificar direto o que chegou.
+	acumulado := make([]int16, 0, porQuadro*4)
+	bloco := make([]int16, porQuadro*4)
 	pacote := make([]byte, 4000)
 
 	// O meu próprio indicador de fala. Sai daqui e não da rede, pela razão óbvia de
@@ -187,22 +288,38 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic *Captura, cod *Codific
 		}
 	}()
 
+	// VIGIA DA FONTE MUDA.
+	//
+	// Uma fonte que abre sem erro e nunca entrega nada é o pior estado possível: a
+	// call parece funcionando e a pessoa só descobre quando alguém diz "não te ouço".
+	// Foi exatamente assim que o cancelador de eco se comportou numa máquina sem
+	// fluxo de saída ativo — S_FALSE para sempre, sem um único erro.
+	//
+	// Sala em silêncio NÃO dispara isto: microfone entrega amostras de silêncio, não
+	// ausência de amostras.
+	const paciencia = 2 * time.Second
+	ultimaAmostra := time.Now()
+
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return false
 		default:
 		}
 		if m.geracaoEntrada.Load() != geracao {
-			return
+			return false
 		}
 
 		if err := mic.Esperar(200); err != nil {
-			if err == ErrSemAudio {
-				continue
+			if err != ErrSemAudio {
+				m.reclamar("esperar pelo microfone", err)
+				return false
 			}
-			m.reclamar("esperar pelo microfone", err)
-			return
+			// Sem material agora: só o vigia decide se isso já durou demais.
+			if time.Since(ultimaAmostra) > paciencia {
+				return true
+			}
+			continue
 		}
 
 		for {
@@ -212,13 +329,20 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic *Captura, cod *Codific
 			}
 			if err != nil {
 				m.reclamar("ler microfone", err)
-				return
+				return false
 			}
 			acumulado = append(acumulado, bloco[:n]...)
+			if n > 0 {
+				ultimaAmostra = time.Now()
+			}
 		}
 
-		for len(acumulado) >= AmostrasPorQuadro {
-			quadro := acumulado[:AmostrasPorQuadro]
+		if time.Since(ultimaAmostra) > paciencia {
+			return true
+		}
+
+		for len(acumulado) >= porQuadro {
+			quadro := acumulado[:porQuadro]
 
 			// MUDO CORTA NA FONTE. Não é "codificar silêncio e mandar": é não
 			// mandar nada. Em malha, mandar silêncio codificado para N pessoas é
@@ -245,7 +369,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic *Captura, cod *Codific
 				bytes, err := cod.Codificar(quadro, pacote)
 				if err != nil {
 					m.reclamar("codificar voz", err)
-					return
+					return false
 				}
 				amostra := media.Sample{
 					Data:     pacote[:bytes],
@@ -255,11 +379,11 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic *Captura, cod *Codific
 				// otimização da faixa compartilhada se paga.
 				if err := m.faixa.WriteSample(amostra); err != nil {
 					m.reclamar("enviar voz", err)
-					return
+					return false
 				}
 			}
 
-			acumulado = acumulado[AmostrasPorQuadro:]
+			acumulado = acumulado[porQuadro:]
 		}
 
 		// Devolve a capacidade ao começo da fatia quando ela esvazia, para o
@@ -292,6 +416,12 @@ func (m *Motor) laçoDeSaida(ctx context.Context) {
 			}
 			continue
 		}
+		// AVISA A CAPTURA que já existe fluxo de saída. O cancelador de eco depende
+		// disso para engatar — sem referência, ele não produz nada. Uma vez só: o
+		// que importa é que a saída já EXISTIU, e as reaberturas por troca de
+		// aparelho são curtas demais para o cancelador notar.
+		m.avisarSaida.Do(func() { close(m.saidaPronta) })
+
 		m.bombearSaida(ctx, alto, geracao)
 		alto.Fechar()
 	}

@@ -79,6 +79,8 @@ const (
 	CmdDesconectar = "desconectar"
 	CmdMudo        = "mudo"
 	CmdSurdo       = "surdo"
+	// Liga ou desliga o cancelador de eco do Windows.
+	CmdEco = "eco"
 	// Pede a lista de microfones e saídas; a resposta vem no evento EvAparelhos.
 	CmdAparelhos = "aparelhos"
 	// Escolhe qual usar num dos sentidos.

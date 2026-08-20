@@ -307,6 +307,12 @@ folha está documentada no `enum Bicho`, em `ui/GatoDoAstra.kt`.
 | Cinzel (letreiro "Astra") | Natanael Gama ([NDISCOVER](https://github.com/NDISCOVER/Cinzel)) | SIL Open Font License 1.1 |
 | Great Vibes | Robert Leuschke | SIL Open Font License 1.1 |
 
+O texto de cada licença viaja junto do arquivo da fonte, em
+`mobile-native/desktopApp/src/main/resources/font/LICENCA-*.txt`. **Não é
+formalidade:** a SIL OFL exige que a licença acompanhe o *Font Software* sempre que
+ele for redistribuído, e o Astra é um zip público — a linha nesta tabela credita, mas
+quem cumpre a licença é o arquivo ao lado da fonte.
+
 ### Ícones
 
 [Lucide](https://lucide.dev) — ISC License.

@@ -3,7 +3,6 @@ package app.astra.desktop.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,9 +16,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import app.astra.desktop.prefs.DesktopPrefs
 import org.jetbrains.skia.Image as SkiaImage
-import org.koin.core.context.GlobalContext
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -450,20 +447,6 @@ internal object FolhasDoBoneco {
                 .use { ImageIO.read(ByteArrayInputStream(it.readBytes())) }
         }.getOrNull()
     }
-}
-
-/**
- * A receita guardada nesta máquina, ou nulo se a pessoa nunca montou um boneco.
- *
- * Nulo em vez do padrão de propósito: o padrão é o manequim cru — careca, sem roupa.
- * Desenhá-lo para quem nunca entrou no Ateliê anunciaria como retrato uma coisa que
- * ninguém escolheu.
- */
-@Composable
-fun receitaLocalDoBoneco(): ReceitaDoBoneco? {
-    val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
-    val estado by prefs.state.collectAsState()
-    return estado.boneco.takeIf { it.isNotBlank() }?.let { ReceitaDoBoneco.de(it) }
 }
 
 /**

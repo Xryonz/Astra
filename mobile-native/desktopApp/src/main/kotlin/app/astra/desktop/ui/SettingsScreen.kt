@@ -467,7 +467,7 @@ fun SettingsScreen(
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
-                        SettingsTab.ATELIE -> AtelieSection(prefState, prefs)
+                        SettingsTab.ATELIE -> AtelieSection(prefState, prefs, me, onProfileSaved)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
                             // DOIS BLOCOS porque são dois escopos. O de cima manda no
@@ -636,7 +636,11 @@ private fun SettingsPreview(
     acoesDoCartao: AcoesDoCartao? = null,
 ) {
     Column(modifier) {
-        FieldLabel("previa")
+        // "prévia" descreve o que a coluna faz em toda aba menos uma: mostrar o efeito
+        // do que se está mexendo. Na Conta ela virou retrato, e chamar retrato de
+        // prévia prometeria que mexer ali muda alguma coisa — o boneco se monta no
+        // Ateliê. Rótulo que mente sobre a função é pior que rótulo nenhum.
+        FieldLabel(if (tab == SettingsTab.ACCOUNT) "retrato" else "previa")
         // A PREVIA NAO RESPONDE AO PONTEIRO.
         //
         // Ela e feita dos componentes DE VERDADE (o mesmo ProfileCard do popup, o
@@ -649,12 +653,14 @@ private fun SettingsPreview(
         // uma regra que e desta tela.
         Box {
             when (tab) {
-                // Conta mostrava um SEGUNDO cartão de perfil, idêntico ao da aba
-                // Perfil e sem nada pra editar nele. Duas cópias da mesma imagem em
-                // duas abas vizinhas não ensinavam nada — o cartão vive na aba em
-                // que ele se edita. No lugar entra o estado da conta, que é o
-                // assunto desta aba e não tinha onde ser visto.
-                SettingsTab.ACCOUNT -> PainelDeSeguranca(me)
+                // A COLUNA DA CONTA JÁ TEVE TRÊS INQUILINOS, e o caminho explica o
+                // atual. Primeiro um segundo cartão de perfil, idêntico ao da aba
+                // Perfil — duas cópias da mesma imagem em abas vizinhas não ensinavam
+                // nada. Depois o estado da conta em quatro linhas, que ensinava, mas
+                // era uma tabela vizinha de outra tabela. Agora o retrato: as linhas
+                // desceram pro cartão da própria aba, onde elas já tinham companhia, e
+                // aqui fica a única coisa que precisa de ESPAÇO em vez de largura.
+                SettingsTab.ACCOUNT -> RetratoDaConta(me)
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
                 SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff, p.avisoDiscreto)
                 SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
@@ -2443,6 +2449,17 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     val semSenha = me?.hasPassword == false
     var trocandoSenha by remember { mutableStateOf(false) }
 
+    // O ESTADO DA CONTA DESCEU PRA CÁ, do painel que ocupava a coluna da prévia antes
+    // de o boneco tomar aquele lugar. Não foi apagado junto: e-mail conferido, sessões
+    // abertas e membro desde respondem perguntas que alguém abre ESTA aba pra
+    // responder, e o cartão de linhas que já existia é onde elas sempre pertenceram.
+    // Duas listas do mesmo assunto em duas colunas é que era o arranjo estranho.
+    var sessoes by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(me?.id) {
+        sessoes = runCatching { GlobalContext.get().get<SessionApi>().list().data?.sessions?.size }
+            .getOrNull()
+    }
+
     // Cartão dentro de cartão: as linhas moram num degrau acima do fundo da aba, e
     // é o degrau — não um traço — que diz onde o bloco começa e acaba.
     Column(
@@ -2465,6 +2482,11 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
             acao = if (semSenha) "Definir" else "Editar",
             aoAgir = { trocandoSenha = true },
         )
+        LinhaDaConta("Verificação", if (me?.emailVerifiedAt != null) "e-mail conferido" else "e-mail não conferido")
+        // Reticências enquanto a contagem não chega, e não "0": um zero aqui afirmaria
+        // que não há sessão aberta, o que nunca é verdade — você está numa agora.
+        LinhaDaConta("Sessões", sessoes?.let { if (it == 1) "1 aberta" else "$it abertas" } ?: "…")
+        LinhaDaConta("Membro desde", mesEAno(me?.createdAt))
     }
 
     if (semSenha) {
@@ -2973,49 +2995,50 @@ private fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = nu
     }
 }
 
-// O ESTADO DA CONTA EM QUATRO LINHAS. Substitui o cartão de perfil que ocupava
-// esta coluna sem ter o que ensinar.
+// O RETRATO — o boneco na coluna que era do cartão de perfil e depois do painel de
+// segurança. Pedido do dono, e ele acerta uma coisa: a aba Conta trata de QUEM VOCÊ É
+// no Astra, e um retrato diz isso melhor que uma tabela.
 //
-// Quatro e não oito de propósito: o pedido era MENOS o que ler. Cada linha
-// responde uma pergunta que alguém abre esta aba pra responder, e nenhuma delas
-// precisa de frase — rótulo à esquerda, resposta à direita.
+// Placa, e não só a figura solta: o degrau de superfície mais o nome embaixo fazem o
+// boneco ler como peça exposta em vez de sprite esquecido no canto. Escala 6 é a maior
+// que cabe na largura da coluna sem encostar nas bordas.
 //
-// "Entrou com Google" ficou de fora porque o perfil não devolve essa informação
-// (`ProfileUserDto` traz `hasPassword`, não `googleId`), e deduzir a partir da
-// ausência de senha erraria em quem tem os dois. Linha que às vezes mente é pior
-// que linha que não existe.
+// Quem nunca entrou no Ateliê vê o manequim apagado e uma linha dizendo onde montar o
+// seu. Coluna vazia anunciando "prévia" era pior que qualquer conteúdo.
 @Composable
-private fun PainelDeSeguranca(me: ProfileUserDto?) {
-    var sessoes by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(me?.id) {
-        sessoes = runCatching { GlobalContext.get().get<SessionApi>().list().data?.sessions?.size }
-            .getOrNull()
-    }
+private fun RetratoDaConta(me: ProfileUserDto?) {
+    val receita = me?.boneco?.takeIf { it.isNotBlank() }?.let { ReceitaDoBoneco.de(it) }
     Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        LinhaDeSeguranca("senha", if (me?.hasPassword != false) "definida" else "não definida")
-        LinhaDeSeguranca("e-mail", if (me?.emailVerifiedAt != null) "conferido" else "não conferido")
-        // Enquanto a contagem não chega, a linha mostra reticências em vez de "0":
-        // um zero aqui afirmaria que não há sessão aberta, o que nunca é verdade —
-        // você está numa agora.
-        LinhaDeSeguranca("sessões", sessoes?.let { if (it == 1) "1 aberta" else "$it abertas" } ?: "…")
-        LinhaDeSeguranca("membro desde", mesEAno(me?.createdAt), ultima = true)
+        Box(
+            // O manequim de quem ainda não montou o seu entra APAGADO, e a opacidade é
+            // a mensagem: "isto é o que existe por enquanto", não "este é você".
+            Modifier.graphicsLayer { alpha = if (receita != null) 1f else 0.35f },
+        ) {
+            Boneco(receita ?: ReceitaDoBoneco.PADRAO, escala = 6)
+        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            me?.displayName ?: me?.username ?: "—",
+            style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (receita == null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "monte o seu em Ateliê",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+        }
     }
-}
-
-@Composable
-private fun LinhaDeSeguranca(rotulo: String, valor: String, ultima: Boolean = false) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(rotulo, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.weight(1f))
-        Text(valor, style = TextStyle(color = Obsidian.text1, fontSize = 12.sp, fontFamily = DmMono))
-    }
-    if (!ultima) Spacer(Modifier.height(9.dp))
 }
 
 private fun mesEAno(iso: String?): String {
@@ -4268,9 +4291,39 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 // Por isso as miniaturas de FORMA desenham o boneco inteiro com aquela peça, e não a
 // peça solta: um cabelo fora da cabeça não se reconhece como cabelo.
 @Composable
-private fun AtelieSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+private fun AtelieSection(
+    p: DesktopPrefs.Prefs,
+    prefs: DesktopPrefs,
+    me: ProfileUserDto?,
+    onProfileSaved: () -> Unit,
+) {
+    // O SERVIDOR MANDA AO ENTRAR. As preferências são um CACHE local: existem para o
+    // boneco aparecer no instante em que o app abre, antes de o perfil chegar pela
+    // rede. Quando o perfil chega e discorda, quem está certo é ele — é o que os
+    // outros veem.
+    LaunchedEffect(me?.boneco) {
+        val doServidor = me?.boneco.orEmpty()
+        if (doServidor.isNotBlank() && doServidor != p.boneco) prefs.setBoneco(doServidor)
+    }
+
     val receita = ReceitaDoBoneco.de(p.boneco)
     val trocar: (ReceitaDoBoneco) -> Unit = { prefs.setBoneco(it.texto()) }
+
+    // SALVA SOZINHO, COM FREIO. Não há botão "salvar" aqui de propósito: cada amostra
+    // clicada JÁ é a escolha, e o palco ao lado já mostra o resultado — um botão só
+    // acrescentaria um jeito de perder o trabalho ao sair da aba.
+    //
+    // O freio existe porque quem está experimentando cor clica vinte vezes em dez
+    // segundos, e vinte PATCH seria maltratar o servidor por uma decisão que ainda nem
+    // foi tomada. Como a chave do efeito é a própria receita, cada clique CANCELA a
+    // espera anterior: a rajada inteira vira um pedido só, o último.
+    val koin = remember { GlobalContext.get() }
+    LaunchedEffect(p.boneco) {
+        if (p.boneco.isBlank() || p.boneco == me?.boneco) return@LaunchedEffect
+        delay(900)
+        runCatching { koin.get<UserApi>().updateProfile(UpdateProfileRequest(boneco = p.boneco)) }
+            .onSuccess { onProfileSaved() }
+    }
 
     TituloExplicavel(
         "Seu boneco",
@@ -4363,8 +4416,9 @@ private fun AtelieSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     Spacer(Modifier.height(20.dp))
     Text(
-        "O boneco aparece no seu cartão de perfil. A foto continua sendo o seu rosto " +
-            "nas listas e nas conversas — as duas coisas convivem.",
+        "O boneco aparece no seu cartão de perfil, e as escolhas se salvam sozinhas. " +
+            "A foto continua sendo o seu rosto nas listas e nas conversas — as duas " +
+            "coisas convivem.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )

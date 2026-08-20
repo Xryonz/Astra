@@ -131,6 +131,10 @@ data class DadosDoCartao(
     val fonte: String? = null,
     val status: String? = null,
     val criadoEm: String? = null,
+    // A receita do boneco de QUEM O CARTAO MOSTRA. Vem do perfil como qualquer outro
+    // campo — o cartao nunca lê as preferencias desta maquina pra isto, senao
+    // desenharia o MEU boneco no perfil dos outros.
+    val boneco: String? = null,
     // "O que está usando agora". Não vem do perfil (que é o que a pessoa escreveu
     // sobre si) e sim da presença — por isso entra por fora, preenchido por quem
     // abre o cartão, e some sozinho quando ela para de mostrar.
@@ -156,6 +160,7 @@ fun ProfileUserDto.paraCartao() = DadosDoCartao(
     fonte = displayFont,
     status = effectiveStatus,
     criadoEm = createdAt,
+    boneco = boneco,
 )
 
 @Composable
@@ -529,11 +534,10 @@ private fun CorpoCompleto(
     // O BONECO, logo abaixo do nome: ele é retrato, e retrato fica onde a identidade
     // está, não no rodapé junto dos metadados.
     //
-    // POR ORA SÓ NO PRÓPRIO CARTÃO, e isso é honestidade, não limitação escondida: a
-    // receita ainda mora nas preferências desta máquina. Quando ela subir para o perfil
-    // no servidor — mesma string, mesmo formato — a condição abaixo cai e o boneco de
-    // qualquer pessoa aparece. Desenhar o MEU boneco no cartão dos outros seria mentira.
-    val receita = if (dados.username == LocalMinhaConta.current.usuario) receitaLocalDoBoneco() else null
+    // A receita vem NO CARTÃO, com o resto do perfil. Ela morou nas preferências desta
+    // máquina por uma fatia, e ali só dava pra desenhar o próprio — agora que subiu
+    // para o servidor, o boneco de qualquer pessoa aparece no cartão dela.
+    val receita = dados.boneco?.takeIf { it.isNotBlank() }?.let { ReceitaDoBoneco.de(it) }
     if (receita != null) {
         Spacer(Modifier.height(14.dp))
         cascata(3) {

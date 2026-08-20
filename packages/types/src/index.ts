@@ -60,6 +60,12 @@ export const UpdateProfileSchema = z.object({
   dmPrivacy:       z.enum(['all', 'shared', 'friends']).optional(),
   statusEmoji:     z.string().max(8, 'Apenas 1 emoji').optional().nullable(),
   displayFont:     z.enum(DISPLAY_FONTS).optional(),
+  // A RECEITA do boneco, validada por FORMA e não por conteúdo: números separados por
+  // ponto. O servidor não conhece o catálogo de peças — quem conhece é o cliente, que
+  // ganha peça nova a cada versão — então validar "cabelo 4 existe?" aqui daria um
+  // servidor que precisa subir junto de cada desenho novo. O que ele garante é que
+  // ninguém enfie texto arbitrário numa coluna que volta pra tela de todo mundo.
+  boneco:          z.string().regex(/^\d{1,3}(\.\d{1,3}){0,15}$/, 'Receita inválida').optional().nullable(),
 })
 
 export const ProfileNoteSchema = z.object({
@@ -204,6 +210,8 @@ export interface UserPublic {
   pronouns?:        string | null
   statusEmoji?:     string | null
   displayFont?:     DisplayFont
+  /** Receita do boneco do perfil. Nulo = a pessoa nunca montou um. */
+  boneco?:          string | null
 
   hasPassword?: boolean
 

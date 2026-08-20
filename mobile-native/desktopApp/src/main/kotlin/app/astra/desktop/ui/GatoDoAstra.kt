@@ -242,9 +242,16 @@ enum class Bicho(
             // 2) CONJURA — um anel dourado floresce sob os pés e se desfaz em
             //    faíscas. É ele se exibindo depois de já ter reagido uma vez.
             Anim.FESTA to Passo("satiro.png", 3, 7, 11, 0f),
-            // 3) RECOLHE-SE — senta e se fecha. Cansou de tanto cutucão, e cansa no
-            //    lugar em vez de sair andando como o gato.
-            Anim.RECOLHE to Passo("satiro.png", 5, 6, 7, 0f),
+            // NÃO EXISTE TERCEIRA. A fileira 5 estava declarada aqui como cansaço,
+            // descrita como "senta e se fecha" — e não é isso. Ampliada e comparada
+            // lado a lado com a fileira 0, ela é OUTRO REPOUSO: mesma pose de pé,
+            // diferença de um ou dois pixels no braço. O terceiro cutucão mandava o
+            // sátiro tocar uma animação que ninguém enxergava, e o efeito era ele
+            // parecer que tinha parado de responder.
+            //
+            // A folha inteira não tem pose de sentar: o resto é combate, conjuração e
+            // a dissolução da morte, que não serve para um bicho de estimação. Sem
+            // cansaço desenhado, ele cansa como o gato — vai embora andando.
         ),
     ),
 
@@ -465,6 +472,10 @@ fun GatoDoAstra(
         if (piso.width <= larguraPx) return@LaunchedEffect
         if (x < 0f) x = piso.center.x
         x = x.coerceIn(limiteEsq, limiteDir)
+        // O ALVO TAMBÉM PRECISA CABER NA PRATELEIRA NOVA. Ele foi sorteado dentro dos
+        // limites de ANTES; se a prateleira encolheu, continuar mirando nele faz o
+        // bicho caminhar para fora dela e ficar meio corpo no vazio.
+        alvoX = alvoX.coerceIn(limiteEsq, limiteDir)
         while (true) {
             val inicio = System.nanoTime()
             val dt = 1f / FPS
@@ -477,7 +488,6 @@ fun GatoDoAstra(
                     espera -= dt
                     if (espera <= 0f) {
                         alvoX = limiteEsq + Random.nextFloat() * (limiteDir - limiteEsq)
-                        olhandoPraDireita = alvoX > x
                         // Correr é raro e só pra longe. Um gato que corre sempre vira
                         // ansiedade na tela; um que corre de vez em quando vira graça.
                         val longe = abs(alvoX - x) > (limiteDir - limiteEsq) * 0.55f
@@ -498,6 +508,15 @@ fun GatoDoAstra(
                         // parte do tempo parado vira presença.
                         espera = 4f + Random.nextFloat() * 9f
                     } else {
+                        // O RUMO SAI DO PASSO QUE ESTÁ SENDO DADO, e é a única linha
+                        // que o define. Antes ele era decidido junto com o alvo, lá
+                        // atrás, e as duas coisas podiam discordar: basta a prateleira
+                        // mudar de tamanho no meio do caminho (troca de canal, janela
+                        // redimensionada) para `x` ser trazido de volta pra dentro dos
+                        // limites e passar do alvo — daí em diante o bicho andava pra
+                        // um lado olhando pro outro. Derivar do passo torna a
+                        // discordância impossível: o rumo É o movimento.
+                        olhandoPraDireita = dx > 0f
                         x += if (dx > 0f) v else -v
                     }
                 }
@@ -587,15 +606,16 @@ fun GatoDoAstra(
 
                         val recolhe = bicho.passos[Anim.RECOLHE]
                         if (recolhe != null) {
-                            // Quem tem cansaço DESENHADO cansa no lugar: o sátiro se
-                            // recolhe e senta. Mandá-lo sair andando desperdiçaria a
-                            // animação e ainda contaria a mesma história pior.
+                            // Quem tem cansaço DESENHADO cansa no lugar. Hoje ninguém
+                            // tem — ver a nota em `Anim.RECOLHE`.
                             anim = Anim.RECOLHE
                         } else {
                             // Sem animação de cansaço, cansar é ir embora — sai
-                            // andando para o lado oposto, que é o que o gato faz.
+                            // andando para o lado oposto. É a reação mais legível que
+                            // existe, porque o que se lê não é a pose e sim o
+                            // DESLOCAMENTO: o bicho some do lugar onde estava sendo
+                            // cutucado.
                             alvoX = if (x < piso.center.x) limiteDir else limiteEsq
-                            olhandoPraDireita = alvoX > x
                             anim = Anim.ANDANDO
                         }
                     } else {

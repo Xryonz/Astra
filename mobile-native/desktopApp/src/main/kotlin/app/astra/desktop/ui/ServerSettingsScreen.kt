@@ -219,8 +219,15 @@ fun ServerSettingsScreen(
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                ServerTab.entries.forEach { t ->
-                    ServerNavRow(t, active = t == tab, onClick = { if (t.ready) tab = t })
+                // A lista tem espaçamento PRÓPRIO, maior que o da coluna. O `spacedBy`
+                // de fora rege o nome da constelação e a legenda abaixo dele, onde 4dp
+                // é o certo — duas linhas do mesmo bloco. Entre abas, 4dp encostava as
+                // bordas de cartões vizinhos e a lista lia como grade; 10dp devolve a
+                // cada aba um contorno seu. Mesmo valor do menu da conta.
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ServerTab.entries.forEach { t ->
+                        ServerNavRow(t, active = t == tab, onClick = { if (t.ready) tab = t })
+                    }
                 }
             }
 

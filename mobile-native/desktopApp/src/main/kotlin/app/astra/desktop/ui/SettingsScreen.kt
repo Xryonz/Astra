@@ -373,9 +373,15 @@ fun SettingsScreen(
                 // que sobra do título, e o `verticalScroll` transforma o excesso em
                 // rolagem em vez de compressão. Assim caber deixa de ser problema de
                 // layout e vira problema do dedo, que é onde ele deve estar.
+                // O RESPIRO ENTRE AS ABAS É O QUE AS SEPARA, já que cada uma é um
+                // cartão com borda própria. Com 4dp as bordas de duas abas vizinhas
+                // quase se encostavam e a lista lia como uma grade contínua — catorze
+                // células empilhadas, não catorze destinos. 10dp devolve a cada aba um
+                // contorno seu, e é o mesmo raciocínio que tirou os traços de dentro
+                // das abas: quem separa é o espaço.
                 Column(
                     Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     abas.forEach { t ->
                         NavRow(t.icon, t.label, t.sub, active = t == tabAtiva) { tab = t }
@@ -2404,6 +2410,19 @@ private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
     }
 }
 
+// A ABA CONTA NÃO TEM CAMPO NENHUM À MOSTRA. Dado é dado; formulário só aparece
+// quando alguém pediu para mudar alguma coisa.
+//
+// A diferença não é de gosto. Três campos de senha abertos numa aba que a pessoa
+// abriu para CONFERIR o e-mail transformam a leitura em formulário: o olho procura
+// o que preencher, e a aba passa a parecer pendente mesmo quando não há nada a
+// fazer. Guardá-los atrás de "Editar" devolve à aba a função que ela tem — mostrar
+// o estado da conta — e dá ao formulário um começo e um fim claros.
+//
+// SÓ A SENHA TEM BOTÃO, e isso é uma limitação real, não um esquecimento: a API
+// tem rota para trocar senha (`/api/auth/password`) e NÃO tem para trocar nome de
+// usuário ou e-mail. Botão que abre um formulário sem para onde enviar é pior que
+// linha sem botão — promete e falha depois do trabalho de preencher.
 @Composable
 private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     // Em transmissão o e-mail vira máscara. É a única coisa desta aba que não é
@@ -2411,30 +2430,95 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     // porque a linha some do lugar e a aba muda de forma na frente de todo mundo —
     // e ainda dá pra conferir que é a conta certa pelo começo.
     val emTransmissao by ModoTransmissao.ativo.collectAsState()
-    ReadRow(Lucide.Mail, me?.email?.let { if (emTransmissao) mascarar(it) else it } ?: "—")
-    Spacer(Modifier.height(8.dp))
-    ReadRow(Lucide.User, me?.let { "@${it.username}" } ?: "—")
-    Spacer(Modifier.height(22.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        LIcon(Lucide.Key, tint = Obsidian.text2, size = 16.dp)
-        Spacer(Modifier.width(9.dp))
-        Text(
-            if (me?.hasPassword == false) "definir senha" else "trocar senha",
-            style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
+    val semSenha = me?.hasPassword == false
+    var trocandoSenha by remember { mutableStateOf(false) }
+
+    // Cartão dentro de cartão: as linhas moram num degrau acima do fundo da aba, e
+    // é o degrau — não um traço — que diz onde o bloco começa e acaba.
+    Column(
+        Modifier
+            .widthIn(max = 560.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(vertical = 4.dp),
+    ) {
+        LinhaDaConta("Nome de usuário", me?.let { "@${it.username}" } ?: "—")
+        LinhaDaConta("E-mail", me?.email?.let { if (emTransmissao) mascarar(it) else it } ?: "—")
+        LinhaDaConta(
+            rotulo = "Senha",
+            valor = if (semSenha) "não definida" else "••••••••",
+            // "Definir" e não "Editar" para quem entrou pelo Google: não há o que
+            // editar, e o verbo certo já explica por que o campo de senha atual não
+            // vai aparecer no diálogo.
+            acao = if (semSenha) "Definir" else "Editar",
+            aoAgir = { trocandoSenha = true },
         )
     }
-    Spacer(Modifier.height(4.dp))
-    if (me?.hasPassword == false) {
+
+    if (semSenha) {
+        Spacer(Modifier.height(10.dp))
         Text(
-            "conta google sem senha — defina uma para entrar por email também.",
+            "Conta Google sem senha. Defina uma para entrar também por e-mail.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         )
     }
-    Spacer(Modifier.height(12.dp))
-    PasswordForm(hasPassword = me?.hasPassword != false)
+
+    if (trocandoSenha) {
+        DialogoDeSenha(hasPassword = !semSenha, onClose = { trocandoSenha = false })
+    }
 
     SettingsDivider()
     ApagarConta(me, aoSairDaConta)
+}
+
+// Uma linha de "Informações da conta": rótulo à esquerda, valor à direita, e o
+// botão só onde existe ação.
+//
+// O valor fica colado no botão, e não espalhado pela largura, porque é ele que o
+// botão governa — separados pelas duas pontas da linha, viram duas colunas sem
+// relação e o olho precisa costurar as duas de volta.
+@Composable
+private fun LinhaDaConta(
+    rotulo: String,
+    valor: String,
+    acao: String? = null,
+    aoAgir: () -> Unit = {},
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            rotulo,
+            style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            valor,
+            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 240.dp),
+        )
+        if (acao != null) {
+            Spacer(Modifier.width(12.dp))
+            val toque = remember { MutableInteractionSource() }
+            val sobre by toque.collectIsHoveredAsState()
+            Box(
+                Modifier
+                    .clickScale(toque)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (sobre) Obsidian.hover else Obsidian.overlay)
+                    .hoverable(toque)
+                    .clickable(interactionSource = toque, indication = null, onClick = aoAgir)
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
+            ) {
+                Text(acao, style = TextStyle(color = Obsidian.text1, fontSize = 12.sp))
+            }
+        }
+    }
 }
 
 // APAGAR CONTA. Fica no fim da aba, e isso é layout com opinião: é a última coisa
@@ -2972,66 +3056,165 @@ private fun BotaoDePerigo(label: String, icone: ImageVector, onClick: () -> Unit
 }
 
 @Composable
-private fun PasswordForm(hasPassword: Boolean) {
+private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
     val koin = GlobalContext.get()
     val scope = rememberCoroutineScope()
     var current by remember { mutableStateOf("") }
     var next by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) } // texto + ok?
+    var erro by remember { mutableStateOf<String?>(null) }
 
-    if (hasPassword) {
-        PasswordField("senha atual", current) { current = it; msg = null }
-        Spacer(Modifier.height(8.dp))
+    val podeSalvar = !busy && next.length >= 8 && next == confirm && (!hasPassword || current.isNotBlank())
+
+    fun salvar() {
+        if (!podeSalvar) return
+        busy = true
+        erro = null
+        scope.launch {
+            val r = runCatching {
+                val api = koin.get<UserApi>()
+                if (hasPassword) api.changePassword(ChangePasswordRequest(current, next))
+                else api.setPassword(SetPasswordRequest(next))
+            }
+            busy = false
+            // FECHA NO SUCESSO em vez de dizer "senha atualizada" e ficar aberto. O
+            // diálogo existe por causa de uma tarefa; terminada a tarefa, ele não tem
+            // mais o que fazer na tela, e a linha atrás dele já conta o resultado.
+            if (r.isSuccess) onClose()
+            else erro = if (hasPassword) "Não deu. Confira a senha atual." else "Não deu. Tente de novo."
+        }
     }
-    PasswordField("nova senha", next) { next = it; msg = null }
-    Spacer(Modifier.height(8.dp))
-    PasswordField("confirmar nova senha", confirm) { confirm = it; msg = null }
-    Spacer(Modifier.height(12.dp))
 
-    msg?.let { (text, ok) ->
-        Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
-        Spacer(Modifier.height(8.dp))
-    }
+    Popup(
+        popupPositionProvider = OverlayCenter,
+        onDismissRequest = onClose,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Obsidian.void.copy(alpha = 0.72f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onClose() }
+                .semCursorDeClique(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier
+                    .width(400.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Obsidian.raised)
+                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
+                    // Clique no cartão NÃO fecha (só o escurecido atrás fecha).
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {}
+                    .padding(20.dp),
+            ) {
+                Text(
+                    if (hasPassword) "Mudança de senha" else "Definir senha",
+                    style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (hasPassword) "Informe a senha atual e escolha a nova."
+                    else "Escolha uma senha para entrar também por e-mail.",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                )
+                Spacer(Modifier.height(18.dp))
 
-    val canSave = !busy && next.length >= 8 && next == confirm && (!hasPassword || current.isNotBlank())
-    val corSalvar = if (canSave) Obsidian.accent else Obsidian.text3
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, if (canSave) Obsidian.accentDim else Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .clickable(enabled = canSave) {
-                busy = true
-                msg = null
-                scope.launch {
-                    val result = runCatching {
-                        val api = koin.get<UserApi>()
-                        if (hasPassword) api.changePassword(ChangePasswordRequest(current, next))
-                        else api.setPassword(SetPasswordRequest(next))
-                    }
-                    busy = false
-                    if (result.isSuccess) {
-                        current = ""; next = ""; confirm = ""
-                        msg = "senha atualizada" to true
-                    } else {
-                        msg = "não deu — confira a senha atual" to false
-                    }
+                if (hasPassword) {
+                    CampoDoDialogo("Senha atual")
+                    PasswordField("senha atual", current) { current = it; erro = null }
+                    Spacer(Modifier.height(14.dp))
+                }
+                CampoDoDialogo("Nova senha")
+                PasswordField("nova senha", next) { next = it; erro = null }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Ao menos 8 caracteres.",
+                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                )
+                Spacer(Modifier.height(14.dp))
+                CampoDoDialogo("Confirmar nova senha")
+                PasswordField("confirmar nova senha", confirm) { confirm = it; erro = null }
+
+                // O DESENCONTRO É AVISADO ENQUANTO SE DIGITA, e não ao salvar: o
+                // botão fica desligado por causa dele, e botão desligado sem motivo
+                // à vista é a forma mais rápida de alguém achar que a tela travou.
+                if (confirm.isNotEmpty() && confirm != next) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "As duas não são iguais.",
+                        style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
+                    )
+                }
+                erro?.let {
+                    Spacer(Modifier.height(10.dp))
+                    Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BotaoDoDialogo("Cancelar", primario = false, ligado = !busy, onClick = onClose)
+                    Spacer(Modifier.width(10.dp))
+                    BotaoDoDialogo(
+                        if (busy) "Salvando…" else "Pronto",
+                        primario = true,
+                        ligado = podeSalvar,
+                        onClick = { salvar() },
+                    )
                 }
             }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LIcon(Lucide.Check, tint = corSalvar, size = 14.dp)
-        Spacer(Modifier.width(7.dp))
-        Text(
-            if (busy) "salvando…" else "salvar",
-            style = TextStyle(color = corSalvar, fontSize = 13.sp),
-        )
+        }
     }
-    if (next.isNotEmpty() && next.length < 8) {
-        Spacer(Modifier.height(6.dp))
-        Text("mínimo 8 caracteres", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+}
+
+// Rótulo de campo do diálogo. Não usa `FieldLabel` (caixa alta, 10sp, espaçado)
+// porque aquele é o rótulo de SEÇÃO das abas — dentro de um diálogo de quatro
+// linhas ele grita mais que o título.
+@Composable
+private fun CampoDoDialogo(texto: String) {
+    Text(
+        texto,
+        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        modifier = Modifier.padding(bottom = 6.dp),
+    )
+}
+
+@Composable
+private fun BotaoDoDialogo(rotulo: String, primario: Boolean, ligado: Boolean, onClick: () -> Unit) {
+    val toque = remember { MutableInteractionSource() }
+    val sobre by toque.collectIsHoveredAsState()
+    val fundo = when {
+        primario && ligado -> if (sobre) Obsidian.accent else Obsidian.accentDim
+        primario -> Obsidian.overlay
+        sobre -> Obsidian.hover
+        else -> Obsidian.overlay
+    }
+    val cor = when {
+        primario && ligado -> Obsidian.void
+        ligado -> Obsidian.text1
+        else -> Obsidian.text3
+    }
+    Box(
+        Modifier
+            .clickScale(toque)
+            .clip(RoundedCornerShape(8.dp))
+            .background(fundo)
+            .hoverable(toque, enabled = ligado)
+            .clickable(enabled = ligado, interactionSource = toque, indication = null, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 9.dp),
+    ) {
+        Text(rotulo, style = TextStyle(color = cor, fontSize = 13.sp))
     }
 }
 
@@ -3069,16 +3252,6 @@ private fun PasswordField(placeholder: String, value: String, onChange: (String)
 private fun ReadRow(label: String, value: String) {
     Row(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.width(80.dp))
-        Text(value, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
-    }
-}
-
-// Variante com ícone Lucide no lugar do rotulo (Conta: envelope no email, pessoa no usuário).
-@Composable
-private fun ReadRow(icon: ImageVector, value: String) {
-    Row(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        LIcon(icon, tint = Obsidian.text3, size = 16.dp)
-        Spacer(Modifier.width(12.dp))
         Text(value, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
     }
 }
@@ -4271,22 +4444,23 @@ private fun aplicarFundo(prefs: DesktopPrefs, f: FundoPref) {
     prefs.setStarsEnabled(f == FundoPref.ESTRELAS || f == FundoPref.AMBOS)
 }
 
-// Quebra entre grupos de configuração.
+// Quebra entre grupos de configuração — SÓ RESPIRO, sem traço nenhum.
 //
-// Traço CURTO e centralizado, e não mais de borda a borda. Linha inteira lê como
-// linha de tabela: o olho passa a ver uma grade e conta as células em vez de ler
-// o conteúdo. Curta, ela lê como quebra de capítulo — que é o que ela é.
+// O traço já encolheu uma vez: era de borda a borda, virou curto e centralizado
+// para deixar de ler como linha de tabela. Curto ele parou de fazer mal, mas
+// também parou de fazer bem — vinte e nove deles espalhados pelas abas viravam uma
+// pontilhação vertical que o olho conta ao descer a página. Quem separava de
+// verdade já era o espaço.
 //
-// O respiro também cresceu (12/20 no lugar de 8/16): com o traço menor, quem
-// separa de verdade passa a ser o espaço, e espaço curto demais faz o traço
-// parecer enfeite solto no meio do nada.
+// Traço continua existindo onde ele carrega informação: na barra lateral, onde
+// marca a fronteira entre grupos de destino diferente (`DivisoriaDaRail`). Ali há
+// o que separar. Dentro de uma aba, os títulos já dizem onde um assunto acaba.
+//
+// Continua sendo uma função, e não um `Spacer` solto nas 29 chamadas, porque o
+// ritmo vertical das abas é uma decisão só e precisa continuar tendo um lugar.
 @Composable
 internal fun SettingsDivider() {
-    Spacer(Modifier.height(12.dp))
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Box(Modifier.width(28.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
-    }
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(32.dp))
 }
 
 @Composable

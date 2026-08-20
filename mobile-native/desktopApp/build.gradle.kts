@@ -8,6 +8,13 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.compose)   // compiler Compose (ship junto do Kotlin)
     alias(libs.plugins.jetbrains.compose) // Compose Multiplatform (compose.desktop)
+    // OBRIGATORIO, e a falta dele nao aparece no build: `@Serializable` sozinho e so
+    // uma anotacao. Quem escreve o serializador e ESTE plugin, em tempo de
+    // compilacao. Sem ele o codigo compila igual e quebra na primeira linha de JSON,
+    // ja rodando -- foi o que deixou a call presa em "conectando" (o `pronto` do
+    // processo de voz chegava e nao decodificava) e as notificacoes sem remetente
+    // (o payload virava um objeto vazio). Dois sintomas sem nada em comum, uma causa.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -68,7 +75,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.88"
+val astraVersion = "0.2.89"
 
 dependencies {
     implementation(project(":shared"))

@@ -791,9 +791,33 @@ fun ShellScreen(
         }
         }
 
+        // O GATO. Fica ACIMA da conversa e ABAIXO de tudo que cobre a tela — telas
+        // cheias e o card da call. Essa ordem é o recurso, não detalhe de arrumação.
+        //
+        // Ele já morou na última camada, por cima de tudo. O efeito era o bicho
+        // andando no ar sobre as configurações. Consertar zerando o chão quando o
+        // rodapé saía criou o defeito seguinte: o gato PISCAVA a cada ida e volta,
+        // porque nascia e morria junto da navegação.
+        //
+        // Cobrir resolve os dois: ele nunca sai de cena, então não pisca; e quem vem
+        // depois desenha por cima, então ele não aparece onde não deve.
+        //
+        // POR ISSO ELE É O PRIMEIRO DAS CAMADAS DE CIMA, e não o último. Ele estava
+        // entre as duas telas de configuração — depois da constelação e antes da
+        // conta —, então cobria uma e era coberto pela outra. O mesmo bicho, com o
+        // mesmo código, aparecia por cima em Configurações da Constelação e
+        // corretamente escondido em Configurações da Conta. Ordem de irmãos num
+        // `Box` é z-order, e uma camada no meio da pilha só está certa por acidente.
+        GatoDoAstra(
+            ligado = prefs.state.value.petLigado,
+            bichoId = prefs.state.value.petBicho,
+            pelagem = prefs.state.value.petPelagem,
+            nome = prefs.state.value.petNome,
+        )
+
         // Card flutuante da call: so quando você esta conectado E saiu da sala no
-        // palco. Fica por cima de tudo (inclusive das configurações) — e o único
-        // lugar com o botao de desligar depois que navegar deixou de desconectar.
+        // palco. Fica por cima do palco e do bicho — e o único lugar com o botao de
+        // desligar depois que navegar deixou de desconectar.
         val joined = voice.joined
         val callAtiva = voice.call
         if (joined != null && callAtiva != null && state.voiceChannel?.id != joined.id) {
@@ -845,24 +869,6 @@ fun ShellScreen(
                 )
             }
         }
-
-        // O GATO. Fica ACIMA da conversa e ABAIXO das telas cheias (configurações,
-        // paleta, busca) — e essa ordem é o recurso, não detalhe de arrumação.
-        //
-        // Ele já morou na última camada, por cima de tudo. O efeito era o bicho
-        // andando no ar sobre as configurações. Consertar zerando o chão quando o
-        // rodapé saía criou o defeito seguinte: o gato PISCAVA a cada ida e volta,
-        // porque nascia e morria junto da navegação.
-        //
-        // Aqui os dois somem de uma vez: ele nunca sai de cena, então não pisca; e
-        // as telas cheias desenham por cima dele, então não aparece onde não deve.
-        // Cobrir é mais barato e mais estável que criar e destruir.
-        GatoDoAstra(
-            ligado = prefs.state.value.petLigado,
-            bichoId = prefs.state.value.petBicho,
-            pelagem = prefs.state.value.petPelagem,
-            nome = prefs.state.value.petNome,
-        )
 
         // Settings em takeover (Discord): a MESMA aurora do shell segue viva por baixo
         // (o conteudo acima esconde-se no crossfade). Entra/sai com fade + leve zoom.

@@ -55,12 +55,12 @@ import (
 )
 
 var (
-	mfplat            = windows.NewLazySystemDLL("mfplat.dll")
-	procMFStartup     = mfplat.NewProc("MFStartup")
-	procMFShutdown    = mfplat.NewProc("MFShutdown")
-	procMFTEnumEx     = mfplat.NewProc("MFTEnumEx")
-	procMFCriarTipo   = mfplat.NewProc("MFCreateMediaType")
-	_procMFCriarAmost = mfplat.NewProc("MFCreateSample")
+	mfplat             = windows.NewLazySystemDLL("mfplat.dll")
+	procMFStartup      = mfplat.NewProc("MFStartup")
+	procMFShutdown     = mfplat.NewProc("MFShutdown")
+	procMFTEnumEx      = mfplat.NewProc("MFTEnumEx")
+	procMFCriarTipo    = mfplat.NewProc("MFCreateMediaType")
+	procMFCriarAmostra = mfplat.NewProc("MFCreateSample")
 )
 
 var (

@@ -32,24 +32,38 @@ package main
 //	Intel Quick Sync (x2)   entrada 1080p com saída 720p: "tipo de mídia inválido"
 //	Microsoft AVC DX12      recusa a própria saída em 1280x720
 //
-// MEDIDO com ele no meio, nesta máquina — e o que se mede é o CUSTO POR QUADRO, não a
-// taxa de quadros:
+// O QUE ESTE CANO CUSTA, medido três vezes nesta máquina para não confundir ruído com
+// resultado — o que já aconteceu duas vezes aqui:
 //
-//	1080p nativo    7,43ms por quadro   2385 kbps
-//	720p reduzido   7,64ms por quadro   1894 kbps
+//	                 custo por quadro        banda        processador
+//	1080p nativo     7,36 / 6,13 / 7,19ms    2679 kbps    0,06 a 0,12 núcleos
+//	720p reduzido    6,78 / 7,64 / 6,74ms    1691 kbps    0,08 a 0,11 núcleos
 //
-//	orçamento a 60 por segundo: 16,67ms  ->  55% de folga
+//	orçamento a 60 por segundo: 16,67ms
 //
-// REDUZIR NÃO ECONOMIZA TEMPO AQUI, economiza BANDA. Uma leitura anterior dizia o
-// contrário ("82 quadros/s reduzido contra 79 nativo, reduzir devolve fôlego") e
-// estava errada: aquilo media a taxa de quadros, e a taxa de quadros num desktop mede
-// o WINDOWS. `ProximoQuadro` espera a tela mudar — área parada rende poucos quadros,
-// jogo rende muitos —, então o mesmo código deu 79/s numa hora e 44/s noutra sem nada
-// ter mudado no cano.
+// E O TEMPO VAI QUASE TODO NUM LUGAR SÓ:
 //
-// O custo por quadro é da máquina e não mente. Nesta, o compressor não era o gargalo
-// em nenhum dos dois tamanhos, e por isso reduzir não devolveu tempo. Numa máquina
-// fraca a conta muda, e é lá que a redução vai pagar.
+//	copiar na placa        7 µs
+//	reduzir              0-150 µs
+//	comprimir           ~7000 µs   <- esperar a placa terminar
+//	ler os NALs          20-60 µs
+//
+// Duas conclusões, e as duas mudam o que faz sentido otimizar.
+//
+// PRIMEIRA: o código deste arquivo custa uns 50 a 200 microssegundos por quadro. Todo
+// o resto é ESPERA, e esperar não queima processador — a thread fica parada num evento
+// do Windows. Por isso 7ms de relógio por quadro custam só um décimo de núcleo. Não há
+// o que espremer aqui; o gargalo, quando houver, será da placa.
+//
+// SEGUNDA: reduzir para 720p NÃO economiza tempo nesta máquina — as duas colunas se
+// confundem dentro do ruído. Economiza BANDA, que era o motivo de existir. Numa
+// máquina cuja placa seja o gargalo a conta muda, e é lá que a redução vai pagar duas
+// vezes.
+//
+// COMO NÃO MEDIR ISTO, porque eu errei assim duas vezes: a TAXA DE QUADROS não serve.
+// `ProximoQuadro` espera a tela mudar, então ela mede o Windows e não o Astra — área
+// parada rende poucos quadros, jogo rende muitos, e o mesmo código deu 79/s numa hora
+// e 44/s noutra. O custo por quadro e o processador consumido são da máquina.
 
 import (
 	"fmt"
@@ -273,7 +287,51 @@ type Compressor struct {
 	// quadro-chave é dezenas de vezes maior que um quadro comum), então ele cresce
 	// até o maior que já apareceu e para de crescer.
 	saida []byte
+
+	// Onde o tempo de cada quadro foi gasto. Ver `Custos`.
+	Custos Custos
 }
+
+// Custos separa o tempo do cano por ETAPA, somado ao longo da transmissão.
+//
+// Existe porque "7,43ms por quadro" não diz o que otimizar. As etapas têm naturezas
+// completamente diferentes e remédios opostos:
+//
+//	Copia       cópia dentro da placa. Deveria ser microssegundos; se não for, a
+//	            placa está saturada por outra coisa.
+//	Reducao     o Video Processor. Só existe quando há redução de escala.
+//	Compressao  entregar o quadro e ESPERAR o compressor de hardware. É trabalho da
+//	            placa, não nosso — não dá para escrever código que o encurte, só
+//	            para pedir menos pixel.
+//	Leitura     puxar os NALs prontos e copiá-los para a memória do Go. Este é
+//	            nosso, e é o único que uma máquina fraca sente na CPU.
+//
+// Sem essa separação, uma máquina fraca engasgando não diz se o problema é a placa,
+// o tamanho do quadro ou uma cópia mal feita nossa. Com ela, o remédio é imediato.
+type Custos struct {
+	Copia      time.Duration
+	Reducao    time.Duration
+	Compressao time.Duration
+	Leitura    time.Duration
+	Quadros    int
+}
+
+// Media devolve os mesmos custos divididos pelo número de quadros.
+func (c Custos) Media() Custos {
+	if c.Quadros == 0 {
+		return Custos{}
+	}
+	n := time.Duration(c.Quadros)
+	return Custos{
+		Copia:      c.Copia / n,
+		Reducao:    c.Reducao / n,
+		Compressao: c.Compressao / n,
+		Leitura:    c.Leitura / n,
+		Quadros:    c.Quadros,
+	}
+}
+
+func (c Custos) Total() time.Duration { return c.Copia + c.Reducao + c.Compressao + c.Leitura }
 
 // Ritmo segura o laço da transmissão no compasso pedido.
 //
@@ -673,8 +731,11 @@ func (c *Compressor) embrulharUmQuadro(dispositivo objeto, desc descricaoDeTextu
 func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber func([]byte)) error {
 	q := c.anel[c.proximo]
 	c.proximo = (c.proximo + 1) % len(c.anel)
+	c.Custos.Quadros++
 
+	marco := time.Now()
 	c.contexto.chamar(d3dCopiarTudo, uintptr(q.textura), uintptr(textura))
+	c.Custos.Copia += time.Since(marco)
 
 	// Tempo em unidades de 100 nanossegundos, que é o relógio do Media Foundation.
 	// A duração declarada é a do quadro na taxa que prometemos.
@@ -690,7 +751,9 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	// porque ele fica com a própria referência.
 	entrada := q.amostra
 	if c.reduzir != nil {
+		marco = time.Now()
 		menor, err := c.reduzir.Reduzir(q.amostra)
+		c.Custos.Reducao += time.Since(marco)
 		if err != nil {
 			return err
 		}
@@ -703,6 +766,12 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 		marcarTempo(menor)
 		entrada = menor
 	}
+
+	// Daqui até o fim é conta do compressor. A leitura dos NALs, que acontece lá
+	// dentro, se desconta sozinha em `sair` — senão o mesmo tempo seria contado duas
+	// vezes e o relatório culparia a placa por trabalho nosso.
+	marco = time.Now()
+	defer func() { c.Custos.Compressao += time.Since(marco) }()
 
 	if c.eventos == 0 {
 		if err := c.entrar(entrada); err != nil {
@@ -760,6 +829,15 @@ func (c *Compressor) esvaziar(receber func([]byte)) error {
 // sair puxa UM pedaço. O booleano diz se veio alguma coisa — falso significa que o
 // compressor ainda está juntando quadro, que é o caso normal no começo.
 func (c *Compressor) sair(receber func([]byte)) (bool, error) {
+	// A leitura é NOSSO trabalho, não da placa, e sai da conta da compressão. É o
+	// único custo deste arquivo que uma máquina fraca sente na CPU.
+	marco := time.Now()
+	defer func() {
+		gasto := time.Since(marco)
+		c.Custos.Leitura += gasto
+		c.Custos.Compressao -= gasto
+	}()
+
 	var saida saidaDoCompressor
 	var estado uint32
 	r := c.t.chamar(transSairQuadro, 0, 1,
@@ -919,6 +997,22 @@ type MedidaDaTransmissao struct {
 	// segundo), o cano não é o gargalo. É a medida que serve para decidir se um
 	// computador fraco aguenta.
 	TempoNoCano time.Duration
+
+	// O mesmo tempo, separado por etapa. É o que diz O QUE otimizar.
+	Custos Custos
+
+	// Processador consumido pelo processo durante a medição. É a resposta para a
+	// máquina fraca — ver `cpu.go`.
+	Processador time.Duration
+}
+
+// Nucleos diz quantos núcleos a transmissão ocupou, em média. É o número que se compara
+// com os 0,07 do caminho na placa e os 0,84 do caminho antigo pela memória principal.
+func (m MedidaDaTransmissao) Nucleos() float64 {
+	if m.Duracao <= 0 {
+		return 0
+	}
+	return float64(m.Processador) / float64(m.Duracao)
 }
 
 // CustoPorQuadro é quanto o cano gasta em cada quadro. Comparar com 1/fps diz se a
@@ -994,6 +1088,7 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 	m.Assincrono = c.Assincrono
 
 	ritmo := NovoRitmo(c.fps)
+	cpuAntes := TempoDeProcessador()
 	comeco := time.Now()
 	fim := comeco.Add(duracao)
 	for time.Now().Before(fim) {
@@ -1031,5 +1126,7 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 		m.Quadros++
 	}
 	m.Duracao = time.Since(comeco)
+	m.Custos = c.Custos
+	m.Processador = TempoDeProcessador() - cpuAntes
 	return m, nil
 }

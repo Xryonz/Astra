@@ -207,6 +207,13 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 		m.CustoPorQuadro().Round(10*time.Microsecond),
 		(time.Second / time.Duration(m.Fps)).Round(10*time.Microsecond),
 		m.Folga()*100)
+	med := m.Custos.Media()
+	t.Logf("  copiar na placa   %8.1fus", float64(med.Copia.Nanoseconds())/1000)
+	t.Logf("  reduzir           %8.1fus", float64(med.Reducao.Nanoseconds())/1000)
+	t.Logf("  comprimir         %8.1fus  (esperar a placa)", float64(med.Compressao.Nanoseconds())/1000)
+	t.Logf("  ler os NALs       %8.1fus", float64(med.Leitura.Nanoseconds())/1000)
+	t.Logf("PROCESSADOR: %.3f nucleos (o caminho antigo pela memoria principal custava 0,84)",
+		m.Nucleos())
 	t.Logf("%d pedacos, %d bytes = %.0f kbps", m.Pedacos, m.Bytes, m.Kbps())
 
 	// TELA PARADA NÃO É DEFEITO DO CANO. A duplicação só entrega quando algo muda,
@@ -255,9 +262,15 @@ func TestTransmissaoReduzida(t *testing.T) {
 	}
 
 	t.Logf("compressor: %s (entrada %s)", m.Compressor, m.Formato)
+	med := m.Custos.Media()
 	t.Logf("saida %dx%d: %d quadros, custo %v por quadro (%.0f%% de folga)",
 		m.Largura, m.Altura, m.Quadros,
 		m.CustoPorQuadro().Round(10*time.Microsecond), m.Folga()*100)
+	t.Logf("  reduzir %.1fus | comprimir %.1fus | ler %.1fus | %.3f nucleos",
+		float64(med.Reducao.Nanoseconds())/1000,
+		float64(med.Compressao.Nanoseconds())/1000,
+		float64(med.Leitura.Nanoseconds())/1000,
+		m.Nucleos())
 	t.Logf("%d pedacos, %.0f kbps", m.Pedacos, m.Kbps())
 
 	// NÃO BASTA NÃO DAR ERRO. Um cano pode aceitar os tipos e devolver nada, e isso

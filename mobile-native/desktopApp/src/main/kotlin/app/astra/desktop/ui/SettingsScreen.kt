@@ -4316,6 +4316,19 @@ private fun AtelieSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         receita.corCabelo,
     ) { trocar(receita.copy(corCabelo = it)) }
 
+    // LISTA VAZIA = O ACERVO NÃO TEM ESTA CAMADA, e é assim que esta tela atende dois
+    // conjuntos de arte sem perguntar qual está no ar. O manequim desenhado aqui tem
+    // os olhos pintados no corpo e anda descalço da cintura pra baixo; o paper-doll
+    // separa olhos e calça em camadas próprias. Quem sabe disso é o catálogo.
+    if (CatalogoDoBoneco.coresDosOlhos.isNotEmpty()) {
+        Spacer(Modifier.height(20.dp))
+        FieldLabel("olhos")
+        FitaDeAmostras(
+            CatalogoDoBoneco.coresDosOlhos.map { it.nome to it.cores[1] },
+            receita.corOlhos,
+        ) { trocar(receita.copy(corOlhos = it)) }
+    }
+
     Spacer(Modifier.height(20.dp))
     FieldLabel("roupa")
     FitaDeFormas(
@@ -4327,9 +4340,26 @@ private fun AtelieSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(14.dp))
     FieldLabel("cor da roupa")
     FitaDeAmostras(
-        CatalogoDoBoneco.coresDaRoupa.map { it.nome to it.cores[1] },
+        CatalogoDoBoneco.coresDaRoupa.map { it.nome to it.cores[0] },
         receita.corRoupa,
     ) { trocar(receita.copy(corRoupa = it)) }
+
+    if (CatalogoDoBoneco.calcas.isNotEmpty()) {
+        Spacer(Modifier.height(20.dp))
+        FieldLabel("calça")
+        FitaDeFormas(
+            CatalogoDoBoneco.calcas.map { it.nome },
+            receita.calca,
+            { i -> receita.copy(calca = i) },
+        ) { trocar(receita.copy(calca = it)) }
+
+        Spacer(Modifier.height(14.dp))
+        FieldLabel("cor da calça")
+        FitaDeAmostras(
+            CatalogoDoBoneco.coresDaCalca.map { it.nome to it.cores[0] },
+            receita.corCalca,
+        ) { trocar(receita.copy(corCalca = it)) }
+    }
 
     Spacer(Modifier.height(20.dp))
     Text(

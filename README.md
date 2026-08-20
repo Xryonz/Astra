@@ -293,14 +293,22 @@ e mesmo as que não pedem merecem — a arte é de quem a desenhou.
 | Gato do companheiro — "Simples" | **Elthen** (ELV Games) | [2D Pixel Art Cat Sprites](https://elthen.itch.io/2d-pixel-art-cat-sprites) |
 | Gato do companheiro — "Travesso" | **Jump Button** ([@Jump_Button](https://twitter.com/Jump_Button)) | Cat Player — crédito exigido em uso comercial |
 | Companheiro — "Sátiro" | *autor a confirmar* | pacote sem arquivo de licença; uso liberado pelo autor ao dono do Astra |
-| Corpo do boneco do perfil | **Eris Esra** ([socials](https://www.erisesra.com/socials)) | [Character Template 4.1](https://erisesra.itch.io/character-templates-pack) — livre para uso comercial, crédito apreciado, revenda proibida |
+| Boneco do perfil — acervo embutido | **Eris Esra** ([socials](https://www.erisesra.com/socials)) | [Character Template 4.1](https://erisesra.itch.io/character-templates-pack) — livre para uso comercial, crédito apreciado, revenda proibida |
+| Boneco do perfil — acervo privado | **CozyFae** ([itch.io](https://cozy-fae.itch.io/)) | Cute Pixel Base — *Created with asset from "CozyFae Cute Pixel Base" by CozyFae* |
 
-O corpo do boneco é um **manequim**: creme, careca, sem roupa. Os cabelos e as roupas
-por cima dele foram desenhados aqui, em cima da anatomia medida do próprio sprite —
-não existe pacote de cosméticos que encaixe pixel a pixel neste template, e os que
-chegam perto em proporção vêm como personagem fechado, com contorno e paleta do autor.
-A licença viaja junto da arte, em
-`mobile-native/desktopApp/src/main/resources/boneco/`.
+**O boneco tem dois acervos, e a razão é de licença.** O embutido é o template do Eris
+Esra: um manequim creme e careca, com os cabelos e as roupas desenhados aqui sobre a
+anatomia medida do próprio sprite. A licença dele permite uso comercial e só proíbe
+revenda, então pode viver num repositório público — é o que qualquer pessoa que clonar
+o Astra recebe, e é o que garante que clonar e compilar funcione. A licença viaja junto
+da arte, em `mobile-native/desktopApp/src/main/resources/boneco/`.
+
+O acervo privado é o pack da CozyFae — um paper-doll de verdade, com base, olhos,
+cabelo, blusa e calça em camadas próprias. A licença dele permite uso comercial e
+permite editar, mas **proíbe redistribuir os arquivos**, modificados ou não. Este
+repositório é público, então os PNGs **não entram no Git**: quem tem a licença
+reconstrói a pasta com `tools/preparar-boneco-privado.ps1`, e o app usa o acervo
+privado quando ele está presente. Ver `ui/Boneco.kt`.
 
 A licença dos companheiros viaja junto da arte, em
 `mobile-native/desktopApp/src/main/resources/pet/`. A geometria de recorte de cada

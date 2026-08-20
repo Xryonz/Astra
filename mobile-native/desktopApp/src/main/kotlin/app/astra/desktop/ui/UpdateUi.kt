@@ -65,7 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.astra.desktop.ui.theme.Babylonica
+import app.astra.desktop.ui.theme.Cinzel
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
@@ -211,11 +211,18 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             // preto que poluia o ceu do gate. As estrelas continuam orbitando o corpo.
             RotatingStarsLogo(reduceMotion, entrance = entrance, planetRes = "astra-glyph.png")
             Spacer(Modifier.height(18.dp))
+            // Caixa-alta no desenho, "Astra" na leitura — mesma razão da tela de
+            // entrada (ver LoginScreen).
             Text(
-                "Astra",
-                // 32 e não 22: abaixo disso a laçada da Babylonica fecha e a palavra
-                // vira mancha (medido). Ver o comentário dela em theme/Type.kt.
-                style = TextStyle(color = Obsidian.text1, fontSize = 32.sp, fontFamily = Babylonica),
+                "ASTRA",
+                // 22, e não os 32 da Babylonica. Ver os tamanhos medidos em
+                // theme/Type.kt: a laçada dela gastava altura que esta não gasta.
+                style = TextStyle(
+                    color = Obsidian.text1,
+                    fontSize = 22.sp,
+                    fontFamily = Cinzel,
+                    letterSpacing = 3.5.sp,
+                ),
                 // Titulo resolve por último (1.5..2.0 do virtual da entrada): alpha lido
                 // dentro do graphicsLayer, não no corpo — não recompoe a cada frame.
                 modifier = Modifier.graphicsLayer {

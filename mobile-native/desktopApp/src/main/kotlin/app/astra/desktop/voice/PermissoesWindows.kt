@@ -3,7 +3,6 @@ package app.astra.desktop.voice
 import app.astra.desktop.WindowsAppId
 import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinReg
-import dev.onvoid.webrtc.media.MediaDevices
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
@@ -200,18 +199,44 @@ object PermissoesWindows {
         }
     }
 
-    // Só enumera: abrir a webcam acenderia a luz dela, e piscar a luz de alguém
-    // numa tela de boas-vindas assusta com razão.
+    // A CÂMERA É PERGUNTADA AO REGISTRO, e não enumerada.
+    //
+    // Enumerar era o que fazia antes, pelo webrtc-java — e essa era a última coisa que
+    // segurava 8 MB de biblioteca nativa no pacote depois que a voz migrou para o
+    // processo em Go. Trocar por esta consulta foi o que permitiu ela sair.
+    //
+    // O que se perde é saber QUANTAS câmeras existem; o que se ganha é responder à
+    // pergunta que a tela realmente faz, que é "o Windows deixa?". E essa resposta é
+    // melhor que a antiga em um caso concreto: com a privacidade fechada, a
+    // enumeração devolvia lista vazia e a tela dizia "nenhuma câmera encontrada" —
+    // mandando a pessoa procurar um aparelho que está ali, ligado, apenas bloqueado.
+    //
+    // Continua sem abrir a câmera: acender a luz de alguém numa tela de boas-vindas
+    // assusta, e com razão.
     fun camera(): Checagem {
-        val cams = runCatching { MediaDevices.getVideoCaptureDevices() }.getOrDefault(emptyList())
-        return if (cams.isEmpty()) {
-            Checagem(
-                Permissao.CAMERA, Acesso.SEM_APARELHO,
-                "Nenhuma câmera encontrada. Se você tem uma, o acesso pode estar fechado no Windows.",
+        val valor = runCatching {
+            Advapi32Util.registryGetStringValue(
+                WinReg.HKEY_CURRENT_USER,
+                "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam",
+                "Value",
+            )
+        }.getOrNull()
+
+        return when (valor) {
+            "Deny" -> Checagem(
+                Permissao.CAMERA, Acesso.BLOQUEADO,
+                "O Windows está bloqueando a câmera para os aplicativos.",
                 "ms-settings:privacy-webcam",
             )
-        } else {
-            Checagem(Permissao.CAMERA, Acesso.OK, "${cams.size} encontrada(s).")
+            "Allow" -> Checagem(Permissao.CAMERA, Acesso.OK, "Liberada pelo Windows.")
+            // Chave ausente é o normal em instalação limpa: ninguém decidiu ainda, e
+            // o Windows pergunta no primeiro uso. Dizer "negado" aqui seria alarme
+            // falso; dizer "liberado" seria promessa que não se pode cumprir.
+            else -> Checagem(
+                Permissao.CAMERA, Acesso.PENDENTE,
+                "O Windows ainda não decidiu — ele vai perguntar no primeiro uso.",
+                "ms-settings:privacy-webcam",
+            )
         }
     }
 

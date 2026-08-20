@@ -59,6 +59,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -69,7 +71,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.auth.AuthRepository
 import app.astra.desktop.auth.Session
 import app.astra.desktop.auth.SessionStore
-import app.astra.desktop.ui.theme.Babylonica
+import app.astra.desktop.ui.theme.Cinzel
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import com.composables.icons.lucide.Eye
@@ -202,16 +204,28 @@ fun LoginScreen(
                 // o que recebe no login.
                 RotatingStarsLogo(LocalReduceMotion.current, diameter = 132.dp, planetRes = "astra-glyph.png")
                 Spacer(Modifier.height(10.dp))
+                // CAIXA-ALTA NO DESENHO, "Astra" NA LEITURA.
+                //
+                // A Cinzel é uma fonte de capital de inscrição: escrever em caixa-alta
+                // é usá-la como ela foi desenhada. Mas leitor de tela trata palavra
+                // toda maiúscula como sigla e soletra — "A, S, T, R, A" —, então o
+                // rótulo acessível repõe a palavra inteira. O desenho é para os olhos,
+                // o rótulo é para quem não os usa, e os dois dizem a mesma coisa.
                 Text(
-                    text = "Astra",
+                    text = "ASTRA",
                     style = TextStyle(
                         color = Obsidian.text1,
-                        // Maior que os 56 de antes porque a Babylonica desenha bem
-                        // menor no mesmo corpo: a altura-x dela é pequena e o traço é
-                        // fino, então 56 aqui pareceria um recuo, e não uma troca.
-                        fontSize = 72.sp,
-                        fontFamily = Babylonica,
+                        // 46, e não os 72 da Babylonica: aquela gastava metade da
+                        // altura em laçada, esta é toda letra. Medido pela largura da
+                        // palavra, que é o que o olho compara — ver theme/Type.kt.
+                        fontSize = 46.sp,
+                        fontFamily = Cinzel,
+                        // O tracking é metade do efeito. Capital romana colada lê como
+                        // palavra; espaçada, lê como inscrição — e, aqui, como estrelas
+                        // separadas num campo escuro.
+                        letterSpacing = 7.sp,
                     ),
+                    modifier = Modifier.semantics { contentDescription = "Astra" },
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(

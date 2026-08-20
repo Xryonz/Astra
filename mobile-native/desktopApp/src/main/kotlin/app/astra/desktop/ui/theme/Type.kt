@@ -83,12 +83,28 @@ val GreatVibes = FontFamily(Font(resource = "font/great_vibes.ttf"))
 
 // O LETREIRO "ASTRA" — e só ele.
 //
-// Babylonica é escrita à mão de traço fino e laçada larga. Medida nos tamanhos que
-// o app usa: soberba a 56px, boa a 32px, fraca a 20px e um borrão ilegível a 13px,
-// que é onde o nome aparece na barra de título. Por isso ela vale nas duas telas em
-// que "Astra" é LOGOTIPO (entrada e atualização) e não na barra, onde a mesma
-// palavra é só um rótulo — trocar lá compraria uma mancha em vez de assinatura.
-val Babylonica = FontFamily(Font(resource = "font/babylonica.ttf"))
+// Cinzel é desenhada sobre as capitais de INSCRIÇÃO romanas, as talhadas em pedra:
+// só caixa-alta, serifa fina e afiada, proporção clássica. Com tracking largo ela lê
+// como letreiro na fachada de um observatório, que é exatamente o registro do
+// produto — frio, cerimonial, adulto.
+//
+// SAIU A BABYLONICA, que é escrita à mão de laçada larga. Ela assinava bonito, mas
+// assinava — e assinatura à mão diz "feito por uma pessoa", enquanto o Astra quer
+// dizer "instrumento". Eram duas vozes brigando: o resto do app é editorial e frio,
+// e o letreiro era caloroso e manuscrito.
+//
+// OS CORPOS FORAM MEDIDOS, não estimados, porque as duas ocupam o corpo de formas
+// muito diferentes: a Babylonica gasta metade da altura em laçada e a Cinzel é toda
+// letra. Pela LARGURA da palavra, que é o que o olho compara num letreiro:
+//
+//	Babylonica 72sp -> 138px de largura     (era o da entrada)
+//	Cinzel     44sp -> 140px                 (o equivalente)
+//	Babylonica 32sp ->  61px                (era o da atualização)
+//	Cinzel     20sp ->  64px
+//
+// Os corpos que entraram são um pouco maiores que esses porque o tracking largo, que
+// é metade do efeito, precisa de onde caber.
+val Cinzel = FontFamily(Font(resource = "font/cinzel.ttf"))
 
 // DM Sans e o texto padrao do app. BasicText não le LocalTextStyle (isso e do
 // material), entao este Text aplica a familia por baixo — os call sites so

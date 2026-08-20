@@ -68,7 +68,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.87"
+val astraVersion = "0.2.88"
 
 dependencies {
     implementation(project(":shared"))
@@ -96,13 +96,15 @@ dependencies {
     implementation(libs.jna.platform)
     // Vidro/blur real (backdrop) — haze e CMP, mesma lib do Android.
     implementation(libs.haze)
-    // Voz nativa (fase V1+): WebRTC pra JVM + natives do Windows por classifier.
-    implementation(libs.webrtc.java)
-    runtimeOnly("dev.onvoid.webrtc:webrtc-java:${libs.versions.webrtcJava.get()}:windows-x86_64")
-    // GStreamer: SO os bindings (JNA), ~1MB. O runtime nativo (62MB) e baixado sob
-    // demanda pelo GStreamerPack e vive em %LOCALAPPDATA%, fora do app — ver la o
-    // porque. Sem o pacote em disco, estes bindings simplesmente nao sao usados.
-    implementation(libs.gst.java)
+    // A VOZ NAO MORA MAIS NA JVM. Ela vive no sidecar em Go (sidecar-voz/), que fala
+    // WebRTC pelo pion e captura o audio pelo WASAPI direto. Por isso sairam daqui:
+    //
+    //   webrtc-java  8,0 MB de nativo do Windows por classifier
+    //   gst-java     bindings do GStreamer
+    //
+    // Os dois so eram usados pelo motor antigo, que virou ilha fechada quando a voz
+    // migrou e foi removido inteiro. A captura de tela segue o mesmo caminho: DXGI
+    // Desktop Duplication dentro do Go, sem passar por aqui.
     // Signaling do LiveKit: runtime do protobuf. As classes Java ficam
     // COMMITADAS em src/main/java/livekit (geradas 1x na mao) porque o protoc,
     // como o jpackage, nao engole o path com acento do repo. Pra regenerar
@@ -188,24 +190,11 @@ tasks.register<Zip>("zipDistributable") {
     destinationDirectory.set(layout.buildDirectory)
 }
 
-// Banco de testes do transporte novo (webrtcbin). TEMPORARIO -- sai junto com o
-// EnsaioGst.kt quando as pecas estiverem provadas. Existe pra rodar negociacao WebRTC
-// de verdade fora do app: descobrir que o msid nao casa, ou que o get-stats nao
-// responde, DENTRO de uma call seria descobrir com a voz de alguem no meio.
-tasks.register<JavaExec>("ensaioGst") {
-    group = "verification"
-    mainClass.set("app.astra.desktop.voice.EnsaioGstKt")
-    classpath = sourceSets["main"].runtimeClasspath
-    // Pra investigar uma categoria a fundo sem republicar nada:
-    //   ./gradlew :desktopApp:ensaioGst -Pgstdebug=2,d3d11*:5
-    providers.gradleProperty("gstdebug").orNull?.let { systemProperty("astra.gstdebug", it) }
-    // Um contador por elo do ramo de video, pra achar QUEM segura o cano:
-    //   ./gradlew :desktopApp:ensaioGst -Pcontarelos
-    providers.gradleProperty("contarelos").orNull?.let { systemProperty("astra.contarelos", "1") }
-    // Forca um encoder especifico, pra comparar dois na mesma medicao:
-    //   ./gradlew :desktopApp:ensaioGst -Pencoder=nvd3d11h264enc
-    providers.gradleProperty("encoder").orNull?.let { systemProperty("astra.encoder", it) }
-}
+// A tarefa `ensaioGst` saiu junto com o EnsaioGst.kt, como o comentario dela mesma
+// previa. Ela era o banco de testes do transporte por webrtcbin, e o equivalente hoje
+// e `go test` no sidecar-voz: as sondas de la (eco, aparelhos, tela) provam as pecas
+// fora de uma call pelo mesmo motivo -- descobrir que uma nao encaixa DENTRO de uma
+// conversa seria descobrir com a voz de alguem no meio.
 
 compose.desktop {
     application {

@@ -157,14 +157,19 @@ class Passo(
 // E é essa regra que decide as escalas de cada um, medindo o CORPO desenhado (do topo
 // da cabeça até a linha dos pés), não a folha:
 //
-//     Travesso  30px em 1x    o artista já desenhou grande
+//     Travesso  30px em 2x    = 60px
 //     Simples   17px em 2x    = 34px
 //     Sátiro    23px em 2x    = 46px
 //
-// O sátiro ficava em 1x e saía com 23px — um quarto menor que os gatos, e lia como
-// erro. O meio-termo que resolveria (1,5x) é justamente o que a regra proíbe, então
-// ele foi para 2x e passou a ser o MAIOR dos três. Isso é aceitável onde não seria
-// entre dois gatos: ele é a outra espécie, e ser maior lê como espécie diferente.
+// OS DEGRAUS SÃO DESIGUAIS DE PROPÓSITO, e a regra do pixel inteiro é o motivo. Cada
+// bicho só pode dobrar ou triplicar — não existe "um pouco maior". O sátiro saía com
+// 23px em 1x, um quarto menor que os gatos; foi para 2x. O travesso saía com 30px, e
+// ao lado do sátiro de 46 lia como filhote de outro app; foi para 2x também, e no
+// caminho passou o sátiro.
+//
+// O que emparelharia os três (travesso 60, simples 51 em 3x, sátiro 46) foi oferecido
+// e recusado: mexer no simples não era o pedido. Fica anotado como o passo seguinte
+// caso o simples comece a destoar.
 //
 // `base` são as cores de pelo da folha e `destino` diz em que degrau da
 // `Pelagem.rampa` cada uma cai. Este gato só tem dois tons, e eles vão pro degrau
@@ -188,20 +193,21 @@ enum class Bicho(
     //
     // Medido varrendo o alfa dos 14 quadros das cinco folhas (não estimado): o
     // conteúdo cabe em x 3..26 e y 1..31, e as patas repousam na última linha do
-    // recorte. Fica em 1x porque 31px de altura já chega perto da foto do usuário —
-    // dobrar passaria do alvo e ele viraria obstáculo em vez de companhia.
+    // recorte. Está em 2x: em 1x saíam 30px, e ao lado do sátiro de 46px ele lia
+    // como filhote. O receio de que dobrar o tornasse obstáculo não se confirmou —
+    // quem decide isso é a prateleira (a borda de cima do rodapé), e nela 60px
+    // continuam cabendo com folga.
     //
     // A rampa de pelo tem quatro degraus e o CONTORNO fica de fora de propósito.
     // Contorno recolorido junto some quando a pelagem escurece: o bicho perde a
     // silhueta e vira uma mancha. Deixá-lo escuro é o que pixel art faz, e é o que
     // mantém o gato legível em qualquer uma das sete cores.
     TRAVESSO(
-        "Travesso", 32, 3, 1, 24, 31, 30, 1, olhaParaDireita = true,
+        "Travesso", 32, 3, 1, 24, 31, 30, 2, olhaParaDireita = true,
         intArrayOf(0xFFFFFF, 0xB6C5CD, 0x869EAC, 0x688697), intArrayOf(0, 1, 2, 3),
         mapOf(
             Anim.PARADO to Passo("gato_travesso_parado.png", 0, 3, 4, 0f),
             Anim.ANDANDO to Passo("gato_travesso_andando.png", 0, 3, 8, 1.0f),
-            Anim.CORRENDO to Passo("gato_travesso_correndo.png", 0, 4, 12, 2.6f),
             // Um quadro só, e basta: é uma pose sustentada durante o arco do pulo,
             // não uma animação. O artista desenhou assim.
             Anim.PULO to Passo("gato_travesso_pulo.png", 0, 1, 1, 0f),
@@ -227,31 +233,32 @@ enum class Bicho(
     SATIRO(
         "Sátiro", 32, 2, 3, 28, 26, 23, 2, olhaParaDireita = false,
         intArrayOf(0xAD2F45, 0x781D4F, 0x4F1D4C), intArrayOf(0, 1, 2),
+        // TRÊS GESTOS, e a escolha é do dono: repouso, caminhada e o ataque.
+        //
+        // A folha tem onze fileiras e quase todas foram descartadas de propósito. As
+        // que saíram, e por quê:
+        //
+        //   fileira 2  pulo        pouco legível fora de um jogo de plataforma
+        //   fileira 3  conjuração  vira enfeite quando não há o que conjurar
+        //   fileira 5  "cansaço"   é OUTRO repouso de pé, não um sentar (medido:
+        //                          ampliada ao lado da fileira 0, difere em dois
+        //                          pixels do braço) — foi o que fazia o terceiro
+        //                          cutucão parecer que ele tinha travado
+        //   fileira 6  morte       dissolve numa poça; não é assunto de bicho de
+        //                          estimação
+        //   fileira 8  arrancada   era a corrida, e corrida saiu de todos os bichos
+        //   fileira 10 golpe escuro  a forma some no fundo escuro do app
         mapOf(
             Anim.PARADO to Passo("satiro.png", 0, 6, 7, 0f),
             Anim.ANDANDO to Passo("satiro.png", 1, 8, 10, 1.0f),
-            // Linha 8 é uma arrancada com rastro: começa borrado e desacelera em
-            // faíscas. Serve de corrida melhor que a caminhada acelerada.
-            Anim.CORRENDO to Passo("satiro.png", 8, 6, 13, 2.8f),
-            Anim.PULO to Passo("satiro.png", 2, 4, 10, 0f),
-            // A escada, na ordem em que o clique a percorre:
-            // 1) ACENDE — passa de vermelho a branco brilhante. É a reação mais
-            //    imediata que existe na folha: a mudança é grande demais para
-            //    passar despercebida.
-            Anim.CARINHO to Passo("satiro.png", 7, 4, 9, 0f),
-            // 2) CONJURA — um anel dourado floresce sob os pés e se desfaz em
-            //    faíscas. É ele se exibindo depois de já ter reagido uma vez.
-            Anim.FESTA to Passo("satiro.png", 3, 7, 11, 0f),
-            // NÃO EXISTE TERCEIRA. A fileira 5 estava declarada aqui como cansaço,
-            // descrita como "senta e se fecha" — e não é isso. Ampliada e comparada
-            // lado a lado com a fileira 0, ela é OUTRO REPOUSO: mesma pose de pé,
-            // diferença de um ou dois pixels no braço. O terceiro cutucão mandava o
-            // sátiro tocar uma animação que ninguém enxergava, e o efeito era ele
-            // parecer que tinha parado de responder.
+            // O ATAQUE — fileira 9, dez quadros: ele arma, dispara uma lança dourada
+            // e recolhe. É a fileira mais legível da folha inteira, e o motivo é a
+            // cor: dourado sobre obsidiana é a única coisa ali que não some no fundo
+            // do app. As duas outras candidatas a "reação" eram escuras.
             //
-            // A folha inteira não tem pose de sentar: o resto é combate, conjuração e
-            // a dissolução da morte, que não serve para um bicho de estimação. Sem
-            // cansaço desenhado, ele cansa como o gato — vai embora andando.
+            // 12 quadros por segundo dá 0,83s de gesto — tempo de o olho pegar o
+            // arco inteiro sem que o bicho fique ocupado quando alguém clica de novo.
+            Anim.ATAQUE to Passo("satiro.png", 9, 10, 12, 0f),
         ),
     ),
 
@@ -263,7 +270,6 @@ enum class Bicho(
         mapOf(
             Anim.PARADO to Passo("gato_simples.png", 0, 4, 5, 0f),
             Anim.ANDANDO to Passo("gato_simples.png", 4, 8, 10, 1.0f),
-            Anim.CORRENDO to Passo("gato_simples.png", 9, 8, 14, 2.6f),
             Anim.PULO to Passo("gato_simples.png", 8, 7, 11, 0f),
             // Linha 2 da grade: o gato se lambendo. É o gesto de gato satisfeito, e
             // é exatamente o que o carinho deveria produzir.
@@ -277,31 +283,48 @@ enum class Bicho(
     }
 }
 
-// PARADO, ANDANDO, CORRENDO, PULO e CARINHO todo bicho tem. As duas últimas são
-// OPCIONAIS e existem porque uma folha pode ser mais rica que outra — o sátiro tem
-// três reações desenhadas, o gato tem uma. Quem não as declara simplesmente não
-// escala, e nada no código precisa saber de qual bicho se trata.
+// PARADO e ANDANDO todo bicho tem; o resto é OPCIONAL, porque uma folha pode ser
+// mais rica que outra. Quem não declara um gesto simplesmente não o usa, e nada no
+// código precisa saber de qual bicho se trata.
+//
+// NÃO EXISTE MAIS CORRIDA. Ela saiu dos três a pedido do dono, e o motivo aguenta
+// ser dito: bicho que dispara pela prateleira puxa o olho para longe da conversa, e
+// é justamente o oposto do que um companheiro de canto de tela deve fazer. Quem
+// andava depressa agora anda.
+//
 // O `rotulo` é o que a vitrine em Configurações escreve sob cada gesto. Fica no
 // enum, e não numa tabela na tela, porque somar uma animação a um bicho novo já
 // obriga a passar por aqui — e assim é impossível declarar o gesto e esquecer o nome.
 enum class Anim(val rotulo: String) {
-    PARADO("parado"), ANDANDO("andando"), CORRENDO("correndo"), PULO("pulo"),
+    PARADO("parado"), ANDANDO("andando"), PULO("pulo"),
     CARINHO("carinho"),
-    // Segunda reação: ele se exibe. O sátiro faz florescer um anel dourado.
+    // Segunda reação: ele se exibe. Nenhum bicho usa hoje; fica declarada porque é
+    // o degrau seguinte da escada para a folha que tiver dois gestos de reação.
     FESTA("exibição"),
     // Reação de cansaço, para quem tem uma desenhada. Sem ela, cansar é sair
-    // andando — que é o que o gato faz e continua fazendo.
+    // andando — que é o que todos fazem hoje.
     RECOLHE("cansaço"),
+    // O ataque do sátiro. É reação de clique como as outras, e entra na escada.
+    ATAQUE("ataque"),
 }
 
 // A ESCADA DE CARINHO sai dos DADOS, não de um `if` por bicho.
 //
-// São as reações não-cansadas, na ordem em que aparecem. O gato tem só `CARINHO` e
-// por isso repete essa; o sátiro tem `CARINHO` e `FESTA` e por isso muda de reação
-// no segundo clique. Somar um bicho com quatro reações não exigiria tocar em nada
-// aqui — bastaria declará-las.
+// São as reações não-cansadas, na ordem em que o clique as percorre. O gato tem só
+// `CARINHO` e por isso repete essa; o sátiro tem só `ATAQUE` e repete aquela. Somar
+// um bicho com quatro reações não exigiria tocar em nada aqui — bastaria declará-las.
 val Bicho.escadaDeCarinho: List<Anim>
-    get() = listOf(Anim.CARINHO, Anim.FESTA).filter { it in passos }
+    get() = listOf(Anim.CARINHO, Anim.FESTA, Anim.ATAQUE).filter { it in passos }
+
+// O GESTO DE SUSTO: o que o bicho faz quando chega mensagem ou alguém entra na call.
+//
+// Pulo, para quem tem um. Quem não tem usa a primeira reação de clique — e essa
+// linha não é conveniência, é o conserto de um defeito real: mandar tocar `PULO`
+// num bicho sem folha de pulo fazia `folhas[anim]` voltar nulo, e o desenho caía na
+// RESERVA VETORIAL. Ou seja: o sátiro virava um gato de traço por meio segundo toda
+// vez que chegasse mensagem.
+val Bicho.gestoDeSusto: Anim?
+    get() = if (Anim.PULO in passos) Anim.PULO else escadaDeCarinho.firstOrNull()
 
 // Quantos carinhos seguidos ele aguenta antes de cansar. Vale para todos.
 private const val LIMITE_DE_CARINHO = 3
@@ -457,8 +480,9 @@ fun GatoDoAstra(
             // Reagir a evento vale mais que continuar o passeio: o gato para o que
             // estava fazendo e pula. É a única hora em que ele compete por atenção,
             // e é justamente quando a atenção já foi chamada por outra coisa.
+            val susto = bicho.gestoDeSusto ?: return@collect
             pulosRestantes = if (ev == PetEvento.CALL) 2 else 1
-            anim = Anim.PULO
+            anim = susto
             tempoNaAnim = 0f
         }
     }
@@ -488,15 +512,12 @@ fun GatoDoAstra(
                     espera -= dt
                     if (espera <= 0f) {
                         alvoX = limiteEsq + Random.nextFloat() * (limiteDir - limiteEsq)
-                        // Correr é raro e só pra longe. Um gato que corre sempre vira
-                        // ansiedade na tela; um que corre de vez em quando vira graça.
-                        val longe = abs(alvoX - x) > (limiteDir - limiteEsq) * 0.55f
-                        anim = if (longe && Random.nextFloat() < 0.3f) Anim.CORRENDO else Anim.ANDANDO
+                        anim = Anim.ANDANDO
                         tempoNaAnim = 0f
                     }
                 }
 
-                Anim.ANDANDO, Anim.CORRENDO -> {
+                Anim.ANDANDO -> {
                     val dx = alvoX - x
                     val v = (bicho.passos[anim]?.velocidade ?: 1f) * larguraPx * dt
                     if (abs(dx) <= v) {
@@ -521,7 +542,7 @@ fun GatoDoAstra(
                     }
                 }
 
-                Anim.CARINHO, Anim.FESTA, Anim.RECOLHE -> {
+                Anim.CARINHO, Anim.FESTA, Anim.RECOLHE, Anim.ATAQUE -> {
                     // As três se comportam igual: tocam UMA volta e voltam a ficar
                     // paradas. O que muda é quanto ele demora a se mexer depois —
                     // quem acabou de sentar não levanta na mesma hora em que quem
@@ -640,7 +661,7 @@ fun GatoDoAstra(
                     desenharGato(
                         esc = LARGURA_VETOR.toPx() / 34f,
                         paraDireita = olhandoPraDireita,
-                        andando = anim == Anim.ANDANDO || anim == Anim.CORRENDO,
+                        andando = anim == Anim.ANDANDO,
                         passo = tempoNaAnim * 7f,
                         olhoFechado = (piscada % 4.2f) < 0.13f,
                         animacaoDeEvento = if (anim == Anim.PULO) 1f else 0f,

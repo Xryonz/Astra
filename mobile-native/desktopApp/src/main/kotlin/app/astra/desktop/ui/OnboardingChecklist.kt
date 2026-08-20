@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,53 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+
+// O ASTRA SE AJUSTOU À MÁQUINA — e este cartão é a metade "e diz que fez".
+//
+// Ajustar em silêncio seria mais limpo de programar e pior de usar: a pessoa com um
+// computador apertado ganharia um app econômico sem saber que existe um bonito
+// esperando por ela, e concluiria que o Astra é feio de fábrica. Pior ainda no sentido
+// contrário — quem tem 4 GB porque o pente queimou não entenderia por que o fundo
+// mudou.
+//
+// O cartão traz A MEDIDA ("3,9 GB de memória"), não a conclusão. Mostrar o que foi
+// visto na máquina se defende sozinho; só afirmar "achamos melhor" vira desconfiança.
+//
+// Some no "entendi" — e some SÓ o cartão: o modo econômico continua ligado, porque
+// dispensar um aviso não é discordar dele. Desligar de verdade é em Desempenho, e o
+// texto diz onde.
+@Composable
+fun AvisoDeMaquinaEconomica(motivo: String, aoDispensar: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Obsidian.overlay.copy(alpha = 0.96f))
+            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "✦ ajustado a este computador",
+                style = TextStyle(color = Obsidian.accent, fontSize = 14.sp, fontFamily = DmSerif),
+                modifier = Modifier.weight(1f),
+            )
+            val src = remember { MutableInteractionSource() }
+            Text(
+                "entendi",
+                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = aoDispensar),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Encontrei $motivo, então o Astra começou no modo econômico: fundo parado e " +
+                "menos animação. Para ligar tudo, vá em Configurações › Desempenho.",
+            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
+        )
+    }
+}
 
 // Metade "checklist" do onboarding (combo): cartao flutuante no rodape do palco
 // vazio, so pra quem acabou de passar pelo takeover (Main liga a pref

@@ -3829,6 +3829,27 @@ private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect:
 // sobrepoe — ficam esmaecidos com o modo ligado). Graficos + fps + transparencia.
 @Composable
 private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    // POR QUE O AJUSTE JÁ ESTAVA LIGADO. Sem esta linha, quem chega aqui encontra um
+    // interruptor ligado que jura não ter ligado — e a explicação estava num cartão
+    // que talvez já tenha sido dispensado. O cartão é o aviso; esta linha é o registro,
+    // e ela fica enquanto o modo automático estiver valendo.
+    if (p.perfAutomatico.isNotBlank()) {
+        Box(
+            Modifier.widthIn(max = 560.dp).fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Obsidian.raised)
+                .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+        ) {
+            Text(
+                "O Astra ligou isto sozinho na primeira abertura: encontrou ${p.perfAutomatico} " +
+                    "nesta máquina. Desligue à vontade — a escolha passa a ser sua e ele não " +
+                    "mexe mais.",
+                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp, lineHeight = 17.sp),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+    }
     ToggleRow(
         "Modo desempenho",
         "desliga aurora + estrelas e reduz animações de uma vez — para jogar ou transmitir",

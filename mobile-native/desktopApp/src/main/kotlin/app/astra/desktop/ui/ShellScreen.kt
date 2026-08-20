@@ -555,17 +555,30 @@ fun ShellScreen(
                 checklistActive = false
             }
         }
-        val firstSteps: (@Composable () -> Unit)? = if (checklistActive) {
+        // A VAGA DA SIDEBAR CABE OS DOIS. O aviso de máquina econômica vem PRIMEIRO
+        // quando existe: ele explica por que a tela está diferente do que a pessoa viu
+        // num vídeo ou no computador do amigo, e essa dúvida chega antes da vontade de
+        // criar a primeira constelação.
+        val avisoDePerf = prefs.state.value.perfAutomatico
+        val temAlgoNaVaga = checklistActive || avisoDePerf.isNotBlank()
+        val firstSteps: (@Composable () -> Unit)? = if (temAlgoNaVaga) {
             {
-                FirstStepsCard(
-                    hasServer = state.servers.isNotEmpty(),
-                    hasDm = state.dms.isNotEmpty(),
-                    hasAvatar = state.me?.avatarUrl != null,
-                    onDismiss = {
-                        onbStore.setUiPref("checklist:${session.userId}", "0")
-                        checklistActive = false
-                    },
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (avisoDePerf.isNotBlank()) {
+                        AvisoDeMaquinaEconomica(avisoDePerf, prefs::dispensarAvisoDePerf)
+                    }
+                    if (checklistActive) {
+                        FirstStepsCard(
+                            hasServer = state.servers.isNotEmpty(),
+                            hasDm = state.dms.isNotEmpty(),
+                            hasAvatar = state.me?.avatarUrl != null,
+                            onDismiss = {
+                                onbStore.setUiPref("checklist:${session.userId}", "0")
+                                checklistActive = false
+                            },
+                        )
+                    }
+                }
             }
         } else {
             null

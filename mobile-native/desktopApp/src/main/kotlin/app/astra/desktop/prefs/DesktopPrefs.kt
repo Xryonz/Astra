@@ -4,6 +4,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import app.astra.desktop.auth.SessionStore
+// O total de RAM FISICA mora no OperatingSystemMXBean do `com.sun.management`, e nao
+// no do `java.lang.management`. E o mesmo modulo (`jdk.management`) que ja precisa
+// estar no empacotamento por causa da medicao de custo da transmissao — sem ele isto
+// compila e explode so no app empacotado.
+import com.sun.management.OperatingSystemMXBean
+import java.lang.management.ManagementFactory
 
 // Qualidade da aurora = numero de oitavas do FBM no shader (custo dominante).
 // SkSL exige bound de loop CONSTANTE -> não da uniform; recompila-se uma variante
@@ -117,6 +123,10 @@ class DesktopPrefs(private val store: SessionStore) {
         // --- Desempenho & Graficos ---
         // Modo desempenho: kill-switch gamer (aurora+estrelas OFF + reduz movimento).
         val performanceMode: Boolean = false,
+        // POR QUE o modo desempenho ligou sozinho ("3,9 GB de memória"), ou vazio se
+        // foi a pessoa que ligou. Guardar o MOTIVO e não uma bandeira booleana é o que
+        // permite o aviso dizer o que foi visto na máquina em vez de "achamos melhor".
+        val perfAutomatico: String = "",
         // DESLIGADAS por padrao (decisao do dono): o Astra abre com fundo liso, e
         // aurora/estrelas viram uma escolha em Aparencia > Fundo. Fundo animado
         // como padrao e uma opiniao forte cobrada de quem nunca pediu — e a conta
@@ -224,7 +234,57 @@ class DesktopPrefs(private val store: SessionStore) {
     private val _state = MutableStateFlow(read())
     val state = _state.asStateFlow()
 
-    init { migrarCeu() }
+    init { migrarCeu(); aferirAMaquina() }
+
+    // O ASTRA SE AJUSTA À MÁQUINA NA PRIMEIRA ABERTURA.
+    //
+    // Não existe "computador fraco" no abstrato: existem memória e núcleos, e são
+    // esses dois que decidem se um app que anima vai caber. Quem tem uma máquina
+    // apertada não vai procurar Configurações › Desempenho — vai achar que o Astra é
+    // pesado e desistir. Então ele começa econômico e DIZ que fez isso.
+    //
+    // Roda UMA vez por instalação, e nunca por cima de escolha feita: se a chave
+    // `performanceMode` já existe, alguém já decidiu e a decisão é dela.
+    //
+    // O que fica gravado é o MOTIVO, não uma bandeira: é ele que deixa o aviso dizer
+    // "3,9 GB de memória" em vez de "achamos melhor assim". Aviso que mostra a medida
+    // se defende sozinho; aviso que só afirma vira desconfiança.
+    private fun aferirAMaquina() {
+        if (store.uiPref("maquinaAferida") == "1") return
+        store.setUiPref("maquinaAferida", "1")
+        // Já mexeu no ajuste alguma vez? Então não há o que adivinhar.
+        if (store.uiPref("performanceMode") != null) return
+        val motivo = motivoParaEconomizar() ?: return
+        store.setUiPref("performanceMode", "1")
+        store.setUiPref("perfAutomatico", motivo)
+        _state.update { it.copy(performanceMode = true, perfAutomatico = motivo) }
+    }
+
+    // 5 GB e não 4 porque uma máquina de 8 GB reporta ~7,9 e uma de 4 reporta ~3,9:
+    // o corte precisa cair no vão entre as duas. E o Windows sozinho já leva ~2 GB,
+    // então em 4 GB o que sobra é dividido com o navegador, o jogo e o resto — o
+    // Astra não pode ser quem fecha essa conta.
+    private fun motivoParaEconomizar(): String? {
+        val nucleos = Runtime.getRuntime().availableProcessors()
+        val ram = runCatching {
+            (ManagementFactory.getOperatingSystemMXBean() as OperatingSystemMXBean).totalMemorySize
+        }.getOrNull() ?: 0L
+        val gb = ram / 1024.0 / 1024.0 / 1024.0
+        return when {
+            // `ram > 0` porque a leitura pode falhar e devolver 0 — e zero não é
+            // "máquina fraca", é "não consegui medir". Ligar o modo econômico com
+            // base numa falha de leitura seria pior que não ligar.
+            ram > 0 && ram < 5L * 1024 * 1024 * 1024 -> "%.1f GB de memória".format(gb)
+            nucleos <= 2 -> "$nucleos núcleos de processador"
+            else -> null
+        }
+    }
+
+    /** A pessoa leu o aviso. O modo continua ligado; some só o cartão. */
+    fun dispensarAvisoDePerf() {
+        store.setUiPref("perfAutomatico", "")
+        _state.update { it.copy(perfAutomatico = "") }
+    }
 
     // AJUSTE QUE NUNCA VALEU NAO E ESCOLHA — e por isso este remendo de uma vez so.
     //
@@ -270,6 +330,7 @@ class DesktopPrefs(private val store: SessionStore) {
         // padrao seguro tem que valer tambem pro arquivo corrompido.
         atividadeVisivel = store.uiPref("atividadeVisivel") == "1",
         performanceMode = store.uiPref("performanceMode") == "1",
+        perfAutomatico = store.uiPref("perfAutomatico") ?: "",
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
         // MIGRACAO DE UMA VEZ (ver `migrarCeu` abaixo): o que estava gravado nestes dois
         // nunca chegou a valer, entao nao era escolha de ninguem.

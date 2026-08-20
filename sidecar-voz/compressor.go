@@ -163,11 +163,11 @@ const (
 	transPegarAtributos  = 8
 	transTipoDeEntrada   = 13 // GetInputAvailableType
 	_transTipoDeSaida    = 14 // GetOutputAvailableType
-	_transDefinirEntrada = 15 // SetInputType
+	transDefinirEntrada  = 15 // SetInputType
 	transDefinirSaida    = 16 // SetOutputType
-	_transMandarRecado   = 23 // ProcessMessage
-	_transEntrarQuadro   = 24 // ProcessInput
-	_transSairQuadro     = 25 // ProcessOutput
+	transMandarRecado    = 23 // ProcessMessage
+	transEntrarQuadro    = 24 // ProcessInput
+	transSairQuadro      = 25 // ProcessOutput
 )
 
 // Bandeiras do MFTEnumEx.
@@ -360,30 +360,14 @@ func configurarSaida(t objeto, largura, altura, fps, kbps int) error {
 	}
 	defer tipo.soltar()
 
-	def := func(chave *windows.GUID, valor windows.GUID) {
-		tipo.chamar(atrDefinirGUID, uintptr(unsafe.Pointer(chave)), uintptr(unsafe.Pointer(&valor)))
-	}
-	def(&chaveTipoMaior, tipoMaiorVideo)
-	def(&chaveSubtipo, formatoH264)
+	definirGUID(tipo, &chaveTipoMaior, tipoMaiorVideo)
+	definirGUID(tipo, &chaveSubtipo, formatoH264)
 
-	num := func(chave *windows.GUID, valor uint32) {
-		tipo.chamar(atrDefinirUINT32, uintptr(unsafe.Pointer(chave)), uintptr(valor))
-	}
-	num(&chaveBandaMedia, uint32(kbps*1000))
-	num(&chaveEntrelacamento, progressivo)
+	definirNumero(tipo, &chaveBandaMedia, uint32(kbps*1000))
+	definirNumero(tipo, &chaveEntrelacamento, progressivo)
 
-	// Tamanho e taxa são pares empacotados num inteiro de 64 bits: a parte alta é
-	// largura (ou numerador) e a baixa é altura (ou denominador). Empacotar assim é
-	// escolha antiga do Windows, e trocar as metades dá um vídeo de 1080x1920 sem
-	// nenhum erro no caminho.
-	par := func(chave *windows.GUID, alto, baixo int) {
-		tipo.chamar(atrDefinirUINT64,
-			uintptr(unsafe.Pointer(chave)),
-			uintptr(uint64(alto)<<32|uint64(uint32(baixo))),
-		)
-	}
-	par(&chaveTamanhoDoQuadro, largura, altura)
-	par(&chaveTaxaDeQuadros, fps, 1)
+	definirPar(tipo, &chaveTamanhoDoQuadro, largura, altura)
+	definirPar(tipo, &chaveTaxaDeQuadros, fps, 1)
 
 	r = t.chamar(transDefinirSaida, 0, uintptr(tipo), 0)
 	return hr(r, fmt.Sprintf("definir a saída em %dx%d @%d", largura, altura, fps))

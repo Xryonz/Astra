@@ -65,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -570,10 +571,44 @@ fun ShellScreen(
             null
         }
 
-        AnimatedVisibility(
-            visible = !settingsOpen && !serverSettingsOpen,
-            enter = fadeIn(tween(160)),
-            exit = fadeOut(tween(160)),
+        // ESCONDER O SHELL NAO PODE SER TIRA-LO DA COMPOSICAO.
+        //
+        // Aqui era um `AnimatedVisibility`, e ele nao esconde: ele DESCARTA. Terminado o
+        // fade de saida, a subarvore inteira sai da composicao — rail, sidebar, palco,
+        // conversa. Abrir as configuracoes matava o shell; fechar montava um shell novo.
+        //
+        // O que se via era a cascata tocando de novo nas orbitas e nas mensagens, e essa
+        // era a parte BARATA do estrago. A cara: o `ChatVm` nasce dentro do palco, com
+        // `DisposableEffect { onDispose { chatVm.dispose() } }`. Descartado o shell, a
+        // conversa aberta era destruida e RECARREGADA DO SERVIDOR na volta. Ida e volta
+        // as configuracoes custava uma viagem de rede e uma remontagem completa, para
+        // reexibir exatamente o que ja estava na tela.
+        //
+        // Agora esconder e so ALPHA, e a subarvore nunca morre: a conversa continua viva
+        // por baixo, nada e refeito, e voltar e instantaneo porque nao ha o que refazer.
+        //
+        // O `drawWithContent` existe para que invisivel tambem seja BARATO: com alpha 0
+        // o Skia ainda percorreria a arvore de desenho inteira por quadro. Pular o
+        // `drawContent` corta a pintura sem tocar na composicao — que e exatamente a
+        // divisao que se quer aqui.
+        //
+        // E o "reduzir movimento" entra pelo mesmo motivo que ja vale para o app em
+        // segundo plano (ver a nota do CompositionLocalProvider acima): shell vivo e
+        // shell que continua pedindo quadro. Coberto pelas configuracoes ele nao tem
+        // por que animar nada.
+        val shellCoberto = settingsOpen || serverSettingsOpen
+        val shellVisivel by animateFloatAsState(
+            if (shellCoberto) 0f else 1f,
+            tween(160),
+            label = "shellVisivel",
+        )
+        CompositionLocalProvider(
+            LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano || shellCoberto),
+        ) {
+        Box(
+            Modifier
+                .graphicsLayer { alpha = shellVisivel }
+                .drawWithContent { if (shellVisivel > 0.001f) drawContent() },
         ) {
         // O SHELL INTEIRO E UM CARTAO. Os paineis continuam encostados entre si —
         // o que mudou e a relacao com a JANELA: antes o conteudo morria colado na
@@ -788,6 +823,7 @@ fun ShellScreen(
                 .width(LARGURA_RAIL + LARGURA_SIDEBAR)
                 .height(ALTURA_DO_RODAPE),
         )
+        }
         }
         }
 

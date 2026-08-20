@@ -132,3 +132,46 @@ func TestRelatorioNuncaSaiVazio(t *testing.T) {
 	}
 	t.Logf("\n%s", texto)
 }
+
+// A PERGUNTA QUE PODE APAGAR UMA PILHA INTEIRA DE CODIGO.
+//
+// A captura entrega BGRA. O livro-texto diz que H.264 quer NV12, e converter na placa
+// exigiria o ID3D11VideoProcessor -- mais umas cinco interfaces COM, so pra trocar o
+// arranjo dos canais. Mas "o livro-texto diz" nao e resposta: quem responde e o
+// compressor DESTA maquina. Se ele aceitar BGRA ou ARGB, o passo nao existe.
+func TestFormatosQueOCompressorAceita(t *testing.T) {
+	precisaDeVideo(t)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if err := abrirCOM(); err != nil {
+		t.Fatalf("iniciar COM: %v", err)
+	}
+	defer fecharCOM()
+	if err := abrirMF(); err != nil {
+		t.Fatalf("iniciar Media Foundation: %v", err)
+	}
+	defer fecharMF()
+
+	lista, err := ProcurarCompressores()
+	if err != nil || len(lista) == 0 {
+		t.Skipf("nada para perguntar: %v", err)
+	}
+	defer SoltarCompressores(lista)
+
+	achouAlgum := false
+	for _, c := range lista {
+		formatos, err := c.FormatosQueAceita()
+		if err != nil {
+			t.Logf("%-46s nao respondeu: %v", c.Nome, err)
+			continue
+		}
+		if len(formatos) > 0 {
+			achouAlgum = true
+		}
+		t.Logf("%-46s %v", c.Nome, formatos)
+	}
+	if !achouAlgum {
+		t.Error("nenhum compressor listou formato de entrada -- indice do GetInputAvailableType errado, ou falta destrancar")
+	}
+}

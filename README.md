@@ -293,8 +293,16 @@ e mesmo as que não pedem merecem — a arte é de quem a desenhou.
 | Gato do companheiro — "Simples" | **Elthen** (ELV Games) | [2D Pixel Art Cat Sprites](https://elthen.itch.io/2d-pixel-art-cat-sprites) |
 | Gato do companheiro — "Travesso" | **Jump Button** ([@Jump_Button](https://twitter.com/Jump_Button)) | Cat Player — crédito exigido em uso comercial |
 | Companheiro — "Sátiro" | *autor a confirmar* | pacote sem arquivo de licença; uso liberado pelo autor ao dono do Astra |
+| Corpo do boneco do perfil | **Eris Esra** ([socials](https://www.erisesra.com/socials)) | [Character Template 4.1](https://erisesra.itch.io/character-templates-pack) — livre para uso comercial, crédito apreciado, revenda proibida |
 
+O corpo do boneco é um **manequim**: creme, careca, sem roupa. Os cabelos e as roupas
+por cima dele foram desenhados aqui, em cima da anatomia medida do próprio sprite —
+não existe pacote de cosméticos que encaixe pixel a pixel neste template, e os que
+chegam perto em proporção vêm como personagem fechado, com contorno e paleta do autor.
 A licença viaja junto da arte, em
+`mobile-native/desktopApp/src/main/resources/boneco/`.
+
+A licença dos companheiros viaja junto da arte, em
 `mobile-native/desktopApp/src/main/resources/pet/`. A geometria de recorte de cada
 folha está documentada no `enum Bicho`, em `ui/GatoDoAstra.kt`.
 

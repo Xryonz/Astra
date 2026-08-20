@@ -181,6 +181,11 @@ class DesktopPrefs(private val store: SessionStore) {
         val petBicho: String = "SIMPLES",
         // Nome que o dono deu ao bicho. Vazio = sem nome, e ai nada e desenhado.
         val petNome: String = "",
+        // O BONECO, guardado como RECEITA e nao como imagem: uns dez bytes de texto
+        // ("pele.cabelo.corCabelo.roupa.corRoupa") que o proprio app remonta. Vive
+        // aqui por enquanto; quando ele passar a ser visto pelos OUTROS, esta mesma
+        // string sobe pro perfil no servidor sem mudar de formato.
+        val boneco: String = "",
         // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
         // automatico e opt-in porque exige varrer a lista de processos.
         val modoTransmissao: Boolean = false,
@@ -290,6 +295,7 @@ class DesktopPrefs(private val store: SessionStore) {
         petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
         petBicho = store.uiPref("petBicho") ?: "SIMPLES",
         petNome = store.uiPref("petNome") ?: "",
+        boneco = store.uiPref("boneco") ?: "",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
@@ -439,6 +445,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setPetPelagem(v: String) {
         store.setUiPref("petPelagem", v)
         _state.update { it.copy(petPelagem = v) }
+    }
+
+    fun setBoneco(v: String) {
+        store.setUiPref("boneco", v)
+        _state.update { it.copy(boneco = v) }
     }
 
     fun setPetNome(v: String) {

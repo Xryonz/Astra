@@ -526,9 +526,27 @@ private fun CorpoCompleto(
             Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
         }
     }
-    if (!dados.bio.isNullOrBlank()) {
+    // O BONECO, logo abaixo do nome: ele é retrato, e retrato fica onde a identidade
+    // está, não no rodapé junto dos metadados.
+    //
+    // POR ORA SÓ NO PRÓPRIO CARTÃO, e isso é honestidade, não limitação escondida: a
+    // receita ainda mora nas preferências desta máquina. Quando ela subir para o perfil
+    // no servidor — mesma string, mesmo formato — a condição abaixo cai e o boneco de
+    // qualquer pessoa aparece. Desenhar o MEU boneco no cartão dos outros seria mentira.
+    val receita = if (dados.username == LocalMinhaConta.current.usuario) receitaLocalDoBoneco() else null
+    if (receita != null) {
         Spacer(Modifier.height(14.dp))
         cascata(3) {
+            Secao("retrato") {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Boneco(receita, escala = 4)
+                }
+            }
+        }
+    }
+    if (!dados.bio.isNullOrBlank()) {
+        Spacer(Modifier.height(14.dp))
+        cascata(4) {
             Secao("sobre") {
                 Text(dados.bio.orEmpty(), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp))
             }
@@ -536,7 +554,7 @@ private fun CorpoCompleto(
     }
     membroDesde(dados.criadoEm)?.let { desde ->
         Spacer(Modifier.height(14.dp))
-        cascata(4) {
+        cascata(5) {
             Secao("membro") {
                 Text("nas estrelas desde $desde", style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
             }
@@ -544,7 +562,7 @@ private fun CorpoCompleto(
     }
     if (servidoresEmComum.isNotEmpty()) {
         Spacer(Modifier.height(14.dp))
-        cascata(5) {
+        cascata(6) {
             Secao("servidores em comum · ${servidoresEmComum.size}") {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -557,7 +575,7 @@ private fun CorpoCompleto(
     }
     if (rodape != null) {
         Spacer(Modifier.height(18.dp))
-        cascata(6) { rodape() }
+        cascata(7) { rodape() }
     }
 }
 

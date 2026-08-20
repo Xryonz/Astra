@@ -131,6 +131,7 @@ import com.composables.icons.lucide.PawPrint
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Eye
 import com.composables.icons.lucide.ShieldCheck
+import com.composables.icons.lucide.Shirt
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
@@ -201,6 +202,10 @@ import kotlin.math.sin
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
+    // ABA PRÓPRIA pelo mesmo motivo que Pets virou uma: montar um boneco exige VER o
+    // boneco, e o palco que mostra isso não cabe espremido no fim de uma aba que já
+    // trata de avatar, nome, pronomes, recado e banner.
+    ATELIE("Atelie", "o boneco do seu perfil", Lucide.Shirt),
     SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
@@ -462,6 +467,7 @@ fun SettingsScreen(
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
+                        SettingsTab.ATELIE -> AtelieSection(prefState, prefs)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
                             // DOIS BLOCOS porque são dois escopos. O de cima manda no
@@ -608,7 +614,10 @@ private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     // Pets também: o palco JÁ é a prévia, e ele precisa da largura toda pra caber o
     // bicho em tamanho que se julgue. Uma segunda cópia na coluna da direita
     // mostraria a mesma coisa menor e longe dos botões que a mudam.
-    SettingsTab.PETS -> false
+    SettingsTab.PETS,
+    // Ateliê pelo mesmo motivo: o palco JÁ é a prévia, e ele fica encostado nas fitas
+    // que o mudam. Uma segunda cópia à direita mostraria o mesmo boneco menor e longe.
+    SettingsTab.ATELIE -> false
     else -> true
 }
 
@@ -659,7 +668,8 @@ private fun SettingsPreview(
                 // Atalhos igual: a lista de teclas já é a própria demonstração.
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
                 SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS,
-                SettingsTab.PETS -> Unit
+                // Ateliê: o palco da aba já é a prévia, encostado nas fitas que o mudam.
+                SettingsTab.PETS, SettingsTab.ATELIE -> Unit
             }
             // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
             // se trocam clicando neles — e engolir o ponteiro mataria exatamente a
@@ -4247,6 +4257,157 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     SettingsDivider()
     Spacer(Modifier.height(20.dp))
+}
+
+// ABA ATELIÊ — o retrato que a pessoa MONTA, em vez do que ela fotografa.
+//
+// A regra de composição desta tela é a fita: cada escolha é uma faixa horizontal de
+// miniaturas que mostram A PEÇA DE VERDADE, não um ícone e não um rótulo. Escolher
+// cabelo lendo "Chanel" é escolher no escuro; escolher vendo o cabelo é escolher.
+//
+// Por isso as miniaturas de FORMA desenham o boneco inteiro com aquela peça, e não a
+// peça solta: um cabelo fora da cabeça não se reconhece como cabelo.
+@Composable
+private fun AtelieSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+    val receita = ReceitaDoBoneco.de(p.boneco)
+    val trocar: (ReceitaDoBoneco) -> Unit = { prefs.setBoneco(it.texto()) }
+
+    TituloExplicavel(
+        "Seu boneco",
+        "O corpo é um só; o que muda é a paleta e as peças por cima dele. Por isso um " +
+            "cabelo desenhado vale por oito — a cor troca a rampa, não o desenho. E o " +
+            "que fica guardado são as suas escolhas, não uma imagem: cabe em dez bytes.",
+    )
+
+    // O PALCO: cartão dentro de cartão, o boneco um degrau acima do painel. Escala 6
+    // porque é a maior que cabe sem o boneco dominar a coluna do formulário.
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
+            .padding(vertical = 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Boneco(receita, escala = 6)
+    }
+
+    Spacer(Modifier.height(20.dp))
+    FieldLabel("pele")
+    FitaDeAmostras(
+        CatalogoDoBoneco.peles.map { it.nome to it.cores[1] },
+        receita.pele,
+    ) { trocar(receita.copy(pele = it)) }
+
+    Spacer(Modifier.height(20.dp))
+    FieldLabel("cabelo")
+    // Sem roupa na miniatura de cabelo, e com roupa na de roupa: cada fita mostra a
+    // escolha dela e cala sobre o resto.
+    FitaDeFormas(
+        CatalogoDoBoneco.cabelos.map { it.nome },
+        receita.cabelo,
+        { i -> receita.copy(cabelo = i, roupa = 0) },
+    ) { trocar(receita.copy(cabelo = it)) }
+
+    Spacer(Modifier.height(14.dp))
+    FieldLabel("cor do cabelo")
+    FitaDeAmostras(
+        CatalogoDoBoneco.coresDoCabelo.map { it.nome to it.cores[0] },
+        receita.corCabelo,
+    ) { trocar(receita.copy(corCabelo = it)) }
+
+    Spacer(Modifier.height(20.dp))
+    FieldLabel("roupa")
+    FitaDeFormas(
+        CatalogoDoBoneco.roupas.map { it.nome },
+        receita.roupa,
+        { i -> receita.copy(roupa = i) },
+    ) { trocar(receita.copy(roupa = it)) }
+
+    Spacer(Modifier.height(14.dp))
+    FieldLabel("cor da roupa")
+    FitaDeAmostras(
+        CatalogoDoBoneco.coresDaRoupa.map { it.nome to it.cores[1] },
+        receita.corRoupa,
+    ) { trocar(receita.copy(corRoupa = it)) }
+
+    Spacer(Modifier.height(20.dp))
+    Text(
+        "O boneco aparece no seu cartão de perfil. A foto continua sendo o seu rosto " +
+            "nas listas e nas conversas — as duas coisas convivem.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
+    )
+    Spacer(Modifier.height(20.dp))
+}
+
+// Fita de cores. A amostra pega o degrau que IDENTIFICA aquele tom — o do meio pra
+// pele e roupa, o mais claro pro cabelo, que é onde a cor do cabelo se reconhece.
+@Composable
+private fun FitaDeAmostras(itens: List<Pair<String, Int>>, escolhido: Int, aoEscolher: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        itens.forEachIndexed { i, (nome, cor) ->
+            val fonte = remember { MutableInteractionSource() }
+            Box(
+                Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color(cor or 0xFF000000.toInt()))
+                    .border(
+                        width = if (i == escolhido) 2.dp else 1.dp,
+                        color = if (i == escolhido) Obsidian.accent else Obsidian.borderDim,
+                        shape = CircleShape,
+                    )
+                    .clickable(interactionSource = fonte, indication = null) { aoEscolher(i) }
+                    .clickScale(fonte, formaDoFoco = CircleShape)
+                    .semantics { contentDescription = nome },
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        itens.getOrNull(escolhido)?.first.orEmpty(),
+        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+    )
+}
+
+// Fita de formas: cada quadradinho é o boneco de verdade com aquela peça, parado.
+@Composable
+private fun FitaDeFormas(
+    nomes: List<String>,
+    escolhido: Int,
+    receitaDa: (Int) -> ReceitaDoBoneco,
+    aoEscolher: (Int) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        nomes.forEachIndexed { i, nome ->
+            val fonte = remember { MutableInteractionSource() }
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (i == escolhido) Obsidian.overlay else Obsidian.raised)
+                    .border(
+                        width = if (i == escolhido) 2.dp else 1.dp,
+                        color = if (i == escolhido) Obsidian.accent else Obsidian.borderDim,
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                    .clickable(interactionSource = fonte, indication = null) { aoEscolher(i) }
+                    .clickScale(fonte, formaDoFoco = RoundedCornerShape(8.dp))
+                    .semantics { contentDescription = nome }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                // Paradas de propósito: uma fita inteira balançando é ruído, e o que
+                // se está escolhendo aqui é a FORMA, que não depende do movimento.
+                Boneco(receitaDa(i), escala = 2, animar = false)
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        nomes.getOrNull(escolhido).orEmpty(),
+        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+    )
 }
 
 // A amostra usa o degrau do MEIO da rampa, não o mais claro: em toda pelagem o

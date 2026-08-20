@@ -22,14 +22,28 @@ package main
 // um que ele ainda não leu. O defeito daí não é travamento — é imagem rasgada de vez
 // em quando, que se confunde com problema de rede e some em qualquer teste curto.
 //
-// O QUE ESTE ARQUIVO NÃO FAZ: redimensionar. Ele comprime na resolução do monitor. Um
-// monitor 4K vira uma transmissão 4K, que é banda demais para malha ponto a ponto — a
-// redução de escala é a fatia seguinte, e o caminho para ela é o Video Processor MFT,
-// não o `ID3D11VideoProcessor` na mão.
+// O QUE ESTE ARQUIVO AINDA NÃO FAZ: redimensionar. Ele comprime na resolução do
+// monitor, e um 4K viraria transmissão 4K — banda demais para malha ponto a ponto.
+//
+// `AlvoDeSaida` já diz em quanto DEVERIA sair (1080p a dois, 720p com três ou mais,
+// que é a conta de banda da malha), e a política está testada. Falta quem produza
+// aquele tamanho, e a sonda já disse que não é o compressor:
+//
+//	NVIDIA H.264 Encoder MFT      nem liga (placa híbrida — esperado)
+//	Intel Quick Sync (x2)         RECUSA entrada 1080p com saída 720p:
+//	                              "tipo de mídia inválido ou inconsistente"
+//	Microsoft AVC DX12            recusa a própria saída em 1280x720
+//	H264 Encoder MFT (software)   não fala D3D11
+//
+// Ou seja: entrada e saída têm de ter o mesmo tamanho, e o redimensionador precisa
+// existir de verdade. Diferente do conversor de cor, que a sonda apagou, este não tem
+// como ser evitado — o caminho é o Video Processor MFT, que é outro `IMFTransform` e
+// portanto reaproveita tudo que já está montado aqui.
 
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -231,10 +245,15 @@ type Compressor struct {
 	proximo int
 
 	trazAmostra bool
-	largura     int
-	altura      int
-	fps         int
-	kbps        int
+	// Tamanho do que a CAPTURA entrega. É o das texturas do rodízio e o do tipo de
+	// entrada — não muda enquanto o monitor for o mesmo.
+	largura int
+	altura  int
+	// Tamanho do que SAI comprimido. Igual ao de cima quando não há redução.
+	saidaL int
+	saidaA int
+	fps    int
+	kbps   int
 
 	// Reaproveitado a cada saída. Os pedaços de H.264 variam muito de tamanho (um
 	// quadro-chave é dezenas de vezes maior que um quadro comum), então ele cresce
@@ -242,13 +261,43 @@ type Compressor struct {
 	saida []byte
 }
 
+// AlvoDeSaida diz em quanto a transmissão deve sair, dado o tamanho da tela.
+//
+// A REGRA VEIO DA CONTA DE BANDA, e não de gosto. Em malha ponto a ponto a subida é
+// gasta uma vez POR PESSOA: 1080p custa ~5 Mbps, então numa sala de quatro seriam 15,
+// que a maioria das conexões de casa não tem. Com três ou mais, cai para 720p e a
+// conta volta a caber.
+//
+// Sozinho com uma pessoa vale a nitidez: compartilhar tela quase sempre é mostrar
+// texto ou código, e em 720p texto pequeno some.
+func AlvoDeSaida(largura, altura, pessoasNaSala int) (int, int) {
+	teto := 1080
+	if pessoasNaSala >= 3 {
+		teto = 720
+	}
+	if altura <= teto {
+		return largura, altura
+	}
+	// Mantém a proporção e ARREDONDA PARA PAR. Dimensão ímpar quebra o H.264, que
+	// guarda a cor em blocos de dois por dois pixels — e o erro daí não é recusa, é
+	// uma faixa de cor errada na borda.
+	l := largura * teto / altura
+	return l &^ 1, teto &^ 1
+}
+
 // AbrirCompressor escolhe, liga e amarra um compressor ao dispositivo da captura.
 //
+// `saidaL`/`saidaA` é o tamanho comprimido. Zero em qualquer um deles quer dizer "o
+// mesmo da tela", que é o caminho sem redução nenhuma.
+//
 // PRECISA RODAR NA MESMA THREAD PRESA da captura — vale a regra de COM de sempre.
-func AbrirCompressor(tela *Tela, kbps int) (*Compressor, error) {
+func AbrirCompressor(tela *Tela, saidaL, saidaA, kbps int) (*Compressor, error) {
 	largura, altura := tela.Tamanho()
 	if largura <= 0 || altura <= 0 {
 		return nil, fmt.Errorf("a captura não sabe o tamanho da tela")
+	}
+	if saidaL <= 0 || saidaA <= 0 {
+		saidaL, saidaA = largura, altura
 	}
 
 	// A taxa DECLARADA é o teto do que vamos mandar, não o do monitor. Declarar 165
@@ -274,19 +323,23 @@ func AbrirCompressor(tela *Tela, kbps int) (*Compressor, error) {
 	// o compressor da placa dedicada não serve para a textura dele — na máquina onde
 	// isto foi escrito, o da NVIDIA nem liga. Tentar até um amarrar é mais curto que
 	// descobrir qual placa desenha o monitor.
-	var ultimo error
+	// GUARDA A RECUSA DE CADA UM, e não só a do último. São compressores diferentes
+	// que falham por motivos diferentes — o de software não fala D3D11, o da placa
+	// dedicada nem liga —, e mostrar apenas o último manda quem lê investigar o
+	// candidato errado. Já custou uma volta inteira aqui.
+	recusas := make([]string, 0, len(lista))
 	for _, cand := range lista {
-		c, err := amarrar(cand, tela, largura, altura, fps, kbps)
-		if err != nil {
-			ultimo = fmt.Errorf("%s: %w", cand.Nome, err)
-			continue
+		c, err := amarrar(cand, tela, largura, altura, saidaL, saidaA, fps, kbps)
+		if err == nil {
+			return c, nil
 		}
-		return c, nil
+		recusas = append(recusas, fmt.Sprintf("%s: %v", cand.Nome, err))
 	}
-	return nil, fmt.Errorf("nenhum compressor aceitou a textura da captura; último: %w", ultimo)
+	return nil, fmt.Errorf("nenhum compressor aceitou a textura da captura:\n  %s",
+		strings.Join(recusas, "\n  "))
 }
 
-func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, fps, kbps int) (*Compressor, error) {
+func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, saidaA, fps, kbps int) (*Compressor, error) {
 	t, err := cand.Montar()
 	if err != nil {
 		return nil, err
@@ -297,6 +350,8 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, fps, kbps i
 		contexto: tela.contexto,
 		largura:  largura,
 		altura:   altura,
+		saidaL:   saidaL,
+		saidaA:   saidaA,
 		fps:      fps,
 		kbps:     kbps,
 	}
@@ -324,7 +379,7 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, fps, kbps i
 	if err := c.entregarODispositivo(tela.dispositivo); err != nil {
 		return nil, err
 	}
-	if err := configurarSaida(t, largura, altura, fps, kbps); err != nil {
+	if err := configurarSaida(t, saidaL, saidaA, fps, kbps); err != nil {
 		return nil, err
 	}
 	if err := c.definirEntrada(); err != nil {
@@ -626,7 +681,7 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 		// Ele quer renegociar. Repor o mesmo tipo de saída é o que a documentação
 		// manda, e o quadro desta volta se perde — um quadro, no começo da
 		// transmissão, não é perda que alguém enxergue.
-		return false, configurarSaida(c.t, c.largura, c.altura, c.fps, c.kbps)
+		return false, configurarSaida(c.t, c.saidaL, c.saidaA, c.fps, c.kbps)
 	}
 	if err := hr(r, "puxar o H.264"); err != nil {
 		return false, err
@@ -777,7 +832,7 @@ func (m MedidaDaTransmissao) Kbps() float64 {
 // Existe pelo mesmo motivo do `MedirTela`: a pergunta "dá 60 quadros por segundo?" só
 // tem uma resposta honesta na máquina de quem pergunta. Aqui ela sai com o nome do
 // compressor que respondeu e a banda que aquilo custaria.
-func MedirTransmissao(monitor int, duracao time.Duration, kbps int) (MedidaDaTransmissao, error) {
+func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps int) (MedidaDaTransmissao, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -797,13 +852,13 @@ func MedirTransmissao(monitor int, duracao time.Duration, kbps int) (MedidaDaTra
 	}
 	defer tela.Fechar()
 
-	c, err := AbrirCompressor(tela, kbps)
+	c, err := AbrirCompressor(tela, saidaL, saidaA, kbps)
 	if err != nil {
 		return m, err
 	}
 	defer c.Fechar()
 
-	m.Largura, m.Altura = tela.Tamanho()
+	m.Largura, m.Altura = c.saidaL, c.saidaA
 	m.Fps = c.fps
 	m.Compressor = c.Nome
 	m.Formato = c.Formato

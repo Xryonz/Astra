@@ -189,7 +189,7 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
 
-	m, err := MedirTransmissao(0, 2*time.Second, 4000)
+	m, err := MedirTransmissao(0, 2*time.Second, 0, 0, 4000)
 
 	// O RETRATO SAI ANTES DO VEREDITO, e de propósito. A medição devolve o que
 	// conseguiu mesmo quando falha no meio, e "qual compressor pegou, em que formato,
@@ -215,5 +215,70 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	}
 	if m.PorSegundo() < 55 {
 		t.Errorf("so %.1f quadros/s -- abaixo dos 60 pedidos", m.PorSegundo())
+	}
+}
+
+// A PERGUNTA QUE PODE APAGAR O REDIMENSIONADOR INTEIRO.
+//
+// A sala com três pessoas precisa sair em 720p, e a captura entrega 1080p. O caminho
+// do livro-texto é montar um Video Processor MFT no meio — mais um objeto COM, mais um
+// conjunto de texturas, mais um passo por quadro.
+//
+// Mas talvez não precise: alguns compressores de hardware reduzem por conta própria,
+// bastando declarar entrada de um tamanho e saída de outro. Perguntar custa este
+// teste; supor que não dá custa a pilha toda.
+//
+// É a mesma pergunta que já apagou o conversor de BGRA para NV12 neste projeto.
+func TestOCompressorReduzSozinho(t *testing.T) {
+	precisaDeTela(t)
+	precisaDeVideo(t)
+
+	m, err := MedirTransmissao(0, 2*time.Second, 1280, 720, 2500)
+	if err != nil {
+		t.Logf("nao reduz sozinho: %v", err)
+		t.Skip("o compressor recusou entrada e saida de tamanhos diferentes -- vai precisar do Video Processor MFT")
+	}
+
+	t.Logf("compressor: %s (entrada %s)", m.Compressor, m.Formato)
+	t.Logf("saida %dx%d: %d quadros em %v = %.1f/s",
+		m.Largura, m.Altura, m.Quadros, m.Duracao.Round(time.Millisecond), m.PorSegundo())
+	t.Logf("%d pedacos, %.0f kbps", m.Pedacos, m.Kbps())
+
+	// SÓ ACEITAR O ERRO NÃO BASTA. Um compressor pode aceitar os tipos e devolver
+	// nada, ou devolver quadro cortado em vez de reduzido — e as duas coisas passariam
+	// por "funcionou" se o teste só olhasse o erro.
+	if m.Pedacos == 0 {
+		t.Error("aceitou os tamanhos mas nao produziu H.264 -- reducao so no papel")
+	}
+	if m.PorSegundo() < 55 {
+		t.Errorf("reduz, mas so %.1f quadros/s", m.PorSegundo())
+	}
+}
+
+// A regra de banda é conta, não gosto — e conta se confere sem placa de vídeo.
+func TestAlvoDeSaida(t *testing.T) {
+	casos := []struct {
+		nome                     string
+		largura, altura, pessoas int
+		querL, querA             int
+	}{
+		{"1080p a dois fica 1080p", 1920, 1080, 2, 1920, 1080},
+		{"1080p com tres cai pra 720", 1920, 1080, 3, 1280, 720},
+		{"1440p a dois cai pro teto de 1080", 2560, 1440, 2, 1920, 1080},
+		{"4K com sala cheia cai pra 720", 3840, 2160, 5, 1280, 720},
+		{"tela pequena nao e esticada", 1280, 720, 2, 1280, 720},
+		// Proporção fora do comum: o que importa é a altura bater no teto e a
+		// largura acompanhar sem virar ímpar.
+		{"ultralarga mantem proporcao", 3440, 1440, 2, 2580, 1080},
+	}
+	for _, c := range casos {
+		l, a := AlvoDeSaida(c.largura, c.altura, c.pessoas)
+		if l != c.querL || a != c.querA {
+			t.Errorf("%s: %dx%d com %d pessoas -> %dx%d, queria %dx%d",
+				c.nome, c.largura, c.altura, c.pessoas, l, a, c.querL, c.querA)
+		}
+		if l%2 != 0 || a%2 != 0 {
+			t.Errorf("%s: %dx%d tem lado impar -- o H.264 guarda cor em blocos de 2x2", c.nome, l, a)
+		}
 	}
 }

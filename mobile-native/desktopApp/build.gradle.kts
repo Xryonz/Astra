@@ -1,7 +1,7 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// :desktopApp — cliente desktop do Astra (Compose Multiplatform / JVM).
+// :desktopApp â€” cliente desktop do Astra (Compose Multiplatform / JVM).
 // D0: so abre uma janela obsidiana. O codigo compartilhado (dominio/dados/UI)
 // entra num :shared em D1+; por ora este modulo e standalone e NAO toca no :app.
 plugins {
@@ -75,7 +75,7 @@ java {
 // A troca e segura pro auto-update: o isNewer do UpdateService compara campo a campo
 // como inteiro, entao [0,2,0] > [0,1,114] pelo segundo campo. Comparacao de texto
 // diria a mesma coisa por acaso, mas e o campo a campo que vale.
-val astraVersion = "0.2.94"
+val astraVersion = "0.2.95"
 
 dependencies {
     implementation(project(":shared"))
@@ -90,7 +90,7 @@ dependencies {
     // Imagens: Coil3 e KMP, mesmos artefatos do Android rodam no desktop.
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
-    // Icones Lucide (mesma lib/versao do :app Android) — variante -jvm. Os ~1.7k
+    // Icones Lucide (mesma lib/versao do :app Android) â€” variante -jvm. Os ~1.7k
     // ImageVectors ficam sob com.composables.icons.lucide.* (igual ao mobile).
     implementation(libs.lucide.icons.jvm)
     // Realtime: socket.io-client e Java puro (mesma lib do Android, mesmo backend).
@@ -99,9 +99,9 @@ dependencies {
     // (Input, Dialog, ...) rodam identicos no desktop.
     implementation(libs.rikkaui.foundation)
     implementation(libs.rikkaui.components)
-    // DPAPI (CryptProtectData) pro SessionStore — tokens cifrados em repouso.
+    // DPAPI (CryptProtectData) pro SessionStore â€” tokens cifrados em repouso.
     implementation(libs.jna.platform)
-    // Vidro/blur real (backdrop) — haze e CMP, mesma lib do Android.
+    // Vidro/blur real (backdrop) â€” haze e CMP, mesma lib do Android.
     implementation(libs.haze)
     // A VOZ NAO MORA MAIS NA JVM. Ela vive no sidecar em Go (sidecar-voz/), que fala
     // WebRTC pelo pion e captura o audio pelo WASAPI direto. Por isso sairam daqui:
@@ -112,38 +112,36 @@ dependencies {
     // Os dois so eram usados pelo motor antigo, que virou ilha fechada quando a voz
     // migrou e foi removido inteiro. A captura de tela segue o mesmo caminho: DXGI
     // Desktop Duplication dentro do Go, sem passar por aqui.
-    // Signaling do LiveKit: runtime do protobuf. As classes Java ficam
-    // COMMITADAS em src/main/java/livekit (geradas 1x na mao) porque o protoc,
-    // como o jpackage, nao engole o path com acento do repo. Pra regenerar
-    // (quando os .proto em src/main/proto mudarem): copiar os protos pra um
-    // dir ASCII (ex: C:/Astra/build/proto-tmp, com google/protobuf/timestamp
-    // e descriptor extraidos do jar do protobuf-java) e rodar:
-    //   protoc --proto_path=C:/Astra/build/proto-tmp --java_out=<saida> \
-    //     livekit_rtc.proto livekit_models.proto livekit_metrics.proto logger/options.proto
-    implementation(libs.protobuf.java)
+    //
+    // O SIGNALING DO LIVEKIT FOI JUNTO, e demorou a sair. Ficaram para tras 5,4 MB de
+    // Java gerado (src/main/java/livekit + logger) mais os .proto que os geraram e o
+    // runtime protobuf-java que so eles usavam. Nao havia UM import: as unicas
+    // mencoes a LiveKit no codigo Kotlin eram comentarios explicando por que ele nao
+    // existe mais. Codigo morto grande e caro em silencio -- entra no jar, no arquivo
+    // do CDS e no tempo de compilar, e ninguem o ve porque ninguem o chama.
     // Som da soundboard: MP3 e OGG entram direto pelo JavaSound. Ver ConversorDeSom
     // -- trocaram um binario de 137,8 MB por ~300 KB de jar.
     implementation(libs.mp3spi)
     implementation(libs.vorbisspi)
 }
 
-// O FFMPEG SAIU DO PACOTE, e a conta explica sozinha por quê.
+// O FFMPEG SAIU DO PACOTE, e a conta explica sozinha por quÃª.
 //
-// Ele pesava 137,8 MB num instalador de 299 MB — quase metade do app, baixada por
-// todo mundo a cada atualização automática. Entrou para capturar tela; quando a
-// transmissão saiu do ar, sobrou com uma única função viva: converter o arquivo
+// Ele pesava 137,8 MB num instalador de 299 MB â€” quase metade do app, baixada por
+// todo mundo a cada atualizaÃ§Ã£o automÃ¡tica. Entrou para capturar tela; quando a
+// transmissÃ£o saiu do ar, sobrou com uma Ãºnica funÃ§Ã£o viva: converter o arquivo
 // que um administrador escolhe ao subir um som de soundboard.
 //
-// Hoje isso é feito por dois provedores do JavaSound, ~300 KB somados, dentro do
-// próprio processo (ver ConversorDeSom).
+// Hoje isso Ã© feito por dois provedores do JavaSound, ~300 KB somados, dentro do
+// prÃ³prio processo (ver ConversorDeSom).
 //
-// Quando o vídeo voltar, ele volta em Go — não por aqui. Se um dia for preciso
-// ressuscitar esta tarefa, ela está no histórico do git.
+// Quando o vÃ­deo voltar, ele volta em Go â€” nÃ£o por aqui. Se um dia for preciso
+// ressuscitar esta tarefa, ela estÃ¡ no histÃ³rico do git.
 // Compila o sidecar de voz (Go) pro appResources. O binario e gerado, nao
-// versionado — quem clona o repo compila junto do empacote.
+// versionado â€” quem clona o repo compila junto do empacote.
 //
 // O SIDECAR NAO PODE FALTAR NO PACOTE: sem ele nao ha voz nenhuma. Por isso esta
-// task NAO tem `onlyIf { !existe }` — ela recompila sempre que o
+// task NAO tem `onlyIf { !existe }` â€” ela recompila sempre que o
 // fonte muda, senao um pacote sairia com a voz da semana passada dentro.
 //
 // Se o Go nao estiver instalado, falha com mensagem clara em vez de gerar um zip
@@ -169,14 +167,14 @@ val compilarSidecarVoz = tasks.register("compilarSidecarVoz") {
     }
 }
 
-// `prepareAppResources` ENTRA NA LISTA, e não é detalhe de arrumação.
+// `prepareAppResources` ENTRA NA LISTA, e nÃ£o Ã© detalhe de arrumaÃ§Ã£o.
 //
-// As duas tarefas acima escrevem dentro de `appResources/windows/`, que é
-// justamente a pasta que o `prepareAppResources` LÊ para montar o pacote. Amarrar
-// só o `createDistributable` deixava a ordem entre elas ao acaso: o Gradle podia
+// As duas tarefas acima escrevem dentro de `appResources/windows/`, que Ã©
+// justamente a pasta que o `prepareAppResources` LÃŠ para montar o pacote. Amarrar
+// sÃ³ o `createDistributable` deixava a ordem entre elas ao acaso: o Gradle podia
 // copiar os recursos antes de o Go ter compilado, e o zip sairia sem o componente
-// de voz — um app que instala, abre, e não tem call, sem nada no build indicando o
-// porquê.
+// de voz â€” um app que instala, abre, e nÃ£o tem call, sem nada no build indicando o
+// porquÃª.
 //
 // O Gradle 9 recusa isso na cara em vez de deixar passar ("uses this output without
 // declaring an explicit dependency"), e foi assim que apareceu.
@@ -224,17 +222,17 @@ compose.desktop {
         //   transmitindo   2768MB      500MB   <- 5.5x menos
         //
         // O ZGC mapeia a mesma memoria fisica em varios enderecos e o Windows conta
-        // CADA mapeamento no working set — o "vazamento de 2.7GB" era contabilidade
-        // inflada, não memoria de verdade. Como o objetivo aqui e custo minimo de RAM,
+        // CADA mapeamento no working set â€” o "vazamento de 2.7GB" era contabilidade
+        // inflada, nÃ£o memoria de verdade. Como o objetivo aqui e custo minimo de RAM,
         // o padrao e G1. Pra voltar ao ZGC (pausas < 1ms, se um dia o engasgo importar
         // mais que a memoria): ./gradlew ... -Pastra.gc=zgc
         val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "g1"
         if (gcProfile == "zgc") {
             jvmArgs += "-XX:+UseZGC"
             jvmArgs += "-XX:+ZGenerational"
-            // No ZGC todo ciclo ja e concorrente — inclusive o System.gc() do skiko.
+            // No ZGC todo ciclo ja e concorrente â€” inclusive o System.gc() do skiko.
         } else {
-            // G1 com alvo de pausa curto (default e 200ms — uma eternidade a 60fps).
+            // G1 com alvo de pausa curto (default e 200ms â€” uma eternidade a 60fps).
             jvmArgs += "-XX:MaxGCPauseMillis=8"
             // System.gc() do skiko vira ciclo concorrente em vez de full stop-the-world.
             jvmArgs += "-XX:+ExplicitGCInvokesConcurrent"
@@ -243,22 +241,22 @@ compose.desktop {
         // AppCDS automatico (JDK 19+): a JVM guarda as classes ja "digeridas" num
         // arquivo e reusa na proxima abertura -> abre mais rapido e o metaspace fica
         // menor (memoria compartilhada em vez de recriada). Cria sozinho no 1o run;
-        // se o caminho não for gravavel, a JVM so avisa e segue (não quebra).
+        // se o caminho nÃ£o for gravavel, a JVM so avisa e segue (nÃ£o quebra).
         // $APPDIR e substituido pelo jpackage pela pasta app/ da instalacao.
         // So no build EMPACOTADO: `$APPDIR` e substituido pelo jpackage. Rodando pelo
-        // Gradle (:run) o token não resolve e a JVM cospe um erro feio de cds (inofensivo,
-        // sai com 0 — verificado), entao isto so entra quando se esta EMPACOTANDO.
+        // Gradle (:run) o token nÃ£o resolve e a JVM cospe um erro feio de cds (inofensivo,
+        // sai com 0 â€” verificado), entao isto so entra quando se esta EMPACOTANDO.
         //
         // O GATE ESTAVA ERRADO E NADA DISTO CHEGAVA NO APP PUBLICADO.
         //
-        // Era `astra.distDir`, que significa "jogue a saida do build noutro lugar" —
+        // Era `astra.distDir`, que significa "jogue a saida do build noutro lugar" â€”
         // uma gambiarra que existe so porque o repo do dono mora num caminho com
-        // acento e o jpackage não engole. O workflow de release NAO passa essa flag
+        // acento e o jpackage nÃ£o engole. O workflow de release NAO passa essa flag
         // (de proposito: no runner o caminho e limpo). Ou seja, o unico build que
         // chega em alguem era exatamente o que ficava SEM AppCDS (abertura mais
         // lenta pra todo mundo) e SEM ErrorFile (o laudo de crash nativo caindo como
         // hs_err_pid<n>.log na raiz, enquanto o diagnostico mandava procurar
-        // falha-jvm-*.log — um arquivo que nunca existiu).
+        // falha-jvm-*.log â€” um arquivo que nunca existiu).
         //
         // Agora o gate pergunta a coisa certa: "a tarefa pedida e de empacotamento?".
         // Vale no CI e na maquina do dono, com ou sem a gambiarra do caminho.
@@ -268,8 +266,8 @@ compose.desktop {
         if (empacotando) {
             jvmArgs += "-XX:+AutoCreateSharedArchive"
             jvmArgs += "-XX:SharedArchiveFile=\$APPDIR/astra-cds.jsa"
-            // Crash NATIVO (webrtc/skia derrubando a JVM inteira) não passa pelo
-            // CrashLog — a JVM morre antes de rodar codigo Java. Neste caso ela
+            // Crash NATIVO (webrtc/skia derrubando a JVM inteira) nÃ£o passa pelo
+            // CrashLog â€” a JVM morre antes de rodar codigo Java. Neste caso ela
             // escreve o hs_err aqui, ao lado do app, em vez de num diretorio
             // aleatorio onde ninguem acha. Junto com falhas.txt, cobre os dois
             // tipos de "fecha do nada": excecao Java e morte nativa.
@@ -281,7 +279,7 @@ compose.desktop {
         // Pula o bloqueio de instancia unica E usa uma pasta de sessao propria
         // (%APPDATA%\Astra-teste1), entao da pra logar com outra conta e ver ao vivo
         // o que uma faz aparecer na outra. A maioria dos bugs de tempo real so
-        // aparece com duas pontas — com uma conta so, quem cria o canal sempre ve o
+        // aparece com duas pontas â€” com uma conta so, quem cria o canal sempre ve o
         // canal. NAO vai no pacote: e gateado pela flag, como o -Pjfr.
         if (providers.gradleProperty("astra.multi").isPresent) {
             jvmArgs += "-Dastra.multi=${providers.gradleProperty("astra.multi").get().ifBlank { "1" }}"
@@ -297,22 +295,22 @@ compose.desktop {
             jvmArgs += "-Dskiko.fps.longFrames.millis=17"
         }
         // Teto de HEAP. Sem -Xmx o HotSpot deixa o heap crescer ate 1/4 da RAM FISICA
-        // (num PC de 16GB isso e ~4GB) antes de um GC maior — como não ha pressao, o GC
+        // (num PC de 16GB isso e ~4GB) antes de um GC maior â€” como nÃ£o ha pressao, o GC
         // fica preguicoso e o RSS so sobe ("em call, de 2 em 2MB a mais, sem parar"). O
         // churn de getStats do audio (5x/s por participante) + protobuf + UI alimenta
         // isso. Capar em 768MB forca o heap a ficar enxuto (uso real fica ~150-300MB),
-        // entao o RSS para de escalar. NAO afeta a transmissão: bitmaps de video sao
-        // memoria NATIVA (fora do heap), presos pelo RasterRecycler, não pelo -Xmx.
+        // entao o RSS para de escalar. NAO afeta a transmissÃ£o: bitmaps de video sao
+        // memoria NATIVA (fora do heap), presos pelo RasterRecycler, nÃ£o pelo -Xmx.
         //
-        // 512m (0.1.35) foi longe demais: teto baixo não "economiza" RAM quando o app
-        // realmente precisa dela — vira OutOfMemoryError, que mata o processo na hora
+        // 512m (0.1.35) foi longe demais: teto baixo nÃ£o "economiza" RAM quando o app
+        // realmente precisa dela â€” vira OutOfMemoryError, que mata o processo na hora
         // e sem aviso. Como MaxHeapFreeRatio devolve as paginas ao Windows depois do
         // pico, o teto mais alto NAO custa memoria parado; so evita a morte no pico
-        // (call cheia + transmissão). 1GB e o teto pedido pelo dono.
+        // (call cheia + transmissÃ£o). 1GB e o teto pedido pelo dono.
         //
         // ATENCAO ao ler o Gerenciador de Tarefas: isto limita o HEAP (objetos Java),
-        // que não e o total do processo. Os quadros de video vivem em memoria NATIVA,
-        // fora do heap — por isso "3GB transmitindo" NAO e resolvido por este numero.
+        // que nÃ£o e o total do processo. Os quadros de video vivem em memoria NATIVA,
+        // fora do heap â€” por isso "3GB transmitindo" NAO e resolvido por este numero.
         // O que segura aquilo e o lado nativo (ver ScreenCaptureFfmpeg).
         jvmArgs += "-Xmx1g"
         // Devolver RAM ao SISTEMA. Por padrao a JVM segura o que ja cresceu: mesmo
@@ -323,6 +321,29 @@ compose.desktop {
         jvmArgs += "-XX:MinHeapFreeRatio=10"
         jvmArgs += "-XX:MaxHeapFreeRatio=25"
         jvmArgs += "-XX:G1PeriodicGCInterval=20000"
+        // O QUE DE FATO SEGURA O HEAP, e nao e o -Xmx. Medido com um churn de 12s
+        // (aloca muito, retem pouco â€” o perfil de um app de UI), tres repeticoes:
+        //
+        //   GCTimeRatio=12 (padrao)   639 MB commitados   referencia
+        //   GCTimeRatio=4             397 MB              -2,5% de vazao
+        //   GCTimeRatio=2             334 MB              -4,3% de vazao
+        //   Xmx768m (com o padrao)    592 MB              quase nada
+        //   Xmx512m (com o padrao)    512 MB
+        //
+        // Ou seja: BAIXAR O TETO QUASE NAO AJUDA. Com GCTimeRatio=12 o G1 aceita
+        // gastar ~8% do tempo coletando, e com essa folga ele prefere crescer o heap
+        // a trabalhar â€” commita 639 MB para usar 200. Apertar a razao inverte a
+        // escolha: ele coleta mais e cresce menos. 242 MB a menos por 2,5% de vazao,
+        // e o -Xmx continua sendo o que sempre foi, a valvula contra OutOfMemory.
+        //
+        // TESTADO E DESCARTADO no caminho: `-XX:SoftMaxHeapSize`. O G1 do JDK 21
+        // ACEITA o flag sem reclamar e simplesmente o ignora â€” 644 MB com ele, 644 MB
+        // sem. Flag que nao da erro e nao faz nada e a pior especie.
+        //
+        // Escolhido 4 e nao 2: `MaxGCPauseMillis=8` continua limitando cada pausa, mas
+        // apertar a razao aumenta a FREQUENCIA delas, e este app anima a 60fps. 4
+        // pega quase toda a economia; 2 cobra o dobro de vazao por 63 MB a mais.
+        jvmArgs += "-XX:GCTimeRatio=4"
         // Teto do metaspace (classes). Sem limite ele so cresce; o teto evita
         // crescimento silencioso ao longo de horas. 192m era apertado demais pro que
         // este app carrega (Compose + Koin + Retrofit + protobuf + webrtc, mais as
@@ -337,6 +358,21 @@ compose.desktop {
         if (providers.gradleProperty("jfr").isPresent) {
             jvmArgs += "-XX:StartFlightRecording=duration=120s,filename=astra-profile.jfr,settings=profile,dumponexit=true"
         }
+        // ONDE A RAM ESTA, por categoria (NAO vai no pacote):
+        //   .\gradlew :desktopApp:run -Pastra.nmt
+        //   jcmd <pid> VM.native_memory summary
+        //
+        // Existe porque "o app usa 900MB" nao e acionavel: heap, metaspace, cache de
+        // codigo, pilhas de thread e buffers diretos sao cinco donos diferentes com
+        // cinco remedios diferentes, e o Gerenciador de Tarefas soma os cinco num
+        // numero so. O NMT separa â€” e separar e o que transforma um numero ruim numa
+        // linha de codigo pra mudar.
+        //
+        // Custa ~5% de desempenho e um pouco da propria RAM que mede, entao fica atras
+        // da flag em vez de ligado sempre.
+        if (providers.gradleProperty("astra.nmt").isPresent) {
+            jvmArgs += "-XX:NativeMemoryTracking=summary"
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Astra"
@@ -347,17 +383,17 @@ compose.desktop {
             // NoClassDefFoundError -> "Nao consegui abrir a porta local". No dev
             // (JDK completo) o modulo existe, por isso so quebrava no pacote.
             // java.management: sem ele o ManagementFactory nem existe no runtime
-            // enxuto do jlink — era o "GC : ?" do diagnostico (a leitura do coletor
+            // enxuto do jlink â€” era o "GC : ?" do diagnostico (a leitura do coletor
             // falhava calada). Tambem e o que habilita monitoramento/JFR no pacote.
             // jdk.accessibility: no Windows, o leitor de tela so enxerga o app
             // atraves da Java Access Bridge, e a ponte mora NESTE modulo. Sem ele
-            // no pacote, todo o trabalho de rotular botao e invisivel — nem quem
+            // no pacote, todo o trabalho de rotular botao e invisivel â€” nem quem
             // ligasse o Access Bridge no proprio Windows (jabswitch /enable)
             // conseguiria usar o Astra por leitor de tela.
             // jdk.management: o com.sun.management.OperatingSystemMXBean (quanto
             // processador ESTE processo gastou) mora nele, e nao no java.management.
             // Sem o modulo, a medicao de custo da transmissao compila e explode so no
-            // app empacotado — a mesma pegadinha que ja custou o jdk.httpserver.
+            // app empacotado â€” a mesma pegadinha que ja custou o jdk.httpserver.
             modules("jdk.httpserver", "java.management", "jdk.management", "jdk.accessibility")
             // Recursos por-SO empacotados no app-image. Hoje sao dois:
             // `astra-voz.exe` (o processo de voz, compilado do Go pelo

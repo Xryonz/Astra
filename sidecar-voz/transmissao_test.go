@@ -218,25 +218,22 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	}
 }
 
-// A PERGUNTA QUE PODE APAGAR O REDIMENSIONADOR INTEIRO.
+// A TRANSMISSÃO REDUZIDA — o caminho da sala com três ou mais pessoas.
 //
-// A sala com três pessoas precisa sair em 720p, e a captura entrega 1080p. O caminho
-// do livro-texto é montar um Video Processor MFT no meio — mais um objeto COM, mais um
-// conjunto de texturas, mais um passo por quadro.
+// Este teste nasceu como outra pergunta ("o compressor não reduz sozinho?", a mesma
+// que apagou o conversor de cor) e a resposta foi NÃO: entrada e saída do H.264 têm de
+// ter o mesmo tamanho. Então ele virou o teste do caminho com redimensionador.
 //
-// Mas talvez não precise: alguns compressores de hardware reduzem por conta própria,
-// bastando declarar entrada de um tamanho e saída de outro. Perguntar custa este
-// teste; supor que não dá custa a pilha toda.
-//
-// É a mesma pergunta que já apagou o conversor de BGRA para NV12 neste projeto.
-func TestOCompressorReduzSozinho(t *testing.T) {
+// A pergunta não foi desperdiçada: ela é o que separa "precisa mesmo" de "montei por
+// via das dúvidas", e está registrada no cabeçalho de `redimensionador.go` para
+// ninguém refazê-la.
+func TestTransmissaoReduzida(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
 
 	m, err := MedirTransmissao(0, 2*time.Second, 1280, 720, 2500)
 	if err != nil {
-		t.Logf("nao reduz sozinho: %v", err)
-		t.Skip("o compressor recusou entrada e saida de tamanhos diferentes -- vai precisar do Video Processor MFT")
+		t.Fatalf("reduzir para 720p: %v", err)
 	}
 
 	t.Logf("compressor: %s (entrada %s)", m.Compressor, m.Formato)
@@ -244,14 +241,16 @@ func TestOCompressorReduzSozinho(t *testing.T) {
 		m.Largura, m.Altura, m.Quadros, m.Duracao.Round(time.Millisecond), m.PorSegundo())
 	t.Logf("%d pedacos, %.0f kbps", m.Pedacos, m.Kbps())
 
-	// SÓ ACEITAR O ERRO NÃO BASTA. Um compressor pode aceitar os tipos e devolver
-	// nada, ou devolver quadro cortado em vez de reduzido — e as duas coisas passariam
-	// por "funcionou" se o teste só olhasse o erro.
+	// NÃO BASTA NÃO DAR ERRO. Um cano pode aceitar os tipos e devolver nada, e isso
+	// passaria por "funcionou" se o teste só olhasse o erro — tela preta do outro lado.
 	if m.Pedacos == 0 {
 		t.Error("aceitou os tamanhos mas nao produziu H.264 -- reducao so no papel")
 	}
 	if m.PorSegundo() < 55 {
 		t.Errorf("reduz, mas so %.1f quadros/s", m.PorSegundo())
+	}
+	if m.Largura != 1280 || m.Altura != 720 {
+		t.Errorf("pedi 1280x720 e saiu %dx%d", m.Largura, m.Altura)
 	}
 }
 

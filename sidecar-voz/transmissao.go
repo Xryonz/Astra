@@ -22,23 +22,19 @@ package main
 // um que ele ainda não leu. O defeito daí não é travamento — é imagem rasgada de vez
 // em quando, que se confunde com problema de rede e some em qualquer teste curto.
 //
-// O QUE ESTE ARQUIVO AINDA NÃO FAZ: redimensionar. Ele comprime na resolução do
-// monitor, e um 4K viraria transmissão 4K — banda demais para malha ponto a ponto.
+// O TAMANHO DA SAÍDA sai de `AlvoDeSaida`: 1080p a dois, 720p com três ou mais. É
+// conta de banda da malha, não gosto — a subida é gasta uma vez por pessoa.
 //
-// `AlvoDeSaida` já diz em quanto DEVERIA sair (1080p a dois, 720p com três ou mais,
-// que é a conta de banda da malha), e a política está testada. Falta quem produza
-// aquele tamanho, e a sonda já disse que não é o compressor:
+// Quando o alvo difere da tela, entra o `Redimensionador` (ver o arquivo dele), e ele
+// precisou existir: a sonda perguntou se o compressor reduzia sozinho, como já havia
+// perguntado sobre cor, e desta vez a resposta foi não —
 //
-//	NVIDIA H.264 Encoder MFT      nem liga (placa híbrida — esperado)
-//	Intel Quick Sync (x2)         RECUSA entrada 1080p com saída 720p:
-//	                              "tipo de mídia inválido ou inconsistente"
-//	Microsoft AVC DX12            recusa a própria saída em 1280x720
-//	H264 Encoder MFT (software)   não fala D3D11
+//	Intel Quick Sync (x2)   entrada 1080p com saída 720p: "tipo de mídia inválido"
+//	Microsoft AVC DX12      recusa a própria saída em 1280x720
 //
-// Ou seja: entrada e saída têm de ter o mesmo tamanho, e o redimensionador precisa
-// existir de verdade. Diferente do conversor de cor, que a sonda apagou, este não tem
-// como ser evitado — o caminho é o Video Processor MFT, que é outro `IMFTransform` e
-// portanto reaproveita tudo que já está montado aqui.
+// MEDIDO com ele no meio, nesta máquina: 1080p nativo dá 79,3 quadros/s a 4717 kbps;
+// 720p reduzido dá 82,4 a 3156 kbps. Reduzir sai de graça e ainda devolve fôlego,
+// porque o compressor passa a ter menos pixel para trabalhar.
 
 import (
 	"fmt"
@@ -244,6 +240,9 @@ type Compressor struct {
 	anel    []quadroDeEntrada
 	proximo int
 
+	// Nulo quando não há redução: a tela já sai no tamanho pedido.
+	reduzir *Redimensionador
+
 	trazAmostra bool
 	// Tamanho do que a CAPTURA entrega. É o das texturas do rodízio e o do tipo de
 	// entrada — não muda enquanto o monitor for o mesmo.
@@ -382,8 +381,18 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 	if err := configurarSaida(t, saidaL, saidaA, fps, kbps); err != nil {
 		return nil, err
 	}
+	// A ENTRADA DO COMPRESSOR É O TAMANHO JÁ REDUZIDO, e não o da tela. Quando há
+	// redimensionador no meio, é ele quem recebe o quadro grande; o compressor só vê
+	// o pequeno. Sem redução os dois são iguais e a linha continua valendo.
 	if err := c.definirEntrada(); err != nil {
 		return nil, err
+	}
+	if saidaL != largura || saidaA != altura {
+		rd, err := AbrirRedimensionador(c.gerente, largura, altura, saidaL, saidaA)
+		if err != nil {
+			return nil, err
+		}
+		c.reduzir = rd
 	}
 	if err := c.abrirGeradorSeAssincrono(); err != nil {
 		return nil, err
@@ -454,7 +463,7 @@ func (c *Compressor) definirEntrada() error {
 		}
 
 		definirNumero(tipo, &chaveEntrelacamento, progressivo)
-		definirPar(tipo, &chaveTamanhoDoQuadro, c.largura, c.altura)
+		definirPar(tipo, &chaveTamanhoDoQuadro, c.saidaL, c.saidaA)
 		definirPar(tipo, &chaveTaxaDeQuadros, c.fps, 1)
 
 		r = c.t.chamar(transDefinirEntrada, 0, uintptr(tipo), 0)
@@ -609,11 +618,33 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	// Tempo em unidades de 100 nanossegundos, que é o relógio do Media Foundation.
 	// A duração declarada é a do quadro na taxa que prometemos.
 	const porSegundo = 10_000_000
-	q.amostra.chamar(amostraDefinirTempo, uintptr(quando.Nanoseconds()/100))
-	q.amostra.chamar(amostraDefinirDuracao, uintptr(porSegundo/int64(c.fps)))
+	marcarTempo := func(a objeto) {
+		a.chamar(amostraDefinirTempo, uintptr(quando.Nanoseconds()/100))
+		a.chamar(amostraDefinirDuracao, uintptr(porSegundo/int64(c.fps)))
+	}
+	marcarTempo(q.amostra)
+
+	// A REDUÇÃO ENTRA AQUI, entre a cópia e o compressor. A amostra que sai dela é
+	// alocada por ela e é nossa para soltar — soltar depois de o compressor receber,
+	// porque ele fica com a própria referência.
+	entrada := q.amostra
+	if c.reduzir != nil {
+		menor, err := c.reduzir.Reduzir(q.amostra)
+		if err != nil {
+			return err
+		}
+		if menor == 0 {
+			return nil // quadro perdido na redução; o próximo vem
+		}
+		defer menor.soltar()
+		// O tempo é remarcado na amostra pequena porque nem todo redimensionador o
+		// carrega adiante — e quadro sem tempo faz o compressor inventar o ritmo.
+		marcarTempo(menor)
+		entrada = menor
+	}
 
 	if c.eventos == 0 {
-		if err := c.entrar(q); err != nil {
+		if err := c.entrar(entrada); err != nil {
 			return err
 		}
 		return c.esvaziar(receber)
@@ -629,7 +660,7 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 		}
 		switch tipo {
 		case eventoQuerEntrada:
-			return c.entrar(q)
+			return c.entrar(entrada)
 		case eventoTemSaida:
 			if _, err := c.sair(receber); err != nil {
 				return err
@@ -638,8 +669,8 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	}
 }
 
-func (c *Compressor) entrar(q quadroDeEntrada) error {
-	r := c.t.chamar(transEntrarQuadro, 0, uintptr(q.amostra), 0)
+func (c *Compressor) entrar(amostra objeto) error {
+	r := c.t.chamar(transEntrarQuadro, 0, uintptr(amostra), 0)
 	return hr(r, "entregar o quadro ao compressor")
 }
 
@@ -760,6 +791,10 @@ func (c *Compressor) proximoRecado() (uint32, error) {
 func (c *Compressor) Fechar() {
 	if c.t != 0 {
 		c.t.chamar(transMandarRecado, recadoEncerrarFluxo, 0)
+	}
+	if c.reduzir != nil {
+		c.reduzir.Fechar()
+		c.reduzir = nil
 	}
 	for _, q := range c.anel {
 		q.soltar()

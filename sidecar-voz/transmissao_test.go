@@ -201,7 +201,12 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	}
 
 	t.Logf("tela %dx%d, taxa declarada %d", m.Largura, m.Altura, m.Fps)
-	t.Logf("%d quadros em %v = %.1f/s", m.Quadros, m.Duracao.Round(time.Millisecond), m.PorSegundo())
+	t.Logf("%d quadros em %v (a taxa depende do que muda na tela: %.1f/s)",
+		m.Quadros, m.Duracao.Round(time.Millisecond), m.PorSegundo())
+	t.Logf("CUSTO POR QUADRO: %v de um orcamento de %v -> %.0f%% de folga",
+		m.CustoPorQuadro().Round(10*time.Microsecond),
+		(time.Second / time.Duration(m.Fps)).Round(10*time.Microsecond),
+		m.Folga()*100)
 	t.Logf("%d pedacos, %d bytes = %.0f kbps", m.Pedacos, m.Bytes, m.Kbps())
 
 	if m.Quadros == 0 {
@@ -213,8 +218,19 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	if m.Pedacos == 0 {
 		t.Error("nenhum pedaco de H.264 saiu em 2s -- o compressor engoliu tudo")
 	}
-	if m.PorSegundo() < 55 {
-		t.Errorf("so %.1f quadros/s -- abaixo dos 60 pedidos", m.PorSegundo())
+
+	// ESTA É A ASSERÇÃO QUE VALE, e a taxa de quadros NÃO é.
+	//
+	// `ProximoQuadro` espera a tela mudar, então numa area de trabalho parada a taxa
+	// medida e a do Windows, nao a do Astra: o mesmo codigo mediu 79/s numa hora e
+	// 44/s noutra sem nada ter mudado no cano. Perseguir aquele numero custou uma
+	// investigacao inteira num defeito que nao existia.
+	//
+	// O custo por quadro e da maquina. Se ele cabe no orcamento, os 60 saem sempre que
+	// a tela tiver 60 para dar.
+	if m.Folga() < 0 {
+		t.Errorf("cada quadro custa %v e o orcamento e %v -- esta maquina nao sustenta %d/s",
+			m.CustoPorQuadro(), time.Second/time.Duration(m.Fps), m.Fps)
 	}
 }
 
@@ -237,8 +253,9 @@ func TestTransmissaoReduzida(t *testing.T) {
 	}
 
 	t.Logf("compressor: %s (entrada %s)", m.Compressor, m.Formato)
-	t.Logf("saida %dx%d: %d quadros em %v = %.1f/s",
-		m.Largura, m.Altura, m.Quadros, m.Duracao.Round(time.Millisecond), m.PorSegundo())
+	t.Logf("saida %dx%d: %d quadros, custo %v por quadro (%.0f%% de folga)",
+		m.Largura, m.Altura, m.Quadros,
+		m.CustoPorQuadro().Round(10*time.Microsecond), m.Folga()*100)
 	t.Logf("%d pedacos, %.0f kbps", m.Pedacos, m.Kbps())
 
 	// NÃO BASTA NÃO DAR ERRO. Um cano pode aceitar os tipos e devolver nada, e isso
@@ -246,8 +263,9 @@ func TestTransmissaoReduzida(t *testing.T) {
 	if m.Pedacos == 0 {
 		t.Error("aceitou os tamanhos mas nao produziu H.264 -- reducao so no papel")
 	}
-	if m.PorSegundo() < 55 {
-		t.Errorf("reduz, mas so %.1f quadros/s", m.PorSegundo())
+	if m.Folga() < 0 {
+		t.Errorf("reduzido ainda custa %v por quadro, acima do orcamento de %v",
+			m.CustoPorQuadro(), time.Second/time.Duration(m.Fps))
 	}
 	if m.Largura != 1280 || m.Altura != 720 {
 		t.Errorf("pedi 1280x720 e saiu %dx%d", m.Largura, m.Altura)

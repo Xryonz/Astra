@@ -32,9 +32,24 @@ package main
 //	Intel Quick Sync (x2)   entrada 1080p com saída 720p: "tipo de mídia inválido"
 //	Microsoft AVC DX12      recusa a própria saída em 1280x720
 //
-// MEDIDO com ele no meio, nesta máquina: 1080p nativo dá 79,3 quadros/s a 4717 kbps;
-// 720p reduzido dá 82,4 a 3156 kbps. Reduzir sai de graça e ainda devolve fôlego,
-// porque o compressor passa a ter menos pixel para trabalhar.
+// MEDIDO com ele no meio, nesta máquina — e o que se mede é o CUSTO POR QUADRO, não a
+// taxa de quadros:
+//
+//	1080p nativo    7,43ms por quadro   2385 kbps
+//	720p reduzido   7,64ms por quadro   1894 kbps
+//
+//	orçamento a 60 por segundo: 16,67ms  ->  55% de folga
+//
+// REDUZIR NÃO ECONOMIZA TEMPO AQUI, economiza BANDA. Uma leitura anterior dizia o
+// contrário ("82 quadros/s reduzido contra 79 nativo, reduzir devolve fôlego") e
+// estava errada: aquilo media a taxa de quadros, e a taxa de quadros num desktop mede
+// o WINDOWS. `ProximoQuadro` espera a tela mudar — área parada rende poucos quadros,
+// jogo rende muitos —, então o mesmo código deu 79/s numa hora e 44/s noutra sem nada
+// ter mudado no cano.
+//
+// O custo por quadro é da máquina e não mente. Nesta, o compressor não era o gargalo
+// em nenhum dos dois tamanhos, e por isso reduzir não devolveu tempo. Numa máquina
+// fraca a conta muda, e é lá que a redução vai pagar.
 
 import (
 	"fmt"
@@ -258,6 +273,52 @@ type Compressor struct {
 	// quadro-chave é dezenas de vezes maior que um quadro comum), então ele cresce
 	// até o maior que já apareceu e para de crescer.
 	saida []byte
+}
+
+// Ritmo segura o laço da transmissão no compasso pedido.
+//
+// POR QUE ELE ESPERA EM VEZ DE DESCARTAR, que foi a primeira tentativa e saiu pior.
+// Num monitor de 165 Hz a captura entrega muito mais do que os 60 prometidos, e o
+// instinto é pegar tudo e jogar fora o que sobra. Medido, isso deu 44 quadros por
+// segundo — PIOR que os 79 de antes de existir ritmo nenhum.
+//
+// A razão é que o laço é serial: captura, comprime, captura. O quadro descartado já
+// custou a ida e volta ao DXGI, e descartar triplicou o número dessas idas sem
+// devolver nada. Jogar trabalho fora depois de tê-lo feito não é economia.
+//
+// Esperar até a hora resolve os dois lados: a ida ao DXGI só acontece quando vai
+// render quadro, e a Desktop Duplication sempre entrega o MAIS RECENTE — então
+// dormir não perde imagem nenhuma, só pula as intermediárias que ninguém veria.
+//
+// O custo é até um intervalo de atraso (16ms a 60 por segundo) num quadro que acabou
+// de mudar. Para tela compartilhada isso não se percebe; para o compressor de uma
+// máquina fraca, o terço de trabalho economizado se percebe muito.
+type Ritmo struct {
+	intervalo time.Duration
+	proximo   time.Time
+}
+
+func NovoRitmo(fps int) *Ritmo {
+	if fps <= 0 {
+		fps = 60
+	}
+	return &Ritmo{intervalo: time.Second / time.Duration(fps), proximo: time.Now()}
+}
+
+// Esperar dorme até a próxima casa de tempo.
+//
+// Quando a volta anterior demorou MAIS que o intervalo — máquina fraca, quadro-chave
+// pesado —, a casa é reposta a partir de agora em vez de acumular atraso. Sem isso o
+// relógio ficaria devendo casas e o laço passaria a correr sem dormir, tentando
+// recuperar um tempo que não volta.
+func (r *Ritmo) Esperar() {
+	agora := time.Now()
+	if espera := r.proximo.Sub(agora); espera > 0 {
+		time.Sleep(espera)
+		r.proximo = r.proximo.Add(r.intervalo)
+		return
+	}
+	r.proximo = agora.Add(r.intervalo)
 }
 
 // AlvoDeSaida diz em quanto a transmissão deve sair, dado o tamanho da tela.
@@ -844,6 +905,39 @@ type MedidaDaTransmissao struct {
 	Formato    string
 	Assincrono bool
 	Duracao    time.Duration
+
+	// O TEMPO GASTO DENTRO DO CANO, somado — copiar na placa, reduzir e comprimir.
+	//
+	// É ESTE o número que diz se a máquina dá conta, e não a taxa de quadros. A taxa
+	// depende do que está acontecendo NA TELA: `ProximoQuadro` espera a duplicação
+	// avisar que algo mudou, então área de trabalho parada rende poucos quadros por
+	// segundo e um jogo rende muitos. Medir quadros por segundo num desktop quieto
+	// mede o Windows, não o Astra — foi o que me fez perseguir um defeito inexistente,
+	// vendo 79/s numa hora e 44/s noutra sem ter mudado nada que importasse.
+	//
+	// O custo POR QUADRO, esse, é da máquina. Se couber no orçamento (16,7ms a 60 por
+	// segundo), o cano não é o gargalo. É a medida que serve para decidir se um
+	// computador fraco aguenta.
+	TempoNoCano time.Duration
+}
+
+// CustoPorQuadro é quanto o cano gasta em cada quadro. Comparar com 1/fps diz se a
+// máquina aguenta o que foi pedido.
+func (m MedidaDaTransmissao) CustoPorQuadro() time.Duration {
+	if m.Quadros == 0 {
+		return 0
+	}
+	return m.TempoNoCano / time.Duration(m.Quadros)
+}
+
+// Folga é quanto do orçamento de tempo sobra, de 0 a 1. Negativo quer dizer que a
+// máquina não sustenta a taxa pedida e a transmissão vai engasgar.
+func (m MedidaDaTransmissao) Folga() float64 {
+	orcamento := time.Second / time.Duration(m.Fps)
+	if m.Quadros == 0 || orcamento == 0 {
+		return 0
+	}
+	return 1 - float64(m.CustoPorQuadro())/float64(orcamento)
 }
 
 // PorSegundo é a conta que interessa: quadros comprimidos por segundo.
@@ -899,9 +993,14 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 	m.Formato = c.Formato
 	m.Assincrono = c.Assincrono
 
+	ritmo := NovoRitmo(c.fps)
 	comeco := time.Now()
 	fim := comeco.Add(duracao)
 	for time.Now().Before(fim) {
+		// A ESPERA VEM ANTES DA CAPTURA. Ir ao DXGI mais rápido que o compasso só
+		// produz quadro para jogar fora — e a ida em si já custa.
+		ritmo.Esperar()
+
 		textura, e := tela.ProximoQuadro(100)
 		if e != nil {
 			if _, perdeu := e.(ErroDeAcessoPerdido); perdeu {
@@ -916,10 +1015,14 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 			continue
 		}
 
+		// O CRONÔMETRO PEGA SÓ O CANO, e não a espera pela tela mudar. Misturar as
+		// duas coisas foi o erro que tornou a medição inútil.
+		antes := time.Now()
 		err := c.Comprimir(textura, time.Since(comeco), func(nal []byte) {
 			m.Pedacos++
 			m.Bytes += len(nal)
 		})
+		m.TempoNoCano += time.Since(antes)
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {

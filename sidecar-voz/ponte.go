@@ -40,6 +40,16 @@ type Comando struct {
 	// mudo / surdo
 	Ligado bool `json:"ligado,omitempty"`
 
+	// tratamento: os três ajustes do microfone, JUNTOS num comando só.
+	//
+	// Juntos porque moram no mesmo objeto do Windows e mudar qualquer um deles obriga
+	// a reabrir a fonte. Em comandos separados, mexer em dois interruptores seguidos
+	// cortaria o som duas vezes — e quem está ajustando o microfone costuma mexer em
+	// mais de um.
+	Eco   bool `json:"eco,omitempty"`
+	Ruido bool `json:"ruido,omitempty"`
+	Ganho bool `json:"ganho,omitempty"`
+
 	// aparelho: qual sentido trocar e para qual id. `Id` vazio volta ao aparelho de
 	// comunicação padrão do Windows.
 	Sentido string `json:"sentido,omitempty"` // "entrada" ou "saida"
@@ -79,8 +89,8 @@ const (
 	CmdDesconectar = "desconectar"
 	CmdMudo        = "mudo"
 	CmdSurdo       = "surdo"
-	// Liga ou desliga o cancelador de eco do Windows.
-	CmdEco = "eco"
+	// Cancelamento de eco, supressão de ruído e ganho automático — os três de uma vez.
+	CmdTratamento = "tratamento"
 	// Pede a lista de microfones e saídas; a resposta vem no evento EvAparelhos.
 	CmdAparelhos = "aparelhos"
 	// Escolhe qual usar num dos sentidos.

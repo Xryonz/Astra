@@ -69,6 +69,13 @@ type Motor struct {
 	// Deixar desligado por padrão seria escolher o defeito.
 	cancelarEco atomic.Bool
 
+	// Supressão de ruído e ganho automático. Moram DENTRO do cancelador (é o mesmo
+	// objeto do Windows), então valem só quando ele está no caminho — ver
+	// AbrirEntradaDeVoz. Guardados aqui do mesmo jeito que o eco porque mudam pela
+	// ponte, em plena call, e o laço de captura os relê ao reabrir a fonte.
+	suprimirRuido atomic.Bool
+	ganhoAuto     atomic.Bool
+
 	// O CANCELADOR JÁ FOI TENTADO E NÃO PRODUZIU NESTA MÁQUINA.
 	//
 	// Separado da escolha da pessoa de propósito: `cancelarEco` é o que ela quer,
@@ -101,19 +108,35 @@ func NovoMotor(faixa *webrtc.TrackLocalStaticSample, mist *Misturador, saida *Es
 		saidaPronta: make(chan struct{}),
 	}
 	m.cancelarEco.Store(true)
+	// Os padrões do Astra, e eles NÃO são os padrões do objeto do Windows: lá a
+	// supressão de ruído já vem ligada mas o ganho automático vem desligado. Quem
+	// manda é a tela, então os dois começam como a tela mostra.
+	m.suprimirRuido.Store(true)
+	m.ganhoAuto.Store(true)
 	return m
 }
 
-// DefinirCancelamentoDeEco liga ou desliga o cancelador, em plena call.
+// DefinirTratamento troca os três ajustes do microfone em plena call.
 //
-// Reaproveita a geração da entrada porque o efeito é o mesmo de trocar de aparelho:
-// o laço fecha a fonte atual e abre outra. Um contador separado só para isto seria
+// Reaproveita a geração da entrada porque o efeito é o mesmo de trocar de aparelho: o
+// laço fecha a fonte atual e abre outra. Um contador separado só para isto seria
 // duplicar mecanismo idêntico.
-func (m *Motor) DefinirCancelamentoDeEco(on bool) {
-	if m.cancelarEco.Swap(on) == on {
-		return // já estava assim; reabrir a fonte à toa cortaria o som sem motivo
+//
+// OS TRÊS DE UMA VEZ e não um por chamada: as três são propriedades escritas na
+// ABERTURA do cancelador, então cada mudança custa uma reabertura — alguns quadros de
+// silêncio. Aplicar em bloco cobra esse preço UMA vez.
+//
+// AVALIA OS TRÊS ANTES DE DECIDIR, e a ordem importa: `Swap` já escreveu o valor novo
+// quando devolve o antigo, então interromper no primeiro que não mudou deixaria os
+// outros dois por escrever. Foi por isso que os três `Swap` acontecem incondicionalmente
+// e só a REABERTURA é condicional — reabrir à toa corta o som sem nada em troca.
+func (m *Motor) DefinirTratamento(aj AjustesDaVoz) {
+	mudouEco := m.cancelarEco.Swap(aj.Eco) != aj.Eco
+	mudouRuido := m.suprimirRuido.Swap(aj.Ruido) != aj.Ruido
+	mudouGanho := m.ganhoAuto.Swap(aj.Ganho) != aj.Ganho
+	if mudouEco || mudouRuido || mudouGanho {
+		m.geracaoEntrada.Add(1)
 	}
-	m.geracaoEntrada.Add(1)
 }
 
 func (m *Motor) DefinirMudo(on bool) { m.mudo.Store(on) }
@@ -183,7 +206,11 @@ func (m *Motor) laçoDeCaptura(ctx context.Context) {
 			querEco = false
 		}
 
-		fonte, err := AbrirEntradaDeVoz(m.idEntrada(), querEco)
+		fonte, err := AbrirEntradaDeVoz(m.idEntrada(), AjustesDaVoz{
+			Eco:   querEco,
+			Ruido: m.suprimirRuido.Load(),
+			Ganho: m.ganhoAuto.Load(),
+		})
 		if err != nil {
 			// TENTAR DE NOVO em vez de morrer. Antes, um microfone indisponível
 			// matava a captura para o resto da call — e microfone indisponível é

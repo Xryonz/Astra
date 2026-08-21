@@ -213,8 +213,8 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		a.motor.DefinirSurdo(cmd.Ligado)
 		return nil
 
-	case CmdEco:
-		a.motor.DefinirCancelamentoDeEco(cmd.Ligado)
+	case CmdTratamento:
+		a.motor.DefinirTratamento(AjustesDaVoz{Eco: cmd.Eco, Ruido: cmd.Ruido, Ganho: cmd.Ganho})
 		return nil
 
 	case CmdAparelhos:

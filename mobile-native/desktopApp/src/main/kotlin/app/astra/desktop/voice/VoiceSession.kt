@@ -102,6 +102,19 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
                     aplicar()
                 }
         }
+        // O TRATAMENTO DO MICROFONE VALE NA HORA, e não na próxima call. Quem desliga
+        // um desses interruptores quase sempre está ouvindo o problema naquele
+        // instante, com a call aberta — mandar o efeito para a próxima sala é o mesmo
+        // que não ter interruptor.
+        //
+        // Fluxo próprio porque a chave é outra: junto do de cima, trocar uma tecla de
+        // atalho reabriria o microfone sem motivo nenhum.
+        scope.launch {
+            prefs.state
+                .map { Triple(it.micEchoCancel, it.micNoiseSuppression, it.micAutoGain) }
+                .distinctUntilChanged()
+                .collect { (eco, ruido, ganho) -> call?.definirTratamento(eco, ruido, ganho) }
+        }
     }
 
     private fun registrarAtalhos() {
@@ -204,6 +217,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
             // microfone errado antes de corrigir.
             val p = prefs.state.value
             it.lembrarAparelhos(p.audioInput, p.audioOutput)
+            it.lembrarTratamento(p.micEchoCancel, p.micNoiseSuppression, p.micAutoGain)
             it.entrar(sala.id)
         }
         joined = sala

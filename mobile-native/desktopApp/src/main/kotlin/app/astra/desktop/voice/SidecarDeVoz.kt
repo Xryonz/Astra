@@ -48,6 +48,10 @@ data class ComandoDeVoz(
     val ligado: Boolean? = null,
     val sentido: String? = null,
     val id: String? = null,
+    // Os três do comando `tratamento`. Ver a função de mesmo nome.
+    val eco: Boolean? = null,
+    val ruido: Boolean? = null,
+    val ganho: Boolean? = null,
 )
 
 // Um microfone ou uma saída, do jeito que o processo de voz os enxerga.
@@ -123,6 +127,15 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     fun mudo(on: Boolean) = mandar(ComandoDeVoz(cmd = "mudo", ligado = on))
 
     fun surdo(on: Boolean) = mandar(ComandoDeVoz(cmd = "surdo", ligado = on))
+
+    // OS TRÊS AJUSTES DO MICROFONE NUM COMANDO SÓ, e isso é do Windows, não nosso: os
+    // três moram no mesmo objeto (o cancelador de eco), e mudar qualquer um obriga a
+    // reabrir a fonte — alguns quadros de silêncio. Mandados separados, mexer em dois
+    // interruptores seguidos cortaria o som duas vezes.
+    //
+    // O lado de lá ignora o comando quando nada mudou de verdade.
+    fun tratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) =
+        mandar(ComandoDeVoz(cmd = "tratamento", eco = eco, ruido = ruido, ganho = ganho))
 
     // Pede a lista dos dois sentidos. A resposta não volta aqui: chega como dois
     // eventos `aparelhos`, um por sentido, porque a ponte é assíncrona por natureza

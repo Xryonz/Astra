@@ -3566,14 +3566,31 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
-    ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
+    // O ECO VEM PRIMEIRO PORQUE OS OUTROS DOIS DEPENDEM DELE, e a ordem na tela é a
+    // única pista de graça que existe pra isso. No Windows os três tratamentos moram
+    // dentro do MESMO objeto — o cancelador de eco. Sem ele no caminho, o microfone
+    // entra cru: não existe "só supressão de ruído" pra oferecer.
     ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic", p.micEchoCancel, prefs::setMicEchoCancel)
+    ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Ganho automatico", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
+    // DIZER, e não desabilitar os dois de baixo. Desabilitar apagaria a escolha da
+    // pessoa da tela, e ela volta a valer assim que o cancelador voltar — o que o
+    // interruptor apagado não conta.
+    if (!p.micEchoCancel) {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "sem o cancelamento de eco, os dois ajustes acima não têm efeito: no " +
+                "Windows os três vivem no mesmo componente, e sem ele o microfone entra cru.",
+            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            modifier = Modifier.widthIn(max = 460.dp),
+        )
+    }
     Spacer(Modifier.height(12.dp))
     MicSensitivityRow(p.micSensitivity, prefs::setMicSensitivity)
     Spacer(Modifier.height(4.dp))
     Text(
-        "as opções de microfone valem na próxima vez que você entrar numa sala.",
+        "os ajustes do microfone valem na hora, mesmo com a call aberta — o som corta " +
+            "por um instante enquanto o microfone reabre.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )

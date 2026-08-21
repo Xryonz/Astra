@@ -215,7 +215,7 @@ func TestMontarOCancelador(t *testing.T) {
 	}
 	defer fecharCOM()
 
-	c, err := AbrirCapturaComEco("")
+	c, err := AbrirCapturaComEco("", AjustesDaVoz{Eco: true, Ruido: true, Ganho: true})
 	if err != nil {
 		t.Fatalf("montar o cancelador: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestPortaDeEntradaSempreDevolveFonte(t *testing.T) {
 	}
 	defer fecharCOM()
 
-	comEco, err := AbrirEntradaDeVoz("", true)
+	comEco, err := AbrirEntradaDeVoz("", AjustesDaVoz{Eco: true, Ruido: true, Ganho: true})
 	if err != nil {
 		t.Fatalf("com eco pedido, nao devolveu fonte nenhuma: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestPortaDeEntradaSempreDevolveFonte(t *testing.T) {
 	}
 	comEco.Fechar()
 
-	semEco, err := AbrirEntradaDeVoz("", false)
+	semEco, err := AbrirEntradaDeVoz("", AjustesDaVoz{})
 	if err != nil {
 		t.Fatalf("sem eco pedido, nao devolveu fonte: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestDiagnosticoDoCancelador(t *testing.T) {
 	}
 	defer fecharCOM()
 
-	c, err := AbrirCapturaComEco("")
+	c, err := AbrirCapturaComEco("", AjustesDaVoz{Eco: true, Ruido: true, Ganho: true})
 	if err != nil {
 		t.Fatalf("montar: %v", err)
 	}
@@ -337,7 +337,7 @@ func TestCanceladorComSaidaAtiva(t *testing.T) {
 	}
 	defer alto.Fechar()
 
-	c, err := AbrirCapturaComEco("")
+	c, err := AbrirCapturaComEco("", AjustesDaVoz{Eco: true, Ruido: true, Ganho: true})
 	if err != nil {
 		t.Fatalf("montar o cancelador: %v", err)
 	}

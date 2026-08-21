@@ -102,7 +102,38 @@ var (
 	propModoDoSistema = chaveDePropriedade{conjunto: conjuntoDoCancelador, id: 2}
 	propModoFonte     = chaveDePropriedade{conjunto: conjuntoDoCancelador, id: 3}
 	propIndices       = chaveDePropriedade{conjunto: conjuntoDoCancelador, id: 4}
+
+	// AS TRÊS QUE FAZEM A SUPRESSÃO DE RUÍDO E O GANHO AUTOMÁTICO EXISTIREM.
+	//
+	// Estabelecidas pela mesma sonda das de cima (`TestSondaDoEco`), e a identificação
+	// se sustenta em duas coincidências independentes por chave: o TIPO e o VALOR
+	// PADRÃO batem com o que a Microsoft documenta por nome, e elas caem em PIDs
+	// consecutivos na ordem em que a documentação as apresenta.
+	//
+	//	pid=5  BOOL = false -> FEATURE_MODE  (o portão)
+	//	pid=8  I4   = 1     -> FEATR_NS      (I4 e não BOOL: tem modos, não liga/desliga)
+	//	pid=9  BOOL = false -> FEATR_AGC
+	//
+	// O PORTÃO É O QUE IMPORTA ENTENDER. Com FEATURE_MODE em falso — que é o padrão —
+	// o cancelador roda a configuração de fábrica dele e IGNORA as duas outras. Era
+	// exatamente esse o estado do Astra: a supressão de ruído estava ligada sempre
+	// (padrão 1) e o ganho automático estava desligado sempre (padrão falso), desse
+	// jeito e sem relação nenhuma com os interruptores da tela.
+	propModoDeAjuste = chaveDePropriedade{conjunto: conjuntoDoCancelador, id: 5}
+	propRuido        = chaveDePropriedade{conjunto: conjuntoDoCancelador, id: 8}
+	propGanho        = chaveDePropriedade{conjunto: conjuntoDoCancelador, id: 9}
 )
+
+// AjustesDaVoz é o que a pessoa escolheu em Configurações › Voz.
+//
+// UM TIPO E NÃO TRÊS PARÂMETROS porque os três viajam juntos do começo ao fim (ponte
+// → motor → abertura da fonte), e três booleanos em sequência numa assinatura são um
+// convite a trocar dois de lugar — erro que compila e só aparece no ouvido de alguém.
+type AjustesDaVoz struct {
+	Eco   bool
+	Ruido bool
+	Ganho bool
+}
 
 // Valor de SYSTEM_MODE. Só um nos interessa.
 //
@@ -205,9 +236,14 @@ type CapturaComEco struct {
 // depende de o Windows ter o componente registrado e de os aparelhos cooperarem;
 // numa máquina onde ele não abre, a escolha certa é call com eco e não call nenhuma.
 // O motivo vai para o registro, para a queda não ser silenciosa.
-func AbrirEntradaDeVoz(idAparelho string, comEco bool) (FonteDeAudio, error) {
-	if comEco {
-		fonte, err := AbrirCapturaComEco(idAparelho)
+// A SUPRESSÃO DE RUÍDO E O GANHO CAEM JUNTO COM O ECO, e isso não é escolha nossa: no
+// Windows os três moram no MESMO objeto. A captura crua é o microfone sem tratamento
+// nenhum — não existe "só supressão de ruído" para oferecer. Quem desliga o eco está
+// desligando os três, e a tela precisa dizer isso em vez de deixar dois interruptores
+// acesos sobre um caminho que não passa por eles.
+func AbrirEntradaDeVoz(idAparelho string, aj AjustesDaVoz) (FonteDeAudio, error) {
+	if aj.Eco {
+		fonte, err := AbrirCapturaComEco(idAparelho, aj)
 		if err == nil {
 			return fonte, nil
 		}
@@ -220,7 +256,7 @@ func AbrirEntradaDeVoz(idAparelho string, comEco bool) (FonteDeAudio, error) {
 //
 // PRECISA ser chamada da mesma thread que vai ler — COM tem afinidade de thread,
 // igual à captura crua.
-func AbrirCapturaComEco(idAparelho string) (*CapturaComEco, error) {
+func AbrirCapturaComEco(idAparelho string, aj AjustesDaVoz) (*CapturaComEco, error) {
 	c := &CapturaComEco{}
 	ok := false
 	defer func() {
@@ -238,7 +274,7 @@ func AbrirCapturaComEco(idAparelho string) (*CapturaComEco, error) {
 	// A CONFIGURAÇÃO VEM ANTES DO FORMATO, e a ordem não é gosto: o cancelador
 	// decide o que aceita como saída a partir do modo em que está. Definir o formato
 	// primeiro faz ele recusar com um erro que não explica nada.
-	if err := c.configurar(idAparelho); err != nil {
+	if err := c.configurar(idAparelho, aj); err != nil {
 		return nil, err
 	}
 
@@ -260,8 +296,8 @@ func AbrirCapturaComEco(idAparelho string) (*CapturaComEco, error) {
 	return c, nil
 }
 
-// configurar liga o modo fonte e o cancelamento de eco.
-func (c *CapturaComEco) configurar(idAparelho string) error {
+// configurar liga o modo fonte, o cancelamento de eco e o tratamento do microfone.
+func (c *CapturaComEco) configurar(idAparelho string, aj AjustesDaVoz) error {
 	loja, err := c.objeto.consultar(&iidLojaDePropriedades)
 	if err != nil {
 		return fmt.Errorf("abrir as propriedades do cancelador: %w", err)
@@ -282,6 +318,31 @@ func (c *CapturaComEco) configurar(idAparelho string) error {
 	empacotado := int32(saida)<<16 | (int32(entrada) & 0xFFFF)
 	if err := escreverPropI4(loja, propIndices, empacotado); err != nil {
 		return fmt.Errorf("apontar os aparelhos: %w", err)
+	}
+
+	// O PORTÃO PRIMEIRO, E SEMPRE ABERTO. Com ele fechado o cancelador ignora as duas
+	// linhas seguintes e roda a configuração de fábrica — que é o estado em que os
+	// interruptores da tela não mandavam em nada. Abrir sempre custa nada e garante
+	// que o que está na tela é o que está no ar, inclusive quando as escolhas por
+	// acaso coincidem com o padrão.
+	//
+	// As demais propriedades do bloco (tamanho de quadro, comprimento do eco) ficam no
+	// padrão de propósito: a sonda leu 0 e 256, que são exatamente os valores que a
+	// Microsoft documenta, então não escrevê-las é escolher o padrão e não esquecê-lo.
+	if err := escreverPropBool(loja, propModoDeAjuste, true); err != nil {
+		return fmt.Errorf("abrir o ajuste fino do cancelador: %w", err)
+	}
+	// I4 e não BOOL: 0 desliga, 1 é a supressão normal. Escrever um booleano aqui
+	// seria um tipo errado num PROPVARIANT — recusa silenciosa, do jeito que dói.
+	ruido := int32(0)
+	if aj.Ruido {
+		ruido = 1
+	}
+	if err := escreverPropI4(loja, propRuido, ruido); err != nil {
+		return fmt.Errorf("ajustar a supressão de ruído: %w", err)
+	}
+	if err := escreverPropBool(loja, propGanho, aj.Ganho); err != nil {
+		return fmt.Errorf("ajustar o ganho automático: %w", err)
 	}
 	return nil
 }

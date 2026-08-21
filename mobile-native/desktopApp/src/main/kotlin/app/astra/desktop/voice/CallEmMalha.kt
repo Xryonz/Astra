@@ -151,6 +151,14 @@ class CallEmMalha(
     @Volatile private var microfoneEscolhido: String? = null
     @Volatile private var saidaEscolhida: String? = null
 
+    // O tratamento do microfone entra na MESMA regra dos aparelhos, e pelo mesmo
+    // motivo: o processo de voz volta do zero quando cai, e volta nos padrões dele.
+    // Quem desligou algo de propósito veria a escolha se desfazer sozinha, sem nada
+    // na tela mudando — o pior tipo de defeito, o que se desmancha sem aviso.
+    @Volatile private var eco = true
+    @Volatile private var ruido = true
+    @Volatile private var ganho = true
+
     fun atualizarAparelhos() = sidecar.pedirAparelhos()
 
     fun escolherMicrofone(id: String?) {
@@ -169,9 +177,28 @@ class CallEmMalha(
         saidaEscolhida = saida
     }
 
-    private fun aplicarAparelhos() {
+    fun lembrarTratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) {
+        this.eco = eco
+        this.ruido = ruido
+        this.ganho = ganho
+    }
+
+    // Mudança em plena call. Guarda E manda: guardar sozinho não teria efeito agora,
+    // mandar sozinho se perderia na próxima queda do processo.
+    fun definirTratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) {
+        lembrarTratamento(eco, ruido, ganho)
+        sidecar.tratamento(eco, ruido, ganho)
+    }
+
+    private fun aplicarPreferencias() {
         microfoneEscolhido?.let { sidecar.usarAparelho("entrada", it) }
         saidaEscolhida?.let { sidecar.usarAparelho("saida", it) }
+        // SEMPRE, e não só quando difere do padrão do processo. Os padrões dos dois
+        // lados não coincidem — o objeto do Windows nasce com o ganho automático
+        // DESLIGADO e o Astra mostra ele ligado — e "mandar só o que mudou" exigiria
+        // manter aqui uma cópia fiel dos padrões de lá. Cópia de padrão alheio é a
+        // coisa que envelhece errado em silêncio.
+        sidecar.tratamento(eco, ruido, ganho)
     }
 
     fun dispose() = sair()
@@ -348,7 +375,7 @@ class CallEmMalha(
                     if (_inicio.value == null) _inicio.value = System.currentTimeMillis()
                     // O aparelho escolhido e a lista, nesta ordem: aplicar primeiro
                     // evita a call abrir alguns segundos no microfone errado.
-                    aplicarAparelhos()
+                    aplicarPreferencias()
                     sidecar.pedirAparelhos()
                     // CONFERIR AGORA, e não daqui a quinze segundos. Este é o único
                     // instante em que sabemos que os comandos passam a chegar — e

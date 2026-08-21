@@ -29,6 +29,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
@@ -97,6 +98,32 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: d.Nome})
 	defer p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "0"})
 
+	// "PERDI A IMAGEM, MANDA UM QUADRO-CHAVE."
+	//
+	// Sem este pedido, entrar numa sala onde alguém JÁ está transmitindo significa
+	// esperar o próximo quadro-chave natural — medido no compressor do outro lado, até
+	// cinco segundos de vazio, e ele não aceita encurtar esse intervalo. O mesmo vale
+	// depois de qualquer oscilação de rede que engula um quadro-chave.
+	//
+	// O primeiro pedido sai AGORA, antes de o primeiro pacote chegar: a faixa acabou de
+	// aparecer, então por definição ainda não temos onde ancorar a imagem.
+	pedirImagem := func() {
+		err := p.pc.WriteRTCP([]rtcp.Packet{
+			&rtcp.PictureLossIndication{MediaSSRC: uint32(remota.SSRC())},
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "não consegui pedir imagem a %s: %v\n", p.id, err)
+		}
+	}
+	pedirImagem()
+	ultimoPedido := time.Now()
+
+	// SEPARADA DO CONTADOR DO RELATÓRIO, e a distinção não é cosmética: `quadros` zera a
+	// cada segundo para medir a taxa, então usá-la como "já tenho imagem?" faria o pedido
+	// disparar de novo a cada relatório — uma enxurrada de pedidos com a imagem
+	// perfeitamente no ar, e cada um custando ao outro lado um quadro-chave caro.
+	jaTemImagem := false
+
 	comeco := time.Now()
 	var quadros, pacotes, amostras int
 	relatorio := time.Now()
@@ -109,6 +136,18 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 		pacotes++
 		remontador.Push(pacote)
 
+		// INSISTE ENQUANTO NÃO HOUVER IMAGEM, e para de insistir assim que houver.
+		//
+		// Chegar pacote e não sair quadro é exatamente o estado de quem entrou no meio
+		// de um grupo de imagens: os quadros de diferença chegam, mas não há em que
+		// aplicá-los. Um pedido por segundo é o suficiente para não desperdiçar o
+		// intervalo e pouco o bastante para não virar enxurrada — cada pedido atendido
+		// custa ao outro lado um quadro caro.
+		if !jaTemImagem && time.Since(ultimoPedido) >= time.Second {
+			pedirImagem()
+			ultimoPedido = time.Now()
+		}
+
 		for {
 			amostra := remontador.Pop()
 			if amostra == nil {
@@ -120,6 +159,7 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 			// engasgo na imagem pela tela do outro sumindo para sempre.
 			err := d.Decodificar(amostra.Data, time.Since(comeco), func(q Quadro) {
 				quadros++
+				jaTemImagem = true
 				p.entrega.Mandar(p.id, q)
 			})
 			if err != nil {

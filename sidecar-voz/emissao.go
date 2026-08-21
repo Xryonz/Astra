@@ -28,6 +28,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -78,11 +79,27 @@ type Emissor struct {
 	mu     sync.Mutex
 	parar  context.CancelFunc
 	parada chan struct{}
+
+	// "Alguém precisa de um quadro-chave AGORA." Bandeira e não canal: o pedido não se
+	// acumula — dois pedidos no mesmo instante querem a mesma coisa, e atender duas
+	// vezes só gastaria banda com dois quadros caros seguidos.
+	querChave atomic.Bool
 }
 
 func NovoEmissor(faixa *webrtc.TrackLocalStaticSample, saida *Escritor) *Emissor {
 	return &Emissor{faixa: faixa, saida: saida}
 }
+
+// PedirQuadroChave atende ao "perdi a imagem" de quem assiste.
+//
+// CHAMADA DE OUTRA GOROUTINE — a que lê os recados de cada conexão —, então ela só
+// levanta a bandeira; quem manda no compressor é o laço, que é dono da thread presa
+// onde o objeto do Media Foundation vive. Tocar no compressor daqui seria usá-lo de
+// outra thread, que em COM não dá erro: dá comportamento indefinido.
+//
+// Segura chamar com a transmissão desligada: a bandeira fica levantada e a próxima
+// transmissão começa com um quadro-chave, que é justamente o que se quer.
+func (e *Emissor) PedirQuadroChave() { e.querChave.Store(true) }
 
 // Ligar começa a transmitir. Chamar com a transmissão no ar TROCA o preset: desliga o
 // laço atual e sobe outro. É o caminho de "mudei a qualidade no meio da call", e sai
@@ -227,6 +244,19 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 			continue
 		}
 		capturados++
+
+		// O PEDIDO É ATENDIDO ANTES DE ENTREGAR O QUADRO, e a ordem é o que faz ele
+		// valer: a ordem vale para o PRÓXIMO quadro que entrar no compressor, então
+		// levantá-la depois de entregar atenderia o quadro seguinte — um a mais de
+		// espera, que é justamente o que o pedido existe para cortar.
+		if e.querChave.Swap(false) {
+			if !c.ForcarQuadroChave() {
+				// Compressor que não atende pedido não é erro: é um que segue o próprio
+				// compasso, e a espera volta a ser o intervalo dele. Vale o registro
+				// porque explica uma imagem que demora a abrir.
+				fmt.Fprintf(os.Stderr, "%s não atende pedido de quadro-chave\n", c.Nome)
+			}
+		}
 
 		saiuAlgo := false
 		var falhaAoEntregar error

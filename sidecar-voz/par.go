@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -23,6 +24,10 @@ type Par struct {
 	saida      *Escritor
 	misturador *Misturador
 	entrega    *EntregaDeQuadros // nulo quando o Astra não pediu quadros
+
+	// "Esta pessoa perdeu a imagem e precisa de um quadro-chave." Nulo quando não há
+	// transmissão neste processo. Ver `ouvirPedidos`.
+	pedirQuadroChave func()
 
 	// Candidatos que chegaram ANTES da descrição remota.
 	//
@@ -105,9 +110,12 @@ func NovoPar(
 	// o Astra já era até esta versão. Uma call com voz e sem tela compartilhada é bem
 	// melhor que erro na cara de quem só queria conversar.
 	if tela != nil {
-		if _, err := pc.AddTrack(tela); err != nil {
+		remetente, err := pc.AddTrack(tela)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "sem transmissão de tela para %s: %v\n", id, err)
 			saida.Manda(Evento{Ev: EvErro, Par: id, Msg: "sem transmissão de tela: " + err.Error()})
+		} else {
+			go p.ouvirPedidos(remetente)
 		}
 	}
 
@@ -222,6 +230,38 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 		}
 		if p.misturador != nil {
 			p.misturador.Entregar(p.id, pcm[:n])
+		}
+	}
+}
+
+// ouvirPedidos escuta os recados que ESTA pessoa manda sobre a tela que mandamos a ela.
+//
+// O RECADO QUE IMPORTA É "PERDI A IMAGEM" (Picture Loss Indication). Ele é o mecanismo
+// padrão do WebRTC para recuperar vídeo, e existe porque a alternativa é ruim: sem ele,
+// quem perde um quadro-chave numa oscilação de rede fica com a imagem congelada até o
+// PRÓXIMO quadro-chave natural — medido neste compressor, cinco segundos, e ele não
+// aceita encurtar esse intervalo (ver a sonda do ICodecAPI). Cinco segundos de imagem
+// parada é tempo de a pessoa concluir que a chamada caiu.
+//
+// LER OS RECADOS É OBRIGATÓRIO MESMO SEM ATENDER, pelo mesmo motivo de ler a faixa
+// remota: o que não é consumido se acumula no buffer do pion. Daí esta goroutine existir
+// mesmo quando `pedirQuadroChave` é nulo.
+//
+// Ela morre sozinha quando a conexão fecha, que é quando `ReadRTCP` passa a errar.
+func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
+	for {
+		pacotes, _, err := remetente.ReadRTCP()
+		if err != nil {
+			return
+		}
+		if p.pedirQuadroChave == nil {
+			continue
+		}
+		for _, pacote := range pacotes {
+			switch pacote.(type) {
+			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+				p.pedirQuadroChave()
+			}
 		}
 	}
 }

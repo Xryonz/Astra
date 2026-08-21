@@ -314,6 +314,12 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	if err != nil {
 		return nil, err
 	}
+	// O PEDIDO DE QUADRO-CHAVE ATRAVESSA A MALHA INTEIRA, e cai num emissor só.
+	//
+	// Faz sentido justamente porque a faixa de tela é UMA para a sala: quem pede é uma
+	// pessoa, mas o quadro-chave que sai atende todo mundo de uma vez. Numa sala em que
+	// três entram juntas, os três pedidos viram um quadro caro em vez de três.
+	par.pedirQuadroChave = a.emissor.PedirQuadroChave
 	a.pares[id] = par
 	return par, nil
 }

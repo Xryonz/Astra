@@ -111,6 +111,112 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 	}
 }
 
+// PEDIR UM QUADRO-CHAVE FUNCIONA MESMO?
+//
+// A sonda (`TestSondaDoCodecAPI`) diz que o compressor SUPORTA a ordem. Suportar não é
+// obedecer: `SetValue` pode devolver sucesso e o compressor seguir o próprio compasso.
+// Este teste espera o intervalo natural passar de longe, PEDE, e confere que o
+// quadro-chave veio muito antes do que viria sozinho.
+//
+// Sem ele, o caminho inteiro de recuperação de imagem (o outro lado pede, este atende)
+// seria construído sobre uma promessa não conferida.
+func TestPedirQuadroChaveFuncionaDeVerdade(t *testing.T) {
+	precisaDeTela(t)
+	precisaDeVideo(t)
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if err := abrirCOM(); err != nil {
+		t.Fatalf("iniciar COM: %v", err)
+	}
+	defer fecharCOM()
+	if err := abrirMF(); err != nil {
+		t.Fatalf("iniciar Media Foundation: %v", err)
+	}
+	defer fecharMF()
+
+	tela, err := AbrirTela(0)
+	if err != nil {
+		t.Fatalf("abrir a tela: %v", err)
+	}
+	defer tela.Fechar()
+
+	const fps = 30
+	c, err := AbrirCompressor(tela, 1280, 720, fps, 2500)
+	if err != nil {
+		t.Fatalf("abrir o compressor: %v", err)
+	}
+	defer c.Fechar()
+
+	if c.comandos == 0 {
+		t.Skipf("%s não expõe a via de comando — nada a pedir", c.Nome)
+	}
+
+	// PRIMEIRO O SILÊNCIO. Dois segundos e meio deixam o quadro-chave inicial para trás
+	// e ficam BEM antes do próximo natural (medido em 5s), então qualquer quadro-chave
+	// depois do pedido só pode ter vindo do pedido.
+	ritmo := NovoRitmo(fps)
+	comeco := time.Now()
+	rodar := func(ate time.Duration, aoSair func(bool, time.Duration)) {
+		for time.Since(comeco) < ate {
+			ritmo.Esperar()
+			textura, err := tela.ProximoQuadro(100)
+			if err != nil || textura == 0 {
+				continue
+			}
+			agora := time.Since(comeco)
+			_ = c.Comprimir(textura, agora, func(nal []byte) {
+				aoSair(temQuadroChave(nal), agora)
+			})
+			textura.soltar()
+			tela.SoltarQuadro()
+		}
+	}
+
+	var ultimaChaveAntes time.Duration
+	rodar(2500*time.Millisecond, func(chave bool, quando time.Duration) {
+		if chave {
+			ultimaChaveAntes = quando
+		}
+	})
+	t.Logf("antes do pedido, o último quadro-chave foi em %v", ultimaChaveAntes.Round(time.Millisecond))
+
+	if !c.ForcarQuadroChave() {
+		t.Fatalf("%s recusou a ordem de quadro-chave, e a sonda dizia que suportava", c.Nome)
+	}
+	pedidoEm := time.Since(comeco)
+
+	var atendidoEm time.Duration
+	rodar(4*time.Second, func(chave bool, quando time.Duration) {
+		if chave && atendidoEm == 0 && quando > pedidoEm {
+			atendidoEm = quando
+		}
+	})
+
+	if atendidoEm == 0 {
+		t.Fatal("pedi um quadro-chave e nenhum veio em 1,5s: a ordem é aceita e ignorada")
+	}
+	demora := atendidoEm - pedidoEm
+	t.Logf("pedido em %v, atendido em %v (%v depois)",
+		pedidoEm.Round(time.Millisecond), atendidoEm.Round(time.Millisecond), demora.Round(time.Millisecond))
+
+	// UM SEGUNDO E MEIO, e o número tem folga de propósito.
+	//
+	// Meio segundo parecia razoável e reprovou por 0,3 milissegundo numa execução em que
+	// o pedido tinha funcionado perfeitamente. Duas coisas legítimas entram nessa conta e
+	// nenhuma delas é o compressor ignorando a ordem: ele é assíncrono e segura alguns
+	// quadros, e a captura só entrega quadro quando a tela MUDA — tela parada por um
+	// instante empurra tudo para a frente.
+	//
+	// O que decide é a comparação com o intervalo natural, que é de CINCO segundos.
+	// Qualquer coisa abaixo de dois só pode ser o pedido; um limite justo demais só
+	// produz reprovação que não significa nada.
+	if demora > 1500*time.Millisecond {
+		t.Errorf("demorou %v para atender — perto demais do intervalo natural para ser o pedido", demora)
+	}
+}
+
 // temQuadroChave procura um NAL de fatia IDR (tipo 5) no fluxo.
 //
 // O tipo 5 é o que ancora a imagem: ele se decodifica sozinho, sem depender de nenhum

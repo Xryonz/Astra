@@ -266,6 +266,10 @@ type Compressor struct {
 	gerente  objeto // IMFDXGIDeviceManager
 	contexto objeto // ID3D11DeviceContext, emprestado da captura
 
+	// ICodecAPI — a única via para MANDAR um quadro-chave agora. Zero quando o
+	// compressor não a expõe, e aí `ForcarQuadroChave` não faz nada em vez de falhar.
+	comandos objeto
+
 	anel    []quadroDeEntrada
 	proximo int
 
@@ -520,6 +524,12 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 			return nil, err
 		}
 		c.reduzir = rd
+	}
+	// A VIA DE COMANDO, se ele tiver. Perguntar aqui e guardar o resultado evita
+	// consultar a interface a cada pedido — e o `nil` guardado é a resposta "este
+	// compressor não atende pedido de quadro-chave", que o emissor trata sem ramificar.
+	if api, err := t.consultar(&iidCodecAPI); err == nil {
+		c.comandos = api
 	}
 	if err := c.abrirGeradorSeAssincrono(); err != nil {
 		return nil, err
@@ -936,6 +946,10 @@ func (c *Compressor) proximoRecado() (uint32, error) {
 // já estiver em mau estado — travar o app ao encerrar uma call, para salvar dois
 // quadros que ninguém vai ver, é troca ruim.
 func (c *Compressor) Fechar() {
+	if c.comandos != 0 {
+		c.comandos.soltar()
+		c.comandos = 0
+	}
 	if c.t != 0 {
 		c.t.chamar(transMandarRecado, recadoEncerrarFluxo, 0)
 	}
@@ -958,6 +972,69 @@ func (c *Compressor) Fechar() {
 
 // ---------------------------------------------------------------------------
 // Auxiliares de atributo, para o tipo de mídia não virar três linhas por campo.
+
+// IID_ICodecAPI {901DB4C7-31CE-41A2-85DC-8FA0BF41B8DA}
+//
+// A interface de COMANDO do compressor, separada da de configuração. Ela existe porque
+// há coisas que não são "como comprimir" e sim "faça isto agora" — e a única que
+// interessa aqui é o quadro-chave sob demanda.
+var iidCodecAPI = guid(0x901DB4C7, 0x31CE, 0x41A2,
+	[8]byte{0x85, 0xDC, 0x8F, 0xA0, 0xBF, 0x41, 0xB8, 0xDA})
+
+// CODECAPI_AVEncVideoForceKeyFrame {398C1B98-8353-475A-9EF2-8F265D260345}
+//
+// CONFERIDO PELA SONDA (`TestSondaDoCodecAPI`), e não copiado: o Quick Sync desta
+// máquina responde "suportado" e "modificável" a esta chave, e responde "não
+// implementado" ao controle de espaçamento (`CODECAPI_AVEncMPVGOPSize`) — o que explica
+// por que `MF_MT_MAX_KEYFRAME_SPACING` não muda nada aqui.
+//
+// A conclusão desenha a arquitetura: NÃO dá para encurtar o intervalo entre quadros-
+// chave, mas DÁ para pedir um na hora. É exatamente o mecanismo que o WebRTC usa.
+var chaveForcarQuadroChave = guid(0x398C1B98, 0x8353, 0x475A,
+	[8]byte{0x9E, 0xF2, 0x8F, 0x26, 0x5D, 0x26, 0x03, 0x45})
+
+// Índices do ICodecAPI, na ordem de declaração do icodecapi.h.
+const (
+	_codecSuportado   = 3 // IsSupported
+	_codecModificavel = 4 // IsModifiable
+	codecDefinirValor = 9 // SetValue
+)
+
+// VARIANT do Windows. VINTE E QUATRO BYTES em 64 bits, e o tamanho não é escolha: o
+// campo de valor é uma união que precisa caber um BRECORD (dois ponteiros). Errar aqui
+// não dá erro — faz o compressor ler o tipo de um lugar e o valor de outro.
+type variante struct {
+	tipo  uint16
+	_     [3]uint16
+	valor uintptr
+	_     uintptr
+}
+
+const varInteiroSemSinal = 19 // VT_UI4
+
+// ForcarQuadroChave manda o compressor produzir um quadro-chave no PRÓXIMO quadro.
+//
+// POR QUE ISTO PRECISA EXISTIR. Um decodificador de H.264 não abre imagem nenhuma antes
+// de um quadro-chave — os outros quadros só descrevem a diferença em relação ao
+// anterior. Quem entra na sala com a transmissão em curso, e quem perde o quadro-chave
+// numa oscilação de rede, fica olhando para o vazio até o próximo. Medido nesta máquina:
+// CINCO SEGUNDOS de espera, e o compressor não aceita encurtar esse intervalo.
+//
+// Devolve falso quando o compressor não expõe a via de comando. Não é erro: é um
+// compressor que só sabe seguir o próprio compasso, e aí a espera continua sendo o
+// intervalo dele.
+func (c *Compressor) ForcarQuadroChave() bool {
+	if c.comandos == 0 {
+		return false
+	}
+	v := variante{tipo: varInteiroSemSinal, valor: 1}
+	chave := chaveForcarQuadroChave
+	r := c.comandos.chamar(codecDefinirValor,
+		uintptr(unsafe.Pointer(&chave)),
+		uintptr(unsafe.Pointer(&v)),
+	)
+	return uint32(r)&0x80000000 == 0
+}
 
 func definirGUID(a objeto, chave *windows.GUID, valor windows.GUID) {
 	a.chamar(atrDefinirGUID, uintptr(unsafe.Pointer(chave)), uintptr(unsafe.Pointer(&valor)))

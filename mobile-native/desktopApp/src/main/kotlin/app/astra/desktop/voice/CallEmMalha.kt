@@ -60,6 +60,22 @@ class CallEmMalha(
     private val _saidas = MutableStateFlow<List<AparelhoDeAudio>>(emptyList())
     val saidas = _saidas.asStateFlow()
 
+    // A TRANSMISSÃO DE TELA, e QUEM MANDA NO ESTADO É O PROCESSO DE VOZ.
+    //
+    // O botão não acende ao ser apertado: acende quando o outro lado confirma que a
+    // captura e o compressor subiram — o que leva quase um segundo e pode falhar (não
+    // existe compressor de H.264 em toda máquina). Acender no clique e apagar depois é
+    // o padrão que ensina a pessoa a não confiar no próprio botão.
+    private val _transmitindo = MutableStateFlow(false)
+    val transmitindo = _transmitindo.asStateFlow()
+
+    // O que está subindo agora: "Intel® Quick Sync… · 1280x720 @30 · 58 fps · 3,4 Mbps".
+    // Vazio quando não há transmissão. É a única prova visível enquanto não existe
+    // imagem para ver — ver a fatia 2.
+    private val _relatorioDaTela = MutableStateFlow("")
+    val relatorioDaTela = _relatorioDaTela.asStateFlow()
+    @Volatile private var comoSubiu = ""
+
     // ---- o que ele guarda para chegar naquilo ----
 
     // Concorrentes porque mexem neles o laço de presença, o aviso de socket e os
@@ -108,6 +124,12 @@ class CallEmMalha(
         salaAtual = null
         pronto = false
 
+        // A TELA PARA JUNTO. Sair da call sem parar a transmissão deixaria a captura
+        // e o compressor rodando — placa ocupada e a luz de "transmitindo" acesa numa
+        // sala de que a pessoa já saiu. O processo cai logo depois e resolveria isso
+        // sozinho, mas depender disso é depender de um efeito colateral.
+        if (_transmitindo.value) pararDeTransmitir()
+
         socket.voiceLeave(sala)
         for (id in conectados) sidecar.desconectar(id)
         conectados.clear()
@@ -139,6 +161,24 @@ class CallEmMalha(
     }
 
     fun setEnsurdecido(on: Boolean) = sidecar.surdo(on)
+
+    // ---- transmissão de tela ----
+
+    fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) {
+        sidecar.transmitir(monitor, largura, altura, fps, kbps)
+    }
+
+    fun pararDeTransmitir() {
+        // APAGA AQUI, sem esperar a confirmação — ao contrário de acender.
+        //
+        // A assimetria é de propósito: acender cedo promete o que ainda não existe;
+        // apagar cedo cumpre na hora o que a pessoa pediu. Quem aperta "parar" quer
+        // parar de mostrar a tela AGORA, e o evento de volta só confirma.
+        _transmitindo.value = false
+        Transmitindo.marcar(false)
+        _relatorioDaTela.value = ""
+        sidecar.pararDeTransmitir()
+    }
 
     // ---- aparelhos ----
 
@@ -400,6 +440,29 @@ class CallEmMalha(
                 "aparelhos" -> {
                     val lista = ev.aparelhos.orEmpty()
                     if (ev.tipo == "entrada") _microfones.value = lista else _saidas.value = lista
+                }
+                "transmissao" -> {
+                    val noAr = ev.valor == "1"
+                    _transmitindo.value = noAr
+                    Transmitindo.marcar(noAr)
+                    when {
+                        !noAr -> { comoSubiu = ""; _relatorioDaTela.value = "" }
+                        // O relatório por segundo se soma ao que subiu, e não o
+                        // substitui: sem o nome do compressor a pessoa vê "14 fps" e
+                        // não tem como saber se caiu para software.
+                        ev.tipo == "ritmo" -> _relatorioDaTela.value = listOf(comoSubiu, ev.msg.orEmpty())
+                            .filter { it.isNotBlank() }.joinToString(" · ")
+                        // O perfil é diagnóstico, não recado: vai pro registro e não
+                        // pra tela. Quem precisa dele é quem for escrever o
+                        // decodificador, não quem está compartilhando a tela.
+                        ev.tipo == "perfil" -> VoiceLog.nota("[tela] perfil no fluxo: ${ev.msg}")
+                        else -> {
+                            comoSubiu = listOf(ev.tipo.orEmpty(), ev.msg.orEmpty())
+                                .filter { it.isNotBlank() }.joinToString(" · ")
+                            _relatorioDaTela.value = comoSubiu
+                            VoiceLog.nota("[tela] transmitindo: $comoSubiu")
+                        }
+                    }
                 }
                 "fala" -> {
                     // Par vazio sou eu — a convenção da ponte.

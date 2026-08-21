@@ -375,14 +375,16 @@ class ShellVm(
         // Palco na sala: a call de sussurro reusa a VoiceView inteira, então ela
         // precisa estar selecionada pra aparecer.
         _state.update { it.copy(voiceChannel = sessao.joined) }
-        // A CHAMADA DE VÍDEO ENTRA SÓ COM VOZ enquanto a transmissão está em
-        // migração. O componente novo de voz ainda não carrega vídeo, e ligar a
-        // câmera aqui não faria nada além de acender a luz da webcam sem ninguém
-        // do outro lado receber imagem — que é pior do que não ligar.
+        // A CHAMADA DE VÍDEO ENTRA SÓ COM VOZ, e agora por um motivo mais estreito do
+        // que antes: o processo de voz já carrega vídeo — a tela compartilhada sobe
+        // por ele —, mas quem falta é a CÂMERA. Não há captura de webcam do lado de lá,
+        // e ligar a câmera aqui só acenderia a luz do aparelho sem ninguém receber
+        // imagem, que é pior do que não ligar.
         //
-        // A chamada em si funciona: era ela que importava quando a pessoa apertou.
+        // A chamada em si funciona, e quem quiser mostrar algo pode compartilhar a
+        // tela: era ela que importava quando a pessoa apertou.
         if (c.video) {
-            VoiceLog.nota("[call] chamada de vídeo entrou só com voz: transmissão em migração")
+            VoiceLog.nota("[call] chamada de vídeo entrou só com voz: falta captura de câmera")
         }
     }
 

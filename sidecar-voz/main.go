@@ -65,6 +65,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// A TELA COMPARTILHADA, e UMA para a sala inteira pela mesma razão do microfone:
+	// uma escrita reaproveita o mesmo quadro comprimido para todas as conexões. Aqui a
+	// economia pesa muito mais que no áudio — comprimir H.264 é a coisa mais cara que
+	// este processo faz, e numa malha de quatro seriam quatro compressores.
+	tela, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "astra-tela")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "criar faixa de tela: %v\n", err)
+		os.Exit(1)
+	}
+
 	escritor := NewEscritor(os.Stdout)
 	misturador := NovoMisturador()
 
@@ -88,6 +98,8 @@ func main() {
 	app := &App{
 		saida:      escritor,
 		faixa:      faixa,
+		tela:       tela,
+		emissor:    NovoEmissor(tela, escritor),
 		misturador: misturador,
 		motor:      motor,
 		pares:      make(map[string]*Par),
@@ -115,6 +127,8 @@ func main() {
 type App struct {
 	saida      *Escritor
 	faixa      *webrtc.TrackLocalStaticSample
+	tela       *webrtc.TrackLocalStaticSample
+	emissor    *Emissor
 	misturador *Misturador
 	motor      *Motor
 	config     webrtc.Configuration
@@ -217,6 +231,25 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		a.motor.DefinirTratamento(AjustesDaVoz{Eco: cmd.Eco, Ruido: cmd.Ruido, Ganho: cmd.Ganho})
 		return nil
 
+	case CmdTransmitir:
+		if !cmd.Ligado {
+			a.emissor.Desligar()
+			return nil
+		}
+		// NÃO DEVOLVE ERRO DE ABERTURA, e é de propósito: montar a captura e o
+		// compressor leva quase um segundo, e segurar a leitura da ponte por esse
+		// tempo pararia a call inteira (é uma goroutine só, um comando por vez, ver
+		// `Servir`). O laço sobe sozinho e conta o que houve pelo evento
+		// EvTransmissao — que é o mesmo caminho por onde ele conta que parou.
+		a.emissor.Ligar(AjustesDaTela{
+			Monitor: cmd.Monitor,
+			Largura: cmd.Largura,
+			Altura:  cmd.Altura,
+			Fps:     cmd.Fps,
+			Kbps:    cmd.Kbps,
+		})
+		return nil
+
 	case CmdAparelhos:
 		// Os dois sentidos numa resposta cada. `Tipo` diz de qual é a lista — sem
 		// ele o outro lado teria de adivinhar pela ordem de chegada, e ordem não é
@@ -275,7 +308,7 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	if par, ok := a.pares[id]; ok {
 		return par, nil
 	}
-	par, err := NovoPar(id, a.config, a.faixa, a.misturador, a.saida)
+	par, err := NovoPar(id, a.config, a.faixa, a.tela, a.misturador, a.saida)
 	if err != nil {
 		return nil, err
 	}
@@ -302,6 +335,11 @@ func (a *App) aplicarMudo(ligado bool) {
 }
 
 func (a *App) Fechar() {
+	// A TRANSMISSÃO PRIMEIRO, e a ordem importa: o laço dela segura a duplicação da
+	// tela e um compressor do Media Foundation, e `Desligar` espera os dois voltarem.
+	// Fechar as conexões antes deixaria o laço escrevendo numa faixa já solta.
+	a.emissor.Desligar()
+
 	a.mu.Lock()
 	pares := make([]*Par, 0, len(a.pares))
 	for _, p := range a.pares {

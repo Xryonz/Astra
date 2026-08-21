@@ -112,6 +112,14 @@ var (
 	chaveEntrelacamento = guid(0xE2724BB8, 0xE676, 0x4806,
 		[8]byte{0xB4, 0xB2, 0xA8, 0xD6, 0xEF, 0xB4, 0x4C, 0xCD})
 
+	// MF_MT_MPEG2_PROFILE {AD76A80B-2D5C-4E0B-B375-64E520137036}
+	//
+	// O nome diz MPEG-2 por herança; para H.264 ele carrega os valores de
+	// `eAVEncH264VProfile`. Pedir o perfil não é preciosismo — ver `perfilDoSPS` e o
+	// comentário em `configurarSaida`.
+	chavePerfil = guid(0xAD76A80B, 0x2D5C, 0x4E0B,
+		[8]byte{0xB3, 0x75, 0x64, 0xE5, 0x20, 0x13, 0x70, 0x36})
+
 	// MF_MT_SUBTYPE {F7E34C9A-42E8-4714-B74B-CB29D72C35E5} — o formato exato dentro
 	// do tipo maior. É por ele que se pergunta "que pixel você aceita?".
 	chaveSubtipo = guid(0xF7E34C9A, 0x42E8, 0x4714,
@@ -190,6 +198,10 @@ type tipoRegistrado struct {
 // MFVideoInterlace_Progressive: a tela nao e entrelacada, e dizer isso explicitamente
 // evita o compressor supor campos que nao existem.
 const progressivo = 2
+
+// eAVEncH264VProfile_Base. Os vizinhos, para quem for comparar com o que sair do SPS:
+// Main = 77 (0x4d), High = 100 (0x64).
+const perfilBaseline = 66
 
 // versaoDoMF e o MF_VERSION do Windows 7 pra frente.
 const versaoDoMF = 0x00020070
@@ -365,6 +377,24 @@ func configurarSaida(t objeto, largura, altura, fps, kbps int) error {
 
 	definirNumero(tipo, &chaveBandaMedia, uint32(kbps*1000))
 	definirNumero(tipo, &chaveEntrelacamento, progressivo)
+
+	// PEDIR O PERFIL, e pedir BASELINE.
+	//
+	// Sem esta linha cada compressor emite o padrão DELE, e o padrão não é o mesmo em
+	// máquinas diferentes: o Quick Sync desta aqui emite High (`64001f`), medido pelo
+	// próprio fluxo em `TestEmissorTransmiteDeVerdade`. A faixa de vídeo, porém,
+	// declara Baseline restrito no SDP — porque é o único dialeto que atravessa
+	// navegador, celular e biblioteca sem negociação falhar.
+	//
+	// Declaração e realidade divergindo é o defeito que não aparece deste lado: quem
+	// manda continua mandando, e quem recebe é que não decodifica. Pedir aqui faz as
+	// duas concordarem.
+	//
+	// E BASELINE AINDA AJUDA A MÁQUINA FRACA, que é o alvo: sem CABAC e sem transformada
+	// de 8x8, ele custa menos para decodificar do que High. Paga-se em compressão —
+	// texto pequeno numa tela compartilhada é o pior caso disso —, e é um preço que se
+	// paga de novo se algum dia o outro lado for sempre um Astra.
+	definirNumero(tipo, &chavePerfil, perfilBaseline)
 
 	definirPar(tipo, &chaveTamanhoDoQuadro, largura, altura)
 	definirPar(tipo, &chaveTaxaDeQuadros, fps, 1)

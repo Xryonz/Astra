@@ -271,19 +271,39 @@ fun VoiceView(
                     }
                 }
             }
-            // TRANSMISSÃO EM MIGRAÇÃO. O botão fica, apagado, e diz o porquê.
+            // TRANSMITIR A TELA.
             //
-            // Sumir com ele seria pior: quem usava ia procurar o que não está mais
-            // lá e concluir que quebrou. Um controle desligado que explica a própria
-            // ausência informa; um controle que some, não.
+            // O botão NÃO ACENDE AO SER APERTADO: acende quando o processo de voz
+            // confirma que a captura e o compressor subiram. Isso leva quase um segundo
+            // e pode falhar — nem toda máquina tem compressor de H.264 —, e acender no
+            // clique para apagar depois é o padrão que ensina a pessoa a desconfiar do
+            // próprio botão. Apagar, sim, é imediato: quem manda parar quer parar já.
+            //
+            // O toque no botão abre a placa; enquanto está no ar, ele mostra o que está
+            // subindo de verdade. Ainda não há imagem para ver deste lado (o
+            // decodificador é a próxima fatia), e o relatório é o que prova que a coisa
+            // está viva no lugar dela.
+            val transmitindo by call.transmitindo.collectAsState()
+            val relatorio by call.relatorioDaTela.collectAsState()
             Box {
                 CallIconButton(
                     icon = Lucide.ScreenShare,
-                    tone = CallTone.Normal,
-                    habilitado = false,
-                    onClick = { transmissaoAvisada = !transmissaoAvisada },
+                    tone = if (transmitindo) CallTone.Active else CallTone.Normal,
+                    onClick = {
+                        if (transmitindo) {
+                            call.pararDeTransmitir()
+                            transmissaoAvisada = false
+                        } else {
+                            val q = prefState.screenQuality
+                            // Monitor 0 = o principal. Escolher qual é uma tela à
+                            // parte, e ela não existe ainda — mandar o principal é o
+                            // que a maioria quer e o único que dá para prometer hoje.
+                            call.transmitir(0, q.width, q.height, q.fps, q.bitrate / 1000)
+                            transmissaoAvisada = true
+                        }
+                    },
                 )
-                if (transmissaoAvisada) {
+                if (transmissaoAvisada && transmitindo) {
                     Popup(
                         onDismissRequest = { transmissaoAvisada = false },
                         properties = PopupProperties(focusable = true),
@@ -291,20 +311,27 @@ fun VoiceView(
                         Column(
                             Modifier
                                 .popupReveal(originX = 0.5f, originY = 1f)
-                                .width(212.dp)
+                                .width(230.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Obsidian.raised)
                                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
                                 .padding(10.dp),
                         ) {
                             Text(
-                                "Transmissão em migração",
+                                "Transmitindo a tela principal",
                                 style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                             )
-                            Spacer(Modifier.height(4.dp))
+                            if (relatorio.isNotBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    relatorio,
+                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
                             Text(
-                                "A voz mudou para um componente novo, que ainda não carrega vídeo. " +
-                                    "Compartilhar tela volta quando ele aprender — a call em si está inteira.",
+                                "Quem está na sala recebe a imagem. Ver a tela dos outros " +
+                                    "aqui dentro ainda está por vir.",
                                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                             )
                         }

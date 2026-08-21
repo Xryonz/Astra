@@ -408,8 +408,14 @@ func AlvoDeSaida(largura, altura, pessoasNaSala int) (int, int) {
 // `saidaL`/`saidaA` é o tamanho comprimido. Zero em qualquer um deles quer dizer "o
 // mesmo da tela", que é o caminho sem redução nenhuma.
 //
+// `fps` zero quer dizer "o do monitor, capado em 60". Quando a pessoa escolheu um
+// preset (720p30, por exemplo), o número dela precisa chegar aqui: o controle de banda
+// do compressor DIVIDE a banda pela taxa declarada, então declarar 60 e entregar 30
+// faz cada quadro sair com metade dos bits que poderia — imagem pior pela mesma banda,
+// sem nada no código dizendo por quê.
+//
 // PRECISA RODAR NA MESMA THREAD PRESA da captura — vale a regra de COM de sempre.
-func AbrirCompressor(tela *Tela, saidaL, saidaA, kbps int) (*Compressor, error) {
+func AbrirCompressor(tela *Tela, saidaL, saidaA, fps, kbps int) (*Compressor, error) {
 	largura, altura := tela.Tamanho()
 	if largura <= 0 || altura <= 0 {
 		return nil, fmt.Errorf("a captura não sabe o tamanho da tela")
@@ -422,7 +428,9 @@ func AbrirCompressor(tela *Tela, saidaL, saidaA, kbps int) (*Compressor, error) 
 	// num monitor de 165 Hz faria o controle de banda distribuir a banda por 165
 	// quadros e cada um sair mais pobre — e 60 já é mais do que o olho cobra numa
 	// tela de conversa.
-	fps := tela.Hz()
+	if fps <= 0 {
+		fps = tela.Hz()
+	}
 	if fps <= 0 || fps > 60 {
 		fps = 60
 	}
@@ -1075,7 +1083,7 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 	}
 	defer tela.Fechar()
 
-	c, err := AbrirCompressor(tela, saidaL, saidaA, kbps)
+	c, err := AbrirCompressor(tela, saidaL, saidaA, 0, kbps)
 	if err != nil {
 		return m, err
 	}

@@ -52,6 +52,12 @@ data class ComandoDeVoz(
     val eco: Boolean? = null,
     val ruido: Boolean? = null,
     val ganho: Boolean? = null,
+    // O preset do comando `transmitir`.
+    val monitor: Int? = null,
+    val largura: Int? = null,
+    val altura: Int? = null,
+    val fps: Int? = null,
+    val kbps: Int? = null,
 )
 
 // Um microfone ou uma saída, do jeito que o processo de voz os enxerga.
@@ -136,6 +142,22 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     // O lado de lá ignora o comando quando nada mudou de verdade.
     fun tratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) =
         mandar(ComandoDeVoz(cmd = "tratamento", eco = eco, ruido = ruido, ganho = ganho))
+
+    // Transmitir a tela. Mandar de novo com `ligado` troca o preset em pleno ar — o
+    // lado de lá desliga o laço e sobe outro, que é o mesmo caminho de sempre.
+    //
+    // NÃO DEVOLVE SE DEU CERTO, e não é descuido: montar a captura e o compressor leva
+    // quase um segundo, e a ponte é assíncrona. Quem responde é o evento `transmissao`
+    // — ou o `erro`, quando a máquina não tem compressor de H.264.
+    fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) =
+        mandar(
+            ComandoDeVoz(
+                cmd = "transmitir", ligado = true,
+                monitor = monitor, largura = largura, altura = altura, fps = fps, kbps = kbps,
+            ),
+        )
+
+    fun pararDeTransmitir() = mandar(ComandoDeVoz(cmd = "transmitir", ligado = false))
 
     // Pede a lista dos dois sentidos. A resposta não volta aqui: chega como dois
     // eventos `aparelhos`, um por sentido, porque a ponte é assíncrona por natureza

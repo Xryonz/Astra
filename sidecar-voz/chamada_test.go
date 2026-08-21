@@ -42,15 +42,23 @@ func TestChamadaCompletaEntreDoisPares(t *testing.T) {
 		t.Fatalf("criar faixa: %v", err)
 	}
 
+	// A TELA ENTRA SÓ DE UM LADO, de propósito: é o arranjo real de quem compartilha —
+	// um transmite, o outro só assiste. Exercita a negociação assimétrica, que é onde
+	// declarar vídeo de menos (ou de mais) quebra o aperto de mão.
+	telaA, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "teste-tela")
+	if err != nil {
+		t.Fatalf("criar faixa de tela: %v", err)
+	}
+
 	config := webrtc.Configuration{}
 
-	parA, err := NovoPar("B", config, faixaA, nil, NewEscritor(escreveA))
+	parA, err := NovoPar("B", config, faixaA, telaA, nil, NewEscritor(escreveA))
 	if err != nil {
 		t.Fatalf("criar par A: %v", err)
 	}
 	defer parA.Fechar()
 
-	parB, err := NovoPar("A", config, nil, misturadorB, NewEscritor(escreveB))
+	parB, err := NovoPar("A", config, nil, nil, misturadorB, NewEscritor(escreveB))
 	if err != nil {
 		t.Fatalf("criar par B: %v", err)
 	}

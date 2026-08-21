@@ -50,6 +50,14 @@ type Comando struct {
 	Ruido bool `json:"ruido,omitempty"`
 	Ganho bool `json:"ganho,omitempty"`
 
+	// transmitir: qual monitor e em que qualidade. Zero em largura/altura/fps quer
+	// dizer "o que a tela der"; o Astra manda o preset escolhido.
+	Monitor int `json:"monitor,omitempty"`
+	Largura int `json:"largura,omitempty"`
+	Altura  int `json:"altura,omitempty"`
+	Fps     int `json:"fps,omitempty"`
+	Kbps    int `json:"kbps,omitempty"`
+
 	// aparelho: qual sentido trocar e para qual id. `Id` vazio volta ao aparelho de
 	// comunicação padrão do Windows.
 	Sentido string `json:"sentido,omitempty"` // "entrada" ou "saida"
@@ -91,6 +99,8 @@ const (
 	CmdSurdo       = "surdo"
 	// Cancelamento de eco, supressão de ruído e ganho automático — os três de uma vez.
 	CmdTratamento = "tratamento"
+	// Começa ou para de transmitir a tela. Mandar de novo com `Ligado` troca o preset.
+	CmdTransmitir = "transmitir"
 	// Pede a lista de microfones e saídas; a resposta vem no evento EvAparelhos.
 	CmdAparelhos = "aparelhos"
 	// Escolhe qual usar num dos sentidos.
@@ -107,6 +117,13 @@ const (
 	// A lista de microfones ou de saídas, em resposta a CmdAparelhos.
 	EvAparelhos = "aparelhos"
 	EvErro      = "erro"
+	// A transmissão de tela. `V` é "1" no ar e "0" fora dele. Enquanto está no ar,
+	// `Tipo` diz de que notícia se trata e `Msg` a carrega:
+	//
+	//	Tipo = <nome do compressor>  ->  Msg = "1280x720 @30", o que de fato subiu
+	//	Tipo = "perfil"              ->  Msg = "42e01f", lido de dentro do fluxo
+	//	Tipo = "ritmo"               ->  Msg = "58 fps · 3,4 Mbps", uma vez por segundo
+	EvTransmissao = "transmissao"
 )
 
 // Os tipos de envelope do aperto de mão. Iguais dos dois lados da ponte e iguais

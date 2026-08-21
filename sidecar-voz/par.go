@@ -51,6 +51,7 @@ func NovoPar(
 	id string,
 	config webrtc.Configuration,
 	faixa *webrtc.TrackLocalStaticSample,
+	tela *webrtc.TrackLocalStaticSample,
 	mist *Misturador,
 	saida *Escritor,
 ) (*Par, error) {
@@ -86,6 +87,25 @@ func NovoPar(
 		); err != nil {
 			_ = pc.Close()
 			return nil, fmt.Errorf("declarar que ouve: %w", err)
+		}
+	}
+
+	// A TELA ENTRA AGORA, MESMO SEM NINGUÉM TRANSMITINDO.
+	//
+	// Uma faixa incluída depois obriga a renegociar o SDP com todo mundo da sala — e
+	// renegociação em malha é N apertos de mão, no exato instante em que a pessoa
+	// acabou de apertar "transmitir" e a máquina já vai começar a comprimir. Declarada
+	// desde o início, ela custa uma linha de mídia parada, e começar a transmitir vira
+	// apenas começar a escrever nela.
+	//
+	// Falhar aqui NÃO derruba a conexão, e é a diferença deste bloco para o do
+	// microfone: sem áudio a call não tem função, mas sem vídeo ela é exatamente o que
+	// o Astra já era até esta versão. Uma call com voz e sem tela compartilhada é bem
+	// melhor que erro na cara de quem só queria conversar.
+	if tela != nil {
+		if _, err := pc.AddTrack(tela); err != nil {
+			fmt.Fprintf(os.Stderr, "sem transmissão de tela para %s: %v\n", id, err)
+			saida.Manda(Evento{Ev: EvErro, Par: id, Msg: "sem transmissão de tela: " + err.Error()})
 		}
 	}
 

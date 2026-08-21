@@ -61,7 +61,7 @@ import (
 //	24 [..]    id do par, em UTF-8
 //	   [..]    o quadro, em NV12
 const (
-	marcaDoQuadro   = 0x56545341 // 'ASTV' lido como número pequeno-endian
+	marcaDoQuadro     = 0x56545341 // 'ASTV' lido como número pequeno-endian
 	cabecalhoDoQuadro = 24
 )
 

@@ -36,11 +36,28 @@ import (
 
 // Quantos pacotes o remontador pode segurar esperando os que faltam.
 //
-// CINQUENTA PORQUE UM QUADRO-CHAVE OCUPA ISSO. Menos que um quadro inteiro e ele
-// desistiria de quadros que estavam chegando bem; muito mais e um pacote perdido faria
-// a imagem congelar enquanto ele espera o que nunca vem. É o tamanho de um quadro, não
-// de uma fila.
-const pacotesQueEsperam = 50
+// ESTE NÚMERO JÁ ESTEVE EM 50 E QUEBRAVA A TRANSMISSÃO INTEIRA — de um jeito que parecia
+// qualquer outra coisa. Vale contar, porque o sintoma não aponta para cá.
+//
+// O raciocínio errado era: "um quadro-chave ocupa uns cinquenta pacotes, então cinquenta
+// bastam". Mas o remontador não guarda UM quadro: ele guarda uma JANELA de números de
+// sequência, e joga fora o mais antigo quando ela estoura. Com a janela do tamanho exato
+// de um quadro-chave, o primeiro pacote dele já tinha sido despejado quando o último
+// chegava — e o quadro-chave era o único que NUNCA se completava.
+//
+// O que se via: os quadros normais (poucos pacotes) passavam todos, quinze por segundo,
+// e mesmo assim a imagem nunca abria. Sem erro em lugar nenhum, porque nada tinha
+// falhado — só o quadro que ANCORA a imagem é que não chegava. Um decodificador de
+// H.264 não abre nada sem ele: os outros quadros descrevem a DIFERENÇA em relação ao
+// anterior, e sem ponto de partida não há o que diferenciar.
+//
+// MEDIDO, e não deduzido: com 50, três de seis execuções do teste de ponta a ponta
+// ficavam trinta segundos sem receber nada; com 512, oito de oito passam em ~3s.
+//
+// Quinhentos e doze é folgado de propósito: cabe um quadro-chave de 1080p (~150 pacotes)
+// com espaço para os que chegam enquanto ele se completa. O custo é uma lista de
+// ponteiros — nada perto de uma transmissão que não abre.
+const pacotesQueEsperam = 512
 
 // receberTela lê a faixa de vídeo desta pessoa e entrega os quadros ao Astra.
 //
@@ -81,7 +98,7 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	defer p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "0"})
 
 	comeco := time.Now()
-	var quadros int
+	var quadros, pacotes, amostras int
 	relatorio := time.Now()
 
 	for {
@@ -89,6 +106,7 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 		if err != nil {
 			return
 		}
+		pacotes++
 		remontador.Push(pacote)
 
 		for {
@@ -96,6 +114,7 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 			if amostra == nil {
 				break
 			}
+			amostras++
 			// ERRO DE UM QUADRO NÃO DERRUBA A FAIXA. Perda de pacote produz quadro
 			// quebrado, e o decodificador reclama dele — derrubar por isso trocaria um
 			// engasgo na imagem pela tela do outro sumindo para sempre.
@@ -108,15 +127,20 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 			}
 		}
 
-		// O relatório serve para saber que a imagem está CHEGANDO, e a que ritmo, sem
-		// depender de alguém estar olhando a tela. Uma vez por segundo.
+		// O RELATÓRIO CONTA AS TRÊS ETAPAS, e não só a última.
+		//
+		// "0 fps" sozinho não diz nada: pode ser rede que não chega, remontador que
+		// nunca fecha um quadro, ou descompressor que recusa tudo. São três defeitos
+		// diferentes com o mesmo sintoma, e separá-los aqui é o que transformou uma
+		// caçada em uma leitura — foi este contador que apontou o remontador acima.
 		if desde := time.Since(relatorio); desde >= time.Second {
 			p.saida.Manda(Evento{
 				Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: "ritmo",
-				Msg: fmt.Sprintf("%d fps", int(float64(quadros)/desde.Seconds())),
+				Msg: fmt.Sprintf("%d fps · %d pacotes · %d remontados",
+					int(float64(quadros)/desde.Seconds()), pacotes, amostras),
 			})
 			relatorio = time.Now()
-			quadros = 0
+			quadros, pacotes, amostras = 0, 0, 0
 		}
 	}
 }

@@ -112,6 +112,14 @@ var (
 	chaveEntrelacamento = guid(0xE2724BB8, 0xE676, 0x4806,
 		[8]byte{0xB4, 0xB2, 0xA8, 0xD6, 0xEF, 0xB4, 0x4C, 0xCD})
 
+	// MF_MT_MAX_KEYFRAME_SPACING {C16EB52B-73A1-476F-8D62-839D6A020652}
+	//
+	// De quantos em quantos QUADROS sai um quadro-chave. Medido nesta máquina sem pedir
+	// nada: o Quick Sync espaça em 5 segundos, e cinco segundos é o tempo que quem entra
+	// na sala fica olhando para o nada — ver `chaveDoEspacamento` em `configurarSaida`.
+	chaveDoEspacamento = guid(0xC16EB52B, 0x73A1, 0x476F,
+		[8]byte{0x8D, 0x62, 0x83, 0x9D, 0x6A, 0x02, 0x06, 0x52})
+
 	// MF_MT_MPEG2_PROFILE {AD76A80B-2D5C-4E0B-B375-64E520137036}
 	//
 	// O nome diz MPEG-2 por herança; para H.264 ele carrega os valores de
@@ -395,6 +403,30 @@ func configurarSaida(t objeto, largura, altura, fps, kbps int) error {
 	// texto pequeno numa tela compartilhada é o pior caso disso —, e é um preço que se
 	// paga de novo se algum dia o outro lado for sempre um Astra.
 	definirNumero(tipo, &chavePerfil, perfilBaseline)
+
+	// QUADRO-CHAVE A CADA DOIS SEGUNDOS, e o número é o tempo de espera de quem chega
+	// depois.
+	//
+	// Um decodificador de H.264 não abre imagem nenhuma antes de um quadro-chave: os
+	// outros só descrevem a DIFERENÇA em relação ao anterior. Quem entra na sala com a
+	// transmissão já em curso — que é o caso normal — fica olhando para o vazio até o
+	// próximo. Sem pedir nada, o Quick Sync desta máquina espaça em CINCO SEGUNDOS
+	// (medido em `TestOCompressorDaQuadroChaveComRegularidade`), e cinco segundos de
+	// tela preta é tempo de a pessoa concluir que está quebrado.
+	//
+	// O preço é banda: quadro-chave é caro, e dobrar a frequência engorda o fluxo em uns
+	// 10%. Numa malha ponto a ponto essa conta é paga uma vez POR PESSOA, então não vale
+	// baixar mais do que isso — dois segundos é o ponto em que a espera deixa de parecer
+	// defeito sem que a banda comece a doer.
+	//
+	// EM QUADROS E NÃO EM SEGUNDOS, que é como a chave é declarada.
+	//
+	// E ELA NÃO É HONRADA POR TODO COMPRESSOR — está anotado porque a linha parece
+	// funcionar e não funciona. Medido nesta máquina: o Quick Sync continua espaçando em
+	// cinco segundos com ou sem esta chave (ver `TestOCompressorDaQuadroChaveComRegularidade`).
+	// Fica porque não custa nada e os compressores que a honram melhoram; baixar de
+	// verdade num que a ignora exige `ICodecAPI`, que é outra pilha de COM.
+	definirNumero(tipo, &chaveDoEspacamento, uint32(fps*2))
 
 	definirPar(tipo, &chaveTamanhoDoQuadro, largura, altura)
 	definirPar(tipo, &chaveTaxaDeQuadros, fps, 1)

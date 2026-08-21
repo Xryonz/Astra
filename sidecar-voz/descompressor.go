@@ -93,7 +93,7 @@ type Descompressor struct {
 
 	// A amostra de saída, alocada UMA vez quando o decodificador não traz a dele.
 	// Realocada quando a forma muda, que acontece no máximo uma vez por transmissão.
-	saidaNossa objeto
+	saidaNossa  objeto
 	bufferSaida objeto
 	trazAmostra bool
 

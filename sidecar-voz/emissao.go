@@ -23,7 +23,6 @@ package main
 // simplesmente começar a escrever nela.
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -172,23 +171,30 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 		Msg:  fmt.Sprintf("%dx%d @%d", c.saidaL, c.saidaA, c.fps),
 	})
 
-	// UM QUADRO INTEIRO POR AMOSTRA, e é aqui que mora o erro fácil.
+	// UMA CHAMADA DE VOLTA = UM QUADRO = UMA AMOSTRA. Escrito assim depois de o
+	// contrário ter sido MEDIDO custando metade da taxa.
 	//
-	// `Comprimir` chama de volta uma vez POR PEDAÇO, e um quadro rende mais de um
-	// (parâmetros, fatias). Escrever na faixa a cada pedaço faria o relógio do RTP
-	// andar uma duração de quadro por PEDAÇO — o outro lado veria a imagem em câmera
-	// lenta e o áudio dessincronizado, sem nada errado na rede.
+	// O primeiro desenho juntava tudo que saísse de uma chamada de `Comprimir` num
+	// buffer só, na crença de que a chamada de volta viesse uma vez por PEDAÇO de
+	// quadro. Não vem: `sair` já junta os buffers de uma amostra do compressor
+	// (`ConvertToContiguousBuffer`) e chama de volta UMA vez por amostra — e uma amostra
+	// é um quadro codificado inteiro.
 	//
-	// Então os pedaços de um quadro se juntam aqui e saem numa escrita só. O
-	// empacotador de H.264 do pion sabe separar os NALs pelos códigos de início e
-	// fatiar o que não couber no pacote.
-	var quadro bytes.Buffer
+	// O estrago aparecia porque o compressor da placa é ASSÍNCRONO. Ele responde por
+	// recados, então uma volta do laço às vezes drena DOIS quadros já prontos. Juntando
+	// os dois numa escrita só, o relógio do RTP andava a duração de UM — e a medição
+	// mostrava exatamente isso: 29 quadros capturados por segundo virando 14 amostras.
+	// Metade da taxa, com o tempo andando errado, e nada errado na rede para explicar.
+	//
+	// Escrever de dentro da chamada de volta é seguro: `WriteSample` empacota e
+	// despacha na hora, então o fatiamento emprestado não sobrevive à chamada — que é
+	// exatamente a regra que ele exige.
 	duracao := time.Second / time.Duration(c.fps)
 
 	ritmo := NovoRitmo(c.fps)
 	comeco := time.Now()
 	relatorio := time.Now()
-	var quadros, bytesEnviados int
+	var quadros, bytesEnviados, capturados, semSaida, semMudanca int
 	perfilVisto := false
 
 	for {
@@ -217,57 +223,72 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 		if textura == 0 {
 			// Nada mudou na tela dentro do prazo. Não é falha: é uma tela parada, que
 			// é o caso comum de quem compartilha um documento.
+			semMudanca++
 			continue
 		}
+		capturados++
 
-		quadro.Reset()
-		err = c.Comprimir(textura, time.Since(comeco), func(nal []byte) {
-			// COPIA, e a cópia é obrigatória: o fatiamento entregue vale só até a
-			// chamada seguinte (ver `Comprimir`). Guardar a fatia em vez do conteúdo
-			// daria um quadro montado com os bytes do quadro seguinte.
-			quadro.Write(nal)
+		saiuAlgo := false
+		var falhaAoEntregar error
+		err = c.Comprimir(textura, time.Since(comeco), func(quadroPronto []byte) {
+			saiuAlgo = true
+			if !perfilVisto {
+				if p, ok := perfilDoSPS(quadroPronto); ok {
+					perfilVisto = true
+					e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "perfil", Msg: p})
+				}
+			}
+			// ESCREVER SEM NINGUÉM CONECTADO NÃO É ERRO. Um `TrackLocalStaticSample` sem
+			// ligação nenhuma engole a amostra em silêncio, e é o que queremos:
+			// transmitir sozinho numa sala é o caso de quem começou a compartilhar antes
+			// de o primeiro convidado chegar.
+			//
+			// A FALHA É GUARDADA e não devolvida daqui: esta é uma chamada de volta que
+			// o compressor faz de dentro do laço dele, e abandoná-la no meio deixaria a
+			// fila de saída dele por drenar — que é o jeito conhecido de travar os dois
+			// lados (ver `esvaziar`).
+			if err := e.faixa.WriteSample(media.Sample{Data: quadroPronto, Duration: duracao}); err != nil && falhaAoEntregar == nil {
+				falhaAoEntregar = err
+			}
+			quadros++
+			bytesEnviados += len(quadroPronto)
 		})
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {
 			return fmt.Errorf("comprimir: %w", err)
 		}
-		if quadro.Len() == 0 {
-			// O compressor ainda está juntando. Normal nos primeiros quadros.
-			continue
+		if falhaAoEntregar != nil {
+			return fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
 		}
-
-		if !perfilVisto {
-			if p, ok := perfilDoSPS(quadro.Bytes()); ok {
-				perfilVisto = true
-				e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "perfil", Msg: p})
-			}
+		if !saiuAlgo {
+			// O compressor ainda está juntando. Normal nos primeiros quadros, e normal
+			// em qualquer volta de um compressor assíncrono — o quadro sai numa próxima.
+			semSaida++
 		}
-
-		// ESCREVER SEM NINGUÉM CONECTADO NÃO É ERRO. Um `TrackLocalStaticSample` sem
-		// ligação nenhuma engole a amostra em silêncio, e é o que queremos: transmitir
-		// sozinho numa sala é o caso de quem começou a compartilhar antes de o
-		// primeiro convidado chegar.
-		if err := e.faixa.WriteSample(media.Sample{Data: quadro.Bytes(), Duration: duracao}); err != nil {
-			return fmt.Errorf("entregar o quadro: %w", err)
-		}
-		quadros++
-		bytesEnviados += quadro.Len()
 
 		// UM RELATÓRIO POR SEGUNDO. É o que dá à pessoa uma prova de que a transmissão
 		// está viva enquanto ainda não existe imagem para ver — e o que permite
 		// perceber que a máquina não está dando conta antes de alguém reclamar.
+		// O RELATÓRIO CONTA ONDE OS QUADROS FICAM, e não só quantos saíram.
+		//
+		// "14 fps" sozinho não diz se a máquina não dá conta, se a tela estava parada, ou
+		// se o compressor está segurando quadro — três coisas com o mesmo número e
+		// remédios opostos. Do lado que recebe, contar as etapas foi o que apontou o
+		// defeito do remontador em vez de mandar caçar no decodificador; aqui vale a
+		// mesma regra.
 		if desde := time.Since(relatorio); desde >= time.Second {
 			e.saida.Manda(Evento{
 				Ev:   EvTransmissao,
 				V:    "1",
 				Tipo: "ritmo",
-				Msg: fmt.Sprintf("%d fps · %.1f Mbps",
+				Msg: fmt.Sprintf("%d fps · %.1f Mbps · %d capturados · %d sem saída · %d sem mudança",
 					int(float64(quadros)/desde.Seconds()),
-					float64(bytesEnviados)*8/desde.Seconds()/1_000_000),
+					float64(bytesEnviados)*8/desde.Seconds()/1_000_000,
+					capturados, semSaida, semMudanca),
 			})
 			relatorio = time.Now()
-			quadros, bytesEnviados = 0, 0
+			quadros, bytesEnviados, capturados, semSaida, semMudanca = 0, 0, 0, 0, 0
 		}
 	}
 }

@@ -22,6 +22,7 @@ type Par struct {
 	pc         *webrtc.PeerConnection
 	saida      *Escritor
 	misturador *Misturador
+	entrega    *EntregaDeQuadros // nulo quando o Astra não pediu quadros
 
 	// Candidatos que chegaram ANTES da descrição remota.
 	//
@@ -53,6 +54,7 @@ func NovoPar(
 	faixa *webrtc.TrackLocalStaticSample,
 	tela *webrtc.TrackLocalStaticSample,
 	mist *Misturador,
+	entrega *EntregaDeQuadros,
 	saida *Escritor,
 ) (*Par, error) {
 	pc, err := webrtc.NewPeerConnection(config)
@@ -60,7 +62,7 @@ func NovoPar(
 		return nil, fmt.Errorf("criar conexão: %w", err)
 	}
 
-	p := &Par{id: id, pc: pc, saida: saida, misturador: mist}
+	p := &Par{id: id, pc: pc, saida: saida, misturador: mist, entrega: entrega}
 
 	if faixa != nil {
 		if _, err := pc.AddTrack(faixa); err != nil {
@@ -133,6 +135,16 @@ func NovoPar(
 		// A faixa PRECISA ser lida sempre: pacote que não é consumido fica se
 		// acumulando no buffer do Pion. Uma conexão sem leitor não é "silenciosa",
 		// é uma conexão que vaza memória enquanto a pessoa fala.
+		//
+		// E VÍDEO PRECISA SER LIDO INCLUSIVE QUANDO NÃO HÁ COMO MOSTRAR. Antes de
+		// existir descompressor, esta faixa era ignorada — e ignorada não quer dizer
+		// parada: quem transmitisse encheria o buffer de quem assiste até o processo
+		// ficar sem memória. É por isso que o caminho de vídeo tem leitor próprio, e
+		// não um `if` que às vezes lê.
+		if remota.Kind() == webrtc.RTPCodecTypeVideo {
+			go p.receberTela(remota)
+			return
+		}
 		go p.receber(remota)
 	})
 

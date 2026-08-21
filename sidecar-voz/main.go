@@ -100,6 +100,7 @@ func main() {
 		faixa:      faixa,
 		tela:       tela,
 		emissor:    NovoEmissor(tela, escritor),
+		entrega:    NovaEntrega(),
 		misturador: misturador,
 		motor:      motor,
 		pares:      make(map[string]*Par),
@@ -129,6 +130,7 @@ type App struct {
 	faixa      *webrtc.TrackLocalStaticSample
 	tela       *webrtc.TrackLocalStaticSample
 	emissor    *Emissor
+	entrega    *EntregaDeQuadros
 	misturador *Misturador
 	motor      *Motor
 	config     webrtc.Configuration
@@ -308,7 +310,7 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	if par, ok := a.pares[id]; ok {
 		return par, nil
 	}
-	par, err := NovoPar(id, a.config, a.faixa, a.tela, a.misturador, a.saida)
+	par, err := NovoPar(id, a.config, a.faixa, a.tela, a.misturador, a.entrega, a.saida)
 	if err != nil {
 		return nil, err
 	}
@@ -339,6 +341,7 @@ func (a *App) Fechar() {
 	// tela e um compressor do Media Foundation, e `Desligar` espera os dois voltarem.
 	// Fechar as conexões antes deixaria o laço escrevendo numa faixa já solta.
 	a.emissor.Desligar()
+	a.entrega.Fechar()
 
 	a.mu.Lock()
 	pares := make([]*Par, 0, len(a.pares))

@@ -124,6 +124,13 @@ const (
 	//	Tipo = "perfil"              ->  Msg = "42e01f", lido de dentro do fluxo
 	//	Tipo = "ritmo"               ->  Msg = "58 fps · 3,4 Mbps", uma vez por segundo
 	EvTransmissao = "transmissao"
+	// A tela de OUTRA pessoa. `Par` diz de quem, `V` é "1" enquanto chega imagem.
+	// `Tipo` = nome do descompressor na abertura, "ritmo" nos relatórios de segundo.
+	//
+	// Os QUADROS não vêm por aqui — eles têm cano próprio (ver `entrega.go`). Este
+	// evento é só o aviso de que há tela chegando, que é o que a interface precisa para
+	// abrir o espaço antes do primeiro pixel.
+	EvTelaDeOutro = "tela"
 )
 
 // Os tipos de envelope do aperto de mão. Iguais dos dois lados da ponte e iguais

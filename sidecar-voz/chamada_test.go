@@ -52,13 +52,13 @@ func TestChamadaCompletaEntreDoisPares(t *testing.T) {
 
 	config := webrtc.Configuration{}
 
-	parA, err := NovoPar("B", config, faixaA, telaA, nil, NewEscritor(escreveA))
+	parA, err := NovoPar("B", config, faixaA, telaA, nil, nil, NewEscritor(escreveA))
 	if err != nil {
 		t.Fatalf("criar par A: %v", err)
 	}
 	defer parA.Fechar()
 
-	parB, err := NovoPar("A", config, nil, nil, misturadorB, NewEscritor(escreveB))
+	parB, err := NovoPar("A", config, nil, nil, misturadorB, nil, NewEscritor(escreveB))
 	if err != nil {
 		t.Fatalf("criar par B: %v", err)
 	}

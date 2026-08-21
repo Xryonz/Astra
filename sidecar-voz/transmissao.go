@@ -270,6 +270,10 @@ type Compressor struct {
 	// compressor não a expõe, e aí `ForcarQuadroChave` não faz nada em vez de falhar.
 	comandos objeto
 
+	// Quantos quadros ele já PEDIU e ainda não recebeu. Ver `pedidoDeEntrada`: contar
+	// em vez de presumir é o que impede um impasse com compressor que enfileira.
+	pedidos int
+
 	anel    []quadroDeEntrada
 	proximo int
 
@@ -816,25 +820,87 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 		return c.esvaziar(receber)
 	}
 
-	// ASSÍNCRONO: espera ele PEDIR o quadro, atendendo as saídas que aparecerem no
-	// caminho. Alimentar sem ter sido pedido devolve erro, e ficar só esperando sem
-	// atender as saídas entope a fila dele e trava os dois lados.
-	for {
-		antesDoRecado := time.Now()
+	// ASSÍNCRONO — E AQUI ESTAVA O TETO DA TRANSMISSÃO INTEIRA.
+	//
+	// O desenho antigo esperava BLOQUEANDO até o compressor pedir o quadro, atendendo
+	// as saídas que aparecessem no caminho, e só voltava depois de alimentar. Parecia
+	// certo e custava caro: medido, 7,5ms por quadro, dos quais
+	//
+	//	esperando ele pedir entrada      5us
+	//	esperando a saída ficar pronta  5179us
+	//
+	// A placa NUNCA estava ocupada — ela aceita o próximo quadro em cinco
+	// microssegundos. Os cinco milissegundos eram nós parados colhendo o resultado do
+	// quadro que acabáramos de entregar. Isso é LATÊNCIA do compressor (quadro entra,
+	// quadro sai uns 5ms depois), e o laço a transformava em VAZÃO ao se recusar a
+	// seguir em frente sem o resultado.
+	//
+	// Agora: espera o pedido (barato), alimenta, e colhe SEM ESPERAR o que já estiver
+	// pronto. O que não estiver é colhido na volta seguinte. A latência vira atraso de
+	// um quadro em vez de teto de taxa — e é por isso que ela some do orçamento.
+	if err := c.pedidoDeEntrada(receber); err != nil {
+		return err
+	}
+	if err := c.entrar(entrada); err != nil {
+		return err
+	}
+	return c.Drenar(receber)
+}
+
+// pedidoDeEntrada garante que há UM crédito de entrada, esperando por ele se preciso.
+//
+// O CRÉDITO É CONTADO, e não presumido. Um compressor com fila interna pede mais de um
+// quadro antes de receber qualquer um, e jogar fora o pedido excedente faria a volta
+// seguinte esperar por um recado que JÁ TINHA CHEGADO — travando a transmissão num
+// impasse em que os dois lados esperam o outro. É o tipo de defeito que só aparece sob
+// carga, que é o pior lugar para descobri-lo.
+func (c *Compressor) pedidoDeEntrada(receber func([]byte)) error {
+	for c.pedidos == 0 {
+		antes := time.Now()
 		tipo, err := c.proximoRecado()
 		if err != nil {
 			return err
 		}
-		// A ESPERA É CONTADA NA CONTA DO RECADO QUE CHEGOU — ver `Custos`. Somar as
-		// duas num número só apagaria a única informação que decide se vale montar um
-		// pipeline aqui.
-		espera := time.Since(antesDoRecado)
+		espera := time.Since(antes)
 		switch tipo {
 		case eventoQuerEntrada:
 			c.Custos.PedidoDeEntrada += espera
-			return c.entrar(entrada)
+			c.pedidos++
 		case eventoTemSaida:
 			c.Custos.SaidaPronta += espera
+			if _, err := c.sair(receber); err != nil {
+				return err
+			}
+		}
+	}
+	c.pedidos--
+	return nil
+}
+
+// Drenar colhe o que já estiver pronto SEM ESPERAR por nada.
+//
+// PRECISA SER CHAMADA TAMBÉM QUANDO NÃO HÁ QUADRO A ENVIAR, e essa é a contrapartida de
+// não bloquear mais. Com a tela parada a captura não devolve nada, `Comprimir` não é
+// chamada, e os últimos quadros ficariam presos dentro do compressor — a imagem de quem
+// assiste congelaria um quadro antes do que deveria, justamente no instante em que a
+// pessoa parou de mexer para alguém ler o que está na tela.
+func (c *Compressor) Drenar(receber func([]byte)) error {
+	if c.eventos == 0 {
+		// O síncrono não tem fila de recados: `esvaziar` já pergunta e volta na hora.
+		return c.esvaziar(receber)
+	}
+	for {
+		tipo, tem, err := c.recadoSeHouver()
+		if err != nil {
+			return err
+		}
+		if !tem {
+			return nil
+		}
+		switch tipo {
+		case eventoQuerEntrada:
+			c.pedidos++
+		case eventoTemSaida:
 			if _, err := c.sair(receber); err != nil {
 				return err
 			}
@@ -942,12 +1008,42 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 	return true, nil
 }
 
+// MF_EVENT_FLAG_NO_WAIT / MF_E_NO_EVENTS_AVAILABLE — a diferença entre perguntar e
+// esperar. É essa bandeira que separa "colher o que está pronto" de "parar até ficar".
+const (
+	recadoSemEsperar = 0x00000001
+	semRecadoNaFila  = 0xC00D3E80
+)
+
+// recadoSeHouver pega um recado SÓ SE já estiver na fila. O booleano é "veio algum".
+//
+// É o par da `proximoRecado`, e a existência das duas é a diferença entre esperar a
+// placa e conviver com ela. Ver o comentário longo em `Comprimir`.
+func (c *Compressor) recadoSeHouver() (uint32, bool, error) {
+	var ev objeto
+	r := c.eventos.chamar(geradorPegarEvento, recadoSemEsperar, uintptr(unsafe.Pointer(&ev)))
+	if uint32(r) == semRecadoNaFila {
+		return 0, false, nil
+	}
+	if err := hr(r, "perguntar ao compressor"); err != nil {
+		return 0, false, err
+	}
+	defer ev.soltar()
+
+	var tipo uint32
+	r = ev.chamar(eventoTipo, uintptr(unsafe.Pointer(&tipo)))
+	if err := hr(r, "ler o recado do compressor"); err != nil {
+		return 0, false, err
+	}
+	return tipo, true, nil
+}
+
 // proximoRecado espera o próximo recado do compressor assíncrono.
 //
-// Espera BLOQUEANTE de propósito, e não uma consulta em laço: a 60 quadros por segundo
-// o pedido de entrada já está na fila quando chegamos aqui, então na prática ela não
-// espera nada — e quando espera, é porque o compressor está ocupado, que é exatamente
-// a hora de não gastar processador perguntando.
+// Espera BLOQUEANTE de propósito, e não uma consulta em laço. Hoje ela é usada só para
+// esperar o PEDIDO DE ENTRADA, que medido custa cinco microssegundos — o compressor
+// quase sempre já está pedindo quando chegamos aqui. Quando de fato espera, é porque ele
+// está ocupado, e essa é exatamente a hora de não gastar processador perguntando.
 func (c *Compressor) proximoRecado() (uint32, error) {
 	var ev objeto
 	r := c.eventos.chamar(geradorPegarEvento, 0, uintptr(unsafe.Pointer(&ev)))

@@ -214,6 +214,33 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	var quadros, bytesEnviados, capturados, semSaida, semMudanca int
 	perfilVisto := false
 
+	// A ENTREGA VIVE FORA DO LAÇO porque o quadro pronto pode chegar em DUAS ocasiões:
+	// junto de uma compressão, e na colheita avulsa de quando a tela não mudou. Duas
+	// cópias desta função divergiriam, e a que divergisse seria a do caminho raro — o
+	// que se percebe só quando alguém para de mexer no mouse.
+	var falhaAoEntregar error
+	entregar := func(quadroPronto []byte) {
+		if !perfilVisto {
+			if p, ok := perfilDoSPS(quadroPronto); ok {
+				perfilVisto = true
+				e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "perfil", Msg: p})
+			}
+		}
+		// ESCREVER SEM NINGUÉM CONECTADO NÃO É ERRO. Um `TrackLocalStaticSample` sem
+		// ligação nenhuma engole a amostra em silêncio, e é o que queremos: transmitir
+		// sozinho numa sala é o caso de quem começou a compartilhar antes de o primeiro
+		// convidado chegar.
+		//
+		// A FALHA É GUARDADA e não devolvida daqui: esta é uma chamada de volta que o
+		// compressor faz de dentro do laço dele, e abandoná-la no meio deixaria a fila
+		// de saída por drenar — o jeito conhecido de travar os dois lados.
+		if err := e.faixa.WriteSample(media.Sample{Data: quadroPronto, Duration: duracao}); err != nil && falhaAoEntregar == nil {
+			falhaAoEntregar = err
+		}
+		quadros++
+		bytesEnviados += len(quadroPronto)
+	}
+
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -240,7 +267,20 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 		if textura == 0 {
 			// Nada mudou na tela dentro do prazo. Não é falha: é uma tela parada, que
 			// é o caso comum de quem compartilha um documento.
+			//
+			// MAS AINDA PRECISA COLHER. O compressor deixou de ser drenado até o fim a
+			// cada quadro (ver o comentário em `Comprimir`), então há sempre um quadro
+			// ou dois maturando dentro dele. Sem esta chamada, parar de mexer na tela
+			// congelaria a imagem de quem assiste UM QUADRO ANTES do que deveria — e
+			// justamente no instante em que a pessoa parou de mexer para alguém ler o
+			// que está ali.
 			semMudanca++
+			if err := c.Drenar(entregar); err != nil {
+				return fmt.Errorf("colher o que sobrou: %w", err)
+			}
+			if falhaAoEntregar != nil {
+				return fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+			}
 			continue
 		}
 		capturados++
@@ -259,29 +299,9 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 		}
 
 		saiuAlgo := false
-		var falhaAoEntregar error
 		err = c.Comprimir(textura, time.Since(comeco), func(quadroPronto []byte) {
 			saiuAlgo = true
-			if !perfilVisto {
-				if p, ok := perfilDoSPS(quadroPronto); ok {
-					perfilVisto = true
-					e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "perfil", Msg: p})
-				}
-			}
-			// ESCREVER SEM NINGUÉM CONECTADO NÃO É ERRO. Um `TrackLocalStaticSample` sem
-			// ligação nenhuma engole a amostra em silêncio, e é o que queremos:
-			// transmitir sozinho numa sala é o caso de quem começou a compartilhar antes
-			// de o primeiro convidado chegar.
-			//
-			// A FALHA É GUARDADA e não devolvida daqui: esta é uma chamada de volta que
-			// o compressor faz de dentro do laço dele, e abandoná-la no meio deixaria a
-			// fila de saída dele por drenar — que é o jeito conhecido de travar os dois
-			// lados (ver `esvaziar`).
-			if err := e.faixa.WriteSample(media.Sample{Data: quadroPronto, Duration: duracao}); err != nil && falhaAoEntregar == nil {
-				falhaAoEntregar = err
-			}
-			quadros++
-			bytesEnviados += len(quadroPronto)
+			entregar(quadroPronto)
 		})
 		textura.soltar()
 		tela.SoltarQuadro()

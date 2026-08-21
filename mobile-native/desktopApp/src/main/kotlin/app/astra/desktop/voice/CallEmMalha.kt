@@ -76,6 +76,17 @@ class CallEmMalha(
     val relatorioDaTela = _relatorioDaTela.asStateFlow()
     @Volatile private var comoSubiu = ""
 
+    // A TELA DE CADA PESSOA, vinda pelo cano à parte. O mapa é do cano e não daqui: os
+    // quadros nunca passam pela ponte de comandos, então não há o que traduzir no meio.
+    val telasDosOutros = sidecar.quadros.telas
+
+    // Quem ANUNCIOU que está transmitindo, o que é diferente de quem já mandou quadro.
+    // A diferença dura um instante — o descompressor precisa da sequência de parâmetros
+    // e de um quadro-chave antes de abrir imagem —, e é justamente esse instante que
+    // permite mostrar "abrindo a tela de fulano" em vez de um retângulo preto.
+    private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
+    val mostrandoTela = _mostrandoTela.asStateFlow()
+
     // ---- o que ele guarda para chegar naquilo ----
 
     // Concorrentes porque mexem neles o laço de presença, o aviso de socket e os
@@ -316,6 +327,11 @@ class CallEmMalha(
         falando.remove(outro)
         tentativas.remove(outro)
         resgates.remove(outro)?.cancel()
+        // A TELA DELE SAI JUNTO, e é obrigatório: quem cai não manda o aviso de que
+        // parou de transmitir, então sem isto a última imagem ficaria congelada no palco
+        // de alguém que já foi embora — parecendo ao vivo.
+        _mostrandoTela.value = _mostrandoTela.value - outro
+        sidecar.quadros.esquecer(outro)
         sidecar.desconectar(outro)
         publicar()
     }
@@ -440,6 +456,19 @@ class CallEmMalha(
                 "aparelhos" -> {
                     val lista = ev.aparelhos.orEmpty()
                     if (ev.tipo == "entrada") _microfones.value = lista else _saidas.value = lista
+                }
+                "tela" -> {
+                    val quem = ev.par ?: return@collect
+                    if (ev.valor == "1") {
+                        if (ev.tipo != "ritmo") VoiceLog.nota("[tela] recebendo de $quem por ${ev.tipo}")
+                        _mostrandoTela.value = _mostrandoTela.value + quem
+                    } else {
+                        _mostrandoTela.value = _mostrandoTela.value - quem
+                        // ESQUECER O QUADRO JUNTO. Sem isto, a última imagem de quem
+                        // parou de transmitir ficaria congelada na tela para sempre —
+                        // pior que não mostrar nada, porque parece que ainda está ao vivo.
+                        sidecar.quadros.esquecer(quem)
+                    }
                 }
                 "transmissao" -> {
                     val noAr = ev.valor == "1"

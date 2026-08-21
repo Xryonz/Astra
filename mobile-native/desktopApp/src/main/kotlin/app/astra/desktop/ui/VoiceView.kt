@@ -197,9 +197,57 @@ fun VoiceView(
             }
         }
 
+        // QUANDO ALGUÉM COMPARTILHA, A TELA TOMA O PALCO e as pessoas descem para uma
+        // faixa. É a escolha de todo aplicativo de chamada, e a razão é o conteúdo: quem
+        // compartilha quase sempre está mostrando TEXTO — código, um documento, uma
+        // planilha —, e texto pequeno numa moldura do tamanho de um avatar não se lê.
+        // Rosto encolhido continua reconhecível; letra encolhida vira borrão.
+        //
+        // UMA TELA POR VEZ, a primeira que chegou. Duas pessoas transmitindo ao mesmo
+        // tempo é raro e pede um seletor, que é tela nova — e tela nova antes de a
+        // primeira ter sido usada é adivinhação.
+        val telas by call.telasDosOutros.collectAsState()
+        val mostrando by call.mostrandoTela.collectAsState()
+        val quemMostra = remember(telas, mostrando) { mostrando.firstOrNull { telas.containsKey(it) } ?: mostrando.firstOrNull() }
+
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                ParticipantGrid(tiles)
+            if (quemMostra == null) {
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                    ParticipantGrid(tiles)
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    val nomeDeQuemMostra = pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
+                        ?: channel.name.ifBlank { "alguém" }
+                    Box(
+                        Modifier.weight(1f).fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Obsidian.void),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val quadro = telas[quemMostra]
+                        if (quadro == null) {
+                            // O VAZIO DURA UM INSTANTE E TEM NOME. Entre o aviso de que
+                            // alguém começou a transmitir e o primeiro quadro passam-se
+                            // alguns décimos — o descompressor precisa da sequência de
+                            // parâmetros e de um quadro-chave. Um retângulo preto mudo
+                            // nesse intervalo parece defeito.
+                            Text(
+                                "abrindo a tela de $nomeDeQuemMostra…",
+                                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                            )
+                        } else {
+                            TelaCompartilhada(quadro, Modifier.fillMaxSize())
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "$nomeDeQuemMostra está compartilhando a tela",
+                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ParticipantGrid(tiles)
+                }
             }
         }
 

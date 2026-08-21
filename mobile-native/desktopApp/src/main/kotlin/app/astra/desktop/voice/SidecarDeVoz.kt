@@ -89,6 +89,13 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     private val processo = AtomicReference<Process?>(null)
     private val entrada = AtomicReference<BufferedWriter?>(null)
 
+    // POR ONDE A IMAGEM CHEGA — cano à parte, porque um quadro de 720p (1,4 MB) na mesma
+    // fila que carrega "fulano está falando" faria o aviso esperar atrás da imagem.
+    //
+    // Nasce com este objeto e SOBREVIVE À QUEDA do processo: a porta continua a mesma, e
+    // o processo que reinicia recebe o mesmo endereço no ambiente e religa sozinho.
+    val quadros = CanoDeQuadros()
+
     @Volatile private var querendoViver = false
 
     // Sobe o processo e mantém ele vivo até `parar()`.
@@ -100,6 +107,7 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
 
     fun parar() {
         querendoViver = false
+        quadros.fechar()
         // "sair" primeiro, e destruir depois só se ele não obedecer: o desligamento
         // limpo solta microfone e conexões na ordem certa. Matar direto deixa o
         // aparelho de áudio preso por alguns segundos, e a próxima call abre com
@@ -221,9 +229,14 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     }
 
     private suspend fun rodarUmaVez(exe: File): Int = withContext(Dispatchers.IO) {
-        val p = ProcessBuilder(exe.absolutePath)
-            .directory(exe.parentFile)
-            .start()
+        val construtor = ProcessBuilder(exe.absolutePath).directory(exe.parentFile)
+        // O CANO DE QUADROS VIAJA NO AMBIENTE, e por isso não há nada a descobrir depois:
+        // a porta já está aberta deste lado quando o processo nasce, então ele pode ligar
+        // no primeiro quadro que tiver. Anunciar pela ponte criaria uma corrida entre o
+        // anúncio e o nosso leitor — e essa corrida voltaria a cada queda do processo.
+        construtor.environment()["ASTRA_QUADROS"] = quadros.endereco
+        construtor.environment()["ASTRA_QUADROS_SEGREDO"] = quadros.segredo
+        val p = construtor.start()
         processo.set(p)
         entrada.set(p.outputStream.bufferedWriter())
 

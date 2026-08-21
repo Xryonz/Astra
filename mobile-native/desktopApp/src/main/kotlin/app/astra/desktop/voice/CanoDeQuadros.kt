@@ -64,11 +64,27 @@ class QuadroDeTela(
 
 class CanoDeQuadros {
 
-    private val ouvinte = ServerSocket(0, 2, InetAddress.getLoopbackAddress())
-    private val vivo = AtomicBoolean(true)
+    // A PORTA NÃO PODE DERRUBAR A VOZ.
+    //
+    // Este objeto é campo do `SidecarDeVoz`, então uma exceção aqui aconteceria durante a
+    // construção dele — e o que morreria não seria a imagem, seria a CHAMADA INTEIRA.
+    // Trocar conversa por nada porque uma porta de escuta não abriu é a pior troca
+    // possível, e "não abre" é raro mas existe: política de segurança da máquina,
+    // esgotamento de portas efêmeras, um antivírus com opinião.
+    //
+    // Sem porta, `endereco` fica vazio, o processo de voz não recebe o ambiente, e ele
+    // mesmo decide não montar o cano (ver `NovaEntrega`). A voz segue inteira; o que se
+    // perde é ver a tela dos outros.
+    private val ouvinte: ServerSocket? = runCatching {
+        ServerSocket(0, 2, InetAddress.getLoopbackAddress())
+    }.onFailure {
+        VoiceLog.nota("[quadros] sem cano de imagem: ${it.message}")
+    }.getOrNull()
 
-    /** Para o ambiente do processo de voz: `ASTRA_QUADROS`. */
-    val endereco: String = "127.0.0.1:${ouvinte.localPort}"
+    private val vivo = AtomicBoolean(ouvinte != null)
+
+    /** Para o ambiente do processo de voz: `ASTRA_QUADROS`. Vazio = sem cano. */
+    val endereco: String = ouvinte?.let { "127.0.0.1:${it.localPort}" } ?: ""
 
     /** Para o ambiente do processo de voz: `ASTRA_QUADROS_SEGREDO`. */
     val segredo: String = ByteArray(24)
@@ -81,12 +97,12 @@ class CanoDeQuadros {
     val telas: StateFlow<Map<String, QuadroDeTela>> = _quadros.asStateFlow()
 
     init {
-        thread(isDaemon = true, name = "astra-quadros") { aceitar() }
+        if (ouvinte != null) thread(isDaemon = true, name = "astra-quadros") { aceitar(ouvinte) }
     }
 
     fun fechar() {
         if (!vivo.compareAndSet(true, false)) return
-        runCatching { ouvinte.close() }
+        runCatching { ouvinte?.close() }
         _quadros.value = emptyMap()
     }
 
@@ -95,7 +111,7 @@ class CanoDeQuadros {
         _quadros.value = _quadros.value - par
     }
 
-    private fun aceitar() {
+    private fun aceitar(ouvinte: ServerSocket) {
         while (vivo.get()) {
             val con = runCatching { ouvinte.accept() }.getOrNull() ?: return
             // UMA CONEXÃO POR VEZ, e não uma thread por conexão: o processo de voz é um

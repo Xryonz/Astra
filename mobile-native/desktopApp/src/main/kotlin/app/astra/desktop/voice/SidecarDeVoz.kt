@@ -234,8 +234,12 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         // a porta já está aberta deste lado quando o processo nasce, então ele pode ligar
         // no primeiro quadro que tiver. Anunciar pela ponte criaria uma corrida entre o
         // anúncio e o nosso leitor — e essa corrida voltaria a cada queda do processo.
-        construtor.environment()["ASTRA_QUADROS"] = quadros.endereco
-        construtor.environment()["ASTRA_QUADROS_SEGREDO"] = quadros.segredo
+        // Endereço vazio = a porta não abriu, e aí o processo não recebe nada e não monta
+        // cano nenhum. A voz continua inteira; o que se perde é ver a tela dos outros.
+        if (quadros.endereco.isNotEmpty()) {
+            construtor.environment()["ASTRA_QUADROS"] = quadros.endereco
+            construtor.environment()["ASTRA_QUADROS_SEGREDO"] = quadros.segredo
+        }
         val p = construtor.start()
         processo.set(p)
         entrada.set(p.outputStream.bufferedWriter())

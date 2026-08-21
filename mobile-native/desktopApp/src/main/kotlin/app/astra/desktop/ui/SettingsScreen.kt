@@ -131,7 +131,6 @@ import com.composables.icons.lucide.PawPrint
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Eye
 import com.composables.icons.lucide.ShieldCheck
-import com.composables.icons.lucide.Shirt
 import com.composables.icons.lucide.SmilePlus
 import com.composables.icons.lucide.User
 import com.composables.icons.lucide.Volume2
@@ -202,10 +201,6 @@ import kotlin.math.sin
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
-    // ABA PRÓPRIA pelo mesmo motivo que Pets virou uma: montar um boneco exige VER o
-    // boneco, e o palco que mostra isso não cabe espremido no fim de uma aba que já
-    // trata de avatar, nome, pronomes, recado e banner.
-    ATELIE("Atelie", "o boneco do seu perfil", Lucide.Shirt),
     SESSIONS("Sessões", "onde sua conta está logada", Lucide.LogOut),
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
@@ -467,7 +462,6 @@ fun SettingsScreen(
                     when (current) {
                         SettingsTab.ACCOUNT -> AccountSection(me, aoSairDaConta)
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
-                        SettingsTab.ATELIE -> AtelieSection(prefState, prefs, me, onProfileSaved)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
                             // DOIS BLOCOS porque são dois escopos. O de cima manda no
@@ -615,9 +609,12 @@ private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     // bicho em tamanho que se julgue. Uma segunda cópia na coluna da direita
     // mostraria a mesma coisa menor e longe dos botões que a mudam.
     SettingsTab.PETS,
-    // Ateliê pelo mesmo motivo: o palco JÁ é a prévia, e ele fica encostado nas fitas
-    // que o mudam. Uma segunda cópia à direita mostraria o mesmo boneco menor e longe.
-    SettingsTab.ATELIE -> false
+    // CONTA NÃO TEM MAIS PRÉVIA, e isso é o fim de uma sequência, não um buraco: a
+    // coluna já teve um segundo cartão de perfil (cópia do que a aba vizinha mostra),
+    // depois o estado da conta em quatro linhas (que desceram pro formulário, onde
+    // tinham companhia) e por último o retrato. Sem o retrato não sobra nada que
+    // precise de ESPAÇO em vez de largura, e prévia vazia é pior que prévia nenhuma.
+    SettingsTab.ACCOUNT -> false
     else -> true
 }
 
@@ -636,11 +633,7 @@ private fun SettingsPreview(
     acoesDoCartao: AcoesDoCartao? = null,
 ) {
     Column(modifier) {
-        // "prévia" descreve o que a coluna faz em toda aba menos uma: mostrar o efeito
-        // do que se está mexendo. Na Conta ela virou retrato, e chamar retrato de
-        // prévia prometeria que mexer ali muda alguma coisa — o boneco se monta no
-        // Ateliê. Rótulo que mente sobre a função é pior que rótulo nenhum.
-        FieldLabel(if (tab == SettingsTab.ACCOUNT) "retrato" else "previa")
+        FieldLabel("previa")
         // A PREVIA NAO RESPONDE AO PONTEIRO.
         //
         // Ela e feita dos componentes DE VERDADE (o mesmo ProfileCard do popup, o
@@ -653,14 +646,6 @@ private fun SettingsPreview(
         // uma regra que e desta tela.
         Box {
             when (tab) {
-                // A COLUNA DA CONTA JÁ TEVE TRÊS INQUILINOS, e o caminho explica o
-                // atual. Primeiro um segundo cartão de perfil, idêntico ao da aba
-                // Perfil — duas cópias da mesma imagem em abas vizinhas não ensinavam
-                // nada. Depois o estado da conta em quatro linhas, que ensinava, mas
-                // era uma tabela vizinha de outra tabela. Agora o retrato: as linhas
-                // desceram pro cartão da própria aba, onde elas já tinham companhia, e
-                // aqui fica a única coisa que precisa de ESPAÇO em vez de largura.
-                SettingsTab.ACCOUNT -> RetratoDaConta(me)
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
                 SettingsTab.NOTIFICATIONS -> NotifPreviewCard(p.reduceMotionEff, p.avisoDiscreto)
                 SettingsTab.PRIVACY -> AtividadePreview(p.atividadeVisivel)
@@ -674,8 +659,8 @@ private fun SettingsPreview(
                 // Atalhos igual: a lista de teclas já é a própria demonstração.
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
                 SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS,
-                // Ateliê: o palco da aba já é a prévia, encostado nas fitas que o mudam.
-                SettingsTab.PETS, SettingsTab.ATELIE -> Unit
+                // Conta: o estado da conta mora no formulário da própria aba.
+                SettingsTab.PETS, SettingsTab.ACCOUNT -> Unit
             }
             // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
             // se trocam clicando neles — e engolir o ponteiro mataria exatamente a
@@ -2449,11 +2434,11 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     val semSenha = me?.hasPassword == false
     var trocandoSenha by remember { mutableStateOf(false) }
 
-    // O ESTADO DA CONTA DESCEU PRA CÁ, do painel que ocupava a coluna da prévia antes
-    // de o boneco tomar aquele lugar. Não foi apagado junto: e-mail conferido, sessões
-    // abertas e membro desde respondem perguntas que alguém abre ESTA aba pra
-    // responder, e o cartão de linhas que já existia é onde elas sempre pertenceram.
-    // Duas listas do mesmo assunto em duas colunas é que era o arranjo estranho.
+    // O ESTADO DA CONTA MORA AQUI, e não na coluna da prévia onde já morou: e-mail
+    // conferido, sessões abertas e membro desde respondem perguntas que alguém abre
+    // ESTA aba pra responder, e o cartão de linhas que já existia é onde elas sempre
+    // pertenceram. Duas listas do mesmo assunto em duas colunas é que era o arranjo
+    // estranho — e é por isso que a Conta hoje não tem prévia nenhuma.
     var sessoes by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(me?.id) {
         sessoes = runCatching { GlobalContext.get().get<SessionApi>().list().data?.sessions?.size }
@@ -2992,52 +2977,6 @@ private fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = nu
             Spacer(Modifier.width(7.dp))
         }
         Text(label, style = TextStyle(color = cor, fontSize = 13.sp))
-    }
-}
-
-// O RETRATO — o boneco na coluna que era do cartão de perfil e depois do painel de
-// segurança. Pedido do dono, e ele acerta uma coisa: a aba Conta trata de QUEM VOCÊ É
-// no Astra, e um retrato diz isso melhor que uma tabela.
-//
-// Placa, e não só a figura solta: o degrau de superfície mais o nome embaixo fazem o
-// boneco ler como peça exposta em vez de sprite esquecido no canto. Escala 6 é a maior
-// que cabe na largura da coluna sem encostar nas bordas.
-//
-// Quem nunca entrou no Ateliê vê o manequim apagado e uma linha dizendo onde montar o
-// seu. Coluna vazia anunciando "prévia" era pior que qualquer conteúdo.
-@Composable
-private fun RetratoDaConta(me: ProfileUserDto?) {
-    val receita = me?.boneco?.takeIf { it.isNotBlank() }?.let { ReceitaDoBoneco.de(it) }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Obsidian.raised.copy(alpha = 0.5f))
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
-            .padding(horizontal = 16.dp, vertical = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            // O manequim de quem ainda não montou o seu entra APAGADO, e a opacidade é
-            // a mensagem: "isto é o que existe por enquanto", não "este é você".
-            Modifier.graphicsLayer { alpha = if (receita != null) 1f else 0.35f },
-        ) {
-            Boneco(receita ?: ReceitaDoBoneco.PADRAO, escala = 6)
-        }
-        Spacer(Modifier.height(14.dp))
-        Text(
-            me?.displayName ?: me?.username ?: "—",
-            style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontFamily = DmSerif),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (receita == null) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "monte o seu em Ateliê",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-            )
-        }
     }
 }
 
@@ -4301,218 +4240,6 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     SettingsDivider()
     Spacer(Modifier.height(20.dp))
-}
-
-// ABA ATELIÊ — o retrato que a pessoa MONTA, em vez do que ela fotografa.
-//
-// A regra de composição desta tela é a fita: cada escolha é uma faixa horizontal de
-// miniaturas que mostram A PEÇA DE VERDADE, não um ícone e não um rótulo. Escolher
-// cabelo lendo "Chanel" é escolher no escuro; escolher vendo o cabelo é escolher.
-//
-// Por isso as miniaturas de FORMA desenham o boneco inteiro com aquela peça, e não a
-// peça solta: um cabelo fora da cabeça não se reconhece como cabelo.
-@Composable
-private fun AtelieSection(
-    p: DesktopPrefs.Prefs,
-    prefs: DesktopPrefs,
-    me: ProfileUserDto?,
-    onProfileSaved: () -> Unit,
-) {
-    // O SERVIDOR MANDA AO ENTRAR. As preferências são um CACHE local: existem para o
-    // boneco aparecer no instante em que o app abre, antes de o perfil chegar pela
-    // rede. Quando o perfil chega e discorda, quem está certo é ele — é o que os
-    // outros veem.
-    LaunchedEffect(me?.boneco) {
-        val doServidor = me?.boneco.orEmpty()
-        if (doServidor.isNotBlank() && doServidor != p.boneco) prefs.setBoneco(doServidor)
-    }
-
-    val receita = ReceitaDoBoneco.de(p.boneco)
-    val trocar: (ReceitaDoBoneco) -> Unit = { prefs.setBoneco(it.texto()) }
-
-    // SALVA SOZINHO, COM FREIO. Não há botão "salvar" aqui de propósito: cada amostra
-    // clicada JÁ é a escolha, e o palco ao lado já mostra o resultado — um botão só
-    // acrescentaria um jeito de perder o trabalho ao sair da aba.
-    //
-    // O freio existe porque quem está experimentando cor clica vinte vezes em dez
-    // segundos, e vinte PATCH seria maltratar o servidor por uma decisão que ainda nem
-    // foi tomada. Como a chave do efeito é a própria receita, cada clique CANCELA a
-    // espera anterior: a rajada inteira vira um pedido só, o último.
-    val koin = remember { GlobalContext.get() }
-    LaunchedEffect(p.boneco) {
-        if (p.boneco.isBlank() || p.boneco == me?.boneco) return@LaunchedEffect
-        delay(900)
-        runCatching { koin.get<UserApi>().updateProfile(UpdateProfileRequest(boneco = p.boneco)) }
-            .onSuccess { onProfileSaved() }
-    }
-
-    TituloExplicavel(
-        "Seu boneco",
-        "O corpo é um só; o que muda é a paleta e as peças por cima dele. Por isso um " +
-            "cabelo desenhado vale por oito — a cor troca a rampa, não o desenho. E o " +
-            "que fica guardado são as suas escolhas, não uma imagem: cabe em dez bytes.",
-    )
-
-    // O PALCO: cartão dentro de cartão, o boneco um degrau acima do painel. Escala 6
-    // porque é a maior que cabe sem o boneco dominar a coluna do formulário.
-    Box(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Obsidian.raised)
-            .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
-            .padding(vertical = 20.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Boneco(receita, escala = 6)
-    }
-
-    Spacer(Modifier.height(20.dp))
-    FieldLabel("pele")
-    FitaDeAmostras(
-        CatalogoDoBoneco.peles.map { it.nome to it.cores[1] },
-        receita.pele,
-    ) { trocar(receita.copy(pele = it)) }
-
-    Spacer(Modifier.height(20.dp))
-    FieldLabel("cabelo")
-    // Sem roupa na miniatura de cabelo, e com roupa na de roupa: cada fita mostra a
-    // escolha dela e cala sobre o resto.
-    FitaDeFormas(
-        CatalogoDoBoneco.cabelos.map { it.nome },
-        receita.cabelo,
-        { i -> receita.copy(cabelo = i, roupa = 0) },
-    ) { trocar(receita.copy(cabelo = it)) }
-
-    Spacer(Modifier.height(14.dp))
-    FieldLabel("cor do cabelo")
-    FitaDeAmostras(
-        CatalogoDoBoneco.coresDoCabelo.map { it.nome to it.cores[0] },
-        receita.corCabelo,
-    ) { trocar(receita.copy(corCabelo = it)) }
-
-    // LISTA VAZIA = O ACERVO NÃO TEM ESTA CAMADA, e é assim que esta tela atende dois
-    // conjuntos de arte sem perguntar qual está no ar. O manequim desenhado aqui tem
-    // os olhos pintados no corpo e anda descalço da cintura pra baixo; o paper-doll
-    // separa olhos e calça em camadas próprias. Quem sabe disso é o catálogo.
-    if (CatalogoDoBoneco.coresDosOlhos.isNotEmpty()) {
-        Spacer(Modifier.height(20.dp))
-        FieldLabel("olhos")
-        FitaDeAmostras(
-            CatalogoDoBoneco.coresDosOlhos.map { it.nome to it.cores[1] },
-            receita.corOlhos,
-        ) { trocar(receita.copy(corOlhos = it)) }
-    }
-
-    Spacer(Modifier.height(20.dp))
-    FieldLabel("roupa")
-    FitaDeFormas(
-        CatalogoDoBoneco.roupas.map { it.nome },
-        receita.roupa,
-        { i -> receita.copy(roupa = i) },
-    ) { trocar(receita.copy(roupa = it)) }
-
-    Spacer(Modifier.height(14.dp))
-    FieldLabel("cor da roupa")
-    FitaDeAmostras(
-        CatalogoDoBoneco.coresDaRoupa.map { it.nome to it.cores[0] },
-        receita.corRoupa,
-    ) { trocar(receita.copy(corRoupa = it)) }
-
-    if (CatalogoDoBoneco.calcas.isNotEmpty()) {
-        Spacer(Modifier.height(20.dp))
-        FieldLabel("calça")
-        FitaDeFormas(
-            CatalogoDoBoneco.calcas.map { it.nome },
-            receita.calca,
-            { i -> receita.copy(calca = i) },
-        ) { trocar(receita.copy(calca = it)) }
-
-        Spacer(Modifier.height(14.dp))
-        FieldLabel("cor da calça")
-        FitaDeAmostras(
-            CatalogoDoBoneco.coresDaCalca.map { it.nome to it.cores[0] },
-            receita.corCalca,
-        ) { trocar(receita.copy(corCalca = it)) }
-    }
-
-    Spacer(Modifier.height(20.dp))
-    Text(
-        "O boneco aparece no seu cartão de perfil, e as escolhas se salvam sozinhas. " +
-            "A foto continua sendo o seu rosto nas listas e nas conversas — as duas " +
-            "coisas convivem.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
-    Spacer(Modifier.height(20.dp))
-}
-
-// Fita de cores. A amostra pega o degrau que IDENTIFICA aquele tom — o do meio pra
-// pele e roupa, o mais claro pro cabelo, que é onde a cor do cabelo se reconhece.
-@Composable
-private fun FitaDeAmostras(itens: List<Pair<String, Int>>, escolhido: Int, aoEscolher: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        itens.forEachIndexed { i, (nome, cor) ->
-            val fonte = remember { MutableInteractionSource() }
-            Box(
-                Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(Color(cor or 0xFF000000.toInt()))
-                    .border(
-                        width = if (i == escolhido) 2.dp else 1.dp,
-                        color = if (i == escolhido) Obsidian.accent else Obsidian.borderDim,
-                        shape = CircleShape,
-                    )
-                    .clickable(interactionSource = fonte, indication = null) { aoEscolher(i) }
-                    .clickScale(fonte, formaDoFoco = CircleShape)
-                    .semantics { contentDescription = nome },
-            )
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    Text(
-        itens.getOrNull(escolhido)?.first.orEmpty(),
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-    )
-}
-
-// Fita de formas: cada quadradinho é o boneco de verdade com aquela peça, parado.
-@Composable
-private fun FitaDeFormas(
-    nomes: List<String>,
-    escolhido: Int,
-    receitaDa: (Int) -> ReceitaDoBoneco,
-    aoEscolher: (Int) -> Unit,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        nomes.forEachIndexed { i, nome ->
-            val fonte = remember { MutableInteractionSource() }
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (i == escolhido) Obsidian.overlay else Obsidian.raised)
-                    .border(
-                        width = if (i == escolhido) 2.dp else 1.dp,
-                        color = if (i == escolhido) Obsidian.accent else Obsidian.borderDim,
-                        shape = RoundedCornerShape(8.dp),
-                    )
-                    .clickable(interactionSource = fonte, indication = null) { aoEscolher(i) }
-                    .clickScale(fonte, formaDoFoco = RoundedCornerShape(8.dp))
-                    .semantics { contentDescription = nome }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Paradas de propósito: uma fita inteira balançando é ruído, e o que
-                // se está escolhendo aqui é a FORMA, que não depende do movimento.
-                Boneco(receitaDa(i), escala = 2, animar = false)
-            }
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    Text(
-        nomes.getOrNull(escolhido).orEmpty(),
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
-    )
 }
 
 // A amostra usa o degrau do MEIO da rampa, não o mais claro: em toda pelagem o

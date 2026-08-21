@@ -44,10 +44,6 @@ data class ProfileUserDto(
     val bannerPositionY: Int? = null,
     val bannerScale: Int? = null,
     val displayFont: String? = null,
-    // A RECEITA do boneco do perfil ("pele.cabelo.cor.roupa.cor..."), nao a imagem.
-    // Uns dez bytes que o cliente remonta camada sobre camada -- e por isso ela pode
-    // viajar em toda projecao de perfil sem o peso que um data-URI teria.
-    val boneco: String? = null,
     // Quem pode ABRIR sussurro comigo: all | shared | friends. So vem no MEU
     // perfil -- o de outra pessoa nao carrega isto.
     val dmPrivacy: String? = null,
@@ -90,7 +86,6 @@ data class UpdateProfileRequest(
     val bannerPositionY: Int? = null,
     val bannerScale: Int? = null,
     val displayFont: String? = null,
-    val boneco: String? = null,
     // O PATCH /api/profile ja aceitava statusEmoji; so faltava aqui. O RECADO
     // (customStatus) NAO vem por aqui — tem rota propria (/api/friends/custom-status).
     val statusEmoji: String? = null,

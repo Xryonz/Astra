@@ -369,15 +369,4 @@ CREATE TABLE IF NOT EXISTS "BotPersona" (
 -- todo mundo sem precisar de migração, que é o comportamento certo pra uma lista
 -- que cresce.
 ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "botDisabledCommands" text;
-
--- ===== Boneco do perfil (Ateliê) =====
--- Guarda a RECEITA e não a imagem: "0.2.4.1.3.0.1.0", uns dez bytes que o cliente
--- remonta desenhando camada sobre camada. É a diferença entre a lista de membros de
--- uma constelação grande carregar quilobytes ou megabytes — o avatar de hoje ainda
--- pode ser um data-URI inteiro, e este campo existe justamente para não repetir isso.
---
--- Texto solto e não colunas separadas por peça de propósito: o formato é posicional e
--- cresce pelo fim, então acrescentar chapéu ou óculos amanhã não pede migração. Quem
--- valida é o cliente, que é quem tem o catálogo; o servidor só carrega a string.
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "boneco" text;
 `

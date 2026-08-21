@@ -131,10 +131,6 @@ data class DadosDoCartao(
     val fonte: String? = null,
     val status: String? = null,
     val criadoEm: String? = null,
-    // A receita do boneco de QUEM O CARTAO MOSTRA. Vem do perfil como qualquer outro
-    // campo — o cartao nunca lê as preferencias desta maquina pra isto, senao
-    // desenharia o MEU boneco no perfil dos outros.
-    val boneco: String? = null,
     // "O que está usando agora". Não vem do perfil (que é o que a pessoa escreveu
     // sobre si) e sim da presença — por isso entra por fora, preenchido por quem
     // abre o cartão, e some sozinho quando ela para de mostrar.
@@ -160,7 +156,6 @@ fun ProfileUserDto.paraCartao() = DadosDoCartao(
     fonte = displayFont,
     status = effectiveStatus,
     criadoEm = createdAt,
-    boneco = boneco,
 )
 
 @Composable
@@ -531,26 +526,9 @@ private fun CorpoCompleto(
             Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
         }
     }
-    // O BONECO, logo abaixo do nome: ele é retrato, e retrato fica onde a identidade
-    // está, não no rodapé junto dos metadados.
-    //
-    // A receita vem NO CARTÃO, com o resto do perfil. Ela morou nas preferências desta
-    // máquina por uma fatia, e ali só dava pra desenhar o próprio — agora que subiu
-    // para o servidor, o boneco de qualquer pessoa aparece no cartão dela.
-    val receita = dados.boneco?.takeIf { it.isNotBlank() }?.let { ReceitaDoBoneco.de(it) }
-    if (receita != null) {
-        Spacer(Modifier.height(14.dp))
-        cascata(3) {
-            Secao("retrato") {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Boneco(receita, escala = 4)
-                }
-            }
-        }
-    }
     if (!dados.bio.isNullOrBlank()) {
         Spacer(Modifier.height(14.dp))
-        cascata(4) {
+        cascata(3) {
             Secao("sobre") {
                 Text(dados.bio.orEmpty(), style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, lineHeight = 19.sp))
             }
@@ -558,7 +536,7 @@ private fun CorpoCompleto(
     }
     membroDesde(dados.criadoEm)?.let { desde ->
         Spacer(Modifier.height(14.dp))
-        cascata(5) {
+        cascata(4) {
             Secao("membro") {
                 Text("nas estrelas desde $desde", style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
             }
@@ -566,7 +544,7 @@ private fun CorpoCompleto(
     }
     if (servidoresEmComum.isNotEmpty()) {
         Spacer(Modifier.height(14.dp))
-        cascata(6) {
+        cascata(5) {
             Secao("servidores em comum · ${servidoresEmComum.size}") {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -579,7 +557,7 @@ private fun CorpoCompleto(
     }
     if (rodape != null) {
         Spacer(Modifier.height(18.dp))
-        cascata(7) { rodape() }
+        cascata(6) { rodape() }
     }
 }
 

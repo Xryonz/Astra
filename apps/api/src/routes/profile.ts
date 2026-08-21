@@ -74,7 +74,7 @@ router.patch(
     const {
       displayName, username, bio, avatarUrl, bannerUrl, bannerColor, profileTheme,
       bannerPositionY, bannerScale, bannerBorder, bannerTextColor,
-      pronouns, statusEmoji, displayFont, dmPrivacy, boneco,
+      pronouns, statusEmoji, displayFont, dmPrivacy,
     } = req.body
 
     if (bannerUrl && !isAllowedImageUrl(bannerUrl)) {
@@ -112,7 +112,6 @@ router.patch(
     if (pronouns         !== undefined) update.pronouns         = pronouns
     if (statusEmoji      !== undefined) update.statusEmoji      = statusEmoji
     if (displayFont      !== undefined) update.displayFont      = displayFont
-    if (boneco           !== undefined) update.boneco           = boneco
     // Ajuste de PRIVACIDADE viajando na rota de perfil: e a mesma linha (uma coluna
     // do usuario, um PATCH), e uma rota separada so pra ele seria cerimonia.
     if (dmPrivacy        !== undefined) update.dmPrivacy        = dmPrivacy
@@ -130,7 +129,6 @@ router.patch(
         bannerTextColor: users.bannerTextColor,
         pronouns: users.pronouns, statusEmoji: users.statusEmoji,
         displayFont: users.displayFont,
-        boneco: users.boneco,
         dmPrivacy: users.dmPrivacy,
       })
 
@@ -265,7 +263,6 @@ router.get(
       pronouns: users.pronouns, statusEmoji: users.statusEmoji,
       customStatus: users.customStatus,
       displayFont: users.displayFont,
-      boneco: users.boneco,
       isBot: users.isBot,
       status: users.status,
       createdAt: users.createdAt,

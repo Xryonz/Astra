@@ -46,9 +46,6 @@ export const users = pgTable('User', {
 
   bannerTextColor: text('bannerTextColor'),
 
-  // A receita do boneco do perfil ("pele.cabelo.cor.roupa.cor..."), não a imagem.
-  // Nulo = nunca montou um, e aí o cartão não desenha retrato nenhum.
-  boneco:       text('boneco'),
   status:       userStatusEnum('status').notNull().default('ONLINE'),
 
   customStatus: text('customStatus'),

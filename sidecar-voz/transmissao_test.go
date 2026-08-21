@@ -210,7 +210,16 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	med := m.Custos.Media()
 	t.Logf("  copiar na placa   %8.1fus", float64(med.Copia.Nanoseconds())/1000)
 	t.Logf("  reduzir           %8.1fus", float64(med.Reducao.Nanoseconds())/1000)
-	t.Logf("  comprimir         %8.1fus  (esperar a placa)", float64(med.Compressao.Nanoseconds())/1000)
+	// O RÓTULO ANTIGO DESTA LINHA DIZIA "esperar a placa", E ERA MENTIRA — mentira que
+	// escondeu por meses o teto da transmissão. Medido, a placa nunca esperava: o tempo
+	// era NOSSO, parado colhendo a saída do quadro recém-entregue. As duas linhas
+	// seguintes existem para que esse número nunca mais possa se esconder num só.
+	t.Logf("  comprimir         %8.1fus  (entregar + colher o que estava pronto)",
+		float64(med.Compressao.Nanoseconds())/1000)
+	t.Logf("    esperando ele pedir entrada  %8.1fus  (a placa ocupada de verdade)",
+		float64(med.PedidoDeEntrada.Nanoseconds())/1000)
+	t.Logf("    esperando a saida ficar pronta %6.1fus  (nos parados)",
+		float64(med.SaidaPronta.Nanoseconds())/1000)
 	t.Logf("  ler os NALs       %8.1fus", float64(med.Leitura.Nanoseconds())/1000)
 	t.Logf("PROCESSADOR: %.3f nucleos (o caminho antigo pela memoria principal custava 0,84)",
 		m.Nucleos())

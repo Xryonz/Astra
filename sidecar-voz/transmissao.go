@@ -318,6 +318,22 @@ type Custos struct {
 	Compressao time.Duration
 	Leitura    time.Duration
 	Quadros    int
+
+	// AS DUAS ESPERAS DO COMPRESSOR ASSÍNCRONO, separadas — e a separação decide uma
+	// otimização inteira.
+	//
+	// Ele é comandado por recados, e há dois: "me dá o próximo quadro" e "tenho saída
+	// pronta". Esperar por um ou pelo outro parece a mesma coisa no relógio e não é:
+	//
+	//	PedidoDeEntrada  — ele está OCUPADO comprimindo. Nada a ganhar do nosso lado;
+	//	                   é a placa trabalhando, e o remédio é comprimir menos.
+	//	SaidaPronta      — nós é que estamos parados esperando um resultado que poderia
+	//	                   ser colhido depois. Aqui um pipeline recupera o tempo inteiro.
+	//
+	// Sem separar, os dois somam num número só e a conclusão vira chute — e as duas
+	// conclusões levam a otimizações OPOSTAS.
+	PedidoDeEntrada time.Duration
+	SaidaPronta     time.Duration
 }
 
 // Media devolve os mesmos custos divididos pelo número de quadros.
@@ -327,11 +343,13 @@ func (c Custos) Media() Custos {
 	}
 	n := time.Duration(c.Quadros)
 	return Custos{
-		Copia:      c.Copia / n,
-		Reducao:    c.Reducao / n,
-		Compressao: c.Compressao / n,
-		Leitura:    c.Leitura / n,
-		Quadros:    c.Quadros,
+		Copia:           c.Copia / n,
+		Reducao:         c.Reducao / n,
+		Compressao:      c.Compressao / n,
+		Leitura:         c.Leitura / n,
+		PedidoDeEntrada: c.PedidoDeEntrada / n,
+		SaidaPronta:     c.SaidaPronta / n,
+		Quadros:         c.Quadros,
 	}
 }
 
@@ -802,14 +820,21 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	// caminho. Alimentar sem ter sido pedido devolve erro, e ficar só esperando sem
 	// atender as saídas entope a fila dele e trava os dois lados.
 	for {
+		antesDoRecado := time.Now()
 		tipo, err := c.proximoRecado()
 		if err != nil {
 			return err
 		}
+		// A ESPERA É CONTADA NA CONTA DO RECADO QUE CHEGOU — ver `Custos`. Somar as
+		// duas num número só apagaria a única informação que decide se vale montar um
+		// pipeline aqui.
+		espera := time.Since(antesDoRecado)
 		switch tipo {
 		case eventoQuerEntrada:
+			c.Custos.PedidoDeEntrada += espera
 			return c.entrar(entrada)
 		case eventoTemSaida:
+			c.Custos.SaidaPronta += espera
 			if _, err := c.sair(receber); err != nil {
 				return err
 			}

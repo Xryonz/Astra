@@ -839,6 +839,12 @@ func (c *Compressor) medirASaida() error {
 		return nil
 	}
 
+	// SOLTA O ANTERIOR ANTES DE RESERVAR OUTRO. Esta função roda uma vez na abertura e
+	// de novo a cada renegociação de formato; sem esta linha, a segunda vez abandonaria
+	// um buffer de saída vivo por transmissão. Vazamento em objeto COM não aparece no
+	// perfil do Go — aparece como a memória do processo subindo sem explicação.
+	c.soltarSaidaNossa()
+
 	tamanho := int(info.Tamanho)
 	if tamanho <= 0 {
 		// Um quadro-chave de 720p passa longe de um megabyte; este teto é folga com
@@ -1243,10 +1249,8 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 			return false, err
 		}
 		// O TAMANHO DA SAÍDA PODE TER MUDADO JUNTO, e o buffer que reservamos foi
-		// dimensionado pelo tipo antigo. Só o caminho de software tem buffer nosso para
-		// redimensionar.
+		// dimensionado pelo tipo antigo. `medirASaida` solta o antigo sozinha.
 		if !c.trazAmostra {
-			c.soltarSaidaNossa()
 			return false, c.medirASaida()
 		}
 		return false, nil

@@ -182,33 +182,57 @@ fun VoiceView(
         // No sussurro não há lista de membros — são duas pessoas, e o nome da sala
         // JÁ É o nome da outra. Daí o `channel.name` como último recurso.
         val pessoaPorId = remember(members) { members.associateBy { it.userId } }
-        val tiles = remember(connected, me, micOn, pessoaPorId, channel.name) {
-            buildList {
-                if (connected != null) {
-                    add(Tile("me", "você", connected.mySpeaking, me?.avatarUrl, isMe = true, muted = !micOn))
-                    connected.others.forEach { p ->
-                        val membro = pessoaPorId[p.identity]
-                        val nome = membro?.user?.displayName
-                            ?: membro?.user?.username
-                            ?: channel.name.ifBlank { "alguém" }
-                        add(Tile(p.identity, nome, p.speaking, membro?.user?.avatarUrl, isMe = false, muted = false))
-                    }
-                }
-            }
-        }
-
         // QUANDO ALGUÉM COMPARTILHA, A TELA TOMA O PALCO e as pessoas descem para uma
         // faixa. É a escolha de todo aplicativo de chamada, e a razão é o conteúdo: quem
         // compartilha quase sempre está mostrando TEXTO — código, um documento, uma
         // planilha —, e texto pequeno numa moldura do tamanho de um avatar não se lê.
         // Rosto encolhido continua reconhecível; letra encolhida vira borrão.
         //
-        // UMA TELA POR VEZ, a primeira que chegou. Duas pessoas transmitindo ao mesmo
-        // tempo é raro e pede um seletor, que é tela nova — e tela nova antes de a
-        // primeira ter sido usada é adivinhação.
+        // UMA TELA NO PALCO POR VEZ, e quem escolhe é quem assiste: clicar na pessoa na
+        // faixa troca o palco para a tela dela. Não há aba nem seletor à parte porque a
+        // faixa JÁ está desenhada ali com as pessoas todas — acrescentar uma segunda
+        // fileira de nomes seria repetir a mesma lista roubando altura do palco, que é
+        // justamente o que o palco não tem de sobra.
         val telas by call.telasDosOutros.collectAsState()
         val mostrando by call.mostrandoTela.collectAsState()
-        val quemMostra = remember(telas, mostrando) { mostrando.firstOrNull { telas.containsKey(it) } ?: mostrando.firstOrNull() }
+
+        // A ESCOLHA SOBREVIVE À TELA ESCOLHIDA, e não ao contrário: se quem eu escolhi
+        // parar de transmitir, o palco volta sozinho para quem sobrou em vez de ficar
+        // preto esperando uma decisão minha.
+        var telaEscolhida by remember { mutableStateOf<String?>(null) }
+        val quemMostra = remember(telas, mostrando, telaEscolhida) {
+            telaEscolhida?.takeIf { it in mostrando }
+                ?: mostrando.firstOrNull { telas.containsKey(it) }
+                ?: mostrando.firstOrNull()
+        }
+
+        val tiles = remember(connected, me, micOn, pessoaPorId, channel.name, mostrando, quemMostra) {
+            buildList {
+                if (connected != null) {
+                    add(
+                        Tile(
+                            "me", "você", connected.mySpeaking, me?.avatarUrl,
+                            isMe = true, muted = !micOn,
+                            transmitindo = false, emCartaz = false,
+                        ),
+                    )
+                    connected.others.forEach { p ->
+                        val membro = pessoaPorId[p.identity]
+                        val nome = membro?.user?.displayName
+                            ?: membro?.user?.username
+                            ?: channel.name.ifBlank { "alguém" }
+                        add(
+                            Tile(
+                                p.identity, nome, p.speaking, membro?.user?.avatarUrl,
+                                isMe = false, muted = false,
+                                transmitindo = p.identity in mostrando,
+                                emCartaz = p.identity == quemMostra,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
 
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
             if (quemMostra == null) {
@@ -241,12 +265,21 @@ fun VoiceView(
                         }
                     }
                     Spacer(Modifier.height(10.dp))
+                    // O RECADO MUDA QUANDO HÁ ESCOLHA A FAZER. Com uma pessoa
+                    // transmitindo a frase é só legenda; com duas ela precisa contar que
+                    // dá para trocar, senão a segunda tela existe e ninguém descobre.
+                    val quantasTelas = mostrando.size
                     Text(
-                        "$nomeDeQuemMostra está compartilhando a tela",
+                        if (quantasTelas > 1) {
+                            "$nomeDeQuemMostra está compartilhando a tela · " +
+                                "clique em outra pessoa para ver a dela"
+                        } else {
+                            "$nomeDeQuemMostra está compartilhando a tela"
+                        },
                         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                     )
                     Spacer(Modifier.height(8.dp))
-                    ParticipantGrid(tiles)
+                    ParticipantGrid(tiles) { telaEscolhida = it }
                 }
             }
         }
@@ -333,6 +366,8 @@ fun VoiceView(
             // está viva no lugar dela.
             val transmitindo by call.transmitindo.collectAsState()
             val relatorio by call.relatorioDaTela.collectAsState()
+            val monitores by call.monitores.collectAsState()
+            var escolhendoTela by remember { mutableStateOf(false) }
             Box {
                 CallIconButton(
                     icon = Lucide.ScreenShare,
@@ -341,16 +376,30 @@ fun VoiceView(
                         if (transmitindo) {
                             call.pararDeTransmitir()
                             transmissaoAvisada = false
+                            escolhendoTela = false
                         } else {
-                            val q = prefState.screenQuality
-                            // Monitor 0 = o principal. Escolher qual é uma tela à
-                            // parte, e ela não existe ainda — mandar o principal é o
-                            // que a maioria quer e o único que dá para prometer hoje.
-                            call.transmitir(0, q.width, q.height, q.fps, q.bitrate / 1000)
-                            transmissaoAvisada = true
+                            // O CLIQUE ABRE A ESCOLHA em vez de transmitir direto. Antes
+                            // ele mandava o monitor principal sem perguntar, o que acerta
+                            // por acaso em quem tem uma tela só e erra metade das vezes em
+                            // quem tem duas — com o erro acontecendo ao vivo.
+                            escolhendoTela = true
+                            call.pedirMonitores()
                         }
                     },
                 )
+                if (escolhendoTela && !transmitindo) {
+                    Popup(
+                        onDismissRequest = { escolhendoTela = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        SeletorDeTela(monitores) { indice ->
+                            escolhendoTela = false
+                            val q = prefState.screenQuality
+                            call.transmitir(indice, q.width, q.height, q.fps, q.bitrate / 1000)
+                            transmissaoAvisada = true
+                        }
+                    }
+                }
                 if (transmissaoAvisada && transmitindo) {
                     Popup(
                         onDismissRequest = { transmissaoAvisada = false },
@@ -366,7 +415,7 @@ fun VoiceView(
                                 .padding(10.dp),
                         ) {
                             Text(
-                                "Transmitindo a tela principal",
+                                "Transmitindo",
                                 style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                             )
                             if (relatorio.isNotBlank()) {
@@ -378,8 +427,8 @@ fun VoiceView(
                             }
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Quem está na sala recebe a imagem. Ver a tela dos outros " +
-                                    "aqui dentro ainda está por vir.",
+                                "Quem está na sala recebe a imagem. Para trocar de tela, " +
+                                    "pare a transmissão e escolha outra.",
                                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                             )
                         }
@@ -661,12 +710,17 @@ private data class Tile(
     val avatarUrl: String?,
     val isMe: Boolean,
     val muted: Boolean,
+    // Esta pessoa está compartilhando a tela.
+    val transmitindo: Boolean = false,
+    // ...e é a tela DELA que está no palco agora. Duas coisas diferentes assim que
+    // duas pessoas transmitem ao mesmo tempo.
+    val emCartaz: Boolean = false,
 )
 
 // Grid que quebra linha sozinho (FlowRow), centralizado.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ParticipantGrid(tiles: List<Tile>) {
+private fun ParticipantGrid(tiles: List<Tile>, aoEscolherTela: (String) -> Unit = {}) {
     FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
@@ -676,7 +730,9 @@ private fun ParticipantGrid(tiles: List<Tile>) {
         // tamanho antes de assentar; quem sai encolhe. A key e a identidade — sem ela
         // o Compose reusaria o slot e a troca seria muda.
         tiles.forEach { t ->
-            key(t.key) { PopIn { ParticipantTile(t, Modifier.width(164.dp)) } }
+            key(t.key) {
+                PopIn { ParticipantTile(t, Modifier.width(164.dp)) { aoEscolherTela(t.key) } }
+            }
         }
     }
 }
@@ -685,9 +741,13 @@ private fun ParticipantGrid(tiles: List<Tile>) {
 // (respeita reduzir movimento — fica aceso e parado). Layout estavel: o halo
 // vive num Box de tamanho fixo, entao falar não empurra o tile.
 @Composable
-private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
+private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier, aoEscolherTela: () -> Unit = {}) {
     val reduce = LocalReduceMotion.current
     val active = LocalWindowActive.current
+    val interacao = remember { MutableInteractionSource() }
+    // Só é alvo de clique quem tem tela para pôr no palco E ainda não está nele.
+    // Cartão clicável que não faz nada ensina a desconfiar do próprio clique.
+    val podeTrocar = tile.transmitindo && !tile.emCartaz
     // Estrela de fala: UMA fase de órbita, so quando fala + janela visivel +
     // movimento ligado, lida DENTRO do drawBehind. Antes um halo pulsante era
     // lido no corpo e recompunha o cartao inteiro (avatar/nome/mic) 60fps por
@@ -715,8 +775,20 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
         modifier
             .graphicsLayer { scaleX = swell; scaleY = swell }
             .clip(RoundedCornerShape(14.dp))
-            .background(Obsidian.raised.copy(alpha = 0.5f))
+            // QUEM ESTÁ NO PALCO SOBE UM DEGRAU DA RAMPA, e não ganha cor. O accent já
+            // significa "está falando" nesta faixa; usá-lo também para "está no palco"
+            // faria duas coisas diferentes acenderem igual. Elevação é o que o app usa
+            // para dizer "este é o mais próximo", e é o que cabe aqui.
+            .background(if (tile.emCartaz) Obsidian.overlay else Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .then(
+                if (podeTrocar) {
+                    Modifier
+                        .hoverable(interacao)
+                        .clickScale(interacao, formaDoFoco = RoundedCornerShape(14.dp))
+                        .clickable(interactionSource = interacao, indication = null, onClick = aoEscolherTela)
+                } else Modifier,
+            )
             .padding(vertical = 16.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -742,6 +814,18 @@ private fun ParticipantTile(tile: Tile, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (tile.muted) {
                 LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp)
+                Spacer(Modifier.width(4.dp))
+            }
+            // O SINAL DE QUEM ESTÁ COMPARTILHANDO. Sem rótulo de leitor de tela porque
+            // vem colado no nome: rotulado, o leitor diria "compartilhando tela, fulano"
+            // toda vez que passasse pelo cartão, e o ícone aqui é decoração de um texto
+            // que já está escrito.
+            if (tile.transmitindo) {
+                LIcon(
+                    Lucide.ScreenShare,
+                    tint = if (tile.emCartaz) Obsidian.text2 else Obsidian.text3,
+                    size = 13.dp,
+                )
                 Spacer(Modifier.width(4.dp))
             }
             Text(

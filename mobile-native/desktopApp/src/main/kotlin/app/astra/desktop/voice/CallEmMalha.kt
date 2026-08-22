@@ -87,6 +87,13 @@ class CallEmMalha(
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
     val mostrandoTela = _mostrandoTela.asStateFlow()
 
+    // AS TELAS DESTA MÁQUINA, com miniatura. Chega em resposta a `pedirMonitores`, que a
+    // janela de escolha dispara ao abrir — amostrar custa uma duplicação por monitor.
+    // Nula enquanto a resposta não chegou, e a janela usa isso para mostrar que está
+    // procurando em vez de dizer que não há tela nenhuma.
+    private val _monitores = MutableStateFlow<List<MonitorDaTela>?>(null)
+    val monitores = _monitores.asStateFlow()
+
     // ---- o que ele guarda para chegar naquilo ----
 
     // Concorrentes porque mexem neles o laço de presença, o aviso de socket e os
@@ -177,6 +184,14 @@ class CallEmMalha(
 
     fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) {
         sidecar.transmitir(monitor, largura, altura, fps, kbps)
+    }
+
+    // Pede as telas desta máquina. LIMPA A LISTA ANTERIOR antes de pedir: sem isso, a
+    // janela reabriria mostrando a miniatura da última vez — imagem velha apresentada
+    // como se fosse o que está na tela agora, que é pior do que não mostrar nada.
+    fun pedirMonitores() {
+        _monitores.value = null
+        sidecar.pedirMonitores()
     }
 
     fun pararDeTransmitir() {
@@ -457,6 +472,7 @@ class CallEmMalha(
                     val lista = ev.aparelhos.orEmpty()
                     if (ev.tipo == "entrada") _microfones.value = lista else _saidas.value = lista
                 }
+                "monitores" -> _monitores.value = ev.monitores.orEmpty()
                 "tela" -> {
                     val quem = ev.par ?: return@collect
                     if (ev.valor == "1") {

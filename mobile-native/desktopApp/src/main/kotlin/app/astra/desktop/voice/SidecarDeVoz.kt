@@ -68,6 +68,25 @@ data class ComandoDeVoz(
 @Serializable
 data class AparelhoDeAudio(val id: String, val nome: String)
 
+// Uma tela desta máquina, do jeito que o processo de voz a enxerga.
+//
+// A MINIATURA É A INFORMAÇÃO, não o enfeite. O Windows chama os monitores de
+// `\\.\DISPLAY1` e `\\.\DISPLAY2`; dois monitores do mesmo modelo têm a mesma resolução
+// e nomes que só diferem no dígito. A única coisa que distingue um do outro é o que está
+// nele.
+//
+// Vem vazia quando a tela não pôde ser amostrada — quase sempre porque ela já está sendo
+// transmitida, que é justamente o caso de quem abriu o seletor para trocar.
+@Serializable
+data class MonitorDaTela(
+    val indice: Int,
+    val nome: String,
+    val largura: Int,
+    val altura: Int,
+    val principal: Boolean = false,
+    val miniatura: String? = null,
+)
+
 @Serializable
 data class EventoDeVoz(
     val ev: String,
@@ -77,6 +96,7 @@ data class EventoDeVoz(
     @SerialName("v") val valor: String? = null,
     val msg: String? = null,
     val aparelhos: List<AparelhoDeAudio>? = null,
+    val monitores: List<MonitorDaTela>? = null,
 )
 
 class SidecarDeVoz(private val scope: CoroutineScope) {
@@ -166,6 +186,11 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         )
 
     fun pararDeTransmitir() = mandar(ComandoDeVoz(cmd = "transmitir", ligado = false))
+
+    // Pede a lista de monitores com miniatura. A resposta vem no evento `monitores`, e
+    // demora uns 100ms por tela — amostrar cada uma exige duplicá-la. Por isso o pedido
+    // sai quando a janela de escolha ABRE, e não na entrada da chamada.
+    fun pedirMonitores() = mandar(ComandoDeVoz(cmd = "monitores"))
 
     // Pede a lista dos dois sentidos. A resposta não volta aqui: chega como dois
     // eventos `aparelhos`, um por sentido, porque a ponte é assíncrona por natureza

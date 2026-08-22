@@ -279,17 +279,25 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		// lista vazia e preenche quando o evento chega.
 		go func() {
 			defer PrenderNaThread()()
+
+			// A RESPOSTA SAI SEMPRE, mesmo quando dá errado — e sai VAZIA em vez de não
+			// sair. A janela de escolha do outro lado espera este evento para parar de
+			// dizer "procurando as telas"; sem ele, uma falha aqui a deixaria procurando
+			// para sempre, que é o beco sem saída pior que o erro. O motivo vai junto,
+			// pelo caminho de erro, para quem for ler o registro.
+			responder := func(lista []MonitorDaTela, err error) {
+				if err != nil {
+					a.saida.Manda(Evento{Ev: EvErro, Msg: "listar monitores: " + err.Error()})
+				}
+				a.saida.Manda(Evento{Ev: EvMonitores, Monitores: lista})
+			}
+
 			if err := abrirCOM(); err != nil {
-				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar monitores: " + err.Error()})
+				responder(nil, err)
 				return
 			}
 			defer fecharCOM()
-			lista, err := ListarMonitores()
-			if err != nil {
-				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar monitores: " + err.Error()})
-				return
-			}
-			a.saida.Manda(Evento{Ev: EvMonitores, Monitores: lista})
+			responder(ListarMonitores())
 		}()
 		return nil
 

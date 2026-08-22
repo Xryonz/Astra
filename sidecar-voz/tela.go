@@ -183,6 +183,13 @@ func AbrirTela(indiceDoMonitor int) (*Tela, error) {
 	if err := hr(r, "criar dispositivo de vídeo"); err != nil {
 		return nil, err
 	}
+	// O `D3D11CreateDevice` pode responder S_FALSE — código de sucesso — e não entregar
+	// dispositivo. Sem esta linha o primeiro método vira endereço nulo, e endereço nulo
+	// em Go não é erro devolvido: é queda do processo de voz inteiro, com a sala junto.
+	if err := naoNulo(t.dispositivo, "criar dispositivo de vídeo"); err != nil {
+		t.Fechar()
+		return nil, err
+	}
 
 	if err := t.montarDuplicacao(indiceDoMonitor); err != nil {
 		t.Fechar()
@@ -208,12 +215,18 @@ func (t *Tela) montarDuplicacao(indiceDoMonitor int) error {
 	if err := hr(r, "achar a placa de vídeo"); err != nil {
 		return err
 	}
+	if err := naoNulo(adaptador, "achar a placa de vídeo"); err != nil {
+		return err
+	}
 	defer adaptador.soltar()
 
 	var saida objeto
 	r = adaptador.chamar(dxgiEnumerarSaidas,
 		uintptr(indiceDoMonitor), uintptr(unsafe.Pointer(&saida)))
 	if err := hr(r, fmt.Sprintf("achar o monitor %d", indiceDoMonitor)); err != nil {
+		return err
+	}
+	if err := naoNulo(saida, fmt.Sprintf("achar o monitor %d", indiceDoMonitor)); err != nil {
 		return err
 	}
 	defer saida.soltar()
@@ -227,6 +240,11 @@ func (t *Tela) montarDuplicacao(indiceDoMonitor int) error {
 	r = saida1.chamar(dxgiDuplicarSaida,
 		uintptr(t.dispositivo), uintptr(unsafe.Pointer(&t.duplicacao)))
 	if err := hr(r, "duplicar o monitor"); err != nil {
+		return err
+	}
+	// A duplicação é EXCLUSIVA por processo e por monitor: um segundo pedido para o
+	// mesmo monitor é o caminho normal para chegar aqui sem objeto.
+	if err := naoNulo(t.duplicacao, "duplicar o monitor"); err != nil {
 		return err
 	}
 

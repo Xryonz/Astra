@@ -61,6 +61,21 @@ var CapacidadeH264 = webrtc.RTPCodecCapability{
 	SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 }
 
+// A JANELA DO AQUECIMENTO, em quadros.
+//
+// Oito descartados porque a partida do compressor não representa o regime: não há quadro
+// de referência ainda, o primeiro é obrigatoriamente chave (dezenas de vezes maior que
+// os outros), e o de software leva algumas voltas para encher a fila interna. Medir a
+// partida e concluir que a máquina é fraca condenaria a taxa por causa dos piores
+// quadros que ela jamais produzirá.
+//
+// Dezesseis medidos porque é amostra suficiente para o custo parar de oscilar e ainda
+// assim fechar rápido: vinte e quatro quadros são 0,4s a 60/s e 1,6s a 15/s.
+const (
+	quadrosDescartados = 8
+	quadrosMedidos     = 16
+)
+
 // AjustesDaTela é o preset que a pessoa escolheu em Configurações › Voz.
 type AjustesDaTela struct {
 	Monitor int
@@ -171,9 +186,30 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	}
 	defer tela.Fechar()
 
+	// DUAS TENTATIVAS NO MÁXIMO, e a segunda só existe quando a primeira descobriu que a
+	// máquina não sustenta a taxa pedida. A primeira MEDE; a segunda já roda na taxa
+	// escolhida e não mede mais nada.
+	//
+	// Reabrir em vez de só espaçar o laço não é capricho: o controle de banda do
+	// compressor DIVIDE a banda pela taxa declarada. Declarar 60 e entregar 30 faz cada
+	// quadro sair com metade dos bits que poderia — imagem pior pela mesma banda, e nada
+	// no código dizendo por quê.
+	novaTaxa, err := e.transmitir(ctx, tela, aj, true)
+	if err != nil || ctx.Err() != nil || novaTaxa == 0 {
+		return err
+	}
+	aj.Fps = novaTaxa
+	_, err = e.transmitir(ctx, tela, aj, false)
+	return err
+}
+
+// transmitir é o cano inteiro numa taxa. Devolve uma taxa DIFERENTE DE ZERO quando o
+// aquecimento concluiu que a máquina não sustenta a que está rodando — e aí quem chamou
+// reabre nessa.
+func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool) (int, error) {
 	c, err := AbrirCompressor(tela, aj.Largura, aj.Altura, aj.Fps, aj.Kbps)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer c.Fechar()
 
@@ -212,6 +248,7 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	comeco := time.Now()
 	relatorio := time.Now()
 	var quadros, bytesEnviados, capturados, semSaida, semMudanca int
+	var marco Custos // onde a janela do aquecimento começa; ver o `switch` no laço
 	perfilVisto := false
 
 	// A ENTREGA VIVE FORA DO LAÇO porque o quadro pronto pode chegar em DUAS ocasiões:
@@ -243,7 +280,7 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 
 	for {
 		if ctx.Err() != nil {
-			return nil
+			return 0, nil
 		}
 
 		// A ESPERA VEM ANTES DA CAPTURA — mesma razão do banco de provas: ir ao DXGI
@@ -258,11 +295,11 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 				// derrubar a transmissão faria a pessoa reapertar o botão toda vez que
 				// alguém apertasse Ctrl+Alt+Del do outro lado da casa.
 				if err := tela.Remontar(aj.Monitor); err != nil {
-					return fmt.Errorf("recuperar a tela: %w", err)
+					return 0, fmt.Errorf("recuperar a tela: %w", err)
 				}
 				continue
 			}
-			return fmt.Errorf("capturar: %w", err)
+			return 0, fmt.Errorf("capturar: %w", err)
 		}
 		if textura == 0 {
 			// Nada mudou na tela dentro do prazo. Não é falha: é uma tela parada, que
@@ -276,10 +313,10 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 			// que está ali.
 			semMudanca++
 			if err := c.Drenar(entregar); err != nil {
-				return fmt.Errorf("colher o que sobrou: %w", err)
+				return 0, fmt.Errorf("colher o que sobrou: %w", err)
 			}
 			if falhaAoEntregar != nil {
-				return fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+				return 0, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
 			}
 			continue
 		}
@@ -306,15 +343,47 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {
-			return fmt.Errorf("comprimir: %w", err)
+			return 0, fmt.Errorf("comprimir: %w", err)
 		}
 		if falhaAoEntregar != nil {
-			return fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+			return 0, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
 		}
 		if !saiuAlgo {
 			// O compressor ainda está juntando. Normal nos primeiros quadros, e normal
 			// em qualquer volta de um compressor assíncrono — o quadro sai numa próxima.
 			semSaida++
+		}
+
+		// O AQUECIMENTO: a máquina sustenta a taxa que prometemos?
+		//
+		// A medição acontece com a transmissão JÁ NO AR — estes quadros são reais e
+		// saem para quem assiste. Não há tela de espera, não há atraso para começar; o
+		// que existe é uma pergunta feita ao vigésimo quadro em vez de a um banco de
+		// provas que teria de abrir um segundo compressor.
+		//
+		// OS PRIMEIROS QUADROS SÃO OS MAIS CAROS e por isso são descartados: o
+		// compressor ainda não tem quadro de referência, o primeiro é sempre chave, e o
+		// de software leva algumas voltas para encher a fila interna. Medir esses e
+		// concluir que a máquina é fraca condenaria a taxa por causa da partida.
+		if medir {
+			switch c.Custos.Quadros {
+			case quadrosDescartados:
+				// A marca de onde a conta começa. Tudo antes daqui foi partida.
+				marco = c.Custos
+			case quadrosDescartados + quadrosMedidos:
+				medir = false
+				custo := (c.Custos.Total() - marco.Total()) / quadrosMedidos
+				if nova := TaxaQueCabe(custo, c.fps); nova < c.fps {
+					e.saida.Manda(Evento{
+						Ev:   EvTransmissao,
+						V:    "1",
+						Tipo: "ritmo",
+						Msg: fmt.Sprintf("esta máquina gasta %.1fms por quadro; caindo para %d/s",
+							float64(custo.Microseconds())/1000, nova),
+					})
+					return nova, nil
+				}
+			}
 		}
 
 		// UM RELATÓRIO POR SEGUNDO. É o que dá à pessoa uma prova de que a transmissão

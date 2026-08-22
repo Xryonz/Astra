@@ -123,9 +123,12 @@ const (
 	// IMFMediaBuffer
 	bufTrancar        = 3 // Lock
 	bufDestrancar     = 4 // Unlock
+	bufTamanhoAtual   = 5 // GetCurrentLength
 	bufDefinirTamanho = 6 // SetCurrentLength
 
 	// IMF2DBuffer
+	buf2DTrancar         = 3 // Lock2D
+	buf2DDestrancar      = 4 // Unlock2D
 	buf2DTamanhoContiguo = 7 // GetContiguousLength
 
 	// IMFMediaEventGenerator
@@ -261,6 +264,14 @@ type Compressor struct {
 	// primeira pergunta de qualquer defeito daqui.
 	Assincrono bool
 
+	// O CAMINHO DE SOFTWARE. Verdadeiro quando nenhum compressor de placa aceitou a
+	// textura e caímos no de software, que vive na memória principal.
+	//
+	// Fica exposto porque muda o que se pode PROMETER: o de placa custa 0,9ms por
+	// quadro, o de software custa 5 a 20 dependendo da máquina. Quem liga a transmissão
+	// precisa saber disso para escolher a taxa — ver `TaxaQueCabe`.
+	NaMemoria bool
+
 	t        objeto // IMFTransform
 	eventos  objeto // IMFMediaEventGenerator, 0 se for síncrono
 	gerente  objeto // IMFDXGIDeviceManager
@@ -277,9 +288,28 @@ type Compressor struct {
 	anel    []quadroDeEntrada
 	proximo int
 
-	// Nulo quando não há redução: a tela já sai no tamanho pedido.
+	// Nulo quando não há nada a fazer entre a captura e o compressor. No caminho de
+	// software ele existe SEMPRE, mesmo sem redução de tamanho: é ele quem converte
+	// ARGB32 em NV12, que é a única família que o compressor de software aceita.
 	reduzir *Redimensionador
 
+	// O QUADRO CONVERTIDO DA VOLTA ANTERIOR, ainda não entregue ao compressor. Só o
+	// caminho de software o usa, e ele é a diferença entre 9,4ms e 5,1ms por quadro.
+	//
+	// POR QUE ESPERAR UMA VOLTA: o compressor de software precisa dos bytes na memória
+	// principal, e trazê-los da placa obriga a CPU a esperar a conversão TERMINAR.
+	// Medido, essa espera é 73% do custo do quadro — e não é cópia (1,38 MB copiam em
+	// meio milissegundo), é a CPU parada. Entregando o quadro de agora e só depois
+	// pedindo o de antes, a placa ganha uma volta inteira para terminar e a espera some.
+	//
+	// É a MESMA FORMA do teto que segurava o caminho de placa em 45 quadros: uma espera
+	// que transforma LATÊNCIA em VAZÃO por se recusar a seguir sem o resultado.
+	pendente objeto
+
+	// A saída, alocada por NÓS quando o compressor não traz a dele. Todo compressor de
+	// placa traz; nenhum de software traz.
+	saidaNossa  objeto
+	bufferSaida objeto
 	trazAmostra bool
 	// Tamanho do que a CAPTURA entrega. É o das texturas do rodízio e o do tipo de
 	// entrada — não muda enquanto o monitor for o mesmo.
@@ -429,6 +459,76 @@ func AlvoDeSaida(largura, altura, pessoasNaSala int) (int, int) {
 	return l &^ 1, teto &^ 1
 }
 
+// AsTaxasQueOAstraOferece, da melhor para a pior. Três degraus e não uma escala
+// contínua: quem assiste percebe a diferença entre 60 e 30, não entre 60 e 54, e cada
+// degrau a mais é uma taxa a mais para testar quando algo der errado.
+var AsTaxasQueOAstraOferece = []int{60, 30, 15}
+
+// TaxaQueCabe escolhe a maior taxa cujo orçamento comporta o custo medido.
+//
+// POR QUE ISTO EXISTE. O caminho de placa custa 0,9ms por quadro; o de software custa 4,5
+// nesta máquina e 2 a 4 vezes mais numa que não tem placa nenhuma. Pedir 60 quadros por
+// segundo a uma máquina que gasta 25ms em cada um não dá 60: dá 40, com o laço rodando
+// sem pausa nenhuma e um núcleo inteiro ocupado o tempo todo. É esse núcleo pregado, e
+// não a taxa, que a pessoa sente como o aplicativo travando.
+//
+// A CONTA É METADE DO ORÇAMENTO, e a metade não é folga por medo. O custo medido aqui é
+// só o do compressor; fora dele ainda há a captura, o empacotamento em RTP, a rede, e o
+// resto do aplicativo desenhando a própria janela na mesma máquina. Deixar metade do
+// tempo para tudo isso é o que separa "transmite a 30" de "transmite a 30 e a janela
+// responde".
+//
+//	60/s -> o quadro precisa custar no máximo  8,3ms
+//	30/s ->                                   16,7ms
+//	15/s ->                                   33,3ms
+//
+// `teto` é o que a pessoa pediu no preset: esta função só ABAIXA. Uma máquina rápida com
+// preset de 30 continua em 30 — o preset é escolha dela, não um alvo a superar.
+func TaxaQueCabe(custo time.Duration, teto int) int {
+	if teto <= 0 {
+		teto = AsTaxasQueOAstraOferece[0]
+	}
+	// Sem medição não há decisão a tomar. Acontece quando a área de trabalho ficou
+	// parada durante o aquecimento — e tela parada não é máquina em apuros.
+	if custo <= 0 {
+		return teto
+	}
+	menor := teto
+	for _, taxa := range AsTaxasQueOAstraOferece {
+		if taxa > teto {
+			continue
+		}
+		menor = taxa
+		if custo*2 <= time.Second/time.Duration(taxa) {
+			return taxa
+		}
+	}
+	// Nem a menor taxa cabe. Devolver a menor mesmo assim é o certo: uma imagem lenta
+	// ainda é uma imagem, e é o que a pessoa pediu ao apertar o botão.
+	return menor
+}
+
+// tetoDeSoftware limita a saída do caminho de memória a 720p.
+//
+// É decisão de orçamento e não de gosto. Neste caminho o quadro atravessa da placa para
+// a memória principal, e essa travessia é 73% do custo do quadro e escala direto com o
+// número de pixels — medido em `sonda_software_test.go`. 1080p custaria mais que o dobro
+// de 720p justamente na máquina que, por definição, é a mais fraca que temos: a que não
+// tem compressor de placa nenhum.
+//
+// 720p e não menos porque compartilhar tela é quase sempre mostrar texto, e abaixo disso
+// texto pequeno some — que é exatamente o que se queria mostrar.
+func tetoDeSoftware(largura, altura int) (int, int) {
+	const teto = 720
+	if altura <= teto {
+		return largura, altura
+	}
+	// ARREDONDA PARA PAR, mesma regra de `AlvoDeSaida`: dimensão ímpar quebra o H.264,
+	// que guarda a cor em blocos de dois por dois pixels, e o estrago não é recusa — é
+	// uma faixa de cor errada na borda.
+	return (largura * teto / altura) &^ 1, teto &^ 1
+}
+
 // AbrirCompressor escolhe, liga e amarra um compressor ao dispositivo da captura.
 //
 // `saidaL`/`saidaA` é o tamanho comprimido. Zero em qualquer um deles quer dizer "o
@@ -479,33 +579,60 @@ func AbrirCompressor(tela *Tela, saidaL, saidaA, fps, kbps int) (*Compressor, er
 	// que falham por motivos diferentes — o de software não fala D3D11, o da placa
 	// dedicada nem liga —, e mostrar apenas o último manda quem lê investigar o
 	// candidato errado. Já custou uma volta inteira aqui.
-	recusas := make([]string, 0, len(lista))
+	recusas := make([]string, 0, 2*len(lista))
 	for _, cand := range lista {
-		c, err := amarrar(cand, tela, largura, altura, saidaL, saidaA, fps, kbps)
+		c, err := amarrar(cand, tela, largura, altura, saidaL, saidaA, fps, kbps, false)
 		if err == nil {
 			return c, nil
 		}
-		recusas = append(recusas, fmt.Sprintf("%s: %v", cand.Nome, err))
+		recusas = append(recusas, fmt.Sprintf("%s (na placa): %v", cand.Nome, err))
+	}
+
+	// SEGUNDA PASSADA: O CAMINHO DE SOFTWARE.
+	//
+	// Chegar aqui é o caso da máquina virtual, do notebook antigo e da área de trabalho
+	// remota — e até esta linha existir, era o caso de quem simplesmente NÃO TRANSMITIA.
+	// Não "transmitia pior": a função voltava erro e o botão de compartilhar tela não
+	// fazia nada.
+	//
+	// TENTAR EM VEZ DE PERGUNTAR, e isso é deliberado. Dava para ler o
+	// `MF_SA_D3D11_AWARE` de cada candidato e mandar os que não falam D3D11 direto para
+	// cá — mas esse atributo já foi pego mentindo neste projeto (ver
+	// `abrirGeradorSeAssincrono`), e uma passada extra que só roda quando a primeira
+	// falhou inteira custa nada e não depende de o atributo estar dizendo a verdade.
+	//
+	// O TETO DE 720p É AQUI, e é decisão de orçamento, não de gosto: neste caminho o
+	// quadro atravessa da placa para a memória principal, e essa travessia é 73% do
+	// custo e escala com o número de pixels. 1080p custaria mais que o dobro de 720p
+	// numa máquina que, por definição, é a mais fraca que temos.
+	memL, memA := tetoDeSoftware(saidaL, saidaA)
+	for _, cand := range lista {
+		c, err := amarrar(cand, tela, largura, altura, memL, memA, fps, kbps, true)
+		if err == nil {
+			return c, nil
+		}
+		recusas = append(recusas, fmt.Sprintf("%s (na memória): %v", cand.Nome, err))
 	}
 	return nil, fmt.Errorf("nenhum compressor aceitou a textura da captura:\n  %s",
 		strings.Join(recusas, "\n  "))
 }
 
-func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, saidaA, fps, kbps int) (*Compressor, error) {
+func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, saidaA, fps, kbps int, naMemoria bool) (*Compressor, error) {
 	t, err := cand.Montar()
 	if err != nil {
 		return nil, err
 	}
 	c := &Compressor{
-		Nome:     cand.Nome,
-		t:        t,
-		contexto: tela.contexto,
-		largura:  largura,
-		altura:   altura,
-		saidaL:   saidaL,
-		saidaA:   saidaA,
-		fps:      fps,
-		kbps:     kbps,
+		Nome:      cand.Nome,
+		NaMemoria: naMemoria,
+		t:         t,
+		contexto:  tela.contexto,
+		largura:   largura,
+		altura:    altura,
+		saidaL:    saidaL,
+		saidaA:    saidaA,
+		fps:       fps,
+		kbps:      kbps,
 	}
 	// Qualquer erro daqui pra frente desmonta o que já subiu. Sem isto, tentar cinco
 	// candidatos deixaria cinco compressores ligados segurando a placa.
@@ -528,8 +655,17 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 	if err := destrancarSeAssincrono(t); err != nil {
 		return nil, err
 	}
-	if err := c.entregarODispositivo(tela.dispositivo); err != nil {
+	// A PLACA VAI PARA O GERENCIADOR NOS DOIS CAMINHOS, mas só o de placa a entrega ao
+	// COMPRESSOR. No de software o gerenciador ainda é obrigatório — é ele que deixa o
+	// Video Processor ler a textura da captura —, e entregá-lo ao compressor de software
+	// é justamente a recusa que trouxe a transmissão até aqui.
+	if err := c.criarGerenciador(tela.dispositivo); err != nil {
 		return nil, err
+	}
+	if !naMemoria {
+		if err := c.entregarODispositivo(); err != nil {
+			return nil, err
+		}
 	}
 	if err := configurarSaida(t, saidaL, saidaA, fps, kbps); err != nil {
 		return nil, err
@@ -537,11 +673,19 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 	// A ENTRADA DO COMPRESSOR É O TAMANHO JÁ REDUZIDO, e não o da tela. Quando há
 	// redimensionador no meio, é ele quem recebe o quadro grande; o compressor só vê
 	// o pequeno. Sem redução os dois são iguais e a linha continua valendo.
-	if err := c.definirEntrada(); err != nil {
+	formatoDaEntrada := formatoARGB32
+	if naMemoria {
+		formatoDaEntrada = formatoNV12
+	}
+	if err := c.definirEntrada(formatoDaEntrada); err != nil {
 		return nil, err
 	}
-	if saidaL != largura || saidaA != altura {
-		rd, err := AbrirRedimensionador(c.gerente, largura, altura, saidaL, saidaA)
+	// NO CAMINHO DE SOFTWARE O REDIMENSIONADOR EXISTE SEMPRE, mesmo quando não há nada
+	// a reduzir: é ele quem converte ARGB32 em NV12. Amarrar essa existência só à
+	// diferença de tamanho faria a transmissão funcionar em 1080p→720p e falhar em
+	// 720p→720p, que é o tipo de defeito que parece aleatório de fora.
+	if naMemoria || saidaL != largura || saidaA != altura {
+		rd, err := AbrirRedimensionador(c.gerente, largura, altura, saidaL, saidaA, formatoDaEntrada)
 		if err != nil {
 			return nil, err
 		}
@@ -576,7 +720,7 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 // componentes o dividirem sem brigar pelo acesso. A ficha que o `MFCreateDXGIDeviceManager`
 // devolve não é enfeite — é ela que autoriza o `ResetDevice` a seguir, e trocá-la por
 // um zero faz a chamada falhar sem dizer por quê.
-func (c *Compressor) entregarODispositivo(dispositivo objeto) error {
+func (c *Compressor) criarGerenciador(dispositivo objeto) error {
 	var ficha uint32
 	r, _, _ := procMFCriarGerenciador.Call(
 		uintptr(unsafe.Pointer(&ficha)),
@@ -586,10 +730,13 @@ func (c *Compressor) entregarODispositivo(dispositivo objeto) error {
 		return err
 	}
 	r = c.gerente.chamar(gerTrocarDispositivo, uintptr(dispositivo), uintptr(ficha))
-	if err := hr(r, "entregar a placa ao gerenciador"); err != nil {
-		return err
-	}
-	r = c.t.chamar(transMandarRecado, recadoDefinirD3D, uintptr(c.gerente))
+	return hr(r, "entregar a placa ao gerenciador")
+}
+
+// entregarODispositivo diz ao COMPRESSOR qual é a placa. Só o caminho de placa faz isto:
+// é exatamente a chamada que o compressor de software recusa.
+func (c *Compressor) entregarODispositivo() error {
+	r := c.t.chamar(transMandarRecado, recadoDefinirD3D, uintptr(c.gerente))
 	return hr(r, "dizer ao compressor qual é a placa")
 }
 
@@ -600,11 +747,16 @@ func (c *Compressor) entregarODispositivo(dispositivo objeto) error {
 // lista — perfil, arranjo de amostras, coisas que variam por driver. Montar na mão
 // funciona até o driver que pede um campo a mais, e aí a falha é um erro genérico.
 //
-// Só ARGB32, e isso é uma decisão consciente de escopo: é o que a captura entrega
-// pronto. Compressor que só aceita YUV (todos os de software) exige um passo de
-// conversão que ainda não existe — e recusar aqui, com o nome do compressor no erro,
-// é melhor que aceitar e transmitir imagem verde.
-func (c *Compressor) definirEntrada() error {
+// DOIS FORMATOS, UM POR CAMINHO. ARGB32 é o que a captura entrega pronto e o que o
+// compressor de placa aceita — o quadro vai da tela ao compressor sem passo nenhum no
+// meio. NV12 é o que TODO compressor de software aceita e o único que eles aceitam:
+// nenhum deles fala RGB. No caminho de software, quem produz esse NV12 é o Video
+// Processor (ver `redimensionador.go`), e ele o faz na placa, de graça.
+func (c *Compressor) definirEntrada(formato windows.GUID) error {
+	nome := "ARGB32"
+	if formato == formatoNV12 {
+		nome = "NV12"
+	}
 	for i := uint32(0); i < 64; i++ {
 		var tipo objeto
 		r := c.t.chamar(transTipoDeEntrada, 0, uintptr(i), uintptr(unsafe.Pointer(&tipo)))
@@ -616,7 +768,7 @@ func (c *Compressor) definirEntrada() error {
 			uintptr(unsafe.Pointer(&chaveSubtipo)),
 			uintptr(unsafe.Pointer(&sub)),
 		)
-		if uint32(lido)&0x80000000 != 0 || sub != formatoARGB32 {
+		if uint32(lido)&0x80000000 != 0 || sub != formato {
 			tipo.soltar()
 			continue
 		}
@@ -627,13 +779,13 @@ func (c *Compressor) definirEntrada() error {
 
 		r = c.t.chamar(transDefinirEntrada, 0, uintptr(tipo), 0)
 		tipo.soltar()
-		if err := hr(r, "amarrar a entrada em ARGB32"); err != nil {
+		if err := hr(r, "amarrar a entrada em "+nome); err != nil {
 			return err
 		}
-		c.Formato = "ARGB32"
+		c.Formato = nome
 		return nil
 	}
-	return fmt.Errorf("não aceita ARGB32 na entrada (a captura só entrega isso por ora)")
+	return fmt.Errorf("não aceita %s na entrada", nome)
 }
 
 // abrirGeradorSeAssincrono descobre se o compressor é comandado por recados.
@@ -668,6 +820,14 @@ func (c *Compressor) abrirGeradorSeAssincrono() error {
 	return nil
 }
 
+// medirASaida descobre se o compressor traz a própria amostra de saída ou espera a
+// nossa. A divisão é exata e não é de gosto: todo compressor de placa traz (a memória é
+// dela), nenhum de software traz.
+//
+// ESTA FUNÇÃO ERA A SEGUNDA RECUSA DO CAMINHO DE SOFTWARE. Ela devolvia erro dizendo que
+// só o caminho de placa existia — o que era verdade quando foi escrita, e é o motivo de
+// máquina sem placa não transmitir nada. Alocar aqui é o mesmo que o `Descompressor` já
+// fazia do outro lado, e por isso o formato é o mesmo.
 func (c *Compressor) medirASaida() error {
 	var info infoDaSaida
 	r := c.t.chamar(transInfoDaSaida, 0, uintptr(unsafe.Pointer(&info)))
@@ -675,12 +835,34 @@ func (c *Compressor) medirASaida() error {
 		return err
 	}
 	c.trazAmostra = info.Bandeiras&compressorTrazAmostra != 0
-	if !c.trazAmostra {
-		// Todo compressor de hardware traz a própria amostra. Chegar aqui significa
-		// que caímos num de software, e o resto do arquivo não está preparado para
-		// alimentá-lo — melhor dizer isso do que alocar um buffer e falhar adiante.
-		return fmt.Errorf("este compressor quer que nós aloquemos a saída; só o caminho de hardware existe por ora")
+	if c.trazAmostra {
+		return nil
 	}
+
+	tamanho := int(info.Tamanho)
+	if tamanho <= 0 {
+		// Um quadro-chave de 720p passa longe de um megabyte; este teto é folga com
+		// sobra e só existe porque um compressor pode não dizer de quanto precisa.
+		tamanho = c.saidaL * c.saidaA * 3 / 2
+	}
+
+	var buffer objeto
+	r, _, _ = procMFCriarBufferDeMemoria.Call(uintptr(tamanho), uintptr(unsafe.Pointer(&buffer)))
+	if err := hr(r, "reservar a saída do compressor"); err != nil {
+		return err
+	}
+	var amostra objeto
+	r, _, _ = procMFCriarAmostra.Call(uintptr(unsafe.Pointer(&amostra)))
+	if err := hr(r, "criar a amostra de saída"); err != nil {
+		buffer.soltar()
+		return err
+	}
+	if err := hr(amostra.chamar(amostraSomarBuffer, uintptr(buffer)), "amarrar a saída à amostra"); err != nil {
+		buffer.soltar()
+		amostra.soltar()
+		return err
+	}
+	c.bufferSaida, c.saidaNossa = buffer, amostra
 	return nil
 }
 
@@ -786,6 +968,12 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	}
 	marcarTempo(q.amostra)
 
+	// O CAMINHO DE SOFTWARE SAI AQUI, e sai porque a ordem dele é outra: entrega o
+	// quadro de AGORA ao Video Processor e comprime o de ANTES. Ver `pendente`.
+	if c.NaMemoria {
+		return c.comprimirNaMemoria(q.amostra, quando, marcarTempo, receber)
+	}
+
 	// A REDUÇÃO ENTRA AQUI, entre a cópia e o compressor. A amostra que sai dela é
 	// alocada por ela e é nossa para soltar — soltar depois de o compressor receber,
 	// porque ele fica com a própria referência.
@@ -847,6 +1035,73 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	return c.Drenar(receber)
 }
 
+// comprimirNaMemoria é o caminho da máquina sem compressor de placa.
+//
+// A ORDEM É O CONTRÁRIO DA INTUIÇÃO, e é ela que faz o caminho caber no orçamento:
+// entrega o quadro de AGORA ao Video Processor, e comprime o de ANTES.
+//
+// Por quê: o compressor de software precisa dos bytes na memória principal, e trazê-los
+// da placa obriga a CPU a esperar a conversão terminar. Medido, essa espera é 73% do
+// custo do quadro — 6,9ms de 9,4. Não é cópia; 1,38 MB copiam em meio milissegundo. É a
+// CPU parada. Dando ao quadro uma volta inteira para maturar, a espera cai para quase
+// nada e o custo total vai a 5,1ms.
+//
+// A AMOSTRA VAI DIRETO, sem passar pela memória do Go. O compressor de software aceita o
+// `IMFSample` que o Video Processor devolve (medido — `sonda_software_test.go`), então
+// não há leitura explícita, não há buffer de entrada nosso, e não há duas cópias de um
+// megabyte e meio por quadro. Ele destranca por dentro; quem escolhe a VOLTA em que isso
+// acontece continua sendo este laço.
+func (c *Compressor) comprimirNaMemoria(quadro objeto, quando time.Duration, marcarTempo func(objeto), receber func([]byte)) error {
+	marco := time.Now()
+	nova, err := c.reduzir.Reduzir(quadro)
+	c.Custos.Reducao += time.Since(marco)
+	if err != nil {
+		return err
+	}
+	if nova != 0 {
+		// O tempo é marcado AQUI, na amostra convertida, e não na hora de entregá-la ao
+		// compressor. Ela vai ser comprimida na volta seguinte, e marcá-la lá carimbaria
+		// o quadro com o instante do quadro SEGUINTE — todo o vídeo andaria adiantado
+		// um quadro, sem nada no código dizendo por quê.
+		marcarTempo(nova)
+	}
+
+	// Comprime o de antes ANTES de guardar o de agora: trocar a ordem apagaria a
+	// referência do anterior sem tê-lo entregue, e o vídeo sairia pela metade da taxa.
+	if err := c.entregarPendente(receber); err != nil {
+		return err
+	}
+	c.pendente = nova
+	return nil
+}
+
+// entregarPendente comprime o quadro que estava maturando, se houver.
+func (c *Compressor) entregarPendente(receber func([]byte)) error {
+	p := c.pendente
+	if p == 0 {
+		return nil
+	}
+	c.pendente = 0
+	defer p.soltar()
+
+	marco := time.Now()
+	defer func() { c.Custos.Compressao += time.Since(marco) }()
+
+	// Os dois protocolos, porque o caminho de memória não garante um compressor
+	// síncrono: nesta máquina o de software não tem fila de recados, mas nada impede um
+	// de placa de cair aqui por recusar a textura e aceitar NV12 na memória. Alimentar
+	// um assíncrono sem crédito volta como "não está aceitando entrada agora".
+	if c.eventos != 0 {
+		if err := c.pedidoDeEntrada(receber); err != nil {
+			return err
+		}
+	}
+	if err := c.entrar(p); err != nil {
+		return err
+	}
+	return c.drenarFila(receber)
+}
+
 // pedidoDeEntrada garante que há UM crédito de entrada, esperando por ele se preciso.
 //
 // O CRÉDITO É CONTADO, e não presumido. Um compressor com fila interna pede mais de um
@@ -885,6 +1140,21 @@ func (c *Compressor) pedidoDeEntrada(receber func([]byte)) error {
 // assiste congelaria um quadro antes do que deveria, justamente no instante em que a
 // pessoa parou de mexer para alguém ler o que está na tela.
 func (c *Compressor) Drenar(receber func([]byte)) error {
+	// NO CAMINHO DE SOFTWARE HÁ UM QUADRO A MAIS PRESO, o que o pipeline deixou
+	// maturando. Sem esta linha, parar de mexer na tela congelaria a imagem de quem
+	// assiste DOIS quadros antes do que deveria em vez de um — e o segundo é o que o
+	// pipeline acrescentou, ou seja, um defeito que a otimização criaria sozinha.
+	if c.NaMemoria {
+		if err := c.entregarPendente(receber); err != nil {
+			return err
+		}
+	}
+	return c.drenarFila(receber)
+}
+
+// drenarFila colhe o que já estiver pronto DENTRO do compressor, sem mexer no quadro
+// que está maturando no Video Processor.
+func (c *Compressor) drenarFila(receber func([]byte)) error {
 	if c.eventos == 0 {
 		// O síncrono não tem fila de recados: `esvaziar` já pergunta e volta na hora.
 		return c.esvaziar(receber)
@@ -948,6 +1218,15 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 	}()
 
 	var saida saidaDoCompressor
+	if !c.trazAmostra {
+		saida.Amostra = c.saidaNossa
+		// O TAMANHO USADO VOLTA A ZERO A CADA VOLTA. Sem isto o buffer chega ao
+		// compressor já "cheio" da vez anterior e ele recusa por falta de espaço — erro
+		// que só aparece no SEGUNDO quadro, que é o pior lugar para procurar. É a mesma
+		// pegadinha que o `Descompressor` já documenta do outro lado.
+		c.bufferSaida.chamar(bufDefinirTamanho, 0)
+	}
+
 	var estado uint32
 	r := c.t.chamar(transSairQuadro, 0, 1,
 		uintptr(unsafe.Pointer(&saida)),
@@ -960,7 +1239,17 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 		// Ele quer renegociar. Repor o mesmo tipo de saída é o que a documentação
 		// manda, e o quadro desta volta se perde — um quadro, no começo da
 		// transmissão, não é perda que alguém enxergue.
-		return false, configurarSaida(c.t, c.saidaL, c.saidaA, c.fps, c.kbps)
+		if err := configurarSaida(c.t, c.saidaL, c.saidaA, c.fps, c.kbps); err != nil {
+			return false, err
+		}
+		// O TAMANHO DA SAÍDA PODE TER MUDADO JUNTO, e o buffer que reservamos foi
+		// dimensionado pelo tipo antigo. Só o caminho de software tem buffer nosso para
+		// redimensionar.
+		if !c.trazAmostra {
+			c.soltarSaidaNossa()
+			return false, c.medirASaida()
+		}
+		return false, nil
 	}
 	if err := hr(r, "puxar o H.264"); err != nil {
 		return false, err
@@ -968,7 +1257,11 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 	if saida.Amostra == 0 {
 		return false, nil
 	}
-	defer saida.Amostra.soltar()
+	// A amostra só é NOSSA para soltar quando foi ELE quem a trouxe. Soltar a que nós
+	// alocamos a destruiria antes da próxima volta.
+	if c.trazAmostra {
+		defer saida.Amostra.soltar()
+	}
 	if saida.Eventos != 0 {
 		saida.Eventos.soltar()
 	}
@@ -1074,10 +1367,18 @@ func (c *Compressor) Fechar() {
 	if c.t != 0 {
 		c.t.chamar(transMandarRecado, recadoEncerrarFluxo, 0)
 	}
+	// O QUADRO QUE ESTAVA MATURANDO SE PERDE, e é o certo: ele pertence ao Video
+	// Processor, que está prestes a fechar. Um quadro no encerramento não é perda que
+	// alguém enxergue — segurar o fechamento para salvá-lo, sim.
+	if c.pendente != 0 {
+		c.pendente.soltar()
+		c.pendente = 0
+	}
 	if c.reduzir != nil {
 		c.reduzir.Fechar()
 		c.reduzir = nil
 	}
+	c.soltarSaidaNossa()
 	for _, q := range c.anel {
 		q.soltar()
 	}
@@ -1089,6 +1390,17 @@ func (c *Compressor) Fechar() {
 	// O contexto é EMPRESTADO da captura e não se solta aqui — quem o criou é quem o
 	// fecha. Soltá-lo duas vezes derruba o processo em algum lugar sem relação.
 	c.contexto = 0
+}
+
+func (c *Compressor) soltarSaidaNossa() {
+	if c.saidaNossa != 0 {
+		c.saidaNossa.soltar()
+		c.saidaNossa = 0
+	}
+	if c.bufferSaida != 0 {
+		c.bufferSaida.soltar()
+		c.bufferSaida = 0
+	}
 }
 
 // ---------------------------------------------------------------------------

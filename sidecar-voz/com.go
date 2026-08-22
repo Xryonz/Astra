@@ -81,6 +81,15 @@ func (o objeto) chamar(indice int, args ...uintptr) uintptr {
 //
 // Quem recebe a interface nova precisa soltá-la separado — cada uma carrega a
 // própria contagem de referências.
+// SUCESSO COM PONTEIRO NULO É FALHA, e precisa ser dito aqui. Um `QueryInterface` que
+// devolve código de sucesso sem escrever a interface acontece — driver com defeito,
+// objeto em estado ruim, e o caso comum neste projeto: um `S_FALSE` (código 1, bit alto
+// apagado) que `hr` deixa passar por não ser negativo.
+//
+// Sem esta guarda, quem chamou segue com um zero e o primeiro método vira leitura de
+// endereço nulo — que em Go não é erro devolvido, é QUEDA DO PROCESSO INTEIRO. Numa
+// chamada de voz isso derruba todo mundo da sala por causa de um monitor que não
+// duplicou. Já custou uma queda aqui, em `AbrirTela`.
 func (o objeto) consultar(iid *windows.GUID) (objeto, error) {
 	const consultarInterface = 0
 	var outra objeto
@@ -91,7 +100,19 @@ func (o objeto) consultar(iid *windows.GUID) (objeto, error) {
 	if err := hr(r, "consultar interface"); err != nil {
 		return 0, err
 	}
+	if outra == 0 {
+		return 0, fmt.Errorf("consultar interface: respondeu sucesso sem entregar a interface")
+	}
 	return outra, nil
+}
+
+// naoNulo é a mesma guarda de `consultar` para as chamadas que devolvem objeto por
+// parâmetro de saída em vez de por QueryInterface.
+func naoNulo(o objeto, oQueFazia string) error {
+	if o == 0 {
+		return fmt.Errorf("%s: respondeu sucesso sem entregar o objeto", oQueFazia)
+	}
+	return nil
 }
 
 // soltar chama Release. Seguro em ponteiro nulo, porque desmontar coisa pela metade

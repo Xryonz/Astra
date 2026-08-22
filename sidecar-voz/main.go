@@ -268,6 +268,31 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		}
 		return nil
 
+	case CmdMonitores:
+		// NÃO ESPERA A RESPOSTA, ao contrário do irmão de cima. Listar aparelhos de
+		// áudio é uma consulta a um registro e volta em milissegundos; amostrar
+		// monitores exige DUPLICAR cada tela, e são uns 100ms por monitor. A ponte é uma
+		// goroutine só, um comando por vez (ver `Servir`) — segurá-la meio segundo
+		// pararia a chamada inteira, incluindo a voz.
+		//
+		// A janela de escolha do outro lado já nasce sabendo esperar: ela abre com a
+		// lista vazia e preenche quando o evento chega.
+		go func() {
+			defer PrenderNaThread()()
+			if err := abrirCOM(); err != nil {
+				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar monitores: " + err.Error()})
+				return
+			}
+			defer fecharCOM()
+			lista, err := ListarMonitores()
+			if err != nil {
+				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar monitores: " + err.Error()})
+				return
+			}
+			a.saida.Manda(Evento{Ev: EvMonitores, Monitores: lista})
+		}()
+		return nil
+
 	case CmdUsarAparelho:
 		sentido := sentidoSaida
 		if cmd.Sentido == "entrada" {

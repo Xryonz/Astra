@@ -85,6 +85,11 @@ type Evento struct {
 
 	// A lista de aparelhos, no evento EvAparelhos. `Tipo` diz de que sentido é.
 	Aparelhos []Aparelho `json:"aparelhos,omitempty"`
+
+	// A lista de monitores, no evento EvMonitores. Cada um traz uma miniatura em PNG
+	// — é a maior mensagem que esta ponte carrega, e a única em que isso vale: nome de
+	// monitor no Windows é `\\.\DISPLAY1`, e ninguém escolhe tela por esse nome.
+	Monitores []MonitorDaTela `json:"monitores,omitempty"`
 }
 
 // Os comandos aceitos. Constante em vez de texto solto no switch porque o outro
@@ -103,6 +108,10 @@ const (
 	CmdTransmitir = "transmitir"
 	// Pede a lista de microfones e saídas; a resposta vem no evento EvAparelhos.
 	CmdAparelhos = "aparelhos"
+	// Pede a lista de monitores COM miniatura; a resposta vem no evento EvMonitores.
+	// Custa uma duplicação de tela por monitor, então é pedido só quando a janela de
+	// escolha abre — não na entrada da chamada.
+	CmdMonitores = "monitores"
 	// Escolhe qual usar num dos sentidos.
 	CmdUsarAparelho = "usar"
 	CmdSair         = "sair"
@@ -116,6 +125,8 @@ const (
 	EvFala = "fala"
 	// A lista de microfones ou de saídas, em resposta a CmdAparelhos.
 	EvAparelhos = "aparelhos"
+	// A lista de monitores com miniatura, em resposta a CmdMonitores.
+	EvMonitores = "monitores"
 	EvErro      = "erro"
 	// A transmissão de tela. `V` é "1" no ar e "0" fora dele. Enquanto está no ar,
 	// `Tipo` diz de que notícia se trata e `Msg` a carrega:

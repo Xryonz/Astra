@@ -295,6 +295,23 @@ func (t *Tela) Remontar(indiceDoMonitor int) error {
 // guardá-la. É assim que a API funciona, e é o que permite a captura não alocar nada
 // por quadro.
 func (t *Tela) ProximoQuadro(limiteMs uint32) (objeto, error) {
+	return t.pegarQuadro(limiteMs, true)
+}
+
+// QuadroAtual devolve o que está na tela AGORA, mesmo que nada tenha mudado.
+//
+// A DIFERENÇA PARA `ProximoQuadro` É UMA LINHA E MUDA TUDO PARA QUEM CHAMA. A
+// transmissão quer só o que mudou: recomprimir uma tela parada gastaria banda para
+// mandar o que o outro lado já tem. A miniatura do seletor de monitor quer o contrário —
+// ela precisa da imagem uma vez, e a área de trabalho parada é justamente o caso mais
+// comum na hora de escolher qual tela compartilhar.
+//
+// Sem isto, o seletor mostraria retângulo vazio em quem não estivesse mexendo no mouse.
+func (t *Tela) QuadroAtual(limiteMs uint32) (objeto, error) {
+	return t.pegarQuadro(limiteMs, false)
+}
+
+func (t *Tela) pegarQuadro(limiteMs uint32, soSeMudou bool) (objeto, error) {
 	if t.quadroRetido {
 		return 0, fmt.Errorf("quadro anterior não foi devolvido")
 	}
@@ -320,7 +337,7 @@ func (t *Tela) ProximoQuadro(limiteMs uint32) (objeto, error) {
 	// SÓ MEXEU O CURSOR. A imagem é a mesma de antes, e comprimi-la de novo gastaria
 	// banda para transmitir o que o outro lado já tem. Devolve o quadro na hora e
 	// responde "nada novo".
-	if info.UltimaApresentacao == 0 {
+	if soSeMudou && info.UltimaApresentacao == 0 {
 		recurso.soltar()
 		t.SoltarQuadro()
 		return 0, nil

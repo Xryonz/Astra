@@ -217,11 +217,21 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 	// não com o que foi pedido. O compressor pode ter caído para software, e o tamanho
 	// pode ter sido arredondado para par. Anunciar o pedido em vez do obtido é como se
 	// esconde uma queda de qualidade de quem está pagando por ela.
+	//
+	// E A QUEDA PARA SOFTWARE VAI POR EXTENSO, porque o nome do compressor não conta
+	// isso a quem não é do ramo: "H264 Encoder MFT" e "Intel® Quick Sync Video H.264
+	// Encoder MFT" são a diferença entre a máquina estar acelerada e não estar, e nada
+	// nos dois nomes diz qual é qual. Sem esta frase, quem cair para software vê 30
+	// quadros por segundo e conclui que o Astra escolheu 30 por conta própria.
+	comoSubiu := fmt.Sprintf("%dx%d @%d", c.saidaL, c.saidaA, c.fps)
+	if c.NaMemoria {
+		comoSubiu = "sem aceleração de placa · " + comoSubiu
+	}
 	e.saida.Manda(Evento{
 		Ev:   EvTransmissao,
 		V:    "1",
 		Tipo: c.Nome,
-		Msg:  fmt.Sprintf("%dx%d @%d", c.saidaL, c.saidaA, c.fps),
+		Msg:  comoSubiu,
 	})
 
 	// UMA CHAMADA DE VOLTA = UM QUADRO = UMA AMOSTRA. Escrito assim depois de o

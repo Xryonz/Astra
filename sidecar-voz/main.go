@@ -353,6 +353,9 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	// pessoa, mas o quadro-chave que sai atende todo mundo de uma vez. Numa sala em que
 	// três entram juntas, os três pedidos viram um quadro caro em vez de três.
 	par.pedirQuadroChave = a.emissor.PedirQuadroChave
+	// A PERDA DE CADA UM VAI PARA O MESMO LUGAR, pela mesma razão: um compressor para a
+	// sala inteira. Quem manda no ritmo é quem está na pior conexão — ver `banda.go`.
+	par.relatarPerda = func(fracao float64) { a.emissor.PerdaRelatada(id, fracao) }
 	a.pares[id] = par
 	return par, nil
 }
@@ -365,6 +368,10 @@ func (a *App) fecharPar(id string) {
 	if ok {
 		par.Fechar()
 	}
+	// ESQUECER A PERDA DELE JUNTO. Sem isto, quem saiu da sala continuaria segurando a
+	// banda de quem ficou — e justamente quem saiu por ter uma conexão ruim é quem
+	// deixaria o número mais alto para trás.
+	a.emissor.EsquecerPar(id)
 }
 
 func (a *App) aplicarMudo(ligado bool) {

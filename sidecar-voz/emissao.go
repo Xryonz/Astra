@@ -99,11 +99,26 @@ type Emissor struct {
 	// acumula — dois pedidos no mesmo instante querem a mesma coisa, e atender duas
 	// vezes só gastaria banda com dois quadros caros seguidos.
 	querChave atomic.Bool
+
+	// Quanto cada par está perdendo. Vive aqui, e não dentro do laço, porque quem
+	// escreve são as goroutines de RTCP — uma por par — e elas existem mesmo com a
+	// transmissão desligada.
+	perdas *PerdaDosPares
 }
 
 func NovoEmissor(faixa *webrtc.TrackLocalStaticSample, saida *Escritor) *Emissor {
-	return &Emissor{faixa: faixa, saida: saida}
+	return &Emissor{faixa: faixa, saida: saida, perdas: NovaPerdaDosPares()}
 }
+
+// PerdaRelatada guarda o que um par acabou de dizer sobre o que não chegou.
+//
+// CHAMADA DE OUTRA GOROUTINE, a que lê o RTCP daquele par — mesma regra de
+// `PedirQuadroChave`. Segura chamar com a transmissão desligada: o número fica guardado
+// e envelhece sozinho.
+func (e *Emissor) PerdaRelatada(par string, fracao float64) { e.perdas.Relatar(par, fracao) }
+
+// EsquecerPar tira alguém da conta ao sair da sala.
+func (e *Emissor) EsquecerPar(par string) { e.perdas.Esquecer(par) }
 
 // PedirQuadroChave atende ao "perdi a imagem" de quem assiste.
 //
@@ -186,30 +201,41 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	}
 	defer tela.Fechar()
 
-	// DUAS TENTATIVAS NO MÁXIMO, e a segunda só existe quando a primeira descobriu que a
-	// máquina não sustenta a taxa pedida. A primeira MEDE; a segunda já roda na taxa
-	// escolhida e não mede mais nada.
+	// REABRIR É O ATUADOR DE DUAS COISAS, e por isso este laço existe.
 	//
-	// Reabrir em vez de só espaçar o laço não é capricho: o controle de banda do
-	// compressor DIVIDE a banda pela taxa declarada. Declarar 60 e entregar 30 faz cada
-	// quadro sair com metade dos bits que poderia — imagem pior pela mesma banda, e nada
-	// no código dizendo por quê.
-	novaTaxa, err := e.transmitir(ctx, tela, aj, true)
-	if err != nil || ctx.Err() != nil || novaTaxa == 0 {
-		return err
+	//	a MÁQUINA não sustenta a taxa pedida  ->  reabre com menos quadros por segundo
+	//	a REDE não sustenta a banda pedida    ->  reabre com menos kbps
+	//
+	// Reabrir em vez de ajustar ao vivo não é preguiça: o compressor só aceita a taxa e
+	// a banda na ABERTURA. Foram três rotas tentadas para mudar a banda com ele aberto,
+	// e as três falharam — duas aceitas e ignoradas, uma derrubando o compressor. O
+	// registro está em `sonda_banda_ao_vivo_test.go`.
+	//
+	// O CONTROLE VIVE AQUI FORA, e essa é a linha que faz a coisa funcionar: ele guarda
+	// o TETO do preset e os contadores de histerese. Criado lá dentro, cada reabertura o
+	// zeraria — o teto viraria a banda já reduzida, e a imagem nunca voltaria a melhorar
+	// depois que a rede sarasse.
+	controle := NovoControleDeBanda(aj.Kbps)
+
+	medir := true
+	for {
+		novo, err := e.transmitir(ctx, tela, aj, medir, controle)
+		if err != nil || ctx.Err() != nil || novo == nil {
+			return err
+		}
+		aj = *novo
+		medir = false
 	}
-	aj.Fps = novaTaxa
-	_, err = e.transmitir(ctx, tela, aj, false)
-	return err
 }
 
-// transmitir é o cano inteiro numa taxa. Devolve uma taxa DIFERENTE DE ZERO quando o
-// aquecimento concluiu que a máquina não sustenta a que está rodando — e aí quem chamou
-// reabre nessa.
-func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool) (int, error) {
+// transmitir é o cano inteiro num preset. Devolve um preset NOVO quando descobriu que o
+// atual não serve — e aí quem chamou reabre nele. Nulo significa "acabou".
+func (e *Emissor) transmitir(
+	ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool, controle *ControleDeBanda,
+) (*AjustesDaTela, error) {
 	c, err := AbrirCompressor(tela, aj.Largura, aj.Altura, aj.Fps, aj.Kbps)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer c.Fechar()
 
@@ -290,7 +316,7 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 
 	for {
 		if ctx.Err() != nil {
-			return 0, nil
+			return nil, nil
 		}
 
 		// A ESPERA VEM ANTES DA CAPTURA — mesma razão do banco de provas: ir ao DXGI
@@ -305,11 +331,11 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 				// derrubar a transmissão faria a pessoa reapertar o botão toda vez que
 				// alguém apertasse Ctrl+Alt+Del do outro lado da casa.
 				if err := tela.Remontar(aj.Monitor); err != nil {
-					return 0, fmt.Errorf("recuperar a tela: %w", err)
+					return nil, fmt.Errorf("recuperar a tela: %w", err)
 				}
 				continue
 			}
-			return 0, fmt.Errorf("capturar: %w", err)
+			return nil, fmt.Errorf("capturar: %w", err)
 		}
 		if textura == 0 {
 			// Nada mudou na tela dentro do prazo. Não é falha: é uma tela parada, que
@@ -323,10 +349,10 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 			// que está ali.
 			semMudanca++
 			if err := c.Drenar(entregar); err != nil {
-				return 0, fmt.Errorf("colher o que sobrou: %w", err)
+				return nil, fmt.Errorf("colher o que sobrou: %w", err)
 			}
 			if falhaAoEntregar != nil {
-				return 0, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+				return nil, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
 			}
 			continue
 		}
@@ -353,10 +379,10 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {
-			return 0, fmt.Errorf("comprimir: %w", err)
+			return nil, fmt.Errorf("comprimir: %w", err)
 		}
 		if falhaAoEntregar != nil {
-			return 0, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+			return nil, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
 		}
 		if !saiuAlgo {
 			// O compressor ainda está juntando. Normal nos primeiros quadros, e normal
@@ -391,7 +417,9 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 						Msg: fmt.Sprintf("esta máquina gasta %.1fms por quadro; caindo para %d/s",
 							float64(custo.Microseconds())/1000, nova),
 					})
-					return nova, nil
+					proximo := aj
+					proximo.Fps = nova
+					return &proximo, nil
 				}
 			}
 		}
@@ -407,17 +435,39 @@ func (e *Emissor) transmitir(ctx context.Context, tela *Tela, aj AjustesDaTela, 
 		// defeito do remontador em vez de mandar caçar no decodificador; aqui vale a
 		// mesma regra.
 		if desde := time.Since(relatorio); desde >= time.Second {
+			perda := e.perdas.Pior()
 			e.saida.Manda(Evento{
 				Ev:   EvTransmissao,
 				V:    "1",
 				Tipo: "ritmo",
-				Msg: fmt.Sprintf("%d fps · %.1f Mbps · %d capturados · %d sem saída · %d sem mudança",
+				Msg: fmt.Sprintf("%d fps · %.1f Mbps · %.0f%% perdido · %d capturados · %d sem saída · %d sem mudança",
 					int(float64(quadros)/desde.Seconds()),
 					float64(bytesEnviados)*8/desde.Seconds()/1_000_000,
+					perda*100,
 					capturados, semSaida, semMudanca),
 			})
 			relatorio = time.Now()
 			quadros, bytesEnviados, capturados, semSaida, semMudanca = 0, 0, 0, 0, 0
+
+			// A REDE ESTÁ AGUENTANDO? O controle decide uma vez por segundo e quase
+			// sempre responde "continua igual" — a histerese dele existe justamente
+			// porque agir custa uma reabertura. Ver `banda.go`.
+			//
+			// SÓ VALE ENQUANTO NÃO ESTAMOS MEDINDO A MÁQUINA: durante o aquecimento a
+			// taxa ainda pode mudar, e reabrir por banda no meio disso jogaria fora a
+			// medição pela metade e recomeçaria a conta.
+			if !medir {
+				if nova, mudou := controle.Segundo(perda); mudou {
+					e.saida.Manda(Evento{
+						Ev: EvTransmissao, V: "1", Tipo: "ritmo",
+						Msg: fmt.Sprintf("%.0f%% dos pacotes não chegam; ajustando para %d kbps",
+							perda*100, nova),
+					})
+					proximo := aj
+					proximo.Kbps = nova
+					return &proximo, nil
+				}
+			}
 		}
 	}
 }

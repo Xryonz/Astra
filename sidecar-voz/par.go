@@ -29,6 +29,10 @@ type Par struct {
 	// transmissão neste processo. Ver `ouvirPedidos`.
 	pedirQuadroChave func()
 
+	// "Desta pessoa, tantos por cento do que mandamos não chegou." Uma vez por segundo,
+	// vindo do `ReceiverReport`. Nulo pelo mesmo motivo do de cima. Ver `banda.go`.
+	relatarPerda func(float64)
+
 	// Candidatos que chegaram ANTES da descrição remota.
 	//
 	// Isto não é caso raro, é o caso NORMAL do trickle ICE: o outro lado começa a
@@ -248,19 +252,46 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 // mesmo quando `pedirQuadroChave` é nulo.
 //
 // Ela morre sozinha quando a conexão fecha, que é quando `ReadRTCP` passa a errar.
+// ouvirPedidos lê o RTCP que volta deste par.
+//
+// DUAS COISAS CHEGAM POR AQUI, e a segunda é bem mais recente que o nome da função:
+//
+//	PLI / FIR       "perdi a imagem, manda um quadro-chave"
+//	ReceiverReport  "de cada 256 pacotes que você mandou, tantos não chegaram"
+//
+// O relatório de recepção vem uma vez por segundo, de graça, desde sempre — e era
+// jogado fora. É ele que diz se a rede está aguentando o que estamos mandando, e é a
+// única realimentação de rede que a transmissão tem (ver `banda.go` para por que o
+// controle de congestionamento do pion não entrou no lugar).
 func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 	for {
 		pacotes, _, err := remetente.ReadRTCP()
 		if err != nil {
 			return
 		}
-		if p.pedirQuadroChave == nil {
-			continue
-		}
 		for _, pacote := range pacotes {
-			switch pacote.(type) {
+			switch recado := pacote.(type) {
 			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
-				p.pedirQuadroChave()
+				if p.pedirQuadroChave != nil {
+					p.pedirQuadroChave()
+				}
+			case *rtcp.ReceiverReport:
+				if p.relatarPerda == nil {
+					continue
+				}
+				// A PIOR ENTRE AS FAIXAS deste par, e não a soma: um relatório traz uma
+				// entrada por fluxo (voz e tela), e a voz é minúscula perto do vídeo.
+				// Somar diluiria a perda do que importa dentro do que não importa.
+				//
+				// `FractionLost` é ponto fixo de oito bits — a fração é o valor sobre
+				// 256, e lê-lo como porcentagem direta daria 25.600% no colapso.
+				pior := 0.0
+				for _, r := range recado.Reports {
+					if f := float64(r.FractionLost) / 256; f > pior {
+						pior = f
+					}
+				}
+				p.relatarPerda(pior)
 			}
 		}
 	}

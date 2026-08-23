@@ -1430,6 +1430,27 @@ var iidCodecAPI = guid(0x901DB4C7, 0x31CE, 0x41A2,
 var chaveForcarQuadroChave = guid(0x398C1B98, 0x8353, 0x475A,
 	[8]byte{0x9E, 0xF2, 0x8F, 0x26, 0x5D, 0x26, 0x03, 0x45})
 
+// CODECAPI_AVEncCommonMeanBitRate {F7222374-2144-4815-B550-A37F8E12EE52}
+//
+// A via para mudar a banda SEM REABRIR o compressor. Reabrir custaria um quadro-chave e
+// um engasgo visível — justamente no instante em que a rede já está sofrendo, que é
+// quando o ajuste é pedido.
+//
+// E AQUI O `IsModifiable` MENTIU PELA QUARTA VEZ NESTE PROJETO. A sonda perguntou e
+// recebeu:
+//
+//	Intel Quick Sync (x2)     modificável: SIM
+//	Microsoft AVC DX12        modificável: não
+//	H264 Encoder MFT (soft)   modificável: não
+//
+// Depois ela CHAMOU o `SetValue` nos quatro, e os quatro aceitaram. Os antecessores
+// dessa mentira estão documentados neste arquivo: `MF_TRANSFORM_ASYNC` valia zero em
+// compressor assíncrono, `MF_SA_D3D11_AWARE` quase condenou a arquitetura por engano, e
+// `MF_MT_MAX_KEYFRAME_SPACING` é aceito e ignorado. A regra que sobreviveu a todas:
+// perguntar ao objeto o que ele SABE FAZER vale mais que ler o que ele diz ser.
+var chaveBandaMediaDoCodec = guid(0xF7222374, 0x2144, 0x4815,
+	[8]byte{0xB5, 0x50, 0xA3, 0x7F, 0x8E, 0x12, 0xEE, 0x52})
+
 // Índices do ICodecAPI, na ordem de declaração do icodecapi.h.
 const (
 	_codecSuportado   = 3 // IsSupported
@@ -1472,6 +1493,30 @@ func (c *Compressor) ForcarQuadroChave() bool {
 	)
 	return uint32(r)&0x80000000 == 0
 }
+
+// A BANDA NÃO MUDA COM O COMPRESSOR ABERTO — três rotas tentadas, três recusas.
+//
+// Fica registrado aqui porque é conhecimento que custa caro para redescobrir, e porque
+// explica por que a adaptação de banda REABRE o compressor (ver `Emissor.transmitir`)
+// em vez de fazer a coisa óbvia. Medido em `sonda_banda_ao_vivo_test.go`:
+//
+//	1. ICodecAPI SetValue(AVEncCommonMeanBitRate)
+//	   Aceito com S_OK nos QUATRO compressores desta máquina — inclusive nos dois que
+//	   declaram `IsModifiable = não`. E ignorado: pedido 3000 -> saiu 3015; pedido 600
+//	   -> saiu 3014. Reto.
+//
+//	2. SetOutputType com a banda nova, no meio do fluxo
+//	   Aceito e ignorado do mesmo jeito. O compressor honra o `MF_MT_AVG_BITRATE` que
+//	   recebe na ABERTURA (3000 pedidos viraram 3015 medidos) e trava o controle de
+//	   banda quando o fluxo começa.
+//
+//	3. Encerrar o fluxo, repor o tipo, reabrir o fluxo
+//	   Derruba o compressor: "puxar o H.264: Falha catastrófica".
+//
+// As duas primeiras são a mesma pegadinha do `MF_MT_MAX_KEYFRAME_SPACING`, que também é
+// aceito com todas as honras e também não muda nada — e é a quarta vez que uma
+// declaração do Media Foundation mente neste arquivo. A regra que sobreviveu a todas:
+// não basta perguntar se ele aceita, tem de PESAR o que sai.
 
 func definirGUID(a objeto, chave *windows.GUID, valor windows.GUID) {
 	a.chamar(atrDefinirGUID, uintptr(unsafe.Pointer(chave)), uintptr(unsafe.Pointer(&valor)))

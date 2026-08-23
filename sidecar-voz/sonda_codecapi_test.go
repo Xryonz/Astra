@@ -68,6 +68,19 @@ func TestSondaDoCodecAPI(t *testing.T) {
 		// CODECAPI_AVEncMPVGOPSize {95F31BE2-FF9C-4B9A-9F2B-6BFBE8F0D5BA} — VT_UI4
 		{"GOPSize", guid(0x95F31BE2, 0xFF9C, 0x4B9A,
 			[8]byte{0x9F, 0x2B, 0x6B, 0xFB, 0xE8, 0xF0, 0xD5, 0xBA})},
+		// CODECAPI_AVEncCommonMeanBitRate {F7222374-2144-4815-B550-A37F8E12EE52} — VT_UI4
+		//
+		// A CHAVE DA ADAPTAÇÃO DE BANDA. Hoje a transmissão manda o que o preset diz e
+		// não recua: numa conexão que não aguenta, isso não vira imagem pior, vira
+		// pacote perdido e imagem quebrada. Recuar exige mudar a banda AO VIVO — e
+		// reabrir o compressor a cada ajuste custaria um quadro-chave e um engasgo
+		// visível, justamente quando a rede já está sofrendo.
+		//
+		// "Modificável" é a resposta que decide: suportado sem ser modificável
+		// significa que ele só aceita o valor na abertura, e aí o caminho barato
+		// morre aqui.
+		{"MeanBitRate", guid(0xF7222374, 0x2144, 0x4815,
+			[8]byte{0xB5, 0x50, 0xA3, 0x7F, 0x8E, 0x12, 0xEE, 0x52})},
 	}
 
 	const (
@@ -98,6 +111,26 @@ func TestSondaDoCodecAPI(t *testing.T) {
 				t.Logf("  %-14s suportado=%s  modificavel=%s",
 					c.nome, veredito(rSup), veredito(rMod))
 			}
+
+			// E AGORA A PERGUNTA QUE VALE: ele ACEITA a mudança?
+			//
+			// `IsModifiable` é uma DECLARAÇÃO, e neste projeto declaração já mentiu três
+			// vezes — o `MF_TRANSFORM_ASYNC` valia zero em compressores assíncronos, o
+			// `MF_SA_D3D11_AWARE` condenou a arquitetura por engano, e o
+			// `MF_MT_MAX_KEYFRAME_SPACING` é aceito e ignorado. A regra que sobreviveu é
+			// perguntar ao objeto o que ele SABE FAZER, não ler o que ele diz ser.
+			//
+			// Aqui a diferença decide a fatia inteira: com mudança ao vivo, recuar a
+			// banda custa uma chamada; sem ela, custa reabrir o compressor e um
+			// quadro-chave — um engasgo visível, justamente quando a rede já sofre.
+			mediaDeBanda := guid(0xF7222374, 0x2144, 0x4815,
+				[8]byte{0xB5, 0x50, 0xA3, 0x7F, 0x8E, 0x12, 0xEE, 0x52})
+			v := variante{tipo: varInteiroSemSinal, valor: 1_200_000}
+			rSet := api.chamar(codecDefinirValor,
+				uintptr(unsafe.Pointer(&mediaDeBanda)),
+				uintptr(unsafe.Pointer(&v)),
+			)
+			t.Logf("  SetValue(MeanBitRate=1200 kbps) -> %s", veredito(rSet))
 		})
 	}
 }

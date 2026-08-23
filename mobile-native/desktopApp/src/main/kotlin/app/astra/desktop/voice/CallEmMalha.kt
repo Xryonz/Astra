@@ -162,6 +162,10 @@ class CallEmMalha(
         tarefas.forEach { it.cancel() }
         tarefas.clear()
         sidecar.parar()
+        // O PALCO VOLTA A "NÃO DISSEMOS NADA" junto com o processo de voz, que é onde ele
+        // também volta. Deixá-lo em "ninguém" faria a próxima call engolir o primeiro
+        // aviso como repetição — e o processo novo, que não ouviu nada, decodificaria tudo.
+        noPalco = null
 
         _inicio.value = null
         _status.value = VoiceStatus.Closed
@@ -193,6 +197,32 @@ class CallEmMalha(
         _monitores.value = null
         sidecar.pedirMonitores()
     }
+
+    // QUAL TELA O PALCO ESTÁ MOSTRANDO — e, por tabela, qual vale a pena decodificar.
+    //
+    // Quem chama é a `VoiceView`, no efeito preso ao palco: a cada troca, e uma vez com
+    // nulo quando ela sai de cena. Sair de cena é o caso que mais pesa — trocar a sala de
+    // voz por uma conversa de texto sem largar a chamada desmonta a tela inteira, e sem
+    // este aviso a máquina seguiria decodificando imagem para uma janela que não existe.
+    //
+    // GUARDA O ÚLTIMO E NÃO REPETE: a `VoiceView` recompõe por qualquer motivo, e mandar
+    // a mesma ordem dezenas de vezes por segundo entupiria a ponte que carrega o aperto
+    // de mão da call.
+    fun assistir(par: String?) {
+        val alvo = par.orEmpty()
+        if (alvo == noPalco) return
+        noPalco = alvo
+        sidecar.assistir(par)
+    }
+
+    // NULO É "AINDA NÃO DISSEMOS NADA", e não "ninguém" — os dois valores existem e são
+    // diferentes dos dois lados da ponte.
+    //
+    // Se aqui começasse em string vazia, entrar numa call e a `VoiceView` mandar o
+    // primeiro "ninguém" seria suprimido como repetição, o processo de voz continuaria em
+    // "o Astra não disse nada" e decodificaria tudo. O bug seria invisível: a imagem
+    // apareceria certinha, só custando o que esta fatia existe para não custar.
+    @Volatile private var noPalco: String? = null
 
     fun pararDeTransmitir() {
         // APAGA AQUI, sem esperar a confirmação — ao contrário de acender.

@@ -112,6 +112,11 @@ const (
 	// Custa uma duplicação de tela por monitor, então é pedido só quando a janela de
 	// escolha abre — não na entrada da chamada.
 	CmdMonitores = "monitores"
+	// Diz QUAL tela está no palco do Astra agora. `Par` vazio quer dizer "nenhuma" —
+	// que é o caso de sair da sala de voz para uma conversa de texto sem largar a
+	// chamada. Só a tela nomeada aqui é decodificada; as outras chegam e são
+	// descartadas sem custo. Ver `recepcao.go`.
+	CmdAssistir = "assistir"
 	// Escolhe qual usar num dos sentidos.
 	CmdUsarAparelho = "usar"
 	CmdSair         = "sair"
@@ -135,8 +140,10 @@ const (
 	//	Tipo = "perfil"              ->  Msg = "42e01f", lido de dentro do fluxo
 	//	Tipo = "ritmo"               ->  Msg = "58 fps · 3,4 Mbps", uma vez por segundo
 	EvTransmissao = "transmissao"
-	// A tela de OUTRA pessoa. `Par` diz de quem, `V` é "1" enquanto chega imagem.
-	// `Tipo` = nome do descompressor na abertura, "ritmo" nos relatórios de segundo.
+	// A tela de OUTRA pessoa. `Par` diz de quem, `V` é "1" enquanto a faixa de vídeo
+	// dela existe — e ela existe mesmo quando ninguém está assistindo, que é o que
+	// permite ao Astra oferecer a troca de palco. `Tipo` = "faixa" no aviso de que há
+	// tela, o nome do descompressor quando ele abre, "ritmo" nos relatórios de segundo.
 	//
 	// Os QUADROS não vêm por aqui — eles têm cano próprio (ver `entrega.go`). Este
 	// evento é só o aviso de que há tela chegando, que é o que a interface precisa para

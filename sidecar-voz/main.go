@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -135,8 +136,37 @@ type App struct {
 	motor      *Motor
 	config     webrtc.Configuration
 
+	// QUAL TELA ESTÁ NO PALCO DO ASTRA. Ver `assistindo` logo abaixo para o porquê de
+	// ser um ponteiro e não uma string.
+	//
+	// Atômico, e não protegido pelo mutex de baixo, porque quem lê isto é o laço de
+	// rede de cada par — uma leitura por pacote RTP, milhares por segundo. Um mutex
+	// aqui poria o comando raro de troca de palco no caminho de todo pacote de vídeo
+	// da sala.
+	palco atomic.Pointer[string]
+
 	mu    sync.Mutex
 	pares map[string]*Par
+}
+
+// assistindo responde se vale a pena decodificar a tela desta pessoa.
+//
+// O PONTEIRO NULO NÃO É "NINGUÉM", É "O ASTRA AINDA NÃO DISSE" — e a diferença é o que
+// mantém este processo utilizável sozinho. Rodar `astra-voz.exe` à mão, ou os testes de
+// ponta a ponta, nunca manda `assistir`; se nulo valesse "ninguém", a imagem simplesmente
+// não abriria e o motivo não estaria em lugar nenhum.
+//
+// Depois que o Astra fala uma vez, ele manda sempre — inclusive o "ninguém" explícito, que
+// é uma string vazia e faz esta função responder não para todo mundo.
+func (a *App) assistindo(id string) bool {
+	quem := a.palco.Load()
+	if quem == nil {
+		return true
+	}
+	// O `*quem != ""` não é redundante com a comparação: `abrirPar` recusa par sem id
+	// hoje, mas se um id vazio entrasse aqui ele casaria com o palco vazio e a tela de
+	// ninguém passaria a ser decodificada. Uma comparação a mais fecha a porta.
+	return *quem != "" && *quem == id
 }
 
 // Servir lê a ponte linha a linha até a entrada fechar.
@@ -301,6 +331,14 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		}()
 		return nil
 
+	case CmdAssistir:
+		// A CÓPIA EXISTE PARA NÃO SEGURAR O COMANDO INTEIRO. Guardar `&cmd.Par` prenderia
+		// o `Comando` todo enquanto o palco durar — e ele carrega o campo `Dados`, que é
+		// onde cabe um SDP de quase um megabyte.
+		quem := cmd.Par
+		a.palco.Store(&quem)
+		return nil
+
 	case CmdUsarAparelho:
 		sentido := sentidoSaida
 		if cmd.Sentido == "entrada" {
@@ -356,6 +394,9 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	// A PERDA DE CADA UM VAI PARA O MESMO LUGAR, pela mesma razão: um compressor para a
 	// sala inteira. Quem manda no ritmo é quem está na pior conexão — ver `banda.go`.
 	par.relatarPerda = func(fracao float64) { a.emissor.PerdaRelatada(id, fracao) }
+	// "ALGUÉM ESTÁ DE FATO OLHANDO A TELA DESTA PESSOA?" É o que decide se o quadro dela
+	// vai ao descompressor ou para o lixo. Ver `recepcao.go`.
+	par.querVer = func() bool { return a.assistindo(id) }
 	a.pares[id] = par
 	return par, nil
 }

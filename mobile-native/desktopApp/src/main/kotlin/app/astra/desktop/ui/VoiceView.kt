@@ -206,6 +206,28 @@ fun VoiceView(
                 ?: mostrando.firstOrNull()
         }
 
+        // O PALCO AVISA O PROCESSO DE VOZ, e é o que faz a tela fora dele custar zero.
+        //
+        // Decodificar 720p custa 1,03 ms por quadro. Numa sala com três pessoas
+        // transmitindo, olhar UMA custava as três — e a que mais pesava era a de quem não
+        // está olhando nada: sair daqui para uma conversa de texto sem largar a chamada
+        // desmonta esta tela inteira, e até agora a máquina seguia decodificando imagem
+        // para uma janela que não existe mais. Daí o `onDispose`, que é a metade
+        // importante deste efeito.
+        //
+        // O aviso é de quem ASSISTE porque a malha entrega a todo mundo de qualquer jeito
+        // — aqui se economiza processador, não banda. Cortar banda exigiria avisar quem
+        // transmite, e isso é outra conversa.
+        // SÃO DOIS EFEITOS E NÃO UM, e a razão é o que o `onDispose` de um
+        // `DisposableEffect(quemMostra)` significaria: ele dispara TAMBÉM na troca de
+        // palco, e mandaria um "ninguém" no meio do caminho entre olhar A e olhar B —
+        // fechando e reabrindo à toa. Preso a `Unit`, ele só fala quando a tela sai
+        // mesmo de cena, que é o que se quer dizer.
+        LaunchedEffect(quemMostra) { call.assistir(quemMostra) }
+        DisposableEffect(Unit) {
+            onDispose { call.assistir(null) }
+        }
+
         val tiles = remember(connected, me, micOn, pessoaPorId, channel.name, mostrando, quemMostra) {
             buildList {
                 if (connected != null) {

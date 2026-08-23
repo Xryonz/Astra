@@ -62,6 +62,25 @@ const pacotesQueEsperam = 512
 
 // receberTela lê a faixa de vídeo desta pessoa e entrega os quadros ao Astra.
 //
+// SÓ DECODIFICA A TELA QUE ESTÁ NO PALCO, e essa é a diferença mais importante entre
+// este laço e o que ele era. A leitura da rede continua acontecendo sempre — não é
+// opcional, um `TrackRemote` sem leitor entope o buffer do pion enquanto a pessoa
+// transmite —, mas o pacote de quem ninguém está olhando morre aqui mesmo, sem passar
+// pelo remontador nem pelo descompressor.
+//
+// O QUE ISSO POUPA, em números medidos: 1,03 ms por quadro decodificado (ver
+// `TestVoltaCompletaDaTela`). Com três pessoas transmitindo e uma no palco, a máquina
+// deixa de pagar 2 ms a cada 33 ms — 6% de um núcleo que não estava comprando imagem
+// nenhuma. E o caso que mais pesa nem tem palco: sair da sala de voz para uma conversa
+// de texto sem largar a chamada desmonta a `VoiceView` inteira, e aí ninguém está
+// olhando NADA enquanto a call continua.
+//
+// É a mesma regra que o Discord aplica ("will only relay video to a participant on the
+// call if they are watching it"), com a diferença de que lá ela vale na origem, porque
+// há um servidor de mídia no meio. Aqui a malha entrega a todos e o corte é no destino:
+// economiza CPU, não banda. Cortar banda também exigiria avisar quem transmite, o que é
+// outra fatia.
+//
 // A goroutine morre sozinha quando `ReadRTP` devolve erro, o que acontece quando o par
 // fecha — mesma regra da faixa de voz, e por isso também não precisa de contexto.
 func (p *Par) receberTela(remota *webrtc.TrackRemote) {
@@ -79,23 +98,15 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	}
 	defer fecharMF()
 
-	// O DESCOMPRESSOR NASCE AQUI E NÃO NA ABERTURA DO PAR, porque abrir um custa
-	// procurar e amarrar um objeto do Windows — trabalho que não faz sentido pagar por
-	// quem entrou na call para conversar e nunca vai receber tela nenhuma. Esta
-	// goroutine só existe quando uma faixa de vídeo chegou de verdade.
+	// O AVISO DE "HÁ TELA CHEGANDO" É DA FAIXA, NÃO DO DESCOMPRESSOR — e essa separação
+	// virou obrigatória agora.
 	//
-	// O tamanho é palpite; o de verdade vem no fluxo (ver `Descompressor`).
-	d, err := AbrirDescompressor(1280, 720)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "sem descompressor para a tela de %s: %v\n", p.id, err)
-		p.saida.Manda(Evento{Ev: EvErro, Par: p.id, Msg: "não consigo mostrar a tela: " + err.Error()})
-		return
-	}
-	defer d.Fechar()
-
-	remontador := samplebuilder.New(pacotesQueEsperam, &codecs.H264Packet{}, 90000)
-
-	p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: d.Nome})
+	// É este evento que acende o distintivo de "transmitindo" na faixa de participantes,
+	// e é o distintivo que a pessoa clica para pôr aquela tela no palco. Se ele fosse
+	// junto do descompressor, sair do palco apagaria o distintivo, e a tela que ninguém
+	// está vendo viraria uma tela que ninguém CONSEGUE ver — o beco sem saída em que o
+	// próprio remédio tranca a porta.
+	p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: "faixa"})
 	defer p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "0"})
 
 	// "PERDI A IMAGEM, MANDA UM QUADRO-CHAVE."
@@ -103,10 +114,9 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	// Sem este pedido, entrar numa sala onde alguém JÁ está transmitindo significa
 	// esperar o próximo quadro-chave natural — medido no compressor do outro lado, até
 	// cinco segundos de vazio, e ele não aceita encurtar esse intervalo. O mesmo vale
-	// depois de qualquer oscilação de rede que engula um quadro-chave.
-	//
-	// O primeiro pedido sai AGORA, antes de o primeiro pacote chegar: a faixa acabou de
-	// aparecer, então por definição ainda não temos onde ancorar a imagem.
+	// depois de qualquer oscilação de rede que engula um quadro-chave, e agora também
+	// toda vez que esta tela sobe ao palco: por definição não há em que ancorar a
+	// imagem, porque os quadros de diferença dos últimos minutos foram descartados.
 	pedirImagem := func() {
 		err := p.pc.WriteRTCP([]rtcp.Packet{
 			&rtcp.PictureLossIndication{MediaSSRC: uint32(remota.SSRC())},
@@ -115,17 +125,35 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 			fmt.Fprintf(os.Stderr, "não consegui pedir imagem a %s: %v\n", p.id, err)
 		}
 	}
-	pedirImagem()
-	ultimoPedido := time.Now()
+
+	// O DESCOMPRESSOR NASCE QUANDO ALGUÉM OLHA, e morre quando param de olhar. Abrir um
+	// custa procurar e amarrar um objeto do Windows, e ele segura vários megabytes de
+	// buffer interno enquanto vive — pagar isso por uma tela fora do palco é gastar
+	// memória para produzir pixel que vai direto para o lixo.
+	var d *Descompressor
+	var remontador *samplebuilder.SampleBuilder
+	defer func() {
+		if d != nil {
+			d.Fechar()
+		}
+	}()
+
+	// DESISTIU marca "esta máquina não tem descompressor de H.264".
+	//
+	// Sem ela, a falha viraria uma tentativa de abrir por PACOTE — milhares por segundo,
+	// cada uma varrendo o registro de objetos do Windows. Zera quando a tela sai do
+	// palco: se a pessoa insistir, tenta de novo, uma vez.
+	desistiu := false
 
 	// SEPARADA DO CONTADOR DO RELATÓRIO, e a distinção não é cosmética: `quadros` zera a
 	// cada segundo para medir a taxa, então usá-la como "já tenho imagem?" faria o pedido
 	// disparar de novo a cada relatório — uma enxurrada de pedidos com a imagem
 	// perfeitamente no ar, e cada um custando ao outro lado um quadro-chave caro.
 	jaTemImagem := false
+	var ultimoPedido time.Time
 
 	comeco := time.Now()
-	var quadros, pacotes, amostras int
+	var quadros, pacotes, amostras, ignorados int
 	relatorio := time.Now()
 
 	for {
@@ -134,53 +162,106 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 			return
 		}
 		pacotes++
-		remontador.Push(pacote)
 
-		// INSISTE ENQUANTO NÃO HOUVER IMAGEM, e para de insistir assim que houver.
-		//
-		// Chegar pacote e não sair quadro é exatamente o estado de quem entrou no meio
-		// de um grupo de imagens: os quadros de diferença chegam, mas não há em que
-		// aplicá-los. Um pedido por segundo é o suficiente para não desperdiçar o
-		// intervalo e pouco o bastante para não virar enxurrada — cada pedido atendido
-		// custa ao outro lado um quadro caro.
-		if !jaTemImagem && time.Since(ultimoPedido) >= time.Second {
-			pedirImagem()
-			ultimoPedido = time.Now()
+		switch {
+		case !p.queremVer():
+			// FORA DO PALCO: o pacote foi lido (que era a obrigação) e agora é lixo.
+			// Fechar o descompressor devolve os buffers dele na hora, em vez de deixá-los
+			// parados enquanto a pessoa lê uma conversa de texto.
+			if d != nil {
+				d.Fechar()
+				d, remontador = nil, nil
+				jaTemImagem = false
+			}
+			desistiu = false
+			ignorados++
+
+		case d == nil && desistiu:
+			// Já sabemos que não há como decodificar. Segue lendo e descartando.
+			ignorados++
+
+		default:
+			if d == nil {
+				// O tamanho é palpite; o de verdade vem no fluxo (ver `Descompressor`).
+				novo, err := AbrirDescompressor(1280, 720)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "sem descompressor para a tela de %s: %v\n", p.id, err)
+					p.saida.Manda(Evento{Ev: EvErro, Par: p.id, Msg: "não consigo mostrar a tela: " + err.Error()})
+					// NÃO SAI DA FUNÇÃO, e isto mudou: sair pararia de ler a faixa, e faixa
+					// sem leitor é buffer enchendo até o processo ficar sem memória. Falhar
+					// em mostrar é ruim; falhar em mostrar E derrubar a call é pior.
+					desistiu = true
+					ignorados++
+					continue
+				}
+				d = novo
+				// REMONTADOR NOVO A CADA SUBIDA AO PALCO. O antigo guarda uma janela de
+				// números de sequência de minutos atrás; reaproveitá-lo faria o primeiro
+				// quadro bom cair fora da janela e ser descartado calado.
+				remontador = samplebuilder.New(pacotesQueEsperam, &codecs.H264Packet{}, 90000)
+				p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: d.Nome})
+				pedirImagem()
+				ultimoPedido = time.Now()
+			}
+
+			remontador.Push(pacote)
+
+			// INSISTE ENQUANTO NÃO HOUVER IMAGEM, e para de insistir assim que houver.
+			//
+			// Chegar pacote e não sair quadro é exatamente o estado de quem entrou no meio
+			// de um grupo de imagens: os quadros de diferença chegam, mas não há em que
+			// aplicá-los. Um pedido por segundo é o suficiente para não desperdiçar o
+			// intervalo e pouco o bastante para não virar enxurrada — cada pedido atendido
+			// custa ao outro lado um quadro caro.
+			if !jaTemImagem && time.Since(ultimoPedido) >= time.Second {
+				pedirImagem()
+				ultimoPedido = time.Now()
+			}
+
+			for {
+				amostra := remontador.Pop()
+				if amostra == nil {
+					break
+				}
+				amostras++
+				// ERRO DE UM QUADRO NÃO DERRUBA A FAIXA. Perda de pacote produz quadro
+				// quebrado, e o decodificador reclama dele — derrubar por isso trocaria um
+				// engasgo na imagem pela tela do outro sumindo para sempre.
+				err := d.Decodificar(amostra.Data, time.Since(comeco), func(q Quadro) {
+					quadros++
+					jaTemImagem = true
+					p.entrega.Mandar(p.id, q)
+				})
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "quadro estragado de %s: %v\n", p.id, err)
+				}
+			}
 		}
 
-		for {
-			amostra := remontador.Pop()
-			if amostra == nil {
-				break
-			}
-			amostras++
-			// ERRO DE UM QUADRO NÃO DERRUBA A FAIXA. Perda de pacote produz quadro
-			// quebrado, e o decodificador reclama dele — derrubar por isso trocaria um
-			// engasgo na imagem pela tela do outro sumindo para sempre.
-			err := d.Decodificar(amostra.Data, time.Since(comeco), func(q Quadro) {
-				quadros++
-				jaTemImagem = true
-				p.entrega.Mandar(p.id, q)
-			})
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "quadro estragado de %s: %v\n", p.id, err)
-			}
-		}
-
-		// O RELATÓRIO CONTA AS TRÊS ETAPAS, e não só a última.
+		// O RELATÓRIO CONTA AS QUATRO ETAPAS, e não só a última.
 		//
 		// "0 fps" sozinho não diz nada: pode ser rede que não chega, remontador que
-		// nunca fecha um quadro, ou descompressor que recusa tudo. São três defeitos
-		// diferentes com o mesmo sintoma, e separá-los aqui é o que transformou uma
-		// caçada em uma leitura — foi este contador que apontou o remontador acima.
+		// nunca fecha um quadro, descompressor que recusa tudo — ou, agora, ninguém
+		// olhando. São quatro estados diferentes com o mesmo sintoma, e separá-los aqui é
+		// o que transformou uma caçada em uma leitura — foi este contador que apontou o
+		// remontador acima.
 		if desde := time.Since(relatorio); desde >= time.Second {
-			p.saida.Manda(Evento{
-				Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: "ritmo",
-				Msg: fmt.Sprintf("%d fps · %d pacotes · %d remontados",
-					int(float64(quadros)/desde.Seconds()), pacotes, amostras),
-			})
+			msg := fmt.Sprintf("%d fps · %d pacotes · %d remontados",
+				int(float64(quadros)/desde.Seconds()), pacotes, amostras)
+			if ignorados > 0 {
+				msg += fmt.Sprintf(" · %d descartados sem ninguém olhando", ignorados)
+			}
+			p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()
-			quadros, pacotes, amostras = 0, 0, 0
+			quadros, pacotes, amostras, ignorados = 0, 0, 0, 0
 		}
 	}
+}
+
+// queremVer responde se a tela desta pessoa está no palco do Astra.
+//
+// NULO É SIM, e não é descuido: é o que mantém o processo utilizável fora do Astra. Ver
+// `App.assistindo`, que é quem monta este fechamento.
+func (p *Par) queremVer() bool {
+	return p.querVer == nil || p.querVer()
 }

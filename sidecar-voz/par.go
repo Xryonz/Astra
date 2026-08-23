@@ -33,6 +33,10 @@ type Par struct {
 	// vindo do `ReceiverReport`. Nulo pelo mesmo motivo do de cima. Ver `banda.go`.
 	relatarPerda func(float64)
 
+	// "A tela desta pessoa está no palco do Astra?" Consultado a cada pacote de vídeo
+	// que chega dela. Nulo quer dizer sim — ver `App.assistindo` e `recepcao.go`.
+	querVer func() bool
+
 	// Candidatos que chegaram ANTES da descrição remota.
 	//
 	// Isto não é caso raro, é o caso NORMAL do trickle ICE: o outro lado começa a

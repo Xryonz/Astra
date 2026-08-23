@@ -192,6 +192,17 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     // sai quando a janela de escolha ABRE, e não na entrada da chamada.
     fun pedirMonitores() = mandar(ComandoDeVoz(cmd = "monitores"))
 
+    // QUAL TELA ESTÁ NO PALCO. `par` nulo quer dizer "nenhuma".
+    //
+    // É o que autoriza o processo de voz a decodificar — e só ela. As outras chegam, são
+    // lidas (obrigatório: faixa sem leitor entope o buffer) e jogadas fora sem custo.
+    // Decodificar 720p custa 1,03 ms por quadro, e numa sala com três transmitindo isso
+    // era o preço de olhar UMA.
+    //
+    // Precisa ser mandado também quando ninguém está olhando nada, que é o caso de sair
+    // da sala de voz para uma conversa de texto sem largar a chamada.
+    fun assistir(par: String?) = mandar(ComandoDeVoz(cmd = "assistir", par = par.orEmpty()))
+
     // Pede a lista dos dois sentidos. A resposta não volta aqui: chega como dois
     // eventos `aparelhos`, um por sentido, porque a ponte é assíncrona por natureza
     // e fingir que isto é uma chamada com retorno esconderia essa verdade.

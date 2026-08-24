@@ -190,6 +190,9 @@ class CanoDeQuadros {
 
             serie++
             _quadros.value = _quadros.value + (par to QuadroDeTela(largura, altura, passo, destino, serie))
+
+            // Quem parou de transmitir devolve os 4,2 MB dele. Ver `descartarParados`.
+            if (serie % CONFERIR_A_CADA == 0L) descartarParados(rodizios)
         }
     }
 
@@ -215,7 +218,12 @@ class CanoDeQuadros {
         private val vetores = arrayOfNulls<ByteArray>(3)
         private var i = 0
 
+        /** Quando esta pessoa mandou quadro pela última vez. Ver `descartarParados`. */
+        var visto = System.nanoTime()
+            private set
+
         fun proximo(tamanho: Int): ByteArray {
+            visto = System.nanoTime()
             i = (i + 1) % vetores.size
             val atual = vetores[i]
             if (atual == null || atual.size < tamanho) {
@@ -225,10 +233,55 @@ class CanoDeQuadros {
         }
     }
 
+    /**
+     * SOLTA OS VETORES DE QUEM NÃO TRANSMITE MAIS.
+     *
+     * Três vetores de 1,4 MB por pessoa são **4,2 MB cada**, e até aqui eles ficavam
+     * pendurados pelo resto da chamada. Numa sala longa em que dez pessoas transmitiram
+     * por vez, são ~42 MB retidos para nada — num app onde já se lutou para segurar a
+     * memória (ver `project_memory_leaks`).
+     *
+     * POR TEMPO E NÃO POR AVISO, de propósito. `esquecer(par)` existe e é chamado quando
+     * alguém para, mas ele resolve a parte VISUAL e roda em outra thread. Amarrar a
+     * memória a ele deixaria de fora o caso que mais importa: a queda abrupta, em que
+     * aviso nenhum chega. O relógio cobre os dois sem coordenação entre threads — este
+     * mapa é tocado só pela thread de leitura.
+     *
+     * TRINTA SEGUNDOS é folgado de propósito. Uma tela PARADA manda pouco (o sinal de
+     * vida do emissor sai a cada 2s), então um limite curto descartaria o rodízio de quem
+     * está compartilhando um documento e não mexe — e recriá-lo custa três alocações de
+     * 1,4 MB justamente no meio da transmissão. Trinta segundos sem um único quadro
+     * significa que aquela transmissão acabou de verdade.
+     */
+    private fun descartarParados(rodizios: HashMap<String, Rodizio>) {
+        val agora = System.nanoTime()
+        val it = rodizios.entries.iterator()
+        while (it.hasNext()) {
+            val e = it.next()
+            if (agora - e.value.visto > PARADO_NS) {
+                VoiceLog.nota("[quadros] soltando os vetores de ${e.key}: 30s sem quadro")
+                it.remove()
+            }
+        }
+    }
+
     private companion object {
         const val CABECALHO = 24
         const val MARCA = 0x56545341 // 'ASTV'
         // 4K em NV12 com folga de passo. Teto de sanidade, não de capacidade.
         const val MAX_QUADRO = 4096 * 2160 * 3 / 2
+
+        /** Sem quadro por este tempo = a transmissão acabou; pode soltar os vetores. */
+        val PARADO_NS = 30_000_000_000L
+
+        /**
+         * De quantos em quantos quadros vale conferir quem parou.
+         *
+         * A varredura é sobre um mapa de poucas entradas, mas fazê-la a cada quadro seria
+         * trabalho constante para um evento raro. Com três pessoas transmitindo a 30 por
+         * segundo isto dá uma conferida a cada ~7s — bem mais frequente que os 30s do
+         * limite, então nada fica pendurado além do previsto.
+         */
+        const val CONFERIR_A_CADA = 600
     }
 }

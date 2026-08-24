@@ -13,6 +13,15 @@ package main
 
 import (
 	"context"
+	// `errors.Is` e não `==` nas comparações com ErrSemAudio.
+	//
+	// Hoje as duas formas dão o mesmo resultado — o erro nunca é embrulhado no caminho
+	// até aqui. Mas é exatamente a família do defeito que custou caro nesta sessão (ver
+	// `esperaEstourada` em par.go): comparação de erro que passa a mentir no dia em que
+	// alguém acrescenta um `%w` no meio, sem falhar em compilação nem em teste. E o
+	// silêncio seria pior aqui do que lá: "não há áudio agora" é o caso COMUM deste laço,
+	// então confundi-lo com falha de verdade derrubaria a captura a cada bloco vazio.
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -338,7 +347,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 		}
 
 		if err := mic.Esperar(200); err != nil {
-			if err != ErrSemAudio {
+			if !errors.Is(err, ErrSemAudio) {
 				m.reclamar("esperar pelo microfone", err)
 				return false
 			}
@@ -351,7 +360,7 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 
 		for {
 			n, _, err := mic.Ler(bloco)
-			if err == ErrSemAudio {
+			if errors.Is(err, ErrSemAudio) {
 				break
 			}
 			if err != nil {
@@ -469,7 +478,7 @@ func (m *Motor) bombearSaida(ctx context.Context, alto *Saida, geracao uint64) {
 		}
 
 		if err := alto.Esperar(200); err != nil {
-			if err == ErrSemAudio {
+			if errors.Is(err, ErrSemAudio) {
 				continue
 			}
 			m.reclamar("esperar pela saída", err)

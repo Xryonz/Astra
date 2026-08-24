@@ -52,13 +52,27 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 	defer c.Fechar()
 	t.Logf("compressor: %s", c.Nome)
 
+	// A CONTA É EM QUADROS, NÃO EM SEGUNDOS DE RELÓGIO — e a diferença já reprovou este
+	// teste por engano.
+	//
+	// O compressor conta o intervalo entre quadros-chave em QUADROS COMPRIMIDOS, e quem
+	// alimenta o compressor é a mudança na tela. Numa janela de seis segundos de relógio
+	// com a tela pouco ativa, entram uns cem quadros em vez de cento e oitenta — e o
+	// segundo quadro-chave simplesmente ainda não chegou. MEDIDO nos dois lados de um
+	// diff que não tocava em nada disto: 181 quadros e 2 chaves com a tela ativa, 105 e
+	// 1 com ela quieta. O código estava igual; o veredito, não.
+	//
+	// Duzentos e quarenta quadros são oito segundos de vídeo a 30/s — folga suficiente
+	// para caber dois quadros-chave em qualquer compressor razoável. O teto de relógio
+	// existe só para o teste não ficar preso quando ninguém está mexendo na máquina.
+	const quadrosNecessarios = 240
 	var chaves []time.Duration
 	ritmo := NovoRitmo(fps)
 	comeco := time.Now()
-	fim := comeco.Add(6 * time.Second)
+	fim := comeco.Add(25 * time.Second)
 	quadros := 0
 
-	for time.Now().Before(fim) {
+	for time.Now().Before(fim) && quadros < quadrosNecessarios {
 		ritmo.Esperar()
 		textura, err := tela.ProximoQuadro(100)
 		if err != nil {
@@ -87,7 +101,8 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 		quadros++
 	}
 
-	t.Logf("%d quadros em 6s, %d quadro(s)-chave", quadros, len(chaves))
+	t.Logf("%d quadros em %v, %d quadro(s)-chave",
+		quadros, time.Since(comeco).Round(100*time.Millisecond), len(chaves))
 	for i, q := range chaves {
 		if i == 0 {
 			t.Logf("  o primeiro em %v", q.Round(time.Millisecond))
@@ -97,17 +112,22 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 		}
 	}
 
-	if quadros == 0 {
-		t.Skip("a tela não mudou em 6s — mexa numa janela e rode de novo")
+	// TELA PARADA NÃO REPROVA NADA. Sem quadro entrando, o compressor não tem por que
+	// emitir chave nenhuma — o teste não teria medido o compressor, teria medido a
+	// mesa do dono.
+	if quadros < quadrosNecessarios {
+		t.Skipf("só %d quadros em %v (precisa de %d): a tela mal mudou — mexa numa janela e rode de novo",
+			quadros, time.Since(comeco).Round(time.Second), quadrosNecessarios)
 	}
 	if len(chaves) == 0 {
-		t.Fatal("nenhum quadro-chave em 6s: quem entrar depois nunca vê imagem")
+		t.Fatalf("nenhum quadro-chave em %d quadros: quem entrar depois nunca vê imagem", quadros)
 	}
-	// DOIS EM SEIS SEGUNDOS é o mínimo que torna a espera de quem chega depois
+	// DOIS EM OITO SEGUNDOS DE VÍDEO é o mínimo que torna a espera de quem chega depois
 	// suportável. Com um só, o espaçamento é maior que a janela medida e não dá para
 	// afirmar qual é — o que já é motivo de reprovação.
 	if len(chaves) < 2 {
-		t.Errorf("só um quadro-chave em 6s: quem entra depois espera mais que isso para ver algo")
+		t.Errorf("só um quadro-chave em %d quadros: quem entra depois espera mais que isso para ver algo",
+			quadros)
 	}
 }
 

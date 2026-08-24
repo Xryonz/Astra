@@ -15,7 +15,7 @@ import { createId } from '../db/cuid'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { redis, presenceKeys } from '../lib/redis'
 import { unmuteUser } from '../lib/spamDetector'
-import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
+import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
 import { channelsChanged, membersChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
@@ -267,7 +267,15 @@ serversRouter.patch(
     const patch: Record<string, unknown> = {}
     if (name      !== undefined) patch.name      = name
     // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
-    if (iconUrl   !== undefined) patch.iconUrl   = await persistDataUri(iconUrl)
+    //
+    // O ICONE ENCOLHE E O BANNER NAO, pelo mesmo motivo do perfil: o icone e desenhado a
+    // 54dp na barra lateral — que mostra TODAS as constelacoes da pessoa de uma vez —, e o
+    // banner e desenhado grande no topo. Ver persistImagemDeExibicao.
+    if (iconUrl !== undefined) {
+      const { url, original } = await persistImagemDeExibicao(iconUrl)
+      patch.iconUrl = url
+      if (original !== null) patch.iconFullUrl = original
+    }
     if (bannerUrl !== undefined) patch.bannerUrl = await persistDataUri(bannerUrl)
     if (bannerPositionY !== undefined) patch.bannerPositionY = bannerPositionY
     if (bannerScale     !== undefined) patch.bannerScale     = bannerScale

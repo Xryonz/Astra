@@ -96,12 +96,17 @@ ALTER TABLE "DMConversation" ADD COLUMN IF NOT EXISTS "hiddenByB" timestamp (3);
 -- ===== Notificações =====
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "notificationPrefs" text;
 
--- ===== Avatar em duas versões =====
--- "avatarUrl" passa a guardar a versão de EXIBIÇÃO (256px) e esta coluna a original
--- que a pessoa enviou (1024px). Ver persistAvatar em lib/storage.ts para o porquê da
--- inversão. Nula para quem não reenviou avatar desde a mudança — e isso é inofensivo:
--- o avatar antigo continua em "avatarUrl", só não encolhido.
+-- ===== Imagem de identidade em duas versões =====
+-- "avatarUrl" e "iconUrl" passam a guardar a versão de EXIBIÇÃO (256px) e estas colunas
+-- a original que a pessoa enviou (1024px). Ver persistImagemDeExibicao em lib/storage.ts
+-- para o porquê da inversão. Nulas para quem não reenviou imagem desde a mudança — e isso
+-- é inofensivo: a imagem antiga continua na coluna de sempre, só não encolhida.
+--
+-- A mini-imagem de cargo (ServerRole.iconUrl) encolhe igual, mas NÃO ganha coluna: um
+-- emblema ao lado de um nome nunca vai ser desenhado grande, então não há reprocessamento
+-- futuro para o qual guardar a original.
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarFullUrl" text;
+ALTER TABLE "Server" ADD COLUMN IF NOT EXISTS "iconFullUrl" text;
 
 CREATE TABLE IF NOT EXISTS "Notification" (
   "id" text PRIMARY KEY NOT NULL,

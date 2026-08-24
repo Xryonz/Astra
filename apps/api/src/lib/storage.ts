@@ -228,28 +228,37 @@ export async function persistDataUri<T extends string | null | undefined>(value:
   return putAttachment(key, body, outMime)
 }
 
-// O MAIOR LADO EM QUE UM AVATAR OU ÍCONE É DESENHADO, em pixels de tela.
+// O MAIOR LADO EM QUE UMA IMAGEM DE IDENTIDADE É DESENHADA, em pixels de tela.
 //
-// Não é chute: os tamanhos foram levantados no cliente. A esmagadora maioria dos avatares
-// aparece entre 20 e 40dp (autor de mensagem, lista de membros, faixa da chamada) e o
-// MAIOR uso é 96dp, na tela de boas-vindas. Numa tela de densidade dupla, 96dp são 192
-// pixels reais — então 256 cobre tudo com folga e ainda deixa margem para um monitor mais
-// denso aparecer amanhã.
+// Não é chute: os tamanhos foram levantados no cliente, um por um.
+//
+//	avatar de autor / lista de membros / faixa da chamada ...... 20 a 40dp
+//	ícone de servidor na barra lateral ......................... 54dp
+//	mini-imagem de cargo ....................................... 40dp
+//	avatar na tela de boas-vindas (o MAIOR uso que existe) ...... 96dp
+//
+// Numa tela de densidade dupla, 96dp são 192 pixels reais — então 256 cobre todos eles com
+// folga e ainda deixa margem para um monitor mais denso aparecer amanhã.
 const LADO_DE_EXIBICAO = 256
 
 // Guarda a imagem em DUAS versões e devolve as duas URLs.
 //
-// O PROBLEMA QUE ISTO RESOLVE, medido no cliente: o recorte salva avatar com 1024 pixels
-// de lado, e era esse arquivo — algumas centenas de KB — que o app baixava para desenhar
-// o círculo de 22 pixels ao lado de cada mensagem. Dezenas por tela, em toda conversa
-// aberta. É a maior causa de "as imagens demoram" que existe hoje.
+// Serve tudo que é IMAGEM DE IDENTIDADE desenhada pequena: avatar de pessoa, avatar de
+// bot, ícone de constelação, mini-imagem de cargo. Não serve banner — ver o porquê no
+// final deste comentário.
+//
+// O PROBLEMA QUE ISTO RESOLVE, medido no cliente: o recorte salva com 1024 pixels de lado,
+// e era esse arquivo — algumas centenas de KB — que o app baixava para desenhar o círculo
+// de 22 pixels ao lado de cada mensagem. Dezenas por tela, em toda conversa aberta. E a
+// barra lateral é pior ainda: ela mostra o ícone de TODAS as constelações de uma vez.
+// É a maior causa de "as imagens demoram" que existe hoje.
 //
 // A INVERSÃO É O TRUQUE, e ela vale mais que a economia: quem vai para a coluna de sempre
-// (`avatarUrl`) é a versão de EXIBIÇÃO, e a original ganha uma coluna nova. Assim as vinte
-// projeções de usuário espalhadas pelas rotas continuam lendo o mesmo campo e passam a
-// receber o arquivo pequeno sem nenhuma edição — e o ganho vale de graça para o desktop,
-// o web e o mobile ao mesmo tempo. Fosse ao contrário, seriam vinte lugares para mudar,
-// vinte DTOs para acompanhar, e um esquecido em silêncio.
+// (`avatarUrl`, `iconUrl`) é a versão de EXIBIÇÃO, e a original ganha uma coluna nova.
+// Assim as vinte projeções de usuário espalhadas pelas rotas continuam lendo o mesmo campo
+// e passam a receber o arquivo pequeno sem nenhuma edição — e o ganho vale de graça para o
+// desktop, o web e o mobile ao mesmo tempo. Fosse ao contrário, seriam vinte lugares para
+// mudar, vinte DTOs para acompanhar, e um esquecido em silêncio.
 //
 // A ORIGINAL É PRESERVADA de propósito. Ela não é usada para desenhar nada hoje, e custa
 // espaço no bucket — mas sem ela um reprocessamento futuro (outro tamanho, outro formato)
@@ -257,8 +266,12 @@ const LADO_DE_EXIBICAO = 256
 //
 // GIF NÃO É TOCADO: redimensionar animação com o `sharp` desta configuração devolveria só
 // o primeiro quadro, e um avatar animado que para de animar é regressão, não otimização.
-// Nesse caso as duas URLs são a mesma, e quem lê não precisa saber disso.
-export async function persistAvatar(
+// Nesse caso a original volta nula, e quem chama não precisa saber por quê.
+//
+// BANNER NÃO PASSA POR AQUI, e a diferença é onde cada imagem aparece: banner é desenhado
+// GRANDE, no cartão de perfil e no topo da constelação. Encolher trocaria velocidade por
+// borrão no único lugar em que ele existe.
+export async function persistImagemDeExibicao(
   value: string | null | undefined,
 ): Promise<{ url: string | null; original: string | null }> {
   if (!value) return { url: value ?? null, original: null }

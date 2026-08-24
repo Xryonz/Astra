@@ -11,7 +11,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { rolesChanged } from '../lib/realtime'
 import { PERMS, getMemberPerms, parsePermissionsJson, type MemberPerms, type Permission } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
-import { persistDataUri } from '../lib/storage'
+import { persistImagemDeExibicao } from '../lib/storage'
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 
@@ -89,7 +89,17 @@ rolesRouter.post(
       serverId,
       name:        body.name,
       color:       body.color ?? null,
-      iconUrl:     await persistDataUri(body.iconUrl ?? null),
+      // A mini-imagem do cargo e o menor lugar em que uma imagem aparece no Astra (40dp),
+      // entao e onde o arquivo de 1024px era mais desperdicado.
+      //
+      // AQUI A ORIGINAL E DESCARTADA, ao contrario do avatar e do icone de constelacao — e
+      // e decisao, nao esquecimento. Guardar a original existe para poder reprocessar um
+      // dia, e reprocessar so faz sentido onde a imagem PODE vir a ser desenhada grande: o
+      // cartao de perfil e a pagina da constelacao podem crescer. Um emblema de cargo nao
+      // pode; ele e um simbolo ao lado de um nome, e sempre sera. Pagar bucket por cada
+      // cargo de cada constelacao para guardar um arquivo sem uso previsivel seria gastar
+      // por simetria.
+      iconUrl:     (await persistImagemDeExibicao(body.iconUrl ?? null)).url,
       position:    (max ?? 0) + 1,
       permissions: JSON.stringify(permsToSet),
       hoist:       body.hoist ?? false,
@@ -119,7 +129,7 @@ rolesRouter.patch(
     const patch: Record<string, unknown> = {}
     if (body.name !== undefined)  patch.name = body.name
     if (body.color !== undefined) patch.color = body.color
-    if (body.iconUrl !== undefined) patch.iconUrl = await persistDataUri(body.iconUrl)
+    if (body.iconUrl !== undefined) patch.iconUrl = (await persistImagemDeExibicao(body.iconUrl)).url
     if (body.hoist !== undefined) patch.hoist = body.hoist
     if (body.permissions !== undefined) patch.permissions = JSON.stringify(grantableSubset(actor, body.permissions))
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nada para atualizar' })

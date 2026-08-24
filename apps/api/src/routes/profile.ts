@@ -8,7 +8,7 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
-import { persistDataUri, persistAvatar, isOwnStorageUrl } from '../lib/storage'
+import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib/storage'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
 const router = Router()
@@ -108,7 +108,7 @@ router.patch(
     // cartao de perfil; encolher seria trocar velocidade por borrao no unico lugar em que
     // ele existe. Ver persistAvatar.
     if (avatarUrl !== undefined) {
-      const { url, original } = await persistAvatar(avatarUrl)
+      const { url, original } = await persistImagemDeExibicao(avatarUrl)
       update.avatarUrl = url
       // So sobrescreve quando ha original NOVA: quem manda uma imagem que nao encolheu
       // (ja pequena, GIF) nao pode apagar a original de um envio anterior.

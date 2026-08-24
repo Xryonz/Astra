@@ -120,7 +120,16 @@ export const refreshTokens = pgTable('RefreshToken', {
 export const servers = pgTable('Server', {
   id:         text('id').primaryKey().$defaultFn(createId),
   name:       text('name').notNull(),
+  // A versão de EXIBIÇÃO (256px), pelo mesmo motivo do avatar — e aqui pesa ainda mais:
+  // a barra lateral desenha o ícone de TODAS as constelações da pessoa de uma vez.
   iconUrl:    text('iconUrl'),
+  // A original, guardada para poder reprocessar. Não desenha nada hoje.
+  //
+  // ESTA APARECE NO WIRE, ao contrário da irmã em `User`: as rotas de constelação usam
+  // `db.select()` sem projeção, então o campo viaja. É inofensivo — os três clientes
+  // decodificam com `ignoreUnknownKeys`, e uma URL de imagem pública não é segredo —, mas
+  // vale saber antes de guardar aqui qualquer coisa que não deva sair.
+  iconFullUrl: text('iconFullUrl'),
 
   bannerUrl:  text('bannerUrl'),
   bannerPositionY: integer('bannerPositionY').notNull().default(50),

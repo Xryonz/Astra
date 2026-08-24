@@ -7,7 +7,7 @@ import { requireAuth } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { ehDonoDoAstra } from '../lib/donoDoAstra'
 import { personaDoDia, sincronizaPersona, getBotId, type Persona } from '../lib/bot'
-import { persistDataUri } from '../lib/storage'
+import { persistDataUri, persistImagemDeExibicao } from '../lib/storage'
 
 // APARENCIA DAS BOTS — so o dono do Astra.
 //
@@ -123,7 +123,12 @@ router.patch(
     for (const campo of ['displayName', 'bannerColor', 'bannerScale', 'bannerPositionY'] as const) {
       if (campo in corpo) patch[campo] = corpo[campo]
     }
-    if ('avatarUrl' in corpo) patch.avatarUrl = corpo.avatarUrl ? await persistDataUri(corpo.avatarUrl) : null
+    // O avatar da bot aparece ao lado de cada mensagem dela, igual ao de gente — mesmo
+    // motivo, mesmo tratamento. O banner logo abaixo NAO encolhe, tambem pelo mesmo
+    // motivo do perfil: e desenhado grande. Ver persistImagemDeExibicao.
+    if ('avatarUrl' in corpo) {
+      patch.avatarUrl = corpo.avatarUrl ? (await persistImagemDeExibicao(corpo.avatarUrl)).url : null
+    }
     if ('bannerUrl' in corpo) patch.bannerUrl = corpo.bannerUrl ? await persistDataUri(corpo.bannerUrl) : null
     // Depois dos campos normais de proposito: se os dois vierem no mesmo pedido,
     // "voltar ao original" vence. E o unico que a pessoa pediu explicitamente.

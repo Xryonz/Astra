@@ -88,6 +88,7 @@ docs/
 # a conclusão delas já vive no comentário do código que originaram.
 memoria-*.csv
 *.perf.csv
+tools/astra-medicao*.csv
 
 # ── OS ──────────────────────────────────────────────────────
 .DS_Store

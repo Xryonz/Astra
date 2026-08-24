@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "vapid:gen": "web-push generate-vapid-keys --json"
+    "vapid:gen": "web-push generate-vapid-keys --json",
+    "img:diag": "ts-node --transpile-only src/db/diagnosticoDeImagens.ts"
   },
   "dependencies": {
     "@astra/types": "*",

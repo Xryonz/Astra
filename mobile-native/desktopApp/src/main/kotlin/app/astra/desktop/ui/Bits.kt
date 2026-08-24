@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import coil3.compose.AsyncImage
+import app.astra.desktop.net.RedeLog
 import coil3.compose.AsyncImagePainter
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -534,5 +535,10 @@ internal fun imagemMorreu(url: String?): Boolean =
 
 internal fun lembrarQueMorreu(url: String?, estado: AsyncImagePainter.State) {
     if (url == null || estado !is AsyncImagePainter.State.Error) return
-    synchronized(urlsMortas) { urlsMortas[url] = true }
+    // REGISTRA UMA VEZ SÓ, e é o mesmo `put` que decide: o mapa já servia para não
+    // repetir a requisição condenada, e agora serve também para não repetir a linha no
+    // registro. Sem isso, uma lista de membros com quarenta avatares mortos escreveria
+    // quarenta linhas por rolagem e afogaria o resto do arquivo.
+    val novidade = synchronized(urlsMortas) { urlsMortas.put(url, true) == null }
+    if (novidade) RedeLog.imagemMorreu(url)
 }

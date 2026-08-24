@@ -5,9 +5,15 @@ import androidx.compose.foundation.ContextMenuRepresentation
 import androidx.compose.foundation.ContextMenuState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.composables.icons.lucide.ClipboardPaste
+import com.composables.icons.lucide.Copy
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Scissors
+import com.composables.icons.lucide.TextSelect
 import kotlin.math.roundToInt
 
 // Botao direito DENTRO de campo de texto (Recortar/Copiar/Colar/Selecionar tudo).
@@ -44,10 +50,33 @@ object AstraTextContextMenu : ContextMenuRepresentation {
         ) {
             MenuCard(
                 entries = remember(nativos) {
-                    nativos.map { MenuEntry.Item(it.label, onClick = it.onClick) }
+                    nativos.map { MenuEntry.Item(it.label, icon = iconeDaAcao(it.label), onClick = it.onClick) }
                 },
                 dismiss = fechar,
             )
         }
     }
+}
+
+// O ÍCONE DE CADA AÇÃO, DESCOBERTO PELO RÓTULO — e é feio, mas é o que dá.
+//
+// Os itens deste menu não são nossos: vêm do Compose, junto com a tradução e os atalhos
+// (é por isso que saem em português sem ninguém traduzir nada aqui). E `ContextMenuItem`
+// expõe DUAS coisas, `label` e `onClick` — não há tipo, não há identificador, não há
+// enumeração. Casar pelo texto é a única porta que existe.
+//
+// DAÍ A LISTA COBRIR PORTUGUÊS E INGLÊS: o rótulo sai no idioma do sistema, e uma máquina
+// com Windows em inglês mostraria "Cut/Copy/Paste" — que num mapa só em português cairia
+// no `null` e voltaria ao menu sem ícone. Nenhum estrago, mas também nenhum ícone, e o
+// motivo seria invisível.
+//
+// O `null` é resposta legítima e não falha: item desconhecido (o Compose pode ganhar
+// outros, e campos diferentes oferecem conjuntos diferentes) aparece só com o texto, que
+// é exatamente como este menu era antes.
+private fun iconeDaAcao(rotulo: String): ImageVector? = when (rotulo.trim().lowercase()) {
+    "recortar", "cut" -> Lucide.Scissors
+    "copiar", "copy" -> Lucide.Copy
+    "colar", "paste" -> Lucide.ClipboardPaste
+    "selecionar tudo", "select all" -> Lucide.TextSelect
+    else -> null
 }

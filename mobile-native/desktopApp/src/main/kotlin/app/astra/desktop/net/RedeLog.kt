@@ -33,4 +33,26 @@ object RedeLog {
             )
         }
     }
+
+    // IMAGEM QUE NAO CARREGOU — avatar, banner, icone, anexo.
+    //
+    // O app ja sabia disso e guardava so na memoria, para nao repetir a requisicao
+    // condenada (ver `urlsMortas` em Bits.kt). Guardar sem registrar resolve o desperdicio
+    // e esconde a causa: de fora, "a foto nao aparece" e uma tela sem foto, e nada
+    // distingue arquivo que sumiu do servidor de rede que caiu de URL malformada.
+    //
+    // A URL VAI INTEIRA, e e o ponto: e ela que diz de onde a imagem deveria ter vindo.
+    // `/uploads/...` significa arquivo no disco da instancia — que no Render nao sobrevive
+    // a um reinicio. Um endereco do bucket significa outra coisa. Sao dois defeitos com o
+    // mesmo sintoma, e o prefixo separa os dois sem precisar de mais nada.
+    //
+    // URL de imagem do proprio app nao carrega segredo: nao ha token nela, o nome do
+    // arquivo e aleatorio, e o arquivo e publico por natureza. Este registro continua
+    // podendo ser mandado para alguem olhar.
+    fun imagemMorreu(url: String) {
+        runCatching {
+            if (arquivo.length() > TETO_BYTES) arquivo.writeText("")
+            arquivo.appendText("${LocalTime.now().format(hora)}  imagem nao carregou  ${url.take(200)}\n")
+        }
+    }
 }

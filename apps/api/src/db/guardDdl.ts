@@ -96,6 +96,13 @@ ALTER TABLE "DMConversation" ADD COLUMN IF NOT EXISTS "hiddenByB" timestamp (3);
 -- ===== Notificações =====
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "notificationPrefs" text;
 
+-- ===== Avatar em duas versões =====
+-- "avatarUrl" passa a guardar a versão de EXIBIÇÃO (256px) e esta coluna a original
+-- que a pessoa enviou (1024px). Ver persistAvatar em lib/storage.ts para o porquê da
+-- inversão. Nula para quem não reenviou avatar desde a mudança — e isso é inofensivo:
+-- o avatar antigo continua em "avatarUrl", só não encolhido.
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarFullUrl" text;
+
 CREATE TABLE IF NOT EXISTS "Notification" (
   "id" text PRIMARY KEY NOT NULL,
   "userId" text NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,

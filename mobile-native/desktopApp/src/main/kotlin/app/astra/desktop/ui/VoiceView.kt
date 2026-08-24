@@ -218,12 +218,23 @@ fun VoiceView(
         // O aviso é de quem ASSISTE porque a malha entrega a todo mundo de qualquer jeito
         // — aqui se economiza processador, não banda. Cortar banda exigiria avisar quem
         // transmite, e isso é outra conversa.
+        // A JANELA MINIMIZADA TAMBÉM NÃO ESTÁ OLHANDO, e este é o caso que faltava.
+        //
+        // O Astra vive na bandeja: fechar no X não fecha o app. Uma chamada continua de pé
+        // com a janela guardada, e até aqui a máquina seguia pagando 1,03 ms por quadro
+        // para decodificar imagem que ninguém tinha como ver.
+        //
+        // POR QUE NÃO `LocalWindowActive`: aquele exige FOCO, e para enfeite está certo.
+        // Aqui seria errado — com o Astra numa segunda tela enquanto se trabalha na
+        // primeira, a janela não tem foco e a transmissão está sendo assistida.
+        val naTela = LocalJanelaNaTela.current
+
         // SÃO DOIS EFEITOS E NÃO UM, e a razão é o que o `onDispose` de um
         // `DisposableEffect(quemMostra)` significaria: ele dispara TAMBÉM na troca de
         // palco, e mandaria um "ninguém" no meio do caminho entre olhar A e olhar B —
         // fechando e reabrindo à toa. Preso a `Unit`, ele só fala quando a tela sai
         // mesmo de cena, que é o que se quer dizer.
-        LaunchedEffect(quemMostra) { call.assistir(quemMostra) }
+        LaunchedEffect(quemMostra, naTela) { call.assistir(if (naTela) quemMostra else null) }
         DisposableEffect(Unit) {
             onDispose { call.assistir(null) }
         }

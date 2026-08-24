@@ -15,7 +15,14 @@ export const users = pgTable('User', {
 
   coordinate:   text('coordinate').notNull().unique(),
   displayName:  text('displayName').notNull(),
+  // A VERSÃO DE EXIBIÇÃO, e não a que a pessoa enviou. Ver `persistAvatar`: o cliente
+  // salva 1024px, e este campo guarda 256 — o suficiente para o maior lugar em que um
+  // avatar aparece (96dp em tela densa). Tudo que projeta usuário lê daqui, então o
+  // ganho vale para os três clientes sem nenhum deles mudar.
   avatarUrl:    text('avatarUrl'),
+  // A original, guardada para poder reprocessar um dia. Não é usada para desenhar.
+  // Nula quando não houve o que encolher (imagem já pequena, GIF, avatar do Google).
+  avatarFullUrl: text('avatarFullUrl'),
   bio:          text('bio'),
   googleId:     text('googleId').unique(),
   passwordHash: text('passwordHash'),

@@ -57,6 +57,7 @@ import app.astra.desktop.ui.AstraTitleBar
 import app.astra.desktop.ui.EmblemaDaBarra
 import app.astra.desktop.ui.LocalReduceMotion
 import app.astra.desktop.ui.LocalRenderPrefs
+import app.astra.desktop.ui.LocalJanelaNaTela
 import app.astra.desktop.ui.LocalWindowActive
 import app.astra.desktop.ui.RenderPrefs
 import app.astra.desktop.ui.ServidorAcordandoStrip
@@ -638,6 +639,14 @@ fun main(args: Array<String>) {
                     CompositionLocalProvider(
                         LocalWindowActive provides
                             (windowVisible && !state.isMinimized && janelaComFoco),
+                        // O MESMO SINAL SEM O FOCO, para o que a pessoa esta de fato
+                        // OLHANDO — hoje, a tela que alguem compartilha na chamada.
+                        //
+                        // O foco acima e certo para enfeite e errado para video: com o
+                        // Astra numa segunda tela enquanto se trabalha na primeira, a
+                        // janela nao tem foco e a transmissao esta sendo vista. Cortar a
+                        // imagem ali seria o app estragando o que se pediu para mostrar.
+                        LocalJanelaNaTela provides (windowVisible && !state.isMinimized),
                     ) {
                     // O CEU DA JANELA: aurora + estrelas atrás do login E do shell.
                     // Morava dentro do ShellScreen, e o login pintava a propria aurora

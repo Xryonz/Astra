@@ -8,7 +8,7 @@ import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { UpdateProfileSchema, ProfileNoteSchema } from '@astra/types'
 import { getUserStatus, setUserOnline, redis, presenceKeys, activityKeys, leAtividade } from '../lib/redis'
-import { persistDataUri, isOwnStorageUrl } from '../lib/storage'
+import { persistDataUri, persistAvatar, isOwnStorageUrl } from '../lib/storage'
 import { presenceChanged, profileChanged } from '../lib/realtime'
 
 const router = Router()
@@ -101,7 +101,19 @@ router.patch(
     if (username    !== undefined) update.username    = username
     if (bio         !== undefined) update.bio         = bio
     // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
-    if (avatarUrl   !== undefined) update.avatarUrl   = await persistDataUri(avatarUrl)
+    //
+    // O AVATAR VAI EM DUAS VERSOES, e o banner NAO — a diferenca e onde cada um aparece.
+    // O avatar e desenhado em circulos de 20 a 40 pixels dezenas de vezes por tela, e ate
+    // aqui era o arquivo de 1024px que descia para isso. O banner e desenhado GRANDE, no
+    // cartao de perfil; encolher seria trocar velocidade por borrao no unico lugar em que
+    // ele existe. Ver persistAvatar.
+    if (avatarUrl !== undefined) {
+      const { url, original } = await persistAvatar(avatarUrl)
+      update.avatarUrl = url
+      // So sobrescreve quando ha original NOVA: quem manda uma imagem que nao encolheu
+      // (ja pequena, GIF) nao pode apagar a original de um envio anterior.
+      if (original !== null) update.avatarFullUrl = original
+    }
     if (bannerUrl   !== undefined) update.bannerUrl   = await persistDataUri(bannerUrl)
     if (bannerColor  !== undefined) update.bannerColor  = bannerColor
     if (profileTheme !== undefined) update.profileTheme = profileTheme

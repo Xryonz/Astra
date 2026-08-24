@@ -227,3 +227,75 @@ export async function persistDataUri<T extends string | null | undefined>(value:
   const key = `${crypto.randomBytes(16).toString('hex')}.${ext}`
   return putAttachment(key, body, outMime)
 }
+
+// O MAIOR LADO EM QUE UM AVATAR OU ÍCONE É DESENHADO, em pixels de tela.
+//
+// Não é chute: os tamanhos foram levantados no cliente. A esmagadora maioria dos avatares
+// aparece entre 20 e 40dp (autor de mensagem, lista de membros, faixa da chamada) e o
+// MAIOR uso é 96dp, na tela de boas-vindas. Numa tela de densidade dupla, 96dp são 192
+// pixels reais — então 256 cobre tudo com folga e ainda deixa margem para um monitor mais
+// denso aparecer amanhã.
+const LADO_DE_EXIBICAO = 256
+
+// Guarda a imagem em DUAS versões e devolve as duas URLs.
+//
+// O PROBLEMA QUE ISTO RESOLVE, medido no cliente: o recorte salva avatar com 1024 pixels
+// de lado, e era esse arquivo — algumas centenas de KB — que o app baixava para desenhar
+// o círculo de 22 pixels ao lado de cada mensagem. Dezenas por tela, em toda conversa
+// aberta. É a maior causa de "as imagens demoram" que existe hoje.
+//
+// A INVERSÃO É O TRUQUE, e ela vale mais que a economia: quem vai para a coluna de sempre
+// (`avatarUrl`) é a versão de EXIBIÇÃO, e a original ganha uma coluna nova. Assim as vinte
+// projeções de usuário espalhadas pelas rotas continuam lendo o mesmo campo e passam a
+// receber o arquivo pequeno sem nenhuma edição — e o ganho vale de graça para o desktop,
+// o web e o mobile ao mesmo tempo. Fosse ao contrário, seriam vinte lugares para mudar,
+// vinte DTOs para acompanhar, e um esquecido em silêncio.
+//
+// A ORIGINAL É PRESERVADA de propósito. Ela não é usada para desenhar nada hoje, e custa
+// espaço no bucket — mas sem ela um reprocessamento futuro (outro tamanho, outro formato)
+// seria impossível, e o que se teria jogado fora é justamente o que não dá para recuperar.
+//
+// GIF NÃO É TOCADO: redimensionar animação com o `sharp` desta configuração devolveria só
+// o primeiro quadro, e um avatar animado que para de animar é regressão, não otimização.
+// Nesse caso as duas URLs são a mesma, e quem lê não precisa saber disso.
+export async function persistAvatar(
+  value: string | null | undefined,
+): Promise<{ url: string | null; original: string | null }> {
+  if (!value) return { url: value ?? null, original: null }
+
+  const original = await persistDataUri(value)
+  if (typeof original !== 'string') return { url: null, original: null }
+
+  // Já era URL (reenvio do campo inalterado, avatar do Google): nada a encolher, e
+  // baixar para reprocessar seria trabalho e superfície de rede por nada.
+  if (!value.startsWith('data:')) return { url: original, original: null }
+  if (original.endsWith('.gif')) return { url: original, original: null }
+
+  try {
+    const m = DATA_URI_RE.exec(value)
+    if (!m) return { url: original, original: null }
+    const bruto = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]))
+
+    // `withoutEnlargement` para não INVENTAR pixel: quem manda um avatar de 64px recebe
+    // de volta 64px, e não um borrão de 256 com quatro vezes o peso.
+    const pequeno = await sharp(bruto)
+      .resize({ width: LADO_DE_EXIBICAO, height: LADO_DE_EXIBICAO, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 90, effort: 6, alphaQuality: 100, smartSubsample: true })
+      .toBuffer()
+
+    // NÃO GUARDA DOIS ARQUIVOS SE O SEGUNDO NÃO ENCOLHEU. Imagem que já era pequena sai
+    // do redimensionamento do mesmo tamanho ou maior — recomprimir o que já é WebP às
+    // vezes cresce. Nesse caso, guardar os dois pagaria espaço no bucket para servir o
+    // arquivo pior. A comparação é contra o binário de ENTRADA porque é o que se tem em
+    // mãos aqui; do que já foi gravado só existe a URL.
+    if (pequeno.length >= bruto.length) return { url: original, original: null }
+
+    const key = `${crypto.randomBytes(16).toString('hex')}.webp`
+    const url = await putAttachment(key, pequeno, 'image/webp')
+    return { url, original }
+  } catch {
+    // Imagem estranha: fica só com a original. Perder a otimização é aceitável; perder o
+    // avatar da pessoa não é.
+    return { url: original, original: null }
+  }
+}

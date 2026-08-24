@@ -354,15 +354,32 @@ class MencaoClicavel {
 }
 val LocalMencaoClicavel = staticCompositionLocalOf { MencaoClicavel() }
 
-// Janela "ativa" = visivel E não minimizada (provido no Main a partir do estado
-// da janela). Aurora e estrelas gastam frame SO quando ativa — na bandeja/
-// minimizada param (guardrail do dono). IMPORTANTE: e diferente de "focada".
-// Popups focaveis do desktop (menu de botao direito, dialogs) roubam o foco da
-// janela, entao gatear por FOCO congelava a aurora toda vez que abria um menu
-// (o "cortada de vez em quando"). Visibilidade não pisca com popup -> sem corte.
+// Janela "ativa" = visivel, NAO minimizada **E com o app na frente**. Aurora, estrelas e
+// o resto do enfeite gastam frame so quando ativa.
+//
+// O FOCO ENTROU DEPOIS, E POR MEDICAO: congelar so o ceu nao bastava — com ele ja parado o
+// app ainda gastava 0,28 nucleo em segundo plano, porque o resto do enfeite continuava
+// pedindo quadro (em especial o pulso do marcador de nao-lida, que e um relogio POR canal
+// nao lido). Ver o bloco que provê isto em Main.kt.
+//
 // Nao e `static` pelo mesmo motivo do LocalReduceMotion acima: muda toda vez que a
 // janela sai da frente, e static faria isso recompor o app inteiro.
+//
+// NAO USE ISTO PARA VIDEO. Ver `LocalJanelaNaTela` logo abaixo.
 val LocalWindowActive = compositionLocalOf { true }
+
+// Janela VISIVEL e nao minimizada — sem exigir foco. E o sinal certo para conteudo que a
+// pessoa esta OLHANDO, em oposicao a enfeite que ela so percebe de relance.
+//
+// A diferenca importa e custaria caro confundir: com a janela do Astra numa segunda tela
+// enquanto se trabalha na primeira, `LocalWindowActive` e falso — e para a aurora isso
+// esta certo, ninguem repara nela. Mas a tela que alguem compartilha na chamada esta
+// sendo vista naquele instante, e cortar a imagem porque o foco esta noutra janela seria
+// o app estragando exatamente o que se pediu para ele mostrar.
+//
+// Popup focavel (menu de botao direito, dialogo) tambem rouba o foco da janela; aqui isso
+// nao pisca, porque visibilidade nao muda quando um menu abre.
+val LocalJanelaNaTela = compositionLocalOf { true }
 
 // Prefs de RENDER das animações de fundo (Settings > Desempenho), desacopladas
 // dos enums de prefs: octaves do FBM da aurora e teto de FPS (0 = livre). O

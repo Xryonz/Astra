@@ -152,9 +152,27 @@ serversRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { name, iconUrl, isGroup = false } = req.body
 
+    // O ICONE DA CRIACAO PASSAVA DIRETO PARA A COLUNA, e o PATCH logo abaixo ja fazia
+    // tudo isto. Duas portas para a mesma coisa, uma trancada e outra nao.
+    //
+    // O `iconUrl` do CreateServerSchema e `z.string().url()`, e `url()` ACEITA data-URI —
+    // `new URL('data:image/png;base64,...')` e valido. Sem limite de tamanho no schema, o
+    // teto era o corpo da requisicao: 16mb. Ou seja, dava para nascer uma constelacao com
+    // megabytes de base64 dentro da coluna `iconUrl`.
+    //
+    // E a coluna e lida com `db.select()` sem projecao, entao esse peso seria arrastado
+    // em TODA listagem de constelacoes da pessoa, para sempre. O sintoma nao apontaria
+    // para ca: seria "a barra lateral demora a abrir".
+    //
+    // Hoje nenhum cliente manda icone na criacao (o desktop manda so nome e tipo), o que
+    // explica isto ter passado — mas rota aberta e rota que um dia alguem usa.
+    if (iconUrl && !isAllowedIcon(iconUrl)) return res.status(422).json({ error: 'URL de ícone não permitida' })
+    if (isIconTooBig(iconUrl)) return res.status(413).json({ error: 'Ícone muito grande (max 10MB)' })
+    const icone = await persistImagemDeExibicao(iconUrl ?? null)
+
     const server = await db.transaction(async (tx) => {
       const [s] = await tx.insert(servers).values({
-        name, iconUrl, isGroup, ownerId: req.userId!,
+        name, iconUrl: icone.url, iconFullUrl: icone.original, isGroup, ownerId: req.userId!,
       }).returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
       // COM O QUE UMA CONSTELACAO NASCE.

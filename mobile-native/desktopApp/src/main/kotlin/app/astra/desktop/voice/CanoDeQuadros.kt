@@ -93,8 +93,30 @@ class CanoDeQuadros {
 
     private val _quadros = MutableStateFlow<Map<String, QuadroDeTela>>(emptyMap())
 
-    /** A última tela de cada pessoa que está transmitindo. */
+    /**
+     * A última tela de cada pessoa que está transmitindo.
+     *
+     * MUDA TRINTA VEZES POR SEGUNDO POR PESSOA, e quem observar isto na COMPOSIÇÃO paga
+     * essa conta inteira. Este fluxo é para quem DESENHA — ver `TelaCompartilhada`, que o
+     * lê dentro do `drawBehind`. Para saber apenas *quem* tem imagem, use
+     * [quemTransmite], que fica parado enquanto ninguém começa nem para.
+     */
     val telas: StateFlow<Map<String, QuadroDeTela>> = _quadros.asStateFlow()
+
+    private val _quemTransmite = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * DE QUEM já chegou imagem — o conjunto de chaves de [telas], e nada mais.
+     *
+     * Existe porque a interface faz duas perguntas muito diferentes ao mesmo mapa: "qual é
+     * o quadro de agora?" (trinta vezes por segundo) e "há tela de fulano?" (quase nunca).
+     * Servir as duas pelo mesmo fluxo obriga a segunda a acordar no ritmo da primeira, e
+     * era o que acontecia: a tela de chamada inteira recompunha a cada quadro recebido.
+     *
+     * Separar não é otimização de estilo — é a diferença entre um estado que muda no ritmo
+     * do vídeo e um que muda quando alguém aperta um botão.
+     */
+    val quemTransmite: StateFlow<Set<String>> = _quemTransmite.asStateFlow()
 
     init {
         if (ouvinte != null) thread(isDaemon = true, name = "astra-quadros") { aceitar(ouvinte) }
@@ -104,11 +126,13 @@ class CanoDeQuadros {
         if (!vivo.compareAndSet(true, false)) return
         runCatching { ouvinte?.close() }
         _quadros.value = emptyMap()
+        _quemTransmite.value = emptySet()
     }
 
     /** Esquece a tela de alguém — chamado quando a pessoa sai ou para de transmitir. */
     fun esquecer(par: String) {
         _quadros.value = _quadros.value - par
+        _quemTransmite.value = _quemTransmite.value - par
     }
 
     private fun aceitar(ouvinte: ServerSocket) {
@@ -189,7 +213,18 @@ class CanoDeQuadros {
             }
 
             serie++
-            _quadros.value = _quadros.value + (par to QuadroDeTela(largura, altura, passo, destino, serie))
+            val antes = _quadros.value
+            _quadros.value = antes + (par to QuadroDeTela(largura, altura, passo, destino, serie))
+
+            // O CONJUNTO SÓ ACORDA QUANDO A CHAVE É NOVA — uma vez por transmissão, e não
+            // uma vez por quadro. É isso que deixa a interface perguntar "há tela de
+            // fulano?" sem herdar o ritmo do vídeo.
+            //
+            // NÃO USA `novo` (o de `rodizios`), e a distinção importa: `esquecer` limpa o
+            // mapa mas não o rodízio, então quem parasse e voltasse a transmitir na mesma
+            // chamada teria `novo == false` e nunca reapareceria. Quem manda aqui é o mapa,
+            // porque é dele que este conjunto é a sombra.
+            if (par !in antes) _quemTransmite.value = _quemTransmite.value + par
 
             // Quem parou de transmitir devolve os 4,2 MB dele. Ver `descartarParados`.
             if (serie % CONFERIR_A_CADA == 0L) descartarParados(rodizios)

@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -84,13 +87,46 @@ half4 main(float2 p) {
 """
 
 /**
- * Desenha [quadro] preenchendo o espaço disponível, sem distorcer.
+ * Desenha a tela de [de], lida de [fonte], preenchendo o espaço sem distorcer.
  *
- * NADA É DESENHADO quando o quadro é nulo — quem chama decide o que pôr no lugar. Este
- * componente não inventa estado vazio: ele sabe desenhar imagem, e só.
+ * NADA É DESENHADO enquanto não houver quadro — quem chama decide o que pôr no lugar.
+ * Este componente não inventa estado vazio: ele sabe desenhar imagem, e só.
+ *
+ * ---- RECEBE O FLUXO, E NÃO O QUADRO, E ISSO É O PONTO DO ARQUIVO ----
+ *
+ * Um parâmetro `quadro: QuadroDeTela?` obrigaria quem chama a observar o mapa de quadros
+ * na COMPOSIÇÃO, e aí trinta quadros por segundo viram trinta recomposições por segundo
+ * de tudo que estiver naquele escopo. Era o que acontecia: a tela de chamada inteira — a
+ * legenda, a faixa de participantes, a conta de quem está no palco — refeita a cada quadro
+ * que chegava de qualquer pessoa, para desenhar uma imagem que o Skia já sabia desenhar
+ * sozinho.
+ *
+ * Aqui o quadro vive num estado que é lido SÓ dentro do `drawBehind`. O Compose registra
+ * leitura por fase: um estado lido apenas no desenho invalida apenas o desenho — a
+ * composição e o layout nem acordam. O vídeo passa a custar o que um vídeo custa.
+ *
+ * O par [fonte] + [de] em vez do quadro pronto também mantém a conta certa quando três
+ * pessoas transmitem: o mapa muda a cada quadro de QUALQUER uma delas, mas `it[de]`
+ * devolve a MESMA instância para quem não mandou nada, e igualdade estrutural segura a
+ * invalidação ali mesmo.
  */
 @Composable
-fun TelaCompartilhada(quadro: QuadroDeTela?, modifier: Modifier = Modifier) {
+fun TelaCompartilhada(
+    fonte: StateFlow<Map<String, QuadroDeTela>>,
+    de: String,
+    modifier: Modifier = Modifier,
+) {
+    // Não é `collectAsState()` de propósito: aquele devolveria um `State` lido na
+    // composição, que é exatamente o custo que este componente existe para não pagar.
+    //
+    // NASCE COM O QUADRO QUE JÁ EXISTE, e a chave é `de`. O `LaunchedEffect` só roda
+    // DEPOIS do primeiro desenho, então começar em nulo pintaria um quadro preto antes da
+    // imagem — e, na troca de palco, um lampejo da tela da pessoa ANTERIOR, que é bem pior
+    // que preto. Ler o valor atual do fluxo aqui fecha os dois casos de uma vez.
+    val quadro = remember(de) { mutableStateOf(fonte.value[de]) }
+    LaunchedEffect(fonte, de) {
+        fonte.collect { quadro.value = it[de] }
+    }
     // O EFEITO E O CONSTRUTOR VIVEM ENQUANTO O COMPONENTE VIVER. Compilar SkSL custa, e
     // recompilar por quadro seria pagar isso trinta vezes por segundo — o mesmo erro que
     // a aurora cometeu e que foi medido lá em 0,29 de núcleo com a tela parada.
@@ -114,10 +150,13 @@ fun TelaCompartilhada(quadro: QuadroDeTela?, modifier: Modifier = Modifier) {
     }
 
     Box(modifier) {
-        if (quadro == null || construtor == null) return@Box
+        if (construtor == null) return@Box
         Box(
             Modifier.fillMaxSize().drawBehind {
-                val q = quadro
+                // A ÚNICA LEITURA DO ESTADO, e ela está aqui dentro por isso mesmo. Subir
+                // esta linha para a composição desfaz o arquivo inteiro em silêncio: nada
+                // quebra, a imagem continua certa, e o custo volta.
+                val q = quadro.value ?: return@drawBehind
                 if (q.largura <= 0 || q.altura <= 0 || size.width <= 0f || size.height <= 0f) return@drawBehind
 
                 // O plano de brilho e o de cor são fatias do MESMO vetor, e viajam para o

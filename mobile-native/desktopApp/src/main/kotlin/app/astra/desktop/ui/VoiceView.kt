@@ -193,16 +193,25 @@ fun VoiceView(
         // faixa JÁ está desenhada ali com as pessoas todas — acrescentar uma segunda
         // fileira de nomes seria repetir a mesma lista roubando altura do palco, que é
         // justamente o que o palco não tem de sobra.
-        val telas by call.telasDosOutros.collectAsState()
+        // OBSERVA QUEM TEM TELA, NUNCA O QUADRO. O mapa de quadros muda trinta vezes por
+        // segundo por pessoa transmitindo, e observá-lo aqui recompunha ESTA TELA INTEIRA
+        // nesse ritmo: a legenda de baixo remontava a frase, a faixa de participantes
+        // refazia os tiles, e a escolha de palco abaixo era recalculada — tudo para
+        // desenhar uma imagem que o Skia já desenha sozinho no `drawBehind`.
+        //
+        // `quemTemTela` é o conjunto de chaves daquele mapa, e só se mexe quando uma
+        // transmissão começa ou acaba. O quadro em si desce direto para quem desenha, por
+        // fora da composição — ver `TelaCompartilhada`.
+        val comTela by call.quemTemTela.collectAsState()
         val mostrando by call.mostrandoTela.collectAsState()
 
         // A ESCOLHA SOBREVIVE À TELA ESCOLHIDA, e não ao contrário: se quem eu escolhi
         // parar de transmitir, o palco volta sozinho para quem sobrou em vez de ficar
         // preto esperando uma decisão minha.
         var telaEscolhida by remember { mutableStateOf<String?>(null) }
-        val quemMostra = remember(telas, mostrando, telaEscolhida) {
+        val quemMostra = remember(comTela, mostrando, telaEscolhida) {
             telaEscolhida?.takeIf { it in mostrando }
-                ?: mostrando.firstOrNull { telas.containsKey(it) }
+                ?: mostrando.firstOrNull { it in comTela }
                 ?: mostrando.firstOrNull()
         }
 
@@ -282,8 +291,7 @@ fun VoiceView(
                             .background(Obsidian.void),
                         contentAlignment = Alignment.Center,
                     ) {
-                        val quadro = telas[quemMostra]
-                        if (quadro == null) {
+                        if (quemMostra !in comTela) {
                             // O VAZIO DURA UM INSTANTE E TEM NOME. Entre o aviso de que
                             // alguém começou a transmitir e o primeiro quadro passam-se
                             // alguns décimos — o descompressor precisa da sequência de
@@ -294,7 +302,7 @@ fun VoiceView(
                                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
                             )
                         } else {
-                            TelaCompartilhada(quadro, Modifier.fillMaxSize())
+                            TelaCompartilhada(call.telasDosOutros, quemMostra, Modifier.fillMaxSize())
                         }
                     }
                     Spacer(Modifier.height(10.dp))

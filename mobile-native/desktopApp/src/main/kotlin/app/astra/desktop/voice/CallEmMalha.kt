@@ -78,7 +78,13 @@ class CallEmMalha(
 
     // A TELA DE CADA PESSOA, vinda pelo cano à parte. O mapa é do cano e não daqui: os
     // quadros nunca passam pela ponte de comandos, então não há o que traduzir no meio.
+    //
+    // MUDA NO RITMO DO VÍDEO. Só quem desenha deve observá-lo — ver `TelaCompartilhada`.
     val telasDosOutros = sidecar.quadros.telas
+
+    // De quem já chegou imagem. Muda quando uma transmissão começa ou acaba, e é o que a
+    // interface deve olhar para decidir o que existe no palco.
+    val quemTemTela = sidecar.quadros.quemTransmite
 
     // Quem ANUNCIOU que está transmitindo, o que é diferente de quem já mandou quadro.
     // A diferença dura um instante — o descompressor precisa da sequência de parâmetros

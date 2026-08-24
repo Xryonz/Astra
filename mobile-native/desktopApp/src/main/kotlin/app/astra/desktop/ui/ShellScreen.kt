@@ -2490,6 +2490,11 @@ private fun OrbitList(
     // Deriva a estrutura da sidebar (filtro/sort/groupBy) SO quando canais/categorias
     // mudam — não a cada recomposição. Sem isto, o poll de presença de voz (5s) e cada
     // mensagem em qualquer canal (state novo) refaziam tudo do zero. (Perf P0-2.)
+    // Id vira pessoa por BUSCA DIRETA, e não varrendo a lista a cada linha de presença.
+    // Numa constelação grande, `find` dentro do laço de quem está na call é uma varredura
+    // por pessoa por órbita de voz — e ela se repetia a cada mensagem que chegasse em
+    // qualquer canal, porque é isso que recompõe esta lista. Mesmo idioma do `VoiceView`.
+    val pessoaPorId = remember(members) { members.associateBy { it.userId } }
     val catIds = remember(server.categories) { server.categories.map { it.id }.toSet() }
     val loose = remember(server.channels, catIds) {
         server.channels.filter { it.categoryId == null || it.categoryId !in catIds }.sortedBy { it.position }
@@ -2520,7 +2525,7 @@ private fun OrbitList(
             CascadeIn(i, server.id) {
                 OrbitEntry(
                     ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
-                    members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                    pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
                     dragCtx = if (isOwner) ChannelDragCtx(drag, "loose", i, loose.size, looseIds, onReorderChannels, onMoveToCategory) else null,
                     menu = chMenu,
                 )
@@ -2625,7 +2630,7 @@ private fun OrbitList(
                         ) {
                             OrbitEntry(
                                 ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
-                                members, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
+                                pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
                                 // Reordena so quando aberta (indice do visivel == indice real).
                                 dragCtx = if (isOwner && !collapsed)
                                     ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory) else null,
@@ -2872,7 +2877,7 @@ private fun OrbitEntry(
     active: Boolean,
     unread: Boolean,
     unreadCount: Int,
-    members: List<ServerMemberDto>,
+    pessoaPorId: Map<String, ServerMemberDto>,
     voicePresence: Map<String, List<String>>,
     myId: String?,
     myVoiceChannelId: String?,
@@ -2931,7 +2936,7 @@ private fun OrbitEntry(
                 if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base else base
             }
             ids.forEach { uid ->
-                val user = members.find { it.userId == uid }?.user
+                val user = pessoaPorId[uid]?.user
                 VoicePresenceRow(
                     avatarUrl = user?.avatarUrl,
                     name = user?.displayName ?: user?.username ?: "…",

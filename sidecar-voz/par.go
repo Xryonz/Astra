@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -208,7 +209,7 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 		_ = remota.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
 		pacote, _, err := remota.ReadRTP()
 		if err != nil {
-			if errors.Is(err, os.ErrDeadlineExceeded) {
+			if esperaEstourada(err) {
 				if det.Alimentar(nil, time.Now()) {
 					p.avisarFala(det.Falando())
 				}
@@ -299,6 +300,34 @@ func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 			}
 		}
 	}
+}
+
+// esperaEstourada diz se o erro é "o prazo de leitura venceu" e não uma falha de verdade.
+//
+// `errors.Is(err, os.ErrDeadlineExceeded)` NÃO SERVE AQUI, e a lição custou caro porque
+// falha do jeito mais silencioso possível: o pion devolve `*packetio.netError`, um tipo
+// dele, que implementa `net.Error` mas NÃO embrulha o erro sentinela da biblioteca
+// padrão. A comparação compila, roda, e responde "não é prazo" para um erro que é
+// exatamente um prazo. MEDIDO, e não deduzido — foi o que a sonda imprimiu quando a
+// transmissão de tela ganhou prazo de leitura:
+//
+//	SONDA: a faixa de A morreu: *packetio.netError i/o timeout
+//
+// O ESTRAGO É GRANDE PORQUE O RAMO DO PRAZO É O CAMINHO NORMAL, não o de exceção:
+//
+//	voz   quem está MUDO não manda pacote nenhum — o mudo corta na fonte, no motor. O
+//	      prazo de 200ms vencia, a comparação dizia "não é prazo", e a goroutine
+//	      RETORNAVA. Quem ficasse mudo por um quinto de segundo deixava de ser ouvido pelo
+//	      resto da chamada, inclusive depois de desmutar, porque não sobrava ninguém lendo
+//	      a faixa dela. E o pior: a faixa abandonada continua acumulando no buffer do pion.
+//	tela  o mesmo, com a tela parada.
+//
+// `net.Error.Timeout()` é a pergunta certa. É a interface que os dois implementam, e
+// `os.ErrDeadlineExceeded` também responde `true` nela — então isto cobre os dois casos
+// sem precisar saber qual biblioteca produziu o erro.
+func esperaEstourada(err error) bool {
+	var deRede net.Error
+	return errors.As(err, &deRede) && deRede.Timeout()
 }
 
 func (p *Par) avisarFala(falando bool) {

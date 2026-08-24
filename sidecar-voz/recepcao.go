@@ -60,6 +60,28 @@ import (
 // ponteiros — nada perto de uma transmissão que não abre.
 const pacotesQueEsperam = 512
 
+// QUANTO SILÊNCIO QUER DIZER "ACABOU".
+//
+// Não existe pacote de "parei de transmitir" em RTP: a faixa continua declarada no SDP e
+// simplesmente deixa de trafegar. Sem um prazo, a última imagem de quem parou ficava no
+// palco de todo mundo parecendo ao vivo, até a pessoa sair da chamada — e quem olha não
+// tem como saber que está olhando o passado.
+//
+// O NÚMERO SÓ PODE EXISTIR PORQUE O OUTRO LADO FALA COM A TELA PARADA. Antes de
+// `sinalDeVida`, "sem pacote" e "sem mudança na tela" eram indistinguíveis, e qualquer
+// prazo aqui apagaria a tela de quem compartilha um documento e para de mexer — que é o
+// caso de uso, não a exceção. Os dois números são um par: mexer num sem o outro reintroduz
+// exatamente esse defeito.
+//
+// Cinco segundos são duas vezes e meia o sinal de vida: dois sinais seguidos podem se
+// perder na rede sem que a imagem de ninguém pisque.
+const silencioQueEncerra = 5 * time.Second
+
+// De quanto em quanto tempo a leitura acorda para conferir o relógio. Curto perto do
+// silêncio que encerra, para o prazo valer o que diz, e longo o bastante para a espera não
+// virar giro em vão.
+const conferirOSilencio = 500 * time.Millisecond
+
 // receberTela lê a faixa de vídeo desta pessoa e entrega os quadros ao Astra.
 //
 // SÓ DECODIFICA A TELA QUE ESTÁ NO PALCO, e essa é a diferença mais importante entre
@@ -106,8 +128,18 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	// junto do descompressor, sair do palco apagaria o distintivo, e a tela que ninguém
 	// está vendo viraria uma tela que ninguém CONSEGUE ver — o beco sem saída em que o
 	// próprio remédio tranca a porta.
+	//
+	// E ELE VAI E VOLTA. `noAr` acompanha se a tela desta pessoa está de pé agora; ela cai
+	// quando o silêncio passa de `silencioQueEncerra` e volta quando chega pacote de novo.
+	// Sem essa ida e volta, uma transmissão que parasse e recomeçasse ficaria fora do palco
+	// para sempre.
+	noAr := true
 	p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: "faixa"})
-	defer p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "0"})
+	defer func() {
+		if noAr {
+			p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "0"})
+		}
+	}()
 
 	// "PERDI A IMAGEM, MANDA UM QUADRO-CHAVE."
 	//
@@ -156,10 +188,38 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	var quadros, pacotes, amostras, ignorados int
 	relatorio := time.Now()
 
+	ultimoPacote := time.Now()
+
 	for {
+		// PRAZO DE LEITURA, e ele existe pelo mesmo motivo do prazo da faixa de voz: sem
+		// ele, `ReadRTP` bloqueia para sempre e "acabou" nunca é percebido, porque a
+		// ausência de pacote não gera evento nenhum. O prazo transforma "não chegou nada"
+		// em uma pergunta ao relógio, que é o que isso de fato é.
+		_ = remota.SetReadDeadline(time.Now().Add(conferirOSilencio))
 		pacote, _, err := remota.ReadRTP()
 		if err != nil {
-			return
+			if !esperaEstourada(err) {
+				return
+			}
+			if noAr && time.Since(ultimoPacote) >= silencioQueEncerra {
+				// ACABOU DE VERDADE. Com a tela apenas parada teria chegado o sinal de
+				// vida do outro lado (ver `sinalDeVida` em `emissao.go`).
+				noAr = false
+				if d != nil {
+					d.Fechar()
+					d, remontador = nil, nil
+					jaTemImagem = false
+				}
+				p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "0"})
+			}
+			continue
+		}
+		ultimoPacote = time.Now()
+		if !noAr {
+			// VOLTOU. Recomeçar a transmissão não abre faixa nova — a mesma volta a
+			// trafegar —, então este é o único lugar onde dá para perceber.
+			noAr = true
+			p.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: p.id, V: "1", Tipo: "faixa"})
 		}
 		pacotes++
 

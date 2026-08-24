@@ -76,6 +76,23 @@ const (
 	quadrosMedidos     = 16
 )
 
+// DE QUANTO EM QUANTO TEMPO A TELA PARADA DÁ SINAL DE VIDA.
+//
+// O número sai de um empate entre duas coisas que puxam para lados opostos:
+//
+//	curto demais  ->  banda gasta à toa. O quadro reenviado é um quadro-chave, e neste
+//	                  compressor ele mede ~99 KB (medido em `sonda_nal_test.go`). A dois
+//	                  segundos isso são ~0,4 Mbps com a tela imóvel.
+//	longo demais  ->  quem para de transmitir demora a sumir do palco alheio, porque o
+//	                  outro lado só pode declarar o fim depois de esperar mais que isto.
+//
+// Dois segundos gastam 16% do preset de 2,5 Mbps — e gastam isso justamente no momento em
+// que os outros 84% não estão sendo usados, porque nada está mudando na tela. Do outro
+// lado, `silencioQueEncerra` espera duas vezes e meia isto antes de dar a tela por
+// encerrada, de modo que dois sinais podem se perder na rede sem apagar a imagem de
+// ninguém.
+const sinalDeVida = 2 * time.Second
+
 // AjustesDaTela é o preset que a pessoa escolheu em Configurações › Voz.
 type AjustesDaTela struct {
 	Monitor int
@@ -283,7 +300,7 @@ func (e *Emissor) transmitir(
 	ritmo := NovoRitmo(c.fps)
 	comeco := time.Now()
 	relatorio := time.Now()
-	var quadros, bytesEnviados, capturados, semSaida, semMudanca int
+	var quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos int
 	var marco Custos // onde a janela do aquecimento começa; ver o `switch` no laço
 	perfilVisto := false
 
@@ -292,6 +309,11 @@ func (e *Emissor) transmitir(
 	// cópias desta função divergiriam, e a que divergisse seria a do caminho raro — o
 	// que se percebe só quando alguém para de mexer no mouse.
 	var falhaAoEntregar error
+	// O ÚLTIMO QUADRO QUE ABRE IMAGEM SOZINHO, guardado para ser reenviado com a tela
+	// parada. Ver `abreImagemSozinho` e o bloco `textura == 0` mais abaixo.
+	var abridor []byte
+	var ultimaSaida time.Time
+	reenviando := false
 	entregar := func(quadroPronto []byte) {
 		if !perfilVisto {
 			if p, ok := perfilDoSPS(quadroPronto); ok {
@@ -299,6 +321,13 @@ func (e *Emissor) transmitir(
 				e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "perfil", Msg: p})
 			}
 		}
+		// A CÓPIA É OBRIGATÓRIA: este fatiamento é emprestado do compressor e vale só até
+		// a chamada de volta terminar. `reenviando` evita copiar o buffer sobre si mesmo
+		// no caminho do reenvio, que funcionaria mas seria trabalho para nada.
+		if !reenviando && abreImagemSozinho(quadroPronto) {
+			abridor = append(abridor[:0], quadroPronto...)
+		}
+		ultimaSaida = time.Now()
 		// ESCREVER SEM NINGUÉM CONECTADO NÃO É ERRO. Um `TrackLocalStaticSample` sem
 		// ligação nenhuma engole a amostra em silêncio, e é o que queremos: transmitir
 		// sozinho numa sala é o caso de quem começou a compartilhar antes de o primeiro
@@ -353,6 +382,44 @@ func (e *Emissor) transmitir(
 			}
 			if falhaAoEntregar != nil {
 				return nil, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+			}
+
+			// A TELA PARADA AINDA PRECISA DAR SINAL DE VIDA — e este bloco conserta dois
+			// defeitos de uma vez, os dois medidos em `sonda_fimdatela_test.go`.
+			//
+			// 1. QUEM CHEGA COM A TELA PARADA NUNCA VIA IMAGEM. O pedido de quadro-chave
+			//    era atendido lá embaixo, DEPOIS do `continue` que este bloco substitui:
+			//    com a tela parada, `querChave` ficava pendurado e ninguém o levantava.
+			//    Quem entrasse numa sala onde já se compartilhava uma tela parada lia
+			//    "abrindo a tela de fulano…" até alguém mexer o mouse.
+			//
+			// 2. QUEM PARAVA DE TRANSMITIR FICAVA CONGELADO NO PALCO ALHEIO. Não existe
+			//    pacote de "acabou" em RTP; a faixa só para de trafegar. Quem assiste não
+			//    tinha como distinguir "parou" de "está parada", porque os dois eram
+			//    silêncio. Agora "está parada" faz barulho, e só o silêncio de verdade
+			//    quer dizer que acabou (ver `recepcao.go`).
+			//
+			// POR QUE REENVIAR EM VEZ DE CAPTURAR DE NOVO: com nada mudando o DXGI não
+			// entrega quadro nenhum — `QuadroAtual` não ajuda, foi medido. A alternativa
+			// seria guardar uma cópia da textura na placa (CreateTexture2D + CopyResource)
+			// e recomprimi-la; reenviar bytes que já saíram custa zero de CPU e ~99 KB de
+			// memória, e o resultado no fio é idêntico.
+			//
+			// REENVIAR É SEGURO PORQUE O QUADRO É AUTOCONTIDO. Um IDR com SPS e PPS junto
+			// não descreve diferença nenhuma em relação ao anterior: ele descreve a imagem
+			// inteira. Aplicá-lo duas vezes dá duas vezes a mesma imagem. Com um quadro de
+			// diferença (P) isso seria errado, e é por isso que só o abridor é guardado.
+			if len(abridor) > 0 {
+				pediram := e.querChave.Swap(false)
+				if pediram || time.Since(ultimaSaida) >= sinalDeVida {
+					reenviando = true
+					entregar(abridor)
+					reenviando = false
+					revividos++
+					if falhaAoEntregar != nil {
+						return nil, fmt.Errorf("entregar o quadro: %w", falhaAoEntregar)
+					}
+				}
 			}
 			continue
 		}
@@ -436,18 +503,19 @@ func (e *Emissor) transmitir(
 		// mesma regra.
 		if desde := time.Since(relatorio); desde >= time.Second {
 			perda := e.perdas.Pior()
-			e.saida.Manda(Evento{
-				Ev:   EvTransmissao,
-				V:    "1",
-				Tipo: "ritmo",
-				Msg: fmt.Sprintf("%d fps · %.1f Mbps · %.0f%% perdido · %d capturados · %d sem saída · %d sem mudança",
-					int(float64(quadros)/desde.Seconds()),
-					float64(bytesEnviados)*8/desde.Seconds()/1_000_000,
-					perda*100,
-					capturados, semSaida, semMudanca),
-			})
+			msg := fmt.Sprintf("%d fps · %.1f Mbps · %.0f%% perdido · %d capturados · %d sem saída · %d sem mudança",
+				int(float64(quadros)/desde.Seconds()),
+				float64(bytesEnviados)*8/desde.Seconds()/1_000_000,
+				perda*100,
+				capturados, semSaida, semMudanca)
+			// SEPARADO DOS OUTROS, porque é o único número que aparece quando a tela está
+			// parada — e é ele que explica uma transmissão gastando banda com "0 fps".
+			if revividos > 0 {
+				msg += fmt.Sprintf(" · %d reenviados com a tela parada", revividos)
+			}
+			e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()
-			quadros, bytesEnviados, capturados, semSaida, semMudanca = 0, 0, 0, 0, 0
+			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos = 0, 0, 0, 0, 0, 0
 
 			// A REDE ESTÁ AGUENTANDO? O controle decide uma vez por segundo e quase
 			// sempre responde "continua igual" — a histerese dele existe justamente
@@ -483,25 +551,68 @@ func (e *Emissor) transmitir(
 // Devolve o mesmo formato do `profile-level-id` do SDP, para dar para comparar com o
 // que a faixa declara sem converter nada na cabeça.
 func perfilDoSPS(fluxo []byte) (string, bool) {
+	perfil, achou := "", false
+	percorrerNal(fluxo, func(tipo byte, inicio int) bool {
+		// 7 é a sequência de parâmetros (SPS), a única que carrega perfil e nível.
+		if tipo != 7 || inicio+3 >= len(fluxo) {
+			return true
+		}
+		perfil = fmt.Sprintf("%02x%02x%02x", fluxo[inicio+1], fluxo[inicio+2], fluxo[inicio+3])
+		achou = true
+		return false
+	})
+	return perfil, achou
+}
+
+// percorrerNal visita cada unidade do fluxo, entregando o tipo e onde ela começa.
+// Devolver `false` para a função para a varredura.
+//
+// Código de início de três ou quatro bytes; os dois convivem no mesmo fluxo, e é por isso
+// que isto não é um `bytes.Split`. Os cinco bits de baixo do primeiro byte dizem o tipo.
+func percorrerNal(fluxo []byte, cada func(tipo byte, inicio int) bool) {
 	for i := 0; i+4 < len(fluxo); i++ {
-		// Código de início, de três ou quatro bytes. Os dois convivem no mesmo fluxo.
 		if fluxo[i] != 0 || fluxo[i+1] != 0 {
 			continue
 		}
 		inicio := 0
-		if fluxo[i+2] == 1 {
+		switch {
+		case fluxo[i+2] == 1:
 			inicio = i + 3
-		} else if fluxo[i+2] == 0 && i+5 < len(fluxo) && fluxo[i+3] == 1 {
+		case fluxo[i+2] == 0 && i+5 < len(fluxo) && fluxo[i+3] == 1:
 			inicio = i + 4
-		} else {
+		default:
 			continue
 		}
-		// Os cinco bits de baixo do cabeçalho dizem o tipo; 7 é a sequência de
-		// parâmetros (SPS), a única que carrega perfil e nível.
-		if inicio+3 >= len(fluxo) || fluxo[inicio]&0x1F != 7 {
-			continue
+		if !cada(fluxo[inicio]&0x1F, inicio) {
+			return
 		}
-		return fmt.Sprintf("%02x%02x%02x", fluxo[inicio+1], fluxo[inicio+2], fluxo[inicio+3]), true
 	}
-	return "", false
+}
+
+// abreImagemSozinho diz se esta amostra basta para o outro lado montar imagem do zero.
+//
+// A DEFINIÇÃO É PRECISA E NÃO É "É UM QUADRO-CHAVE". Um IDR sozinho não abre nada: ele
+// descreve a imagem, mas as dimensões, o perfil e as tabelas de referência estão no SPS
+// (7) e no PPS (8). Guardar um IDR pelado para reenviar depois entregaria a quem chega um
+// quadro que o descompressor recusa — e o sintoma seria "abrindo a tela…" para sempre,
+// que é exatamente o defeito que se está consertando.
+//
+// MEDIDO neste compressor (`sonda_nal_test.go`): o quadro-chave sai `IDR SEI SPS PPS AUD`
+// com ~99 KB, e os normais saem `P SEI PPS AUD` com ~9 KB. Ou seja, os três vêm juntos —
+// mas isso é conclusão de medição, não de documentação, e esta função é onde a suposição
+// fica testável se algum dia o compressor for outro.
+func abreImagemSozinho(fluxo []byte) bool {
+	var temSPS, temPPS, temIDR bool
+	percorrerNal(fluxo, func(tipo byte, _ int) bool {
+		switch tipo {
+		case 7:
+			temSPS = true
+		case 8:
+			temPPS = true
+		case 5:
+			temIDR = true
+		}
+		return !(temSPS && temPPS && temIDR)
+	})
+	return temSPS && temPPS && temIDR
 }

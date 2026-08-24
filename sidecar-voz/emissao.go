@@ -81,8 +81,9 @@ const (
 // O número sai de um empate entre duas coisas que puxam para lados opostos:
 //
 //	curto demais  ->  banda gasta à toa. O quadro reenviado é um quadro-chave, e neste
-//	                  compressor ele mede ~99 KB (medido em `sonda_nal_test.go`). A dois
-//	                  segundos isso são ~0,4 Mbps com a tela imóvel.
+//	                  compressor ele mede ~99 KB (medido numa sonda temporária, que não
+//	                  ficou no repositório — ver `abreImagemSozinho`). A dois segundos
+//	                  isso são ~0,4 Mbps com a tela imóvel.
 //	longo demais  ->  quem para de transmitir demora a sumir do palco alheio, porque o
 //	                  outro lado só pode declarar o fim depois de esperar mais que isto.
 //
@@ -396,7 +397,7 @@ func (e *Emissor) transmitir(
 			}
 
 			// A TELA PARADA AINDA PRECISA DAR SINAL DE VIDA — e este bloco conserta dois
-			// defeitos de uma vez, os dois medidos em `sonda_fimdatela_test.go`.
+			// defeitos de uma vez, os dois medidos em `telaparada_test.go`.
 			//
 			// 1. QUEM CHEGA COM A TELA PARADA NUNCA VIA IMAGEM. O pedido de quadro-chave
 			//    era atendido lá embaixo, DEPOIS do `continue` que este bloco substitui:
@@ -616,7 +617,9 @@ func percorrerNal(fluxo []byte, cada func(tipo byte, inicio int) bool) {
 // quadro que o descompressor recusa — e o sintoma seria "abrindo a tela…" para sempre,
 // que é exatamente o defeito que se está consertando.
 //
-// MEDIDO neste compressor (`sonda_nal_test.go`): o quadro-chave sai `IDR SEI SPS PPS AUD`
+// MEDIDO neste compressor, numa sonda temporária que não ficou no repositório — o número
+// abaixo é o que ela deixou, e esta função é onde ele volta a ser testável se o
+// compressor mudar: o quadro-chave sai `IDR SEI SPS PPS AUD`
 // com ~99 KB, e os normais saem `P SEI PPS AUD` com ~9 KB. Ou seja, os três vêm juntos —
 // mas isso é conclusão de medição, não de documentação, e esta função é onde a suposição
 // fica testável se algum dia o compressor for outro.

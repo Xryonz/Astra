@@ -46,20 +46,3 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
-  const token = extractBearer(req.headers.authorization)
-  if (!token) return next()
-
-  try {
-    const payload = verifyAccessToken(token)
-    const revoked = await isTokenBlacklisted(payload.jti)
-    if (!revoked) {
-      req.userId = payload.userId
-      req.jti    = payload.jti
-    }
-  } catch {
-
-  }
-
-  next()
-}

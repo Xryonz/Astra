@@ -41,6 +41,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -77,10 +78,25 @@ private object CenterOverlay : PopupPositionProvider {
 }
 
 @Composable
-internal fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
+internal fun DialogShell(
+    onClose: () -> Unit,
+    largura: Dp = 400.dp,
+    respiro: Dp = 18.dp,
+    content: @Composable () -> Unit,
+) {
     // ENTRADA E SAIDA ANIMADAS, aqui e nao em cada dialogo: o DialogShell e o casco
     // do convite E da enquete, entao animar num lugar so anima os dois e impede que
     // um dia eles animem diferente.
+    //
+    // OS DOIS DIALOGOS DAS CONFIGURACOES ENTRARAM DEPOIS, e o motivo de terem ficado
+    // de fora e instrutivo: eles montavam o mesmo Popup a mao, com um
+    // `PopupPositionProvider` identico a este mas chamado `OverlayCenter` em vez de
+    // `CenterOverlay` — dois nomes para o MESMO objeto, em arquivos diferentes. O
+    // custo nao foi a duplicacao: foi que os dois nasceram SEM a animacao daqui e
+    // apareciam secos, exatamente o "piscar" que este casco existe para evitar.
+    //
+    // Largura e respiro viraram parametro so por causa deles (360/18 e 400/20). O
+    // resto era igual linha a linha.
     //
     // Mesma coreografia do perfil completo (ProfilePage): o scrim faz fade, o cartao
     // escala de 0,94 e sobe 16dp. Aparecer seco e o que fazia o dialogo "piscar" na
@@ -133,7 +149,7 @@ internal fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
                         scaleY = s
                         translationY = (1f - v) * 16.dp.toPx()
                     }
-                    .width(400.dp)
+                    .width(largura)
                     .clip(RoundedCornerShape(14.dp))
                     .background(Obsidian.raised)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
@@ -142,7 +158,7 @@ internal fun DialogShell(onClose: () -> Unit, content: @Composable () -> Unit) {
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                     ) {}
-                    .padding(18.dp),
+                    .padding(respiro),
             ) { content() }
         }
     }

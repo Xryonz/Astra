@@ -49,12 +49,6 @@ export async function getMemberPerms(userId: string, serverId: string): Promise<
   return computeMemberPerms(srv.ownerId, userId, member ?? null, rolesPermsRaw)
 }
 
-export async function hasPermission(userId: string, serverId: string, perm: Permission): Promise<boolean> {
-  const m = await getMemberPerms(userId, serverId)
-  if (m.isOwner) return true
-  return m.permissions.has(perm)
-}
-
 export function parsePermissionsJson(raw: unknown): Permission[] {
   if (typeof raw !== 'string') return []
   try {

@@ -23,9 +23,3 @@ export async function haBloqueio(a: string, b: string): Promise<boolean> {
   return !!linha
 }
 
-/** Quem EU bloqueei (pra interface mostrar "Desbloquear" no lugar de "Bloquear"). */
-export async function quemEuBloqueei(userId: string): Promise<string[]> {
-  const linhas = await db.select({ id: userBlocks.blockedId }).from(userBlocks)
-    .where(eq(userBlocks.blockerId, userId))
-  return linhas.map((l) => l.id)
-}

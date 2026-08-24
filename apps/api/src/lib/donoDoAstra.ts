@@ -21,12 +21,9 @@ const DONOS: ReadonlySet<string> = new Set(
     .filter(Boolean),
 )
 
-// Vazio = ninguem edita. Ausencia de configuracao virando "todo mundo pode" e o
-// jeito classico de uma trava dessas nao existir na producao sem ninguem notar.
-export function haDono(): boolean {
-  return DONOS.size > 0
-}
-
+// LISTA VAZIA = NINGUEM EDITA, e repare que a saida antecipada abaixo garante isso.
+// Ausencia de configuracao virando "todo mundo pode" e o jeito classico de uma trava
+// dessas nao existir na producao sem ninguem notar.
 export async function ehDonoDoAstra(userId: string | undefined): Promise<boolean> {
   if (!userId || DONOS.size === 0) return false
   const [u] = await db.select({ username: users.username })

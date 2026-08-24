@@ -27,7 +27,6 @@ export async function initFcm(): Promise<void> {
   }
 }
 
-export function isFcmEnabled() { return messaging !== null }
 
 export async function sendFcmToUser(userId: string, payload: PushPayload): Promise<void> {
   if (!messaging) return

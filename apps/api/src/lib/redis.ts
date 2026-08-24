@@ -135,14 +135,6 @@ export async function getUserStatus(userId: string): Promise<PresenceStatus | nu
   }
 }
 
-export async function isUserOnline(userId: string): Promise<boolean> {
-  try {
-    return (await redis.exists(presenceKeys.user(userId))) === 1
-  } catch {
-    return false
-  }
-}
-
 // Cache EM PROCESSO do resultado de isTokenBlacklisted. Esse check rodava um
 // comando Redis em TODA request autenticada (auth.ts) — de longe o maior
 // consumidor da quota do Upstash (o que estourou os 500k). Com um TTL curto,

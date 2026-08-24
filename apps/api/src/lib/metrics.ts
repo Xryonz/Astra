@@ -55,20 +55,6 @@ export const botTokensTotal = new client.Counter({
   registers: [registry],
 })
 
-export const dbQueryDurationMs = new client.Histogram({
-  name: 'db_query_duration_ms',
-  help: 'Duração de queries DB críticas',
-  labelNames: ['op'] as const,
-  buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000],
-  registers: [registry],
-})
-
-export async function timed<T>(op: string, fn: () => Promise<T>): Promise<T> {
-  const end = dbQueryDurationMs.startTimer({ op })
-  try { return await fn() }
-  finally { end() }
-}
-
 export async function renderMetrics(): Promise<string> {
   return registry.metrics()
 }

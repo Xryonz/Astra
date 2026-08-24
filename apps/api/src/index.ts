@@ -12,7 +12,6 @@ import { createAdapter } from '@socket.io/redis-adapter'
 import { redis } from './lib/redis'
 import cors       from 'cors'
 import compression from 'compression'
-import cookieParser from 'cookie-parser'
 
 import { env }            from './lib/env'
 import { isAllowedOrigin } from './lib/allowedOrigins'
@@ -129,8 +128,6 @@ app.use(cors({
 }))
 
 app.use(compression())
-
-app.use(cookieParser())
 
 app.use(reqContext)
 app.use(httpMetrics)

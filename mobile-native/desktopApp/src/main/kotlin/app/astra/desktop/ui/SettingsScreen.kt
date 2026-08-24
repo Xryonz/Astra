@@ -245,15 +245,14 @@ private val abasVisiveis: List<SettingsTab> =
         (it != SettingsTab.DIAGNOSTICS || abaDeDev) && it != SettingsTab.BOTS
     }
 
-// Largura da coluna de previa. Era 300 fixa (e 420 empilhada): com DUAS previas
-// lado a lado sobravam ~145dp pra cada cartao, e um cartao encolhido a 40% vira
-// mancha — da pra ver que ha um cartao, nao COMO ele esta.
-private val LARGURA_PREVIA = 420.dp
-// A aba Perfil e a UNICA em que a previa e o assunto, e nao o comentario: o que
-// se edita ali e o cartao, entao ver o cartao grande e ver o resultado. Nas
-// outras abas a previa e uma nota de rodape ao vivo (um aviso deslizando, um
-// medidor) e crescer so tiraria largura dos controles.
-private val LARGURA_PREVIA_PERFIL = 470.dp
+// Largura da coluna de previa, UMA para todas as secoes. Era 300 fixa (420
+// empilhada): com duas previas lado a lado sobravam ~145dp pra cada cartao, e um
+// cartao encolhido a 40% vira mancha — da pra ver que ha um cartao, nao COMO ele
+// esta. Depois houve um segundo valor, so pra secao do Perfil; ele morreu quando a
+// tela virou pagina unica, porque largura variavel ali remexeria a coluna no meio
+// da rolagem (ver o comentario de `larguraPrevia`). 470 e o valor que sobrou: o
+// que o cartao de perfil pede, que e o maior pedido da tela.
+private val LARGURA_DA_PREVIA = 470.dp
 // internal e nao private: a tela de configuracoes da CONSTELACAO usa a mesma
 // moldura. Duas telas irmas com dois raios diferentes seria o tipo de divergencia
 // que ninguem nota de proposito e todo mundo sente.
@@ -401,7 +400,7 @@ fun SettingsScreen(
             // coluna inteira mudaria de largura no meio da rolagem, so porque a
             // secao do Perfil entrou na tela. Layout que se remexe enquanto se
             // rola e pior que uma previa 50dp menor em duas secoes.
-            val larguraPrevia = LARGURA_PREVIA_PERFIL
+            val larguraPrevia = LARGURA_DA_PREVIA
             // PISO derivado da propria previa, e nao um numero fixo: 280dp e o
             // minimo em que um campo com rotulo ainda cabe numa linha. Abaixo
             // disso a previa desce pra dentro de cada secao.
@@ -1950,17 +1949,6 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     }
 }
 
-// Popup que cobre a JANELA inteira (offset zero) — o conteudo desenha o scrim e
-// centraliza o cartao. Mesmo idioma do modal central do ProfilePage.
-private object OverlayCenter : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset = IntOffset.Zero
-}
-
 // Modal de "redimensionar banner": mostra o MINI CARD (o que os outros veem) com a
 // imagem arrastavel + zoom. Vive FORA da coluna das configs, entao arrastar aqui
 // recompoe so este cartaozinho — não a aba inteira — e o gif do banner continua
@@ -1976,35 +1964,8 @@ private fun ResizeBannerDialog(
     var posY by remember { mutableStateOf(draft.bannerPositionY) }
     var scl by remember { mutableStateOf(draft.bannerScale) }
     val name = draft.displayName.ifBlank { username }
-    Popup(
-        popupPositionProvider = OverlayCenter,
-        onDismissRequest = onClose,
-        properties = PopupProperties(focusable = true),
-    ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Obsidian.void.copy(alpha = 0.72f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { onClose() }
-                .semCursorDeClique(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                Modifier
-                    .width(360.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Obsidian.raised)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    // Clique no cartao NAO fecha (so o scrim atras fecha).
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) {}
-                    .padding(18.dp),
-            ) {
+    DialogShell(onClose = onClose, largura = 360.dp) {
+        Column {
                 Text(
                     "redimensionar banner",
                     style = TextStyle(color = Obsidian.text1, fontSize = 15.sp, fontWeight = FontWeight.Medium),
@@ -2072,7 +2033,6 @@ private fun ResizeBannerDialog(
                     AboutButton("cancelar", accent = false) { onClose() }
                     AboutButton("salvar", accent = true) { onSave(posY, scl); onClose() }
                 }
-            }
         }
     }
 }
@@ -3058,35 +3018,8 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
         }
     }
 
-    Popup(
-        popupPositionProvider = OverlayCenter,
-        onDismissRequest = onClose,
-        properties = PopupProperties(focusable = true),
-    ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Obsidian.void.copy(alpha = 0.72f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { onClose() }
-                .semCursorDeClique(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                Modifier
-                    .width(400.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Obsidian.raised)
-                    .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    // Clique no cartão NÃO fecha (só o escurecido atrás fecha).
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) {}
-                    .padding(20.dp),
-            ) {
+    DialogShell(onClose = onClose, respiro = 20.dp) {
+        Column {
                 Text(
                     if (hasPassword) "Mudança de senha" else "Definir senha",
                     style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
@@ -3145,7 +3078,6 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
                         onClick = { salvar() },
                     )
                 }
-            }
         }
     }
 }

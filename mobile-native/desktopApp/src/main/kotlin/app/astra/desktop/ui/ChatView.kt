@@ -1796,25 +1796,6 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-// Botao-glifo do composer (+ / enviar): 30dp, tint controlavel, hover suave.
-// Desabilitado = sem hover e sem clique (ex: enviar sem texto).
-@Composable
-private fun ComposerGlyph(icon: ImageVector, tint: Color, enabled: Boolean, onClick: () -> Unit) {
-    val src = remember { MutableInteractionSource() }
-    val hov by src.collectIsHoveredAsState()
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (hov && enabled) Obsidian.hover else Color.Transparent)
-            .hoverable(src)
-            .clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(icon, tint = tint, size = 17.dp)
-    }
-}
-
 @Composable
 private fun Center(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

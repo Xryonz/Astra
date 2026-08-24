@@ -15,10 +15,6 @@ export function runWithLogContext<T>(ctx: LogContext, fn: () => T): T {
   return als.run(ctx, fn)
 }
 
-export function getLogContext(): LogContext | undefined {
-  return als.getStore()
-}
-
 let sentryRef: typeof import('./sentry').sentry | null = null
 function getSentry() {
   if (sentryRef) return sentryRef

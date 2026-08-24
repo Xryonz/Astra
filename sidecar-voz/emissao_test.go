@@ -114,7 +114,7 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 	// que esta fatia precisa conferir antes de existir alguém do outro lado para
 	// reclamar dele.
 	recolhidos := make(chan Evento, 256)
-	e := NovoEmissor(faixa, NewEscritor(coletor{recolhidos}))
+	e := NovoEmissor(faixa, NewEscritor(coletor{recolhidos}), nil)
 
 	e.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	time.Sleep(3 * time.Second)

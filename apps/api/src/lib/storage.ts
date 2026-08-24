@@ -4,6 +4,8 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import sharp from 'sharp'
+import { logger } from './logger'
+import { HttpError } from './errors'
 
 const {
   R2_ACCOUNT_ID,
@@ -130,7 +132,41 @@ function abreInline(mime: string): boolean {
   return base.startsWith('image/') || base.startsWith('video/') || base.startsWith('audio/')
 }
 
+// EM PRODUCAO, SEM BUCKET, RECUSA — e esta e a linha que impede a proxima leva de
+// imagens mortas.
+//
+// O fallback pro disco local abaixo parece prudencia ("melhor salvar em algum lugar do
+// que recusar o upload de alguem") e no desenvolvimento e exatamente isso: a maquina de
+// quem programa nao tem bucket configurado e nao precisa ter.
+//
+// Em producao ele e a MAQUINA QUE FABRICA IMAGEM ORFA. O disco do Render e efemero:
+// morre em todo deploy e em todo reinicio. Uma variavel de ambiente faltando por dez
+// minutos vira `/uploads/xxx` gravado no BANCO, apontando pra um arquivo que some no
+// proximo restart — e o banco fica com o endereco pra sempre. Nao ha erro no log, nao ha
+// upload falhado, nao ha nada pra investigar: a foto simplesmente some semanas depois,
+// e so pra quem chega depois (quem ja viu tem o cache em disco do cliente).
+//
+// Recusar troca uma falha SILENCIOSA e PERMANENTE por uma falha barulhenta e reversivel:
+// a pessoa ve "nao foi possivel salvar", tenta de novo depois, e o banco continua limpo.
+//
+// A mensagem diz os NOMES do que falta (nunca os valores) porque sem isso "storage local"
+// obriga a conferir cinco variaveis no painel uma a uma — o passo em que se erra de novo.
+const EXIGE_BUCKET = process.env.NODE_ENV === 'production'
+
 export async function putAttachment(key: string, body: Buffer, mime: string): Promise<string> {
+  if (!s3 && EXIGE_BUCKET) {
+    logger.error(
+      'storage',
+      `RECUSANDO upload: em produção e sem bucket. Falta no ambiente: ${storageFalta.join(', ') || '(não sei dizer)'}. ` +
+        'Gravar em disco aqui criaria URLs /uploads/ que morrem no próximo deploy.',
+    )
+    // 503 e nao 500: isto e temporario e nao e culpa de quem mandou o arquivo. A
+    // mensagem chega inteira ao cliente porque `HttpError` e tratado antes do
+    // "Erro interno" generico — e uma falha que a pessoa pode contornar (tentar de
+    // novo mais tarde) precisa dizer isso, senao ela reenvia dez vezes seguidas.
+    throw new HttpError(503, 'Armazenamento de imagens indisponível. Tente novamente em alguns minutos.', 'storage_indisponivel')
+  }
+
   if (s3) {
     await s3.send(new PutObjectCommand({
       Bucket: R2_BUCKET,

@@ -67,6 +67,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -325,6 +326,15 @@ type Compressor struct {
 	// quadro-chave é dezenas de vezes maior que um quadro comum), então ele cresce
 	// até o maior que já apareceu e para de crescer.
 	saida []byte
+
+	// A MINIATURA DA PRÓPRIA TELA, para a janela de quem transmite. Nulo quando ninguém
+	// pediu — e a transmissão não muda em nada quando é nulo.
+	//
+	// Mora AQUI e não no laço de emissão porque o que ele precisa é da amostra que este
+	// compressor já montou: a cópia da captura, embrulhada em `IMFSample`. Montá-la de
+	// novo lá fora seria repetir o rodízio de texturas inteiro para chegar ao mesmo
+	// objeto — e ainda segurar a textura do DXGI por mais tempo.
+	espelho *Espelho
 
 	// Onde o tempo de cada quadro foi gasto. Ver `Custos`.
 	Custos Custos
@@ -947,6 +957,26 @@ func (c *Compressor) embrulharUmQuadro(dispositivo objeto, desc descricaoDeTextu
 	return q, nil
 }
 
+// LigarEspelho pede a miniatura da própria tela, entregue em `mandar`.
+//
+// FALHAR AQUI NÃO DERRUBA NADA, e é o contrato inteiro desta função: sem o Video
+// Processor a transmissão continua igual, e o que se perde é a miniatura. Devolver erro
+// para quem chama transformaria "sem prévia" em "sem transmissão", que é a troca errada.
+//
+// Chamada DEPOIS de `AbrirCompressor` e não de dentro dele porque o compressor é aberto
+// e reaberto quando a taxa muda (ver `TaxaQueCabe`), e a prévia não precisa saber disso.
+func (c *Compressor) LigarEspelho(mandar func(Quadro)) {
+	if c == nil || c.espelho != nil {
+		return
+	}
+	e, err := AbrirEspelho(c.gerente, c.largura, c.altura, mandar)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sem prévia da própria tela: %v\n", err)
+		return
+	}
+	c.espelho = e
+}
+
 // Comprimir entrega um quadro da captura e devolve o H.264 que ficou pronto.
 //
 // A textura pode ser devolvida à captura ASSIM QUE ESTA FUNÇÃO RETORNA: a primeira
@@ -973,6 +1003,12 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 		a.chamar(amostraDefinirDuracao, uintptr(porSegundo/int64(c.fps)))
 	}
 	marcarTempo(q.amostra)
+
+	// O ESPELHO OLHA AQUI, e o lugar é escolhido: depois da cópia (então a textura do
+	// DXGI já pode voltar) e ANTES de qualquer caminho se ramificar — assim quem
+	// transmite vê a própria tela igual, com ou sem placa. Ele olha o relógio e volta na
+	// maioria das chamadas; ver `compassoDoEspelho`.
+	c.espelho.Talvez(q.amostra)
 
 	// O CAMINHO DE SOFTWARE SAI AQUI, e sai porque a ordem dele é outra: entrega o
 	// quadro de AGORA ao Video Processor e comprime o de ANTES. Ver `pendente`.
@@ -1382,6 +1418,8 @@ func (c *Compressor) Fechar() {
 		c.reduzir.Fechar()
 		c.reduzir = nil
 	}
+	c.espelho.Fechar()
+	c.espelho = nil
 	c.soltarSaidaNossa()
 	for _, q := range c.anel {
 		q.soltar()

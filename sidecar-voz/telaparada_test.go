@@ -129,7 +129,7 @@ func TestQuemParaDeTransmitirSaiDoPalcoDeQuemAssiste(t *testing.T) {
 			}
 		}
 	}()
-	emissor := NovoEmissor(tela, NewEscritor(escreveE))
+	emissor := NovoEmissor(tela, NewEscritor(escreveE), nil)
 	parA.pedirQuadroChave = emissor.PedirQuadroChave
 	emissor.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	defer emissor.Desligar()
@@ -255,7 +255,7 @@ func TestATransmissaoVivaNaoSomeDoPalco(t *testing.T) {
 		for linhas.Scan() {
 		}
 	}()
-	emissor := NovoEmissor(tela, NewEscritor(escreveE))
+	emissor := NovoEmissor(tela, NewEscritor(escreveE), nil)
 	parA.pedirQuadroChave = emissor.PedirQuadroChave
 	emissor.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	defer emissor.Desligar()

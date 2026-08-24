@@ -121,10 +121,14 @@ type Emissor struct {
 	// escreve são as goroutines de RTCP — uma por par — e elas existem mesmo com a
 	// transmissão desligada.
 	perdas *PerdaDosPares
+
+	// Por onde a miniatura da própria tela volta ao Astra. Nulo quando não há cano —
+	// rodar este processo à mão, e aí a transmissão segue sem prévia.
+	entrega *EntregaDeQuadros
 }
 
-func NovoEmissor(faixa *webrtc.TrackLocalStaticSample, saida *Escritor) *Emissor {
-	return &Emissor{faixa: faixa, saida: saida, perdas: NovaPerdaDosPares()}
+func NovoEmissor(faixa *webrtc.TrackLocalStaticSample, saida *Escritor, entrega *EntregaDeQuadros) *Emissor {
+	return &Emissor{faixa: faixa, saida: saida, perdas: NovaPerdaDosPares(), entrega: entrega}
 }
 
 // PerdaRelatada guarda o que um par acabou de dizer sobre o que não chegou.
@@ -255,6 +259,13 @@ func (e *Emissor) transmitir(
 		return nil, err
 	}
 	defer c.Fechar()
+
+	// A PRÓPRIA TELA VOLTA PELO MESMO CANO DOS OUTROS, com o par VAZIO — que é o que o
+	// protocolo já reservava para "eu" desde o começo (ver `ponte.go`). Do lado do Astra
+	// isso vira mais uma entrada no mapa de telas, desenhada pelo shader que já existe.
+	if e.entrega != nil {
+		c.LigarEspelho(func(q Quadro) { e.entrega.Mandar("", q) })
+	}
 
 	// A CONFIRMAÇÃO SAI ANTES DO PRIMEIRO QUADRO, e com o que de fato foi montado —
 	// não com o que foi pedido. O compressor pode ter caído para software, e o tamanho
@@ -477,10 +488,18 @@ func (e *Emissor) transmitir(
 				medir = false
 				custo := (c.Custos.Total() - marco.Total()) / quadrosMedidos
 				if nova := TaxaQueCabe(custo, c.fps); nova < c.fps {
+					// TIPO PRÓPRIO, E NÃO "ritmo" — a diferença não é cosmética.
+					//
+					// Este aviso é o ÚNICO lugar onde a pessoa fica sabendo por que a
+					// transmissão dela não está na taxa que ela escolheu, e ele acontece
+					// UMA VEZ. Enquanto saía como "ritmo", o relatório do segundo seguinte
+					// o sobrescrevia: a explicação aparecia por um segundo e sumia, e o
+					// que ficava era um número baixo sem causa. Com tipo próprio o Astra
+					// pode guardá-lo ao lado do relatório em vez de no lugar dele.
 					e.saida.Manda(Evento{
 						Ev:   EvTransmissao,
 						V:    "1",
-						Tipo: "ritmo",
+						Tipo: "taxa",
 						Msg: fmt.Sprintf("esta máquina gasta %.1fms por quadro; caindo para %d/s",
 							float64(custo.Microseconds())/1000, nova),
 					})

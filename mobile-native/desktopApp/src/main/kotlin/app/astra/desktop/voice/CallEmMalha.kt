@@ -76,6 +76,10 @@ class CallEmMalha(
     val relatorioDaTela = _relatorioDaTela.asStateFlow()
     @Volatile private var comoSubiu = ""
 
+    // Por que a taxa caiu abaixo do preset, se caiu. Dito UMA VEZ pelo emissor, no
+    // aquecimento — daí ser guardado em vez de só repassado. Ver o ramo "taxa".
+    @Volatile private var porQueCaiu = ""
+
     // A TELA DE CADA PESSOA, vinda pelo cano à parte. O mapa é do cano e não daqui: os
     // quadros nunca passam pela ponte de comandos, então não há o que traduzir no meio.
     //
@@ -85,6 +89,20 @@ class CallEmMalha(
     // De quem já chegou imagem. Muda quando uma transmissão começa ou acaba, e é o que a
     // interface deve olhar para decidir o que existe no palco.
     val quemTemTela = sidecar.quadros.quemTransmite
+
+    companion object {
+        /**
+         * O ENDEREÇO DA PRÓPRIA TELA no mapa de quadros.
+         *
+         * Vazio porque é o que o protocolo do cano já dizia desde o começo: "`Par` vazio
+         * significa EU" (ver `ponte.go`). A prévia entrou por essa porta que já existia
+         * em vez de abrir outra — nenhum campo novo, nenhum formato novo, e o mesmo
+         * shader desenha.
+         *
+         * Não colide com id de gente: id de usuário nunca é vazio.
+         */
+        const val EU = ""
+    }
 
     // Quem ANUNCIOU que está transmitindo, o que é diferente de quem já mandou quadro.
     // A diferença dura um instante — o descompressor precisa da sequência de parâmetros
@@ -527,12 +545,25 @@ class CallEmMalha(
                     _transmitindo.value = noAr
                     Transmitindo.marcar(noAr)
                     when {
-                        !noAr -> { comoSubiu = ""; _relatorioDaTela.value = "" }
+                        !noAr -> { comoSubiu = ""; porQueCaiu = ""; _relatorioDaTela.value = "" }
                         // O relatório por segundo se soma ao que subiu, e não o
                         // substitui: sem o nome do compressor a pessoa vê "14 fps" e
                         // não tem como saber se caiu para software.
-                        ev.tipo == "ritmo" -> _relatorioDaTela.value = listOf(comoSubiu, ev.msg.orEmpty())
-                            .filter { it.isNotBlank() }.joinToString(" · ")
+                        ev.tipo == "ritmo" -> _relatorioDaTela.value =
+                            listOf(comoSubiu, ev.msg.orEmpty(), porQueCaiu)
+                                .filter { it.isNotBlank() }.joinToString(" · ")
+                        // POR QUE A TAXA CAIU — dito uma vez pelo emissor, GUARDADO aqui.
+                        //
+                        // É a única explicação que existe para uma transmissão não estar
+                        // na taxa escolhida, e ela chega uma vez só, no aquecimento.
+                        // Enquanto vinha como "ritmo", o relatório do segundo seguinte a
+                        // apagava — a causa aparecia por um segundo e o que sobrava era um
+                        // número baixo sem motivo. Guardada, ela acompanha a linha
+                        // enquanto a transmissão durar.
+                        ev.tipo == "taxa" -> {
+                            porQueCaiu = ev.msg.orEmpty()
+                            VoiceLog.nota("[tela] taxa rebaixada: $porQueCaiu")
+                        }
                         // O perfil é diagnóstico, não recado: vai pro registro e não
                         // pra tela. Quem precisa dele é quem for escrever o
                         // decodificador, não quem está compartilhando a tela.

@@ -96,12 +96,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	// A ENTREGA NASCE ANTES DO EMISSOR porque ele passou a precisar dela: é por este cano
+	// que a miniatura da própria tela volta para a janela de quem transmite (ver
+	// `espelho.go`). Nulo aqui é o caso de rodar este processo à mão, e o emissor trata.
+	entrega := NovaEntrega()
+
 	app := &App{
 		saida:      escritor,
 		faixa:      faixa,
 		tela:       tela,
-		emissor:    NovoEmissor(tela, escritor),
-		entrega:    NovaEntrega(),
+		emissor:    NovoEmissor(tela, escritor, entrega),
+		entrega:    entrega,
 		misturador: misturador,
 		motor:      motor,
 		pares:      make(map[string]*Par),

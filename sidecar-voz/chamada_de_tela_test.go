@@ -188,7 +188,7 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 			}
 		}
 	}()
-	emissor := NovoEmissor(tela, NewEscritor(escreveE))
+	emissor := NovoEmissor(tela, NewEscritor(escreveE), nil)
 	emissor.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	defer emissor.Desligar()
 

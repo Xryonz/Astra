@@ -263,7 +263,7 @@ func TestATelaForaDoPalcoNaoEDecodificada(t *testing.T) {
 			}
 		}
 	}()
-	emissor := NovoEmissor(tela, NewEscritor(escreveE))
+	emissor := NovoEmissor(tela, NewEscritor(escreveE), nil)
 	// O PEDIDO DE QUADRO-CHAVE PRECISA CHEGAR NO EMISSOR, e ligá-lo é o que o `App` faz de
 	// verdade (ver `abrirPar`). Sem esta linha o arnês mede outro caminho: o PLI sai, cai
 	// no vazio, e a imagem só abre no quadro-chave natural — cinco segundos. Foi

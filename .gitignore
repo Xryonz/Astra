@@ -83,6 +83,12 @@ AGENTS.md
 # ── Docs pessoais: checkpoints/runbooks locais, não publicar ─
 docs/
 
+# ── Medições: planilhas de perfilamento (RAM, fps, banda). São o
+# rascunho de uma investigação, ficam obsoletas na semana seguinte, e
+# a conclusão delas já vive no comentário do código que originaram.
+memoria-*.csv
+*.perf.csv
+
 # ── OS ──────────────────────────────────────────────────────
 .DS_Store
 .AppleDouble

@@ -66,11 +66,19 @@ playwright/.cache/
 *.swo
 *~
 
-# ── Claude Code local settings + memória pessoal ──────────
-.claude/settings.local.json
-.claude/skills/
+# ── Ferramenta de desenvolvimento: fica LOCAL ──────────────
+# O repositório é público e leva só o PRODUTO — código, testes, build,
+# README. Como se trabalha no produto (agente, skills, planos, anotações)
+# não é do interesse de quem clona, incha o histórico, e às vezes carrega
+# coisa que não devia ser lida por estranho.
+.claude/
 .agents/
+.cursor/
+.windsurf/
+skills-lock.json
 CLAUDE.md
+AGENTS.md
+*.notas.md
 
 # ── Docs pessoais: checkpoints/runbooks locais, não publicar ─
 docs/

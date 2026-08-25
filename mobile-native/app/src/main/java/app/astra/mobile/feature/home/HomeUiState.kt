@@ -22,7 +22,6 @@ data class HomeUiState(
     val channelUnread: Set<String> = emptySet(),
     val activeVoice: List<ActiveVoiceRoom> = emptyList(),
 
-    // Silenciados (badges ignoram; canal efetivo = pref do canal > servidor).
     val mutedServers: Set<String> = emptySet(),
     val mutedChannels: Set<String> = emptySet(),
     val mutedConvs: Set<String> = emptySet(),
@@ -53,13 +52,10 @@ data class HomeUiState(
 
     val unreadNotifs: Int = 0,
 
-    // true 1x quando o me() chega sem onboardedAt -> Home dispara o onboarding.
     val needsOnboarding: Boolean = false,
 
-    // true 1x quando o me() chega sem emailVerifiedAt -> tela de codigo.
     val needsEmailVerify: Boolean = false,
 
-    // Conta Google sem senha -> overlay obrigatorio de criar senha.
     val needsPassword: Boolean = false,
     val pwSaving: Boolean = false,
     val pwError: String? = null,

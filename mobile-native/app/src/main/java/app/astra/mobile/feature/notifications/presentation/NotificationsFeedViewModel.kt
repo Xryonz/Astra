@@ -14,8 +14,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import javax.inject.Inject
 
-// Item ja "achatado" pro UI: payload JsonObject -> campos lenientes (null-safe),
-// cobre os 4 tipos (mention/dm/reply/reaction) sem um modelo por tipo.
 data class NotificationRow(
     val id: String,
     val type: String,

@@ -10,7 +10,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Deps transitivas do LiveKit Android (ex: audioswitch/webrtc) vivem aqui.
         maven { url = uri("https://jitpack.io") }
     }
 }

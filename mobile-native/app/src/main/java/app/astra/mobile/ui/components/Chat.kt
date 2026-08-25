@@ -102,7 +102,6 @@ data class ReactionChip(val emoji: String, val count: Int, val mine: Boolean)
 
 private val MentionRegex = Regex("@[a-z0-9_]+", RegexOption.IGNORE_CASE)
 
-/** Destaca tokens @username (formato literal do backend) na cor de destaque. */
 fun mentionAnnotated(text: String, accent: Color) = buildAnnotatedString {
     var last = 0
     for (m in MentionRegex.findAll(text)) {
@@ -113,8 +112,6 @@ fun mentionAnnotated(text: String, accent: Color) = buildAnnotatedString {
     if (last < text.length) append(text.substring(last))
 }
 
-// Code blocks: ```bloco``` vira caixa mono; `inline` vira span mono. Sem highlight
-// de sintaxe (fora de escopo) — so tipografia, como o chat do Discord basico.
 private val CodeBlockRegex = Regex("```[a-zA-Z0-9]*\\n?([\\s\\S]*?)```")
 private val InlineTokenRegex = Regex("(`[^`\\n]+`)|(@[a-z0-9_]+)", RegexOption.IGNORE_CASE)
 
@@ -133,7 +130,6 @@ private fun splitCodeSegments(text: String): List<MsgSeg> = buildList {
     if (last < text.length) add(MsgSeg.Plain(text.substring(last).trim('\n')))
 }
 
-/** Mencoes em destaque + `inline code` mono num mesmo texto. */
 private fun inlineAnnotated(text: String, accent: Color, codeBg: Color) = buildAnnotatedString {
     var last = 0
     for (m in InlineTokenRegex.findAll(text)) {
@@ -588,9 +584,6 @@ private fun MessageActionsMenu(
     }
 }
 
-// @Immutable: ChatRow e recriado a cada update (nunca mutado no lugar), entao a
-// promessa e verdadeira. Sem isso, as List<> internas o marcam instavel e as
-// lambdas por-item (que capturam row) nao memoizam -> MessageBubble nunca da skip.
 @Immutable
 data class ChatRow(
     val id: String,
@@ -631,7 +624,6 @@ fun ChatMessageList(
     onOpenProfile: ((String, String) -> Unit)? = null,
 ) {
     val animated = remember { mutableSetOf<String>() }
-    // Poda: mantem so os ids ainda carregados, senao o set cresce sem limite.
     LaunchedEffect(rows) { animated.retainAll(rows.mapTo(HashSet(rows.size)) { it.id }) }
     var shownOnce by remember { mutableStateOf(false) }
     LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) shownOnce = true }
@@ -869,9 +861,6 @@ fun ChatInputBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
 
-        // Um botao so: "+" abre menu flutuante com as opcoes (Fotos/GIF/Enquete/
-        // Emoji) pra nao poluir a linha do composer. Abre pra cima (composer no
-        // rodape, o DropdownMenu flipa sozinho).
         val hasOptions = onAttach != null || onGif != null || onPoll != null || onEmoji != null
         if (hasOptions) {
             var menuOpen by remember { mutableStateOf(false) }

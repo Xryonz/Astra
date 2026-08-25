@@ -15,7 +15,6 @@ data class BadgeMemberUi(
     val avatarUrl: String?,
 )
 
-// Presets de retencao (0 = pra sempre). Espelha o web (forever/1/7/30/90/365).
 val RETENTION_PRESETS: List<Pair<Int, String>> = listOf(
     0 to "Pra sempre",
     1 to "24 horas",

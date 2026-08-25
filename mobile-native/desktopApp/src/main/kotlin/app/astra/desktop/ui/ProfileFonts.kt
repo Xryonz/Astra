@@ -6,13 +6,6 @@ import app.astra.desktop.ui.theme.DmSans
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.GreatVibes
 
-// displayFont = a fonte do TEU NOME (chat, sussurros e perfil). O web guarda um
-// id ("serif", "mono", ...) e resolve numa stack CSS; aqui traduzimos pro que o
-// desktop realmente tem. O app empacota 4 fontes (DmSans/DmSerif/DmMono/
-// GreatVibes); as demais caem nas familias genericas do sistema.
-// NOTA: "rounded", "condensed" e "modern" não tem arquivo proprio e caem todas
-// na sans do sistema -> ficam parecidas entre si no desktop. Renderizamos os 8
-// mesmo assim porque o valor pode vir do web/mobile e não pode "sumir".
 data class ProfileFont(val id: String, val label: String, val family: FontFamily)
 
 val PROFILE_FONTS = listOf(
@@ -26,6 +19,5 @@ val PROFILE_FONTS = listOf(
     ProfileFont("modern", "Geometrica", FontFamily.SansSerif),
 )
 
-// Fallback = serif (mesmo default do web).
 fun profileFontFamily(id: String?): FontFamily =
     PROFILE_FONTS.find { it.id == id }?.family ?: DmSerif

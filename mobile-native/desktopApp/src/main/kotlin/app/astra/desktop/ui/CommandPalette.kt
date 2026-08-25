@@ -38,16 +38,6 @@ import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.dto.BotCommandDto
 import org.koin.core.context.GlobalContext
 
-// Caixinha de comandos: abre ao digitar "/" no comeco da mensagem e filtra
-// conforme se escreve, no idioma do Discord.
-//
-// A lista vem do BACKEND (GET /api/bot/commands), do mesmo array que monta o
-// `/astra ajuda`. Uma copia aqui seria mais rapida de escrever e ficaria velha no
-// primeiro comando novo — e ninguem notaria, porque nada quebra: a caixinha so
-// deixaria de mostrar.
-//
-// Buscada UMA vez por sessão (o catalogo não muda enquanto o app roda) e
-// compartilhada por todas as conversas.
 private var cache: List<BotCommandDto>? = null
 
 @Composable
@@ -63,15 +53,10 @@ fun rememberBotCommands(): List<BotCommandDto> {
     return cmds
 }
 
-// Filtra pelo que foi digitado. So vale quando a mensagem COMECA com "/" e ainda
-// não virou um texto qualquer — "/astra qual a boa?" ja e uma pergunta, não uma
-// busca de comando, entao a caixinha sai do caminho depois do primeiro espaco
-// que passe de um comando conhecido.
 fun matchCommands(draft: String, all: List<BotCommandDto>): List<BotCommandDto> {
     if (!draft.startsWith("/") || all.isEmpty()) return emptyList()
     val typed = draft.lowercase()
     val hits = all.filter { it.name.lowercase().startsWith(typed) }
-    // Digitou um comando inteiro e seguiu escrevendo: some (a pessoa ja escolheu).
     if (hits.isEmpty() && all.any { typed.startsWith(it.name.lowercase() + " ") }) return emptyList()
     return hits
 }
@@ -92,13 +77,6 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
             style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
             modifier = Modifier.padding(start = 14.dp, top = 11.dp, bottom = 6.dp),
         )
-        // A CASCATA TOCA UMA VEZ POR ABERTURA, e essa chave e o motivo.
-        //
-        // `commands` e recalculado a cada tecla (a lista filtra enquanto se digita).
-        // Usar a propria lista como chave faria os itens re-entrarem a cada caractere:
-        // vira pisca-pisca, nao entrada. Um objeto criado no primeiro composicao vive
-        // enquanto a caixinha estiver aberta e morre junto com ela -- exatamente o
-        // escopo de "uma vez por abertura".
         val abertura = remember { Any() }
         LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp)) {
             itemsIndexed(commands, key = { _, c -> c.name }) { indice, cmd ->

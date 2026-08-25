@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { diariasDe, semanaisDe, periodoDiario, periodoSemanal } from './missoes'
 
-// O sorteio e a parte que MENTIRIA em silencio se quebrasse.
-//
-// Ele nao grava nada: as missoes de hoje sao recalculadas a cada request a partir de
-// (userId + dia). Se deixar de ser estavel, a pessoa ve tres missoes, atualiza a tela
-// e ve outras tres — com o progresso da anterior preso numa linha que ninguem mais
-// consulta. Nao daria erro em lugar nenhum.
-
 const ALGUEM = 'user_abc123'
 
 describe('sorteio das diarias', () => {
@@ -27,12 +20,10 @@ describe('sorteio das diarias', () => {
     for (const m of diariasDe(ALGUEM)) {
       expect(m.tipo).toBe('diaria')
       expect(m.id.startsWith('d.')).toBe(true)
-      expect(m.id).not.toBe('d.bonus') // o bonus nao entra no sorteio
+      expect(m.id).not.toBe('d.bonus') 
     }
   })
 
-  // Se todo mundo recebesse as mesmas, o app inteiro faria a mesma coisa no mesmo
-  // dia — e o movimento ficaria concentrado num canto so.
   it('pessoas diferentes recebem conjuntos diferentes', () => {
     const conjuntos = new Set(
       Array.from({ length: 40 }, (_, i) => diariasDe(`user_${i}`).map((m) => m.id).sort().join(',')),
@@ -60,8 +51,6 @@ describe('periodos', () => {
     expect(periodoSemanal()).toBe(periodoSemanal())
   })
 
-  // Os dois entram na chave primaria junto com userId+missionId. Se colidissem,
-  // o progresso de uma semana cairia em cima da outra.
   it('diario e semanal nunca se confundem', () => {
     expect(periodoDiario()).not.toBe(periodoSemanal())
     expect(periodoDiario()).not.toBe('sempre')

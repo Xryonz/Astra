@@ -88,8 +88,6 @@ class ServerEditViewModel @Inject constructor(
                 id = serverId,
                 name = s.name.trim().takeIf { it != s.origName },
                 iconUrl = s.iconUrl.takeIf { it != s.origIcon },
-                // "" limpa o banner (explicitNulls=false omitiria null); backend guarda ""
-                // e o cliente renderiza vazio como sem-banner.
                 bannerUrl = s.bannerUrl.takeIf { it != s.origBanner },
                 description = s.description.trim().takeIf { it != s.origDescription },
                 messageRetentionDays = s.retentionDays.takeIf { it != s.origRetention },

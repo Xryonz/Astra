@@ -15,8 +15,6 @@ interface BadgesApi {
     @GET("api/users/{id}/badges")
     suspend fun userBadges(@Path("id") userId: String): ApiEnvelope<UserBadgesDto>
 
-    // ---- Gestao (dono/admin do servidor) ----
-
     @GET("api/servers/{id}/badges")
     suspend fun serverBadges(@Path("id") serverId: String): ApiEnvelope<List<ServerBadgeDto>>
 

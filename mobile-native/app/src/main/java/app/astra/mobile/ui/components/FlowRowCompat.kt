@@ -7,12 +7,6 @@ import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/**
- * Substituto de androidx.compose.foundation.layout.FlowRow, feito com Layout (API core
- * estavel). A assinatura 1.7 do FlowRow (com FlowRowOverflow) nao existe na
- * foundation-layout empacotada em runtime (skew de versao arrastado por lib de terceiro),
- * causando NoSuchMethodError. Este wrap quebra os filhos em linhas conforme a largura.
- */
 @Composable
 fun FlowRowCompat(
     modifier: Modifier = Modifier,

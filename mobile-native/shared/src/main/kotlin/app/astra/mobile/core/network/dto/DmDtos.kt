@@ -33,27 +33,17 @@ data class DmMessageDto(
     val replyTo: ReplyToDto? = null,
     val author: MsgAuthorDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
-    // Eco do nonce que o cliente mandou no fast_send_dm: e por ele que a bolha
-    // otimista e trocada pela mensagem real em vez de aparecer duas vezes.
     val clientNonce: String? = null,
-    // Registro de CHAMADA. Nulo = mensagem normal. Preenchido = a linha desenha
-    // diferente (centralizada, com icone), como o `poll` faz nos canais. O
-    // `content` vem preenchido junto ("Chamada perdida", "Chamada de 12 min"):
-    // e o que aparece na previa da lista e nos clientes que nao conhecem isto.
     val call: CallLogDto? = null,
 )
 
 @Serializable
 data class CallLogDto(
-    // "missed" = ninguem atendeu (nao atendeu, recusou ou desistiu — o Discord
-    // tambem nao separa). "ended" = aconteceu e terminou.
     val status: String = "missed",
     val video: Boolean = false,
     val durationSec: Int = 0,
 )
 
-// Toque chegando. Os quatro primeiros campos sao o contrato antigo que o web ja
-// falava; o resto o desktop usa a mais.
 @Serializable
 data class ChamadaChegandoDto(
     val conversationId: String = "",
@@ -117,14 +107,12 @@ data class SendDmRequest(
     val attachments: List<AttachmentDto> = emptyList(),
 )
 
-// Payload do evento de socket dm_deleted (dm.ts).
 @Serializable
 data class DmDeletedEventDto(
     val messageId: String,
     val conversationId: String,
 )
 
-// dm_user_typing traz username; dm_user_stopped_typing vem sem.
 @Serializable
 data class DmTypingEventDto(
     val userId: String,

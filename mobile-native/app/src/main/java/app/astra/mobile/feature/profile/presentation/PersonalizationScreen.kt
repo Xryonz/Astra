@@ -17,7 +17,6 @@ import app.astra.mobile.ui.components.EditorialTopBar
 import app.astra.mobile.ui.components.HairlineRule
 import app.astra.mobile.ui.components.MarginaliaLabel
 
-/** Aba unica que junta edicao de perfil (visual + identidade) e aparencia do app. */
 @Composable
 fun PersonalizationScreen(onBack: () -> Unit) {
     CosmicBackground {

@@ -21,9 +21,7 @@ data class DmChatUiState(
     val translations: Map<String, String> = emptyMap(),
     val translatingIds: Set<String> = emptySet(),
 
-    // Ligacao em sussurro: true enquanto o convite toca no outro lado (ate 30s).
     val ringing: Boolean = false,
 
-    // Conversa silenciada pelo MEU lado (sem push/badge; mensagens continuam).
     val muted: Boolean = false,
 )

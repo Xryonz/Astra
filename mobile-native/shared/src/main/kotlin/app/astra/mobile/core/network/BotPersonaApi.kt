@@ -9,9 +9,6 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.Path
 
-// Aparencia das bots. A rota responde 404 pra quem nao e dono do Astra (e nao 403,
-// pra nao confirmar que existe um painel a ser procurado) — entao o cliente usa a
-// PROPRIA falha como teste: deu certo, mostra a secao; falhou, ela nem existe.
 interface BotPersonaApi {
     @GET("api/bots")
     suspend fun personas(): ApiEnvelope<BotPersonasWrapper>

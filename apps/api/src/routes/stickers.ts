@@ -7,16 +7,6 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { removeAttachment } from '../lib/storage'
 
-// FIGURINHAS DA CONSTELACAO.
-//
-// Mesmo desenho do soundboard (routes/sounds.ts): esta rota NAO recebe bytes. O
-// arquivo sobe pelo /api/upload, que ja sabe guardar no bucket, medir e gerar
-// blurhash — aqui so registramos a URL. Um lugar so pra upload continua sendo um
-// lugar so.
-//
-// Nao ha rota de "enviar figurinha": mandar figurinha e mandar MENSAGEM, com um
-// anexo marcado `sticker: true`. Criar um caminho proprio duplicaria resposta,
-// reacao, exclusao e notificacao — tudo que uma mensagem ja tem.
 export const stickersRouter = Router()
 stickersRouter.use(requireAuth)
 
@@ -32,7 +22,6 @@ async function podeGerenciar(userId: string, serverId: string) {
   return { ok: true as const }
 }
 
-// Lista — qualquer MEMBRO ve, porque qualquer membro pode mandar.
 stickersRouter.get('/:serverId', asyncHandler(async (req: Request, res: Response) => {
   const { serverId } = req.params
   const m = await getMemberPerms(req.userId!, serverId)
@@ -79,7 +68,6 @@ stickersRouter.post('/:serverId', asyncHandler(async (req: Request, res: Respons
     }).returning()
     res.status(201).json(criada)
   } catch {
-    // Indice unico (serverId, name). Mensagem propria em vez de 500 generico.
     res.status(409).json({ error: 'Já existe uma figurinha com esse nome' })
   }
 }))
@@ -94,12 +82,6 @@ stickersRouter.delete('/:serverId/:stickerId', asyncHandler(async (req: Request,
     .returning({ url: serverStickers.url })
   if (!removida) return res.status(404).json({ error: 'Figurinha não encontrada' })
 
-  // Some do bucket junto — senao o arquivo fica ocupando espaco pra sempre,
-  // invisivel. Mesmo vazamento que os anexos ja tiveram.
-  //
-  // As mensagens antigas que usavam esta figurinha ficam com a imagem quebrada, e
-  // isso e proposital: a alternativa (guardar pra sempre) faz o dono da
-  // constelacao pagar espaco por figurinha que ele mandou apagar.
   await removeAttachment(removida.url)
   res.json({ ok: true })
 }))

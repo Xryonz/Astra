@@ -35,16 +35,6 @@ import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
-// A FAIXA QUE EXPLICA A ESPERA.
-//
-// Nao existe pra ser bonita: existe porque um minuto de tela parada sem palavra nenhuma
-// e indistinguivel de um app quebrado. Aparece so quando a espera vira espera de
-// verdade (segunda tentativa em diante, ver Servidor) e some sozinha quando a API
-// responde.
-//
-// Diz o MOTIVO, nao so o sintoma. "Aguarde" nao informa nada; "a hospedagem gratuita
-// desliga depois de quinze minutos parada" informa, e a pessoa deixa de achar que o
-// proprio computador esta com problema.
 @Composable
 fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
     val estado by Servidor.estado.collectAsState()
@@ -53,9 +43,6 @@ fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
 
     AnimatedVisibility(
         visible = estado == Servidor.Estado.ACORDANDO,
-        // tween explicito, nao mola: a faixa muda de ALTURA, e mola tem duracao
-        // proporcional a distancia -- a mesma faixa entraria com tempos diferentes
-        // conforme a largura da janela mudasse o numero de linhas do texto.
         enter = fadeIn(tween(220)) + expandVertically(tween(220, easing = EaseOutStd)),
         exit = fadeOut(tween(180)) + shrinkVertically(tween(180, easing = EaseOutStd)),
         modifier = modifier,
@@ -85,8 +72,6 @@ fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
                 )
             }
             Spacer(Modifier.width(10.dp))
-            // O contador e a prova de vida. Um circulo girando gira igual quando a
-            // tentativa morreu; um numero que sobe so sobe enquanto alguem conta.
             Text(
                 "há ${segundos}s",
                 style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
@@ -95,8 +80,6 @@ fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
     }
 }
 
-// Respiracao lenta em vez de piscar: e um estado que dura um minuto, e piscar por um
-// minuto inteiro cansa. Movimento aqui e sinal de "ainda estou tentando", nada mais.
 @Composable
 private fun Ponto(reduceMotion: Boolean) {
     val alpha = if (reduceMotion) 1f else {

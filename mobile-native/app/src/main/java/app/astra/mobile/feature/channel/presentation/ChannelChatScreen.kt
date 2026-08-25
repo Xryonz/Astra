@@ -340,8 +340,6 @@ private fun editRelTime(iso: String?): String {
     }.getOrDefault("")
 }
 
-// Sino do canal: menu com os 3 modos + "padrao do servidor" (remove a pref
-// explicita e volta a herdar). Icone cortado quando silenciado.
 @Composable
 private fun NotifBellAction(mode: String?, onSelect: (String?) -> Unit) {
     var open by remember { mutableStateOf(false) }

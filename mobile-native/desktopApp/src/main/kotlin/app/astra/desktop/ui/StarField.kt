@@ -19,12 +19,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-// Campo de estrelas portado do mobile (StarField.kt do :app): estrelas fixas +
-// piscar + meteoros ("estrelas caindo"). Fica entre a aurora e os paineis, sutil.
-// DROPADO do mobile: tilt (acelerometro, não existe no desktop). MANTIDO: o
-// relogio com PAUSA sem foco (guardrail de perf) e o respeito ao reduzir
-// movimento (LocalReduceMotion) — congela num campo estatico, sem meteoros.
-
 private fun lcg(seed: Int): () -> Float {
     var s = seed
     return {
@@ -34,9 +28,6 @@ private fun lcg(seed: Int): () -> Float {
 }
 
 private class BgStar(val x: Float, val y: Float, val r: Float)
-// Twinkle carrega também um WANDER proprio (órbita lenta e individual): e o que
-// da a sensacao de "fundo vivo" no desktop, já que o tilt do celular saiu.
-// wSpeed em rad/s (periodo ~16..30s), fases desencontram o movimento de cada uma.
 private class Twinkle(
     val x: Float, val y: Float, val r: Float, val freq: Float, val phase: Float,
     val wSpeed: Float, val wPhaseX: Float, val wPhaseY: Float,
@@ -47,8 +38,6 @@ private val BG_STARS: List<BgStar> = buildList {
     val rnd = lcg(424242)
     repeat(70) { add(BgStar(rnd(), rnd(), if (rnd() > 0.5f) 1.4f else 1.0f)) }
 }
-// Periodos do wander: SO divisores de STAR_LOOP (360) pra órbita fechar sem
-// salto no wrap (18|20|24|30|36 -> 360/p inteiro). Lentos (18..36s) = calmo.
 private val WANDER_PERIODS = floatArrayOf(18f, 20f, 24f, 30f, 36f)
 private val TWINKLES: List<Twinkle> = buildList {
     val rnd = lcg(99883)
@@ -68,22 +57,16 @@ private val METEORS: List<Meteor> = buildList {
     repeat(3) { i -> add(Meteor(0.3f + rnd() * 0.6f, i / 3f, -(0.25f + rnd() * 0.45f))) }
 }
 
-// Periodos das camadas (segundos): drift orbital lento, ciclo do piscar, ciclo
-// dos meteoros. Um relogio único alimenta os tres.
 private const val DRIFT_PERIOD = 90f
 private const val TWINKLE_PERIOD = 5f
 private const val METEOR_PERIOD = 24f
-private const val STAR_LOOP = 360f // multiplo dos periodos (drift/twinkle/meteoro/wander): enrola sem salto
-private const val WANDER_DP = 9f // amplitude da órbita individual das twinkles (perceptivel, calmo)
+private const val STAR_LOOP = 360f
+private const val WANDER_DP = 9f
 
 @Composable
 fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
     val reduceMotion = LocalReduceMotion.current
-    // Mesmo relogio/gate da aurora: pausa quando minimizada (não quando so perde
-    // o foco pra um popup); reduzir movimento congela em 0 (campo estatico).
     val active = rememberUpdatedState(LocalWindowActive.current)
-    // Teto de FPS (Settings > Desempenho): mesmo throttle da aurora — limita a
-    // taxa de redesenho sem mexer na velocidade (acc acumula sempre).
     val fpsCap = rememberUpdatedState(LocalRenderPrefs.current.fpsCap)
     val time by produceState(0f, reduceMotion) {
         if (reduceMotion) {
@@ -95,30 +78,19 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
             while (active.value) {
-                // Marco do inicio do quadro: o teto la embaixo dorme o RESTO do periodo,
-                // e nao um tempo fixo por cima do que o quadro ja gastou.
                 val inicioDoQuadro = System.nanoTime()
                 withFrameNanos { now ->
-                    // Mesmo clamp da aurora (CORTE 3): janela ocluida (alt-tab) para de
-                    // receber frames com 'active' true; na volta o dt gigante faria as
-                    // estrelas/meteoros saltarem. Teto de 50ms mantem o drift suave.
                     val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
                     acc += dt
                     if (acc >= STAR_LOOP) acc -= STAR_LOOP
                     last = now
                     value = acc
                 }
-                // Mesmo conserto da aurora: o teto DORME em vez de so deixar de emitir.
-                // Pedir frame e o que custa (o flush do Direct3D esperando a GPU), nao
-                // atualizar o valor — segurar a emissao e continuar pedindo frame nao
-                // poupava nada. Ver o comentario longo em Aurora.kt.
                 esperarPeloTeto(fpsCap.value, inicioDoQuadro)
             }
         }
     }
 
-    // Resolucao cheia: estrelas são pontos nitidos e baratos (~90 ops/frame);
-    // meia-res (truque da aurora) so serve pra shader caro por pixel, aqui borra.
     Canvas(modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
@@ -134,16 +106,13 @@ fun StarField(modifier: Modifier = Modifier, color: Color = Obsidian.accent) {
         val wander = WANDER_DP.dp.toPx()
         TWINKLES.forEach { t ->
             val a = 0.25f + 0.7f * ((sin(tau * t.freq + t.phase) + 1f) / 2f)
-            // Órbita propria (elipse): X e Y na mesma velocidade angular, fases
-            // distintas -> cada estrela vagueia devagar num caminho único.
             val wx = sin(time * t.wSpeed + t.wPhaseX) * wander
             val wy = cos(time * t.wSpeed + t.wPhaseY) * wander * 0.7f
             val c = Offset(t.x * w + dx + wx, t.y * h + dy + wy)
-            drawCircle(color, t.r.dp.toPx() * 2.4f, c, alpha = a * 0.16f) // brilho
+            drawCircle(color, t.r.dp.toPx() * 2.4f, c, alpha = a * 0.16f)
             drawCircle(color, t.r.dp.toPx(), c, alpha = a)
         }
 
-        // Meteoros so quando ha movimento (reduzir movimento = campo parado).
         if (!reduceMotion) {
             val meteorT = (time % METEOR_PERIOD) / METEOR_PERIOD
             METEORS.forEach { m ->

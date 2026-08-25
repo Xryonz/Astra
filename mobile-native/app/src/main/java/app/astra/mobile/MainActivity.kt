@@ -92,7 +92,6 @@ class MainActivity : ComponentActivity() {
     private fun handleDeepLink(intent: Intent?) {
         intent ?: return
 
-        // Direct Share: sistema entrega ACTION_SEND + EXTRA_SHORTCUT_ID do alvo.
         if (intent.action == Intent.ACTION_SEND) {
             val convId = DmShortcuts.conversationIdFrom(intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID))
             if (convId != null) {
@@ -107,7 +106,6 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Atalho do launcher (long-press no icone): intent explicito com extras.
         if (intent.action == Intent.ACTION_VIEW && intent.hasExtra(DmShortcuts.EXTRA_CONV_ID)) {
             DeepLinkBus.pendingShare.value = PendingShare(
                 conversationId = intent.getStringExtra(DmShortcuts.EXTRA_CONV_ID),
@@ -120,7 +118,6 @@ class MainActivity : ComponentActivity() {
 
         val data = intent.data ?: return
 
-        // Convite: https://<api>/i/CODE (link do share). Entrega pro AstraApp via bus.
         if (data.pathSegments.firstOrNull() == "i") {
             data.pathSegments.getOrNull(1)?.takeIf { it.isNotBlank() }?.let {
                 DeepLinkBus.pendingInviteCode.value = it

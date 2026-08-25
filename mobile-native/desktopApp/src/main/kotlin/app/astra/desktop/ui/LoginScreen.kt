@@ -82,18 +82,8 @@ import org.koin.core.context.GlobalContext
 import java.awt.Toolkit
 import java.awt.event.KeyEvent as AwtKeyEvent
 
-// Login split editorial: ceu vivo a esquerda (o MESMO planeta do gate de boot, as
-// estrelas do app e a constelação que se forma ao digitar), formulario a direita.
-//
-// A aurora NAO e pintada aqui: ela vive na janela (Main.kt), atrás do login e do
-// shell. Foi o que tornou a entrada continua — antes a aurora do login ocupava 45%
-// da largura e a do shell 100%, e como o uv do shader e normalizado pelo tamanho,
-// as duas imagens eram completamente diferentes: a troca saltava.
 private enum class AuthMode { LOGIN, SIGNUP }
 
-// Uma exigencia pra enviar. ok = cumprida (fica verde). O conjunto ESPELHA os
-// schemas zod do backend (packages/types RegisterSchema/LoginSchema) — se uma
-// regra ficasse verde sem o servidor concordar, o "criar conta" mentiria.
 private data class AuthRule(val label: String, val ok: Boolean)
 
 private fun isEmailValid(email: String): Boolean {
@@ -105,7 +95,6 @@ private fun isEmailValid(email: String): Boolean {
     return domain.contains('.') && !domain.startsWith('.') && !domain.endsWith('.')
 }
 
-// username do backend: 3..32, so [a-z0-9_].
 private fun isUsernameValid(u: String): Boolean =
     u.length in 3..32 && u.all { it in 'a'..'z' || it in '0'..'9' || it == '_' }
 
@@ -125,13 +114,10 @@ private fun signupRules(email: String, username: String, displayName: String, pa
 @Composable
 fun LoginScreen(
     repo: AuthRepository,
-    // isNew = veio de "criar conta" (o Main dispara o onboarding); login/Google = false.
     onLoggedIn: (Session, isNew: Boolean) -> Unit,
 ) {
     val store = remember { GlobalContext.get().get<SessionStore>() }
     var mode by remember { mutableStateOf(AuthMode.LOGIN) }
-    // Lembra o último email que ENTROU (não o que foi digitado): reabrir o app cai
-    // com o campo pronto e o foco já na senha.
     var email by remember { mutableStateOf(store.uiPref(LAST_EMAIL_KEY).orEmpty()) }
     var username by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
@@ -145,7 +131,6 @@ fun LoginScreen(
 
     val emailFocus = remember { FocusRequester() }
     val passFocus = remember { FocusRequester() }
-    // Abre digitando: com email lembrado, o foco pula direto pra senha.
     LaunchedEffect(Unit) {
         runCatching { if (email.isBlank()) emailFocus.requestFocus() else passFocus.requestFocus() }
     }
@@ -155,9 +140,7 @@ fun LoginScreen(
         AuthMode.SIGNUP -> signupRules(email, username, displayName, password)
     }
     val allOk = rules.all { it.ok }
-    // A constelação (painel esquerdo) e o medidor: fracao de regras cumpridas.
     val progress = rules.count { it.ok }.toFloat() / rules.size
-    // Duracao das transicoes de troca login<->cadastro (0 = respeita reduce motion).
     val authDur = if (LocalReduceMotion.current) 0 else 240
 
     fun submit() {
@@ -189,40 +172,23 @@ fun LoginScreen(
     }
 
     Row(Modifier.fillMaxSize()) {
-        // ---- Painel esquerdo: ceu + marca + constelação ----
         Box(
             modifier = Modifier.weight(0.45f).fillMaxHeight(),
             contentAlignment = Alignment.Center,
         ) {
-            // Estrelas por cima da aurora da janela — o mesmo ceu do resto do app.
             StarField(Modifier.fillMaxSize())
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(horizontal = 28.dp),
             ) {
-                // O MESMO planeta do gate de atualizacao: o objeto que abre o app e
-                // o que recebe no login.
                 RotatingStarsLogo(LocalReduceMotion.current, diameter = 132.dp, planetRes = "astra-glyph.png")
                 Spacer(Modifier.height(10.dp))
-                // CAIXA-ALTA NO DESENHO, "Astra" NA LEITURA.
-                //
-                // A Cinzel é uma fonte de capital de inscrição: escrever em caixa-alta
-                // é usá-la como ela foi desenhada. Mas leitor de tela trata palavra
-                // toda maiúscula como sigla e soletra — "A, S, T, R, A" —, então o
-                // rótulo acessível repõe a palavra inteira. O desenho é para os olhos,
-                // o rótulo é para quem não os usa, e os dois dizem a mesma coisa.
                 Text(
                     text = "ASTRA",
                     style = TextStyle(
                         color = Obsidian.text1,
-                        // 46, e não os 72 da Babylonica: aquela gastava metade da
-                        // altura em laçada, esta é toda letra. Medido pela largura da
-                        // palavra, que é o que o olho compara — ver theme/Type.kt.
                         fontSize = 46.sp,
                         fontFamily = Cinzel,
-                        // O tracking é metade do efeito. Capital romana colada lê como
-                        // palavra; espaçada, lê como inscrição — e, aqui, como estrelas
-                        // separadas num campo escuro.
                         letterSpacing = 7.sp,
                     ),
                     modifier = Modifier.semantics { contentDescription = "Astra" },
@@ -233,7 +199,6 @@ fun LoginScreen(
                     style = TextStyle(color = Obsidian.text2, fontSize = 15.sp),
                 )
                 Spacer(Modifier.height(6.dp))
-                // Forma conforme as REGRAS ficam verdes; retrai ao desfazer.
                 LoginConstellation(
                     progress = progress,
                     modifier = Modifier.fillMaxWidth(),
@@ -241,13 +206,7 @@ fun LoginScreen(
             }
         }
 
-        // ---- Painel direito: formulario ----
         Box(
-            // Translucido (não mais opaco): a aurora da janela passa por baixo, no
-            // mesmo idioma dos paineis do shell. O ENCONTRO com o ceu (esquerda) não
-            // e um corte seco: um gradiente horizontal funde ceu -> sombra suave ->
-            // painel (mesmo idioma do scrim do banner da constelação, #13). A faixa
-            // de fade cai no vao vazio antes do formulario (360dp centralizado).
             modifier = Modifier.weight(0.55f).fillMaxHeight().background(
                 Brush.horizontalGradient(
                     0.0f to Color.Transparent,
@@ -259,7 +218,6 @@ fun LoginScreen(
             contentAlignment = Alignment.Center,
         ) {
             Column(Modifier.width(360.dp).animateContentSize(tween(authDur))) {
-                // Titulo troca com crossfade (entrar <-> criar conta).
                 Crossfade(targetState = mode, animationSpec = tween(authDur), label = "authTitle") { m ->
                     Text(
                         text = if (m == AuthMode.LOGIN) "entrar" else "criar conta",
@@ -273,8 +231,6 @@ fun LoginScreen(
                     focusRequester = emailFocus,
                     onSubmit = { runCatching { passFocus.requestFocus() } },
                 )
-                // Campos so-do-cadastro deslizam pra dentro/fora (fade + expand); a
-                // altura do form gliza junto pelo animateContentSize do Column.
                 AnimatedVisibility(
                     visible = mode == AuthMode.SIGNUP,
                     enter = fadeIn(tween(authDur)) + expandVertically(tween(authDur)),
@@ -283,8 +239,6 @@ fun LoginScreen(
                     Column {
                         Spacer(Modifier.height(14.dp))
                         EditorialField(
-                            // username so aceita minusculas (regra do backend) —
-                            // normaliza ao digitar em vez de barrar depois.
                             value = username, onValue = { username = it.lowercase(); error = null },
                             label = "usuário", enabled = !loading,
                         )
@@ -303,8 +257,6 @@ fun LoginScreen(
                     focusRequester = passFocus,
                     reveal = showPassword,
                     onToggleReveal = { showPassword = !showPassword },
-                    // Caps Lock e a causa numero 1 de "a senha esta certa e não
-                    // entra". O estado da tecla vem do proprio SO (AWT Toolkit).
                     onKey = { capsOn = capsLockOn() },
                 )
                 if (capsOn) {
@@ -315,8 +267,6 @@ fun LoginScreen(
                     )
                 }
                 Spacer(Modifier.height(14.dp))
-                // Regras pra enviar: acendem em verde e formam a constelação ao lado.
-                // animateContentSize suaviza a troca 2<->5 regras entre os modos.
                 Box(Modifier.animateContentSize(tween(authDur))) {
                     RulesChecklist(rules)
                 }
@@ -339,8 +289,6 @@ fun LoginScreen(
                         style = TextStyle(color = Obsidian.danger, fontSize = 13.sp),
                     )
                 }
-                // Google e login/vinculo (o backend não cria conta por Google) —
-                // aparece so no modo entrar, deslizando junto com a troca.
                 AnimatedVisibility(
                     visible = mode == AuthMode.LOGIN,
                     enter = fadeIn(tween(authDur)) + expandVertically(tween(authDur)),
@@ -363,8 +311,6 @@ fun LoginScreen(
     }
 }
 
-// Regras de envio: cada uma acende (verde) quando cumprida. O ponto e um anel que
-// se preenche; junto, elas movem a constelação do painel esquerdo.
 @Composable
 private fun RulesChecklist(rules: List<AuthRule>) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -396,8 +342,6 @@ private fun RulesChecklist(rules: List<AuthRule>) {
 private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val dur = if (LocalReduceMotion.current) 0 else 220
-    // O convite (ainda não tem conta? / já tem conta?) troca com crossfade junto
-    // com a troca de modo.
     Crossfade(targetState = mode, animationSpec = tween(dur), label = "authToggle") { m ->
         val prompt = if (m == AuthMode.LOGIN) "ainda não tem conta?" else "já tem conta?"
         val action = if (m == AuthMode.LOGIN) "criar conta" else "entrar"
@@ -426,8 +370,6 @@ private fun OrDivider() {
     }
 }
 
-// Botao Google editorial (sem asset/estetica stock): "G" ambar + rotulo, borda
-// obsidiana, clickScale. Loading = esperando o navegador/loopback.
 @Composable
 private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -460,9 +402,6 @@ private fun GoogleButton(loading: Boolean, enabled: Boolean, onClick: () -> Unit
 
 private const val LAST_EMAIL_KEY = "lastEmail"
 
-// Estado real da tecla, perguntado ao SO — não da pra deduzir do caractere digitado
-// (uma letra maiuscula pode ser Shift). Nem todo ambiente responde; ai assume-se
-// desligado em vez de avisar errado.
 private fun capsLockOn(): Boolean = runCatching {
     Toolkit.getDefaultToolkit().getLockingKeyState(AwtKeyEvent.VK_CAPS_LOCK)
 }.getOrDefault(false)
@@ -492,7 +431,6 @@ private fun EditorialField(
             value = value,
             onValueChange = { onValue(it.take(200)) },
             enabled = enabled,
-            // Enter no teclado fisico submete (desktop-first).
             modifier = Modifier
                 .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
                 .onFocusChanged { focused = it.isFocused }
@@ -515,8 +453,6 @@ private fun EditorialField(
                         .fillMaxWidth()
                         .clip(shape)
                         .background(Obsidian.raised)
-                        // Foco acende a borda no accent: diz onde a digitacao esta
-                        // caindo sem precisar de rotulo extra.
                         .border(1.dp, if (focused) Obsidian.accent.copy(alpha = 0.7f) else Obsidian.borderMid, shape)
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -543,8 +479,6 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
     val hovered by interaction.collectIsHoveredAsState()
     val shape = RoundedCornerShape(10.dp)
     val reduce = LocalReduceMotion.current
-    // Varredura enquanto envia: prova de que algo esta acontecendo. Antes o botao
-    // so trocava o texto pra "Entrando…" e parecia travado numa rede lenta.
     val sweep = if (!loading || reduce) 0f else {
         rememberInfiniteTransition(label = "submit").animateFloat(
             initialValue = 0f,
@@ -556,8 +490,6 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            // clickScale cedo na cadeia (envolve o visual inteiro): encolhe ~0.96 ao
-            // pressionar e volta com mola. Compartilha o InteractionSource do hover.
             .clickScale(interaction)
             .clip(shape)
             .background(
@@ -569,7 +501,6 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
             )
             .then(
                 if (!loading) Modifier else Modifier.drawBehind {
-                    // Faixa clara correndo por cima do fundo do botao.
                     val bandW = size.width * 0.32f
                     val x = -bandW + (size.width + bandW) * sweep
                     drawRect(
@@ -591,7 +522,6 @@ private fun SubmitButton(text: String, enabled: Boolean, loading: Boolean, onCli
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Crossfade no rotulo: ENTRAR <-> CRIAR CONTA <-> entrando… trocam macio.
         Crossfade(targetState = text, animationSpec = tween(if (reduce) 0 else 220), label = "submitLabel") { t ->
             Text(
                 text = t,

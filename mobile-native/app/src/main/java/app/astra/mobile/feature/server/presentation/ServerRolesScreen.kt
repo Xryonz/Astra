@@ -51,7 +51,6 @@ import app.astra.mobile.ui.theme.astraColors
 import zed.rainxch.rikkaui.components.ui.toast.LocalToastHostState
 import zed.rainxch.rikkaui.components.ui.toast.ToastVariant
 
-// Converte "#RRGGBB" -> Color; null/invalido cai no accent.
 internal fun parseRoleColor(hex: String?, fallback: Color): Color =
     hex?.removePrefix("#")?.takeIf { it.length == 6 }
         ?.let { runCatching { Color("FF$it".toLong(16)) }.getOrNull() }

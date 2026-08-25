@@ -18,8 +18,6 @@ data class WishAuthorDto(
     val avatarUrl: String? = null,
 )
 
-// `nextCursor` nulo = acabou o ceu. O cursor e "<iso>__<id>" montado pelo servidor;
-// o cliente so devolve o que recebeu, sem tentar entender o formato.
 @Serializable
 data class WishPageDto(
     val items: List<WishDto> = emptyList(),

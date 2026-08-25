@@ -48,8 +48,6 @@ interface DmApi {
     @DELETE("api/dm/{id}/mute")
     suspend fun unmute(@Path("id") conversationId: String)
 
-    // "Fechar conversa": esconde a DM so pra mim. Nao apaga mensagem nem afeta o
-    // outro lado, e ela volta sozinha quando chegar mensagem nova.
     @DELETE("api/dm/{id}")
     suspend fun close(@Path("id") conversationId: String)
 

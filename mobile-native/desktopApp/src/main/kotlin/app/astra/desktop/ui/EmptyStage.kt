@@ -39,11 +39,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-// Estado vazio do palco (nada selecionado): glifo celeste com estrelas orbitando
-// (calmo, discreto — não briga com nada) + legenda serifada contextual + dica do
-// atalho. Reduzir movimento -> órbita congela num quadro bonito. A fase e lida
-// DENTRO do draw (State.value no lambda do Canvas) -> invalida so o desenho, sem
-// recompor a arvore a cada frame.
 @Composable
 fun EmptyStage(isServer: Boolean) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -72,8 +67,6 @@ private fun OrbitGlyph() {
     val count = 12
     val tilt = (-12.0 * PI / 180.0).toFloat()
     val reduceMotion = LocalReduceMotion.current
-    // reduceMotion: fase fixa (órbita parada, mas ainda com frente/tras). Senao,
-    // giro lento (~13s) — mais calmo que o gate (7s), combina com "idle".
     val phase: State<Float> = if (reduceMotion) {
         remember { mutableStateOf(0.9f) }
     } else {
@@ -85,8 +78,6 @@ private fun OrbitGlyph() {
         )
     }
 
-    // Um lado do anel (elipse achatada): sin(theta) > 0 = perto (frente), <= 0 =
-    // longe (atrás). Paralaxe: perto = maior e mais claro; longe = menor e apagado.
     fun DrawScope.drawOrbit(ph: Float, front: Boolean) {
         val half = size.minDimension / 2f
         val rx = half * 0.90f
@@ -111,16 +102,12 @@ private fun OrbitGlyph() {
     }
 
     Box(Modifier.size(118.dp), contentAlignment = Alignment.Center) {
-        // atrás -> glifo central -> frente: as estrelas passam por tras e pela
-        // frente do "sol" central, dando profundidade.
         Canvas(Modifier.size(118.dp)) { drawOrbit(phase.value, front = false) }
         Text("✦", style = TextStyle(color = accent.copy(alpha = 0.55f), fontSize = 24.sp))
         Canvas(Modifier.size(118.dp)) { drawOrbit(phase.value, front = true) }
     }
 }
 
-// Vazio simples e consistente (mesmo tom do palco, sem animação): ✦ discreto +
-// linha. Pra listas menores (sussurros, amigos, descobrir).
 @Composable
 fun EmptyHint(text: String) {
     Column(
@@ -134,7 +121,6 @@ fun EmptyHint(text: String) {
     }
 }
 
-// Dica discreta do atalho: chip "Ctrl+K" em mono + legenda.
 @Composable
 private fun KbdHint(label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {

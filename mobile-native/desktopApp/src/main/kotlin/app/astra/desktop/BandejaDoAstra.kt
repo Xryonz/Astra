@@ -45,38 +45,15 @@ import java.awt.event.MouseEvent
 import java.awt.event.WindowEvent
 import java.awt.event.WindowFocusListener
 
-// A BANDEJA COM MENU DESENHADO PELO ASTRA.
-//
-// O `Tray` do Compose Desktop é o `SystemTray` do AWT por baixo, e o menu dele é um
-// `PopupMenu` do Win32: quem pinta é o Windows. Ele não aceita cor, fonte, canto,
-// ícone nem espaçamento — não existe API pra estilizar, o objeto simplesmente não
-// tem essas propriedades. Era por isso que o menu da bandeja era o único pedaço do
-// app que não parecia o app.
-//
-// Aqui o `TrayIcon` é criado na mão (sem `PopupMenu`), e o clique-direito abre uma
-// JANELA nossa — sem moldura, transparente, sempre no topo, no ponto do cursor —
-// com o mesmo vocabulário visual do resto. É o que Discord e Spotify fazem, e pelo
-// mesmo motivo.
-//
-// O QUE ISTO CUSTA, dito antes: a bandeja é o caminho por onde o app fica vivo em
-// segundo plano E por onde os avisos saem. Os dois passam a ser código nosso — o
-// `sendNotification` do Compose vira `TrayIcon.displayMessage`.
-
 data class ItemDaBandeja(
     val rotulo: String,
     val perigo: Boolean = false,
     val aoClicar: () -> Unit,
 )
 
-// O que o resto do app segura pra mandar aviso. Classe e não função solta porque o
-// ícone só existe depois que a bandeja monta, e quem avisa (o ShellScreen) é criado
-// antes — o campo mutável resolve a ordem sem ninguém precisar esperar.
 class Bandeja {
     internal var icone: TrayIcon? = null
 
-    // Sem bandeja (SO sem suporte, ou criação recusada) isto é um silêncio
-    // deliberado: o aviso visual dentro do app já aconteceu, e derrubar a mensagem
-    // por causa do ícone seria trocar um detalhe por uma falha.
     fun avisar(titulo: String, corpo: String) {
         runCatching { icone?.displayMessage(titulo, corpo, TrayIcon.MessageType.NONE) }
     }
@@ -93,7 +70,6 @@ fun BandejaComMenu(
     aoAtivar: () -> Unit,
     itens: () -> List<ItemDaBandeja>,
 ) {
-    // Ponto do cursor quando o menu abriu. null = fechado.
     var menuEm by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val lista = if (menuEm != null) itens() else emptyList()
 
@@ -106,17 +82,11 @@ fun BandejaComMenu(
         }.getOrNull()
         val icone = TrayIcon(imagem, dica).apply { isImageAutoSize = true }
         icone.addMouseListener(object : MouseAdapter() {
-            // mouseReleased e não mousePressed: no Windows o `isPopupTrigger` vem no
-            // release, e testar só o press perderia metade dos cliques-direito.
             override fun mouseReleased(e: MouseEvent) = trata(e)
             override fun mousePressed(e: MouseEvent) = trata(e)
 
             private fun trata(e: MouseEvent) {
                 if (e.isPopupTrigger || e.button == MouseEvent.BUTTON3) {
-                    // Segundo clique-direito FECHA. É a rede de segurança do menu:
-                    // se por algum motivo ele não receber foco (e portanto não
-                    // fechar sozinho ao perder), ainda há um jeito óbvio de sair
-                    // dele sem escolher nada.
                     menuEm = if (menuEm != null) null else {
                         val p = runCatching { MouseInfo.getPointerInfo().location }.getOrNull()
                         Pair(p?.x ?: e.xOnScreen, p?.y ?: e.yOnScreen)
@@ -137,9 +107,6 @@ fun BandejaComMenu(
 
     val em = menuEm ?: return
     val altura = ALTURA_ITEM * lista.size + RESPIRO * 2
-    // O menu nasce ACIMA e à ESQUERDA do cursor: a bandeja fica no canto inferior
-    // direito, então descer ou ir pra direita jogaria a janela pra fora da tela.
-    // A conta em pixels de tela (e não em dp) porque a posição do cursor vem do SO.
     val d = androidx.compose.ui.platform.LocalDensity.current
     val larguraPx = with(d) { LARGURA.roundToPx() }
     val alturaPx = with(d) { altura.roundToPx() }
@@ -163,10 +130,6 @@ fun BandejaComMenu(
             if (it.type == KeyEventType.KeyDown && it.key == Key.Escape) { menuEm = null; true } else false
         },
     ) {
-        // FECHAR AO PERDER O FOCO é o comportamento que se espera de um menu, e é
-        // também o único jeito de ele não ficar preso na tela quando a pessoa
-        // desiste. O `alwaysOnTop` garante que ele apareça mesmo se o Windows negar
-        // o primeiro plano; o pedido de foco abaixo é o que faz o fechar funcionar.
         DisposableEffect(Unit) {
             val ouvinte = object : WindowFocusListener {
                 override fun windowGainedFocus(e: WindowEvent?) {}
@@ -212,8 +175,6 @@ private fun LinhaDaBandeja(item: ItemDaBandeja, fechar: () -> Unit) {
             .background(if (hover) Obsidian.hover else Color.Transparent)
             .hoverable(fonte)
             .clickable(interactionSource = fonte, indication = null) {
-                // Fecha ANTES de agir: "Sair" derruba o app, e uma janela ainda
-                // aberta no meio do encerramento fica piscando no caminho.
                 fechar()
                 item.aoClicar()
             }

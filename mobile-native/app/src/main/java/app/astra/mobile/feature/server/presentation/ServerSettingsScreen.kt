@@ -50,7 +50,6 @@ import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
 
-// Hub de configuracao da constelacao: secoes gated por permissao + sair/excluir.
 @Composable
 fun ServerSettingsScreen(
     onBack: () -> Unit,
@@ -73,7 +72,6 @@ fun ServerSettingsScreen(
         if (state.closed) onClosed()
     }
 
-    // Nome/icone editados na Visao geral refletem aqui ao voltar.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -142,7 +140,6 @@ fun ServerSettingsScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // — geral: gestao do servidor (gated). Um card suave, nao N caixas.
             val geralRows = buildList<@Composable () -> Unit> {
                 if (state.canManageServer) {
                     add { SettingsRow("Visao geral", subtitle = "icone, nome, banner e convite", onClick = onOpenOverview) }
@@ -157,7 +154,6 @@ fun ServerSettingsScreen(
                 Spacer(Modifier.height(20.dp))
             }
 
-            // — comunidade: cascata continua a onda a partir do fim do grupo acima.
             val comunidadeRows = buildList<@Composable () -> Unit> {
                 add { SettingsRow("Membros", subtitle = "estrelas desta constelacao", onClick = onOpenMembers) }
                 if (state.canManageRoles) add { SettingsRow("Cargos", subtitle = "papeis e permissoes", onClick = onOpenRoles) }

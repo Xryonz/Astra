@@ -168,8 +168,6 @@ import kotlin.math.sin
 
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
-// Sincronizado com ChatVm.FADE_OUT_MS: o VM remove a mensagem da lista quando
-// esta animação termina.
 private const val FADE_MS = 340
 
 private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "🔥")
@@ -177,7 +175,6 @@ private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "😢", "�
 private fun hhmm(iso: String?): String =
     iso?.let { runCatching { HHMM.format(Instant.parse(it)) }.getOrNull() } ?: ""
 
-// Mensagens do mesmo autor com menos de 5min entre si agrupam (compacto Discord).
 private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
     if (prev == null || prev.authorId != cur.authorId) return false
     val a = runCatching { Instant.parse(prev.createdAt) }.getOrNull() ?: return false
@@ -187,30 +184,21 @@ private fun grouped(prev: ChatMessage?, cur: ChatMessage): Boolean {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
 @Composable
-// botAqui: a bot atende nesta orbita? Quando NAO, a caixinha do "/" nem abre —
-// mostrar comando que o servidor vai ignorar em silencio e pior do que nao
-// mostrar nada (a pessoa digita, manda, e nada acontece).
 fun ChatView(
     target: ChatTarget,
     vm: ChatVm,
     onStartDm: (String, String) -> Unit,
     botAqui: Boolean = true,
-    // Constelacao do canal aberto. null em sussurro — la nao ha bot por orbita.
     serverId: String? = null,
-    // So pro autocomplete de @. Vazio em sussurro: mencionar quem ja e a unica
-    // outra pessoa da conversa nao serve pra nada.
     membros: List<ServerMemberDto> = emptyList(),
 ) {
     val state by vm.state.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val isChannel = target is ChatTarget.Channel
-    // Aparencia do chat (Settings > Aparencia): tamanho da fonte + densidade.
     val prefs = remember { GlobalContext.get().get<DesktopPrefs>() }
     val prefState by prefs.state.collectAsState()
 
-    // Drag&drop de arquivo do sistema: solta em qualquer lugar da conversa e o
-    // arquivo vira anexo pendente no composer.
     var dragOver by remember { mutableStateOf(false) }
     val dndTarget = remember(target.id) {
         object : DragAndDropTarget {
@@ -230,15 +218,11 @@ fun ChatView(
         }
     }
 
-    // Dialogo de criar enquete (so canal — o '+' nem oferece em sussurro).
     var enqueteAberta by remember(target.id) { mutableStateOf(false) }
 
-    // Mensagem sendo editada inline / destacada pelo clique numa reply.
     var editingId by remember(target.id) { mutableStateOf<String?>(null) }
     var highlightId by remember(target.id) { mutableStateOf<String?>(null) }
 
-    // Cola no fim so quando ENTRA mensagem (apagar também muda o size e não
-    // pode jogar a lista pro fundo).
     var prevCount by remember(target.id) { mutableStateOf(0) }
     LaunchedEffect(state.messages.size) {
         if (state.messages.size > prevCount && state.messages.isNotEmpty()) {
@@ -247,8 +231,6 @@ fun ChatView(
         prevCount = state.messages.size
     }
 
-    // Entrada fade+subida so pra mensagem NOVA: o historico entra sem animar e
-    // item reciclado pelo scroll não re-anima (set de ids já vistos).
     val animatedIds = remember(target.id) { mutableSetOf<String>() }
     var baselineDone by remember(target.id) { mutableStateOf(false) }
     LaunchedEffect(state.loading) {
@@ -258,7 +240,6 @@ fun ChatView(
         }
     }
 
-    // Rola ate a origem da reply e da um flash rapido nela.
     fun jumpTo(id: String) {
         val idx = state.messages.indexOfFirst { it.id == id }
         if (idx < 0) return
@@ -270,23 +251,11 @@ fun ChatView(
         }
     }
 
-    // Lightbox (F5): imagem clicada abre no visualizador interno.
     var lightboxUrl by remember { mutableStateOf<String?>(null) }
     lightboxUrl?.let { Lightbox(it) { lightboxUrl = null } }
 
-    // CLIQUE NO @: quem sabe traduzir o nome escrito em uma pessoa e ESTA camada, não
-    // a mensagem. A mensagem so tem o texto; a lista de membros da constelacao mora
-    // aqui. Por isso a mencao pergunta pra ca em vez de resolver sozinha.
-    //
-    // Em sussurro `membros` vem vazio de proposito (mencionar a unica outra pessoa da
-    // conversa não serve pra nada), entao la o @ não tem quem procurar e o clique não
-    // faz nada — em vez de abrir o card de alguem parecido.
     val mencao = remember { MencaoClicavel() }
     var perfilDaMencao by remember(target.id) { mutableStateOf<Pair<String, IntOffset>?>(null) }
-    // Onde o cursor estava no ultimo evento. Um array cru e não um State, e a
-    // diferenca não e estilo: isto muda a cada pixel de movimento do mouse, e um
-    // State faria a conversa inteira recompor so por passar o mouse por cima dela.
-    // Ninguem le este valor durante a composicao — so no instante do clique.
     val ponteiro = remember { intArrayOf(0, 0) }
     SideEffect {
         mencao.abrir = { usuario ->
@@ -296,8 +265,6 @@ fun ChatView(
         }
     }
 
-    // Emojis da constelacao: uma busca por constelacao, servindo a conversa (que os
-    // desenha) e o seletor do compositor (que os oferece). Em sussurro vem vazio.
     val emojisDaSala = rememberEmojisDaSala(serverId)
 
     androidx.compose.runtime.CompositionLocalProvider(
@@ -310,9 +277,6 @@ fun ChatView(
     Box(
         Modifier
             .fillMaxSize()
-            // Passe INITIAL e sem consumir: so observa por onde o cursor anda, antes
-            // de qualquer filho decidir o que fazer com o evento. O card do @ precisa
-            // nascer onde o dedo tocou, e o clique de um link não carrega posicao.
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -339,8 +303,6 @@ fun ChatView(
             when {
                 state.loading && state.acordando -> AcordandoOServidor()
                 state.loading -> ChatSkeleton()
-                // Falha de carga NAO pode cair no "nada por aqui ainda": vazio ali
-                // e uma afirmacao sobre a conversa, e a conversa nem foi lida.
                 state.error != null && state.messages.isEmpty() -> PalcoQueFalhou(
                     motivo = state.error!!,
                     podeTentar = !state.errorPermanente,
@@ -352,12 +314,6 @@ fun ChatView(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp),
                 ) {
-                    // contentType: o LazyColumn RECICLA o esqueleto de composicao de
-                    // um item que saiu de tela pro que entrou. Reciclar entre tipos
-                    // diferentes (texto puro <-> imagem <-> enquete) nao aproveita
-                    // nada: ele descarta e reconstroi. Dizendo o tipo, ele so recicla
-                    // entre iguais — e a rolagem rapida numa conversa misturada para
-                    // de reconstruir arvore a toa.
                     itemsIndexed(
                         state.messages,
                         key = { _, m -> m.id },
@@ -373,11 +329,8 @@ fun ChatView(
                             val fresh = animatedIds.add(msg.id)
                             baselineDone && fresh
                         }
-                        // Pill de hover + menu de botao direito (as duas rotas
-                        // pras mesmas ações; o menu tem copiar texto/ID/fixar).
                         MessageRow(
                             msg = msg,
-                            // Reply quebra o agrupamento (a referencia precisa aparecer).
                             grouped = grouped(state.messages.getOrNull(i - 1), msg) && msg.replyTo == null,
                             enterAnim = enterAnim,
                             isChannel = isChannel,
@@ -402,16 +355,7 @@ fun ChatView(
             }
         }
 
-        // Composer
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-            // ERA UM SLOT FIXO DE 16dp, sempre reservado pra o "digitando…" caber sem
-            // empurrar o layout. O preço aparecia o tempo todo: uma faixa vazia
-            // permanente entre a conversa e o compositor, que com a barra de resposta
-            // aberta virava um degrau escuro sem função nenhuma.
-            //
-            // A troca é pelo MESMO idioma que a barra de resposta logo abaixo já usa:
-            // cresce de altura zero em vez de existir vazia. Não há pulo — há
-            // animação, que é o que o slot fixo estava tentando evitar do jeito caro.
             val reduzirMovimento = LocalReduceMotion.current
             AnimatedVisibility(
                 visible = state.typing.isNotEmpty(),
@@ -432,10 +376,6 @@ fun ChatView(
                     Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
                 }
             }
-            // Falha de CARGA com o palco vazio ja e contada no palco (PalcoQueFalhou);
-            // repetir aqui embaixo diria a mesma coisa duas vezes. Esta linha fica
-            // pros erros de acao — enviar, reagir, apagar — que acontecem com a
-            // conversa na tela.
             if (state.error != null && state.messages.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
@@ -454,7 +394,6 @@ fun ChatView(
                 }
                 Spacer(Modifier.height(6.dp))
             }
-            // Anexos pendentes (drag&drop): chips com ✕ pra tirar antes de enviar.
             if (state.pending.isNotEmpty()) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -490,13 +429,6 @@ fun ChatView(
                 }
                 Spacer(Modifier.height(6.dp))
             }
-            // A barra abre de dentro do compositor: cresce de altura zero e o texto
-            // acende 40ms depois, ja com a caixa aberta — acender junto faria a
-            // frase aparecer espremida. Fecha pelo mesmo caminho, mais rapido,
-            // porque cancelar nao merece a mesma cerimonia de comecar.
-            //
-            // O ultimo alvo fica guardado: `replyingTo` vira null no instante do
-            // cancelamento, e sem isto a barra ficaria vazia no meio do fechamento.
             val respondendo = state.replyingTo
             var ultimaResposta by remember(target.id) { mutableStateOf(respondendo) }
             if (respondendo != null) ultimaResposta = respondendo
@@ -526,24 +458,13 @@ fun ChatView(
                         Spacer(Modifier.weight(1f))
                         HoverGlyph(Lucide.X) { vm.cancelReply() }
                     }
-                    // Dentro do AnimatedVisibility pra o respiro fechar junto com a
-                    // barra — fora, ele sobreviveria ao fechamento como um degrau.
                     Spacer(Modifier.height(6.dp))
                 }
             }
             var draft by remember(target.id) { mutableStateOf("") }
             var composerFocused by remember(target.id) { mutableStateOf(false) }
-            // Caixinha de comandos: aparece ACIMA do compositor quando a mensagem
-            // comeca com "/" e some assim que deixa de ser uma busca de comando.
             val allCommands = if (botAqui) rememberBotCommands() else emptyList()
             val matches = remember(draft, allCommands) { matchCommands(draft, allCommands) }
-            // Autocomplete de @: olha o token no FIM do rascunho.
-            //
-            // Sem posicao de cursor — o compositor guarda uma String, nao um
-            // TextFieldValue — completar no meio do texto exigiria trocar o campo
-            // inteiro, e junto dele o envio, o insert de emoji e o de GIF. O caso
-            // real e digitar @ e continuar escrevendo; volto no meio do texto se
-            // isso incomodar de verdade.
             val mencaoAlvo = remember(draft, membros) {
                 if (membros.isEmpty()) null else REGEX_MENCAO_ABERTA.find(draft)
             }
@@ -558,15 +479,6 @@ fun ChatView(
                     .take(8)
                     .toList()
             }
-            // Autocomplete de `:nome` — mesma leitura do fim do rascunho que o @ faz.
-            //
-            // EXIGE DUAS LETRAS depois dos dois-pontos, e o @ nao exige nenhuma. A
-            // diferenca nao e capricho: arroba solto praticamente nao aparece em
-            // conversa, enquanto dois-pontos aparece em hora ("20:"), em link
-            // ("https:") e no meio de frase. Abrir a lista no `:` sozinho poria uma
-            // caixinha na frente do texto varias vezes por conversa, sem ninguem ter
-            // pedido nada. Duas letras tambem e o minimo de um nome de emoji, entao
-            // nao se perde nenhum caso real.
             val emojiAlvo = remember(draft, emojisDaSala) {
                 if (emojisDaSala.lista.isEmpty()) null else REGEX_EMOJI_ABERTO.find(draft)
             }
@@ -577,10 +489,6 @@ fun ChatView(
                     .take(8)
                     .toList()
             }
-            // Os prefixos VEM DA LISTA que o backend mandou (o 1o pedaco de cada
-            // comando), nao de uma copia cravada aqui. Eles mudam de nome conforme
-            // o dia (/sparkle na semana, /sparxie no fim de semana); uma lista
-            // local ficaria velha e o comando voltaria a sair como mensagem.
             val prefixosBot = remember(allCommands) {
                 allCommands.map { it.name.substringBefore(' ') }.toSet()
             }
@@ -595,9 +503,6 @@ fun ChatView(
                 draft = ""
             }
             val canSend = draft.isNotBlank() || state.pending.isNotEmpty()
-            // As duas caixinhas nunca aparecem juntas: comando so casa no COMECO
-            // ("/x"), mencao so no FIM ("…@x"). O guard existe pra o dia em que
-            // uma das duas regras mudar e ninguem lembrar desta.
             if (candidatos.isNotEmpty() && matches.isEmpty()) {
                 MencaoPalette(candidatos) { escolhido ->
                     val inicio = mencaoAlvo?.range?.first ?: return@MencaoPalette
@@ -605,9 +510,6 @@ fun ChatView(
                 }
                 Spacer(Modifier.height(6.dp))
             } else if (emojiCandidatos.isNotEmpty() && matches.isEmpty()) {
-                // `else if` e nao um terceiro `if`: as tres caixinhas moram no mesmo
-                // lugar da tela, logo acima do compositor. Empilhar duas empurraria o
-                // compositor pra baixo enquanto se digita.
                 EmojiPalette(emojiCandidatos) { escolhido ->
                     val inicio = emojiAlvo?.range?.first ?: return@EmojiPalette
                     draft = draft.substring(0, inicio) + ":" + escolhido.name + ": "
@@ -615,17 +517,10 @@ fun ChatView(
                 Spacer(Modifier.height(6.dp))
             }
             CommandPalette(matches) { picked ->
-                // Escolher deixa o comando pronto com um espaco. O que a caixinha
-                // mostra inclui o rotulo do argumento ("/sparxie desejo <seu
-                // desejo>"); esse rotulo NAO entra no compositor — seria texto pra
-                // apagar antes de escrever.
                 draft = picked.name.substringBefore(" <") + " "
             }
             if (matches.isNotEmpty()) Spacer(Modifier.height(6.dp))
             val placeholder = if (target is ChatTarget.Dm) "Mensagem para ${target.title}" else "mensagem em ${target.title}"
-            // Barra compacta com ações inline: '+' anexa (atalho do que também vive no
-            // ✦), o campo cresce em multiline, '✦' traz emoji/gif/arquivo, e '➤' envia
-            // — acende no accent quando ha texto/anexo. Contador so aparece perto do teto.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -664,7 +559,6 @@ fun ChatView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .onFocusChanged { composerFocused = it.isFocused }
-                            // Enter envia; Shift+Enter quebra linha (convencao desktop).
                             .onPreviewKeyEvent { e ->
                                 if (e.type == KeyEventType.KeyDown && e.key == Key.Enter && !e.isShiftPressed) {
                                     submit(); true
@@ -672,7 +566,6 @@ fun ChatView(
                             },
                     )
                 }
-                // Contador so quando chega perto do teto (fica vermelho no limite).
                 if (draft.length > 3600) {
                     Text(
                         "${4000 - draft.length}",
@@ -683,12 +576,8 @@ fun ChatView(
                     )
                     Spacer(Modifier.width(4.dp))
                 }
-                // Seletores A MOSTRA (padrao Discord): GIF e emoji abrem direto, sem
-                // passar por menu. O que "cria coisa" mora no '+', do outro lado.
                 ComposerPickerButton(Seletor.GIF, onPickGif = vm::sendGif)
                 Spacer(Modifier.width(4.dp))
-                // Só em órbita: figurinha pertence a uma constelação, e sussurro
-                // não tem de onde tirar. Mesma regra da enquete no '+'.
                 if (serverId != null) {
                     ComposerPickerButton(
                         Seletor.FIGURINHA,
@@ -718,7 +607,6 @@ fun ChatView(
         )
     }
 
-    // Overlay enquanto o arquivo esta sendo arrastado por cima da conversa.
     if (dragOver) {
         Box(
             Modifier.fillMaxSize().background(Obsidian.void.copy(alpha = 0.72f)),
@@ -760,8 +648,6 @@ private fun MessageRow(
     onJumpTo: (String) -> Unit,
     onStartDm: (String, String) -> Unit,
 ) {
-    // Registro de chamada: sai antes de tudo. Não tem avatar, nome, hover,
-    // reação, responder nem editar — é um marco da conversa, não uma fala.
     msg.call?.let { c ->
         LinhaDeChamada(c, minha = msg.mine)
         return
@@ -769,29 +655,14 @@ private fun MessageRow(
 
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // A pill vive num Popup (camada propria): hover nela tira o hover da linha,
-    // entao os dois juntos decidem a visibilidade — senao ela pisca.
     val pillInteraction = remember { MutableInteractionSource() }
     val pillHovered by pillInteraction.collectIsHoveredAsState()
     var pickerOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
-    // animateXAsState SEM `by`: guarda o State e le o valor DENTRO do lambda de
-    // desenho (graphicsLayer/drawBehind). Antes o valor era lido no corpo do
-    // composable e alimentava .alpha()/.background() — a linha inteira (avatar,
-    // texto, timestamp) recompunha 60fps durante todo hover/fade. Agora so
-    // redesenha. (Auditoria de movimento, achado #3.)
-    // Por ID e nao pelo texto: e o servidor quem decide quem foi mencionado (ele
-    // resolve @nome contra os membros REAIS da constelacao). Escrever "@fulano"
-    // sem fulano existir nao acende barra nenhuma, que e o certo.
     val meMencionou = LocalMinhaConta.current.id?.let { it in msg.mentions } == true
     val rowAlpha = animateFloatAsState(if (msg.deleting) 0f else 1f, tween(FADE_MS), label = "rowAlpha")
-    // HOVER NAO CLAREIA MAIS O FUNDO DA MENSAGEM (pedido do dono). A faixa clara
-    // atras do texto era ruido em cima do unico conteudo que importa na tela — e
-    // a barra de acoes que aparece no canto ja diz, sozinha, qual linha esta sob o
-    // mouse. O destaque de "pulei pra esta mensagem" (highlighted) FICA: aquele e
-    // um evento, nao um estado de mouse.
     val bg = animateColorAsState(
         when {
             highlighted -> Obsidian.accentDim
@@ -800,10 +671,7 @@ private fun MessageRow(
         tween(150),
         label = "rowBg",
     )
-    // Mensagem nova entra com fade+subida (~150ms); as demais nascem prontas.
     val enter = remember { Animatable(if (enterAnim) 0f else 1f) }
-    // "Acende ao chegar": mensagem ao vivo ganha um brilho accent que decai a 0
-    // em 900ms — luz nova no ceu. So a que entra depois do baseline (enterAnim).
     val glow = remember { Animatable(if (enterAnim) 0.16f else 0f) }
     LaunchedEffect(Unit) {
         if (enterAnim) {
@@ -822,9 +690,6 @@ private fun MessageRow(
             }
             add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(msg.id)) })
             if (isChannel) add(MenuEntry.Item("fixar mensagem", icon = Lucide.Pin) { onPin() })
-            // Editar mexe no CONTENT. Mensagem sem texto (gif, imagem, arquivo
-            // solto) não tem o que editar — o campo abria vazio e salvar so
-            // esvaziava a mensagem.
             if (isChannel && msg.mine && msg.content.isNotBlank()) {
                 add(MenuEntry.Item("editar", icon = Lucide.Pencil) { onStartEdit() })
             }
@@ -846,19 +711,12 @@ private fun MessageRow(
         Modifier
             .fillMaxWidth()
             .graphicsLayer {
-                // rowAlpha (fade de delete) + pending (bolha otimista esmaecida) +
-                // enter (entrada) num lugar so — leitura na fase de desenho.
                 alpha = enter.value * rowAlpha.value * (if (msg.pending) 0.55f else 1f)
                 translationY = (1f - enter.value) * 6.dp.toPx()
             }
             .drawBehind {
                 drawRect(bg.value)
-                // Brilho de "mensagem acende" por cima do fundo, decaindo a 0.
                 if (glow.value > 0f) drawRect(Obsidian.accent.copy(alpha = glow.value))
-                // Barra de mencao: 2dp na borda esquerda, so quando VOCE foi
-                // chamado. Fica na fase de desenho junto do resto — um Box a mais
-                // no layout custaria medida em todas as linhas pra pintar duas
-                // colunas de pixel em quase nenhuma.
                 if (meMencionou) {
                     drawRect(Obsidian.accent, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
                 }
@@ -866,18 +724,9 @@ private fun MessageRow(
             .hoverable(interaction),
     ) {
         val dens = LocalMsgDensity.current
-        // A PILULA SEGUE O FIM DO TEXTO, e nao a borda direita do palco.
-        //
-        // Ela morava num Popup ancorado em TopEnd: um "oi" de dois caracteres tinha
-        // os botoes de responder e apagar a meia tela de distancia, sem nada ligando
-        // um ao outro. Agora ela e medida junto do conteudo (ver PilulaJuntoDoTexto)
-        // e encosta onde a mensagem acaba — grudando na borda direita so quando o
-        // texto de fato chega la.
         val showPill = (hovered || pillHovered || pickerOpen) && !msg.deleting && !editing
         val pilula: @Composable () -> Unit = {
             if (showPill) {
-                // Entrada fade+subida; o MutableTransitionState nasce false e vira
-                // true na primeira composicao pra animação rodar.
                 val visible = remember { MutableTransitionState(false).apply { targetState = true } }
                 AnimatedVisibility(
                     visibleState = visible,
@@ -885,23 +734,14 @@ private fun MessageRow(
                 ) {
                     ActionPill(
                         canReact = isChannel,
-                        // Mesma regra do menu: sem texto, nada a editar.
                         canEdit = isChannel && msg.mine && msg.content.isNotBlank(),
                         canDelete = msg.mine,
                         onReply = onReply,
                         onReact = { pickerOpen = true },
                         onEdit = onStartEdit,
-                        // Lixeira do hover passa pela MESMA confirmação do menu de
-                        // contexto (confirmDelete -> ConfirmPopup) — antes apagava direto.
                         onDelete = { confirmDelete = true },
                         modifier = Modifier.hoverable(pillInteraction),
                     )
-                    // O SELETOR DE EMOJI ANCORA NA PILULA, e nao mais na linha.
-                    //
-                    // Enquanto a pilula vivia colada na direita, "abaixo da linha, a
-                    // direita" e "abaixo do botao" eram o mesmo lugar. Agora que ela
-                    // segue o texto, ancorar na linha abriria o painel longe do botao
-                    // que o chamou — e o painel tem que sair de onde se clicou.
                     if (pickerOpen) {
                         Popup(
                             popupPositionProvider = SobOAlvo,
@@ -924,7 +764,6 @@ private fun MessageRow(
             verticalAlignment = Alignment.Top,
         ) {
             if (grouped) {
-                // Calha do avatar: hora exata aparece no hover.
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
                     if (hovered) {
                         Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
@@ -935,7 +774,6 @@ private fun MessageRow(
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
                 }
             } else {
-                // Clique no avatar abre o card de perfil (F3).
                 ProfileAnchor(msg.authorId, isMe = msg.mine, onStartDm = onStartDm) {
                     DesktopAvatar(msg.authorAvatar, msg.authorName, 34)
                 }
@@ -949,8 +787,6 @@ private fun MessageRow(
                             text = msg.authorName,
                             style = TextStyle(
                                 color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                // null (não escolheu fonte) fica com o padrao do chat —
-                                // profileFontFamily cairia no serif e mudaria TODO nome.
                                 fontFamily = msg.authorFont?.let { profileFontFamily(it) },
                             ),
                         )
@@ -967,8 +803,6 @@ private fun MessageRow(
     }
 }
 
-// Logo abaixo do alvo, alinhado pela esquerda dele, preso dentro da janela nos
-// dois eixos. Se nao couber embaixo (mensagem no pe da conversa), sobe pra cima.
 private object SobOAlvo : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -985,7 +819,6 @@ private object SobOAlvo : PopupPositionProvider {
     }
 }
 
-// Conteudo da mensagem: texto (ou campo de edicao inline) + chips de reacao.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ContentBlock(
@@ -1000,14 +833,10 @@ private fun ContentBlock(
     onRetry: () -> Unit = {},
 ) {
     val scale = LocalMsgFontScale.current
-    // Enquete SUBSTITUI o texto: o backend guarda a pergunta nos dois lugares
-    // (content e poll.question), entao desenhar os dois repetiria a frase.
     msg.poll?.let { poll ->
         PollBlock(
             poll = poll,
             myId = myId,
-            // Mesmo criterio que a lixeira da pill usa: o backend tambem aceita
-            // quem tem "gerenciar mensagens", mas o chat nao conhece cargo aqui.
             podeEncerrar = msg.mine,
             onVote = onVote,
             onClose = onClosePoll,
@@ -1017,30 +846,11 @@ private fun ContentBlock(
     if (editing) {
         EditField(msg.content, onSaveEdit, onCancelEdit)
     } else if (msg.content.isNotBlank() || msg.edited) {
-        // Mensagem so-anexo tem content vazio — sem linha em branco.
-        // ```bloco``` vira caixa mono (F5); `inline` vira span mono; o resto e
-        // o caminho rapido de sempre.
         val segments = remember(msg.content) { parseSegments(msg.content) }
-        // O texto estilizado tambem e memoizado, nao so o fatiamento. Monta-lo na
-        // composicao significa varrer a mensagem atras de crases e alocar um
-        // AnnotatedString novo TODA vez que a linha recompoe — e ela recompoe por
-        // motivos que nao tem nada a ver com o texto (passar o mouse, chegar
-        // mensagem nova, mudar a densidade). E o caminho mais quente do app.
-        // Entra na chave do remember: trocar de conta muda QUAL @ ganha fundo.
         val meuUsuario = LocalMinhaConta.current.usuario
-        // FORA das chaves do remember de proposito: o objeto e estavel e so o campo
-        // dentro dele muda (ver MencaoClicavel). Entrar como chave remontaria todo o
-        // texto do chat a cada ida e volta da lista de membros.
         val aoClicarNaMencao = LocalMencaoClicavel.current
-        // Emoji da constelacao entra NAS CHAVES do remember, ao contrario do clique
-        // da mencao: a lista muda quando alguem sobe ou apaga um emoji, e ai o texto
-        // TEM que ser remontado — senao o emoji novo so apareceria nas mensagens
-        // seguintes, e as antigas ficariam com o `:nome:` escrito pra sempre.
         val emojis = LocalEmojisDaSala.current
         val realce = remember(msg.content, emojis) { emojis.realce(msg.content) }
-        // Mensagem que e SO emoji desenha ao dobro; misturada com texto, fica no
-        // tamanho da leitura. A altura da linha sobe junto — sem isso o emoji, que
-        // mede 1.4 vezes a fonte, seria cortado pelo teto da linha.
         val fator = if (realce.soEmoji) 2f else 1f
         val corpo = (13 * scale * fator).sp
         val linha = ((if (realce.temPersonalizado) 21 else 19) * scale * fator).sp
@@ -1095,7 +905,6 @@ private fun ContentBlock(
             }
         }
     }
-    // Envio otimista que o servidor recusou/não respondeu: motivo + tentar de novo.
     if (msg.failed) {
         Spacer(Modifier.height(3.dp))
         val src = remember { MutableInteractionSource() }
@@ -1114,16 +923,12 @@ private fun ContentBlock(
     }
 }
 
-// Registro de chamada no sussurro: linha centralizada entre dois fios, com o
-// ícone dizendo o desfecho. Perdida vai em vermelho — é a única que pede uma
-// ação sua; uma chamada que aconteceu é só registro, e fica discreta.
 @Composable
 private fun LinhaDeChamada(c: CallLogDto, minha: Boolean) {
     val perdida = c.status != "ended"
     val cor = if (perdida) Obsidian.danger else Obsidian.text3
     val texto = when {
         !perdida -> "chamada de " + duracaoCurta(c.durationSec)
-        // Do lado de quem ligou não houve perda nenhuma: ninguém atendeu.
         minha -> "ninguém atendeu"
         else -> "chamada perdida"
     }
@@ -1153,18 +958,10 @@ private fun duracaoCurta(seg: Int): String = when {
     else -> "${seg / 3600}h ${(seg % 3600) / 60}min"
 }
 
-// Lado maior da figurinha na conversa. Mesma ordem de grandeza do Discord: grande
-// o bastante pra ler a expressão, pequena o bastante pra não dominar a linha.
 private val FIGURINHA_DP = 150.dp
 
-// Anexo na mensagem: imagem inline (Coil) abre no lightbox; resto vira chip
-// que abre no navegador.
 @Composable
 private fun AttachmentBlock(att: AttachmentDto) {
-    // FIGURINHA antes de tudo: tamanho fixo e SEM abrir em tela cheia. Figurinha
-    // e expressao, nao arquivo — ampliar nao serve pra nada e ainda rouba o
-    // clique. Tamanho fixo tambem mantem o ritmo da conversa, em vez de deixar
-    // uma imagem grande dominar a linha.
     if (att.sticker == true) {
         val w = att.width ?: 0
         val h = att.height ?: 0
@@ -1172,10 +969,6 @@ private fun AttachmentBlock(att: AttachmentDto) {
         AstraImage(
             url = att.url,
             contentDescription = att.name,
-            // Com a proporcao conhecida, o teto vale pro LADO MAIOR e a figurinha
-            // reserva o espaco exato antes de a imagem chegar — sem isso a
-            // conversa pula quando ela carrega. Sem proporcao, quadrado e o Fit
-            // resolve as sobras.
             modifier = if (proporcao != null) {
                 Modifier.sizeIn(maxWidth = FIGURINHA_DP, maxHeight = FIGURINHA_DP).aspectRatio(proporcao)
             } else {
@@ -1191,18 +984,11 @@ private fun AttachmentBlock(att: AttachmentDto) {
         val h = att.height ?: 0
         val proporcao = if (w > 0 && h > 0) w.toFloat() / h else null
         AstraImage(
-            // A bolha mostra a MINIATURA (~720px); o original so e baixado ao abrir
-            // em tela cheia. Aqui a imagem aparece com ~320dp — baixar o WebP de
-            // 2048px pra isso era dez a vinte vezes mais bytes do que a tela usa.
-            // Anexo antigo (ou imagem que ja era pequena) nao tem thumb e cai no url.
             url = att.thumbUrl ?: att.url,
             contentDescription = att.name,
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .heightIn(max = 240.dp)
-                // Reserva o espaco ANTES de a imagem chegar. Sem isto a bolha nasce
-                // com altura zero e empurra a conversa inteira pra baixo quando a
-                // foto carrega — e quem estava lendo perde a linha.
                 .then(if (proporcao != null) Modifier.aspectRatio(proporcao) else Modifier)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { openImage(att.url) },
@@ -1240,20 +1026,16 @@ private fun AttachmentBlock(att: AttachmentDto) {
     }
 }
 
-// Abre o anexo no navegador (URL relativa do backend vira absoluta).
 private fun openAttachment(url: String) {
     val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
     runCatching { Desktop.getDesktop().browse(URI(abs)) }
 }
-
-// ---- Code blocks (F5) ----
 
 private sealed interface Seg {
     data class Txt(val s: String) : Seg
     data class Code(val lang: String?, val s: String) : Seg
 }
 
-// Divide o conteudo em texto e blocos ```cercados``` (cerca sem par vira texto).
 private fun parseSegments(content: String): List<Seg> {
     if ("```" !in content) return listOf(Seg.Txt(content))
     val out = mutableListOf<Seg>()
@@ -1284,8 +1066,6 @@ private fun parseSegments(content: String): List<Seg> {
     return out.filter { it !is Seg.Txt || it.s.isNotBlank() }
 }
 
-// `inline code` vira span DM Mono com fundo. Fora das crases, @usuario vira mencao.
-// A ordem importa: `@fulano` dentro de crase e codigo, nao mencao.
 private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
     s: String,
     meuUsuario: String? = null,
@@ -1308,13 +1088,8 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlineCoded(
     }
 }
 
-// Mencao ABERTA: o @ que esta sendo digitado agora, colado no fim do rascunho.
-// Aceita vazio ("@") de proposito — assim a lista abre no instante em que voce
-// digita o arroba, antes de saber o nome, que e justamente quando ela serve.
 private val REGEX_MENCAO_ABERTA = Regex("@([A-Za-z0-9_]*)$")
 
-// Lista de membros pra completar o @. Mesma casca da caixinha de comandos: cartao
-// obsidiana ACIMA do compositor, porque abaixo ele ficaria fora da janela.
 @Composable
 private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto) -> Unit) {
     Column(
@@ -1346,9 +1121,6 @@ private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.width(7.dp))
-                // O @usuario aparece SEMPRE, mesmo quando ha apelido: e ele que vai
-                // parar no texto, e esconder isso faria a mensagem sair diferente
-                // do que a caixinha prometeu.
                 Text(
                     "@" + m.user.username,
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
@@ -1359,14 +1131,8 @@ private fun MencaoPalette(itens: List<ServerMemberDto>, onPick: (ServerMemberDto
     }
 }
 
-// Emoji da constelacao ABERTO: `:` mais duas letras ou mais, colado no fim do
-// rascunho. O `:` que fecha o nome nao e caractere de nome, entao `:pronto:` ja
-// escrito nunca casa — a lista fecha sozinha quando o nome termina.
 private val REGEX_EMOJI_ABERTO = Regex(":([A-Za-z0-9_]{2,32})$")
 
-// Lista de emojis pra completar o `:`. Mesma casca da caixinha do @ — sao o mesmo
-// gesto (completar o que se esta digitando) e mudar a moldura entre os dois faria
-// parecerem coisas diferentes.
 @Composable
 private fun EmojiPalette(itens: List<EmojiDto>, onPick: (EmojiDto) -> Unit) {
     Column(
@@ -1397,8 +1163,6 @@ private fun EmojiPalette(itens: List<EmojiDto>, onPick: (EmojiDto) -> Unit) {
                     modifier = Modifier.size(22.dp),
                 )
                 Spacer(Modifier.width(9.dp))
-                // O nome sai COM os dois-pontos, exatamente como vai parar no texto:
-                // e assim que se aprende a digita-lo da proxima vez sem abrir lista.
                 Text(
                     ":${e.name}:",
                     style = TextStyle(
@@ -1413,18 +1177,8 @@ private fun EmojiPalette(itens: List<EmojiDto>, onPick: (EmojiDto) -> Unit) {
     }
 }
 
-// Mesma regra do backend (lib/mentions.ts): @ seguido de letras, numeros e _.
-// Divergir aqui pintaria de ambar algo que o servidor nunca notificou.
 private val REGEX_MENCAO = Regex("@([A-Za-z0-9_]+)")
 
-// @usuario em ambar; o MEU ganha fundo. Ambar sozinho ja diz "tem gente marcada",
-// mas nao diz "e voce" — e essa e a unica distincao que muda o que voce faz com a
-// mensagem. Por isso o peso visual fica reservado pro seu caso.
-//
-// Clicar abre o mesmo mini card do avatar. Isso e feito com LinkAnnotation e nao
-// com hit-test na mao: o BasicText ja sabe em que span o cursor esta, entao o
-// hover e o clique saem de graca e certos, inclusive quando a mencao quebra de
-// linha no meio — que e justamente onde calcular na mao erra.
 private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(
     s: String,
     meuUsuario: String?,
@@ -1441,12 +1195,6 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendComMencoes(
             fontWeight = FontWeight.Medium,
             background = if (minha) Obsidian.accent.copy(alpha = 0.16f) else Color.Transparent,
         )
-        // A SUA mencao ja nasce acesa, entao o hover dela sobe MAIS um degrau em vez
-        // de repetir o mesmo tom. Se os dois usassem 0.16 aconteceriam duas coisas
-        // ruins de uma vez: passar o mouse na propria mencao nao daria retorno
-        // nenhum, e o fundo deixaria de significar "e voce" pra significar "o mouse
-        // esta aqui" — perdendo a unica distincao que muda o que voce faz com a
-        // mensagem.
         val aceso = repouso.copy(background = Obsidian.accent.copy(alpha = if (minha) 0.30f else 0.14f))
         withLink(
             LinkAnnotation.Clickable(
@@ -1535,7 +1283,6 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
 
 @Composable
 private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Unit) {
-    // Pop: entra com overshoot e repete quando o count muda (reacao realtime).
     val scale = remember { Animatable(0f) }
     LaunchedEffect(reaction.count) {
         if (scale.value > 0f) scale.snapTo(0.75f)
@@ -1561,7 +1308,6 @@ private fun ReactionChip(reaction: ReactionDto, mine: Boolean, onClick: () -> Un
     }
 }
 
-// Referencia da mensagem-origem acima de uma reply; clique rola ate ela.
 @Composable
 private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -1587,16 +1333,6 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
     }
 }
 
-// CONTEUDO DA MENSAGEM + PILULA DE ACOES, com a pilula ancorada no FIM DO TEXTO.
-//
-// Nao da pra fazer isso com Row comum: a pilula so aparece no hover, e um filho
-// que entra e sai do layout empurraria o texto — a mensagem inteira refluiria
-// debaixo do mouse. Aqui ela e medida FORA da faixa do conteudo e posicionada por
-// cima, entao aparecer e sumir nao move um pixel do texto.
-//
-// A regra de posicao e uma linha so: encosta no fim do texto; se nao couber, gruda
-// na borda direita. Mensagem curta ganha a pilula ao lado; mensagem que ocupa a
-// largura toda mantem o comportamento antigo, que ali e o unico possivel.
 @Composable
 private fun PilulaJuntoDoTexto(
     modifier: Modifier = Modifier,
@@ -1605,15 +1341,11 @@ private fun PilulaJuntoDoTexto(
 ) {
     val densidade = LocalDensity.current
     val respiro = with(densidade) { 8.dp.roundToPx() }
-    // Sobe um pouco pra montar na quina de cima do bloco, como estava no Popup.
     val subida = with(densidade) { 10.dp.roundToPx() }
     Layout(
         contents = listOf({ Column(content = conteudo) }, pilula),
         modifier = modifier,
     ) { (medidosConteudo, medidosPilula), constraints ->
-        // minWidth = 0 E O PONTO. O pai e uma faixa de largura fixa (weight do Row);
-        // sem relaxar o minimo, a coluna nasce esticada ate a borda e "fim do texto"
-        // vira sempre "borda direita" — que e exatamente o defeito sendo corrigido.
         val conteudoMedido = medidosConteudo.first().measure(constraints.copy(minWidth = 0))
         val pilulaMedida = medidosPilula.firstOrNull()?.measure(Constraints())
         val largura = constraints.maxWidth
@@ -1679,15 +1411,6 @@ private fun PillButton(icon: ImageVector, onClick: () -> Unit, danger: Boolean =
     }
 }
 
-// Popup ancorado ACIMA do gatilho (o composer fica no rodape), alinhado a direita.
-// Seletor de reacao: 6 rapidos + grade expansivel. internal: a aba Perfil das
-// configurações reusa esta mesma grade pro emoji do recado (não duplicar).
-//
-// `personalizados` VAZIO por padrao, e o padrao e o caso comum: quem escolhe aqui
-// e a reacao (que manda o emoji como texto pro servidor e volta em toda plataforma)
-// e o emoji do recado do perfil. Nos dois, um `:nome:` sairia escrito assim mesmo,
-// porque nao ha constelacao por perto pra traduzir o nome em imagem. So o
-// compositor — que grava o `:nome:` numa mensagem de uma constelacao — preenche.
 @Composable
 internal fun ReactionPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = emptyList()) {
     var expanded by remember { mutableStateOf(false) }
@@ -1705,9 +1428,6 @@ internal fun ReactionPicker(onPick: (String) -> Unit, personalizados: List<Emoji
         }
         if (expanded) {
             Spacer(Modifier.height(4.dp))
-            // A grade de 28 glifos cravados virou o catalogo inteiro (EmojiPicker):
-            // ~700 em oito categorias, com busca e recentes. Os seis rapidos de cima
-            // continuam — eles resolvem 90% das reacoes sem abrir nada.
             EmojiPicker(onPick = onPick, personalizados = personalizados)
         }
     }
@@ -1730,8 +1450,6 @@ private fun EmojiCell(glyph: String, onClick: () -> Unit) {
     }
 }
 
-// Variante so-ícone (ex.: +/- pra expandir a grade) — o glifo emoji e conteudo,
-// mas o toggle de expandir e chrome, entao vira Lucide.
 @Composable
 private fun EmojiCell(icon: ImageVector, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -1749,7 +1467,6 @@ private fun EmojiCell(icon: ImageVector, onClick: () -> Unit) {
     }
 }
 
-// Botao-glifo pequeno (ex.: fechar a reply bar).
 @Composable
 private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -1767,10 +1484,6 @@ private fun HoverGlyph(icon: ImageVector, onClick: () -> Unit) {
     }
 }
 
-// Botao de ENVIAR: minimalista estilo "seta pra cima". Sem texto = seta apagada,
-// fundo transparente (so hover leve). COM texto = circulo BRANCO preenchido + seta
-// escura (contraste alto = "pronto pra enviar"). As cores animam (fade), não um
-// liga/desliga seco -> transicao fluida (pedido do dono).
 @Composable
 private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -1803,12 +1516,6 @@ private fun Center(text: String) {
     }
 }
 
-// ---- Empty state: pontinhos saltando no vazio ----
-
-// Empty-state do chat: 3 pontinhos saltando em fila (onda da esquerda p/ direita)
-// e voltando. A fase e lida DENTRO do draw (phase.value no lambda do Canvas) ->
-// invalida so o desenho, sem recompor a arvore a cada frame. Reduzir movimento ->
-// pontos parados na base (ainda visiveis).
 @Composable
 private fun EmptyChat() {
     val accent = Obsidian.accent
@@ -1831,7 +1538,6 @@ private fun EmptyChat() {
                 val baseY = size.height - r
                 val startX = size.width / 2f - gap
                 repeat(3) { i ->
-                    // Cada ponto sobe e volta defasado -> onda; no alto fica maior/claro.
                     val lift = sin(ph - i * 0.7f).coerceAtLeast(0f)
                     drawCircle(
                         color = accent.copy(alpha = 0.38f + 0.34f * lift),
@@ -1849,10 +1555,6 @@ private fun EmptyChat() {
     }
 }
 
-// A primeira tentativa caiu e o app esta insistindo. NAO e erro: e espera, e a
-// espera pode passar de um minuto porque a API dorme no plano free. Um minuto de
-// esqueleto parado le como travamento — dizer o que esta acontecendo custa uma
-// linha e evita a pessoa fechar o app achando que quebrou.
 @Composable
 private fun AcordandoOServidor() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1872,10 +1574,6 @@ private fun AcordandoOServidor() {
     }
 }
 
-// A carga falhou de vez. Isto ocupa o palco INTEIRO de proposito: antes a falha
-// aparecia como uma linha vermelha de 12sp junto do campo de escrever, enquanto o
-// palco mostrava "nada por aqui ainda" — ou seja, a tela afirmava que a conversa
-// estava vazia quando ela nem tinha sido lida.
 @Composable
 private fun PalcoQueFalhou(motivo: String, podeTentar: Boolean, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

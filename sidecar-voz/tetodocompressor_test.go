@@ -6,21 +6,6 @@ import (
 	"time"
 )
 
-// QUAL É O TETO DO COMPRESSOR, sem o laço no caminho?
-//
-// A PERGUNTA QUE ISTO RESPONDE. Medido, o caminho inteiro custa 6,2 ms por quadro em
-// 720p e 7,0 ms em 1080p — só 12% de diferença para 2,25 vezes menos pixels. Custo que
-// quase não muda com o tamanho não é custo de COMPRIMIR: é latência de ida e volta.
-//
-// Se for latência, ela some com pipeline (alimentar o quadro seguinte enquanto a placa
-// trabalha no atual) e NÃO some reduzindo resolução. Se for trabalho de verdade, é o
-// contrário. As duas conclusões levam a otimizações opostas, e escolher errado custa a
-// implementação inteira.
-//
-// COMO SEPARAR: alimentar o compressor com o MESMO quadro, o mais rápido que ele
-// aceitar, sem captura no meio. O que sai daqui é a vazão máxima dele. Comparada com os
-// ~160 quadros por segundo que o laço atual alcança, a diferença é o que o pipeline
-// tem para recuperar.
 func TestOTetoDoCompressorSemOLaco(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -51,8 +36,6 @@ func TestOTetoDoCompressorSemOLaco(t *testing.T) {
 	defer c.Fechar()
 	t.Logf("compressor: %s (assincrono=%v)", c.Nome, c.Assincrono)
 
-	// UM QUADRO SÓ, capturado uma vez e reaproveitado. A captura sai da conta de
-	// propósito: o que se mede aqui é o compressor, e nada mais.
 	var textura objeto
 	prazo := time.Now().Add(3 * time.Second)
 	for time.Now().Before(prazo) {
@@ -65,7 +48,6 @@ func TestOTetoDoCompressorSemOLaco(t *testing.T) {
 		t.Skip("a tela não mudou em 3s — mexa numa janela e rode de novo")
 	}
 
-	// Uma cópia nossa, porque a da duplicação precisa ser devolvida.
 	cpuAntes := TempoDeProcessador()
 	comeco := time.Now()
 	fim := comeco.Add(2 * time.Second)
@@ -88,7 +70,6 @@ func TestOTetoDoCompressorSemOLaco(t *testing.T) {
 	t.Logf("  processador: %.3f núcleos", float64(cpu)/float64(duracao))
 	t.Logf("  o orçamento de 60/s é 16,67ms por quadro")
 
-	// ONDE O TEMPO FICA — e é isto que decide se pipeline vale a pena.
 	m := c.Custos.Media()
 	t.Logf("POR QUADRO, esperando:")
 	t.Logf("  ele pedir entrada   %8.0fus  (a placa OCUPADA — só some comprimindo menos)",

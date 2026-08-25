@@ -1,25 +1,7 @@
 import type { BlocoIa, PedidoIa, RespostaIa } from './ia'
 
-// Adaptador do Groq — o provedor PADRAO da Astra.
-//
-// Escolhido por eliminacao honesta: a Anthropic e paga, o AI Studio do Google
-// recusa a conta do dono, e uma bot que responde "estou offline" pra sempre nao e
-// uma bot. O Groq da chave sem cartao, sem projeto de cloud, sem burocracia — e
-// roda em LPU, o que na pratica significa resposta quase instantanea.
-//
-// O QUE SE PERDE: o teto gratis e por minuto e por dia (algo como 30 pedidos/min).
-// Num servidor movimentado isso ESTOURA, e por isso o 429 vira uma mensagem
-// propria la embaixo em vez de "erro tecnico" generico — a pessoa precisa saber
-// que e pra tentar de novo em um minuto, nao que a bot quebrou.
-//
-// A API e compativel com a da OpenAI. Toda a traducao do nosso formato (blocos
-// estilo Anthropic) acontece aqui dentro; o laco de ferramentas do bot.ts nao sabe
-// que provedor esta atendendo.
-
 const BASE = 'https://api.groq.com/openai/v1/chat/completions'
 
-// Configuraveis por variavel: provedor gratis aposenta modelo sem avisar, e trocar
-// no painel do Render e mais rapido que esperar um deploy.
 export const GROQ_CONVERSA = process.env.GROQ_MODEL      ?? 'llama-3.3-70b-versatile'
 export const GROQ_RESUMO   = process.env.GROQ_MODEL_FAST ?? 'llama-3.1-8b-instant'
 
@@ -36,13 +18,6 @@ interface MensagemOpenAi {
   tool_call_id?: string
 }
 
-// A conversao mais delicada do arquivo.
-//
-// No nosso formato o resultado de uma ferramenta vem DENTRO de uma mensagem de
-// usuario (`{ role:'user', content:[{type:'tool_result'}] }`). No formato da OpenAI
-// ele e uma mensagem separada, de papel 'tool', e precisa vir logo depois da
-// mensagem do assistente que pediu. Entao um item da nossa lista pode virar varios
-// aqui — e a ordem tem que ser preservada, senao a API recusa com 400.
 export function paraMensagens(system: string, mensagens: any[]): MensagemOpenAi[] {
   const saida: MensagemOpenAi[] = [{ role: 'system', content: system }]
 
@@ -71,13 +46,10 @@ export function paraMensagens(system: string, mensagens: any[]): MensagemOpenAi[
     }
 
     if (chamadas.length) {
-      // Com tool_calls o content pode ficar vazio, mas nao pode sumir: alguns
-      // modelos do Groq recusam o campo ausente.
       saida.push({ role: 'assistant', content: textos.join('\n'), tool_calls: chamadas })
     } else if (textos.length) {
       saida.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: textos.join('\n') })
     }
-    // As respostas de ferramenta vao depois das chamadas, sempre.
     saida.push(...respostas)
   }
 
@@ -111,13 +83,9 @@ export async function chamarGroq(chave: string, opts: PedidoIa): Promise<Respost
 
   if (!res.ok) {
     const texto = await res.text().catch(() => '')
-    // 429 e o caso COMUM na camada gratis, nao a excecao. Vira um tipo proprio pra
-    // quem chama poder dizer "tenta daqui a pouco" em vez de "deu erro".
     if (res.status === 429) {
       return { error: { type: 'limite', message: `HTTP 429: ${texto.slice(0, 200)}` } }
     }
-    // Modelo aposentado da 400/404 com o id no corpo. A mensagem aponta o conserto
-    // em vez de deixar alguem cacando isso no log.
     if ((res.status === 400 || res.status === 404) && /model/i.test(texto)) {
       return {
         error: {
@@ -138,9 +106,6 @@ export async function chamarGroq(chave: string, opts: PedidoIa): Promise<Respost
   const blocos: BlocoIa[] = []
   if (msg?.content) blocos.push({ type: 'text', text: msg.content })
   for (const c of msg?.tool_calls ?? []) {
-    // Os argumentos chegam como STRING de JSON. Modelo pequeno as vezes manda algo
-    // mal formado; um objeto vazio faz a ferramenta reclamar de parametro faltando,
-    // que e recuperavel — um throw aqui mataria a conversa inteira.
     let entrada: unknown = {}
     try {
       entrada = c.function?.arguments ? JSON.parse(c.function.arguments) : {}

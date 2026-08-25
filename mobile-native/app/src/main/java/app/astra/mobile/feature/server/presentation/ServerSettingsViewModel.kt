@@ -25,7 +25,6 @@ data class ServerSettingsUiState(
     val canManageChannels: Boolean = false,
     val canBan: Boolean = false,
     val working: Boolean = false,
-    // sair/excluir concluido -> a tela navega de volta pra Home.
     val closed: Boolean = false,
 )
 

@@ -196,8 +196,6 @@ import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.sin
 
-// Publico (era private): entra na assinatura do SettingsScreen e do UserFooter —
-// clicar no avatar do rodape abre as configurações JA no Perfil.
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
     PROFILE("Perfil", "avatar, nome e recado", Lucide.Pencil),
@@ -205,11 +203,6 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     NOTIFICATIONS("Notificacoes", "avisos na bandeja", Lucide.Bell),
     PRIVACY("Privacidade", "o que os outros veem de você", Lucide.Eye),
     APPEARANCE("Aparencia", "cores e fundo", Lucide.Palette),
-    // ABA PRÓPRIA, e não um bloco dentro de Aparência como era. O que decidiu foi a
-    // VITRINE: escolher entre três bichos exige ver o que cada um faz, e o palco que
-    // mostra isso não cabe espremido no fim de uma aba que já trata de tema, fundo,
-    // fonte e densidade. O interruptor continua em Acessibilidade — "quero um bicho
-    // se mexendo na tela?" é pergunta de movimento, não de gosto.
     PETS("Pets", "companheiro, cor e gestos", Lucide.PawPrint),
     ACCESSIBILITY("Acessibilidade", "leitura, contraste e movimento", Lucide.Accessibility),
     PERFORMANCE("Desempenho", "graficos, animações, fps", Lucide.ChartColumn),
@@ -217,50 +210,21 @@ enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector
     SHORTCUTS("Atalhos", "teclas do app", Lucide.Keyboard),
     PERMISSIONS("Permissoes", "o que o Windows libera", Lucide.ShieldCheck),
     ABOUT("Sobre", "versão e atualizacoes", Lucide.Info),
-    // SO PRO DONO DO ASTRA. A rota /api/bots responde 404 pra todo mundo mais, e a
-    // aba so entra na lista quando essa chamada da certo — ver `abaDeBots` abaixo.
     BOTS("Bots", "aparencia da Sparkle e da Sparxie", Lucide.Bot),
-    // SO PRA DEV (decisao do dono). Ver `abaDeDev` abaixo.
     DIAGNOSTICS("Diagnostico", "o que o app esta vendo agora", Lucide.CircleDot),
 }
 
-// Rodando pelo Gradle/IDE = dev. No app empacotado o jpackage define
-// `jpackage.app-path`; sem essa propriedade, estamos no ambiente de
-// desenvolvimento. Da pra forcar no pacote com -Dastra.dev (util pra pedir o
-// diagnostico a alguem sem publicar uma versão especial).
-//
-// Esconder a aba NAO cega o suporte: o diagnostico de boot e o registro de falhas
-// continuam sendo gravados em %LOCALAPPDATA%\Astra pra todo mundo, entao ainda da
-// pra pedir o arquivo a um amigo quando algo quebrar.
 private val abaDeDev: Boolean =
     System.getProperty("jpackage.app-path") == null || System.getProperty("astra.dev") != null
 
-// A aba Bots FICA DE FORA desta lista de propósito: quem a libera é o servidor.
-// Só o dono do Astra recebe resposta em /api/bots (pra todo mundo mais a rota
-// responde "não existe"), e a aba entra quando essa chamada dá certo — ver
-// `ehDonoDoAstra` abaixo. Uma bandeira local seria só uma sugestão: o portão de
-// verdade está no servidor, e a tela apenas evita oferecer o que ia dar erro.
 private val abasVisiveis: List<SettingsTab> =
     SettingsTab.entries.filter {
         (it != SettingsTab.DIAGNOSTICS || abaDeDev) && it != SettingsTab.BOTS
     }
 
-// Largura da coluna de previa, UMA para todas as secoes. Era 300 fixa (420
-// empilhada): com duas previas lado a lado sobravam ~145dp pra cada cartao, e um
-// cartao encolhido a 40% vira mancha — da pra ver que ha um cartao, nao COMO ele
-// esta. Depois houve um segundo valor, so pra secao do Perfil; ele morreu quando a
-// tela virou pagina unica, porque largura variavel ali remexeria a coluna no meio
-// da rolagem (ver o comentario de `larguraPrevia`). 470 e o valor que sobrou: o
-// que o cartao de perfil pede, que e o maior pedido da tela.
 private val LARGURA_DA_PREVIA = 470.dp
-// internal e nao private: a tela de configuracoes da CONSTELACAO usa a mesma
-// moldura. Duas telas irmas com dois raios diferentes seria o tipo de divergencia
-// que ninguem nota de proposito e todo mundo sente.
 internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 
-// Settings em TAKEOVER estilo Discord (decisao do dono): ocupa o shell inteiro,
-// nav de secoes na esquerda + conteudo na direita. Secoes v1: Conta (senha),
-// Notificacoes (toggles do tray) e Movimento (reduzir animações).
 @Composable
 fun SettingsScreen(
     me: ProfileUserDto?,
@@ -269,32 +233,14 @@ fun SettingsScreen(
     onProfileSaved: () -> Unit = {},
     initialTab: SettingsTab = SettingsTab.ACCOUNT,
     onTestarNotificacao: () -> Unit = {},
-    // Apagar a conta termina em LOGOUT, e o logout e de quem segura a sessao (o
-    // Main). Chamar o repositorio daqui apagaria o token e deixaria a tela de pe
-    // com uma sessao morta — o app parecendo logado sem conta do outro lado.
     aoSairDaConta: () -> Unit = {},
 ) {
-    // ABA DE VOLTA. A rolagem unica (0.1.95) foi testada e reprovada pelo dono: a
-    // secao trocava sozinha conforme a pagina descia, e o item aceso no menu
-    // virava consequencia da rolagem em vez de escolha. Uma pagina por aba devolve
-    // o controle — e o cartao grande, que veio junto, ja da a sensacao de
-    // sobreposicao que o Discord tem sem precisar da rolagem continua.
     var tab by remember(initialTab) { mutableStateOf(initialTab) }
     val tabAtiva = tab
-    // Abas que ja fizeram a cascata NESTA visita as configuracoes.
-    //
-    // O `remember` sem chave e o mecanismo inteiro: ele morre quando a tela sai da
-    // composicao, ou seja, quando as configuracoes fecham. Dai sai de graca a regra
-    // que o dono pediu — trocar de aba e voltar encontra a aba ja montada; fechar
-    // as configuracoes e abrir de novo faz a cascata acontecer outra vez.
     val jaAnimaram = remember { mutableSetOf<SettingsTab>() }
     val prefState by prefs.state.collectAsState()
-    // Rascunho do perfil VIVE AQUI (não dentro da secao): a previa e IRMA da
-    // secao, não filha — hoisted, ela reage a cada tecla. Reseta quando o `me`
-    // do shell muda (ex.: depois de salvar, o refreshMe traz o valor novo).
     var draft by remember(me) { mutableStateOf(ProfileDraft.from(me)) }
 
-    // ESC fecha: foco no root do takeover + captura da tecla.
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
 
@@ -307,15 +253,6 @@ fun SettingsScreen(
                 if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
             },
     ) {
-        // Fundo do takeover = a MESMA aurora do shell, continua, por baixo (o dono
-        // pediu "mesma aurora, no mesmo lugar independente da aba"). O shell segura a
-        // aurora/estrelas montadas e esconde o proprio conteudo enquanto isto abre ->
-        // nada vaza atrás. Aqui so um veu segura a leitura. Pintar aurora nova aqui
-        // era o "salto de posição" ao abrir configurações (relogio independente).
-        // Scrim mais escuro que o veu antigo: as configuracoes deixaram de tomar a
-        // tela e viraram um CARTAO GRANDE por cima do shell (referencia do dono, o
-        // Discord). Com o app aparecendo nas beiradas, o veu precisa empurrar o
-        // fundo pra tras — senao os dois competem pela leitura.
         Box(
             Modifier
                 .matchParentSize()
@@ -334,15 +271,12 @@ fun SettingsScreen(
                 .clip(FORMA_DO_CARTAO_DE_CONFIG)
                 .background(Obsidian.base)
                 .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
-                // Engole o clique: sem isto, clicar dentro do cartao fecha, porque
-                // o scrim atras continua ouvindo.
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = {},
                 ),
         ) {
-            // Nav das secoes
             Column(
                 Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 18.dp),
             ) {
@@ -351,9 +285,6 @@ fun SettingsScreen(
                     style = TextStyle(color = Obsidian.text1, fontSize = 18.sp, fontFamily = DmSerif),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                // Uma consulta ao abrir as Configurações. Falhou (404 pra quem não
-                // é dono, ou servidor fora) = a aba não aparece, e é o resultado
-                // certo nos dois casos: sem servidor ela não teria o que editar.
                 var ehDono by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
                     ehDono = runCatching {
@@ -363,21 +294,6 @@ fun SettingsScreen(
                 val abas = remember(ehDono) {
                     if (ehDono) abasVisiveis + SettingsTab.BOTS else abasVisiveis
                 }
-                // A LISTA ROLA; o título fica. Antes a coluna inteira era rígida e,
-                // quando as abas passaram de onze, o Compose fez a única coisa que
-                // podia: espremeu todas até o rótulo e o subtítulo se encostarem.
-                // Aba achatada não é aba menor — é aba ilegível.
-                //
-                // O `weight(1f)` é o que resolve: ele dá à lista exatamente a altura
-                // que sobra do título, e o `verticalScroll` transforma o excesso em
-                // rolagem em vez de compressão. Assim caber deixa de ser problema de
-                // layout e vira problema do dedo, que é onde ele deve estar.
-                // O RESPIRO ENTRE AS ABAS É O QUE AS SEPARA, já que cada uma é um
-                // cartão com borda própria. Com 4dp as bordas de duas abas vizinhas
-                // quase se encostavam e a lista lia como uma grade contínua — catorze
-                // células empilhadas, não catorze destinos. 10dp devolve a cada aba um
-                // contorno seu, e é o mesmo raciocínio que tirou os traços de dentro
-                // das abas: quem separa é o espaço.
                 Column(
                     Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -388,30 +304,10 @@ fun SettingsScreen(
                 }
             }
 
-            // Conteudo da secao — coluna capada (~720) estilo Discord: não esparrama
-            // pelo palco todo (o "enxuto" que o dono pediu). O Box segura a coluna
-            // encostada a esquerda; os controles leem como uma coluna so em vez de
-            // soltos num vazao grande a direita. Titulo + fechar vivem dentro dela.
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-            // LARGURA DA PREVIA FIXA PRA PAGINA INTEIRA, e nao mais por aba.
-            //
-            // Antes ela variava (a do Perfil e maior), e a coluna de conteudo era
-            // calculada em cima dela. Numa pagina unica isso seria veneno: a
-            // coluna inteira mudaria de largura no meio da rolagem, so porque a
-            // secao do Perfil entrou na tela. Layout que se remexe enquanto se
-            // rola e pior que uma previa 50dp menor em duas secoes.
             val larguraPrevia = LARGURA_DA_PREVIA
-            // PISO derivado da propria previa, e nao um numero fixo: 280dp e o
-            // minimo em que um campo com rotulo ainda cabe numa linha. Abaixo
-            // disso a previa desce pra dentro de cada secao.
             val pinned = maxWidth > larguraPrevia + 280.dp
-            // Ponte entre o FORMULÁRIO (dono das ações: tem o rascunho e hospeda os
-            // diálogos de recorte) e a PRÉVIA (onde as imagens existem pra serem
-            // clicadas). Os dois são irmãos nesta tela, e um portador mutável evita
-            // mudar o cartão de lugar só pra dar acesso.
             val acoesDoCartao = remember { AcoesDoCartao() }
-            // Com a previa fixa, a coluna de conteudo encolhe pra não correr por
-            // baixo dela: a previa + 32 do respiro na borda + 44 de vao.
             val contentMax =
                 if (pinned) minOf(720.dp, (maxWidth - larguraPrevia - 76.dp).coerceAtLeast(280.dp)) else 720.dp
             Column(
@@ -419,11 +315,6 @@ fun SettingsScreen(
                     .fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = 28.dp, vertical = 22.dp),
             ) {
-                // Troca de secao: SO fade. A entrada de verdade e a cascata, e ela
-                // e vertical. O SizeTransform explicito continua sendo necessario —
-                // o padrao dele e MOLA, e mola tem duracao proporcional a
-                // distancia, entao a mesma troca de aba saia curta ou longa
-                // conforme a diferenca de altura entre as duas.
                 AnimatedContent(
                     targetState = tab,
                     transitionSpec = {
@@ -433,26 +324,14 @@ fun SettingsScreen(
                     label = "settingsSection",
                 ) { current ->
                     val temPrevia = temPrevia(current)
-                    // A CASCATA agora acontece quando a secao ENTRA NA TELA pela
-                    // primeira vez, e nao quando se troca de aba. O conjunto
-                    // `jaAnimaram` continua sendo o que impede o replay: a
-                    // LazyColumn descarta o item que sai da tela e o recompoe ao
-                    // voltar, entao sem ele a cascata tocaria de novo a cada
-                    // rolagem pra cima. Ele morre quando as configuracoes fecham —
-                    // exatamente a regra que o dono pediu.
                     val jaVisto = current in jaAnimaram
                     LaunchedEffect(current) { jaAnimaram += current }
-                    // O Column NAO e decorativo: o container do AnimatedContent
-                    // empilha os filhos da raiz no MESMO Y. Era o bug dos "textos
-                    // sobrepostos".
                     Column(Modifier.fillMaxWidth()) {
                     Text(
                         current.label,
                         style = TextStyle(color = Obsidian.text1, fontSize = 26.sp, fontFamily = DmSerif),
                     )
                     Spacer(Modifier.height(18.dp))
-                    // Janela estreita: a previa nao cabe ao lado, entao entra AQUI,
-                    // logo abaixo do titulo da secao a que ela pertence.
                     if (!pinned && temPrevia) {
                         SettingsPreview(current, me, prefState, draft, Modifier.widthIn(max = larguraPrevia).fillMaxWidth(), acoesDoCartao)
                         Spacer(Modifier.height(18.dp))
@@ -463,12 +342,6 @@ fun SettingsScreen(
                         SettingsTab.PROFILE -> ProfileSection(me, draft, { draft = it }, onProfileSaved, acoesDoCartao)
                         SettingsTab.SESSIONS -> SessionsSection()
                         SettingsTab.NOTIFICATIONS -> Column {
-                            // DOIS BLOCOS porque são dois escopos. O de cima manda no
-                            // balão desta máquina; o de baixo manda na conta inteira.
-                            // Antes só existia o de cima, e as preferências da conta
-                            // ficavam alcançáveis apenas pelo site — quem desligasse
-                            // "reações" por lá simplesmente parava de receber reação no
-                            // desktop, sem explicação e sem caminho de volta.
                             BlocoDeAjustes(
                                 "neste computador",
                                 "mandam no balão da bandeja desta máquina. Não mudam o que o " +
@@ -499,9 +372,6 @@ fun SettingsScreen(
                                     modifier = Modifier.widthIn(max = 460.dp),
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                // Por que isto existe, em uma linha: o aviso da bandeja é
-                                // desenhado pelo Windows POR CIMA de tudo — inclusive do
-                                // que está sendo gravado ou transmitido.
                                 Text(
                                     "o aviso sem conteúdo serve para transmitir a tela: o balão do Windows " +
                                         "aparece por cima de tudo, e o que estiver escrito nele entra na gravação.",
@@ -528,9 +398,6 @@ fun SettingsScreen(
                         SettingsTab.BOTS -> BotsSection()
                     }
                     }
-                    // O botao de salvar segue no PE do formulario do Perfil quando
-                    // a previa esta empilhada: salvar e o fim da tarefa, e o lugar
-                    // dele e onde a tarefa acaba.
                     if (!pinned && current == SettingsTab.PROFILE) {
                         Spacer(Modifier.height(14.dp))
                         ProfileSaveButton(me, draft, { draft = it }, onProfileSaved, Modifier.widthIn(max = larguraPrevia).fillMaxWidth())
@@ -538,17 +405,11 @@ fun SettingsScreen(
                     }
                 }
             }
-                // Coluna fixa da direita: fechar em cima, previa embaixo. Ela nao
-                // rola junto — e a previa acompanha a secao que esta NO TOPO da
-                // rolagem, com um fade curto na troca. Sem o fade, rolar entre duas
-                // secoes com previa trocaria o cartao de uma vez so, seco.
                 if (pinned) {
                     Column(
                         Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 32.dp).width(larguraPrevia),
                         horizontalAlignment = Alignment.End,
                     ) {
-                        // Fechar (ESC também) volta pro shell. Subiu pra ca: com
-                        // uma pagina so, ele nao pertence mais a nenhuma secao.
                         val hov = remember { MutableInteractionSource() }
                         val h by hov.collectIsHoveredAsState()
                         Box(
@@ -574,11 +435,6 @@ fun SettingsScreen(
                             label = "previaDaSecao",
                         ) { secao ->
                             Column(Modifier.fillMaxWidth()) {
-                                // A regra de "esta secao tem previa?" vale AQUI
-                                // tambem. Ela existia so no ramo empilhado, entao na
-                                // coluna fixa Sessões, Permissões e Sobre mostravam o
-                                // rotulo "previa" com o vazio embaixo — anunciando
-                                // uma coisa que nao ha como existir nessas telas.
                                 if (temPrevia(secao)) {
                                     SettingsPreview(secao, me, prefState, draft, Modifier.fillMaxWidth(), acoesDoCartao)
                                 }
@@ -595,32 +451,15 @@ fun SettingsScreen(
     }
 }
 
-// Sessões, Permissões, Sobre e Diagnostico sao listas e acoes — nao ha estado
-// visual pra antecipar. Uma unica regra pros DOIS jeitos de mostrar a previa
-// (empilhada embaixo do titulo e fixa na coluna da direita): duplicada, ela
-// divergiu, e foi assim que o rotulo "previa" apareceu sozinho nessas telas.
 private fun temPrevia(tab: SettingsTab): Boolean = when (tab) {
     SettingsTab.SESSIONS, SettingsTab.PERMISSIONS,
     SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS, SettingsTab.BOTS,
-    // Atalhos é a própria lista: as teclas já se mostram do jeito que ficam.
     SettingsTab.SHORTCUTS,
-    // Pets também: o palco JÁ é a prévia, e ele precisa da largura toda pra caber o
-    // bicho em tamanho que se julgue. Uma segunda cópia na coluna da direita
-    // mostraria a mesma coisa menor e longe dos botões que a mudam.
     SettingsTab.PETS,
-    // CONTA NÃO TEM MAIS PRÉVIA, e isso é o fim de uma sequência, não um buraco: a
-    // coluna já teve um segundo cartão de perfil (cópia do que a aba vizinha mostra),
-    // depois o estado da conta em quatro linhas (que desceram pro formulário, onde
-    // tinham companhia) e por último o retrato. Sem o retrato não sobra nada que
-    // precise de ESPAÇO em vez de largura, e prévia vazia é pior que prévia nenhuma.
     SettingsTab.ACCOUNT -> false
     else -> true
 }
 
-// Previa ao vivo (lado das configs). Cada aba mostra o efeito real do que se
-// mexe: Conta = teu perfil como os OUTROS veem; Notificacoes = aviso deslizando
-// na bandeja; Aparencia = mini-janela no tema/fonte/densidade; Desempenho =
-// medidor de custo GPU/CPU; Voz = moldura da transmissão + nível do mic ao vivo.
 @Composable
 private fun SettingsPreview(
     tab: SettingsTab,
@@ -628,21 +467,10 @@ private fun SettingsPreview(
     p: DesktopPrefs.Prefs,
     draft: ProfileDraft,
     modifier: Modifier = Modifier,
-    // Menus de foto e banner, montados pelo formulário (ver AcoesDoCartao).
     acoesDoCartao: AcoesDoCartao? = null,
 ) {
     Column(modifier) {
         FieldLabel("previa")
-        // A PREVIA NAO RESPONDE AO PONTEIRO.
-        //
-        // Ela e feita dos componentes DE VERDADE (o mesmo ProfileCard do popup, o
-        // mesmo aviso da bandeja) — e era esse o objetivo, pra previa e realidade
-        // nao divergirem. O efeito colateral e que os cliques deles vinham junto:
-        // clicar no cartao da previa abria o perfil por cima das configuracoes.
-        //
-        // O veu por cima resolve num lugar so. A alternativa seria uma bandeira
-        // "sou previa" em cada componente compartilhado, espalhando pelo app inteiro
-        // uma regra que e desta tela.
         Box {
             when (tab) {
                 SettingsTab.PROFILE -> ProfileCardPreview(me, draft, acoesDoCartao)
@@ -651,25 +479,10 @@ private fun SettingsPreview(
                 SettingsTab.APPEARANCE, SettingsTab.ACCESSIBILITY -> UiSamplePreview(p.fontSize, p.density)
                 SettingsTab.PERFORMANCE -> CostMeter(p)
                 SettingsTab.VOICE -> VoicePreview(p)
-                // Sessões, Sobre e Permissões são listas/ações — não ha o que previsualizar.
-                // Bots também não: lá o cartão de cada irmã JÁ é a prévia, e é nele
-                // que se arrasta o enquadramento — uma segunda cópia à direita
-                // mostraria a mesma coisa longe do controle que a muda.
-                // Atalhos igual: a lista de teclas já é a própria demonstração.
                 SettingsTab.SESSIONS, SettingsTab.ABOUT, SettingsTab.DIAGNOSTICS,
                 SettingsTab.PERMISSIONS, SettingsTab.BOTS, SettingsTab.SHORTCUTS,
-                // Conta: o estado da conta mora no formulário da própria aba.
                 SettingsTab.PETS, SettingsTab.ACCOUNT -> Unit
             }
-            // O VÉU NÃO COBRE A ABA PERFIL. Lá o cartão é EDITÁVEL — foto e banner
-            // se trocam clicando neles — e engolir o ponteiro mataria exatamente a
-            // interação que a aba passou a existir pra ter.
-            //
-            // É seguro porque o motivo do véu não se aplica a este cartão: o
-            // ProfileCard tem UM alvo clicável só (o "fechar" do canto do banner), e
-            // ele é nulo na prévia, então nunca é desenhado. O que sobra é o clique
-            // do CartaoDaPrevia — "ver em tamanho real" —, que continua valendo por
-            // fora das duas imagens; nelas, o alvo de dentro consome primeiro.
             if (tab != SettingsTab.PROFILE) {
                 Box(Modifier.matchParentSize().engoleOPonteiro())
             }
@@ -677,9 +490,6 @@ private fun SettingsPreview(
     }
 }
 
-// Come todo evento de ponteiro antes que ele chegue em quem esta embaixo.
-// `matchParentSize` + este modificador = a subarvore vira imagem: nao clica, nao
-// mostra hover, nao troca o cursor.
 private fun Modifier.engoleOPonteiro(): Modifier = pointerInput(Unit) {
     awaitPointerEventScope {
         while (true) {
@@ -688,8 +498,6 @@ private fun Modifier.engoleOPonteiro(): Modifier = pointerInput(Unit) {
     }
 }
 
-// Rascunho editavel do perfil. Fica no nível da tela pra a previa (irma da
-// secao) conseguir ler enquanto você digita.
 private data class ProfileDraft(
     val displayName: String = "",
     val pronouns: String = "",
@@ -697,12 +505,10 @@ private data class ProfileDraft(
     val statusEmoji: String = "",
     val customStatus: String = "",
     val avatarUrl: String? = null,
-    // --- fatia 2 (banner) ---
     val bannerUrl: String? = null,
     val bannerColor: String? = null,
     val bannerPositionY: Int = 50,
     val bannerScale: Int = 100,
-    // --- fatia 3 (estilo do perfil) ---
     val profileTheme: String? = null,
     val displayFont: String? = null,
 ) {
@@ -724,24 +530,10 @@ private data class ProfileDraft(
     }
 }
 
-// --- Previa do cartao de perfil. ---
-//
-// Usa o MESMO composable do cartao de verdade (ProfileCard), nao uma copia. Ja
-// houve duas copias aqui e as duas divergiram do original — previa que mente e
-// pior que previa nenhuma.
-//
-// As duas LADO A LADO (pedido do dono): cabem juntas, da pra comparar sem rolar,
-// e clicar numa abre ela no tamanho de verdade. Espremidas em meia largura elas
-// ficam apertadas de proposito — a previa serve pra ver a CARA do cartao; quem
-// quiser conferir detalhe clica.
-//
-// draft = null -> perfil SALVO (aba Conta); draft != null -> rascunho ao vivo
-// (aba Perfil), campo a campo, antes de salvar.
 @Composable
 private fun ProfileCardPreview(
     me: ProfileUserDto?,
     draft: ProfileDraft?,
-    // Só a aba Perfil manda: lá o cartão é rascunho editável; na Conta é o salvo.
     acoes: AcoesDoCartao? = null,
 ) {
     if (me == null) {
@@ -750,7 +542,6 @@ private fun ProfileCardPreview(
         }
         return
     }
-    // O rascunho manda quando existe; senao, o valor salvo.
     val dados = DadosDoCartao(
         nome = draft?.displayName?.trim()?.ifBlank { null } ?: me.displayName ?: me.username,
         username = me.username,
@@ -769,12 +560,6 @@ private fun ProfileCardPreview(
     )
     var ampliada by remember { mutableStateOf<CardVariante?>(null) }
 
-    // POR QUE ISTO BUSCA DE NOVO um perfil que a tela ja tem: `me` vem de
-    // /users/me, e la NAO existe "servidores em comum" — nao faria sentido a
-    // rota que devolve voce mesmo calcular o que voce tem em comum com voce.
-    // O cartao de verdade vem de /profile/{id}, que calcula. Resultado: a previa
-    // desenhava um cartao mais CURTO que o real, faltando a secao inteira, e ela
-    // existe justamente pra nao mentir. Uma chamada, uma vez, ao abrir.
     var mutuais by remember(me.id) { mutableStateOf<List<MutualServerDto>>(emptyList()) }
     LaunchedEffect(me.id) {
         mutuais = withContext(Dispatchers.IO) {
@@ -783,11 +568,6 @@ private fun ProfileCardPreview(
         }
     }
 
-    // UM cartao so, e grande. Eram dois lado a lado (completo e o do avatar), cada
-    // um em metade da coluna: dois desenhos pequenos demais pra conferir qualquer
-    // coisa, e o segundo mostrando um recorte do primeiro. Com a largura inteira o
-    // completo aparece no tamanho em que da pra julgar foto, banner e bio — que e
-    // pra isso que a previa existe. O cartao pequeno continua a um clique daqui.
     Column(Modifier.fillMaxWidth()) {
         CartaoDaPrevia(
             rotulo = "cartão completo",
@@ -809,8 +589,6 @@ private fun ProfileCardPreview(
 
     ampliada?.let { qual ->
         DialogShell(onClose = { ampliada = null }) {
-            // Aqui SIM na largura de verdade e com a coreografia ligada: e o cartao
-            // como os outros veem, nao a miniatura.
             ProfileCard(
                 dados = dados,
                 variante = qual,
@@ -823,17 +601,6 @@ private fun ProfileCardPreview(
     }
 }
 
-// Rotulo + a MINIATURA clicavel.
-//
-// O cartao e desenhado na largura de VERDADE e depois encolhido por escala, em
-// vez de ser desenhado apertado numa largura pequena. A diferenca importa: numa
-// largura pequena o texto quebra em outros lugares, o avatar fica gigante perto
-// do resto e a previa passa a mostrar um cartao que ninguem vai ver. Encolhido
-// por escala, e o cartao real visto de longe — proporcao intacta.
-//
-// O clique fica na caixa de FORA: o cartao de verdade nao e clicavel inteiro, e
-// enfiar um clickable nele so pra previa mudaria o componente compartilhado por
-// causa de um caso de uso.
 @Composable
 private fun CartaoDaPrevia(
     rotulo: String,
@@ -846,14 +613,11 @@ private fun CartaoDaPrevia(
         RotuloDaPrevia(rotulo)
         BoxWithConstraints {
             val larguraRealPx = with(LocalDensity.current) { larguraReal.roundToPx() }
-            // Nunca AMPLIA: se sobrar espaco, o cartao fica no tamanho natural.
             val escala = (constraints.maxWidth.toFloat() / larguraRealPx).coerceAtMost(1f)
             Box(
                 Modifier
                     .layout { measurable, _ ->
                         val p = measurable.measure(Constraints.fixedWidth(larguraRealPx))
-                        // A caixa reserva o tamanho JA ENCOLHIDO; sem isto sobraria
-                        // um buraco do tamanho do cartao inteiro embaixo.
                         layout((p.width * escala).toInt(), (p.height * escala).toInt()) { p.place(0, 0) }
                     }
                     .graphicsLayer {
@@ -873,21 +637,10 @@ private fun CartaoDaPrevia(
     }
 }
 
-// "Testar" dispara um aviso de bandeja DE VERDADE — o mesmo caminho do aviso de
-// mensagem, nao um toast falso desenhado dentro do app. O que costuma falhar e
-// justamente o lado do SO (foco de assistencia, notificacao do app desativada no
-// Windows), e um toast interno passaria por cima disso e diria "funciona" quando
-// nao funciona.
-//
-// Nao precisa minimizar antes: a regra "so avisa com a janela atras" mora no
-// shell, no ponto em que a mensagem chega — nao dentro do envio. Aqui chamamos o
-// envio direto, entao o aviso sai mesmo com o Astra na frente.
 @Composable
 private fun TestarNotificacao(onTestar: () -> Unit) {
     var avisou by remember { mutableStateOf(false) }
     Column {
-        // Texto mantido: fica sozinho no fim da seção, e o que ele faz não tem ícone
-        // universal — um sino solto leria como "abrir notificações".
         DialogButton(
             if (avisou) "mandei — olhe o canto da tela" else "testar notificação",
             accent = !avisou,
@@ -917,23 +670,8 @@ private fun RotuloDaPrevia(texto: String) {
     )
 }
 
-// --- Notificacoes: o aviso entra, segura e sai — em loop.
-//
-// SIMPLIFICADO (pedido do dono). Antes percorria 44dp em movimento LINEAR: um retângulo
-// atravessando a tela em velocidade constante, que é a assinatura de movimento
-// mecânico — nada no mundo começa e para instantaneamente na mesma velocidade.
-//
-// Agora anda 14dp com curva: sai devagar no fim ao entrar, ganha velocidade ao sair.
-// A distância curta é o ponto — o aviso ASSENTA no lugar em vez de viajar até ele, e o
-// olho lê "chegou" sem precisar acompanhar a viagem.
-//
-// reduceMotion trava parado e visível (respeita o ajuste de movimento). ---
 private const val PASSEIO_DO_AVISO = 14f
 
-// PRIVACIDADE. Hoje tem um item só, e ainda assim ganha aba própria: um
-// interruptor que conta aos outros o que você está usando não pode morar em
-// "Notificações" nem em "Conta". Onde uma configuração mora é parte do que ela
-// diz, e esta precisa dizer "isto é sobre o que sai de você".
 @Composable
 private fun PrivacySection(
     prefState: DesktopPrefs.Prefs,
@@ -973,9 +711,6 @@ private fun PrivacySection(
             prefs::setAtividadeVisivel,
         )
         Spacer(Modifier.height(14.dp))
-        // O TEXTO É A METADE HONESTA DO RECURSO. Interruptor de privacidade sem
-        // dizer exatamente o que sai é um pedido de confiança em branco — e o que
-        // NÃO sai importa tanto quanto o que sai.
         Text(
             "sai apenas o nome do programa, o mesmo que o Windows mostra no Gerenciador de Tarefas.",
             style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
@@ -1004,9 +739,6 @@ private fun PrivacySection(
     }
 }
 
-// Modo transmissão. Os três efeitos ficam LISTADOS na tela em vez de escondidos
-// atrás de um nome bonito: um interruptor que muda três comportamentos de uma vez
-// precisa dizer quais, senão vira fé.
 @Composable
 private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     val detectado by ModoTransmissao.detectado.collectAsState()
@@ -1014,9 +746,6 @@ private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Modo transmissão", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
-        // O aviso de "está valendo agora" importa mais aqui que em qualquer outro
-        // ajuste: com o automático ligado, o modo entra sozinho, e não saber que
-        // ele entrou é o mesmo que não ter o recurso.
         if (ativo) {
             Spacer(Modifier.width(8.dp))
             Text(
@@ -1057,14 +786,6 @@ private fun ModoTransmissaoBloco(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 }
 
-// SALVA NO CLIQUE, sem botão de "salvar". É o comportamento certo pra um ajuste
-// de UMA escolha: não há rascunho pra revisar nem outro campo pra combinar, e um
-// filtro de privacidade que fica esperando confirmação é um filtro que a pessoa
-// pensa que ligou e não ligou.
-//
-// Enquanto o servidor não responde, a escolha já aparece marcada (o `escolhido`
-// local): a alternativa é o rádio ficar parado meio segundo depois do clique, que
-// se lê como "não pegou". Se falhar, ele volta para onde estava e diz por quê.
 @Composable
 private fun FiltroDeSussurro(me: ProfileUserDto?, onSalvou: () -> Unit) {
     val koin = GlobalContext.get()
@@ -1103,9 +824,6 @@ private fun FiltroDeSussurro(me: ProfileUserDto?, onSalvou: () -> Unit) {
     }
 }
 
-// Prévia da aba: o que os OUTROS passam a ver de você. Um interruptor de
-// privacidade que não mostra o resultado obriga a pessoa a ligar pra descobrir o
-// que ligou — e descobrir depois é tarde.
 @Composable
 private fun AtividadePreview(ligado: Boolean) {
     val agora = if (ligado) {
@@ -1147,8 +865,6 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
     var dx = 0f
     var a = 1f
     if (!reduceMotion) {
-        // O ciclo corre linear porque ele é só o RELÓGIO; a curva entra em cada trecho,
-        // que é onde ela significa alguma coisa.
         when {
             cycle < 0.12f -> {
                 val k = EaseOutStd.transform(cycle / 0.12f)
@@ -1163,17 +879,6 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
             }
         }
     }
-    // O AVISO APARECE POR CIMA DE UMA CONVERSA, e não sozinho no vazio.
-    //
-    // Antes era um balão solto num retângulo grande e vazio, e ele não mostrava a
-    // única coisa que importa saber sobre um aviso de bandeja: que ele chega POR
-    // CIMA do que estiver na tela. Com a conversa por baixo (a mesma mini-janela da
-    // aba Aparência), a prévia passa a mostrar o comportamento, não só o balão — e
-    // de quebra ocupa a coluna inteira em vez de deixar dois terços de vazio.
-    //
-    // A conversa fica apagada de propósito: quem olha precisa ver o AVISO. Se as
-    // duas camadas tivessem o mesmo peso, o olho não saberia qual delas a aba está
-    // configurando.
     Box(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().alpha(0.4f)) {
             UiSamplePreview(FontSizePref.MD, DensityPref.COMFORTABLE)
@@ -1203,10 +908,6 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("Astra", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
-                // A prévia mostra o aviso QUE VAI SAIR, e não um aviso genérico: com
-                // "sem conteúdo" ligado, ver aqui um nome e uma frase que o balão real
-                // nunca vai ter é a prévia mentindo sobre a única coisa que ela existe
-                // pra mostrar.
                 if (discreto) {
                     Text("sussurro novo", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
                     Text("sem nome e sem texto — é tudo que aparece.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
@@ -1220,8 +921,6 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
     }
 }
 
-// --- Aparencia: mini-janela do app (canal + duas mensagens + campo de escrever)
-// no tema atual; fonte e densidade reagem ao vivo aos controles ao lado. ---
 @Composable
 private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
     val s = fontSize.scale
@@ -1239,10 +938,6 @@ private fun UiSamplePreview(fontSize: FontSizePref, density: DensityPref) {
             Spacer(Modifier.width(6.dp))
             Text("geral", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
         }
-        // As duas mensagens ganham superficie propria — a previa passa a imitar o
-        // proprio shell (cabecalho, palco, campo de escrever em degraus), que e
-        // exatamente o que ela promete mostrar. Os dois tracos que havia aqui
-        // faziam a mini-janela parecer uma tabela de tres linhas.
         Column(
             Modifier
                 .fillMaxWidth()
@@ -1282,8 +977,6 @@ private fun SampleMsg(name: String, text: String, scale: Float) {
     }
 }
 
-// --- Desempenho: medidor de custo ESTIMADO (não mede a GPU real; deriva das
-// escolhas). Custo zero de render — so barras que reagem aos toggles. ---
 @Composable
 private fun CostMeter(p: DesktopPrefs.Prefs) {
     Column(
@@ -1364,8 +1057,6 @@ private fun costVerdict(gpu: Float, cpu: Float): String {
     }
 }
 
-// --- Voz: moldura 16:9 na resolucao/fps escolhido + medidor do mic ao vivo.
-// O medidor abre o microfone SO enquanto esta aba/previa esta visivel. ---
 @Composable
 private fun VoicePreview(p: DesktopPrefs.Prefs) {
     Column(Modifier.fillMaxWidth()) {
@@ -1402,9 +1093,6 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
         ) {
             Text("seu microfone", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
             Spacer(Modifier.height(10.dp))
-            // O medidor so abre o microfone quando VOCE manda testar. Antes ele
-            // abria sozinho ao entrar na aba e ficava gravando em segundo plano
-            // enquanto a previa vivesse — barulho de privacidade por nada.
             MicMeter(testing, p.micSensitivity)
             Spacer(Modifier.height(10.dp))
             AboutButton(if (testing) "parar teste" else "testar microfone", accent = !testing) {
@@ -1419,17 +1107,12 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
     }
 }
 
-// Medidor de nível do mic: abre um TargetDataLine (Java Sound) numa thread
-// daemon ENQUANTO O TESTE ESTA LIGADO, le o RMS dos samples e move as barras.
-// onDispose fecha a linha (parar o teste / troca de aba / fecha configurações).
-// Best-effort: sem mic ou em uso -> mostra aviso, não quebra.
 @Composable
 private fun MicMeter(active: Boolean, threshold: Float = 0f) {
     var level by remember { mutableFloatStateOf(0f) }
     var available by remember { mutableStateOf(true) }
     DisposableEffect(active) {
         if (!active) {
-            // Teste desligado: barras zeradas (cinza) e nenhuma linha aberta.
             level = 0f
             available = true
             return@DisposableEffect onDispose { }
@@ -1457,7 +1140,6 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
                 }
                 val rms = kotlin.math.sqrt(sum / (n / 2)).toFloat()
                 val norm = (rms / 7000f).coerceIn(0f, 1f)
-                // sobe rapido, desce suave (o pico decai) — leitura mais viva.
                 level = if (norm > level) norm else level * 0.82f + norm * 0.18f
             }
             runCatching { l.stop(); l.close() }
@@ -1472,12 +1154,6 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
         return
     }
     val lvl by animateFloatAsState(level, tween(90), label = "micLvl")
-    // Termometro de qualidade, não alarme: CINZA parado (teste desligado ou
-    // silencio — antes ficava vermelho o tempo todo, como se algo estivesse
-    // errado), AMBAR quando o sinal e fraco demais pra te ouvirem bem, VERDE
-    // quando esta bom. Ambar = warning (fixo) e não accent: com o tema branco
-    // padrao o accent e quase cinza e a faixa do meio some.
-    // Anima a troca de cor pra não piscar seco entre faixas.
     val meterColor by animateColorAsState(
         when {
             lvl < 0.10f -> Obsidian.text3
@@ -1495,7 +1171,6 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
         ) {
             val bars = 16
             for (i in 0 until bars) {
-                // envelope em cupula: barras do meio mais altas -> onda de audio.
                 val shape = 0.45f + 0.55f * sin((i + 0.5f) / bars * PI).toFloat()
                 val h = (lvl * shape).coerceIn(0.05f, 1f)
                 Box(
@@ -1504,8 +1179,6 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
                 )
             }
         }
-        // Marcador do limiar de sensibilidade: linha ambar vertical na fracao —
-        // abaixo dela o mic não transmite. Spacers pesados = sem clipar nas pontas.
         if (threshold > 0f) {
             Row(Modifier.fillMaxSize()) {
                 val f = threshold.coerceIn(0.02f, 0.98f)
@@ -1517,8 +1190,6 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
     }
 }
 
-// Slider de sensibilidade de entrada (voice gate). 0 = sempre transmite; arraste
-// a alca. O marcador ambar no medidor acima mostra o limiar vs a sua voz.
 @Composable
 private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
     Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
@@ -1563,34 +1234,26 @@ private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
     }
 }
 
-// Aba Perfil: identidade (avatar, nome, pronomes, bio, recado + emoji). O que
-// aparece pros outros. Banner/tema/fonte ficam pra fatia 2.
 @Composable
 private fun ProfileSection(
     me: ProfileUserDto?,
     draft: ProfileDraft,
     onChange: (ProfileDraft) -> Unit,
     onSaved: () -> Unit,
-    // Onde este formulário publica os menus de foto e banner. Quem os DESENHA é a
-    // prévia, porque é lá que as imagens existem — ver AcoesDoCartao.
     acoesDoCartao: AcoesDoCartao,
 ) {
     val scope = rememberCoroutineScope()
     var busyAvatar by remember { mutableStateOf(false) }
     var busyBanner by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    // Recorte estilo Discord: a fonte aberta no modal. null = fechado.
     var cropAvatar by remember { mutableStateOf<CropSource?>(null) }
     var cropBanner by remember { mutableStateOf<CropSource?>(null) }
 
-    // Trocar a foto: o dialogo nativo bloqueia (modal) — normal. O peso (ler e
-    // decodificar) vai pra fora da thread de UI.
     fun escolherAvatar() {
         val file = AvatarPicker.choose() ?: return
         busyAvatar = true
         msg = null
         scope.launch {
-            // Animado não pode ser assado num recorte -> caminho antigo.
             val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
             if (!animated) {
                 busyAvatar = false
@@ -1604,21 +1267,6 @@ private fun ProfileSection(
         }
     }
 
-    // SEM CONTROLES DE IMAGEM AQUI. Foto e banner se editam no CARTÃO ao lado:
-    // passar o mouse escurece a imagem e acende um lápis, o clique abre as opções.
-    //
-    // A escolha é a mesma que o dono já tinha feito pro banner e agora vale pros
-    // dois: a imagem só precisa aparecer uma vez na tela, e o lugar em que ela vale
-    // é o cartão — lá ela está no tamanho e no contexto em que os outros vão vê-la.
-    // Um retrato no formulário seria uma segunda cópia competindo com a primeira, e
-    // uma fileira de ícones ao lado dele obrigaria a ler três rótulos pra descobrir
-    // qual mexe na foto. Aqui fica só a frase que diz onde clicar.
-    // SÓ O ESTADO, sem a explicação. As duas frases que moravam aqui ("passe o
-    // mouse por cima e clique" e a das resoluções) saíram a pedido do dono, e o
-    // cartão não perde nada com isso: passar o mouse já acende um véu com ícone de
-    // lápis (ver FotoEditavel), que diz a mesma coisa sem ocupar linha. Resolução e
-    // limite de tamanho eram detalhe de implementação — quem sobe uma foto quer ver
-    // a foto, não saber em quantos pixels ela foi guardada.
     if (busyAvatar || busyBanner) {
         Text(
             "lendo a imagem…",
@@ -1626,16 +1274,11 @@ private fun ProfileSection(
             modifier = Modifier.widthIn(max = 460.dp),
         )
     }
-    // SideEffect e não LaunchedEffect: isto só publica a versão mais recente do
-    // fechamento (que captura o rascunho de agora), sem nada assíncrono envolvido.
     SideEffect {
         acoesDoCartao.foto = {
             val atual = draft.avatarUrl
             buildList {
                 add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherAvatar() })
-                // Reenquadrar só existe pra imagem PARADA: recortar um gif exigiria
-                // recodificar a animação, e o app prefere não oferecer a ação a
-                // oferecer uma que estraga o que ela promete cuidar.
                 if (atual != null && !ImageCrop.isAnimated(atual)) {
                     add(MenuEntry.Item("reenquadrar", icon = Lucide.Crop) {
                         cropAvatar = CropSource.Remote(atual)
@@ -1664,8 +1307,6 @@ private fun ProfileSection(
         onChange(draft.copy(bio = it))
     }
 
-    // O BANNER TAMBÉM SE EDITA NO CARTÃO. Aqui ficam só a lógica de escolher o
-    // arquivo e os diálogos; o alvo clicável é a faixa da prévia.
     var resizeOpen by remember { mutableStateOf(false) }
     fun escolherBanner() {
         val file = AvatarPicker.choose("Escolher banner") ?: return
@@ -1682,11 +1323,6 @@ private fun ProfileSection(
                 AvatarPicker.encodeComMedidas(file, AvatarPicker.BANNER_DIM)
             }
             busyBanner = false
-            // Chega JA PREENCHENDO a faixa. O estatico e assado em 3,5:1 pelo
-            // recorte e cai exato; o animado pula o recorte (recortar mataria a
-            // animação) e vinha com zoom 100, que em Fit quer dizer "cabe
-            // inteira" — e uma imagem 16:9 numa faixa 3,5:1 cabe inteira
-            // ocupando metade da largura, com tarja preta dos lados.
             r.onSuccess { img ->
                 onChange(
                     draft.copy(
@@ -1705,8 +1341,6 @@ private fun ProfileSection(
             buildList {
                 add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolherBanner() })
                 if (!atual.isNullOrBlank()) {
-                    // Animado vai pro modal de posição+zoom (a animação sobrevive);
-                    // parado abre o recorte, que ASSA o enquadramento na imagem.
                     if (ImageCrop.isAnimated(atual)) {
                         add(MenuEntry.Item("reposicionar", icon = Lucide.Move) { resizeOpen = true })
                     } else {
@@ -1748,17 +1382,12 @@ private fun ProfileSection(
             round = false,
             title = "recortar banner",
             outW = ImageCrop.BANNER_OUT_W,
-            // Assado na proporcao do card -> posição/zoom voltam pro neutro.
             onApply = { onChange(draft.copy(bannerUrl = it, bannerPositionY = 50, bannerScale = 100)) },
             onClose = { cropBanner = null },
         )
     }
     Spacer(Modifier.height(14.dp))
     FieldLabel("cor do perfil")
-    // UM seletor so: o gradiente atravessa banner + corpo como uma peca (Discord).
-    // Grava nas DUAS colunas (bannerColor e profileTheme) de proposito — o web e o
-    // mobile ainda pintam a faixa e o corpo separados, entao escrever as duas
-    // mantem a mesma cor em todo cliente em vez de deixar um deles pra tras.
     ColorPickerButton(draft.bannerColor) {
         onChange(draft.copy(bannerColor = it, profileTheme = it))
     }
@@ -1800,16 +1429,11 @@ private fun ProfileSection(
     }
 
     Spacer(Modifier.height(16.dp))
-    // Feedback de upload de avatar/banner. O salvar migrou pra BAIXO da previa
-    // (sempre a vista enquanto edita) -> ProfileSaveButton, la no topo da tela.
     msg?.let { (text, ok) ->
         Text(text, style = TextStyle(color = if (ok) Obsidian.success else Obsidian.danger, fontSize = 12.sp))
     }
 }
 
-// Botao Salvar do perfil, HOISTADO pra baixo da previa (o dono pediu: sempre a
-// vista, não no fim do formulario). Estado proprio (saving/msg/dirty); le o
-// draft vivo + o `me` original. Recado tem rota propria (so manda se mudou).
 @Composable
 private fun ProfileSaveButton(
     me: ProfileUserDto?,
@@ -1842,13 +1466,11 @@ private fun ProfileSaveButton(
                         }
                         api.updateProfile(
                             UpdateProfileRequest(
-                                // null = chave omitida = backend não mexe no campo.
                                 displayName = draft.displayName.trim().ifBlank { null },
                                 pronouns = draft.pronouns.trim(),
                                 bio = draft.bio.trim(),
                                 avatarUrl = draft.avatarUrl,
                                 statusEmoji = draft.statusEmoji,
-                                // Banner: "" limpa a imagem (null seria "não mexer").
                                 bannerUrl = draft.bannerUrl ?: "",
                                 bannerColor = draft.bannerColor,
                                 bannerPositionY = draft.bannerPositionY,
@@ -1860,10 +1482,6 @@ private fun ProfileSaveButton(
                     }
                     saving = false
                     if (r.isSuccess) { msg = "perfil salvo" to true; onSaved() }
-                    // O ERRO REAL do backend. "tenta de novo" era conselho ruim: as
-                    // causas comuns aqui (imagem grande demais -> 413, nome de
-                    // usuário em uso -> 409) não melhoram tentando de novo, e a
-                    // mensagem generica escondia justamente qual delas era.
                     else msg = saveErrorMessage(r.exceptionOrNull()) to false
                 }
             }
@@ -1878,9 +1496,6 @@ private fun ProfileSaveButton(
     }
 }
 
-// Traduz a falha do salvar pro que a pessoa precisa FAZER. O corpo de erro do
-// backend e `{ "error": "..." }` e ja vem em português — so o 413 ganha um texto
-// proprio, porque "Arquivo muito grande" sozinho não diz o que fazer a respeito.
 private fun saveErrorMessage(t: Throwable?): String {
     val http = t as? HttpException ?: return "sem conexão com o servidor"
     if (http.code() == 413) return "a imagem ficou grande demais — escolha uma menor ou dê menos zoom"
@@ -1891,13 +1506,6 @@ private fun saveErrorMessage(t: Throwable?): String {
     return parsed?.takeIf { it.isNotBlank() } ?: "não foi possível salvar (erro ${http.code()})"
 }
 
-// Zoom do banner: trilha arrastavel simples, de 50% a 300%.
-//
-// A FAIXA E A DO SERVIDOR, e nao um numero escolhido aqui. Ela ia de 0 a 300 e o
-// schema aceitava 50 a 200: passar de 200 (ou ficar abaixo de 50) fazia o servidor
-// recusar o PATCH INTEIRO com "Dados inválidos" — sumia o salvamento do nome e da
-// bio junto, sem dizer de qual campo. O teto virou 300 nos dois lados; o piso de 50
-// ficou, porque abaixo disso a imagem vira um ponto no meio da faixa.
 private const val ZOOM_MIN = 50
 private const val ZOOM_MAX = 300
 
@@ -1931,9 +1539,6 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
                 Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp))
                     .background(Obsidian.accent),
             )
-            // Alca agarravel no fim do preenchido: spacers pesados poem o centro na
-            // fracao atual sem clipar nas pontas. Arrastar em qualquer ponto do
-            // trilho também move (o gesto já cobre o Box inteiro).
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 val f = pct.coerceIn(0f, 1f)
                 if (f > 0f) Spacer(Modifier.weight(f))
@@ -1949,11 +1554,6 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     }
 }
 
-// Modal de "redimensionar banner": mostra o MINI CARD (o que os outros veem) com a
-// imagem arrastavel + zoom. Vive FORA da coluna das configs, entao arrastar aqui
-// recompoe so este cartaozinho — não a aba inteira — e o gif do banner continua
-// animando (era o bug: o drag na previa recompunha a pagina toda e matava o ticker).
-// Trabalha em estado LOCAL (posY/scl) e so aplica no "salvar"; cancelar descarta.
 @Composable
 private fun ResizeBannerDialog(
     draft: ProfileDraft,
@@ -1976,7 +1576,6 @@ private fun ResizeBannerDialog(
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                 )
                 Spacer(Modifier.height(16.dp))
-                // MINI CARD fiel ao popup: banner + avatar sobreposto + nome.
                 Column(
                     Modifier
                         .fillMaxWidth()
@@ -1993,14 +1592,10 @@ private fun ResizeBannerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(ProfileBannerAspect)
-                            // Cursor de mão sobre a area arrastavel (sinaliza "pega e move").
                             .pointerHoverIcon(PointerIcon.Hand)
                             .pointerInput(Unit) {
                                 detectDragGestures { change, drag ->
                                     change.consume()
-                                    // ~0.9px por ponto: a faixa 0..100 cobre ~a altura do
-                                    // cartao -> arraste 1:1, bem mais facil (era 1.4, lento).
-                                    // Arrastar pra BAIXO revela o topo (posição diminui).
                                     posY = (posY - drag.y / 0.9f).toInt().coerceIn(0, 100)
                                 }
                             },
@@ -2037,8 +1632,6 @@ private fun ResizeBannerDialog(
     }
 }
 
-// Grade dos gradientes prontos (mesma lista do web). Cada pastilha pinta o
-// proprio gradiente — o que você ve e o que salva.
 @Composable
 private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -2100,8 +1693,6 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
                     FieldLabel("código hex")
                     HexField(selected, onPick)
                     Spacer(Modifier.height(12.dp))
-                    // Cor solida e gradiente sao duas escolhas irmas; cada uma no
-                    // seu cartao le melhor que uma linha entre elas.
                     CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(10.dp)) {
                         FieldLabel("gradientes")
                         Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
@@ -2114,15 +1705,8 @@ private fun ColorPickerButton(selected: String?, onPick: (String) -> Unit) {
     }
 }
 
-// Campo de cor solida. Grava no MESMO campo do gradiente ("#rrggbb" e um valor
-// valido pro bannerBrush e pro web/mobile), entao escolher um gradiente depois
-// simplesmente sobrescreve. So aplica quando fecham 6 digitos: teclar no meio
-// não deve pintar um valor pela metade.
 @Composable
 private fun HexField(selected: String?, onPick: (String) -> Unit) {
-    // Se o valor de fora e um gradiente, o campo comeca vazio (não ha hex que o
-    // represente). Rechaveia quando o valor muda por fora (ex.: clicou num
-    // gradiente da grade logo abaixo).
     var text by remember(selected) {
         mutableStateOf(selected?.trim()?.takeIf { it.startsWith("#") }?.removePrefix("#").orEmpty())
     }
@@ -2159,7 +1743,6 @@ private fun HexField(selected: String?, onPick: (String) -> Unit) {
             )
         }
         Spacer(Modifier.width(8.dp))
-        // Amostra do que esta digitado — so ganha cor com o hex completo.
         Box(
             Modifier
                 .size(22.dp)
@@ -2173,8 +1756,6 @@ private fun HexField(selected: String?, onPick: (String) -> Unit) {
     }
 }
 
-// Rotulo da pastilha: nome do gradiente conhecido, o proprio hex, ou um aviso
-// generico pra um CSS que veio de outro cliente e não esta na lista.
 private fun colorLabel(css: String?): String {
     val raw = css?.trim().orEmpty()
     if (raw.isEmpty()) return "padrao"
@@ -2212,8 +1793,6 @@ private fun GradientGrid(selected: String?, onPick: (String) -> Unit) {
     }
 }
 
-// Fonte do nome: cada linha se desenha NA PROPRIA fonte, entao da pra ver a
-// diferenca antes de escolher (inclusive as que se parecem no desktop).
 @Composable
 private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
     val current = selected ?: "serif"
@@ -2222,8 +1801,6 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
     val hov = remember { MutableInteractionSource() }
     val h by hov.collectIsHoveredAsState()
     Box {
-        // Botao (mesmo visual do "fundo do cartao"): mostra a fonte atual escrita
-        // NELA MESMA + chevron. Clique abre o dropdown.
         Row(
             Modifier
                 .widthIn(max = 420.dp)
@@ -2303,7 +1880,6 @@ private fun FontPicker(selected: String?, onPick: (String) -> Unit) {
     }
 }
 
-// Campo de texto simples do perfil (rotulo + caixa). Multilinha pra bio.
 @Composable
 private fun ProfileField(
     label: String,
@@ -2337,8 +1913,6 @@ private fun ProfileField(
     }
 }
 
-// Emoji do recado: reusa a MESMA grade das reacoes do chat (ReactionPicker).
-// Clicar no emoji já escolhido limpa.
 @Composable
 private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -2371,42 +1945,18 @@ private fun StatusEmojiButton(current: String, onPick: (String) -> Unit) {
     }
 }
 
-// A ABA CONTA NÃO TEM CAMPO NENHUM À MOSTRA. Dado é dado; formulário só aparece
-// quando alguém pediu para mudar alguma coisa.
-//
-// A diferença não é de gosto. Três campos de senha abertos numa aba que a pessoa
-// abriu para CONFERIR o e-mail transformam a leitura em formulário: o olho procura
-// o que preencher, e a aba passa a parecer pendente mesmo quando não há nada a
-// fazer. Guardá-los atrás de "Editar" devolve à aba a função que ela tem — mostrar
-// o estado da conta — e dá ao formulário um começo e um fim claros.
-//
-// SÓ A SENHA TEM BOTÃO, e isso é uma limitação real, não um esquecimento: a API
-// tem rota para trocar senha (`/api/auth/password`) e NÃO tem para trocar nome de
-// usuário ou e-mail. Botão que abre um formulário sem para onde enviar é pior que
-// linha sem botão — promete e falha depois do trabalho de preencher.
 @Composable
 private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
-    // Em transmissão o e-mail vira máscara. É a única coisa desta aba que não é
-    // pública: o @ todo mundo já vê, a senha nunca aparece. Máscara e não sumiço
-    // porque a linha some do lugar e a aba muda de forma na frente de todo mundo —
-    // e ainda dá pra conferir que é a conta certa pelo começo.
     val emTransmissao by ModoTransmissao.ativo.collectAsState()
     val semSenha = me?.hasPassword == false
     var trocandoSenha by remember { mutableStateOf(false) }
 
-    // O ESTADO DA CONTA MORA AQUI, e não na coluna da prévia onde já morou: e-mail
-    // conferido, sessões abertas e membro desde respondem perguntas que alguém abre
-    // ESTA aba pra responder, e o cartão de linhas que já existia é onde elas sempre
-    // pertenceram. Duas listas do mesmo assunto em duas colunas é que era o arranjo
-    // estranho — e é por isso que a Conta hoje não tem prévia nenhuma.
     var sessoes by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(me?.id) {
         sessoes = runCatching { GlobalContext.get().get<SessionApi>().list().data?.sessions?.size }
             .getOrNull()
     }
 
-    // Cartão dentro de cartão: as linhas moram num degrau acima do fundo da aba, e
-    // é o degrau — não um traço — que diz onde o bloco começa e acaba.
     Column(
         Modifier
             .widthIn(max = 560.dp)
@@ -2421,15 +1971,10 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         LinhaDaConta(
             rotulo = "Senha",
             valor = if (semSenha) "não definida" else "••••••••",
-            // "Definir" e não "Editar" para quem entrou pelo Google: não há o que
-            // editar, e o verbo certo já explica por que o campo de senha atual não
-            // vai aparecer no diálogo.
             acao = if (semSenha) "Definir" else "Editar",
             aoAgir = { trocandoSenha = true },
         )
         LinhaDaConta("Verificação", if (me?.emailVerifiedAt != null) "e-mail conferido" else "e-mail não conferido")
-        // Reticências enquanto a contagem não chega, e não "0": um zero aqui afirmaria
-        // que não há sessão aberta, o que nunca é verdade — você está numa agora.
         LinhaDaConta("Sessões", sessoes?.let { if (it == 1) "1 aberta" else "$it abertas" } ?: "…")
         LinhaDaConta("Membro desde", mesEAno(me?.createdAt))
     }
@@ -2450,12 +1995,6 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     ApagarConta(me, aoSairDaConta)
 }
 
-// Uma linha de "Informações da conta": rótulo à esquerda, valor à direita, e o
-// botão só onde existe ação.
-//
-// O valor fica colado no botão, e não espalhado pela largura, porque é ele que o
-// botão governa — separados pelas duas pontas da linha, viram duas colunas sem
-// relação e o olho precisa costurar as duas de volta.
 @Composable
 private fun LinhaDaConta(
     rotulo: String,
@@ -2498,13 +2037,6 @@ private fun LinhaDaConta(
     }
 }
 
-// APAGAR CONTA. Fica no fim da aba, e isso é layout com opinião: é a última coisa
-// da última seção, longe de tudo que se clica por engano.
-//
-// O que acontece está escrito ANTES do botão, e não num aviso depois do clique:
-// "some para sempre" e "suas mensagens continuam nas conversas" são as duas
-// perguntas que a pessoa tem, e responder só depois que ela decidiu é responder
-// tarde.
 @Composable
 private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     val koin = GlobalContext.get()
@@ -2520,11 +2052,6 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
 
     Text("Apagar conta", style = TextStyle(color = Obsidian.danger, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(4.dp))
-    // UMA FRASE, e não os dois parágrafos de antes. O conteúdo que importa antes de
-    // clicar cabe numa linha; o resto — que o texto escrito fica assinado "conta
-    // apagada" — é explicado no passo de confirmação, que é onde a pessoa realmente
-    // está decidindo. Explicar tudo antes do primeiro clique fazia ler dois blocos
-    // pra descobrir onde ficava o botão.
     Text(
         "acaba na hora e não tem volta.",
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
@@ -2553,9 +2080,6 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
             FieldLabel("sua senha")
             PasswordField("senha atual", senha) { senha = it }
         }
-        // A lista de constelações presas é o caso mais provável de recusa, e é o
-        // único em que a pessoa PODE resolver sozinha — então ela vem por nome, e
-        // não como "não foi possível".
         if (presas.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Text(
@@ -2584,9 +2108,6 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
                     indo = false
                     when {
                         r?.isSuccessful == true -> {
-                            // Sem tela de despedida: a conta não existe mais, então
-                            // qualquer coisa depois disto seria o app fingindo que
-                            // ainda há alguém logado. O logout é a resposta honesta.
                             aoSairDaConta()
                         }
                         r?.code() == 409 -> {
@@ -2608,9 +2129,6 @@ private fun ApagarConta(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     }
 }
 
-// Aba Sessões: cada login vivo da conta (um refresh token). Serve pra ver de
-// onde a conta esta aberta e derrubar o que você não reconhece — o único item
-// da migracao com peso de seguranca.
 @Composable
 private fun SessionsSection() {
     val koin = GlobalContext.get()
@@ -2664,10 +2182,6 @@ private fun SessionsSection() {
                         )
                     }
                     Spacer(Modifier.width(10.dp))
-                    // Só ícone: repete uma vez por linha e cada um está encostado na
-                    // sessão que derruba. É onde ícone puro mais compensa — o rótulo
-                    // repetido três vezes só empilhava ruído. E é reversível: quem
-                    // for derrubado por engano só entra de novo.
                     BotaoIcone(Lucide.LogOut, "derrubar esta sessão", danger = true, ocupado = busy) {
                         busy = true; msg = null
                         scope.launch {
@@ -2684,13 +2198,10 @@ private fun SessionsSection() {
     }
 
     Spacer(Modifier.height(18.dp))
-    // Texto mantido: é em lote e destrutivo. Um ícone sozinho aqui derrubaria todo
-    // mundo com um clique de curiosidade.
     AboutButton(if (busy) "…" else "derrubar todas as outras", accent = false, icone = Lucide.LogOut) {
         if (busy) return@AboutButton
         busy = true; msg = null
         scope.launch {
-            // A rota exige o refresh token DESTA sessão pra não te derrubar junto.
             val token = koin.get<SessionStore>().load()?.refreshToken
             if (token.isNullOrBlank()) {
                 busy = false
@@ -2707,8 +2218,6 @@ private fun SessionsSection() {
     Spacer(Modifier.height(20.dp))
 }
 
-// User-agent cru e ilegivel; extrai o navegador/app e o SO. O desktop manda o
-// proprio identificador, entao normalmente e so "Astra Desktop".
 private fun prettyAgent(ua: String?): String {
     val s = ua?.trim().orEmpty()
     if (s.isEmpty()) return "dispositivo desconhecido"
@@ -2731,7 +2240,6 @@ private fun prettyAgent(ua: String?): String {
     return listOfNotNull(app, os).joinToString(" · ")
 }
 
-// ISO-8601 -> "19/07 15:40". Sem lib: corta os pedacos do proprio texto.
 private fun prettyDate(iso: String?): String? {
     val s = iso?.trim().orEmpty()
     if (s.length < 16) return null
@@ -2741,8 +2249,6 @@ private fun prettyDate(iso: String?): String? {
     return "$d/$m $hm"
 }
 
-// Aba Sobre: versão atual + auto-update (checagem manual, progresso e reinicio).
-// O gate de boot já verifica sozinho; aqui e o controle manual + fallback.
 @Composable
 private fun AboutSection() {
     val updater = remember { GlobalContext.get().get<UpdateService>() }
@@ -2772,9 +2278,6 @@ private fun AboutSection() {
 
     when (val s = st) {
         is UpdateState.Checking -> AboutStatus("procurando atualizacoes…")
-        // Diz CONTRA O QUE comparou e QUANDO. "você está na última versão" sozinho
-        // nao da pra checar: quem acabou de ver uma release sair no GitHub nao tem
-        // como saber se o app olhou agora ou quando abriu, de manha.
         is UpdateState.UpToDate -> AboutStatus(
             "você está na ${s.vista} — a mais nova publicada, conferido ${haQuantoTempo(s.conferidoEm)}",
         )
@@ -2816,18 +2319,6 @@ private fun AboutSection() {
     BotaoProcurarAtualizacao { updater.check() }
 }
 
-// O botão de procurar atualização, com PISO DE TEMPO.
-//
-// O piso é a funcionalidade, não um atraso enfeitando. A busca real termina em menos de
-// um segundo, e um "procurando" que pisca e some lê como botão quebrado — a pessoa clica
-// de novo achando que não funcionou. Com o piso, "tudo em dia" chega como RESPOSTA, e não
-// como ausência de resposta.
-//
-// As duas frases nomeiam passos que de fato acontecem — consultar o repositório e
-// comparar as versões —, então o tempo é ganho e não enchido. Frase genérica ("aguarde…")
-// teria o custo do piso sem o proveito.
-//
-// Se a busca demorar MAIS que o piso, não há espera extra: o piso é chão, não teto.
 private const val PISO_DA_BUSCA = 1_800L
 private val ETAPAS_DA_BUSCA = listOf("consultando o repositório…", "comparando versões…")
 
@@ -2864,12 +2355,6 @@ private fun BotaoProcurarAtualizacao(procurar: suspend () -> Unit) {
     }
 }
 
-// Uma linha fina varrendo — o mesmo vocabulário da tela de atualização, que já usa barra
-// fina em vez de roda girando.
-//
-// `tween` explícito e não mola: mola tem duração proporcional à distância, e a mesma
-// varredura sairia com ritmos diferentes conforme a largura do botão, sem nada no código
-// dizer isso.
 @Composable
 private fun BarraDeVarredura() {
     val reduzMovimento = LocalReduceMotion.current
@@ -2882,13 +2367,10 @@ private fun BarraDeVarredura() {
     )
     Canvas(Modifier.fillMaxWidth().height(2.dp)) {
         drawRect(color = Obsidian.borderDim, size = size)
-        // Com movimento reduzido a barra fica inteira e parada: continua dizendo "estou
-        // ocupado" sem nada percorrendo a tela (WCAG 2.3.3, que o app cobre hoje).
         if (reduzMovimento) {
             drawRect(color = Obsidian.accentDim, size = size)
         } else {
             val largura = size.width * 0.35f
-            // Entra pela esquerda e sai pela direita, sem saltar de volta.
             val x = posicao * (size.width + largura) - largura
             drawRect(
                 color = Obsidian.accentDim,
@@ -2902,8 +2384,6 @@ private fun BarraDeVarredura() {
     }
 }
 
-// "agora mesmo" / "há 12 min" / "há 2 h". Precisao grossa de proposito: o que
-// importa e se a informacao e de agora ou de horas atras.
 private fun haQuantoTempo(quando: Long): String {
     val min = (System.currentTimeMillis() - quando) / 60_000
     return when {
@@ -2918,9 +2398,6 @@ private fun AboutStatus(text: String) {
     Text(text, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
 }
 
-// Mantém o TEXTO e ganha um ícone à esquerda. É o outro lado da regra dos ícones:
-// vira ícone puro só quem está encostado no objeto que opera e repete. Estes ficam
-// sozinhos no fim de uma seção — sem vizinho pra comparar, ícone puro seria charada.
 @Composable
 private fun AboutButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
     val cor = if (accent) Obsidian.accent else Obsidian.text2
@@ -2949,14 +2426,6 @@ private fun mesEAno(iso: String?): String {
     return "${meses[data.monthValue - 1]} ${data.year}"
 }
 
-// BOTÃO DE AÇÃO DESTRUTIVA. O `AboutButton` normal desenha borda apagada e texto
-// cinza — do lado dos campos de senha, "apagar minha conta" ficava com o MESMO
-// peso visual de "salvar", e a única coisa que separava as duas era ler o rótulo.
-//
-// Aqui o vermelho está na borda e no texto em repouso, e só INVADE o fundo no
-// hover. Isso mantém a regra 60-30-10 da casa (cor em pouca área) e ainda assim
-// dá o susto certo no instante em que o ponteiro chega: quem passou por acidente
-// vê a superfície ficar vermelha antes de clicar.
 @Composable
 private fun BotaoDePerigo(label: String, icone: ImageVector, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -3010,9 +2479,6 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
                 else api.setPassword(SetPasswordRequest(next))
             }
             busy = false
-            // FECHA NO SUCESSO em vez de dizer "senha atualizada" e ficar aberto. O
-            // diálogo existe por causa de uma tarefa; terminada a tarefa, ele não tem
-            // mais o que fazer na tela, e a linha atrás dele já conta o resultado.
             if (r.isSuccess) onClose()
             else erro = if (hasPassword) "Não deu. Confira a senha atual." else "Não deu. Tente de novo."
         }
@@ -3048,9 +2514,6 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
                 CampoDoDialogo("Confirmar nova senha")
                 PasswordField("confirmar nova senha", confirm) { confirm = it; erro = null }
 
-                // O DESENCONTRO É AVISADO ENQUANTO SE DIGITA, e não ao salvar: o
-                // botão fica desligado por causa dele, e botão desligado sem motivo
-                // à vista é a forma mais rápida de alguém achar que a tela travou.
                 if (confirm.isNotEmpty() && confirm != next) {
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -3082,9 +2545,6 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
     }
 }
 
-// Rótulo de campo do diálogo. Não usa `FieldLabel` (caixa alta, 10sp, espaçado)
-// porque aquele é o rótulo de SEÇÃO das abas — dentro de um diálogo de quatro
-// linhas ele grita mais que o título.
 @Composable
 private fun CampoDoDialogo(texto: String) {
     Text(
@@ -3126,10 +2586,6 @@ private fun BotaoDoDialogo(rotulo: String, primario: Boolean, ligado: Boolean, o
 private fun PasswordField(placeholder: String, value: String, onChange: (String) -> Unit) {
     Box(
         Modifier
-            // Campo de formulario (~420), NAO a coluna toda. A ordem importa:
-            // widthIn ANTES de fillMaxWidth — invertido, o fillMaxWidth fixava a
-            // largura no pai e o cap de 360 era reconstrangido de volta (era o bug
-            // do input de senha esticando pelo eixo X inteiro).
             .widthIn(max = 420.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
@@ -3168,9 +2624,6 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
         if (active) Obsidian.active else if (hovered) Obsidian.hover else androidx.compose.ui.graphics.Color.Transparent,
         tween(120),
     )
-    // Borda cinza sutil pra o topico se destacar do fundo (senao "some" na aurora):
-    // repouso = borderDim apagado, hover = borderMid, ativo = accent. Cada secao le
-    // como um item clicavel mesmo parada.
     val border by animateColorAsState(
         when {
             active -> Obsidian.accent.copy(alpha = 0.45f)
@@ -3211,10 +2664,6 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
     }
 }
 
-// Aba Voz: qualidade da transmissão de tela (presets) + processamento do mic.
-// Seletor de dispositivo de audio. null = padrao do sistema — e a PRIMEIRA opcao
-// de proposito: e o que funciona pra maioria e o que o dono pediu ("seguir o
-// Windows"). Lista vazia (nenhum dispositivo achado) ainda mostra o padrao.
 @Composable
 private fun DeviceDropdown(devices: List<String>, selected: String?, onPick: (String?) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -3292,17 +2741,6 @@ private fun DeviceRow(label: String, active: Boolean, onClick: () -> Unit) {
     )
 }
 
-// TÍTULO QUE EXPLICA NO HOVER — ideia do dono, e ela resolve uma tensão real.
-//
-// O pedido era "menos o que ler". A resposta preguiçosa seria apagar as
-// explicações; a boa é tirá-las do caminho SEM perdê-las. Quem já sabe o que a
-// seção faz lê três palavras e segue; quem não sabe passa o mouse no título e
-// recebe o parágrafo inteiro. A tela em repouso fica com a densidade de um índice,
-// e a informação continua a um gesto de distância.
-//
-// O PONTINHO É OBRIGATÓRIO. Sem uma marca visível, a explicação só existiria pra
-// quem passasse o mouse por acaso — recurso escondido não é recurso. Ele é
-// discreto (4dp, cor terciária) e acende junto do título quando o ponteiro chega.
 @Composable
 private fun TituloExplicavel(titulo: String, explicacao: String) {
     val src = remember { MutableInteractionSource() }
@@ -3322,8 +2760,6 @@ private fun TituloExplicavel(titulo: String, explicacao: String) {
             Box(Modifier.size(4.dp).clip(CircleShape).background(cor))
         }
         if (hov) {
-            // `focusable = false`: o balão é leitura, não destino. Roubar o foco
-            // aqui tiraria o cursor de um campo de texto ao passar o mouse.
             Popup(
                 alignment = Alignment.TopStart,
                 offset = IntOffset(0, 30),
@@ -3345,9 +2781,6 @@ private fun TituloExplicavel(titulo: String, explicacao: String) {
     Spacer(Modifier.height(10.dp))
 }
 
-// Nota explicativa ao lado do ajuste que ela explica. Comeca RECOLHIDA: quem so
-// quer mexer no ajuste não tem um paragrafo na frente, e quem estranhou o
-// comportamento acha a resposta onde procurou — em vez de num FAQ que não existe.
 @Composable
 private fun InfoNote(title: String, body: String) {
     var open by remember { mutableStateOf(false) }
@@ -3384,11 +2817,6 @@ private fun InfoNote(title: String, body: String) {
     }
 }
 
-// Aba Permissões — a casa de quem já usava o Astra antes desta tela existir, ou
-// de quem passou reto pelas boas-vindas. A lista e a mesma de lá
-// (PainelDePermissoes); a diferença e o `detalhado`, que aqui mostra o estado até
-// das linhas certas: quem abre esta aba veio investigar, e "ouvindo normalmente
-// (Microfone Realtek)" e justamente o que responde "então o problema não é esse".
 @Composable
 private fun PermissionsSection(onTestarAviso: () -> Unit) {
     Text(
@@ -3414,7 +2842,6 @@ private fun PermissionsSection(onTestarAviso: () -> Unit) {
     )
 }
 
-
 @Composable
 private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
@@ -3427,10 +2854,6 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         ScreenQuality.entries.map { it.label to it },
         p.screenQuality, prefs::setScreenQuality,
     )
-
-    // As permissões do Windows moram na aba Permissões. Ficavam aqui como um
-    // atalho que abria um diálogo com a MESMA lista — duas casas pra uma coisa só
-    // envelhece mal (uma das duas deixa de ser atualizada).
 
     SettingsDivider()
     TituloExplicavel(
@@ -3465,8 +2888,6 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
-    // Enumerado uma vez ao abrir a aba: listar SAIDA abre um modulo do WebRTC, e
-    // não vale refazer isso a cada recomposicao.
     val outs = remember { AudioDevices.outputs() }
     val ins = remember { AudioDevices.inputs() }
     FieldLabel("saída (quem você ouve)")
@@ -3482,10 +2903,6 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         ModoDeFala.entries.map { it.label to it },
         p.modoDeFala, prefs::setModoDeFala,
     )
-    // O MODO fica aqui (é comportamento de voz); as TECLAS foram pra aba Atalhos.
-    // Quem escolhe "apertar para falar" precisa saber pra onde ir, e sem tecla
-    // escolhida ninguém o ouve — por isso este é o único aviso que sobreviveu à
-    // mudança, e só aparece quando ele é verdade.
     if (p.modoDeFala == ModoDeFala.APERTAR && p.teclaFalar == 0) {
         Spacer(Modifier.height(10.dp))
         Text(
@@ -3498,16 +2915,9 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
     Spacer(Modifier.height(10.dp))
-    // O ECO VEM PRIMEIRO PORQUE OS OUTROS DOIS DEPENDEM DELE, e a ordem na tela é a
-    // única pista de graça que existe pra isso. No Windows os três tratamentos moram
-    // dentro do MESMO objeto — o cancelador de eco. Sem ele no caminho, o microfone
-    // entra cru: não existe "só supressão de ruído" pra oferecer.
     ToggleRow("Cancelamento de eco", "evita o retorno do audio dos outros pelo seu mic", p.micEchoCancel, prefs::setMicEchoCancel)
     ToggleRow("Supressao de ruido", "corta ventilador, teclado e chiado de fundo", p.micNoiseSuppression, prefs::setMicNoiseSuppression)
     ToggleRow("Ganho automatico", "nivela o volume da sua voz sozinho", p.micAutoGain, prefs::setMicAutoGain)
-    // DIZER, e não desabilitar os dois de baixo. Desabilitar apagaria a escolha da
-    // pessoa da tela, e ela volta a valer assim que o cancelador voltar — o que o
-    // interruptor apagado não conta.
     if (!p.micEchoCancel) {
         Spacer(Modifier.height(10.dp))
         Text(
@@ -3528,29 +2938,11 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
 }
 
-// Escolher uma tecla apertando ela, e não caçando o nome numa lista de duzentas.
-//
-// Quem lê a tecla é o PRÓPRIO gancho global, e não um `onKeyEvent` do Compose. Duas
-// razões: o gancho entrega o código virtual do Windows, que é exatamente o que vai
-// ser gravado (traduzir do código da JVM pro do Windows tem exceções que só
-// aparecem em teclado ABNT2); e a mesma peça que vai escutar a tecla depois é a que
-// escuta agora — se ela não estiver funcionando, você descobre aqui, escolhendo, e
-// não no meio de uma partida.
-// ABA ATALHOS. As três teclas moravam no fim da aba Voz, onde só as achava quem
-// tinha ido mexer no microfone — e a nota longa sobre o gancho do Windows ficava
-// entre elas e o resto. Aqui elas são o assunto, e a nota vira o rodapé.
-//
-// As FIXAS entram como lista, e não como mais três `CapturaDeTecla` desligados:
-// Ctrl+K, Esc e Enter estão cravados no código de várias telas, e desenhá-los com
-// a mesma casca das configuráveis prometeria uma troca que não existe.
 @Composable
 private fun AtalhosSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     CapturaDeTecla("falar", p.teclaFalar, prefs::setTeclaFalar)
     if (p.modoDeFala != ModoDeFala.APERTAR) {
         Spacer(Modifier.height(4.dp))
-        // A tecla continua VISÍVEL com o modo desligado — escondê-la faria quem
-        // veio configurá-la achar que ela não existe. Só se diz que ela está
-        // dormindo, e onde acordá-la.
         Text(
             "vale no modo “apertar para falar”, em Voz.",
             style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
@@ -3610,7 +3002,6 @@ private fun CapturaDeTecla(rotulo: String, vk: Int, onEscolher: (Int) -> Unit) {
     val escopo = rememberCoroutineScope()
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // Recalcula só quando a tecla muda: nomear passa por duas chamadas ao Windows.
     val nome = remember(vk) { AtalhosGlobais.nomeDaTecla(vk) }
 
     DisposableEffect(Unit) { onDispose { AtalhosGlobais.cancelarCaptura() } }
@@ -3670,7 +3061,6 @@ private fun CapturaDeTecla(rotulo: String, vk: Int, onEscolher: (Int) -> Unit) {
     }
 }
 
-// Lista de opção única (radio) — pra escolhas com rotulos longos (presets).
 @Composable
 private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
@@ -3713,14 +3103,8 @@ private fun <T> RadioList(options: List<Pair<String, T>>, selected: T, onSelect:
     }
 }
 
-// Aba Desempenho: kill-switch gamer no topo, depois os controles finos (que ele
-// sobrepoe — ficam esmaecidos com o modo ligado). Graficos + fps + transparencia.
 @Composable
 private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    // POR QUE O AJUSTE JÁ ESTAVA LIGADO. Sem esta linha, quem chega aqui encontra um
-    // interruptor ligado que jura não ter ligado — e a explicação estava num cartão
-    // que talvez já tenha sido dispensado. O cartão é o aviso; esta linha é o registro,
-    // e ela fica enquanto o modo automático estiver valendo.
     if (p.perfAutomatico.isNotBlank()) {
         Box(
             Modifier.widthIn(max = 560.dp).fillMaxWidth()
@@ -3745,12 +3129,7 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
     Spacer(Modifier.height(6.dp))
 
-    // Controles finos: o modo desempenho já sobrepoe, entao esmaece quando ligado
-    // (continuam clicaveis — são a tua preferencia fora do modo desempenho).
     Column(Modifier.alpha(if (p.performanceMode) 0.45f else 1f)) {
-        // Escolher QUAL fundo mora em Aparencia; aqui fica so o ajuste de custo do
-        // que ja foi escolhido. Um mesmo controle em duas abas envelhece mal: uma
-        // hora as duas divergem e a pessoa nao sabe qual delas manda.
         LabeledControl("Qualidade da aurora", "mais detalhe = mais GPU; escolha o fundo em Aparencia") {
             SegmentedRow(
                 listOf("Alta" to AuroraQuality.HIGH, "Media" to AuroraQuality.MEDIUM, "Baixa" to AuroraQuality.LOW),
@@ -3763,9 +3142,6 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
                 p.uiFps, prefs::setUiFps,
             )
         }
-        // "Reduzir movimento" mudou de casa: foi pra aba Acessibilidade. Aqui ele
-        // parecia ajuste de placa de vídeo, e não o que de fato é — necessidade de
-        // quem passa mal com animação.
     }
 
     Spacer(Modifier.height(6.dp))
@@ -3793,20 +3169,12 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     PlacaDeVideoSection(p, prefs)
 }
 
-// Mantém a primeira letra e o domínio: dá pra reconhecer a conta sem entregar o
-// endereço. Domínio fica porque ele não identifica ninguém sozinho — "@gmail.com"
-// é a metade que não é sua.
 private fun mascarar(email: String): String {
     val arroba = email.indexOf('@')
     if (arroba <= 0) return "•••"
     return email.first() + "•••" + email.substring(arroba)
 }
 
-// Abrir junto com o Windows. Sem preferência local por trás: quem responde é o
-// próprio registro (ver InicioComWindows), que é o mesmo lugar que o Gerenciador
-// de Tarefas mexe. Se a pessoa desligar por lá, este interruptor já nasce
-// desligado na próxima vez que a aba abrir — em vez de afirmar uma coisa que o
-// Windows não vai cumprir.
 @Composable
 private fun ArranqueComWindows() {
     if (!InicioComWindows.disponivel()) return
@@ -3814,8 +3182,6 @@ private fun ArranqueComWindows() {
     var escondido by remember { mutableStateOf(InicioComWindows.escondido()) }
     var falhou by remember { mutableStateOf(false) }
 
-    // Uma função só pros dois interruptores: qualquer mudança reescreve a entrada
-    // inteira, porque o "abrir escondido" mora dentro do comando registrado.
     fun gravar(novoLigado: Boolean, novoEscondido: Boolean) {
         val ok = InicioComWindows.aplicar(novoLigado, novoEscondido)
         falhou = !ok
@@ -3848,17 +3214,6 @@ private fun ArranqueComWindows() {
     }
 }
 
-// Escolha da placa de video.
-//
-// So aparece em maquina com MAIS DE UMA placa. Com uma so nao ha escolha a fazer, e um
-// ajuste de uma opcao so e ruido: ocupa espaco, sugere que ha algo a decidir e nao
-// decide nada.
-//
-// A LINHA SOBRE TRANSMITIR NAO E RESSALVA, e o ajuste inteiro. Quadro de captura de tela
-// nasce no aparelho da placa que desenha o monitor, e so ela consegue comprimi-lo -- pedir
-// pra outra nao da erro, da silencio. Entao a placa que nao desenha a tela e mostrada,
-// escolhivel para a interface, e dita como incapaz de transmitir, com o motivo. Esconder
-// isso deixaria a pessoa achando que escolheu e nao funcionou.
 @Composable
 private fun PlacaDeVideoSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     val placas = remember { Placas.todas }
@@ -3901,10 +3256,6 @@ private fun PlacaDeVideoSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
                         "Transmitir a tela também não funciona por aqui: o quadro nasce na " +
                         "$daTela e só ela consegue lê-lo.",
                 ativa = p.placaVideo == placa.id,
-                // AVISAR E NAO DEIXAR (decisao do dono). A opcao continua visivel com o
-                // motivo escrito: esconder faria a pessoa procurar pelo resto da vida por
-                // um ajuste que ela jura ter visto, e nunca saber por que a placa boa nao
-                // aparece.
                 bloqueada = !placa.desenhaATela,
             ) { prefs.setPlacaVideo(placa.id) }
         }
@@ -3929,8 +3280,6 @@ private fun PlacaLinha(
     val hov = remember { MutableInteractionSource() }
     val h by hov.collectIsHoveredAsState()
     val toque = remember { MutableInteractionSource() }
-    // Bloqueada nao reage a nada: sem hover, sem clique, sem anel de foco. Um alvo que
-    // acende ao passar o mouse promete que vai obedecer ao clique.
     val fundo = when {
         bloqueada -> Obsidian.raised
         ativa -> Obsidian.active
@@ -3979,7 +3328,6 @@ private fun PlacaLinha(
     }
 }
 
-// Rotulo + subtitulo + um controle embaixo (usado com o SegmentedRow).
 @Composable
 private fun LabeledControl(title: String, sub: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -3990,7 +3338,6 @@ private fun LabeledControl(title: String, sub: String, content: @Composable () -
     }
 }
 
-// Segmentado obsidiana: pilulas numa trilha; a ativa acende ambar.
 @Composable
 private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSelect: (T) -> Unit) {
     Row(
@@ -4027,8 +3374,6 @@ private fun <T> SegmentedRow(options: List<Pair<String, T>>, selected: T, onSele
 internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
-            // Preenche a coluna capada (~720, estilo Discord): interruptor grudado
-            // na ponta direita. Quem limita a largura agora e a coluna, não a linha.
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Obsidian.raised.copy(alpha = 0.5f))
@@ -4045,7 +3390,6 @@ internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boole
     Spacer(Modifier.height(8.dp))
 }
 
-// Interruptor obsidiana: trilho ambar quando ligado, botao desliza.
 @Composable
 private fun Toggle(on: Boolean, onChange: (Boolean) -> Unit) {
     val track by animateColorAsState(if (on) Obsidian.accent else Obsidian.overlay, tween(160))
@@ -4069,9 +3413,6 @@ private fun Toggle(on: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-// Aba Aparencia: tema pronto (presets) + tamanho da fonte e densidade. O preset
-// aplica AO VIVO no app inteiro (Obsidian reativo). Ajuste fino de accent/fundo
-// avulso saiu (por ora so temas prontos); volta no futuro como tema editavel.
 @Composable
 private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     FieldLabel("tema")
@@ -4086,16 +3427,6 @@ private fun AppearanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(20.dp))
 }
 
-// ABA PETS. O interruptor do bicho mora em ACESSIBILIDADE, e continua lá de
-// propósito: são duas perguntas diferentes. "Quero um bicho se mexendo na tela?" é
-// sobre movimento, e quem precisa desligar movimento procura isso em Acessibilidade,
-// não numa aba de gosto. "Qual bicho, de que cor e com que nome?" é gosto, e é o que
-// esta aba responde.
-//
-// A ORDEM DA TELA É PROPOSITAL: palco, gestos, e só então as escolhas. Escolher
-// primeiro e ver depois obrigaria a decidir às cegas, que é exatamente o defeito que
-// esta aba existe pra corrigir — a diferença entre os três bichos não está na pose
-// parada, está em quantas reações cada um tem desenhada.
 @Composable
 private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
@@ -4108,10 +3439,6 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
 
     if (!p.petLigado) {
-        // Cartão, e não texto solto: numa aba inteira dedicada ao bicho, "ele está
-        // desligado" é a informação mais importante da tela, e uma linha cinza no meio
-        // do respiro passa batida. O palco continua abaixo — desligado não quer dizer
-        // que não se possa escolher a cor pra quando ligar.
         Box(
             Modifier.fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
@@ -4128,13 +3455,7 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 
     val bicho = Bicho.de(p.petBicho)
-    // O gesto escolhido é da TELA, não da conta: é jeito de olhar o bicho, e não uma
-    // preferência dele. Guardar isso nas prefs criaria um ajuste que a pessoa nunca
-    // pediu pra ter e que não muda nada fora desta aba.
     var gesto by remember { mutableStateOf(Anim.PARADO) }
-    // Trocar de bicho pode tirar o gesto do mapa (só o sátiro tem exibição e cansaço),
-    // e um gesto que o bicho não tem desenhava palco vazio. Volta pro parado, que todo
-    // bicho tem por definição.
     if (gesto !in bicho.passos) gesto = Anim.PARADO
 
     PetPalco(bicho, Pelagem.de(p.petPelagem), gesto)
@@ -4156,9 +3477,6 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             AmostraDePelagem(pel, pel.name == p.petPelagem) { prefs.setPetPelagem(pel.name) }
         }
     }
-    // UMA linha nomeando a escolhida, em vez de sete rótulos sob sete bolinhas.
-    // "Caramelo" e "Chocolate" não se distinguem por amostra sozinha, e escrever os
-    // sete devolveria à aba o texto que o dono pediu pra tirar.
     Spacer(Modifier.height(8.dp))
     Text(
         Pelagem.de(p.petPelagem).rotulo,
@@ -4191,8 +3509,6 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(20.dp))
 }
 
-// A amostra usa o degrau do MEIO da rampa, não o mais claro: em toda pelagem o
-// degrau claro puxa pro branco, e sete bolinhas quase brancas não escolhem nada.
 @Composable
 private fun AmostraDePelagem(pelagem: Pelagem, escolhida: Boolean, onClick: () -> Unit) {
     val fonte = remember { MutableInteractionSource() }
@@ -4212,17 +3528,6 @@ private fun AmostraDePelagem(pelagem: Pelagem, escolhida: Boolean, onClick: () -
     )
 }
 
-// ABA ACESSIBILIDADE — no espírito da do Discord (pedido do dono).
-//
-// O que o Discord acerta e que aqui estava espalhado: acessibilidade é uma aba, não
-// um rodapé de "Aparência". Legibilidade, contraste e movimento são o mesmo assunto
-// — "consigo usar isto confortavelmente?" — e estavam em duas abas diferentes, com
-// "reduzir movimento" morando em Desempenho, onde ele parecia um ajuste de placa de
-// vídeo e não uma necessidade de quem passa mal com animação.
-//
-// A prévia ao lado é a mini-janela do chat, e ela reage AO VIVO ao tamanho e à
-// densidade — mesma ideia da prévia do Discord: mexer no controle e ver a frase
-// mudar de tamanho responde melhor que qualquer rótulo em pixels.
 @Composable
 private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Text("Legibilidade do texto", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -4235,9 +3540,6 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     }
 
     SettingsDivider()
-    // A honestidade aqui é o recurso, e ela cabe no balão: o padrão do app foi
-    // ESCURECIDO de propósito (ver Obsidian.kt), e quem liga isto merece saber que
-    // está trocando uma coisa por outra, não consertando um descuido.
     TituloExplicavel(
         "Contraste",
         "O padrão do Astra é mais suave de propósito: contraste alto demais em fundo " +
@@ -4282,30 +3584,9 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(20.dp))
 }
 
-// Cascata de entrada pra conteudo ARBITRARIO.
-//
-// O CascadeIn que ja existe (Bits.kt) precisa de um indice, porque nasceu pra
-// lista: quem chama esta dentro de um itemsIndexed e sabe quem e o item 3. Aqui
-// nao ha lista — cada secao de configuracao emite os proprios filhos, e sao os
-// filhos que devem entrar um a um. Este Layout resolve olhando os filhos DEPOIS
-// de medidos: cada um ganha o degrau seguinte de atraso.
-//
-// Por que isso funciona: um @Composable que nao se embrulha em Column/Box emite
-// os nos direto no pai. AccountSection, VoiceSection e as outras sao assim, entao
-// o `measurables` daqui chega com os controles todos, separados.
-//
-// LARGURA > 0 e o filtro que pula os Spacer verticais — Spacer(Modifier.height(x))
-// mede zero de largura. Sem ele, cada respiro entre controles gastaria um degrau e
-// a cascata sairia com buracos no ritmo.
-//
-// O alpha e o deslocamento vao no placeWithLayer, ou seja, na fase de PLACEMENT:
-// o relogio avancando re-executa o posicionamento, nunca a recomposicao. Numa tela
-// com previa ao vivo, recompor 30 controles por frame seria bem caro.
 private const val CASCATA_PASSO_MS = 40
 private const val CASCATA_DURACAO_MS = 380
 private const val CASCATA_DEGRAUS = 16
-// Sobe mais do que antes (era 10dp). Curso curto demais com curva suave vira
-// tremida: o olho ve o movimento comecar e acabar quase no mesmo lugar.
 private val CASCATA_SUBIDA = 14.dp
 
 @Composable
@@ -4323,12 +3604,6 @@ private fun CascataVertical(
     }
     val deslocamento = with(LocalDensity.current) { CASCATA_SUBIDA.toPx() }
     Layout(content = content, modifier = modifier) { medidos, constraints ->
-        // minWidth = 0 TAMBEM, nao so minHeight. Este Layout recebe
-        // fillMaxWidth(), ou seja, constraints com minWidth == maxWidth: repassar
-        // isso pros filhos OBRIGA cada um a ocupar a largura inteira. Era por isto
-        // que "derrubar todas as outras", "salvar" e "procurar atualizações"
-        // apareciam esticados de ponta a ponta — um botao de texto curto medindo
-        // 700dp. Botao deve ter a largura do que ele diz.
         val filhos = medidos.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
         val largura = if (constraints.hasBoundedWidth) constraints.maxWidth
         else filhos.maxOfOrNull { it.width } ?: 0
@@ -4342,10 +3617,6 @@ private fun CascataVertical(
                 val bruto =
                     ((agora - meu.coerceAtMost(CASCATA_DEGRAUS) * CASCATA_PASSO_MS) / CASCATA_DURACAO_MS)
                         .coerceIn(0f, 1f)
-                // O relogio mestre e LINEAR de proposito (ele so distribui o tempo);
-                // a curva vive aqui, em cada filho. Sem ela cada controle subia com
-                // velocidade constante e parava seco no fim — e isso que se sente
-                // como cascata "dura". EaseOutSoft chega desacelerando.
                 val progresso = EaseOutSoft.transform(bruto)
                 filho.placeWithLayer(0, y) {
                     alpha = progresso
@@ -4357,16 +3628,6 @@ private fun CascataVertical(
     }
 }
 
-// Escolha de FUNDO. Não e uma preferencia nova: e a leitura conjunta de
-// auroraEnabled + starsEnabled como uma escada de custo. "Aurora sem estrelas"
-// era uma combinacao possivel que ninguem pedia, e cada combinacao a mais e uma
-// pergunta a mais pra quem so quer decidir como o app parece.
-// AURORA E ESTRELAS SAO INDEPENDENTES no `DesktopPrefs` — sempre foram. Quem
-// amarrava as duas era esta escada: "Aurora" acendia as estrelas junto, e nao
-// havia como pedir aurora SEM elas. O dono quis as duas soltas, entao a escada
-// ganhou o quarto degrau em vez de virar dois interruptores: quatro opcoes
-// nomeadas dizem o custo de cada escolha, dois interruptores fariam a pessoa
-// descobrir a combinacao cara sozinha.
 private enum class FundoPref(val label: String) {
     LISO("Liso"),
     ESTRELAS("Estrelas"),
@@ -4386,20 +3647,6 @@ private fun aplicarFundo(prefs: DesktopPrefs, f: FundoPref) {
     prefs.setStarsEnabled(f == FundoPref.ESTRELAS || f == FundoPref.AMBOS)
 }
 
-// Quebra entre grupos de configuração — SÓ RESPIRO, sem traço nenhum.
-//
-// O traço já encolheu uma vez: era de borda a borda, virou curto e centralizado
-// para deixar de ler como linha de tabela. Curto ele parou de fazer mal, mas
-// também parou de fazer bem — vinte e nove deles espalhados pelas abas viravam uma
-// pontilhação vertical que o olho conta ao descer a página. Quem separava de
-// verdade já era o espaço.
-//
-// Traço continua existindo onde ele carrega informação: na barra lateral, onde
-// marca a fronteira entre grupos de destino diferente (`DivisoriaDaRail`). Ali há
-// o que separar. Dentro de uma aba, os títulos já dizem onde um assunto acaba.
-//
-// Continua sendo uma função, e não um `Spacer` solto nas 29 chamadas, porque o
-// ritmo vertical das abas é uma decisão só e precisa continuar tendo um lugar.
 @Composable
 internal fun SettingsDivider() {
     Spacer(Modifier.height(32.dp))
@@ -4420,20 +3667,9 @@ private fun PresetGrid(selAccent: String, selBg: String, onPick: (ThemePreset) -
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // AGRUPADO POR FAMILIA DE COR (escolha do dono). Quinze cartoes iguais em
-        // duas colunas nao davam ao olho por onde comecar: achar o que se quer
-        // exigia ler os quinze nomes, e nome de tema ("Nortada", "Véspera") nao diz
-        // a cor. Com os grupos, a busca vira "quero algo frio" — que e como a
-        // escolha acontece na cabeca de quem escolhe.
-        //
-        // A ordem dos GRUPOS vem do enum, nao da lista de presets: assim a tela nao
-        // depende de ninguem lembrar de manter a lista ordenada por familia ao
-        // acrescentar um tema novo.
         FamiliaDeTema.entries.forEach { familia ->
             val doGrupo = ThemePresets.filter { it.familia == familia }
             if (doGrupo.isEmpty()) return@forEach
-            // Titulo em text3 e corpo pequeno: ele ORGANIZA, nao compete. No peso do
-            // resto viraria mais uma coisa pra ler entre voce e os temas.
             Text(
                 familia.titulo.uppercase(),
                 style = TextStyle(color = Obsidian.text3, fontSize = 9.sp, letterSpacing = 1.5.sp),
@@ -4493,4 +3729,3 @@ private fun PresetCard(preset: ThemePreset, active: Boolean, onClick: () -> Unit
         }
     }
 }
-

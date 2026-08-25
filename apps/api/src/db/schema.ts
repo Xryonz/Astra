@@ -15,13 +15,7 @@ export const users = pgTable('User', {
 
   coordinate:   text('coordinate').notNull().unique(),
   displayName:  text('displayName').notNull(),
-  // A VERSÃO DE EXIBIÇÃO, e não a que a pessoa enviou. Ver `persistAvatar`: o cliente
-  // salva 1024px, e este campo guarda 256 — o suficiente para o maior lugar em que um
-  // avatar aparece (96dp em tela densa). Tudo que projeta usuário lê daqui, então o
-  // ganho vale para os três clientes sem nenhum deles mudar.
   avatarUrl:    text('avatarUrl'),
-  // A original, guardada para poder reprocessar um dia. Não é usada para desenhar.
-  // Nula quando não houve o que encolher (imagem já pequena, GIF, avatar do Google).
   avatarFullUrl: text('avatarFullUrl'),
   bio:          text('bio'),
   googleId:     text('googleId').unique(),
@@ -37,12 +31,8 @@ export const users = pgTable('User', {
 
   bannerBorder:    text('bannerBorder').notNull().default('none'),
 
-  // Conta apagada por lapide: a linha sobrevive vazia pras mensagens antigas nao
-  // deixarem buraco na conversa de terceiros. Ver lib/apagarConta.ts.
   deletedAt:    timestamp('deletedAt', { precision: 3 }),
 
-  // Quem pode ABRIR sussurro com esta pessoa: all | shared | friends.
-  // Conversa que ja existe passa sempre — ver lib/privacidadeDm.ts.
   dmPrivacy:    text('dmPrivacy').notNull().default('all'),
 
   pronouns:     text('pronouns'),
@@ -109,7 +99,6 @@ export const refreshTokens = pgTable('RefreshToken', {
 
   ip:         text('ip'),
 
-  // Id estavel por instalacao (X-Device-Id). Dedup de sessao do mesmo PC (#4).
   deviceId:   text('deviceId'),
 
   lastUsedAt: timestamp('lastUsedAt', { precision: 3 }),
@@ -120,15 +109,7 @@ export const refreshTokens = pgTable('RefreshToken', {
 export const servers = pgTable('Server', {
   id:         text('id').primaryKey().$defaultFn(createId),
   name:       text('name').notNull(),
-  // A versão de EXIBIÇÃO (256px), pelo mesmo motivo do avatar — e aqui pesa ainda mais:
-  // a barra lateral desenha o ícone de TODAS as constelações da pessoa de uma vez.
   iconUrl:    text('iconUrl'),
-  // A original, guardada para poder reprocessar. Não desenha nada hoje.
-  //
-  // ESTA APARECE NO WIRE, ao contrário da irmã em `User`: as rotas de constelação usam
-  // `db.select()` sem projeção, então o campo viaja. É inofensivo — os três clientes
-  // decodificam com `ignoreUnknownKeys`, e uma URL de imagem pública não é segredo —, mas
-  // vale saber antes de guardar aqui qualquer coisa que não deva sair.
   iconFullUrl: text('iconFullUrl'),
 
   bannerUrl:  text('bannerUrl'),
@@ -145,12 +126,8 @@ export const servers = pgTable('Server', {
 
   messageRetentionDays: integer('messageRetentionDays'),
 
-  // Órbita onde a bot fala sem ser chamada. Nulo = ela escolhe sozinha.
   botNoticeChannelId: text('botNoticeChannelId'),
-  // Comandos DESLIGADOS nesta constelacao, separados por virgula. Nulo/vazio =
-  // todos ligados. Guarda o que esta desligado pra comando novo nascer ligado.
   botDisabledCommands: text('botDisabledCommands'),
-
 
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
   updatedAt:  timestamp('updatedAt', { precision: 3 }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -181,13 +158,6 @@ export const serverEmojis = pgTable('ServerEmoji', {
   byServer: index('ServerEmoji_serverId_idx').on(t.serverId),
 }))
 
-// Efeitos sonoros da constelacao. Mesma forma do ServerEmoji de proposito: os dois
-// sao "colecao de midia curta que pertence a constelacao", e divergir a estrutura
-// so criaria dois jeitos de fazer a mesma coisa.
-//
-// A duracao fica GRAVADA aqui em vez de ser lida do arquivo na hora de tocar: quem
-// mostra a lista precisa dela pra desenhar, e abrir um WAV do bucket so pra saber
-// quanto ele dura seria uma requisicao por som a cada abertura do painel.
 export const serverSounds = pgTable('ServerSound', {
   id:        text('id').primaryKey().$defaultFn(createId),
   serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
@@ -201,13 +171,6 @@ export const serverSounds = pgTable('ServerSound', {
   byServer: index('ServerSound_serverId_idx').on(t.serverId),
 }))
 
-// Figurinhas da constelacao. Mesma forma do ServerSound de proposito — sao a
-// mesma ideia ("colecao de midia curta que pertence a constelacao"), e divergir a
-// estrutura so criaria dois jeitos de fazer a mesma coisa.
-//
-// width/height ficam GRAVADOS: a conversa reserva o espaco da figurinha ANTES de
-// a imagem chegar. Sem eles a linha nasce com altura zero e empurra tudo pra
-// baixo quando a figurinha carrega — quem estava lendo perde a linha.
 export const serverStickers = pgTable('ServerSticker', {
   id:        text('id').primaryKey().$defaultFn(createId),
   serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
@@ -276,9 +239,6 @@ export const channelCategories = pgTable('ChannelCategory', {
   name:      text('name').notNull(),
   serverId:  text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
   position:  integer('position').notNull().default(0),
-  // Bot ligado nas orbitas desta categoria. NULO = ligado (o padrao e a bot
-  // atuar em tudo; quem quiser silencio DESLIGA, em vez de ter que ligar em cada
-  // orbita nova e descobrir depois que a bot "sumiu").
   botEnabled: boolean('botEnabled'),
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
@@ -293,13 +253,7 @@ export const channels = pgTable('Channel', {
   categoryId: text('categoryId').references(() => channelCategories.id, { onDelete: 'set null' }),
   position:   integer('position').notNull().default(0),
   isPrivate:  boolean('isPrivate').notNull().default(false),
-  // NULO = herda da categoria (e, sem categoria, fica ligado). Precisa ser
-  // nulavel: com boolean cru nao haveria como dizer "nao decidi", e desligar a
-  // categoria nao alcancaria as orbitas dela.
   botEnabled: boolean('botEnabled'),
-  // A resposta da bot vira mensagem de verdade (com o comando junto) ou some ao
-  // trocar de órbita? NOT NULL de proposito: aqui nao existe "nao decidi" —
-  // guardar ou nao guardar e uma decisao local da orbita, sem heranca.
   botKeepReplies: boolean('botKeepReplies').notNull().default(true),
   createdAt:  timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
@@ -366,8 +320,6 @@ export const channelNotifPrefs = pgTable('ChannelNotifPref', {
   uniqUserChannel: uniqueIndex('ChannelNotifPref_userId_channelId_key').on(t.userId, t.channelId),
 }))
 
-// Pref de notificacao por SERVIDOR (default dos canais sem pref propria):
-// canal explicito > servidor > 'all'. Mesmos modos do ChannelNotifPref.
 export const serverNotifPrefs = pgTable('ServerNotifPref', {
   id:        text('id').primaryKey().$defaultFn(createId),
   userId:    text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -405,13 +357,8 @@ export const dmConversations = pgTable('DMConversation', {
   userBId:      text('userBId').notNull().references(() => users.id, { onDelete: 'cascade' }),
   lastReadByA:  timestamp('lastReadByA', { precision: 3 }),
   lastReadByB:  timestamp('lastReadByB', { precision: 3 }),
-  // Silenciar DM: timestamp de quando cada lado mutou (null = nao mutado).
   mutedByA:     timestamp('mutedByA', { precision: 3 }),
   mutedByB:     timestamp('mutedByB', { precision: 3 }),
-  // "Fechar conversa": timestamp de quando cada lado escondeu. NAO apaga nada e
-  // nao afeta o outro lado. A conversa VOLTA sozinha quando chega mensagem nova,
-  // porque a regra e "escondida se updatedAt <= hiddenBy" e mensagem nova bumpa o
-  // updatedAt — mesma semantica do Discord, sem precisar de flag pra desfazer.
   hiddenByA:    timestamp('hiddenByA', { precision: 3 }),
   hiddenByB:    timestamp('hiddenByB', { precision: 3 }),
   createdAt:    timestamp('createdAt',   { precision: 3 }).notNull().defaultNow(),
@@ -434,11 +381,6 @@ export const directMessages = pgTable('DirectMessage', {
 
   replyToId:      text('replyToId'),
 
-  // Registro de CHAMADA (JSON), no mesmo espirito do `poll` das mensagens de
-  // canal: a linha e uma mensagem de verdade, mas desenha diferente. Guardar a
-  // chamada como uma linha do historico e o unico jeito de a pessoa descobrir
-  // que ligaram enquanto o app estava fechado — e essa e justamente a chamada
-  // que importa.
   call:           text('call'),
 
   expiresAt:      timestamp('expiresAt', { precision: 3 }),
@@ -532,12 +474,6 @@ export const notifications = pgTable('Notification', {
   byUserUnread:  index('Notification_userId_readAt_idx').on(t.userId, t.readAt),
 }))
 
-// Bloqueio de pessoa. DIRECIONAL de proposito (quem bloqueou -> quem foi
-// bloqueado): saber quem partiu do bloqueio decide o que cada lado enxerga. Quem
-// bloqueia ve "Desbloquear"; quem foi bloqueado nao ve nada (o Discord tambem
-// nao avisa, e avisar so renderia briga).
-// O EFEITO, porem, vale nos dois sentidos: bloqueou, ninguem manda sussurro pro
-// outro. Bloqueio de mao unica seria uma porta trancada com a chave do lado de fora.
 export const userBlocks = pgTable('UserBlock', {
   id:        text('id').primaryKey().$defaultFn(createId),
   blockerId: text('blockerId').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -545,8 +481,6 @@ export const userBlocks = pgTable('UserBlock', {
   createdAt: timestamp('createdAt', { precision: 3 }).notNull().defaultNow(),
 }, (t) => ({
   uniqPair:  uniqueIndex('UserBlock_blockerId_blockedId_key').on(t.blockerId, t.blockedId),
-  // Os dois lados sao consultados: "quem eu bloqueei" na lista, "quem me
-  // bloqueou" a cada envio de sussurro.
   byBlocker: index('UserBlock_blockerId_idx').on(t.blockerId),
   byBlocked: index('UserBlock_blockedId_idx').on(t.blockedId),
 }))
@@ -561,22 +495,6 @@ export const wishingStars = pgTable('WishingStar', {
   byUser:    index('WishingStar_userId_idx').on(t.userId),
 }))
 
-// Progressao do usuario. UMA linha por pessoa, e so dois numeros que importam.
-//
-// O NIVEL NAO E GUARDADO: e derivado do xp (progressoDoXp em lib/xp.ts). Guardar
-// os dois seria manter duas verdades sobre a mesma coisa, e a hora em que elas
-// discordassem — um crash entre os dois UPDATEs, um ajuste manual da curva — nao
-// haveria como saber qual esta certa.
-// Progresso de missao. UMA linha por (pessoa, missao, periodo).
-//
-// O periodo faz parte da chave de proposito: e o que permite a mesma missao ser
-// jogada de novo amanha sem apagar nada. '2026-08-03' pra diaria, '2026-W32' pra
-// semanal, 'sempre' pra conquista.
-//
-// QUAIS missoes cairam hoje NAO fica guardado aqui: o sorteio e deterministico a
-// partir de (userId + periodo) — ver lib/missoes.ts. Guardar o sorteio seria uma
-// segunda verdade sobre a mesma coisa, e uma escrita a mais no primeiro acesso do
-// dia de cada pessoa.
 export const userMissions = pgTable('UserMission', {
   userId:      text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
   missionId:   text('missionId').notNull(),
@@ -590,7 +508,6 @@ export const userMissions = pgTable('UserMission', {
 export const userXp = pgTable('UserXp', {
   userId:    text('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   xp:        integer('xp').notNull().default(0),
-  // Moeda gasta na loja. Cai aqui pela trilha (subir de nivel) — nunca por compra.
   brilho:    integer('brilho').notNull().default(0),
   updatedAt: timestamp('updatedAt', { precision: 3 }).notNull().defaultNow(),
 })
@@ -618,11 +535,6 @@ export const badgeGrants = pgTable('BadgeGrant', {
   byUser: index('BadgeGrant_userId_idx').on(t.userId),
 }))
 
-// Aparencia das personas da bot, sobrepondo o que esta no codigo (lib/bot.ts).
-//
-// A chave e a PERSONA e nao o id do usuario: as duas irmas dividem a mesma conta e
-// trocam de rosto na virada do turno, entao guardar por usuario daria uma unica
-// configuracao pras duas. Coluna nula = "usa o que esta no codigo".
 export const botPersonas = pgTable('BotPersona', {
   chave:           text('chave').primaryKey(),
   displayName:     text('displayName'),

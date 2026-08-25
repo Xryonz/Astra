@@ -1,18 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { dado, escolha, moeda } from './botDiversao'
 
-// Trava a parte dos comandos que tem LOGICA de verdade.
-//
-// Sortear nao da pra testar (e aleatorio de proposito), mas o que cerca o sorteio
-// da: interpretar "2d6", nao deixar alguem pedir 9999d9999, e recusar entrada torta
-// com uma frase util em vez de um NaN na cara da pessoa.
-
 describe('dado', () => {
   it('entende os formatos que alguem realmente digita', () => {
     expect(dado('2d6')).toMatch(/\(2d6\)/)
     expect(dado('d20')).toMatch(/\(d20\)/)
-    expect(dado('')).toMatch(/\(d6\)/)      // sem argumento = d6
-    expect(dado('3D10')).toMatch(/\(3d10\)/) // maiusculo tambem
+    expect(dado('')).toMatch(/\(d6\)/)      
+    expect(dado('3D10')).toMatch(/\(3d10\)/) 
   })
 
   it('recusa lixo com instrucao, nao com NaN', () => {
@@ -20,7 +14,6 @@ describe('dado', () => {
     expect(dado('2x6')).toContain('Formato')
   })
 
-  // Alguem VAI tentar isso no primeiro dia so pra ver o que acontece.
   it('poe teto no absurdo em vez de gerar uma parede de numeros', () => {
     const r = dado('99d999')
     expect(r).toMatch(/\(20d100\)/)

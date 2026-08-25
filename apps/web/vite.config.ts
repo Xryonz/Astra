@@ -6,11 +6,6 @@ import { visualizer } from 'rollup-plugin-visualizer'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import type { Plugin } from 'vite'
 
-/**
- * Loga top-10 chunks ordenados por tamanho gzipped após build.
- * Sem fail-hard — só visibility em CI logs pra detectar regressões.
- * Threshold de alerta: 250KB gzip por chunk (acima imprime ⚠️).
- */
 function bundleSizeLogger(): Plugin {
   return {
     name: 'astra-bundle-size-logger',
@@ -42,9 +37,6 @@ function bundleSizeLogger(): Plugin {
 }
 
 const ANALYZE        = process.env.ANALYZE === '1'
-// Sentry upload só roda em CI/build remoto quando os 3 env vars estão setados.
-// Local skipa silenciosamente — sem fricção pra dev. Em prod (Railway/Vercel),
-// setar SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT habilita upload + release.
 const SENTRY_UPLOAD  = !!(
   process.env.SENTRY_AUTH_TOKEN &&
   process.env.SENTRY_ORG &&
@@ -55,7 +47,6 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // Só liga quando ANALYZE=1 npm run build — gera dist/stats.html
     ANALYZE && visualizer({
       filename: 'dist/stats.html',
       template: 'treemap',
@@ -63,8 +54,6 @@ export default defineConfig({
       brotliSize: true,
       open: false,
     }),
-    // Sentry: upload sourcemaps + cria release. Plugin é DEVE ser o último
-    // pra ver os assets finais do Rollup. `disable` desliga em local.
     sentryVitePlugin({
       authToken:  process.env.SENTRY_AUTH_TOKEN,
       org:        process.env.SENTRY_ORG,
@@ -73,13 +62,11 @@ export default defineConfig({
         name: process.env.VITE_RELEASE ?? process.env.GITHUB_SHA ?? undefined,
       },
       sourcemaps: {
-        // Sobe os .map (hidden) e DELETA do dist/ pra browser não baixar.
         filesToDeleteAfterUpload: ['./dist/**/*.map'],
       },
       disable: !SENTRY_UPLOAD,
       silent:  true,
     }),
-    // Roda sempre em build prod — imprime top chunks no console pra CI capturar.
     bundleSizeLogger(),
   ].filter(Boolean),
   resolve: {
@@ -93,28 +80,16 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@astra/types'],
   },
-  // Strip console.* + debugger em build de prod. dev mantém pra debug.
   esbuild: {
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
   build: {
-    // Sourcemaps "hidden": geram .map mas browser não carrega automaticamente.
-    // Sentry sobe os maps via release pra symbolicar stack traces; user não
-    // baixa o JS map (~30% economia transfer no production user).
     sourcemap: 'hidden',
-    // Minificação default do Vite é esbuild — já strippa console em prod
-    // via esbuild.drop acima.
-    // Target: navegadores modernos (top 80% global) — sem polyfills pesados.
     target: 'es2022',
-    // Chunks grandes não-essenciais devem ficar fora do main bundle.
-    // manualChunks identifica vendors gordos e isola — main fica magro pro initial load.
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
-          // Vendors pesados em chunks isolados. Shiki/emoji-mart NÃO entram aqui
-          // pra cada lang/data ficar seu próprio chunk (lazy granular).
-          // Engine do shiki é tão pequeno que cai no chunk do dynamic-import caller.
           if (id.includes('livekit-client') || id.includes('@livekit'))      return 'vendor-livekit'
           if (id.includes('motion'))                                          return 'vendor-motion'
           if (id.includes('@sentry'))                                         return 'vendor-sentry'
@@ -126,11 +101,9 @@ export default defineConfig({
           if (id.includes('react-router'))                                    return 'vendor-router'
           if (id.includes('@tanstack/react-query'))                           return 'vendor-query'
           if (id.includes('zod'))                                             return 'vendor-zod'
-          // react + react-dom ficam no main (necessários sempre)
         },
       },
     },
-    // Avisar quando chunk > 600KB (default é 500, mas livekit/shiki ainda passam)
     chunkSizeWarningLimit: 600,
   },
 })

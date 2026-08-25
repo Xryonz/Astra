@@ -13,9 +13,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// "Responder" da notificacao: pega o texto do RemoteInput e manda pela API.
-// Repostar a notificacao com a propria mensagem e obrigatorio — sem isso o
-// Android deixa o spinner do reply girando pra sempre.
 @AndroidEntryPoint
 class ReplyReceiver : BroadcastReceiver() {
 
@@ -35,7 +32,6 @@ class ReplyReceiver : BroadcastReceiver() {
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                // Falhou (offline?): deixa como esta; o user abre o app e ve.
             } finally {
                 pending.finish()
             }

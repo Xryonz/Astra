@@ -15,22 +15,6 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// A TRANSMISSÃO INTEIRA, DE PONTA A PONTA, DENTRO DE UM PROCESSO.
-//
-// Este é o teste que faltava. Os outros provam peças — o compressor comprime, o
-// descompressor descomprime, o cano entrega no formato certo. Este prova o CAMINHO, que
-// é onde moram os defeitos que nenhuma peça sozinha revela:
-//
-//	tela -> compressor -> faixa -> RTP -> rede -> remontador -> descompressor -> cano
-//
-// O que só aparece aqui: se o perfil declarado no SDP casa com o que o compressor emite,
-// se os cinquenta pacotes de um quadro-chave são remontados na ordem, se o
-// descompressor aceita EXATAMENTE o que este compressor produz, e se o quadro chega do
-// outro lado com a forma certa. Cada um desses já tinha como estar errado com todas as
-// peças passando nos testes delas.
-//
-// Dois pares no mesmo processo, sinalizando por canos — é o arranjo que o teste de voz
-// já usa, e é o servidor do Astra reduzido ao essencial.
 func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -38,7 +22,6 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 	ctx, cancelar := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancelar()
 
-	// O ASTRA DE MENTIRA: escuta o cano de quadros e conta o que chegou.
 	ouvinte, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("escutar: %v", err)
@@ -110,9 +93,7 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 	}
 
 	config := webrtc.Configuration{}
-	// QUEM TRANSMITE NÃO PRECISA DE ENTREGA e quem assiste não precisa de faixa: é o
-	// arranjo real, e é justamente o assimétrico que quebra negociação quando algo
-	// está declarado a mais ou a menos.
+
 	parA, err := NovoPar("B", config, nil, tela, nil, nil, NewEscritor(escreveA))
 	if err != nil {
 		t.Fatalf("criar quem transmite: %v", err)
@@ -125,12 +106,6 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 	}
 	defer parB.Fechar()
 
-	// O DIÁRIO É RECOLHIDO E IMPRESSO NO FIM, e não gritado de dentro das goroutines.
-	//
-	// `t.Logf` chamado depois que o teste termina faz o Go PANICAR — e as goroutines
-	// aqui continuam vivas durante o desligamento das conexões, que é justamente quando
-	// mais eventos saem. Custou uma medição inteira: seis execuções contadas como falha
-	// quando o que falhava era o arnês, e o caminho de mídia estava correto.
 	var diario struct {
 		mu     sync.Mutex
 		linhas []string
@@ -157,9 +132,7 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 				continue
 			}
 			if ev.Ev != EvSinal {
-				// TUDO QUE NÃO É ENVELOPE VIRA REGISTRO. Quando este teste falha, a
-				// resposta quase sempre está num evento que o roteador estava jogando
-				// fora: o estado da conexão, ou o erro de quem não achou descompressor.
+
 				registrar("[%s] %s par=%s tipo=%s v=%s msg=%s", quem, ev.Ev, ev.Par, ev.Tipo, ev.V, ev.Msg)
 				continue
 			}
@@ -175,9 +148,6 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 		t.Fatalf("oferecer: %v", err)
 	}
 
-	// A TRANSMISSÃO COMEÇA JUNTO COM A CONEXÃO, e não depois de ela fechar. É o que
-	// acontece de verdade — a pessoa aperta o botão e o ICE ainda está negociando — e
-	// exercita o caso em que os primeiros quadros são escritos numa faixa sem destino.
 	canoE, escreveE := io.Pipe()
 	go func() {
 		linhas := bufio.NewScanner(canoE)

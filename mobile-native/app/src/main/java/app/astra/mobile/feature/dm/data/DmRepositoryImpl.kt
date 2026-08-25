@@ -204,8 +204,6 @@ class DmRepositoryImpl @Inject constructor(
 
 private fun ConversationDto.toDomain(uid: String?): Conversation? {
     val u = otherUser ?: return null
-    // val local: lastMessage agora vem do :shared -> smart-cast entre modulos
-    // nao rola no acesso repetido a propriedade.
     val last = lastMessage
     return Conversation(
         id = id,

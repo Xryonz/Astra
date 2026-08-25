@@ -42,8 +42,6 @@ const userSafeColumns = {
   statusEmoji:     users.statusEmoji,
   customStatus:    users.customStatus,
   displayFont:     users.displayFont,
-  // So aparece no PROPRIO usuario. O GET /profile/:userId de outra pessoa nao
-  // devolve isto de proposito: o ajuste de quem pode te falar e informacao sua.
   dmPrivacy:       users.dmPrivacy,
   onboardedAt:     users.onboardedAt,
   emailVerifiedAt: users.emailVerifiedAt,
@@ -81,9 +79,6 @@ router.post(
     const passwordHash = await bcrypt.hash(password, 12)
     const newUserId = createId()
 
-    // Verificação de email: com mailer configurado, a conta nasce NÃO
-    // verificada e recebe um código de 6 dígitos; sem mailer, nasce verificada
-    // (não trava o registro antes do GMAIL_* estar na Railway).
     const emailCode = isMailEnabled() ? newEmailCode() : null
 
     const [user] = await db.insert(users)
@@ -101,8 +96,6 @@ router.post(
       console.error('[Mail] envio falhou (register):', e?.response ?? e?.message ?? e))
 
     const { token: accessToken } = generateAccessToken(user.id)
-    // #4: dedup por dispositivo — logar do MESMO PC revoga a sessao anterior
-    // daquele device (X-Device-Id) em vez de empilhar duplicata.
     const deviceId = req.header('x-device-id') ?? undefined
     await revokeDeviceSessions(user.id, deviceId)
     const { refreshToken }       = await createRefreshToken(user.id, {
@@ -137,8 +130,6 @@ router.post(
     }
 
     const { token: accessToken } = generateAccessToken(user.id)
-    // #4: dedup por dispositivo — logar do MESMO PC revoga a sessao anterior
-    // daquele device (X-Device-Id) em vez de empilhar duplicata.
     const deviceId = req.header('x-device-id') ?? undefined
     await revokeDeviceSessions(user.id, deviceId)
     const { refreshToken }       = await createRefreshToken(user.id, {
@@ -177,14 +168,8 @@ router.post(
       .returning({ id: refreshTokens.id, userId: refreshTokens.userId })
 
     if (claimed.length === 0) {
-      // Deteccao de reuso: se o token EXISTE mas ja estava revogado, e replay de
-      // um refresh ja rotacionado -> sinal de roubo. Derruba TODA a familia de
-      // refresh tokens do usuario (forca re-login em todos os dispositivos).
       const [seen] = await db.select({ userId: refreshTokens.userId, revokedAt: refreshTokens.revokedAt })
         .from(refreshTokens).where(eq(refreshTokens.token, tokenHash)).limit(1)
-      // Janela de graca (30s): um cliente que reenvia o /refresh por retry de rede
-      // apresenta o token recem-rotacionado -> NAO e roubo, so responde 401. Acima
-      // disso e replay de token antigo (roubo) -> derruba a familia inteira.
       if (seen?.revokedAt && Date.now() - seen.revokedAt.getTime() > 30_000) {
         await db.update(refreshTokens).set({ revokedAt: new Date() })
           .where(and(eq(refreshTokens.userId, seen.userId), isNull(refreshTokens.revokedAt)))
@@ -193,8 +178,6 @@ router.post(
     }
 
     const { token: newAccessToken } = generateAccessToken(payload.userId)
-    // Rotacao 1:1 (o token velho ja foi revogado acima) — sem dedup, so carrega
-    // o deviceId adiante pra a sessao seguir amarrada ao mesmo PC.
     const { refreshToken: newRefreshToken } = await createRefreshToken(payload.userId, {
       userAgent: req.header('user-agent') ?? undefined,
       ip:        req.ip,
@@ -232,9 +215,6 @@ router.get(
       .limit(1)
     if (!row) return res.status(404).json({ error: 'Usuário não encontrado' })
     const { passwordHash, status, ...user } = row
-    // effectiveStatus do PROPRIO perfil = o status escolhido/persistido (nao a
-    // presenca ao vivo). Sem isso o /me nao mandava status algum e o app caia no
-    // default a cada reabertura, "perdendo" a escolha (brilhando/eclipse/etc).
     res.json({ data: { user: { ...user, hasPassword: !!passwordHash, effectiveStatus: status ?? 'ONLINE' } } })
   })
 )
@@ -304,7 +284,6 @@ router.post(
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
     if (user.emailVerifiedAt) return res.json({ data: { verified: true } })
 
-    // Mailer caiu/foi desligado depois do registro: não deixa a conta presa.
     if (!isMailEnabled()) {
       await db.update(users)
         .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
@@ -358,13 +337,6 @@ router.post(
   })
 )
 
-// APAGAR CONTA. POST e nao DELETE porque leva corpo (senha + confirmacao), e
-// DELETE com corpo e mal suportado por proxy e cliente HTTP.
-//
-// Duas travas, e as duas de proposito:
-//   1. digitar o proprio @ — protege contra o clique errado;
-//   2. a senha atual, quando existe — protege contra a maquina destravada.
-// Conta de Google nao tem senha pra pedir, entao ali a primeira trava e a unica.
 router.post(
   '/apagar-conta',
   requireAuth,
@@ -385,9 +357,6 @@ router.post(
       if (!ok) return res.status(401).json({ error: 'Senha incorreta' })
     }
 
-    // Dona de constelacao NAO apaga: a recusa vem com a lista do que resolver.
-    // Sem isto o banco recusaria assim mesmo (Server.ownerId nao tem cascade),
-    // mas com um erro de chave estrangeira que nao diz nada a ninguem.
     const presas = await constelacoesQueImpedem(req.userId!)
     if (presas.length > 0) {
       return res.status(409).json({
@@ -401,11 +370,6 @@ router.post(
   })
 )
 
-// Desktop nao tem deep-link (mobile) nem CLIENT_URL (web): usa LOOPBACK. O app
-// sobe um HttpServer em 127.0.0.1:PORT, abre o navegador e passa PORT+NONCE no
-// `state` do OAuth. O Google chama ESTE callback (o mesmo ja registrado no Console),
-// e daqui redirecionamos pro loopback. Valida-se porta e nonce dos dois lados; so
-// se redireciona pra 127.0.0.1 (nunca host arbitrario = sem open-redirect).
 function parseDesktopState(raw: unknown): { port: number; nonce: string } | null {
   if (typeof raw !== 'string' || !raw.startsWith('desktop:')) return null
   const [, portStr, nonce] = raw.split(':')
@@ -435,8 +399,6 @@ router.get(
     const isMobile  = req.query.state === 'mobile'
     const desktop   = parseDesktopState(req.query.state)
 
-    // Loopback do desktop usa QUERY (?refresh=), nao fragment (#): o HttpServer local
-    // NAO enxerga o fragment. Web/mobile seguem no fragment.
     const desktopBase = desktop ? `http://127.0.0.1:${desktop.port}/callback` : null
     const clientBase = isMobile ? 'astra://auth/callback' : desktopBase ?? `${process.env.CLIENT_URL}/auth/callback`
     const loginUrl   = isMobile ? 'astra://login'         : desktopBase ?? `${process.env.CLIENT_URL}/login`
@@ -458,7 +420,6 @@ router.get(
         return res.redirect(`${loginUrl}?error=oauth${nonceTail}`)
       }
       try {
-        // Logar via Google PROVA a posse do email — carimba se ainda não tinha.
         await db.update(users)
           .set({ emailVerifiedAt: new Date(), emailCode: null, emailCodeExpiresAt: null })
           .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
@@ -510,9 +471,6 @@ async function createRefreshToken(
   return { refreshToken }
 }
 
-// Revoga as sessoes ativas do MESMO dispositivo antes de criar a nova. So afeta
-// clientes que mandam o X-Device-Id (desktop); web/mobile sem id = sem dedup, e
-// outros PCs (deviceId diferente) ficam intactos.
 async function revokeDeviceSessions(userId: string, deviceId?: string) {
   const id = deviceId?.slice(0, 128)
   if (!id) return

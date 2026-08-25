@@ -4,9 +4,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 
-/** Personalizacao de perfil: gradientes (profileTheme), fonte de exibicao. Espelha web. */
-
-/** Strings no formato aceito pelo backend: linear-gradient(135deg,#a,#b[,#c]). */
 val ProfileGradients: List<Pair<String, String>> = listOf(
     "Galaxia" to "linear-gradient(135deg,#0f0c29,#302b63,#24243e)",
     "Obsidiana" to "linear-gradient(135deg,#000000,#1a4d2e)",
@@ -24,7 +21,6 @@ val ProfileGradients: List<Pair<String, String>> = listOf(
 
 private val HEX_RE = Regex("#[0-9a-fA-F]{6}")
 
-/** Parseia hex solido ou linear-gradient(...) num Brush. */
 fun parseGradientBrush(css: String?): Brush? {
     if (css.isNullOrBlank()) return null
     val colors = HEX_RE.findAll(css).mapNotNull { m ->
@@ -37,7 +33,6 @@ fun parseGradientBrush(css: String?): Brush? {
     }
 }
 
-/** Fontes de exibicao oferecidas no app (as que o Android tem nativo). */
 val DisplayFontOptions: List<Pair<String, String>> = listOf(
     "serif" to "Serif",
     "sans" to "Sans",
@@ -45,7 +40,6 @@ val DisplayFontOptions: List<Pair<String, String>> = listOf(
     "handwriting" to "Manuscrita",
 )
 
-/** Mapeia o id de fonte (8 do web) pra FontFamily nativa, com fallback. */
 fun displayFontFamily(id: String?): FontFamily = when (id) {
     "sans", "rounded", "modern", "condensed" -> FontFamily.SansSerif
     "mono" -> FontFamily.Monospace

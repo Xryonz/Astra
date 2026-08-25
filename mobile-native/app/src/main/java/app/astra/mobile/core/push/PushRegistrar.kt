@@ -13,9 +13,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// Registra o token FCM no backend quando o user esta logado (chamado da Home,
-// depois da permissao POST_NOTIFICATIONS). No-op se o Firebase nao inicializou
-// (= sem google-services.json no build) — o app segue normal, so sem push.
 @Singleton
 class PushRegistrar @Inject constructor(
     @ApplicationContext private val context: Context,

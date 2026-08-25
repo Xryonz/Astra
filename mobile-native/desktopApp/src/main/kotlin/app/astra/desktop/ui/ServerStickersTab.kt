@@ -50,16 +50,6 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.koin.core.context.GlobalContext
 
-// FIGURINHAS DA CONSTELACAO — aba de gerenciamento.
-//
-// A imagem sobe INTEIRA pelo /api/upload, que desde a 0.1.73 guarda o original
-// byte a byte. Nao ha recorte nem recompressao aqui de proposito: figurinha com
-// fundo transparente perde o fundo se passar por re-encode pro formato errado, e
-// o dono pediu explicitamente que arquivo nao perca qualidade.
-//
-// O upload devolve width/height medidos — guardamos os dois pra conversa reservar
-// o espaco da figurinha antes de a imagem chegar.
-
 @Composable
 internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
     val stickerApi = remember { GlobalContext.get().get<StickerApi>() }
@@ -122,9 +112,6 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
                             )
                             val enviado = uploadApi.upload(parte).data?.attachments?.firstOrNull()
                                 ?: error("o servidor não devolveu a imagem")
-                            // O nome vem do ARQUIVO, sem extensao: e o que a pessoa
-                            // reconhece na lista, e pedir pra digitar de novo seria
-                            // burocracia pra repetir o que ela ja escolheu.
                             val nome = arquivo.nameWithoutExtension.take(40).ifBlank { "figurinha" }
                             stickerApi.criar(
                                 serverId,

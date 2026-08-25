@@ -1,5 +1,3 @@
-// AGP 9 + newDsl=false: o DSL legado (android{}, kotlinOptions) e deprecated em
-// nivel de erro. Silenciado ate a migracao pro built-in Kotlin (junto do KMP/T4).
 @file:Suppress("DEPRECATION", "DEPRECATION_ERROR")
 
 import java.util.Properties
@@ -13,9 +11,6 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// Assinatura de release LOCAL: keystore.properties + astra-release.keystore
-// vivem so nesta maquina (gitignored). Sem eles, release assina com a chave de
-// debug — o build nunca quebra em outra maquina/CI.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
@@ -23,8 +18,6 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "app.astra.mobile"
-    // 36 exigido transitivamente (androidx.activity 1.12 / navigationevent via Haze).
-    // targetSdk segue 35 de proposito: compileSdk nao muda comportamento de runtime.
     compileSdk = 36
 
     defaultConfig {
@@ -34,8 +27,6 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // Backend Astra self-host no Render (US East) + Neon (Postgres) + Upstash
-        // (Redis), migrado da Railway em 2026-07-05. Termina em "/".
         buildConfigField("String", "BASE_URL", "\"https://astra-kwzc.onrender.com/\"")
     }
 
@@ -67,10 +58,6 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
-        // So pra GERAR baseline profile (o plugin androidx.baselineprofile
-        // quebra o KSP na variante que ele cria, entao usamos o fluxo manual):
-        // release sem minify (regras saem com nomes reais; o R8 remapeia via
-        // mapping ao empacotar) + <profileable> no manifest overlay.
         create("benchmark") {
             initWith(getByName("release"))
             isMinifyEnabled = false
@@ -81,7 +68,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // LiveKit usa java.time; minSdk 24 precisa de desugaring p/ rodar em <26.
         isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
@@ -92,7 +78,6 @@ android {
         buildConfig = true
     }
 
-    // Renomeia o APK de saida: debug -> Astra.apk, release -> Astra-release.apk.
     applicationVariants.all {
         val variantName = name
         outputs.all {
@@ -103,10 +88,6 @@ android {
 }
 
 dependencies {
-    // Alinha o Compose core (ui/foundation/animation/runtime) com o que a RikkaUI
-    // arrasta em runtime (androidx compose 1.10.0 via org.jetbrains.compose). Sem isso o
-    // compile fica no 1.7.5 do BOM e o runtime no 1.10.0 -> NoSuchMethodError (ex: FlowRow,
-    // cuja assinatura mudou entre 1.7 e 1.10). material3 segue no 1.3.1 do BOM (= runtime).
     constraints {
         val composeCore = "1.10.0"
         implementation("androidx.compose.ui:ui:$composeCore")
@@ -119,23 +100,14 @@ dependencies {
         implementation("androidx.compose.runtime:runtime:$composeCore")
     }
 
-    // Codigo comum com o :desktopApp (dominio/dados). Kotlin/JVM puro, sem
-    // android.* -> o app Android consome como jar. Dominio/DTOs/repos migram
-    // pra ca ao longo do D1.
     implementation(project(":shared"))
 
-    // Baseline Profile: o :baselineprofile gera as regras no device e elas
-    // vivem em src/main/baseline-prof.txt (AGP empacota sozinho); o
-    // profileinstaller (explicito, antes vinha so transitivo) instala o
-    // profile no primeiro run = startup AOT.
     implementation(libs.androidx.profileinstaller)
 
-    // Core + lifecycle
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    // Compose
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -143,24 +115,20 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.lucide.icons) // icones Lucide (mesma familia do web)
-    implementation(libs.haze) // blur/vidro-fosco (backdrop do ProfileSheet, estilo iOS)
-    implementation(libs.androidx.browser) // Custom Tabs (OAuth Google)
-    implementation(libs.rikkaui.foundation) // RikkaUI: sistema de tema (tokens)
-    implementation(libs.rikkaui.components) // RikkaUI: componentes (Input, Dialog, Avatar...); ejeta p/ copy-paste ao customizar
-    implementation(libs.androidx.emoji2.emojipicker) // grade oficial de emojis (busca + recentes), estilo Gboard
+    implementation(libs.lucide.icons)
+    implementation(libs.haze)
+    implementation(libs.androidx.browser)
+    implementation(libs.rikkaui.foundation)
+    implementation(libs.rikkaui.components)
+    implementation(libs.androidx.emoji2.emojipicker)
     debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.leakcanary.android) // caca memory leaks em runtime (so debug)
+    debugImplementation(libs.leakcanary.android)
 
-    // DI — Hilt (via KSP)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
-    // Hilt 2.60 gera codigo que referencia @CanIgnoreReturnValue (errorprone);
-    // nao vem mais transitivo no AGP 9 -> precisa explicito no classpath de compile.
     implementation(libs.errorprone.annotations)
 
-    // Rede — Retrofit + kotlinx.serialization + OkHttp
     implementation(libs.retrofit)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
@@ -168,35 +136,25 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Imagens + storage local
     implementation(libs.coil.compose)
-    implementation(libs.coil.gif) // decoder GIF/WebP animado (avatar/banner animados)
-    implementation(libs.coil.network.okhttp) // coil3: core nao traz rede -> fetcher OkHttp
+    implementation(libs.coil.gif)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.datastore.preferences)
 
-    // Banco local — Room (cache de mensagens, base do offline-first). KSP gera o impl.
     implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx) // suspend + Flow nas queries
+    implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // Realtime — Socket.io client (protocolo Engine.io, fala com o server v4)
     implementation(libs.socketio.client)
 
-    // Push — FCM (notificacao com o app fechado). O plugin google-services so e
-    // aplicado se o google-services.json existir (fim do arquivo); sem ele o app
-    // compila e roda normal, so sem push (PushRegistrar checa FirebaseApp vazio).
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
 
-    // Voz/video — LiveKit Android (WebRTC nativo). Mesmo backend /api/voice/token do web.
     implementation(libs.livekit.android)
-    // VideoTrackView (render de video no Compose, cuida do EGL/SurfaceView/lifecycle)
     implementation(libs.livekit.android.compose)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
 
-// FCM: aplica o google-services so quando o json do projeto Firebase do user
-// estiver na pasta (guia em docs/PUSH-FCM.md). Sem o json, o plugin quebraria o build.
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }

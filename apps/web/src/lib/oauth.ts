@@ -17,8 +17,6 @@ export async function completeOAuthLogin(refreshToken: string): Promise<void> {
   connectSocket()
 }
 
-// Login com Google. Morava no native.ts porque o app Capacitor abria um Browser
-// in-app com ?platform=mobile; sem ele sobrou o unico caminho que o web usava.
 export async function openGoogleLogin(): Promise<void> {
   window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`
 }

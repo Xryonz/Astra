@@ -103,7 +103,6 @@ fun ServerEditScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
 
-                // ---- Icone ----
                 val shape = RoundedCornerShape(22.dp)
                 Box(
                     modifier = Modifier
@@ -150,7 +149,6 @@ fun ServerEditScreen(
                 )
                 MarginaliaLabel("PNG, JPG, GIF ou WebP · 5MB · GIF anima")
 
-                // ---- Nome ----
                 Spacer(Modifier.height(24.dp))
                 EditorialField(
                     value = state.name, onValue = viewModel::onName,
@@ -158,7 +156,6 @@ fun ServerEditScreen(
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Next,
                 )
 
-                // ---- Descricao ----
                 Spacer(Modifier.height(16.dp))
                 EditorialField(
                     value = state.description, onValue = viewModel::onDescription,
@@ -166,7 +163,6 @@ fun ServerEditScreen(
                     enabled = !state.saving, keyboardType = KeyboardType.Text, imeAction = ImeAction.Done,
                 )
 
-                // ---- Banner ----
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     MarginaliaLabel("banner")
@@ -215,7 +211,6 @@ fun ServerEditScreen(
                     }
                 }
 
-                // ---- Publica ----
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -230,7 +225,6 @@ fun ServerEditScreen(
                     )
                 }
 
-                // ---- Retencao ----
                 Spacer(Modifier.height(22.dp))
                 MarginaliaLabel("apagar mensagens antigas", Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
@@ -278,7 +272,6 @@ fun ServerEditScreen(
                     }
                 }
 
-                // ---- Convite ----
                 val code = state.inviteCode
                 if (!code.isNullOrBlank()) {
                     Spacer(Modifier.height(28.dp))

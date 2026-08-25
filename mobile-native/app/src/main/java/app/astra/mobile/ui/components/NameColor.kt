@@ -3,7 +3,6 @@ package app.astra.mobile.ui.components
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-/** Cor de nome por servidor: hex solido (#RRGGBB) ou gradiente (gradient:ANGLE:#hex:#hex). */
 sealed interface NameColor {
     data class Solid(val color: Color) : NameColor
     data class Gradient(val brush: Brush) : NameColor

@@ -6,11 +6,9 @@ import (
 	"time"
 )
 
-// Um quadro de 20ms com o volume pedido (0..1).
 func quadroCom(amplitude float64) []int16 {
 	pcm := make([]int16, AmostrasPorQuadro)
-	// Onda senoidal e não valor constante: constante tem nível igual ao próprio
-	// valor e esconderia um erro na raiz da média dos quadrados.
+
 	pico := amplitude * 32767 * math.Sqrt2
 	for i := range pcm {
 		pcm[i] = int16(pico * math.Sin(2*math.Pi*float64(i)/64))
@@ -29,8 +27,6 @@ func TestDetectorAvisaSoNaTransicao(t *testing.T) {
 		t.Fatal("depois de avisar, o estado tinha de ser falando")
 	}
 
-	// Falar SEGUIDO não pode gerar aviso nenhum. É o ponto inteiro do desenho: 50
-	// quadros por segundo virariam 50 mensagens por segundo por pessoa.
 	for i := 1; i <= 50; i++ {
 		if d.Alimentar(quadroCom(0.2), t0.Add(time.Duration(i)*20*time.Millisecond)) {
 			t.Fatalf("quadro %d avisou de novo sem ter mudado nada", i)
@@ -43,7 +39,6 @@ func TestDetectorSeguraNaPausaEntrePalavras(t *testing.T) {
 	t0 := time.Now()
 	d.Alimentar(quadroCom(0.2), t0)
 
-	// Silêncio curto — a pausa entre duas palavras. Não pode apagar.
 	if d.Alimentar(nil, t0.Add(200*time.Millisecond)) {
 		t.Fatal("apagou no meio de uma pausa curta; o círculo piscaria a cada sílaba")
 	}
@@ -51,7 +46,6 @@ func TestDetectorSeguraNaPausaEntrePalavras(t *testing.T) {
 		t.Fatal("continuava falando, mas o estado disse que não")
 	}
 
-	// Passada a espera, aí sim.
 	if !d.Alimentar(nil, t0.Add(esperaAntesDeCalar+50*time.Millisecond)) {
 		t.Fatal("não apagou depois da espera inteira de silêncio")
 	}
@@ -60,7 +54,6 @@ func TestDetectorSeguraNaPausaEntrePalavras(t *testing.T) {
 	}
 }
 
-// Silêncio de verdade não pode acender nada — nem o ruído de fundo de um quarto.
 func TestDetectorIgnoraRuidoDeFundo(t *testing.T) {
 	var d DetectorDeFala
 	t0 := time.Now()

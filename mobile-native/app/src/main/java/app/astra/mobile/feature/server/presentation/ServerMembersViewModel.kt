@@ -21,7 +21,7 @@ data class MemberUi(
     val name: String,
     val username: String,
     val avatarUrl: String?,
-    val role: String, // OWNER | ADMIN | MEMBER
+    val role: String,
 )
 
 data class ServerMembersUiState(

@@ -33,8 +33,6 @@ import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
-// Tela-bloqueio pos-registro: confirma o codigo de 6 digitos mandado pro email.
-// Back nao escapa; a saida honesta e "sair da conta" (email fake = conta presa).
 @Composable
 fun VerifyEmailScreen(
     onDone: () -> Unit,

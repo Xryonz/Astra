@@ -18,18 +18,6 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
-// Aviso de "o Windows está deixando?" na primeira abertura de quem JÁ TINHA conta
-// — quem cria conta agora vê a mesma lista dentro das boas-vindas, e quem quiser
-// rever encontra em Configurações > Permissões.
-//
-// Existe porque no Windows não há janelinha de permissão: com a privacidade
-// fechada o microfone entrega silêncio calado, e o sintoma chega como "meu mic
-// não funciona no Astra" — sem log, sem erro, sem pista. Melhor descobrir aqui
-// que no meio da primeira conversa.
-//
-// A lista em si mora em PainelDePermissoes (usada também nas boas-vindas e nas
-// configurações). Aqui só a moldura e o texto de contexto.
-
 @Composable
 fun PermissoesDialog(onTestarAviso: () -> Unit, onClose: () -> Unit) {
     DialogShell(onClose = onClose) {

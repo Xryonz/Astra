@@ -58,7 +58,6 @@ class SearchViewModel @Inject constructor(
         _state.update { it.copy(loading = true) }
         try {
             val res = searchApi.search(term).data ?: SearchResultsDto()
-            // Ignora resposta de uma query ja superada.
             if (_state.value.query.trim() == term) {
                 _state.update { it.copy(loading = false, results = res) }
             }

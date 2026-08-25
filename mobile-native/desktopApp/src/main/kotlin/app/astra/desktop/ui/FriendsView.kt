@@ -71,9 +71,6 @@ import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
 
-// Amigos (paridade web/mobile). Palco central: cabecalho + abas
-// (Amigos/Pendentes/Adicionar) + conteudo. Dados do FriendApi (/api/friends).
-// onStartDm abre/cria o sussurro com o amigo (mesmo do card de perfil).
 private enum class FriendsTab(val label: String) { FRIENDS("Amigos"), PENDING("Pendentes"), ADD("Adicionar") }
 
 private fun presenceRank(p: String): Int = when (p.uppercase()) {
@@ -95,29 +92,16 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
     var loading by remember { mutableStateOf(true) }
 
     suspend fun reload() {
-        // Mesma regra das outras duas listas (e o mesmo motivo): falha de rede
-        // nao pode virar "voce nao tem amigo nenhum". Este ficou de fora do
-        // conserto anterior — a lista principal era justamente a que faltava.
         runCatching { api.friends().data.orEmpty() }.onSuccess { f ->
             friends = f.sortedWith(
                 compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
             )
         }
-        // onSuccess, e nao getOrDefault(emptyList()): falha de rede virava lista
-        // VAZIA, e lista vazia aqui e uma afirmacao — "voce nao tem pedido
-        // nenhum". Com a API dormindo no plano free do Render, a primeira carga
-        // depois do sono cai, e a tela mentia com toda a confianca. Agora uma
-        // falha apenas mantem o que ja se sabia.
         runCatching { api.requests().data.orEmpty() }.onSuccess { incoming = it }
         runCatching { api.outgoing().data.orEmpty() }.onSuccess { outgoing = it }
     }
     LaunchedEffect(Unit) { reload(); loading = false }
 
-    // Presenca AO VIVO. A lista vinha do /friends e congelava ali: quem entrasse ou
-    // saisse depois continuava com a bolinha antiga ate a tela ser reaberta — era a
-    // "confirmacao de online muito atrasada". O backend ja emitia presence_update no
-    // connect e no disconnect; faltava alguem escutando aqui.
-    // Reordena junto (online sobe), senao a bolinha muda mas a lista fica torta.
     LaunchedEffect(Unit) {
         val koin = GlobalContext.get()
         val socket = koin.get<DesktopSocket>()
@@ -132,21 +116,10 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
         }
     }
 
-    // AMIZADE MUDOU DO OUTRO LADO. A tela só se atualizava quando VOCÊ agia: quem
-    // aceitava via a lista mudar (tinha a resposta do POST em mãos) e quem tinha
-    // mandado o pedido continuava vendo "pendente" até reabrir a tela. Do lado dele
-    // nada tinha acontecido — e era esse o "tempo real não está bom".
-    //
-    // Recarrega as três listas em vez de aplicar delta: o mesmo evento significa
-    // coisas diferentes nos dois lados (pra quem mandou some de "enviados", pra quem
-    // recebeu sai de "pendentes" e entra em "amigos"), e um delta teria que carregar
-    // esse ponto de vista. Recarregar são três consultas pequenas, num evento que
-    // acontece algumas vezes por dia.
     LaunchedEffect(Unit) {
         GlobalContext.get().get<DesktopSocket>().friendsChanged.collect { reload() }
     }
 
-    // Acao otimista-simples: roda e recarrega as tres listas.
     fun act(block: suspend () -> Unit) {
         scope.launch { runCatching { block() }; reload() }
     }
@@ -161,25 +134,17 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             TabPill("Amigos", friends.size, tab == FriendsTab.FRIENDS) { tab = FriendsTab.FRIENDS }
-            // Conta RECEBIDOS + ENVIADOS. Contava só os recebidos, mas a aba lista
-            // os dois — então um convite que você mandou aparecia na lista e não
-            // entrava na conta. Rótulo "Pendentes" promete o que a aba mostra.
             TabPill(
                 "Pendentes",
                 incoming.size + outgoing.size,
                 tab == FriendsTab.PENDING,
-                // Âmbar só quando há pedido ESPERANDO VOCÊ. Convite que você
-                // mandou está esperando o outro — não é tarefa sua.
                 destaque = incoming.isNotEmpty(),
             ) { tab = FriendsTab.PENDING }
             TabPill("Adicionar", null, tab == FriendsTab.ADD) { tab = FriendsTab.ADD }
         }
-        // Sem traco embaixo das abas: as pilhas ja sao cartoes, e a que esta
-        // ativa ja diz onde voce esta. A linha so acrescentava uma grade.
         Spacer(Modifier.height(16.dp))
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            // Troca de aba: cross-fade + deslize leve. Reduzir movimento = corte seco.
             val reduce = LocalReduceMotion.current
             AnimatedContent(
                 targetState = tab,
@@ -225,14 +190,10 @@ private fun TabPill(
     label: String,
     count: Int?,
     active: Boolean,
-    // Âmbar cheio = precisa de você. Aqui, só Pendentes: "Amigos" é um total, não
-    // um pedido — ver o comentário do UnreadCountBadge.
     destaque: Boolean = false,
     onClick: () -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
-    // Transicao suave ao trocar de aba (como TypeChip/CreateMenuRow) — antes o
-    // fundo/borda trocavam seco, destoando dos outros chips selecionaveis.
     val bg by animateColorAsState(
         if (active) Obsidian.active else Obsidian.raised.copy(alpha = 0.4f), tween(130), label = "tabBg",
     )
@@ -255,8 +216,6 @@ private fun TabPill(
         )
         if (count != null && count > 0) {
             Spacer(Modifier.width(7.dp))
-            // O MESMO badge redondo das órbitas. Era um numero solto, que some no
-            // meio do rotulo — e contagem que nao se ve nao e contagem.
             UnreadCountBadge(count, destaque = destaque)
         }
     }
@@ -284,7 +243,6 @@ private fun FriendsList(
                 }
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp)) {
                     itemsIndexed(items, key = { _, f -> f.friendshipId }) { i, f ->
-                        // Cascata de entrada: linhas revelam uma a uma.
                         CascadeIn(i, Unit) {
                             FriendRow(f, onMessage = { onMessage(f.user) }, onRemove = { onRemove(f.friendshipId) })
                         }
@@ -307,8 +265,6 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
     ) {
         Box {
             DesktopAvatar(f.user.avatarUrl, name, 40)
-            // Pulso de presenca: so ONLINE respira (0.85↔1.0, ~1.4s). Leitura do
-            // state dentro do graphicsLayer = frame sem recomposicao.
             val pulse = if (!LocalReduceMotion.current && f.presence.uppercase() == "ONLINE") {
                 rememberInfiniteTransition(label = "presencePulse").animateFloat(
                     initialValue = 0.85f, targetValue = 1f,
@@ -388,7 +344,6 @@ private fun PendingLists(
             item { Muted("nenhum enviado") }
         } else {
             itemsIndexed(outgoing, key = { _, p -> p.friendshipId }) { i, p ->
-                // Continua a cascata depois dos recebidos (+1 do header).
                 CascadeIn(incoming.size + 1 + i, Unit) {
                     PendingRow(p, trailing = {
                         val src = remember { MutableInteractionSource() }
@@ -429,7 +384,7 @@ private fun PendingRow(p: FriendRequestDto, trailing: @Composable () -> Unit) {
 private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Unit) {
     var value by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) } // texto + ok
+    var msg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
 
     Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
         Text(

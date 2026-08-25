@@ -53,22 +53,16 @@ import com.composables.icons.lucide.Lucide
 import app.astra.desktop.ui.theme.Text
 import kotlin.math.roundToInt
 
-// Menu de botao direito editorial (F4) — obsidiana, hover animado, submenu de
-// emojis. Mesma ideia do EditorialContextMenu do web, em Compose.
-
 sealed interface MenuEntry {
     data class Item(
         val label: String,
         val danger: Boolean = false,
-        // Icone opcional a esquerda do texto (Lucide). Herda a cor do texto
-        // (fg animado por hover/danger), pra fundir com a linha.
         val icon: ImageVector? = null,
         val onClick: () -> Unit,
     ) : MenuEntry
 
     data object Separator : MenuEntry
 
-    // "reagir ▸" — abre fileira de emojis ao lado (hover ou clique).
     data class EmojiSub(
         val label: String,
         val emojis: List<String>,
@@ -76,7 +70,6 @@ sealed interface MenuEntry {
     ) : MenuEntry
 }
 
-// Popup na posição do clique (offset dentro da ancora), clampado na janela.
 internal class AtPointer(private val at: IntOffset) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -89,15 +82,6 @@ internal class AtPointer(private val at: IntOffset) : PopupPositionProvider {
     )
 }
 
-// Envolve o alvo: botao direito abre o menu no ponto do clique. So OBSERVA os
-// eventos (não consome) — cliques normais seguem funcionando por baixo.
-//
-// O `modifier` E OBRIGATORIO NUM CONTAINER, e a falta dele ja custou caro: quem
-// chama passa o modificador pro conteudo la dentro, o Box daqui fica sem nada, e
-// intencao de LAYOUT se perde no caminho. Foi o que jogou o rodape do usuario pro
-// canto SUPERIOR esquerdo: o `.align(BottomStart)` chegava num filho deste Box
-// (que envolve o conteudo) em vez de chegar no Box de fora, onde o alinhamento
-// significa alguma coisa. Tamanho aplicava, posicao nao.
 @Composable
 fun EditorialContextMenu(
     entries: () -> List<MenuEntry>,
@@ -111,9 +95,6 @@ fun EditorialContextMenu(
                 while (true) {
                     val event = awaitPointerEvent()
                     if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
-                        // Consome o botao-direito pra que menu ANINHADO resolva no mais
-                        // interno: o filho (ex: órbita) consome primeiro no pass Main, o
-                        // pai (ex: area vazia da lista) ve consumido e ignora.
                         val change = event.changes.first()
                         if (!change.isConsumed) {
                             menuAt = IntOffset(change.position.x.roundToInt(), change.position.y.roundToInt())
@@ -147,8 +128,6 @@ internal fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
     ) {
         Column(
             Modifier
-                // Abraca o conteudo (min menor + teto): item curto não vira barra
-                // esticada. Textos do menu são de 1 linha (< max), sem quebra.
                 .widthIn(min = 150.dp, max = 260.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Obsidian.overlay)
@@ -207,7 +186,6 @@ private fun MenuRow(item: MenuEntry.Item, dismiss: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         item.icon?.let {
-            // size 15 alinha com o texto 13sp; cor = fg (segue hover/danger).
             LIcon(it, tint = fg, size = 15.dp)
             Spacer(Modifier.width(9.dp))
         }
@@ -221,8 +199,6 @@ private fun EmojiSubRow(sub: MenuEntry.EmojiSub, dismiss: () -> Unit) {
     val rowHovered by rowInteraction.collectIsHoveredAsState()
     val popupInteraction = remember { MutableInteractionSource() }
     val popupHovered by popupInteraction.collectIsHoveredAsState()
-    // Mesmo truque da pill do chat: o submenu vive enquanto o mouse estiver na
-    // linha OU nele proprio.
     val open = rowHovered || popupHovered
 
     val bg by animateColorAsState(if (rowHovered) Obsidian.hover else Color.Transparent, tween(100))

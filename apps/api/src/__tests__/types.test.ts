@@ -1,4 +1,3 @@
-
 import { describe, it, expect } from 'vitest'
 import {
   AttachmentSchema, SendMessageSchema, EditMessageSchema,
@@ -27,11 +26,6 @@ describe('AttachmentSchema — URL safety', () => {
     expect(r.success).toBe(true)
   })
 
-  // Este par de testes existe por causa de um bug que nao dava erro em lugar
-  // nenhum: o Zod DESCARTA chave que o schema nao declara. O upload calculava o
-  // blurhash, devolvia pro cliente, o cliente reenviava na mensagem — e ele morria
-  // aqui, na validacao, antes de chegar no banco. Trabalho feito e jogado fora em
-  // silencio, em todo upload, por meses.
   it('PRESERVA o blurhash (era descartado na validacao)', () => {
     const r = AttachmentSchema.safeParse({
       url: 'https://cdn.example.com/a.webp', type: 'image/webp', name: 'a.webp', size: 100,
@@ -41,9 +35,6 @@ describe('AttachmentSchema — URL safety', () => {
     expect(r.success && r.data.blurhash).toBe('LEHV6nWB2yk8pyo0adR*.7kCMdnj')
   })
 
-  // Mesma armadilha do blurhash, um andar acima: sem a chave declarada no schema,
-  // a figurinha chegaria no banco como imagem comum — grande e clicavel. O envio
-  // pareceria certo e o erro so apareceria ao recarregar a conversa.
   it('PRESERVA a marca de figurinha', () => {
     const r = AttachmentSchema.safeParse({
       url: 'https://cdn.example.com/fig.webp', type: 'image/webp', name: 'susto', size: 0,
@@ -60,8 +51,6 @@ describe('AttachmentSchema — URL safety', () => {
     })
     expect(ok.success && ok.data.thumbUrl).toBe('https://cdn.example.com/a_t.webp')
 
-    // A miniatura vai pro mesmo <img> que o original: se ela aceitasse javascript:,
-    // fechar a porta so no `url` nao teria adiantado nada.
     const mau = AttachmentSchema.safeParse({
       url: 'https://cdn.example.com/a.webp', thumbUrl: 'javascript:alert(1)',
       type: 'image/webp', name: 'a.webp', size: 100,

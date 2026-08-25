@@ -5,38 +5,11 @@ import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 import java.io.IOException
 
-// POLITICA UNICA DE REPETICAO do app.
-//
-// Existia uma copia disto no ChatVm e outra no ShellVm, e as duas erravam a MESMA
-// conta: tres tentativas com espera de 1,5s e 4s. Isso da 5,5 segundos de janela —
-// contra um servidor que, no plano free do Render, dorme depois de 15min parado e
-// acorda em ATE ~50 SEGUNDOS. As tres tentativas queimavam nos primeiros seis
-// segundos do sono, a tela cravava "não foi possível carregar" e ninguem tentava
-// de novo. O servidor acordava meio minuto depois, sozinho, sem plateia.
-//
-// A janela agora cobre o sono inteiro. E a espera cresce rapido de proposito:
-// insistir de segundo em segundo contra um servidor que ainda esta subindo so
-// gasta tentativa e enche o log dele.
-// A janela cobria 72s, o suficiente pro SONO (que acorda em ate ~50s). Nao cobria
-// o DEPLOY: publicar no Render free tira a instancia do ar por 2 a 5 minutos, e
-// nesse intervalo as sete tentativas queimavam e a tela cravava erro — inclusive
-// erro de PARSE, porque durante a troca o roteador devolve pagina de HTML no lugar
-// do JSON. Agora vai ate ~3 minutos.
-//
-// O preco assumido: um erro que nao melhora esperando (resposta que o app nao sabe
-// ler por bug de verdade) demora tres minutos pra aparecer na tela em vez de um.
-// Vale — quem esta esperando ve "o servidor está acordando" o tempo todo, e a
-// alternativa e mandar a pessoa recarregar do lado de fora de uma falha temporaria.
 private val ESPERAS_MS = longArrayOf(
     1_000L, 3_000L, 6_000L, 12_000L, 20_000L, 30_000L, 45_000L, 60_000L,
 )
-val TENTATIVAS = ESPERAS_MS.size + 1   // 9 tentativas, ~177s de espera somada
+val TENTATIVAS = ESPERAS_MS.size + 1
 
-// Por que a chamada falhou, do jeito que a tela pode dizer em voz alta.
-//
-// `permanente` e a parte que faltava: repetir sete vezes um 403 nao muda o 403 —
-// so faz a pessoa esperar 72 segundos por uma resposta que o servidor ja tinha
-// dado na primeira. Erro permanente sai do laco na hora, com o motivo real.
 data class Falha(val motivo: String, val permanente: Boolean)
 
 private fun classificar(t: Throwable, oQue: String): Falha = when (t) {
@@ -47,26 +20,10 @@ private fun classificar(t: Throwable, oQue: String): Falha = when (t) {
         429 -> Falha("Muitas chamadas seguidas. Aguarde um instante.", permanente = false)
         else -> Falha("O servidor respondeu com erro ${t.code()}.", permanente = t.code() < 500)
     }
-    // Timeout, DNS, conexao recusada, 502/503 do roteador do Render enquanto a
-    // instancia sobe — tudo isto passa. E o caso que a insistencia existe pra cobrir.
-    //
-    // O MOTIVO CRU VAI JUNTO. Sem ele, "sem conexão" cobre timeout, DNS quebrado,
-    // certificado recusado e proxy do trabalho com a mesma frase — e foi por isso
-    // que a primeira investigacao desta tela terminou em palpite. Fica entre
-    // parenteses e em minuscula: informacao pra quem for consertar, nao susto pra
-    // quem so queria conversar.
     is IOException -> Falha(
         "Sem conexão com o servidor" + (t.message?.take(90)?.let { " ($it)" } ?: "") + ".",
         permanente = false,
     )
-    // RESPOSTA ILEGIVEL. Quase sempre nao e bug de contrato: e o roteador do Render
-    // devolvendo uma pagina de HTML enquanto a instancia troca de versao, com status
-    // 200. O parser reclama de JSON malformado e a tela dizia
-    // "(JsonDecodingException)" — nome de classe Java na cara de quem so queria
-    // conversar, e ainda por cima acusando o app de um problema que e do servidor.
-    //
-    // Nao e permanente: insistir e exatamente o certo aqui, porque em um minuto a
-    // instancia nova responde JSON de verdade.
     is SerializationException -> Falha(
         "O servidor respondeu algo que não deu para ler (deve estar reiniciando).",
         permanente = false,
@@ -77,12 +34,6 @@ private fun classificar(t: Throwable, oQue: String): Falha = when (t) {
     )
 }
 
-// Insiste ate conseguir, ate esbarrar num erro permanente, ou ate acabar a janela.
-//
-// `aoTentarDeNovo` recebe o numero da PROXIMA tentativa (2..N) antes de cada
-// espera: e por ele que a tela troca o vermelho de "falhou" pelo texto honesto de
-// "o servidor está acordando". Sem isso a espera longa vira tela travada, que e
-// pior que o erro rapido que ela veio consertar.
 suspend fun <T> insistir(
     oQue: String,
     aoTentarDeNovo: (Int) -> Unit = {},
@@ -94,19 +45,7 @@ suspend fun <T> insistir(
         runCatching { bloco() }
             .onSuccess { return Result.success(it) }
             .onFailure { t ->
-                // O motivo CRU vai pro rede.txt antes de virar frase amigavel. Sem isto,
-                // "o servidor está acordando" cobre tempo esgotado, 500, resposta ilegivel
-                // e conexao recusada com a mesma cara, e nao ha como distinguir depois.
                 RedeLog.falhou(oQue, tentativa + 1, t)
-                // RESPOSTA ILEGIVEL DUAS VEZES NAO E REINICIO, E CONTRATO QUEBRADO.
-                //
-                // Insistir aqui foi o que escondeu um defeito real por versoes a fio: o
-                // historico do canal vinha com um campo em formato diferente do que o app
-                // sabia ler, o parser falhava IDENTICO nas nove tentativas, e a tela
-                // passava tres minutos dizendo "o servidor está acordando" com o servidor
-                // no ar respondendo em 200ms. Duas tentativas ainda cobrem o caso legitimo
-                // (o roteador devolvendo HTML durante uma troca de versao); da terceira em
-                // diante, o problema nao vai melhorar sozinho e a pessoa merece saber.
                 if (t is SerializationException && ++ilegiveis >= 2) {
                     return Result.failure(FalhaDeRede(classificar(t, oQue)))
                 }
@@ -123,6 +62,5 @@ suspend fun <T> insistir(
 
 class FalhaDeRede(val falha: Falha) : Exception(falha.motivo)
 
-// Atalho pra quem so quer o valor ou null (o boot, que tolera falha parcial).
 suspend fun <T : Any> insistindoOuNulo(oQue: String, bloco: suspend () -> T?): T? =
     insistir(oQue) { bloco() ?: error("resposta vazia") }.getOrNull()

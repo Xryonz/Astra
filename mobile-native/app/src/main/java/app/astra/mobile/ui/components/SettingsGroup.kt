@@ -35,14 +35,8 @@ import app.astra.mobile.ui.theme.EaseOutSoft
 import app.astra.mobile.ui.theme.astraColors
 import kotlinx.coroutines.delay
 
-// Passo do stagger entre linhas na entrada em cascata. Publico pra grupos
-// stacked encadearem a onda: o 2o grupo recebe delayStartMs = nLinhasDoAnterior * este.
 const val SETTINGS_ROW_STAGGER_MS = 45
 
-// Card suave agrupado: um marginalia opcional acima + uma superficie raised leve
-// com fios finos entre os itens. Substitui o "empilhado de caixas com borda".
-// O grupo intercala os hairlines sozinho -> o chamador so passa as linhas.
-// Na abertura, cada linha faz fade + slide-up escalonado (entrada em cascata).
 @Composable
 fun SettingsGroup(
     label: String? = null,
@@ -72,7 +66,6 @@ fun SettingsGroup(
                     }
                 }
                 val dy = with(LocalDensity.current) { 12.dp.toPx() }
-                // Hairline + linha entram juntos: o fio nao aparece antes do item.
                 Column(
                     Modifier.graphicsLayer {
                         alpha = progress.value
@@ -95,8 +88,6 @@ fun SettingsGroup(
     }
 }
 
-// Uma linha do grupo: titulo + marginalia opcional + trailing (default = chevron).
-// danger pinta o titulo de vermelho (acoes destrutivas).
 @Composable
 fun SettingsRow(
     title: String,

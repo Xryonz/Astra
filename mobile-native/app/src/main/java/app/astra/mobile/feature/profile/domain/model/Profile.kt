@@ -11,7 +11,6 @@ data class Profile(
     val bannerColor: String?,
     val pronouns: String?,
     val statusEmoji: String?,
-    // Recado (custom status): frase curta que aparece pros outros.
     val customStatus: String? = null,
     val hasPassword: Boolean,
     val createdAt: String?,
@@ -21,8 +20,6 @@ data class Profile(
     val bannerPositionY: Int = 50,
     val bannerScale: Int = 100,
     val displayFont: String = "serif",
-    // null = nunca viu o onboarding cosmico (gate compartilhado com o web).
     val onboardedAt: String? = null,
-    // null = email ainda nao confirmado -> tela de codigo (contas antigas vem carimbadas).
     val emailVerifiedAt: String? = null,
 )

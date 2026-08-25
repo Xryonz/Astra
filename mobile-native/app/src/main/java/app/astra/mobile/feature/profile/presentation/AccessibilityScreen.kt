@@ -51,7 +51,6 @@ fun AccessibilityScreen(
                 onCheckedChange = viewModel::setReduceMotion,
             )
 
-            // So aparecem quando o mestre esta off (senao ja esta tudo desligado).
             if (!prefs.reduceMotion) {
                 Spacer(Modifier.height(16.dp))
                 MarginaliaLabel("efeitos especificos", Modifier.padding(start = 22.dp, bottom = 8.dp))

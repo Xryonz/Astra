@@ -6,22 +6,6 @@ import { redis } from './redis'
 import { parseDuration } from './reminders'
 import { progressoDoXp } from './xp'
 
-// OS COMANDOS QUE NAO PRECISAM DE IA.
-//
-// Existe porque a conversa livre depende de uma chave de API que o dono nao
-// consegue ter — mas a bot que ele queria desde o comeco era estilo Loritta, e a
-// Loritta e isto: sortear, apostar, rankear, zoar. Nada disso precisa de modelo
-// nenhum, e tudo isso funciona pra sempre, de graca, sem cadastro.
-//
-// Todo comando aqui e deterministico ou usa dado que o Astra JA TEM. E a vantagem
-// que uma IA generica nunca teria: a bot fala do SEU servidor, das SUAS mensagens,
-// do XP das pessoas que estao ali.
-
-// ---------------- utilidades ----------------
-
-// Sorteio estavel: o mesmo par sempre da o mesmo numero. E o que faz o shipp ter
-// graca — se cada chamada desse um valor novo, ninguem levaria a serio o resultado
-// e o comando morreria na segunda vez.
 function porcentagemEstavel(a: string, b: string): number {
   const chave = [a, b].sort().join('|')
   const h = crypto.createHash('sha256').update(chave).digest()
@@ -32,8 +16,6 @@ function sortear<T>(lista: T[]): T | null {
   return lista.length ? lista[Math.floor(Math.random() * lista.length)] : null
 }
 
-// Nomes citados no comando: aceita "@fulano" ou "fulano". So os @ importam pra
-// nao confundir palavra comum com apelido.
 function usernamesDe(texto: string): string[] {
   return [...texto.matchAll(/@([a-zA-Z0-9_.-]{2,30})/g)].map((m) => m[1])
 }
@@ -44,8 +26,6 @@ async function nomesDe(usernames: string[]): Promise<Map<string, string>> {
     .from(users).where(inArray(users.username, usernames))
   return new Map(linhas.map((l) => [l.username, l.displayName]))
 }
-
-// ---------------- zoeira ----------------
 
 const FAIXAS_SHIPP: Array<[number, string]> = [
   [10,  'nem o universo forcando'],
@@ -73,8 +53,6 @@ export function moeda(): string {
   return Math.random() < 0.5 ? '✧ **Cara**.' : '✧ **Coroa**.'
 }
 
-// "2d6", "d20", "3d10". Teto baixo de proposito: o comando e piada, e alguem ia
-// tentar 9999d9999 no primeiro dia so pra ver o que acontece.
 export function dado(arg: string): string {
   const m = /^(\d{0,2})d(\d{1,3})$/i.exec(arg.trim() || 'd6')
   if (!m) return '✧ Formato: `dado 2d6`, `dado d20`.'
@@ -100,7 +78,6 @@ export async function sorteio(serverId: string, arg: string): Promise<string> {
     const g = sortear(marcados)!
     return `✧ Entre ${marcados.length}, a estrela apontou pra **${mapa.get(g) ?? g}**.`
   }
-  // Ninguem marcado: sorteia entre a constelacao inteira.
   const membros = await db.select({ displayName: users.displayName })
     .from(serverMembers).innerJoin(users, eq(users.id, serverMembers.userId))
     .where(and(eq(serverMembers.serverId, serverId), eq(users.isBot, false)))
@@ -109,19 +86,11 @@ export async function sorteio(serverId: string, arg: string): Promise<string> {
   return `✧ Entre ${membros.length} da constelacao, a estrela apontou pra **${g.displayName}**.`
 }
 
-// ---------------- quem mandou ----------------
-
-// A resposta fica no Redis por 5 minutos, por CANAL. Foi o jeito de ter um jogo de
-// duas etapas sem inventar tabela nem segurar estado na memoria do processo (que o
-// Render derruba a cada deploy, no meio da brincadeira).
 const CHAVE_QUIZ = (channelId: string) => `bot:quemmandou:${channelId}`
 const VIDA_QUIZ_S = 300
 const MIN_LETRAS = 25
 
 export async function quemMandou(channelId: string): Promise<string> {
-  // Amostra das ultimas 200 e sorteia uma, em vez de ORDER BY random() na tabela
-  // inteira: mensagem velha demais ninguem lembra, e o random do Postgres varre
-  // tudo. Aqui a brincadeira e sobre o que rolou recentemente.
   const candidatas = await db.select({
     content: messages.content,
     autor:   users.displayName,
@@ -154,10 +123,6 @@ export async function revelar(channelId: string): Promise<string> {
   return `✧ Era **${autor}**.`
 }
 
-// ---------------- XP: ranking e perfil ----------------
-
-// O ranking e o que faz o XP virar social. Numero que so a propria pessoa ve nao
-// motiva ninguem — o placar e o motivo de alguem querer subir.
 export async function ranking(serverId: string): Promise<string> {
   const linhas = await db.select({
     nome: users.displayName,
@@ -201,8 +166,6 @@ export async function perfilXp(arg: string, quemPediu: string): Promise<string> 
   ].join('\n')
 }
 
-// ---------------- lembrete ----------------
-
 export async function lembrete(arg: string, userId: string, channelId: string): Promise<string> {
   const m = /^(\S+)\s+(.+)$/s.exec(arg.trim())
   if (!m) return '✧ Assim: `lembrete 20min terminar o trabalho`'
@@ -216,11 +179,6 @@ export async function lembrete(arg: string, userId: string, channelId: string): 
   return `✧ Anotado: "${conteudo}" — te chamo em ${r.dueAt.toLocaleString('pt-BR')}.`
 }
 
-// ---------------- resumo do dia ----------------
-
-// Resumo por CONTAGEM, nao por IA. Nao conta o que foi dito, conta o que aconteceu
-// — e isso e util de um jeito que um paragrafo gerado nao e: da pra ver de relance
-// se a orbita esteve viva hoje e quem puxou a conversa.
 export async function resumoDoDia(channelId: string): Promise<string> {
   const inicio = new Date()
   inicio.setHours(0, 0, 0, 0)

@@ -17,7 +17,6 @@ data class ProfileEditUiState(
     val bannerPositionY: Int = 50,
     val bannerScale: Int = 100,
     val displayFont: String = "serif",
-    // Recado (custom status): editado so aqui na Personalizacao (sai do ProfileSheet).
     val customStatus: String = "",
     val origCustomStatus: String = "",
     val origAvatarUrl: String = "",

@@ -32,37 +32,24 @@ interface UserApi {
     @POST("api/auth/password")
     suspend fun changePassword(@Body body: ChangePasswordRequest)
 
-    // Cria a PRIMEIRA senha (contas Google sem senha); backend rejeita se ja tem.
     @POST("api/auth/password/set")
     suspend fun setPassword(@Body body: SetPasswordRequest)
 
     @PATCH("api/profile/status")
     suspend fun setStatus(@Body body: SetStatusRequest)
 
-    // Presenca em lote (ONLINE/IDLE/DND/OFFLINE) por userId — UM mget no backend.
-    // Alimenta o painel de membros (online colorido / offline apagado).
     @GET("api/profile/presence")
     suspend fun presence(@Query("ids") ids: String): ApiEnvelope<Map<String, String>>
 
-    // Atividade em lote ("o que a pessoa está usando"), por userId. Quem não tem
-    // atividade simplesmente NÃO VEM no mapa — a resposta traz só os poucos que
-    // estão em alguma coisa, e não uma linha vazia por membro do painel.
-    // Cada entrada traz o texto E desde quando (ver AtividadeDto) — o cartao de
-    // perfil mostra "há 2h 14min" ao lado do nome do programa.
     @GET("api/profile/activity")
     suspend fun activity(@Query("ids") ids: String): ApiEnvelope<Map<String, AtividadeDto>>
 
-    // Sacola de preferencias da CONTA (hoje: accent + fundo). O site ja escrevia
-    // aqui; o desktop passa a ler e escrever pra o tema seguir a pessoa.
     @GET("api/profile/preferences")
     suspend fun preferencias(): ApiEnvelope<PreferenciasWrapper>
 
     @PATCH("api/profile/preferences")
     suspend fun salvarPreferencias(@Body body: PreferenciasRequest): ApiEnvelope<PreferenciasWrapper>
 
-    // Recado (custom status). Mora sob /api/friends no backend, mas e edicao de
-    // perfil — fica aqui pra o desktop nao precisar de uma FriendsApi so por isto
-    // (a do Android vive no modulo :app). Limpar = mandar "".
     @PATCH("api/friends/custom-status")
     suspend fun setCustomStatus(@Body body: CustomStatusRequest)
 }

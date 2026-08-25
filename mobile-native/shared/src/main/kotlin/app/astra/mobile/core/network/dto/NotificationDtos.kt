@@ -20,9 +20,6 @@ data class NotificationPrefsResponse(
     val prefs: NotificationPrefsDto,
 )
 
-// Merge parcial no backend; com explicitNulls=false, null aqui = campo omitido =
-// "nao mexe". Pra LIMPAR quiet hours e preciso null EXPLICITO no JSON -> usar o
-// overload updatePrefsRaw(JsonObject) com JsonNull.
 @Serializable
 data class UpdateNotificationPrefsRequest(
     val mentions: Boolean? = null,

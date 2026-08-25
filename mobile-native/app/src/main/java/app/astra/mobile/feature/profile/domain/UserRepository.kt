@@ -8,8 +8,6 @@ interface UserRepository {
 
     suspend fun me(forceRefresh: Boolean = false): Result<Profile>
 
-    // Zera o cache em memoria do "me". OBRIGATORIO ao trocar de sessao (logout/
-    // login/registro): singleton sobrevive e vazaria o perfil da conta anterior.
     fun clearCache()
 
     suspend fun profile(userId: String): Result<ProfileView>
@@ -30,7 +28,6 @@ interface UserRepository {
 
     suspend fun changePassword(current: String, new: String): Result<Unit>
 
-    // Primeira senha de conta Google (sem senha); backend rejeita se ja tem.
     suspend fun setPassword(new: String): Result<Unit>
 
     suspend fun setStatus(status: UserStatus): Result<Unit>

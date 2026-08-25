@@ -9,11 +9,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-// Figurinhas. A imagem sobe pelo /api/upload de sempre; estas rotas so registram,
-// listam e apagam.
-//
-// Nao ha "enviar figurinha" aqui: mandar figurinha e mandar MENSAGEM com um anexo
-// marcado. Rota propria duplicaria resposta, reacao e exclusao.
 interface StickerApi {
     @GET("api/stickers/{serverId}")
     suspend fun listar(@Path("serverId") serverId: String): StickersResponse

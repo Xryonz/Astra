@@ -13,8 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// Ligacao recebida (lado de quem ATENDE) — vive no AstraApp pra tocar em qualquer
-// tela. Espelha o IncomingCallModal do web: 30s de toque; reject do caller limpa.
 @HiltViewModel
 class IncomingCallViewModel @Inject constructor(
     private val socketManager: SocketManager,
@@ -37,7 +35,6 @@ class IncomingCallViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            // Caller cancelou antes de atender.
             socketManager.dmCallReject.collect { convId ->
                 if (_incoming.value?.conversationId == convId) {
                     timeout?.cancel()
@@ -47,7 +44,6 @@ class IncomingCallViewModel @Inject constructor(
         }
     }
 
-    // Devolve o convite pra tela navegar pro CallScreen.
     fun accept(): DmCallInvite? {
         val inv = _incoming.value ?: return null
         socketManager.sendDmCallAccept(inv.conversationId, inv.fromUserId)

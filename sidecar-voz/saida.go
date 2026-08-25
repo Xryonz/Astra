@@ -1,13 +1,5 @@
 package main
 
-// SAÍDA DE SOM por WASAPI — o outro lado da captura.
-//
-// A diferença de fundo entre os dois: na captura, quem manda no ritmo é o
-// aparelho, e nós corremos atrás. Aqui, quem tem que estar sempre à frente somos
-// nós — se o buffer esvaziar antes de escrevermos, o som falha, e falha de saída é
-// audível na hora. Por isso a saída trabalha com uma folga proposital e escreve
-// silêncio quando não há nada a dizer, em vez de simplesmente parar.
-
 import (
 	"fmt"
 	"unsafe"
@@ -15,24 +7,17 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Saida é o alto-falante aberto.
 type Saida struct {
 	enumerador  objeto
 	dispositivo objeto
 	cliente     objeto
 	tocador     objeto
 	evento      windows.Handle
-	// Total de quadros que cabem no buffer do aparelho. Precisamos dele para saber
-	// quanto espaço sobrou (total menos o que ainda não tocou).
+
 	capacidade uint32
 	rodando    bool
 }
 
-// AbrirSaida prepara o alto-falante. `id` vazio significa o de comunicação padrão
-// do sistema; um id escolhe outro.
-//
-// Mesma exigência da captura: chamar e usar na MESMA thread, presa com
-// PrenderNaThread.
 func AbrirSaida(id string) (*Saida, error) {
 	s := &Saida{}
 	ok := false
@@ -57,7 +42,7 @@ func AbrirSaida(id string) (*Saida, error) {
 	var cliente objeto
 	r := dispositivo.chamar(mmDeviceActivate,
 		uintptr(unsafe.Pointer(&iidClienteDeAudio)),
-		1, // CLSCTX_INPROC_SERVER
+		1,
 		0,
 		uintptr(unsafe.Pointer(&cliente)),
 	)
@@ -67,10 +52,7 @@ func AbrirSaida(id string) (*Saida, error) {
 	s.cliente = cliente
 
 	formato := formatoPCM(TaxaDeAmostragem, CanaisDeVoz)
-	// 100ms de buffer. Menor que o da captura de propósito: aqui o buffer é
-	// LATÊNCIA que a pessoa ouve, não folga de segurança. Cem milissegundos é o
-	// ponto em que a conversa ainda parece imediata e ainda há margem para uma
-	// pausa do escalonador.
+
 	duracao := int64(100 * porMilissegundo)
 	r = cliente.chamar(acInitialize,
 		uintptr(modoCompartilhado),
@@ -84,9 +66,6 @@ func AbrirSaida(id string) (*Saida, error) {
 		return nil, err
 	}
 
-	// O tamanho REAL do buffer não é o que pedimos: o Windows arredonda para o
-	// período do aparelho. Usar o valor pedido em vez do concedido é como se
-	// escreve estouro de buffer — daí perguntar em vez de assumir.
 	if err := hr(cliente.chamar(acGetBufferSize, uintptr(unsafe.Pointer(&s.capacidade))),
 		"consultar o tamanho do buffer"); err != nil {
 		return nil, err
@@ -112,9 +91,6 @@ func AbrirSaida(id string) (*Saida, error) {
 	}
 	s.tocador = tocador
 
-	// SILÊNCIO ANTES DE COMEÇAR. Iniciar com o buffer vazio produz um estalo, ou o
-	// resto do que estava ali. Encher de zeros primeiro é o que faz a call começar
-	// em silêncio limpo.
 	if err := s.Escrever(nil); err != nil {
 		return nil, fmt.Errorf("preencher o silêncio inicial: %w", err)
 	}
@@ -128,7 +104,6 @@ func AbrirSaida(id string) (*Saida, error) {
 	return s, nil
 }
 
-// EspacoLivre diz quantos quadros cabem agora.
 func (s *Saida) EspacoLivre() (uint32, error) {
 	var pendente uint32
 	if err := hr(s.cliente.chamar(acGetCurrentPadding, uintptr(unsafe.Pointer(&pendente))),
@@ -138,12 +113,6 @@ func (s *Saida) EspacoLivre() (uint32, error) {
 	return s.capacidade - pendente, nil
 }
 
-// Escrever entrega amostras ao alto-falante. `pcm` nulo ou curto demais preenche o
-// resto com silêncio.
-//
-// Escreve TUDO que couber, não só um quadro: se o buffer esvaziou porque a máquina
-// engasgou, encher de uma vez é o que recupera sem falhar de novo no quadro
-// seguinte.
 func (s *Saida) Escrever(pcm []int16) error {
 	livre, err := s.EspacoLivre()
 	if err != nil {
@@ -164,7 +133,6 @@ func (s *Saida) Escrever(pcm []int16) error {
 		return nil
 	}
 
-	// Ponteiro de verdade, não uintptr — ver o mesmo ponto em `captura.go`.
 	var destino unsafe.Pointer
 	if err := hr(s.tocador.chamar(renGetBuffer, uintptr(quadros), uintptr(unsafe.Pointer(&destino))),
 		"reservar espaço na saída"); err != nil {
@@ -173,9 +141,7 @@ func (s *Saida) Escrever(pcm []int16) error {
 
 	var bandeiras uintptr
 	if pcm == nil {
-		// Em vez de escrever zeros à mão, avisa que é silêncio: o Windows preenche,
-		// e economiza uma cópia de buffer inteiro toda vez que ninguém fala — o que
-		// numa call é a maior parte do tempo.
+
 		bandeiras = blocoSilencioso
 	} else {
 		n := int(quadros) * CanaisDeVoz
@@ -183,8 +149,6 @@ func (s *Saida) Escrever(pcm []int16) error {
 		copy(alvo, pcm[:n])
 	}
 
-	// Devolver com a MESMA contagem reservada, sempre — inclusive em caso de erro
-	// no meio. Um GetBuffer sem ReleaseBuffer trava a saída para sempre.
 	if err := hr(s.tocador.chamar(renReleaseBuffer, uintptr(quadros), bandeiras),
 		"entregar o bloco à saída"); err != nil {
 		return err
@@ -192,7 +156,6 @@ func (s *Saida) Escrever(pcm []int16) error {
 	return nil
 }
 
-// Esperar dorme até haver espaço no buffer de saída.
 func (s *Saida) Esperar(limiteMs uint32) error {
 	r, err := windows.WaitForSingleObject(s.evento, limiteMs)
 	if err != nil {
@@ -204,7 +167,6 @@ func (s *Saida) Esperar(limiteMs uint32) error {
 	return nil
 }
 
-// Fechar solta tudo, na ordem inversa da abertura.
 func (s *Saida) Fechar() {
 	if s.rodando {
 		s.cliente.chamar(acStop)

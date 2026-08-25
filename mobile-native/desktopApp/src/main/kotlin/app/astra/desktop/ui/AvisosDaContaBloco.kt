@@ -42,17 +42,6 @@ import app.astra.mobile.core.network.dto.AvisosDaContaDto
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
-// AVISOS DA CONTA — o bloco de baixo da aba Notificações.
-//
-// A aba tem DOIS blocos porque tem dois escopos, e misturá-los produzia pares que
-// parecem duplicados e não são: o "Sussurros" de cima esconde o balão DESTA
-// máquina; o "Sussurros" daqui impede o aviso de existir — no sino, no push e no
-// celular. Sem os rótulos de escopo, desligar um e ver o outro continuar
-// funcionando leria como app quebrado.
-//
-// A ORDEM é deliberada: local primeiro. Quem abre esta aba quer, na esmagadora
-// maioria das vezes, calar o balão que acabou de aparecer — e essa é a de cima.
-
 @Composable
 internal fun BlocoDeAjustes(
     titulo: String,
@@ -62,11 +51,6 @@ internal fun BlocoDeAjustes(
     Column(
         Modifier
             .fillMaxWidth()
-            // Um degrau ACIMA do fundo do painel e ABAIXO das linhas de
-            // interruptor (que são `raised` a 50%): as linhas compõem por cima
-            // desta placa e se leem como cartões dentro do cartão. Sem borda de
-            // propósito — as linhas já desenham a delas, e duas molduras
-            // concêntricas viram grade.
             .clip(RoundedCornerShape(8.dp))
             .background(Obsidian.raised.copy(alpha = 0.22f))
             .padding(horizontal = 12.dp, vertical = 12.dp),
@@ -98,9 +82,6 @@ internal fun AvisosDaContaBloco() {
 
     LaunchedEffect(Unit) { avisos.carregar() }
 
-    // O otimismo (e o desfazer) mora no AvisosDaConta — aqui só sobra dizer o que
-    // aconteceu. A frase do erro é explícita sobre a mudança ter voltado atrás:
-    // o interruptor visivelmente volta sozinho, e sem a frase isso pareceria bug.
     fun aplicar(novo: AvisosDaContaDto) {
         escopo.launch {
             erro = null
@@ -129,10 +110,6 @@ internal fun AvisosDaContaBloco() {
             "Respostas", "quando respondem a sua mensagem",
             estado.replies,
         ) { aplicar(estado.copy(replies = it)) }
-        // Pedido de amizade NÃO tem interruptor, e a ausência é decisão do
-        // servidor (lib/notifications.ts explica): é raro, é dirigido a você e é
-        // acionável — não tem como virar ruído. Uma linha aqui protegeria de um
-        // incômodo que não existe.
         ToggleRow(
             "Avisos no celular e no navegador",
             "o push. Não muda nada neste app, que recebe por conexão direta",
@@ -166,9 +143,6 @@ private fun DescansoDaConta(estado: AvisosDaContaDto, onMudar: (AvisosDaContaDto
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("das", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
         Spacer(Modifier.width(8.dp))
-        // Quem liga o descanso pela primeira vez cai em 23h → 7h: é a madrugada,
-        // o caso que 9 de 10 pessoas querem. Começar em 0h → 0h ligaria silêncio
-        // de 24 horas sem ninguém pedir.
         SeletorDeHora(inicio ?: 23) { onMudar(estado.copy(quietStart = it, quietEnd = fim ?: 7)) }
         Spacer(Modifier.width(8.dp))
         Text("às", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
@@ -188,13 +162,8 @@ private fun DescansoDaConta(estado: AvisosDaContaDto, onMudar: (AvisosDaContaDto
     )
 }
 
-// A frase que lê o estado em voz alta. Existe porque "23 → 7" em dois seletores
-// não responde a pergunta que a pessoa realmente tem — "isso pega a madrugada
-// ou o dia?" — e a resposta muda conforme a ordem das duas horas.
 private fun frasesDoDescanso(inicio: Int?, fim: Int?): String = when {
     inicio == null || fim == null -> "desligado — todo aviso passa em qualquer hora."
-    // Mesmo caso-limite do servidor: hora igual devolve verdadeiro sempre. Dizer
-    // isso é melhor que proibir — quem quer silêncio permanente tem como pedir.
     inicio == fim -> "em silêncio o dia inteiro."
     inicio > fim -> "em silêncio das ${inicio}h às ${fim}h — atravessa a meia-noite."
     else -> "em silêncio das ${inicio}h às ${fim}h."
@@ -219,8 +188,6 @@ private fun SeletorDeHora(hora: Int, onEscolher: (Int) -> Unit) {
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         )
         if (aberto) {
-            // Grade de 24 em vez de setas: ir de 7h a 23h com seta são dezesseis
-            // cliques, e a hora que se quer quase nunca é a vizinha da atual.
             Popup(
                 alignment = Alignment.TopStart,
                 offset = IntOffset(0, 34),

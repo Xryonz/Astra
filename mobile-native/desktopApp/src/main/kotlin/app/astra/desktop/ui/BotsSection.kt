@@ -46,17 +46,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 
-// A APARÊNCIA DAS BOTS — painel que só o dono do Astra enxerga.
-//
-// A Sparkle e a Sparxie são uma conta só, compartilhada por todas as constelações:
-// a cara delas é a mesma em qualquer lugar. Por isso isto não é permissão de
-// constelação — quem administra uma estaria mudando a bot para todo mundo — e sim
-// uma lista fora do banco, no ambiente do servidor.
-//
-// A rota responde 404 (e não 403) para quem não é dono, pra não confirmar que há
-// um painel a ser procurado. O cliente usa a própria falha como teste: deu certo,
-// a aba existe; falhou, ela nunca aparece.
-
 @Composable
 fun BotsSection() {
     val api = remember { GlobalContext.get().get<BotPersonaApi>() }
@@ -105,10 +94,6 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
     val scope = rememberCoroutineScope()
     var ocupado by remember { mutableStateOf(false) }
 
-    // Zoom e posição vivem AQUI e não num modal: eles são de ajuste fino, e ajuste
-    // fino se faz vendo o resultado. Um diálogo por cima da faixa esconderia
-    // justamente a coisa que se está tentando enquadrar — foi o motivo de o zoom
-    // do banner das bots ter levado três tentativas com números chutados no código.
     var zoom by remember(p.chave, p.bannerScale) { mutableStateOf(p.bannerScale) }
     var posY by remember(p.chave, p.bannerPositionY) { mutableStateOf(p.bannerPositionY) }
 
@@ -123,9 +108,6 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
             ocupado = false
             r.onSuccess { img ->
                 if (banner) {
-                    // Chega já preenchendo: mesma conta do banner de perfil. Sem
-                    // isto, arte 16:9 numa faixa 3,5:1 entra ocupando metade da
-                    // largura, com tarja dos dois lados.
                     val cobre = if (img.largura > 0) {
                         AvatarPicker.zoomQueCobre(img.largura, img.altura, ProfileBannerAspect)
                     } else zoom
@@ -162,10 +144,6 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                 acoes = {
                     buildList {
                         add(MenuEntry.Item("trocar imagem", icon = Lucide.Upload) { escolher(true) })
-                        // Só aparece quando há para onde voltar. Oferecer "voltar ao
-                        // original" numa imagem que JÁ é a original seria um botão
-                        // que não faz nada — e um botão inerte ensina a desconfiar
-                        // dos outros.
                         if (p.personalizado.bannerUrl) {
                             add(MenuEntry.Separator)
                             add(MenuEntry.Item("voltar ao original", icon = Lucide.RotateCcw) {
@@ -225,9 +203,6 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
             Spacer(Modifier.height(8.dp))
             TrilhaDaBot("altura", posY, 0, 100) { posY = it }
             Spacer(Modifier.height(10.dp))
-            // Grava SÓ ao soltar, e não a cada pixel arrastado: a trilha emite
-            // dezenas de valores por segundo, e cada um seria uma escrita no banco
-            // mais um aviso de perfil pra todo mundo que está com o app aberto.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BotaoSalvarEnquadramento(
                     mudou = zoom != p.bannerScale || posY != p.bannerPositionY,

@@ -46,8 +46,6 @@ interface ServerApi {
     @POST("api/servers/{id}/regenerate-invite")
     suspend fun regenerateInvite(@Path("id") serverId: String): ApiEnvelope<InviteCodeResponse>
 
-    // Adiciona alguem DIRETO pelo @usuario (sem link, sem a outra ponta aceitar).
-    // Exige dono ou MANAGE_SERVER; o backend recusa banido e quem já e membro.
     @POST("api/servers/{id}/invite/{username}")
     suspend fun addMember(@Path("id") serverId: String, @Path("username") username: String)
 
@@ -85,7 +83,6 @@ interface ServerApi {
     @DELETE("api/servers/{id}")
     suspend fun deleteServer(@Path("id") serverId: String)
 
-    // ---- Cargos ----
     @GET("api/servers/{id}/roles")
     suspend fun roles(@Path("id") serverId: String): ApiEnvelope<List<RoleDto>>
 
@@ -119,7 +116,6 @@ interface ServerApi {
     @GET("api/reads/channels")
     suspend fun channelReads(): ApiEnvelope<Map<String, String>>
 
-    // Contagem de nao-lidas por canal (badge com numero). channelId -> qtd.
     @GET("api/reads/channels/counts")
     suspend fun channelUnreadCounts(): ApiEnvelope<Map<String, Int>>
 
@@ -129,7 +125,6 @@ interface ServerApi {
         @Body body: CreateChannelRequest,
     ): ApiEnvelope<ChannelDto>
 
-    // ---- Gestao de canal (MANAGE_CHANNELS) ----
     @GET("api/servers/{sid}/channels/{cid}/visibility")
     suspend fun channelVisibility(
         @Path("sid") serverId: String,
@@ -143,7 +138,6 @@ interface ServerApi {
         @Body body: ChannelVisibilityRequest,
     ): ApiEnvelope<ChannelVisibilityDto>
 
-    // Mesma rota do renomear: o backend aceita name/categoryId/position/botEnabled.
     @PATCH("api/servers/{sid}/channels/{cid}")
     suspend fun setChannelBot(
         @Path("sid") serverId: String,
@@ -175,7 +169,6 @@ interface ServerApi {
     @DELETE("api/servers/{sid}/channels/{cid}")
     suspend fun deleteChannel(@Path("sid") serverId: String, @Path("cid") channelId: String)
 
-    // ---- Categorias (MANAGE_CHANNELS) ----
     @POST("api/servers/{sid}/categories")
     suspend fun createCategory(
         @Path("sid") serverId: String,

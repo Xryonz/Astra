@@ -13,9 +13,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.astra.desktop.ui.theme.Obsidian
 
-// Port do StatusDot do mobile (Canvas puro, mesmas formas do Discord:
-// lua no idle, barra no dnd, anel no offline).
-
 enum class UserStatus { ONLINE, IDLE, DND, INVISIBLE, OFFLINE }
 
 fun userStatus(raw: String?): UserStatus = when (raw?.uppercase()) {
@@ -26,8 +23,6 @@ fun userStatus(raw: String?): UserStatus = when (raw?.uppercase()) {
     else -> UserStatus.OFFLINE
 }
 
-// Cores dos tokens editoriais do Obsidian (dessaturados) em vez da paleta padrao
-// do Tailwind/shadcn — os pontinhos eram o único ponto do app com cara generica.
 fun statusColor(status: UserStatus): Color = when (status) {
     UserStatus.ONLINE -> Obsidian.success
     UserStatus.IDLE -> Obsidian.warning

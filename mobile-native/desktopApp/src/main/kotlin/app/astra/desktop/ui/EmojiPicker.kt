@@ -55,17 +55,6 @@ import com.composables.icons.lucide.Search
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
-// O SELETOR DE EMOJI.
-//
-// Antes eram 34 glifos numa lista cravada dentro do ChatView, sem categoria e sem
-// busca. Agora sao ~700 em oito categorias, com busca e recentes.
-//
-// UMA GRADE SO, com os titulos ocupando a linha inteira (span cheio), em vez de uma
-// Column de grades por categoria. Assim a rolagem e continua, os atalhos de baixo
-// podem pular pra um indice exato, e — o que importa de verdade — a LazyVerticalGrid
-// so compoe as celulas visiveis. Oito grades empilhadas dentro de um scroll comum
-// comporiam as 700 celulas de uma vez, toda vez que o painel abrisse.
-
 private const val COLUNAS = 8
 private val LARGURA = 336.dp
 private val ALTURA_GRADE = 260.dp
@@ -89,8 +78,6 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
     }
     val buscando = termo.isNotBlank()
 
-    // Onde comeca cada categoria na grade linear. Calculado uma vez (a lista de
-    // recentes e a unica parte que muda) e usado pelos atalhos de baixo.
     val ancoras = remember(prefState.emojiRecentes.size, personalizados.size) {
         val mapa = LinkedHashMap<String, Int>()
         var i = 0
@@ -119,7 +106,6 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
             .background(Obsidian.overlay)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
     ) {
-        // ---- busca ----
         Row(
             Modifier
                 .fillMaxWidth()
@@ -145,20 +131,14 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
                 )
             }
         }
-        // Sem traco aqui: o campo de busca logo acima JA e um cartao com borda
-        // propria, entao a linha so repetia o limite que ele ja desenha.
         Spacer(Modifier.height(2.dp))
 
-        // ---- grade ----
         LazyVerticalGrid(
             columns = GridCells.Fixed(COLUNAS),
             state = grade,
             modifier = Modifier.height(ALTURA_GRADE).padding(horizontal = 6.dp),
         ) {
             if (buscando) {
-                // Os da constelacao entram na busca TAMBEM. Sem isto eles apareceriam
-                // na primeira tela e sumiriam no instante em que se digita o nome
-                // deles — que e justamente quando se sabe qual se quer.
                 if (achadosDaCasa.isNotEmpty()) {
                     items(achadosDaCasa, key = { "b_${it.id}" }) { e ->
                         CelulaEmojiPersonalizado(e) { onPick(":${e.name}:") }
@@ -177,13 +157,6 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
                     items(resultados, key = { it }) { g -> CelulaEmoji(g) { escolher(g) } }
                 }
             } else {
-                // Os da CONSTELACAO vem primeiro, antes ate dos recentes: sao poucos,
-                // sao os unicos que so existem aqui, e sao os que se procura quando se
-                // abre este painel numa constelacao que tem os seus. Escolher um
-                // insere `:nome:` no rascunho — o texto e que viaja, nao a imagem.
-                //
-                // Eles NAO entram nos recentes: a fileira de recentes desenha glifo de
-                // texto, e um `:nome:` la sairia escrito em vez de desenhado.
                 if (personalizados.isNotEmpty()) {
                     item(span = { GridItemSpan(COLUNAS) }, key = "t_desta") { TituloSecao("esta constelação") }
                     items(personalizados, key = { "p_${it.id}" }) { e ->
@@ -201,13 +174,7 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
             }
         }
 
-        // ---- atalhos de categoria ----
-        // Escondidos durante a busca: pular pra "natureza" no meio de um resultado
-        // filtrado levaria pra um lugar que nao existe naquela lista.
         if (!buscando) {
-            // Faixa propria (um degrau acima do popup) no lugar do traco: os
-            // atalhos sao NAVEGACAO, nao mais uma fileira de emoji — e sem
-            // superficie propria eles se confundiam com a ultima linha da grade.
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -227,9 +194,6 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
     }
 }
 
-// Quantas LINHAS da grade um bloco de N itens ocupa. Os titulos usam span cheio,
-// entao contam como uma linha inteira cada — e e por isso que a ancora de cada
-// categoria e calculada em INDICE DE ITEM e nao em posicao de pixel.
 private fun linhas(n: Int): Int = (n + COLUNAS - 1) / COLUNAS
 
 @Composable
@@ -244,9 +208,6 @@ private fun TituloSecao(nome: String) {
     )
 }
 
-// Mesma celula, com imagem no lugar do glifo. O nome vai no rotulo de
-// acessibilidade porque e ele que identifica o emoji — a imagem, sozinha, nao diz
-// nada pra quem usa leitor de tela.
 @Composable
 private fun CelulaEmojiPersonalizado(e: EmojiDto, onClick: () -> Unit) {
     val src = remember(e.id) { MutableInteractionSource() }

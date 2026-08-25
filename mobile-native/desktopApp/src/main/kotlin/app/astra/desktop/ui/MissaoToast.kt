@@ -45,20 +45,8 @@ import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
-// O AVISO DE MISSAO COMPLETA.
-//
-// Canto inferior direito, some sozinho. Nao interrompe, nao pede clique, nao escurece
-// nada — porque missao diaria acontece TODO DIA, e o que interrompe todo dia vira
-// irritacao na terceira vez. O anel do rodape pulsa junto (XpRing.kt), o que amarra
-// a recompensa ao lugar onde o XP mora.
-//
-// A FILA E O PROPRIO SharedFlow. Fechar as tres do dia dispara quatro eventos quase
-// juntos (as tres + o bonus); como este coletor demora ~3s por item, os outros ficam
-// no buffer e entram em sequencia. Uma lista de espera aqui seria reimplementar o que
-// o buffer ja faz.
-
 private const val VIDA_MS      = 3_400L
-private const val RESPIRO_MS   = 420L   // deixa a saida terminar antes do proximo
+private const val RESPIRO_MS   = 420L
 
 @Composable
 fun BoxScope.MissaoToaster() {
@@ -74,9 +62,6 @@ fun BoxScope.MissaoToaster() {
         }
     }
 
-    // O conteudo fica lembrado depois de `atual` virar null: sem isso o cartao
-    // esvaziaria no meio da animacao de saida e a pessoa veria uma caixa vazia
-    // deslizando pra fora.
     val ultima = remember { mutableStateOf<MissaoConcluidaDto?>(null) }
     atual?.let { ultima.value = it }
 
@@ -131,9 +116,6 @@ private fun CartaoDeMissao(m: MissaoConcluidaDto) {
     }
 }
 
-// O tipo aparece porque fechar uma conquista permanente nao e a mesma coisa que
-// fechar a diaria de mandar 10 mensagens — e sem o rotulo os dois avisos seriam
-// identicos.
 private fun rotuloDoTipo(tipo: String): String = when (tipo) {
     "semanal"   -> "MISSÃO DA SEMANA"
     "conquista" -> "CONQUISTA"

@@ -62,44 +62,18 @@ import org.koin.core.context.GlobalContext
 import zed.rainxch.rikkaui.components.ui.skeleton.Skeleton
 import zed.rainxch.rikkaui.components.ui.skeleton.SkeletonAnimation
 
-// Card de perfil dos OUTROS (F3): clique no avatar (chat/membros) abre popup
-// com o perfil + "enviar sussurro". Busca so quando abre, com cache de 5min
-// (mesma politica do ProfileHoverCard do web).
-
 private const val CACHE_MS = 5 * 60_000L
 
-// Piso do cartão pequeno. Calçado no cartão CHEIO (banner + foto + nome + @ +
-// vínculos + recado + bio + cargos + "nas estrelas desde" + botão): é a altura em
-// que ele já parece o mesmo objeto, com ou sem conteúdo opcional.
 private val ALTURA_MIN_CARTAO = 420.dp
-// Guarda o ENVELOPE inteiro, e nao so o usuario. Os vinculos (constelacoes e
-// amigos em comum) vem na mesma resposta e estavam sendo jogados fora — o card
-// pedia o dado, recebia, e descartava antes de desenhar.
 private val profileCache = mutableMapOf<String, Pair<ProfileViewWrapper, Long>>()
 
 private fun cached(userId: String): ProfileViewWrapper? =
     profileCache[userId]?.takeIf { System.currentTimeMillis() - it.second < CACHE_MS }?.first
 
-// Alguem editou o perfil -> a copia guardada envelheceu na hora. Sem isto o cache
-// de 5min seguraria a foto e o nome VELHOS mesmo com o aviso ao vivo chegando: o
-// evento atualizaria a lista de membros e o card continuaria desatualizado.
 fun invalidateProfileCache(userId: String) {
     profileCache.remove(userId)
 }
 
-// Abre ao LADO da ancora (direita; vira pra esquerda se não couber) e clampa
-// na vertical — funciona tanto no chat quanto no painel de membros na borda.
-// AO LADO da ancora, encostando em nada.
-//
-// As medidas chegam aqui em PIXEL, não em dp — `calculatePosition` fala a lingua
-// da tela crua. A versao antiga somava `8` direto, o que numa tela a 150% (o
-// normal no Windows) dava ~5dp de folga: o card ficava colado no painel de
-// membros, cruzando a linha que marca o limite dele. Por isso a folga agora
-// chega convertida de dp pelo chamador, que tem o LocalDensity.
-//
-// A margem existe pelo mesmo motivo, na vertical: o clamp antigo era
-// `coerceAtLeast(0)`, e zero e a borda EXATA da janela — o card do primeiro
-// membro da lista encostava na barra de titulo.
 private class AoLadoDaAncora(private val folgaPx: Int, private val margemPx: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -107,9 +81,6 @@ private class AoLadoDaAncora(private val folgaPx: Int, private val margemPx: Int
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
-        // Direita primeiro; se nao couber inteiro, esquerda. O painel de membros
-        // mora na borda direita da janela, entao la cai sempre na esquerda — que e
-        // exatamente onde o card deve nascer.
         val direita = anchorBounds.right + folgaPx
         val x = if (direita + popupContentSize.width + margemPx <= windowSize.width) direita
         else (anchorBounds.left - popupContentSize.width - folgaPx)
@@ -120,22 +91,16 @@ private class AoLadoDaAncora(private val folgaPx: Int, private val margemPx: Int
     }
 }
 
-// Envolve o gatilho (avatar/linha) com clique-abre-perfil.
 @Composable
 fun ProfileAnchor(
     userId: String,
     isMe: Boolean,
     onStartDm: (username: String, title: String) -> Unit,
-    // Cargos da pessoa NESTA constelação. So o painel de membros tem isso em
-    // maos; do chat vem vazio, e a secao de cargos some junto. Cartao sem a secao
-    // e melhor que cartao com uma secao vazia.
     cargos: List<MemberRoleDto> = emptyList(),
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     var full by remember { mutableStateOf(false) }
-    // dp -> px AQUI, onde existe densidade. Dentro do PopupPositionProvider não
-    // existe: ele nao e composable e so recebe pixel.
     val densidade = LocalDensity.current
     val posicao = remember(densidade) {
         with(densidade) { AoLadoDaAncora(folgaPx = 12.dp.roundToPx(), margemPx = 12.dp.roundToPx()) }
@@ -161,7 +126,6 @@ fun ProfileAnchor(
                         open = false
                         onStartDm(u, t)
                     },
-                    // "ver perfil completo": fecha o card e abre o modal central.
                     onOpenFull = { open = false; full = true },
                 )
             }
@@ -177,12 +141,6 @@ fun ProfileAnchor(
     }
 }
 
-// O MESMO card, aberto NO PONTO DO CLIQUE — o caminho do @ dentro da mensagem.
-//
-// O ProfileAnchor acima não serve aqui, e a diferenca e de natureza: ele envolve um
-// ALVO (avatar, linha de membro) e ancora o popup nos limites desse alvo. Uma mencao
-// não e um alvo — e um pedaco de texto no meio de um paragrafo, que pode ate quebrar
-// de linha. O unico ponto que significa alguma coisa e onde o cursor tocou.
 @Composable
 fun ProfileCardNoPonto(
     userId: String,
@@ -201,9 +159,6 @@ fun ProfileCardNoPonto(
             ProfilePopupCard(
                 userId = userId,
                 isMe = isMe,
-                // Do texto da mensagem não da pra saber os cargos da pessoa NESTA
-                // constelacao — so o painel de membros tem isso. Card sem a secao de
-                // cargos e melhor que card com uma secao vazia (mesma regra do chat).
                 cargos = emptyList(),
                 onStartDm = { u, t -> onStartDm(u, t) },
                 onOpenFull = { full = true },
@@ -235,17 +190,11 @@ private fun ProfilePopupCard(
                 ?.also { profileCache[userId] = it to System.currentTimeMillis() }
         }
     }
-    // Atividade FORA do cache do perfil, e isso é o ponto: o perfil fica guardado 5
-    // minutos porque nome e foto não mudam nesse intervalo. "O que está usando"
-    // muda, e servir isso do cache mostraria o jogo de cinco minutos atrás com a
-    // cara de informação atual. Uma consulta por abertura, sempre fresca.
-    // O par inteiro (texto + desde quando), porque o cartão mostra o cronômetro.
     var atividade by remember(userId) { mutableStateOf<AtividadeDto?>(null) }
     LaunchedEffect(userId) {
         atividade = runCatching { koin.get<UserApi>().activity(userId).data?.get(userId) }.getOrNull()
     }
 
-    // Entrada: fade + subida leve (curva do mobile).
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(
         visibleState = entered,
@@ -261,33 +210,16 @@ private fun ProfilePopupCard(
             ) { CardSkeleton() }
         } else {
             val p = v.user
-            // MESMO desenho da previa das Configuracoes (ProfileCard) — nao existem
-            // mais duas copias pra divergir. O que e proprio DAQUI sao os botoes,
-            // que so fazem sentido no cartao de verdade.
             ProfileCard(
                 dados = p.paraCartao().copy(
                     atividade = atividade?.text,
                     atividadeDesde = atividade?.since ?: 0L,
                 ),
                 variante = CardVariante.NORMAL,
-                // ALTURA MÍNIMA, não altura fixa (pedido do dono: o cartão de quem
-                // não tem bio nem cargo saía atarracado ao lado do da bot).
-                //
-                // O cartão do Astra é um objeto reconhecível, e objeto que muda de
-                // tamanho conforme quem está dentro deixa de ser um objeto: passa a
-                // ser uma caixa. Quem acabou de criar conta tem duas linhas de
-                // conteúdo, e o cartão encolhia até virar um retângulo estranho —
-                // exatamente o motivo pelo qual a página de perfil inteira já tem
-                // altura calçada (ver ALTURA_PAGINA_PERFIL).
-                //
-                // Mínima e não fixa porque bio longa + vários cargos precisam crescer.
-                // Piso dá consistência; teto cortaria conteúdo.
                 modifier = Modifier.width(320.dp).heightIn(min = ALTURA_MIN_CARTAO),
                 servidoresEmComum = v.mutualServers,
                 amigosEmComum = v.mutualFriends,
                 cargos = cargos,
-                // As acoes sobem pro banner (estilo Discord): o rodape fica so com
-                // "ver perfil completo", e o cartao encurta uma linha inteira.
                 acoesNoBanner = if (isMe) null else {
                     {
                         AcaoRedonda(Lucide.MessageCircle, "Enviar sussurro") {
@@ -314,9 +246,6 @@ private fun ProfilePopupCard(
     }
 }
 
-// Acao no canto do banner. Fundo escuro semitransparente porque ela pousa sobre
-// uma IMAGEM que pode ser de qualquer cor — sem o veu, um banner claro engole o
-// icone.
 @Composable
 private fun AcaoRedonda(icone: ImageVector, rotulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }

@@ -61,9 +61,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-// Notificacoes-A: painel dropdown do sino (titlebar). Lista agrupada por dia,
-// clique navega + marca lida, "marcar tudo" no topo. Contra /api/notifications.
-
 @Serializable
 private data class NotifPayload(
     val channelId: String? = null,
@@ -72,7 +69,6 @@ private data class NotifPayload(
     val serverName: String? = null,
     val conversationId: String? = null,
     val authorName: String? = null,
-    // Rede de seguranca do nome: displayName pode faltar em conta antiga, o @ nunca.
     val authorUsername: String? = null,
     val authorAvatar: String? = null,
     val preview: String? = null,
@@ -99,10 +95,6 @@ fun NotifPanel(
         loading = false
     }
 
-    // O runCatching aqui e uma fabrica de bug invisivel: qualquer problema no
-    // payload virava um NotifPayload vazio, e a linha aparecia como "alguém" sem
-    // pista nenhuma do motivo. Continua não quebrando a tela — mas agora deixa
-    // rastro no Diagnostico, que e o que separa "chegou torto" de "chegou vazio".
     fun parse(it: NotificationItemDto): NotifPayload {
         val p = it.payload ?: return NotifPayload()
         return runCatching { json.decodeFromJsonElement<NotifPayload>(p) }
@@ -118,7 +110,6 @@ fun NotifPanel(
             "dm" -> if (p.conversationId != null) onOpenDm(p.conversationId, p.authorName ?: "sussurro")
             "server_invite" -> if (p.serverId != null) onOpenServer(p.serverId)
         }
-        // Marca lida otimista + persiste.
         if (item.readAt == null) {
             items = items.map { if (it.id == item.id) it.copy(readAt = "read") else it }
             scope.launch { runCatching { api.markRead(item.id) }; onAfterRead() }
@@ -131,10 +122,6 @@ fun NotifPanel(
         scope.launch { runCatching { api.readAll() }; onAfterRead() }
     }
 
-    // LIMPAR e diferente de MARCAR TUDO, e por isso sao dois botoes: marcar zera o
-    // sino e mantem o historico; limpar apaga. A lista some na hora (otimista) e
-    // VOLTA se o servidor recusar — sumir e reaparecer e chato, mas fingir que
-    // apagou o que continua la e pior.
     var limpando by remember { mutableStateOf(false) }
     fun limparTudo() {
         if (limpando) return
@@ -149,14 +136,6 @@ fun NotifPanel(
         }
     }
 
-    // NO MEIO DA TELA (pedido do dono). Era um dropdown colado sob o sino, e o
-    // dropdown tem um defeito que so aparece com a lista cheia: ele desce a partir do
-    // canto superior direito, ou seja, obriga o olho a ler a coisa mais importante no
-    // ponto mais distante de onde ele estava. Centralizado, a lista nasce onde o olho
-    // ja esta — e a largura pode crescer sem espremer o conteudo contra a borda.
-    //
-    // O veu escuro e o mesmo da Busca de proposito: as duas sao "isto toma a tela ate
-    // voce resolver", e duas coisas com a mesma funcao devem falar a mesma lingua.
     Box(
         Modifier
             .fillMaxSize()
@@ -167,8 +146,6 @@ fun NotifPanel(
     ) {
         Column(
             Modifier
-                // Cresce do proprio centro: o painel nao vem mais "de" lugar nenhum,
-                // entao a origem da escala e ele mesmo.
                 .popupReveal(originX = 0.5f, originY = 0.5f)
                 .width(520.dp)
                 .clip(RoundedCornerShape(14.dp))
@@ -176,7 +153,6 @@ fun NotifPanel(
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         ) {
-            // Cabecalho.
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -222,7 +198,6 @@ fun NotifPanel(
                     }
                 }
                 else -> {
-                    // Agrupa por dia (HOJE / ONTEM / dd/mm), mantendo a ordem desc.
                     val grouped = remember(items) { groupByDay(items) }
                     LazyColumn(
                         Modifier.heightIn(max = 460.dp).padding(vertical = 6.dp),
@@ -263,10 +238,6 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
         "reaction"      -> "$author reagiu ${p.emoji ?: ""}".trim() to channelSub(p)
         "dm"            -> author to (p.preview ?: "sussurro")
         "server_invite" -> "entrou em ${p.serverName ?: "uma constelação"}" to "convite"
-        // Sem destino próprio: clicar não navega (o `open` não trata este tipo), e
-        // isso é deliberado — a ação mora na tela de Amigos, e mandar a pessoa pra
-        // lá com um clique atravessaria o que ela estava fazendo. A notificação
-        // avisa; aceitar continua sendo uma ida consciente.
         "friend_request" -> "$author quer te adicionar" to "pedido de amizade"
         else            -> author to (p.preview ?: "")
     }
@@ -281,19 +252,8 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
             .padding(horizontal = 8.dp, vertical = 9.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        // Ponto de não-lida (some quando lida).
         Box(Modifier.padding(top = 5.dp).size(6.dp).clip(CircleShape).background(if (unread) Obsidian.accent else Color.Transparent))
         Spacer(Modifier.width(8.dp))
-        // O ROSTO RESPONDE "QUEM", que é a primeira pergunta de quem abre o sino.
-        //
-        // Aqui havia o ícone do TIPO, e ele era informação repetida: o título já diz
-        // "mencionou você", "respondeu você", "reagiu ❤" com todas as letras. Um
-        // balãozinho igual em cada linha fazia a lista inteira parecer a mesma coisa
-        // — o painel ficava sendo uma coluna de nomes, e reconhecer quem escreveu
-        // exigia LER, em vez de bater o olho.
-        //
-        // Sem autor (convite de constelação) o ícone continua: não há rosto pra
-        // mostrar, e um espaço vazio seria pior que o símbolo.
         val quem = p.authorName ?: p.authorUsername
         if (quem != null || p.authorAvatar != null) {
             DesktopAvatar(p.authorAvatar, quem ?: "?", 30)
@@ -340,8 +300,6 @@ private fun iconFor(type: String) = when (type) {
     "friend_request" -> Lucide.UserPlus
     else            -> Lucide.Bell
 }
-
-// ---- tempo ----
 
 private fun instantOf(iso: String): Instant? = runCatching { Instant.parse(iso) }.getOrNull()
 

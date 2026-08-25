@@ -29,13 +29,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.astraColors
 
-// Construtor de cor: toggle Solido | Gradiente. Emite uma string CSS que o
-// backend/parseNameColor/parseGradientBrush ja entendem:
-//   solido   -> "#rrggbb"
-//   gradiente-> "linear-gradient(Ndeg,#a,#b)"
-// Substitui os presets (escolha do user). Seed uma vez do valor inicial; depois
-// vive do proprio estado e avisa o pai a cada mudanca.
-
 private enum class PickMode { SOLID, GRADIENT }
 
 private val HEX6 = Regex("#[0-9a-fA-F]{6}")
@@ -67,7 +60,6 @@ fun ColorGradientPicker(
     fun emit() = onChange(composeCss(mode, hexA, hexB, angle))
 
     Column(modifier.fillMaxWidth()) {
-        // Toggle Solido | Gradiente
         Row(
             Modifier
                 .clip(RoundedCornerShape(12.dp))
@@ -81,7 +73,6 @@ fun ColorGradientPicker(
             }
         }
 
-        // Preview ao vivo (branco se hex incompleto).
         val brush = parseGradientBrush(composeCss(mode, hexA, hexB, angle))
         Box(
             Modifier

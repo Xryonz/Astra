@@ -43,16 +43,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.core.context.GlobalContext
 import java.time.Instant
 
-// ESTRELA DOS DESEJOS — o que as pessoas gostariam que o Astra tivesse.
-//
-// A metade de escrever já existia (`/sparxie desejo …`) e a de LER não existia em
-// lugar nenhum: os desejos entravam no banco e ninguém, nem quem escreveu, tinha
-// como ver que tinham chegado. Pedido que some é pior que pedido recusado.
-//
-// Mesma moldura do sino, e isso é escolha: as duas são "isto toma a tela até você
-// resolver", abrem do mesmo canto da barra e leem a mesma natureza de conteúdo —
-// coisa de todo mundo, que não pertence a nenhuma constelação. Duas telas com a
-// mesma função devem falar a mesma língua.
 @Composable
 fun DesejosPanel(onClose: () -> Unit) {
     val api = remember { GlobalContext.get().get<WishApi>() }
@@ -78,10 +68,6 @@ fun DesejosPanel(onClose: () -> Unit) {
 
     LaunchedEffect(Unit) { buscar(null) }
 
-    // PAGINAÇÃO POR PROXIMIDADE DO FIM, e não por botão "carregar mais": o céu não
-    // tem fim conhecido, e um botão obrigaria a pessoa a pedir de novo a cada vinte
-    // linhas. Dispara três antes do último pra a próxima leva chegar antes de a
-    // rolagem bater no fundo.
     LaunchedEffect(lista) {
         snapshotFlow { lista.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
             .distinctUntilChanged()
@@ -137,8 +123,6 @@ fun DesejosPanel(onClose: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     itemsIndexed(itens, key = { _, d -> d.id }) { i, d ->
-                        // A cascata toca UMA vez por visita (a chave é a lista, não o
-                        // índice), então rolar de volta não reanima o que já entrou.
                         CascadeIn(index = i, listKey = itens.size) { LinhaDeDesejo(d) }
                     }
                 }
@@ -148,9 +132,6 @@ fun DesejosPanel(onClose: () -> Unit) {
     }
 }
 
-// CARTÃO DENTRO DO CARTÃO: o painel é `overlay`, cada desejo sobe um degrau pra
-// `hover`. É a estrutura preferida do produto — hierarquia por elevação, sem
-// traço de borda a borda separando linha de linha.
 @Composable
 private fun LinhaDeDesejo(d: WishDto) {
     val quem = d.author?.displayName ?: d.author?.username ?: "alguém"
@@ -182,8 +163,6 @@ private fun Vazio(texto: String) {
     }
 }
 
-// Distância e não relógio: "há 2 horas" responde a pergunta que se faz olhando um
-// desejo ("isto é recente?"), e uma data exata obrigaria a fazer a conta de cabeça.
 private fun quando(iso: String?): String {
     val t = runCatching { Instant.parse(iso) }.getOrNull() ?: return ""
     val min = (System.currentTimeMillis() - t.toEpochMilli()) / 60_000

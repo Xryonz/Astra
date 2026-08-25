@@ -51,16 +51,6 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.koin.core.context.GlobalContext
 
-// EFEITOS SONOROS DA CONSTELACAO.
-//
-// O arquivo escolhido e convertido pra WAV com o ffmpeg que o app JA empacota pra
-// transmissao de tela. Isso NAO perde qualidade: decodificar um MP3 e uma operacao
-// exata, e o WAV guarda exatamente o que saiu do decodificador. O que se perde e
-// quando se RE-ENCODA (MP3 -> MP3), e nao e o caso aqui.
-//
-// Converter existe por um motivo pratico: o JDK toca WAV sozinho, sem biblioteca
-// nenhuma. Aceitar MP3 direto exigiria embarcar um decodificador so pra isso.
-
 @Composable
 internal fun SoundsSection(serverId: String, podeGerenciar: Boolean) {
     val soundApi = remember { GlobalContext.get().get<SoundApi>() }
@@ -122,9 +112,6 @@ internal fun SoundsSection(serverId: String, podeGerenciar: Boolean) {
                             )
                             val enviado = uploadApi.upload(parte).data?.attachments?.firstOrNull()
                                 ?: error("o servidor não devolveu o arquivo")
-                            // O nome do som vem do ARQUIVO, sem extensao: e o que a
-                            // pessoa reconhece na lista, e pedir pra digitar de novo
-                            // seria burocracia pra repetir o que ela ja escolheu.
                             val nome = arquivo.nameWithoutExtension.take(40).ifBlank { "som" }
                             soundApi.criar(
                                 serverId,

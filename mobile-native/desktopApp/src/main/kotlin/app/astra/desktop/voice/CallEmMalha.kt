@@ -13,23 +13,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.ConcurrentHashMap
 
-// A CALL EM MALHA — quem conversa com quem, e o que a tela vê disso.
-//
-// Em ponto a ponto não existe "entrar numa sala": existe conectar em CADA pessoa
-// que já está lá, uma conexão por companheiro. Esta classe é quem sabe disso, e ela
-// é a única que sabe — o sidecar só recebe ordens ("conecte-se a fulano") e o resto
-// do app não faz ideia de que há N conexões por baixo.
-//
-// TRÊS FONTES DIZEM QUEM ESTÁ NA SALA, e as três são necessárias:
-//
-//  1. A CONSULTA ao entrar. Sem ela, quem chega numa call em andamento não
-//     conectaria em ninguém — só veria as pessoas que entrassem DEPOIS dele.
-//  2. O AVISO por socket (entrou/saiu). É o caminho rápido, e o que faz alguém
-//     aparecer na hora em vez de no próximo giro.
-//  3. A CONSULTA periódica. Rede de segurança: aviso perdido por reconexão de
-//     socket deixaria um par mudo para sempre, sem nada indicando o porquê.
-//
-// Uma só das três não basta, e é por isso que as três existem.
 class CallEmMalha(
     private val scope: CoroutineScope,
     private val sidecar: SidecarDeVoz,
@@ -39,106 +22,49 @@ class CallEmMalha(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    // ---- o que a tela lê ----
-
     private val _status = MutableStateFlow<VoiceStatus>(VoiceStatus.Connecting)
     val status = _status.asStateFlow()
 
-    // Quando a call começou, para o cronômetro. Nasce no `pronto` do sidecar e não
-    // no `entrar`: antes disso não há voz nenhuma, e um cronômetro que começa a
-    // contar antes de existir call mede a espera, não a conversa.
     private val _inicio = MutableStateFlow<Long?>(null)
     val inicio = _inicio.asStateFlow()
 
-    // Os aparelhos que o Windows tem. Chegam do processo de voz, que é quem fala
-    // WASAPI — a JVM enxerga uma lista diferente e incompleta, e listar por um
-    // caminho e abrir por outro é como se acaba escolhendo um aparelho e ouvindo
-    // outro.
     private val _microfones = MutableStateFlow<List<AparelhoDeAudio>>(emptyList())
     val microfones = _microfones.asStateFlow()
 
     private val _saidas = MutableStateFlow<List<AparelhoDeAudio>>(emptyList())
     val saidas = _saidas.asStateFlow()
 
-    // A TRANSMISSÃO DE TELA, e QUEM MANDA NO ESTADO É O PROCESSO DE VOZ.
-    //
-    // O botão não acende ao ser apertado: acende quando o outro lado confirma que a
-    // captura e o compressor subiram — o que leva quase um segundo e pode falhar (não
-    // existe compressor de H.264 em toda máquina). Acender no clique e apagar depois é
-    // o padrão que ensina a pessoa a não confiar no próprio botão.
     private val _transmitindo = MutableStateFlow(false)
     val transmitindo = _transmitindo.asStateFlow()
 
-    // O que está subindo agora: "Intel® Quick Sync… · 1280x720 @30 · 58 fps · 3,4 Mbps".
-    // Vazio quando não há transmissão. É a única prova visível enquanto não existe
-    // imagem para ver — ver a fatia 2.
     private val _relatorioDaTela = MutableStateFlow("")
     val relatorioDaTela = _relatorioDaTela.asStateFlow()
     @Volatile private var comoSubiu = ""
 
-    // Por que a taxa caiu abaixo do preset, se caiu. Dito UMA VEZ pelo emissor, no
-    // aquecimento — daí ser guardado em vez de só repassado. Ver o ramo "taxa".
     @Volatile private var porQueCaiu = ""
 
-    // A TELA DE CADA PESSOA, vinda pelo cano à parte. O mapa é do cano e não daqui: os
-    // quadros nunca passam pela ponte de comandos, então não há o que traduzir no meio.
-    //
-    // MUDA NO RITMO DO VÍDEO. Só quem desenha deve observá-lo — ver `TelaCompartilhada`.
     val telasDosOutros = sidecar.quadros.telas
 
-    // De quem já chegou imagem. Muda quando uma transmissão começa ou acaba, e é o que a
-    // interface deve olhar para decidir o que existe no palco.
     val quemTemTela = sidecar.quadros.quemTransmite
 
     companion object {
-        /**
-         * O ENDEREÇO DA PRÓPRIA TELA no mapa de quadros.
-         *
-         * Vazio porque é o que o protocolo do cano já dizia desde o começo: "`Par` vazio
-         * significa EU" (ver `ponte.go`). A prévia entrou por essa porta que já existia
-         * em vez de abrir outra — nenhum campo novo, nenhum formato novo, e o mesmo
-         * shader desenha.
-         *
-         * Não colide com id de gente: id de usuário nunca é vazio.
-         */
         const val EU = ""
     }
 
-    // Quem ANUNCIOU que está transmitindo, o que é diferente de quem já mandou quadro.
-    // A diferença dura um instante — o descompressor precisa da sequência de parâmetros
-    // e de um quadro-chave antes de abrir imagem —, e é justamente esse instante que
-    // permite mostrar "abrindo a tela de fulano" em vez de um retângulo preto.
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
     val mostrandoTela = _mostrandoTela.asStateFlow()
 
-    // AS TELAS DESTA MÁQUINA, com miniatura. Chega em resposta a `pedirMonitores`, que a
-    // janela de escolha dispara ao abrir — amostrar custa uma duplicação por monitor.
-    // Nula enquanto a resposta não chegou, e a janela usa isso para mostrar que está
-    // procurando em vez de dizer que não há tela nenhuma.
     private val _monitores = MutableStateFlow<List<MonitorDaTela>?>(null)
     val monitores = _monitores.asStateFlow()
 
-    // ---- o que ele guarda para chegar naquilo ----
-
-    // Concorrentes porque mexem neles o laço de presença, o aviso de socket e os
-    // eventos do sidecar — três origens, em corrotinas diferentes.
     private val conectados = ConcurrentHashMap.newKeySet<String>()
 
-    // Estado da conexão com cada par, como o Pion o reporta.
     private val estadoDoPar = ConcurrentHashMap<String, String>()
 
-    // Quem está falando agora. String vazia sou eu — é a convenção da ponte, e ela
-    // existe porque o processo de voz não sabe (nem precisa saber) o meu id.
     private val falando = ConcurrentHashMap.newKeySet<String>()
 
-    // Quantas vezes seguidas tentamos refazer a conexão com cada pessoa. Zera assim
-    // que ela conecta — é o que faz a espera voltar a ser curta depois de uma queda
-    // isolada, em vez de carregar para sempre a punição de um problema já resolvido.
     private val tentativas = ConcurrentHashMap<String, Int>()
 
-    // Uma corrotina por pessoa esperando para agir sobre a queda dela. Guardadas
-    // para poder cancelar: a conexão que volta sozinha tem de cancelar o resgate que
-    // estava a caminho, senão o resgate derruba justamente o que acabou de sarar.
     private val resgates = ConcurrentHashMap<String, Job>()
 
     @Volatile private var salaAtual: String? = null
@@ -166,10 +92,6 @@ class CallEmMalha(
         salaAtual = null
         pronto = false
 
-        // A TELA PARA JUNTO. Sair da call sem parar a transmissão deixaria a captura
-        // e o compressor rodando — placa ocupada e a luz de "transmitindo" acesa numa
-        // sala de que a pessoa já saiu. O processo cai logo depois e resolveria isso
-        // sozinho, mas depender disso é depender de um efeito colateral.
         if (_transmitindo.value) pararDeTransmitir()
 
         socket.voiceLeave(sala)
@@ -178,60 +100,34 @@ class CallEmMalha(
         estadoDoPar.clear()
         falando.clear()
         tentativas.clear()
-        // Resgate pendente de uma call que acabou reabriria conexão numa sala de que
-        // já se saiu. Cancelar aqui é o que impede o fantasma.
         resgates.values.forEach { it.cancel() }
         resgates.clear()
 
         tarefas.forEach { it.cancel() }
         tarefas.clear()
         sidecar.parar()
-        // O PALCO VOLTA A "NÃO DISSEMOS NADA" junto com o processo de voz, que é onde ele
-        // também volta. Deixá-lo em "ninguém" faria a próxima call engolir o primeiro
-        // aviso como repetição — e o processo novo, que não ouviu nada, decodificaria tudo.
         noPalco = null
 
         _inicio.value = null
         _status.value = VoiceStatus.Closed
     }
 
-    // Os dois nomes que a VoiceSession usa. `podeFalar` é o contrário de mudo — a
-    // sessão raciocina em "pode falar" (mudo + apertar-para-falar somados) e o
-    // processo de voz raciocina em "está mudo".
     fun setMic(podeFalar: Boolean) {
         sidecar.mudo(!podeFalar)
-        // Fechar o microfone apaga o meu indicador na hora. Esperar o sidecar
-        // perceber o silêncio levaria a espera inteira do detector, e o círculo
-        // ficaria aceso quase meio segundo depois de eu já estar mudo.
         if (!podeFalar && falando.remove("")) publicar()
     }
 
     fun setEnsurdecido(on: Boolean) = sidecar.surdo(on)
 
-    // ---- transmissão de tela ----
-
     fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) {
         sidecar.transmitir(monitor, largura, altura, fps, kbps)
     }
 
-    // Pede as telas desta máquina. LIMPA A LISTA ANTERIOR antes de pedir: sem isso, a
-    // janela reabriria mostrando a miniatura da última vez — imagem velha apresentada
-    // como se fosse o que está na tela agora, que é pior do que não mostrar nada.
     fun pedirMonitores() {
         _monitores.value = null
         sidecar.pedirMonitores()
     }
 
-    // QUAL TELA O PALCO ESTÁ MOSTRANDO — e, por tabela, qual vale a pena decodificar.
-    //
-    // Quem chama é a `VoiceView`, no efeito preso ao palco: a cada troca, e uma vez com
-    // nulo quando ela sai de cena. Sair de cena é o caso que mais pesa — trocar a sala de
-    // voz por uma conversa de texto sem largar a chamada desmonta a tela inteira, e sem
-    // este aviso a máquina seguiria decodificando imagem para uma janela que não existe.
-    //
-    // GUARDA O ÚLTIMO E NÃO REPETE: a `VoiceView` recompõe por qualquer motivo, e mandar
-    // a mesma ordem dezenas de vezes por segundo entupiria a ponte que carrega o aperto
-    // de mão da call.
     fun assistir(par: String?) {
         val alvo = par.orEmpty()
         if (alvo == noPalco) return
@@ -239,42 +135,18 @@ class CallEmMalha(
         sidecar.assistir(par)
     }
 
-    // NULO É "AINDA NÃO DISSEMOS NADA", e não "ninguém" — os dois valores existem e são
-    // diferentes dos dois lados da ponte.
-    //
-    // Se aqui começasse em string vazia, entrar numa call e a `VoiceView` mandar o
-    // primeiro "ninguém" seria suprimido como repetição, o processo de voz continuaria em
-    // "o Astra não disse nada" e decodificaria tudo. O bug seria invisível: a imagem
-    // apareceria certinha, só custando o que esta fatia existe para não custar.
     @Volatile private var noPalco: String? = null
 
     fun pararDeTransmitir() {
-        // APAGA AQUI, sem esperar a confirmação — ao contrário de acender.
-        //
-        // A assimetria é de propósito: acender cedo promete o que ainda não existe;
-        // apagar cedo cumpre na hora o que a pessoa pediu. Quem aperta "parar" quer
-        // parar de mostrar a tela AGORA, e o evento de volta só confirma.
         _transmitindo.value = false
         Transmitindo.marcar(false)
         _relatorioDaTela.value = ""
         sidecar.pararDeTransmitir()
     }
 
-    // ---- aparelhos ----
-
-    // A ESCOLHA FICA GUARDADA AQUI, e não só enviada.
-    //
-    // O processo de voz pode reiniciar no meio da call (é justamente para isso que
-    // ele é um processo à parte). Quando volta, ele volta com o aparelho padrão do
-    // Windows — a escolha da pessoa mora do lado de cá. Sem reenviar no `pronto`, a
-    // primeira queda do processo desfaria silenciosamente a configuração dela.
     @Volatile private var microfoneEscolhido: String? = null
     @Volatile private var saidaEscolhida: String? = null
 
-    // O tratamento do microfone entra na MESMA regra dos aparelhos, e pelo mesmo
-    // motivo: o processo de voz volta do zero quando cai, e volta nos padrões dele.
-    // Quem desligou algo de propósito veria a escolha se desfazer sozinha, sem nada
-    // na tela mudando — o pior tipo de defeito, o que se desmancha sem aviso.
     @Volatile private var eco = true
     @Volatile private var ruido = true
     @Volatile private var ganho = true
@@ -291,7 +163,6 @@ class CallEmMalha(
         sidecar.usarAparelho("saida", id)
     }
 
-    // Chamado pela sessão ao entrar, com o que estava salvo nas preferências.
     fun lembrarAparelhos(microfone: String?, saida: String?) {
         microfoneEscolhido = microfone
         saidaEscolhida = saida
@@ -303,8 +174,6 @@ class CallEmMalha(
         this.ganho = ganho
     }
 
-    // Mudança em plena call. Guarda E manda: guardar sozinho não teria efeito agora,
-    // mandar sozinho se perderia na próxima queda do processo.
     fun definirTratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) {
         lembrarTratamento(eco, ruido, ganho)
         sidecar.tratamento(eco, ruido, ganho)
@@ -313,21 +182,11 @@ class CallEmMalha(
     private fun aplicarPreferencias() {
         microfoneEscolhido?.let { sidecar.usarAparelho("entrada", it) }
         saidaEscolhida?.let { sidecar.usarAparelho("saida", it) }
-        // SEMPRE, e não só quando difere do padrão do processo. Os padrões dos dois
-        // lados não coincidem — o objeto do Windows nasce com o ganho automático
-        // DESLIGADO e o Astra mostra ele ligado — e "mandar só o que mudou" exigiria
-        // manter aqui uma cópia fiel dos padrões de lá. Cópia de padrão alheio é a
-        // coisa que envelhece errado em silêncio.
         sidecar.tratamento(eco, ruido, ganho)
     }
 
     fun dispose() = sair()
 
-    // ---- as três fontes de "quem está na sala" ----
-
-    // Renova a marca a cada 20 segundos. O servidor derruba quem para de renovar em
-    // 60 — três tentativas de folga, para que um engasgo de rede não tire ninguém
-    // da call por acidente.
     private suspend fun manterPresenca(channelId: String) {
         while (true) {
             delay(20_000)
@@ -361,9 +220,6 @@ class CallEmMalha(
         }
     }
 
-    // Acerta o conjunto conectado com a lista de verdade: abre com quem falta e
-    // fecha com quem sobrou. É a única função que precisa saber das duas coisas ao
-    // mesmo tempo, e por isso a reconciliação vive num lugar só.
     private fun reconciliar(naSala: List<String>) {
         val devidos = naSala.filter { it != meuId }.toSet()
         for (id in devidos - conectados) abrirCom(id)
@@ -373,18 +229,6 @@ class CallEmMalha(
     private fun abrirCom(outro: String) {
         if (conectados.contains(outro)) return
 
-        // SÓ CONTA COMO CONECTADO SE A ORDEM SAIU DE VERDADE.
-        //
-        // O processo de voz demora um instante para subir, e comando mandado antes
-        // disso não vai a lugar nenhum — some em silêncio. Se marcássemos a pessoa
-        // como conectada mesmo assim, a conferência seguinte veria "já está lá" e
-        // NUNCA tentaria de novo: um par mudo para o resto da call, sem erro em
-        // lugar nenhum. Registrar só o que saiu faz a próxima volta consertar.
-        //
-        // QUEM OFERECE É DECIDIDO PELO ID, e a regra é a mesma dos dois lados. Sem
-        // regra, os dois ofereceriam ao mesmo tempo assim que se vissem, e as duas
-        // ofertas colidiriam — o encontro de ofertas, que produz uma conexão que
-        // nunca fecha. Comparar os ids resolve sem nenhuma troca de mensagem.
         if (!sidecar.conectar(meuId, outro)) return
         conectados.add(outro)
         publicar()
@@ -396,42 +240,21 @@ class CallEmMalha(
         falando.remove(outro)
         tentativas.remove(outro)
         resgates.remove(outro)?.cancel()
-        // A TELA DELE SAI JUNTO, e é obrigatório: quem cai não manda o aviso de que
-        // parou de transmitir, então sem isto a última imagem ficaria congelada no palco
-        // de alguém que já foi embora — parecendo ao vivo.
         _mostrandoTela.value = _mostrandoTela.value - outro
         sidecar.quadros.esquecer(outro)
         sidecar.desconectar(outro)
         publicar()
     }
 
-    // ---- a conexão que cai no meio da call ----
-
-    // QUINZE SEGUNDOS É TEMPO DEMAIS PARA FICAR MUDO.
-    //
-    // A reconferência periódica já reabriria a conexão, mas só no próximo giro — e
-    // quinze segundos de alguém sumido é tempo suficiente para a pessoa concluir que
-    // a call quebrou e sair dela. O processo de voz já relata o estado de cada par;
-    // faltava alguém escutando.
     private fun aoMudarEstado(quem: String, estado: String) {
         when (estado) {
             "connected" -> {
-                // Voltou. Cancela o resgate a caminho e perdoa o histórico: uma queda
-                // isolada não pode deixar a próxima tentativa lenta para sempre.
                 resgates.remove(quem)?.cancel()
                 tentativas.remove(quem)
             }
 
-            // O ICE desistiu. Não volta sozinho — só refazendo.
             "failed" -> agendarResgate(quem, imediato = true)
 
-            // ESPERAR ANTES DE AGIR, e essa espera é o ponto.
-            //
-            // `disconnected` é quase sempre passageiro: uma troca de rede, um pico de
-            // perda, o Wi-Fi hesitando. O ICE se recupera sozinho na maior parte das
-            // vezes. Derrubar e refazer na primeira suspeita transformaria um engasgo
-            // de dois segundos numa reconexão completa — trocar um tropeço por uma
-            // queda.
             "disconnected" -> agendarResgate(quem, imediato = false)
         }
     }
@@ -441,30 +264,16 @@ class CallEmMalha(
         resgates.remove(quem)?.cancel()
 
         val n = tentativas.merge(quem, 1) { a, b -> a + b } ?: 1
-        // Espera crescente com teto: 1s, 2s, 4s, 8s, e daí em diante 10s. Sem o
-        // crescimento, um par que falha por um motivo permanente (rede que não deixa)
-        // viraria um laço de refazer conexão sem parar, gastando processador para
-        // não resolver nada.
         val espera = if (imediato) (1_000L shl (n - 1).coerceAtMost(3)).coerceAtMost(10_000L)
         else 6_000L
 
         resgates[quem] = scope.launch {
             delay(espera)
-            // Confere de novo DEPOIS de esperar: nesse meio-tempo a pessoa pode ter
-            // saído da call, ou a conexão pode ter voltado sozinha.
             if (salaAtual == null || !conectados.contains(quem)) return@launch
             if (estadoDoPar[quem] == "connected") return@launch
 
             VoiceLog.nota("[call] refazendo a conexão com $quem (tentativa $n)")
 
-            // Fecha e reabre em vez de remendar. Refazer do zero é o caminho que já
-            // sabemos que funciona — é o mesmo que acontece quando alguém entra na
-            // sala — e não depende de o outro lado cooperar com uma renegociação.
-            //
-            // Os dois lados detectam a queda e refazem, mas isso não gera colisão: a
-            // regra de quem oferece continua sendo o id menor, e quem receber uma
-            // oferta de alguém que não está mais no conjunto abre a conexão ao
-            // recebê-la (ver `ouvirSinais`).
             conectados.remove(quem)
             estadoDoPar.remove(quem)
             falando.remove(quem)
@@ -474,8 +283,6 @@ class CallEmMalha(
         }
     }
 
-    // ---- a ponte de sinalização, nos dois sentidos ----
-
     private suspend fun ouvirSinais() {
         socket.sinalRtc.collect { cru ->
             val o = runCatching { json.parseToJsonElement(cru).jsonObject }.getOrNull() ?: return@collect
@@ -483,10 +290,6 @@ class CallEmMalha(
             val tipo = o["tipo"]?.jsonPrimitive?.content ?: return@collect
             val dados = o["dados"]?.jsonPrimitive?.content ?: return@collect
 
-            // Oferta de quem ainda não conhecemos ABRE a conexão em vez de ser
-            // descartada. Acontece de verdade: quem entrou depois pode nos ver antes
-            // de nós o vermos, porque as três fontes de presença não chegam na mesma
-            // ordem para os dois lados.
             abrirCom(de)
             sidecar.repassarSinal(de, tipo, dados)
         }
@@ -498,15 +301,8 @@ class CallEmMalha(
                 "pronto" -> {
                     pronto = true
                     if (_inicio.value == null) _inicio.value = System.currentTimeMillis()
-                    // O aparelho escolhido e a lista, nesta ordem: aplicar primeiro
-                    // evita a call abrir alguns segundos no microfone errado.
                     aplicarPreferencias()
                     sidecar.pedirAparelhos()
-                    // CONFERIR AGORA, e não daqui a quinze segundos. Este é o único
-                    // instante em que sabemos que os comandos passam a chegar — e
-                    // tudo que foi tentado antes disso se perdeu. Esperar o giro
-                    // normal seria entrar numa call e ficar quinze segundos em
-                    // silêncio sem nada explicando por quê.
                     salaAtual?.let { sala -> scope.launch { conferir(sala) } }
                     publicar()
                 }
@@ -534,9 +330,6 @@ class CallEmMalha(
                         _mostrandoTela.value = _mostrandoTela.value + quem
                     } else {
                         _mostrandoTela.value = _mostrandoTela.value - quem
-                        // ESQUECER O QUADRO JUNTO. Sem isto, a última imagem de quem
-                        // parou de transmitir ficaria congelada na tela para sempre —
-                        // pior que não mostrar nada, porque parece que ainda está ao vivo.
                         sidecar.quadros.esquecer(quem)
                     }
                 }
@@ -546,27 +339,13 @@ class CallEmMalha(
                     Transmitindo.marcar(noAr)
                     when {
                         !noAr -> { comoSubiu = ""; porQueCaiu = ""; _relatorioDaTela.value = "" }
-                        // O relatório por segundo se soma ao que subiu, e não o
-                        // substitui: sem o nome do compressor a pessoa vê "14 fps" e
-                        // não tem como saber se caiu para software.
                         ev.tipo == "ritmo" -> _relatorioDaTela.value =
                             listOf(comoSubiu, ev.msg.orEmpty(), porQueCaiu)
                                 .filter { it.isNotBlank() }.joinToString(" · ")
-                        // POR QUE A TAXA CAIU — dito uma vez pelo emissor, GUARDADO aqui.
-                        //
-                        // É a única explicação que existe para uma transmissão não estar
-                        // na taxa escolhida, e ela chega uma vez só, no aquecimento.
-                        // Enquanto vinha como "ritmo", o relatório do segundo seguinte a
-                        // apagava — a causa aparecia por um segundo e o que sobrava era um
-                        // número baixo sem motivo. Guardada, ela acompanha a linha
-                        // enquanto a transmissão durar.
                         ev.tipo == "taxa" -> {
                             porQueCaiu = ev.msg.orEmpty()
                             VoiceLog.nota("[tela] taxa rebaixada: $porQueCaiu")
                         }
-                        // O perfil é diagnóstico, não recado: vai pro registro e não
-                        // pra tela. Quem precisa dele é quem for escrever o
-                        // decodificador, não quem está compartilhando a tela.
                         ev.tipo == "perfil" -> VoiceLog.nota("[tela] perfil no fluxo: ${ev.msg}")
                         else -> {
                             comoSubiu = listOf(ev.tipo.orEmpty(), ev.msg.orEmpty())
@@ -577,24 +356,16 @@ class CallEmMalha(
                     }
                 }
                 "fala" -> {
-                    // Par vazio sou eu — a convenção da ponte.
                     val quem = ev.par.orEmpty()
                     val mudou = if (ev.valor == "1") falando.add(quem) else falando.remove(quem)
                     if (mudou) publicar()
                 }
                 "caiu" -> {
-                    // O processo voltou do zero: ele não tem mais conexão nenhuma.
-                    // Esquecer quem estava conectado faz a próxima conferência
-                    // reabrir tudo — sem isto, o conjunto diria "já conectado" e a
-                    // call ficaria muda para sempre depois de um reinício.
                     pronto = false
                     conectados.clear()
                     estadoDoPar.clear()
                     falando.clear()
                     tentativas.clear()
-                    // Os resgates em voo miravam conexões de um processo que não
-                    // existe mais. Quem refaz tudo agora é o `pronto`, que vem a
-                    // seguir e dispara uma conferência inteira.
                     resgates.values.forEach { it.cancel() }
                     resgates.clear()
                     publicar()
@@ -602,16 +373,11 @@ class CallEmMalha(
                 }
                 "erro" -> {
                     VoiceLog.nota("[call] erro: ${ev.msg}")
-                    // Erro do sidecar não derruba a call: pode ser um fone que caiu
-                    // no meio, e as conexões continuam de pé. Quem decide desistir é
-                    // a pessoa, não o log.
                 }
             }
         }
     }
 
-    // Monta o retrato que a tela lê. Chamado só quando algo mudou de verdade — a
-    // detecção de fala já chega aqui como transição, não como nível.
     private fun publicar() {
         if (salaAtual == null) return
 
@@ -619,12 +385,6 @@ class CallEmMalha(
             VoiceParticipant(identity = id, label = id, speaking = falando.contains(id))
         }
 
-        // "A VOZ ESTÁ PASSANDO" É DIFERENTE DE "ESTOU NA SALA".
-        //
-        // Sozinho na sala, passando: não há a quem ouvir, e nada está errado. Com
-        // gente e nenhum par conectado, a tela precisa dizer isso — é exatamente a
-        // falha que a pessoa está sentindo quando ninguém a escuta, e chamar aquilo
-        // de "conectado" esconde a única pista que ela tinha.
         val vozPassando = pronto &&
             (conectados.isEmpty() || estadoDoPar.values.any { it == "connected" })
 

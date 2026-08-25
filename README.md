@@ -15,6 +15,12 @@ enquetes, busca, notificações, XP e missões.
 O desktop é onde o trabalho acontece hoje. O web ficou congelado depois de servir
 de mapa: o que ele já resolvia virou o alvo de paridade dos clientes nativos.
 
+> **Antes de mexer no código, leia [`anotações.md`](anotações.md).** O código-fonte
+> não tem comentários: o *porquê* de cada decisão mora lá — as medições, as
+> armadilhas, e os caminhos que foram tentados e não deram certo. Esse último grupo
+> é o que não se recupera lendo o código, e é onde se perde uma tarde refazendo uma
+> tentativa que já falhou.
+
 ---
 
 ## Stack

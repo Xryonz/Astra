@@ -2,9 +2,6 @@ package app.astra.mobile.feature.server.domain.model
 
 import androidx.compose.runtime.Immutable
 
-// @Immutable: so era instavel pelas List<> internas (channels/categories); as
-// instancias sao recriadas a cada update, nunca mutadas -> promessa verdadeira.
-// Destrava skip nos composables que recebem Server (rail, chips do perfil).
 @Immutable
 data class Server(
     val id: String,

@@ -23,11 +23,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.emoji2.emojipicker.EmojiPickerView
 import app.astra.mobile.ui.theme.astraColors
 
-/**
- * Grade oficial de emojis (androidx.emoji2-emojipicker: busca, categorias,
- * recentes — igual Gboard) no painel editorial do app (mesmo padrao do GifPicker:
- * scrim + folha inferior). View clássica embrulhada em AndroidView.
- */
 @Composable
 fun EmojiPickerSheet(
     onPick: (String) -> Unit,

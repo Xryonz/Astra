@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Tela de diagnostico: aparece no launch seguinte a um crash, com o stacktrace pra copiar. */
 @Composable
 fun CrashScreen(trace: String, onDismiss: () -> Unit) {
     val clip = LocalClipboardManager.current

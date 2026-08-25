@@ -1,8 +1,3 @@
-// Modulo de TESTE que gera o Baseline Profile do :app rodando o journey de
-// startup num device real (fluxo manual: o plugin androidx.baselineprofile
-// quebra o KSP na variante nonMinified que ele cria com o AGP 9 em modo
-// legado; aqui usamos um build type "benchmark" comum + BaselineProfileRule
-// e copiamos o txt gerado pra app/src/main/baseline-prof.txt).
 @file:Suppress("DEPRECATION", "DEPRECATION_ERROR")
 
 plugins {
@@ -29,11 +24,8 @@ android {
     }
 
     buildTypes {
-        // Casa com o build type "benchmark" do :app (mesmo nome = match direto).
         create("benchmark") {
             isDebuggable = true
-            // Build type custom NAO herda assinatura: sem isso o APK de teste
-            // sai sem certificado e o install falha (INSTALL_PARSE_FAILED_NO_CERTIFICATES).
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }

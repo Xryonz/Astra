@@ -48,8 +48,6 @@ data class ChannelChatUiState(
     val editHistory: List<MessageEdit>? = null,
     val editHistoryLoading: Boolean = false,
 
-    // Pref de notificacao DESTE canal: "all"/"mentions"/"mute"; null = herda do
-    // servidor (sem pref explicita).
     val notifMode: String? = null,
 )
 
@@ -87,8 +85,6 @@ class ChannelChatViewModel @Inject constructor(
         }
     }
 
-    // mode null = "padrao do servidor" (remove a pref explicita). Otimista:
-    // atualiza a UI antes da rede; erro reverte pro que o servidor conhecia.
     fun setNotifMode(mode: String?) {
         val previous = _state.value.notifMode
         _state.update { it.copy(notifMode = mode) }

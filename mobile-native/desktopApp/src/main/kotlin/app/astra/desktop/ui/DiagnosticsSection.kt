@@ -40,17 +40,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-// "O que o app esta vendo AGORA".
-//
-// Existe por um motivo especifico: quase todo bug daqui chegou como "não
-// funciona pra mim" — e sem nada pra olhar, a unica saida era adivinhar. O caso
-// que doeu: o áudio escolhia o dispositivo errado e ninguem tinha como ver QUAL
-// ele tinha escolhido. Esta aba responde as perguntas que separam "o aviso nunca
-// chegou" de "chegou e o app ignorou", que são problemas em pontas opostas.
-//
-// So LE estado — não muda nada. O botao de copiar existe pra a resposta caber
-// numa mensagem, quando quem esta com o problema e outra pessoa.
-
 private val HORA = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
 @Composable
@@ -59,15 +48,12 @@ internal fun DiagnosticsSection() {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
-    // Redesenha sozinho: diagnostico congelado engana mais do que ajuda.
     var tick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(1000); tick++ } }
 
     val connected = remember(tick) { socket.isConnected() }
     val (channels, dms, servers) = remember(tick) { socket.joinedRooms() }
     val events = remember(tick) { socket.recentEvents().asReversed() }
-    // Dispositivos: enumerar abre um modulo de audio temporario, entao NAO entra
-    // no tick de 1s — so na abertura da aba.
     val outputs = remember { runCatching { AudioDevices.outputs() }.getOrDefault(emptyList()) }
     val inputs = remember { runCatching { AudioDevices.inputs() }.getOrDefault(emptyList()) }
 
@@ -79,8 +65,6 @@ internal fun DiagnosticsSection() {
     Column(Modifier.fillMaxWidth()) {
         DiagTitle("conexão")
         DiagRow("socket", if (connected) "conectado" else "DESCONECTADO", ok = connected)
-        // O motivo importa mais que o estado: token vencido, servidor dormindo e
-        // rede caida parecem iguais aqui e tem conserto totalmente diferente.
         if (!connected) {
             remember(tick) { socket.lastError() }?.let { motivo ->
                 DiagRow("motivo", motivo.take(60), ok = false)
@@ -98,8 +82,6 @@ internal fun DiagnosticsSection() {
         Spacer(Modifier.height(18.dp))
         DiagTitle("última call (passo a passo)")
         Spacer(Modifier.height(6.dp))
-        // "Ninguém me escuta" pode quebrar em oito lugares e todos soam igual:
-        // silêncio. Aqui dá pra ver ATÉ ONDE chegou — o passo que faltar é o culpado.
         val passos = remember(tick) { VoiceLog.linhas().asReversed() }
         if (passos.isEmpty()) {
             Text(
@@ -208,10 +190,6 @@ internal fun DiagnosticsSection() {
     }
 }
 
-// Mesmo passo a passo da call, mas pra QUALQUER pessoa (a aba de Diagnóstico só
-// existe pra dev). Fica em Configurações > Voz porque é ali que a pessoa vai
-// procurar quando ninguém a escutar — e porque quem mais precisa disto é o amigo
-// do outro lado, que não tem como abrir o app em modo dev.
 @Composable
 internal fun VoicePassos() {
     val clipboard = LocalClipboardManager.current

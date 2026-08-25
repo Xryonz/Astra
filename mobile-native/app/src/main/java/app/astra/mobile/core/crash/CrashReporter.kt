@@ -7,11 +7,6 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.Date
 
-/**
- * Rede de seguranca: captura excecoes nao tratadas (inclui crashes de composicao),
- * grava o stacktrace em arquivo e deixa o processo morrer normalmente. No proximo
- * launch o app le esse arquivo e mostra a CrashScreen pro user copiar o erro.
- */
 object CrashReporter {
     private const val FILE = "last_crash.txt"
 

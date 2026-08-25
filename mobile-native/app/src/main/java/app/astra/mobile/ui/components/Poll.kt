@@ -49,8 +49,6 @@ import zed.rainxch.rikkaui.components.ui.input.Input
 import zed.rainxch.rikkaui.components.ui.input.InputAnimation
 import kotlin.math.roundToInt
 
-// @Immutable: instavel so pela List<PollOptionUi>; PollUi e recriado a cada
-// poll_updated, nunca mutado -> destrava skip no MessageBubble/PollCard.
 @Immutable
 data class PollUi(
     val question: String,

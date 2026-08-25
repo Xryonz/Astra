@@ -37,8 +37,6 @@ import androidx.compose.ui.window.PopupProperties
 import app.astra.mobile.core.network.dto.UserBadgesDto
 import app.astra.mobile.ui.theme.astraColors
 
-// Badge pronta pra UI: globais (Pioneiro/Bot) vem sem origem; as de servidor
-// carregam o nome da constelacao que concedeu.
 data class BadgeUi(
     val id: String,
     val name: String,
@@ -58,9 +56,6 @@ private fun parseBadgeColor(raw: String?): Color? {
     return runCatching { Color("FF$h".toLong(16)) }.getOrNull()
 }
 
-// Badges so-icone (escolha do user): capsula circular com o emoji, borda na cor
-// da badge. Tocar abre um mini-card ancorado LOGO ABAIXO da badge (popover, nao
-// dialog central) com titulo + descricao + origem; toca fora, fecha.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BadgeChips(badges: List<BadgeUi>, modifier: Modifier = Modifier) {
@@ -125,8 +120,6 @@ private fun BadgePopover(b: BadgeUi) {
     }
 }
 
-// Posiciona o popover colado abaixo da badge (left-alinhado), preso na janela;
-// se estourar embaixo, vira pra cima.
 private class BelowAnchor(private val gapPx: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,

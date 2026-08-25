@@ -28,31 +28,6 @@ import org.jetbrains.skia.FilterMipmap
 import org.jetbrains.skia.Shader
 import org.jetbrains.skia.FilterTileMode
 
-// A TELA DE OUTRA PESSOA, DESENHADA — o fim do caminho que começa na placa dela.
-//
-// O QUADRO CHEGA EM NV12, e é de propósito. O decodificador do Windows não oferece RGB, e
-// converter no caminho custaria CPU: uma volta por pixel em 720p são 921 mil iterações
-// por quadro, umas trinta vezes por segundo. Medido no papel: 10 a 18% de um núcleo só
-// para trocar o arranjo das cores, numa máquina que já está decodificando.
-//
-// AQUI A PLACA FAZ ISSO DE GRAÇA. O NV12 sobe como duas imagens de um canal só — o brilho
-// e a cor — e a conversão acontece no shader, um pixel por vez, em paralelo. O que a CPU
-// paga é copiar 1,4 MB por quadro em vez de converter 921 mil pixels; a diferença é de
-// uma ordem de grandeza, e a máquina fraca é justamente quem vai assistir.
-//
-// E A BANDA ENTRE OS PROCESSOS CAI JUNTO: NV12 é 1,5 byte por pixel contra 4 do BGRA. Em
-// 720p são 1,3 MB por quadro em vez de 3,5 MB. A escolha do formato paga duas vezes.
-//
-// COMO O NV12 É ARRUMADO, porque o shader depende disso e não é óbvio:
-//
-//	brilho (Y)   uma amostra POR PIXEL — `altura` linhas de `passo` bytes
-//	cor (UV)     uma amostra a cada 2x2 pixels, com U e V ALTERNADOS na mesma linha —
-//	             `altura/2` linhas de `passo` bytes, logo depois do brilho
-//
-// Ou seja: a linha de cor tem o mesmo comprimento em BYTES da linha de brilho, mas
-// metade dos pixels, porque cada pixel de cor ocupa dois bytes. É por isso que a conta de
-// coluna no shader é `floor(x/2)*2` e não `x/2`.
-
 private const val SKSL_NV12 = """
 uniform shader brilho;
 uniform shader cor;
@@ -86,61 +61,20 @@ half4 main(float2 p) {
 }
 """
 
-/**
- * Desenha a tela de [de], lida de [fonte], preenchendo o espaço sem distorcer.
- *
- * NADA É DESENHADO enquanto não houver quadro — quem chama decide o que pôr no lugar.
- * Este componente não inventa estado vazio: ele sabe desenhar imagem, e só.
- *
- * ---- RECEBE O FLUXO, E NÃO O QUADRO, E ISSO É O PONTO DO ARQUIVO ----
- *
- * Um parâmetro `quadro: QuadroDeTela?` obrigaria quem chama a observar o mapa de quadros
- * na COMPOSIÇÃO, e aí trinta quadros por segundo viram trinta recomposições por segundo
- * de tudo que estiver naquele escopo. Era o que acontecia: a tela de chamada inteira — a
- * legenda, a faixa de participantes, a conta de quem está no palco — refeita a cada quadro
- * que chegava de qualquer pessoa, para desenhar uma imagem que o Skia já sabia desenhar
- * sozinho.
- *
- * Aqui o quadro vive num estado que é lido SÓ dentro do `drawBehind`. O Compose registra
- * leitura por fase: um estado lido apenas no desenho invalida apenas o desenho — a
- * composição e o layout nem acordam. O vídeo passa a custar o que um vídeo custa.
- *
- * O par [fonte] + [de] em vez do quadro pronto também mantém a conta certa quando três
- * pessoas transmitem: o mapa muda a cada quadro de QUALQUER uma delas, mas `it[de]`
- * devolve a MESMA instância para quem não mandou nada, e igualdade estrutural segura a
- * invalidação ali mesmo.
- */
 @Composable
 fun TelaCompartilhada(
     fonte: StateFlow<Map<String, QuadroDeTela>>,
     de: String,
     modifier: Modifier = Modifier,
 ) {
-    // Não é `collectAsState()` de propósito: aquele devolveria um `State` lido na
-    // composição, que é exatamente o custo que este componente existe para não pagar.
-    //
-    // NASCE COM O QUADRO QUE JÁ EXISTE, e a chave é `de`. O `LaunchedEffect` só roda
-    // DEPOIS do primeiro desenho, então começar em nulo pintaria um quadro preto antes da
-    // imagem — e, na troca de palco, um lampejo da tela da pessoa ANTERIOR, que é bem pior
-    // que preto. Ler o valor atual do fluxo aqui fecha os dois casos de uma vez.
     val quadro = remember(de) { mutableStateOf(fonte.value[de]) }
     LaunchedEffect(fonte, de) {
         fonte.collect { quadro.value = it[de] }
     }
-    // O EFEITO E O CONSTRUTOR VIVEM ENQUANTO O COMPONENTE VIVER. Compilar SkSL custa, e
-    // recompilar por quadro seria pagar isso trinta vezes por segundo — o mesmo erro que
-    // a aurora cometeu e que foi medido lá em 0,29 de núcleo com a tela parada.
     val efeito = remember { runCatching { RuntimeEffect.makeForShader(SKSL_NV12.trimIndent()) }.getOrNull() }
     val construtor = remember(efeito) { efeito?.let { RuntimeShaderBuilder(it) } }
     val tinta = remember { Paint() }
 
-    // As peças nativas do quadro anterior, guardadas para serem FECHADAS na hora.
-    //
-    // Cada quadro cria duas imagens e um shader do Skia, e nenhum deles é memória da
-    // JVM: some quando o coletor roda o limpador, em lote, muito depois. A 30 quadros por
-    // segundo isso vira um engasgo periódico com cara de "a imagem cortou do nada" — foi
-    // exatamente esse o defeito da aurora. Fechar o anterior antes de trocar torna a
-    // liberação determinística.
     val anteriores = remember { arrayOfNulls<AutoCloseable>(5) }
     DisposableEffect(Unit) {
         onDispose {
@@ -153,18 +87,9 @@ fun TelaCompartilhada(
         if (construtor == null) return@Box
         Box(
             Modifier.fillMaxSize().drawBehind {
-                // A ÚNICA LEITURA DO ESTADO, e ela está aqui dentro por isso mesmo. Subir
-                // esta linha para a composição desfaz o arquivo inteiro em silêncio: nada
-                // quebra, a imagem continua certa, e o custo volta.
                 val q = quadro.value ?: return@drawBehind
                 if (q.largura <= 0 || q.altura <= 0 || size.width <= 0f || size.height <= 0f) return@drawBehind
 
-                // O plano de brilho e o de cor são fatias do MESMO vetor, e viajam para o
-                // Skia por `Data` com deslocamento — não por `copyOfRange`. A diferença
-                // não é estilo: `copyOfRange` alocaria 1,4 MB na JVM por quadro, quarenta
-                // megabytes por segundo de lixo, no app em que já se lutou para segurar a
-                // memória. O `Data` copia uma vez, para dentro do Skia, e é a cópia que
-                // liberta o rodízio de vetores do cano a seguir em frente.
                 val bytesDoBrilho = q.passo * q.altura
                 val bytesDaCor = q.passo * (q.altura / 2)
                 if (q.dados.size < bytesDoBrilho + bytesDaCor) return@drawBehind
@@ -181,10 +106,6 @@ fun TelaCompartilhada(
                 }.getOrNull()
                 val cor = runCatching {
                     SkiaImage.makeRaster(
-                        // LARGURA CHEIA E ALTURA PELA METADE: a linha de cor tem o mesmo
-                        // comprimento em bytes da de brilho, mas cada pixel de cor ocupa
-                        // dois (U e V). Declarar metade da largura aqui faria o shader
-                        // ler a cor de um lugar que não existe.
                         ImageInfo(q.largura, q.altura / 2, ColorType.ALPHA_8, ColorAlphaType.OPAQUE),
                         dadosDaCor,
                         q.passo,
@@ -198,10 +119,6 @@ fun TelaCompartilhada(
                     return@drawBehind
                 }
 
-                // AMOSTRAGEM VIZINHA nos dois planos, e não linear. Interpolar aqui
-                // misturaria amostras de cor de blocos 2x2 vizinhos ANTES da conversão,
-                // e o resultado é franja colorida nas bordas de contraste — texto branco
-                // sobre fundo escuro, que é o conteúdo mais comum de tela compartilhada.
                 val vizinho = FilterMipmap(FilterMode.NEAREST, MipmapMode.NONE)
                 val sB = brilho.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP, vizinho)
                 val sC = cor.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP, vizinho)
@@ -209,11 +126,6 @@ fun TelaCompartilhada(
                 construtor.child("cor", sC)
                 val shader: Shader = construtor.makeShader()
 
-                // A ESCALA VAI NO CANVAS, e o retângulo é desenhado no tamanho do quadro.
-                // Assim as coordenadas que chegam ao shader são PIXELS DA IMAGEM, e as
-                // contas de plano de cor fecham em número inteiro. Escalar o retângulo em
-                // vez do canvas faria `p` chegar na escala da tela, e a conta de coluna
-                // passaria a pular ou repetir amostras conforme o tamanho da janela.
                 val escala = minOf(size.width / q.largura, size.height / q.altura)
                 val larguraFinal = q.largura * escala
                 val alturaFinal = q.altura * escala
@@ -228,10 +140,6 @@ fun TelaCompartilhada(
                     c.restore()
                 }
 
-                // FECHA OS CINCO DO QUADRO ANTERIOR, e os cinco importam: as duas imagens,
-                // os dois shaders que saem delas, e o shader do efeito. Esquecer os de
-                // dentro é o vazamento silencioso — eles não aparecem em heap nenhum
-                // porque não são memória da JVM.
                 for (i in anteriores.indices) {
                     anteriores[i]?.let { runCatching { it.close() } }
                 }

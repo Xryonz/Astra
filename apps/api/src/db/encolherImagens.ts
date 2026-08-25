@@ -3,40 +3,8 @@ import { Pool } from 'pg'
 import sharp from 'sharp'
 import { putAttachment, storageMode, storageFalta } from '../lib/storage'
 
-// BACKFILL: gera a versão de exibição das imagens que já estão no bucket.
-//
-// `persistImagemDeExibicao` só age em envio NOVO, então toda imagem que já existia
-// continua descendo em tamanho cheio — 1024px para desenhar um círculo de 22. Este script
-// passa por elas uma vez.
-//
-//   cd apps/api && npm run img:encolher          # SIMULA: diz o que faria, não muda nada
-//   cd apps/api && npm run img:encolher -- --vai  # executa de verdade
-//
-// SIMULA POR PADRÃO, e é deliberado: um backfill escreve no banco E no bucket, e é o tipo
-// de coisa que se roda uma vez, às pressas, no fim do dia. Ter de digitar `--vai` é o
-// atrito que separa "quero ver o que aconteceria" de "faz".
-//
-// ---- O que ele NÃO faz, e por quê ----
-//
-// NÃO APAGA NADA. A imagem antiga vira o valor da coluna `...FullUrl` e continua no
-// bucket. Isso custa espaço e é o preço de poder voltar atrás: se a versão pequena sair
-// ruim num caso que ninguém previu, o conserto é um UPDATE trocando as colunas de volta,
-// e não uma imagem perdida para sempre.
-//
-// NÃO TOCA EM /uploads/. Essas URLs apontam para o disco efêmero do Render e os arquivos
-// não existem mais (ver `diagnosticoDeImagens`). Baixar daria 404 e o único efeito seria
-// poluir o relatório com erro que não é erro deste script.
-//
-// NÃO TOCA EM GIF, pelo mesmo motivo do caminho de envio: esta configuração do `sharp`
-// devolveria só o primeiro quadro, e avatar que para de animar é regressão.
-//
-// NÃO TOCA EM HOST DE TERCEIRO (avatar do Google, por exemplo): não é nosso para
-// reprocessar, e nem sempre continua lá.
-
 const LADO_DE_EXIBICAO = 256
 
-// Os campos que passam por `persistImagemDeExibicao` no caminho de envio. Banner fica de
-// fora aqui pela mesma razão de lá: é desenhado grande.
 const ALVOS = [
   { tabela: 'User',   coluna: 'avatarUrl', par: 'avatarFullUrl' },
   { tabela: 'Server', coluna: 'iconUrl',   par: 'iconFullUrl' },
@@ -46,8 +14,6 @@ type Pendente = { id: string; url: string }
 
 async function baixar(url: string): Promise<Buffer | null> {
   try {
-    // Prazo curto: o backfill roda em lote, e uma URL que não responde não pode segurar
-    // a fila. Quem falhar fica para a próxima execução — o script é idempotente.
     const r = await fetch(url, { signal: AbortSignal.timeout(20_000) })
     if (!r.ok) return null
     return Buffer.from(await r.arrayBuffer())
@@ -67,19 +33,9 @@ async function main() {
   try {
     const u = new URL(url)
     console.log(`[ENCOLHER] banco: ${u.hostname}${u.pathname}`)
-  } catch { /* URL estranha: o Pool reclama melhor que eu */ }
+  } catch {  }
   console.log(vai ? '[ENCOLHER] MODO REAL — vai escrever.' : '[ENCOLHER] simulação (use --vai para executar).')
 
-  // SEM BUCKET, NÃO RODA — e esta guarda é a mais importante do arquivo.
-  //
-  // `putAttachment` tem um fallback para disco local, e ele é certo no servidor: melhor
-  // salvar em algum lugar do que recusar o upload de alguém. Aqui ele seria um DESASTRE
-  // silencioso. Rodando desta máquina sem as variáveis do bucket, cada imagem viraria uma
-  // URL `/uploads/...` gravada no banco de PRODUÇÃO, apontando para um arquivo que existe
-  // só neste computador. O resultado seria trocar imagens que funcionam por imagens
-  // quebradas — exatamente o defeito que este trabalho todo existe para consertar.
-  //
-  // Só os NOMES das variáveis que faltam são impressos; valor de credencial nunca.
   if (vai && storageMode === 'local') {
     console.error('')
     console.error('[ENCOLHER] ABORTANDO: o storage está em modo LOCAL, não no bucket.')
@@ -103,9 +59,6 @@ async function main() {
       continue
     }
 
-    // A COLUNA PAR VAZIA É A MARCA DE "ainda não passou por aqui". É também o que torna o
-    // script idempotente: rodar duas vezes não reprocessa nada, porque a segunda execução
-    // não encontra mais essas linhas.
     const { rows } = await pool.query<Pendente>(
       `SELECT id, "${alvo.coluna}" AS url FROM "${alvo.tabela}"
        WHERE "${alvo.coluna}" IS NOT NULL AND "${alvo.coluna}" <> ''
@@ -135,7 +88,6 @@ async function main() {
         continue
       }
 
-      // Mesma regra do caminho de envio: não vale guardar dois arquivos para servir o pior.
       if (pequeno.length >= bruto.length) {
         pulos++
         continue
@@ -147,9 +99,6 @@ async function main() {
 
       if (!vai) continue
 
-      // A ORDEM IMPORTA: sobe o arquivo ANTES de mexer no banco. Ao contrário, uma falha
-      // no meio deixaria a coluna apontando para um endereço que não existe — e aí a
-      // imagem some para todo mundo, que é bem pior que não ter encolhido.
       const chave = `${linha.id.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}_x${LADO_DE_EXIBICAO}.webp`
       const novaUrl = await putAttachment(chave, pequeno, 'image/webp')
       await pool.query(

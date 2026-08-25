@@ -96,7 +96,6 @@ fun UserProfileScreen(
                         )
 
                         Column(Modifier.padding(horizontal = 22.dp)) {
-                            // Recado (custom status) logo abaixo do nome, estilo Discord.
                             if (!p.customStatus.isNullOrBlank()) {
                                 Spacer(Modifier.height(14.dp))
                                 Text(

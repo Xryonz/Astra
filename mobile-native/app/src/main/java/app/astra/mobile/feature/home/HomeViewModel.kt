@@ -57,8 +57,6 @@ class HomeViewModel @Inject constructor(
     private val _serverCreated = MutableSharedFlow<Server>(extraBufferCapacity = 1)
     val serverCreated = _serverCreated.asSharedFlow()
 
-    // Prefs explicitas por canal (modo por channelId), pro toggle de servidor
-    // saber quais canais herdam (sem pref propria) na hora de recalcular local.
     private var channelPrefModes: Map<String, String> = emptyMap()
 
     init {
@@ -138,8 +136,6 @@ class HomeViewModel @Inject constructor(
                     myBio = me?.bio,
                     myPronouns = me?.pronouns,
                     myCreatedAt = me?.createdAt,
-                    // OFFLINE aqui = corrida (me() antes do socket registrar presenca);
-                    // pra voce mesmo isso vira ONLINE (nunca offline com o app aberto).
                     myStatus = me?.status?.takeUnless { it == UserStatus.OFFLINE } ?: UserStatus.ONLINE,
                     myCustomStatus = me?.customStatus,
                     needsOnboarding = me != null && me.onboardedAt == null,
@@ -148,7 +144,6 @@ class HomeViewModel @Inject constructor(
                 )
             }
 
-            // Minhas badges: best-effort fora do caminho critico do load.
             if (myId != null) {
                 launch {
                     runCatching { badgesApi.userBadges(myId).data?.toUi() }.getOrNull()?.let { b ->
@@ -159,8 +154,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Recado (custom status). Otimista; sucesso re-hidrata o cache do me()
-    // pra proxima leitura nao voltar o valor antigo.
     fun setCustomStatus(text: String) {
         val newVal = text.trim().take(100)
         val prev = _state.value.myCustomStatus
@@ -175,12 +168,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // One-shot: a Home consome antes de navegar pro onboarding (sem loop).
     fun consumeOnboarding() = _state.update { it.copy(needsOnboarding = false) }
 
     fun consumeEmailVerify() = _state.update { it.copy(needsEmailVerify = false) }
 
-    // Cria a primeira senha (conta Google). Validacao espelha o SetPasswordSchema.
     fun setPassword(pw: String, confirm: String) {
         if (_state.value.pwSaving) return
         val error = when {
@@ -204,8 +195,6 @@ class HomeViewModel @Inject constructor(
 
     fun selectServer(id: String?) {
         _state.update { it.copy(selectedServerId = id) }
-        // Presenca de voz e carregada 1x no load(); re-busca ao abrir um painel
-        // pra "N na chamada" nas orbitas nao ficar velho.
         if (id != null) refreshVoicePresence()
     }
 
@@ -282,7 +271,6 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             serverRepository.leaveServer(serverId)
                 .onSuccess {
-                    // Se tava aberta, volta pros Sussurros; recarrega a rail.
                     _state.update {
                         it.copy(selectedServerId = if (it.selectedServerId == serverId) null else it.selectedServerId)
                     }
@@ -322,8 +310,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // Silencia/reativa o servidor inteiro (canais COM pref propria nao mudam).
-    // Otimista: recalcula os sets locais na hora; erro reverte.
     fun setServerMuted(serverId: String, muted: Boolean) {
         val prev = _state.value
         val srvChannelIds = prev.servers.firstOrNull { it.id == serverId }?.channels?.map { it.id }.orEmpty()

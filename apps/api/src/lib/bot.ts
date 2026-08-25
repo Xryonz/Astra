@@ -1,4 +1,3 @@
-
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users, wishingStars, botPersonas, servers } from '../db/schema'
@@ -27,55 +26,19 @@ export const BOT_USERNAME    = 'astra_bot'
 export const BOT_DISPLAYNAME = 'Astra'
 export const BOT_EMAIL       = 'bot@astra.internal'
 
-// ============ PERSONA POR DIA ============
-//
-// Mesma conta, dois turnos: a Sparxie pega SEXTA e SABADO; o resto da semana
-// (domingo a quinta) e da Sparkle. A troca em si e anunciada no canal — ver
-// botAvisos.ts.
-//
-// UMA conta de proposito. Duas contas separariam o historico de mensagens em
-// dois autores diferentes, e uma conversa de quinta ficaria com o nome errado pra
-// sempre na sexta — sem contar dois cadastros pra manter. Aqui o que muda e o
-// nome exibido e o tom; a memoria, os comandos e o id continuam os mesmos.
 export interface Persona {
   chave:   'sparkle' | 'sparxie'
   nome:    string
   prefixo: string
   emoji:   string
   avatar:  string
-  // Banner animado do perfil (GIF), e a cor que fica ATRÁS dele enquanto carrega.
-  // As duas irmãs têm paleta própria (escolha do dono): a Sparxie em rosa com
-  // branco, a Sparkle em vermelho com roxo escuro. A cor não é enfeite redundante
-  // — um GIF de alguns MB demora, e sem ela o topo do cartão é um buraco preto até
-  // o primeiro quadro chegar.
   banner:  string
   bannerCor: string
-  // ZOOM QUE FAZ O BANNER COBRIR A FAIXA, em porcento.
-  //
-  // O cartao desenha o banner com "cabe inteiro", e a faixa e 3,5:1 enquanto os
-  // dois GIFs sao quase 16:9. Caber inteiro numa faixa MUITO mais larga que a
-  // imagem quer dizer encolher ate a ALTURA caber — e a arte chegava no meio, com
-  // tarja preta dos dois lados. E o mesmo calculo do AvatarPicker.zoomQueCobre no
-  // desktop (3,5 dividido pela proporcao da imagem), so que aqui as medidas sao
-  // conhecidas: sparxie 480x270 -> 197%, sparkle 498x307 -> 216%.
-  //
-  // Fica na persona e nao numa conta em tempo de execucao porque o servidor
-  // nunca abre o GIF: ele so guarda a URL. Trocar a arte pede recalcular isto.
   bannerZoom: number
-  // Enquadramento vertical (0 = topo, 50 = centro, 100 = base). Com o zoom que
-  // cobre, sobra arte pra fora em cima e embaixo — e qual metade aparece e
-  // escolha, nao detalhe. 50 e o padrao porque e onde o rosto esta nos dois GIFs.
   bannerY: number
   tom:     string
 }
 
-// As fotos vivem em apps/api/public/bot/ e sao servidas em /static (ver index.ts).
-//
-// ABSOLUTA quando a API sabe o proprio endereco, RELATIVA quando nao sabe. Os dois
-// clientes nativos aceitam relativa (o desktop prefixa a BASE_URL sozinho, no
-// RelativeUrlMapper), mas o web joga avatarUrl cru dentro de <img src> — e ali uma
-// URL relativa aponta pro dominio da Vercel, onde /static nao existe. Com API_URL
-// preenchida no Render, os tres acertam.
 const raizPublica = env.API_URL?.replace(/\/+$/, '') ?? ''
 
 const SPARKLE: Persona = {
@@ -89,15 +52,6 @@ const SPARXIE: Persona = {
   tom: 'Você é a Sparxie, e o seu turno é sexta e sábado. Tom mais solto e brincalhão que o da Sparkle (sua irmã, que cobre o resto da semana), sem virar palhaçada. O fim de semana começou: puxa papo, sugere programa, celebra.',
 }
 
-// O TURNO DA SPARXIE E SEXTA E SABADO, nao sabado e domingo (escolha do dono).
-//
-// A virada e a meia-noite de SEXTA: e la que o fim de semana comeca pra quem vive
-// o app — sexta a noite e quando a call enche. E domingo 00h a Sparkle volta,
-// porque domingo ja e vespera de semana, nao festa.
-//
-// O dia e o de SAO PAULO, nao o do servidor. O Render roda em UTC: sem isto, a
-// Sparxie entraria de turno as 21h de quinta e sairia as 21h de sabado — errado
-// nas duas pontas.
 export function ehTurnoDaSparxie(agora: Date = new Date()): boolean {
   const dia = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(agora)
   return dia === 'Fri' || dia === 'Sat'
@@ -107,11 +61,6 @@ export function personaDoDia(agora: Date = new Date()): Persona {
   return ehTurnoDaSparxie(agora) ? SPARXIE : SPARKLE
 }
 
-// Os DOIS nomes respondem sempre, mesmo fora do turno — e `/astra` continua
-// valendo porque e o que o app mobile ja manda. Recusar o nome "errado" so
-// renderia "comando não existe" pra quem digitou certo na terça o que aprendeu no
-// sabado. Quem estiver de plantao responde e avisa quem e, o que ensina a regra
-// sem irritar ninguem.
 export const PREFIXOS_BOT = ['/sparkle', '/sparxie', '/astra'] as const
 
 export function prefixoUsado(content: string): string | null {
@@ -119,23 +68,11 @@ export function prefixoUsado(content: string): string | null {
   return PREFIXOS_BOT.find((p) => lower === p || lower.startsWith(`${p} `)) ?? null
 }
 
-// Devolve o que veio DEPOIS do prefixo ("/sparxie festa" -> "festa").
 export function semPrefixo(content: string): string {
   const p = prefixoUsado(content)
   return p ? content.trimStart().slice(p.length).trim() : content.trim()
 }
 
-// O nome exibido E a foto acompanham o turno. Roda antes de responder: uma leitura
-// barata, e o UPDATE so acontece no dia em que a persona de fato muda (2x por
-// semana) — ou uma unica vez, depois de trocar a arte. O aviso de perfil faz o
-// rosto trocar na tela de quem esta com o app aberto, sem precisar reabrir nada.
-// A PERSONA DO DIA, JA COM O QUE O DONO MEXEU POR CIMA.
-//
-// O codigo continua sendo a arte de fabrica; a tabela BotPersona guarda so o que
-// foi realmente trocado (coluna nula = "usa o do codigo"). Isso e o que permite
-// apagar a linha e ter tudo de volta sem precisar lembrar quais eram os valores
-// originais — e o que faz uma arte nova no codigo valer sozinha pra quem nunca
-// personalizou nada.
 export async function personaComAjustes(): Promise<Persona> {
   const base = personaDoDia()
   try {
@@ -152,7 +89,6 @@ export async function personaComAjustes(): Promise<Persona> {
       bannerY:   ajuste.bannerPositionY ?? base.bannerY,
     }
   } catch {
-    // Tabela indisponivel nao pode derrubar a bot: sem ajuste, vale o codigo.
     return base
   }
 }
@@ -160,10 +96,6 @@ export async function personaComAjustes(): Promise<Persona> {
 export async function sincronizaPersona(botId: string): Promise<Persona> {
   const persona = await personaComAjustes()
   try {
-    // O BANNER ENTRA NA COMPARAÇÃO, e isso importa mais do que parece: sem ele
-    // aqui, a troca de turno mudaria nome e foto e deixaria o banner da irmã
-    // anterior no ar até alguém trocar o nome na mão. As duas identidades ficariam
-    // misturadas justamente no momento em que a diferença entre elas é o assunto.
     const [atual] = await db.select({
       displayName: users.displayName, avatarUrl: users.avatarUrl,
       bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
@@ -174,13 +106,7 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
       atual.avatarUrl !== persona.avatar ||
       atual.bannerUrl !== persona.banner ||
       atual.bannerColor !== persona.bannerCor ||
-      // O zoom entra na comparacao pelo mesmo motivo do banner: as duas irmas tem
-      // arte de proporcao diferente, entao herdar o zoom da anterior deixaria a
-      // faixa cortada ou com tarja no meio do turno.
       atual.bannerScale !== persona.bannerZoom ||
-      // Sem esta linha, arrastar SO o enquadramento vertical nao gravava nada: a
-      // comparacao dizia "igual" e o UPDATE nunca rodava. O dono mexeria, veria a
-      // previa mudar e o valor voltaria sozinho no proximo carregamento.
       atual.bannerPositionY !== persona.bannerY
     )
     if (mudou) {
@@ -188,8 +114,6 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
         .set({
           displayName: persona.nome, avatarUrl: persona.avatar,
           bannerUrl: persona.banner, bannerColor: persona.bannerCor,
-          // Enquadramento neutro na vertical: com o zoom que cobre, o centro da
-          // arte e o que aparece — que e onde o rosto esta nos dois GIFs.
           bannerScale: persona.bannerZoom, bannerPositionY: persona.bannerY,
         })
         .where(eq(users.id, botId))
@@ -218,8 +142,6 @@ export async function initBot(): Promise<string> {
     displayName: BOT_DISPLAYNAME,
     isBot:       true,
     bio:         'Bot oficial da Astra. Memória de 24h. Use /astra <pergunta>',
-    // Ja nasce com rosto. Antes entrava null aqui e nada preenchia depois — a conta
-    // do bot passava a vida inteira sem foto.
     avatarUrl:   personaDoDia().avatar,
   }).returning({ id: users.id })
 
@@ -236,8 +158,6 @@ export async function getBotId(): Promise<string | null> {
   return bot?.id ?? null
 }
 
-// Quem VOCE e vem no bloco de persona, logo abaixo — este texto e o que nao muda
-// e por isso fica no cache do prompt (trocar 2x por semana derrubaria o cache).
 const SYSTEM_PROMPT = `Você é a assistente oficial da plataforma de chat Astra.
 
 Comportamento:
@@ -254,34 +174,11 @@ Comportamento:
 
 Quando o user pedir algo que precise contexto que você não tem, use a ferramenta apropriada antes de responder.`
 
-// A BOT NÃO FALA EM BLOCO DE CÓDIGO (pedido do dono).
-//
-// Ela conversa; ela não documenta. Caixa de código no meio de uma conversa faz a
-// resposta parecer saída de terminal — que é o oposto da persona, e some com o
-// registro editorial do resto do produto.
-//
-// PEDIR NO PROMPT NÃO BASTA, e é por isso que isto existe além da instrução. Modelo
-// de linguagem trata regra de formato como preferência forte, não como contrato:
-// pergunte de um jeito que "peça" código e a crase volta. Instrução reduz a
-// frequência; esta função decide o resultado.
-//
-// Vale SÓ pro texto que o modelo gerou. As falas fixas da bot (boas-vindas, troca de
-// turno) usam crase de propósito pra mostrar um comando — `/astra ajuda` só se lê
-// como comando por causa dela.
 export function semMarcaDeCodigo(texto: string): string {
   return texto
-    // Bloco cercado: fica o conteúdo, sai a cerca (e a linguagem, se declarada).
-    // Apagar o bloco inteiro perderia a resposta; o que incomoda é a caixa.
     .replace(/```[a-zA-Z0-9_+-]*\r?\n?([\s\S]*?)```/g, '$1')
-    // Cerca órfã: o modelo abriu e não fechou (acontece quando a resposta é cortada
-    // no limite de tokens). Sem esta linha, sobra uma cerca solta que o cliente
-    // renderiza como caixa aberta até o fim da mensagem.
-    // Come a quebra de linha logo depois, igual à regra de cima — senão a cerca vira
-    // uma linha em branco no lugar dela, e o texto sai com um buraco.
     .replace(/```[a-zA-Z0-9_+-]*\r?\n?/g, '')
-    // Crase simples. O `+` cobre ``x`` (usado quando o conteúdo tem crase dentro).
     .replace(/`+/g, '')
-    // A remoção pode deixar linha em branco onde havia a cerca.
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
@@ -318,10 +215,6 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
     getHistory(ctx.userId, ctx.channelId, WORKING_WINDOW),
   ])
 
-  // Instrucao de sistema num texto so. Eram blocos separados por causa do cache de
-  // prompt da Anthropic (o pedaco fixo entrava em cache, a persona ficava de fora);
-  // nenhum dos provedores atuais tem esse mecanismo, entao manter a divisao seria
-  // carregar a complicacao sem o beneficio.
   const persona = personaDoDia()
   const instrucao = [
     SYSTEM_PROMPT,
@@ -346,8 +239,6 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
 
     if (res.error) {
       logger.error('Bot', `IA falhou: ${res.error.message}`)
-      // 429 do provedor gratis nao e defeito, e fila. Dizer "problema tecnico"
-      // faria a pessoa reformular a pergunta pra sempre sem nunca ser atendida.
       finalText = res.error.type === 'limite'
         ? 'Estou com muita gente falando comigo agora ✧ tenta de novo daqui a pouco?'
         : 'Tive um problema técnico. Tente reformular?'
@@ -427,29 +318,13 @@ export async function askBot({ userMessage, ctx }: AskBotOpts): Promise<AskBotRe
   return { text: finalText, toolsUsed, truncated }
 }
 
-// Catalogo UNICO dos comandos. Alimenta o `/astra help` daqui de baixo E a
-// caixinha que o cliente abre ao digitar "/" (via GET /api/bot/commands).
-//
-// Fica numa lista so de proposito: uma lista no backend e outra no app seriam
-// duas verdades, e uma delas ficaria velha na primeira vez que alguem adicionasse
-// um comando. Adicionar aqui e o bastante pra aparecer nos dois lugares.
-// `sufixo` e o que vem depois do prefixo; o prefixo entra na hora, conforme quem
-// esta de plantao. Guardar "/astra ping" cravado aqui daria uma caixinha que
-// ensina o comando errado no sabado.
-// `args` = o que o comando espera depois do nome. Aparece no `name` (a caixinha
-// do "/" mostra a forma completa) e vira um EXEMPLO de verdade na descricao.
-//
-// Sem isso a caixinha listava "/sparxie desejo — joga um desejo na estrela" e a
-// pessoa mandava exatamente `/sparxie desejo`, sem desejo nenhum. A descricao
-// dizia O QUE o comando faz e nunca COMO se escreve — e o formato e justamente a
-// parte que nao da pra adivinhar.
 interface ComandoBot {
   sufixo:      string
   description: string
   category:    string
-  args?:       string   // rotulo do que vem depois, ex.: '<seu desejo>'
-  exemplo?:    string   // so o miolo; o prefixo do dia entra na hora
-  so?:         'sparxie' // so aparece (e so responde) no fim de semana
+  args?:       string   
+  exemplo?:    string   
+  so?:         'sparxie' 
 }
 
 const COMANDOS: ComandoBot[] = [
@@ -463,7 +338,6 @@ const COMANDOS: ComandoBot[] = [
   { sufixo: 'ping',   category: 'Utilitários', description: 'testa a latência' },
   { sufixo: 'status', category: 'Utilitários', description: 'status da plataforma' },
   { sufixo: 'mute',   category: 'Moderação',   description: 'verifica se você está silenciado' },
-  // --- zoeira ---
   {
     sufixo: 'quem mandou', category: 'Diversão',
     description: 'sorteia uma mensagem antiga daqui e a galera adivinha quem escreveu',
@@ -486,19 +360,16 @@ const COMANDOS: ComandoBot[] = [
     sufixo: 'escolha', category: 'Diversão', args: '<a, b, c>',
     description: 'escolho por você', exemplo: 'escolha pizza, sushi, hambúrguer',
   },
-  // --- progressão ---
   { sufixo: 'ranking', category: 'Progressão', description: 'top 10 por nível desta constelação' },
   {
     sufixo: 'perfil', category: 'Progressão', args: '[@alguém]',
     description: 'nível, XP e brilho', exemplo: 'perfil @ana',
   },
-  // --- úteis ---
   {
     sufixo: 'lembrete', category: 'Utilitários', args: '<quando> <o quê>',
     description: 'te chamo depois', exemplo: 'lembrete 20min terminar o trabalho',
   },
   { sufixo: 'resumo', category: 'Utilitários', description: 'o que rolou hoje nesta órbita' },
-  // --- so no fim de semana, com a Sparxie ---
   {
     sufixo: 'desejo', category: 'Fim de semana', args: '<seu desejo>', so: 'sparxie',
     description: 'joga um desejo na estrela cadente',
@@ -507,15 +378,10 @@ const COMANDOS: ComandoBot[] = [
   { sufixo: 'festa', category: 'Fim de semana', description: 'sorteia um programa pro fim de semana', so: 'sparxie' },
 ]
 
-// CHAVE ESTAVEL de um comando, pro banco e pra tela de configuracao. A conversa
-// com IA tem sufixo vazio (e o `/sparkle <pergunta>` puro), e "" nao serve de
-// chave — vira 'conversa'.
 export function chaveDoComando(sufixo: string): string {
   return sufixo === '' ? 'conversa' : sufixo.replace(/\s+/g, '-')
 }
 
-// O catalogo que a tela de configuracao da constelacao lista. Sem o prefixo e sem
-// os exemplos: ali a pergunta e "isto fica ligado?", nao "como se usa".
 export function catalogoDeComandos(): Array<{ chave: string; rotulo: string; categoria: string; descricao: string }> {
   return COMANDOS.map((c) => ({
     chave:     chaveDoComando(c.sufixo),
@@ -525,11 +391,6 @@ export function catalogoDeComandos(): Array<{ chave: string; rotulo: string; cat
   }))
 }
 
-// COMANDOS DESLIGADOS NESTA CONSTELACAO.
-//
-// A coluna guarda o que esta DESLIGADO (e nao o que esta ligado) pra comando novo
-// nascer ligado pra todo mundo sem migracao — numa lista que cresce, e o padrao
-// certo. Sem serverId (sussurro) nao ha constelacao pra desligar nada: tudo vale.
 export async function comandosDesligados(serverId?: string): Promise<ReadonlySet<string>> {
   if (!serverId) return new Set()
   try {
@@ -538,13 +399,10 @@ export async function comandosDesligados(serverId?: string): Promise<ReadonlySet
     if (!s?.lista) return new Set()
     return new Set(s.lista.split(',').map((x: string) => x.trim()).filter(Boolean))
   } catch {
-    // Falha de leitura NAO pode desligar comando: o erro seguro e "tudo ligado".
     return new Set()
   }
 }
 
-// O que aparece na caixinha do "/" HOJE: prefixo do plantao + os extras de fim
-// de semana so quando e fim de semana.
 export function comandosDeHoje(agora: Date = new Date()): Array<{ name: string; description: string; category: string }> {
   const p = personaDoDia(agora)
   return COMANDOS
@@ -574,8 +432,6 @@ export async function handleBotCommand(
   extras: {
     username: string; isMuted: boolean; muteSecondsLeft: number
     userId?: string; channelId?: string
-    // Ranking e sorteio sao por CONSTELACAO — sem o serverId nao ha de quem
-    // rankear nem entre quem sortear.
     serverId?: string
   },
 ): Promise<string | null> {
@@ -584,19 +440,8 @@ export async function handleBotCommand(
   const lower   = arg.toLowerCase()
   const verbo   = lower.split(/\s+/)[0] ?? ''
 
-  // DESLIGADO NESTA CONSTELACAO?
-  //
-  // Responde dizendo, em vez de ficar mudo: quem digitou um comando merece saber
-  // por que nada aconteceu. Silencio aqui seria lido como bot quebrada, e a
-  // pessoa tentaria de novo — que e o pior dos dois mundos.
-  //
   const desligados = await comandosDesligados(extras.serverId)
   if (desligados.size > 0) {
-    // A CONVERSA E O QUE SOBRA, e nao o texto vazio: quem chama a bot com algo que
-    // nao e comando conhecido cai na IA. Testar so `arg === ''` deixaria "desligar
-    // a conversa" sem efeito em 99% dos casos — que sao justamente as perguntas.
-    //
-    // "quem mandou" e o unico de duas palavras; o resto casa pelo primeiro verbo.
     const conhecido = COMANDOS.find((c) =>
       c.sufixo !== '' && (lower === c.sufixo || lower.startsWith(`${c.sufixo} `)),
     )
@@ -608,8 +453,6 @@ export async function handleBotCommand(
     }
   }
 
-  // Chamou pelo nome de quem esta de folga: responde do mesmo jeito e aproveita
-  // pra apresentar quem esta de plantao. Recusar seria so um erro a mais.
   const chamou = prefixoUsado(content)
   const trocado =
     (chamou === '/sparkle' && persona.chave === 'sparxie') ||
@@ -640,12 +483,6 @@ export async function handleBotCommand(
   if (verbo === 'ping')   return `🏓 Pong, @${extras.username}!` + nota
   if (verbo === 'status') return '✅ Todos os sistemas operacionais.' + nota
 
-  // ---- comandos que NAO precisam de IA ----
-  //
-  // Rodam ANTES do askBot e por isso continuam funcionando com a conversa livre
-  // desligada. Sao eles que sustentam a bot enquanto nao ha chave de API — e a
-  // maioria deles seria melhor assim de qualquer jeito: dado sorteado por modelo
-  // de linguagem nao e sorteio, e ranking inventado por IA e mentira.
   const resto = arg.slice(verbo.length).trim()
   const precisaDeSala = extras.serverId && extras.channelId
   switch (verbo) {
@@ -672,7 +509,6 @@ export async function handleBotCommand(
       if (!precisaDeSala || !extras.userId) return null
       return (await lembrete(resto, extras.userId, extras.channelId!)) + nota
   }
-  // "quem mandou" e o unico de duas palavras — o verbo sozinho seria "quem".
   if (verbo === 'quem' && lower.startsWith('quem mandou')) {
     if (!extras.channelId) return null
     return (await quemMandou(extras.channelId)) + nota
@@ -686,9 +522,6 @@ export async function handleBotCommand(
     return '🔊 Você não está silenciado.' + nota
   }
 
-  // ---- so no turno da Sparxie (sexta e sabado) ----
-  // Fora do turno dela a resposta explica QUANDO volta, em vez de fingir que o
-  // comando nunca existiu (foi visto na caixinha do "/" no sabado).
   if (verbo === 'desejo' || verbo === 'festa') {
     if (!ehTurnoDaSparxie()) {
       return `${persona.emoji} \`${verbo}\` é coisa da Sparxie — ela entra sexta. Até lá quem cuida do plantão sou eu, ${persona.nome}.`
@@ -737,8 +570,6 @@ async function maybeSummarize(userId: string, channelId: string): Promise<void> 
     `[${t.role === 'user' ? 'USER' : 'ASTRA'}]: ${t.content}`
   ).join('\n')
 
-  // Modelo mais leve pro resumo: comprimir texto e a tarefa mais facil que a bot
-  // faz, e o resumo roda em segundo plano sem ninguem esperando por ele.
   const text = await gerarTexto(
     MODELO_RESUMO,
     'Você comprime conversas. Resuma fatos relevantes em 2-4 frases curtas, em português. Mantenha decisões, preferências do user, fatos sobre o canal. Não invente nada.',

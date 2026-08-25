@@ -49,7 +49,6 @@ import retrofit2.HttpException
 import java.io.File
 import java.nio.file.Files
 
-// Alvo do chat aberto no palco.
 sealed interface ChatTarget {
     val id: String
     val title: String
@@ -58,16 +57,12 @@ sealed interface ChatTarget {
     data class Dm(override val id: String, override val title: String) : ChatTarget
 }
 
-// Mensagem normalizada pro palco (canal e DM viram a mesma coisa na UI).
 data class ChatMessage(
     val id: String,
     val content: String,
     val authorId: String,
     val authorName: String,
     val authorAvatar: String?,
-    // Fonte escolhida pelo autor em Configuracoes > Perfil. O backend já mandava
-    // em toda resposta; o modelo do chat e que jogava fora, entao o nome saia
-    // sempre na fonte padrao. null = usuário não escolheu -> padrao do chat.
     val authorFont: String? = null,
     val createdAt: String?,
     val mine: Boolean = false,
@@ -76,30 +71,16 @@ data class ChatMessage(
     val mentions: List<String> = emptyList(),
     val replyTo: ReplyToDto? = null,
     val attachments: List<AttachmentDto> = emptyList(),
-    // Enquete: a mensagem VIRA a enquete (nao e anexo). O backend guarda o objeto
-    // inteiro numa coluna da propria mensagem, entao ela chega e atualiza junto.
     val poll: PollDto? = null,
-    // Registro de CHAMADA (so sussurro). Mesma ideia da enquete: a mensagem VIRA
-    // a chamada. Nulo = mensagem normal.
     val call: CallLogDto? = null,
-    // Marcada pra sumir: a UI anima o fade-out e o VM tira da lista em seguida.
     val deleting: Boolean = false,
-    // --- Envio otimista (so canal, texto puro) ---
-    // Nonce local que casa a bolha temporaria com o new_message que volta do
-    // servidor. pending = ainda não confirmada (bolha esmaecida). failed = o
-    // servidor recusou ou não respondeu (mostra "tentar de novo").
     val clientNonce: String? = null,
     val pending: Boolean = false,
     val failed: Boolean = false,
 )
 
-// Arquivo solto no chat esperando o envio (upload acontece no send).
 data class PendingFile(val file: File, val mime: String)
 
-// Enquete com prazo que ja passou. O backend recusa o voto de qualquer jeito; isto
-// existe pra a UI nao oferecer um clique que ela sabe que vai falhar.
-// Data ilegivel = NAO expirada: derrubar a enquete por causa de um formato de data
-// seria pior que deixar o servidor recusar.
 fun expirada(poll: PollDto): Boolean {
     val fim = poll.expiresAt ?: return false
     val instante = runCatching { java.time.Instant.parse(fim) }.getOrNull() ?: return false
@@ -111,31 +92,21 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val sending: Boolean = false,
     val replyingTo: ChatMessage? = null,
-    // Quem está digitando nesta conversa (userId -> nome exibido).
     val typing: Map<String, String> = emptyMap(),
-    // Anexos pendentes (drag&drop) que saem na próxima mensagem.
     val pending: List<PendingFile> = emptyList(),
     val error: String? = null,
-    // A carga falhou e o app esta insistindo. Nao e erro ainda: e espera. A tela
-    // diz isso em voz neutra em vez de mostrar vermelho por 70 segundos.
     val acordando: Boolean = false,
-    // Erro que nao melhora tentando de novo (403/404/401). A tela esconde o
-    // "tentar novamente": botao que nao pode dar certo e armadilha.
     val errorPermanente: Boolean = false,
 )
 
 private const val PAGE = 50
 private const val FADE_OUT_MS = 340L
-// Se nem o ack nem o broadcast voltarem nesse tempo, a bolha otimista vira falha.
 private const val FAST_SEND_TIMEOUT_MS = 6_000L
 
-// Reenvia typing_start a cada 3s enquanto digita; para apos 3s parado; quem
-// recebe expira o typing em 8s caso o stop se perca (socket caiu etc).
 private const val TYPING_RESEND_MS = 3_000L
 private const val TYPING_IDLE_MS = 3_000L
 private const val TYPING_EXPIRY_MS = 8_000L
 
-// Espelho dos limites do backend (upload.ts): rejeitar aqui evita queimar upload.
 private const val MAX_FILE_BYTES = 25L * 1024 * 1024
 private const val MAX_FILES = 10
 private val ALLOWED_MIMES = setOf(
@@ -145,9 +116,6 @@ private val ALLOWED_MIMES = setOf(
     "application/pdf", "text/plain", "application/zip", "application/json",
 )
 
-// Estado de UMA conversa aberta: historico + envio + ações (responder/reagir/
-// editar/apagar) + eventos ao vivo (socket). Recriado por alvo (remember(target)
-// na composicao); o listener do socket morre junto do escopo.
 class ChatVm(
     private val scope: CoroutineScope,
     private val target: ChatTarget,
@@ -157,18 +125,12 @@ class ChatVm(
     private val socket: DesktopSocket,
     private val json: Json,
     val myId: String?,
-    // Meu perfil pra desenhar a bolha otimista (nome/avatar/fonte) antes de o
-    // servidor confirmar. Provider e não valor: o `me` do ShellVm carrega no boot
-    // e pode chegar depois deste VM nascer.
     private val myProfile: () -> ProfileUserDto? = { null },
 ) {
     private val _state = MutableStateFlow(ChatUiState())
     val state = _state.asStateFlow()
 
     private var liveJob: Job? = null
-    // A carga pode durar mais de um minuto agora. Sem cancelar a anterior, um
-    // "tentar novamente" (ou um reconnect do socket) poe DUAS cargas correndo, e
-    // quem terminar por ultimo ganha — inclusive a que ja tinha falhado.
     private var cargaJob: Job? = null
     private var typingIdleJob: Job? = null
     private var lastTypingEmit = 0L
@@ -177,8 +139,6 @@ class ChatVm(
     init {
         load()
         listenLive()
-        // Sala de DM e persistente (ShellVm entra em todas pra typing/unread na
-        // sidebar) — aqui so entra/sai de sala de canal.
         if (target is ChatTarget.Channel) socket.joinChannel(target.id)
         markRead()
     }
@@ -190,32 +150,13 @@ class ChatVm(
         if (target is ChatTarget.Channel) socket.leaveChannel(target.id)
     }
 
-    // Botao "tentar de novo" da tela de erro. Publica de proposito: sem isto a
-    // unica saida do erro era trocar de conversa e voltar.
     fun tentarDeNovo() = load(forcar = true)
 
-    // CARGA EM ANDAMENTO NAO E CANCELADA POR OUTRA CARGA. Isto e um conserto de
-    // uma armadilha que a propria janela longa de repeticao criou:
-    //
-    // `listenLive()` chama load() a cada reconexao do socket. Com a janela antiga
-    // (5,5s) as duas coisas quase nunca se cruzavam. Com 72 segundos, cruzam o
-    // tempo todo — e como a API dorme no plano free, a queda do socket e a carga
-    // lenta acontecem exatamente juntas. Cada reconexao matava a carga em voo e
-    // recomecava do zero: um laco que nunca termina, e a conversa fica vazia pra
-    // sempre com o servidor de pe.
-    //
-    // Quem cancela de verdade e so o clique em "tentar de novo" (o usuario pediu
-    // do zero) e o dispose (a conversa fechou).
     private fun load(forcar: Boolean = false) {
         if (!forcar && cargaJob?.isActive == true) return
         cargaJob?.cancel()
         cargaJob = scope.launch {
             _state.update { it.copy(loading = true, error = null, acordando = false) }
-            // A politica de repeticao mora em net/Insistencia.kt — a janela aqui
-            // era de 5,5s contra um servidor que acorda em ate 50s (ver la).
-            // A partir da segunda tentativa a tela para de dizer "carregando" e
-            // passa a dizer que esta esperando o servidor: a espera pode chegar a
-            // um minuto, e um minuto de silencio parece travamento.
             insistir(
                 oQue = "esta conversa",
                 aoTentarDeNovo = { _state.update { it.copy(acordando = true) } },
@@ -228,8 +169,6 @@ class ChatVm(
                 }
             }
                 .onSuccess { list ->
-                    // Backend pagina do mais novo pro mais velho; o palco mostra
-                    // do mais velho (topo) pro mais novo (base).
                     _state.update {
                         it.copy(
                             loading = false, error = null, acordando = false,
@@ -238,10 +177,6 @@ class ChatVm(
                     }
                 }
                 .onFailure { t ->
-                    // O MOTIVO REAL, não "não foi possível": 403 e "você não tem
-                    // acesso", 404 e "não existe mais", e nenhum dos dois melhora
-                    // com "tentar novamente". Dizer qual e o caso e a diferenca
-                    // entre a pessoa saber o que fazer e ficar clicando.
                     val f = (t as? FalhaDeRede)?.falha
                     _state.update {
                         it.copy(
@@ -254,17 +189,12 @@ class ChatVm(
         }
     }
 
-    // allowFast=false força o caminho HTTP — usado pelo fallback quando o envio
-    // rapido não teve resposta (ex.: backend ainda sem o handler fast_send_dm).
     fun send(text: String, allowFast: Boolean = true) {
         val content = text.trim()
         val pending = _state.value.pending
         if ((content.isEmpty() && pending.isEmpty()) || _state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
 
-        // Caminho otimista: texto puro, sem reply nem anexo, socket vivo — vale pra
-        // canal (fast_send_text) E pra sussurro (fast_send_dm). Reply/anexo caem no
-        // HTTP abaixo. A mensagem aparece na hora; nada de esperar o round-trip.
         if (allowFast && content.isNotEmpty() && pending.isEmpty() && replyToId == null && socket.isConnected()) {
             optimisticSend(target, content)
             return
@@ -273,7 +203,6 @@ class ChatVm(
         stopTypingEmit()
         _state.update { it.copy(sending = true, error = null) }
         scope.launch {
-            // Anexos sobem primeiro; a mensagem sai com as URLs devolvidas.
             val attachments = if (pending.isEmpty()) emptyList() else {
                 val uploaded = withContext(Dispatchers.IO) {
                     runCatching {
@@ -321,9 +250,6 @@ class ChatVm(
         }
     }
 
-    // Bolha temporaria na hora + envio rapido por socket (fast_send_text no canal,
-    // fast_send_dm no sussurro). O broadcast (new_message/new_dm, com o mesmo
-    // clientNonce) reconcilia via append(); o ack so importa pra falha.
     private fun optimisticSend(target: ChatTarget, content: String) {
         val nonce = java.util.UUID.randomUUID().toString()
         val me = myProfile()
@@ -343,32 +269,22 @@ class ChatVm(
         _state.update { it.copy(messages = it.messages + temp, replyingTo = null, error = null) }
 
         val onResult: (FastSendResult) -> Unit = { result ->
-            // "Sem ack" = o servidor não tem este handler (backend mais velho que o
-            // app) ou a resposta se perdeu. Em vez de acusar falha na cara do usuário,
-            // refaz pelo HTTP, que todo backend entende. So neste caso: erro de
-            // verdade (silenciado, spam, sem acesso) continua virando falha visivel.
             if (!result.ok) {
                 if (result.error == "NO_ACK") fallbackToHttp(nonce, content)
                 else markFailed(nonce, fastError(result))
             }
-            // ok: o broadcast (new_message/new_dm) reconcilia; nada a fazer aqui.
         }
         when (target) {
             is ChatTarget.Channel -> socket.fastSendText(target.id, content, nonce, onResult)
             is ChatTarget.Dm -> socket.fastSendDm(target.id, content, nonce, onResult)
         }
 
-        // Rede de seguranca: sem ack nem broadcast, a bolha não pode ficar
-        // "enviando" pra sempre — cai pro HTTP pelo mesmo motivo acima.
         scope.launch {
             delay(FAST_SEND_TIMEOUT_MS)
             fallbackToHttp(nonce, content)
         }
     }
 
-    // Tira a bolha temporaria e reenvia pelo caminho HTTP. So age se ela AINDA estiver
-    // pending: se o broadcast ja reconciliou (chegou), não reenvia — e o que evita
-    // mandar a mensagem duas vezes quando so o ack se perdeu.
     private fun fallbackToHttp(nonce: String, content: String) {
         var fire = false
         _state.update { st ->
@@ -379,8 +295,6 @@ class ChatVm(
         if (fire) send(content, allowFast = false)
     }
 
-    // So age se a bolha ainda esta pending — se o broadcast já reconciliou (sumiu
-    // o pending), não poe erro falso nem em cima de um envio que deu certo.
     private fun markFailed(nonce: String, error: String) {
         _state.update { st ->
             if (st.messages.none { it.clientNonce == nonce && it.pending }) return@update st
@@ -403,17 +317,12 @@ class ChatVm(
             ?: "Mensagem não enviada"
     }
 
-    // Clique no "tentar de novo" de uma bolha falha: tira a falha e reenvia o texto.
     fun retry(msg: ChatMessage) {
         if (!msg.failed) return
         _state.update { st -> st.copy(messages = st.messages.filterNot { it.id == msg.id }, error = null) }
         send(msg.content)
     }
 
-    // Motivo REAL da falha. O backend responde { error, code, secondsLeft } — e
-    // trocar tudo isso por um texto fixo foi o que transformou "estou silenciado
-    // ha 4 minutos" num misterio: o anti-spam devolve 429 MUTED e a UI so dizia
-    // "Mensagem não enviada". Sem corpo legivel, cai no código HTTP.
     private fun sendError(t: Throwable, fallback: String): String {
         val http = t as? HttpException ?: return "$fallback — sem conexão"
         val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
@@ -431,7 +340,6 @@ class ChatVm(
         }
     }
 
-    // GIF (F5): vai como anexo de URL direta (mesmo formato do mobile) — sem upload.
     fun sendGif(gif: GifResultDto) {
         if (_state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
@@ -471,14 +379,6 @@ class ChatVm(
         }
     }
 
-    // FIGURINHA: e uma mensagem comum com um anexo marcado `sticker = true`, nao
-    // um tipo novo de mensagem. Assim ela herda de graca resposta, reacao,
-    // exclusao e notificacao — um caminho proprio teria que reimplementar tudo.
-    //
-    // O `type` sai da extensao da URL em vez de ser cravado: os clientes que ainda
-    // nao conhecem a marca (mobile, web) caem no ramo de IMAGEM em vez de desenhar
-    // um cartao de arquivo. `size = 0` porque o tamanho nao e guardado — o backend
-    // exige o campo e so o cartao de arquivo o exibe, que figurinha nunca vira.
     fun sendSticker(fig: ServerStickerDto) {
         if (_state.value.sending) return
         val replyToId = _state.value.replyingTo?.id
@@ -520,7 +420,6 @@ class ChatVm(
         }
     }
 
-    // Arquivos soltos no chat: valida contra os limites do backend e enfileira.
     fun addFiles(files: List<File>) {
         var error: String? = null
         val current = _state.value.pending.toMutableList()
@@ -562,8 +461,6 @@ class ChatVm(
         }
     }
 
-    // Chamado a cada tecla no composer: emite typing_start com throttle e agenda
-    // o typing_stop pra quando parar de digitar.
     fun typing() {
         val now = System.currentTimeMillis()
         if (now - lastTypingEmit > TYPING_RESEND_MS) {
@@ -605,7 +502,6 @@ class ChatVm(
         _state.update { if (userId in it.typing) it.copy(typing = it.typing - userId) else it }
     }
 
-    // Zera o "não lida" desta conversa no backend (sidebar limpa localmente).
     private fun markRead() {
         scope.launch {
             runCatching {
@@ -625,7 +521,6 @@ class ChatVm(
         _state.update { it.copy(replyingTo = null) }
     }
 
-    // Toggle no backend: mesma chamada adiciona e remove (so canais tem reacao).
     fun react(messageId: String, emoji: String) {
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         scope.launch {
@@ -639,7 +534,6 @@ class ChatVm(
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         val content = newContent.trim()
         if (content.isEmpty()) return
-        // Sem mudanca real -> não chama a API e não marca "editado" (so fecha o editor).
         if (_state.value.messages.firstOrNull { it.id == messageId }?.content == content) return
         scope.launch {
             runCatching { channelApi.editMessage(channelId, messageId, EditChannelRequest(content)) }
@@ -668,7 +562,6 @@ class ChatVm(
         }
     }
 
-    // Fixa no canal (so canais tem pinned; backend exige ser autor/dono/MANAGE).
     fun pin(messageId: String) {
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         scope.launch {
@@ -677,11 +570,6 @@ class ChatVm(
         }
     }
 
-    // Comando da bot. Sai por socket (evento proprio), NAO como mensagem: o
-    // backend nao guarda o comando, so publica a resposta — mesma coisa que o
-    // cliente web ja fazia e que o desktop simplesmente nunca chamou. Era esse o
-    // "os comandos nao funcionam": a caixinha do "/" existia, preenchia o texto,
-    // e o texto saia como mensagem comum. A bot nunca era acionada.
     fun sendBotCommand(serverId: String, content: String) {
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         stopTypingEmit()
@@ -689,9 +577,6 @@ class ChatVm(
             _state.update { it.copy(error = "Sem conexão — o comando não chegou na bot") }
         }
     }
-
-    // ---- Enquete ----
-    // So existe em canal. Sussurro nao tem enquete no backend, e a UI nem oferece.
 
     fun createPoll(question: String, options: List<String>, allowMultiple: Boolean, durationHours: Int?) {
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
@@ -706,8 +591,6 @@ class ChatVm(
                 ).data?.toChat()
             }
                 .onSuccess { msg ->
-                    // O broadcast chega pra todo mundo, inclusive pra mim; append()
-                    // ja deduplica por id, entao somar aqui so adianta o meu caso.
                     _state.update { it.copy(sending = false) }
                     if (msg != null) append(msg)
                 }
@@ -717,9 +600,6 @@ class ChatVm(
         }
     }
 
-    // Voto otimista: a barra mexe no clique. O servidor manda a enquete inteira de
-    // volta (pelo HTTP e pelo socket) e ela substitui a minha conta local — se eu
-    // errei, o certo chega em seguida; se deu erro, volto ao que era.
     fun vote(messageId: String, optionId: String) {
         val channelId = (target as? ChatTarget.Channel)?.id ?: return
         val me = myId ?: return
@@ -746,9 +626,6 @@ class ChatVm(
         }
     }
 
-    // Mesma regra do backend: clicar de novo tira o voto; sem multipla escolha, o
-    // voto novo apaga o anterior. Se divergir daqui, a barra pula quando o servidor
-    // responder — por isso a regra e copiada, nao inventada.
     private fun votoLocal(poll: PollDto, optionId: String, me: String): PollDto {
         val jaVotou = poll.options.any { it.id == optionId && me in it.votes }
         return poll.copy(options = poll.options.map { o ->
@@ -771,10 +648,6 @@ class ChatVm(
     private fun listenLive() {
         liveJob = scope.launch {
             launch {
-                // Voltou do mundo dos mortos: tudo que passou enquanto o socket
-                // esteve fora nao chega atrasado, simplesmente NAO chega. Recarregar
-                // a conversa aberta e o unico jeito de a tela parar de mentir —
-                // vale pra canal e pra sussurro, por isso fica fora do `when`.
                 socket.reconnected.collect { load() }
             }
             when (target) {
@@ -858,19 +731,14 @@ class ChatVm(
     }
 
     private fun append(msg: ChatMessage) {
-        // Quem mandou mensagem obviamente parou de digitar.
         userStoppedTyping(msg.authorId)
         _state.update { st ->
-            // Reconciliacao otimista: se esta msg confirma uma bolha temporaria
-            // (mesmo clientNonce), troca a temporaria pela real em vez de duplicar.
-            // Idempotente: broadcast repetido cai no dedupe por id.
             val base = if (msg.clientNonce != null)
                 st.messages.filterNot { it.pending && it.clientNonce == msg.clientNonce }
             else st.messages
             if (base.any { m -> m.id == msg.id }) st.copy(messages = base)
             else st.copy(messages = base + msg)
         }
-        // Conversa aberta: o que chega já nasce lido.
         if (!msg.mine) markRead()
     }
 
@@ -882,8 +750,6 @@ class ChatVm(
         }
     }
 
-    // Marca deleting (a UI anima o fade-out) e tira da lista quando a animação
-    // acaba. Chega duas vezes pra quem apagou (HTTP ok + evento) — dedupe aqui.
     private fun fadeOutAndRemove(messageId: String) {
         val current = _state.value.messages.firstOrNull { it.id == messageId }
         if (current == null || current.deleting) return
@@ -906,17 +772,12 @@ class ChatVm(
         this?.displayName ?: this?.username ?: if (fallbackId == myId) "você" else "alguem"
 
     private fun ChannelMessageDto.toChat(): ChatMessage {
-        // authorId pode vir vazio (ver ChannelMessageDto): cai pro id de dentro do
-        // `author`. Sem isso a mensagem entra sem dono — nao agrupa, nao abre
-        // perfil e acha que e minha (authorId == myId com os dois vazios).
         val autor = authorId.ifBlank { author?.id.orEmpty() }
         return ChatMessage(
             id = id, content = content, authorId = autor,
             authorName = author.name(autor), authorAvatar = author?.avatarUrl,
             authorFont = author?.displayFont,
             createdAt = createdAt,
-            // autor, nao authorId: com os dois vazios, "" == null daria falso, mas
-            // uma mensagem sem dono nunca deve passar por minha.
             mine = autor.isNotBlank() && autor == myId,
             edited = edited,
             reactions = reactions, mentions = mentions, replyTo = replyTo,

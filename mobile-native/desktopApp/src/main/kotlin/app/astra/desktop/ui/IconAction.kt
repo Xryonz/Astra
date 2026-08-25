@@ -43,16 +43,6 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import kotlinx.coroutines.delay
 
-// Acao virada em ICONE, com o nome dela aparecendo ao parar o mouse.
-//
-// Nasceu do trio do banner ("subir banner" / "reenquadrar" / "remover banner"), que
-// ocupava a largura inteira do painel e ainda quebrava em duas linhas no botao mais
-// comprido. Tres quadrados de 34dp fazem o mesmo trabalho em um terco do espaco.
-//
-// A DICA NAO E OPCIONAL. Icone sozinho e adivinhacao: um quadrado com uma seta pode
-// ser "subir imagem", "exportar" ou "mover pra cima", e quem nao acertar de primeira
-// vai clicar pra descobrir — num botao que APAGA o banner, descobrir clicando e caro
-// demais. A dica so custa parar o mouse meio segundo.
 private const val ESPERA_DICA_MS = 420L
 
 @Composable
@@ -61,9 +51,6 @@ fun BotaoIcone(
     dica: String,
     accent: Boolean = false,
     danger: Boolean = false,
-    // Trabalhando: troca o glifo por um giro e recusa o clique. Sem isto, subir uma
-    // imagem grande deixa o botao com cara de "nao aconteceu nada" e a pessoa clica
-    // de novo — dois uploads da mesma foto.
     ocupado: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -71,8 +58,6 @@ fun BotaoIcone(
     val sobHover by interacao.collectIsHoveredAsState()
     var mostrarDica by remember { mutableStateOf(false) }
 
-    // Espera antes de mostrar: sem isso, atravessar a fileira com o mouse acende as
-    // tres dicas em sequencia e a tela pisca.
     LaunchedEffect(sobHover) {
         if (!sobHover) { mostrarDica = false; return@LaunchedEffect }
         delay(ESPERA_DICA_MS)
@@ -112,8 +97,6 @@ fun BotaoIcone(
             contentAlignment = Alignment.Center,
         ) {
             if (ocupado) {
-                // Girando de verdade. Um LoaderCircle parado le como icone travado —
-                // que e exatamente a impressao oposta da que ele deve passar.
                 val giro = rememberInfiniteTransition(label = "ocupado")
                 val angulo by giro.animateFloat(
                     0f, 360f,
@@ -125,10 +108,6 @@ fun BotaoIcone(
                     modifier = Modifier.graphicsLayer { rotationZ = angulo },
                 )
             } else {
-                // A `dica` VIRA o nome acessivel. Ela ja e exatamente isso — o nome
-                // da acao em portugues — e estava sendo escrita duas vezes no
-                // codigo pra ser mostrada uma so, pro mouse. Quem usa leitor de
-                // tela nao alcancava o texto que ja existia.
                 LIcon(icone, tint = conteudo, size = 16.dp, rotulo = dica)
             }
         }
@@ -153,10 +132,6 @@ fun BotaoIcone(
     }
 }
 
-// `calculatePosition` fala PIXEL, nao dp — e o `margem` chega ja convertido pelo
-// chamador. Somar 6 cru dava ~4dp numa tela a 150% e ~3dp a 200%: o respiro
-// encolhia justamente onde a tela e maior e a dica encosta no botao. Mesmo
-// tropeco do cartao de perfil, que ja foi consertado uma vez.
 private class AbaixoCentralizado(private val margem: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -166,8 +141,6 @@ private class AbaixoCentralizado(private val margem: Int) : PopupPositionProvide
     ): IntOffset {
         val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
             .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        // Abaixo por padrao; se nao couber, vira pra cima — a fileira do banner fica
-        // perto do fim do painel e a dica sairia da janela.
         val abaixo = anchorBounds.bottom + margem
         val y = if (abaixo + popupContentSize.height <= windowSize.height) abaixo
         else (anchorBounds.top - popupContentSize.height - margem).coerceAtLeast(0)

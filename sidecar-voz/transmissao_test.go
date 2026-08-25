@@ -7,26 +7,6 @@ import (
 	"unsafe"
 )
 
-// SONDA DA TRANSMISSÃO.
-//
-// Duas perguntas, e as duas só têm resposta honesta na máquina de quem pergunta:
-//
-//  1. a cópia dentro da placa funciona? (o índice 47 do `ID3D11DeviceContext`)
-//  2. o caminho inteiro dá 60 quadros por segundo?
-//
-// A primeira existe porque índice de vtable errado em COM NÃO DÁ ERRO — chama outra
-// função, com os argumentos errados. `CopyResource` é o 47º da tabela, a contagem mais
-// funda do projeto, e um erro ali daria transmissão preta ou travamento, nunca uma
-// mensagem. Conferir de olho contra o cabeçalho não é conferir.
-
-// A PROVA DE QUE A CÓPIA DENTRO DA PLACA ESTÁ CERTA.
-//
-// O truque é ter um invariante que só uma cópia de verdade satisfaz: a área de
-// trabalho do Windows não é preta. Se `CopyResource` estivesse no índice errado, a
-// textura de destino continuaria zerada e a leitura sairia toda zero.
-//
-// De quebra, prova `CreateTexture2D` (5), `Map` (14) e `Unmap` (15) na mesma volta:
-// qualquer um deles errado impede a leitura de chegar ao fim.
 func TestCopiarDentroDaPlaca(t *testing.T) {
 	precisaDeTela(t)
 	runtime.LockOSThread()
@@ -45,9 +25,6 @@ func TestCopiarDentroDaPlaca(t *testing.T) {
 
 	largura, altura := tela.Tamanho()
 
-	// Textura de LEITURA: mora onde a CPU alcança. É o contrário do que a
-	// transmissão faz — e é justamente por isso que serve de prova, porque só ela
-	// deixa conferir o pixel.
 	leitura := descricaoDeTextura{
 		Largura:       uint32(largura),
 		Altura:        uint32(altura),
@@ -66,8 +43,6 @@ func TestCopiarDentroDaPlaca(t *testing.T) {
 	}
 	defer destino.soltar()
 
-	// Espera um quadro DE VERDADE. Numa tela parada a duplicação devolve "nada
-	// mudou", que não serve para a prova — daí o laço com prazo.
 	var textura objeto
 	prazo := time.Now().Add(3 * time.Second)
 	for time.Now().Before(prazo) {
@@ -97,9 +72,6 @@ func TestCopiarDentroDaPlaca(t *testing.T) {
 		t.Fatal("o Map devolveu ponteiro nulo sem erro -- indice errado")
 	}
 
-	// Uma linha do meio da tela basta: se a cópia não aconteceu, ela é toda zero.
-	// Linha do meio e não a primeira porque barra de título escura no topo daria
-	// zeros legítimos e um falso negativo.
 	linha := altura / 2
 	inicio := uintptr(linha) * uintptr(mapa.PassoLinha)
 	amostra := unsafe.Slice((*byte)(unsafe.Pointer(mapa.Dados+inicio)), int(mapa.PassoLinha))
@@ -115,25 +87,11 @@ func TestCopiarDentroDaPlaca(t *testing.T) {
 	t.Logf("linha %d de %dx%d: %d bytes nao-zero de %d (passo %d)",
 		linha, largura, altura, naoZero, len(amostra), mapa.PassoLinha)
 
-	// ESTE É O NÚMERO QUE PROVA O ÍNDICE 47. Área de trabalho toda preta na linha do
-	// meio é possível em teoria, mas então a transmissão dessa tela também seria
-	// preta — e o teste estaria certo em reclamar.
 	if naoZero == 0 {
 		t.Error("a copia nao trouxe pixel nenhum -- indice do CopyResource errado, ou a textura nao foi copiada")
 	}
 }
 
-// ONDE MORA "ESTE COMPRESSOR É ASSÍNCRONO?".
-//
-// A pergunta parece de detalhe e decide o cano inteiro: um compressor assíncrono
-// RECUSA quadro que ele não pediu, com "no momento não está aceitando mais entrada" —
-// erro que soa como fila cheia e é, na verdade, "você falou fora da vez".
-//
-// A sonda existe porque o `MF_TRANSFORM_ASYNC` lido do transformador voltou ZERO num
-// compressor que se comporta como assíncrono. Já erramos esse tipo de leitura uma vez
-// aqui, com o `MF_SA_D3D11_AWARE`, e a lição foi a mesma: "não tenho essa chave" é
-// indistinguível de "não" para quem não sabe onde a chave mora. Então pergunta-se nos
-// dois lugares e à própria interface.
 func TestComoOCompressorEComandado(t *testing.T) {
 	precisaDeVideo(t)
 	runtime.LockOSThread()
@@ -180,21 +138,12 @@ func TestComoOCompressorEComandado(t *testing.T) {
 	}
 }
 
-// A PERGUNTA DO DONO, respondida com número: dá 60 quadros por segundo?
-//
-// Mede o caminho inteiro (duplicar, copiar na placa, comprimir, ler o H.264) e conta.
-// Não é estimativa: é o mesmo trabalho que a transmissão de verdade faz, medido por
-// dois segundos.
 func TestTransmissaoDaSessenta(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
 
 	m, err := MedirTransmissao(0, 2*time.Second, 0, 0, 4000)
 
-	// O RETRATO SAI ANTES DO VEREDITO, e de propósito. A medição devolve o que
-	// conseguiu mesmo quando falha no meio, e "qual compressor pegou, em que formato,
-	// por recado ou por chamada" é justamente a informação que separa um defeito do
-	// outro. Falhar sem imprimir isso transforma cada erro numa nova investigação.
 	t.Logf("compressor: %s (entrada %s, assincrono=%v)", m.Compressor, m.Formato, m.Assincrono)
 	if err != nil {
 		t.Fatalf("medir: %v (depois de %d quadros)", err, m.Quadros)
@@ -210,10 +159,7 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 	med := m.Custos.Media()
 	t.Logf("  copiar na placa   %8.1fus", float64(med.Copia.Nanoseconds())/1000)
 	t.Logf("  reduzir           %8.1fus", float64(med.Reducao.Nanoseconds())/1000)
-	// O RÓTULO ANTIGO DESTA LINHA DIZIA "esperar a placa", E ERA MENTIRA — mentira que
-	// escondeu por meses o teto da transmissão. Medido, a placa nunca esperava: o tempo
-	// era NOSSO, parado colhendo a saída do quadro recém-entregue. As duas linhas
-	// seguintes existem para que esse número nunca mais possa se esconder num só.
+
 	t.Logf("  comprimir         %8.1fus  (entregar + colher o que estava pronto)",
 		float64(med.Compressao.Nanoseconds())/1000)
 	t.Logf("    esperando ele pedir entrada  %8.1fus  (a placa ocupada de verdade)",
@@ -225,11 +171,6 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 		m.Nucleos())
 	t.Logf("%d pedacos, %d bytes = %.0f kbps", m.Pedacos, m.Bytes, m.Kbps())
 
-	// TELA PARADA NÃO É DEFEITO DO CANO. A duplicação só entrega quando algo muda,
-	// então uma área de trabalho quieta rende pouquíssimos quadros — e o compressor
-	// segura os primeiros antes de fechar o primeiro pedaço. Já vi este teste falhar
-	// por isso, com o código certo, e teste que quebra porque ninguém mexeu no mouse
-	// treina a pessoa a ignorar o vermelho.
 	if m.Quadros < 20 {
 		t.Skipf("so %d quadros em 2s -- a tela estava parada demais para medir; mexa numa janela e rode de novo", m.Quadros)
 	}
@@ -237,30 +178,12 @@ func TestTransmissaoDaSessenta(t *testing.T) {
 		t.Error("nenhum pedaco de H.264 saiu com quadros entrando -- o compressor engoliu tudo")
 	}
 
-	// ESTA É A ASSERÇÃO QUE VALE, e a taxa de quadros NÃO é.
-	//
-	// `ProximoQuadro` espera a tela mudar, então numa area de trabalho parada a taxa
-	// medida e a do Windows, nao a do Astra: o mesmo codigo mediu 79/s numa hora e
-	// 44/s noutra sem nada ter mudado no cano. Perseguir aquele numero custou uma
-	// investigacao inteira num defeito que nao existia.
-	//
-	// O custo por quadro e da maquina. Se ele cabe no orcamento, os 60 saem sempre que
-	// a tela tiver 60 para dar.
 	if m.Folga() < 0 {
 		t.Errorf("cada quadro custa %v e o orcamento e %v -- esta maquina nao sustenta %d/s",
 			m.CustoPorQuadro(), time.Second/time.Duration(m.Fps), m.Fps)
 	}
 }
 
-// A TRANSMISSÃO REDUZIDA — o caminho da sala com três ou mais pessoas.
-//
-// Este teste nasceu como outra pergunta ("o compressor não reduz sozinho?", a mesma
-// que apagou o conversor de cor) e a resposta foi NÃO: entrada e saída do H.264 têm de
-// ter o mesmo tamanho. Então ele virou o teste do caminho com redimensionador.
-//
-// A pergunta não foi desperdiçada: ela é o que separa "precisa mesmo" de "montei por
-// via das dúvidas", e está registrada no cabeçalho de `redimensionador.go` para
-// ninguém refazê-la.
 func TestTransmissaoReduzida(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -282,8 +205,6 @@ func TestTransmissaoReduzida(t *testing.T) {
 		m.Nucleos())
 	t.Logf("%d pedacos, %.0f kbps", m.Pedacos, m.Kbps())
 
-	// NÃO BASTA NÃO DAR ERRO. Um cano pode aceitar os tipos e devolver nada, e isso
-	// passaria por "funcionou" se o teste só olhasse o erro — tela preta do outro lado.
 	if m.Pedacos == 0 {
 		t.Error("aceitou os tamanhos mas nao produziu H.264 -- reducao so no papel")
 	}
@@ -296,7 +217,6 @@ func TestTransmissaoReduzida(t *testing.T) {
 	}
 }
 
-// A regra de banda é conta, não gosto — e conta se confere sem placa de vídeo.
 func TestAlvoDeSaida(t *testing.T) {
 	casos := []struct {
 		nome                     string
@@ -308,8 +228,7 @@ func TestAlvoDeSaida(t *testing.T) {
 		{"1440p a dois cai pro teto de 1080", 2560, 1440, 2, 1920, 1080},
 		{"4K com sala cheia cai pra 720", 3840, 2160, 5, 1280, 720},
 		{"tela pequena nao e esticada", 1280, 720, 2, 1280, 720},
-		// Proporção fora do comum: o que importa é a altura bater no teto e a
-		// largura acompanhar sem virar ímpar.
+
 		{"ultralarga mantem proporcao", 3440, 1440, 2, 2580, 1080},
 	}
 	for _, c := range casos {

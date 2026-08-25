@@ -38,17 +38,14 @@ data class AppPrefs(
     val density: DensityPref = DensityPref.COMFORTABLE,
     val accentId: String = "white",
     val bgId: String = "void",
-    // Toggles especificos de animacao (so valem quando o mestre reduceMotion esta off).
     val animAurora: Boolean = true,
     val animStars: Boolean = true,
     val animTransitions: Boolean = true,
     val animSkyTouch: Boolean = true,
 ) {
-    // Efetivo = mestre desligado E o toggle especifico ligado.
     val auroraOn: Boolean get() = !reduceMotion && animAurora
     val starsOn: Boolean get() = !reduceMotion && animStars
     val transitionsOn: Boolean get() = !reduceMotion && animTransitions
-    // Toque vive dentro do shader da aurora: sem aurora nao tem efeito.
     val skyTouchOn: Boolean get() = auroraOn && animSkyTouch
 }
 

@@ -5,9 +5,6 @@ import app.astra.mobile.core.network.dto.WishPageDto
 import retrofit2.http.GET
 import retrofit2.http.Query
 
-// Estrela dos desejos: o que as pessoas gostariam que o Astra tivesse. Publico —
-// todo mundo le o de todo mundo. Escrever e pela bot (`/sparxie desejo ...`), e
-// por isso aqui so ha leitura.
 interface WishApi {
     @GET("api/wishes")
     suspend fun listar(

@@ -66,10 +66,6 @@ import com.composables.icons.lucide.Volume2
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
-// Busca-A: palette dedicada (lupa no titlebar). Abas Tudo/Mensagens/Canais/
-// Pessoas contra GET /api/search. Escopo padrao = constelação atual, com toggle
-// "buscar em tudo" (mensagens/canais filtram por serverId; pessoas são globais).
-
 private enum class SearchTab(val label: String) {
     ALL("Tudo"), MESSAGES("Mensagens"), CHANNELS("Canais"), PEOPLE("Pessoas")
 }
@@ -82,9 +78,6 @@ fun SearchOverlay(
     onWhisper: (username: String, title: String) -> Unit,
     onOpenDm: (convId: String, title: String) -> Unit,
 ) {
-    // Historico gravado pelo ShellVm a cada conversa aberta (em qualquer lugar do
-    // app, nao so aqui). Lido UMA vez, na abertura: a lista muda quando voce navega,
-    // e voce nao navega com esta tela na frente.
     val recentes = remember {
         val store = GlobalContext.get().get<SessionStore>()
         store.uiPref(HISTORICO_DESTINOS)?.split('\n').orEmpty().mapNotNull { linha ->
@@ -98,15 +91,12 @@ fun SearchOverlay(
     }
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(SearchTab.ALL) }
-    // Sem constelação aberta (ex.: nos sussurros), busca sempre global.
     var onlyHere by remember { mutableStateOf(currentServerId != null) }
     var results by remember { mutableStateOf(SearchResultsDto()) }
     var loading by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
-    // Um request por query (scope=all); as abas so filtram o que aparece. Debounce
-    // curto; < 2 chars o backend devolve vazio, entao nem chama.
     LaunchedEffect(query) {
         val q = query.trim()
         if (q.length < 2) { results = SearchResultsDto(); loading = false; return@LaunchedEffect }
@@ -143,7 +133,6 @@ fun SearchOverlay(
                 }
                 .padding(12.dp),
         ) {
-            // Campo de busca com lupa.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LIcon(Lucide.Search, tint = Obsidian.text3, size = 17.dp)
                 Spacer(Modifier.width(10.dp))
@@ -168,14 +157,6 @@ fun SearchOverlay(
                 )
             }
             Spacer(Modifier.height(10.dp))
-            // Abas + toggle de escopo.
-            //
-            // AS ABAS SO APARECEM QUANDO HA O QUE FILTRAR. Com o campo vazio a lista
-            // mostra os destinos RECENTES, e aquele ramo nao le a aba nenhuma — entao as
-            // abas ficavam ali, clicaveis, mudando de cor e nao mudando mais nada. Abrir
-            // a lupa e clicar em "Canais" sem ter digitado era exatamente a cara de
-            // "os filtros nao funcionam", e era: um controle que nao tem sobre o que agir
-            // e pior do que um controle ausente.
             val temBusca = query.trim().length >= 2
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (temBusca) {
@@ -193,11 +174,6 @@ fun SearchOverlay(
             Box(Modifier.fillMaxWidth().height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
             Spacer(Modifier.height(8.dp))
 
-            // VAZIO E POR ABA, nao no total. Era `msgs && chans && people` todos vazios —
-            // entao, com resultados de mensagem e nenhuma pessoa, clicar em "Pessoas"
-            // caia no ramo da lista e desenhava uma lista SEM NADA DENTRO: sem resposta,
-            // sem explicacao, do jeito que um filtro quebrado se pareceria. Agora a aba
-            // ativa e quem decide se ha o que mostrar, e quando nao ha, ela diz.
             val showMsgs = tab == SearchTab.ALL || tab == SearchTab.MESSAGES
             val showChans = tab == SearchTab.ALL || tab == SearchTab.CHANNELS
             val showPeople = tab == SearchTab.ALL || tab == SearchTab.PEOPLE
@@ -205,9 +181,6 @@ fun SearchOverlay(
                 (!showChans || chans.isEmpty()) &&
                 (!showPeople || people.isEmpty())
             when {
-                // Campo vazio deixou de ser uma tela morta com uma instrucao. Os
-                // ultimos destinos transformam a lupa em atalho pra onde voce estava
-                // — que e o motivo pra abrir isto sem ter o que digitar.
                 query.trim().length < 2 && recentes.isNotEmpty() -> LazyColumn(
                     Modifier.heightIn(max = 420.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -266,9 +239,6 @@ private fun Hint(t: String) {
     Text(t, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.padding(vertical = 16.dp))
 }
 
-// Um destino do historico. Orbita guarda a constelacao junto porque reabrir um
-// canal exige selecionar a constelacao antes; sussurro nao precisa de nada alem
-// do id da conversa.
 private data class Recente(val orbita: Boolean, val serverId: String, val id: String, val nome: String)
 
 @Composable

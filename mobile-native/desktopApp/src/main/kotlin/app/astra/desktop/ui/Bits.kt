@@ -78,59 +78,12 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 
-// Feedback tatil de clique (decisao do dono): o alvo encolhe pra ~0.96 enquanto
-// pressionado e volta com mola ao soltar. GPU-only (graphicsLayer scale). Reduzir
-// movimento -> sem escala. Reaproveita o MESMO InteractionSource que o componente
-// já usa pro hover; pra funcionar, o clickable precisa receber esse source
-// (clickable(interactionSource = it, indication = null, ...)). Aplique cedo na
-// cadeia (antes de clip/background) pra escala envolver o visual inteiro.
-//
-// TAMBEM desenha o anel de FOCO DE TECLADO, e por isso o nome ficou menor que o
-// trabalho — mantido assim porque renomear em 29 lugares seria puro ruido de
-// diff. Este e o "jeito de botao" compartilhado do Astra: aperta e encolhe,
-// recebe foco e ganha anel.
-//
-// O anel resolve um buraco que valia pro app INTEIRO: havia 97 lugares com
-// `indication = null` e ZERO uso de estado de foco no projeto. O Tab andava pelos
-// botoes, mas nada mostrava onde voce estava — quem navega so por teclado ficava
-// as cegas. E ficar as cegas nao e um detalhe de acessibilidade: e o app inutil.
-//
-// Duas escolhas de implementacao que importam:
-//  - `onFocusChanged`, e nao o InteractionSource. O modificador observa o foco de
-//    quem vem DEPOIS dele na cadeia — e o clickable vem depois. Assim o anel nao
-//    depende de o clickable repassar (ou nao) interacao de foco pro source.
-//  - o anel e pintado no `drawWithContent`, DEPOIS do drawContent. Como o
-//    clickScale entra cedo na cadeia, uma borda comum aqui seria coberta pelo
-//    background que vem logo adiante; desenhar por cima e o unico jeito de o anel
-//    sobreviver a qualquer ordem de clip/background do chamador.
-//
-// O ANEL SO APARECE PRA QUEM VEIO DE TECLADO. Clicar com o mouse tambem da foco
-// ao alvo — e por isso a borda ficava acesa depois de cada clique, o que o dono
-// (com razao) leu como sujeira. Quem separa os dois casos e o
-// `LocalInputModeManager`: o Compose troca pra InputMode.Keyboard quando alguem
-// anda de Tab e pra Touch quando mexe o mouse. E o mesmo mecanismo que o
-// :focus-visible do CSS resolve na web. Apagar o anel de vez nao era opcao: sem
-// ele, quem navega so de teclado fica sem saber onde esta.
-//
-// No lugar do anel, o mouse ganha LUZ: um halo curto no accent atras do alvo
-// enquanto ele esta apertado. Halo em vez de borda porque borda desenha um limite
-// novo (mais uma linha na tela) e luz so ilumina o limite que ja existe.
-// FORMA DE TODO BOTAO DE ICONE DO APP: quadrado de pontas quebradas, nunca
-// circulo. O circulo sobrou de quando cada tela resolvia sozinha, e deixava o app
-// falando dois idiomas — o rail, o compositor e os menus ja eram 8dp; so os "X" de
-// fechar e as acoes de banner continuavam redondos.
-//
-// O que SEGUE redondo, e de proposito: foto de perfil, bolinha de status e anel de
-// XP (sao identidade, nao botao) e os controles de chamada, onde o circulo e
-// convencao universal — o vermelho redondo se le como "desligar" sem precisar ler.
 val FormaDeBotao = RoundedCornerShape(8.dp)
 
 @Composable
 fun Modifier.clickScale(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.96f,
-    // Forma do anel. O default cobre quase tudo; botao redondo passa CircleShape,
-    // senao sai um anel quadrado em volta de um circulo.
     formaDoFoco: Shape = RoundedCornerShape(8.dp),
 ): Modifier {
     val reduce = LocalReduceMotion.current
@@ -142,8 +95,6 @@ fun Modifier.clickScale(
         animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
         label = "clickScale",
     )
-    // Acende rapido e apaga devagar: acender junto com o dedo, apagar deixando
-    // rastro. O contrario (apagar seco) faz o clique parecer que nao pegou.
     val brilho by animateFloatAsState(
         targetValue = if (pressed && !reduce) 1f else 0f,
         animationSpec = tween(durationMillis = if (pressed) 90 else 320),
@@ -154,8 +105,6 @@ fun Modifier.clickScale(
         .graphicsLayer { scaleX = scale; scaleY = scale }
         .drawBehind {
             if (brilho <= 0.01f) return@drawBehind
-            // Raio maior que a caixa pra a luz vazar pra fora das bordas — dentro
-            // dela o background do chamador cobriria quase tudo.
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
@@ -181,17 +130,6 @@ fun Modifier.clickScale(
         }
 }
 
-// CARTAO DENTRO DE CARTAO — a estrutura preferida do projeto, e o que substituiu
-// as 14 linhas de separacao que existiam no app.
-//
-// A regra que ele materializa: conteudo se separa por ANINHAMENTO DE SUPERFICIE,
-// nao por traco. Um painel e um cartao; dentro dele, cada bloco e outro cartao,
-// um degrau mais claro. Traco de borda a borda le como linha de tabela, e o olho
-// passa a ver grade em vez de conteudo.
-//
-// `fundo` fica exposto porque o degrau depende de onde o cartao mora: dentro de
-// um popup (que ja e `overlay`) subir pra `overlay` de novo nao mostraria nada —
-// ali o passo certo e `hover`, que e o degrau seguinte da rampa.
 @Composable
 fun CartaoInterno(
     modifier: Modifier = Modifier,
@@ -212,16 +150,6 @@ fun CartaoInterno(
     )
 }
 
-// Icone Lucide tingido. O desktop NAO tem material (sem Icon()), entao renderiza
-// o ImageVector via foundation.Image + ColorFilter.tint. Substitui os glifos/emoji
-// que faziam papel de ícone de chrome; a marca ✦ do Astra fica de fora (e
-// identidade, não ícone). Mesma lib/versão do :app Android (com.composables.icons.lucide).
-//
-// `rotulo` e o nome que o leitor de tela anuncia. Fica NULO por padrao de
-// proposito: icone ao lado de um texto e decoracao, e anunciar "lixeira, Apagar
-// conversa" faz o leitor repetir tudo duas vezes. Quem PRECISA de rotulo e o
-// botao so-icone, onde o desenho e a unica pista que existe — e ali estava o
-// buraco: os 90 usos de LIcon passavam null sem nem ter como mudar isso.
 @Composable
 fun LIcon(
     icon: ImageVector,
@@ -238,18 +166,6 @@ fun LIcon(
     )
 }
 
-// Avatar circular com fallback de inicial — usado no shell e no chat. No HOVER: o
-// cursor vira mãozinha e um BRILHO acende em volta da foto.
-//
-// Era um anel que se desenhava de 0 a 360 graus. O anel tinha dois problemas: a
-// borda dura competia com a propria foto (que ja e um circulo), e a varredura
-// virava uma animacaozinha que pedia atencao toda vez que o mouse passava — e o
-// mouse passa por avatar o tempo todo num app de chat. O brilho difuso diz a
-// mesma coisa ("da pra clicar") sem desenhar uma segunda borda nem chamar aten-
-// cao pra si. So acende no hover -> custo zero parado.
-//
-// `externalHover` deixa a LINHA que contem o avatar acender o brilho (ex: hover
-// na linha de sussurro), não só o hover direto na foto.
 @Composable
 fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
@@ -263,16 +179,11 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolea
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
-            // O halo vaza pra FORA da caixa do avatar (1.4x o raio) — e o que faz
-            // parecer luz e nao mais uma borda. Fica em drawBehind pra passar por
-            // baixo da foto; por cima viraria um veu leitoso sobre o rosto.
             .drawBehind {
                 if (brilho <= 0.01f) return@drawBehind
                 val raio = size.minDimension / 2f * 1.4f
                 drawCircle(
                     brush = Brush.radialGradient(
-                        // Miolo transparente: a foto tapa essa parte de qualquer
-                        // jeito, e pintar por baixo dela so gastaria pixel.
                         0.55f to Color.Transparent,
                         0.72f to Obsidian.accent.copy(alpha = 0.30f * brilho),
                         1f to Color.Transparent,
@@ -308,100 +219,29 @@ fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolea
     }
 }
 
-// "Reduzir movimento" (Settings > Movimento): quando ligado, as animações de
-// fundo (aurora, cascata, pulsos) param. Provido no ShellScreen a partir do
-// DesktopPrefs; muda em tempo real. Modifiers @Composable (auroraBackground,
-// CascadeIn) e os pulsos leem daqui.
-//
-// NAO E `static`, E ISSO MUDOU DE PROPOSITO.
-//
-// CompositionLocal estatico nao anota quem leu: quando o valor muda, ele nao tem
-// como avisar so os leitores, entao invalida a SUBARVORE INTEIRA do provider. Isso
-// era barato enquanto "reduzir movimento" so mudava quando alguem mexia na
-// configuracao — uma vez por mes, e recompor o app todo naquele instante nao custa
-// nada.
-//
-// Deixou de ser barato quando este valor passou a significar tambem "o app esta
-// atras de outra janela". Ai ele flipa a cada alt-tab e a cada minimizar/voltar, e
-// cada flip mandava o app inteiro recompor duas vezes (na ida e na volta). Era
-// metade do "ao minimizar e abrir de novo ele carrega tudo de novo".
 val LocalReduceMotion = compositionLocalOf { false }
 
-// Quem sou eu, pra quem desenha mensagem. Vem por CompositionLocal e nao por
-// parametro porque o destaque de mencao mora na FOLHA da arvore (o span de texto
-// dentro da bolha), e enfiar dois campos por quatro camadas de assinatura so pra
-// pintar uma palavra e pior que a magia.
 data class MinhaConta(val id: String? = null, val usuario: String? = null)
 val LocalMinhaConta = staticCompositionLocalOf { MinhaConta() }
 
-// Clique num @usuario dentro da mensagem -> mini card de perfil no ponto do clique.
-//
-// E uma CLASSE com campo mutavel, e não uma lambda, e o motivo esta em onde a
-// mencao e montada. O texto estilizado da mensagem e memoizado (`remember`) porque
-// remonta-lo e o caminho mais quente do app — e o que entra nesse texto fica preso
-// ali ate a chave do remember mudar.
-//
-// Uma lambda que enxergasse a lista de membros trocaria de identidade quando a
-// lista chegasse da rede, e a mensagem ja memoizada continuaria segurando a VELHA,
-// a que ainda não conhecia ninguem. O @ simplesmente não abriria nada — so nas
-// conversas abertas antes dos membros carregarem. Bug intermitente e por tempo, o
-// tipo mais caro de achar.
-//
-// Com o objeto estavel, a mensagem guarda a REFERENCIA e le o campo na hora do
-// clique, que e quando a resposta certa existe.
 class MencaoClicavel {
     var abrir: (usuario: String) -> Unit = {}
 }
 val LocalMencaoClicavel = staticCompositionLocalOf { MencaoClicavel() }
 
-// Janela "ativa" = visivel, NAO minimizada **E com o app na frente**. Aurora, estrelas e
-// o resto do enfeite gastam frame so quando ativa.
-//
-// O FOCO ENTROU DEPOIS, E POR MEDICAO: congelar so o ceu nao bastava — com ele ja parado o
-// app ainda gastava 0,28 nucleo em segundo plano, porque o resto do enfeite continuava
-// pedindo quadro (em especial o pulso do marcador de nao-lida, que e um relogio POR canal
-// nao lido). Ver o bloco que provê isto em Main.kt.
-//
-// Nao e `static` pelo mesmo motivo do LocalReduceMotion acima: muda toda vez que a
-// janela sai da frente, e static faria isso recompor o app inteiro.
-//
-// NAO USE ISTO PARA VIDEO. Ver `LocalJanelaNaTela` logo abaixo.
 val LocalWindowActive = compositionLocalOf { true }
 
-// Janela VISIVEL e nao minimizada — sem exigir foco. E o sinal certo para conteudo que a
-// pessoa esta OLHANDO, em oposicao a enfeite que ela so percebe de relance.
-//
-// A diferenca importa e custaria caro confundir: com a janela do Astra numa segunda tela
-// enquanto se trabalha na primeira, `LocalWindowActive` e falso — e para a aurora isso
-// esta certo, ninguem repara nela. Mas a tela que alguem compartilha na chamada esta
-// sendo vista naquele instante, e cortar a imagem porque o foco esta noutra janela seria
-// o app estragando exatamente o que se pediu para ele mostrar.
-//
-// Popup focavel (menu de botao direito, dialogo) tambem rouba o foco da janela; aqui isso
-// nao pisca, porque visibilidade nao muda quando um menu abre.
 val LocalJanelaNaTela = compositionLocalOf { true }
 
-// Prefs de RENDER das animações de fundo (Settings > Desempenho), desacopladas
-// dos enums de prefs: octaves do FBM da aurora e teto de FPS (0 = livre). O
-// ShellScreen mapeia AuroraQuality/UiFps -> isto e provee; Aurora/StarField leem.
 data class RenderPrefs(val auroraOctaves: Int = 3, val fpsCap: Int = 0)
 val LocalRenderPrefs = staticCompositionLocalOf { RenderPrefs() }
 
-// Aparencia do CHAT (Settings > Aparencia): multiplicador do tamanho da fonte das
-// mensagens + respiro entre elas (topDp/groupedTopDp). Provido no ChatView a partir
-// do DesktopPrefs; ContentBlock le a fonte e MessageRow o espacamento.
 val LocalMsgFontScale = staticCompositionLocalOf { 1f }
 data class MsgDensity(val topDp: Int = 10, val groupedTopDp: Int = 2)
 val LocalMsgDensity = staticCompositionLocalOf { MsgDensity() }
 
-// Entrada em cascata (F6): itens de lista revelam um a um (fade + subida leve).
-// GPU-only (alpha/translation em graphicsLayer). So os primeiros CASCADE_MAX
-// indices animam — item que entra por scroll aparece pronto (LazyColumn recicla).
 private const val CASCADE_MAX = 14
 
-// stepMs/startDelayMs/translateY tem default = comportamento antigo, entao os
-// call-sites de lista (que passam so index+listKey) não mudam. O ProfilePage passa
-// um passo maior (ritmo "um de cada vez") pro perfil.
 @Composable
 fun CascadeIn(
     index: Int,
@@ -411,35 +251,11 @@ fun CascadeIn(
     translateY: Dp = 10.dp,
     content: @Composable () -> Unit,
 ) {
-    // O "REDUZIR MOVIMENTO" NAO PODE SER UM DESVIO DE ESTRUTURA. Aqui era:
-    //
-    //     if (LocalReduceMotion.current) { content(); return }
-    //     ... Box { content() }
-    //
-    // Duas chamadas de content() em lugares diferentes da funcao sao dois GRUPOS
-    // diferentes pro Compose. Ele nao "reaproveita" um no outro: ao trocar de ramo,
-    // descarta o grupo antigo (com todo `remember`, `LaunchedEffect` e requisicao de
-    // imagem que morava la dentro) e compoe o outro do zero.
-    //
-    // Enquanto isso so dependia da configuracao, ninguem via. Quando "reduzir
-    // movimento" passou a valer tambem pro app em segundo plano, cada minimizar-e-
-    // voltar virou dois descartes de subarvore em fila — a lista de canais, a de
-    // membros, a de sussurros, os avatares. E como o `enter` renascia em 0f, a
-    // cascata tocava de novo na volta: o app parecia estar carregando o que ja
-    // estava carregado, porque estava mesmo.
-    //
-    // Agora a estrutura e uma so, e o "reduzir movimento" decide apenas o VALOR da
-    // animacao. Norma do projeto: gatear animacao por valor, nunca por ramo — o ramo
-    // leva junto o conteudo que nao tem nada a ver com a animacao.
     val semMovimento = LocalReduceMotion.current
     val animate = index in 0 until CASCADE_MAX
-    // `semMovimento` de proposito fora das chaves do remember: ele decide so o ponto
-    // de PARTIDA, na primeira composicao. Virar chave traria de volta o reinicio.
     val enter = remember(listKey) { Animatable(if (animate && !semMovimento) 0f else 1f) }
     LaunchedEffect(listKey, semMovimento) {
         if (enter.value >= 1f) return@LaunchedEffect
-        // Desligou o movimento no meio da entrada (ou a janela saiu da frente):
-        // assenta onde deveria terminar, sem pular pro escuro.
         if (semMovimento) {
             enter.snapTo(1f)
             return@LaunchedEffect
@@ -457,10 +273,8 @@ fun CascadeIn(
     }
 }
 
-// Tres pontinhos em onda (bounce sequencial) — "digitando…" no chat e sidebar.
 @Composable
 fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
-    // Reduzir movimento: tres pontinhos parados (ainda comunica "digitando").
     if (LocalReduceMotion.current) {
         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             repeat(3) { Box(Modifier.size(dotSize).clip(CircleShape).background(color)) }
@@ -493,17 +307,6 @@ fun TypingDots(color: Color = Obsidian.text3, dotSize: Dp = 4.dp) {
     }
 }
 
-// "Estouro" de entrada/saida de gente na call (pedido do dono, no idioma do
-// Discord): quem chega ENTRA estourando — nasce pequeno e passa do tamanho antes
-// de assentar (mola com pouco amortecimento) — e quem sai encolhe e some. E o que
-// faz a call parecer viva em vez de a lista so trocar de conteudo.
-//
-// Uso: envolver cada item de uma lista que muda, com `key` = id da pessoa. O
-// AnimatedVisibility precisa nascer com visible=false e virar true no 1o frame,
-// senao ele considera o item "ja estava la" e não anima.
-// Reduzir movimento -> aparece pronto, sem estouro. Pelo mesmo motivo do CascadeIn,
-// isso e escolha de TRANSICAO e não desvio de ramo: trocar de ramo descartaria a
-// pessoa inteira da lista da call (avatar, medidor de voz) so pra parar um pop.
 @Composable
 fun PopIn(content: @Composable () -> Unit) {
     val semMovimento = LocalReduceMotion.current
@@ -511,8 +314,6 @@ fun PopIn(content: @Composable () -> Unit) {
     AnimatedVisibility(
         visibleState = vis,
         enter = if (semMovimento) EnterTransition.None else scaleIn(
-            // dampingRatio baixo = passa do alvo e volta (o "pop"). Sem isso vira
-            // um fade escalado, que não comunica "alguem chegou".
             animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
             initialScale = 0.4f,
         ) + fadeIn(tween(120)),
@@ -523,26 +324,6 @@ fun PopIn(content: @Composable () -> Unit) {
     }
 }
 
-// IMAGEM QUE MORREU: volta pra inicial em vez de deixar um buraco pra sempre.
-//
-// O caso real: as imagens salvas quando o storage ainda era o disco da instância
-// viraram endereços `/uploads/…` que hoje dão 404 permanente — o arquivo foi
-// embora num redeploy e o endereço ficou no banco. Sem isto, o avatar dessas
-// contas é um círculo vazio; COM isto, é a letra inicial, que é exatamente o que
-// aparece pra quem nunca subiu foto nenhuma.
-//
-// Não é remendo pro caso antigo só: vale pra qualquer URL que pare de responder
-// (CDN fora, imagem apagada no bucket). O estado de erro do Coil é a informação
-// certa, e ela estava sendo jogada fora.
-//
-// O registro é GLOBAL e não por composable de propósito. A mesma foto aparece em
-// dezenas de lugares ao mesmo tempo (lista de membros, autor de cada mensagem,
-// cartão), e um estado por peça faria cada uma descobrir sozinha que a URL está
-// morta — dezenas de requisições condenadas por rolagem. Descobriu uma vez, todo
-// mundo já sabe.
-//
-// Teto de 512 pra não virar vazamento numa sessão longa; quando estoura, esquece
-// e no máximo se tenta de novo — que é o comportamento certo se a URL voltar.
 private val urlsMortas = object : LinkedHashMap<String, Boolean>(64, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 512
 }
@@ -552,10 +333,6 @@ internal fun imagemMorreu(url: String?): Boolean =
 
 internal fun lembrarQueMorreu(url: String?, estado: AsyncImagePainter.State) {
     if (url == null || estado !is AsyncImagePainter.State.Error) return
-    // REGISTRA UMA VEZ SÓ, e é o mesmo `put` que decide: o mapa já servia para não
-    // repetir a requisição condenada, e agora serve também para não repetir a linha no
-    // registro. Sem isso, uma lista de membros com quarenta avatares mortos escreveria
-    // quarenta linhas por rolagem e afogaria o resto do arquivo.
     val novidade = synchronized(urlsMortas) { urlsMortas.put(url, true) == null }
     if (novidade) RedeLog.imagemMorreu(url)
 }

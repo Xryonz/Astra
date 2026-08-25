@@ -12,8 +12,6 @@ class OnboardingViewModel @Inject constructor(
     private val authApi: AuthApi,
 ) : ViewModel() {
 
-    // Fire-and-forget: se a rede falhar, o gate local (consumeOnboarding) ja
-    // impediu re-exibicao nesta sessao; na proxima o backend mostra de novo.
     fun markDone() {
         viewModelScope.launch {
             try { authApi.markOnboarded() } catch (_: Exception) {}

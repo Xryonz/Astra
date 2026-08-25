@@ -1,21 +1,5 @@
 package main
 
-// A TRANSMISSÃO NA MÁQUINA SEM COMPRESSOR DE PLACA.
-//
-// Esta é a prova do caminho que `AbrirCompressor` só percorre quando TODOS os
-// compressores de placa recusaram — o caso da máquina virtual, do notebook antigo e da
-// área de trabalho remota. Antes dele existir, essas máquinas não transmitiam nada: não
-// "pior", nada. O botão de compartilhar tela acendia e a imagem nunca aparecia do outro
-// lado.
-//
-// POR QUE O TESTE CHAMA `amarrar` DIRETO em vez de `AbrirCompressor`: nesta máquina há
-// compressor de placa, e ele ganha na primeira passada — o caminho de software nunca
-// seria exercitado. Chamar a segunda passada pelo nome é o que permite prová-la aqui, e
-// `amarrar` é a função inteira dela: a única coisa que `AbrirCompressor` acrescenta é o
-// laço de candidatos e o teto de 720p, que `TestTetoDeSoftware` cobre à parte.
-//
-//	ASTRA_TESTE_TELA=1 go test -run SemPlaca -v
-
 import (
 	"runtime"
 	"testing"
@@ -50,9 +34,6 @@ func TestTransmitirSemPlaca(t *testing.T) {
 	}
 	defer SoltarCompressores(lista)
 
-	// O CANDIDATO É O QUE NÃO FALA D3D11 — o de emergência. Aqui o atributo serve: não
-	// se está decidindo o caminho por ele (a produção TENTA em vez de perguntar), só
-	// escolhendo qual candidato exercitar.
 	var c *Compressor
 	var recusas []string
 	for _, cand := range lista {
@@ -83,8 +64,6 @@ func TestTransmitirSemPlaca(t *testing.T) {
 		t.Fatal("sem redimensionador: nada converteria ARGB32 em NV12")
 	}
 
-	// O LAÇO DE VERDADE, do jeito que `emissao.go` faz. Sessenta voltas para dar folga
-	// à área de trabalho parada, que não produz quadro.
 	var quadros, bytes, comChave int
 	comeco := time.Now()
 	receber := func(pronto []byte) {
@@ -101,8 +80,7 @@ func TestTransmitirSemPlaca(t *testing.T) {
 			t.Fatalf("capturar: %v", err)
 		}
 		if textura == 0 {
-			// Tela parada. AINDA PRECISA COLHER — é a volta em que o quadro preso no
-			// pipeline sai, e sem ela a imagem de quem assiste congela um quadro cedo.
+
 			if err := c.Drenar(receber); err != nil {
 				t.Fatalf("colher o que sobrou: %v", err)
 			}
@@ -114,7 +92,7 @@ func TestTransmitirSemPlaca(t *testing.T) {
 		textura.soltar()
 		tela.SoltarQuadro()
 	}
-	// A última colheita: o pipeline sempre segura um.
+
 	if err := c.Drenar(receber); err != nil {
 		t.Fatalf("colher o último: %v", err)
 	}

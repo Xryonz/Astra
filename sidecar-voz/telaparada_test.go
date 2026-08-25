@@ -1,30 +1,5 @@
 package main
 
-// A TELA PARADA — os dois lados de um par de números que só funciona junto.
-//
-// O problema apareceu lendo `receberTela` para outra coisa: NÃO EXISTE PACOTE DE "ACABOU"
-// EM RTP. A faixa continua declarada no SDP e simplesmente deixa de trafegar. Quem parava
-// de transmitir ficava congelado no palco de todo mundo, com a última imagem parecendo ao
-// vivo, até sair da chamada. MEDIDO antes do conserto: dez segundos depois de
-// `Desligar()`, quem assiste ainda tinha a tela no ar.
-//
-// E O CONSERTO ÓBVIO ERA UMA ARMADILHA. "Sem pacote por N segundos = acabou" apagaria a
-// tela de quem compartilha um documento e para de mexer — com a tela parada o emissor não
-// manda pacote nenhum, de propósito. E ler um documento parado é o caso de uso, não a
-// exceção.
-//
-// A saída foi fazer a tela parada FALAR (`sinalDeVida`, em `emissao.go`) para que o
-// silêncio passasse a significar uma coisa só. Os dois números são um par: mexer num sem o
-// outro reintroduz o defeito. Daí os dois testes deste arquivo existirem em espelho —
-//
-//	TestQuemParaDeTransmitirSaiDoPalcoDeQuemAssiste   parou  -> some, e não antes da hora
-//	TestATransmissaoVivaNaoSomeDoPalco                no ar  -> fica, o tempo todo
-//
-// O MESMO REMÉDIO CONSERTOU UM DEFEITO PIOR, achado no caminho: o pedido de quadro-chave
-// era atendido DEPOIS do `continue` do ramo "nada mudou", então com a tela parada ele
-// ficava pendurado e ninguém o atendia. Quem entrasse numa chamada onde já se compartilha
-// uma tela parada lia "abrindo a tela de fulano…" até alguém mexer o mouse.
-
 import (
 	"bufio"
 	"context"
@@ -61,8 +36,6 @@ func TestQuemParaDeTransmitirSaiDoPalcoDeQuemAssiste(t *testing.T) {
 	}
 	defer parA.Fechar()
 
-	// SEM CANO DE ENTREGA, de propósito: este teste não olha pixel nenhum, só o aviso de
-	// que há (e de que deixou de haver) tela. `Mandar` num ponteiro nulo é seguro.
 	parB, err := NovoPar("A", config, nil, nil, nil, nil, NewEscritor(escreveB))
 	if err != nil {
 		t.Fatalf("criar quem assiste: %v", err)
@@ -86,8 +59,6 @@ func TestQuemParaDeTransmitirSaiDoPalcoDeQuemAssiste(t *testing.T) {
 		}
 	}()
 
-	// O AVISO DE TELA, "1" quando há e "0" quando deixou de haver. É a única coisa que
-	// este teste observa.
 	avisos := make(chan string, 32)
 	rotear := func(quem string, de io.Reader, para *Par) {
 		linhas := bufio.NewScanner(de)
@@ -152,18 +123,12 @@ func TestQuemParaDeTransmitirSaiDoPalcoDeQuemAssiste(t *testing.T) {
 	esperar("1", `o aviso de "há tela chegando"`, 30*time.Second)
 	t.Log("a tela subiu")
 
-	// E AGORA PARA. Do ponto de vista da rede não acontece nada: a faixa continua
-	// negociada, os pacotes é que cessam.
 	emissor.Desligar()
 	comeco := time.Now()
 	esperar("0", `o aviso de "a tela acabou"`, 15*time.Second)
 	levou := time.Since(comeco)
 	t.Logf("a tela sumiu do palco %v depois de a transmissão parar", levou.Round(100*time.Millisecond))
 
-	// O PISO É TÃO IMPORTANTE QUANTO O TETO, e sem ele este teste já passou pelo motivo
-	// errado: sumir DEPRESSA DEMAIS quer dizer que a goroutine de recepção MORREU em vez
-	// de contar o silêncio — e faixa sem leitor entope o buffer do pion, que é o defeito
-	// caro. A primeira versão marcou 600ms e parecia ótima.
 	if levou < silencioQueEncerra/2 {
 		t.Errorf("sumiu em %v, muito antes do silêncio de %v: a faixa deixou de ser lida",
 			levou.Round(10*time.Millisecond), silencioQueEncerra)
@@ -174,11 +139,6 @@ func TestQuemParaDeTransmitirSaiDoPalcoDeQuemAssiste(t *testing.T) {
 	}
 }
 
-// O OUTRO LADO DA MOEDA: uma transmissão VIVA não pode sumir do palco.
-//
-// É o falso positivo que o prazo de leitura introduz, e ele é pior que o defeito que o
-// prazo conserta: apagar a tela de quem está transmitindo agora mesmo. Roda por mais que
-// `silencioQueEncerra` de propósito — um teste mais curto que o prazo não prova nada.
 func TestATransmissaoVivaNaoSomeDoPalco(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -266,8 +226,6 @@ func TestATransmissaoVivaNaoSomeDoPalco(t *testing.T) {
 		t.Fatal("a tela nunca subiu")
 	}
 
-	// A ESPERA É MAIOR QUE O PRAZO DE PROPÓSITO. Um teste mais curto que
-	// `silencioQueEncerra` passaria sem exercitar nada.
 	select {
 	case <-apagou:
 		mu.Lock()

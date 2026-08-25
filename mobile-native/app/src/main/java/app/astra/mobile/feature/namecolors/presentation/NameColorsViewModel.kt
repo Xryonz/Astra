@@ -14,7 +14,6 @@ import javax.inject.Inject
 private val HEX_RE = Regex("^#[0-9a-fA-F]{6}$")
 private val HEX6 = Regex("#[0-9a-fA-F]{6}")
 
-// Aceita cor solida (#rrggbb) ou linear-gradient(...) com >=2 hexes validos.
 private fun isValidColorCss(v: String): Boolean =
     HEX_RE.matches(v) || (v.startsWith("linear-gradient") && HEX6.findAll(v).count() >= 2)
 

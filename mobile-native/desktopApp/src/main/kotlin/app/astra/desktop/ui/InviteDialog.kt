@@ -58,14 +58,6 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.shared.AstraShared
 import kotlinx.coroutines.launch
 
-// Convite nativo do Astra. Dois caminhos, porque resolvem coisas diferentes:
-//   - por @usuario: entra na hora, a outra ponta não faz nada (backend checa
-//     permissao, banimento e se já e membro).
-//   - por LINK: pra quem você não sabe o @, ou pra mandar por fora. O link e o
-//     atalho curto que o proprio backend serve (`/i/<codigo>`, index.ts).
-// A ponta que faltava era ENTRAR: o desktop sabia gerar convite mas não sabia
-// usar um, entao convite recebido morria.
-
 fun inviteLink(code: String): String = AstraShared.BASE_URL.trimEnd('/') + "/i/" + code
 
 private object CenterOverlay : PopupPositionProvider {
@@ -84,23 +76,6 @@ internal fun DialogShell(
     respiro: Dp = 18.dp,
     content: @Composable () -> Unit,
 ) {
-    // ENTRADA E SAIDA ANIMADAS, aqui e nao em cada dialogo: o DialogShell e o casco
-    // do convite E da enquete, entao animar num lugar so anima os dois e impede que
-    // um dia eles animem diferente.
-    //
-    // OS DOIS DIALOGOS DAS CONFIGURACOES ENTRARAM DEPOIS, e o motivo de terem ficado
-    // de fora e instrutivo: eles montavam o mesmo Popup a mao, com um
-    // `PopupPositionProvider` identico a este mas chamado `OverlayCenter` em vez de
-    // `CenterOverlay` — dois nomes para o MESMO objeto, em arquivos diferentes. O
-    // custo nao foi a duplicacao: foi que os dois nasceram SEM a animacao daqui e
-    // apareciam secos, exatamente o "piscar" que este casco existe para evitar.
-    //
-    // Largura e respiro viraram parametro so por causa deles (360/18 e 400/20). O
-    // resto era igual linha a linha.
-    //
-    // Mesma coreografia do perfil completo (ProfilePage): o scrim faz fade, o cartao
-    // escala de 0,94 e sobe 16dp. Aparecer seco e o que fazia o dialogo "piscar" na
-    // tela — sem movimento nenhum, o olho nao acompanha de onde ele veio.
     val reduce = LocalReduceMotion.current
     val scope = rememberCoroutineScope()
     val entrada = remember { Animatable(if (reduce) 1f else 0f) }
@@ -110,8 +85,6 @@ internal fun DialogShell(
             entrada.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow))
         }
     }
-    // Fecha TOCANDO A CURVA DE VOLTA antes de avisar quem chamou; `fechando` trava a
-    // reentrada (clique duplo no scrim, ou scrim + botao ao mesmo tempo).
     fun pedirFechar() {
         if (fechando) return
         fechando = true
@@ -153,7 +126,6 @@ internal fun DialogShell(
                     .clip(RoundedCornerShape(14.dp))
                     .background(Obsidian.raised)
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(14.dp))
-                    // Clique no cartao NAO fecha (so o scrim atras).
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -164,9 +136,6 @@ internal fun DialogShell(
     }
 }
 
-// Campo e botao dos dialogos. Nasceram aqui (convite) mas nao tem nada de
-// convite dentro — o dialogo de enquete usa os mesmos. Copiar seria repetir o
-// erro do cartao de perfil, que existia em dois arquivos e divergiu.
 @Composable
 internal fun DialogField(
     value: String,
@@ -217,7 +186,6 @@ internal fun DialogButton(label: String, accent: Boolean, icone: ImageVector? = 
     }
 }
 
-// "convidar pessoas" — quem já esta na constelação chama.
 @Composable
 fun InvitePeopleDialog(
     serverName: String,
@@ -285,9 +253,6 @@ fun InvitePeopleDialog(
 
         if (inviteCode != null) {
             Spacer(Modifier.height(16.dp))
-            // O segundo caminho (mandar o link) virou CARTAO. Sao duas maneiras
-            // diferentes de convidar a mesma pessoa; o traco dizia "acabou uma
-            // coisa, comecou outra", e o cartao mostra as duas lado a lado.
             CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(12.dp)) {
                 Text("ou mande este link", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
                 Spacer(Modifier.height(7.dp))
@@ -323,8 +288,6 @@ fun InvitePeopleDialog(
     }
 }
 
-// "entrar com convite" — a ponta que faltava. Aceita o link inteiro ou so o
-// codigo; quem separa os dois e o ShellVm.
 @Composable
 fun JoinByInviteDialog(
     onJoin: (raw: String, onResult: (String?) -> Unit) -> Unit,

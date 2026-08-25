@@ -8,28 +8,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// SONDA DO REDIMENSIONADOR, antes de escrever o redimensionador.
-//
-// Três perguntas decidem o formato do código, e nenhuma delas tem resposta confiável na
-// documentação — as três já foram respondidas errado por ela neste mesmo projeto:
-//
-//  1. ele TRAZ a amostra de saída, ou temos de alocar a textura de destino? A
-//     diferença é um anel inteiro de texturas a mais.
-//  2. é comandado por recados, como o compressor de hardware? Muda o laço.
-//  3. a ordem é saída-antes-de-entrada, como no H.264, ou o contrário?
-//
-// Perguntar custa este arquivo. Supor custa uma tarde, e já custou.
-
-// CLSID_VideoProcessorMFT {88753B26-5B24-49BD-B2E7-0C445C78C982}
 var clsidRedimensionador = guid(0x88753B26, 0x5B24, 0x49BD,
 	[8]byte{0xB2, 0xE7, 0x0C, 0x44, 0x5C, 0x78, 0xC9, 0x82})
 
-// IID_IMFTransform {BF94C121-5B05-4E6F-8000-BA598961414D}
 var iidTransformador = guid(0xBF94C121, 0x5B05, 0x4E6F,
 	[8]byte{0x80, 0x00, 0xBA, 0x59, 0x89, 0x61, 0x41, 0x4D})
 
-// tipoDeVideo monta um tipo de mídia de vídeo cru, do jeito que as duas pontas do
-// redimensionador querem.
 func tipoDeVideo(formato windows.GUID, largura, altura int) (objeto, error) {
 	var tipo objeto
 	r, _, _ := procMFCriarTipo.Call(uintptr(unsafe.Pointer(&tipo)))
@@ -57,8 +41,6 @@ func TestComoORedimensionadorSeComporta(t *testing.T) {
 	}
 	defer fecharMF()
 
-	// Precisa de uma placa de verdade: sem entregar o dispositivo, ele trabalha na
-	// memória principal e as respostas mudam.
 	tela, err := AbrirTela(0)
 	if err != nil {
 		t.Skipf("sem tela: %v", err)
@@ -73,7 +55,6 @@ func TestComoORedimensionadorSeComporta(t *testing.T) {
 	defer rd.soltar()
 	t.Log("o Video Processor MFT existe e ligou")
 
-	// PERGUNTA 2, antes de tudo: ele fala por recados?
 	temFila := false
 	if g, err := rd.consultar(&iidGeradorDeEventos); err == nil {
 		temFila = true
@@ -81,7 +62,6 @@ func TestComoORedimensionadorSeComporta(t *testing.T) {
 	}
 	t.Logf("comandado por recados: %v", temFila)
 
-	// Entrega a placa, senão ele reduz na CPU — que é exatamente o que não queremos.
 	var ficha uint32
 	var gerente objeto
 	r, _, _ := procMFCriarGerenciador.Call(
@@ -100,8 +80,6 @@ func TestComoORedimensionadorSeComporta(t *testing.T) {
 	}
 	t.Log("aceitou a placa (vai reduzir dentro da GPU)")
 
-	// PERGUNTA 3: em que ordem ele aceita os tipos? Tenta entrada primeiro, que é a
-	// ordem natural; se recusar, tenta o contrário, que é a ordem do H.264.
 	entrada, err := tipoDeVideo(formatoARGB32, largura, altura)
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -128,7 +106,6 @@ func TestComoORedimensionadorSeComporta(t *testing.T) {
 	}
 	t.Logf("aceitou reduzir %dx%d -> 1280x720 em ARGB32, na ordem: %s", largura, altura, ordem)
 
-	// PERGUNTA 1, a que decide se existe um anel de texturas a mais.
 	var info infoDaSaida
 	if err := hr(rd.chamar(transInfoDaSaida, 0, uintptr(unsafe.Pointer(&info))),
 		"perguntar como sai"); err != nil {

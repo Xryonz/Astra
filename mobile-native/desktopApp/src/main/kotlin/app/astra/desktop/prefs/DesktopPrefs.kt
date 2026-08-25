@@ -4,16 +4,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import app.astra.desktop.auth.SessionStore
-// O total de RAM FISICA mora no OperatingSystemMXBean do `com.sun.management`, e nao
-// no do `java.lang.management`. E o mesmo modulo (`jdk.management`) que ja precisa
-// estar no empacotamento por causa da medicao de custo da transmissao — sem ele isto
-// compila e explode so no app empacotado.
 import com.sun.management.OperatingSystemMXBean
 import java.lang.management.ManagementFactory
 
-// Qualidade da aurora = numero de oitavas do FBM no shader (custo dominante).
-// SkSL exige bound de loop CONSTANTE -> não da uniform; recompila-se uma variante
-// por nível (barato, so quando muda). HIGH=3, MEDIUM=2, LOW=1.
 enum class AuroraQuality(val key: String, val octaves: Int) {
     HIGH("high", 3), MEDIUM("med", 2), LOW("low", 1);
     companion object {
@@ -21,8 +14,6 @@ enum class AuroraQuality(val key: String, val octaves: Int) {
     }
 }
 
-// Teto de FPS das animações de fundo (aurora/estrelas). LIVRE segue o vsync do
-// monitor (144Hz de gamer = mais trabalho); 30 poupa GPU pro jogo. 0 = livre.
 enum class UiFps(val key: String, val cap: Int) {
     FREE("free", 0), CAP60("60", 60), CAP30("30", 30);
     companion object {
@@ -30,11 +21,6 @@ enum class UiFps(val key: String, val cap: Int) {
     }
 }
 
-// Presets da transmissão de tela (Settings > Voz). SO 720p, por decisao de perf: o
-// encoder H264 do webrtc-java e por SOFTWARE (sem HW/NVENC) e 1080p não chega nem a
-// 30fps na CPU — entao foco total em 720p, priorizando fluidez. Default = 720p60.
-// bitrate em bits/s. Aplica ao INICIAR a transmissão. (Chaves antigas de 1080p caem
-// no default via from() — quem tinha 1080p salvo sobe pro 720p60 suportado.)
 enum class ScreenQuality(
     val key: String, val label: String,
     val width: Int, val height: Int, val fps: Int, val bitrate: Int,
@@ -42,29 +28,10 @@ enum class ScreenQuality(
     SMOOTH_720_60("s72060", "720p 60fps — fluida", 1280, 720, 60, 4_000_000),
     LIGHT_720_30("l72030", "720p 30fps — leve", 1280, 720, 30, 2_500_000),
 
-    // O degrau pra maquina fraca. Existe porque o custo do H264 por SOFTWARE e
-    // praticamente constante em NUCLEOS: o mesmo encoder que ocupa 8% de um PC forte
-    // ocupa mais da metade de um de quatro nucleos. 720p30 ja e metade do trabalho de
-    // 720p60; 540p30 tira mais 44% dos pixels em cima disso.
-    //
-    // 960x540 e exatamente metade de 1080p em cada eixo, entao a reducao cai em
-    // limite de pixel inteiro, e os dois lados sao pares (o I420 exige, porque o
-    // croma anda de dois em dois).
     TINY_540_30("t54030", "540p 30fps — economica", 960, 540, 30, 1_200_000);
     companion object {
         fun from(raw: String?) = entries.find { it.key == raw } ?: padraoDaMaquina()
 
-        // O preset de estreia sai da MAQUINA, e nao de um valor fixo.
-        //
-        // Todo mundo comecava em 720p60 e so descia depois de sofrer — e quem tem PC
-        // fraco costuma ser exatamente quem nao sabe que existe uma tela de
-        // configuracao pra mexer. A primeira transmissao dele era a ruim.
-        //
-        // O corte e por processador logico porque o encoder H264 por SOFTWARE custa
-        // ~1,25 nucleo em 720p60, medido. Numa maquina de 4 threads isso e um terco do
-        // computador so pra codificar, com o jogo, o navegador e o proprio Astra
-        // disputando o resto. A escolha continua sendo do dono: isto e so o ponto de
-        // partida de quem nunca escolheu.
         fun padraoDaMaquina(): ScreenQuality = when (Runtime.getRuntime().availableProcessors()) {
             in 0..4 -> TINY_540_30
             in 5..6 -> LIGHT_720_30
@@ -73,9 +40,6 @@ enum class ScreenQuality(
     }
 }
 
-// Como o microfone decide transmitir. O portão de sensibilidade (micSensitivity)
-// continua valendo nos dois — ele corta silêncio; isto decide se há permissão pra
-// falar em primeiro lugar.
 enum class ModoDeFala(val key: String, val label: String) {
     VOZ("voz", "Transmitir quando eu falar"),
     APERTAR("apertar", "Apertar para falar");
@@ -84,7 +48,6 @@ enum class ModoDeFala(val key: String, val label: String) {
     }
 }
 
-// Tamanho da fonte das mensagens (multiplicador). Espelha o FontSizePref do mobile.
 enum class FontSizePref(val key: String, val label: String, val scale: Float) {
     SM("sm", "Pequena", 0.9f), MD("md", "Padrao", 1.0f), LG("lg", "Grande", 1.12f), XL("xl", "Maior", 1.25f);
     companion object {
@@ -92,8 +55,6 @@ enum class FontSizePref(val key: String, val label: String, val scale: Float) {
     }
 }
 
-// Densidade das mensagens: respiro entre mensagens (topDp) e entre agrupadas
-// (groupedTopDp). Espelha o DensityPref do mobile.
 enum class DensityPref(val key: String, val label: String, val topDp: Int, val groupedTopDp: Int) {
     COMPACT("compact", "Compacta", 5, 1),
     COMFORTABLE("comfortable", "Confortavel", 10, 2),
@@ -103,124 +64,48 @@ enum class DensityPref(val key: String, val label: String, val topDp: Int, val g
     }
 }
 
-// Preferencias LOCAIS do desktop (não vao pro backend): movimento, toasts da
-// bandeja e agora DESEMPENHO/GRAFICOS. Persistem no ui.properties (mesmo arquivo
-// da última selecao, que sobrevive a logout). StateFlow pra UI e shell reagirem
-// na hora que muda.
 class DesktopPrefs(private val store: SessionStore) {
     data class Prefs(
-        // Reduz/desliga as animações de fundo (aurora, cascata, pulsos).
         val reduceMotion: Boolean = false,
-        // Toast na bandeja quando chega DM / atividade de canal (janela oculta).
         val notifyDms: Boolean = true,
         val notifyChannels: Boolean = true,
-        // Privacidade: mostrar aos outros o programa em primeiro plano.
-        // NASCE DESLIGADO, e isso e a decisao mais importante do recurso. Recurso
-        // que conta o que voce esta fazendo tem que ser um ato seu — ligado por
-        // padrao ele seria uma coisa que aconteceu com voce, mesmo com interruptor
-        // disponivel, porque quase ninguem visita a tela de configuracoes.
         val atividadeVisivel: Boolean = false,
-        // --- Desempenho & Graficos ---
-        // Modo desempenho: kill-switch gamer (aurora+estrelas OFF + reduz movimento).
         val performanceMode: Boolean = false,
-        // POR QUE o modo desempenho ligou sozinho ("3,9 GB de memória"), ou vazio se
-        // foi a pessoa que ligou. Guardar o MOTIVO e não uma bandeira booleana é o que
-        // permite o aviso dizer o que foi visto na máquina em vez de "achamos melhor".
         val perfAutomatico: String = "",
-        // DESLIGADAS por padrao (decisao do dono): o Astra abre com fundo liso, e
-        // aurora/estrelas viram uma escolha em Aparencia > Fundo. Fundo animado
-        // como padrao e uma opiniao forte cobrada de quem nunca pediu — e a conta
-        // vem em GPU numa maquina que a gente nao conhece.
         val auroraEnabled: Boolean = false,
-        // Padrao MEDIUM (decisao do dono): todos comecam nos graficos medios; quem
-        // quiser sobe pra HIGH nas configs. So o valor INICIAL — escolha explicita
-        // salva prevalece.
         val auroraQuality: AuroraQuality = AuroraQuality.MEDIUM,
         val starsEnabled: Boolean = false,
-        // LIVRE, por decisao do dono: com o Astra na frente ele usa o processador e a
-        // placa que precisar; o unico recurso com teto e a RAM. Quem paga a conta do
-        // segundo plano e o gate de foco (Main.kt), nao um teto de fps. O ajuste continua
-        // em Configuracoes > Desempenho pra quem tiver maquina apertada.
         val uiFps: UiFps = UiFps.FREE,
-        // Janela translucida (cantos arredondados). Aplica ao REINICIAR (e param
-        // de criacao da janela). Opaca = mais nitido/leve.
         val windowTransparent: Boolean = true,
-        // Fechar o X ENCERRA o Astra de vez (sem bandeja/segundo plano). Default
-        // false = minimiza pra bandeja (comportamento antigo). Ligado, tambem some
-        // o icone da bandeja — zero presenca em segundo plano ao fechar.
         val exitOnClose: Boolean = false,
-        // Acessibilidade: sobe texto e borda. Opt-in — o padrao e calibrado pra
-        // sessao longa a noite (ver Obsidian.kt), e ninguem e empurrado pra ca.
         val altoContraste: Boolean = false,
-        // --- Aparencia ---
         val accentId: String = "white",
         val bgId: String = "void",
         val fontSize: FontSizePref = FontSizePref.MD,
         val density: DensityPref = DensityPref.COMFORTABLE,
-        // Placa de video preferida, pelo id de PCI (ver `Placas`). Vazio = automatico,
-        // que e o certo pra quase todo mundo: o Astra usa a placa que desenha a tela,
-        // que e a unica que consegue comprimir a captura dela.
-        //
-        // A parte do VIDEO vale na proxima transmissao; a parte da INTERFACE so no
-        // proximo arranque, porque o Skiko le essa escolha uma vez, ao criar a janela.
         val placaVideo: String = "",
-        // --- Voz & Transmissao ---
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
-        // Motor de video novo (GStreamer publicando direto da placa). DESLIGADO por
-        // padrao ate rodar em call de verdade: ele troca TUDO o que sai (microfone
-        // inclusive), e um defeito aqui nao aparece como tela preta -- aparece como
-        // ninguem te ouvindo. Ligado, ainda cai sozinho pro caminho de sempre se faltar
-        // o pacote ou o encoder de hardware.
         val motorNovo: Boolean = false,
-        // Processamento do microfone (aplica ao ENTRAR na próxima sala de voz).
-        // Aviso SEM conteudo: nem quem escreveu, nem o que escreveu. Existe pra quem
-        // transmite a tela -- o aviso da bandeja aparece POR CIMA de tudo, inclusive
-        // do que esta sendo gravado.
         val avisoDiscreto: Boolean = false,
-        // Som do aviso de mensagem (sintetizado no Sfx). Nasce LIGADO: som novo
-        // que precisa ser descoberto num menu não existe pra quem instalou hoje.
         val somDeAviso: Boolean = true,
-        // O gato que anda pela tela. Nasce DESLIGADO, e isso e deliberado: um bicho
-        // andando por cima da conversa e uma escolha estetica forte, e ninguem deve
-        // receber isso sem ter pedido. Quem quer, liga em Acessibilidade.
         val petLigado: Boolean = false,
-        // Pelagem do gato (nome da constante em `Pelagem`). Guardado como texto pra
-        // uma pelagem removida no futuro virar o padrao em vez de derrubar a leitura.
         val petPelagem: String = "LARANJA",
-        // Qual bicho (nome da constante em `Bicho`).
         val petBicho: String = "SIMPLES",
-        // Nome que o dono deu ao bicho. Vazio = sem nome, e ai nada e desenhado.
         val petNome: String = "",
-        // Modo transmissao: aviso sem conteudo + sem som + e-mail escondido. O
-        // automatico e opt-in porque exige varrer a lista de processos.
         val modoTransmissao: Boolean = false,
         val modoTransmissaoAuto: Boolean = false,
         val micNoiseSuppression: Boolean = true,
         val micEchoCancel: Boolean = true,
         val micAutoGain: Boolean = true,
-        // Sensibilidade de entrada (voice gate): 0 = sempre transmite; >0 = so
-        // transmite quando o RMS (0..1) passa do limiar (com cauda de 250ms).
         val micSensitivity: Float = 0f,
-        // Dispositivos da call (nome exato; null = padrao do sistema). Entrada =
-        // mic (Java Sound); saida = alto-falante (ADM do WebRTC).
         val audioInput: String? = null,
         val audioOutput: String? = null,
-        // COMO FALAR. Voz = transmite sempre (o portão de sensibilidade acima ainda
-        // vale). Apertar = só transmite enquanto a tecla estiver segurada.
         val modoDeFala: ModoDeFala = ModoDeFala.VOZ,
-        // Teclas de atalho GLOBAIS, em código virtual do Windows. 0 = nenhuma.
-        // Ficam aqui e não no servidor porque são preferência de MÁQUINA: o teclado
-        // é este, não a conta.
         val teclaFalar: Int = 0,
         val teclaMudo: Int = 0,
         val teclaEnsurdecer: Int = 0,
-        // Emojis usados por ultimo, do mais recente pro mais antigo. Local e nao no
-        // backend de proposito: e preferencia de MAQUINA (o teclado que voce usa
-        // aqui), nao de conta — e sincronizar isso custaria uma escrita no servidor
-        // a cada emoji clicado.
         val emojiRecentes: List<String> = emptyList(),
     ) {
-        // Flags EFETIVAS que o shell consome: o modo desempenho sobrepoe.
         val auroraOn: Boolean get() = auroraEnabled && !performanceMode
         val starsOn: Boolean get() = starsEnabled && !performanceMode
         val reduceMotionEff: Boolean get() = reduceMotion || performanceMode
@@ -231,23 +116,9 @@ class DesktopPrefs(private val store: SessionStore) {
 
     init { migrarCeu(); aferirAMaquina() }
 
-    // O ASTRA SE AJUSTA À MÁQUINA NA PRIMEIRA ABERTURA.
-    //
-    // Não existe "computador fraco" no abstrato: existem memória e núcleos, e são
-    // esses dois que decidem se um app que anima vai caber. Quem tem uma máquina
-    // apertada não vai procurar Configurações › Desempenho — vai achar que o Astra é
-    // pesado e desistir. Então ele começa econômico e DIZ que fez isso.
-    //
-    // Roda UMA vez por instalação, e nunca por cima de escolha feita: se a chave
-    // `performanceMode` já existe, alguém já decidiu e a decisão é dela.
-    //
-    // O que fica gravado é o MOTIVO, não uma bandeira: é ele que deixa o aviso dizer
-    // "3,9 GB de memória" em vez de "achamos melhor assim". Aviso que mostra a medida
-    // se defende sozinho; aviso que só afirma vira desconfiança.
     private fun aferirAMaquina() {
         if (store.uiPref("maquinaAferida") == "1") return
         store.setUiPref("maquinaAferida", "1")
-        // Já mexeu no ajuste alguma vez? Então não há o que adivinhar.
         if (store.uiPref("performanceMode") != null) return
         val motivo = motivoParaEconomizar() ?: return
         store.setUiPref("performanceMode", "1")
@@ -255,10 +126,6 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(performanceMode = true, perfAutomatico = motivo) }
     }
 
-    // 5 GB e não 4 porque uma máquina de 8 GB reporta ~7,9 e uma de 4 reporta ~3,9:
-    // o corte precisa cair no vão entre as duas. E o Windows sozinho já leva ~2 GB,
-    // então em 4 GB o que sobra é dividido com o navegador, o jogo e o resto — o
-    // Astra não pode ser quem fecha essa conta.
     private fun motivoParaEconomizar(): String? {
         val nucleos = Runtime.getRuntime().availableProcessors()
         val ram = runCatching {
@@ -266,42 +133,17 @@ class DesktopPrefs(private val store: SessionStore) {
         }.getOrNull() ?: 0L
         val gb = ram / 1024.0 / 1024.0 / 1024.0
         return when {
-            // `ram > 0` porque a leitura pode falhar e devolver 0 — e zero não é
-            // "máquina fraca", é "não consegui medir". Ligar o modo econômico com
-            // base numa falha de leitura seria pior que não ligar.
             ram > 0 && ram < 5L * 1024 * 1024 * 1024 -> "%.1f GB de memória".format(gb)
             nucleos <= 2 -> "$nucleos núcleos de processador"
             else -> null
         }
     }
 
-    /** A pessoa leu o aviso. O modo continua ligado; some só o cartão. */
     fun dispensarAvisoDePerf() {
         store.setUiPref("perfAutomatico", "")
         _state.update { it.copy(perfAutomatico = "") }
     }
 
-    // AJUSTE QUE NUNCA VALEU NAO E ESCOLHA — e por isso este remendo de uma vez so.
-    //
-    // O `LocalRenderPrefs` era provido dentro do ShellScreen, e o ceu (aurora + estrelas)
-    // mora ACIMA dele na arvore desde que o login e o shell passaram a dividir o mesmo
-    // fundo. CompositionLocal que nao acha provedor cai no default em silencio: nada
-    // quebrou visivelmente, os dois ajustes so pararam de obedecer. Por tempo indefinido
-    // a aurora desenhou em ALTA e sem teto de fps, qualquer que fosse o que estivesse
-    // marcado na tela de Desempenho.
-    //
-    // Consertado o provedor, o valor gravado passaria a valer DE REPENTE — e o dono
-    // veria o fundo mudar de aparencia sozinho, por uma escolha que ele fez uma vez, sem
-    // efeito nenhum, e que portanto nunca foi testada por ele. Entao os dois voltam pro
-    // padrao bom uma unica vez, marcado por `ceuMigrado`. A partir daqui a tela manda.
-    //
-    // Os dois voltam pro padrao: aurora ALTA (a que o dono sempre viu, porque era o
-    // default que vinha valendo) e fps LIVRE — na frente o Astra nao tem teto de
-    // processador nem de placa, so de RAM. O que segura o custo em segundo plano e o
-    // gate de foco no Main.kt, e nao um teto que valeria tambem com o app na frente.
-    // A marca e VERSIONADA porque esta migracao ja rodou uma vez com outro alvo: a 0.2.17
-    // pos os fps em 60, e a 0.2.18 mudou a politica pra "sem teto na frente, gate de foco
-    // atras". Marca booleana teria deixado quem instalou a 0.2.17 preso nos 60 pra sempre.
     private fun migrarCeu() {
         if (store.uiPref("ceuMigrado") == "2") return
         store.setUiPref("ceuMigrado", "2")
@@ -310,25 +152,14 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(auroraQuality = AuroraQuality.HIGH, uiFps = UiFps.FREE) }
     }
 
-    // Ausente = default (toasts ligados; reduceMotion/perfMode desligados; aurora
-    // e estrelas DESLIGADAS; qualidade media; fps livre; janela translucida).
-    //
-    // Repare na polaridade de aurora/estrelas: e `== "1"`, e nao `!= "0"`. A
-    // diferenca importa pra quem ja usa o Astra — so quem LIGOU de proposito tem
-    // "1" gravado e continua com o ceu; quem nunca abriu as configs passa a ver o
-    // fundo liso. E o que o dono pediu, e sem apagar escolha de ninguem.
     private fun read() = Prefs(
         reduceMotion = store.uiPref("reduceMotion") == "1",
         notifyDms = store.uiPref("notifyDms") != "0",
         notifyChannels = store.uiPref("notifyChannels") != "0",
-        // "1" e a UNICA forma de ligar. Ausente, vazio ou lixo = desligado — o
-        // padrao seguro tem que valer tambem pro arquivo corrompido.
         atividadeVisivel = store.uiPref("atividadeVisivel") == "1",
         performanceMode = store.uiPref("performanceMode") == "1",
         perfAutomatico = store.uiPref("perfAutomatico") ?: "",
         auroraEnabled = store.uiPref("auroraEnabled") == "1",
-        // MIGRACAO DE UMA VEZ (ver `migrarCeu` abaixo): o que estava gravado nestes dois
-        // nunca chegou a valer, entao nao era escolha de ninguem.
         auroraQuality = store.uiPref("auroraQuality")?.let(AuroraQuality::from) ?: AuroraQuality.MEDIUM,
         starsEnabled = store.uiPref("starsEnabled") == "1",
         uiFps = UiFps.from(store.uiPref("uiFps")),
@@ -342,11 +173,7 @@ class DesktopPrefs(private val store: SessionStore) {
         placaVideo = store.uiPref("placaVideo").orEmpty(),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         avisoDiscreto = store.uiPref("avisoDiscreto") == "1",
-        // Ausente = ligado. Só um "0" explícito desliga — quem nunca abriu a aba
-        // não deve herdar silêncio por causa de uma chave que ainda não existe.
         somDeAviso = store.uiPref("somDeAviso") != "0",
-        // `== "1"`, nao `!= "0"`: ausente tem que significar DESLIGADO. Com `!= "0"`
-        // quem nunca tocou no ajuste ganhava o gato de brinde.
         petLigado = store.uiPref("petLigado") == "1",
         petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
         petBicho = store.uiPref("petBicho") ?: "SIMPLES",
@@ -364,8 +191,6 @@ class DesktopPrefs(private val store: SessionStore) {
         teclaFalar = store.uiPref("teclaFalar")?.toIntOrNull() ?: 0,
         teclaMudo = store.uiPref("teclaMudo")?.toIntOrNull() ?: 0,
         teclaEnsurdecer = store.uiPref("teclaEnsurdecer")?.toIntOrNull() ?: 0,
-        // Separados por espaco: nenhum emoji contem espaco, entao nao ha o que
-        // escapar.
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
     )
 
@@ -518,9 +343,6 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(micEchoCancel = v) }
     }
 
-    // Vale na PROXIMA call: o LiveKit da uma conexao de publicacao so, e trocar de
-    // transporte com a chamada no ar seria derrubar e refazer tudo com a voz de alguem
-    // em cima.
     fun setMotorNovo(v: Boolean) {
         persist("motorNovo", v)
         _state.update { it.copy(motorNovo = v) }
@@ -567,8 +389,6 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(audioOutput = v) }
     }
 
-    // O emoji usado vai pro topo. Guarda poucos de proposito: "recentes" com 60
-    // itens nao e recente, e a linha do seletor mostra uma fileira so.
     fun registrarEmoji(glifo: String) {
         val nova = (listOf(glifo) + _state.value.emojiRecentes.filter { it != glifo }).take(TETO_RECENTES)
         store.setUiPref("emojiRecentes", nova.joinToString(" "))

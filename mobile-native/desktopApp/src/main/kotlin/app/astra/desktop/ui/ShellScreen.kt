@@ -196,16 +196,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.context.GlobalContext
 
-// Shell desktop (fatia 2): rail 72 | sidebar 260 | palco | membros 240.
-// Compacto (decisao do dono); chat de verdade e a próxima fatia.
 @Composable
 fun ShellScreen(
     session: Session,
     windowInactive: () -> Boolean,
     notify: (String, String) -> Unit,
-    // Traz a janela de volta. O aviso aparece justamente quando ela está escondida na
-    // bandeja, então clicar nele e navegar sem reabrir levaria a pessoa a uma conversa
-    // que ela não pode ver.
     aoPedirJanela: () -> Unit,
     onLogout: () -> Unit,
     searchOpen: Boolean = false,
@@ -215,8 +210,6 @@ fun ShellScreen(
     desejosOpen: Boolean = false,
     onCloseDesejos: () -> Unit = {},
     missoesOpen: Boolean = false,
-    // Abrir vem separado do fechar porque o estado mora no Main (a barra de
-    // titulo tambem abre). Sem isto o rodape nao teria como acender a tela.
     onAbrirMissoes: () -> Unit = {},
     onCloseMissoes: () -> Unit = {},
     onNotifUnread: (Int) -> Unit = {},
@@ -233,52 +226,27 @@ fun ShellScreen(
         )
     }
     val state by vm.state.collectAsState()
-    // Call VIVA acima da navegacao: o engine mora aqui, não dentro da VoiceView.
-    // Trocar de órbita não desconecta mais — so desligar (ou entrar noutra sala).
     val voice = remember { VoiceSession(scope, koin) }
     DisposableEffect(Unit) { onDispose { voice.encerrar() } }
-    // O VM nasce antes da sessão de voz (ele é criado no `remember` acima), então
-    // a ligação é feita aqui. É por ela que uma chamada atendida entra na sala.
     remember(voice) { vm.voiceSession = voice }
     var settingsOpen by remember { mutableStateOf(false) }
-    // Aba em que o takeover abre: a engrenagem cai em Conta, o avatar do rodape
-    // cai em Perfil.
     var settingsTab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
-    // Configuracoes da CONSTELACAO (outro takeover): sempre a selecionada.
     var serverSettingsOpen by remember { mutableStateOf(false) }
-    // Convite aberto pelo botao da faixa do banner. Declarado aqui em cima porque
-    // quem SETA (a faixa, dentro do Sidebar) e quem RENDERIZA (o Box de fora) estao
-    // em ramos diferentes da arvore.
     var convidarPelaFaixa by remember { mutableStateOf<ServerDto?>(null) }
-    // Ctrl+K = quick-switcher (pular pra canal/sussurro). Foco na raiz garante que o
-    // atalho dispara mesmo sem nada clicado; onPreviewKeyEvent na raiz ve a tecla
-    // antes de qualquer campo de texto filho.
     var paletteOpen by remember { mutableStateOf(false) }
     val rootFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
     LaunchedEffect(Unit) { socket.connect() }
 
-    // Progressao: le o XP uma vez e depois fica escutando o `xp_gain`. Vive no
-    // escopo do shell — some junto com a sessao, sem coletor orfao depois do logout.
     LaunchedEffect(Unit) { koin.get<XpStore>().iniciar(scope) }
 
-    // Missoes: so o coletor do socket sobe no boot (barato, e o que faz o aviso
-    // aparecer). O painel em si so e buscado quando alguem abre a tela — carregar no
-    // boot seria uma requisicao a mais no pior momento, pra desenhar nada.
     LaunchedEffect(Unit) { koin.get<MissoesStore>().iniciar(scope) }
 
-    // Permissões do Windows na PRIMEIRA abertura, pra quem JÁ TINHA conta — quem
-    // cria conta agora vê a mesma lista dentro das boas-vindas (e o onDone de lá
-    // marca esta pref, pra não mostrar duas vezes seguidas). Depois fica em
-    // Configurações > Permissões. Vem antes da primeira call de propósito:
-    // descobrir que o mic está bloqueado no meio da conversa é o pior momento.
     val sessionStore = remember { koin.get<SessionStore>() }
     var permsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (sessionStore.uiPref("permsVistas") != "1") {
-            // Um respiro pra a janela desenhar antes: a checagem abre o microfone
-            // e o diálogo caindo em cima do carregamento parece travamento.
             kotlinx.coroutines.delay(900)
             permsOpen = true
         }
@@ -293,9 +261,6 @@ fun ShellScreen(
         )
     }
 
-    // Fui expulso/banido: o VM ja me tirou da call e da constelacao; aqui so
-    // explico o que houve. Vem DEPOIS do dialogo de permissoes de proposito — se
-    // os dois abrissem juntos, um Popup focavel roubaria o foco do outro.
     state.penalidade?.let { p ->
         val onde = p.constelacao?.let { " de $it" } ?: ""
         CenteredConfirmDialog(
@@ -313,11 +278,6 @@ fun ShellScreen(
         )
     }
 
-
-    // Badge do sino: o servidor AVISA (evento 'notification' na sala user:<id>), então
-    // o badge sobe na hora em vez de esperar o próximo poll. O poll continua, mas
-    // lento (2min) e so como rede de seguranca — ele e a fonte AUTORITATIVA da
-    // contagem (corrige o palpite local e conta o que chegou com o app fechado).
     var notifRefresh by remember { mutableStateOf(0) }
     var notifCount by remember { mutableStateOf(0) }
     LaunchedEffect(notifRefresh) {
@@ -333,36 +293,16 @@ fun ShellScreen(
         socket.notification.collect { raw ->
             notifCount += 1
             onNotifUnread(notifCount)
-            // O SOM MORA NESTE EVENTO e não no do balão, por dois motivos. Primeiro:
-            // é o único que carrega o `silent` do servidor — a resposta autoritativa
-            // sobre não-perturbe e horário de descanso, calculada com as prefs da
-            // conta e não com um palpite local. Segundo: `notification` só nasce
-            // para o que é dirigido a você, então o som já herda a discrição certa
-            // sem precisar de mais nenhuma condição.
-            //
-            // Toca com a janela aberta também, de propósito: é assim que se percebe
-            // que chegou algo em outra órbita sem estar olhando pra ela.
             val silencioso = runCatching {
                 json.parseToJsonElement(raw).jsonObject["silent"]?.jsonPrimitive?.boolean
             }.getOrNull() ?: false
-            // Transmitindo, o som entra na gravação como qualquer outro áudio do
-            // sistema — mesma razão do aviso sem conteúdo.
             if (!silencioso && prefs.state.value.somDeAviso && !ModoTransmissao.ativo.value) {
                 Sfx.aviso()
             }
-            // O gato levanta a cabeça junto. Mesmo evento, mesma condição de
-            // silêncio: em não-perturbe ele também não se mexe — reagir seria
-            // chamar atenção justamente quando a pessoa pediu que não chamassem.
             if (!silencioso) Pet.mensagemNova()
         }
     }
 
-    // O aviso do botão "testar" das configurações. Ele reproduz o desvio do aviso
-    // discreto de propósito: quem ligou o discreto e apertar testar precisa ver o
-    // balão curto, e não o cartão — senão o teste promete uma coisa e a mensagem de
-    // verdade entrega outra. Usa a própria foto porque é a única que o app tem certeza
-    // de poder mostrar, e porque "é assim que vai aparecer" só se entende com um rosto
-    // no lugar do rosto.
     fun avisoDeTeste() {
         if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
             notify("Astra", "Se você está lendo isto, os avisos funcionam.")
@@ -377,29 +317,9 @@ fun ShellScreen(
         )
     }
 
-    // Aviso quando chega mensagem com a janela fechada/minimizada/sem foco.
-    //
-    // OS DOIS CAMINHOS AGORA TÊM AUTOR E CONTEÚDO. Sussurro sempre teve (o `new_dm`
-    // carrega a mensagem inteira); canal não tinha, porque o `channel_activity` era só
-    // `{ channelId, lastMessageAt }` — e por isso o aviso de canal dizia "nova
-    // mensagem" e mais nada. O servidor passou a mandar quem escreveu, o trecho e a
-    // foto no mesmo evento, filtrado por quem enxerga o canal.
-    //
-    // NÃO PERTURBE E HORÁRIO DE DESCANSO CALAM A BANDEJA — e até agora não calavam
-    // nada. O servidor já marcava `silent: true` no evento `notification` nos dois
-    // casos, e o desktop nunca leu esse campo: dava pra pôr o status em "não
-    // perturbe" e o balão do Windows pulava igual, de madrugada inclusive.
-    //
-    // A decisão é tomada AQUI, com o relógio local, em vez de esperar o `silent`:
-    // o balão nasce de `new_dm`/`channel_activity`, que são eventos diferentes do
-    // `notification`. Amarrar um ao outro criaria dependência de ordem entre dois
-    // caminhos que o servidor emite separados.
     val avisosDaConta = remember { koin.get<AvisosDaConta>() }
     LaunchedEffect(Unit) { avisosDaConta.carregar() }
 
-    // Tema da conta: adota o que a conta guarda e passa a empurrar as trocas.
-    // Fica AQUI (e não no Main) porque só faz sentido com sessão — e sair da
-    // conta tira o ShellScreen da composição, o que cancela o coletor sozinho.
     val temaDaConta = remember { koin.get<TemaDaConta>() }
     LaunchedEffect(Unit) { temaDaConta.sincronizar() }
     LaunchedEffect(Unit) {
@@ -410,15 +330,6 @@ fun ShellScreen(
                 val msg = runCatching { json.decodeFromString<DmMessageDto>(raw) }.getOrNull() ?: return@collect
                 if (msg.senderId == session.userId) return@collect
                 if (vm.state.value.dms.any { it.id == msg.conversationId && it.muted }) return@collect
-                // Aviso discreto: nem quem escreveu, nem o que escreveu. Continua
-                // dizendo QUE TIPO chegou — dá pra decidir se vale interromper o que
-                // se está fazendo sem que a tela conte nada a quem estiver vendo.
-                //
-                // O discreto continua saindo pelo BALÃO DO WINDOWS de propósito. O
-                // cartão do Astra existe pra mostrar rosto, nome e trecho; sem nada
-                // disso ele seria uma janela grande dizendo duas palavras — e uma
-                // janela que só aparece é mais chamativa que o balão do sistema, o
-                // oposto do que "discreto" pede.
                 if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
                     notify("Astra", "sussurro novo")
                     return@collect
@@ -426,8 +337,6 @@ fun ShellScreen(
                 val name = msg.author?.displayName ?: msg.author?.username ?: "alguém"
                 AvisosNaTela.mostrar(
                     quem = name,
-                    // Sussurro não tem "onde": o rosto já responde tudo que há pra
-                    // responder. Escrever "sussurro" ali só gastaria a linha.
                     onde = "",
                     trecho = msg.content.ifBlank { "enviou um anexo" }.take(140),
                     avatarUrl = msg.author?.avatarUrl,
@@ -446,22 +355,11 @@ fun ShellScreen(
                 val ev = runCatching { json.decodeFromString<ChannelActivityEventDto>(raw) }.getOrNull() ?: return@collect
                 val estado = vm.state.value
                 val ch = estado.servers.flatMap { it.channels }.find { it.id == ev.channelId } ?: return@collect
-                // SILÊNCIO DA ÓRBITA VALE AQUI, no cliente, e não tem como ser no
-                // servidor: o `channel_activity` é o MESMO evento que acende a bolinha
-                // de não-lido, e ele precisa chegar sempre. Filtrar na origem apagaria
-                // o não-lido junto com o aviso — silenciar viraria "fingir que não
-                // chegou mensagem", que é outra coisa.
                 if (estado.orbitaSilenciada(ev.channelId)) return@collect
-                // O nome do canal também é conteúdo: "#planejamento-demissoes" numa
-                // transmissão diz mais que a mensagem em si.
                 if (prefs.state.value.avisoDiscreto || ModoTransmissao.ativo.value) {
                     notify("Astra", "mensagem numa constelação")
                     return@collect
                 }
-                // SEM AUTOR NO EVENTO, CAI PRO AVISO ANTIGO. Acontece com servidor
-                // ainda não atualizado — e nesse caso o cartão do Astra mostraria um
-                // rosto vazio e a palavra "alguém", que é pior que a linha honesta do
-                // balão dizendo só o nome do canal.
                 val quem = ev.authorName
                 if (quem == null) {
                     notify("#${ch.name}", "nova mensagem")
@@ -483,9 +381,6 @@ fun ShellScreen(
         }
     }
 
-    // ChatVm nasce DENTRO da pagina do AnimatedContent do palco: a conversa
-    // antiga continua renderizando durante o fade e o dispose so roda quando a
-    // pagina sai da composicao de vez.
     val chat = state.chat
     val createChatVm = remember {
         { target: ChatTarget ->
@@ -498,21 +393,6 @@ fun ShellScreen(
         }
     }
 
-    // Desempenho (Settings): reduzir movimento + prefs de render descem por
-    // CompositionLocal. auroraOn/starsOn/reduceMotionEff já aplicam o modo
-    // desempenho (kill-switch) por cima dos toggles individuais.
-    // APP FORA DA FRENTE = "REDUZIR MOVIMENTO" LIGADO.
-    //
-    // Medido: com o Astra atras de outra janela, congelar so o ceu levou o custo de 0,42
-    // pra 0,28 nucleo — e a aurora ja estava comprovadamente parada (dois quadros com 4s
-    // de intervalo diferiam em 15 pixels de 8600). Ou seja, o que sobrava nao era o ceu:
-    // era o RESTO do movimento pedindo quadro, e cada quadro repinta a aurora inteira.
-    // Ligando "reduzir movimento" no app todo, o mesmo cenario cai pra 0,003 nucleo.
-    //
-    // O sinal vem do `LocalWindowActive`, que ja carrega visibilidade + foco (Main.kt).
-    // Escolher este caminho, em vez de sair gateando animacao por animacao, tem uma razao
-    // que vai valer pro codigo futuro: toda animacao nova ja nasce respeitando o
-    // "reduzir movimento" por norma do projeto, entao ja nasce gratis em segundo plano.
     val emSegundoPlano = !LocalWindowActive.current
     CompositionLocalProvider(
         LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano),
@@ -530,21 +410,6 @@ fun ShellScreen(
                 } else false
             },
     ) {
-        // Aurora e estrelas NAO moram mais aqui: subiram pra janela (Main.kt), atrás
-        // do login e do shell ao mesmo tempo. Sem isso a entrada saltava — a aurora
-        // do login ocupava 45% da largura e a do shell 100%, e o uv do shader e
-        // normalizado pelo tamanho, entao eram duas imagens diferentes. Uma so
-        // instancia também significa um shader em vez de dois durante a transicao.
-        // Paineis = cartoes flutuantes (estilo mobile): gap entre eles + cantos
-        // arredondados deixam a aurora respirar nas juntas (impressao de
-        // sobreposicao). Margem externa de 8dp separa do titulo/bordas da janela.
-        // Escondidos enquanto o Settings (takeover) esta aberto: assim a UNICA aurora
-        // do shell (montada acima) fica continua por baixo do Settings — sem aurora
-        // nova, sem salto de posição ao trocar de aba. Crossfade rapido.
-        // Checklist de 1o acesso (metade "checklist" do onboarding): so pra quem
-        // acabou de passar pelo takeover (pref "checklist:<id>"=1). Risca sozinho
-        // conforme cria constelação / manda sussurro; some ao completar os dois ou
-        // no "pular".
         val onbStore = remember { GlobalContext.get().get<SessionStore>() }
         var checklistActive by remember(session.userId) {
             mutableStateOf(onbStore.uiPref("checklist:${session.userId}") == "1")
@@ -555,10 +420,6 @@ fun ShellScreen(
                 checklistActive = false
             }
         }
-        // A VAGA DA SIDEBAR CABE OS DOIS. O aviso de máquina econômica vem PRIMEIRO
-        // quando existe: ele explica por que a tela está diferente do que a pessoa viu
-        // num vídeo ou no computador do amigo, e essa dúvida chega antes da vontade de
-        // criar a primeira constelação.
         val avisoDePerf = prefs.state.value.perfAutomatico
         val temAlgoNaVaga = checklistActive || avisoDePerf.isNotBlank()
         val firstSteps: (@Composable () -> Unit)? = if (temAlgoNaVaga) {
@@ -584,31 +445,6 @@ fun ShellScreen(
             null
         }
 
-        // ESCONDER O SHELL NAO PODE SER TIRA-LO DA COMPOSICAO.
-        //
-        // Aqui era um `AnimatedVisibility`, e ele nao esconde: ele DESCARTA. Terminado o
-        // fade de saida, a subarvore inteira sai da composicao — rail, sidebar, palco,
-        // conversa. Abrir as configuracoes matava o shell; fechar montava um shell novo.
-        //
-        // O que se via era a cascata tocando de novo nas orbitas e nas mensagens, e essa
-        // era a parte BARATA do estrago. A cara: o `ChatVm` nasce dentro do palco, com
-        // `DisposableEffect { onDispose { chatVm.dispose() } }`. Descartado o shell, a
-        // conversa aberta era destruida e RECARREGADA DO SERVIDOR na volta. Ida e volta
-        // as configuracoes custava uma viagem de rede e uma remontagem completa, para
-        // reexibir exatamente o que ja estava na tela.
-        //
-        // Agora esconder e so ALPHA, e a subarvore nunca morre: a conversa continua viva
-        // por baixo, nada e refeito, e voltar e instantaneo porque nao ha o que refazer.
-        //
-        // O `drawWithContent` existe para que invisivel tambem seja BARATO: com alpha 0
-        // o Skia ainda percorreria a arvore de desenho inteira por quadro. Pular o
-        // `drawContent` corta a pintura sem tocar na composicao — que e exatamente a
-        // divisao que se quer aqui.
-        //
-        // E o "reduzir movimento" entra pelo mesmo motivo que ja vale para o app em
-        // segundo plano (ver a nota do CompositionLocalProvider acima): shell vivo e
-        // shell que continua pedindo quadro. Coberto pelas configuracoes ele nao tem
-        // por que animar nada.
         val shellCoberto = settingsOpen || serverSettingsOpen
         val shellVisivel by animateFloatAsState(
             if (shellCoberto) 0f else 1f,
@@ -623,15 +459,6 @@ fun ShellScreen(
                 .graphicsLayer { alpha = shellVisivel }
                 .drawWithContent { if (shellVisivel > 0.001f) drawContent() },
         ) {
-        // O SHELL INTEIRO E UM CARTAO. Os paineis continuam encostados entre si —
-        // o que mudou e a relacao com a JANELA: antes o conteudo morria colado na
-        // moldura dos quatro lados. Agora ha 10dp de respiro em volta, e o conjunto
-        // ganha canto e borda propria. O app le como uma peca apoiada no fundo em
-        // vez de papel de parede.
-        //
-        // O clip vai no bloco, nao em cada painel: e ele que arredonda as quatro
-        // quinas de uma vez, e por isso a rail e o painel de membros podem seguir
-        // quadrados por dentro sem vazar pra fora.
         Box(
             Modifier
                 .fillMaxSize()
@@ -640,28 +467,14 @@ fun ShellScreen(
                 .border(1.dp, Obsidian.borderMid.copy(alpha = 0.55f), FORMA_DO_SHELL),
         ) {
         Row(Modifier.fillMaxSize()) {
-        // Quem pode abrir as configurações da constelação, e como abrir. Sao os
-        // MESMOS dois pra rail e pra engrenagem abaixo do banner — duas rotas pra
-        // mesma tela, uma regra so.
         val podeConfigurar: (String) -> Boolean = { id ->
             (state.selection as? Selection.Server)?.id == id &&
                 state.myPerms?.let { it.isOwner || it.isAdmin || "MANAGE_SERVER" in it.permissions } == true
         }
         val abrirConfigDaConstelacao: (String) -> Unit = { id ->
-            // Selecionar antes de abrir: a tela le a constelação selecionada, e
-            // assim também chega o myPerms dela.
             vm.select(Selection.Server(id))
             serverSettingsOpen = true
         }
-        // COLUNA ESQUERDA: rail + sidebar em cima, e o rodape do usuario atravessando
-        // as duas embaixo.
-        //
-        // O caminho ate aqui, porque ele explica o desenho: o rodape atravessava a
-        // rail desde o 0.1.92 e, do 0.1.97 em diante, ainda passava 26dp por cima do
-        // PALCO. Os 26dp incomodavam; a travessia, nao. Tirar as duas de uma vez
-        // deixou um vazio de 72dp no pe da rail, e foi ele que o dono viu. Entao:
-        // atravessa a rail (o cartao tem a largura das duas colunas), e para na borda
-        // da sidebar (nada de sobra por cima do palco).
         Column(Modifier.width(LARGURA_RAIL + LARGURA_SIDEBAR).fillMaxHeight()) {
         Row(Modifier.weight(1f)) {
         Rail(
@@ -669,8 +482,6 @@ fun ShellScreen(
             selection = state.selection,
             myId = session.userId,
             mutedServers = state.mutedServers,
-            // `unread` guarda id de canal E de conversa no mesmo conjunto; o que
-            // separa um do outro e cruzar com a lista de sussurros.
             sussurroNaoLido = state.dms.any { it.id in state.unread },
             canManageSelected = podeConfigurar,
             onOpenServerSettings = abrirConfigDaConstelacao,
@@ -687,7 +498,6 @@ fun ShellScreen(
             selection = state.selection,
             servers = state.servers,
             dms = state.dms,
-            // Ids são unicos: o "ativo" da sidebar cobre chat de texto OU sala de voz.
             activeChatId = chat?.id ?: state.voiceChannel?.id,
             unread = state.unread,
             unreadCounts = state.unreadCounts,
@@ -699,9 +509,6 @@ fun ShellScreen(
             memberPresence = state.memberPresence,
             myId = session.userId,
             onConvidar = { convidarPelaFaixa = it },
-            // Eu-otimista na sidebar so quando ESTOU CONECTADO (voice.joined), não
-            // quando so abri a antessala (state.voiceChannel). Antes o meu ícone
-            // aparecia sob o canal no instante em que eu clicava nele, sem entrar.
             myVoiceChannelId = voice.joined?.id,
             onOpenChat = vm::openChat,
             onOpenVoice = vm::openVoice,
@@ -732,9 +539,6 @@ fun ShellScreen(
             firstSteps = firstSteps,
         )
         }
-        // Vaga do rodape, que e desenhado por cima de tudo (ver o fim deste Box).
-        // Ela vale pras DUAS colunas: a rail tambem para 62dp antes do fim, porque
-        // o cartao passa por baixo dela.
         Spacer(Modifier.height(ALTURA_DO_RODAPE))
         }
         Stage(
@@ -745,26 +549,14 @@ fun ShellScreen(
             mudo = voice.mudo,
             aoAlternarMudo = voice::alternarMudo,
             voicePresence = state.voiceChannel?.let { state.voicePresence[it.id] }.orEmpty(),
-            // Entrar de verdade: conecta E anuncia. O anuncio mora aqui (e nao no
-            // openVoice) porque abrir a antessala nao e entrar na call.
             onJoinVoice = { state.voiceChannel?.let { voice.join(it); vm.announceVoiceJoin(it.id) } },
-            // Desligar = sair de verdade e limpar o palco. Em sussurro passa pelo
-            // VM: ele avisa o servidor ANTES de sair, e é esse aviso que fecha a
-            // duração gravada no histórico.
             onLeaveVoice = {
                 if (voice.emSussurro) vm.desligarSussurro() else { voice.leave(); vm.leaveVoice() }
             },
             onLigarSussurro = { alvo, video ->
-                // A foto vem da lista de conversas: a tela de chamada mostra o
-                // rosto de quem você chamou, não só o nome.
                 val foto = state.dms.find { it.id == alvo.id }?.otherUser?.avatarUrl
                 vm.ligarNoSussurro(alvo.id, alvo.title, foto, video)
             },
-            // Chamada é coisa de gente. A bot é uma conta de verdade no banco, e por
-            // isso o sussurro dela vinha com os mesmos dois botões de qualquer
-            // sussurro — só que do outro lado não há ninguém pra atender, e a chamada
-            // tocava até desistir sozinha. O servidor recusa também (dmCalls.ts):
-            // esconder botão não é proibir ação.
             botDoOutroLado = (chat as? ChatTarget.Dm)?.let { alvo ->
                 state.dms.find { it.id == alvo.id }?.otherUser?.username == USUARIO_DA_BOT
             } == true,
@@ -777,25 +569,11 @@ fun ShellScreen(
             onStartDm = vm::startDm,
             showDiscover = state.selection is Selection.Discover,
             onDiscoverJoined = vm::refreshServersAndSelect,
-            // COLECAO MONTADA NA HORA E VENENO PRA RECOMPOSICAO.
-            //
-            // `Set` e instavel pro Compose, entao ele so consegue pular quando
-            // recebe A MESMA INSTANCIA (comparacao por identidade, que e como o
-            // strong skipping trata instavel). Montado aqui dentro, o Set nasce
-            // NOVO a cada recomposicao deste shell — e o shell recompoe a cada
-            // mensagem, presenca, alguem digitando. Resultado: o palco inteiro
-            // nunca pulava, por causa de um argumento que quase nunca muda.
-            //
-            // Com o remember, a instancia so troca quando a lista de constelacoes
-            // troca de verdade.
             joinedServerIds = remember(state.servers) { state.servers.map { it.id }.toSet() },
             showFriends = state.selection is Selection.Dms && state.friendsOpen,
             modifier = Modifier.weight(1f),
         )
         AnimatedVisibility(
-            // Volta a ter interruptor (embaixo do banner): entrar numa constelação
-            // ainda mostra os membros — o padrão continua ABERTO —, mas dá pra
-            // fechar e ganhar a largura pro chat.
             visible = state.selection is Selection.Server && state.membersOpen,
             enter = expandHorizontally(tween(200)) + fadeIn(tween(200)),
             exit = shrinkHorizontally(tween(160)) + fadeOut(tween(120)),
@@ -813,13 +591,6 @@ fun ShellScreen(
             )
         }
         }
-        // O RODAPE DO USUARIO E DESENHADO POR CIMA, na faixa que a coluna reservou.
-        //
-        // Ele nao e filho da coluna: e irmao do Row inteiro, ancorado no canto
-        // inferior esquerdo. Desenhar por cima (em Compose, quem vem por ultimo na
-        // Box) e o que deixa o cartao ter borda propria sem empurrar a lista.
-        //
-        // Largura = rail + sidebar. Ele atravessa a rail e PARA na borda da sidebar.
         UserFooter(
             me = state.me,
             fallbackName = session.displayName,
@@ -840,23 +611,6 @@ fun ShellScreen(
         }
         }
 
-        // O GATO. Fica ACIMA da conversa e ABAIXO de tudo que cobre a tela — telas
-        // cheias e o card da call. Essa ordem é o recurso, não detalhe de arrumação.
-        //
-        // Ele já morou na última camada, por cima de tudo. O efeito era o bicho
-        // andando no ar sobre as configurações. Consertar zerando o chão quando o
-        // rodapé saía criou o defeito seguinte: o gato PISCAVA a cada ida e volta,
-        // porque nascia e morria junto da navegação.
-        //
-        // Cobrir resolve os dois: ele nunca sai de cena, então não pisca; e quem vem
-        // depois desenha por cima, então ele não aparece onde não deve.
-        //
-        // POR ISSO ELE É O PRIMEIRO DAS CAMADAS DE CIMA, e não o último. Ele estava
-        // entre as duas telas de configuração — depois da constelação e antes da
-        // conta —, então cobria uma e era coberto pela outra. O mesmo bicho, com o
-        // mesmo código, aparecia por cima em Configurações da Constelação e
-        // corretamente escondido em Configurações da Conta. Ordem de irmãos num
-        // `Box` é z-order, e uma camada no meio da pilha só está certa por acidente.
         GatoDoAstra(
             ligado = prefs.state.value.petLigado,
             bichoId = prefs.state.value.petBicho,
@@ -864,9 +618,6 @@ fun ShellScreen(
             nome = prefs.state.value.petNome,
         )
 
-        // Card flutuante da call: so quando você esta conectado E saiu da sala no
-        // palco. Fica por cima do palco e do bicho — e o único lugar com o botao de
-        // desligar depois que navegar deixou de desconectar.
         val joined = voice.joined
         val callAtiva = voice.call
         if (joined != null && callAtiva != null && state.voiceChannel?.id != joined.id) {
@@ -882,27 +633,18 @@ fun ShellScreen(
             )
         }
 
-        // Configuracoes da constelação: mesma entrada do Settings (decisao do dono),
-        // pra as duas telas de configuração se comportarem igual. Sai sozinha se a
-        // constelação deixar de existir (excluir/sair fecham pelo proprio estado).
         val cfgServer = state.selectedServer
         AnimatedVisibility(
             visible = serverSettingsOpen && cfgServer != null,
             enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f),
             exit = fadeOut(tween(140)) + scaleOut(tween(140), targetScale = 0.98f),
         ) {
-            // Guarda o último servidor valido: durante o fade de saida o selectedServer
-            // já pode ser null (ex.: acabou de excluir) e a tela não pode piscar vazia.
             val shown = remember(cfgServer) { cfgServer }
             shown?.let { srv ->
                 ServerSettingsScreen(
                     server = srv,
                     isOwner = srv.ownerId == session.userId,
                     members = state.members,
-                    // isAdmin (cargo legado) concede o conjunto que o backend trata
-                    // como de admin; senao, so as permissões granulares dos cargos.
-                    // Mesmo caso do joinedServerIds acima: Set novo a cada
-                    // recomposicao impedia a tela de configuracoes de pular.
                     myPermissions = remember(state.myPerms) { state.myPerms?.permissions.orEmpty().toSet() },
                     onClose = { serverSettingsOpen = false },
                     onSave = { body, cb -> vm.updateServer(srv.id, body, cb) },
@@ -919,8 +661,6 @@ fun ShellScreen(
             }
         }
 
-        // Settings em takeover (Discord): a MESMA aurora do shell segue viva por baixo
-        // (o conteudo acima esconde-se no crossfade). Entra/sai com fade + leve zoom.
         AnimatedVisibility(
             visible = settingsOpen,
             enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f),
@@ -931,20 +671,12 @@ fun ShellScreen(
                 prefs = prefs,
                 initialTab = settingsTab,
                 onClose = { settingsOpen = false },
-                // Salvou o perfil -> re-hidrata o `me` do shell (rodape, chat e a
-                // propria previa passam a ler o valor novo).
                 onProfileSaved = { vm.refreshMe() },
                 aoSairDaConta = onLogout,
-                // O teste usa o MESMO caminho do aviso de verdade, e agora isso quer
-                // dizer o cartão do Astra — inclusive o desvio do aviso discreto, que
-                // continua saindo pela bandeja do SO. Testar sempre pelo balão passou a
-                // provar a coisa errada: ele deixou de ser por onde a mensagem chega.
                 onTestarNotificacao = { avisoDeTeste() },
             )
         }
 
-        // Ctrl+K: quick-switcher em takeover (fade + leve zoom, como o settings).
-        // Nasce do topo-centro (onde o card fica), não do centro da tela.
         AnimatedVisibility(
             visible = paletteOpen,
             enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f)),
@@ -965,8 +697,6 @@ fun ShellScreen(
             )
         }
 
-        // Busca-A (lupa no titlebar): palette dedicada com abas. Fade+zoom sutil,
-        // nascendo do topo-centro (posição do card).
         AnimatedVisibility(
             visible = searchOpen,
             enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(0.5f, 0f)),
@@ -980,8 +710,6 @@ fun ShellScreen(
                     vm.openChat(ChatTarget.Channel(cid, name))
                 },
                 onWhisper = { username, title -> vm.startDm(username, title) },
-                // Sussurro do historico ja tem id de conversa: abre direto, sem
-                // passar pelo startDm (que resolve @usuario -> conversa).
                 onOpenDm = { convId, title ->
                     vm.select(Selection.Dms)
                     vm.openChat(ChatTarget.Dm(convId, title))
@@ -989,8 +717,6 @@ fun ShellScreen(
             )
         }
 
-        // Notificacoes-A (sino no titlebar): dropdown topo-direita. Nasce do canto
-        // do sino (topo-direita), não do centro da tela.
         AnimatedVisibility(
             visible = notifOpen,
             enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
@@ -1011,8 +737,6 @@ fun ShellScreen(
             )
         }
 
-        // Estrela dos desejos: mesma moldura e mesma entrada do sino. As duas sao
-        // conteudo global que nao pertence a constelacao nenhuma.
         AnimatedVisibility(
             visible = desejosOpen,
             enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.98f, transformOrigin = TransformOrigin(1f, 0f)),
@@ -1021,8 +745,6 @@ fun ShellScreen(
             DesejosPanel(onClose = onCloseDesejos)
         }
 
-        // Missoes (alvo no titlebar). Nasce do topo-direita como o sino — os dois
-        // saem da mesma regiao da barra.
         AnimatedVisibility(
             visible = missoesOpen,
             enter = fadeIn(tween(140)) + scaleIn(tween(140), initialScale = 0.97f, transformOrigin = TransformOrigin(1f, 0f)),
@@ -1031,16 +753,6 @@ fun ShellScreen(
             MissoesOverlay(me = state.me, onClose = onCloseMissoes)
         }
 
-
-        // Convite aberto pela faixa do banner. Mora AQUI, no Box de fora, e nao
-        // junto do Sidebar: um Popup escrito dentro daquele Row conta como filho
-        // pro Arrangement.spacedBy, entao o layout inteiro ganhava 8dp de
-        // deslocamento no instante em que o dialogo abria. Popup nao ocupa espaco,
-        // mas ocupa VAGA na contagem de filhos — e essa e a pegadinha.
-        //
-        // Estado proprio (a rail tem o dela): sao dois pontos de entrada distantes
-        // pro mesmo dialogo, e hoistar o da rail pra ca mexeria numa assinatura
-        // que ja esta grande demais.
         convidarPelaFaixa?.let { alvo ->
             InvitePeopleDialog(
                 serverName = alvo.name,
@@ -1050,12 +762,8 @@ fun ShellScreen(
             )
         }
 
-        // O aviso fica FORA do AnimatedVisibility das telas: missao pode fechar com
-        // qualquer coisa aberta (ou nada), e o aviso tem que aparecer do mesmo jeito.
         MissaoToaster()
 
-        // Chamada tocando: por cima de TUDO, inclusive das configurações abertas.
-        // Telefone tocando não espera você fechar uma tela.
         state.chamada?.let { c ->
             ChamadaScreen(c, onAtender = vm::atenderChamada, onRecusar = vm::recusarChamada)
         }
@@ -1063,47 +771,17 @@ fun ShellScreen(
     }
 }
 
-// Largura dos dois paineis da esquerda. Viraram constantes porque agora TRES
-// lugares precisam concordar: a rail, a sidebar e a coluna que embrulha as duas
-// pra o rodape do usuario atravessar exatamente a soma delas.
-// A conta da bot. Uma so pras duas personas: o nome exibido e a foto trocam com o
-// turno (Sparkle / Sparxie), o `username` nao.
 private const val USUARIO_DA_BOT = "astra_bot"
 
 private val LARGURA_RAIL = 72.dp
 private val LARGURA_SIDEBAR = 260.dp
-// Respiro entre o bloco do app e a moldura da janela, e a forma do bloco.
 private val RESPIRO_DA_JANELA = 10.dp
 private val FORMA_DO_SHELL = RoundedCornerShape(10.dp)
-// Rodape do usuario: altura fixa (a do Discord, ~52dp de conteudo mais o recuo do
-// cartao). Largura e a da sidebar — ele nao passa dela pra lado nenhum.
 private val ALTURA_DO_RODAPE = 62.dp
 
-// Superficie do shell. Os quatro paineis (rail, sidebar, palco, membros) se
-// ENCOSTAM: nao ha folga entre eles, nem canto arredondado, nem borda.
-//
-// Era o contrario — cada painel era um cartao flutuante com 8dp de respiro em
-// volta, e o respiro fazia o papel de separador. O dono apontou o problema: sobra
-// e espaco que nao carrega nada, e tres sobras somam ~24dp de largura que
-// poderiam estar mostrando conversa. Agora quem separa e a RAMPA DE ELEVACAO —
-// void na rail, base na sidebar, raised no palco. Mais claro = mais perto = mais
-// importante, que e a norma 2 do projeto e o que o Discord faz.
-//
-// O canto arredondado da JANELA nao se perde: quem clipa e a raiz (windowShape,
-// em Main.kt), entao os paineis podem ser quadrados sem vazar pra fora.
 private fun Modifier.panelSurface(bg: Color, alpha: Float): Modifier =
     this.background(bg.copy(alpha = alpha))
 
-// Confirmacao "Tem certeza?" reusavel: popup obsidiana no ponto, ação em danger.
-// Usada por todo delete/sair (canal, categoria, constelação, expulsar, banir,
-// logout). O chamador guarda um Boolean e renderiza isto quando true.
-//
-// ATENCAO ao usar: sem `posicao`, o Popup ancora no CONTAINER onde ele foi
-// escrito, nao no botao que o abriu. Dentro de uma tela de configuracoes inteira
-// isso joga a caixinha no topo da pagina, longe do botao — foi o que aconteceu
-// com o regenerar convite. Se o chamador nao estiver colado no botao, passe
-// `posicao = AoLadoDoBotao` e escreva o ConfirmPopup DENTRO de um Box que
-// embrulhe so o botao (o Box e quem vira a ancora).
 @Composable
 fun ConfirmPopup(
     message: String,
@@ -1158,9 +836,6 @@ fun ConfirmPopup(
     }
 }
 
-// Cola o popup na DIREITA da ancora, centralizado na altura dela. Se nao couber
-// ate a borda da janela, vai pra esquerda; se nem la couber, encosta na borda.
-// Cortar a caixa pela metade seria pior que desalinhar.
 object AoLadoDoBotao : PopupPositionProvider {
     private const val FOLGA = 8
 
@@ -1180,22 +855,14 @@ object AoLadoDoBotao : PopupPositionProvider {
     }
 }
 
-// Confirmacao CENTRAL (logout): scrim escurecido em tela cheia + card no centro,
-// entrada em escala+fade. Diferente do ConfirmPopup ancorado — aqui a decisao e
-// modal (sair da conta merece uma pausa). Clique no escurecido (fora do card)
-// cancela; o card engole o proprio clique pra não vazar.
 @Composable
 fun CenteredConfirmDialog(
     message: String,
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    // null = um botao so. Aviso nao e pergunta: quando nao ha o que escolher, um
-    // "cancelar" ao lado do "entendi" so faz a pessoa procurar a diferenca.
     cancelLabel: String? = "cancelar",
-    // Detalhe opcional embaixo da frase principal (motivo do banimento, etc.).
     detalhe: String? = null,
-    // Vermelho = acao destrutiva. Aviso que a pessoa so le nao e destrutivo.
     perigo: Boolean = true,
 ) {
     val reduce = LocalReduceMotion.current
@@ -1231,7 +898,6 @@ fun CenteredConfirmDialog(
                     .clip(RoundedCornerShape(14.dp))
                     .background(Obsidian.overlay)
                     .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                    // Engole o clique dentro do card pra não vazar pro scrim (cancela).
                     .clickable(interactionSource = cardSrc, indication = null, onClick = {})
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1278,14 +944,13 @@ fun CenteredConfirmDialog(
     }
 }
 
-// ---- Ctrl+K quick-switcher: pular pra qualquer canal/sussurro pelo teclado ----
 private data class QuickResult(
-    val kind: String, // "channel" | "dm"
+    val kind: String,
     val id: String,
     val title: String,
-    val subtitle: String, // nome da constelação (canal) ou "sussurro" (dm)
+    val subtitle: String,
     val voice: Boolean,
-    val serverId: String?, // navegacao do canal
+    val serverId: String?,
 )
 
 @Composable
@@ -1341,10 +1006,7 @@ private fun CommandPalette(
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                // Clique no painel não fecha (so o scrim fecha).
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                // Setas/Enter/Esc: o preview do painel ve a tecla antes do campo (que
-                // fica focado), entao navega a lista; letras caem no campo (retorna false).
                 .onPreviewKeyEvent { e ->
                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (e.key) {
@@ -1429,18 +1091,13 @@ private fun PaletteRow(r: QuickResult, active: Boolean, onClick: () -> Unit) {
     }
 }
 
-// ---- Rail de constelações (72dp) ----
-
 @Composable
 private fun Rail(
     servers: List<ServerDto>,
     selection: Selection,
     myId: String?,
     mutedServers: Set<String>,
-    // Ha sussurro com mensagem que você ainda não viu -> ponto ambar na marca.
     sussurroNaoLido: Boolean,
-    // "posso gerenciar esta constelação?" — so responde true pra SELECIONADA (ver
-    // o comentario no menu abaixo).
     canManageSelected: (String) -> Boolean,
     onOpenServerSettings: (String) -> Unit,
     onSelect: (Selection) -> Unit,
@@ -1453,21 +1110,14 @@ private fun Rail(
     onJoinInvite: (raw: String, onResult: (String?) -> Unit) -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
-    // Constelação com o dialogo de convite aberto (null = fechado).
     var inviteFor by remember { mutableStateOf<ServerDto?>(null) }
     Column(
-        // Cartao translucido: a aurora vaza por baixo (estilo mobile).
         modifier = Modifier.width(LARGURA_RAIL).fillMaxHeight().panelSurface(Obsidian.void, 0.72f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(12.dp))
-        // A MARCA nao e mais um item da fila. Ela ganha halo, respiro e uma
-        // divisoria curta — as constelacoes sao cartoes em sequencia, o Astra
-        // flutua acima delas.
         Box(
             modifier = Modifier.size(72.dp).drawBehind {
-                // Halo: o mesmo recurso do gate de boot. Um gradiente radial no
-                // draw, custo de um retangulo — nao recompoe nada.
                 drawRect(
                     Brush.radialGradient(
                         colors = listOf(
@@ -1482,16 +1132,12 @@ private fun Rail(
             },
             contentAlignment = Alignment.Center,
         ) {
-            // Caixa do tamanho do botao: e ela que ancora o ponto de nao-lido no
-            // canto. Sem ela o ponto se alinharia pelo halo, 14dp longe demais.
             Box(Modifier.size(44.dp)) {
                 RailItem(
                     active = selection is Selection.Dms,
                     onClick = { onSelect(Selection.Dms) },
                     rotulo = "sussurros",
                 ) {
-                    // Marca do Astra = a logo TRANSPARENTE (astra-glyph.png: so o planeta
-                    // branco, sem quadrado de fundo), a mesma da tela de procura por update.
                     Image(
                         painter = painterResource("astra-glyph.png"),
                         contentDescription = "sussurros",
@@ -1499,8 +1145,6 @@ private fun Rail(
                     )
                 }
                 if (sussurroNaoLido) {
-                    // Anel na cor do rail em volta do ponto: sem ele o ambar
-                    // encosta na borda do botao e le como parte do desenho.
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -1515,11 +1159,6 @@ private fun Rail(
                 }
             }
         }
-        // 2dp, e nao 12: a caixa do halo tem 72dp em volta de um botao de 44, entao
-        // ja existem 14dp de vazio entre o icone e o fim dela. Somados aos 12 de
-        // antes, o buraco ate o traco dava 26dp — que e o "espaco grande" que o dono
-        // viu. Espaco de layout nao se conta pelo numero no Spacer, e sim pelo que
-        // sobra depois que o conteudo se acomodou dentro da propria caixa.
         Spacer(Modifier.height(2.dp))
         DivisoriaDaRail()
         Spacer(Modifier.height(12.dp))
@@ -1529,16 +1168,11 @@ private fun Rail(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(servers, key = { it.id }) { srv ->
-                // Botao direito na constelação: dono exclui (apaga pra todos); membro
-                // sai. Ambos com confirmação (F4).
                 var confirmLeave by remember(srv.id) { mutableStateOf(false) }
                 var confirmDelete by remember(srv.id) { mutableStateOf(false) }
                 val isOwner = srv.ownerId == myId
                 EditorialContextMenu(entries = {
                     buildList {
-                        // Convidar abre o dialogo (adicionar por @ + link pronto). O
-                        // "copiar convite" antigo copiava o CODIGO cru, que ninguem
-                        // sabia o que fazer com — agora o link vai copiado inteiro.
                         add(MenuEntry.Item("convidar pessoas", icon = Lucide.Users) { inviteFor = srv })
                         srv.inviteCode?.let { code ->
                             add(MenuEntry.Item("copiar link do convite", icon = Lucide.Link) {
@@ -1548,12 +1182,6 @@ private fun Rail(
                         add(MenuEntry.Item(if (srv.id in mutedServers) "reativar constelação" else "silenciar constelação", icon = if (srv.id in mutedServers) Lucide.Bell else Lucide.BellOff) { onToggleServerMute(srv.id) })
                         add(MenuEntry.Item("marcar tudo como lido", icon = Lucide.CheckCheck) { onMarkServerRead(srv.id) })
                         add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(srv.id)) })
-                        // "configurações" so pra quem manda: dono (o app já sabe pelo
-                        // ownerId) ou MANAGE_SERVER — este último so e conhecido na
-                        // constelação SELECIONADA, porque as permissões são buscadas
-                        // uma vez por selecao (buscar de todas seria N requisicoes no
-                        // boot). Clicar seleciona antes de abrir, entao a tela sempre
-                        // abre com as permissões certas em mao.
                         if (isOwner || canManageSelected(srv.id)) {
                             add(MenuEntry.Separator)
                             add(MenuEntry.Item("configurações", icon = Lucide.Settings) { onOpenServerSettings(srv.id) })
@@ -1672,23 +1300,11 @@ private fun Rail(
                 }
                 }
             }
-            // "+" colado logo abaixo do último servidor (rola junto com a lista,
-            // não fica preso no rodape da rail).
             item(key = "create-server") { CreateServerButton(onCreateServer, onJoinInvite) }
-            // A BUSSOLA ENTROU NA LISTA (pedido do dono): antes ela era ancorada no
-            // rodape da rail, o que deixava um vazio enorme entre a ultima
-            // constelacao e ela. Agora ela vem logo depois do "+", colada.
-            //
-            // O preco assumido: com constelacao demais, ela sai da tela junto com a
-            // lista. Vale porque Descobrir tambem esta no Ctrl+K, e um botao que
-            // some quando ha muita coisa e melhor que um vazio permanente quando ha
-            // pouca.
             item(key = "descobrir") {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(4.dp))
                     DivisoriaDaRail()
-                    // Mesma conta do topo, espelhada: o halo da bussola ja carrega
-                    // 14dp de folga dentro dele.
                     Spacer(Modifier.height(2.dp))
                     Box(
                         modifier = Modifier.size(72.dp).drawBehind {
@@ -1728,8 +1344,6 @@ private fun Rail(
     }
 }
 
-// "+" da rail: abre um mini-menu (constelação / grupo / entrar com convite) e, ao
-// escolher, um dialogo. Reaproveita o EditorialInputDialog (mesmo do criar canal).
 @Composable
 private fun CreateServerButton(
     onCreateServer: (name: String, isGroup: Boolean) -> Unit,
@@ -1737,11 +1351,8 @@ private fun CreateServerButton(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var joinOpen by remember { mutableStateOf(false) }
-    // null = fechado; false = constelação; true = grupo.
     var kind by remember { mutableStateOf<Boolean?>(null) }
     Box {
-        // Sem balao quando o menu esta aberto: o cartao do menu ja ocupa o lugar
-        // dele, e os dois juntos empilhariam duas superficies no mesmo ponto.
         RailItem(
             active = false,
             onClick = { menuOpen = true },
@@ -1757,8 +1368,6 @@ private fun CreateServerButton(
             ) {
                 Column(
                     Modifier
-                        // max obrigatorio: sem ele o fillMaxWidth das linhas estica o
-                        // card pra largura da janela inteira (o Popup da constraint cheia).
                         .popupReveal()
                         .widthIn(min = 170.dp, max = 230.dp)
                         .clip(RoundedCornerShape(10.dp))
@@ -1818,7 +1427,6 @@ private fun CreateMenuRow(
     }
 }
 
-// Menu do "+" aparece a DIREITA do botao da rail (a rail e estreita, na borda esq).
 private object RailMenuBeside : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -1831,21 +1439,14 @@ private object RailMenuBeside : PopupPositionProvider {
     )
 }
 
-// Quebra de capitulo da rail: traco CURTO e centrado, nao borda a borda. Usado
-// nas duas pontas (marca do Astra em cima, bussola embaixo) — sao os dois itens
-// que nao sao constelacao, e a mesma marca visual diz isso nos dois lugares.
 @Composable
 private fun DivisoriaDaRail() {
     Box(Modifier.width(24.dp).height(1.dp).background(Obsidian.borderDim.copy(alpha = 0.6f)))
 }
 
-// Atraso curto antes do balao: correr o mouse pela rail de cima a baixo nao pode
-// virar pisca-pisca. 90ms e o tempo que separa "passei por cima" de "parei aqui".
 private const val ATRASO_DO_BALAO_MS = 90L
 private const val ENTRADA_DO_BALAO_MS = 120
 
-// Balao do nome, a DIREITA do icone. Centrado na vertical do item, nao alinhado
-// pelo topo: o bico precisa apontar pro meio do icone pra dizer de quem fala.
 private class BalaoDaRail(private val margem: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -1870,15 +1471,11 @@ private fun BalaoDoNome(nome: String) {
     val forma = RoundedCornerShape(8.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        // graphicsLayer e nao alpha()/offset(): a leitura da animacao fica na fase
-        // de desenho, entao o balao entrando nao remede a rail inteira.
         modifier = Modifier.graphicsLayer {
             alpha = entrada.value
             translationX = -(1f - entrada.value) * desliza
         },
     ) {
-        // Bico. Sem ele o cartao flutua solto ao lado da rail e nao diz a qual
-        // icone pertence — que e a unica informacao que ele existe pra dar.
         Canvas(Modifier.size(width = 5.dp, height = 10.dp)) {
             drawPath(
                 Path().apply {
@@ -1914,8 +1511,6 @@ private fun RailItem(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // O balao so nasce depois do atraso, e morre no instante em que o mouse sai —
-    // sair tem que ser imediato, senao o cartao persegue o cursor pela lista.
     var balaoAberto by remember { mutableStateOf(false) }
     LaunchedEffect(hovered) {
         if (!hovered) {
@@ -1925,15 +1520,7 @@ private fun RailItem(
             balaoAberto = true
         }
     }
-    // Quadrado de canto quebrado SEMPRE (pedido do dono). Antes o item nascia
-    // circulo (22dp) e so virava quadrado no hover/ativo — o morph de forma fazia a
-    // fila inteira parecer respirar quando o mouse passava de raspao. Agora a forma
-    // e constante e so fundo e borda transicionam; 8dp e o mesmo raio dos botoes do
-    // compositor e das linhas de navegacao, entao o rail para de falar sozinho.
     val shape = RoundedCornerShape(8.dp)
-    // Hover sobe UM DEGRAU da rampa e clareia a borda — o mesmo vocabulario das
-    // linhas de canal e dos menus. O `hovered` ja era coletado aqui e nao servia
-    // pra nada: a rail era a unica superficie do app que nao respondia ao mouse.
     val bg by animateColorAsState(
         when {
             active -> Obsidian.overlay
@@ -1971,33 +1558,6 @@ private fun RailItem(
     }
 }
 
-// ---- Sidebar (260dp): órbitas da constelação OU sussurros + painel do user ----
-
-// #13: cabecalho da constelação = faixa de banner (imagem, animavel via AstraImage)
-// com o nome em serifa por cima, legivel gracas a um scrim de baixo pra cima. Sem
-// banner: um degrade sobrio do tema no lugar da imagem. So constelação usa isto;
-// sussurros/descobrir seguem no header de texto.
-//
-// MESMO desenho da previa das configuracoes: mesmo ProfileBanner, mesma proporcao
-// (ServerBannerAspect) e o mesmo enquadramento (positionY/scale) que o dono ajustou.
-// Antes era um AstraImage cru com ContentScale.Crop numa altura fixa de 104dp — ou
-// seja, outra proporcao E sem enquadramento nenhum, entao o que se via aqui nunca
-// batia com o que a previa prometia.
-// Botao de icone da faixa abaixo do banner. SEM MOLDURA NENHUMA: o mesmo gesto da
-// engrenagem e do sair no rodape — em repouso e so o icone apagado, e o fundo so
-// aparece debaixo do mouse.
-//
-// Duas tentativas de moldura vieram antes. Primeiro cada botao com a sua: tres
-// retangulos iguais lado a lado, ruido de borda pra dizer uma coisa so ("aqui se
-// clica"). Depois uma moldura em volta do grupo, atravessando a beirada da sidebar
-// pra ler como cartao continuando por baixo — e ai os proprios icones e que
-// batiam na quina. Sobreposicao so funciona quando o que o corte atravessa e
-// superficie; conteudo cortado le como bug, porque e.
-//
-// `aceso` (painel de membros aberto) fica com fundo de accent apagado e o icone no
-// accent. A pulsacao saiu junto com a borda: ela existia pra dar peso a uma linha
-// de 1px, e uma coisa piscando pra sempre num canto e o que a norma de movimento
-// manda evitar. Fundo preenchido diz "ligado" parado.
 @Composable
 private fun BotaoDaFaixa(
     icone: ImageVector,
@@ -2038,16 +1598,6 @@ private fun BotaoDaFaixa(
     }
 }
 
-// A faixa logo abaixo do banner: nome da constelação, quantas pessoas ha, e as
-// acoes (convidar, membros, configuracoes).
-//
-// O NOME MUDOU DE LUGAR. Vivia por cima da imagem, com um scrim escuro embaixo
-// tentando salvar a leitura — e banner claro ganhava do scrim. Aqui ele fica sobre
-// a obsidiana, sempre legivel, e de quebra a faixa deixa de ser dois botoes
-// flutuando num vazio.
-//
-// A engrenagem so aparece pra quem manda. Ela existia so no menu de botao
-// direito da rail — atalho invisivel pra quem nao sabe que ele existe.
 @Composable
 private fun FaixaDaConstelacao(
     nome: String,
@@ -2071,14 +1621,8 @@ private fun FaixaDaConstelacao(
             )
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // O ponto e o unico sinal de vida da faixa: sem ele, "4 online" le
-                // como numero de relatorio em vez de gente do outro lado.
                 Box(Modifier.size(5.dp).clip(CircleShape).background(Obsidian.success))
                 Spacer(Modifier.width(5.dp))
-                // "2/4 membros online", e nao "2 online · 4 membros". A fracao diz
-                // as duas coisas de uma vez e cabe: a versao antiga repetia a
-                // palavra online/membro em duas metades e estourava a largura da
-                // faixa — o que se via de verdade era "1 online · 5 memb…".
                 Text(
                     "$online/$membros " + (if (membros == 1) "membro" else "membros") + " online",
                     style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
@@ -2097,10 +1641,6 @@ private fun FaixaDaConstelacao(
     }
 }
 
-// As tres acoes, soltas na faixa. Sem cartao em volta e sem sangria pra fora da
-// sidebar: quem separa esse grupo do texto a esquerda e o respiro, e quem diz "aqui
-// se clica" e o fundo que acende no hover. O espacamento de 2dp e o mesmo do par
-// engrenagem/sair do rodape, de proposito — sao a mesma coisa em dois lugares.
 @Composable
 private fun AcoesDaFaixa(
     membrosAbertos: Boolean,
@@ -2127,11 +1667,6 @@ private fun AcoesDaFaixa(
 
 @Composable
 private fun ServerHeaderBanner(srv: ServerDto) {
-    // O banner virou CARTAO: recuado das bordas da sidebar, canto de 10dp e borda
-    // fina. Antes ele sangrava de ponta a ponta e encostava no topo da janela —
-    // uma imagem colada na moldura le como fundo de tela, nao como a capa da
-    // constelacao. O `clipToBounds` do proprio clip e o que segura a imagem
-    // dentro do canto arredondado.
     val forma = RoundedCornerShape(10.dp)
     Box(
         Modifier
@@ -2153,7 +1688,6 @@ private fun ServerHeaderBanner(srv: ServerDto) {
         } else {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Obsidian.overlay, Obsidian.raised))))
         }
-        // Scrim: transparente em cima, escurece pro void embaixo -> nome sempre le.
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
@@ -2163,9 +1697,6 @@ private fun ServerHeaderBanner(srv: ServerDto) {
                 ),
             ),
         )
-        // O nome saiu daqui pra FaixaDaConstelacao logo abaixo (banner claro comia
-        // o texto mesmo com scrim). O scrim FICA: ele ainda casa a base da imagem
-        // com a obsidiana da faixa, sem o corte reto que havia antes.
     }
 }
 
@@ -2178,7 +1709,6 @@ private fun Sidebar(
     unread: Set<String>,
     unreadCounts: Map<String, Int>,
     dmTyping: Set<String>,
-    // Presenca de quem está do outro lado de cada sussurro (bolinha na foto).
     dmPresence: Map<String, String>,
     loading: Boolean,
     members: List<ServerMemberDto>,
@@ -2213,17 +1743,10 @@ private fun Sidebar(
     onToggleMembers: () -> Unit,
     canManageSelected: (String) -> Boolean,
     onOpenServerSettings: (String) -> Unit,
-    // Checklist de 1o acesso, quando ativo — vive acima do rodape do usuário.
     firstSteps: (@Composable () -> Unit)? = null,
 ) {
-    // Dialogo de nome (nova órbita / nova categoria / renomear) — centralizado na
-    // janela. So o dono da constelação dispara pelos menus de botao direito.
     var chanDialog by remember { mutableStateOf<ChanDialog?>(null) }
     Column(Modifier.width(LARGURA_SIDEBAR).fillMaxHeight().panelSurface(Obsidian.base, 0.62f)) {
-        // Transicao ao trocar na rail (sussurros <-> constelação): header + lista
-        // viram uma "pagina" que desliza de leve e faz fade. A pagina que sai
-        // resolve o servidor pela PROPRIA selecao antiga (por isso a lista
-        // inteira de servers entra aqui, não so o selecionado).
         AnimatedContent(
             targetState = selection,
             transitionSpec = {
@@ -2234,7 +1757,6 @@ private fun Sidebar(
         ) { sel ->
             val srv = (sel as? Selection.Server)?.let { s -> servers.find { it.id == s.id } }
             Column(Modifier.fillMaxSize()) {
-                // Header
                 val header = @Composable {
                     Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
                         Text(
@@ -2252,8 +1774,6 @@ private fun Sidebar(
                         )
                     }
                 }
-                // Botao direito no cabecalho da constelação (so o dono): criar órbita
-                // solta ou uma categoria nova.
                 if (srv != null) {
                     val isOwnerHere = srv.ownerId == myId
                     EditorialContextMenu(entries = {
@@ -2267,15 +1787,10 @@ private fun Sidebar(
                                 add(MenuEntry.Item("criar categoria", icon = Lucide.FolderPlus) { chanDialog = ChanDialog.NewCategory(srv.id) })
                             }
                         }
-                        // #13: faixa de banner no topo da constelação com o nome por cima.
-                        // Substitui o header de texto simples (que segue nos sussurros/descobrir).
                     }) { ServerHeaderBanner(srv) }
                     FaixaDaConstelacao(
                         nome = srv.name,
                         membros = members.size,
-                        // Eu conto sempre: estou olhando o app agora. Mesma regra do
-                        // painel de membros — duas contagens divergentes na mesma
-                        // tela seriam pior que qualquer imprecisao.
                         online = members.count { it.userId == myId || memberPresence[it.userId]?.let { p -> p != "OFFLINE" } == true },
                         membrosAbertos = membersOpen,
                         onToggleMembros = onToggleMembers,
@@ -2284,8 +1799,6 @@ private fun Sidebar(
                         onAbrirConfig = { onOpenServerSettings(srv.id) },
                     )
                 } else {
-                    // Sem traco embaixo do cabecalho: a sidebar inteira ja e uma
-                    // superficie propria, e a lista abaixo tem os cartoes dela.
                     header()
                 }
 
@@ -2318,9 +1831,6 @@ private fun Sidebar(
                                     onToggleCatBot = { catId, on -> srv?.let { onToggleCatBot(it.id, catId, on) } },
                                 )
                             }
-                            // #5: o mesmo menu do cabecalho também na AREA VAZIA da lista.
-                            // Órbita/categoria são mais internos e consomem o clique, entao
-                            // este aqui so dispara no vazio abaixo dos canais.
                             if (srv != null) {
                                 val ownerHere = srv.ownerId == myId
                                 EditorialContextMenu(entries = {
@@ -2342,16 +1852,10 @@ private fun Sidebar(
             }
         }
 
-        // Checklist de 1o acesso, LOGO ACIMA do rodape. Ficava sobre o palco vazio,
-        // onde tapava a arte e — pior — SUMIA assim que o usuário abria qualquer
-        // órbita, justo enquanto ele cumpria os passos. Aqui ele acompanha o
-        // caminho todo, e numa conta nova esta coluna esta vazia mesmo.
         firstSteps?.let { fs ->
             fs()
             Spacer(Modifier.height(8.dp))
         }
-        // O rodape do usuario NAO mora mais aqui: ele atravessa rail + sidebar e
-        // por isso e irmao desta coluna, nao filho dela (ver ShellScreen).
     }
 
     when (val d = chanDialog) {
@@ -2401,7 +1905,6 @@ private fun Sidebar(
     }
 }
 
-// Confirmacao destrutiva centralizada (mesma casca do EditorialInputDialog).
 @Composable
 private fun ConfirmDialog(
     text: String,
@@ -2482,18 +1985,9 @@ private fun OrbitList(
     onToggleCatBot: (categoryId: String, ligar: Boolean) -> Unit,
 ) {
     if (server == null) return
-    // Estrutura Discord: órbitas soltas primeiro, depois categorias colapsaveis.
-    // Todos veem copiar ID / marcar lida na categoria; so o dono ganha gestao.
     val isOwner = server.ownerId == myId
     val clipboard = LocalClipboardManager.current
     var collapsedCats by remember(server.id) { mutableStateOf(setOf<String>()) }
-    // Deriva a estrutura da sidebar (filtro/sort/groupBy) SO quando canais/categorias
-    // mudam — não a cada recomposição. Sem isto, o poll de presença de voz (5s) e cada
-    // mensagem em qualquer canal (state novo) refaziam tudo do zero. (Perf P0-2.)
-    // Id vira pessoa por BUSCA DIRETA, e não varrendo a lista a cada linha de presença.
-    // Numa constelação grande, `find` dentro do laço de quem está na call é uma varredura
-    // por pessoa por órbita de voz — e ela se repetia a cada mensagem que chegasse em
-    // qualquer canal, porque é isso que recompõe esta lista. Mesmo idioma do `VoiceView`.
     val pessoaPorId = remember(members) { members.associateBy { it.userId } }
     val catIds = remember(server.categories) { server.categories.map { it.id }.toSet() }
     val loose = remember(server.channels, catIds) {
@@ -2502,13 +1996,9 @@ private fun OrbitList(
     val cats = remember(server.categories) { server.categories.sortedBy { it.position } }
     val byCat = remember(server.channels) { server.channels.groupBy { it.categoryId } }
     val looseIds = remember(loose) { loose.map { it.id } }
-    // Estado do drag de reordenacao (uma instancia por constelação aberta).
     val drag = remember(server.id) { ChannelDragState() }
-    // Acoes do botao-direito da órbita (serverId já embutido nas lambdas de cima).
     val chMenu = ChannelMenu(
         isOwner, silenciada, onMarkChannelRead, onOpenChannelRename, onOpenChannelDelete, onToggleChannelMute,
-        // Herança resolvida aqui, uma vez: órbita decide; se não decidiu, a
-        // categoria; se nem ela, a bot atende.
         botAtende = { ch ->
             ch.botEnabled ?: server.categories.find { it.id == ch.categoryId }?.botEnabled ?: true
         },
@@ -2516,9 +2006,6 @@ private fun OrbitList(
         onToggleKeepBot = onToggleChannelKeepBot,
     )
 
-    // Cascata (F6): a posição corrida na lista decide o atraso de entrada.
-    // Os indices são computados no escopo do DSL (sincrono e deterministico);
-    // as lambdas dos itens so capturam constantes.
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         itemsIndexed(loose, key = { _, ch -> ch.id }) { i, ch ->
@@ -2538,13 +2025,9 @@ private fun OrbitList(
             val headerRow = offset
             val collapsed = cat.id in collapsedCats
             val channelIds = channels.map { it.id }
-            // Colapsada ainda mostra a ativa e as não lidas (comportamento Discord).
             val visible =
                 if (collapsed) channels.filter { it.id == activeChatId || it.id in unread }
                 else channels
-            // A categoria vira UM item medido: header + órbitas na mesma Column, pra (1)
-            // registrar os bounds da categoria em coords de janela (hit-test do drag) e (2)
-            // desenhar a MOLDURA da hitbox quando uma órbita de FORA paira por cima.
             item(key = "cat-${cat.id}") {
                 val highlight = drag.dragging && drag.hoverCat == cat.id && drag.section != "cat:${cat.id}"
                 val hi by animateFloatAsState(if (highlight) 1f else 0f, tween(120), label = "catHitbox")
@@ -2608,20 +2091,6 @@ private fun OrbitList(
                         }
                     }
                     visible.forEachIndexed { i, ch ->
-                    // POR QUE o indice aqui e LOCAL da categoria, e nao a linha da
-                    // lista inteira: a cascata so anima os primeiros CASCADE_MAX
-                    // itens (senao o ultimo de uma lista longa entraria segundos
-                    // depois). Com o indice global, toda orbita a partir da 15a
-                    // linha caia fora do limite e aparecia SECA — e era exatamente
-                    // o que se via ao abrir uma categoria mais pra baixo.
-                    // Local: uma categoria raramente passa de 14 orbitas, entao
-                    // todas animam. O lugar da categoria na lista vira um atraso de
-                    // largada, limitado a ~150ms pra que abrir no clique continue
-                    // parecendo resposta, e nao espera.
-                    // A chave inclui o colapso: reabrir toca a entrada de novo.
-                    // E o key(ch.id) faz o estado da animacao seguir a ORBITA, nao a
-                    // posicao — sem ele, colapsada->aberta reaproveitava o estado da
-                    // vizinha e uma entrava pronta enquanto a outra animava.
                         key(ch.id) {
                         CascadeIn(
                             i,
@@ -2631,7 +2100,6 @@ private fun OrbitList(
                             OrbitEntry(
                                 ch, ch.id == activeChatId, ch.id in unread, unreadCounts[ch.id] ?: 0,
                                 pessoaPorId, voicePresence, myId, myVoiceChannelId, onOpenChat, onOpenVoice,
-                                // Reordena so quando aberta (indice do visivel == indice real).
                                 dragCtx = if (isOwner && !collapsed)
                                     ChannelDragCtx(drag, "cat:${cat.id}", i, channels.size, channelIds, onReorderChannels, onMoveToCategory) else null,
                                 menu = chMenu,
@@ -2648,10 +2116,6 @@ private fun OrbitList(
     }
 }
 
-// ---- Drag pra reordenar canais (so o dono). Estilo "bolha leve": a órbita vira um
-// circulo flutuante que segue o cursor; ao soltar, faz fade e o canal reaparece na
-// nova posição. Reorder dentro da MESMA secao (soltos, ou de uma categoria). ----
-
 private class ChannelDragState {
     var id by mutableStateOf<String?>(null)
     var name by mutableStateOf("")
@@ -2661,12 +2125,8 @@ private class ChannelDragState {
     var targetIndex by mutableStateOf(-1)
     var windowPos by mutableStateOf(Offset.Zero)
     var fadingOut by mutableStateOf(false)
-    // Hitbox: categoria sob o cursor durante o arrasto (pro realce + drop cross-categoria).
-    // catBounds = bounds de cada categoria em coords de JANELA, alimentado no layout.
     var hoverCat by mutableStateOf<String?>(null)
     val catBounds = mutableStateMapOf<String, Rect>()
-    // Arrastando uma CATEGORIA (cabecalho) em vez de uma órbita — muda o ícone da bolha
-    // e a logica de drop (reordena categorias).
     var isCategory by mutableStateOf(false)
     val dragging: Boolean get() = id != null && !fadingOut
     fun reset() {
@@ -2685,9 +2145,6 @@ private class ChannelDragCtx(
     val onMoveToCategory: (channelId: String, categoryId: String) -> Unit,
 )
 
-// Long-press pega a órbita; o arrasto move a bolha (windowPos) e calcula o slot alvo
-// pela distancia percorrida / altura do item. Soltar reordena a secao. Chamado SEMPRE
-// (ctx nulo = no-op) pra não variar a contagem de composables entre recomposicoes.
 @Composable
 private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier {
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -2715,7 +2172,6 @@ private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier
                     accY += delta.y
                     coords?.let { c -> d.windowPos = c.localToWindow(change.position) }
                     d.targetIndex = (ctx.index + (accY / itemH).roundToInt()).coerceIn(0, ctx.sectionSize - 1)
-                    // Categoria sob o cursor: realca a hitbox e decide drop cross-categoria.
                     d.hoverCat = d.catBounds.entries.firstOrNull { it.value.contains(d.windowPos) }?.key
                 },
                 onDragEnd = {
@@ -2723,15 +2179,13 @@ private fun Modifier.channelDrag(ch: ChannelDto, ctx: ChannelDragCtx?): Modifier
                         val srcCat = if (ctx.section.startsWith("cat:")) ctx.section.removePrefix("cat:") else null
                         val over = d.hoverCat
                         if (over != null && over != srcCat) {
-                            // Soltou POR CIMA de outra categoria -> move pra dentro dela.
                             ctx.onMoveToCategory(ch.id, over)
                         } else if (d.targetIndex in 0 until ctx.sectionSize && d.targetIndex != d.fromIndex) {
-                            // Reordena dentro da mesma secao.
                             val list = ctx.orderedIds.toMutableList()
                             list.add(d.targetIndex, list.removeAt(d.fromIndex))
                             ctx.onReorder(list)
                         }
-                        d.fadingOut = true // dispara o fade da bolha
+                        d.fadingOut = true
                     }
                 },
                 onDragCancel = { if (d.id == ch.id) d.reset() },
@@ -2746,9 +2200,6 @@ private class CategoryDragCtx(
     val onReorder: (List<String>) -> Unit,
 )
 
-// Long-press no cabecalho pega a CATEGORIA; arrastar reordena entre as outras (hit-test
-// pela drag.catBounds já registrada). Soltar reordena. Chamado SEMPRE (ctx nulo = no-op)
-// pra não variar a contagem de composables. Convive com o clique (tap = colapsar).
 @Composable
 private fun Modifier.categoryDrag(name: String, ctx: CategoryDragCtx?): Modifier {
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -2771,7 +2222,6 @@ private fun Modifier.categoryDrag(name: String, ctx: CategoryDragCtx?): Modifier
                 onDrag = { change, _ ->
                     change.consume()
                     coords?.let { c -> d.windowPos = c.localToWindow(change.position) }
-                    // Categoria sob o cursor -> indice alvo (usa os bounds já medidos).
                     val overId = d.catBounds.entries.firstOrNull { it.value.contains(d.windowPos) }?.key
                     val idx = ctx.orderedIds.indexOf(overId)
                     if (idx >= 0) d.targetIndex = idx
@@ -2791,17 +2241,12 @@ private fun Modifier.categoryDrag(name: String, ctx: CategoryDragCtx?): Modifier
         }
 }
 
-// A bolha flutuante (Popup em coords de janela, segue o cursor 1:1 — sem inercia).
-// Entrada = "gota" que coalesce (comeca alongada na vertical e assenta redonda, com
-// leve overshoot da mola); saida = "esparrama" (achata na horizontal e some), e so
-// entao reseta. Tudo em graphicsLayer com leitura DIFERIDA (scaleX/scaleY/alpha lidos
-// dentro do lambda de draw) -> so a camada re-renderiza por frame, sem recompor: leve.
 @Composable
 private fun ChannelDragBubble(d: ChannelDragState) {
     if (d.id == null) return
     val reduce = LocalReduceMotion.current
-    val enter = remember(d.id) { Animatable(0f) } // 0=sem bolha ..1=formada
-    val splat = remember(d.id) { Animatable(0f) } // 0=inteira ..1=esparramada
+    val enter = remember(d.id) { Animatable(0f) }
+    val splat = remember(d.id) { Animatable(0f) }
     LaunchedEffect(d.id) {
         if (reduce) enter.snapTo(1f)
         else enter.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium))
@@ -2836,12 +2281,11 @@ private fun ChannelDragBubble(d: ChannelDragState) {
                 Modifier
                     .size(48.dp)
                     .graphicsLayer {
-                        // Leitura diferida (draw-phase): não recompoe, so re-desenha a camada.
                         val e = enter.value
                         val ec = e.coerceIn(0f, 1f)
-                        val squash = (1f - ec) * 0.22f // gota: alongada vertical no comeco
+                        val squash = (1f - ec) * 0.22f
                         val x = splat.value
-                        scaleX = e * (1f - squash) * (1f + 0.55f * x) // esparrama = achata p/ fora
+                        scaleX = e * (1f - squash) * (1f + 0.55f * x)
                         scaleY = e * (1f + squash) * (1f - 0.5f * x)
                         alpha = ec * (1f - x)
                     }
@@ -2853,7 +2297,6 @@ private fun ChannelDragBubble(d: ChannelDragState) {
                 LIcon(if (d.isCategory) Lucide.Folder else if (voice) Lucide.Volume2 else Lucide.Hash, tint = Obsidian.accent, size = 20.dp)
             }
             Spacer(Modifier.height(5.dp))
-            // O nome so faz fade junto (não esparrama — texto esticado fica estranho).
             Text(
                 name,
                 style = TextStyle(color = Obsidian.text1, fontSize = 11.sp),
@@ -2869,8 +2312,6 @@ private fun ChannelDragBubble(d: ChannelDragState) {
     }
 }
 
-// Órbita + (se for de voz) a lista de quem está na sala logo abaixo, indentada
-// — estilo Discord, pra quem esta de fora saber que tem gente na call.
 @Composable
 private fun OrbitEntry(
     ch: ChannelDto,
@@ -2887,11 +2328,8 @@ private fun OrbitEntry(
     menu: ChannelMenu,
 ) {
     val clipboard = LocalClipboardManager.current
-    // Column: o CascadeIn envolve isto num Box (empilha) — sem a Column, a lista
-    // de presenca ficaria SOBRE o canal em vez de abaixo. Empilha na vertical.
     Column(Modifier.fillMaxWidth()) {
         var confirmDelCh by remember(ch.id) { mutableStateOf(false) }
-        // Botao direito na órbita: marcar lido / copiar ID (todos) + renomear/excluir (dono).
         EditorialContextMenu(entries = {
             buildList {
                 if (unread) add(MenuEntry.Item("marcar como lido", icon = Lucide.Check) { menu.onMarkRead(ch.id) })
@@ -2907,8 +2345,6 @@ private fun OrbitEntry(
                             icon = if (temBot) Lucide.BotOff else Lucide.Bot,
                         ) { menu.onToggleBot(ch.id, !temBot) },
                     )
-                    // Só faz sentido com a bot atendendo aqui: sem resposta não
-                    // há o que guardar, e a opção viraria enfeite morto no menu.
                     if (temBot) add(
                         MenuEntry.Item(
                             if (ch.botKeepReplies) "não guardar as respostas" else "guardar as respostas aqui",
@@ -2929,8 +2365,6 @@ private fun OrbitEntry(
             )
         }
         if (ch.type == "VOICE") {
-            // Presenca do poll + eu otimista (aparece na hora que entro, sem
-            // esperar o próximo ciclo de ~5s do backend).
             val ids = remember(voicePresence, ch.id, myVoiceChannelId, myId) {
                 val base = voicePresence[ch.id].orEmpty()
                 if (myVoiceChannelId == ch.id && myId != null && myId !in base) listOf(myId) + base else base
@@ -2950,7 +2384,6 @@ private fun OrbitEntry(
 @Composable
 private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
     Row(
-        // Indentado sob o nome do canal (alinha o avatar ~onde fica o glifo ◉).
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 26.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
@@ -2962,8 +2395,6 @@ private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
             text = name,
             style = TextStyle(color = if (isMe) Obsidian.text2 else Obsidian.text3, fontSize = 12.sp),
             maxLines = 1, overflow = TextOverflow.Ellipsis,
-            // weight = ellipsiza no espaco que sobra (nome grande virava "..." vazando
-            // e a linha ficava cortada na borda da sidebar).
             modifier = Modifier.weight(1f),
         )
     }
@@ -2973,7 +2404,6 @@ private fun VoicePresenceRow(avatarUrl: String?, name: String, isMe: Boolean) {
 private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Unit, dragCtx: CategoryDragCtx? = null) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // Chevron gira ao colapsar (▾ -> ▸).
     val rotation by animateFloatAsState(if (collapsed) -90f else 0f, tween(140))
     val tint = if (hovered) Obsidian.text2 else Obsidian.text3
     Row(
@@ -2981,7 +2411,6 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
             .padding(top = 10.dp, bottom = 2.dp)
-            // Long-press + arrastar reordena as categorias (so o dono; ctx nulo = no-op).
             .categoryDrag(name, dragCtx)
             .hoverable(interaction)
             .clickable(interactionSource = interaction, indication = null, onClick = onToggle),
@@ -3002,8 +2431,6 @@ private fun CategoryHeader(name: String, collapsed: Boolean, onToggle: () -> Uni
     }
 }
 
-// ---- Criacao de órbita/categoria (dono) ----
-
 private sealed interface ChanDialog {
     data class NewChannel(val serverId: String, val categoryId: String?) : ChanDialog
     data class NewCategory(val serverId: String) : ChanDialog
@@ -3012,23 +2439,18 @@ private sealed interface ChanDialog {
     data class DeleteChannel(val serverId: String, val channelId: String, val name: String) : ChanDialog
 }
 
-// Botao direito que agrupa as ações de uma órbita, montado no OrbitList (já sabe
-// se e dono) e passado adiante pro OrbitEntry. serverId já fica embutido nas lambdas.
 private class ChannelMenu(
     val isOwner: Boolean,
-    // Cascata resolvida (orbita > constelacao) — ver ShellUiState.orbitaSilenciada.
     val silenciada: (channelId: String) -> Boolean,
     val onMarkRead: (channelId: String) -> Unit,
     val onRename: (channelId: String, current: String) -> Unit,
     val onDelete: (channelId: String, name: String) -> Unit,
     val onToggleMute: (channelId: String) -> Unit,
-    // A bot atende nesta órbita? (já vem com a herança da categoria resolvida)
     val botAtende: (ChannelDto) -> Boolean,
     val onToggleBot: (channelId: String, ligar: Boolean) -> Unit,
     val onToggleKeepBot: (channelId: String, guardar: Boolean) -> Unit,
 )
 
-// Centraliza o dialogo na JANELA (ignora a ancora) — modal flutuante estilo Discord.
 private object CenterInWindow : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -3076,8 +2498,6 @@ private fun EditorialInputDialog(
                 Spacer(Modifier.height(14.dp))
                 BasicTextField(
                     value = text,
-                    // Nome livre (decisao do dono): maiuscula/acento/simbolo permitidos,
-                    // so limita o tamanho. Vale pra órbita e categoria.
                     onValueChange = { text = it.take(50) },
                     singleLine = true,
                     textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
@@ -3197,22 +2617,10 @@ private fun OrbitItem(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val isUnread = !active && unread
-    // HOVER INSTANTANEO (pedido do dono), e o motivo e de percepcao, nao de gosto.
-    //
-    // Realce de hover nao e uma transicao de estado da tela: e a RESPOSTA ao gesto de
-    // apontar. Qualquer curva entre o cursor chegar e o realce acender e lida como
-    // atraso do app, mesmo curta — e 120ms e o suficiente pra sensacao de peso, porque
-    // o olho compara com o proprio movimento do mouse, que e continuo.
-    //
-    // A SELECAO continua animada. Sao dois sinais diferentes: hover responde a onde
-    // voce esta apontando (tem que ser imediato) e selecao conta que a pagina mudou
-    // (a curva ajuda a nao piscar). Instantaneo nos dois faria a troca de orbita
-    // estalar; animado nos dois faz o app parecer lento.
     val alvo = if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent
     val fundoAnimado by animateColorAsState(alvo, tween(120))
     val itemBg = if (hovered && !active) alvo else fundoAnimado
     val dSt = dragCtx?.state
-    // A órbita arrastada fica esmaecida no lugar (a bolha e a copia "levantada").
     val lifted = dSt != null && dSt.dragging && dSt.id == ch.id
     Box(
         Modifier
@@ -3227,7 +2635,6 @@ private fun OrbitItem(
                 .clip(RoundedCornerShape(7.dp))
                 .background(itemBg)
                 .hoverable(interaction)
-                // Órbita de voz abre a sala (sonda V1); texto abre o chat.
                 .clickable {
                     if (ch.type == "VOICE") onOpenVoice(ch)
                     else onOpenChat(ChatTarget.Channel(ch.id, ch.name))
@@ -3251,15 +2658,12 @@ private fun OrbitItem(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            // Badge de não-lidas (so quando NAO esta aberto): circulo ambar 99+.
             if (!active && unreadCount > 0) {
                 Spacer(Modifier.width(6.dp))
                 UnreadCountBadge(unreadCount)
             }
         }
         if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
-        // Marca de insercao do drag: linha accent no topo (subindo) ou na base
-        // (descendo) da órbita que esta no slot alvo — nunca na propria arrastada.
         if (dSt != null && dragCtx != null && dSt.dragging &&
             dSt.section == dragCtx.section && dSt.id != ch.id && dSt.targetIndex == dragCtx.index
         ) {
@@ -3276,23 +2680,6 @@ private fun OrbitItem(
     }
 }
 
-// Badge de não-lidas: circulo BRANCO com o numero preto (cap 99+), nao vermelho
-// e nao mais ambar (pedido do dono).
-//
-// Branco funciona melhor do que parece: o accent de fabrica JA e um branco
-// quebrado, e o accent e configuravel — pintar o badge de accent fazia a
-// contagem trocar de cor junto com o tema, e num preset escuro ela quase sumia.
-// Branco puro sobre obsidiana e o maior contraste que a paleta tem, e e o unico
-// lugar do app que usa ele: por isso ele so pode aparecer onde importa.
-//
-// `internal` (era private) porque as abas de Amigos passaram a usar o MESMO
-// badge. Contagem redonda e o vocabulario do app pra "isto tem um numero"; ter
-// duas versoes desse desenho seria garantir que uma delas envelhecesse sozinha.
-//
-// `destaque` separa duas coisas que parecem iguais e nao sao: ambar cheio quer
-// dizer PRECISA DE VOCE (nao lida, pedido recebido); apagado e so um total, sem
-// pedido nenhum. Pintar todo numero de ambar dilui o unico sinal que o app tem
-// pra dizer "olha aqui" — e app que pisca por tudo ensina a ignorar o piscar.
 @Composable
 internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
     Box(
@@ -3316,14 +2703,8 @@ internal fun UnreadCountBadge(count: Int, destaque: Boolean = true) {
     }
 }
 
-// Traco accent na borda esquerda do item — marca de não-lida (estilo Discord,
-// tokens obsidiana).
 @Composable
 private fun UnreadPill(modifier: Modifier = Modifier) {
-    // Pulso sutil (F6): o marcador "respira" devagar pra puxar o olho sem gritar.
-    // Movimento reduzido / janela em segundo plano: fica aceso e parado. O valor e
-    // lido DENTRO do graphicsLayer — antes o .value saia no corpo e recompunha o
-    // item a cada frame, um clock por não-lida. (Auditoria de movimento, achado #2.)
     val glow = if (LocalReduceMotion.current || !LocalWindowActive.current) null else {
         rememberInfiniteTransition(label = "unread").animateFloat(
             initialValue = 0.55f,
@@ -3354,7 +2735,6 @@ private fun DmList(
     activeChatId: String?,
     unread: Set<String>,
     dmTyping: Set<String>,
-    // userId -> ONLINE|IDLE|DND|OFFLINE. Ausente = apagado.
     dmPresence: Map<String, String>,
     onOpenChat: (ChatTarget) -> Unit,
 ) {
@@ -3363,16 +2743,10 @@ private fun DmList(
         return
     }
     val clipboard = LocalClipboardManager.current
-    // Alvos dos itens de menu que abrem tela (null = fechado).
     var profileFor by remember { mutableStateOf<String?>(null) }
     var inviteFor by remember { mutableStateOf<ConversationDto?>(null) }
-    // Amizades carregadas UMA vez: o menu precisa do id da amizade pra desfazer, e
-    // a conversa so carrega o id do usuário. Sem amizade com a pessoa, o item nem
-    // aparece — melhor do que oferecer uma ação que vai falhar.
     val friendApi = remember { GlobalContext.get().get<FriendApi>() }
     var friendships by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    // Quem eu bloqueei: o menu precisa saber pra oferecer "desbloquear" em vez de
-    // "bloquear" de novo (bloquear duas vezes nao faz nada e confunde).
     val blockApi = remember { GlobalContext.get().get<BlockApi>() }
     var blocked by remember { mutableStateOf<Set<String>>(emptySet()) }
     val scope = rememberCoroutineScope()
@@ -3383,7 +2757,6 @@ private fun DmList(
         blocked = runCatching { blockApi.blocked().data.orEmpty() }
             .getOrDefault(emptyList()).map { it.id }.toSet()
     }
-    // Estrutura Discord: busca no topo dos sussurros (filtro local por nome).
     var query by remember { mutableStateOf("") }
     val filtered = if (query.isBlank()) dms else dms.filter { c ->
         val n = c.otherUser?.displayName ?: c.otherUser?.username ?: ""
@@ -3406,8 +2779,6 @@ private fun DmList(
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // A lupa acende quando o campo tem texto: parada, ela e so um
-                    // rotulo; acesa, confirma que o filtro esta valendo.
                     LIcon(
                         Lucide.Search,
                         tint = if (query.isEmpty()) Obsidian.text3 else Obsidian.accent,
@@ -3438,15 +2809,9 @@ private fun DmList(
             val hovered by interaction.collectIsHoveredAsState()
             val active = conv.id == activeChatId
             val isUnread = !active && conv.id in unread
-            // Hover instantaneo, MESMA regra da órbita (ver OrbitItem): apontar é
-            // gesto, e a resposta ao gesto não pode ter curva. A seleção segue
-            // animada, que é o outro sinal. As duas listas da barra lateral têm que
-            // responder igual — o mesmo gesto no mesmo lugar da tela não pode ter
-            // duas velocidades dependendo de a linha ser órbita ou sussurro.
             val alvo = if (active) Obsidian.active else if (hovered) Obsidian.hover else Color.Transparent
             val fundoAnimado by animateColorAsState(alvo, tween(120))
             val itemBg = if (hovered && !active) alvo else fundoAnimado
-            // Cascata no boot (F6) + botao direito: mutar/desmutar + marcar lida (F4).
             CascadeIn(cascadeRow, Unit) {
             EditorialContextMenu(entries = {
                 buildList {
@@ -3455,7 +2820,6 @@ private fun DmList(
                     }
                     if (isUnread) add(MenuEntry.Item("marcar como lida", icon = Lucide.Check) { onMarkRead(conv.id) })
                     add(MenuEntry.Separator)
-                    // So faz sentido convidar se eu tenho pra onde convidar.
                     if (u?.username != null && servers.isNotEmpty()) {
                         add(MenuEntry.Item("convidar para constelação", icon = Lucide.Users) { inviteFor = conv })
                     }
@@ -3467,8 +2831,6 @@ private fun DmList(
                     u?.id?.let { uid -> add(MenuEntry.Item("copiar ID", icon = Lucide.Copy) { clipboard.setText(AnnotatedString(uid)) }) }
                     add(MenuEntry.Separator)
                     add(MenuEntry.Item("fechar sussurro", icon = Lucide.X) { onCloseDm(conv.id) })
-                    // "desfazer amizade" so aparece se existe amizade — oferecer uma
-                    // ação que vai dar erro e pior do que não oferecer.
                     friendships[u?.id]?.let { fid ->
                         add(MenuEntry.Separator)
                         add(MenuEntry.Item("desfazer amizade", danger = true, icon = Lucide.UserMinus) {
@@ -3493,9 +2855,6 @@ private fun DmList(
                                     } else {
                                         runCatching { blockApi.block(uid) }.onSuccess {
                                             blocked = blocked + uid
-                                            // O backend ja desfez a amizade e escondeu a
-                                            // conversa; a tela acompanha na hora em vez de
-                                            // esperar o proximo carregamento.
                                             friendships = friendships - uid
                                             onCloseDm(conv.id)
                                         }
@@ -3515,17 +2874,9 @@ private fun DmList(
                         .background(itemBg)
                         .hoverable(interaction)
                         .clickable { onOpenChat(ChatTarget.Dm(conv.id, name)) }
-                        // 9dp e nao 6dp: sem a linha, o respiro e o unico separador,
-                        // e 6dp deixava os cards colados demais pra isso funcionar.
                         .padding(horizontal = 8.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Hover na LINHA inteira dispara o anel 360 em volta da foto
-                    // (não so o hover direto na foto) -> a hitbox toda fica viva.
-                    //
-                    // A bolinha de presenca fica NUM BOX POR FORA do avatar: o
-                    // DesktopAvatar clipa em circulo, e qualquer coisa desenhada
-                    // dentro dele seria cortada na borda da foto.
                     Box {
                         DesktopAvatar(u?.avatarUrl, name, 28, externalHover = hovered)
                         StatusDot(
@@ -3570,11 +2921,6 @@ private fun DmList(
                     }
                 }
                 if (isUnread) UnreadPill(Modifier.align(Alignment.CenterStart))
-                // Sem divisoria. Ela era um traco de borda a borda no rodape de cada
-                // card — padrao de TABELA, e o olho passa a ler a coluna como grade
-                // em vez de gente. Quem separa agora e o respiro (o vertical padding
-                // do Row dobrou) e o hover, que acende o fundo e desenha o limite do
-                // card exatamente quando ele importa: na hora de clicar.
             }
             }
             }
@@ -3582,8 +2928,6 @@ private fun DmList(
         }
     }
 
-    // Telas abertas pelo menu do sussurro. Ficam FORA da LazyColumn de proposito:
-    // a linha some da composicao ao rolar, e a tela iria junto no meio do uso.
     profileFor?.let { uid ->
         ProfilePage(
             userId = uid,
@@ -3603,10 +2947,6 @@ private fun DmList(
     }
 }
 
-// Escolher PRA ONDE convidar. O menu de contexto não tem submenu generico, e um
-// dialogo aqui e mais honesto que uma lista escondida: da pra ver o ícone e o nome
-// de cada constelação antes de decidir. Adiciona pelo @usuario (a pessoa entra na
-// hora) — a mesma rota do "convidar pessoas" da rail.
 @Composable
 private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose: () -> Unit) {
     val api = remember { GlobalContext.get().get<ServerApi>() }
@@ -3663,9 +3003,6 @@ private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose
     }
 }
 
-// Botão de ligar no topo do sussurro. Sem moldura em repouso: dois círculos
-// permanentes no cabeçalho competiriam com o nome da pessoa, que é o que importa
-// ali. No hover a borda acende e o glifo vai pro âmbar.
 @Composable
 private fun BotaoDeLigar(icone: ImageVector, titulo: String, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -3683,22 +3020,17 @@ private fun BotaoDeLigar(icone: ImageVector, titulo: String, onClick: () -> Unit
     }
 }
 
-// ---- Palco central ----
-
 @Composable
 private fun Stage(
     server: ServerDto?,
     chat: ChatTarget?,
     voiceChannel: ChannelDto?,
-    // Engine so quando a sala do palco E a que você entrou; null = antessala.
     call: CallEmMalha?,
-    // Alternar o mudo passa pela VoiceSession (dona do estado), nao pelo motor.
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     voicePresence: List<String>,
     onJoinVoice: () -> Unit,
     onLeaveVoice: () -> Unit,
-    // Ligar pra alguém no sussurro (voz ou vídeo).
     onLigarSussurro: (ChatTarget.Dm, video: Boolean) -> Unit,
     botDoOutroLado: Boolean,
     createChatVm: (ChatTarget) -> ChatVm,
@@ -3710,34 +3042,21 @@ private fun Stage(
     onStartDm: (String, String) -> Unit,
     showDiscover: Boolean,
     onDiscoverJoined: (String) -> Unit,
-    // IDs dos servidores que já sou membro — o Discover troca "entrar" por "você já
-    // está aqui" nesses cards.
     joinedServerIds: Set<String> = emptySet(),
     showFriends: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    // Cartao do palco: onde vive o texto do chat, entao alpha um tico maior que
-    // os outros paineis pra leitura (aurora aparece, mas não briga com a mensagem).
     Column(modifier.fillMaxHeight().panelSurface(Obsidian.raised, 0.52f)) {
-        // Amigos ocupa o palco inteiro (cabecalho + abas proprios).
         if (showFriends) {
             FriendsView(onStartDm, Modifier.fillMaxSize())
             return@Column
         }
-        // Descobrir ocupa o palco inteiro (tem cabecalho + busca proprios).
         if (showDiscover) {
             DiscoverView(onDiscoverJoined, joinedIds = joinedServerIds, modifier = Modifier.fillMaxSize())
             return@Column
         }
-        // Top bar do palco. ESCONDIDO em QUALQUER tela vazia (nada aberto) — constelação OU
-        // sussurros: ali o palco vira um componente so, com a animação central de fato no
-        // centro (e, em constelação, os membros já na lateral). Estados com nome (órbita ou
-        // sussurro aberto, voz) mantem o top bar. O botao de membros saiu.
         val bareLanding = chat == null && voiceChannel == null
         if (!bareLanding) {
-            // A faixa do topo do palco virou SUPERFICIE, e nao mais um bloco
-            // seguido de traco: um degrau acima do palco basta pra dizer que ela
-            // e chrome e nao conversa.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3771,9 +3090,6 @@ private fun Stage(
                         modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart),
                     )
                 }
-                // Ligar — só em sussurro aberto, só fora de call e só com gente do
-                // outro lado. Em órbita já se entra pela sala de voz; oferecer o
-                // mesmo aqui daria dois jeitos de fazer a mesma coisa.
                 if (chat is ChatTarget.Dm && voiceChannel == null && !botDoOutroLado) {
                     BotaoDeLigar(Lucide.Phone, "ligar") { onLigarSussurro(chat, false) }
                     Spacer(Modifier.width(4.dp))
@@ -3782,47 +3098,23 @@ private fun Stage(
             }
         }
 
-        // Sala de voz ocupa o palco. Sem engine = você abriu a sala mas ainda não
-        // entrou -> antessala com quem esta la e o botao verde.
         if (voiceChannel != null) {
             if (call != null) VoiceView(voiceChannel, members, me, call, mudo, aoAlternarMudo, onLeaveVoice, server?.id)
             else VoiceLobby(voiceChannel, members, voicePresence, onJoinVoice)
             return@Column
         }
 
-        // Troca de conversa em DOIS TEMPOS (ver TrocaDePagina.kt). Antes era um
-        // AnimatedContent com fade cruzado, e as duas conversas — cada uma com seu
-        // ChatVm, sua lista e suas imagens — desenhavam no mesmo frame. Era esse o
-        // engasgo. Agora a antiga apaga primeiro e a nova so e composta depois.
         TrocaDePagina(
             alvo = chat,
             modifier = Modifier.fillMaxSize(),
         ) { target ->
             if (target != null) {
-                // UM ChatVm POR CONVERSA — e o `key` e o que garante isso.
-                //
-                // Sem ele, este `remember` guarda UM slot so na composicao: o
-                // primeiro ChatVm criado na sessao era devolvido pra TODA conversa
-                // aberta depois. Trocar de sussurro trocava o cabecalho e nada mais;
-                // as mensagens continuavam vindo do VM da PRIMEIRA conversa, e o
-                // "tentar de novo" pedia de novo o alvo dela, nao o que estava na
-                // tela. Se essa primeira carga pegou o servidor dormindo e falhou,
-                // o palco ficava vazio pro resto da sessao, em qualquer conversa,
-                // com o servidor de pe — que e exatamente o sintoma relatado.
-                //
-                // `openChat` nunca passa por nulo entre uma conversa e outra (ver
-                // ShellVm), entao o ramo do `if` nunca era abandonado e o slot nunca
-                // era descartado. So reiniciar o app dava um VM novo.
                 key(target.id) {
                 val chatVm = remember { createChatVm(target) }
                 DisposableEffect(Unit) { onDispose { chatVm.dispose() } }
-                // Heranca: orbita decide; se nao decidiu, a categoria; se nem ela,
-                // fica ligado. Resolvido aqui porque o cliente ja tem as duas listas
-                // na mao — pedir de novo ao servidor seria round-trip por nada.
                 val botAqui = remember(target.id, server) {
                     val ch = server?.channels?.find { it.id == target.id }
                     val cat = server?.categories?.find { it.id == ch?.categoryId }
-                    // Sussurro não tem órbita nem categoria: a bot atende sempre.
                     ch?.botEnabled ?: cat?.botEnabled ?: true
                 }
                 ChatView(
@@ -3857,15 +3149,10 @@ private fun Stage(
     }
 }
 
-// ---- Painel de membros (240dp) ----
-
 @Composable
 private fun MembersPanel(
     members: List<ServerMemberDto>,
     presence: Map<String, String>,
-    // "O que cada um está usando". Fora do `remember` que monta as linhas de
-    // propósito: a atividade muda sozinha ao vivo, e entrar naquela chave faria o
-    // painel inteiro reagrupar por cargo toda vez que alguém trocasse de programa.
     atividade: Map<String, String>,
     myId: String?,
     serverId: String?,
@@ -3874,15 +3161,7 @@ private fun MembersPanel(
     onKick: (String) -> Unit,
     onBan: (String) -> Unit,
 ) {
-    // Agrupado por cargo hoist (membro no cargo mais alto que "separa"; resto em
-    // MEMBROS). Dentro de cada secao: online antes de offline. Recalcula so quando
-    // a lista ou a presenca muda — não a cada recomposicao.
     val rows = remember(members, presence, myId) { buildMemberRows(members, presence, myId) }
-    // PAINEL DE MEMBROS "POR CIMA": curva so nos dois cantos da ESQUERDA, mais uma
-    // borda daquele lado. O lado direito continua colado na moldura do shell — e
-    // justamente isso que faz ele parecer uma folha apoiada sobre a conversa em
-    // vez de mais um cartao solto. Curvar os quatro cantos traria de volta a
-    // gramatica flutuante que acabou de sair dos outros paineis.
     val forma = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp, topEnd = 0.dp, bottomEnd = 0.dp)
     Column(
         Modifier
@@ -3915,8 +3194,6 @@ private fun MembersPanel(
     }
 }
 
-// Linha achatada do painel: cabecalho de secao (cargo/MEMBROS) ou pessoa. Pre-
-// computado fora da composicao pra o LazyColumn so re-emitir quando muda.
 private sealed interface MemberPanelRow {
     val key: String
     data class Header(val id: String, val label: String, val count: Int, val iconUrl: String?) : MemberPanelRow {
@@ -3928,23 +3205,11 @@ private sealed interface MemberPanelRow {
 }
 
 private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String, String>, myId: String?): List<MemberPanelRow> {
-    // Eu SEMPRE conto como online (estou olhando o app agora): a presenca do proprio
-    // usuário nunca chega via socket (o broadcast do connect vai so pros OUTROS) e o
-    // snapshot inicial pode ter pego antes do socket subir. Sem isso meu nome ficava
-    // apagado mesmo online. Os demais vem da presenca real (o heartbeat a mantem viva).
     fun online(uid: String) = uid == myId || presence[uid]?.let { it != "OFFLINE" } == true
-    // A chave de ordenacao sai UMA VEZ por membro, e nao dentro do comparador.
-    //
-    // `sortedBy { nome.lowercase() }` parece inocente e nao e: o comparador roda O(n log n)
-    // vezes e cada passada alocava uma String nova. Numa constelacao de cinquenta pessoas
-    // isso e perto de mil Strings descartaveis -- a cada mudanca de presenca de qualquer
-    // um, que e o evento mais frequente que existe aqui. O resultado e identico; o lixo
-    // gerado, nao.
     val chave = HashMap<String, String>(members.size)
     for (m in members) chave[m.userId] = (m.user.displayName ?: m.user.username).lowercase()
     fun nameOf(m: ServerMemberDto) = chave[m.userId].orEmpty()
 
-    // membro -> cargo hoist mais alto (position maior). Sem cargo hoist = "" (MEMBROS).
     val roleById = HashMap<String, MemberRoleDto>()
     val buckets = LinkedHashMap<String, MutableList<ServerMemberDto>>()
     for (m in members) {
@@ -3953,7 +3218,6 @@ private fun buildMemberRows(members: List<ServerMemberDto>, presence: Map<String
         if (r != null) roleById[key] = r
         buckets.getOrPut(key) { mutableListOf() }.add(m)
     }
-    // Secoes: cargos hoist por position desc; MEMBROS ("") sempre por último.
     val order = buckets.keys.sortedByDescending { roleById[it]?.position ?: Int.MIN_VALUE }
 
     val out = ArrayList<MemberPanelRow>()
@@ -3993,7 +3257,6 @@ private fun MemberSectionHeader(label: String, count: Int, iconUrl: String?) {
 private fun MemberRow(
     m: ServerMemberDto,
     online: Boolean,
-    // null = a pessoa não está mostrando nada (o padrão: o recurso nasce desligado).
     atividade: String?,
     cascadeIndex: Int,
     cascadeTotal: Int,
@@ -4006,11 +3269,8 @@ private fun MemberRow(
 ) {
     val clipboard = LocalClipboardManager.current
     val name = m.user.displayName ?: m.user.username
-    // Online = nome na cor do cargo (topColor). Offline = esmaecido, sem cor.
     val nameColor = if (online) (memberRoleColor(m.topColor) ?: Obsidian.text2) else Obsidian.text3.copy(alpha = 0.65f)
     val avatarAlpha = if (online) 1f else 0.4f
-    // Cascata ao abrir o painel (F6) + linha clicavel = card de perfil (F3)
-    // + botao direito = menu (sussurro/copiar ID; expulsar/banir do dono).
     CascadeIn(cascadeIndex, cascadeTotal) {
         var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
         EditorialContextMenu(entries = {
@@ -4028,16 +3288,10 @@ private fun MemberRow(
                 ConfirmPopup(
                     message = if (act == "ban") "banir ${name}? a pessoa não poderá voltar." else "expulsar ${name}?",
                     confirmLabel = if (act == "ban") "banir" else "expulsar",
-                    // kick usa o ID da MEMBERSHIP (serverMembers.id = m.id);
-                    // ban usa o userId no corpo. Mandar userId no kick dava
-                    // 404 (rota casa por serverMembers.id) — bug do "não expulsa".
                     onConfirm = { if (act == "ban") onBan(m.userId) else onKick(m.id) },
                     onDismiss = { confirmMember = null },
                 )
             }
-            // Os cargos vao junto: e AQUI que eles existem (a lista de membros ja
-            // carrega m.roles), e buscar de novo no card seria uma chamada a mais
-            // pra um dado que ja esta na mao.
             ProfileAnchor(m.userId, isMe = isMe, onStartDm = onStartDm, cargos = m.roles) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
@@ -4047,10 +3301,6 @@ private fun MemberRow(
                         DesktopAvatar(m.user.avatarUrl, name, 26)
                     }
                     Spacer(Modifier.width(9.dp))
-                    // Nome + (se houver) o que a pessoa está usando. A segunda linha
-                    // só existe quando há o que dizer: reservar altura pra ela sempre
-                    // deixaria a lista frouxa pra mostrar nada na maioria das vezes,
-                    // que é o caso normal — o recurso nasce desligado.
                     Column {
                         Text(
                             text = name,
@@ -4058,29 +3308,16 @@ private fun MemberRow(
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (atividade != null) {
-                            // DESTAQUE POR PONTO, não por cor no texto (escolha do dono).
-                            //
-                            // O accent entra em pouca área e por isso continua
-                            // significando algo — 60-30-10. Pintar o texto inteiro de
-                            // accent poria duas cores na mesma linha, disputando com o
-                            // nome colorido do cargo, que é o único uso de cor no painel
-                            // hoje. Duas cores competindo e nenhuma manda.
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     Modifier
                                         .size(4.dp)
                                         .clip(CircleShape)
-                                        // Sem pulsar. Movimento é orçamento, e um ponto
-                                        // piscando por pessoa numa lista de vinte ensina
-                                        // a ignorar o piscar — inclusive onde ele importa.
                                         .background(Obsidian.accent.copy(alpha = if (online) 0.85f else 0.4f)),
                                 )
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     text = atividade,
-                                    // text3 e um corpo menor: é contexto, não identidade.
-                                    // No mesmo peso do nome, a lista viraria duas colunas
-                                    // de informação competindo, e o nome é o que se procura.
                                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
@@ -4093,9 +3330,6 @@ private fun MemberRow(
     }
 }
 
-// "#rrggbb" -> Color; invalido/nulo = null (a UI cai no cinza).
-// internal: as etiquetas de cargo do cartao de perfil leem a MESMA cor que a
-// lista de membros. Duas conversoes de hex e uma delas errando sozinha.
 internal fun memberRoleColor(hex: String?): Color? {
     val h = hex?.trim()?.removePrefix("#") ?: return null
     if (h.length != 6) return null
@@ -4103,10 +3337,6 @@ internal fun memberRoleColor(hex: String?): Color? {
     return Color(0xFF000000 or v)
 }
 
-// ---- Pecinhas ----
-
-// Botao "Amigos" no topo dos sussurros (padrao Discord) — abre a tela de amigos
-// no palco. Ativo = destaque ambar.
 @Composable
 private fun FriendsNavRow(active: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }

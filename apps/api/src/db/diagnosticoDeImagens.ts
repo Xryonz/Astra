@@ -1,34 +1,8 @@
 import 'dotenv/config'
 import { Pool } from 'pg'
 
-// DIAGNÓSTICO DE IMAGENS — conta o estado de cada imagem do banco, sem mudar nada.
-//
-// Existe para responder duas perguntas que estavam travando decisões, e nenhuma delas
-// dava para responder de fora:
-//
-//  1. "Conta nova não carrega as imagens já colocadas."  Há uma hipótese forte: as
-//     imagens salvas quando o storage era LOCAL viraram `/uploads/xxx`, e esses arquivos
-//     morreram no disco efêmero do Render. Contas antigas ainda veem por causa do cache em
-//     disco do Coil; conta nova pede ao servidor e leva 404. Se este relatório mostrar
-//     linhas em `/uploads/`, a hipótese está confirmada — e o número diz o tamanho do
-//     estrago.
-//
-//  2. "Vale reprocessar o que já está no bucket?"  A versão de exibição (256px) só é
-//     gerada em envio novo. Este relatório diz quantas imagens ainda estão sem ela, que é
-//     exatamente o custo de um backfill — e se ele se paga.
-//
-// SÓ LÊ. Nenhum UPDATE, nenhum DELETE, nenhuma chamada ao bucket. Rodar isto em produção é
-// tão seguro quanto abrir o painel do banco, e é para ser rodado em produção mesmo: é o
-// banco de verdade que tem a resposta.
-//
-//   cd apps/api && npm run img:diag
-//
-// Precisa de DATABASE_URL no ambiente — o mesmo que o `db:migrate` usa.
-
 type Linha = { tabela: string; coluna: string; total: number; uploads: number; bucket: number; dataUri: number; outro: number; vazio: number }
 
-// Cada campo de imagem do Astra, com o que ele é. `encolhe` marca os que passam por
-// `persistImagemDeExibicao` — só esses têm versão de exibição a ganhar.
 const CAMPOS: Array<{ tabela: string; coluna: string; encolhe: boolean; par?: string }> = [
   { tabela: 'User',       coluna: 'avatarUrl',  encolhe: true,  par: 'avatarFullUrl' },
   { tabela: 'User',       coluna: 'bannerUrl',  encolhe: false },
@@ -46,9 +20,6 @@ async function main() {
   }
   const local = url.includes('localhost') || url.includes('127.0.0.1') || url.includes('.railway.internal')
 
-  // DIZ CONTRA QUEM VAI RODAR, antes de rodar. Isto só lê, então errar de banco aqui não
-  // estraga nada — mas ler o banco errado e tirar conclusão dele estraga a DECISÃO, que é
-  // o produto deste script. O host basta para reconhecer; usuário e senha ficam de fora.
   try {
     const u = new URL(url)
     console.log(`[IMG] banco: ${u.hostname}${u.pathname}  (ssl=${!local})`)
@@ -63,9 +34,6 @@ async function main() {
   let semEncolher = 0
 
   for (const campo of CAMPOS) {
-    // A tabela pode não existir num banco antigo (ServerRole nasceu depois). Falhar por
-    // isso transformaria um diagnóstico em erro, e o diagnóstico é justamente para quem
-    // não sabe o que tem.
     const existe = await pool.query(
       `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
       [campo.tabela, campo.coluna],
@@ -95,8 +63,6 @@ async function main() {
     linhas.push(l)
     orfas += l.uploads
 
-    // Quantas já têm a versão de exibição: a coluna par preenchida é a marca de que a
-    // imagem passou por `persistImagemDeExibicao` depois da mudança.
     if (campo.encolhe && campo.par) {
       const temPar = await pool.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,

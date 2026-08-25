@@ -83,22 +83,10 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-// ---- Gate de boot (estilo Discord): janelinha que verifica a versão ----
-// Logo do Astra no centro com estrelas orbitando (sensacao de carregando) sobre o
-// ceu do app. A barra segmentada embaixo mostra o download quando ha um; senao
-// varre. Atualizado/falha/timeout seguem pro app. Janela pequena e frameless.
 @Composable
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
 
-    // PISO, e nao duracao. O portao dura o que a verificacao de versao durar; isto aqui
-    // so garante que ele nao PISQUE quando a resposta vem instantanea.
-    //
-    // Era 4800ms fixos, pedido pra dar tempo de aproveitar a animação. Medido tres vezes
-    // na maquina do dono: o Astra instalado abria em ~9,3s, dos quais ~4,8s eram esta
-    // espera — metade do carregamento era decoracao esperando a si mesma. Com o piso de
-    // 1,2s a abertura cai pra ~4,5s. A entrada da constelação foi encurtada junto (abaixo)
-    // pra caber: animação curta inteira e melhor que animação longa cortada no meio.
     val gateStart = remember { System.currentTimeMillis() }
     val holdMs = 1200L
     suspend fun holdThenDone() {
@@ -107,11 +95,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         onDone()
     }
 
-    // Gate silencioso: falha de rede vira "atualizado" e segue (sem "não deu").
     LaunchedEffect(Unit) { updater.check() }
-    // Resolucao TOTALMENTE automatica: achou versão nova -> baixa sozinho (sem
-    // clique) -> quando pronto, reinicia e instala. Atualizado/falha seguem pro
-    // app. Basta ter QUALQUER versão instalada: o resto anda sem GitHub na mao.
     LaunchedEffect(st) {
         when (val s = st) {
             is UpdateState.Available -> updater.downloadAndStage(s)
@@ -121,30 +105,18 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             else -> {}
         }
     }
-    // Rede de seguranca: travou verificando (offline lento) -> segue em 8s.
     LaunchedEffect(Unit) { delay(8_000); if (updater.state.value is UpdateState.Checking) onDone() }
 
-    // Entrada "constelação se forma", toca UMA vez ao abrir o gate: as 14
-    // estrelas do anel nascem espalhadas e convergem pra órbita (ver
-    // RotatingStarsLogo). null = direto no estado final, sem stagger — e o que
-    // reduceMotion pede e também o default dos outros lugares que usam o logo
-    // (login/onboarding), que não tocam essa entrada.
     val entrance: State<Float>? = if (reduceMotion) null else {
         var started by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { started = true }
         animateFloatAsState(
             targetValue = if (started) 1f else 0f,
-            // 1100ms e nao 2600: tem de caber dentro do piso do portao (1200ms), senao a
-            // constelação e interrompida no meio do caminho toda vez que a verificacao
-            // responde rapido — que e o caso normal.
             animationSpec = tween(1100, easing = LinearEasing),
             label = "gateEntrance",
         )
     }
 
-    // Preenchimento da barra fina: no download e o progresso REAL; no resto
-    // (verificando / atualizado) uma barra SINTETICA que enche devagar ao longo do
-    // hold — so pra dar a sensacao de "algo acontecendo" enquanto a animação roda.
     val realProgress = (st as? UpdateState.Downloading)?.progress
     val syntheticFill = run {
         var go by remember { mutableStateOf(false) }
@@ -156,15 +128,6 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
         )
     }
     val barProgress = realProgress ?: syntheticFill.value
-    // Palavra acima da barra: nos estados reais, o que esta havendo; no hold comum, uma
-    // palavra "espacial" que avanca junto com o preenchimento (pedido do dono).
-    //
-    // A FRASE e a PORCENTAGEM andam separadas de proposito. Elas tem ritmos
-    // opostos: a frase muda 5 vezes na tela inteira, a porcentagem muda 100 vezes
-    // so no download. Enquanto as duas moravam na MESMA String, cada 1% virava um
-    // targetState novo e remontava a animacao — a frase saia antes de terminar de
-    // entrar e nunca dava pra ler nada. Agora o numero anda por fora e atualiza no
-    // lugar: numero trocando no lugar e o esperado, texto piscando le como falha.
     val rotulo = when (val s = st) {
         is UpdateState.Available   -> Rotulo("nova versão ${s.version}")
         is UpdateState.Downloading -> Rotulo("baixando ${s.version}", baixando = true)
@@ -181,13 +144,7 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        // Fundo: o gate era logo + preto liso. Ganha o MESMO ceu do app (estrelas
-        // fixas, piscar e meteoros) e um halo atrás do planeta — reuso do StarField
-        // que já existe, não arte nova. Aurora ficou de fora de proposito: e um
-        // shader por pixel e isto e a tela de BOOT, tem que abrir na hora.
         StarField(Modifier.fillMaxSize())
-        // Halo: separa o planeta do fundo e dá profundidade. Um gradiente radial no
-        // draw, custo de um retangulo.
         Box(
             Modifier.fillMaxSize().drawBehind {
                 drawRect(
@@ -207,33 +164,22 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 26.dp, vertical = 24.dp).fillMaxWidth(),
         ) {
-            // Logo TRANSPARENTE (astra-glyph.png): so o planeta branco, sem o quadrado
-            // preto que poluia o ceu do gate. As estrelas continuam orbitando o corpo.
             RotatingStarsLogo(reduceMotion, entrance = entrance, planetRes = "astra-glyph.png")
             Spacer(Modifier.height(18.dp))
-            // Caixa-alta no desenho, "Astra" na leitura — mesma razão da tela de
-            // entrada (ver LoginScreen).
             Text(
                 "ASTRA",
-                // 22, e não os 32 da Babylonica. Ver os tamanhos medidos em
-                // theme/Type.kt: a laçada dela gastava altura que esta não gasta.
                 style = TextStyle(
                     color = Obsidian.text1,
                     fontSize = 22.sp,
                     fontFamily = Cinzel,
                     letterSpacing = 3.5.sp,
                 ),
-                // Titulo resolve por último (1.5..2.0 do virtual da entrada): alpha lido
-                // dentro do graphicsLayer, não no corpo — não recompoe a cada frame.
                 modifier = Modifier.graphicsLayer {
                     val ms = (entrance?.value ?: 1f) * 2000f
                     alpha = ((ms - 1500f) / 500f).coerceIn(0f, 1f)
                 },
             )
             Spacer(Modifier.height(16.dp))
-            // O gate e uma janela propria e nunca passou por quem provê o
-            // LocalReduceMotion — os pontinhos de carregamento leem DE LA. Sem
-            // isto eles saltariam mesmo com movimento reduzido ligado.
             CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
                 ThinProgress(barProgress, rotulo, realProgress?.let { (it * 100).toInt() }, reduceMotion)
             }
@@ -241,23 +187,12 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
     }
 }
 
-// Barra de progresso FINA e minimalista (pedido do dono): um trilho de 2dp que
-// enche da esquerda pra direita, com uma palavra "espacial" centralizada acima.
-// No download o preenchimento e o progresso REAL; no hold comum e a barra sintetica
-// que sobe devagar. Canvas (não Box) pra uma única passada numa tela que abre na hora.
 @Composable
 private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceMotion: Boolean) {
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // As palavras trocavam por corte seco, o que numa tela parada e a unica
-        // coisa que se move — lia como falha de renderizacao. Agora a que sai
-        // desliza pra DIREITA e some no escuro, e a proxima nasce do escuro pela
-        // ESQUERDA: uma passa pela outra, como um letreiro.
-        //
-        // A entrada espera a saida terminar (delay = duracao da saida). Cruzadas,
-        // as duas frases se sobrepoem no mesmo ponto e viram borrao ilegivel.
         Box(Modifier.dissolverNasBordas(ZONA_ESCURA)) {
             AnimatedContent(
                 targetState = rotulo,
@@ -273,9 +208,6 @@ private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceM
                 },
                 label = "palavraEspacial",
             ) { r ->
-                // O respiro lateral e do TAMANHO da zona escura: assim o gradiente
-                // da mascara cai sobre espaco vazio, e a frase parada fica inteira
-                // legivel. Ela so escurece quando entra nesse respiro, deslizando.
                 Row(
                     Modifier.padding(horizontal = ZONA_ESCURA),
                     verticalAlignment = Alignment.CenterVertically,
@@ -288,13 +220,8 @@ private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceM
                     )
                     if (r.baixando) {
                         Spacer(Modifier.width(7.dp))
-                        // Os mesmos pontinhos do "digitando…" e do sussurro vazio.
                         TypingDots(Obsidian.text3, dotSize = 3.dp)
                         Spacer(Modifier.width(9.dp))
-                        // Largura FIXA: "7%" e "100%" tem que ocupar o mesmo espaco.
-                        // Como a linha inteira e centralizada, sem isso ela andaria
-                        // de lado a cada ponto percentual — o tremor que estamos
-                        // justamente tirando daqui.
                         Box(Modifier.width(30.dp), contentAlignment = Alignment.CenterEnd) {
                             Text(
                                 "${percent ?: 0}%",
@@ -314,37 +241,20 @@ private fun ThinProgress(progress: Float, rotulo: Rotulo, percent: Int?, reduceM
             val w = (size.width * progress).coerceIn(0f, size.width)
             if (w > 0f) {
                 drawRoundRect(color = Obsidian.accent, size = Size(w, h), cornerRadius = cr)
-                // Brilho discreto na cabeca do preenchimento (toque editorial).
                 drawCircle(color = Obsidian.accent.copy(alpha = 0.5f), radius = h * 1.6f, center = Offset(w, h / 2f))
             }
         }
     }
 }
 
-// O que a linha acima da barra mostra. E um objeto, e nao uma String, porque a
-// PORCENTAGEM nao pode entrar aqui: ela e o que muda cem vezes, e qualquer coisa
-// dentro deste tipo vira gatilho de animacao (e o targetState do AnimatedContent).
 private data class Rotulo(val texto: String, val baixando: Boolean = false)
 
-// Quanto de cada lateral e "escuro" — a faixa onde a palavra se dissolve. E
-// tambem o respiro lateral da linha, pra a frase parada nunca cair dentro dela.
 private val ZONA_ESCURA = 26.dp
 
-// Dissolve nas bordas: um gradiente horizontal aplicado com DstIn zera o alpha do
-// que chega perto das laterais. A palavra entra e sai deslizando POR BAIXO dessa
-// mascara, entao ela some no escuro em vez de ser cortada na borda da caixa.
-//
-// CompositingStrategy.Offscreen e OBRIGATORIO: sem ele o DstIn apagaria tambem o
-// que ja esta pintado embaixo (o ceu de estrelas do gate), abrindo um buraco.
-// O recorte da camada cai exatamente onde o gradiente ja chegou a zero — o que
-// fica de fora ja era invisivel, entao o corte nao aparece.
 private fun Modifier.dissolverNasBordas(zona: Dp): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
-        // Largura zero acontece de verdade num frame de primeira medida ou resize.
-        // Dividir por ela daria NaN nos stops e o Skia descarta o desenho inteiro —
-        // e o mesmo NaN que ja tinha cortado a aurora uma vez.
         if (size.width <= 0f) return@drawWithContent
         val f = (zona.toPx() / size.width).coerceIn(0f, 0.49f)
         drawRect(
@@ -358,10 +268,6 @@ private fun Modifier.dissolverNasBordas(zona: Dp): Modifier = this
         )
     }
 
-// Palavras "espaciais" que trocam conforme a barra enche — dao a sensacao de que
-// algo esta sendo feito. Acentuadas: a convencao de ASCII vale pra COMENTARIO e
-// nome de coisa no codigo, nunca pra texto que a pessoa le. "tracando" e "quase
-// la" tinham escapado e apareciam errados na primeira tela do app.
 private val SPACE_WORDS = listOf(
     "acordando o cosmos",
     "alinhando órbitas",
@@ -373,24 +279,10 @@ private val SPACE_WORDS = listOf(
 private fun spaceWord(progress: Float): String =
     SPACE_WORDS[(progress * SPACE_WORDS.size).toInt().coerceIn(0, SPACE_WORDS.lastIndex)]
 
-// internal + tamanho parametrizavel: a tela de login reusa o MESMO planeta, pra o
-// objeto que abre o app ser o mesmo que recebe no login (continuidade de marca).
-//
-// entrance: progresso 0..1 do one-shot "constelação se forma", tocado SO pelo
-// gate de boot (UpdaterGate) num Animatable/animateFloatAsState proprio. null
-// (default) = já assentado, ou seja, o comportamento de sempre — login,
-// onboarding e o proprio gate com reduceMotion continuam iguais, sem esse custo.
-// planetRes: recurso do planeta no centro. O gate passa a variante TRANSPARENTE
-// (astra-glyph.png = so o planeta branco, anel/estrela vazados, sem o quadrado preto
-// que poluia o ceu); gate/login/onboarding/rail usam essa mesma marca transparente.
 @Composable
 internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, entrance: State<Float>? = null, planetRes: String = "astra-icon.png") {
     val accent = Obsidian.accent
     val twoPi = (2.0 * PI).toFloat()
-    // Fase lida DENTRO do draw (drawRing roda no DrawScope do Canvas): o composable
-    // não recompoe por frame, so os Canvas redesenham. Antes o .value saia no corpo
-    // e a tela de login recompunha 60fps enquanto você digitava a senha. Movimento
-    // reduzido / janela em segundo plano: anel parado. (Auditoria de movimento, #4.)
     val phaseState = if (reduceMotion || !LocalWindowActive.current) null else {
         rememberInfiniteTransition(label = "orbit").animateFloat(
             initialValue = 0f,
@@ -402,8 +294,6 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
     val count = 14
     val tilt = (-12.0 * PI / 180.0).toFloat()
 
-    // Posicao de órbita (formula de sempre) extraida pra fn: a entrada precisa
-    // dela tanto de alvo do "reune" quanto do desenho do regime normal.
     fun DrawScope.orbitPos(theta: Float): Offset {
         val half = size.minDimension / 2f
         val rx = half * 0.92f
@@ -415,22 +305,14 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             center.y + ex * sin(tilt) + ey * cos(tilt),
         )
     }
-    // Posicao espalhada em t=0 da entrada: um circulo bem mais largo que o anel,
-    // angulo por indice via angulo aureo (~137.5deg) pra não empilhar duas
-    // estrelas na mesma direcao. Deterministico por indice — sem Random, sem
-    // alocar nada no draw.
     fun DrawScope.scatterPos(i: Int): Offset {
         val half = size.minDimension / 2f
         val ang = i * 2.4f
         val rad = half * (1.5f + 0.6f * ((i * 53) % 5) / 4f)
         return Offset(center.x + rad * cos(ang), center.y + rad * sin(ang))
     }
-    // Anel de Saturno: elipse achatada; sin(theta) > 0 = lado perto (na frente
-    // do planeta), <= 0 = lado longe (atrás). Cada canvas desenha so um lado.
     fun DrawScope.drawRing(front: Boolean) {
         val phase = phaseState?.value ?: 0.9f
-        // "Reune" (0..1.1s da entrada): 0 = tudo espalhado, 1 = na órbita. Fora
-        // do gate (entrance == null) cai sempre em 1 = formula de sempre.
         val gather = ((entrance?.value ?: 1f) * 2000f / 1100f).coerceIn(0f, 1f)
             .let { FastOutSlowInEasing.transform(it) }
         repeat(count) { i ->
@@ -439,10 +321,8 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             if ((depth > 0f) != front) return@repeat
             val target = orbitPos(theta)
             val p = if (gather >= 1f) target else lerp(scatterPos(i), target, gather)
-            // Paralaxe: perto = maior e mais brilhante; longe = menor e apagado.
             val t01 = (depth + 1f) / 2f
             val lead = i % 5 == 0
-            // Espalhada nasce apagada; ganha brilho junto com a aproximacao.
             val entryAlpha = if (gather >= 1f) 1f else 0.15f + 0.85f * gather
             drawCircle(
                 color = accent.copy(alpha = (0.30f + 0.70f * t01) * entryAlpha),
@@ -451,10 +331,6 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             )
         }
     }
-    // Linhas da constelação sendo esbocada: conecta vizinhos na ORDEM do anel
-    // (i -> i+1), o mesmo desenho que a órbita final, so que ainda se formando.
-    // Sobe durante o "reune", some no "assenta" (1.1..1.7s) — so existe durante
-    // a entrada do gate, entrance == null sai no primeiro if.
     fun DrawScope.drawConstellationLines() {
         val e = entrance?.value ?: return
         val phase = phaseState?.value ?: 0.9f
@@ -476,7 +352,6 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             )
         }
     }
-    // O planeta ocupa 52% do diametro; o resto e o espaco onde o anel passa.
     Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(diameter)) {
             drawConstellationLines()
@@ -487,8 +362,6 @@ internal fun RotatingStarsLogo(reduceMotion: Boolean, diameter: Dp = 150.dp, ent
             contentDescription = null,
             modifier = Modifier
                 .size(diameter * 0.52f)
-                // Planeta escondido em t=0, funde+cresce no "assenta" (1.1..1.7s).
-                // Lido dentro do graphicsLayer — não recompoe o composable por frame.
                 .graphicsLayer {
                     val ms = (entrance?.value ?: 1f) * 2000f
                     val a = ((ms - 1100f) / 600f).coerceIn(0f, 1f)
@@ -516,13 +389,6 @@ private fun PillButton(label: String, accent: Boolean, onClick: () -> Unit) {
     )
 }
 
-// ---- Aviso in-app (canto inferior direito): lembrete quando o update foi adiado
-// ("depois") ou achado na checagem manual. Sobe do rodape e conduz o mesmo
-// mini-fluxo (disponível -> baixando -> pronto) usando o estado do service. ----
-
-// Mesma largura do painel de membros (ShellScreen: Column(Modifier.width(240.dp))).
-// E o que o dono pediu, e o motivo e bom: o aviso passa a se alinhar com uma
-// coluna que ja existe na tela em vez de inventar uma medida propria.
 private val LARGURA_AVISO = 240.dp
 
 @Composable
@@ -535,15 +401,10 @@ fun BoxScope.UpdateBanner(updater: UpdateService) {
     )
     AnimatedVisibility(
         visible = show,
-        // Sobe do rodape em vez de descer do topo — e o gesto que a posicao pede.
         enter = slideInVertically(tween(240, easing = EaseOutStd)) { it } + fadeIn(tween(220)),
         exit = slideOutVertically(tween(180, easing = EaseOutStd)) { it } + fadeOut(tween(160)),
         modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp),
     ) {
-        // COLUNA, e não mais uma linha unica. Em 240dp o texto, o botao e o fechar
-        // nao cabem lado a lado — antes o aviso tinha 560dp de largura, entao a
-        // linha unica funcionava. Agora o titulo ocupa a largura toda (podendo
-        // quebrar em duas linhas) e a acao desce pra baixo dele.
         Column(
             Modifier
                 .width(LARGURA_AVISO)
@@ -581,8 +442,6 @@ fun BoxScope.UpdateBanner(updater: UpdateService) {
     }
 }
 
-// Alinhamento no TOPO, e não no centro: com o texto quebrando em duas linhas, o
-// icone e o fechar centralizados ficariam boiando no meio do bloco.
 @Composable
 private fun TituloDoAviso(texto: String, onClose: (() -> Unit)?) {
     Row(verticalAlignment = Alignment.Top) {
@@ -600,8 +459,6 @@ private fun TituloDoAviso(texto: String, onClose: (() -> Unit)?) {
     }
 }
 
-// Acao encostada na DIREITA (o Spacer com peso empurra). Num cartao estreito o
-// botao solto na esquerda le como sobra de layout.
 @Composable
 private fun AcaoDoAviso(rotulo: String, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth()) {

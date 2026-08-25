@@ -87,7 +87,6 @@ fun OnboardingScreen(
         onDone()
     }
 
-    // Voltar navega entre slides; no primeiro, conclui (nao escapa sem marcar).
     BackHandler { if (page > 0) page-- else finish() }
 
     CosmicBackground(interactive = true) {
@@ -101,8 +100,6 @@ fun OnboardingScreen(
         ) {
             Spacer(Modifier.weight(1f))
 
-            // Constelacao se re-desenha a cada slide (key reinicia o Animatable
-            // interno); rotaciona por pagina pra parecer um ceu diferente.
             key(page) {
                 Box(
                     Modifier.graphicsLayer {

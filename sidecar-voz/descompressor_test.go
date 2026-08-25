@@ -6,21 +6,6 @@ import (
 	"time"
 )
 
-// A VOLTA COMPLETA: a tela vira H.264 e o H.264 vira quadro de novo.
-//
-// É o teste que separa "o decodificador liga" de "o decodificador DECODIFICA". Ele
-// alimenta o descompressor com a saída do compressor de verdade — mesmo perfil, mesmo
-// tamanho, mesmos quadros-chave —, que é exatamente o que vai chegar pela rede quando
-// a outra ponta existir. Um fluxo sintético não provaria nada disso.
-//
-// O QUE ELE CONFERE, e por que cada coisa:
-//
-//   - que sai quadro, e não só "não deu erro";
-//   - que a FORMA bate com a que foi comprimida — largura, altura, e o tamanho em bytes
-//     que NV12 exige. Quadro com passo errado não dá erro: dá imagem enviesada, e essa
-//     é a falha que se descobre tarde;
-//   - que o quadro tem CONTEÚDO. Um decodificador mal amarrado entrega buffer do
-//     tamanho certo cheio de zero, e "não deu erro, veio do tamanho certo" passaria.
 func TestVoltaCompletaDaTela(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -83,9 +68,6 @@ func TestVoltaCompletaDaTela(t *testing.T) {
 			continue
 		}
 
-		// UM QUADRO INTEIRO POR VEZ, mesma regra do emissor: o compressor chama de
-		// volta uma vez por PEDAÇO, e alimentar o decodificador pedaço a pedaço lhe
-		// daria fatias sem a sequência de parâmetros na frente.
 		var junto []byte
 		err = c.Comprimir(textura, time.Since(comeco), func(nal []byte) {
 			junto = append(junto, nal...)
@@ -104,9 +86,7 @@ func TestVoltaCompletaDaTela(t *testing.T) {
 		err = d.Decodificar(junto, time.Since(comeco), func(q Quadro) {
 			quadrosDecodificados++
 			ultimo = q
-			// CONTA OS BYTES DIFERENTES DE ZERO no plano Y, e não a média: uma tela
-			// escura tem média baixa e é legítima; um buffer nunca escrito é zero
-			// INTEIRO. O que separa os dois é quantos bytes foram tocados.
+
 			naoZerados = 0
 			limite := q.Passo * q.Altura
 			if limite > len(q.Dados) {
@@ -125,10 +105,7 @@ func TestVoltaCompletaDaTela(t *testing.T) {
 	}
 
 	t.Logf("comprimidos %d, decodificados %d", quadrosComprimidos, quadrosDecodificados)
-	// O CUSTO DE DECODIFICAR É O QUE A MÁQUINA FRACA PAGA PARA ASSISTIR, e é uma conta
-	// diferente da de transmitir: quem assiste não captura nem comprime, mas paga um
-	// descompressor POR PESSOA que estiver transmitindo. O número por quadro é o que
-	// permite dizer quantos cabem antes de a taxa cair.
+
 	if quadrosDecodificados > 0 {
 		porQuadro := noDescompressor / time.Duration(quadrosDecodificados)
 		t.Logf("custo de decodificar: %v por quadro (%.1f%% de um núcleo a %d fps)",
@@ -153,8 +130,7 @@ func TestVoltaCompletaDaTela(t *testing.T) {
 	if ultimo.Passo < ultimo.Largura {
 		t.Errorf("passo %d menor que a largura %d: impossível", ultimo.Passo, ultimo.Largura)
 	}
-	// NV12 são 1,5 byte por pixel. Menos que isso significa quadro cortado, e cortado
-	// pela metade é exatamente o que se vê quando o passo foi lido errado.
+
 	if minimo := ultimo.Passo * ultimo.Altura * 3 / 2; len(ultimo.Dados) < minimo {
 		t.Errorf("vieram %d bytes e NV12 em %dx%d com passo %d pede %d",
 			len(ultimo.Dados), ultimo.Largura, ultimo.Altura, ultimo.Passo, minimo)

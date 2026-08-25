@@ -26,8 +26,6 @@ interface NotificationsApi {
     @PATCH("api/notifications/prefs")
     suspend fun updatePrefs(@Body body: UpdateNotificationPrefsRequest): ApiEnvelope<NotificationPrefsResponse>
 
-    // Pra limpar quiet hours: JsonObject com JsonNull (null explicito no JSON,
-    // que o explicitNulls=false do DTO normal omitiria).
     @PATCH("api/notifications/prefs")
     suspend fun updatePrefsRaw(@Body body: JsonObject): ApiEnvelope<NotificationPrefsResponse>
 
@@ -45,8 +43,6 @@ interface NotificationsApi {
 
     @POST("api/notifications/read-all")
     suspend fun markAllRead()
-
-    // ---- Silenciar canal/servidor (modos all/mentions/mute) ----
 
     @GET("api/channels/notification-prefs")
     suspend fun channelNotifPrefs(): ApiEnvelope<List<ChannelNotifPrefDto>>

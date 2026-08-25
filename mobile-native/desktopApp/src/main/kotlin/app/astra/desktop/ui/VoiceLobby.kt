@@ -40,10 +40,6 @@ import app.astra.mobile.core.network.dto.ServerMemberDto
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Phone
 
-// Antessala da órbita de voz: clicar numa sala NAO entra mais na call. Mostra
-// quem já esta la dentro (presenca do /voice/presence, a mesma que alimenta a
-// sidebar) e um botao verde de telefone pra entrar de fato. Assim da pra ver se
-// vale a pena entrar antes de abrir o microfone.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VoiceLobby(
@@ -52,7 +48,6 @@ fun VoiceLobby(
     presentUserIds: List<String>,
     onJoin: () -> Unit,
 ) {
-    // Presenca vem como lista de ids; o nome/foto sai da lista de membros.
     val present = remember(presentUserIds, members) {
         presentUserIds.map { uid -> uid to members.find { it.userId == uid } }
     }
@@ -117,8 +112,6 @@ fun VoiceLobby(
     }
 }
 
-// Botao redondo verde (o gesto que todo mundo já conhece de atender). Cresce um
-// tico no hover; sem animação continua — nada aqui pede frame por segundo.
 @Composable
 private fun JoinCallButton(onJoin: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }

@@ -84,7 +84,6 @@ fun ServerMembersScreen(
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
                 items(state.members, key = { it.memberId }) { m ->
                     val isSelf = m.userId == state.myUserId
-                    // Espelha as regras do backend: dono intocavel; admin so cai pela mao do dono.
                     val canAdmin = state.isOwner && m.role != "OWNER" && !isSelf
                     val protected = m.role == "OWNER" || isSelf || (m.role == "ADMIN" && !state.isOwner)
                     val canKick = state.canKick && !protected

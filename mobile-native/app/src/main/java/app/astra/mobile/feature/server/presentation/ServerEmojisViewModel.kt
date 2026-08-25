@@ -57,7 +57,6 @@ class ServerEmojisViewModel @Inject constructor(
         }
     }
 
-    // name = sem os dois-pontos; backend valida [a-z0-9_]{2,32}
     fun addEmoji(name: String, bytes: ByteArray, mime: String) {
         val clean = name.trim()
         if (clean.isBlank()) return

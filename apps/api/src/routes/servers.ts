@@ -22,9 +22,6 @@ import { channelsChanged, membersChanged, joinedServer, serverUpdated, serverGon
 
 export const serversRouter = Router()
 
-// Conta membros ONLINE por servidor via presenca ao vivo (Redis). Um unico MGET
-// pra todos os usuarios distintos -> 1 round-trip. Nunca derruba a request: se o
-// Redis falhar, devolve mapa vazio (o cliente cai em 0 online).
 async function onlineCountByServer(serverIds: string[]): Promise<Map<string, number>> {
   const result = new Map<string, number>()
   if (serverIds.length === 0) return result
@@ -49,9 +46,6 @@ async function onlineCountByServer(serverIds: string[]): Promise<Map<string, num
   return result
 }
 
-// Le categorias sem derrubar a request se a tabela ChannelCategory ainda nao
-// existir no banco (o boot ensureCategorySchema deve cria-la, mas nao dependemos
-// disso: categorias sao opcionais, uma constelacao sem elas so mostra canais soltos).
 async function safeCategoryRows(serverIds: string[]) {
   if (serverIds.length === 0) return []
   try {
@@ -152,20 +146,6 @@ serversRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { name, iconUrl, isGroup = false } = req.body
 
-    // O ICONE DA CRIACAO PASSAVA DIRETO PARA A COLUNA, e o PATCH logo abaixo ja fazia
-    // tudo isto. Duas portas para a mesma coisa, uma trancada e outra nao.
-    //
-    // O `iconUrl` do CreateServerSchema e `z.string().url()`, e `url()` ACEITA data-URI —
-    // `new URL('data:image/png;base64,...')` e valido. Sem limite de tamanho no schema, o
-    // teto era o corpo da requisicao: 16mb. Ou seja, dava para nascer uma constelacao com
-    // megabytes de base64 dentro da coluna `iconUrl`.
-    //
-    // E a coluna e lida com `db.select()` sem projecao, entao esse peso seria arrastado
-    // em TODA listagem de constelacoes da pessoa, para sempre. O sintoma nao apontaria
-    // para ca: seria "a barra lateral demora a abrir".
-    //
-    // Hoje nenhum cliente manda icone na criacao (o desktop manda so nome e tipo), o que
-    // explica isto ter passado — mas rota aberta e rota que um dia alguem usa.
     if (iconUrl && !isAllowedIcon(iconUrl)) return res.status(422).json({ error: 'URL de ícone não permitida' })
     if (isIconTooBig(iconUrl)) return res.status(413).json({ error: 'Ícone muito grande (max 10MB)' })
     const icone = await persistImagemDeExibicao(iconUrl ?? null)
@@ -175,36 +155,14 @@ serversRouter.post(
         name, iconUrl: icone.url, iconFullUrl: icone.original, isGroup, ownerId: req.userId!,
       }).returning()
       await tx.insert(serverMembers).values({ userId: req.userId!, serverId: s.id, role: 'OWNER' })
-      // COM O QUE UMA CONSTELACAO NASCE.
-      //
-      // Nascia so com "geral", e faltava o principal: NAO HAVIA ONDE FALAR. Num app
-      // em que a voz e metade do produto, quem criava e chamava os amigos descobria
-      // que precisava criar canal antes de conseguir uma call — o primeiro ato do
-      // grupo esbarrava numa tela de configuracao.
-      //
-      // "anuncios" vem junto porque ele so tem valor se ja existir quando a
-      // constelacao cresce: criado depois, ninguem migra o habito pra ele.
-      //
-      // Os tres numa insercao so: sao a MESMA decisao ("o que existe no dia zero"),
-      // e tres chamadas separadas convidariam alguem a mexer numa sem as outras.
       await tx.insert(channels).values([
         { name: 'geral',    type: 'TEXT',  serverId: s.id, position: 0 },
         { name: 'anuncios', type: 'TEXT',  serverId: s.id, position: 1 },
-        // Nome com espaco e maiuscula de proposito: sala de voz nao e endereco de
-        // texto (nao se digita "#sala-de-estar" pra mencionar), entao ela nao herda
-        // a convencao de minuscula-com-hifen das orbitas de texto.
         { name: 'Sala de estar', type: 'VOICE', serverId: s.id, position: 2 },
       ])
       return s
     })
 
-    // Sem categoria default: a constelacao nasce com as tres orbitas SOLTAS
-    // (decisao do dono). Categorias ("tabelas") sao criadas depois, na mao.
-
-    // A bot entra junto, com o cargo BOT. Fora da transacao de proposito: se algo
-    // falhar aqui, a constelacao ja existe e vale — perder a criacao inteira porque
-    // a bot nao entrou seria trocar um detalhe por um desastre. O guard de boot
-    // alcanca quem ficou pra tras.
     void garantirBotNaConstelacao(server.id)
 
     const full = await serverWithChannelsAndCount(server.id)
@@ -220,13 +178,10 @@ const ALLOWED_ICON_HOSTS = [
 function isAllowedIcon(url: string | null | undefined): boolean {
   if (!url) return true
   if (url.startsWith('data:image/')) return true
-  if (isOwnStorageUrl(url)) return true // URL que nos mesmos persistimos (R2 / /uploads)
+  if (isOwnStorageUrl(url)) return true 
   try { const { hostname } = new URL(url); return ALLOWED_ICON_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`)) }
   catch { return false }
 }
-// 10MB nos dois: e o teto que o cliente ja respeita (ImageCrop.HARD_MAX). Subiu de
-// 5/8MB junto com a resolucao de saida (1024 no icone, 2560 no banner) — no tamanho
-// novo, PNG com transparencia estourava o limite antigo e o salvar falhava.
 function isIconTooBig(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   return url.length * 0.75 > 10 * 1024 * 1024
@@ -245,16 +200,9 @@ const UpdateServerSchema = z.object({
   isPublic:    z.boolean().optional(),
   description: z.string().max(200).optional().nullable(),
   bannerPositionY: z.number().int().min(0).max(100).optional(),
-  // 50..300, a mesma faixa do banner de perfil (packages/types). Aqui o piso era
-  // 100, la era 50 e o teto 200, e o slider do desktop e o mesmo componente nos
-  // dois — entao o mesmo gesto passava num lugar e era recusado no outro.
   bannerScale:     z.number().int().min(50).max(300).optional(),
   iconScale:       z.number().int().min(100).max(300).optional(),
-  // Comandos da bot DESLIGADOS aqui. Lista de chaves; vazia = tudo ligado.
-  // Chega como array e e guardada como texto separado por virgula: sao poucos
-  // itens e uma coluna simples evita mais uma tabela pra uma lista de chaveamento.
   botDisabledCommands: z.array(z.string().max(40)).max(60).optional(),
-  // Órbita dos avisos da bot. null (ou "") = volta a escolher sozinha.
   botNoticeChannelId: z.string().optional().nullable(),
 })
 
@@ -284,11 +232,6 @@ serversRouter.patch(
 
     const patch: Record<string, unknown> = {}
     if (name      !== undefined) patch.name      = name
-    // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
-    //
-    // O ICONE ENCOLHE E O BANNER NAO, pelo mesmo motivo do perfil: o icone e desenhado a
-    // 54dp na barra lateral — que mostra TODAS as constelacoes da pessoa de uma vez —, e o
-    // banner e desenhado grande no topo. Ver persistImagemDeExibicao.
     if (iconUrl !== undefined) {
       const { url, original } = await persistImagemDeExibicao(iconUrl)
       patch.iconUrl = url
@@ -298,8 +241,6 @@ serversRouter.patch(
     if (bannerPositionY !== undefined) patch.bannerPositionY = bannerPositionY
     if (bannerScale     !== undefined) patch.bannerScale     = bannerScale
     if (iconScale       !== undefined) patch.iconScale       = iconScale
-    // Guarda so as chaves conhecidas: um item inventado ficaria na coluna pra
-    // sempre, sem nada pra desligar e sem forma de aparecer na tela pra ser tirado.
     if (botDisabledCommands !== undefined) {
       const validas = new Set(catalogoDeComandos().map((c) => c.chave))
       const limpa = [...new Set(botDisabledCommands.filter((c) => validas.has(c)))]
@@ -309,10 +250,6 @@ serversRouter.patch(
       patch.messageRetentionDays = messageRetentionDays === 0 ? null : messageRetentionDays
     if (isPublic    !== undefined) patch.isPublic    = isPublic
     if (description !== undefined) patch.description = description?.trim() || null
-    // Órbita dos avisos da bot. Confere que o canal é DESTA constelação antes de
-    // gravar: sem isso um id de outro servidor entraria na tabela e o dono acharia
-    // que escolheu — a checagem na hora de falar rejeitaria em silêncio, todo aviso,
-    // pra sempre. Vazio = volta ao automático.
     if (botNoticeChannelId !== undefined) {
       const alvo = botNoticeChannelId?.trim() || null
       if (alvo) {
@@ -331,8 +268,6 @@ serversRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.SERVER_UPDATE,
       targetId: serverId, metadata: { fields: Object.keys(patch) },
     })
-    // Nome/icone/banner aparecem na rail e no cabecalho de TODO mundo — sem este
-    // aviso, so quem editou via a mudanca ate os outros reabrirem o app.
     serverUpdated(serverId)
     const updated = await serverWithChannelsAndCount(serverId)
     res.json({ data: updated })
@@ -451,18 +386,11 @@ serversRouter.patch(
     if (target.role === 'OWNER') return res.status(400).json({ error: 'Não é possível alterar o cargo do dono' })
 
     await db.update(serverMembers).set({ role }).where(eq(serverMembers.id, memberId))
-    // Virar ADMIN muda o que a pessoa PODE fazer: sem o aviso, ela continuava
-    // vendo a tela de membro comum ate reabrir o app.
     membersChanged(serverId)
     res.json({ data: { id: memberId, role } })
   })
 )
 
-// Destravar quem o anti-spam silenciou. O unmuteUser existe desde sempre mas
-// NENHUMA rota o chamava: uma vez auto-silenciado nao havia saida, so esperar o
-// prazo. Alcada = dono ou MANAGE_MESSAGES (e moderacao de mensagem).
-// Precisa vir ANTES do DELETE '/:serverId/members/:memberId', senao o Express
-// casa a rota mais generica primeiro e 'mute' viraria um memberId.
 serversRouter.delete(
   '/:serverId/members/:memberId/mute',
   requireAuth,
@@ -513,8 +441,6 @@ serversRouter.delete(
     await db.delete(serverMembers).where(eq(serverMembers.id, memberId))
     void invalidateMembersCache(serverId)
     membersChanged(serverId)
-    // Quem foi expulso precisa saber TAMBEM: senao a constelacao continua na rail
-    // dele, e clicar so devolve erro.
     leftServer(target.userId, serverId, 'expulso')
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
@@ -538,8 +464,6 @@ serversRouter.delete(
       return res.status(403).json({ error: 'Apenas o dono pode excluir o servidor' })
     }
 
-    // ANTES do delete: depois dele nao ha mais membros no banco pra avisar, e a
-    // constelacao ficaria de fantasma na rail de todo mundo ate o proximo boot.
     serverGone(serverId)
     await db.delete(servers).where(eq(servers.id, serverId))
     res.json({ message: 'Servidor excluído com sucesso' })
@@ -812,9 +736,6 @@ channelsRouter.post(
       if (!cat) return res.status(400).json({ error: 'Categoria inválida' })
     }
 
-    // Position incremental dentro do grupo (categoria ou soltos) -> canais nascem
-    // com position DISTINTA. Sem isto ficavam todos em 0 e o reordenar nao tinha o
-    // que permutar; e um canal novo entrava no topo em vez de no fim.
     const [{ maxPos } = { maxPos: -1 }] = await db
       .select({ maxPos: sql<number>`COALESCE(MAX(${channels.position}), -1)::int` })
       .from(channels)
@@ -909,9 +830,7 @@ const UpdateChannelSchema = z.object({
   name:       z.string().min(1).max(50).optional(),
   categoryId: z.string().nullable().optional(),
   position:   z.number().int().min(0).optional(),
-  // null = "nao decidi" (herda da categoria). Nao e o mesmo que false.
   botEnabled: z.boolean().nullable().optional(),
-  // Guardar a conversa com a bot no historico. Sem null: nao ha heranca aqui.
   botKeepReplies: z.boolean().optional(),
 })
 channelsRouter.patch(
@@ -1010,7 +929,6 @@ channelsRouter.post(
 const UpdateCategorySchema = z.object({
   name:     z.string().min(1).max(50).optional(),
   position: z.number().int().min(0).optional(),
-  // Desligar aqui alcanca TODAS as orbitas da categoria que nao decidiram nada.
   botEnabled: z.boolean().nullable().optional(),
 })
 channelsRouter.patch(

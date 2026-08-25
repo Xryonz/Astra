@@ -1,4 +1,3 @@
-// Top-level build. Plugins declarados aqui (apply false) e aplicados no :app.
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
@@ -8,7 +7,6 @@ plugins {
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.android.test) apply false
-    // Desktop (Compose Multiplatform) — aplicados no :desktopApp.
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.jetbrains.compose) apply false
 }

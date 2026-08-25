@@ -35,8 +35,6 @@ import app.astra.mobile.ui.components.MarginaliaLabel
 import app.astra.mobile.ui.theme.DmSerif
 import app.astra.mobile.ui.theme.astraColors
 
-// Cabecalho de secao da config (ex "pessoal"): fonte maior e branca (text1) pra
-// leitura facil, no lugar do marginalia pequeno/cinza.
 @Composable
 private fun SectionHeader(text: String) {
     Text(

@@ -57,10 +57,6 @@ import app.astra.shared.AstraShared
 import java.awt.Desktop
 import java.net.URI
 
-// Lightbox (F5): visualizador de imagem dentro do app — scroll da zoom, arrastar
-// move, duplo-clique reseta, ESC/clique-fora fecha; ações de abrir/copiar link.
-
-// Abrir imagem no lightbox de qualquer profundidade (evita callback por 3 camadas).
 val LocalOpenImage = staticCompositionLocalOf<(String) -> Unit> { {} }
 
 fun absoluteUrl(url: String): String =
@@ -82,9 +78,6 @@ fun Lightbox(url: String, onClose: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
-    // Entrada: o overlay inteiro faz fade-in e a imagem cresce de leve (0.96->1).
-    // Uma passada so; respeita reduzir movimento (entra pronto). Lido dentro do
-    // graphicsLayer -> frame sem recomposicao.
     val reduce = LocalReduceMotion.current
     val reveal = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(Unit) { if (reveal.value < 1f) reveal.animateTo(1f, tween(180, easing = EaseOutStd)) }
@@ -132,7 +125,6 @@ fun Lightbox(url: String, onClose: () -> Unit) {
                         translationX = offset.x
                         translationY = offset.y
                     }
-                    // Clique na imagem não fecha; arrastar move; duplo-clique reseta.
                     .pointerInput(Unit) {
                         detectTapGestures(onDoubleTap = { scale = 1f; offset = Offset.Zero }, onTap = {})
                     }
@@ -175,7 +167,6 @@ private fun LightboxAction(label: String, onClick: () -> Unit) {
     )
 }
 
-// Variante so-ícone (fechar) — mesmo cartao, glifo Lucide no lugar do texto.
 @Composable
 private fun LightboxAction(icon: ImageVector, onClick: () -> Unit) {
     Box(

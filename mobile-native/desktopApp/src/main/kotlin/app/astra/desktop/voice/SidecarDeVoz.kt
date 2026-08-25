@@ -17,26 +17,6 @@ import java.io.BufferedWriter
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
-// O SIDECAR DE VOZ — o processo à parte que carrega a mídia.
-//
-// POR QUE ELE EXISTE. A voz do Astra vivia dentro da JVM, falando com objetos
-// nativos por JNI. Objeto nativo liberado enquanto outra thread ainda o usa não
-// lança exceção em Kotlin: derruba o processo inteiro. Na prática, abrir uma call
-// podia fechar o Astra, e encerrar uma call também — inclusive em máquina folgada,
-// o que descartou "falta de recurso" como explicação.
-//
-// Num processo separado, o pior caso de um defeito de mídia deixa de ser "o Astra
-// fechou" e passa a ser "a call caiu e voltou". A conversa em texto, os servidores
-// e as janelas abertas continuam de pé. Essa é a razão principal desta classe
-// existir, e ela vale mesmo que o código do outro lado tenha os próprios defeitos —
-// defeitos vão existir de qualquer jeito, e o que muda é o tamanho do estrago.
-//
-// O PROTOCOLO é uma linha de JSON por mensagem, pela entrada e saída padrão. Sem
-// porta de rede: um socket local acorda o Firewall do Windows, e ninguém merece um
-// alerta de segurança por causa de um app de conversa. A entrada padrão fechando
-// também mata o processo filho sozinha — Astra fechado não deixa sidecar órfão
-// segurando o microfone.
-
 @Serializable
 data class ComandoDeVoz(
     val cmd: String,
@@ -48,11 +28,9 @@ data class ComandoDeVoz(
     val ligado: Boolean? = null,
     val sentido: String? = null,
     val id: String? = null,
-    // Os três do comando `tratamento`. Ver a função de mesmo nome.
     val eco: Boolean? = null,
     val ruido: Boolean? = null,
     val ganho: Boolean? = null,
-    // O preset do comando `transmitir`.
     val monitor: Int? = null,
     val largura: Int? = null,
     val altura: Int? = null,
@@ -60,23 +38,9 @@ data class ComandoDeVoz(
     val kbps: Int? = null,
 )
 
-// Um microfone ou uma saída, do jeito que o processo de voz os enxerga.
-//
-// O `id` é o identificador do Windows, e é ele que viaja e é guardado — não o nome.
-// Nome muda com atualização de driver e é repetido entre aparelhos iguais; o
-// identificador é estável e único, e é por isso que a preferência guarda ele.
 @Serializable
 data class AparelhoDeAudio(val id: String, val nome: String)
 
-// Uma tela desta máquina, do jeito que o processo de voz a enxerga.
-//
-// A MINIATURA É A INFORMAÇÃO, não o enfeite. O Windows chama os monitores de
-// `\\.\DISPLAY1` e `\\.\DISPLAY2`; dois monitores do mesmo modelo têm a mesma resolução
-// e nomes que só diferem no dígito. A única coisa que distingue um do outro é o que está
-// nele.
-//
-// Vem vazia quando a tela não pôde ser amostrada — quase sempre porque ela já está sendo
-// transmitida, que é justamente o caso de quem abriu o seletor para trocar.
 @Serializable
 data class MonitorDaTela(
     val indice: Int,
@@ -109,16 +73,10 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     private val processo = AtomicReference<Process?>(null)
     private val entrada = AtomicReference<BufferedWriter?>(null)
 
-    // POR ONDE A IMAGEM CHEGA — cano à parte, porque um quadro de 720p (1,4 MB) na mesma
-    // fila que carrega "fulano está falando" faria o aviso esperar atrás da imagem.
-    //
-    // Nasce com este objeto e SOBREVIVE À QUEDA do processo: a porta continua a mesma, e
-    // o processo que reinicia recebe o mesmo endereço no ambiente e religa sozinho.
     val quadros = CanoDeQuadros()
 
     @Volatile private var querendoViver = false
 
-    // Sobe o processo e mantém ele vivo até `parar()`.
     fun ligar() {
         if (querendoViver) return
         querendoViver = true
@@ -128,10 +86,6 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     fun parar() {
         querendoViver = false
         quadros.fechar()
-        // "sair" primeiro, e destruir depois só se ele não obedecer: o desligamento
-        // limpo solta microfone e conexões na ordem certa. Matar direto deixa o
-        // aparelho de áudio preso por alguns segundos, e a próxima call abre com
-        // erro de dispositivo ocupado.
         mandar(ComandoDeVoz(cmd = "sair"))
         val p = processo.getAndSet(null)
         scope.launch(Dispatchers.IO) {
@@ -141,14 +95,9 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         }
     }
 
-    // ---- comandos ----
-
     fun configurar(stun: List<String>) =
         mandar(ComandoDeVoz(cmd = "config", stun = stun))
 
-    // `iniciar` decide quem faz a oferta, e a decisão é DETERMINÍSTICA: quem tem o
-    // id menor oferece. Isso resolve o encontro de duas ofertas sem precisar de
-    // combinação em tempo real — os dois lados chegam à mesma conclusão sozinhos.
     fun conectar(meuId: String, outroId: String) =
         mandar(ComandoDeVoz(cmd = "conectar", par = outroId, iniciar = meuId < outroId))
 
@@ -162,21 +111,9 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
 
     fun surdo(on: Boolean) = mandar(ComandoDeVoz(cmd = "surdo", ligado = on))
 
-    // OS TRÊS AJUSTES DO MICROFONE NUM COMANDO SÓ, e isso é do Windows, não nosso: os
-    // três moram no mesmo objeto (o cancelador de eco), e mudar qualquer um obriga a
-    // reabrir a fonte — alguns quadros de silêncio. Mandados separados, mexer em dois
-    // interruptores seguidos cortaria o som duas vezes.
-    //
-    // O lado de lá ignora o comando quando nada mudou de verdade.
     fun tratamento(eco: Boolean, ruido: Boolean, ganho: Boolean) =
         mandar(ComandoDeVoz(cmd = "tratamento", eco = eco, ruido = ruido, ganho = ganho))
 
-    // Transmitir a tela. Mandar de novo com `ligado` troca o preset em pleno ar — o
-    // lado de lá desliga o laço e sobe outro, que é o mesmo caminho de sempre.
-    //
-    // NÃO DEVOLVE SE DEU CERTO, e não é descuido: montar a captura e o compressor leva
-    // quase um segundo, e a ponte é assíncrona. Quem responde é o evento `transmissao`
-    // — ou o `erro`, quando a máquina não tem compressor de H.264.
     fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) =
         mandar(
             ComandoDeVoz(
@@ -187,44 +124,17 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
 
     fun pararDeTransmitir() = mandar(ComandoDeVoz(cmd = "transmitir", ligado = false))
 
-    // Pede a lista de monitores com miniatura. A resposta vem no evento `monitores`, e
-    // demora uns 100ms por tela — amostrar cada uma exige duplicá-la. Por isso o pedido
-    // sai quando a janela de escolha ABRE, e não na entrada da chamada.
     fun pedirMonitores() = mandar(ComandoDeVoz(cmd = "monitores"))
 
-    // QUAL TELA ESTÁ NO PALCO. `par` nulo quer dizer "nenhuma".
-    //
-    // É o que autoriza o processo de voz a decodificar — e só ela. As outras chegam, são
-    // lidas (obrigatório: faixa sem leitor entope o buffer) e jogadas fora sem custo.
-    // Decodificar 720p custa 1,03 ms por quadro, e numa sala com três transmitindo isso
-    // era o preço de olhar UMA.
-    //
-    // Precisa ser mandado também quando ninguém está olhando nada, que é o caso de sair
-    // da sala de voz para uma conversa de texto sem largar a chamada.
     fun assistir(par: String?) = mandar(ComandoDeVoz(cmd = "assistir", par = par.orEmpty()))
 
-    // Pede a lista dos dois sentidos. A resposta não volta aqui: chega como dois
-    // eventos `aparelhos`, um por sentido, porque a ponte é assíncrona por natureza
-    // e fingir que isto é uma chamada com retorno esconderia essa verdade.
     fun pedirAparelhos() = mandar(ComandoDeVoz(cmd = "aparelhos"))
 
-    // `id` vazio devolve o aparelho de comunicação padrão do Windows.
     fun usarAparelho(sentido: String, id: String?) =
         mandar(ComandoDeVoz(cmd = "usar", sentido = sentido, id = id.orEmpty()))
 
-    // DEVOLVE SE A ORDEM SAIU MESMO, e quem chama precisa disso.
-    //
-    // O processo demora um instante para subir, e comando mandado antes disso não
-    // vai a lugar nenhum. Engolir esse caso em silêncio foi o que fez a malha achar
-    // que tinha conectado em gente que nunca recebeu ordem nenhuma — e como o
-    // conjunto de conectados já continha a pessoa, nenhuma conferência tentava de
-    // novo. Um par mudo pelo resto da call, sem erro em lugar nenhum.
     private fun mandar(c: ComandoDeVoz): Boolean {
         val w = entrada.get() ?: return false
-        // Escrita SINCRONIZADA no escritor: os comandos nascem em várias
-        // corrotinas (botão de mudo, socket, navegação) e duas escritas
-        // concorrentes intercalariam bytes no meio de uma linha. O outro lado lê
-        // linha a linha — meia linha de JSON é um erro que só aparece sob carga.
         return synchronized(w) {
             runCatching {
                 w.write(json.encodeToString(c))
@@ -233,8 +143,6 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
             }.isSuccess
         }
     }
-
-    // ---- supervisão ----
 
     private suspend fun supervisionar() {
         var esperaMs = 500L
@@ -248,17 +156,12 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
             val codigo = runCatching { rodarUmaVez(exe) }.getOrElse { -1 }
             if (!querendoViver) return
 
-            // Saída com 0 é desligamento pedido; qualquer outra coisa é queda.
             if (codigo == 0) return
 
             _eventos.tryEmit(
                 EventoDeVoz(ev = "caiu", msg = "o componente de voz parou (código $codigo) e vai reiniciar"),
             )
 
-            // Espera CRESCENTE, com teto. Sem o crescimento, um defeito que impede
-            // o processo de subir viraria um laço de milhares de execuções por
-            // minuto — que aquece a máquina e enche o disco de log sem nunca
-            // consertar nada.
             delay(esperaMs)
             esperaMs = (esperaMs * 2).coerceAtMost(15_000L)
         }
@@ -266,12 +169,6 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
 
     private suspend fun rodarUmaVez(exe: File): Int = withContext(Dispatchers.IO) {
         val construtor = ProcessBuilder(exe.absolutePath).directory(exe.parentFile)
-        // O CANO DE QUADROS VIAJA NO AMBIENTE, e por isso não há nada a descobrir depois:
-        // a porta já está aberta deste lado quando o processo nasce, então ele pode ligar
-        // no primeiro quadro que tiver. Anunciar pela ponte criaria uma corrida entre o
-        // anúncio e o nosso leitor — e essa corrida voltaria a cada queda do processo.
-        // Endereço vazio = a porta não abriu, e aí o processo não recebe nada e não monta
-        // cano nenhum. A voz continua inteira; o que se perde é ver a tela dos outros.
         if (quadros.endereco.isNotEmpty()) {
             construtor.environment()["ASTRA_QUADROS"] = quadros.endereco
             construtor.environment()["ASTRA_QUADROS_SEGREDO"] = quadros.segredo
@@ -280,9 +177,6 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         processo.set(p)
         entrada.set(p.outputStream.bufferedWriter())
 
-        // A saída de ERRO vai pro registro, não pro protocolo. Misturar as duas
-        // quebraria o leitor de linha — e é justamente na hora de um defeito que a
-        // saída de erro tem mais a dizer.
         launch(Dispatchers.IO) {
             runCatching {
                 p.errorStream.bufferedReader().forEachLine { VoiceLog.nota("[voz] $it") }
@@ -302,9 +196,6 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
             if (linha.isBlank()) return@forEachLine
             val ev = runCatching { json.decodeFromString<EventoDeVoz>(linha) }.getOrNull()
             if (ev == null) {
-                // Linha ilegível não derruba a leitura: é a única via de comunicação
-                // com a voz, e fechá-la por causa de um JSON torto tiraria a call do
-                // ar por um erro de formatação.
                 VoiceLog.nota("[voz] linha ilegível: $linha")
                 return@forEachLine
             }
@@ -313,9 +204,6 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     }
 }
 
-// Acha o executável do sidecar. Mesmo padrão do FfmpegLocator: o Compose copia
-// `appResources/windows/*` pro diretório de recursos do app empacotado; rodando
-// pelo Gradle, cai no appResources do módulo.
 object LocalizadorDoSidecar {
     val caminho: File? by lazy { resolver() }
 
@@ -324,7 +212,6 @@ object LocalizadorDoSidecar {
         val candidatos = buildList {
             System.getProperty("compose.application.resources.dir")
                 ?.let { add(File(it, "astra-voz.exe")) }
-            // Dev (gradle run): o diretório corrente é a raiz do projeto Gradle.
             add(File("desktopApp/appResources/windows/astra-voz.exe"))
         }
         return candidatos.firstOrNull { it.isFile }

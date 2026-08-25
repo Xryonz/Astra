@@ -20,26 +20,6 @@ import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
 import org.jetbrains.skia.Shader
 
-// Aurora viva em SkSL (Skia RuntimeEffect) — a assinatura visual do desktop.
-// PORTA DA AURORA DO MOBILE (StarField.kt AURORA_AGSL; AGSL e SkSL são o mesmo
-// dialeto do Skia). Cortinas organicas por ruido fractal (FBM), prata sobre o
-// void. O TEMPO ANDA NUM CIRCULO no espaco de ruido (cos/sin * raio), entao o
-// loop fecha PERFEITO sem salto — corrige o "cortada" do nebula anterior (tempo
-// linear crescia sem fim -> dominio do ruido estourava a precisao do float e a
-// animação travava). Tilt/toque do mobile ficaram de fora (são de celular:
-// acelerometro/dedo). PERF: value-noise ALU-only, 3 oitavas, 2 cortinas.
-// octaves = qualidade (Settings > Desempenho): mais oitavas = ruido mais rico e
-// mais caro. SkSL exige bound de loop constante -> a contagem entra no source e
-// recompila-se uma variante por nível. Normaliza-se por (1-0.5^oct) pra aurora
-// manter o mesmo brilho em qualquer qualidade (senao LOW fica visivelmente mais
-// escura, parece bug). accent + void ENTRAM COMO UNIFORMS (uAccent/uVoid) pra a
-// aurora seguir o tema de Aparencia ao vivo — antes eram cravados (#D4D8E0 sobre
-// #06060E) e não recoloriam. So o octaves recompila; cor troca por uniform (barato).
-// Quanto o fbm BALANCA em relacao a propria escala, por numero de oitavas: soma
-// quadratica das amplitudes (o desvio, já que as oitavas são ~independentes)
-// dividida pela soma linear (o alcance). 1 oitava = 1.0; 3 oitavas = 0.655, ou
-// seja o campo de 1 oitava e 1.53x mais largo relativo ao proprio intervalo.
-// E por isso que uma curva de contraste fixa não serve pras tres qualidades.
 private fun fbmSigmaRel(octaves: Int): Double {
     var sumSq = 0.0
     var sumLin = 0.0
@@ -53,16 +33,8 @@ private fun fbmSigmaRel(octaves: Int): Double {
 }
 
 private fun auroraSksl(octaves: Int): String {
-    // Normaliza pela soma de amplitudes da qualidade ALTA (3 oitavas) -> HIGH fica
-    // IDENTICA a aurora já validada (inv=1.0) e as qualidades menores so sobem o
-    // brilho pra bater (senao LOW ficaria escura, parece bug).
     val ref = 1.0 - Math.pow(0.5, 3.0)
     val inv = ref / (1.0 - Math.pow(0.5, octaves.toDouble()))
-    // Inclinacao da curva das estrias, ajustada ao quanto o campo BALANCA nesta
-    // qualidade. Menos oitavas = ruido de uma frequencia so = balanca muito mais
-    // em relacao a propria escala (sigmaRel: 0.65 com 3 oitavas, 1.0 com 1). Sem
-    // isto a mesma curva recebe campos de larguras diferentes e o LOW satura em
-    // placas. 12.5 = inclinacao que reproduz no centro a do smoothstep validado.
     val steep = 12.5 * (fbmSigmaRel(3) / fbmSigmaRel(octaves))
     return """
 uniform float uTime;
@@ -202,46 +174,22 @@ half4 main(float2 fragCoord) {
 """
 }
 
-// Periodo do loop: ang = uTime*0.1 fecha o circulo em uTime = 2*PI/0.1 = 20*PI.
-// flow2 usa ang*2 -> fecha 2 voltas no mesmo intervalo. Enrolar o tempo do
-// desktop nesse periodo torna o loop imperceptivel (o quadro em uTime=0 e
-// identico ao de uTime=AURORA_LOOP).
 private const val AURORA_LOOP = 62.831853f
 
-// Quadro estatico agradavel pro "reduzir movimento" (cortinas bem postas).
 private const val AURORA_STILL = 12f
 
-// pulse: 0..1, lido no draw (não recompoe). No login o ceu "respira" — o brilho
-// sobe ~15% e decai. So MODULA o uniform uAccent (Kotlin), não toca o SkSL: como
-// col = uVoid + uAccent*..*lum, escalar o accent clareia a aurora proporcional.
 @Composable
 fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
     val render = LocalRenderPrefs.current
-    // Cor do tema (Aparencia): a aurora glow no accent sobre o void escolhido.
-    // Ler aqui torna o modifier reativo — troca de tema recompoe e repinta.
     val accent = Obsidian.accent
     val voidC = Obsidian.void
-    // Recompila so quando a qualidade (octaves) muda — barato, raro.
     val effect = remember(render.auroraOctaves) {
         runCatching { RuntimeEffect.makeForShader(auroraSksl(render.auroraOctaves).trimIndent()) }.getOrNull()
-    } ?: return this.drawBehind { drawRect(voidC) } // shader falhou -> void chapado do tema
+    } ?: return this.drawBehind { drawRect(voidC) }
     val builder = remember(effect) { RuntimeShaderBuilder(effect) }
     val reduceMotion = LocalReduceMotion.current
-    // Gate por VISIBILIDADE (não foco): rememberUpdatedState pra ler o valor mais
-    // fresco dentro do loop sem reiniciar o produceState (o que zeraria o tempo).
     val active = rememberUpdatedState(LocalWindowActive.current)
-    // Teto de FPS (Settings > Desempenho): limita a taxa de REDESENHO do shader
-    // (emitir menos 'value' = menos invocacoes por segundo). O tempo acumula em
-    // toda frame (acc), so a emissao e afinada — a velocidade da animação não muda.
     val fpsCap = rememberUpdatedState(render.fpsCap)
-    // Relogio de frames com PAUSA: minimizada/na bandeja = nenhum frame pedido
-    // (zero CPU/GPU em segundo plano — guardrail do dono). Enquanto VISIVEL segue
-    // animando, mesmo com um popup/menu focavel aberto por cima (era o "cortada"
-    // de vez em quando: gatear por foco congelava a cada menu). O tempo acumula e
-    // ENROLA no periodo do loop (AURORA_LOOP): mantem o dominio do ruido limitado
-    // (sem estouro de precisao) e o giro fecha sem salto.
-    // Reduzir movimento (Settings): congela num quadro fixo — aurora parada, sem
-    // pedir frame nenhum (a chave e restartar o produceState quando o pref muda).
     val timeSec by produceState(0f, reduceMotion) {
         if (reduceMotion) {
             value = AURORA_STILL
@@ -252,66 +200,25 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
             snapshotFlow { active.value }.first { it }
             var last = withFrameNanos { it }
             while (active.value) {
-                // Marco do inicio do quadro: o teto la embaixo dorme o RESTO do periodo,
-                // e nao um tempo fixo por cima do que o quadro ja gastou.
                 val inicioDoQuadro = System.nanoTime()
                 withFrameNanos { now ->
-                    // CORTE 3 (ao voltar pra aba): alt-tab / outro monitor NAO mexem em
-                    // windowVisible nem isMinimized -> 'active' segue true, mas o SO para
-                    // de entregar frames pra janela ocluida. Na volta, o 1o frame traz
-                    // 'now' varios SEGUNDOS a frente -> dt gigante empurraria o tempo num
-                    // salto = a aurora "pula" (o corte "do nada"). Clampo o dt em 50ms
-                    // (~3 frames): pior caso a aurora so atrasa um tico imperceptivel.
                     val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
                     acc += dt
                     if (acc >= AURORA_LOOP) acc -= AURORA_LOOP
                     last = now
                     value = acc
                 }
-                // O TETO DE FPS TEM QUE DORMIR, e nao so deixar de emitir.
-                //
-                // Antes o laco pedia `withFrameNanos` TODO frame e apenas segurava a
-                // emissao do valor quando o teto ainda nao tinha vencido. Isso nao poupava
-                // nada: pedir frame e o que faz o Compose compor, o Skia desenhar e o
-                // Direct3D apresentar — e no perfil (JFR) 90% das amostras da thread do
-                // skiko estao exatamente em `Direct3DContextHandler.flush`, esperando a
-                // GPU. Ou seja, o custo era o FRAME, nao o valor; o teto mexia no lado que
-                // nao pesava e o app seguia apresentando a 165Hz (a taxa do monitor).
-                //
-                // Dormindo entre um frame e o outro, ninguem pede frame nesse intervalo e o
-                // app fica de fato parado. A aurora deriva devagar: a 30 quadros por
-                // segundo ela e indistinguivel de 165, e custa cinco vezes menos.
                 esperarPeloTeto(fpsCap.value, inicioDoQuadro)
             }
         }
     }
     val paint = remember { Paint() }
-    // Chave do ultimo shader construido (tempo, tamanho, cor, pulso). Enquanto ela nao
-    // muda, o shader anterior serve — ver o CORTE 9 la embaixo.
     val chave = remember { FloatArray(8) { Float.NaN } }
-    // Guarda o shader que ESTE modifier criou no último frame, pra fecha-lo na mao
-    // antes de criar o próximo (ver CORTE 2 abaixo). Array de 1 = celula mutavel
-    // barata que sobrevive entre frames sem recompor.
     val lastShader = remember { arrayOfNulls<Shader>(1) }
     return drawBehind {
-        // CORTE 1 (ao redimensionar): num frame da transicao a janela reporta 0 ->
-        // uv = fragCoord/0 = NaN -> half4 com NaN -> quadro preto. Sem tamanho
-        // valido, pinta so o void do tema e sai (nada de shader).
         if (size.width <= 0f || size.height <= 0f) { drawRect(voidC); return@drawBehind }
-        // Pulso de login lido AQUI (draw phase): clareia o accent em ate 15% e some.
         val boost = 1f + 0.15f * pulse().coerceIn(0f, 1f)
 
-        // CORTE 9 — a aurora PARADA custava quase tanto quanto a aurora andando.
-        //
-        // Com o gate de foco funcionando, o relogio da aurora congela e `timeSec` para de
-        // mudar. Mas o `drawBehind` continua rodando: quem pede o frame nao e so a aurora,
-        // e um frame pedido por qualquer outro motivo repassa por aqui. E aqui se
-        // reconstruia um Shader Skia NOVO a cada passagem, com uniforms identicos aos da
-        // vez anterior — trabalho nativo puro, jogado fora no frame seguinte.
-        //
-        // Medido: ceu desligado 0,037 nucleo; ceu ligado e CONGELADO 0,29. A diferenca era
-        // isto. Com a chave, quadro parado reaproveita o shader e volta a custar quase
-        // nada; quadro que muda de fato reconstroi como antes.
         val mesmo = chave[0] == timeSec && chave[1] == size.width && chave[2] == size.height &&
             chave[3] == boost && chave[4] == accent.red && chave[5] == accent.green &&
             chave[6] == accent.blue && chave[7] == voidC.red
@@ -327,15 +234,9 @@ fun Modifier.auroraBackground(pulse: () -> Float = { 0f }): Modifier {
         builder.uniform("uSize", size.width, size.height)
         builder.uniform("uAccent", accent.red * boost, accent.green * boost, accent.blue * boost)
         builder.uniform("uVoid", voidC.red, voidC.green, voidC.blue)
-        // CORTE 2 (parado/idle): makeShader() aloca um Shader Skia NATIVO por frame.
-        // Sem fechar, eles so somem quando o GC roda o cleaner num lote -> engasgo
-        // periodico que parecia a aurora "cortando" do nada. Fecho o do frame
-        // anterior (a celula ainda segura 1 ref; o SkPaint tem a dele) ANTES de
-        // trocar -> liberacao deterministica, sem surto de GC.
         lastShader[0]?.close()
         val shader = builder.makeShader()
         lastShader[0] = shader
-        // Skia Shader não e o Shader do Compose -> desenha direto no canvas nativo.
         paint.shader = shader
         drawIntoCanvas { it.nativeCanvas.drawRect(Rect.makeWH(size.width, size.height), paint) }
     }

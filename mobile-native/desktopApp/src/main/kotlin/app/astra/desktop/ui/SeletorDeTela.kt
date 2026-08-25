@@ -1,20 +1,5 @@
 package app.astra.desktop.ui
 
-// A ESCOLHA DE QUAL TELA COMPARTILHAR.
-//
-// Até aqui o botão mandava sempre o monitor principal e não perguntava. Numa máquina de
-// uma tela isso acerta por acaso; em duas, é metade de chance de mostrar a errada — e
-// quem erra descobre pelo "não é essa" de outra pessoa, com a tela errada já no ar.
-//
-// A MINIATURA É A INFORMAÇÃO, e é por isso que este seletor é uma janela e não um menu
-// de texto. O Windows chama os monitores de `\\.\DISPLAY1` e `\\.\DISPLAY2`; dois
-// monitores do mesmo modelo têm a mesma resolução e nomes que só diferem no dígito.
-// Nenhum rótulo que eu escrevesse separaria os dois. O que está NA tela separa na hora.
-//
-// A JANELA ABRE ANTES DA RESPOSTA, com o aviso de que está procurando. Amostrar custa
-// uma duplicação de tela por monitor — uns 100ms cada —, e segurar a abertura por isso
-// faria o clique parecer que não pegou.
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,8 +40,6 @@ import app.astra.desktop.voice.MonitorDaTela
 import org.jetbrains.skia.Image as SkiaImage
 import java.util.Base64
 
-// Largura de cada cartão. Duas por linha cabem em 480dp, que é o que a janela ocupa
-// numa máquina de dois monitores — o caso que este seletor existe para resolver.
 private val LarguraDoCartao = 224.dp
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -81,9 +64,6 @@ fun SeletorDeTela(
         Spacer(Modifier.height(10.dp))
 
         when {
-            // NULO E VAZIO SÃO COISAS DIFERENTES, e dizer a mesma frase nos dois casos
-            // faria a espera parecer defeito. Nulo é "ainda não respondeu"; vazio é
-            // "respondeu que não há tela", que é problema de verdade.
             monitores == null -> Text(
                 "procurando as telas desta máquina…",
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
@@ -109,9 +89,6 @@ private fun CartaoDeTela(monitor: MonitorDaTela, aoClicar: () -> Unit) {
     val interacao = remember { MutableInteractionSource() }
     val sobre by interacao.collectIsHoveredAsState()
 
-    // DECODIFICA UMA VEZ POR IMAGEM, e a chave é a própria imagem. Sem o `remember`, cada
-    // recomposição criaria um objeto Skia nativo novo — e objeto nativo não é coletado
-    // pelo Java. É a mesma família de vazamento que já custou a RAM da transmissão.
     val figura: ImageBitmap? = remember(monitor.miniatura) {
         monitor.miniatura?.takeIf { it.isNotBlank() }?.let { texto ->
             runCatching {
@@ -120,8 +97,6 @@ private fun CartaoDeTela(monitor: MonitorDaTela, aoClicar: () -> Unit) {
         }
     }
 
-    // O CARTÃO DENTRO DO CARTÃO: o painel é `raised`, então cada tela é `overlay`, um
-    // degrau mais claro. Hierarquia por elevação, não por linha divisória.
     Column(
         Modifier
             .width(LarguraDoCartao)
@@ -144,14 +119,11 @@ private fun CartaoDeTela(monitor: MonitorDaTela, aoClicar: () -> Unit) {
             if (figura != null) {
                 Image(
                     figura,
-                    contentDescription = null, // o nome logo abaixo já diz qual tela é
+                    contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                // SEM AMOSTRA TEM MOTIVO, e o motivo quase sempre é este: a duplicação
-                // de tela é exclusiva por processo, então a tela que já está no ar não
-                // pode ser amostrada de novo. Dizer isso é melhor que um retângulo mudo.
                 Text(
                     "já está sendo transmitida",
                     style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
@@ -174,8 +146,5 @@ private fun CartaoDeTela(monitor: MonitorDaTela, aoClicar: () -> Unit) {
     }
 }
 
-// O NOME DO WINDOWS NÃO VAI PARA A TELA. `\\.\DISPLAY1` é identificador de sistema, não
-// texto de produto — e não diz nada a ninguém. "Tela principal" e "Tela 2" dizem tanto
-// quanto ele e se leem.
 private fun nomeDaTela(m: MonitorDaTela): String =
     if (m.principal) "Tela principal" else "Tela ${m.indice + 1}"

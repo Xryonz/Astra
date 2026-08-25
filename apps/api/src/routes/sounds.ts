@@ -8,23 +8,6 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { removeAttachment } from '../lib/storage'
 
-// SOUNDBOARD DA CONSTELACAO.
-//
-// Tocar um som NAO mistura audio nenhum na chamada: o servidor so avisa "fulano
-// tocou o som X" e cada cliente toca o arquivo localmente. Duas razoes, e as duas
-// pesam:
-//
-//   1. Misturar no microfone faria o som passar pelo Opus da VOZ — codec afinado
-//      pra fala, que destroi musica e efeito. Chegaria chapado do outro lado, e o
-//      dono pediu explicitamente que arquivo nao perca qualidade.
-//   2. Exigiria mixagem no cliente que fala, e quem esta mudo nao teria por onde
-//      tocar nada.
-//
-// Com aviso + arquivo local, todo mundo ouve o som ORIGINAL. O custo e cada um
-// baixar o arquivo uma vez; o cache resolve o resto.
-//
-// Sem freio de tempo entre sons: decisao explicita do dono, ciente de que
-// soundboard sem limite convida spam.
 export function createSoundsRouter(io: SocketServer) {
   const router = Router()
   router.use(requireAuth)
@@ -41,7 +24,6 @@ export function createSoundsRouter(io: SocketServer) {
     return { ok: true as const }
   }
 
-  // Lista — qualquer MEMBRO ve, porque qualquer membro pode tocar.
   router.get('/:serverId', asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
     const m = await getMemberPerms(req.userId!, serverId)
@@ -54,8 +36,6 @@ export function createSoundsRouter(io: SocketServer) {
     res.json({ sounds: itens })
   }))
 
-  // Cadastrar. A URL vem do /api/upload (o arquivo ja esta no bucket) — esta rota
-  // nao recebe bytes, so registra. Assim o upload continua num lugar so.
   router.post('/:serverId', asyncHandler(async (req: Request, res: Response) => {
     const { serverId } = req.params
     const perm = await podeGerenciar(req.userId!, serverId)
@@ -86,7 +66,6 @@ export function createSoundsRouter(io: SocketServer) {
       }).returning()
       res.status(201).json(criado)
     } catch {
-      // Indice unico (serverId, name). Mensagem propria em vez de 500 generico.
       res.status(409).json({ error: 'Já existe um som com esse nome' })
     }
   }))
@@ -101,14 +80,10 @@ export function createSoundsRouter(io: SocketServer) {
       .returning({ url: serverSounds.url })
     if (!removido) return res.status(404).json({ error: 'Som não encontrado' })
 
-    // Some do bucket junto. Sem isto o arquivo ficaria ocupando espaco pra sempre,
-    // invisivel — foi exatamente o vazamento que os anexos tinham.
     await removeAttachment(removido.url)
     res.json({ ok: true })
   }))
 
-  // Tocar: valida quem pediu e transmite pra sala da ORBITA. Quem nao esta na sala
-  // nao recebe — som de call so faz sentido pra quem esta na call.
   router.post('/:serverId/:soundId/play', asyncHandler(async (req: Request, res: Response) => {
     const { serverId, soundId } = req.params
     const channelId = String(req.body?.channelId ?? '').trim()

@@ -175,7 +175,6 @@ fun ServerBadgesScreen(
     }
 }
 
-// Dialogo de criacao: emoji + nome + descricao + cor (swatches predefinidos).
 @Composable
 private fun CreateBadgeDialog(
     open: Boolean,
@@ -237,5 +236,4 @@ private fun CreateBadgeDialog(
     }
 }
 
-// null = sem cor (usa o ambar padrao no chip).
 private val BADGE_COLORS = listOf<String?>(null, "#c9a96e", "#8ab4f8", "#7bd88f", "#e0b25c", "#e08a8a", "#b78ae0")

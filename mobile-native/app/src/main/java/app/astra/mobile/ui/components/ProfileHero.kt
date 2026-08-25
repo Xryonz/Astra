@@ -27,12 +27,6 @@ import androidx.compose.ui.unit.dp
 import app.astra.mobile.ui.theme.astraColors
 import coil3.compose.AsyncImage
 
-/**
- * Header de perfil estilo Discord, compartilhado entre o proprio perfil (ProfileSheet)
- * e o de outra pessoa (UserProfileScreen): banner (imagem c/ zoom/posicao ou cor solida)
- * com scrim, avatar sobreposto na borda inferior c/ anel void e ponto de status, e
- * nome + subtitulo abaixo. Coloque o conteudo (bio, etc.) depois deste bloco.
- */
 @Composable
 fun ProfileHero(
     bannerUrl: String?,
@@ -71,7 +65,6 @@ fun ProfileHero(
                     Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.38f)),
                 ),
             )
-            // Avatar pendurado na borda inferior do banner (metade pra fora).
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)

@@ -14,17 +14,10 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 
-// Login com Google no desktop via LOOPBACK (o padrao OAuth pra apps nativos, sem
-// navegador embutido): sobe um HttpServer em 127.0.0.1:porta-efemera, abre o
-// navegador do sistema na rota /api/auth/google (passando porta+nonce no `state`),
-// e espera o backend redirecionar de volta pra 127.0.0.1/callback com o refresh
-// token na QUERY (o fragment # não chega ao servidor). O nonce casa a volta com
-// ESTE pedido; a porta so e nossa porque foi aberta antes de abrir o navegador.
 object GoogleAuthFlow {
 
     private const val TIMEOUT_MS = 120_000L
 
-    // Retorna o refresh token capturado (o AuthRepository troca por uma sessão).
     suspend fun captureRefreshToken(): Result<String> = withContext(Dispatchers.IO) {
         val nonce = randomNonce()
         val deferred = CompletableDeferred<Result<String>>()
@@ -33,9 +26,6 @@ object GoogleAuthFlow {
             .getOrElse { return@withContext Result.failure(Exception("Não consegui abrir a porta local")) }
         val port = server.address.port
 
-        // /callback recebe o token na QUERY, captura, e REDIRECIONA (302) pra /done.
-        // Assim o token some da barra/historico: a aba final para numa URL limpa
-        // (/done?s=ok) que so diz o que aconteceu.
         server.createContext("/callback") { ex ->
             val params = parseQuery(ex.requestURI.rawQuery)
             val status = when {
@@ -58,7 +48,6 @@ object GoogleAuthFlow {
             }
             redirect(ex, "/done?s=$status")
         }
-        // Tela final, sem token na URL: editorial, so a mensagem do que rolou.
         server.createContext("/done") { ex ->
             val s = parseQuery(ex.requestURI.rawQuery)["s"]
             val msg = when (s) {
@@ -85,10 +74,6 @@ object GoogleAuthFlow {
 
         val out = withTimeoutOrNull(TIMEOUT_MS) { deferred.await() }
             ?: Result.failure(Exception("Tempo esgotado — tente de novo"))
-        // O /callback captura o token e responde 302 -> /done; o navegador so busca
-        // /done DEPOIS. Parar o server na hora (stop(0)) cortava essa segunda request
-        // -> "conexão recusada" no navegador (mesmo o app logando). Para com folga numa
-        // thread daemon pra o /done ser servido, sem atrasar o login no app.
         Thread {
             try { Thread.sleep(3000); server.stop(2) } catch (_: Exception) { runCatching { server.stop(0) } }
         }.apply { isDaemon = true }.start()
@@ -99,7 +84,6 @@ object GoogleAuthFlow {
         if (!d.isCompleted) d.complete(r)
     }
 
-    // Nonce alfanumerico (bate com o regex do backend: [A-Za-z0-9]{8,64}).
     private fun randomNonce(): String {
         val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         val rnd = SecureRandom()
@@ -117,7 +101,6 @@ object GoogleAuthFlow {
         }.toMap()
     }
 
-    // Redireciona (302) sem corpo — usado pra tirar o token da URL final.
     private fun redirect(ex: HttpExchange, location: String) {
         ex.responseHeaders.add("Location", location)
         runCatching {
@@ -135,16 +118,6 @@ object GoogleAuthFlow {
         }
     }
 
-    // PALETA DO ASTRA: prata sobre preto. Esta pagina e servida pelo proprio app num
-    // servidor local, entao ela nao le os tokens do Obsidian — os valores estao aqui na
-    // mao, e sao os mesmos: void #06060E, text1 #E4E4EB, text2 #C0C0C6, text3 #8C8C94,
-    // accent de fabrica #D4D8E0.
-    //
-    // Era ambar (#c9a96e) no simbolo e VERDE (#6ec98a) no sucesso. Os dois estavam fora
-    // do vocabulario: o accent de fabrica e branco, nao ambar (o ambar e uma opcao entre
-    // 18), e verde de "deu certo" e linguagem de formulario web -- o Astra diz o que
-    // aconteceu com texto, sem semaforo. E esta e a primeira coisa que alguem ve depois
-    // de entrar; se ela parece outro produto, e outro produto.
     private fun page(msg: String, ok: Boolean): String {
         val msgColor = if (ok) "#c0c0c6" else "#8c8c94"
         return """

@@ -1,4 +1,3 @@
-
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { fcmTokens } from '../db/schema'
@@ -27,7 +26,6 @@ export async function initFcm(): Promise<void> {
   }
 }
 
-
 export async function sendFcmToUser(userId: string, payload: PushPayload): Promise<void> {
   if (!messaging) return
 
@@ -40,9 +38,6 @@ export async function sendFcmToUser(userId: string, payload: PushPayload): Promi
 
   await Promise.allSettled(rows.map(async (row) => {
     try {
-      // Data-only: o app SEMPRE monta a notificacao (foreground e background),
-      // o que permite MessagingStyle + responder direto da notificacao. Com
-      // notification-block o sistema exibia sozinho e o app nem rodava.
       await messaging!.send({
         token: row.token,
         data: {

@@ -7,26 +7,6 @@ import { logger } from './logger'
 import { missaoConcluida } from './realtime'
 import { creditarXpDeMissao, diaDeSaoPaulo } from './xp'
 
-// MISSOES — o motivo pra voltar amanha.
-//
-// XP sozinho recompensa quem ja ia usar o app de qualquer jeito. Missao recompensa
-// quem VOLTA, e e por isso que ela existe: tres camadas com ritmos diferentes, pra
-// cobrir tres pessoas diferentes.
-//
-//   diaria    — quem entra hoje                     (some amanha)
-//   semanal   — quem entra varios dias              (some no domingo)
-//   conquista — quem esta aqui ha meses             (nunca some)
-//
-// O XP de missao NAO passa pelo teto diario do lib/xp.ts. O teto existe pra que
-// ninguem farme conversa fiada; missao e o oposto de farm — ela pede exatamente o
-// comportamento que o app quer. Fazer a missao e depois descobrir que o XP nao veio
-// porque o dia acabou seria a pior surpresa possivel.
-
-// ---------------- O periodo ----------------
-
-// O fuso e o de Sao Paulo, como no XP: teto que vira as 21h corta a noite da galera
-// no melhor momento. -03:00 cravado porque o Brasil acabou com o horario de verao
-// em 2019 — se voltar, este e o unico lugar a mexer.
 const UM_DIA_MS = 86_400_000
 
 function inicioDoDiaMs(): number {
@@ -37,9 +17,6 @@ export function periodoDiario(): string {
   return diaDeSaoPaulo()
 }
 
-// Semana = balde de 7 dias contado desde a epoch. Nao e a semana ISO (que comeca na
-// segunda), e nao precisa ser: o que importa e que o balde seja estavel, igual pra
-// todo mundo, e que a tela consiga dizer quando ele vira.
 function baldeDaSemana(): number {
   return Math.floor(inicioDoDiaMs() / (7 * UM_DIA_MS))
 }
@@ -53,13 +30,10 @@ export const PERIODO_SEMPRE = 'sempre'
 function renovaDiaria(): number { return inicioDoDiaMs() + UM_DIA_MS }
 function renovaSemanal(): number { return (baldeDaSemana() + 1) * 7 * UM_DIA_MS }
 
-// ---------------- O catalogo ----------------
-
 export type EventoMissao = 'mensagem' | 'resposta' | 'call' | 'reacao'
 
 export interface CtxMissao {
   channelId?: string
-  /** Hora local de Sao Paulo (0-23), pra missoes que dependem do relogio. */
   hora?: number
 }
 
@@ -69,11 +43,8 @@ interface Missao {
   titulo: string
   alvo:   number
   xp:     number
-  /** '*' = qualquer sinal de vida conta. */
   evento: EventoMissao | '*'
-  /** So conta uma vez por valor devolvido (null = nao conta). Ex.: orbitas distintas. */
   distintoPor?: (ctx: CtxMissao, periodo: string) => string | null
-  /** Filtro extra antes de contar. */
   so?: (ctx: CtxMissao) => boolean
 }
 
@@ -98,8 +69,6 @@ const SEMANAIS: Missao[] = [
   { id: 's.orbitas8', tipo: 'semanal', titulo: 'Fale em 8 órbitas diferentes', alvo: 8,   xp: 200, evento: 'mensagem', distintoPor: porCanal },
 ]
 
-// Conquistas aparecem TODAS, sempre. Ver o que ainda falta e metade da graca — uma
-// lista que so mostra o que ja foi feito nao da a ninguem pra onde ir.
 const CONQUISTAS: Missao[] = [
   { id: 'c.primeira',  tipo: 'conquista', titulo: 'A primeira mensagem',         alvo: 1,    xp: 50,  evento: 'mensagem' },
   { id: 'c.msg100',    tipo: 'conquista', titulo: '100 mensagens',               alvo: 100,  xp: 300, evento: 'mensagem' },
@@ -111,10 +80,6 @@ const CONQUISTAS: Missao[] = [
   { id: 'c.coruja',    tipo: 'conquista', titulo: 'Fale depois das 3 da manhã',  alvo: 1,    xp: 100, evento: 'mensagem', so: (c) => (c.hora ?? -1) >= 3 && (c.hora ?? 99) < 6 },
 ]
 
-// O bonus de fechar as tres. Nao tem evento proprio: ele avanca quando uma diaria
-// fecha. Vive como missao de verdade (linha na tabela) so pra herdar o fechamento
-// atomico — se fosse calculado na leitura, dois requests simultaneos pagariam duas
-// vezes.
 const BONUS_DIARIO: Missao = {
   id: 'd.bonus', tipo: 'diaria', titulo: 'Fechar as três do dia', alvo: 3, xp: 100, evento: '*',
 }
@@ -126,12 +91,6 @@ const POR_ID = new Map<string, Missao>(
 const QUANTAS_DIARIAS  = 3
 const QUANTAS_SEMANAIS = 2
 
-// ---------------- O sorteio ----------------
-
-// Deterministico a partir de (pessoa, periodo): mesma pessoa ve as mesmas missoes o
-// dia inteiro, e nada precisa ser gravado no primeiro acesso do dia. Duas pessoas
-// diferentes veem baralhos diferentes — o que evita a sensacao de "todo mundo
-// fazendo a mesma coisa" e distribui melhor o movimento pelo app.
 function sorteioEstavel(semente: string, deck: Missao[], quantas: number): Missao[] {
   return [...deck]
     .map((m) => ({ m, k: crypto.createHash('sha256').update(`${semente}|${m.id}`).digest('hex') }))
@@ -148,17 +107,12 @@ export function semanaisDe(userId: string): Missao[] {
   return sorteioEstavel(`${userId}|${periodoSemanal()}`, SEMANAIS, QUANTAS_SEMANAIS)
 }
 
-// ---------------- Avancar ----------------
-
 function periodoDe(m: Missao): string {
   return m.tipo === 'diaria' ? periodoDiario() : m.tipo === 'semanal' ? periodoSemanal() : PERIODO_SEMPRE
 }
 
 interface Avanco { missao: Missao; periodo: string; quanto: number }
 
-// Fecha e paga. O UPDATE com `isNull(concluidaEm)` e o que impede pagamento duplo:
-// se dois eventos chegarem juntos e os dois virem progresso >= alvo, so um troca o
-// NULL por uma data — o outro volta sem linha e nao paga nada.
 async function fechar(userId: string, m: Missao, periodo: string): Promise<boolean> {
   const [linha] = await db.update(userMissions)
     .set({ concluidaEm: new Date() })
@@ -179,8 +133,6 @@ async function fechar(userId: string, m: Missao, periodo: string): Promise<boole
 async function aplicar(userId: string, avancos: Avanco[]): Promise<void> {
   if (!avancos.length) return
 
-  // Um INSERT so pra todas: mensagem em canal movimentado dispara ate seis missoes
-  // ao mesmo tempo, e seis idas ao Neon por mensagem seria caro por nada.
   const linhas = await db.insert(userMissions)
     .values(avancos.map((a) => ({
       userId, missionId: a.missao.id, periodo: a.periodo, progresso: a.quanto,
@@ -206,16 +158,11 @@ async function aplicar(userId: string, avancos: Avanco[]): Promise<void> {
     }
   }
 
-  // Recursao de um nivel so, e por construcao: o bonus nao e diaria sorteada, entao
-  // fechar ele nao gera outro avanco.
   if (diariasFechadas > 0) {
     await aplicar(userId, [{ missao: BONUS_DIARIO, periodo: periodoDiario(), quanto: diariasFechadas }])
   }
 }
 
-// A porta de entrada. Chamada com `void` de dentro do envio de mensagem e do tick de
-// call — missao NUNCA pode derrubar nem atrasar o que a pessoa veio fazer, entao
-// tudo aqui e best-effort e o catch engole.
 export async function eventoDeMissao(userId: string, evento: EventoMissao, ctx: CtxMissao = {}): Promise<void> {
   try {
     const hora = ctx.hora ?? Number(
@@ -235,11 +182,8 @@ export async function eventoDeMissao(userId: string, evento: EventoMissao, ctx: 
       }
       const chave = m.distintoPor(completo, periodo)
       if (!chave) continue
-      // SADD devolve 1 so na primeira vez que aquele valor aparece no periodo. E o
-      // que faz "2 orbitas diferentes" contar orbitas, e nao mensagens.
       const novo = await redis.sadd(`missao:${m.id}:${userId}:${periodo}`, chave)
       if (novo !== 1) continue
-      // Sobra folga alem do periodo pra chave nao morrer antes da missao virar.
       await redis.expire(`missao:${m.id}:${userId}:${periodo}`, 40 * 86_400)
       avancos.push({ missao: m, periodo, quanto: 1 })
     }
@@ -249,8 +193,6 @@ export async function eventoDeMissao(userId: string, evento: EventoMissao, ctx: 
     logger.error('Missoes', `evento ${evento} falhou: ${(e as Error).message}`)
   }
 }
-
-// ---------------- Ler ----------------
 
 export interface ItemMissao {
   id:         string
@@ -293,8 +235,6 @@ export async function painelDe(userId: string): Promise<PainelDeMissoes> {
       titulo:    m.titulo,
       alvo:      m.alvo,
       xp:        m.xp,
-      // O progresso guardado pode passar do alvo (o evento chega antes do fecho);
-      // mostrar 27/25 leria como bug.
       progresso: Math.min(l?.progresso ?? 0, m.alvo),
       concluida: !!l?.concluidaEm,
     }

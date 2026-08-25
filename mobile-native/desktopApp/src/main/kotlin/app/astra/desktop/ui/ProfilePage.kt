@@ -90,26 +90,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// Perfil completo (F: pagina de perfil) — modal CENTRAL sobre scrim, o irmao
-// maior do ProfilePopup. Abre pelo botao "ver perfil completo" do card pequeno.
-// Alem do que o card mostra, traz "membro desde" e os SERVIDORES EM COMUM (já vem
-// do GET /api/profile/:id -> ProfileViewWrapper; o card so descartava). A entrada
-// (scrim + card + cascata das secoes) segue o idioma do CenteredConfirmDialog;
-// fable refina a coreografia depois. Respeita LocalReduceMotion.
-
-// Proporcoes do painel, calcadas na referencia do Discord: ~1290x940 com a coluna
-// da identidade em ~40% da largura. Aqui: 840 de largura, 380 pra coluna do
-// cartao e o resto pros vinculos. A ALTURA e fixa (nao "o que o conteudo pedir"),
-// porque uma conta nova tem duas linhas de conteudo e o painel encolheria pra um
-// retangulo estranho no meio da tela.
 val LARGURA_PAGINA_PERFIL = 840.dp
 val LARGURA_COLUNA_DO_CARTAO = 380.dp
 val ALTURA_PAGINA_PERFIL = 640.dp
 
-// Rodape dissolvido. Quando o conteudo passa da altura maxima, o scroll FATIA o
-// texto no meio e o corte seco parece quina dura; este veu faz o conteudo sumir
-// em vez de ser cortado. Fica ANTES do verticalScroll de proposito: assim ele
-// desenha no espaco da JANELA (fixo no pe da coluna) e nao rola junto.
 private fun Modifier.veuNoPe(): Modifier = drawWithContent {
     drawContent()
     val h = 26.dp.toPx()
@@ -143,11 +127,6 @@ fun ProfilePage(
 ) {
     val koin = GlobalContext.get()
     var data by remember(userId) { mutableStateOf<ProfileViewWrapper?>(null) }
-    // Progressão e insígnias chegam por FORA do /profile, em duas leituras próprias.
-    //
-    // Elas não bloqueiam o cartão: o perfil aparece com o que já tem e os dois blocos
-    // entram quando chegam. Amarrá-los ao mesmo `await` faria o cartão inteiro
-    // esperar pela informação menos importante dele.
     var progresso by remember(userId) { mutableStateOf<ProgressoDto?>(null) }
     var insignias by remember(userId) { mutableStateOf<UserBadgesDto?>(null) }
     LaunchedEffect(userId) {
@@ -160,8 +139,6 @@ fun ProfilePage(
         insignias = runCatching { koin.get<BadgeApi>().de(userId).data }.getOrNull()
     }
 
-    // Entrada: scrim faz fade, o card escala/sobe de leve. Uma passada; reduzir
-    // movimento -> aparece pronto. Lido dentro do graphicsLayer (frame sem recompor).
     val reduce = LocalReduceMotion.current
     val scope = rememberCoroutineScope()
     val appear = remember { Animatable(if (reduce) 1f else 0f) }
@@ -171,8 +148,6 @@ fun ProfilePage(
             appear.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow))
         }
     }
-    // Fecha ANIMANDO (a mesma curva tocada pra tras) antes de avisar o host — sem
-    // isso o modal some seco. `closing` trava reentrada (duplo clique scrim/X/Esc).
     fun requestClose() {
         if (closing) return
         closing = true
@@ -192,7 +167,6 @@ fun ProfilePage(
         },
     ) {
         Box(Modifier.fillMaxSize()) {
-            // Scrim: escurece o resto e fecha ao clicar fora.
             Box(
                 Modifier
                     .fillMaxSize()
@@ -205,14 +179,6 @@ fun ProfilePage(
                     )
                     .semCursorDeClique(),
             )
-            // Card central. DUAS COLUNAS (referencia do dono: o perfil do Discord):
-            // a esquerda e quem a pessoa E — banner, foto, nome, bio, desde quando.
-            // A direita e o que voces tem EM COMUM. Antes era uma coluna so, e as
-            // constelacoes em comum ficavam no pe de um cartao que ja rolava.
-            //
-            // A aba "Atividade" da referencia ficou de FORA de proposito: nao
-            // existe fonte pra ela (nem rota, nem tabela). Uma aba que so sabe
-            // dizer "nada aqui" e pior que nao ter aba.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Row(
                     Modifier
@@ -228,7 +194,6 @@ fun ProfilePage(
                         .clip(RoundedCornerShape(16.dp))
                         .background(Obsidian.base)
                         .border(1.dp, Obsidian.borderMid, RoundedCornerShape(16.dp))
-                        // Engole o clique (senao o scrim fecha ao clicar no card).
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -240,18 +205,6 @@ fun ProfilePage(
                         Column(Modifier.fillMaxWidth()) { PageSkeleton() }
                     } else {
                         val nome = d.user.displayName ?: d.user.username
-                        // Coluna da identidade. Rola sozinha: bio longa nao pode
-                        // empurrar a coluna dos vinculos pra fora da tela.
-                        // fillMaxHeight NO CARTAO, e nao so na coluna: o cartao tem
-                        // fundo e borda proprios, entao parar na altura do conteudo
-                        // deixava um retangulo curto boiando num painel alto — foi
-                        // exatamente o que o dono viu. Com a altura toda, ele vira a
-                        // coluna da esquerda de verdade.
-                        // SEM verticalScroll aqui, e isso e deliberado: dentro de um
-                        // scroll a altura maxima e INFINITA, e `fillMaxHeight` com
-                        // maximo infinito nao faz nada — o cartao continuaria curto.
-                        // Era essa a armadilha. Bio muito longa fica cortada com o
-                        // veu no pe avisando; a coluna da direita e que rola.
                         Column(
                             Modifier
                                 .width(LARGURA_COLUNA_DO_CARTAO)
@@ -262,8 +215,6 @@ fun ProfilePage(
                                 modifier = Modifier.fillMaxHeight(),
                                 dados = d.user.paraCartao(),
                                 variante = CardVariante.COMPLETO,
-                                // Os servidores em comum saem daqui: eles sao
-                                // VINCULO, e vinculo mora na coluna da direita.
                                 servidoresEmComum = emptyList(),
                                 rodape = if (isMe) null else ({
                                     val src = remember { MutableInteractionSource() }
@@ -305,13 +256,6 @@ fun ProfilePage(
     }
 }
 
-// A coluna da direita: o que voces tem EM COMUM. Cada bloco e um cartao, nao um
-// item separado por traco — e a mesma regra do resto do app.
-//
-// Nao ha aba aqui. A referencia tem tres ("Atividade", "N amigos mutuos",
-// "N servidores mutuos"), mas duas delas seriam abas de UMA lista curta cada, e
-// a terceira nao tem dado nenhum por tras. Aba que esconde tres linhas custa um
-// clique pra economizar nada.
 @Composable
 private fun ColunaDeVinculos(
     nome: String,
@@ -347,9 +291,6 @@ private fun ColunaDeVinculos(
         }
         Spacer(Modifier.height(14.dp))
 
-        // PROGRESSÃO. Fica no topo porque é sobre a pessoa, e o resto da coluna é
-        // sobre o que vocês dividem. Some enquanto a leitura não chega — bloco
-        // vazio prometendo número é pior que bloco nenhum.
         progresso?.let { p ->
             CartaoInterno(fundo = Obsidian.raised, padding = PaddingValues(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -374,8 +315,6 @@ private fun ColunaDeVinculos(
             Spacer(Modifier.height(12.dp))
         }
 
-        // INSÍGNIAS. Só aparece quando há alguma — conta nova não tem nenhuma, e
-        // "nenhuma insígnia ainda" seria um bloco inteiro pra dizer que não há nada.
         val globais = insignias?.global.orEmpty()
         val deServidor = insignias?.server.orEmpty()
         if (globais.isNotEmpty() || deServidor.isNotEmpty()) {
@@ -390,11 +329,6 @@ private fun ColunaDeVinculos(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     globais.forEach { Insignia(it.icon, it.name, it.color) }
-                    // A de constelação carrega DE ONDE ela veio: "Veterano" sozinho
-                    // não diz veterano de onde, e a mesma palavra pode ser concedida
-                    // por duas constelações diferentes querendo dizer coisas opostas.
-                    // Sem o nome (o campo é opcional), fica só a insígnia — melhor
-                    // que um "· null" pendurado.
                     deServidor.forEach { b ->
                         val nome = b.serverName?.let { "${b.name} · $it" } ?: b.name
                         Insignia(b.icon, nome, b.color)
@@ -417,15 +351,7 @@ private fun ColunaDeVinculos(
                         style = TextStyle(color = Obsidian.text2, fontSize = 13.sp),
                     )
                 } else {
-                    // Rosto em vez de número. Os avatares se sobrepõem levemente (a
-                    // pilha do Discord): oito lado a lado não caberiam na coluna, e
-                    // sobrepostos eles leem como GRUPO em vez de lista.
                     Spacer(Modifier.height(3.dp))
-                    // A sobreposição é feita com `offset`, e não com espaçamento
-                    // negativo: padding e width recusam valor negativo em Compose (é
-                    // exceção, não layout torto). O offset é só desenho — a linha
-                    // continua medindo a largura cheia, e por isso o "+N" também
-                    // precisa do mesmo recuo pra não flutuar longe da pilha.
                     val recuo = 6
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         rostosEmComum.forEachIndexed { i, amigo ->
@@ -497,12 +423,6 @@ private fun ColunaDeVinculos(
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
-                        // O cargo já vinha na resposta e era jogado fora. "Dono" e
-                        // "admin" dizem mais sobre a pessoa do que qualquer bio, e
-                        // custaram zero: nenhuma requisição a mais.
-                        //
-                        // MEMBRO não é rótulo: é o padrão, e etiquetar o padrão em
-                        // toda linha viraria ruído que some por repetição.
                         cargoLegivel(s.role)?.let { rotulo ->
                             Spacer(Modifier.width(8.dp))
                             Text(
@@ -515,8 +435,6 @@ private fun ColunaDeVinculos(
             }
         }
         Spacer(Modifier.height(12.dp))
-        // Dito em voz alta em vez de escondido numa aba vazia: o app nao guarda
-        // atividade, e prometer uma aba que nunca tem nada seria pior.
         Text(
             if (isMe) "o Astra ainda não guarda histórico de atividade."
             else "o Astra ainda não mostra o que $nome anda fazendo.",
@@ -525,8 +443,6 @@ private fun ColunaDeVinculos(
     }
 }
 
-// O papel da pessoa na constelação, em português e em minúscula. null = MEMBER,
-// que é o padrão e não vira etiqueta.
 private fun cargoLegivel(role: String): String? = when (role.uppercase()) {
     "OWNER" -> "dono"
     "ADMIN" -> "admin"
@@ -534,8 +450,6 @@ private fun cargoLegivel(role: String): String? = when (role.uppercase()) {
     else -> null
 }
 
-// Barra fina do nível. Desenhada, não composta: são dois retângulos, e um Box com
-// fundo dentro de outro Box com fundo custaria dois nós de layout pra dizer o mesmo.
 @Composable
 private fun BarraDeNivel(p: ProgressoDto) {
     val fracao = if (p.paraOProximo > 0) (p.noNivel.toFloat() / p.paraOProximo).coerceIn(0f, 1f) else 0f
@@ -547,11 +461,6 @@ private fun BarraDeNivel(p: ProgressoDto) {
     )
 }
 
-// Uma insígnia: emoji + nome, num cartão do tamanho do conteúdo.
-//
-// A cor vem do servidor e é usada só na BORDA e no texto — nunca como fundo. Ela é
-// escolhida por quem criou a insígnia e pode ser qualquer coisa, inclusive um tom
-// que engole texto claro; como borda ela identifica sem apostar em contraste.
 @Composable
 private fun Insignia(icone: String, nome: String, corHex: String?) {
     val cor = corHex?.removePrefix("#")?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } ?: Obsidian.accent

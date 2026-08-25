@@ -216,8 +216,6 @@ fun ProfileEditSection(
                     Modifier.padding(top = 8.dp),
                 )
 
-                // — banner: cor solida (sem imagem) + zoom/posicao (com imagem)
-                // logo abaixo do banner, pra ver o efeito na hora.
                 Spacer(Modifier.height(20.dp))
                 EditorialField(
                     value = state.bannerColor, onValue = viewModel::onBannerColor,

@@ -7,16 +7,6 @@ import (
 	"testing"
 )
 
-// SONDA DO COMPRESSOR DE VÍDEO.
-//
-// A pergunta que decide a arquitetura da transmissão é uma só: existe nesta máquina um
-// compressor de H.264 que aceite a textura ONDE A CAPTURA A DEIXA, na placa? Se sim, o
-// caminho custa 0,07 núcleo. Se não, o quadro precisa descer e volta a custar 0,84 —
-// doze vezes mais, medido.
-//
-// Perguntar antes de montar o cano é a lição do cancelador de eco, onde supor a
-// resposta custou uma tarde.
-
 func precisaDeVideo(t *testing.T) {
 	t.Helper()
 	if os.Getenv("ASTRA_TESTE_VIDEO") == "" {
@@ -24,13 +14,6 @@ func precisaDeVideo(t *testing.T) {
 	}
 }
 
-// A PROVA DE QUE OS ÍNDICES DO IMFAttributes ESTÃO CERTOS.
-//
-// São 30 métodos herdados antes de `GetCount` e 33 antes de `ActivateObject` — uma
-// contagem que ninguém confere de olho. Mas o NOME do compressor sai do índice 13, e
-// nome legível ("NVIDIA H.264 Encoder MFT", "Intel® Quick Sync Video H.264 Encoder
-// MFT") só sai se a tabela inteira estiver certa: qualquer erro de índice devolveria
-// lixo, string vazia, ou travaria.
 func TestAcharCompressorDeH264(t *testing.T) {
 	precisaDeVideo(t)
 	runtime.LockOSThread()
@@ -67,17 +50,11 @@ func TestAcharCompressorDeH264(t *testing.T) {
 		}
 	}
 
-	// ESTE É O NÚMERO QUE IMPORTA. Zero aqui não é falha do teste: é a resposta de
-	// que nesta máquina o caminho barato não existe, e a transmissão teria de descer
-	// o quadro. Vale saber com todas as letras em vez de descobrir pelo ventilador.
 	if comD3D11 == 0 {
 		t.Errorf("nenhum dos %d compressores aceita textura de video -- o quadro teria que descer pra CPU", len(lista))
 	}
 }
 
-// Ligar o compressor é diferente de encontrá-lo: o ativador pode listar uma coisa que
-// o driver depois recusa a instanciar (placa em uso por outro programa, driver a meio
-// caminho de uma atualização). Separado porque o remédio é outro.
 func TestLigarOCompressor(t *testing.T) {
 	precisaDeVideo(t)
 	runtime.LockOSThread()
@@ -98,7 +75,6 @@ func TestLigarOCompressor(t *testing.T) {
 	}
 	defer SoltarCompressores(lista)
 
-	// O primeiro que fala D3D11; sem nenhum, o primeiro da lista.
 	escolhido := lista[0]
 	for _, c := range lista {
 		if fala, _ := c.FalaD3D11(); fala {
@@ -119,8 +95,6 @@ func TestLigarOCompressor(t *testing.T) {
 	t.Logf("ligou: %s", escolhido.Nome)
 }
 
-// O relatório é o que uma pessoa com problema de transmissão vai mandar junto do
-// relato, então ele precisa dizer alguma coisa mesmo quando não há nada.
 func TestRelatorioNuncaSaiVazio(t *testing.T) {
 	precisaDeVideo(t)
 	texto, err := RelatarCompressores()
@@ -133,12 +107,6 @@ func TestRelatorioNuncaSaiVazio(t *testing.T) {
 	t.Logf("\n%s", texto)
 }
 
-// A PERGUNTA QUE PODE APAGAR UMA PILHA INTEIRA DE CODIGO.
-//
-// A captura entrega BGRA. O livro-texto diz que H.264 quer NV12, e converter na placa
-// exigiria o ID3D11VideoProcessor -- mais umas cinco interfaces COM, so pra trocar o
-// arranjo dos canais. Mas "o livro-texto diz" nao e resposta: quem responde e o
-// compressor DESTA maquina. Se ele aceitar BGRA ou ARGB, o passo nao existe.
 func TestFormatosQueOCompressorAceita(t *testing.T) {
 	precisaDeVideo(t)
 	runtime.LockOSThread()

@@ -15,18 +15,6 @@ interface Pedido {
   username:       string
 }
 
-// RESPOSTA DA BOT DENTRO DO SUSSURRO.
-//
-// Irmã do `bot_command` do socket, com duas diferenças que vêm do lugar:
-//
-// 1. Sem prefixo. No canal ele separa "falo com a bot" de "falo com a sala"; numa
-//    conversa de duas pessoas onde a outra é ela, não há o que separar.
-// 2. Sem constelação. O `serverId` vai nulo, e as ferramentas já sabiam lidar com
-//    isso desde sempre ("Você está em uma DM, não em servidor") — era só o caminho
-//    até elas que não existia.
-//
-// A memória usa o id da CONVERSA no lugar do canal: o histórico do papo com ela
-// fica por conversa, que é exatamente o recorte certo aqui.
 export async function responderNoSussurro({
   io, conversationId, userId, receiverId, content, username,
 }: Pedido): Promise<void> {
@@ -36,20 +24,12 @@ export async function responderNoSussurro({
 
     const persona = await sincronizaPersona(botId)
 
-    // "Digitando…" enquanto pensa. A IA leva alguns segundos, e sem sinal nenhum
-    // a conversa fica parada de um jeito que se le como "ela nao recebeu". O
-    // evento e o MESMO que uma pessoa dispara — o cliente ja sabe desenhar.
     const sala = `dm:${conversationId}`
     io.to(sala).emit('dm_user_typing', {
       userId: botId, username: 'astra_bot', conversationId,
     })
-    // O finally e obrigatorio: se a IA cair no meio, o "digitando…" ficaria aceso
-    // pra sempre e a bot pareceria travada escrevendo uma resposta que nunca vem.
     let texto: string
     try {
-      // Comandos continuam valendo (`/sparkle ajuda`, dado, moeda…) — quem já sabe
-      // usar não precisa desaprender só porque mudou de lugar. Os que dependem de
-      // constelação (ranking, sorteio) se viram sozinhos sem o serverId.
       const comando = await handleBotCommand(content, {
         username, isMuted: false, muteSecondsLeft: 0, userId, channelId: conversationId,
       })
@@ -87,12 +67,9 @@ export async function responderNoSussurro({
     })
     messagesSentTotal.inc({ kind: 'dm' })
 
-    // Bumpar a conversa: sem isto a resposta existe mas a conversa não sobe na
-    // lista, e quem estiver noutra tela não vê que ela respondeu.
     await db.update(dmConversations).set({ updatedAt: new Date() })
       .where(eq(dmConversations.id, conversationId))
   } catch (err) {
-    // Falar é melhor-esforço: se a IA cair, a mensagem da pessoa continua enviada.
     // eslint-disable-next-line no-console
     console.error('[bot/sussurro]', err)
   }

@@ -51,23 +51,8 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 
-// Botoes do compositor.
-//
-// Antes existia UMA estrela ✦ que abria um menu com emoji/GIF/arquivo. Virou o
-// contrario (pedido do dono, padrao Discord): os seletores ficam A MOSTRA na
-// barra e o '+' passa a ser o menu do que "cria coisa". A estrela foi removida
-// junto — deixar um botao sem chamador so serviria pra confundir depois.
-//
-// Regra que continua valendo: UM Popup por botao, nunca popup dentro de popup.
-// No desktop cada Popup focavel e uma janela de verdade, e empilhar duas rouba o
-// foco da primeira.
 internal enum class Seletor { EMOJI, GIF, FIGURINHA }
 
-// Ancora o painel ACIMA do botao. O lado importa: alinhar SEMPRE pela direita
-// funcionava quando o unico botao era a estrela, no canto direito do compositor.
-// O '+' mora no canto ESQUERDO — alinhado pela direita, o menu era empurrado
-// pra fora da barra, sobrando pra esquerda do botao. Cada botao pede a borda em
-// que ele encosta. Clampa pra não sair da janela nos dois casos.
 private class AcimaDoBotao(private val pelaDireita: Boolean) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -86,13 +71,6 @@ private class AcimaDoBotao(private val pelaDireita: Boolean) : PopupPositionProv
 private val AcimaPelaDireita = AcimaDoBotao(pelaDireita = true)
 private val AcimaPelaEsquerda = AcimaDoBotao(pelaDireita = false)
 
-// A moldura comum dos botoes: quadrado de 28, SEM fundo e SEM borda — no hover so
-// o glifo acende no accent.
-//
-// A borda saiu (pedido do dono). Ela era a unica linha desenhada dentro do
-// compositor, que ja tem a propria borda: tres retangulos menores encostados na
-// barra liam como grade, e nao como botao. Sem elas o olho ve os glifos, que e o
-// que se clica. O alvo continua de 28dp — some o desenho, nao a area.
 @Composable
 private fun MolduraDoCompositor(
     onClick: () -> Unit,
@@ -124,12 +102,6 @@ private fun IconeDoCompositor(
     }
 }
 
-// Icone de TRAÇO (Lucide), nao glifo de texto.
-//
-// O emoji era o caractere "☺": a fonte de emoji do Windows sequestra esse ponto
-// de codigo e desenha a bolinha amarela PREENCHIDA — cor propria, fundo proprio,
-// nada a ver com o resto da barra. Nenhum ajuste de cor resolve, porque quem
-// pinta e a fonte, nao nos. Icone vetorial de traco obedece o tint.
 @Composable
 private fun IconeVetorial(icone: ImageVector, onClick: () -> Unit) {
     MolduraDoCompositor(onClick) { hov ->
@@ -141,10 +113,6 @@ private fun IconeVetorial(icone: ImageVector, onClick: () -> Unit) {
     }
 }
 
-// Abre DIRETO no painel pedido (emoji, GIF ou figurinha) — sem passar por menu.
-//
-// serverId so importa pra figurinha: elas pertencem a uma constelacao, e em
-// sussurro nao ha de onde tirar. Quem chama nao oferece o botao la (ChatView).
 @Composable
 internal fun ComposerPickerButton(
     tipo: Seletor,
@@ -156,8 +124,6 @@ internal fun ComposerPickerButton(
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        // "GIF" continua sendo TEXTO de proposito: e uma sigla, nao um desenho —
-        // e todo cliente de chat escreve GIF em vez de tentar desenhar um.
         when (tipo) {
             Seletor.GIF -> IconeDoCompositor("GIF", tamanho = 9) { open = !open }
             Seletor.FIGURINHA -> IconeVetorial(Lucide.Sticker) { open = !open }
@@ -170,8 +136,6 @@ internal fun ComposerPickerButton(
                 properties = PopupProperties(focusable = true),
             ) {
                 PopupReveal(originX = 1f, originY = 1f) {
-                    // Emoji fica aberto pra escolher varios; GIF e figurinha
-                    // fecham porque escolher JA ENVIA.
                     when (tipo) {
                         Seletor.GIF -> GifPanel(onPick = { g -> open = false; onPickGif(g) })
                         Seletor.FIGURINHA -> if (serverId != null) {
@@ -185,10 +149,6 @@ internal fun ComposerPickerButton(
     }
 }
 
-// O '+' agora e menu, nao atalho de anexo.
-//
-// onCriarEnquete = null em sussurro: enquete so existe em canal no backend, e
-// oferecer um item que sempre falha e pior que nao ter o item.
 @Composable
 fun ComposerPlusButton(
     onPickFiles: (List<File>) -> Unit,
@@ -215,8 +175,6 @@ fun ComposerPlusButton(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         MenuRow(Lucide.Paperclip, "enviar um arquivo") {
-                            // Fecha ANTES: o dialog nativo e modal e brigaria por
-                            // foco com a janela do Popup.
                             open = false
                             val files = chooseFiles()
                             if (files.isNotEmpty()) onPickFiles(files)
@@ -234,8 +192,6 @@ fun ComposerPlusButton(
     }
 }
 
-// Seletor nativo do SO, multi-arquivo. Modal (bloqueia) — padrao de file dialog.
-// Vazio = cancelou. Internal: o '+' do composer (ChatView) reusa o mesmo seletor.
 internal fun chooseFiles(): List<File> {
     val dlg = FileDialog(null as Frame?, "Enviar arquivo", FileDialog.LOAD)
     dlg.isMultipleMode = true

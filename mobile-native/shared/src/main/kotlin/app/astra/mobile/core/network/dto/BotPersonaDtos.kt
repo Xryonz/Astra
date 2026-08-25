@@ -2,9 +2,6 @@ package app.astra.mobile.core.network.dto
 
 import kotlinx.serialization.Serializable
 
-// A aparencia EFETIVA de uma persona (o que esta no codigo + o que o dono mexeu
-// por cima). `personalizado` diz quais campos de fato foram trocados, pra a tela
-// so oferecer "voltar ao original" onde ha para onde voltar.
 @Serializable
 data class BotPersonaDto(
     val chave: String,
@@ -30,12 +27,6 @@ data class BotPersonaFlags(
 @Serializable
 data class BotPersonasWrapper(val personas: List<BotPersonaDto> = emptyList())
 
-// Campo nulo = NAO MEXI. Com `encodeDefaults=false` no Json do app, nulo nem
-// chega a ser serializado, entao o corpo carrega so o que foi trocado.
-//
-// E por isso que "voltar ao original" NAO pode ser um nulo: ele sairia igual a
-// "nao mexi" e o servidor nao teria como distinguir os dois. Daí `limpar`, que
-// lista pelo NOME os campos que devem voltar ao que esta no codigo.
 @Serializable
 data class BotPersonaPatch(
     val displayName: String? = null,
@@ -47,9 +38,6 @@ data class BotPersonaPatch(
     val limpar: List<String>? = null,
 )
 
-// Um comando como ele aparece na tela de configuração da constelação: a chave
-// estável (que vai pro banco), o nome curto e a categoria pra agrupar. Sem prefixo
-// e sem exemplo — ali a pergunta é "isto fica ligado?", não "como se usa".
 @Serializable
 data class BotComandoDto(
     val chave: String,

@@ -1,8 +1,5 @@
 import { env } from './env'
 
-// Envio via API HTTP do Brevo (nao SMTP): o Render bloqueia portas SMTP de
-// saida (465/587) -> nodemailer dava "Connection timeout". HTTPS passa pelo
-// firewall numa boa. Sem lib nova: fetch global (Node 20).
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email'
 
 export function initMailer() {
@@ -39,8 +36,6 @@ export async function sendVerificationCode(to: string, code: string) {
     }),
   })
   if (!res.ok) {
-    // Surge o motivo real (401 key errada, 400 remetente nao verificado...)
-    // pro .catch de quem chama logar. Corta o corpo pra nao poluir o log.
     const body = await res.text().catch(() => '')
     throw new Error(`Brevo ${res.status}: ${body.slice(0, 300)}`)
   }

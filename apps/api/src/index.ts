@@ -90,16 +90,6 @@ const io = new SocketServer(httpServer, {
   pingTimeout:       20_000,
   pingInterval:      25_000,
 })
-// UMA instancia so alcanca os sockets DELA. `io.emit` num processo nao chega em
-// quem esta conectado no outro — e o dia em que a API rodar em 2 processos,
-// METADE dos avisos some sem erro nenhum no log. O adapter do Redis resolve isso
-// repassando os eventos por pub/sub.
-//
-// Fica atras de um interruptor (SOCKET_ADAPTER=redis) de proposito, e nao ligado
-// sempre, por dois motivos concretos: o plano free do Upstash conta comando e o
-// adapter publica um por broadcast, e nem todo Redis gerenciado libera pub/sub.
-// Hoje o Render roda 1 instancia — ligar so gastaria cota sem ganhar nada.
-// No dia que escalar: uma variavel de ambiente, sem tocar em codigo.
 if (process.env.SOCKET_ADAPTER === 'redis') {
   const pub = redis.duplicate()
   const sub = redis.duplicate()
@@ -108,7 +98,6 @@ if (process.env.SOCKET_ADAPTER === 'redis') {
 }
 
 setupSocket(io)
-// Rotas que emitem por socket sao routers `const` (nao factory) — io por setter.
 attachRealtime(io)
 ligarAvisosDaBot(io)
 
@@ -132,22 +121,13 @@ app.use(compression())
 app.use(reqContext)
 app.use(httpMetrics)
 
-// AS DUAS ROTAS QUE RECEBEM IMAGEM NO CORPO (avatar/banner de perfil e
-// icone/banner de constelacao) andam em data-uri, nao em multipart. Com o cliente
-// salvando em 2560/1024 pra nao borrar em tela 4K, um banner PNG com
-// transparencia passa folgado dos 8mb antigos — e passar do limite aqui vira 413
-// no meio do "salvar perfil", sem dizer o motivo. 16mb cobre o teto de 10MB
-// binario do cliente (ImageCrop.HARD_MAX) mais o inchaco de 33% do base64.
 app.use('/api/profile', express.json({ limit: '16mb' }))
 app.use('/api/servers', express.json({ limit: '16mb' }))
-// Foto e banner das bots sobem por aqui, no mesmo formato data-uri do perfil.
 app.use('/api/bots', express.json({ limit: '16mb' }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '128kb' }))
 app.use(sanitizeInputs)
 
-// /health ANTES do rate-limiter: e um GET de uptime (cron-job.org pinger + o
-// checkRedis) sem userId — nao deve pagar rate-limit por IP nem gastar comando.
 app.use(healthRouter)
 
 app.use(globalLimiter)
@@ -177,14 +157,6 @@ app.use('/api/servers', serverBadgesRouter)
 app.use('/api/users',   userBadgesRouter)
 app.use('/api',         notificationsRouter)
 app.use('/api/bot',     botCommandsRouter)
-// Marcadores e as rotas HTTP de lembrete SAIRAM (2026-08-16, decisao do dono): nao
-// tinham porta no desktop, e a do web foi removida junto. O WORKER de lembrete
-// continua (lib/reminders.ts, importado acima) porque a Sparkle marca lembrete por
-// comando e a entrega funciona -- isso nao era superficie morta.
-//
-// TRADUCAO FICOU. Ela parecia morta olhando desktop e web, mas o :app ANDROID usa em
-// producao (Translator -> ChannelChatViewModel e DmChatViewModel). Auditoria de
-// superficie morta tem de olhar os TRES clientes, nao dois.
 app.use('/api/translate', translateRouter)
 app.use('/api/friends',   friendsRouter)
 app.use('/api/blocks',    blocksRouter)
@@ -196,16 +168,6 @@ app.use('/api/sessions',  sessionsRouter)
 app.use('/api/servers',   emojisRouter)
 app.use('/api',           channelNotifPrefsRouter)
 
-// Arquivos que VIAJAM COM O CODIGO — hoje, as fotos das duas personas do bot.
-//
-// Diferente de /uploads em tudo que importa: /uploads e disco efemero do Render e
-// morre no proximo deploy (por isso o R2 existe); isto esta no repositorio e sobe
-// junto com o build, entao nunca some e pode ficar muito tempo em cache.
-//
-// POR QUE ARQUIVO E NAO data-URI embutido: avatarUrl viaja no `author` de CADA
-// mensagem. Em base64 a foto do bot seriam ~125KB repetidos por mensagem; aqui e
-// uma URL de 24 caracteres, baixada uma vez e guardada no cache de disco do
-// cliente. __dirname resolve pro mesmo lugar em dev (src/) e em producao (dist/).
 app.use('/static', express.static(resolve(__dirname, '../public'), {
   maxAge: '7d', fallthrough: true,
   setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff') },
@@ -214,8 +176,6 @@ app.use('/static', express.static(resolve(__dirname, '../public'), {
 app.use('/uploads', express.static(UPLOAD_DIR, {
   maxAge: '1d', immutable: true, fallthrough: true,
   setHeaders: (res, filePath) => {
-    // So imagem/video/audio abrem inline; qualquer outro tipo BAIXA (nunca
-    // renderiza no dominio da API) -> mata hospedagem de HTML/phishing no /uploads.
     const inlineOk = /\.(png|jpe?g|gif|webp|avif|mp4|webm|mov|mp3|wav|ogg|weba|m4a|aac)$/i.test(filePath)
     if (!inlineOk) res.setHeader('Content-Disposition', 'attachment')
     res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -268,17 +228,10 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 })
 
 process.on('unhandledRejection', (r) => {
-  // NÃO derruba o processo. Uma promise rejeitada sem catch em qualquer canto
-  // (ex.: um comando de cache) não deve tirar a API inteira do ar — foi isso que
-  // causou a queda do Upstash capado (um refreshPresence fire-and-forget). Loga +
-  // reporta e segue; o request que a originou falha isolado, o servidor sobrevive.
   logger.error('UnhandledRejection', String(r), r)
   sentry.captureException(r)
 })
 process.on('uncaughtException', (e) => {
-  // Exceção SÍNCRONA não capturada = o processo pode estar em estado indefinido,
-  // então sair (e deixar o Render reiniciar) é o certo. Diferente de uma promise
-  // rejeitada, que é localizada e recuperável.
   logger.error('UncaughtException', String(e), e)
   sentry.captureException(e)
   process.exit(1)
@@ -288,24 +241,13 @@ httpServer.listen(env.PORT, async () => {
   logger.info('Astra API', `http://localhost:${env.PORT} (${env.NODE_ENV})`)
   await ensureCategorySchema()
   await initBot()
-  // Depois do initBot (precisa da conta existir) e sem await: as constelacoes que
-  // ja existiam ganham a bot no painel, mas ninguem espera o servidor subir por
-  // causa disso.
   void garantirBotEmTodas()
-  // A passagem de turno entre a Sparkle e a Sparxie. Checagem preguicosa e
-  // idempotente em vez de timer pra meia-noite — ver botAvisos.ts.
   agendarTrocaDeTurno()
-  // Diz QUAL cerebro acordou. "Eu pus a chave no painel" e "a chave chegou no
-  // processo" sao coisas diferentes, e sem esta linha a unica forma de saber a
-  // diferenca era adivinhar.
   logger.info('Bot', IA_LIGADA ? `Pronto — IA: ${IA_PROVEDOR} (${MODELO_CONVERSA}).` : 'Pronto — IA DESLIGADA: nenhuma chave no ambiente (GROQ_API_KEY?). So os comandos funcionam.')
   startRetentionWorker()
   logger.info('Retention', 'Worker iniciado (1h)')
   startReminderWorker(io)
   logger.info('Reminders', 'Worker iniciado (30s)')
-  // O relogio devolve quem cumpriu um minuto valido de call, e daqui vira evento de
-  // missao. A ligacao mora no index e nao dentro do lib/xp porque as missoes
-  // creditam XP — importar uma da outra fecharia um ciclo.
   iniciarRelogioDeCall((ids) => {
     for (const id of ids) void eventoDeMissao(id, 'call')
   })

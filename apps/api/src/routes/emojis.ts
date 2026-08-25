@@ -115,10 +115,6 @@ router.post(
 
     const id  = crypto.randomBytes(16).toString('hex')
     const filename = `${id}${ext}`
-    // Passa pelo putAttachment como TODO o resto. Antes era fs.writeFile direto no
-    // disco da instancia — o unico arquivo do app que nunca via o bucket, entao
-    // emoji personalizado morria em todo deploy do Render por mais bem configurado
-    // que o storage estivesse.
     const url = await putAttachment(filename, buffer, mime)
 
     const [created] = await db.insert(serverEmojis).values({
@@ -145,7 +141,6 @@ router.delete(
       .returning({ id: serverEmojis.id, url: serverEmojis.url })
     if (result.length === 0) return res.status(404).json({ error: 'Emoji não encontrado' })
 
-    // Apaga de onde estiver (disco ou bucket) — antes so sabia apagar do disco.
     void removeAttachment(result[0].url)
     res.json({ data: { ok: true } })
   })

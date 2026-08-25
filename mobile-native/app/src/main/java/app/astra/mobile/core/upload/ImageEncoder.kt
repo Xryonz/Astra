@@ -43,8 +43,6 @@ object ImageEncoder {
         }
     }
 
-    // Como toDataUri, mas devolve bytes crus (pra upload multipart, ex: emojis).
-    // GIF passa direto se couber no limite (preserva animacao); estatico vira JPEG.
     suspend fun toUploadBytes(
         bytes: ByteArray,
         mime: String,
@@ -73,8 +71,6 @@ object ImageEncoder {
         }
     }
 
-    // Decodifica JA aplicando o EXIF orientation. BitmapFactory ignora esse
-    // metadata -> fotos de retrato (camera grava orientation=6/8) saiam deitadas.
     private fun decodeOriented(bytes: ByteArray): Bitmap? {
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         val orientation = try {
@@ -102,8 +98,6 @@ object ImageEncoder {
         }
     }
 
-    // WebP economiza ~25-35% vs JPEG na mesma qualidade. WEBP_LOSSY e API 30+;
-    // <30 cai no WEBP (deprecated, mesma codificacao lossy). minSdk do app e 24.
     private fun compress(bmp: Bitmap, quality: Int): ByteArray {
         val fmt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Bitmap.CompressFormat.WEBP_LOSSY

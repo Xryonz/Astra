@@ -33,12 +33,9 @@ interface NotificationApi {
     @POST("api/notifications/read-all")
     suspend fun readAll()
 
-    // Apaga o historico inteiro (nao e o mesmo que marcar tudo como lido).
     @DELETE("api/notifications")
     suspend fun clearAll()
 
-    // ---- Preferencias de notificacao (silenciar): backend em channelNotifPrefs.ts.
-    // mode = "all" | "mentions" | "mute". Silenciar = "mute"; reativar = clear (default "all").
     @GET("api/channels/notification-prefs")
     suspend fun channelNotifPrefs(): ApiEnvelope<List<ChannelNotifPrefDto>>
 
@@ -57,9 +54,6 @@ interface NotificationApi {
     @DELETE("api/servers/{id}/notification-pref")
     suspend fun clearServerNotifPref(@Path("id") serverId: String): ApiEnvelope<ServerNotifPrefDto>
 
-    // ---- Avisos da CONTA (valem em todo dispositivo): backend em notifications.ts.
-    // Aqui se decide se o aviso existe; as prefs de canal/servidor acima decidem
-    // de ONDE ele pode vir.
     @GET("api/notifications/prefs")
     suspend fun avisosDaConta(): ApiEnvelope<AvisosDaContaResposta>
 

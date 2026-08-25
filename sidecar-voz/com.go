@@ -1,30 +1,5 @@
 package main
 
-// COM À MÃO, SEM CGO.
-//
-// O áudio do Windows (WASAPI) e o cancelamento de eco (Voice Capture DSP) só
-// existem como objetos COM. A saída usual seria cgo; aqui não, pelo mesmo motivo do
-// Opus — manter o build como `go build` puro.
-//
-// COMO COM FUNCIONA, para quem for mexer nisto depois: um objeto COM é um ponteiro
-// para um ponteiro para uma tabela de funções (a "vtable"). Chamar o método N é ler
-// o ponteiro N dessa tabela e pular para ele, passando o próprio objeto como
-// primeiro argumento — é `this` explícito, exatamente como C++ faz por baixo.
-//
-// TRÊS REGRAS QUE NÃO SE QUEBRAM AQUI, e as três já custaram caro em outros
-// projetos:
-//
-//  1. O ÍNDICE É CONTADO A PARTIR DE IUnknown. Todo objeto COM começa com
-//     QueryInterface(0), AddRef(1) e Release(2). O primeiro método próprio de
-//     qualquer interface é o índice 3. Errar o índice não dá erro: chama a função
-//     errada, com os argumentos errados, e trava.
-//  2. COM TEM AFINIDADE DE THREAD. Quem inicializa o apartamento tem que ser a
-//     mesma thread que usa os objetos — daí `runtime.LockOSThread()` em toda
-//     goroutine que toca nisto. Sem isso o Go troca a goroutine de thread no meio e
-//     o comportamento vira aleatório.
-//  3. TODO OBJETO OBTIDO PRECISA DE Release. Não há coletor de lixo do outro lado
-//     da fronteira.
-
 import (
 	"fmt"
 	"syscall"
@@ -33,38 +8,19 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Os três primeiros índices de qualquer vtable COM.
 const (
 	idxQueryInterface = 0
 	idxAddRef         = 1
 	idxRelease        = 2
 )
 
-// objeto é um ponteiro para uma interface COM. Fica sem tipo de propósito: o que
-// dá segurança aqui não é o tipo em Go, é o índice certo na tabela — e um tipo
-// próprio por interface daria a falsa impressão de que o compilador está
-// conferindo alguma coisa.
 type objeto uintptr
 
-// metodo lê o endereço do método `indice` na vtable.
-//
-// O `go vet` marca esta linha como "possível mau uso de unsafe.Pointer", e a
-// marcação é correta EM GERAL: converter uintptr em ponteiro é perigoso porque o
-// coletor de lixo do Go não enxerga uintptr e pode mover o que ele apontava.
-//
-// Aqui é seguro, e o motivo é específico: este endereço é de memória NATIVA,
-// alocada pelo COM, fora do heap do Go. Não há nada para o coletor mover. É o
-// mesmo motivo pelo qual todo interop com COM em Go tem esta linha — não existe
-// forma de expressá-la que o vet aceite sem mentir sobre o que ela faz.
-//
-// O 64 é um teto folgado: nenhuma interface usada aqui passa de 15 métodos.
 func (o objeto) metodo(indice int) uintptr {
-	vt := *(**[64]uintptr)(unsafe.Pointer(o)) //nolint:govet // ponteiro nativo, ver acima
+	vt := *(**[64]uintptr)(unsafe.Pointer(o))
 	return vt[indice]
 }
 
-// chamar invoca o método `indice` passando o próprio objeto como primeiro
-// argumento, que é a convenção de chamada de COM.
 func (o objeto) chamar(indice int, args ...uintptr) uintptr {
 	todos := make([]uintptr, 0, len(args)+1)
 	todos = append(todos, uintptr(o))
@@ -73,23 +29,6 @@ func (o objeto) chamar(indice int, args ...uintptr) uintptr {
 	return r
 }
 
-// consultar é o QueryInterface: pede OUTRA interface do mesmo objeto.
-//
-// Um objeto COM costuma implementar várias, e cada uma tem a própria tabela de
-// funções. O cancelador de eco é o caso vivo disto no projeto: a configuração dele
-// entra por `IPropertyStore` e o áudio sai por `IMediaObject`, no mesmo objeto.
-//
-// Quem recebe a interface nova precisa soltá-la separado — cada uma carrega a
-// própria contagem de referências.
-// SUCESSO COM PONTEIRO NULO É FALHA, e precisa ser dito aqui. Um `QueryInterface` que
-// devolve código de sucesso sem escrever a interface acontece — driver com defeito,
-// objeto em estado ruim, e o caso comum neste projeto: um `S_FALSE` (código 1, bit alto
-// apagado) que `hr` deixa passar por não ser negativo.
-//
-// Sem esta guarda, quem chamou segue com um zero e o primeiro método vira leitura de
-// endereço nulo — que em Go não é erro devolvido, é QUEDA DO PROCESSO INTEIRO. Numa
-// chamada de voz isso derruba todo mundo da sala por causa de um monitor que não
-// duplicou. Já custou uma queda aqui, em `AbrirTela`.
 func (o objeto) consultar(iid *windows.GUID) (objeto, error) {
 	const consultarInterface = 0
 	var outra objeto
@@ -106,8 +45,6 @@ func (o objeto) consultar(iid *windows.GUID) (objeto, error) {
 	return outra, nil
 }
 
-// naoNulo é a mesma guarda de `consultar` para as chamadas que devolvem objeto por
-// parâmetro de saída em vez de por QueryInterface.
 func naoNulo(o objeto, oQueFazia string) error {
 	if o == 0 {
 		return fmt.Errorf("%s: respondeu sucesso sem entregar o objeto", oQueFazia)
@@ -115,8 +52,6 @@ func naoNulo(o objeto, oQueFazia string) error {
 	return nil
 }
 
-// soltar chama Release. Seguro em ponteiro nulo, porque desmontar coisa pela metade
-// é o caso normal quando algo falha no meio da abertura.
 func (o objeto) soltar() {
 	if o == 0 {
 		return
@@ -124,12 +59,6 @@ func (o objeto) soltar() {
 	o.chamar(idxRelease)
 }
 
-// hr transforma um HRESULT em erro.
-//
-// HRESULT é um inteiro de 32 bits em que o bit mais alto ligado significa falha.
-// O texto vem do próprio Windows, que costuma explicar melhor que qualquer tabela
-// que eu escrevesse aqui — e alguns erros de áudio (dispositivo em uso, formato
-// recusado) têm mensagem boa.
 func hr(codigo uintptr, oQueFazia string) error {
 	c := uint32(codigo)
 	if c&0x80000000 == 0 {
@@ -138,40 +67,26 @@ func hr(codigo uintptr, oQueFazia string) error {
 	return fmt.Errorf("%s: %w", oQueFazia, windows.Errno(c))
 }
 
-// guid monta um windows.GUID a partir da forma escrita na documentação da
-// Microsoft. Escrever assim, em vez de campo a campo, é o que permite conferir cada
-// identificador contra a documentação de olho, sem reordenar bytes na cabeça.
 func guid(d1 uint32, d2, d3 uint16, d4 [8]byte) windows.GUID {
 	return windows.GUID{Data1: d1, Data2: d2, Data3: d3, Data4: d4}
 }
 
-// ---------------------------------------------------------------------------
-// Identificadores do subsistema de áudio.
-
 var (
-	// CLSID_MMDeviceEnumerator {BCDE0395-E52F-467C-8E3D-C4579291692E}
 	clsidEnumeradorDeDispositivos = guid(0xBCDE0395, 0xE52F, 0x467C,
 		[8]byte{0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E})
 
-	// IID_IMMDeviceEnumerator {A95664D2-9614-4F35-A746-DE8DB63617E6}
 	iidEnumeradorDeDispositivos = guid(0xA95664D2, 0x9614, 0x4F35,
 		[8]byte{0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6})
 
-	// IID_IAudioClient {1CB9AD4C-DBFA-4C32-B178-C2F568A703B2}
 	iidClienteDeAudio = guid(0x1CB9AD4C, 0xDBFA, 0x4C32,
 		[8]byte{0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2})
 
-	// IID_IAudioCaptureClient {C8ADBD64-E71E-48A0-A4DE-185C395CD317}
 	iidClienteDeCaptura = guid(0xC8ADBD64, 0xE71E, 0x48A0,
 		[8]byte{0xA4, 0xDE, 0x18, 0x5C, 0x39, 0x5C, 0xD3, 0x17})
 
-	// IID_IAudioRenderClient {F294ACFC-3146-4483-A7BF-ADDCA7C260E2}
 	iidClienteDeSaida = guid(0xF294ACFC, 0x3146, 0x4483,
 		[8]byte{0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2})
 
-	// PKEY_Device_FriendlyName — a chave do nome legível do aparelho, aquele que o
-	// Windows mostra em Configurações. É um par (GUID, índice), e não um GUID só:
-	// {A45C254E-DF1C-4EFD-8020-67D146A850E0}, índice 14.
 	chaveNomeAmigavel = chaveDePropriedade{
 		conjunto: guid(0xA45C254E, 0xDF1C, 0x4EFD,
 			[8]byte{0x80, 0x20, 0x67, 0xD1, 0x46, 0xA8, 0x50, 0xE0}),
@@ -179,60 +94,41 @@ var (
 	}
 )
 
-// chaveDePropriedade é o PROPERTYKEY do Windows: um conjunto de propriedades mais
-// o índice dentro dele.
 type chaveDePropriedade struct {
 	conjunto windows.GUID
 	id       uint32
 }
 
-// propvariant é o PROPVARIANT do Windows, e o tamanho aqui não é chute.
-//
-// A união interna cabe em 16 bytes no x64 e o cabeçalho ocupa 8, então 24 bytes é o
-// que a estrutura mede. Declarar menos faz o `GetValue` escrever depois do fim do
-// que reservamos — corrupção de pilha que aparece longe da causa, do pior tipo
-// possível de caçar.
-//
-// Só interessa o caso de texto (`VT_LPWSTR`), em que os 8 bytes a partir do offset
-// 8 são o ponteiro para a string larga.
 type propvariant struct {
-	tipo      uint16
-	_         [3]uint16
-	ponteiro  uintptr
-	_         uintptr
+	tipo     uint16
+	_        [3]uint16
+	ponteiro uintptr
+	_        uintptr
 }
 
-const tipoTextoLargo = 31 // VT_LPWSTR
+const tipoTextoLargo = 31
 
-// Índices de vtable. Cada lista segue a ORDEM DE DECLARAÇÃO no cabeçalho da
-// Microsoft, que é o que define a tabela — não a ordem alfabética nem a da
-// documentação em HTML, que às vezes difere.
 const (
-	// IMMDeviceEnumerator (mmdeviceapi.h)
 	mmEnumAudioEndpoints        = 3
 	mmGetDefaultAudioEndpoint   = 4
 	_mmGetDevice                = 5
 	_mmRegisterEndpointNotify   = 6
 	_mmUnregisterEndpointNotify = 7
 
-	// IMMDevice (mmdeviceapi.h)
 	mmDeviceActivate  = 3
-	mmDeviceAbrirLoja = 4 // OpenPropertyStore
+	mmDeviceAbrirLoja = 4
 	mmDeviceGetId     = 5
 	_mmDeviceGetSt    = 6
 
-	// IMMDeviceCollection (mmdeviceapi.h)
-	colContar = 3 // GetCount
-	colItem   = 4 // Item
+	colContar = 3
+	colItem   = 4
 
-	// IPropertyStore (propsys.h)
 	_lojaContar  = 3
 	_lojaChave   = 4
-	lojaLer      = 5 // GetValue
-	lojaEscrever = 6 // SetValue
-	_lojaFirmar  = 7 // Commit
+	lojaLer      = 5
+	lojaEscrever = 6
+	_lojaFirmar  = 7
 
-	// IAudioClient (audioclient.h)
 	acInitialize         = 3
 	acGetBufferSize      = 4
 	_acGetStreamLatency  = 5
@@ -246,58 +142,35 @@ const (
 	acSetEventHandle     = 13
 	acGetService         = 14
 
-	// IAudioCaptureClient (audioclient.h)
 	capGetBuffer         = 3
 	capReleaseBuffer     = 4
 	capGetNextPacketSize = 5
 
-	// IAudioRenderClient (audioclient.h)
 	renGetBuffer     = 3
 	renReleaseBuffer = 4
 )
 
-// Papéis e sentidos de dispositivo (mmdeviceapi.h).
 const (
-	sentidoSaida   = 0 // eRender
-	sentidoEntrada = 1 // eCapture
+	sentidoSaida   = 0
+	sentidoEntrada = 1
 
-	// eCommunications, e não eConsole, de propósito: é o dispositivo que a pessoa
-	// escolheu no Windows PARA CONVERSAR. Quem tem uma placa de som boa para
-	// música e um headset para call espera que o app de conversa use o headset.
 	papelComunicacao = 2
 )
 
-// Modo e bandeiras do IAudioClient::Initialize (audioclient.h).
 const (
-	modoCompartilhado = 0 // AUDCLNT_SHAREMODE_SHARED
+	modoCompartilhado = 0
 
-	// AUDCLNT_STREAMFLAGS_EVENTCALLBACK — o Windows avisa quando há buffer pronto,
-	// em vez de o programa ficar perguntando. É o que permite latência baixa sem
-	// queimar um núcleo num laço de espera.
 	avisaPorEvento = 0x00040000
 
-	// AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM + SRC_DEFAULT_QUALITY: deixa o Windows
-	// reamostrar para o formato que pedimos. Sem isto, seria preciso aceitar a taxa
-	// nativa do aparelho (44,1 kHz em muita placa) e reamostrar na mão para os 48
-	// kHz que o Opus quer — trabalho que o sistema já faz bem.
 	converteFormato   = 0x80000000
 	qualidadePadraoSR = 0x08000000
 )
 
-// tamanhoDeReferencia é a unidade de tempo do WASAPI: 100 nanossegundos. Um buffer
-// de 20ms são 200000 destas.
 const porMilissegundo = 10000
 
-// abrirCOM prepara o apartamento COM da thread atual.
-//
-// Multithreaded (MTA) porque o áudio roda em goroutine própria, sem bomba de
-// mensagens de janela — apartamento de thread única exigiria uma, e não temos.
-//
-// RPC_E_CHANGED_MODE significa que a thread já está num apartamento de outro tipo.
-// Isso não é falha para nós: os objetos continuam utilizáveis.
 func abrirCOM() error {
 	const rpcMudouModo = 0x80010106
-	r, _, _ := procCoInitializeEx.Call(0, 0 /* COINIT_MULTITHREADED */)
+	r, _, _ := procCoInitializeEx.Call(0, 0)
 	if uint32(r) == rpcMudouModo {
 		return nil
 	}
@@ -314,9 +187,8 @@ var (
 
 func fecharCOM() { procCoUninitialize.Call() }
 
-// criar instancia um objeto COM pelo identificador de classe.
 func criar(clsid, iid *windows.GUID) (objeto, error) {
-	const contextoNoProcesso = 1 // CLSCTX_INPROC_SERVER
+	const contextoNoProcesso = 1
 	var obj objeto
 	r, _, _ := procCoCreateInst.Call(
 		uintptr(unsafe.Pointer(clsid)),
@@ -331,21 +203,12 @@ func criar(clsid, iid *windows.GUID) (objeto, error) {
 	return obj, nil
 }
 
-// liberarMemoriaDoCOM devolve memória que o Windows alocou para nós (formatos de
-// áudio, identificadores de dispositivo). Quem aloca é quem manda no alocador, e
-// aqui quem alocou foi o COM.
 func liberarMemoriaDoCOM(p uintptr) {
 	if p != 0 {
 		procCoTaskMemFree.Call(p)
 	}
 }
 
-// formatoDeOnda é o WAVEFORMATEX do Windows.
-//
-// O CAMPO `Extra` NÃO É ENFEITE: quando ele é diferente de zero, a estrutura de
-// verdade é maior (WAVEFORMATEXTENSIBLE) e tem 22 bytes a mais logo depois. Ler ou
-// copiar só estes campos, nesse caso, perde informação — é por isso que o formato
-// devolvido pelo Windows é sempre tratado por ponteiro, e nunca copiado.
 type formatoDeOnda struct {
 	Tipo        uint16
 	Canais      uint16
@@ -356,23 +219,10 @@ type formatoDeOnda struct {
 	Extra       uint16
 }
 
-// O TAMANHO DE VERDADE DO WAVEFORMATEX SÃO 18 BYTES, e `unsafe.Sizeof` diz 20.
-//
-// O Go arredonda o struct para múltiplo do próprio alinhamento (4, por causa dos
-// campos de 32 bits); o `WAVEFORMATEX` do C é empacotado e termina no `cbSize`, sem
-// sobra. Todos os CAMPOS caem na posição certa nos dois — só o rabo difere.
-//
-// Isso passou despercebido por muito tempo porque o WASAPI lê o formato por posição
-// e nunca olha o tamanho declarado. O cancelador de eco OLHA: passar 20 fez o
-// `SetOutputType` recusar com "exceção não esperada", que não diz nada sobre
-// tamanho de struct e mandaria qualquer um procurar no lugar errado.
-//
-// Constante, e não `unsafe.Sizeof`, justamente para não voltar a mentir.
 const tamanhoDoFormatoDeOnda = 18
 
-// formatoPCM monta o formato que queremos: PCM de 16 bits, o que o Opus consome.
 func formatoPCM(taxa, canais int) formatoDeOnda {
-	const pcm = 1 // WAVE_FORMAT_PCM
+	const pcm = 1
 	bloco := uint16(canais * 2)
 	return formatoDeOnda{
 		Tipo:        pcm,

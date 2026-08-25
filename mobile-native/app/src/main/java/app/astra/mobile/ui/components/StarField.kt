@@ -82,9 +82,6 @@ private val METEORS: List<MeteorDef> = buildList {
     repeat(3) { i -> add(MeteorDef(0.3f + rnd() * 0.6f, i / 3f, -(0.25f + rnd() * 0.45f))) }
 }
 
-// Parallax: acelerometro com dois low-pass (rapido - lento) = responde a MUDANCA
-// de inclinacao e re-centra sozinho em ~5s, entao funciona deitado ou em pe.
-// So escreve MutableState lido na draw-phase: re-desenha sem recompor.
 @Composable
 private fun rememberParallaxTilt(enabled: Boolean): State<Offset> {
     val context = LocalContext.current
@@ -172,7 +169,6 @@ fun StarField(
         val w = size.width
         val h = size.height
         val tv = tilt?.value ?: Offset.Zero
-        // Camadas em profundidade: estrelas de fundo mexem menos que as brilhantes.
         val dxBg = sin(drift) * 14.dp.toPx() - tv.x * 5.dp.toPx()
         val dyBg = (cos(drift) - 1f) * 9.dp.toPx() - tv.y * 5.dp.toPx()
         val dxTw = sin(drift) * 14.dp.toPx() - tv.x * 10.dp.toPx()
@@ -219,11 +215,6 @@ private fun StarFieldStatic(modifier: Modifier = Modifier, color: Color = astraC
     }
 }
 
-// Aurora AGSL v2: cortinas organicas por ruido fractal (FBM), nao mais senos.
-// O tempo anda num CIRCULO no espaco de ruido (cos/sin * raio), entao o loop de
-// 60s fecha perfeito sem salto. Ainda barato: value-noise ALU-only, sem textura.
-// Extras: tilt (parallax por sensor) desloca o uv; tap no fundo vazio = pulso de
-// glow + anel que expande (rippleAge < 0 desliga o branch).
 private const val AURORA_AGSL = """
 uniform float2 iResolution;
 uniform float iTime;
@@ -289,17 +280,12 @@ half4 main(float2 fragCoord) {
 }
 """
 
-private const val TIME_LOOP = 62.831853f // 20*PI: fecha o circulo do fbm E os sin
+private const val TIME_LOOP = 62.831853f
 
-// Trilha do cometa (arrasto no ceu vazio): pontos recentes do dedo que a cauda
-// liga, esvaindo em ~0.5s. Vive no mesmo Box pai do gesto de toque.
 private const val TRAIL_LIFE_MS = 520L
 private const val TRAIL_MAX = 64
 private data class TrailPoint(val pos: Offset, val bornMs: Long)
 
-// Estado do efeito de toque. Vive no CosmicBackdrop porque o GESTO e detectado
-// no Box pai (hit-path de toda a UI); o canvas da aurora fica atras do conteudo
-// e nunca receberia toques em telas cobertas por listas (chat, DMs, servidores).
 private class TouchFx {
     val uv = mutableStateOf(Offset.Zero)
     val glow = Animatable(0f)
@@ -323,12 +309,6 @@ private fun AuroraShader(
     )
 
     val r = color.red; val g = color.green; val b = color.blue
-    // MEIA RESOLUCAO: o AGSL custa por pixel. O canvas e MEDIDO na metade do
-    // tamanho e composto com scale 2x a partir de um buffer offscreen -> o
-    // shader calcula ~25% dos pixels. O upscale bilinear e invisivel aqui
-    // (aurora e gradiente desfocado); estrelas/conteudo seguem em res cheia.
-    // O shader e independente de resolucao (uv = fragCoord/iResolution), entao
-    // toque/tilt continuam alinhados com a tela sem ajuste.
     Canvas(
         modifier
             .layout { measurable, constraints ->
@@ -343,13 +323,9 @@ private fun AuroraShader(
                 scaleX = 2f
                 scaleY = 2f
                 transformOrigin = TransformOrigin(0f, 0f)
-                // Sem Offscreen o RenderNode reexecutaria o draw ja transformado
-                // (= shader por pixel FINAL, ganho zero). Com ele, rasteriza no
-                // tamanho do layout e escala a textura.
                 compositingStrategy = CompositingStrategy.Offscreen
             },
     ) {
-        // Fase de desenho (como o StarField): le estados animados sem recompor.
         val tv = tilt.value
         val age = fx.ripple.value
         shader.setFloatUniform("iResolution", size.width, size.height)
@@ -363,10 +339,6 @@ private fun AuroraShader(
     }
 }
 
-// Fundo cosmico REAL: uma unica instancia global no AstraApp, atras do NavHost
-// (1 shader + 1 starfield + 1 sensor pro app todo; transicoes de tela deslizam
-// o conteudo sobre o ceu parado, estilo Discord/iOS). Overlays que cobrem tudo
-// (ex.: ProfileSheet) usam este direto pra ficarem opacos.
 @Composable
 fun CosmicBackdrop(
     modifier: Modifier = Modifier,
@@ -375,14 +347,10 @@ fun CosmicBackdrop(
 ) {
     val prefs = LocalAppPrefs.current
     val auroraShown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && prefs.auroraOn
-    // Parallax so quando algo anima (respeita reduceMotion via getters starsOn/auroraOn).
     val tilt = rememberParallaxTilt(enabled = auroraShown || prefs.starsOn)
     val fx = remember { TouchFx() }
     val trail = remember { mutableStateListOf<TrailPoint>() }
     val scope = rememberCoroutineScope()
-    // Deteccao no Box PAI (esta no hit-path de toda tela, ao contrario do canvas
-    // atras do conteudo): "tap no vazio" = gesto que NENHUM filho consumiu (nao
-    // foi click, scroll nem campo de texto) e que nao arrastou alem do slop.
     val touchMod = if (interactive && auroraShown && prefs.skyTouchOn) {
         Modifier.pointerInput(Unit) {
             awaitEachGesture {
@@ -398,14 +366,13 @@ fun CosmicBackdrop(
                     if (!dragging) {
                         if (ch.isConsumed) break
                         if ((ch.position - down.position).getDistance() > slop) {
-                            // Virou arrasto no ceu vazio: abre a trilha do cometa.
                             dragging = true
                             val t = System.currentTimeMillis()
                             trail.add(TrailPoint(down.position, t))
                             trail.add(TrailPoint(ch.position, t))
                         }
                     } else {
-                        if (ch.isConsumed) break // um filho pegou (scroll) -> encerra
+                        if (ch.isConsumed) break
                         trail.add(TrailPoint(ch.position, System.currentTimeMillis()))
                         while (trail.size > TRAIL_MAX) trail.removeAt(0)
                     }
@@ -433,8 +400,6 @@ fun CosmicBackdrop(
         Modifier
     }
     Box(modifier.fillMaxSize().background(astraColors.void).then(touchMod)) {
-        // Aurora so em Android 13+ (RuntimeShader) e com o toggle ligado (que ja
-        // inclui o mestre reduceMotion). Senao, fallback = void + StarField.
         if (auroraShown) {
             AuroraShader(astraColors.accent, tilt = tilt, fx = fx)
         }
@@ -444,10 +409,6 @@ fun CosmicBackdrop(
     }
 }
 
-// Cauda do cometa: liga os pontos recentes do dedo. Cada segmento pega alpha e
-// largura por IDADE (esvai em ~0.5s) e por POSICAO (cauda fina/apagada, cabeca
-// grossa/brilhante) + um ponto com glow na cabeca — estilo dos meteoros. O
-// ticker so gira enquanto ha pontos vivos (ceu parado = zero custo).
 @Composable
 private fun CometTrail(points: SnapshotStateList<TrailPoint>, color: Color) {
     val active = points.isNotEmpty()
@@ -461,7 +422,7 @@ private fun CometTrail(points: SnapshotStateList<TrailPoint>, color: Color) {
         }
     }
     Canvas(Modifier.fillMaxSize()) {
-        frame.value // assina o frame: redesenha a cada quadro enquanto vivo
+        frame.value
         val now = System.currentTimeMillis()
         val n = points.size
         if (n == 0) return@Canvas
@@ -483,9 +444,6 @@ private fun CometTrail(points: SnapshotStateList<TrailPoint>, color: Color) {
     }
 }
 
-// Compat: as telas continuam usando CosmicBackground como container, mas o ceu
-// agora e global (CosmicBackdrop no AstraApp) — aqui e so um Box transparente.
-// `interactive` e ignorado: o toque reativo vive no backdrop global.
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun CosmicBackground(

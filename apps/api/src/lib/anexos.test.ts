@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { urlDeAnexoPermitida, primeiroAnexoNaoPermitido } from './storage'
 
-// Anexo e a unica coisa que um estranho manda e o seu cliente BAIXA sozinho. Se a
-// URL pudesse apontar pra qualquer lugar, mandar uma mensagem entregaria o IP e o
-// horario de leitura de quem abrisse a conversa. Por isso a regra e de HOST.
 describe('urlDeAnexoPermitida', () => {
   it('aceita o armazenamento local do proprio app', () => {
     expect(urlDeAnexoPermitida('/uploads/abc123.png')).toBe(true)
@@ -23,7 +20,6 @@ describe('urlDeAnexoPermitida', () => {
     expect(urlDeAnexoPermitida('http://media.giphy.com/x.gif')).toBe(false)
   })
 
-  // O sufixo tem que casar com PONTO na frente: "malgiphy.com" nao e giphy.com.
   it('nao cai em host que apenas termina com o nome permitido', () => {
     expect(urlDeAnexoPermitida('https://malgiphy.com/x.gif')).toBe(false)
     expect(urlDeAnexoPermitida('https://giphy.com.invasor.net/x.gif')).toBe(false)
@@ -62,8 +58,6 @@ describe('primeiroAnexoNaoPermitido', () => {
     ])).toBe('https://rastreio.exemplo/pixel.png')
   })
 
-  // A miniatura tambem e baixada sozinha pela bolha do chat — deixar ela de fora
-  // da checagem manteria o rastreio funcionando por outro campo.
   it('checa tambem a miniatura', () => {
     expect(primeiroAnexoNaoPermitido([
       { url: '/uploads/a.png', thumbUrl: 'https://rastreio.exemplo/t.png' },

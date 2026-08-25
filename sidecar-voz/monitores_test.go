@@ -1,19 +1,5 @@
 package main
 
-// A PROVA DO SELETOR DE TELA.
-//
-// Duas coisas que só a máquina responde, e nenhuma delas é adivinhável:
-//
-//  1. os índices de vtable e o arranjo do `DXGI_OUTPUT_DESC`. Índice errado em COM não
-//     dá erro — chama outra função. Arranjo errado desloca os campos e devolve números
-//     que parecem plausíveis. A prova é o NOME sair legível (`\\.\DISPLAY1`) e o tamanho
-//     bater com a resolução de verdade: as duas coisas juntas só acontecem se a struct
-//     inteira estiver certa.
-//  2. a miniatura tem imagem de verdade, e não um retângulo preto. Este é o caso que a
-//     área de trabalho parada produzia antes de `QuadroAtual` existir.
-//
-//	ASTRA_TESTE_TELA=1 go test -run Monitores -v
-
 import (
 	"encoding/base64"
 	"os"
@@ -52,9 +38,6 @@ func TestListarMonitores(t *testing.T) {
 		t.Logf("%d: %-14s %dx%d principal=%v miniatura=%d bytes",
 			m.Indice, m.Nome, m.Largura, m.Altura, m.Principal, len(png))
 
-		// O NOME PROVA A STRUCT INTEIRA. `\\.\DISPLAY1` só sai legível se os 32
-		// caracteres largos estiverem no lugar certo; qualquer deslocamento devolve
-		// lixo ou vazio, e aí o tamanho lido a seguir também estaria errado.
 		if m.Nome == "" {
 			t.Errorf("monitor %d sem nome: o arranjo do DXGI_OUTPUT_DESC está errado", m.Indice)
 		}
@@ -74,24 +57,16 @@ func TestListarMonitores(t *testing.T) {
 		}
 	}
 
-	// EXATAMENTE UM PRINCIPAL. Zero significa que a regra de origem (0,0) não está
-	// valendo; mais de um significa que os campos do retângulo estão deslocados.
 	if principais != 1 {
 		t.Errorf("%d monitores marcados como principal, esperava 1", principais)
 	}
 
-	// A ÁREA DE TRABALHO PARADA É O CASO NORMAL na hora de escolher qual tela
-	// compartilhar. Se nenhuma miniatura sair, o seletor mostra retângulos vazios
-	// justamente quando mais precisa mostrar imagem.
 	if comMiniatura == 0 {
 		t.Error("nenhuma miniatura: o seletor não teria como mostrar qual tela é qual")
 	}
 
 	t.Logf("%d monitores, %d com miniatura, em %v", len(lista), comMiniatura, gasto)
 
-	// SALVA PARA OLHAR. Miniatura com azul e vermelho trocados, ou de cabeça para
-	// baixo, passa em qualquer asserção que eu escreva — é defeito que só o olho pega,
-	// e por isso os arquivos ficam onde dá para abrir.
 	destino := t.TempDir()
 	if d := os.Getenv("ASTRA_MINIATURAS"); d != "" {
 		destino = d

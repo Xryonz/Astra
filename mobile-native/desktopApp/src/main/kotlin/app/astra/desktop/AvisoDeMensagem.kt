@@ -47,66 +47,24 @@ import kotlinx.coroutines.delay
 import java.awt.GraphicsEnvironment
 import java.awt.Toolkit
 
-// O AVISO DE MENSAGEM — a janela que o Astra desenha no canto quando chega mensagem
-// com o app fechado ou em segundo plano.
-//
-// POR QUE NÃO O BALÃO DO WINDOWS. Ele saía por `TrayIcon.displayMessage`, e essa API
-// aceita título, texto e um tipo de ícone. Só isso. Não existe parâmetro de imagem —
-// não é que a foto de quem mandou ficasse feia, é que ela era IMPOSSÍVEL. E era a
-// primeira pergunta de quem ouve o aviso: quem me chamou? Reconhecer um rosto é
-// instantâneo; ler um nome é uma tarefa, ainda que curta.
-//
-// A janela própria também resolve o segundo defeito de graça: o balão do Windows não
-// é clicável de forma confiável (o clique vai pro ícone da bandeja, não pro aviso).
-// Aqui, clicar abre a conversa — que é o que a pessoa quer fazer em quase todo aviso
-// que ela decide não ignorar.
-//
-// ELA NÃO PEDE FOCO, E ISSO É A REGRA MAIS IMPORTANTE DESTE ARQUIVO. O menu da
-// bandeja pede (`window.requestFocus()`), e tem que pedir: é um menu, ele precisa
-// fechar quando você clica fora. Um aviso é o contrário — ele chega enquanto você
-// está fazendo outra coisa, e roubar o foco significa engolir a tecla que a pessoa
-// estava digitando em outro programa. `focusable = false` é o que garante isso, e não
-// é detalhe de polimento: é a diferença entre um aviso e uma interrupção.
-
-// Um aviso vivo na tela.
 data class AvisoNaTela(
     val id: Long,
-    // Quem mandou. É o que vai grande, porque é a primeira pergunta.
     val quem: String,
-    // Onde: "#geral · Constelação" para canal, vazio para sussurro (que já se explica
-    // pelo rosto — sussurro não tem "onde", tem só "quem").
     val onde: String,
     val trecho: String,
     val avatarUrl: String?,
-    // Nulo = aviso sem destino (o de teste, por exemplo). Sem isto o cartão fingiria
-    // ser clicável e não faria nada, que é pior do que não convidar ao clique.
     val abrir: (() -> Unit)?,
 )
 
-// Quem segura os avisos vivos. Objeto e não estado de tela porque quem CRIA aviso é o
-// ShellScreen (que só existe com sessão aberta) e quem DESENHA é o `application`, que
-// existe sempre — inclusive com a janela principal escondida na bandeja, que é
-// justamente quando o aviso mais importa.
 object AvisosNaTela {
-    // Quantos cabem empilhados antes de o canto da tela virar parede. Três é o que o
-    // Windows também mostra, e por um motivo bom: acima disso ninguém lê, só vê
-    // movimento — e um aviso que não se lê é interrupção pura.
     private const val LIMITE = 3
 
     val vivos = mutableStateListOf<AvisoNaTela>()
     private var proximoId = 0L
 
     fun mostrar(quem: String, onde: String, trecho: String, avatarUrl: String?, abrir: (() -> Unit)? = null) {
-        // O MAIS ANTIGO SAI, e não "o novo é descartado". Mensagem velha importa menos
-        // que mensagem nova, e descartar a nova deixaria a pilha congelada mostrando
-        // três avisos que a pessoa já ignorou.
         while (vivos.size >= LIMITE) vivos.removeAt(0)
         vivos.add(AvisoNaTela(proximoId++, quem, onde, trecho, avatarUrl, abrir))
-        // O SOM SAI DAQUI, junto do cartão, pelo mesmo motivo que ele saía junto do
-        // balão: quem decide QUANDO avisar é o ShellScreen, e um som com regra própria
-        // acabaria tocando sem nada na tela, ou com o app na frente — barulho sem
-        // referente. Não precisa checar modo transmissão: quem transmite nunca chega
-        // aqui, o caminho discreto desvia antes.
         tocarAvisoDeMensagem()
     }
 
@@ -120,16 +78,10 @@ private val ALTURA = 84.dp
 private val RESPIRO_ENTRE = 8.dp
 private val MARGEM_DA_TELA = 16.dp
 
-// Quanto tempo o aviso fica. Seis segundos é o suficiente pra ler duas linhas sem
-// pressa; abaixo disso quem olhou tarde perde, e acima disso a pilha entope.
 private const val SEGUNDOS_NA_TELA = 6
 
 @Composable
 fun AvisosDeMensagem() {
-    // Cada aviso é uma JANELA. Uma só, alta, com os três dentro, seria menos código —
-    // e teria um buraco: a janela precisaria cobrir a altura da pilha cheia o tempo
-    // todo, e essa área transparente engole clique de quem estiver embaixo. Janelas
-    // separadas ocupam exatamente o retângulo que desenham.
     AvisosNaTela.vivos.forEachIndexed { indice, aviso ->
         key(aviso.id) { JanelaDeAviso(aviso, indice) }
     }
@@ -139,9 +91,6 @@ fun AvisosDeMensagem() {
 private fun JanelaDeAviso(aviso: AvisoNaTela, indice: Int) {
     val densidade = androidx.compose.ui.platform.LocalDensity.current
 
-    // A ÁREA ÚTIL da tela, e não a tela inteira: `screenSize` inclui o espaço da barra
-    // de tarefas, e ancorar por ela poria o aviso por baixo dela. O `getScreenInsets`
-    // é o que devolve o que sobra.
     val tela = remember {
         runCatching {
             val cfg = GraphicsEnvironment.getLocalGraphicsEnvironment()
@@ -157,10 +106,6 @@ private fun JanelaDeAviso(aviso: AvisoNaTela, indice: Int) {
     val respiroPx = with(densidade) { RESPIRO_ENTRE.roundToPx() }
     val margemPx = with(densidade) { MARGEM_DA_TELA.roundToPx() }
 
-    // Canto inferior direito, empilhando pra CIMA — a convenção do Windows, e a mesma
-    // do balão que este aviso substitui. Sem informação de tela (ambiente sem monitor,
-    // por exemplo) o aviso simplesmente não aparece: uma janela em coordenada chutada
-    // é pior que aviso nenhum.
     val (direita, baixo) = tela ?: return
 
     val x = direita - larguraPx - margemPx
@@ -176,8 +121,6 @@ private fun JanelaDeAviso(aviso: AvisoNaTela, indice: Int) {
         transparent = true,
         resizable = false,
         alwaysOnTop = true,
-        // NÃO ROUBA O FOCO. Ver o comentário no topo do arquivo — é o que separa
-        // "avisar" de "atrapalhar".
         focusable = false,
         title = "",
     ) {
@@ -190,10 +133,6 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
     val fonte = remember { MutableInteractionSource() }
     val sobMouse by fonte.collectIsHoveredAsState()
 
-    // O RELÓGIO PARA COM O MOUSE EM CIMA. Quem levou o ponteiro até ali está lendo, e
-    // sumir debaixo do olho é a forma mais irritante de um aviso falhar. Sai de novo
-    // assim que o mouse sai — o `LaunchedEffect` reinicia a contagem, o que é a
-    // escolha certa: quem terminou de ler ganha o tempo inteiro para decidir clicar.
     LaunchedEffect(sobMouse) {
         if (sobMouse) return@LaunchedEffect
         delay(SEGUNDOS_NA_TELA * 1000L)
@@ -217,8 +156,6 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
                 }
             },
     ) {
-        // Realce de hover por cima, e não trocando a cor de fundo: o fundo já é a
-        // superfície mais alta da rampa, e subir mais um degrau apagaria a borda.
         Box(Modifier.fillMaxSize().background(Obsidian.hover.copy(alpha = realce * 0.55f)))
 
         Row(
@@ -253,9 +190,6 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            // O FECHAR só aparece com o mouse em cima. Ele é a saída de emergência de
-            // quem não quer esperar os seis segundos, e desenhá-lo sempre poria um X
-            // permanente competindo com o rosto pela atenção do canto do olho.
             Spacer(Modifier.width(6.dp))
             Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
                 if (sobMouse) {

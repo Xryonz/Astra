@@ -20,8 +20,6 @@ data class DiscoverUiState(
     val loading: Boolean = true,
     val query: String = "",
     val servers: List<DiscoverServerDto> = emptyList(),
-    // Ids das constelacoes que o user ja orbita: NAO some da lista (o user pediu pra
-    // ver as proprias publicas), mas ganha selo "voce ja esta" e nao tem botao entrar.
     val joinedIds: Set<String> = emptySet(),
     val error: String? = null,
     val joiningId: String? = null,

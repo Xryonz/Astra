@@ -61,8 +61,6 @@ fun ChannelListScreen(
                 marginalia = "orbitas",
                 onBack = onBack,
                 trailing = {
-                    // Todo membro entra na config; as secoes internas e que sao
-                    // gated por permissao (membro comum ve Membros + Desorbitar).
                     Icon(
                         Lucide.Settings,
                         contentDescription = "Configurar constelacao",

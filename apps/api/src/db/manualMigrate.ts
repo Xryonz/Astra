@@ -1,4 +1,3 @@
-
 import 'dotenv/config'
 import { Pool } from 'pg'
 import dns from 'dns'
@@ -12,8 +11,6 @@ const pool = new Pool({
   connectionTimeoutMillis: 15_000,
 })
 
-// A DDL vive em guardDdl.ts (fonte única, também rodada no boot pelo ensureSchema).
-// Este script é o caminho manual pra aplicar tudo de uma vez contra o Neon.
 const sql = GUARD_DDL
 
 async function main() {

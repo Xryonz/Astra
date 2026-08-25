@@ -6,22 +6,6 @@ import (
 	"time"
 )
 
-// DE QUANTO EM QUANTO TEMPO SAI UM QUADRO-CHAVE?
-//
-// A pergunta decide se a transmissão FUNCIONA para quem chega depois, e a resposta não
-// se adivinha: cada compressor tem um padrão diferente, e alguns tratam tela
-// compartilhada como conteúdo estático e espaçam os quadros-chave por MUITO tempo.
-//
-// POR QUE IMPORTA. Um decodificador de H.264 não abre imagem nenhuma antes de receber um
-// quadro-chave: os outros quadros só descrevem a DIFERENÇA em relação ao anterior, e sem
-// um ponto de partida não há o que diferenciar. Então quem entra na sala depois de a
-// transmissão ter começado — que é o caso normal — fica olhando para o vazio até o
-// próximo. Se o próximo demorar trinta segundos, a transmissão está quebrada para essa
-// pessoa mesmo com tudo funcionando.
-//
-// Foi exatamente assim que `TestATransmissaoAtravessaDePontaAPonta` falhou uma vez e
-// passou na seguinte: a primeira execução perdeu o quadro-chave inicial (escrito na
-// faixa antes de o ICE fechar) e ficou trinta segundos esperando outro.
 func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -52,19 +36,6 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 	defer c.Fechar()
 	t.Logf("compressor: %s", c.Nome)
 
-	// A CONTA É EM QUADROS, NÃO EM SEGUNDOS DE RELÓGIO — e a diferença já reprovou este
-	// teste por engano.
-	//
-	// O compressor conta o intervalo entre quadros-chave em QUADROS COMPRIMIDOS, e quem
-	// alimenta o compressor é a mudança na tela. Numa janela de seis segundos de relógio
-	// com a tela pouco ativa, entram uns cem quadros em vez de cento e oitenta — e o
-	// segundo quadro-chave simplesmente ainda não chegou. MEDIDO nos dois lados de um
-	// diff que não tocava em nada disto: 181 quadros e 2 chaves com a tela ativa, 105 e
-	// 1 com ela quieta. O código estava igual; o veredito, não.
-	//
-	// Duzentos e quarenta quadros são oito segundos de vídeo a 30/s — folga suficiente
-	// para caber dois quadros-chave em qualquer compressor razoável. O teto de relógio
-	// existe só para o teste não ficar preso quando ninguém está mexendo na máquina.
 	const quadrosNecessarios = 240
 	var chaves []time.Duration
 	ritmo := NovoRitmo(fps)
@@ -112,9 +83,6 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 		}
 	}
 
-	// TELA PARADA NÃO REPROVA NADA. Sem quadro entrando, o compressor não tem por que
-	// emitir chave nenhuma — o teste não teria medido o compressor, teria medido a
-	// mesa do dono.
 	if quadros < quadrosNecessarios {
 		t.Skipf("só %d quadros em %v (precisa de %d): a tela mal mudou — mexa numa janela e rode de novo",
 			quadros, time.Since(comeco).Round(time.Second), quadrosNecessarios)
@@ -122,24 +90,13 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 	if len(chaves) == 0 {
 		t.Fatalf("nenhum quadro-chave em %d quadros: quem entrar depois nunca vê imagem", quadros)
 	}
-	// DOIS EM OITO SEGUNDOS DE VÍDEO é o mínimo que torna a espera de quem chega depois
-	// suportável. Com um só, o espaçamento é maior que a janela medida e não dá para
-	// afirmar qual é — o que já é motivo de reprovação.
+
 	if len(chaves) < 2 {
 		t.Errorf("só um quadro-chave em %d quadros: quem entra depois espera mais que isso para ver algo",
 			quadros)
 	}
 }
 
-// PEDIR UM QUADRO-CHAVE FUNCIONA MESMO?
-//
-// A sonda (`TestSondaDoCodecAPI`) diz que o compressor SUPORTA a ordem. Suportar não é
-// obedecer: `SetValue` pode devolver sucesso e o compressor seguir o próprio compasso.
-// Este teste espera o intervalo natural passar de longe, PEDE, e confere que o
-// quadro-chave veio muito antes do que viria sozinho.
-//
-// Sem ele, o caminho inteiro de recuperação de imagem (o outro lado pede, este atende)
-// seria construído sobre uma promessa não conferida.
 func TestPedirQuadroChaveFuncionaDeVerdade(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -173,9 +130,6 @@ func TestPedirQuadroChaveFuncionaDeVerdade(t *testing.T) {
 		t.Skipf("%s não expõe a via de comando — nada a pedir", c.Nome)
 	}
 
-	// PRIMEIRO O SILÊNCIO. Dois segundos e meio deixam o quadro-chave inicial para trás
-	// e ficam BEM antes do próximo natural (medido em 5s), então qualquer quadro-chave
-	// depois do pedido só pode ter vindo do pedido.
 	ritmo := NovoRitmo(fps)
 	comeco := time.Now()
 	rodar := func(ate time.Duration, aoSair func(bool, time.Duration)) {
@@ -221,27 +175,11 @@ func TestPedirQuadroChaveFuncionaDeVerdade(t *testing.T) {
 	t.Logf("pedido em %v, atendido em %v (%v depois)",
 		pedidoEm.Round(time.Millisecond), atendidoEm.Round(time.Millisecond), demora.Round(time.Millisecond))
 
-	// UM SEGUNDO E MEIO, e o número tem folga de propósito.
-	//
-	// Meio segundo parecia razoável e reprovou por 0,3 milissegundo numa execução em que
-	// o pedido tinha funcionado perfeitamente. Duas coisas legítimas entram nessa conta e
-	// nenhuma delas é o compressor ignorando a ordem: ele é assíncrono e segura alguns
-	// quadros, e a captura só entrega quadro quando a tela MUDA — tela parada por um
-	// instante empurra tudo para a frente.
-	//
-	// O que decide é a comparação com o intervalo natural, que é de CINCO segundos.
-	// Qualquer coisa abaixo de dois só pode ser o pedido; um limite justo demais só
-	// produz reprovação que não significa nada.
 	if demora > 1500*time.Millisecond {
 		t.Errorf("demorou %v para atender — perto demais do intervalo natural para ser o pedido", demora)
 	}
 }
 
-// temQuadroChave procura um NAL de fatia IDR (tipo 5) no fluxo.
-//
-// O tipo 5 é o que ancora a imagem: ele se decodifica sozinho, sem depender de nenhum
-// quadro anterior. Os parâmetros (7 e 8) costumam vir na frente dele, mas são descrição,
-// não imagem — procurar por eles daria falso positivo em compressor que os repete.
 func temQuadroChave(fluxo []byte) bool {
 	for i := 0; i+4 < len(fluxo); i++ {
 		if fluxo[i] != 0 || fluxo[i+1] != 0 {

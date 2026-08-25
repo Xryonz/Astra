@@ -5,15 +5,6 @@ import {
   serverUpdated, serverGone, rolesChanged, leftServer,
 } from './realtime'
 
-// Trava o CONTRATO dos avisos de tempo real: nome da sala, nome do evento e o
-// que vai no payload.
-//
-// Por que este teste existe: canal novo so aparecia pros outros quando eles
-// reabriam o app, porque simplesmente NAO HAVIA evento. Erros dessa familia
-// (sala errada, evento renomeado num lado so, payload sem o id) nao quebram
-// nada — o app segue rodando, apenas mudo. Sao os mais caros de achar, porque
-// so aparecem com DUAS pontas e ninguem testa assim por acidente.
-
 function fakeIo() {
   const emit = vi.fn()
   const to = vi.fn(() => ({ emit }))
@@ -38,8 +29,6 @@ describe('avisos de constelacao', () => {
   })
 
   it('fui adicionado -> sala PESSOAL, nao a da constelacao', () => {
-    // Detalhe que importa: quem acabou de ser adicionado ainda nao esta na sala
-    // do servidor, entao mandar pra la nao chegaria em ninguem.
     joinedServer('u9', 'srv1')
     expect(f.to).toHaveBeenCalledWith('user:u9')
     expect(f.to).not.toHaveBeenCalledWith('server:srv1')
@@ -59,8 +48,6 @@ describe('avisos de constelacao', () => {
   })
 
   it('constelacao apagada -> avisa a sala DELA (o aviso tem que sair antes do delete)', () => {
-    // Depois do DELETE nao existe mais membro no banco pra descobrir quem avisar.
-    // Se este teste virar "manda pra sala pessoal de cada um", quebrou o contrato.
     serverGone('srv1')
     expect(f.to).toHaveBeenCalledWith('server:srv1')
     expect(f.emit).toHaveBeenCalledWith('server_gone', { serverId: 'srv1' })
@@ -70,13 +57,9 @@ describe('avisos de constelacao', () => {
     leftServer('u9', 'srv1')
     expect(f.to).toHaveBeenCalledWith('user:u9')
     expect(f.to).not.toHaveBeenCalledWith('server:srv1')
-    // Sem motivo declarado = saida voluntaria: nao gera aviso de penalidade.
     expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'saiu', reason: null })
   })
 
-  // O motivo e o que deixa a pessoa saber O QUE aconteceu. Antes so sumia a
-  // constelacao da tela e ela ficava sem saber se foi expulsa, banida, ou se a
-  // constelacao acabou — situacoes que pedem reacoes bem diferentes.
   it('expulsao e banimento viajam com o motivo (e o banimento com a justificativa)', () => {
     leftServer('u9', 'srv1', 'expulso')
     expect(f.emit).toHaveBeenCalledWith('server_left', { serverId: 'srv1', motivo: 'expulso', reason: null })
@@ -98,7 +81,6 @@ describe('presenca', () => {
   it('INVISIVEL sai como OFFLINE — e o ponto inteiro de ser invisivel', () => {
     presenceChanged('u1', 'INVISIBLE')
     expect(f.global).toHaveBeenCalledWith('presence_update', { userId: 'u1', status: 'OFFLINE' })
-    // Nunca pode vazar o valor real pra fora.
     const enviado = f.global.mock.calls.map((c) => JSON.stringify(c)).join()
     expect(enviado).not.toContain('INVISIBLE')
   })

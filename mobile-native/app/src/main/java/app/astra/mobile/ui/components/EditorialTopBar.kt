@@ -75,8 +75,6 @@ fun EditorialTopBar(
 
 @Composable
 fun TopBarAction(glyph: String, onClick: () -> Unit, color: androidx.compose.ui.graphics.Color = astraColors.accent) {
-    // Box + Center: texto tem baseline/line-height, entao sem isso o glifo (ex "+")
-    // sai deslocado pra fora do circulo de 40dp.
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -94,8 +92,6 @@ fun TopBarAction(glyph: String, onClick: () -> Unit, color: androidx.compose.ui.
     }
 }
 
-// Variante com icone (Lucide) — mesmo formato do sino de notificacoes, pra acoes
-// minimalistas na top bar (ex: mensagens fixadas).
 @Composable
 fun TopBarAction(
     icon: ImageVector,

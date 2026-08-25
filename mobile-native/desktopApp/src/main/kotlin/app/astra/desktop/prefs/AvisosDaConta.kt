@@ -8,27 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalTime
 
-// OS AVISOS QUE PERTENCEM À CONTA, não a este computador.
-//
-// Por que isto existe como objeto único em vez de viver dentro da tela de
-// configurações: o horário de descanso e o "não perturbe" precisam ser consultados
-// no instante em que um sussurro chega — e nessa hora a tela de configurações não
-// está aberta. Guardar num `single` do Koin é o que permite o balão da bandeja
-// perguntar "posso tocar?" sem depender de nenhuma tela estar composta.
-//
-// O QUE ESTE ARQUIVO CONSERTA, e é um bug que estava calado: o servidor manda
-// `silent: true` no evento `notification` quando você está em não-perturbe ou
-// dentro do descanso, e **o desktop nunca leu esse campo**. Resultado: você punha
-// o status em "não perturbe" e o balão do Windows pulava do mesmo jeito, às três
-// da manhã inclusive. O recurso existia inteiro no servidor e não tinha ninguém
-// escutando do lado de cá.
-//
-// Só que o `silent` viaja no evento ERRADO pra resolver isso: o balão da bandeja
-// nasce de `new_dm`/`channel_activity`, não de `notification`. Esperar o
-// `notification` pra decidir se o balão toca criaria dependência de ordem entre
-// dois eventos que o servidor emite em caminhos diferentes. Por isso a decisão é
-// LOCAL: a regra do descanso é reescrita aqui e comparada com o relógio da
-// máquina.
 class AvisosDaConta(private val api: NotificationApi) {
 
     private val _estado = MutableStateFlow(AvisosDaContaDto())
@@ -40,16 +19,6 @@ class AvisosDaConta(private val api: NotificationApi) {
             ?.let { _estado.value = it }
     }
 
-    // OTIMISTA COM DESFAZER. O interruptor vira no clique porque a API mora no
-    // Render, que dorme: esperar a ida e volta faria o toggle parecer travado por
-    // segundos, e a pessoa clicaria de novo.
-    //
-    // Mas o otimismo tem volta: se a chamada falhar, o estado retorna ao anterior.
-    // Deixar ligado o que o servidor recusou é a pior das três opções — a tela
-    // afirmaria uma configuração que não existe, e o erro só apareceria semanas
-    // depois, na forma de "não recebi seu aviso".
-    //
-    // No sucesso vale o que o SERVIDOR devolveu, não o que se pediu.
     suspend fun salvar(novo: AvisosDaContaDto): Result<Unit> {
         val anterior = _estado.value
         _estado.value = novo
@@ -59,14 +28,6 @@ class AvisosDaConta(private val api: NotificationApi) {
         }.onFailure { _estado.value = anterior }
     }
 
-    // ESPELHO EXATO do `isInQuietHours` em apps/api/src/lib/notifications.ts.
-    // Divergir aqui produz o pior tipo de defeito: o servidor cala o push e o
-    // desktop continua tocando, ou o contrário — e nos dois casos a pessoa vê o
-    // app desobedecer uma configuração que ela mesma ligou.
-    //
-    // O caso que atravessa a meia-noite (23h → 7h) é o NORMAL, não a exceção: é a
-    // madrugada, que é justamente o que alguém quer calar. Por isso o `s > e` não
-    // é tratado como entrada inválida.
     fun emDescanso(agora: LocalTime = LocalTime.now()): Boolean {
         val s = _estado.value.quietStart ?: return false
         val e = _estado.value.quietEnd ?: return false
@@ -74,7 +35,5 @@ class AvisosDaConta(private val api: NotificationApi) {
         return if (s < e) h in s until e else h >= s || h < e
     }
 
-    // A pergunta única que o caminho do balão faz. `status` é o meu status
-    // publicado (ONLINE/IDLE/DND/INVISIBLE) — o servidor usa exatamente ele.
     fun devoCalar(status: String?): Boolean = status == "DND" || emDescanso()
 }

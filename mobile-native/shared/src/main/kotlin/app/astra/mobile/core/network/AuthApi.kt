@@ -20,26 +20,18 @@ interface AuthApi {
     @POST("api/auth/register")
     suspend fun register(@Body body: RegisterRequest): Response<ApiEnvelope<AuthData>>
 
-    // Marca o onboarding cosmico como visto (idempotente no backend).
     @POST("api/auth/onboarded")
     suspend fun markOnboarded()
 
-    // Confirma o codigo de 6 digitos mandado pro email no registro.
     @POST("api/auth/email/verify")
     suspend fun verifyEmail(@Body body: VerifyEmailRequest)
 
-    // Reenvia o codigo (backend auto-verifica se o mailer estiver desligado).
     @POST("api/auth/email/resend")
     suspend fun resendEmailCode()
 
-    // Encerrar a sessao NO SERVIDOR: revoga o refresh token e poe o access token
-    // atual na lista negra. Sem isto, "sair" so esquece o token do lado de ca --
-    // ele continua valido ate expirar sozinho.
     @POST("api/auth/logout")
     suspend fun logout(@Body body: LogoutRequest)
 
-    // Apagar a conta. `Response` cru e nao envelope: o 409 traz a LISTA de
-    // constelacoes que impedem, e essa lista precisa chegar na tela.
     @POST("api/auth/apagar-conta")
     suspend fun apagarConta(@Body body: ApagarContaRequest): Response<ApiEnvelope<ContaApagadaDto>>
 }

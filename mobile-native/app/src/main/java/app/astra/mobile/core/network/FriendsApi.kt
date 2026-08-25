@@ -31,7 +31,6 @@ interface FriendsApi {
     @DELETE("api/friends/{id}")
     suspend fun remove(@Path("id") id: String)
 
-    // Recado (custom status). Limpar = mandar "" (backend faz trim() || null).
     @PATCH("api/friends/custom-status")
     suspend fun setCustomStatus(@Body body: CustomStatusRequest)
 }

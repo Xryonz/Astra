@@ -64,58 +64,16 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// O CARTAO DE PERFIL — um so, duas variantes.
-//
-// POR QUE ISTO EXISTE: o cartao era desenhado em ARQUIVOS diferentes, e as copias
-// divergiam. Primeiro foram duas (o popup e a previa das Configuracoes). Depois de
-// unificar essas duas, sobrou a divergencia MAIOR: o "cartao completo" de verdade
-// era o ProfilePage — outro composable, com secoes que o COMPLETO daqui nao tinha
-// (sobre / membro / servidores em comum). Ou seja, a previa chamada "cartao
-// completo" mostrava um cartao que ninguem via, e as duas previas saiam quase
-// iguais entre si, porque a de cima era so a de baixo com numeros maiores.
-//
-// Agora o COMPLETO daqui E o cartao do perfil completo. O ProfilePage virou so a
-// moldura (fundo escuro, animacao de entrada, rolagem) em volta deste desenho.
-// A previa nao pode mentir porque e literalmente a mesma funcao.
-
 enum class CardVariante {
-    /** O que abre ao clicar num avatar: compacto, sem secoes. */
     NORMAL,
 
-    /** O perfil completo: avatar grande, "sobre", "membro", "em comum". */
     COMPLETO,
 }
 
-// Largura natural do cartao completo. Estreito de proposito: com 440 ele ficava
-// deitado — muita largura pra pouca altura — e cartao de pessoa e EM PE. Estreitar
-// tambem empurra o texto pra baixo, o que alonga sozinho.
 val LARGURA_CARTAO_COMPLETO = 330.dp
 
-// OS DOIS CARTOES USAM A MESMA PROPORCAO DE BANNER, e isto nao e escolha de
-// gosto — e obrigacao.
-//
-// O recorte e ASSADO na imagem que sobe (ImageCrop): o arquivo salvo JA tem a
-// proporcao ProfileBannerAspect, e o `scale`/`positionY` ficam em 100/50. Uma
-// faixa com outra proporcao nao tem como exibir esse arquivo direito: ou sobra
-// tarja, ou corta. E o zoom nao salva, porque o problema e o FORMATO da caixa,
-// nao o tamanho da imagem dentro dela.
-//
-// Eu tinha posto 2.6 aqui pra alongar o cartao completo no eixo Y. Funcionou
-// pra altura e quebrou todo banner ja salvo — a troca nao vale. A altura do
-// cartao completo vem do conteudo (nome maior, secoes), que e de onde ela
-// deveria ter vindo desde o comeco.
-
-// Largura do cartao compacto (o que abre ao clicar num avatar).
-//
-// IGUAL a do completo (pedido do dono). Antes eram 320 e 330 — dez pixels de
-// diferenca que ninguem enxerga isolado, mas que apareciam justamente onde doem:
-// os dois lado a lado na previa das Configuracoes, um levemente mais estreito que
-// o outro sem motivo nenhum. Mesma pessoa, mesmo cartao, mesma largura.
 val LARGURA_CARTAO_NORMAL = LARGURA_CARTAO_COMPLETO
 
-// Os dados que o cartao desenha. Existe pra a previa poder montar um cartao a
-// partir do RASCUNHO (campo a campo, ao vivo, antes de salvar) usando exatamente
-// o mesmo caminho do cartao real.
 data class DadosDoCartao(
     val nome: String,
     val username: String,
@@ -131,13 +89,7 @@ data class DadosDoCartao(
     val fonte: String? = null,
     val status: String? = null,
     val criadoEm: String? = null,
-    // "O que está usando agora". Não vem do perfil (que é o que a pessoa escreveu
-    // sobre si) e sim da presença — por isso entra por fora, preenchido por quem
-    // abre o cartão, e some sozinho quando ela para de mostrar.
     val atividade: String? = null,
-    // Epoch em ms de quando ela abriu aquilo. Vem do servidor junto do texto: ele
-    // só muda quando a atividade muda, então a renovação que segura o registro
-    // vivo não zera o cronômetro. 0 = desconhecido (registro antigo) -> sem tempo.
     val atividadeDesde: Long = 0L,
 )
 
@@ -164,26 +116,11 @@ fun ProfileCard(
     variante: CardVariante = CardVariante.NORMAL,
     modifier: Modifier = Modifier,
     servidoresEmComum: List<MutualServerDto> = emptyList(),
-    // Quantos amigos voces tem em comum. So aparece no compacto, como texto.
     amigosEmComum: Int = 0,
-    // Cargos da pessoa NESTA constelação. Vazio quando nao ha constelação em
-    // maos (cartao aberto pelo chat) — a secao some junto.
     cargos: List<MemberRoleDto> = emptyList(),
-    // Botao de fechar no canto do banner. null = sem botao (o popup pequeno e a
-    // previa fecham por fora).
     aoFechar: (() -> Unit)? = null,
-    // Fileira de acoes redondas no canto do banner (chamar, adicionar amigo…).
-    // Fica ao lado do fechar, na mesma linha.
     acoesNoBanner: (@Composable RowScope.() -> Unit)? = null,
-    // A previa desliga a coreografia: ela recompoe a cada tecla digitada, e a
-    // cascata reiniciando a cada letra transformaria a previa num pisca-pisca.
     animar: Boolean = true,
-    // EDIÇÃO NO PRÓPRIO CARTÃO. Só a prévia das Configurações passa isto — é o
-    // único cartão que é seu e editável; em todo o resto ele é peça de leitura.
-    //
-    // Fica aqui e não no formulário porque é aqui que as imagens existem, no
-    // tamanho e no contexto em que os outros vão vê-las. O padrão "passa o mouse,
-    // acende o lápis" precisa de algo embaixo do mouse, e o formulário não tem.
     acoesDaFoto: (() -> List<MenuEntry>)? = null,
     acoesDoBanner: (() -> List<MenuEntry>)? = null,
     rodape: @Composable (() -> Unit)? = null,
@@ -195,16 +132,10 @@ fun ProfileCard(
     Column(
         modifier
             .clip(RoundedCornerShape(if (completo) 16.dp else 12.dp))
-            // Gradiente CONTINUO: uma peca so, do topo do banner ao pe do cartao.
-            // O aspecto vai junto — o veu tem que comecar a escurecer onde a faixa
-            // de VERDADE acaba, senao volta a aparecer a linha dura entre as duas.
             .profileCardBackdrop(dados.bannerColor, aspectoBanner)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(if (completo) 16.dp else 12.dp)),
     ) {
         Box {
-            // css = null de proposito: quem pinta o gradiente e o cartao inteiro. Se
-            // a faixa repintasse por conta, o gradiente "recomecaria" e o corte
-            // apareceria.
             ProfileBanner(
                 css = null,
                 imageUrl = dados.bannerUrl,
@@ -216,12 +147,6 @@ fun ProfileCard(
             if (completo && animar) {
                 BannerSweep(dados.username, Modifier.fillMaxWidth().aspectRatio(aspectoBanner))
             }
-            // POR CIMA da faixa já desenhada, com conteúdo vazio: o véu e o lápis
-            // escurecem a imagem que está embaixo. Assim o cartão continua tendo UM
-            // desenho de banner só — a edição é uma camada, não uma segunda cópia.
-            //
-            // Antes do bloco de fechar/ações: aqueles botões precisam ficar por cima
-            // desta camada, senão o clique neles cairia no menu do banner.
             acoesDoBanner?.let { acoes ->
                 FotoEditavel(
                     forma = RectangleShape,
@@ -229,7 +154,7 @@ fun ProfileCard(
                     glifo = 22.dp,
                     acoes = acoes,
                     modifier = Modifier.fillMaxWidth().aspectRatio(aspectoBanner),
-                ) { /* a imagem já está desenhada por baixo */ }
+                ) {  }
             }
             if (aoFechar != null || acoesNoBanner != null) {
                 Row(
@@ -266,9 +191,6 @@ fun ProfileCard(
     }
 }
 
-// O avatar pisa no banner. No completo ele "pipoca" com overshoot depois que o
-// cartao assenta — o unico momento bouncy do perfil, de proposito: um so chama
-// atencao, varios viram brinquedo.
 @Composable
 private fun AvatarDoCartao(
     dados: DadosDoCartao,
@@ -276,14 +198,6 @@ private fun AvatarDoCartao(
     animar: Boolean,
     acoesDaFoto: (() -> List<MenuEntry>)? = null,
 ) {
-    // 99->88 e 72->64. A foto tinha crescido junto com o cartao e nao voltou a
-    // encolher quando o cartao ficou mais estreito e mais alto: a 99 ela ocupava
-    // quase um terco da largura, e um retrato desse tamanho rouba a atencao do
-    // nome, que e o que a pessoa foi ali ler.
-    //
-    // O vao entre a foto e o nome NAO muda com isto: a caixa da foto continua no
-    // fluxo com a altura dela e o texto vem logo depois, entao encolher a foto
-    // sobe o bloco inteiro sem abrir buraco.
     val px = if (completo) 88 else 64
     val reduzir = LocalReduceMotion.current
     val pop = remember(dados.username, completo) {
@@ -297,8 +211,6 @@ private fun AvatarDoCartao(
     }
     Box(
         Modifier
-            // Metade do avatar pra fora e o que da a sensacao de "colado" sem
-            // cobrir a faixa inteira.
             .offset(y = if (completo) (-42).dp else (-px / 2 - 4).dp)
             .graphicsLayer {
                 alpha = pop.value.coerceIn(0f, 1f)
@@ -306,15 +218,11 @@ private fun AvatarDoCartao(
                 scaleX = s
                 scaleY = s
             }
-            // Anel do fundo do cartao ao redor do avatar: e o que separa a foto do
-            // banner quando as duas sao claras.
             .clip(CircleShape)
             .background(Obsidian.raised)
             .padding(3.dp),
     ) {
         if (acoesDaFoto != null) {
-            // O véu segue a forma da foto: quadrado sobre um retrato redondo
-            // deixaria quatro cantos escuros para fora do círculo.
             FotoEditavel(
                 forma = CircleShape,
                 rotulo = "editar a foto do perfil",
@@ -341,10 +249,6 @@ private fun CorpoCompacto(
 ) {
     NomeELinha(dados, tamanhoNome = 19, tamanhoPonto = 10)
 
-    // O QUE VOCES TEM EM COMUM, numa linha so. No cartao completo isto vira duas
-    // secoes com os icones das constelacoes; aqui e um resumo — a graca do cartao
-    // pequeno e caber, e uma grade de icones aberta sobre a lista de membros e
-    // exatamente a poluicao que o dono pediu pra evitar.
     val vinculos = buildList {
         if (amigosEmComum > 0) {
             add(if (amigosEmComum == 1) "1 amigo em comum" else "$amigosEmComum amigos em comum")
@@ -373,18 +277,9 @@ private fun CorpoCompacto(
         Spacer(Modifier.height(9.dp))
         Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
     }
-    // DEPOIS do recado, e um degrau abaixo dele. O recado é o que a pessoa
-    // ESCOLHEU dizer; a atividade é o que a máquina observou. Empatar os dois em
-    // peso daria à leitura automática a mesma autoridade da fala dela.
     dados.atividade?.takeIf { it.isNotBlank() }?.let { programa ->
         Spacer(Modifier.height(8.dp))
         val arte = arteDaAtividade(programa, Obsidian.accent)
-        // O CRONÔMETRO ANDA SOZINHO enquanto o cartão está aberto. Sem isto ele
-        // congelaria no valor do instante em que abriu — e "há 12min" parado por
-        // meia hora é pior que nenhum número, porque parece atual.
-        //
-        // 30s e não 1s: a menor unidade que ele mostra é o minuto, então acordar a
-        // cada segundo gastaria 30 recomposições pra mudar texto uma vez.
         var agora by remember { mutableStateOf(System.currentTimeMillis()) }
         LaunchedEffect(programa) {
             while (true) {
@@ -393,10 +288,6 @@ private fun CorpoCompacto(
             }
         }
         val decorrido = tempoDeAtividade(dados.atividadeDesde, agora)
-        // A MARCA vive só aqui, e não no painel de membros: lá a linha tem 26dp e
-        // texto de 10sp, onde um quadrado de 32 não cabe sem virar outra lista. A
-        // divisão é a mesma do resto do app — a lista dá o sinal, o cartão dá o
-        // detalhe. O ponto de cor continua sendo a convenção da lista.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
@@ -423,7 +314,6 @@ private fun CorpoCompacto(
     }
     if (!dados.bio.isNullOrBlank()) {
         Spacer(Modifier.height(10.dp))
-        // Faixa propria pra bio: separa "quem e" de "o que escreveu" sem titulo.
         Column(
             Modifier
                 .fillMaxWidth()
@@ -439,9 +329,6 @@ private fun CorpoCompacto(
         }
     }
 
-    // CARGOS. So chegam quando o cartao abre pelo painel de membros — de dentro
-    // do chat nao ha constelacao em maos, e cargo e por constelacao. Cartao sem a
-    // secao e melhor que cartao com uma secao vazia dizendo "sem cargos".
     if (cargos.isNotEmpty()) {
         Spacer(Modifier.height(10.dp))
         Column(
@@ -480,9 +367,6 @@ private fun CorpoCompacto(
     }
 }
 
-// Etiqueta de cargo: bolinha na cor do cargo + nome. A cor entra no PONTO, e nao
-// no texto nem no fundo — cargo com cor viva viraria a coisa mais berrante do
-// cartao, competindo com o nome, que e o que a pessoa foi ali ler.
 @Composable
 private fun EtiquetaDeCargo(cargo: MemberRoleDto) {
     val cor = memberRoleColor(cargo.color) ?: Obsidian.text3
@@ -513,7 +397,6 @@ private fun CorpoCompleto(
     rodape: @Composable (() -> Unit)?,
 ) {
     val chave = dados.username
-    // Secoes entram em cascata (fade + subida, uma depois da outra).
     val cascata: @Composable (Int, @Composable () -> Unit) -> Unit = { i, conteudo ->
         if (animar) CascadeIn(i, chave, stepMs = 40L, startDelayMs = 220L) { conteudo() } else conteudo()
     }
@@ -563,8 +446,6 @@ private fun CorpoCompleto(
 
 private enum class Parte { TUDO, NOME, ARROBA }
 
-// Nome + bolinha de status, e a linha do @usuario com os pronomes. As duas juntas
-// no compacto; separadas no completo, porque la cada uma entra num tempo.
 @Composable
 private fun NomeELinha(
     dados: DadosDoCartao,
@@ -611,13 +492,6 @@ private fun recadoInteiro(dados: DadosDoCartao) = listOfNotNull(
     dados.recado?.ifBlank { null },
 ).joinToString(" ")
 
-// Cada secao do cartao virou um CARTAO, e nao mais um bloco antecedido por
-// traco. Com tres ou quatro secoes seguidas, o traco em cima de cada uma
-// desenhava uma grade — o olho lia tabela, nao perfil.
-//
-// `hover` e nao `raised`: o cartao de perfil ja mora num popup em `overlay`, e
-// subir pra `raised` seria DESCER na rampa (raised vem antes de overlay). Este e
-// o degrau seguinte de verdade.
 @Composable
 private fun Secao(titulo: String, conteudo: @Composable () -> Unit) {
     CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(horizontal = 11.dp, vertical = 9.dp)) {
@@ -635,9 +509,6 @@ private const val CHIP_STAGGER_MAX = 10
 @Composable
 private fun MutualChip(s: MutualServerDto, index: Int) {
     val reduce = LocalReduceMotion.current
-    // 2o nivel de stagger: cada chip escala/aparece um tico depois do anterior.
-    // Escala (nao translateY) — o FlowRow quebra linha, subir por linha ficaria
-    // torto.
     val pop = remember(s.id) { Animatable(if (reduce || index !in 0 until CHIP_STAGGER_MAX) 1f else 0f) }
     LaunchedEffect(s.id) {
         if (pop.value < 1f) {
@@ -678,8 +549,6 @@ private fun MutualChip(s: MutualServerDto, index: Int) {
     }
 }
 
-// Sweep de luz ambar diagonal que atravessa o banner UMA vez na abertura (tipo
-// alvorecer). Sutil (pico alpha 0.15), GPU-only, um-shot. Reduzir movimento = some.
 @Composable
 private fun BannerSweep(seedKey: Any?, modifier: Modifier = Modifier) {
     if (LocalReduceMotion.current) return
@@ -706,7 +575,6 @@ private fun BannerSweep(seedKey: Any?, modifier: Modifier = Modifier) {
     )
 }
 
-// createdAt (ISO) -> "julho de 2026" (pt-BR). Falha silenciosa: sem data, sem linha.
 private fun membroDesde(iso: String?): String? {
     if (iso.isNullOrBlank()) return null
     return runCatching {

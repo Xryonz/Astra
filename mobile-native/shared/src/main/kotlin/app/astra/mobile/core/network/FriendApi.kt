@@ -10,8 +10,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-// Amigos. Envelope {data}. sendRequest/accept/remove nao devolvem corpo util —
-// sucesso = 2xx; erro (usuario nao encontrado etc.) = HttpException no chamador.
 interface FriendApi {
     @GET("api/friends")
     suspend fun friends(): ApiEnvelope<List<FriendDto>>

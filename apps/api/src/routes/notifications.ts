@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -42,11 +41,6 @@ router.get(
 
     const payloads = items.map((n) => safeJson(n.payload))
 
-    // CONSERTO DO HISTORICO: notificação antiga foi gravada sem o nome de quem
-    // mandou (ou com o literal 'Alguém'), e payload gravado não se corrige
-    // sozinho. Como o authorId esta la, da pra resolver o nome na leitura — UMA
-    // consulta por pagina, so pelos ids que faltam. Sem isto o conserto so
-    // valeria pra notificação nova e a lista seguiria cheia de "alguém".
     const faltando = [...new Set(
       payloads
         .filter((p) => !p.authorName || p.authorName === 'Alguém')
@@ -115,9 +109,6 @@ router.post(
   })
 )
 
-// LIMPAR: apaga de verdade, nao marca como lida. Sao duas intencoes diferentes —
-// "read-all" zera o sino e mantem o historico; isto e a pessoa dizendo que nao
-// quer mais ver aquilo. Apagar so as do proprio usuario, obviamente.
 router.delete(
   '/notifications',
   requireAuth,
@@ -127,14 +118,6 @@ router.delete(
   })
 )
 
-// -1 É ACEITO E SIGNIFICA "SEM HORÁRIO DE DESCANSO".
-//
-// O web manda nulo e continua mandando. O desktop não consegue: o Json do app
-// Kotlin roda com `explicitNulls = false`, que apaga nulo na serialização, então
-// "limpar o descanso" chegaria aqui como um corpo sem os campos — e um campo
-// ausente quer dizer "não mexe". A sentinela é o único jeito de a intenção
-// atravessar, e é o mesmo recurso que o `botNoticeChannelId` já usa (string vazia
-// = voltar ao automático). Traduzido logo abaixo, antes de virar estado.
 const HoraOuVazio = z.number().int().min(-1).max(23).nullable().optional()
 
 const PrefsSchema = z.object({
@@ -165,9 +148,6 @@ router.patch(
   validate(PrefsSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const patch = req.body as z.infer<typeof PrefsSchema>
-    // A sentinela morre AQUI: dali pra frente, e no banco, "sem descanso" é nulo
-    // como sempre foi. O isInQuietHours nunca vê -1, e nem precisa saber que ela
-    // existiu.
     if (patch.quietStart === -1) patch.quietStart = null
     if (patch.quietEnd   === -1) patch.quietEnd   = null
 

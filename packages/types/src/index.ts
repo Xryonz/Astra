@@ -46,17 +46,10 @@ export const UpdateProfileSchema = z.object({
   bannerColor:  z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
   profileTheme: z.string().regex(BANNER_COLOR_RE, 'Cor inválida').optional().nullable(),
   bannerPositionY: z.number().int().min(0).max(100).optional(),
-  // 50..300, a MESMA faixa do banner de constelação (servers.ts) e a mesma que o
-  // slider do desktop oferece. Eram três números diferentes pra mesma ideia — aqui
-  // 50..200, lá 100..300, e o slider indo de 0 a 300 —, então dar zoom acima de 200
-  // fazia o servidor recusar o PATCH INTEIRO: sumia o salvamento do nome, da bio e
-  // de tudo mais junto, com um "Dados inválidos" que não dizia de qual campo.
-  // Abaixo de 50 a imagem vira um ponto no meio do cartão; esse piso fica.
   bannerScale:     z.number().int().min(50).max(300).optional(),
   bannerBorder:    z.enum(BANNER_BORDER_STYLES).optional(),
   bannerTextColor: z.string().regex(HEX_COLOR_RE, 'Use hex #RRGGBB').optional().nullable(),
   pronouns:        z.string().max(32, 'Máx 32 caracteres').optional().nullable(),
-  // Quem pode ABRIR sussurro comigo. Conversa que ja existe passa sempre.
   dmPrivacy:       z.enum(['all', 'shared', 'friends']).optional(),
   statusEmoji:     z.string().max(8, 'Apenas 1 emoji').optional().nullable(),
   displayFont:     z.enum(DISPLAY_FONTS).optional(),
@@ -119,9 +112,6 @@ const SafeUrlSchema = z.string().min(1).max(2048).refine(
 
 export const AttachmentSchema = z.object({
   url:    SafeUrlSchema,
-  // Versao pequena da mesma imagem (~720px). A bolha do chat mostra ESTA; o
-  // original so e baixado quando alguem abre em tela cheia. Ausente quando a
-  // imagem ja era pequena o bastante — ai o cliente usa `url`.
   thumbUrl: SafeUrlSchema.optional(),
   type:   z.string().max(120),
   name:   z.string().max(255),
@@ -129,18 +119,10 @@ export const AttachmentSchema = z.object({
   width:  z.number().int().positive().max(20_000).optional(),
   height: z.number().int().positive().max(20_000).optional(),
 
-  // PRECISA estar aqui. O Zod descarta chave que o schema nao declara — o upload
-  // calculava o blurhash, devolvia pro cliente, o cliente reenviava na mensagem e
-  // ele morria NA VALIDACAO, antes de chegar no banco. O trabalho era feito e
-  // jogado fora em silencio, toda vez.
   blurhash: z.string().max(200).optional(),
 
   duration: z.number().nonnegative().max(3600).optional(),
 
-  // Marca de FIGURINHA. Pela mesma razao do blurhash acima: sem declarar aqui, o
-  // Zod apaga a chave e a figurinha chega no banco como imagem comum — grande,
-  // clicavel, indistinguivel de um print. O bug seria invisivel no envio e so
-  // apareceria depois de recarregar a conversa.
   sticker: z.boolean().optional(),
 })
 

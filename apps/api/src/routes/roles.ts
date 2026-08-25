@@ -6,8 +6,6 @@ import { roles, memberRoles, serverMembers, servers } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-// Cargo mexe em duas telas ao mesmo tempo (painel de cargos + cor/agrupamento na
-// lista de membros). Um ping por mudanca; cada tela rebusca o que usa.
 import { rolesChanged } from '../lib/realtime'
 import { PERMS, getMemberPerms, parsePermissionsJson, type MemberPerms, type Permission } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
@@ -18,7 +16,6 @@ const HEX = /^#[0-9a-fA-F]{6}$/
 const CreateRoleSchema = z.object({
   name:        z.string().min(1).max(50),
   color:       z.string().regex(HEX, 'Cor inválida (hex #RRGGBB)').optional().nullable(),
-  // Mini-imagem do cargo (data-URI ou URL). Vai pro R2 via persistDataUri.
   iconUrl:     z.string().max(6_500_000).optional().nullable(),
   permissions: z.array(z.string().max(40)).max(20).optional().default([]),
   hoist:       z.boolean().optional().default(false),
@@ -35,9 +32,6 @@ async function canManageRoles(userId: string, serverId: string) {
   return m.isOwner || m.permissions.has(PERMS.MANAGE_ROLES)
 }
 
-// Anti-escalacao: reduz as permissoes pedidas ao subconjunto que o ATOR ja possui
-// (dono = todas). Sem isto, quem tinha MANAGE_ROLES criava/editava cargo com
-// BAN/KICK/MANAGE_SERVER e se auto-atribuia -> virava dono de fato.
 function grantableSubset(actor: MemberPerms, requested: string[]): Permission[] {
   const valid = requested.filter((p): p is Permission => (Object.values(PERMS) as string[]).includes(p))
   const uniq = [...new Set(valid)]
@@ -89,16 +83,6 @@ rolesRouter.post(
       serverId,
       name:        body.name,
       color:       body.color ?? null,
-      // A mini-imagem do cargo e o menor lugar em que uma imagem aparece no Astra (40dp),
-      // entao e onde o arquivo de 1024px era mais desperdicado.
-      //
-      // AQUI A ORIGINAL E DESCARTADA, ao contrario do avatar e do icone de constelacao — e
-      // e decisao, nao esquecimento. Guardar a original existe para poder reprocessar um
-      // dia, e reprocessar so faz sentido onde a imagem PODE vir a ser desenhada grande: o
-      // cartao de perfil e a pagina da constelacao podem crescer. Um emblema de cargo nao
-      // pode; ele e um simbolo ao lado de um nome, e sempre sera. Pagar bucket por cada
-      // cargo de cada constelacao para guardar um arquivo sem uso previsivel seria gastar
-      // por simetria.
       iconUrl:     (await persistImagemDeExibicao(body.iconUrl ?? null)).url,
       position:    (max ?? 0) + 1,
       permissions: JSON.stringify(permsToSet),
@@ -207,7 +191,6 @@ rolesRouter.post(
     ])
     if (!m) return res.status(404).json({ error: 'Membro não encontrado' })
     if (!r) return res.status(404).json({ error: 'Cargo não encontrado' })
-    // Anti-escalacao: nao atribuir cargo com permissao acima das do ator.
     if (!actor.isOwner && !parsePermissionsJson(r.permissions).every((p) => actor.permissions.has(p)))
       return res.status(403).json({ error: 'Não pode atribuir cargo com permissões acima das suas' })
 

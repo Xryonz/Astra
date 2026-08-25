@@ -1,18 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ehTurnoDaSparxie, personaDoDia, prefixoUsado, semPrefixo, comandosDeHoje } from './bot'
 
-// Trava a regra de QUEM esta de plantao.
-//
-// O turno da Sparxie e SEXTA e SABADO (escolha do dono): sexta a noite e quando o
-// fim de semana comeca de verdade, e domingo ja e vespera de semana.
-//
-// O fuso e a parte perigosa: o servidor roda em UTC (Render) e o publico e do
-// Brasil. Com `getDay()` cru, a Sparxie entraria as 21h de QUINTA e sairia as 21h
-// de SABADO — errado nas duas pontas, e do tipo que so aparece no fim de semana,
-// quando ninguem esta olhando o log. Por isso as duas bordas tem teste proprio.
-//
-// Datas de referencia: 2026-08-06 e quinta; 07 sexta; 08 sabado; 09 domingo.
-
 const emUtc = (iso: string) => new Date(iso)
 
 describe('de quem e o plantao', () => {
@@ -53,7 +41,6 @@ describe('prefixos', () => {
   })
 
   it('nao confunde com palavra que so COMECA igual', () => {
-    // Sem o espaco obrigatorio, "/sparklezinho" viraria comando.
     expect(prefixoUsado('/sparklezinho')).toBeNull()
     expect(prefixoUsado('sparkle ping')).toBeNull()
     expect(prefixoUsado('/outro comando')).toBeNull()
@@ -81,24 +68,16 @@ describe('catalogo do dia', () => {
   it('turno da Sparxie: prefixo dela e COM os extras', () => {
     const nomes = comandosDeHoje(emUtc('2026-08-08T13:00:00Z')).map((c) => c.name)
     expect(nomes).toContain('/sparxie festa')
-    // Com argumento, o nome carrega a FORMA — e por isso o `toContain` exato de
-    // "/sparxie desejo" nao vale mais.
     expect(nomes).toContain('/sparxie desejo <seu desejo>')
     expect(nomes.some((n) => n.startsWith('/sparkle'))).toBe(false)
   })
 
-  // O que a caixinha do "/" mostra tem que ENSINAR a escrever. Antes ela dizia
-  // "/sparxie desejo — joga um desejo na estrela": quem lia mandava exatamente
-  // isso, sem desejo nenhum, e o comando reclamava. O formato e justamente a
-  // parte que nao da pra adivinhar.
   it('comando com argumento mostra a forma e um exemplo', () => {
     const fds = comandosDeHoje(emUtc('2026-08-08T13:00:00Z'))
     const desejo = fds.find((c) => c.name.startsWith('/sparxie desejo'))!
     expect(desejo.name).toBe('/sparxie desejo <seu desejo>')
     expect(desejo.description).toContain('ex.: /sparxie desejo passar de ano')
 
-    // O exemplo usa o prefixo de QUEM ESTA DE PLANTAO: ensinar "/sparxie ..."
-    // numa terca seria ensinar errado.
     const util = comandosDeHoje(emUtc('2026-08-10T13:00:00Z'))
     const conversa = util.find((c) => c.name.startsWith('/sparkle <'))!
     expect(conversa.name).toBe('/sparkle <sua pergunta>')
@@ -106,8 +85,6 @@ describe('catalogo do dia', () => {
     expect(conversa.description).not.toContain('/sparxie')
   })
 
-  // Comando sem argumento continua limpo: acrescentar "<...>" onde nao ha o que
-  // escrever so poluiria a lista.
   it('comando sem argumento nao ganha rotulo', () => {
     const nomes = comandosDeHoje(emUtc('2026-08-10T13:00:00Z')).map((c) => c.name)
     expect(nomes).toContain('/sparkle ping')

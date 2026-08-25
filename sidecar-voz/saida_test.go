@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-// TOCA UM TOM AUDÍVEL. É teste de verdade justamente por isso: som saindo pelo
-// alto-falante é a única prova de que a ligação COM da saída está certa, e nenhuma
-// verificação em código substitui ouvir.
-//
-//	$env:ASTRA_TESTE_SOM="1"; go test -run Saida -v ./...
 func TestTocarTom(t *testing.T) {
 	if os.Getenv("ASTRA_TESTE_SOM") == "" {
 		t.Skip("ASTRA_TESTE_SOM não definida — pulando (toca som de verdade)")
@@ -39,14 +34,11 @@ func TestTocarTom(t *testing.T) {
 	if alto.capacidade == 0 {
 		t.Fatal("buffer de tamanho zero — a consulta ao aparelho falhou")
 	}
-	// Logo após encher de silêncio, o espaço livre tem que ser pequeno. Se ele
-	// vier igual à capacidade, o preenchimento inicial não escreveu nada.
+
 	if livre == alto.capacidade {
 		t.Error("o silêncio inicial não entrou — GetBuffer/ReleaseBuffer não está escrevendo")
 	}
 
-	// 440 Hz por meio segundo, baixinho. Baixo de propósito: quem roda o teste não
-	// merece um susto no fone.
 	const dur = 500 * time.Millisecond
 	fase := 0.0
 	passo := 2 * math.Pi * 440 / TaxaDeAmostragem

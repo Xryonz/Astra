@@ -7,9 +7,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-// Bloqueio de pessoa. Bloquear desfaz a amizade e some com a conversa da barra
-// lateral — o backend cuida disso junto, num pedido so, senao a interface teria
-// que orquestrar tres chamadas e dava pra parar no meio.
 interface BlockApi {
     @GET("api/blocks")
     suspend fun blocked(): ApiEnvelope<List<BlockedUserDto>>

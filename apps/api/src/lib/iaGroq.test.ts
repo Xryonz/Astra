@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { paraMensagens } from './iaGroq'
 
-// A traducao de historico e o unico lugar do adaptador onde da pra errar em
-// silencio: se a ordem sair torta ou um tool_call ficar sem resposta, o Groq
-// devolve 400 e a bot responde "problema tecnico" pra sempre — sem pista de que a
-// culpa foi de uma conversao, nao do modelo.
-
 const FERRAMENTA = {
   role: 'assistant',
   content: [
@@ -32,7 +27,6 @@ describe('paraMensagens', () => {
     expect(r.some((m) => m.role === 'user' && /achei 3/.test(m.content ?? ''))).toBe(false)
   })
 
-  // A API recusa com 400 se a resposta nao vier logo depois de quem pediu.
   it('a resposta da ferramenta vem depois da chamada', () => {
     const r = paraMensagens('s', [FERRAMENTA, RESULTADO])
     const iChamada  = r.findIndex((m) => m.tool_calls?.length)
@@ -49,7 +43,6 @@ describe('paraMensagens', () => {
     expect(JSON.parse(c.function.arguments)).toEqual({ termo: 'x' })
   })
 
-  // Alguns modelos do Groq recusam a mensagem se o campo sumir.
   it('assistente com tool_calls mantem content, mesmo vazio', () => {
     const semTexto = { role: 'assistant', content: [{ type: 'tool_use', id: 'c', name: 'n', input: {} }] }
     const m = paraMensagens('s', [semTexto]).find((x) => x.tool_calls?.length)!
@@ -58,7 +51,7 @@ describe('paraMensagens', () => {
 
   it('nao emite mensagem vazia quando o bloco nao tem nada aproveitavel', () => {
     const r = paraMensagens('s', [{ role: 'assistant', content: [] }, { role: 'user', content: '' }])
-    expect(r).toHaveLength(1) // so o system
+    expect(r).toHaveLength(1) 
   })
 
   it('varios tool_use no mesmo turno viram varias chamadas em UMA mensagem', () => {

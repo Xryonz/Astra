@@ -144,12 +144,9 @@ private object Routes {
 fun AstraApp() {
     val sessionViewModel: SessionViewModel = hiltViewModel()
     val loggedIn by sessionViewModel.isLoggedIn.collectAsState()
-    val reduceMotion = LocalAppPrefs.current.reduceMotion // mestre (usado no splash)
-    val transitionsOn = LocalAppPrefs.current.transitionsOn // toggle de transicoes de tela
+    val reduceMotion = LocalAppPrefs.current.reduceMotion
+    val transitionsOn = LocalAppPrefs.current.transitionsOn
 
-    // Ceu global: 1 aurora + 1 starfield + 1 sensor pro app inteiro (era 1 por
-    // tela — transicoes animavam 2 shaders/canvas full-screen ao mesmo tempo).
-    // As telas sao transparentes e deslizam sobre o ceu parado.
     CosmicBackdrop(interactive = true) {
 
         if (loggedIn != null) {
@@ -212,7 +209,6 @@ fun AstraApp() {
                         navArgument("userId") { type = NavType.StringType },
                         navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     ),
-                    // Card de perfil "cobrindo a tela" vindo da direita (estilo Discord).
                     enterTransition = {
                         if (!transitionsOn) fadeIn(tween(120, easing = EaseOutSoft))
                         else slideInHorizontally(tween(380, easing = EaseSpring)) { it } + fadeIn(tween(260, easing = EaseOutSoft))
@@ -416,7 +412,6 @@ fun AstraApp() {
                 }
             }
 
-            // Deep link de convite (/i/CODE): consome quando logado e abre o preview.
             val pendingInvite by DeepLinkBus.pendingInviteCode.collectAsState()
             LaunchedEffect(pendingInvite, loggedIn) {
                 val code = pendingInvite ?: return@LaunchedEffect
@@ -426,8 +421,6 @@ fun AstraApp() {
                 }
             }
 
-            // Direct Share / atalho de conversa: abre o Sussurro; o conteudo
-            // compartilhado (texto/imagem) fica no bus ate a DmChatScreen consumir.
             val pendingShare by DeepLinkBus.pendingShare.collectAsState()
             LaunchedEffect(pendingShare, loggedIn) {
                 val share = pendingShare ?: return@LaunchedEffect
@@ -444,7 +437,6 @@ fun AstraApp() {
                 }
             }
 
-            // Ligacao recebida (DM): modal global — toca em qualquer tela do app.
             val incomingVm: IncomingCallViewModel = hiltViewModel()
             val incoming by incomingVm.incoming.collectAsState()
             val hapticsOn = LocalAppPrefs.current.haptics
@@ -479,7 +471,7 @@ fun AstraApp() {
         val splashEnter = remember { Animatable(0f) }
         val splashExit = remember { Animatable(0f) }
         LaunchedEffect(Unit) {
-            delay(1000) // tela vazia 1s: deixa o device carregar o app antes de animar (sem travar)
+            delay(1000)
             if (reduceMotion) {
                 splashEnter.snapTo(1f)
                 delay(700)
@@ -512,8 +504,6 @@ private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float
         label = "glow",
     )
     val pulse = if (LocalAppPrefs.current.reduceMotion) 0f else pulseAnim
-    // Fundo liso (sem StarField animado) durante o cold-start: canvas a 60fps aqui
-    // competia por frames e causava o travamento. O starfield segue nas telas reais.
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -521,8 +511,6 @@ private fun SplashScreen(textAlpha: Float, textScale: Float, overlayAlpha: Float
             .background(astraColors.void),
         contentAlignment = Alignment.Center,
     ) {
-        // Constelacao se desenhando atras do nome (one-shot). So compoe depois do 1s
-        // vazio (textAlpha > 0), preservando o anti-jank do cold-start.
         if (textAlpha > 0.01f) {
             ConstellationGraphic(
                 modifier = Modifier.graphicsLayer {

@@ -334,7 +334,6 @@ private fun CallToggle(
             .clickable(enabled = enabled) {
                 if (hapticsOn) {
                     haptic.performHapticFeedback(
-                        // Ligar algo = ToggleOn; o estado atual e o ANTES do clique.
                         if (active) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn,
                     )
                 }

@@ -13,25 +13,12 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media"
 )
 
-// UMA CHAMADA INTEIRA DENTRO DE UM PROCESSO.
-//
-// Este é o teste que importa. Os outros provam peças; este prova o CAMINHO: dois
-// pares de verdade fazendo o aperto de mão pela mesma sinalização que o Astra usa,
-// voz codificada em Opus atravessando o transporte do Pion, e chegando decodificada
-// no misturador do outro lado.
-//
-// Não precisa de microfone nem de alto-falante — entra um tom sintetizado no lugar
-// do microfone e confere-se o que sai da mistura. Por isso roda em qualquer
-// máquina, inclusive sem placa de som.
 func TestChamadaCompletaEntreDoisPares(t *testing.T) {
-	abrirParaTeste(t) // precisa do Opus
+	abrirParaTeste(t)
 
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()
 
-	// Cada lado escreve os envelopes num cano; um roteador lê e entrega ao outro.
-	// É exatamente o papel que o servidor do Astra faz na vida real, reduzido ao
-	// essencial.
 	canoA, escreveA := io.Pipe()
 	canoB, escreveB := io.Pipe()
 
@@ -42,9 +29,6 @@ func TestChamadaCompletaEntreDoisPares(t *testing.T) {
 		t.Fatalf("criar faixa: %v", err)
 	}
 
-	// A TELA ENTRA SÓ DE UM LADO, de propósito: é o arranjo real de quem compartilha —
-	// um transmite, o outro só assiste. Exercita a negociação assimétrica, que é onde
-	// declarar vídeo de menos (ou de mais) quebra o aperto de mão.
 	telaA, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "teste-tela")
 	if err != nil {
 		t.Fatalf("criar faixa de tela: %v", err)
@@ -64,7 +48,6 @@ func TestChamadaCompletaEntreDoisPares(t *testing.T) {
 	}
 	defer parB.Fechar()
 
-	// O roteador: tudo que um lado emite, o outro recebe.
 	rotear := func(de io.Reader, para *Par) {
 		linhas := bufio.NewScanner(de)
 		linhas.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -88,9 +71,6 @@ func TestChamadaCompletaEntreDoisPares(t *testing.T) {
 		t.Fatalf("oferecer: %v", err)
 	}
 
-	// Fala um tom de 440 Hz até a mistura do outro lado ter voz — ou até o tempo
-	// acabar. Empurrar durante a conexão é proposital: é assim que acontece de
-	// verdade, com a pessoa já falando enquanto o ICE ainda fecha.
 	cod, err := NovoCodificador(TaxaDeAmostragem, CanaisDeVoz)
 	if err != nil {
 		t.Fatalf("codificador: %v", err)

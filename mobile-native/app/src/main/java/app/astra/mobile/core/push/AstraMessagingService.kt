@@ -34,18 +34,12 @@ class AstraMessagingService : FirebaseMessagingService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Token novo/rotacionado -> registra no backend (que envia via firebase-admin).
-    // Se o user nao estiver logado o POST da 401 e morre em silencio; o registro
-    // certo acontece no login via PushRegistrar.
     override fun onNewToken(token: String) {
         scope.launch {
             try { api.registerFcmToken(FcmTokenRequest(token)) } catch (_: Exception) {}
         }
     }
 
-    // O backend manda DATA-ONLY: este metodo roda em foreground E background,
-    // e o app monta a notificacao sozinho. DM vira conversa (MessagingStyle com
-    // avatar + responder na bandeja); o resto e notificacao simples.
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
         val title = data["title"] ?: message.notification?.title ?: return
@@ -55,7 +49,6 @@ class AstraMessagingService : FirebaseMessagingService() {
         val dmConvId = data["dmConvId"].orEmpty()
         if (dmConvId.isNotEmpty()) {
             val sender = data["sender"].orEmpty().ifBlank { title }
-            // Roda na thread de background do FCM — pode baixar o avatar aqui.
             DmNotifier.show(this, dmConvId, body, sender, loadAvatar(data["icon"].orEmpty()))
             return
         }
@@ -87,11 +80,9 @@ class AstraMessagingService : FirebaseMessagingService() {
                 ?: message.messageId.hashCode()
             NotificationManagerCompat.from(this).notify(id, built)
         } catch (_: SecurityException) {
-            // POST_NOTIFICATIONS negada — nada a fazer.
         }
     }
 
-    // Avatar pro Person da conversa (best-effort: falhou = sem icone).
     private fun loadAvatar(url: String): IconCompat? {
         if (url.isBlank()) return null
         val full = if (url.startsWith("/")) BuildConfig.BASE_URL.trimEnd('/') + url else url

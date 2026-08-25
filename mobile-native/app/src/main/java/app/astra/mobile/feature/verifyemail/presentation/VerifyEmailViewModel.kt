@@ -55,7 +55,6 @@ class VerifyEmailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 authApi.verifyEmail(VerifyEmailRequest(code))
-                // Atualiza o cache do me() (emailVerifiedAt) pro gate nao voltar.
                 userRepository.me(forceRefresh = true)
                 _state.update { it.copy(checking = false, done = true) }
             } catch (e: CancellationException) {
@@ -79,7 +78,6 @@ class VerifyEmailViewModel @Inject constructor(
         }
     }
 
-    // Escape de conta presa (email fake que nunca vai receber codigo).
     fun logout() = viewModelScope.launch { authRepository.logout() }
 
     private fun apiMessage(e: Exception): String = when (e) {

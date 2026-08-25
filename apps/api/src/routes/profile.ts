@@ -30,7 +30,7 @@ const ALLOWED_HOSTS = [
 function isAllowedImageUrl(url: string | null | undefined): boolean {
   if (!url) return true
   if (url.startsWith('data:image/')) return true
-  if (isOwnStorageUrl(url)) return true // URL que nos mesmos persistimos (R2 / /uploads)
+  if (isOwnStorageUrl(url)) return true 
   try {
     const { hostname } = new URL(url)
     return ALLOWED_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))
@@ -39,9 +39,6 @@ function isAllowedImageUrl(url: string | null | undefined): boolean {
   }
 }
 
-// 10MB = o teto que o cliente ja aplica (ImageCrop.HARD_MAX). Subiu de 6MB junto
-// com a resolucao de saida (avatar 1024, banner 2560), senao o proprio app produz
-// um arquivo que o proprio servidor recusa.
 function isDataUriTooLarge(url: string | null | undefined): boolean {
   if (!url || !url.startsWith('data:')) return false
   const bytes = url.length * 0.75
@@ -100,18 +97,9 @@ router.patch(
     if (displayName !== undefined) update.displayName = displayName
     if (username    !== undefined) update.username    = username
     if (bio         !== undefined) update.bio         = bio
-    // data-URI -> R2 (guarda so a URL); URL/host permitido passa direto.
-    //
-    // O AVATAR VAI EM DUAS VERSOES, e o banner NAO — a diferenca e onde cada um aparece.
-    // O avatar e desenhado em circulos de 20 a 40 pixels dezenas de vezes por tela, e ate
-    // aqui era o arquivo de 1024px que descia para isso. O banner e desenhado GRANDE, no
-    // cartao de perfil; encolher seria trocar velocidade por borrao no unico lugar em que
-    // ele existe. Ver persistAvatar.
     if (avatarUrl !== undefined) {
       const { url, original } = await persistImagemDeExibicao(avatarUrl)
       update.avatarUrl = url
-      // So sobrescreve quando ha original NOVA: quem manda uma imagem que nao encolheu
-      // (ja pequena, GIF) nao pode apagar a original de um envio anterior.
       if (original !== null) update.avatarFullUrl = original
     }
     if (bannerUrl   !== undefined) update.bannerUrl   = await persistDataUri(bannerUrl)
@@ -124,8 +112,6 @@ router.patch(
     if (pronouns         !== undefined) update.pronouns         = pronouns
     if (statusEmoji      !== undefined) update.statusEmoji      = statusEmoji
     if (displayFont      !== undefined) update.displayFont      = displayFont
-    // Ajuste de PRIVACIDADE viajando na rota de perfil: e a mesma linha (uma coluna
-    // do usuario, um PATCH), e uma rota separada so pra ele seria cerimonia.
     if (dmPrivacy        !== undefined) update.dmPrivacy        = dmPrivacy
 
     const [user] = await db.update(users).set(update)
@@ -144,9 +130,6 @@ router.patch(
         dmPrivacy: users.dmPrivacy,
       })
 
-    // Sem isto, o perfil editado só aparecia pros outros (e pra mim em outras
-    // telas) depois de reabrir o app — a lista de membros, a barra de sussurros e
-    // o autor de cada mensagem seguiam com o nome e a foto velhos.
     profileChanged(req.userId!)
     res.json({ data: { user } })
   })
@@ -159,9 +142,6 @@ router.get(
     const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
     if (ids.length === 0) return res.json({ data: {} })
 
-    // UM MGET pra todos os ids (era N x GET, ~1 comando por membro do painel toda
-    // vez que a lista carregava). Mesmo padrao do servers.ts. Fail-safe: Redis fora
-    // -> todos OFFLINE, a request nao cai.
     const out: Record<string, 'ONLINE'|'IDLE'|'DND'|'OFFLINE'> = {}
     let live: (string | null)[] = []
     try { live = await redis.mget(ids.map((id) => presenceKeys.user(id))) } catch { live = [] }
@@ -174,16 +154,6 @@ router.get(
   })
 )
 
-// Atividade em lote — o par de /presence, e separado dele de propósito.
-//
-// Juntar os dois numa resposta só seria mais barato em requisições e mais caro em
-// tudo o mais: /presence devolve `Record<string,string>` hoje, e todo cliente já
-// declara esse formato. Trocar por um objeto quebraria os quatro de uma vez pra
-// economizar um round-trip que acontece uma vez por painel aberto.
-//
-// Quem não tem atividade simplesmente NÃO APARECE no mapa — nada de string vazia
-// pra cada pessoa da lista. O painel de membros manda 200 ids e recebe de volta só
-// os poucos que estão em alguma coisa.
 router.get(
   '/activity',
   requireAuth,
@@ -191,10 +161,6 @@ router.get(
     const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200)
     if (ids.length === 0) return res.json({ data: {} })
 
-    // { texto, desde } e não string pura: o cartão de perfil mostra "há 2h 14min"
-    // junto do nome do programa, e o instante de início mora no mesmo lugar que o
-    // texto (uma linha só no Redis, ver leAtividade). Mudar o formato é seguro
-    // porque só o desktop lê esta rota — ela nasceu com ele.
     const out: Record<string, { text: string; since: number }> = {}
     let live: (string | null)[] = []
     try { live = await redis.mget(ids.map((id) => activityKeys.user(id))) } catch { live = [] }
@@ -251,8 +217,6 @@ router.patch(
     const { status } = req.body as { status: 'ONLINE'|'IDLE'|'DND'|'INVISIBLE' }
     await db.update(users).set({ status }).where(eq(users.id, req.userId!))
     await setUserOnline(req.userId!, status)
-    // Sem isto o status novo so aparecia pros outros quando eles recarregavam a
-    // tela — o caminho por socket (set_status) ja avisava, este nao.
     presenceChanged(req.userId!, status)
     res.json({ data: { status } })
   })
@@ -289,16 +253,6 @@ router.get(
     else effectiveStatus = liveStatus
     ;(user as any).effectiveStatus = effectiveStatus
 
-    // "EM COMUM" NÃO EXISTE CONSIGO MESMO.
-    //
-    // Vendo o próprio perfil, TODA constelação sua é comum com você: a conta fecha
-    // e o resultado não quer dizer nada. A seção listava de volta o que a pessoa já
-    // sabe, sob um rótulo que promete ligação com OUTRA pessoa.
-    //
-    // O `isSelf` já existia e já guardava os AMIGOS em comum, logo abaixo — as
-    // constelações é que ficaram de fora quando a guarda foi escrita. Aqui ela
-    // também poupa duas consultas no caso mais comum de todos, que é a pessoa
-    // abrir o próprio cartão.
     const [myMems, theirMems] = isSelf
       ? [[] as Array<{ serverId: string }>, [] as Array<{ serverId: string; role: string }>]
       : await Promise.all([
@@ -316,13 +270,6 @@ router.get(
       mutualServers = srvs.map((s) => ({ ...s, role: roleByServer.get(s.id) ?? 'MEMBER' }))
     }
 
-    // Amigos em comum. A amizade e guardada como UM par (userAId/userBId) sem
-    // lado fixo — quem pediu pode estar em qualquer coluna. Entao "os amigos de
-    // X" e a uniao das duas colunas, tirando o proprio X.
-    //
-    // Duas consultas e uma intersecao em memoria, e nao um JOIN: a lista de
-    // amigos de uma pessoa e pequena (dezenas), e um self-join com OR nas duas
-    // colunas nao usa nenhum dos dois indices por status que a tabela tem.
     const amigosDe = async (id: string) => {
       const rows = await db.select({ a: friendships.userAId, b: friendships.userBId })
         .from(friendships)
@@ -330,10 +277,6 @@ router.get(
       return new Set(rows.map((r) => (r.a === id ? r.b : r.a)))
     }
     let mutualFriends = 0
-    // Os ROSTOS, e não só a contagem: a tela mostra quem são. Vem limitada porque
-    // uma conta velha pode ter dezenas em comum e o cartão cabe meia dúzia — o
-    // número inteiro continua em `mutualFriends`, então "+12" ainda é dizível sem
-    // carregar doze avatares que ninguém vai ver.
     let mutualFriendsList: Array<{ id: string; username: string; displayName: string | null; avatarUrl: string | null }> = []
     const ROSTOS_EM_COMUM = 8
     if (!isSelf) {

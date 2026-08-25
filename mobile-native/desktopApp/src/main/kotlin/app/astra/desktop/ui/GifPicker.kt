@@ -47,14 +47,6 @@ import app.astra.mobile.core.network.dto.GifResultDto
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
-// GIF picker (F5): botao no composer abre painel com busca (Tenor via backend,
-// mesma GifApi do mobile — agora no :shared). Escolher envia na hora, como o
-// Discord: o GIF vai como anexo de URL direta, sem upload.
-
-// O botao "GIF" solto do compositor saiu (e o AbovePanel junto): emoji e GIF
-// agora vivem dentro da estrela (ComposerStar.kt), que posiciona o proprio popup
-// e chama o GifPanel daqui direto.
-
 @Composable
 internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
     val koin = GlobalContext.get()
@@ -62,7 +54,6 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
     var results by remember { mutableStateOf<List<GifResultDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
-    // Busca com debounce; vazio = destaques.
     LaunchedEffect(query) {
         loading = true
         if (query.isNotBlank()) delay(400)

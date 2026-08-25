@@ -17,23 +17,10 @@ data class Session(
     val displayName: String,
 )
 
-// Sessao persistida em %APPDATA%/Astra (pasta por-usuário do Windows; ~/.astra
-// no resto). Tokens cifrados em repouso com DPAPI (CryptProtectData amarra o
-// segredo a conta do Windows); fora do Windows cai no arquivo plano.
-//
-// Concorrencia: o AuthInterceptor chama load() em TODA request e o
-// authenticator chama save() no refresh — com cifra, leitura no meio de uma
-// escrita corrompe o decrypt. Por isso: cache em memoria (disco+DPAPI so uma
-// vez), lock nas mutacoes e escrita atomica (tmp + move).
 class SessionStore {
     private val dir: File = run {
         val appData = System.getenv("APPDATA")
         val base = if (appData != null) File(appData, "Astra") else File(System.getProperty("user.home"), ".astra")
-        // Segunda instancia mora numa pasta PROPRIA. Sem isto as duas janelas
-        // dividiriam o mesmo session.bin, ou seja: a mesma conta nas duas — e testar
-        // "eu vejo o que o outro fez" ficaria impossivel, que e justamente o ponto de
-        // abrir a segunda. O numero da conta vira sufixo, entao da pra ter quantos
-        // perfis quiser (Astra-teste2, -teste3, ...).
         val slot = Multi.slot
         if (slot != null) File("${base.path}-teste$slot") else base
     }
@@ -63,8 +50,6 @@ class SessionStore {
         synchronized(lock) {
             cache = s
             loaded = true
-            // Disco e best-effort: se a cifra/escrita falhar, a sessão da
-            // execucao atual segue viva no cache (re-login so no próximo boot).
             runCatching {
                 dir.mkdirs()
                 val p = Properties()
@@ -110,8 +95,6 @@ class SessionStore {
         }.getOrNull()
     }
 
-    // Sessao antiga em texto plano vira cifrada (sem re-login). O arquivo plano
-    // SO morre depois do cifrado confirmado no disco — senao segura a sessão.
     private fun migrateLegacy() {
         if (!legacyFile.exists()) return
         if (file.exists()) {
@@ -131,8 +114,6 @@ class SessionStore {
         if (file.exists()) legacyFile.delete()
     }
 
-    // Prefs de UI (ex: última constelação/órbita aberta) — arquivo separado da
-    // sessão pra sobreviver a logout/refresh de token.
     private val uiFile = File(dir, "ui.properties")
 
     fun uiPref(key: String): String? {
@@ -149,10 +130,6 @@ class SessionStore {
         runCatching { uiFile.outputStream().use { p.store(it, "Astra ui prefs") } }
     }
 
-    // Id estavel por instalacao (não e segredo). Vive nas prefs de UI pra
-    // sobreviver a logout — assim o MESMO PC mantem o id entre logins e o backend
-    // deduplica a sessão (X-Device-Id). Gerado uma vez, sob lock pra não nascer
-    // dois no primeiro boot (varias requests concorrentes chamam load/deviceId).
     fun deviceId(): String = synchronized(lock) {
         uiPref("deviceId") ?: java.util.UUID.randomUUID().toString().also { setUiPref("deviceId", it) }
     }

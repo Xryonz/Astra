@@ -96,12 +96,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Configuracoes da CONSTELACAO — o MESMO cartao das configuracoes do usuario (veu
-// preto, painel com teto de 1180dp, nav de 220dp a esquerda, coluna de conteudo
-// capada em 720dp), pra as duas telas de configuração se lerem como a mesma coisa.
-//
-// As tres abas estão prontas. `ready` fica no enum de proposito: e o interruptor
-// pra listar uma aba futura apagada e inerte, sem mudar a forma da navegacao.
 internal enum class ServerTab(val label: String, val sub: String, val icon: ImageVector, val ready: Boolean) {
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
     ROLES("Cargos", "permissões e cor do nome", Lucide.Shield, true),
@@ -132,8 +126,6 @@ fun ServerSettingsScreen(
 ) {
     var tab by remember { mutableStateOf(ServerTab.OVERVIEW) }
 
-    // Cargos vivem aqui (não no ShellUiState): so esta tela usa. Recarrega quando
-    // a aba abre e depois de cada mudanca, pra a lista refletir o servidor.
     var roles by remember(server.id) { mutableStateOf<List<RoleDto>?>(null) }
     var rolesError by remember(server.id) { mutableStateOf<String?>(null) }
     fun reloadRoles() = onLoadRoles { list, err -> roles = list; rolesError = err }
@@ -142,8 +134,6 @@ fun ServerSettingsScreen(
     var bansError by remember(server.id) { mutableStateOf<String?>(null) }
     fun reloadBans() = onLoadBans { list, err -> bans = list; bansError = err }
 
-    // Busca so quando a aba entra em cena: quem so mexe na Visao geral não paga
-    // por cargos nem banimentos.
     LaunchedEffect(server.id, tab) {
         when (tab) {
             ServerTab.ROLES -> reloadRoles()
@@ -152,7 +142,6 @@ fun ServerSettingsScreen(
         }
     }
 
-    // ESC fecha — mesmo contrato do SettingsScreen.
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
 
@@ -165,8 +154,6 @@ fun ServerSettingsScreen(
                 if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onClose(); true } else false
             },
     ) {
-        // Veu sobre o ceu da janela: a aurora continua viva por baixo, sem pintar
-        // uma nova (mesmo motivo do SettingsScreen).
         Box(
             Modifier
                 .matchParentSize()
@@ -177,16 +164,6 @@ fun ServerSettingsScreen(
                     onClick = onClose,
                 ),
         )
-        // CARTAO, e nao tela cheia. Era um Row(fillMaxSize) com a coluna de conteudo
-        // capada em 720 e encostada a esquerda: 220 + 720 = 940dp usados, e num
-        // monitor largo sobrava METADE da tela de veu vazio a direita — a tela lia
-        // como algo que nao terminou de carregar.
-        //
-        // A moldura e a MESMA das configuracoes do usuario (padding, teto de 1180,
-        // fundo base, borda, cantos de 16). Nao e coincidencia: sao duas telas
-        // irmas, abertas do mesmo jeito, com a mesma nav de 220 a esquerda. O vazio
-        // some porque a tela deixa de ser tela e vira painel, e o teto de 1180
-        // impede o esparramo em qualquer resolucao daqui pra frente.
         Row(
             Modifier
                 .fillMaxSize()
@@ -195,8 +172,6 @@ fun ServerSettingsScreen(
                 .clip(FORMA_DO_CARTAO_DE_CONFIG)
                 .background(Obsidian.base)
                 .border(1.dp, Obsidian.borderMid, FORMA_DO_CARTAO_DE_CONFIG)
-                // Engole o clique: sem isto, clicar dentro do cartao fecha, porque o
-                // veu atras continua ouvindo.
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -219,11 +194,6 @@ fun ServerSettingsScreen(
                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
-                // A lista tem espaçamento PRÓPRIO, maior que o da coluna. O `spacedBy`
-                // de fora rege o nome da constelação e a legenda abaixo dele, onde 4dp
-                // é o certo — duas linhas do mesmo bloco. Entre abas, 4dp encostava as
-                // bordas de cartões vizinhos e a lista lia como grade; 10dp devolve a
-                // cada aba um contorno seu. Mesmo valor do menu da conta.
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ServerTab.entries.forEach { t ->
                         ServerNavRow(t, active = t == tab, onClick = { if (t.ready) tab = t })
@@ -268,8 +238,6 @@ fun ServerSettingsScreen(
                         },
                         label = "serverSection",
                     ) { current ->
-                        // Column: sem ela o AnimatedContent empilha os filhos no
-                        // mesmo Y (a mesma armadilha do SettingsScreen).
                         Column(Modifier.fillMaxWidth()) {
                             when (current) {
                                 ServerTab.OVERVIEW -> OverviewSection(
@@ -281,9 +249,6 @@ fun ServerSettingsScreen(
                                     myPermissions = myPermissions,
                                     amOwner = isOwner,
                                     error = rolesError,
-                                    // Recarrega depois de cada mudanca: posição e
-                                    // permissões efetivas vem do servidor (o backend
-                                    // filtra o que você não pode conceder).
                                     onSave = { id, body, cb ->
                                         onSaveRole(id, body) { err -> if (err == null) reloadRoles(); cb(err) }
                                     },
@@ -295,37 +260,22 @@ fun ServerSettingsScreen(
                                 ServerTab.BANS -> BansSection(
                                     bans = bans,
                                     error = bansError,
-                                    // Recarrega ao revogar: a linha some da lista.
                                     onUnban = { uid, cb ->
                                         onUnban(uid) { err -> if (err == null) reloadBans(); cb(err) }
                                     },
                                 )
-                                // Quem so e membro tambem abre esta aba: ele nao sobe
-                                // nem apaga, mas ouvir o que existe antes de tocar
-                                // numa call cheia e o minimo de cortesia.
                                 ServerTab.SOUNDS -> SoundsSection(
                                     serverId = server.id,
                                     podeGerenciar = isOwner || "MANAGE_SERVER" in myPermissions,
                                 )
-                                // Mesma regra do soundboard: todo membro VE o que
-                                // existe, só quem cuida da constelação sobe e apaga.
                                 ServerTab.STICKERS -> StickersSection(
                                     serverId = server.id,
                                     podeGerenciar = isOwner || "MANAGE_SERVER" in myPermissions,
                                 )
-                                // MANAGE_CHANNELS, e não MANAGE_SERVER como as duas
-                                // abas acima: é o que a rota de emoji exige do lado do
-                                // servidor (routes/emojis.ts). Copiar a permissão da
-                                // vizinha deixaria o botão à mostra pra quem levaria
-                                // 403 ao clicar, e escondido de quem podia.
                                 ServerTab.EMOJIS -> EmojisSection(
                                     serverId = server.id,
                                     podeGerenciar = isOwner || "MANAGE_CHANNELS" in myPermissions,
                                 )
-                                // Aqui a regra é do LUGAR e não de quem olha: som e
-                                // figurinha todo mundo vê (ouvir o que existe antes
-                                // de tocar é cortesia), mas o que a bot pode fazer
-                                // é decisão de quem cuida da constelação.
                                 ServerTab.BOT -> if (isOwner || "MANAGE_SERVER" in myPermissions) {
                                     ServerBotTab(server.botDisabledCommands) { lista ->
                                         onSave(pedidoDeComandos(lista)) {}
@@ -357,8 +307,6 @@ private fun OverviewSection(
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
 
-    // Rascunho rechaveado pelo servidor: salvar recarrega a lista e o valor novo
-    // desce por aqui.
     var name by remember(server) { mutableStateOf(server.name) }
     var description by remember(server) { mutableStateOf(server.description.orEmpty()) }
     var iconUrl by remember(server) { mutableStateOf(server.iconUrl) }
@@ -368,9 +316,6 @@ private fun OverviewSection(
     var bannerPositionY by remember(server) { mutableStateOf(server.bannerPositionY) }
     var bannerScale by remember(server) { mutableStateOf(server.bannerScale) }
     var iconScale by remember(server) { mutableStateOf(server.iconScale) }
-    // null = automática (a bot escolhe). So órbita de TEXTO entra na lista: a bot
-    // escreve, e oferecer uma sala de voz aqui seria oferecer uma escolha que o
-    // servidor recusa.
     var orbitaAvisos by remember(server) { mutableStateOf(server.botNoticeChannelId) }
     val orbitasDeTexto = remember(server) { server.channels.filter { it.type == "TEXT" && !it.isPrivate } }
 
@@ -381,15 +326,10 @@ private fun OverviewSection(
     var confirmRegen by remember { mutableStateOf(false) }
     var confirmDanger by remember { mutableStateOf(false) }
     var regenerating by remember { mutableStateOf(false) }
-    // O "copiar" virou icone e perdeu o rotulo que dizia "copiado". A confirmacao
-    // agora e o proprio icone virando um tique por 2s — sem isso, clicar num
-    // quadrado que nao muda de nada nao prova que a copia aconteceu.
     var copiado by remember { mutableStateOf(false) }
     LaunchedEffect(copiado) {
         if (copiado) { kotlinx.coroutines.delay(2000); copiado = false }
     }
-    // Recorte estilo Discord: a fonte aberta no modal (arquivo novo ou a imagem
-    // já salva pra reenquadrar). null = modal fechado.
     var cropIcon by remember { mutableStateOf<CropSource?>(null) }
     var cropBanner by remember { mutableStateOf<CropSource?>(null) }
 
@@ -404,28 +344,18 @@ private fun OverviewSection(
         iconScale != server.iconScale ||
         orbitaAvisos != server.botNoticeChannelId
 
-    // Form (esquerda) + card de previa ao vivo (direita). O form segue no fluxo
-    // scrollavel do pai; a previa acompanha no topo-direita.
-    // O vao e generoso de proposito: a previa NAO e um campo do formulario, e a 48dp
-    // ela parecia mais uma coluna do form do que o resultado dele.
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(80.dp)) {
       Column(Modifier.weight(1f)) {
-    // ---- Identidade ----
     FieldLabel("ícone")
     Row(verticalAlignment = Alignment.CenterVertically) {
         ServerIconPreview(iconUrl, name, iconScale)
         Spacer(Modifier.width(16.dp))
-        // Só ícone: os três botões ficam COLADOS na miniatura que eles mexem, e o
-        // contexto já diz do que se trata. O nome aparece ao parar o mouse.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BotaoIcone(Lucide.Upload, "trocar ícone", accent = true, ocupado = busyIcon) {
                 val file = AvatarPicker.choose("Escolher ícone") ?: return@BotaoIcone
                 busyIcon = true
                 msg = null
                 scope.launch {
-                    // Ler o arquivo e pesado -> fora da thread de UI. Animado não
-                    // pode ser assado num recorte: vai pro caminho antigo (a
-                    // animação sobrevive, o enquadramento fica em metadado).
                     val animated = withContext(Dispatchers.IO) { ImageCrop.isAnimated(file) }
                     if (!animated) {
                         busyIcon = false
@@ -439,8 +369,6 @@ private fun OverviewSection(
                 }
             }
             val iconAtual = iconUrl
-            // Reenquadrar só existe pra imagem estática: animada não pode ser assada
-            // num recorte (perderia a animação), e ali o zoom vive em metadado.
             if (!iconAtual.isNullOrBlank() && !ImageCrop.isAnimated(iconAtual)) {
                 BotaoIcone(Lucide.Crop, "reenquadrar") { cropIcon = CropSource.Remote(iconAtual) }
             }
@@ -455,8 +383,6 @@ private fun OverviewSection(
         style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
         modifier = Modifier.widthIn(max = 460.dp),
     )
-    // O zoom em metadado so vale pro ANIMADO — o estatico ja e assado no recorte, e
-    // o botao de reenquadrar dele subiu pra fileira de icones junto da miniatura.
     val iconNow = iconUrl
     if (!iconNow.isNullOrBlank() && ImageCrop.isAnimated(iconNow)) {
         Spacer(Modifier.height(10.dp))
@@ -483,14 +409,10 @@ private fun OverviewSection(
         modifier = Modifier
             .widthIn(max = 460.dp)
             .fillMaxWidth()
-            // Proporcao UNICA (editor = previa = card da Descoberta): so assim o
-            // recorte assado cai exato nos tres.
             .aspectRatio(ServerBannerAspect)
             .clip(RoundedCornerShape(10.dp))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
             .then(
-                // Arrastar na vertical reposiciona — so pro ANIMADO, que não pode
-                // ser assado. O estatico já vem recortado, arrastar so desalinharia.
                 if (!bannerAnimated) Modifier
                 else Modifier.pointerInput(Unit) {
                     detectDragGestures { change, drag ->
@@ -508,9 +430,6 @@ private fun OverviewSection(
     }
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Ícones em vez de texto: os três nomes por extenso ocupavam a largura toda e
-        // o mais comprido ainda quebrava em duas linhas. O nome de cada um aparece ao
-        // parar o mouse — em botão que apaga, descobrir clicando sairia caro.
         BotaoIcone(
             icone = if (busyBanner) Lucide.LoaderCircle else Lucide.Upload,
             dica = if (busyBanner) "processando…" else "subir banner",
@@ -531,8 +450,6 @@ private fun OverviewSection(
                     AvatarPicker.encodeComMedidas(file, AvatarPicker.BANNER_DIM)
                 }
                 busyBanner = false
-                // Mesma conta do banner de perfil: o animado pula o recorte, entao o
-                // zoom de chegada e o que COBRE a faixa em vez de "cabe inteira".
                 r.onSuccess {
                     bannerUrl = it.dataUri
                     bannerPositionY = 50
@@ -549,7 +466,6 @@ private fun OverviewSection(
         }
     }
 
-    // ---- Convite ----
     SettingsDivider()
     FieldLabel("convite")
     Row(Modifier.widthIn(max = 460.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -569,9 +485,6 @@ private fun OverviewSection(
             )
         }
         Spacer(Modifier.width(8.dp))
-        // Só ícone: os dois estão encostados no código que eles operam. Copiar e
-        // regenerar são universais, e regenerar ainda passa por confirmação — não
-        // há como apagar o convite por engano num clique curioso.
         server.inviteCode?.let { code ->
             BotaoIcone(if (copiado) Lucide.Check else Lucide.Copy, if (copiado) "copiado" else "copiar convite") {
                 clipboard.setText(AnnotatedString(code))
@@ -580,9 +493,6 @@ private fun OverviewSection(
             }
             Spacer(Modifier.width(6.dp))
         }
-        // O ConfirmPopup mora DENTRO deste Box de proposito: a ancora do popup e o
-        // container onde ele foi escrito, e a ancora tem que ser o botao. Solto no
-        // corpo da tela, ele ancorava na coluna inteira e aparecia la em cima.
         Box {
             BotaoIcone(Lucide.RefreshCw, "regenerar convite", accent = true, ocupado = regenerating) {
                 confirmRegen = true
@@ -613,7 +523,6 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
-    // ---- Descoberta e retencao ----
     SettingsDivider()
     ToggleRow(
         "Constelação pública",
@@ -636,10 +545,6 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
-    // ---- Órbita dos avisos da bot ----
-    // Vale pra tudo que ela diz sem ser chamada: troca de turno e chegada de gente.
-    // Subir de nível não entra aqui de propósito — aquele aviso é sobre a conversa
-    // em que a pessoa estava, não sobre a constelação.
     SettingsDivider()
     FieldLabel("órbita dos avisos da bot")
     androidx.compose.foundation.layout.FlowRow(
@@ -663,7 +568,6 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
-    // ---- Zona de perigo ----
     SettingsDivider()
     FieldLabel("zona de perigo")
     Text(
@@ -673,8 +577,6 @@ private fun OverviewSection(
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
-    // Texto MANTIDO: é irreversível e fica sozinho na zona de perigo. Uma lixeira
-    // solta ali dependeria de a pessoa passar o mouse antes de clicar.
     DangerButton(
         if (isOwner) "excluir constelação" else "sair da constelação",
         icone = if (isOwner) Lucide.Trash2 else Lucide.LogOut,
@@ -692,9 +594,7 @@ private fun OverviewSection(
         )
     }
     Spacer(Modifier.height(24.dp))
-      } // fim do form (coluna esquerda)
-      // Coluna direita: card de previa ao vivo -> legenda "PREVIA" ABAIXO dele ->
-      // ações de salvar/descartar (ficam junto do que elas afetam).
+      }
       Column(
           modifier = Modifier.padding(top = 26.dp),
           horizontalAlignment = Alignment.CenterHorizontally,
@@ -737,12 +637,8 @@ private fun OverviewSection(
                           bannerScale = bannerScale,
                           iconScale = iconScale,
                           description = description.trim(),
-                          // 0 = "pra sempre"; o backend traduz 0 em null.
                           messageRetentionDays = retention,
                           isPublic = isPublic,
-                          // "" e nao null: campo nulo nao vai no corpo, entao null
-                          // aqui significaria "nao mexi nisto" e nunca daria pra
-                          // voltar ao automatico. O backend traduz vazio em nulo.
                           botNoticeChannelId = orbitaAvisos.orEmpty(),
                       ),
                   ) { err ->
@@ -771,9 +667,8 @@ private fun OverviewSection(
               Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
           }
       }
-    } // fim do Row form+previa
+    }
 
-    // Modais de recorte (Popup: sobem no nivel da janela, não estorvam o layout).
     cropIcon?.let { src ->
         CropDialog(
             source = src,
@@ -798,8 +693,6 @@ private fun OverviewSection(
     }
 }
 
-// 1 dia entra a pedido do dono: canais bem efemeros. O aviso em ambar ao lado
-// deixa claro que e destrutivo e silencioso.
 private val RETENTION_OPTIONS = listOf(
     0 to "nunca",
     1 to "1 dia",
@@ -836,8 +729,6 @@ private fun ServerNavRow(tab: ServerTab, active: Boolean, onClick: () -> Unit) {
             Text(
                 tab.label,
                 style = TextStyle(
-                    // Aba não pronta fica visivelmente apagada: mostra pra onde a
-                    // tela vai crescer sem prometer que já funciona.
                     color = when {
                         !tab.ready -> Obsidian.text3
                         active -> Obsidian.text1
@@ -868,7 +759,6 @@ private fun ServerIconPreview(url: String?, name: String, iconScale: Int = 100, 
                 style = TextStyle(color = Obsidian.text2, fontSize = (size.value * 0.34f).sp, fontFamily = DmSerif),
             )
         } else {
-            // iconScale (100..300%): zoom centrado dentro do recorte (o clip do Box corta o excesso).
             AstraImage(
                 url, null,
                 Modifier.fillMaxSize().graphicsLayer {
@@ -880,8 +770,6 @@ private fun ServerIconPreview(url: String?, name: String, iconScale: Int = 100, 
     }
 }
 
-// Zoom (100..300%): trilha arrastavel simples. Espelha o ZoomTrack das configs de
-// usuário (pequena demais pra virar componente compartilhado por enquanto).
 @Composable
 private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     val pct = ((scale - 100) / 200f).coerceIn(0f, 1f)
@@ -905,8 +793,6 @@ private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
         ) {
             Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.void.copy(alpha = 0.6f)))
             Box(Modifier.fillMaxWidth(pct).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Obsidian.accent))
-            // Alca agarravel no fim do preenchido (spacers pesados = centro na fracao,
-            // sem clipar nas pontas; arrastar em qualquer ponto do trilho também move).
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 val f = pct.coerceIn(0f, 1f)
                 if (f > 0f) Spacer(Modifier.weight(f))
@@ -919,8 +805,6 @@ private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
     }
 }
 
-// Previa ao vivo da config (direita): a constelação como aparece pros outros —
-// banner enquadrado (posição/zoom), ícone sobreposto (zoom), nome e nº de canais.
 @Composable
 private fun ServerConfigPreview(
     name: String,
@@ -953,7 +837,7 @@ private fun ServerConfigPreview(
                 ServerIconPreview(iconUrl, name, iconScale, 54.dp)
             }
         }
-        Spacer(Modifier.height(32.dp)) // espaco para o ícone sobreposto
+        Spacer(Modifier.height(32.dp))
         Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp)) {
             Text(
                 name.ifBlank { "constelação" },
@@ -1031,9 +915,6 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-// Botão que MANTÉM o texto e ganha um ícone à esquerda. É o outro lado da regra: só
-// vira ícone puro quem está encostado no objeto que opera. Botão sozinho não tem
-// vizinho pra comparar, e ícone sem vizinho é adivinhação.
 @Composable
 private fun SmallButton(label: String, accent: Boolean, icone: ImageVector? = null, onClick: () -> Unit) {
     val cor = if (accent) Obsidian.accent else Obsidian.text2

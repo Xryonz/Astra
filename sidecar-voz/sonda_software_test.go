@@ -1,42 +1,5 @@
 package main
 
-// SONDA DO CAMINHO DE SOFTWARE — a máquina sem compressor de placa transmite?
-//
-// HOJE ELA NÃO TRANSMITE NADA. Não é "transmite pior": `AbrirCompressor` percorre os
-// candidatos, todos recusam, e a transmissão nem começa. Medido nesta máquina:
-//
-//	NVIDIA H.264 Encoder MFT      nem liga: falha catastrófica
-//	Intel Quick Sync (x2)         fala D3D11        <- é por aqui que passa hoje
-//	Microsoft AVC DX12            fala D3D11
-//	H264 Encoder MFT (software)   NÃO fala D3D11    <- e por isso é recusado
-//
-// Numa máquina virtual, num notebook velho ou numa área de trabalho remota só existe o
-// último — e ele é recusado duas vezes: `definirEntrada` só aceita ARGB32 (ele só
-// aceita YUV) e `medirASaida` exige que ele traga a própria amostra (ele não traz).
-//
-// O PLANO ÓBVIO É CONVERTER, e a peça já está no caminho: o Video Processor MFT
-// (`redimensionador.go`) roda na placa e converte formato além de reduzir tamanho. Mas
-// entre "ele converte para NV12" e "a transmissão funciona" há uma pergunta que decide
-// a arquitetura inteira e que NÃO se responde lendo documentação:
-//
-//	o compressor de software vive na memória PRINCIPAL. O quadro está na PLACA.
-//	quem faz a travessia, e quanto ela custa?
-//
-// São três perguntas encadeadas, e esta sonda faz as três em ordem. Cada uma só é feita
-// se a anterior respondeu sim, e a que falhar aponta o remédio:
-//
-//	1. o Video Processor aceita ARGB32 na entrada e NV12 na saída, ao mesmo tempo
-//	   que reduz o tamanho?
-//	2. o quadro NV12 que ele produz pode ser LIDO pela CPU? (se ele alocar em memória
-//	   de vídeo, ler exige uma textura de leitura montada por nós — mais código)
-//	3. o compressor de software aceita esses bytes e devolve H.264 de verdade?
-//
-// E depois das três, a pergunta que decide o PRESET: quanto custa por quadro. Um
-// compressor de software a 720p pode custar mais que o orçamento de 16,67ms de 60/s, e
-// nesse caso prometer 60 é prometer engasgo.
-//
-//	ASTRA_TESTE_TELA=1 go test -run SondaDoCaminhoDeSoftware -v
-
 import (
 	"runtime"
 	"testing"
@@ -61,17 +24,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	}
 	defer fecharMF()
 
-	// ELA PULA NA SUÍTE INTEIRA E PASSA SOZINHA, e isso é conhecido. Depois de uns trinta
-	// segundos de testes de placa no MESMO processo, o `D3D11CreateDevice` passa a
-	// devolver um dispositivo que não responde `QueryInterface` para DXGI — sucesso sem
-	// interface. É esgotamento do processo de teste, não do aplicativo: em produção existe
-	// UM dispositivo por transmissão, criado e fechado pelo `Emissor`.
-	//
-	// Até esta sonda existir, esse mesmo estado DERRUBAVA o processo: o zero devolvido
-	// virava chamada de método em endereço nulo. Hoje vira a mensagem abaixo, graças à
-	// guarda em `consultar`. Rodar sozinha para ver os números:
-	//
-	//	ASTRA_TESTE_TELA=1 go test -run SondaDoCaminhoDeSoftware -v
 	tela, err := AbrirTela(0)
 	if err != nil {
 		t.Skipf("sem tela para capturar: %v", err)
@@ -81,8 +33,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	const saidaL, saidaA = 1280, 720
 	t.Logf("tela %dx%d, alvo %dx%d", largura, altura, saidaL, saidaA)
 
-	// O gerenciador da MESMA placa da captura — sem isso o Video Processor não sabe ler
-	// a textura que a duplicação produziu.
 	var ficha uint32
 	var gerente objeto
 	r, _, _ := procMFCriarGerenciador.Call(
@@ -95,8 +45,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 		"entregar a placa"); err != nil {
 		t.Fatal(err)
 	}
-
-	// ---- PERGUNTA 1: ARGB32 entra, NV12 sai, e menor? -----------------------------
 
 	vp, err := criar(&clsidVideoProcessor, &iidIMFTransform)
 	if err != nil {
@@ -128,10 +76,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	vp.chamar(transMandarRecado, recadoComecarFluxo, 0)
 	vp.chamar(transMandarRecado, recadoAbrirFluxo, 0)
 
-	// ---- PERGUNTA 2: dá para LER esse NV12 na CPU? --------------------------------
-
-	// Uma textura nossa, para onde a duplicação é copiada. Mesmo arranjo do anel do
-	// compressor: a textura da duplicação não serve de entrada direta para um MFT.
 	desc := descricaoDeTextura{
 		Largura: uint32(largura), Altura: uint32(altura),
 		Niveis: 1, Camadas: 1, Formato: formatoBGRA, AmostrasConta: 1,
@@ -162,8 +106,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	if len(nv12) < esperado {
 		t.Fatalf("veio quadro curto: %d < %d", len(nv12), esperado)
 	}
-
-	// ---- PERGUNTA 3: o compressor de software aceita isso? ------------------------
 
 	sw, nome, err := abrirCompressorDeSoftware(t, saidaL, saidaA, passo)
 	if err != nil {
@@ -201,17 +143,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	defer saidaAmostra.soltar()
 	defer bufSaida.soltar()
 
-	// ---- E A CONTA QUE DECIDE O PRESET --------------------------------------------
-	//
-	// Vinte quadros da tela de verdade, do jeito que a transmissão faria: copia,
-	// converte na placa, lê para a memória principal, comprime na CPU. Os dois tempos
-	// separados porque os remédios são opostos — travessia cara pede quadro menor,
-	// compressão cara pede menos quadros por segundo.
-
-	// CONTA AS RODADAS QUE DE FATO ACONTECERAM, e não as pedidas. A área de trabalho
-	// parada não produz quadro: dividir pelo número pedido quando metade foi pulada
-	// infla o custo por quadro sem nada no relatório dizendo isso. Já custou uma
-	// conclusão errada neste projeto — ver o `sair` que juntava dois quadros num.
 	const quantos = 30
 	var gastoCopia, gastoConversao, gastoLeitura, gastoCompressao time.Duration
 	rodadas, bytesH264, quadrosH264 := 0, 0, 0
@@ -237,7 +168,7 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 			t.Fatalf("travessia no quadro %d: %v", i, err)
 		}
 		if len(bytes) == 0 {
-			continue // o Video Processor ainda não fechou quadro; não é erro
+			continue
 		}
 
 		marco = time.Now()
@@ -275,26 +206,12 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	t.Logf("")
 	orcamentos(t, total)
 
-	// ---- E A PERGUNTA QUE A CONTA ACIMA LEVANTA -----------------------------------
-	//
-	// A leitura é 73% do custo, e ela não é CÓPIA: 1,38 MB de memória para memória
-	// custam meio milissegundo, não sete. Os sete são a CPU PARADA esperando a placa
-	// terminar de converter — destrancar um buffer que embrulha textura força a
-	// sincronização.
-	//
-	// É a MESMA FORMA do teto que segurava o caminho de hardware em 45 quadros: uma
-	// espera que transforma LATÊNCIA em VAZÃO por se recusar a seguir sem o resultado.
-	// E o remédio é o mesmo: entregar o quadro de agora, ler o de antes. A placa ganha
-	// uma volta inteira para terminar, e quando a leitura chega o dado já está lá.
-	//
-	// Antes de escrever isso em produção, medir se funciona.
-
 	t.Logf("")
 	t.Logf("--- O MESMO CANO, LENDO O QUADRO ANTERIOR ---")
 
 	var pipeCopia, pipeConversao, pipeLeitura, pipeCompressao time.Duration
 	pipeRodadas, pipeQuadros := 0, 0
-	var pendente objeto // a amostra da volta passada, ainda não lida
+	var pendente objeto
 
 	for i := 0; i < quantos; i++ {
 		tex, err := pegarUmQuadroDeVerdade(t, tela)
@@ -310,7 +227,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 		pipeCopia += time.Since(marco)
 		nosso.amostra.chamar(amostraDefinirTempo, uintptr(quando.Nanoseconds()/100))
 
-		// Entrega o de agora. A placa começa a trabalhar e nós NÃO esperamos.
 		marco = time.Now()
 		nova, err := converter(vp, nosso.amostra, trazAmostra, infoVP.Tamanho)
 		pipeConversao += time.Since(marco)
@@ -318,7 +234,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 			t.Fatalf("conversão no quadro %d: %v", i, err)
 		}
 
-		// Lê o de antes, que teve uma volta inteira para ficar pronto.
 		if pendente != 0 {
 			marco = time.Now()
 			bytes, _, err := lerAmostra(pendente)
@@ -363,21 +278,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 	t.Logf("VEREDITO: %.2fms -> %.2fms por quadro (%.0f%% a menos)",
 		float64(total.Microseconds())/1000, float64(pTotal.Microseconds())/1000,
 		100*(1-float64(pTotal)/float64(total)))
-
-	// ---- E A PERGUNTA QUE APAGA CÓDIGO --------------------------------------------
-	//
-	// Acima, os bytes do quadro passam pela memória do Go: destranca o buffer, copia
-	// 1,38 MB para um `[]byte`, copia de volta para um buffer do Media Foundation, e só
-	// então entrega ao compressor. Duas cópias de um megabyte e meio por quadro, e um
-	// buffer de entrada só nosso para manter.
-	//
-	// Mas o compressor de software recebe um `IMFSample` — e a amostra que o Video
-	// Processor devolve JÁ É UMA. Se ele a aceitar direto, some a cópia dupla, some o
-	// buffer de entrada, some a leitura explícita. O compressor destranca por dentro,
-	// e o pipeline continua valendo porque quem escolhe a VOLTA em que ele destranca
-	// continua sendo nós.
-	//
-	// Se não aceitar, o caminho de cima é o certo — e aí a cópia é o preço.
 
 	t.Logf("")
 	t.Logf("--- A AMOSTRA DO VIDEO PROCESSOR, DIRETO NO COMPRESSOR ---")
@@ -465,7 +365,6 @@ func TestSondaDoCaminhoDeSoftware(t *testing.T) {
 		float64(direto.Microseconds())/1000)
 }
 
-// puxarTudo esvazia o compressor e devolve quantos bytes de H.264 saíram.
 func puxarTudo(sw, saidaAmostra, bufSaida objeto) int {
 	total := 0
 	for {
@@ -489,32 +388,6 @@ func puxarTudo(sw, saidaAmostra, bufSaida objeto) int {
 	}
 }
 
-// SONDA DO OUTRO LADO — a máquina fraca consegue VER a tela dos outros?
-//
-// Transmitir e receber falham por motivos independentes, e a pergunta do dono é sobre os
-// dois ("entrar em calls E transmitir"). Esta sonda responde o lado de RECEBER, e a
-// resposta é boa: o caminho já é livre de placa, por construção.
-//
-// O QUE ELA MEDIU, e por que o número que ela imprime engana:
-//
-//	Microsoft H264 Video Decoder MFT     fala D3D11: true
-//
-// Um só decodificador, e ele diz falar D3D11 — o que parece condenar a máquina sem
-// placa. NÃO CONDENA, por duas razões que só o código responde:
-//
-//  1. `FalaD3D11` lê o `MF_SA_D3D11_AWARE`, que quer dizer "SEI usar placa", e não
-//     "EXIJO placa". É o mesmo atributo que este projeto já pegou mentindo antes (ver
-//     `abrirGeradorSeAssincrono`), e a lição se repete: o atributo descreve capacidade,
-//     nunca requisito.
-//  2. `amarrarDescompressor` NUNCA manda `recadoDefinirD3D`. Sem gerenciador entregue, o
-//     decodificador roda na memória principal e devolve NV12 num buffer que NÓS
-//     alocamos — que é exatamente o caminho que `medirASaida` já trata.
-//
-// Ou seja: receber tela já funciona em qualquer máquina, e é por isso que este arquivo
-// só precisou construir o lado de MANDAR. A sonda fica como registro, para a próxima
-// pessoa não refazer a mesma pergunta.
-//
-//	go test -run SondaDosDecodificadores -v
 func TestSondaDosDecodificadores(t *testing.T) {
 	precisaDeVideo(t)
 
@@ -544,8 +417,6 @@ func TestSondaDosDecodificadores(t *testing.T) {
 		t.Logf("  %-45s sabe usar placa: %v", c.Nome, fala)
 	}
 
-	// A PROVA DE VERDADE não é a lista: é abrir um sem entregar dispositivo nenhum. É o
-	// que `AbrirDescompressor` faz em produção, e o que esta linha confere.
 	d, err := AbrirDescompressor(1280, 720)
 	if err != nil {
 		t.Fatalf("nenhum decodificador abriu SEM placa: %v", err)
@@ -570,8 +441,6 @@ func orcamentos(t *testing.T, custo time.Duration) {
 	t.Logf("  teto desta máquina em software: %.0f quadros por segundo", float64(time.Second)/float64(custo))
 }
 
-// converter entrega um quadro ao Video Processor e devolve a amostra de saída SEM LER.
-// Quem chama fica dono dela e precisa soltá-la.
 func converter(vp, amostra objeto, trazAmostra bool, tamanho uint32) (objeto, error) {
 	if err := hr(vp.chamar(transEntrarQuadro, 0, uintptr(amostra), 0),
 		"entregar ao Video Processor"); err != nil {
@@ -583,7 +452,7 @@ func converter(vp, amostra objeto, trazAmostra bool, tamanho uint32) (objeto, er
 		if err != nil {
 			return 0, err
 		}
-		nossoBuffer.soltar() // a amostra segura a referência
+		nossoBuffer.soltar()
 		saida.Amostra = nossaAmostra
 	}
 	var estado uint32
@@ -601,7 +470,6 @@ func converter(vp, amostra objeto, trazAmostra bool, tamanho uint32) (objeto, er
 	return saida.Amostra, nil
 }
 
-// lerAmostra traz os bytes de uma amostra para a memória do Go.
 func lerAmostra(amostra objeto) ([]byte, int, error) {
 	var buffer objeto
 	if r := amostra.chamar(amostraJuntarBuffers, uintptr(unsafe.Pointer(&buffer))); uint32(r)&0x80000000 != 0 {
@@ -633,10 +501,6 @@ func lerAmostra(amostra objeto) ([]byte, int, error) {
 	return dados, passo, nil
 }
 
-// ladoDoProcessador amarra um lado do Video Processor num formato e tamanho.
-//
-// Igual ao `definirLado` de `redimensionador.go`, mas com o formato escolhível — que é
-// exatamente a mudança que esta sonda existe para justificar.
 func ladoDoProcessador(t objeto, indice int, formato windows.GUID, largura, altura int) error {
 	var tipo objeto
 	res, _, _ := procMFCriarTipo.Call(uintptr(unsafe.Pointer(&tipo)))
@@ -658,13 +522,6 @@ func passarPeloProcessador(vp, amostra objeto, trazAmostra bool, tamanho uint32)
 	return b, p, err
 }
 
-// passarPeloProcessadorMedido entrega um quadro e devolve os bytes que saíram, JÁ NA
-// MEMÓRIA PRINCIPAL — que é a pergunta 2 inteira.
-//
-// SEPARA A CONVERSÃO DA LEITURA, e a separação é o ponto. As duas somam num número só
-// que não diz o que otimizar, e os remédios são opostos: conversão cara pede quadro
-// menor; leitura cara é a CPU parada esperando a placa terminar, e isso se recupera com
-// pipeline — foi exatamente o que destravou os 60fps do caminho de hardware.
 func passarPeloProcessadorMedido(vp, amostra objeto, trazAmostra bool, tamanho uint32) (
 	dados []byte, passo int, conversao, leitura time.Duration, err error) {
 
@@ -700,9 +557,7 @@ func passarPeloProcessadorMedido(vp, amostra objeto, trazAmostra bool, tamanho u
 	if saida.Eventos != 0 {
 		saida.Eventos.soltar()
 	}
-	// S_OK SEM AMOSTRA ACONTECE, e não é erro — é a mesma guarda que o `sair` de
-	// produção tem em `transmissao.go`. Sem ela a volta seguinte chama método em
-	// ponteiro nulo, que em COM não é erro devolvido: é queda do processo.
+
 	if saida.Amostra == 0 {
 		return nil, 0, conversao, 0, nil
 	}
@@ -710,9 +565,6 @@ func passarPeloProcessadorMedido(vp, amostra objeto, trazAmostra bool, tamanho u
 		defer saida.Amostra.soltar()
 	}
 
-	// A LEITURA COMEÇA AQUI. Tudo acima é ordem dada à placa e volta na hora; é este
-	// trecho que espera a placa TERMINAR, porque destrancar um buffer que embrulha
-	// textura obriga o Media Foundation a trazer os bytes para a memória principal.
 	marco = time.Now()
 
 	var buffer objeto
@@ -721,8 +573,6 @@ func passarPeloProcessadorMedido(vp, amostra objeto, trazAmostra bool, tamanho u
 	}
 	defer buffer.soltar()
 
-	// O PASSO SÓ EXISTE SE ELE FOR UM BUFFER 2D. Buffer de memória comum é contíguo e o
-	// passo é a largura; buffer que embrulha textura tem o alinhamento da placa dentro.
 	if b2d, e := buffer.consultar(&iidBuffer2D); e == nil {
 		var p int32
 		var linha uintptr
@@ -749,7 +599,6 @@ func passarPeloProcessadorMedido(vp, amostra objeto, trazAmostra bool, tamanho u
 	return dados, passo, conversao, time.Since(marco), nil
 }
 
-// abrirCompressorDeSoftware pega o candidato que NÃO fala D3D11 — o de emergência.
 func abrirCompressorDeSoftware(t *testing.T, largura, altura, passo int) (objeto, string, error) {
 	lista, err := ProcurarCompressores()
 	if err != nil {
@@ -792,7 +641,6 @@ type errorDeSonda string
 
 func (e errorDeSonda) Error() string { return string(e) }
 
-// entradaNV12 amarra a entrada do compressor em NV12, partindo do tipo que ele oferece.
 func entradaNV12(t objeto, largura, altura, passo int) error {
 	for i := uint32(0); i < 64; i++ {
 		var tipo objeto
@@ -820,7 +668,6 @@ func entradaNV12(t objeto, largura, altura, passo int) error {
 	return errorDeSonda("ele não oferece NV12 na entrada")
 }
 
-// amostraDeMemoria cria uma amostra com um buffer na memória PRINCIPAL.
 func amostraDeMemoria(tamanho int) (objeto, objeto, error) {
 	var buffer objeto
 	r, _, _ := procMFCriarBufferDeMemoria.Call(uintptr(tamanho), uintptr(unsafe.Pointer(&buffer)))
@@ -841,8 +688,6 @@ func amostraDeMemoria(tamanho int) (objeto, objeto, error) {
 	return amostra, buffer, nil
 }
 
-// comprimirUmaVez enche a entrada, entrega e puxa o que sair. Devolve quantos bytes de
-// H.264 vieram.
 func comprimirUmaVez(sw, entrada, bufEntrada, saidaAmostra, bufSaida objeto, nv12 []byte, quando time.Duration) (int, error) {
 	var p uintptr
 	var maximo, atual uint32
@@ -890,8 +735,6 @@ func comprimirUmaVez(sw, entrada, bufEntrada, saidaAmostra, bufSaida objeto, nv1
 	}
 }
 
-// pegarUmQuadroDeVerdade insiste até a duplicação entregar. A área de trabalho parada
-// não produz quadro — e uma sonda que desiste no primeiro tempo esgotado mede o nada.
 func pegarUmQuadroDeVerdade(t *testing.T, tela *Tela) (objeto, error) {
 	var ultimo error
 	for i := 0; i < 40; i++ {

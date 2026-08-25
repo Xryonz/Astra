@@ -24,11 +24,7 @@ class AstraApplication : Application(), SingletonImageLoader.Factory {
         CrashReporter.install(this)
     }
 
-    // coil3: o fetcher de rede (OkHttp) e auto-registrado pelo artifact coil-network-okhttp.
     override fun newImageLoader(context: PlatformContext): ImageLoader {
-        // Aparelho fraco (Android Go / pouca RAM): RGB_565 corta pela metade a RAM
-        // de cada imagem opaca (Coil ignora quando tem canal alpha) e o cache de
-        // memoria encolhe de ~25% pra 15% do heap. Aparelho normal fica intocado.
         val lowRam = getSystemService<ActivityManager>()?.isLowRamDevice == true
         return ImageLoader.Builder(context)
             .components {

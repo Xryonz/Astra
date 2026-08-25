@@ -44,7 +44,6 @@ class NotificationsSettingsViewModel @Inject constructor(
         }
     }
 
-    // Otimista: aplica local na hora, reverte se a rede falhar.
     fun toggle(patch: UpdateNotificationPrefsRequest, apply: (NotificationPrefsDto) -> NotificationPrefsDto) {
         val before = _state.value.prefs ?: return
         _state.update { it.copy(prefs = apply(before)) }
@@ -63,7 +62,6 @@ class NotificationsSettingsViewModel @Inject constructor(
         _state.update { it.copy(prefs = before.copy(quietStart = start, quietEnd = end)) }
         viewModelScope.launch {
             try {
-                // null explicito limpa no backend (o DTO normal omitiria com explicitNulls=false).
                 val body = buildJsonObject {
                     if (start != null) put("quietStart", kotlinx.serialization.json.JsonPrimitive(start))
                     else put("quietStart", JsonNull)

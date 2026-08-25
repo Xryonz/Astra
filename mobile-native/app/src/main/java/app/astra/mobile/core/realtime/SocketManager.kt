@@ -80,8 +80,6 @@ class SocketManager @Inject constructor(
     private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
 
-    // Ligacao em DM — protocolo do web (socket.ts): invite/accept/reject relayados
-    // pro user alvo; o backend valida o membership da conversa.
     private val _dmCallInvite = MutableSharedFlow<DmCallInvite>(extraBufferCapacity = 8)
     val dmCallInvite: SharedFlow<DmCallInvite> = _dmCallInvite.asSharedFlow()
 

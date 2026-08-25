@@ -104,18 +104,12 @@ export function setupSocket(io: Server) {
 
     socket.join(`user:${userId}`)
 
-    // Salas de CONSTELACAO. Ate agora so existiam salas de canal e de DM, ou seja,
-    // nada que valha pra constelacao inteira tinha por onde ser transmitido — e por
-    // isso "canal novo" so aparecia pros outros no proximo boot do app. Uma consulta
-    // indexada no connect resolve pra sessao toda.
     try {
       const mine = await db.select({ serverId: serverMembers.serverId })
         .from(serverMembers).where(eq(serverMembers.userId, userId))
       for (const s of mine) socket.join(`server:${s.serverId}`)
     } catch {}
 
-    // Entrou numa constelacao AGORA (convite/descoberta): a sala do connect nao a
-    // inclui, entao o cliente pede a entrada em vez de reconectar o socket inteiro.
     socket.on('join_server', async (serverId: string) => {
       if (typeof serverId !== 'string' || !serverId) return
       const [row] = await db.select({ userId: serverMembers.userId })
@@ -130,29 +124,6 @@ export function setupSocket(io: Server) {
       refreshPresence(userId)
     })
 
-    // ATIVIDADE: o cliente manda o nome do programa em primeiro plano; "" apaga.
-    //
-    // O SERVIDOR NÃO DESCOBRE NADA — ele recebe uma string já pronta e não tem
-    // como saber de onde veio. Isso é de propósito: quem decide se publica, e o
-    // que publica, é a máquina da pessoa. O interruptor mora lá, e desligado ele
-    // simplesmente para de emitir; não existe um "servidor pediu e o cliente
-    // obedeceu" nesse caminho.
-    //
-    // O corte em 64 caracteres é limite de ARMAZENAMENTO, não de confiança: nome
-    // de programa não passa disso, e o que passar é lixo ou tentativa de enfiar
-    // texto grande num campo que todo mundo lê.
-    // NÃO VAI PRA TODO MUNDO — vai só pras constelações de que a pessoa participa.
-    //
-    // `presence_update` usa broadcast geral e sempre usou, e nisso ele passa: status
-    // muda umas poucas vezes por sessão. Atividade muda quando alguém abre outro
-    // programa, que é uma ordem de grandeza mais frequente. Com broadcast geral, um
-    // servidor com N pessoas entrega N-1 eventos a cada troca de janela de qualquer
-    // uma delas — e cada cliente ainda paga o custo de ler o JSON pra descobrir que
-    // é de alguém que ele nem tem na tela.
-    //
-    // As salas `server:<id>` já existem (o socket entra nelas ao conectar), e elas
-    // são exatamente quem pode VER esta atividade. Emitir pra uma lista de salas
-    // numa chamada só faz o socket.io entregar uma vez a quem está em duas.
     socket.on('set_activity', async (texto: unknown) => {
       if (typeof texto !== 'string') return
       const limpo = texto.replace(/[\r\n\t]/g, ' ').trim().slice(0, 64)
@@ -162,9 +133,6 @@ export function setupSocket(io: Server) {
         if (salas.length) socket.to(salas).emit('activity_update', { userId, activity: null, since: null })
         return
       }
-      // O `since` vem do Redis e NÃO de Date.now() aqui: quando a atividade é a
-      // mesma de antes (renovação de 45s), o instante guardado é o original. Usar
-      // a hora local do evento zeraria o cronômetro a cada renovação.
       const viva = await setUserActivity(userId, limpo)
       if (salas.length) {
         socket.to(salas).emit('activity_update', {
@@ -196,11 +164,6 @@ export function setupSocket(io: Server) {
       socket.leave(`dm:${conversationId}`)
     })
 
-    // Chamada de voz/vídeo no sussurro. Os handlers moraram AQUI como relay puro
-    // (sem estado, sem cronômetro, sem registro) e foram pra lib/dmCalls.ts —
-    // MESMOS nomes de evento e mesmo formato, pra o web continuar funcionando e
-    // conseguir se ligar pro desktop. Não recriar os relays aqui: dois handlers
-    // pro mesmo evento fariam cada toque disparar duas vezes.
     registrarChamadasDeSussurro(io, socket, userId)
 
     socket.on('typing_start', (channelId: string) => {
@@ -249,16 +212,10 @@ export function setupSocket(io: Server) {
             id: `bot-mute-${randomUUID()}`,
             content: `🔇 **@${socket.data.username}** foi silenciado por **5 minutos** por spam.`,
             channelId, edited: false, createdAt: new Date().toISOString(),
-            // authorId ALEM do author: o cliente Kotlin exige o campo plano (todas as
-
-            // outras mensagens vem do banco, que tem authorId). Sem ele a desserializacao
-
-            // falha e o desktop DESCARTA a mensagem da bot em silencio.
 
             authorId: botId,
 
             authorColor: null, reactions: [], mentions: [],
-            // Aviso de moderacao sai com o nome de quem esta de plantao hoje.
             author: { id: botId, username: 'astra_bot', displayName: personaDoDia().nome, avatarUrl: personaDoDia().avatar },
           }
           io.to(`channel:${channelId}`).emit('new_message', botMsg)
@@ -286,10 +243,6 @@ export function setupSocket(io: Server) {
           return safeAck({ ok: false, error: 'Conteúdo inválido' })
         }
 
-        // O nome do canal, o da constelação, a visibilidade e o dono entram AQUI e
-        // não numa segunda consulta: o aviso de mensagem nova precisa dos quatro, e
-        // isto já era uma ida ao banco por mensagem enviada. Juntar `servers` na
-        // mesma volta é de graça perto de abrir outra.
         const [ch] = await db.select({
           id:         channels.id,
           name:       channels.name,
@@ -347,9 +300,6 @@ export function setupSocket(io: Server) {
         messagesSentTotal.inc({ kind: 'channel' })
         safeAck({ ok: true, msg: payload2 })
 
-        // XP DEPOIS do ack, sem await: a bolha da mensagem nao espera progressao.
-        // A propria funcao decide se conta (trava de 1 min, teto do dia) e ela
-        // engole os proprios erros — nao ha caso em que XP derrube uma mensagem.
         void xpPorMensagem(userId).then((g) => {
           if (g?.subiuDeNivel) void comemorarNivel(userId, channelId, g.progresso.nivel)
         })
@@ -362,9 +312,6 @@ export function setupSocket(io: Server) {
                 .from(serverMembers).where(eq(serverMembers.serverId, ch.serverId))
               const now = (inserted.createdAt instanceof Date ? inserted.createdAt : new Date()).toISOString()
               const outros = allMembers.map((m) => m.userId).filter((id) => id !== userId)
-              // Mesma regra do caminho REST: só quem enxerga o canal recebe o aviso.
-              // Os dois caminhos gravam a mesma mensagem, então divergir aqui daria um
-              // vazamento que aparece ou não dependendo de por onde a pessoa escreveu.
               const veem = await membrosQueVeemCanal(channelId, ch.isPrivate, ch.ownerId, outros)
               const aviso = {
                 channelId,
@@ -396,13 +343,6 @@ export function setupSocket(io: Server) {
       }
     })
 
-    // Presenca de VOZ ao vivo. A fonte da verdade continua sendo o LiveKit (rota
-    // /voice/presence, que o cliente ainda consulta de tempos em tempos), mas quem
-    // entra/sai AVISA na hora — senao "fulano entrou na call" so aparecia no proximo
-    // poll (ate ~10s de atraso, contando o cache do servidor).
-    // Por que confiar no cliente aqui: o dado e cosmetico (bolinha na barra lateral),
-    // o acesso ao canal e VALIDADO abaixo, e o poll corrige qualquer mentira ou
-    // fantasma (queda de rede/crash, que nao emitem 'leave') em segundos.
     const emitVoicePresence = async (channelId: unknown, joined: boolean) => {
       if (typeof channelId !== 'string' || !channelId) return
       if (!(await userCanAccessChannel(userId, channelId))) return
@@ -415,12 +355,6 @@ export function setupSocket(io: Server) {
         io.to(`user:${m.userId}`).emit('voice_presence', { channelId, userId, joined })
       }
     }
-    // AS SALAS EM QUE ESTE SOCKET ESTA EM CALL.
-    //
-    // Precisa existir pra limpar na desconexao: quem fecha o app sem clicar em
-    // "sair" some da lista pelo TTL, mas isso leva ate um minuto -- e um minuto de
-    // gente fantasma numa sala de voz e tempo suficiente pra alguem tentar chamar
-    // quem ja foi embora.
     const salasDeVoz = new Set<string>()
 
     const marcarNaVoz = async (channelId: string) => {
@@ -443,35 +377,12 @@ export function setupSocket(io: Server) {
       void emitVoicePresence(channelId, false)
     })
 
-    // RENOVACAO. O cliente bate aqui enquanto estiver em call; parar de bater tira
-    // a pessoa da lista em menos de um minuto, sozinho.
-    //
-    // Esta e a rede de seguranca que substitui o LiveKit: antes a verdade morava
-    // nele porque a midia passava por la. Em ponto a ponto ninguem no meio enxerga
-    // quem esta na sala, entao a presenca vira algo que o cliente AFIRMA e o tempo
-    // DESMENTE se ele sumir.
     socket.on('voice_keepalive', (channelId: string) => {
       if (typeof channelId !== 'string' || !channelId) return
       if (!salasDeVoz.has(channelId)) return
       void marcarNaVoz(channelId)
     })
 
-    // SINALIZACAO P2P (WebRTC) — o carteiro da call direta.
-    //
-    // A midia NAO passa por aqui: ela vai direto de uma pessoa pra outra. O que
-    // passa por este socket sao so os envelopes do aperto de mao (oferta, resposta
-    // e candidatos de rede), que somam alguns KB por chamada.
-    //
-    // TRES REGRAS DE SEGURANCA, porque isto encaminha dado de um usuario pra outro:
-    //
-    // 1. O REMETENTE NUNCA E DECLARADO PELO CLIENTE. O `de` sai do `userId` do
-    //    socket autenticado. Se viesse do corpo, qualquer um se passaria por
-    //    qualquer um e o aperto de mao inteiro seria sequestravel.
-    // 2. O conteudo do envelope e OPACO — nao lemos nem validamos SDP aqui. Isso e
-    //    proposital: parsear SDP no servidor seria superficie de ataque de graca,
-    //    e quem tem que recusar oferta malformada e a implementacao WebRTC.
-    // 3. Teto de tamanho. SDP de verdade tem alguns KB; sem teto, este canal virava
-    //    um jeito de mandar megabytes pra outra pessoa sem passar por moderacao.
     const TETO_SINAL = 64 * 1024
 
     socket.on('rtc_signal', (payload: unknown) => {
@@ -480,15 +391,10 @@ export function setupSocket(io: Server) {
       if (typeof para !== 'string' || !para) return
       if (tipo !== 'oferta' && tipo !== 'resposta' && tipo !== 'candidato' && tipo !== 'tchau') return
       if (typeof dados !== 'string' || dados.length > TETO_SINAL) return
-      // Falar consigo mesmo nao faz sentido e so serviria pra confundir o cliente.
       if (para === userId) return
       io.to(`user:${para}`).emit('rtc_signal', { de: userId, tipo, dados })
     })
 
-    // Irmao do fast_send_text pro SUSSURRO: mesma ideia (texto puro, sem anexo nem
-    // resposta) pra a bolha aparecer na hora em vez de esperar o POST. Espelha a rota
-    // HTTP de dm.ts — inclusive o notify em background, senao DM por este caminho
-    // deixaria de gerar feed/push/badge (regressao silenciosa).
     socket.on('fast_send_dm', async (
       payload: { conversationId: string; content: string; clientNonce?: string },
       ack?: (r: { ok: boolean; error?: string; msg?: unknown }) => void,
@@ -513,9 +419,6 @@ export function setupSocket(io: Server) {
         if (!conv) return safeAck({ ok: false, error: 'Acesso negado' })
 
         const receiverId = conv.userAId === userId ? conv.userBId : conv.userAId
-        // O caminho rapido precisa da MESMA regra da rota HTTP. Sem isto, bloquear
-        // alguem funcionaria so quando a mensagem tivesse anexo ou resposta — que e
-        // o tipo de meia-regra pior que regra nenhuma.
         if (await haBloqueio(userId, receiverId)) {
           return safeAck({ ok: false, error: 'Não é possível conversar com essa pessoa' })
         }
@@ -547,8 +450,6 @@ export function setupSocket(io: Server) {
             try {
               await db.update(dmConversations).set({ updatedAt: new Date() })
                 .where(eq(dmConversations.id, conversationId))
-              // Silenciada pelo receptor: a mensagem entra (o socket ja emitiu),
-              // mas sem feed/push/badge — mesma regra da rota HTTP.
               const receiverMuted =
                 (conv.userAId === receiverId ? conv.mutedByA : conv.mutedByB) != null
               if (receiverMuted) return
@@ -575,9 +476,6 @@ export function setupSocket(io: Server) {
           })()
         })
 
-        // A bot responde por AQUI tambem. O desktop manda sussurro pelo caminho
-        // rapido, entao so ligar a resposta na rota HTTP deixaria a bot muda
-        // justamente no cliente que e a fase ativa.
         if (receiverId === (await getBotId())) {
           setImmediate(() => {
             void responderNoSussurro({
@@ -595,15 +493,10 @@ export function setupSocket(io: Server) {
     socket.on('bot_command', async (payload: { channelId: string; serverId: string; content: string }) => {
       const { channelId, serverId, content } = payload ?? {}
       if (typeof channelId !== 'string' || typeof serverId !== 'string' || typeof content !== 'string') return
-      // /sparkle (dias uteis), /sparxie (fim de semana) e /astra (o que o app
-      // mobile ja manda). Todos entram; quem responde e quem esta de plantao.
       if (!prefixoUsado(content)) return
 
       const canAccess = await userCanAccessChannel(userId, channelId)
       if (!canAccess) return
-      // Bot desligada aqui: sai calada. Responder "estou desligada" seria falar
-      // justamente onde pediram silencio — e o cliente ja nem mostra a caixinha
-      // de comandos nestas orbitas, entao ninguem chega aqui por engano.
       const regra = await botNaOrbita(channelId)
       if (!regra.fala) return
 
@@ -646,10 +539,6 @@ export function setupSocket(io: Server) {
         displayName: persona.nome, avatarUrl: persona.avatar,
       }
 
-      // ---- Orbita que GUARDA a conversa ----
-      // Vira mensagem de verdade, no banco, e o comando vai junto: resposta
-      // sozinha no historico e uma resposta sem pergunta — em papo livre com a
-      // IA, ninguem entende amanha o que foi perguntado hoje.
       if (regra.guarda) {
         const [autor, membership] = await Promise.all([
           selectAuthorById.execute({ userId }).then((r) => r[0]),
@@ -661,9 +550,6 @@ export function setupSocket(io: Server) {
           authorColor: membership?.nameColor ?? null,
         }).returning()
 
-        // createdAt cravado 1ms depois: a listagem ordena por createdAt e
-        // desempata por id, que e cuid2 — sem ordem nenhuma. Se os dois caissem
-        // no mesmo milissegundo, a resposta podia aparecer ACIMA da pergunta.
         const depois = new Date(
           (msgComando.createdAt instanceof Date ? msgComando.createdAt : new Date()).getTime() + 1,
         )
@@ -679,38 +565,20 @@ export function setupSocket(io: Server) {
         return
       }
 
-      // ---- Orbita que NAO guarda ----
-      // Mensagem sintetica: vive na tela e morre na troca de orbita, igual a
-      // barra do Discord.
       const botMsg = {
         id: `bot-${randomUUID()}`,
         content: reply, channelId,
         edited: false, createdAt: new Date().toISOString(),
-        // authorId ALEM do author: o cliente Kotlin exige o campo plano (todas as
-
-        // outras mensagens vem do banco, que tem authorId). Sem ele a desserializacao
-
-        // falha e o desktop DESCARTA a mensagem da bot em silencio.
 
         authorId: botId,
 
         authorColor: null, reactions: [], mentions: [],
-        // A foto TEM que vir da persona aqui. Esta mensagem nao passa pelo banco (e
-        // sintetica, id `bot-...`), entao ela nao herda nada do User como as outras —
-        // com null cravado, a bot aparecia com foto no cartao de perfil e sem foto na
-        // propria mensagem que acabou de mandar.
         author: autorBot,
       }
       io.to(`channel:${channelId}`).emit('new_message', botMsg)
     })
 
     socket.on('disconnect', async () => {
-      // SAI DAS CALLS ANTES DE QUALQUER OUTRA COISA.
-      //
-      // O TTL ja limparia sozinho, mas leva ate um minuto -- e um minuto de gente
-      // fantasma numa sala de voz e tempo de sobra pra alguem tentar chamar quem ja
-      // foi embora e ficar esperando uma conexao que nunca vai fechar. O TTL e a
-      // rede de seguranca pra queda de luz; isto e o caminho normal.
       for (const channelId of salasDeVoz) {
         await tirarDaVoz(channelId)
         void emitVoicePresence(channelId, false)
@@ -723,15 +591,6 @@ export function setupSocket(io: Server) {
         userSockets.delete(userId)
         await setUserOffline(userId)
         socket.broadcast.emit('presence_update', { userId, status: 'OFFLINE' })
-        // A atividade morre junto com a última janela. O TTL de 60s já limparia
-        // sozinho, mas deixar a linha viva por um minuto depois de a pessoa fechar
-        // o app diria "está em Palworld" sobre alguém que saiu — e um recurso de
-        // presença errado é pior que ausente.
-        //
-        // Aqui é broadcast geral, ao contrário do `set_activity` acima, e de propósito:
-        // no evento 'disconnect' as salas do socket JÁ FORAM esvaziadas, então não há
-        // mais lista pra mirar. Acontece uma vez por saída — a frequência que fazia o
-        // broadcast doer no outro caso simplesmente não existe aqui.
         await clearUserActivity(userId)
         socket.broadcast.emit('activity_update', { userId, activity: null, since: null })
       }

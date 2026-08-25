@@ -67,8 +67,6 @@ export function createReactionsRouter(io: SocketServer) {
       io.to(`channel:${channelId}`).emit('reaction_update', { messageId, channelId, reactions })
 
       if (action === 'added' && message.authorId !== req.userId) {
-        // Sem buscar o autor aqui: o notify() preenche nome/@/foto a partir do
-        // actorId (uma consulta so, no lugar certo).
         notify({
           io, userId: message.authorId, actorId: req.userId!, type: 'reaction',
           payload: {
@@ -83,10 +81,6 @@ export function createReactionsRouter(io: SocketServer) {
 
       res.json({ data: { action, reactions } })
 
-      // So ao ADICIONAR: tirar e por a mesma reacao seria um contador infinito com
-      // dois cliques. Reagir nao da XP direto (e acao de um clique, repetivel a
-      // vontade) — mas como missao, com alvo baixo e teto natural, cumpre o papel de
-      // fazer a pessoa passar por mensagens que ela nao leria.
       if (action === 'added') void eventoDeMissao(req.userId!, 'reacao', { channelId })
     })
   )

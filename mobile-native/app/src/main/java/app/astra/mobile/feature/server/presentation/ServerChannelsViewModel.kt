@@ -24,7 +24,6 @@ data class ChannelMgmtUi(
 
 data class RoleMini(val id: String, val name: String, val color: String?)
 
-// Estado da folha de gestao do canal aberto (visibility carregada sob demanda).
 data class ChannelEditState(
     val channelId: String,
     val name: String,

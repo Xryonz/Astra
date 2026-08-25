@@ -21,8 +21,6 @@ import { entregarSussurro } from '../lib/realtime'
 
 const SendDMSchema = z.object({
   content:     z.string().min(0).max(4000),
-  // Mesmo schema seguro dos canais: a url passa por SafeUrlSchema (so http(s) ou
-  // /relativa) -> bloqueia anexo de DM com data:/javascript: (era url livre).
   attachments: z.array(AttachmentSchema).max(10).optional(),
   replyToId:   z.string().optional(),
   ttlSeconds:  z.number().int().min(60).max(60 * 60 * 24 * 30).optional(),
@@ -50,10 +48,6 @@ export function createDMRouter(io: SocketServer) {
         .where(or(eq(dmConversations.userAId, userId), eq(dmConversations.userBId, userId)))
         .orderBy(desc(dmConversations.updatedAt))
 
-      // Conversas FECHADAS por mim somem — mas so enquanto nada acontecer nelas.
-      // Mensagem nova bumpa o updatedAt e a conversa volta sozinha, sem precisar de
-      // uma acao pra "reabrir". Filtro no JS (nao no SQL) porque qual coluna vale
-      // depende de eu ser o lado A ou o B desta conversa.
       const convs = all.filter((c) => {
         const hidden = c.userAId === userId ? c.hiddenByA : c.hiddenByB
         return !hidden || c.updatedAt > hidden
@@ -109,13 +103,9 @@ export function createDMRouter(io: SocketServer) {
 
       if (!target) return res.status(404).json({ error: 'Usuário não encontrado' })
       if (target.id === req.userId) return res.status(400).json({ error: 'Não pode abrir DM consigo mesmo' })
-      // Mensagem neutra de proposito: quem foi bloqueado nao deve descobrir que
-      // foi, e um "você foi bloqueado" aqui contaria.
       if (await haBloqueio(req.userId!, target.id)) {
         return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
       }
-      // Mesma recusa, palavra por palavra: resposta diferente contaria qual e o
-      // ajuste de privacidade do outro lado.
       if (!(await aceitaSussurroNovo(req.userId!, target.id))) {
         return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
       }
@@ -136,8 +126,6 @@ export function createDMRouter(io: SocketServer) {
 
       if (!target) return res.status(404).json({ error: 'Usuário não encontrado' })
       if (target.id === req.userId) return res.status(400).json({ error: 'Você não pode abrir um DM consigo mesmo' })
-      // Esta rota NAO tinha nem a checagem de bloqueio — abrir por nome de usuario
-      // era o caminho de volta pra quem tinha sido barrado por id.
       if (await haBloqueio(req.userId!, target.id)) {
         return res.status(403).json({ error: RECUSA_DE_SUSSURRO })
       }
@@ -186,8 +174,6 @@ export function createDMRouter(io: SocketServer) {
         conversationId: directMessages.conversationId,
         attachments:    directMessages.attachments,
         replyToId:      directMessages.replyToId,
-        // Sem isto a chamada volta do banco como mensagem comum: a linha existe,
-        // mas perde o desenho próprio na hora de recarregar a conversa.
         call:           directMessages.call,
         expiresAt:      directMessages.expiresAt,
         edited:         directMessages.edited,
@@ -235,8 +221,6 @@ export function createDMRouter(io: SocketServer) {
       const shaped = items.map((m) => ({
         ...m,
         attachments: safeJson<unknown[]>(m.attachments, []),
-        // Objeto, não a string crua da coluna: é assim que a linha chega pelo
-        // socket, e o cliente não deve ter dois formatos pra mesma coisa.
         call:        m.call ? safeJson<unknown>(m.call, null) : null,
         replyTo:     m.replyToId ? replyMap.get(m.replyToId) ?? null : null,
       }))
@@ -245,8 +229,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // Silenciar/dessilenciar a conversa (so o proprio lado). Preserva o
-  // updatedAt: mutar nao pode reordenar a lista de DMs.
   router.put(
     '/:conversationId/mute',
     requireAuth,
@@ -289,10 +271,6 @@ export function createDMRouter(io: SocketServer) {
     })
   )
 
-  // "Fechar mensagem direta". NAO apaga nada e nao afeta o outro lado: so marca
-  // que EU escondi. A conversa reaparece sozinha na proxima mensagem (ver o filtro
-  // na listagem). Preserva o updatedAt de proposito — bumpar aqui faria a conversa
-  // voltar pro topo de quem acabou de fecha-la.
   router.delete(
     '/:conversationId',
     requireAuth,
@@ -324,9 +302,6 @@ export function createDMRouter(io: SocketServer) {
       const { conversationId } = req.params
       const { content, attachments = [], replyToId, ttlSeconds } = req.body as z.infer<typeof SendDMSchema>
 
-      // Anexo so aponta pro armazenamento do app ou pra CDN de GIF (ver storage.ts).
-      // No sussurro isto pesa mais que no canal: sao duas pessoas, entao uma URL
-      // externa entrega o IP e o horario de leitura de UMA pessoa especifica.
       const anexoRuim = primeiroAnexoNaoPermitido(attachments)
       if (anexoRuim) return res.status(400).json({ error: `Anexo com URL não permitida: ${anexoRuim}` })
 
@@ -339,9 +314,6 @@ export function createDMRouter(io: SocketServer) {
       if (!conv) return res.status(403).json({ error: 'Acesso negado' })
 
       const receiverId = conv.userAId === req.userId ? conv.userBId : conv.userAId
-      // Bloqueio vale nos DOIS sentidos: quem bloqueou tambem para de mandar.
-      // Checado no envio, e nao so ao abrir a conversa, porque a conversa pode ter
-      // sido aberta ANTES do bloqueio e continuar na tela de quem ja estava nela.
       if (await haBloqueio(req.userId!, receiverId)) {
         return res.status(403).json({ error: 'Não é possível conversar com essa pessoa' })
       }
@@ -400,8 +372,6 @@ export function createDMRouter(io: SocketServer) {
             await db.update(dmConversations).set({ updatedAt: new Date() })
               .where(eq(dmConversations.id, conversationId))
 
-            // Receptor silenciou a conversa: mensagem entra normal (socket ja
-            // emitiu), mas sem feed/push/badge.
             const receiverMuted =
               (conv.userAId === receiverId ? conv.mutedByA : conv.mutedByB) != null
             if (receiverMuted) return
@@ -433,21 +403,6 @@ export function createDMRouter(io: SocketServer) {
         })()
       })
 
-      // A BOT RESPONDE NO SUSSURRO.
-      //
-      // Ela sempre foi um usuario de verdade, entao abrir conversa com ela ja
-      // funcionava — e ficava no vacuo, porque todo o caminho que a faz falar
-      // morava no `bot_command` do socket, que exige canal E constelacao.
-      //
-      // Aqui NAO se exige prefixo, e essa e a diferenca que importa: num canal o
-      // prefixo existe pra separar "estou falando com a bot" de "estou falando com
-      // a sala". Numa conversa de duas pessoas onde a outra e ela, tudo que se
-      // escreve ja e endereçado a ela — pedir `/sparkle` antes de cada frase seria
-      // cerimonia sem funcao. Os comandos seguem valendo pra quem quiser usar.
-      //
-      // Em segundo plano de proposito: a IA leva segundos, e a SUA mensagem tem
-      // que aparecer na hora. A resposta chega depois pelo socket, como a de
-      // qualquer pessoa que estivesse digitando.
       if (receiverId === (await getBotId())) {
         setImmediate(() => { void responderNoSussurro({ io, conversationId, userId: req.userId!, receiverId, content, username: author?.username ?? 'você' }) })
       }
@@ -473,8 +428,6 @@ export function createDMRouter(io: SocketServer) {
 
       await db.update(directMessages).set({ deletedAt: new Date() }).where(eq(directMessages.id, messageId))
 
-      // Mesma regra do new_dm: quem nao esta com a conversa aberta tambem precisa
-      // saber que a mensagem sumiu, senao ela fica na tela do outro ate o reload.
       entregarSussurro(
         io, conversationId, [message.senderId, message.receiverId],
         'dm_deleted', { messageId, conversationId },

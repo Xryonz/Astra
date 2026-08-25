@@ -53,27 +53,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// A lista de permissões — UMA implementação, três telas: boas-vindas (1º acesso),
-// Configurações > Permissões (quem já usava o app, ou quem pulou) e o aviso da
-// primeira abertura. Manter três cópias faria os textos divergirem na primeira
-// vez que um deles mudasse.
-//
-// Sobre o botão "permitir": no Windows, aplicativo de área de trabalho NÃO
-// consegue pedir permissão — não existe a janelinha do navegador. Quem manda é um
-// interruptor global do sistema. Então o botão faz o mais próximo possível disso:
-//
-//   • leva direto à página exata das Configurações do Windows (não à raiz, onde
-//     a pessoa teria que caçar); e
-//   • FICA CONFERINDO sozinho enquanto ela mexe lá.
-//
-// Esse segundo ponto é o que faz a tela valer a pena. Sem ele a pessoa liga o
-// interruptor, volta pro Astra e encontra o mesmo vermelho de antes — e conclui
-// que não adiantou. Com ele a linha vira verde sozinha, que é a prova de que
-// funcionou.
-//
-// A exceção é "Avisos": ali não há interruptor pra ligar, o Windows só registra o
-// app quando ele manda o primeiro aviso. Então permitir MANDA um aviso.
-
 private const val ESPERA_MS = 2_000L
 private const val TENTATIVAS = 25
 
@@ -81,12 +60,10 @@ private const val TENTATIVAS = 25
 fun PainelDePermissoes(
     onTestarAviso: () -> Unit,
     modifier: Modifier = Modifier,
-    /** true = mostra o estado atual até nas linhas que já estão OK (Configurações). */
     detalhado: Boolean = true,
 ) {
     val itens = remember { mutableStateListOf<Checagem>() }
     var conferindo by remember { mutableStateOf(true) }
-    // Quem está sendo vigiado agora (permitir clicado, esperando o Windows mudar).
     val vigiando = remember { mutableStateListOf<Permissao>() }
     val escopo = rememberCoroutineScope()
 
@@ -113,19 +90,11 @@ fun PainelDePermissoes(
         escopo.launch {
             try {
                 when {
-                    // Avisos não têm interruptor: o Windows só registra o app no
-                    // primeiro aviso. Mandar um é literalmente o ato de permitir.
                     c.permissao == Permissao.AVISOS && c.acesso == Acesso.PENDENTE -> onTestarAviso()
-                    // Rede é a única com ação de VERDADE: escreve a regra no
-                    // firewall, com uma janela do UAC. As outras só conseguem
-                    // abrir o interruptor certo do Windows e ficar conferindo.
                     c.permissao == Permissao.REDE ->
                         withContext(Dispatchers.IO) { PermissoesWindows.liberarNoFirewall() }
                     else -> PermissoesWindows.abrirAjustes(c.ajustes ?: return@launch)
                 }
-                // Confere JA, antes do primeiro intervalo. A rede resolve no
-                // instante em que o UAC fecha — esperar 2s ali só faria o botão
-                // parecer travado depois de a pessoa já ter autorizado.
                 if (reconferir(c.permissao) == Acesso.OK) return@launch
                 repeat(TENTATIVAS) {
                     delay(ESPERA_MS)
@@ -178,9 +147,6 @@ private fun icone(p: Permissao): ImageVector = when (p) {
     Permissao.AVISOS -> Lucide.BellRing
 }
 
-// PENDENTE fica CINZA de propósito: ninguém negou nada, o Windows só ainda não
-// perguntou. Pintar de amarelo faria a tela parecer cheia de problemas na
-// primeira abertura — e uma tela que grita por tudo ensina a ignorar o grito.
 private fun cor(a: Acesso): Color = when (a) {
     Acesso.OK -> Obsidian.success
     Acesso.BLOQUEADO -> Obsidian.danger
@@ -196,9 +162,6 @@ private fun LinhaPermissao(
     detalhado: Boolean,
     onPermitir: () -> Unit,
 ) {
-    // Entram em cascata: a lista aparecendo de uma vez parece recarregamento, uma
-    // atrás da outra parece conferência acontecendo. Só na primeira montagem — a
-    // chave não inclui o acesso, senão a linha piscaria a cada re-conferida.
     var visivel by remember(c.permissao) { mutableStateOf(false) }
     LaunchedEffect(c.permissao) { delay(atraso.toLong()); visivel = true }
     val fade by animateFloatAsState(if (visivel) 1f else 0f, tween(220))
@@ -231,9 +194,6 @@ private fun LinhaPermissao(
                 c.permissao.oQueE,
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.5.sp, lineHeight = 16.sp),
             )
-            // O estado atual só entra quando acrescenta algo: nas boas-vindas uma
-            // linha verde já diz tudo com o botão "permitido", e repetir "ouvindo
-            // normalmente" em seis linhas vira parede de texto.
             if (detalhado || c.acesso != Acesso.OK) {
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -253,9 +213,6 @@ private fun LinhaPermissao(
 
 @Composable
 private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) {
-    // Sem nada pra abrir e sem nada pra ligar, o botão viraria um clique que não
-    // faz nada. "Transmitir a tela" é o caso: no Windows ela não pede permissão
-    // nenhuma, e fingir um cadeado aqui seria teatro.
     val temAcao = c.ajustes != null || c.permissao == Permissao.AVISOS
     val pronto = c.acesso == Acesso.OK
     val rotulo = when {
@@ -263,9 +220,6 @@ private fun BotaoPermitir(c: Checagem, esperando: Boolean, onClick: () -> Unit) 
         pronto -> "permitido"
         esperando -> "esperando…"
         !temAcao -> "—"
-        // "liberar", e não "permitir", só nesta: é a única que abre uma janela do
-        // Windows pedindo autorização de administrador. O rótulo tem que deixar a
-        // consequencia do clique legivel ANTES do clique.
         c.permissao == Permissao.REDE -> "liberar"
         else -> "permitir"
     }

@@ -1,4 +1,3 @@
-
 import { create } from 'zustand'
 import i18n from '@/i18n'
 import type {
@@ -231,10 +230,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
         const room = new Room({
           adaptiveStream: false,
-          // dynacast pausa camadas que nenhum subscriber "pede" via sinalizacao de
-          // qualidade — coisa que o SDK oficial manda mas o cliente hand-rolled do
-          // desktop (VoiceEngine.kt) nao. Com dynacast ligado, a track de tela chegava
-          // no desktop mas sem frame (tela preta). Off = todas as camadas fluem sempre.
           dynacast:       false,
 
           audioCaptureDefaults: {
@@ -247,10 +242,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
             audioPreset: lk.AudioPresets.music,
             dtx: true,
             red: true,
-            // H264 (nao VP9) pra compat com o desktop nativo: o backup-codec do LiveKit
-            // so roteia o H264 reserva quando o subscriber SINALIZA que nao decodifica
-            // VP9 — de novo, algo que o hand-rolled do desktop nao faz. H264 primario
-            // = todo cliente (web/mobile/desktop) decodifica sem depender disso.
             videoCodec: 'h264',
           },
         })

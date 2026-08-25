@@ -41,7 +41,6 @@ class DmChatViewModel @Inject constructor(
     private val _state = MutableStateFlow(DmChatUiState())
     val state = _state.asStateFlow()
 
-    // Dispara quando o outro lado ACEITA a ligacao -> a tela navega pro CallScreen.
     private val _joinCall = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val joinCall = _joinCall.asSharedFlow()
 
@@ -60,7 +59,6 @@ class DmChatViewModel @Inject constructor(
                 val conv = list.find { it.id == conversationId }
                 otherUserId = conv?.otherUserId
                 _state.update { it.copy(muted = conv?.muted == true) }
-                // Atalho dinamico (launcher + Direct Share) pra conversa aberta.
                 conv?.let {
                     launch(Dispatchers.IO) {
                         DmShortcuts.push(appContext, conversationId, it.otherName, it.otherAvatarUrl)
@@ -70,7 +68,6 @@ class DmChatViewModel @Inject constructor(
         }
     }
 
-    // Otimista: UI muda na hora; erro reverte.
     fun toggleMute() {
         val target = !_state.value.muted
         _state.update { it.copy(muted = target) }
@@ -80,8 +77,6 @@ class DmChatViewModel @Inject constructor(
         }
     }
 
-    // Fluxo de quem LIGA (o modal de quem recebe fica global no AstraApp):
-    // invite -> tocando (30s) -> aceito = entra na sala | recusado/timeout = para.
     fun startCall() {
         val other = otherUserId ?: return
         if (_state.value.ringing) return

@@ -22,15 +22,6 @@ import app.astra.mobile.core.network.dto.BotComandoDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import org.koin.core.context.GlobalContext
 
-// O QUE A BOT PODE FAZER NESTA CONSTELAÇÃO.
-//
-// A aparência dela não está aqui de propósito: a Sparkle e a Sparxie são uma conta
-// só, compartilhada por todas as constelações, então trocar o rosto delas seria
-// trocar pra todo mundo. O que é legitimamente desta constelação é o que ela pode
-// FAZER aqui — e é só isso que esta aba oferece.
-//
-// A lista guardada no servidor é a dos DESLIGADOS, não a dos ligados: assim um
-// comando novo nasce ligado em todas as constelações sem precisar de migração.
 @Composable
 fun ServerBotTab(
     desligadosAgora: String?,
@@ -39,9 +30,6 @@ fun ServerBotTab(
     val api = remember { GlobalContext.get().get<BotApi>() }
     var catalogo by remember { mutableStateOf<List<BotComandoDto>>(emptyList()) }
     var erro by remember { mutableStateOf<String?>(null) }
-    // Estado local pra o interruptor responder na hora. A gravação vai junto, mas
-    // esperar a volta do servidor pra mexer a chavinha faria cada toque parecer
-    // travado — e são vários seguidos quando alguém está desligando a zoeira.
     var desligados by remember(desligadosAgora) {
         mutableStateOf(desligadosAgora.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet())
     }
@@ -70,9 +58,6 @@ fun ServerBotTab(
         return
     }
 
-    // Agrupado pela mesma categoria que a lista de ajuda usa. Vinte interruptores
-    // seguidos viram parede; com o título de grupo o olho acha "Diversão" sem ler
-    // os vinte nomes — mesma razão do agrupamento dos temas em Aparência.
     Column(Modifier.fillMaxWidth()) {
         catalogo.groupBy { it.categoria }.forEach { (categoria, itens) ->
             Text(
@@ -96,6 +81,5 @@ fun ServerBotTab(
     }
 }
 
-// Atalho pra montar o pedido de gravação sem espalhar o formato pela tela.
 fun pedidoDeComandos(desligados: List<String>) =
     UpdateServerRequest(botDisabledCommands = desligados)

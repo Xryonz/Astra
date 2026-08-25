@@ -32,7 +32,6 @@ class UserProfileViewModel @Inject constructor(
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            // Badges em paralelo e best-effort: perfil abre mesmo se falharem.
             val badgesD = async {
                 runCatching { badgesApi.userBadges(userId).data?.toUi() }.getOrNull().orEmpty()
             }

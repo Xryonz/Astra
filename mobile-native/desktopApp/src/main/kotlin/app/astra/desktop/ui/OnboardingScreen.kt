@@ -53,24 +53,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
 
-// Onboarding de primeiro acesso (combo: takeover curto + checklist no palco). ESTE
-// arquivo e o TAKEOVER — 3 passos sobre o mesmo ceu (aurora/estrelas já vivem na
-// janela, Main.kt), no idioma editorial do login. Dispara so depois de CRIAR CONTA
-// (Main passa isNew=true) e some ao concluir; o gatilho persiste numa pref local
-// por conta (uiPref "onboarded:<userId>"). O checklist residual vive no palco vazio.
-//
-// Passos: boas-vindas -> o idioma do ceu (constelação/órbita/sussurro) -> sua foto
-// -> permissões. A foto e opcional e usa o MESMO caminho do perfil (data-URI via
-// AvatarPicker, não upload). Reduzir movimento: as trocas viram instantaneas.
-//
-// Permissões vem POR ULTIMO de proposito: e o passo que manda a pessoa sair do
-// app (as Configurações do Windows abrem por cima). No meio do fluxo, voltar
-// significaria cair num passo intermediario sem saber quanto falta; no fim, ela
-// volta pro botao "concluir" e entra.
 private enum class OnbStep { WELCOME, SKY, PHOTO, PERMS }
 
-// Permissões precisam de mais altura que os outros passos (seis linhas com
-// explicação). Em vez de espremer a lista, a moldura cresce só nesse passo.
 private val ALTURA_PADRAO = 300.dp
 private val ALTURA_PERMS = 620.dp
 
@@ -87,8 +71,6 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
     fun pickPhoto() {
         if (busy) return
         scope.launch {
-            // O seletor nativo bloqueia (modal) — normal pra file dialog. So o
-            // encode/rede vao pra IO.
             val file = AvatarPicker.choose("Sua foto") ?: return@launch
             busy = true
             withContext(Dispatchers.IO) { AvatarPicker.encode(file) }
@@ -102,9 +84,6 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
         }
     }
 
-    // 620 em vez de 460: e a largura que o passo das permissões pede. Os outros
-    // passos não mudam de aparencia — cada um ja limita a propria largura por
-    // dentro (340/360) e fica centralizado.
     val altura by animateDpAsState(
         if (step == OnbStep.PERMS) ALTURA_PERMS else ALTURA_PADRAO,
         tween(if (reduce) 0 else 320),
@@ -115,8 +94,6 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
             Modifier.width(620.dp).padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Moldura de altura estavel: os passos trocam DENTRO dela, sem o card
-            // pular de tamanho a cada avanco.
             Box(Modifier.fillMaxWidth().height(altura), contentAlignment = Alignment.Center) {
                 AnimatedContent(
                     targetState = step,
@@ -137,7 +114,6 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
             }
 
             Spacer(Modifier.height(26.dp))
-            // Pontinhos de progresso (acendem no accent conforme avanca).
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 steps.forEachIndexed { i, _ ->
                     Box(
@@ -164,9 +140,6 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                     }
                 },
             )
-            // "Pular" agora AVANCA em vez de encerrar: a foto deixou de ser o
-            // ultimo passo, e sair direto pularia as permissões junto — justo o
-            // que ninguem quer pular sem saber que existe.
             if (step == OnbStep.PHOTO) {
                 Spacer(Modifier.height(12.dp))
                 val skip = remember { MutableInteractionSource() }
@@ -260,17 +233,6 @@ private fun PhotoStep(displayName: String, avatarUrl: String?, busy: Boolean, on
     }
 }
 
-// O passo das permissões. A lista em si e a MESMA de Configurações > Permissões
-// (PainelDePermissoes) — aqui só o enquadramento.
-//
-// `detalhado = false`: nas linhas que ja estão certas, repetir "ouvindo
-// normalmente (Microfone Realtek)" seis vezes vira parede de texto num primeiro
-// contato. O que interessa aqui e o que FALTA. Em Configurações, onde a pessoa
-// vai pra investigar, o detalhe aparece.
-//
-// A lista rola por dentro: seis linhas cabem na moldura, mas cada linha com
-// problema cresce (ganha a explicação do que houve), e uma janela redimensionada
-// pra baixo não pode esconder a ultima permissão sem jeito de alcançar.
 @Composable
 private fun PermsStep(onTestarAviso: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
@@ -292,8 +254,6 @@ private fun PermsStep(onTestarAviso: () -> Unit) {
     }
 }
 
-// Botao do onboarding: primario (accent cheio) ou secundario (contorno). clickScale
-// no mesmo idioma dos outros botoes do app.
 @Composable
 private fun OnbButton(text: String, primary: Boolean = true, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }

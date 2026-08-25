@@ -45,15 +45,6 @@ import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.Video
 
-// TELA DE CHAMADA (sussurro) — ocupa a janela inteira enquanto toca.
-//
-// Uma tela so pros dois lados. O que muda vem de `euLiguei`: quem ligou ve
-// "chamando…" e um botao de desistir; quem recebe ve "está te chamando" e o par
-// atender/recusar. Duas telas quase iguais so dariam duas chances de uma delas
-// ficar velha.
-//
-// O halo que pulsa em volta do avatar e a unica coisa em movimento — desenhado no
-// `drawBehind`, ou seja, fase de DESENHO: pulsa 60fps sem recompor nada.
 @Composable
 fun ChamadaScreen(
     chamada: ChamadaNaTela,
@@ -75,15 +66,11 @@ fun ChamadaScreen(
     Box(
         Modifier
             .fillMaxSize()
-            // Opaco: a conversa por baixo continuaria pedindo atenção enquanto o
-            // telefone toca, e a escolha aqui é atender ou não.
             .background(Obsidian.base),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(contentAlignment = Alignment.Center) {
-                // Duas ondas defasadas: uma sozinha lê como piscada, duas leem
-                // como sinal indo. Só enquanto ninguém atendeu.
                 Box(
                     Modifier.size(190.dp).drawBehind {
                         if (reduzir) return@drawBehind
@@ -148,7 +135,6 @@ fun ChamadaScreen(
                 }
                 BotaoDeChamada(
                     icone = Lucide.PhoneOff,
-                    // Quem ligou não está "recusando" a própria chamada.
                     rotulo = if (chamada.euLiguei) "desistir" else "recusar",
                     cor = Obsidian.danger,
                     onClick = onRecusar,
@@ -171,7 +157,6 @@ private fun BotaoDeChamada(
         Box(
             Modifier
                 .size(58.dp)
-                // Escala no graphicsLayer: cresce sem remedir a linha inteira.
                 .graphicsLayer { val s = if (hov) 1.06f else 1f; scaleX = s; scaleY = s }
                 .clip(CircleShape)
                 .background(cor.copy(alpha = if (hov) 0.22f else 0.14f))

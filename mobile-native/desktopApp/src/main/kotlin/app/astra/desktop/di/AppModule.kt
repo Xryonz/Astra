@@ -47,21 +47,15 @@ import org.koin.dsl.module
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
-// Grafo do desktop (Koin). Dois Retrofits, como no Android:
-// - "plain": sem auth — login/refresh (o authenticator usa este, sem ciclo).
-// - "authed": Bearer + renovacao automatica no 401 — todo o resto.
 val appModule = module {
     single { Json { ignoreUnknownKeys = true; explicitNulls = false } }
     single { SessionStore() }
 
     single(named("plain")) {
         OkHttpClient.Builder()
-            // Render free acorda em ate ~50s do sono; timeouts folgados no connect.
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
-            // Teto da chamada inteira (fila incluida): nada pendura pra sempre.
             .callTimeout(75, TimeUnit.SECONDS)
-            // X-Device-Id também aqui: login/register/refresh vivem no plain (#4).
             .addInterceptor(DeviceInterceptor(get()))
             .build()
     }
@@ -78,11 +72,6 @@ val appModule = module {
     single<RefreshApi> { get<Retrofit>(named("plain")).create(RefreshApi::class.java) }
 
     single(named("authed")) {
-        // Cliente PROPRIO, nunca newBuilder() do plain: newBuilder compartilha o
-        // Dispatcher (5 requests/host). O boot dispara 5 chamadas autenticadas;
-        // com token vencido as 5 seguram os slots dentro do authenticator e o
-        // refresh (mesmo host) fica na fila pra sempre — deadlock do
-        // "carregando o ceu…". Dispatcher separado = refresh sempre anda.
         OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -132,7 +121,5 @@ val appModule = module {
     single { DesktopPrefs(get()) }
     single { AvisosDaConta(get()) }
     single { TemaDaConta(get(), get()) }
-    // Auto-update DIY (zip-swap via GitHub Releases). Usa o OkHttp "plain" (mesmo
-    // HTTPS que já funciona no app) — o HttpURLConnection falhava no JRE empacotado.
     single { UpdateService(get(named("plain"))) }
 }

@@ -27,8 +27,6 @@ data class ServerRolesUiState(
     val actionError: String? = null,
 )
 
-// As 7 permissoes do backend (lib/permissions.ts), com rotulo/descricao em PT
-// espelhando o pt.json do web.
 val PERM_OPTIONS: List<Triple<String, String, String>> = listOf(
     Triple("MANAGE_SERVER", "Gerenciar constelacao", "editar nome, icone, retencao"),
     Triple("MANAGE_ROLES", "Gerenciar cargos", "criar/editar cargos (sempre pertence ao dono)"),

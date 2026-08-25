@@ -16,20 +16,6 @@ import org.jetbrains.skia.ImageInfo
 import kotlin.math.cos
 import kotlin.math.pow
 
-// BLURHASH — as cores borradas da imagem, em ~30 bytes.
-//
-// O servidor JA calculava isto em todo upload (routes/upload.ts) e o desktop nunca
-// usou: a conta era feita, o dado viajava, e a tela mostrava um buraco cinza
-// esperando a foto. Aqui ele vira pixel.
-//
-// Nao ha biblioteca de blurhash no JVM, entao a decodificacao e na mao. O formato e
-// fechado e minusculo — 83 caracteres de alfabeto, uma DCT de no maximo 9x9
-// componentes — entao "na mao" aqui sao 80 linhas, nao uma aventura.
-//
-// Decodifica em 32px de largura DE PROPOSITO: o resultado e um borrao, e borrao em
-// alta resolucao e desperdicio. A GPU estica com filtro bilinear e o resultado e
-// exatamente o degrade suave que se quer.
-
 private const val ALFABETO =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#\$%*+,-.:;=?@[]^_{|}~"
 
@@ -45,8 +31,6 @@ private fun decodificar83(s: String): Int {
     return valor
 }
 
-// sRGB -> linear e volta. Sem isso as cores saem lavadas: a media tem que ser feita
-// no espaco linear, nao no que a tela mostra.
 private fun paraLinear(v: Int): Float {
     val f = v / 255f
     return if (f <= 0.04045f) f / 12.92f else ((f + 0.055f) / 1.055f).pow(2.4f)
@@ -61,7 +45,6 @@ private fun paraSrgb(v: Float): Int {
 private fun sinalPow(v: Float, exp: Float): Float =
     (if (v < 0) -1f else 1f) * kotlin.math.abs(v).pow(exp)
 
-/** Decodifica o hash num ImageBitmap pequeno. Devolve null se o hash for invalido. */
 fun decodificarBlurhash(hash: String, proporcao: Float): ImageBitmap? {
     if (hash.length < 6) return null
 
@@ -94,9 +77,6 @@ fun decodificarBlurhash(hash: String, proporcao: Float): ImageBitmap? {
     val larg = LARGURA_DECODE
     val alt = (larg / proporcao.coerceIn(0.2f, 5f)).toInt().coerceIn(4, 96)
 
-    // Os cossenos em x e em y sao SEPARAVEIS: pre-calcular as duas tabelas troca
-    // larg*alt*numX*numY chamadas de cos() por (larg*numX + alt*numY). Num anexo
-    // 32x24 com 4x3 componentes isso e ~9000 cossenos virando ~200.
     val cosX = Array(larg) { x -> FloatArray(numX) { i -> cos(Math.PI * x * i / larg).toFloat() } }
     val cosY = Array(alt) { y -> FloatArray(numY) { j -> cos(Math.PI * y * j / alt).toFloat() } }
 
@@ -113,7 +93,6 @@ fun decodificarBlurhash(hash: String, proporcao: Float): ImageBitmap? {
                 }
             }
             val p = (y * larg + x) * 4
-            // BGRA: e o layout que o Skia usa no ImageInfo abaixo.
             pixels[p]     = paraSrgb(b).toByte()
             pixels[p + 1] = paraSrgb(g).toByte()
             pixels[p + 2] = paraSrgb(r).toByte()
@@ -128,9 +107,6 @@ fun decodificarBlurhash(hash: String, proporcao: Float): ImageBitmap? {
     ).toComposeImageBitmap()
 }
 
-// Cache pequeno: rolar o chat pra cima e pra baixo repassaria pelos mesmos anexos, e
-// decodificar de novo a cada volta seria trabalho puro. 64 entradas cobrem uma tela
-// cheia de imagens com folga; cada uma custa ~4 KB.
 private const val TETO_CACHE = 64
 private val cache = object : LinkedHashMap<String, ImageBitmap>(16, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, ImageBitmap>) = size > TETO_CACHE
@@ -141,8 +117,6 @@ fun lembrarBlurhash(hash: String?, proporcao: Float): State<ImageBitmap?> {
     val estado = remember(hash) { mutableStateOf(hash?.let { synchronized(cache) { cache[it] } }) }
     LaunchedEffect(hash, proporcao) {
         if (hash.isNullOrBlank() || estado.value != null) return@LaunchedEffect
-        // Fora da thread de UI: sao ~1000 pixels com uma somatoria cada, barato mas
-        // nao de graca, e travar um quadro pra desenhar um borrao seria irônico.
         val bmp = withContext(Dispatchers.Default) { runCatching { decodificarBlurhash(hash, proporcao) }.getOrNull() }
         if (bmp != null) {
             synchronized(cache) { cache[hash] = bmp }

@@ -61,19 +61,6 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.koin.core.context.GlobalContext
 
-// EMOJIS DA CONSTELACAO — aba de gerenciamento.
-//
-// AO CONTRARIO DE SOM E FIGURINHA, a imagem vai MULTIPART pra propria rota, sem
-// passar pelo /api/upload. O servidor reduz pra 128px e re-encoda em WebP, e e por
-// isso que a diferenca existe: figurinha QUER o original byte a byte (transparencia,
-// nada de recompressao), enquanto emoji e desenhado com vinte pixels de lado em
-// cada linha da conversa — guardar o original faria baixar meio megabyte pra pintar
-// um selo.
-//
-// O NOME E O EMOJI. E ele que se digita entre dois-pontos, entao ele nasce do nome
-// do arquivo (limpo pro que o servidor aceita) e pode ser corrigido na propria
-// linha. Sem renomear, errar o nome obrigaria a apagar e subir de novo.
-
 private const val TETO_EMOJIS = 50
 
 @Composable
@@ -89,9 +76,6 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
         runCatching { api.listar(serverId).data.orEmpty() }
             .onSuccess {
                 emojis = it
-                // A conversa e o seletor leem de um cache por constelacao. Sem avisar
-                // aqui, o emoji que se acabou de subir so apareceria no chat depois de
-                // trocar de constelacao — e usar e a primeira coisa que se faz.
                 EmojisDaConstelacao.invalidar(serverId)
             }
             .onFailure { msg = "não foi possível carregar os emojis" to false }
@@ -133,8 +117,6 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
             BotaoIcone(Lucide.Upload, "subir um emoji", accent = true, ocupado = ocupado) {
                 escopo.launch {
                     val arquivo = withContext(Dispatchers.IO) { chooseFiles().firstOrNull() } ?: return@launch
-                    // Barra AQUI em vez de deixar o servidor responder 429: o arquivo
-                    // ja teria subido inteiro pra ouvir que nao cabia.
                     if (emojis.size >= TETO_EMOJIS) {
                         msg = "esta constelação já tem $TETO_EMOJIS emojis" to false
                         return@launch
@@ -177,10 +159,6 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
     }
 }
 
-// O servidor so aceita 2 a 32 caracteres de [a-z0-9_]. Um arquivo chamado
-// "Estrela feliz (1).png" viraria 422 na cara de quem so escolheu uma imagem, entao
-// o nome e limpo aqui: acento e espaco viram underscore, o resto cai fora, e nome
-// curto demais ganha um sufixo em vez de ser recusado.
 internal fun nomeDeEmoji(bruto: String): String {
     val limpo = buildString {
         for (c in bruto.lowercase()) {
@@ -250,8 +228,6 @@ private fun LinhaDeEmoji(
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(foco)
-                    // Enter confirma, Esc desiste. Sem o Esc, quem abriu a edicao sem
-                    // querer so sairia dela gravando alguma coisa.
                     .onPreviewKeyEvent { e ->
                         if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key) {

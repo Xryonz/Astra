@@ -2,8 +2,6 @@ package app.astra.mobile.core.network.dto
 
 import kotlinx.serialization.Serializable
 
-// GET /users/:id/badges -> { global: [...], server: [...] }.
-// Globais sao derivadas no backend (Bot, Pioneiro); as de servidor tem origem.
 @Serializable
 data class UserBadgesDto(
     val global: List<BadgeDto> = emptyList(),
@@ -30,7 +28,6 @@ data class ServerGrantedBadgeDto(
     val serverName: String? = null,
 )
 
-// GET /servers/:id/badges (gestao): badge + quem ja tem.
 @Serializable
 data class ServerBadgeDto(
     val id: String,
@@ -55,8 +52,6 @@ data class GrantBadgeRequest(
     val userId: String,
 )
 
-// Limpar = mandar "" (o backend faz trim() || null). Nao usar null aqui:
-// explicitNulls=false omitiria a chave e o Zod exige ela presente.
 @Serializable
 data class CustomStatusRequest(
     val customStatus: String,

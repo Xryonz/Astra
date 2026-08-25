@@ -33,20 +33,6 @@ import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 
-// O ASTRA SE AJUSTOU À MÁQUINA — e este cartão é a metade "e diz que fez".
-//
-// Ajustar em silêncio seria mais limpo de programar e pior de usar: a pessoa com um
-// computador apertado ganharia um app econômico sem saber que existe um bonito
-// esperando por ela, e concluiria que o Astra é feio de fábrica. Pior ainda no sentido
-// contrário — quem tem 4 GB porque o pente queimou não entenderia por que o fundo
-// mudou.
-//
-// O cartão traz A MEDIDA ("3,9 GB de memória"), não a conclusão. Mostrar o que foi
-// visto na máquina se defende sozinho; só afirmar "achamos melhor" vira desconfiança.
-//
-// Some no "entendi" — e some SÓ o cartão: o modo econômico continua ligado, porque
-// dispensar um aviso não é discordar dele. Desligar de verdade é em Desempenho, e o
-// texto diz onde.
 @Composable
 fun AvisoDeMaquinaEconomica(motivo: String, aoDispensar: () -> Unit) {
     Column(
@@ -80,11 +66,6 @@ fun AvisoDeMaquinaEconomica(motivo: String, aoDispensar: () -> Unit) {
     }
 }
 
-// Metade "checklist" do onboarding (combo): cartao flutuante no rodape do palco
-// vazio, so pra quem acabou de passar pelo takeover (Main liga a pref
-// "checklist:<userId>"). Risca sozinho conforme o usuário cumpre cada passo — os
-// estados vem da state do shell (servers/dms/avatar), não ha rastreio proprio.
-// Some ao completar os dois passos-nucleo (constelação + sussurro) ou no "pular".
 @Composable
 fun FirstStepsCard(
     hasServer: Boolean,
@@ -92,7 +73,6 @@ fun FirstStepsCard(
     hasAvatar: Boolean,
     onDismiss: () -> Unit,
 ) {
-    // Largura livre: mora na barra lateral (260dp), não mais solto sobre o palco.
     Column(
         Modifier
             .fillMaxWidth()
@@ -126,8 +106,6 @@ fun FirstStepsCard(
 
 @Composable
 private fun StepRow(done: Boolean, label: String) {
-    // O anel se preenche (verde) quando o passo e cumprido — mesma linguagem das
-    // regras do login. Animado, respeita reduzir movimento.
     val fill by animateFloatAsState(
         targetValue = if (done) 1f else 0f,
         animationSpec = tween(if (LocalReduceMotion.current) 0 else 260),

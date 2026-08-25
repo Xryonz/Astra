@@ -39,15 +39,6 @@ import app.astra.mobile.core.network.StickerApi
 import app.astra.mobile.core.network.dto.ServerStickerDto
 import org.koin.core.context.GlobalContext
 
-// FIGURINHAS — painel do compositor.
-//
-// Escolher JA ENVIA, como o GIF. Figurinha e uma reacao, nao um rascunho: obrigar
-// a escolher e depois apertar enviar poria um passo no meio de um gesto que quer
-// ser imediato.
-//
-// Sem busca: o teto e 60 por constelacao e elas cabem na grade. Campo de busca
-// aqui seria peso de interface pra filtrar uma lista que ja se ve inteira.
-
 @Composable
 internal fun StickerPanel(serverId: String, onPick: (ServerStickerDto) -> Unit) {
     val api = remember { GlobalContext.get().get<StickerApi>() }
@@ -94,8 +85,6 @@ internal fun StickerPanel(serverId: String, onPick: (ServerStickerDto) -> Unit) 
     }
 }
 
-// Quadrada por dentro do quadro, com respiro: figurinha vem em proporcao qualquer,
-// e recortar (Crop) cortaria justamente a parte que identifica o desenho.
 @Composable
 private fun CelulaDeFigurinha(fig: ServerStickerDto, onClick: () -> Unit) {
     val src = remember(fig.id) { MutableInteractionSource() }

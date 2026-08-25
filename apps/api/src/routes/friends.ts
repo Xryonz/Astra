@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
@@ -14,15 +13,6 @@ import { isValidCoordinate, normalizeCoordinate } from '../lib/coordinate'
 import { profileChanged, amizadeMudou, servidorDeSocket } from '../lib/realtime'
 import { notify } from '../lib/notifications'
 
-// Aviso de pedido de amizade: sino + toast na bandeja.
-//
-// Fora do fluxo da rota (`void ...`) porque avisar não pode atrasar nem derrubar o
-// pedido em si: se o sino falhar, a amizade continua pedida — o contrário seria
-// perder a ação por causa do enfeite dela.
-//
-// Sem `serverId`/`channelId` no payload: clicar nesta notificação não leva a uma
-// órbita, leva à tela de Amigos. Quem desenha decide o destino; aqui só se conta o
-// que aconteceu.
 async function avisarPedidoDeAmizade(paraQuem: string, deQuem: string): Promise<void> {
   const io = servidorDeSocket()
   if (!io) return
@@ -143,8 +133,6 @@ router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async
     .limit(1)
   if (!target) throw notFound('Usuário não encontrado')
   if (target.id === req.userId) throw badRequest('Não pode adicionar você mesmo')
-  // Bloqueou e a amizade caiu junto; sem esta guarda, mandar o pedido de novo
-  // seria o caminho de volta e o bloqueio nao valeria nada.
   if (await haBloqueio(req.userId!, target.id)) throw badRequest('Não é possível adicionar essa pessoa')
 
   const [a, b] = normalize(req.userId!, target.id)
@@ -161,9 +149,6 @@ router.post('/request', requireAuth, validate(RequestSchema), asyncHandler(async
         .returning()
 
       getOrCreateConversation(req.userId!, target.id).catch(() => {})
-      // Mandar pedido pra quem já tinha mandado pra você VIRA um aceite. Sem este
-      // aviso, o caminho mais bonito do recurso ("nos adicionamos ao mesmo tempo")
-      // era justamente o que deixava a tela do outro presa em "pendente".
       amizadeMudou(req.userId!, target.id, 'aceito')
       return res.json({ data: accepted })
     }
@@ -204,9 +189,6 @@ router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Respon
   if (!row) return res.json({ data: { ok: true } })
   if (row.userAId !== req.userId && row.userBId !== req.userId) throw badRequest('Sem acesso')
   await db.delete(friendships).where(eq(friendships.id, id))
-  // Cobre recusar pedido E desfazer amizade — é a mesma rota. Recusa sem aviso
-  // deixava o pedido no ar pra quem mandou, e desfazer sem aviso mantinha o outro
-  // te vendo na lista de amigos.
   amizadeMudou(row.userAId, row.userBId, 'removido')
   res.json({ data: { ok: true } })
 }))
@@ -216,8 +198,6 @@ const StatusSchema = z.object({ customStatus: z.string().max(100).nullable() })
 router.patch('/custom-status', requireAuth, validate(StatusSchema), asyncHandler(async (req: Request, res: Response) => {
   const { customStatus } = req.body as z.infer<typeof StatusSchema>
   await db.update(users).set({ customStatus: customStatus?.trim() || null }).where(eq(users.id, req.userId!))
-  // O recado mora numa rota PROPRIA (fora do /profile), entao precisa avisar aqui
-  // tambem — senao salvar o perfil inteiro propaga e mudar so o recado nao.
   profileChanged(req.userId!)
   res.json({ data: { customStatus: customStatus?.trim() || null } })
 }))

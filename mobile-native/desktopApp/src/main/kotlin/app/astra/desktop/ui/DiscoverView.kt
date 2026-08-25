@@ -76,10 +76,6 @@ import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
 
-// Descobrir constelações públicas (paridade com web/mobile). Palco central: busca
-// no topo (?q= com debounce) + grid de cards com banner. Entrar chama
-// /discover/:id/join e o onJoined recarrega os servidores + cai na constelação.
-// API/DTOs vem do :shared (DiscoverApi movida do :app).
 @Composable
 fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet(), modifier: Modifier = Modifier) {
     val api = remember { GlobalContext.get().get<DiscoverApi>() }
@@ -90,7 +86,6 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
     var error by remember { mutableStateOf<String?>(null) }
     var joining by remember { mutableStateOf<String?>(null) }
 
-    // Busca com debounce: ~400ms apos a última tecla (query vazia carrega na hora).
     LaunchedEffect(query) {
         loading = true
         error = null
@@ -107,7 +102,6 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         scope.launch {
             val r = runCatching { api.join(id) }
             joining = null
-            // 201 (entrou) OU 409 (já era membro) -> cai na constelação do mesmo jeito.
             when {
                 r.isSuccess -> onJoined(id)
                 (r.exceptionOrNull() as? HttpException)?.code() == 409 -> onJoined(id)
@@ -132,7 +126,6 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         )
         Spacer(Modifier.height(14.dp))
 
-        // Busca (?q= no backend). Mesmo visual da busca de sussurros.
         Row(
             Modifier
                 .fillMaxWidth()
@@ -172,17 +165,12 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
                 modifier = Modifier.fillMaxSize(),
             ) {
                 itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
-                    // Cascata de entrada ao carregar/buscar (re-dispara quando o
-                    // conjunto muda de tamanho). GPU-only (fade + leve subida).
                     CascadeIn(i, results.size) {
                         DiscoverCard(
                             s,
                             joining = joining == s.id,
                             isMember = s.id in joinedIds,
                             onJoin = { join(s.id) },
-                            // Abrir reusa o mesmo callback do "entrou": la no shell ele
-                            // recarrega a lista e SELECIONA a constelacao — que e
-                            // exatamente o que abrir quer dizer.
                             onAbrir = { onJoined(s.id) },
                         )
                     }
@@ -206,9 +194,6 @@ private fun DiscoverCard(
             .background(Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(12.dp)),
     ) {
-        // Faixa de banner (imagem ou fundo do tema).
-        // Proporcao UNICA do banner de constelação (ServerBannerAspect): a mesma
-        // do editor e da previa, entao o recorte assado cai exato nos tres.
         Box(Modifier.fillMaxWidth().aspectRatio(ServerBannerAspect).background(Obsidian.overlay)) {
             if (!s.bannerUrl.isNullOrBlank()) {
                 AsyncImage(
@@ -229,12 +214,6 @@ private fun DiscoverCard(
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                // A CONTAGEM SUBIU pro canto direito, na linha do nome, e perdeu a
-                // moldura. Ela e um dado, nao um alvo de clique: chip com borda
-                // prometia que dava pra clicar e disputava atencao com o botao de
-                // entrar, que e a unica coisa clicavel do cartao. Aqui em cima ela
-                // se le junto com o nome ("Autism Gang, 5 pessoas") e o rodape fica
-                // livre pra acao.
                 Spacer(Modifier.width(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LIcon(Lucide.Users, tint = Obsidian.text3, size = 12.dp)
@@ -246,7 +225,6 @@ private fun DiscoverCard(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            // Altura fixa (2 linhas) pra os cards alinharem no grid mesmo sem descrição.
             Text(
                 s.description?.ifBlank { null } ?: "sem descrição",
                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp, lineHeight = 16.sp),
@@ -258,12 +236,6 @@ private fun DiscoverCard(
                 Spacer(Modifier.weight(1f))
                 val joinSrc = remember { MutableInteractionSource() }
                 if (isMember) {
-                    // JA E MEMBRO: o botao vira ABRIR, e nao um tique.
-                    //
-                    // O tique com moldura anunciava um estado ocupando o lugar de uma
-                    // acao — e um alvo do tamanho de um botao que nao faz nada convida
-                    // o clique e devolve silencio. "abrir" e a mesma moldura fazendo
-                    // algo util: leva pra constelacao. Estado que vira acao.
                     Row(
                         Modifier
                             .clickScale(joinSrc)
@@ -307,20 +279,14 @@ private fun Center(text: String) {
     }
 }
 
-// #11: vazio da Descoberta = mapa do tesouro. Uma rota tracejada entre nos-estrela
-// se desenha devagar ate um ✦ (o "X" que marca o tesouro), com estrelinhas piscando
-// ao fundo e o destino pulsando. Movimento contido, respeita reduzir-movimento.
-// A tela (grid) e a sidebar dividem ESTE canvas — muda so tamanho/legenda.
 @Composable
 private fun TreasureMapCanvas(width: Dp, height: Dp) {
     val reduce = LocalReduceMotion.current
     val accent = Obsidian.accent
 
-    // Rota se desenha 1x (0->1). Reduzir movimento = já cheia.
     val draw = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(reduce) { if (!reduce) draw.animateTo(1f, tween(1700, easing = FastOutSlowInEasing)) }
 
-    // Relogio único (0..2π) alimenta twinkle das estrelas + pulso do tesouro.
     val inf = rememberInfiniteTransition(label = "map")
     val clock by inf.animateFloat(
         0f, (2.0 * Math.PI).toFloat(),
@@ -330,14 +296,12 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
     val t = if (reduce) 0f else clock
     val pulse = if (reduce) 1f else 0.82f + 0.18f * sin(t * 1.6f)
 
-    // Rota em fracoes do box; último no = o tesouro (✦). Fixa por sessão.
     val route = remember {
         listOf(
             Offset(0.09f, 0.74f), Offset(0.27f, 0.42f), Offset(0.44f, 0.63f),
             Offset(0.61f, 0.30f), Offset(0.79f, 0.52f), Offset(0.92f, 0.28f),
         )
     }
-    // Estrelinhas de fundo (x, y, fase do twinkle).
     val stars = remember {
         val r = java.util.Random(7)
         List(16) { Triple(r.nextFloat(), r.nextFloat(), r.nextFloat() * 6.28f) }
@@ -346,7 +310,6 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
     Box(Modifier.size(width = width, height = height)) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width; val h = size.height
-            // fundo: estrelas piscando
             stars.forEach { (sx, sy, ph) ->
                 val a = 0.10f + 0.22f * (0.5f + 0.5f * sin(t + ph))
                 drawCircle(accent.copy(alpha = a), radius = 1.1f, center = Offset(sx * w, sy * h))
@@ -355,7 +318,6 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
             val lens = pts.zipWithNext().map { (a, b) -> (b - a).getDistance() }
             val total = lens.sum().coerceAtLeast(1f)
             val reached = draw.value * total
-            // rota tracejada, revelada ate 'reached'
             val dash = PathEffect.dashPathEffect(floatArrayOf(5f, 6f), 0f)
             var remaining = reached
             for (i in lens.indices) {
@@ -366,7 +328,6 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
                 drawLine(accent.copy(alpha = 0.5f), a, end, strokeWidth = 1.6f, cap = StrokeCap.Round, pathEffect = dash)
                 remaining -= lens[i]
             }
-            // nos já visitados (o tesouro fica pro ✦ por cima)
             val cum = FloatArray(pts.size)
             for (i in 1 until pts.size) cum[i] = cum[i - 1] + lens[i - 1]
             pts.forEachIndexed { i, p ->
@@ -375,10 +336,6 @@ private fun TreasureMapCanvas(width: Dp, height: Dp) {
                     drawCircle(accent.copy(alpha = 0.20f), radius = 4.6f, center = p)
                 }
             }
-            // halo do tesouro (pulsa) + o ✦ NO MESMO ponto, desenhado aqui no Canvas.
-            // Antes o ✦ era um Text por cima via BiasAlignment e o centro do glifo
-            // descolava do brilho; agora a estrela nasce dentro da luz ressoante e
-            // pulsa junto com ela.
             if (draw.value > 0.98f) {
                 val tp = pts.last()
                 drawCircle(accent.copy(alpha = 0.10f), radius = 16f * pulse, center = tp)
@@ -420,8 +377,6 @@ private fun DiscoverEmptyMap(query: String) {
     }
 }
 
-// Placeholder da SIDEBAR quando a Descoberta esta aberta (o palco central e a busca).
-// Mesmo mapa do tesouro, compacto pra coluna estreita, guiando o olho pro palco ao lado.
 @Composable
 internal fun DiscoverSidebarMap() {
     Box(Modifier.fillMaxSize().padding(18.dp), contentAlignment = Alignment.Center) {

@@ -68,27 +68,10 @@ import com.composables.icons.lucide.MicOff
 import com.composables.icons.lucide.PhoneOff
 import kotlin.math.roundToInt
 
-// Card flutuante da call — aparece quando você esta conectado mas navegou pra
-// outra tela. Espelha o VoiceCallPanel do web (arrastavel, avatares de quem
-// fala, mic/desligar, botao de voltar pro palco) com tres cortes de custo que
-// pesavam la:
-//
-//  1. O web roda uma animação infinita POR PARTICIPANTE (o anel de quem fala) e
-//     mais uma no ponto pulsante. Aqui existe UMA transicao infinita so, e o
-//     valor dela e lido dentro do drawBehind — muda o desenho, não a composicao.
-//  2. O anel de "falando" e pintado (drawCircle no draw scope), não um layout a
-//     mais por avatar entrando e saindo da arvore.
-//  3. Parado (ninguem falando) NENHUM frame e pedido: a transicao infinita so e
-//     criada quando ha alguem falando, e some junto.
-//
-// Arrastar guarda a posição em memoria (não persiste entre sessões de propósito:
-// menos I/O e o card sempre volta pro canto conhecido ao reabrir o app).
 @Composable
 fun BoxScope.CallDock(
     channel: ChannelDto,
     call: CallEmMalha,
-    // O mudo passa pela VoiceSession, e nao pelo motor: o botao do rodape e este
-    // aqui mexem no MESMO estado, e a sessao e quem o guarda.
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     meName: String,
@@ -98,31 +81,17 @@ fun BoxScope.CallDock(
 ) {
     val status by call.status.collectAsState()
     val inicio by call.inicio.collectAsState()
-    // O icone mostra a INTENCAO (mudo), e nao o que o motor esta transmitindo neste
-    // milissegundo. Com apertar-para-falar o motor liga e desliga a cada tecla, e um
-    // icone vermelho piscando dezenas de vezes por minuto nao informa nada.
     val micOn = !mudo
 
     var dx by remember { mutableFloatStateOf(0f) }
     var dy by remember { mutableFloatStateOf(0f) }
 
-    // O ARRASTO PARA NA BORDA. Nada segurava o cartao: dava pra empurrar ele pra
-    // fora da janela e perder de vista o unico botao de desligar que existe depois
-    // que navegar deixou de desconectar. Sumir com o controle da call e pior do que
-    // qualquer limitacao de onde ele pode ficar.
-    //
-    // O limite e conferido nos DOIS lugares de proposito: no gesto (senao o dx
-    // acumula pra sempre e voltar exige arrastar a mesma distancia de volta) e na
-    // hora de posicionar (senao encolher a janela deixaria o cartao do lado de fora
-    // sem ninguem ter arrastado nada).
     var meu by remember { mutableStateOf(IntSize.Zero) }
     var pai by remember { mutableStateOf(IntSize.Zero) }
     val densidade = LocalDensity.current
-    val folga = with(densidade) { 8.dp.toPx() }      // margem minima ate a borda
-    val descanso = with(densidade) { 18.dp.toPx() }  // onde ele nasce (padding abaixo)
+    val folga = with(densidade) { 8.dp.toPx() }
+    val descanso = with(densidade) { 18.dp.toPx() }
 
-    // minOf(): antes da primeira medida o pai e 0x0, e ai o minimo passaria do
-    // maximo — coerceIn com faixa invertida estoura.
     fun faixa(tamanhoMeu: Int, tamanhoPai: Int): ClosedFloatingPointRange<Float> {
         val maximo = descanso - folga
         val minimo = folga + descanso + tamanhoMeu - tamanhoPai
@@ -147,15 +116,6 @@ fun BoxScope.CallDock(
             .onPlaced { c -> c.parentLayoutCoordinates?.size?.let { pai = it } }
             .onSizeChanged { meu = it }
             .width(232.dp)
-            // O card sumia no fundo, e por dois motivos somados: ele flutua sobre a
-            // AURORA (que e escura e viva, entao nao serve de contraste estavel) e
-            // usava `overlay` — um tom que existe justamente pra encostar no fundo,
-            // nao pra se destacar dele.
-            //
-            // Tres coisas resolvem, e as tres fazem falta separadas: sombra (e o que
-            // diz "isto esta FLUTUANDO", e nao havia nenhuma), uma superficie um
-            // degrau mais clara, e opacidade cheia — a 0.94 a aurora atravessava o
-            // card e mexia por baixo do texto.
             .shadow(20.dp, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
             .background(Obsidian.hover)
@@ -169,7 +129,6 @@ fun BoxScope.CallDock(
             },
     ) {
         Column {
-            // Cabecalho: ponto vivo + de onde vem o audio + quantos estão na sala.
             Row(
                 Modifier.fillMaxWidth().padding(start = 11.dp, end = 7.dp, top = 9.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -201,9 +160,6 @@ fun BoxScope.CallDock(
                 Spacer(Modifier.width(6.dp))
                 DockIcon(Lucide.Maximize2, tint = Obsidian.text2, onClick = onExpand)
             }
-            // Quem esta na sala (pedido do dono): so o "N na sala" não dizia QUEM. Cada
-            // rosto entra estourando e sai encolhendo (PopIn) — a chave e a identity, e
-            // por isso que trocar de gente anima em vez de so trocar a imagem.
             if (connected != null) {
                 val faces = remember(connected, meName, meAvatar) {
                     listOf(DockFace("me", meName, meAvatar, connected.mySpeaking)) +
@@ -230,12 +186,6 @@ fun BoxScope.CallDock(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            // Acoes: calar/abrir mic e desligar. Desligar e a UNICA saida da call
-            // agora que navegar não desconecta mais.
-            //
-            // Faixa propria em vez de traco em cima: os dois botoes aqui embaixo
-            // sao a unica parte CLICAVEL do dock, e uma superficie propria diz
-            // isso melhor do que uma linha.
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -270,8 +220,6 @@ private data class DockFace(
     val speaking: Boolean,
 )
 
-// Rosto na mini-tela: 22dp. Quem esta FALANDO ganha um anel ambar (mesma leitura
-// do palco cheio), animado — assim da pra ver quem fala sem abrir a call.
 @Composable
 private fun DockFaceAvatar(f: DockFace) {
     val ring by animateFloatAsState(
@@ -294,8 +242,6 @@ private fun DockFaceAvatar(f: DockFace) {
     }
 }
 
-// Ponto de "ao vivo". Pulsa SO enquanto alguem fala; em silencio e um circulo
-// estatico e nenhum frame e pedido (o web pulsa pra sempre).
 @Composable
 private fun LiveDot(active: Boolean) {
     if (!active) {
@@ -308,7 +254,6 @@ private fun LiveDot(active: Boolean) {
         animationSpec = infiniteRepeatable(tween(760), RepeatMode.Reverse),
         label = "dock-pulse",
     )
-    // Le `p` dentro do draw: pulsa sem recompor a linha inteira do cabecalho.
     Box(
         Modifier.size(12.dp).drawBehind {
             drawCircle(Obsidian.success.copy(alpha = 0.22f * p), radius = size.minDimension / 2f * p)

@@ -16,9 +16,6 @@ import app.astra.mobile.BuildConfig
 import app.astra.mobile.MainActivity
 import java.net.URL
 
-// Atalho dinamico por Sussurro: long-press no icone do app mostra as conversas
-// recentes, e elas aparecem como alvos de Direct Share no compartilhar do
-// Android (a categoria casa com res/xml/shortcuts.xml).
 object DmShortcuts {
     const val CATEGORY = "app.astra.mobile.category.SHARE_TARGET"
     const val EXTRA_CONV_ID = "shareConversationId"
@@ -33,7 +30,6 @@ object DmShortcuts {
             null
         }
 
-    // Chamar em IO: baixa o avatar (best-effort; sem avatar vira inicial ambar).
     fun push(context: Context, conversationId: String, name: String, avatarUrl: String?) {
         try {
             val intent = Intent(context, MainActivity::class.java).apply {
@@ -52,7 +48,6 @@ object DmShortcuts {
                 .build()
             ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
         } catch (_: Exception) {
-            // Atalho e conveniencia — falhou, segue o jogo.
         }
     }
 

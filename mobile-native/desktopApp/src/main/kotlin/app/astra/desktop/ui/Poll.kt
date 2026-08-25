@@ -46,24 +46,6 @@ import app.astra.mobile.core.network.dto.PollDto
 import java.time.Duration
 import java.time.Instant
 
-// ENQUETE.
-//
-// O backend ja tinha tudo (criar, votar, encerrar, e o evento poll_updated); o
-// desktop e que nao sabia DESENHAR — entao o item "criar enquete" ficou fora do
-// menu '+' ate agora, porque botao que cria mensagem que o app nao exibe e pior
-// que a ausencia do botao.
-//
-// Duas decisoes que valem registro:
-//
-// 1. O RESULTADO APARECE SEMPRE, mesmo pra quem ainda nao votou. Enquete de chat
-//    nao e urna: as pessoas conversam sobre ela na mesma tela. Esconder a parcial
-//    ate votar (padrao de pesquisa seria) so cria o "vota qualquer coisa pra ver".
-//
-// 2. A barra fica DENTRO da linha da opcao, nao embaixo. Uma linha por opcao le
-//    mais rapido que duas, e o chat e uma coluna estreita disputada por mensagem.
-
-// ---- Enquete desenhada na mensagem ----
-
 @Composable
 fun PollBlock(
     poll: PollDto,
@@ -98,8 +80,6 @@ fun PollBlock(
         Spacer(Modifier.height(10.dp))
         poll.options.forEach { op ->
             val votei = myId != null && myId in op.votes
-            // Sem voto nenhum, todas as barras ficam vazias — 1/n daria a impressao
-            // falsa de empate ja votado.
             val fracao = if (total == 0) 0f else op.votes.size.toFloat() / total
             PollOptionRow(
                 texto = op.text,
@@ -154,9 +134,6 @@ private fun PollOptionRow(
     val src = remember { MutableInteractionSource() }
     val hov by src.collectIsHoveredAsState()
     val reduce = LocalReduceMotion.current
-    // A barra ANIMA ate a nova largura: com voto ao vivo de varias pessoas, um
-    // salto seco parece falha de render. Curta o bastante pra nao atrasar a
-    // leitura do resultado.
     val largura by animateFloatAsState(
         targetValue = fracao.coerceIn(0f, 1f),
         animationSpec = tween(if (reduce) 0 else 320, easing = EaseOutSoft),
@@ -181,8 +158,6 @@ private fun PollOptionRow(
                     .clickable(interactionSource = src, indication = null, onClick = onClick),
             ),
     ) {
-        // Preenchimento proporcional ATRAS do texto. Quem votou ganha o accent;
-        // as outras ficam num cinza que so marca a proporcao sem competir.
         Box(
             Modifier
                 .fillMaxWidth(largura)
@@ -212,7 +187,6 @@ private fun PollOptionRow(
     }
 }
 
-// "termina em 3h" / "termina em 12min". Sem prazo = null (a linha nem aparece).
 private fun restante(poll: PollDto): String? {
     val fim = poll.expiresAt ?: return null
     val instante = runCatching { Instant.parse(fim) }.getOrNull() ?: return null
@@ -227,8 +201,6 @@ private fun restante(poll: PollDto): String? {
     }
 }
 
-// ---- Criar enquete ----
-
 private val PRAZOS = listOf<Pair<String, Int?>>(
     "sem prazo" to null,
     "1h" to 1,
@@ -238,8 +210,6 @@ private val PRAZOS = listOf<Pair<String, Int?>>(
     "1 semana" to 168,
 )
 
-// Espelho dos limites do backend (routes/polls.ts). Bater aqui evita mandar uma
-// enquete que ja se sabe que volta com 400.
 private const val MAX_OPCOES = 8
 private const val MAX_PERGUNTA = 300
 private const val MAX_OPCAO = 80
@@ -251,8 +221,6 @@ fun CriarEnqueteDialog(
     onClose: () -> Unit,
 ) {
     var pergunta by remember { mutableStateOf("") }
-    // Comeca com duas linhas vazias: e o minimo que o backend aceita, entao a
-    // forma da enquete ja aparece pronta em vez de exigir dois cliques em "+".
     val opcoes = remember { mutableStateListOf("", "") }
     var multipla by remember { mutableStateOf(false) }
     var prazo by remember { mutableStateOf(0) }
@@ -285,8 +253,6 @@ fun CriarEnqueteDialog(
                 Box(Modifier.weight(1f)) {
                     DialogField(valor, "opção ${i + 1}", { opcoes[i] = it.take(MAX_OPCAO) })
                 }
-                // Abaixo de 3 nao ha o que remover: 2 e o minimo do backend, e um
-                // botao que sempre falha e ruido.
                 if (opcoes.size > 2) {
                     Spacer(Modifier.width(6.dp))
                     BotaoGlifo("×") { opcoes.removeAt(i) }

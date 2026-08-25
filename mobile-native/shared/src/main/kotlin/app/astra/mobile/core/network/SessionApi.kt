@@ -10,8 +10,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-// Sessoes ativas = os logins vivos da conta (um refresh token cada). Serve pra
-// ver de onde a conta esta logada e derrubar o que nao reconhecer.
 interface SessionApi {
 
     @GET("api/sessions")
@@ -20,7 +18,6 @@ interface SessionApi {
     @DELETE("api/sessions/{id}")
     suspend fun revoke(@Path("id") id: String)
 
-    // Derruba todas MENOS a atual — por isso manda o refresh token desta sessao.
     @POST("api/sessions/revoke-others")
     suspend fun revokeOthers(@Body body: RevokeOthersRequest): ApiEnvelope<RevokeOthersResponse>
 }

@@ -6,19 +6,6 @@ import (
 	"testing"
 )
 
-// ESTE TESTE É A REDE DE SEGURANÇA DA LIGAÇÃO SEM CGO.
-//
-// Sem cgo não existe compilador conferindo assinatura: um tipo errado em `opus.go`
-// não vira erro de compilação, vira memória corrompida em produção. O que substitui
-// o compilador é isto — chamar a biblioteca de verdade e conferir que o que volta
-// faz sentido.
-//
-// Roda com o caminho da DLL no ambiente:
-//
-//	$env:ASTRA_OPUS_DLL="C:\...\opus-0.dll"; go test ./...
-//
-// Sem a variável, o teste é PULADO em vez de falhar: numa máquina limpa, ou no
-// runner de CI, a ausência da DLL não é defeito do código.
 func abrirParaTeste(t *testing.T) {
 	t.Helper()
 	caminho := os.Getenv("ASTRA_OPUS_DLL")
@@ -30,16 +17,12 @@ func abrirParaTeste(t *testing.T) {
 	}
 }
 
-// Um quadro de 20ms a 48 kHz, mono: 960 amostras POR CANAL. É a duração padrão do
-// WebRTC, e é o número que a conta inteira da malha assume.
 const amostrasPorQuadro = 960
 
 func ondaDeTeste() []int16 {
 	pcm := make([]int16, amostrasPorQuadro)
 	for i := range pcm {
-		// 440 Hz a meio volume. Onda de verdade em vez de silêncio de propósito: com
-		// silêncio o DTX devolveria um pacote mínimo, e um pacote mínimo passaria
-		// tanto numa ligação certa quanto numa errada — o teste não provaria nada.
+
 		pcm[i] = int16(math.Sin(2*math.Pi*440*float64(i)/48000) * 16000)
 	}
 	return pcm
@@ -60,13 +43,11 @@ func TestCodificarEDecodificar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("codificar: %v", err)
 	}
-	// Som real tem que produzir um quadro de verdade. Um ou dois bytes seria o
-	// pacote de silêncio do DTX, e aí algo estaria muito errado.
+
 	if n < 10 {
 		t.Fatalf("quadro pequeno demais para som real: %d bytes", n)
 	}
-	// A 24 kbps, 20ms cabem em ~60 bytes. Muito acima disso indica que os ajustes
-	// não pegaram — que é justamente o tipo de falha silenciosa que este teste caça.
+
 	if n > 200 {
 		t.Errorf("quadro de %d bytes: os ajustes de bitrate podem não ter pegado", n)
 	}
@@ -87,9 +68,6 @@ func TestCodificarEDecodificar(t *testing.T) {
 		t.Fatalf("decodificou %d amostras, esperava %d", lidos, amostrasPorQuadro)
 	}
 
-	// Não dá pra comparar amostra a amostra: Opus tem perda. O que dá pra afirmar é
-	// que saiu SOM — se a ligação estivesse errada, o mais provável seria silêncio
-	// ou lixo, e silêncio o teste pega aqui.
 	var energia float64
 	for _, v := range volta {
 		energia += float64(v) * float64(v)
@@ -101,8 +79,6 @@ func TestCodificarEDecodificar(t *testing.T) {
 	t.Logf("rms de volta: %.0f", rms)
 }
 
-// Perda de pacote não pode derrubar nada: é o caminho mais percorrido de todos numa
-// call de verdade, e é onde o FEC entra.
 func TestPerdaDePacote(t *testing.T) {
 	abrirParaTeste(t)
 

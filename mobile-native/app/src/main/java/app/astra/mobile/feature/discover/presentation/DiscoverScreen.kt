@@ -126,8 +126,6 @@ private fun DiscoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // val local: server.description agora vem do :shared -> smart-cast
-            // entre modulos nao rola direto no acesso a propriedade.
             val description = server.description
             if (!description.isNullOrBlank()) {
                 Text(
@@ -143,8 +141,6 @@ private fun DiscoverCard(
         Spacer(Modifier.width(10.dp))
         val pill = RoundedCornerShape(12.dp)
         if (joined) {
-            // Ja e membro (o user pediu pra ver as proprias publicas): selo em vez
-            // de botao entrar; tocar o card abre a constelacao.
             Box(
                 modifier = Modifier
                     .clip(pill)

@@ -1,15 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { chaveDoTurno } from './botAvisos'
 
-// A CHAVE DO TURNO é o que impede a passagem de ser anunciada duas vezes.
-//
-// O turno da Sparxie tem DOIS dias (sexta e sábado). Se a chave fosse só
-// "persona + data de hoje", ela se apresentaria na sexta e de novo no sábado —
-// duas chegadas para uma entrada só. Por isso ela recua até o primeiro dia do
-// turno: sexta e sábado precisam produzir a MESMA string.
-//
-// Datas: 2026-08-06 quinta · 07 sexta · 08 sábado · 09 domingo · 10 segunda.
-
 const emUtc = (iso: string) => new Date(iso)
 
 describe('chave do turno', () => {
@@ -42,8 +33,6 @@ describe('chave do turno', () => {
     expect(outraSexta).toBe('sparxie:2026-08-14')
   })
 
-  // A borda do fuso vale aqui também: sábado 23h em Brasília já é domingo em UTC,
-  // e a chave tem que continuar sendo a do turno da Sparxie.
   it('sábado 23h de Brasília ainda é a chave da Sparxie', () => {
     expect(chaveDoTurno(emUtc('2026-08-09T02:00:00Z'))).toBe('sparxie:2026-08-07')
   })

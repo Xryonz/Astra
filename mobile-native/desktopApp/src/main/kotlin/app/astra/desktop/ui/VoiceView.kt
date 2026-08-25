@@ -90,30 +90,20 @@ import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import org.koin.core.context.GlobalContext
 
-// Sala de voz — V3..V6: audio bidirecional (mute), transmissão de tela a 60fps,
-// palco de video remoto e speaking indicators
-// (plano: docs/plans/2026-07-10-astra-voz-nativa.md).
 @Composable
 fun VoiceView(
     channel: ChannelDto,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
-    // A call vem de fora (VoiceSession, no shell). Não pode nascer aqui: era o
-    // DisposableEffect desta tela que desconectava a call ao navegar.
     call: CallEmMalha,
-    // Mesmo motivo do CallDock: quem guarda o mudo e a VoiceSession.
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     onLeave: () -> Unit,
-    // So pra soundboard: ChannelDto nao carrega a constelacao, e a rota de tocar
-    // precisa dela pra checar se voce e membro.
     serverId: String? = null,
 ) {
     val koin = GlobalContext.get()
     val prefs = remember { koin.get<DesktopPrefs>() }
 
-    // Soundboard. A lista e buscada UMA vez por constelacao: sons mudam quando
-    // alguem sobe um novo, e isso nao acontece no meio de uma call.
     val soundApi = remember { koin.get<SoundApi>() }
     val escopoSons = rememberCoroutineScope()
     var sons by remember(serverId) { mutableStateOf<List<ServerSoundDto>>(emptyList()) }
@@ -126,16 +116,12 @@ fun VoiceView(
     val status by call.status.collectAsState()
     val microfones by call.microfones.collectAsState()
     val saidas by call.saidas.collectAsState()
-    // O icone mostra a INTENCAO (mudo), e nao o que o motor esta transmitindo neste
-    // milissegundo. Com apertar-para-falar o motor liga e desliga a cada tecla, e um
-    // icone vermelho piscando dezenas de vezes por minuto nao informa nada.
     val micOn = !mudo
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Header enxuto (Discord-like: pouco texto).
         Text(
             text = "◉ ${channel.name}",
             style = TextStyle(color = Obsidian.accent, fontSize = 18.sp, fontFamily = DmSerif),
@@ -143,20 +129,12 @@ fun VoiceView(
         Spacer(Modifier.height(4.dp))
         val (label, color) = when (val s = status) {
             VoiceStatus.Connecting -> "conectando…" to Obsidian.text3
-            // "Conectado" era MENTIRA quando o canal de áudio não subia: entrar na
-            // sala (sinalização) e a voz achar caminho pela rede são duas coisas
-            // diferentes, e só a segunda faz alguém ouvir alguém. Dizer "conectado"
-            // nas duas escondia justamente a falha que a pessoa está sentindo — ela
-            // ficava olhando pro verde sem entender por que ninguém a escuta.
             is VoiceStatus.Connected ->
                 if (s.audioLive) "conectado" to Obsidian.success
                 else "entrou na sala, mas o áudio ainda não passou" to Obsidian.accent
             is VoiceStatus.Failed -> s.reason to Obsidian.danger
             VoiceStatus.Closed -> "sinal encerrado" to Obsidian.text3
         }
-        // Estado da conexao e tempo de sala na mesma linha: sao as duas coisas que se
-        // olha de relance. O cronometro em mono pra o numero nao dancar a cada
-        // segundo (fonte proporcional muda a largura do "1" pro "8").
         val inicio by call.inicio.collectAsState()
         val tempo by lembrarTempoDeCall(inicio)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -170,105 +148,27 @@ fun VoiceView(
         }
         Spacer(Modifier.height(14.dp))
 
-        // Palco: um tile por pessoa. A transmissão de tela saiu daqui junto com o
-        // motor antigo — ver o botão lá embaixo.
         val connected = status as? VoiceStatus.Connected
 
-        // TRADUZIR ID EM GENTE É TRABALHO DESTA TELA, e isso mudou com a malha.
-        //
-        // Antes o nome vinha nos metadados do token do LiveKit, porque havia um
-        // servidor de mídia para carregá-los. Ponto a ponto não tem esse servidor:
-        // o que circula é só o id. Quem tem a lista de membros é esta tela, então é
-        // aqui que o id vira nome e foto.
-        //
-        // No sussurro não há lista de membros — são duas pessoas, e o nome da sala
-        // JÁ É o nome da outra. Daí o `channel.name` como último recurso.
         val pessoaPorId = remember(members) { members.associateBy { it.userId } }
-        // QUANDO ALGUÉM COMPARTILHA, A TELA TOMA O PALCO e as pessoas descem para uma
-        // faixa. É a escolha de todo aplicativo de chamada, e a razão é o conteúdo: quem
-        // compartilha quase sempre está mostrando TEXTO — código, um documento, uma
-        // planilha —, e texto pequeno numa moldura do tamanho de um avatar não se lê.
-        // Rosto encolhido continua reconhecível; letra encolhida vira borrão.
-        //
-        // UMA TELA NO PALCO POR VEZ, e quem escolhe é quem assiste: clicar na pessoa na
-        // faixa troca o palco para a tela dela. Não há aba nem seletor à parte porque a
-        // faixa JÁ está desenhada ali com as pessoas todas — acrescentar uma segunda
-        // fileira de nomes seria repetir a mesma lista roubando altura do palco, que é
-        // justamente o que o palco não tem de sobra.
-        // OBSERVA QUEM TEM TELA, NUNCA O QUADRO. O mapa de quadros muda trinta vezes por
-        // segundo por pessoa transmitindo, e observá-lo aqui recompunha ESTA TELA INTEIRA
-        // nesse ritmo: a legenda de baixo remontava a frase, a faixa de participantes
-        // refazia os tiles, e a escolha de palco abaixo era recalculada — tudo para
-        // desenhar uma imagem que o Skia já desenha sozinho no `drawBehind`.
-        //
-        // `quemTemTela` é o conjunto de chaves daquele mapa, e só se mexe quando uma
-        // transmissão começa ou acaba. O quadro em si desce direto para quem desenha, por
-        // fora da composição — ver `TelaCompartilhada`.
         val comTela by call.quemTemTela.collectAsState()
         val mostrandoOutros by call.mostrandoTela.collectAsState()
         val transmitindo by call.transmitindo.collectAsState()
-        // O QUE ESTÁ SUBINDO DE VERDADE — compressor, tamanho, taxa. Sobe até aqui porque
-        // agora é desenhado no palco, e não só dentro do painel que abre e some. Ver
-        // `LinhaDoRelatorio`.
         val relatorio by call.relatorioDaTela.collectAsState()
 
-        // A MINHA TELA ENTRA NA MESMA LISTA DE TODO MUNDO, e é o que faz a prévia custar
-        // quase nenhum código: a partir daqui "eu transmitindo" é só mais uma pessoa
-        // transmitindo, e o palco, a faixa e a troca por clique já sabem o que fazer.
-        //
-        // A alternativa seria um caminho separado só para a própria tela — outra caixa,
-        // outra regra de quando aparece, outra de quando some. Duas máquinas para a mesma
-        // coisa divergem, e a que divergiria seria a menos usada.
         val mostrando = remember(mostrandoOutros, transmitindo) {
             if (transmitindo) mostrandoOutros + CallEmMalha.EU else mostrandoOutros
         }
 
-        // A ESCOLHA SOBREVIVE À TELA ESCOLHIDA, e não ao contrário: se quem eu escolhi
-        // parar de transmitir, o palco volta sozinho para quem sobrou em vez de ficar
-        // preto esperando uma decisão minha.
         var telaEscolhida by remember { mutableStateOf<String?>(null) }
-        // A PRÓPRIA TELA SÓ SOBE AO PALCO POR CLIQUE — repare que a escolha automática
-        // olha `mostrandoOutros`, e só a escolha EXPLÍCITA olha `mostrando`.
-        //
-        // Subir sozinha seria errado por dois motivos: compartilhar existe para os
-        // OUTROS verem, então roubar o palco de quem eu estou assistindo inverte a
-        // intenção; e a própria tela dentro dela mesma é o espelho infinito, que
-        // assusta quem nunca viu. Na faixa a miniatura já responde "estou mostrando a
-        // janela certa?", que era a pergunta.
         val quemMostra = remember(comTela, mostrando, mostrandoOutros, telaEscolhida) {
             telaEscolhida?.takeIf { it in mostrando }
                 ?: mostrandoOutros.firstOrNull { it in comTela }
                 ?: mostrandoOutros.firstOrNull()
         }
 
-        // O PALCO AVISA O PROCESSO DE VOZ, e é o que faz a tela fora dele custar zero.
-        //
-        // Decodificar 720p custa 1,03 ms por quadro. Numa sala com três pessoas
-        // transmitindo, olhar UMA custava as três — e a que mais pesava era a de quem não
-        // está olhando nada: sair daqui para uma conversa de texto sem largar a chamada
-        // desmonta esta tela inteira, e até agora a máquina seguia decodificando imagem
-        // para uma janela que não existe mais. Daí o `onDispose`, que é a metade
-        // importante deste efeito.
-        //
-        // O aviso é de quem ASSISTE porque a malha entrega a todo mundo de qualquer jeito
-        // — aqui se economiza processador, não banda. Cortar banda exigiria avisar quem
-        // transmite, e isso é outra conversa.
-        // A JANELA MINIMIZADA TAMBÉM NÃO ESTÁ OLHANDO, e este é o caso que faltava.
-        //
-        // O Astra vive na bandeja: fechar no X não fecha o app. Uma chamada continua de pé
-        // com a janela guardada, e até aqui a máquina seguia pagando 1,03 ms por quadro
-        // para decodificar imagem que ninguém tinha como ver.
-        //
-        // POR QUE NÃO `LocalWindowActive`: aquele exige FOCO, e para enfeite está certo.
-        // Aqui seria errado — com o Astra numa segunda tela enquanto se trabalha na
-        // primeira, a janela não tem foco e a transmissão está sendo assistida.
         val naTela = LocalJanelaNaTela.current
 
-        // SÃO DOIS EFEITOS E NÃO UM, e a razão é o que o `onDispose` de um
-        // `DisposableEffect(quemMostra)` significaria: ele dispara TAMBÉM na troca de
-        // palco, e mandaria um "ninguém" no meio do caminho entre olhar A e olhar B —
-        // fechando e reabrindo à toa. Preso a `Unit`, ele só fala quando a tela sai
-        // mesmo de cena, que é o que se quer dizer.
         LaunchedEffect(quemMostra, naTela) { call.assistir(if (naTela) quemMostra else null) }
         DisposableEffect(Unit) {
             onDispose { call.assistir(null) }
@@ -279,11 +179,6 @@ fun VoiceView(
                 if (connected != null) {
                     add(
                         Tile(
-                            // A CHAVE VIRA `EU` (vazia) porque ela é o que o clique
-                            // devolve para `telaEscolhida`, e é com ela que se procura o
-                            // quadro no mapa de telas. Um "me" aqui e um "" ali seriam
-                            // dois nomes para a mesma pessoa, e a tradução no meio é
-                            // exatamente onde esse tipo de coisa se perde.
                             CallEmMalha.EU, "você", connected.mySpeaking, me?.avatarUrl,
                             isMe = true, muted = !micOn,
                             transmitindo = transmitindo,
@@ -311,9 +206,6 @@ fun VoiceView(
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
             if (quemMostra == null) {
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                    // CLICAR DE NOVO DESFAZ. Sem isto, pôr a própria tela no palco não teria volta —
-                    // ver `podeTrocar`. Para os outros o gesto é inofensivo: soltar a escolha faz
-                    // a seleção automática reencontrar quem está transmitindo.
                     ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
                         telaEscolhida = if (telaEscolhida == escolha) null else escolha
                     }
@@ -331,11 +223,6 @@ fun VoiceView(
                         contentAlignment = Alignment.Center,
                     ) {
                         if (quemMostra !in comTela) {
-                            // O VAZIO DURA UM INSTANTE E TEM NOME. Entre o aviso de que
-                            // alguém começou a transmitir e o primeiro quadro passam-se
-                            // alguns décimos — o descompressor precisa da sequência de
-                            // parâmetros e de um quadro-chave. Um retângulo preto mudo
-                            // nesse intervalo parece defeito.
                             Text(
                                 "abrindo a tela de $nomeDeQuemMostra…",
                                 style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
@@ -345,9 +232,6 @@ fun VoiceView(
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    // O RECADO MUDA QUANDO HÁ ESCOLHA A FAZER. Com uma pessoa
-                    // transmitindo a frase é só legenda; com duas ela precisa contar que
-                    // dá para trocar, senão a segunda tela existe e ninguém descobre.
                     val quantasTelas = mostrando.size
                     Text(
                         when {
@@ -362,9 +246,6 @@ fun VoiceView(
                     )
                     LinhaDoRelatorio(relatorio)
                     Spacer(Modifier.height(8.dp))
-                    // CLICAR DE NOVO DESFAZ. Sem isto, pôr a própria tela no palco não teria volta —
-                    // ver `podeTrocar`. Para os outros o gesto é inofensivo: soltar a escolha faz
-                    // a seleção automática reencontrar quem está transmitindo.
                     ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
                         telaEscolhida = if (telaEscolhida == escolha) null else escolha
                     }
@@ -372,7 +253,6 @@ fun VoiceView(
             }
         }
 
-        // Controles minimalistas (Discord): botoes de simbolo com borda, sem texto.
         var settingsOpen by remember { mutableStateOf(false) }
         var transmissaoAvisada by remember { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -381,12 +261,6 @@ fun VoiceView(
                 tone = if (micOn) CallTone.Normal else CallTone.Danger,
                 onClick = aoAlternarMudo,
             )
-            // SOUNDBOARD. Clicar num som NAO mistura audio no seu microfone: o
-            // servidor avisa a sala e cada um toca o arquivo original localmente
-            // (ver SoundboardPlayer). Passar pelo mic faria o som atravessar o Opus
-            // da voz, que e afinado pra fala e esmaga efeito.
-            //
-            // Sem freio entre disparos — decisao explicita do dono.
             Box {
                 CallIconButton(
                     icon = Lucide.Volume2,
@@ -425,9 +299,6 @@ fun VoiceView(
                                                     soundApi.tocar(sid, som.id, TocarSomRequest(channel.id))
                                                 }
                                             }
-                                            // O menu NAO fecha: soundboard e feita
-                                            // pra disparar varios seguidos, e reabrir
-                                            // a cada som mataria a graca.
                                         }
                                         .padding(horizontal = 10.dp, vertical = 6.dp),
                                 ) {
@@ -440,18 +311,6 @@ fun VoiceView(
                     }
                 }
             }
-            // TRANSMITIR A TELA.
-            //
-            // O botão NÃO ACENDE AO SER APERTADO: acende quando o processo de voz
-            // confirma que a captura e o compressor subiram. Isso leva quase um segundo
-            // e pode falhar — nem toda máquina tem compressor de H.264 —, e acender no
-            // clique para apagar depois é o padrão que ensina a pessoa a desconfiar do
-            // próprio botão. Apagar, sim, é imediato: quem manda parar quer parar já.
-            //
-            // O toque no botão abre a placa; enquanto está no ar, ele mostra o que está
-            // subindo de verdade. Ainda não há imagem para ver deste lado (o
-            // decodificador é a próxima fatia), e o relatório é o que prova que a coisa
-            // está viva no lugar dela.
             val monitores by call.monitores.collectAsState()
             var escolhendoTela by remember { mutableStateOf(false) }
             Box {
@@ -464,10 +323,6 @@ fun VoiceView(
                             transmissaoAvisada = false
                             escolhendoTela = false
                         } else {
-                            // O CLIQUE ABRE A ESCOLHA em vez de transmitir direto. Antes
-                            // ele mandava o monitor principal sem perguntar, o que acerta
-                            // por acaso em quem tem uma tela só e erra metade das vezes em
-                            // quem tem duas — com o erro acontecendo ao vivo.
                             escolhendoTela = true
                             call.pedirMonitores()
                         }
@@ -528,10 +383,6 @@ fun VoiceView(
                     onClick = { settingsOpen = !settingsOpen },
                 )
                 if (settingsOpen) {
-                    // Reconsulta ao ABRIR o painel, e não uma vez só: aparelho vai e
-                    // vem no meio de uma call — fone USB plugado, monitor com caixa
-                    // ligado. Uma lista buscada na entrada da sala estaria velha
-                    // justamente quando a pessoa foi lá procurar o aparelho novo.
                     LaunchedEffect(Unit) { call.atualizarAparelhos() }
                     Popup(
                         onDismissRequest = { settingsOpen = false },
@@ -561,15 +412,6 @@ fun VoiceView(
     }
 }
 
-// Config da call (gear): escolher microfone e saída.
-//
-// A LISTA VEM DO PROCESSO DE VOZ, e essa é a parte que importa. Ele é quem fala
-// WASAPI e quem vai abrir o aparelho; a JVM enxerga uma lista diferente e menor.
-// Listar por um caminho e abrir por outro é como se acaba escolhendo um aparelho e
-// ouvindo outro — e ninguém consegue explicar por quê.
-//
-// A escolha guarda o IDENTIFICADOR do Windows, não o nome: nome muda com atualização
-// de driver e se repete entre placas iguais.
 @Composable
 private fun CallSettingsPanel(
     microfones: List<AparelhoDeAudio>,
@@ -601,10 +443,6 @@ private fun CallSettingsPanel(
     }
 }
 
-// Seletor de aparelho: mostra o atual e abre a lista num popup.
-//
-// "Padrão do Windows" é uma opção de verdade e vem primeiro, porque é o certo para a
-// maioria — é o aparelho que a pessoa já escolheu no sistema para conversar.
 @Composable
 private fun SeletorDeAparelho(
     opcoes: List<AparelhoDeAudio>,
@@ -703,7 +541,6 @@ private fun PanelHeader(text: String) {
     )
 }
 
-// Pilulas segmentadas (um eixo). Ativa = accent; muda na hora.
 @Composable
 private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPick: (T) -> Unit) {
     Row(
@@ -738,17 +575,11 @@ private fun <T> CallSegmented(options: List<Pair<String, T>>, selected: T, onPic
 
 private enum class CallTone { Normal, Active, Danger }
 
-// Botao minimalista de call (Discord): so o ícone, circulo com borda que troca
-// de cor pelo estado. Sem texto. Icone Lucide monocromatico -> o tint AGORA pega
-// no glifo (antes, com emoji colorido, so a borda carregava o estado).
 @Composable
 private fun CallIconButton(
     icon: ImageVector,
     tone: CallTone,
     onClick: () -> Unit,
-    // Desligado ainda RESPONDE ao clique, e isso é de propósito: o clique abre a
-    // explicação de por que o controle está fora. Um botão que não faz nada e não
-    // diz nada é o pior dos dois mundos.
     habilitado: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -762,8 +593,6 @@ private fun CallIconButton(
         tween(140),
     )
     val fg = when {
-        // Apagado, e não vermelho nem accent: "fora do ar" tem de ler como ausência,
-        // e qualquer cor ali seria confundida com estado.
         !habilitado -> Obsidian.text3.copy(alpha = 0.45f)
         tone == CallTone.Danger -> Obsidian.danger
         tone == CallTone.Active -> Obsidian.accent
@@ -785,26 +614,6 @@ private fun CallIconButton(
     }
 }
 
-/**
- * O QUE ESTÁ SUBINDO, escrito embaixo do palco enquanto a transmissão está no ar.
- *
- * POR QUE SAIU DE DENTRO DO PAINEL. O relatório sempre existiu, mas só dentro do popup
- * que abre ao começar a transmitir — e um painel que se dispensa some justamente quando a
- * pergunta aparece. A pergunta é sempre a mesma e é sempre depois: "isto está em 60 ou
- * caiu para 30?". Um instrumento que só se lê no primeiro segundo não responde a nada.
- *
- * Ele é o ÚNICO lugar onde três coisas invisíveis aparecem, e cada uma muda o que fazer:
- *
- *  - o nome do compressor, e "sem aceleração de placa" quando não há placa. Um compressor
- *    de software custa cinco vezes mais por quadro, e é isso que rebaixa a taxa.
- *  - o tamanho e a taxa que de fato subiram, que podem não ser os do preset.
- *  - os quadros por segundo reais, uma vez por segundo.
- *
- * DISCRETO DE PROPÓSITO: `text3`, 10sp, fonte mono. É instrumento, não recado — quem está
- * assistindo a tela de alguém não deve ler isto antes de ler o conteúdo. Mono porque os
- * números mudam a cada segundo, e fonte proporcional faria a linha inteira dançar quando
- * "58" virasse "60".
- */
 @Composable
 private fun LinhaDoRelatorio(relatorio: String) {
     if (relatorio.isBlank()) return
@@ -817,28 +626,17 @@ private fun LinhaDoRelatorio(relatorio: String) {
     )
 }
 
-// Um participante no palco. muted so e conhecido pra mim (o engine não expoe o
-// mute dos outros ainda) — nos outros o ícone fica de fora.
 private data class Tile(
-    // Identidade estavel do participante — e a CHAVE da animação de entrar/sair.
-    // Sem ela o Compose reusaria o mesmo slot e a troca de gente seria muda.
     val key: String,
     val label: String,
     val speaking: Boolean,
     val avatarUrl: String?,
     val isMe: Boolean,
     val muted: Boolean,
-    // Esta pessoa está compartilhando a tela.
     val transmitindo: Boolean = false,
-    // ...e é a tela DELA que está no palco agora. Duas coisas diferentes assim que
-    // duas pessoas transmitem ao mesmo tempo.
     val emCartaz: Boolean = false,
 )
 
-// Grid que quebra linha sozinho (FlowRow), centralizado.
-//
-// `previa` é o mapa de quadros, e ele desce até aqui SÓ para o cartão de quem transmite
-// a própria tela desenhar a miniatura viva. Nulo = sem prévia, e o cartão mostra o avatar.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ParticipantGrid(
@@ -851,9 +649,6 @@ private fun ParticipantGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Mesmo "estouro" da mini-tela: quem entra na call nasce pequeno e passa do
-        // tamanho antes de assentar; quem sai encolhe. A key e a identidade — sem ela
-        // o Compose reusaria o slot e a troca seria muda.
         tiles.forEach { t ->
             key(t.key) {
                 PopIn { ParticipantTile(t, previa, Modifier.width(164.dp)) { aoEscolherTela(t.key) } }
@@ -862,9 +657,6 @@ private fun ParticipantGrid(
     }
 }
 
-// Cartao: avatar grande centralizado + nome; anel/halo ambar pulsa ao falar
-// (respeita reduzir movimento — fica aceso e parado). Layout estavel: o halo
-// vive num Box de tamanho fixo, entao falar não empurra o tile.
 @Composable
 private fun ParticipantTile(
     tile: Tile,
@@ -875,18 +667,7 @@ private fun ParticipantTile(
     val reduce = LocalReduceMotion.current
     val active = LocalWindowActive.current
     val interacao = remember { MutableInteractionSource() }
-    // Só é alvo de clique quem tem tela para pôr no palco E ainda não está nele.
-    // Cartão clicável que não faz nada ensina a desconfiar do próprio clique.
-    //
-    // O MEU CARTÃO É A EXCEÇÃO, e é uma saída de emergência: com a própria tela no palco e
-    // ninguém mais transmitindo, deixar de ser clicável trancava a pessoa lá dentro — não
-    // havia gesto nenhum que devolvesse a faixa de participantes. No meu cartão o clique
-    // ALTERNA: põe no palco e tira de lá.
     val podeTrocar = tile.transmitindo && (!tile.emCartaz || tile.isMe)
-    // Estrela de fala: UMA fase de órbita, so quando fala + janela visivel +
-    // movimento ligado, lida DENTRO do drawBehind. Antes um halo pulsante era
-    // lido no corpo e recompunha o cartao inteiro (avatar/nome/mic) 60fps por
-    // pessoa falando; agora so redesenha. (Auditoria de movimento, achado #1.)
     val orbit = if (tile.speaking && !reduce && active) {
         rememberInfiniteTransition(label = "orbit-${tile.label}").animateFloat(
             0f, (2.0 * Math.PI).toFloat(),
@@ -898,9 +679,6 @@ private fun ParticipantTile(
         if (tile.speaking) Obsidian.accent else Obsidian.borderDim,
         tween(140),
     )
-    // Inchada ao falar: o card cresce ~4% com mola suave (escala VISUAL via
-    // graphicsLayer -> não empurra os vizinhos; cresce por cima). Reduzir movimento
-    // = fica maior parado, sem animar.
     val swell by animateFloatAsState(
         targetValue = if (tile.speaking) 1.04f else 1f,
         animationSpec = if (reduce) snap()
@@ -910,10 +688,6 @@ private fun ParticipantTile(
         modifier
             .graphicsLayer { scaleX = swell; scaleY = swell }
             .clip(RoundedCornerShape(14.dp))
-            // QUEM ESTÁ NO PALCO SOBE UM DEGRAU DA RAMPA, e não ganha cor. O accent já
-            // significa "está falando" nesta faixa; usá-lo também para "está no palco"
-            // faria duas coisas diferentes acenderem igual. Elevação é o que o app usa
-            // para dizer "este é o mais próximo", e é o que cabe aqui.
             .background(if (tile.emCartaz) Obsidian.overlay else Obsidian.raised.copy(alpha = 0.5f))
             .border(1.dp, borderColor, RoundedCornerShape(14.dp))
             .then(
@@ -927,14 +701,6 @@ private fun ParticipantTile(
             .padding(vertical = 16.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // A MINIATURA VIVA, E SÓ NO MEU CARTÃO. Não é assimetria por preguiça: os
-        // quadros dos OUTROS só chegam de quem está no palco (é o corte que faz assistir
-        // uma tela custar uma, e não três — ver `recepcao.go`), então um retângulo aqui
-        // para eles ficaria preto na maioria das vezes e pareceria defeito. A minha
-        // sempre chega, porque ela nasce da minha própria captura.
-        //
-        // Formato de tela e não círculo: 16:9 num quadrado de avatar deixaria a imagem do
-        // tamanho de uma tarja, e o que se quer conferir aqui é QUAL janela está subindo.
         if (tile.isMe && tile.transmitindo && previa != null) {
             Box(
                 Modifier.width(140.dp).height(79.dp)
@@ -948,8 +714,6 @@ private fun ParticipantTile(
             Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
             if (tile.speaking) {
                 Box(Modifier.fillMaxSize().drawBehind {
-                    // Halo suave constante; a estrela órbita por cima (ou so o halo,
-                    // se movimento reduzido / janela em segundo plano).
                     drawCircle(Obsidian.accent.copy(alpha = 0.16f), radius = size.minDimension / 2f)
                     orbit?.let { ph ->
                         val r = size.minDimension / 2f
@@ -970,10 +734,6 @@ private fun ParticipantTile(
                 LIcon(Lucide.MicOff, tint = Obsidian.text3, size = 13.dp)
                 Spacer(Modifier.width(4.dp))
             }
-            // O SINAL DE QUEM ESTÁ COMPARTILHANDO. Sem rótulo de leitor de tela porque
-            // vem colado no nome: rotulado, o leitor diria "compartilhando tela, fulano"
-            // toda vez que passasse pelo cartão, e o ícone aqui é decoração de um texto
-            // que já está escrito.
             if (tile.transmitindo) {
                 LIcon(
                     Lucide.ScreenShare,

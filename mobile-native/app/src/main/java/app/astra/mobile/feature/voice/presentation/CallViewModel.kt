@@ -52,7 +52,6 @@ class CallViewModel @Inject constructor(
 
     private val channelId: String = savedStateHandle["channelId"] ?: ""
     private val serverId: String = savedStateHandle["serverId"] ?: ""
-    // "channel" (canal de voz) ou "dm" (ligacao em sussurro); mesma rota, backend valida os dois.
     private val kind: String = savedStateHandle["kind"] ?: "channel"
     val channelName: String = savedStateHandle["name"] ?: "Canal de voz"
 
@@ -72,8 +71,6 @@ class CallViewModel @Inject constructor(
                     val m = mem[p.identity]
                     CallParticipantUi(
                         identity = p.identity,
-                        // Em DM nao ha members de servidor: o unico remoto e o outro
-                        // lado da conversa, cujo nome veio na rota (channelName).
                         name = m?.name ?: when {
                             p.isLocal -> "Voce"
                             kind == "dm" -> channelName

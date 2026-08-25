@@ -56,19 +56,6 @@ function safeParseAttachments(raw: unknown): any[] {
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : [] } catch { return [] }
 }
 
-// `mentions` e uma COLUNA DE TEXTO com ids separados por virgula (schema.ts), e essa
-// coluna vinha sendo devolvida CRUA no histórico — enquanto o POST e o socket sempre
-// mandaram um array. Ou seja: o mesmo campo tinha dois formatos dependendo de por onde
-// a mensagem chegava.
-//
-// O desktop, que declara `mentions: List<String>`, engasgava no primeiro item do
-// histórico e NENHUMA conversa carregava. Como o erro era de leitura de resposta, a
-// política de repetição o tratava como falha temporária e a tela dizia "o servidor está
-// acordando" — para sempre, com o servidor no ar e respondendo em 200 ms. Um defeito de
-// contrato disfarçado de problema de hospedagem.
-//
-// A conversão fica AQUI e não no app: o cliente que se adaptasse ao formato duplo
-// deixaria a inconsistência viva pro próximo cliente encontrar de novo.
 function mentionsArray(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw as string[]
   if (typeof raw !== 'string' || raw.length === 0) return []
@@ -135,11 +122,6 @@ export function createMessagesRouter(io: SocketServer) {
 
     if (!row || !row.membershipId) return null
 
-    // Canal publico + ja e membro (garantido acima): acesso liberado sem
-    // re-consultar. userCanSeeChannel refazia este mesmo join channels+servers e
-    // a query de serverMembers do zero — 2 round-trips ao Neon por mensagem
-    // enviada E por pagina de historico. So o canal privado precisa da checagem
-    // de cargo (caminho raro), e o dono ve tudo.
     if (!row.isPrivate || row.ownerId === userId) return row
 
     const canSee = await userCanSeeChannel(userId, channelId)
@@ -314,7 +296,6 @@ export function createMessagesRouter(io: SocketServer) {
         }
       }
 
-      // Anexo so aponta pro armazenamento do app ou pra CDN de GIF (ver storage.ts).
       const anexoRuim = primeiroAnexoNaoPermitido(Array.isArray(attachments) ? attachments : [])
       if (anexoRuim) return res.status(400).json({ error: `Anexo com URL não permitida: ${anexoRuim}` })
 
@@ -348,15 +329,9 @@ export function createMessagesRouter(io: SocketServer) {
 
       res.status(201).json({ data: msgWithReactions })
 
-      // O mesmo XP do caminho por socket. Os dois precisam creditar: quem manda
-      // anexo, resposta ou usa o mobile cai AQUI, e so instrumentar o socket daria
-      // um sistema que paga uns e nao paga outros — sem ninguem entender por que.
       void xpPorMensagem(req.userId!).then((g) => {
         if (g?.subiuDeNivel) void comemorarNivel(req.userId!, channelId, g.progresso.nivel)
       })
-      // Missao ao lado do XP, mas independente dele: quem ja bateu o teto do dia
-      // continua avancando missao. Resposta so conta se for resposta de verdade —
-      // e por isso que este caminho (o unico que aceita replyToId) dispara os dois.
       void eventoDeMissao(req.userId!, 'mensagem', { channelId })
       if (validReplyToId) void eventoDeMissao(req.userId!, 'resposta', { channelId })
 
@@ -367,20 +342,12 @@ export function createMessagesRouter(io: SocketServer) {
             const allMembers = await db.select({ userId: serverMembers.userId }).from(serverMembers)
               .where(eq(serverMembers.serverId, channel.serverId))
             const memberIds = allMembers.map((m) => m.userId).filter((id) => id !== req.userId)
-            // QUEM ENXERGA O CANAL, e só. Este leque sempre foi para todo membro da
-            // constelação, sem olhar visibilidade — o que já vazava a EXISTÊNCIA de
-            // conversa em canal privado, e passaria a vazar o CONTEÚDO agora que o
-            // evento carrega autor e trecho. Canal público não paga consulta nenhuma.
             const veem = await membrosQueVeemCanal(
               channelId, channel.isPrivate, channel.ownerId, memberIds,
             )
             const notifModes = await getNotifModesFor(channelId, memberIds)
             const mentionedSet = new Set(mentionedIds)
             const now = inserted.createdAt.toISOString()
-            // QUEM e O QUÊ viajam junto do aviso. Sem isto o desktop só tinha o id do
-            // canal, e o balão do Windows era obrigado a dizer "nova mensagem" —
-            // informação suficiente pra interromper e insuficiente pra decidir se
-            // valia a pena ser interrompido.
             const aviso = {
               channelId,
               lastMessageAt: now,
@@ -480,8 +447,6 @@ export function createMessagesRouter(io: SocketServer) {
       const { channelId, messageId } = req.params
       const { content }              = req.body
 
-      // Reconfirma acesso ao canal (igual ao POST): um usuario expulso/banido nao
-      // pode continuar editando mensagens antigas dele.
       await assertChannelAccess(req.userId!, channelId)
 
       const [message] = await db.select().from(messages)
@@ -607,7 +572,6 @@ export function createMessagesRouter(io: SocketServer) {
         .orderBy(desc(messages.createdAt))
         .limit(50)
 
-      // Mesmo contrato do histórico: array, nunca a coluna de texto crua.
       res.json({ data: rows.map((r: any) => ({ ...r, mentions: mentionsArray(r.mentions) })) })
     })
   )

@@ -166,7 +166,6 @@ fun HomeScreen(
         }
     }
 
-    // Conta que nunca viu o onboarding cosmico (gate compartilhado com o web).
     LaunchedEffect(state.needsOnboarding) {
         if (state.needsOnboarding) {
             viewModel.consumeOnboarding()
@@ -174,7 +173,6 @@ fun HomeScreen(
         }
     }
 
-    // Email ainda nao confirmado (registro novo) -> tela de codigo por cima.
     LaunchedEffect(state.needsEmailVerify) {
         if (state.needsEmailVerify) {
             viewModel.consumeEmailVerify()
@@ -182,8 +180,6 @@ fun HomeScreen(
         }
     }
 
-    // Push: pede POST_NOTIFICATIONS (13+) uma vez na Home logada e registra o token
-    // FCM. Sem google-services.json o registerPush e no-op (nada quebra).
     val context = LocalContext.current
     val pushLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
@@ -408,7 +404,6 @@ fun HomeScreen(
         )
     }
 
-    // Conta Google sem senha: overlay OBRIGATORIO (back nao fecha) ate criar uma.
     if (state.needsPassword) {
         CreatePasswordGate(
             saving = state.pwSaving,
@@ -435,7 +430,6 @@ fun HomeScreen(
     )
 }
 
-// Tela-bloqueio de criar senha (conta Google). Sem escape: e requisito da conta.
 @Composable
 private fun CreatePasswordGate(
     saving: Boolean,
@@ -600,8 +594,6 @@ private fun ServerRail(
             onCreateGroup = onCreateGroup,
             onJoinInvite = onJoinInvite,
         )
-        // Descobrir tem tile proprio na base do rail (saiu do menu +): separa
-        // "orbitar algo que existe" de "forjar algo novo".
         RailTile(active = false, onClick = onDiscover) {
             Icon(
                 Lucide.Compass,
@@ -829,7 +821,6 @@ private fun ServerRailMenu(
             if (hasInvite) {
                 MenuRow("Convidar", Lucide.UserPlus, onInvite)
             }
-            // Sair so pra quem NAO e dono (o dono precisa excluir/transferir).
             if (!isOwner) {
                 HairlineRule()
                 MenuRow("Sair da constelacao", Lucide.LogOut, onLeave, color = astraColors.danger)
@@ -914,7 +905,6 @@ private fun ServerChannelsPanel(
                             ) {
                                 if (ch.isVoice) onJoinVoice(ch.id, ch.name) else onOpenChannel(ch.id, ch.name)
                             }
-                            // Divisor entre orbitas: separa uma da outra ao mirar o toque.
                             if (i < server.channels.lastIndex) {
                                 HairlineRule(Modifier.padding(horizontal = 16.dp))
                             }
@@ -943,7 +933,6 @@ private fun ServerPanelHeader(
     val base = astraColors.base
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(132.dp)) {
-            // Banner do painel: usa o bannerUrl da constelacao (nao o icone).
             if (!server.bannerUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = server.bannerUrl,
@@ -1040,8 +1029,6 @@ private fun ChannelRowFlat(
         if (muted) {
             Icon(Lucide.BellOff, contentDescription = "Silenciado", tint = astraColors.text3, modifier = Modifier.size(13.dp))
         } else if (channel.isVoice && voiceCount > 0) {
-            // Tem gente na chamada: dot verde + contagem, pra quem esta fora
-            // ver que a sala esta viva e querer entrar.
             Box(Modifier.size(7.dp).clip(CircleShape).background(astraColors.success))
             Spacer(Modifier.width(6.dp))
             MarginaliaLabel(if (voiceCount == 1) "1 na chamada" else "$voiceCount na chamada", color = astraColors.success)
@@ -1364,10 +1351,7 @@ private fun ProfileSheet(
     onDismiss: () -> Unit,
 ) {
     val member = memberSince(createdAt)
-    // Tela cheia opaca estilo Discord (cobre a Home). Botao voltar fecha.
     BackHandler(onBack = onDismiss)
-    // Backdrop proprio (opaco): este sheet COBRE a Home; o shim transparente
-    // do CosmicBackground deixaria a Home aparecer atras.
     CosmicBackdrop(interactive = true) {
         Column(
             modifier = Modifier
@@ -1399,7 +1383,6 @@ private fun ProfileSheet(
                     else -> astraColors.text3
                 },
             )
-                // X pra fechar, sobre o banner (Discord).
                 Box(
                     modifier = Modifier
                         .statusBarsPadding()
@@ -1415,7 +1398,6 @@ private fun ProfileSheet(
                 }
             }
 
-            // Recado (custom status): so leitura aqui — editar e na Personalizacao.
             if (!customStatus.isNullOrBlank()) {
                 Spacer(Modifier.height(14.dp))
                 Text(
@@ -1432,7 +1414,6 @@ private fun ProfileSheet(
             }
 
             Spacer(Modifier.height(18.dp))
-            // Botao Editar estilo Discord: pilula larga + lapis, na cor ambar (pele Umbra).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

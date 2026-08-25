@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import crypto from 'crypto'
@@ -55,9 +54,6 @@ router.post('/', requireAuth, validate(TranslateSchema), asyncHandler(async (req
   }
 
   try {
-    // Modelo leve: traduzir uma frase e a tarefa mais simples que a IA faz aqui, e
-    // o resultado ainda entra no cache do Redis por hash — a mesma frase nunca e
-    // traduzida duas vezes.
     const out = await gerarTexto(
       MODELO_RESUMO,
       `You are a translation engine. Translate the user's text into ${LANG_NAMES[targetLang]}. Output ONLY the translation — no quotes, no preamble, no explanation. Preserve markdown, emojis, code blocks, mentions (@user) and urls verbatim. If text already is in ${LANG_NAMES[targetLang]}, output it unchanged.`,

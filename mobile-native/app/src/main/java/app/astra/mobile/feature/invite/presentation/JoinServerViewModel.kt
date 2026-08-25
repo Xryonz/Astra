@@ -26,7 +26,6 @@ class JoinServerViewModel @Inject constructor(
     val joined = _joined.asSharedFlow()
 
     init {
-        // Deep link /i/CODE: chega com o codigo pronto -> preview automatico.
         val initial: String = savedStateHandle["code"] ?: ""
         if (initial.isNotBlank()) {
             setCode(initial)

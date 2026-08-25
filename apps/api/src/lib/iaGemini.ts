@@ -1,16 +1,5 @@
 import type { BlocoIa, FerramentaIa, PedidoIa, RespostaIa } from './ia'
 
-// Adaptador do Gemini. Traduz o nosso formato (blocos estilo Anthropic) pro
-// `generateContent` e volta.
-//
-// Fica de reserva: hoje o provedor padrao e o Groq, porque o AI Studio recusa a
-// conta do dono. Se um dia a chave sair, e so preencher GEMINI_API_KEY — zero
-// mudanca de codigo.
-//
-// O PRECO DESTE AQUI, que precisa estar escrito em algum lugar: na camada gratuita
-// o Google usa as conversas pra melhorar os modelos deles, e as mensagens do canal
-// que a bot le vao junto. Quem paga tem opt-out; quem nao paga, nao.
-
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 export const GEMINI_CONVERSA = process.env.GEMINI_MODEL      ?? 'gemini-2.5-flash'
@@ -22,9 +11,6 @@ interface ParteGemini {
   functionResponse?: { name: string; response: Record<string, unknown> }
 }
 
-// O Gemini identifica a resposta de uma ferramenta pelo NOME dela; a Anthropic usa um
-// id opaco. Como o historico so guarda o id, a conversao precisa lembrar qual id era
-// qual nome — dai este mapa, montado varrendo o que ja passou.
 function mapaDeIds(mensagens: any[]): Map<string, string> {
   const mapa = new Map<string, string>()
   for (const m of mensagens) {
@@ -51,22 +37,16 @@ function paraConteudo(mensagens: any[]): Array<{ role: string; parts: ParteGemin
           partes.push({ functionCall: { name: b.name, args: (b.input ?? {}) as Record<string, unknown> } })
         } else if (b?.type === 'tool_result') {
           const nome = nomePorId.get(b.tool_use_id) ?? 'ferramenta'
-          // O Gemini exige um objeto na resposta; as nossas ferramentas devolvem
-          // texto puro, entao vai embrulhado.
           partes.push({ functionResponse: { name: nome, response: { resultado: String(b.content ?? '') } } })
         }
       }
     }
     if (partes.length === 0) continue
-    // Gemini so conhece 'user' e 'model'.
     saida.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: partes })
   }
   return saida
 }
 
-// O schema de ferramenta da Anthropic ja e JSON Schema, que e o que o Gemini quer —
-// menos os campos que ele recusa. `additionalProperties` e `$schema` derrubam a
-// requisicao inteira com 400, entao saem aqui em vez de virarem um bug silencioso.
 function limparSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(limparSchema)
   if (!schema || typeof schema !== 'object') return schema
@@ -122,8 +102,6 @@ export async function chamarGemini(chave: string, opts: PedidoIa): Promise<Respo
     else if (p.functionCall?.name) {
       blocos.push({
         type: 'tool_use',
-        // Id proprio: o Gemini nao manda um, e o laco do bot.ts casa
-        // tool_result com tool_use por id.
         id:    `fc_${chamou++}_${p.functionCall.name}`,
         name:  p.functionCall.name,
         input: p.functionCall.args ?? {},

@@ -32,8 +32,6 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.BanDto
 
-// Aba BANIMENTOS: listar e revogar. Curta de proposito — banir acontece no painel
-// de membros (botao direito), aqui e so a lista do que já foi feito.
 @Composable
 internal fun BansSection(
     bans: List<BanDto>?,
@@ -78,8 +76,6 @@ internal fun BansSection(
             msg = null
             onUnban(ban.userId) { err ->
                 busy = null
-                // Sucesso não precisa de texto: a linha some da lista quando o pai
-                // recarrega. So o erro merece explicacao.
                 if (err != null) msg = err to false
             }
         }

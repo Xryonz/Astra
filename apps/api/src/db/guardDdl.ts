@@ -1,16 +1,3 @@
-// FONTE ÚNICA de DDL idempotente do Astra. Rodada AUTOMATICAMENTE no boot
-// (ensureSchema) E disponível pro script manual (manualMigrate). Existe porque o
-// Render NÃO roda migration no deploy: colunas/tabelas que entram no schema.ts
-// mas nunca viram migration aplicada deixavam o Neon defasado e a operação
-// correspondente dava 500 "Erro interno" (foi assim com ChannelCategory, e de
-// novo com o sistema de cargos: getMemberPerms faz join em ServerRole/
-// ServerMemberRole — sem as tabelas, expulsar/checar permissão estoura).
-//
-// Regras: TUDO IF NOT EXISTS / IF EXISTS / duplicate_object -> no-op. Rodar isto
-// N vezes é seguro e barato (Postgres pula o que já existe). Ordem: tabelas-base
-// (User/Server/ServerMember/Channel/Message/DirectMessage/DMConversation) já vêm
-// do migration 0000; aqui só garantimos o que veio depois. DDL espelha o estilo
-// do Drizzle (nomes de constraint/index) pra um futuro db:push não ver drift.
 export const GUARD_DDL = `
 -- ===== Sistema de cargos (ServerRole / ServerMemberRole) =====
 CREATE TABLE IF NOT EXISTS "ServerRole" (

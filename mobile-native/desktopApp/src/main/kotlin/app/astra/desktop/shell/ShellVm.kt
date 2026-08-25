@@ -59,7 +59,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 
-// Selecao persistida como string ("dms" | "server:<id>") no ui.properties.
 sealed interface Selection {
     data object Dms : Selection
     data object Discover : Selection
@@ -80,13 +79,7 @@ sealed interface Selection {
     }
 }
 
-// Fui expulso ou banido de uma constelacao. Vira um aviso no meio da tela.
-//
-// Existe porque perder acesso sem explicacao e a pior versao do "nao atualizou":
-// a constelacao some da rail e a pessoa nao sabe se foi expulsa, banida, se saiu
-// sem querer ou se a constelacao acabou. As quatro pedem reacoes diferentes.
 data class Penalidade(
-    /** "expulso" ou "banido". */
     val tipo: String,
     val constelacao: String?,
     val motivo: String?,
@@ -100,61 +93,27 @@ data class ShellUiState(
     val dms: List<ConversationDto> = emptyList(),
     val selection: Selection = Selection.Dms,
     val members: List<ServerMemberDto> = emptyList(),
-    // Presenca por userId dos membros da constelação atual (ONLINE/IDLE/DND/OFFLINE).
-    // Snapshot no load + patch ao vivo via socket presence_update. Ausente = OFFLINE.
     val memberPresence: Map<String, String> = emptyMap(),
-    // "O que a pessoa está usando", por userId. Quem não aparece aqui não está
-    // mostrando nada — e isso inclui quem tem o recurso desligado, que é o padrão.
     val memberActivity: Map<String, String> = emptyMap(),
-    // Presenca de quem está do outro lado dos SUSSURROS. Mapa proprio, e nao o
-    // memberPresence: aquele e limpo toda vez que se troca de constelação (ele
-    // pertence a constelação selecionada), e a lista de sussurros nao tem
-    // constelação nenhuma — herdar dali faria a bolinha piscar e sumir.
     val dmPresence: Map<String, String> = emptyMap(),
     val membersOpen: Boolean = true,
     val chat: ChatTarget? = null,
-    // "Amigos" aberto no palco (area dos sussurros) — some ao abrir uma conversa.
     val friendsOpen: Boolean = false,
-    // Sala de voz aberta no palco (sonda V1; persistir em navegacao = V6).
     val voiceChannel: ChannelDto? = null,
-    // Aviso de expulsao/banimento esperando ser lido. null = nada a avisar.
     val penalidade: Penalidade? = null,
-    // Ids (canal ou conversa) com mensagem que você ainda não viu.
     val unread: Set<String> = emptySet(),
-    // Contagem de não-lidas por canal (badge com numero). So canais; DM usa o
-    // booleano acima. Sobe no load (backend) + incrementa ao vivo via socket.
     val unreadCounts: Map<String, Int> = emptyMap(),
-    // Canais/constelações silenciados (mode "mute" no backend de notif prefs).
     val mutedChannels: Set<String> = emptySet(),
     val mutedServers: Set<String> = emptySet(),
-    // Órbitas que dizem "me avise" em VOZ ALTA (mode "all" explícito). Existem só
-    // pra discordar da constelação: sem elas, reativar uma órbita dentro de uma
-    // constelação calada não teria como ser expressado — apagar a preferência faz
-    // a órbita herdar o silêncio de volta.
     val avisoForcado: Set<String> = emptySet(),
-    // Conversas DM com alguem digitando agora (sidebar mostra "digitando…").
     val dmTyping: Set<String> = emptySet(),
-    // Quem esta em cada canal de voz (channelId -> userIds), via poll ~5s do
-    // /voice/presence. Alimenta a lista de presenca sob o canal na sidebar.
     val voicePresence: Map<String, List<String>> = emptyMap(),
-    // Minhas permissões NA CONSTELACAO SELECIONADA (GET /servers/:id/me). Decide
-    // quem ve "configurações" no menu da rail. So da selecionada: buscar de todas
-    // seria uma requisicao por constelação no boot, e a API dorme no Render free.
     val myPerms: MyPermsDto? = null,
-    // Chamada de sussurro acontecendo agora. Uma so: o Astra nao faz duas calls
-    // ao mesmo tempo, e um estado unico impede a tela de ficar em dois lugares.
     val chamada: ChamadaNaTela? = null,
 ) {
     val selectedServer: ServerDto?
         get() = (selection as? Selection.Server)?.let { sel -> servers.find { it.id == sel.id } }
 
-    // CASCATA: órbita > constelação > avisa. A MESMA ordem do servidor
-    // (apps/api/src/lib/silencioDeCanal.ts) — as duas metades têm de concordar,
-    // senão o sino fica quieto e a bandeja avisa, ou o contrário.
-    //
-    // A escolha mais específica vence porque quem calou a constelação inteira e
-    // depois reativou uma órbita disse exatamente isso; devolver o silêncio ali
-    // seria ignorar a segunda frase por causa da primeira.
     fun orbitaSilenciada(channelId: String): Boolean {
         if (channelId in mutedChannels) return true
         if (channelId in avisoForcado) return false
@@ -163,26 +122,15 @@ data class ShellUiState(
     }
 }
 
-// Chamada de sussurro na tela.
-//
-// `euLiguei` decide TUDO que difere nos dois lados: o toque (grave e baixo pra
-// quem liga, alto e repetido pra quem recebe), o texto ("chamando…" x "está te
-// chamando") e quais botoes aparecem (desistir x atender/recusar).
 data class ChamadaNaTela(
     val conversationId: String,
     val nome: String,
     val avatarUrl: String?,
     val video: Boolean,
     val euLiguei: Boolean,
-    // Ainda tocando. Depois de atendida a tela sai e quem manda na call passa a
-    // ser a VoiceSession, como em qualquer outra sala.
     val tocando: Boolean = true,
 )
 
-// Estado do shell. Sem ViewModel no desktop: classe simples presa ao escopo da
-// composicao (rememberCoroutineScope).
-// Historico de destinos (ver registrarDestino). Chave e separador ficam aqui pra
-// a tela de busca, que LE o mesmo formato, importar em vez de repetir a string.
 const val HISTORICO_DESTINOS = "historicoDestinos"
 const val SEP_HISTORICO = "\u0001"
 private const val TETO_HISTORICO = 12
@@ -204,7 +152,6 @@ class ShellVm(
     private val _state = MutableStateFlow(ShellUiState())
     val state = _state.asStateFlow()
 
-    // Expiracao do "digitando…" por conversa+user (se o stop se perder).
     private val typingJobs = mutableMapOf<String, Job>()
 
     init {
@@ -214,40 +161,20 @@ class ShellVm(
         pollVoicePresence()
     }
 
-    // Presenca de voz: quem entra/sai AVISA por socket (voice_presence) e aplicamos o
-    // delta na hora. O poll continua como fonte AUTORITATIVA — a verdade mora no
-    // LiveKit e so ele sabe de fantasma (queda de rede/crash não emite 'leave') —, mas
-    // agora bem mais espacado, ja que o caso comum chega pelo evento. Antes era poll de
-    // 5s + cache de 5s no servidor = ate ~10s pra ver alguem entrar na call.
     private fun pollVoicePresence() {
         scope.launch {
             while (true) {
                 val voiceIds = _state.value.selectedServer
                     ?.channels?.filter { it.type == "VOICE" }?.map { it.id }.orEmpty()
                 if (voiceIds.isNotEmpty()) {
-                    // onSuccess: uma consulta que falha MANTEM o que se sabia. Com
-                    // getOrDefault(emptyMap()), um unico erro de rede esvaziava as
-                    // salas de voz na barra lateral — todo mundo sumia da call por
-                    // 20 segundos, ate o proximo giro, sem nada ter acontecido.
                     runCatching { voiceApi.presence(voiceIds.joinToString(",")).data.orEmpty() }
                         .onSuccess { pres ->
-                            // RASTRO SO QUANDO MUDA. "Alguem em call so aparece depois
-                            // que eu entro" tem tres causas possiveis e silencio
-                            // identico: o servidor nao devolve a pessoa, devolve um id
-                            // que nao casa com nenhum membro carregado, ou devolve certo
-                            // e a lista nao desenha. Registrar O QUE VEIO separa as tres
-                            // numa reproducao so.
-                            //
-                            // So na mudanca porque a cada 20s a resposta e a mesma, e um
-                            // diagnostico que repete vira um arquivo que ninguem le.
                             _state.update { st ->
                                 if (st.voicePresence == pres) return@update st
                                 val resumo = pres.entries
                                     .filter { it.value.isNotEmpty() }
                                     .joinToString("; ") { (canal, ids) ->
                                         val nomes = ids.joinToString(",") { id ->
-                                            // Casa com a lista carregada: id que nao casa
-                                            // aparece como "?<id>" e ja aponta o defeito.
                                             st.members.find { m -> m.userId == id }
                                                 ?.user?.username ?: "?$id"
                                         }
@@ -271,7 +198,6 @@ class ShellVm(
                 val ev = runCatching { json.decodeFromString<VoicePresenceEventDto>(raw) }.getOrNull()
                     ?: return@collect
                 _state.update { st ->
-                    // So mexe em canal que esta na constelação aberta (o resto nem e exibido).
                     val known = st.selectedServer?.channels?.any { it.id == ev.channelId } == true
                     if (!known) return@update st
                     val cur = st.voicePresence[ev.channelId].orEmpty()
@@ -286,14 +212,10 @@ class ShellVm(
             }
         }
 
-        // ---- Chamada de sussurro ----
         scope.launch {
             socket.chamadaChegando.collect { raw ->
                 val ev = runCatching { json.decodeFromString<ChamadaChegandoDto>(raw) }.getOrNull()
                     ?: return@collect
-                // Ja em call (de órbita ou de sussurro): não deixo o toque
-                // atropelar a conversa em andamento. O servidor desiste sozinho em
-                // 45s e grava a perdida — a pessoa vê a linha depois.
                 if (voiceSession?.joined != null || _state.value.chamada != null) return@collect
                 _state.update {
                     it.copy(chamada = ChamadaNaTela(
@@ -314,9 +236,6 @@ class ShellVm(
                 val c = _state.value.chamada ?: return@collect
                 if (c.conversationId != ev.conversationId) return@collect
                 Sfx.ringStop()
-                // Só quem LIGOU entra aqui: quem atendeu já entrou na sala no
-                // próprio clique, sem esperar a volta do servidor (esperar poria
-                // uma ida e volta de rede entre apertar 'atender' e ouvir).
                 if (c.euLiguei) entrarNaChamada(c)
                 _state.update { it.copy(chamada = null) }
             }
@@ -330,8 +249,6 @@ class ShellVm(
                     if (it.chamada?.conversationId != ev.conversationId) it
                     else it.copy(chamada = null)
                 }
-                // Desligou do outro lado enquanto eu estava na sala: saio junto.
-                // Sem isto eu ficaria sozinho numa call que acabou, sem entender.
                 val sessao = voiceSession
                 if (sessao?.emSussurro == true && sessao.joined?.id == ev.conversationId) {
                     sessao.leave()
@@ -341,8 +258,6 @@ class ShellVm(
         }
     }
 
-    // A sessao de voz mora no shell (acima da navegacao) e e injetada depois da
-    // construcao — o ShellVm nasce antes dela. Nula = ainda montando a tela.
     var voiceSession: VoiceSession? = null
 
     fun ligarNoSussurro(conversationId: String, titulo: String, avatarUrl: String?, video: Boolean) {
@@ -372,24 +287,12 @@ class ShellVm(
     private fun entrarNaChamada(c: ChamadaNaTela) {
         val sessao = voiceSession ?: return
         sessao.joinDm(c.conversationId, c.nome)
-        // Palco na sala: a call de sussurro reusa a VoiceView inteira, então ela
-        // precisa estar selecionada pra aparecer.
         _state.update { it.copy(voiceChannel = sessao.joined) }
-        // A CHAMADA DE VÍDEO ENTRA SÓ COM VOZ, e agora por um motivo mais estreito do
-        // que antes: o processo de voz já carrega vídeo — a tela compartilhada sobe
-        // por ele —, mas quem falta é a CÂMERA. Não há captura de webcam do lado de lá,
-        // e ligar a câmera aqui só acenderia a luz do aparelho sem ninguém receber
-        // imagem, que é pior do que não ligar.
-        //
-        // A chamada em si funciona, e quem quiser mostrar algo pode compartilhar a
-        // tela: era ela que importava quando a pessoa apertou.
         if (c.video) {
             VoiceLog.nota("[call] chamada de vídeo entrou só com voz: falta captura de câmera")
         }
     }
 
-    // Desligar uma call de sussurro em andamento: avisa o servidor (que grava a
-    // duração no histórico) ANTES de sair da sala.
     fun desligarSussurro() {
         val sessao = voiceSession ?: return
         val id = sessao.joined?.id
@@ -398,7 +301,6 @@ class ShellVm(
         _state.update { it.copy(voiceChannel = null) }
     }
 
-    // Recarrega so o proprio perfil (pos-edicao no card do rodape).
     fun refreshMe() {
         scope.launch {
             runCatching { userApi.me().data?.user }.getOrNull()?.let { u ->
@@ -407,13 +309,6 @@ class ShellVm(
         }
     }
 
-    // Insiste com a politica unica do app (net/Insistencia.kt). No boot isto e
-    // caro: a lista de sussurros voltava vazia, e lista vazia ali nao e "nao
-    // carregou", e uma AFIRMACAO — "voce nao tem conversa nenhuma". Uma tela
-    // mentindo com confianca total.
-    //
-    // Devolve null so quando a janela inteira falhou. Resposta bem-sucedida e
-    // VAZIA volta na primeira, sem insistir: vazio de verdade e legitimo.
     private suspend fun <T : Any> insistindo(oQue: String, bloco: suspend () -> T?): T? =
         insistindoOuNulo(oQue, bloco)
 
@@ -432,17 +327,10 @@ class ShellVm(
                 _state.update { it.copy(loading = false, error = "Sem conexão com o servidor") }
                 return@launch
             }
-            // Se as constelações vieram e os sussurros não, e falha PARCIAL: nao
-            // vale derrubar o app inteiro por isso, entao segue com a lista vazia
-            // (ja depois de tres tentativas). O resto do boot ja aconteceu.
             val dms = dmsD.await().orEmpty()
 
-            // Entra na sala de todas as DMs: typing/new_dm so chegam pra quem
-            // está na sala (o rejoin pos-reconnect já cobre estas também).
             dms.forEach { socket.joinDm(it.id) }
 
-            // Não lida = última mensagem depois da última leitura (sem leitura
-            // registrada também conta). DM mutada ou cuja última e minha, não.
             val channelReads = channelReadsD.await().orEmpty()
             val dmReads = dmReadsD.await().orEmpty()
             val unreadChannels = servers.flatMap { it.channels }
@@ -454,7 +342,6 @@ class ShellVm(
                     (lm.createdAt?.let { last -> dmReads[c.id]?.mine?.let { last > it } ?: true } ?: false)
             }.map { it.id }
 
-            // Restaura a última selecao (se a constelação ainda existe).
             val saved = Selection.decode(store.uiPref("lastSelection"))
             val selection = when (saved) {
                 is Selection.Server -> if (servers.any { it.id == saved.id }) saved else Selection.Dms
@@ -462,9 +349,6 @@ class ShellVm(
                 Selection.Dms -> Selection.Dms
             }
 
-            // Restaura também o que estava ABERTO ao fechar (canal/DM/amigos), pra
-            // cair de volta no que estava fazendo. NAO reconecta voz (entrar numa
-            // call sozinho ao abrir seria agressivo). Alvo que sumiu = ignora.
             val savedChat = store.uiPref("lastChat")
             var restoredChat: ChatTarget? = null
             var restoredFriends = false
@@ -510,8 +394,6 @@ class ShellVm(
         }
     }
 
-    // Bolinha de status na foto da lista de sussurros. Um mget so, como o dos
-    // membros. Falhou = mapa vazio = todo mundo apagado; a lista continua de pe.
     private fun carregarPresencaDosSussurros() {
         scope.launch {
             val ids = _state.value.dms.mapNotNull { it.otherUser?.id }.distinct()
@@ -523,13 +405,7 @@ class ShellVm(
     }
 
     fun select(selection: Selection) {
-        // Ja nesta aba: não reseta chat/membros nem re-dispara a animação de
-        // entrada. Re-clicar o mesmo servidor mantem a conversa aberta (as
-        // mensagens novas já chegam pelo socket ao vivo — nada pra recarregar).
         if (_state.value.selection == selection) return
-        // myPerms zera junto com members: são da constelação ANTERIOR. Deixar o
-        // valor velho faria o menu oferecer "configurações" numa constelação onde
-        // você não manda nada (o backend recusaria, mas a UI já teria mentido).
         _state.update {
             it.copy(selection = selection, members = emptyList(), memberPresence = emptyMap(), myPerms = null, chat = null, friendsOpen = false)
         }
@@ -538,14 +414,11 @@ class ShellVm(
         if (selection is Selection.Server) loadMembers(selection.id)
     }
 
-    // "Amigos" no topo dos sussurros: ocupa o palco (fecha conversa/voz).
     fun openFriends() {
         _state.update { it.copy(friendsOpen = true, chat = null, voiceChannel = null) }
         saveLocation()
     }
 
-    // Persiste ONDE o usuário esta (canal/DM/amigos) pra restaurar no próximo boot.
-    // Voz NAO entra: não auto-reconecta call. Le o estado JA atualizado.
     private fun saveLocation() {
         val st = _state.value
         val c = st.chat
@@ -558,48 +431,27 @@ class ShellVm(
         store.setUiPref("lastChat", enc)
     }
 
-    // Abrir a conversa limpa a não-lida local (o POST /read fica no ChatVm).
-    // V1 da voz: abrir texto SAI da sala (chamada persistente/mini-dock = V6).
     fun openChat(target: ChatTarget) {
-        // Mesma conversa já aberta: não recria o ChatVm (evitaria recarregar tudo
-        // + replay do fade). As mensagens novas já chegam pelo socket em tempo real.
         if (_state.value.chat == target) return
         registrarDestino(target)
         _state.update { it.copy(chat = target, voiceChannel = null, friendsOpen = false, unread = it.unread - target.id, unreadCounts = it.unreadCounts - target.id) }
         saveLocation()
     }
 
-    // HISTORICO DE DESTINOS — alimenta a lista que a busca mostra com o campo vazio.
-    //
-    // Fica AQUI e nao na tela de busca porque este e o funil por onde passa toda
-    // abertura de conversa: sidebar, Ctrl+K, clique num resultado, retomada do
-    // ultimo lugar. Gravar so o que sai da busca faria o historico nascer vazio e
-    // continuar vazio, ja que quase nada se abre por ali.
-    //
-    // Uma linha por destino; campos separados por U+0001, escrito como escape e
-    // NUNCA como caractere literal no fonte (controle invisivel nao sobrevive a
-    // copia/cola e some sem deixar rastro). Separador exotico porque nome de orbita
-    // aceita "|", ":" e praticamente qualquer pontuacao.
     private fun registrarDestino(target: ChatTarget) {
         val entrada = when (target) {
             is ChatTarget.Channel -> {
-                // A constelacao vem da selecao atual: ChatTarget.Channel so carrega
-                // id e titulo, e sem o serverId nao da pra reabrir de fora.
                 val sid = (_state.value.selection as? Selection.Server)?.id ?: return
                 listOf("c", sid, target.id, target.title).joinToString(SEP_HISTORICO)
             }
             is ChatTarget.Dm -> listOf("d", target.id, target.title).joinToString(SEP_HISTORICO)
         }
-        // Chave = tudo menos o nome. Reabrir a mesma conversa depois de um apelido
-        // novo tem que ATUALIZAR a entrada, nao empilhar uma segunda igual.
         val chave = entrada.substringBeforeLast(SEP_HISTORICO)
         val atual = store.uiPref(HISTORICO_DESTINOS)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
         val nova = (listOf(entrada) + atual.filterNot { it.substringBeforeLast(SEP_HISTORICO) == chave })
             .take(TETO_HISTORICO)
         store.setUiPref(HISTORICO_DESTINOS, nova.joinToString("\n"))
     }
-
-    // Menu de botao direito (F4) ------------------------------------------------
 
     fun toggleDmMute(conv: ConversationDto) {
         scope.launch {
@@ -614,10 +466,6 @@ class ShellVm(
         }
     }
 
-    // "Fechar sussurro": some da MINHA lista (nada e apagado, o outro lado nem
-    // fica sabendo, e volta sozinho na proxima mensagem). Otimista: tira da lista
-    // na hora e, se a conversa fechada estava aberta no palco, esvazia o palco —
-    // ficar olhando pra uma conversa que "não existe mais" seria esquisito.
     fun closeDm(conversationId: String) {
         scope.launch { runCatching { dmApi.close(conversationId) } }
         _state.update { st ->
@@ -651,8 +499,6 @@ class ShellVm(
         }
     }
 
-    // Excluir a constelação (so o dono). Mesma limpeza de estado do leave; a UI so
-    // oferece isso quando ownerId == meu id.
     fun deleteServer(id: String) {
         scope.launch {
             runCatching { serverApi.deleteServer(id) }.onSuccess {
@@ -670,8 +516,6 @@ class ShellVm(
         }
     }
 
-    // Expulsar / banir (so o dono na UI; backend exige permissão). Recarrega a
-    // lista de membros pra sumir com quem saiu.
     fun kickMember(serverId: String, userId: String) {
         scope.launch {
             runCatching { serverApi.kickMember(serverId, userId) }.onSuccess { loadMembers(serverId) }
@@ -684,12 +528,10 @@ class ShellVm(
         }
     }
 
-    // "Enviar sussurro" do card de perfil: abre/cria a conversa e já cai nela.
     fun startDm(username: String, title: String) {
         scope.launch {
             val conv = runCatching { dmApi.open(OpenDmRequest(username)).data }.getOrNull() ?: return@launch
             if (_state.value.dms.none { it.id == conv.conversationId }) {
-                // Conversa nova: recarrega a lista e entra na sala dela (typing/new_dm).
                 val dms = runCatching { dmApi.conversations().data.orEmpty() }
                     .getOrDefault(_state.value.dms)
                 dms.forEach { socket.joinDm(it.id) }
@@ -708,12 +550,10 @@ class ShellVm(
         }
     }
 
-    // Cria constelação (ou grupo) pelo "+" da rail: cria, recarrega a lista e já
-    // cai na nova (vira a selecao ativa).
     fun createServer(name: String, isGroup: Boolean) {
         scope.launch {
             val created = runCatching { serverApi.create(CreateServerRequest(name, isGroup)).data }.getOrNull() ?: return@launch
-            socket.joinServer(created.id) // nasceu depois do connect: entra na sala dela
+            socket.joinServer(created.id)
             val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
             _state.update {
                 it.copy(
@@ -732,12 +572,8 @@ class ShellVm(
         }
     }
 
-    // Entrou numa constelação pela Descoberta: recarrega a lista de servidores e
-    // já cai nela (vira a selecao ativa, como se tivesse clicado na rail).
     fun refreshServersAndSelect(serverId: String) {
         scope.launch {
-            // Entrei AGORA: o socket so inscreveu nas constelacoes que eu tinha no
-            // connect, entao sem isto eu nao receberia aviso de canal novo aqui.
             socket.joinServer(serverId)
             val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
             _state.update {
@@ -756,9 +592,6 @@ class ShellVm(
         }
     }
 
-    // Gestao de canais/categorias (dono da constelação). Cada ação bate na API e
-    // recarrega so a lista de servidores (mantem selecao/chat). Sem otimismo: o
-    // reload traz o estado real (posição/id vindos do backend).
     fun createChannel(serverId: String, name: String, type: String, categoryId: String?) {
         scope.launch {
             val ok = runCatching {
@@ -791,19 +624,9 @@ class ShellVm(
         }
     }
 
-    // Reordena canais DENTRO de uma secao (soltos, ou de uma categoria) via drag.
-    // orderedIds = nova ordem dos ids da secao. Preserva os VALORES de position já
-    // existentes, so permutando quem fica com qual (não reindexa pra 0-base, pra não
-    // colidir com a position das outras secoes). Otimista: reposiciona local na hora;
-    // persiste PATCHando so os que mudaram; reload reconcilia. So o dono chega aqui
-    // (a UI so habilita o drag pro dono).
     fun reorderChannel(serverId: String, orderedIds: List<String>) {
         scope.launch {
             val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
-            // Posicao = INDICE na nova ordem (0,1,2...). Robusto mesmo quando os canais
-            // tem position igual/0 (nascem sem position distinta): o metodo antigo
-            // permutava os VALORES atuais e, com todos = 0, dava sempre "sem mudanca"
-            // -> nenhum moveChannel era enviado e o reload voltava a ordem (o bug).
             val newPos = orderedIds.mapIndexed { i, id -> id to i }.toMap()
             val oldPos = srv0.channels.associate { it.id to it.position }
 
@@ -821,10 +644,6 @@ class ShellVm(
         }
     }
 
-    // Mover uma órbita PRA DENTRO de outra categoria (drag cross-categoria). position =
-    // fim da categoria alvo. Otimista: troca categoryId+position local; PATCH com categoryId
-    // (não-nulo -> serializa); reload reconcilia. So o dono chega aqui (a UI so habilita drag
-    // pro dono). Mover pra "solta" (categoryId null explicito) e' bloqueado pelo explicitNulls.
     fun moveChannelToCategory(serverId: String, channelId: String, targetCategoryId: String) {
         scope.launch {
             val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
@@ -844,8 +663,6 @@ class ShellVm(
         }
     }
 
-    // Reordena as CATEGORIAS entre si (drag no cabecalho). orderedIds = nova ordem; PATCH
-    // position dos que mudaram. Otimista + reload reconcilia. So o dono chega aqui.
     fun reorderCategories(serverId: String, orderedIds: List<String>) {
         scope.launch {
             val srv0 = _state.value.servers.find { it.id == serverId } ?: return@launch
@@ -865,7 +682,6 @@ class ShellVm(
         }
     }
 
-    // ---- Silenciar (notif prefs): backend channelNotifPrefs.ts, mode "mute" ----
     private fun loadNotifPrefs() {
         scope.launch {
             val ch = async { runCatching { notifApi.channelNotifPrefs().data.orEmpty() }.getOrDefault(emptyList()) }
@@ -893,12 +709,6 @@ class ShellVm(
             return
         }
 
-        // REATIVAR DENTRO DE UMA CONSTELAÇÃO CALADA PRECISA DE "all" EXPLÍCITO.
-        //
-        // Apagar a preferência era o que se fazia antes, e ali o clique não fazia
-        // NADA visível: sem preferência própria, a órbita herdava o silêncio da
-        // constelação de volta no instante seguinte. O menu voltava a oferecer
-        // "silenciar órbita" sobre uma órbita que continuava calada.
         _state.update {
             it.copy(
                 mutedChannels = it.mutedChannels - channelId,
@@ -924,23 +734,17 @@ class ShellVm(
         }
     }
 
-    // Marca todos os canais não-lidos da constelação como lidos (menu da rail / vazio).
     fun markServerRead(serverId: String) {
         val srv = _state.value.servers.find { it.id == serverId } ?: return
         val unread = _state.value.unread
         srv.channels.forEach { if (it.id in unread) markChannelRead(it.id) }
     }
 
-    // ---- Menu de canal (botao direito na órbita) ----
-    // Marcar lido: qualquer membro. Renomear/excluir: so o dono (a UI gateia).
     fun markChannelRead(channelId: String) {
         scope.launch { runCatching { channelApi.markRead(channelId) } }
         _state.update { it.copy(unread = it.unread - channelId, unreadCounts = it.unreadCounts - channelId) }
     }
 
-    // Liga/desliga a bot numa orbita ou numa categoria inteira. Recarrega no
-    // sucesso: a caixinha do "/" le desse mesmo estado, entao ela some/volta na
-    // hora, sem reabrir nada.
     fun setChannelBot(serverId: String, channelId: String, enabled: Boolean) {
         scope.launch {
             val ok = runCatching {
@@ -950,8 +754,6 @@ class ShellVm(
         }
     }
 
-    // Guardar (ou nao) a conversa com a bot nesta orbita. Recarrega tambem: o
-    // rotulo do menu le do proprio ChannelDto.
     fun setChannelKeepBot(serverId: String, channelId: String, guardar: Boolean) {
         scope.launch {
             val ok = runCatching {
@@ -998,10 +800,6 @@ class ShellVm(
         }
     }
 
-    // ---- Configuracoes da constelação ----
-    // Salvar devolve o erro REAL do backend pra tela mostrar (nome duplicado,
-    // imagem grande demais, sem permissão) em vez de um "não deu" generico.
-    // Sucesso -> recarrega a lista: a rail repinta com o ícone/nome novo.
     fun updateServer(serverId: String, body: UpdateServerRequest, onResult: (String?) -> Unit) {
         scope.launch {
             val r = runCatching { serverApi.update(serverId, body) }
@@ -1014,9 +812,6 @@ class ShellVm(
         }
     }
 
-    // Adiciona alguem pelo @usuario. Nao passa por convite nenhum: o backend checa
-    // permissao (dono ou MANAGE_SERVER), banimento e se já e membro. Sucesso ->
-    // recarrega os membros pra pessoa aparecer no painel na hora.
     fun addMember(serverId: String, username: String, onResult: (String?) -> Unit) {
         val u = username.trim().removePrefix("@")
         if (u.isBlank()) { onResult("Digite o nome de usuário"); return }
@@ -1031,8 +826,6 @@ class ShellVm(
         }
     }
 
-    // Entrar por convite. Aceita o codigo cru OU o link inteiro colado (o usuário
-    // vai colar o link, não o codigo) — por isso o parse tolerante.
     fun joinByInvite(raw: String, onResult: (String?) -> Unit) {
         val code = raw.trim().trimEnd('/').substringAfterLast('/').substringBefore('?')
         if (code.isBlank()) { onResult("Cole o convite ou o código"); return }
@@ -1048,8 +841,6 @@ class ShellVm(
         }
     }
 
-    // Regenerar convite: o código novo vem na resposta, mas quem manda na UI e o
-    // ServerDto da lista — entao recarrega pra não ficar mostrando o antigo.
     fun regenerateInvite(serverId: String, onResult: (String?) -> Unit) {
         scope.launch {
             val r = runCatching { serverApi.regenerateInvite(serverId) }
@@ -1062,9 +853,6 @@ class ShellVm(
         }
     }
 
-    // ---- Cargos ----
-    // A tela e dona da propria lista (não entra no ShellUiState): so ela usa, e
-    // manter no estado global obrigaria a invalidar em lugares que não ligam.
     fun loadRoles(serverId: String, onResult: (List<RoleDto>?, String?) -> Unit) {
         scope.launch {
             val r = runCatching { serverApi.roles(serverId).data.orEmpty() }
@@ -1080,8 +868,6 @@ class ShellVm(
                 else serverApi.updateRole(serverId, roleId, body)
             }
             if (r.isSuccess) {
-                // Membros recarregam junto: a cor/hoist do cargo muda como a lista
-                // de membros se agrupa e se pinta.
                 _state.value.selectedServer?.id?.let { if (it == serverId) loadMembers(it) }
                 onResult(null)
             } else {
@@ -1102,7 +888,6 @@ class ShellVm(
         }
     }
 
-    // memberId aqui e o id do MEMBRO (serverMembers.id), não o do usuário.
     fun setMemberRole(serverId: String, memberId: String, roleId: String, give: Boolean, onResult: (String?) -> Unit) {
         scope.launch {
             val r = runCatching {
@@ -1118,7 +903,6 @@ class ShellVm(
         }
     }
 
-    // ---- Banimentos ----
     fun loadBans(serverId: String, onResult: (List<BanDto>?, String?) -> Unit) {
         scope.launch {
             val r = runCatching { serverApi.bans(serverId).data.orEmpty() }
@@ -1127,7 +911,6 @@ class ShellVm(
         }
     }
 
-    // userId (não memberId): quem foi banido já não e membro.
     fun unbanUser(serverId: String, userId: String, onResult: (String?) -> Unit) {
         scope.launch {
             val r = runCatching { serverApi.unban(serverId, userId) }
@@ -1135,7 +918,6 @@ class ShellVm(
         }
     }
 
-    // Mensagem de erro do backend ({ error }) quando houver; senao um texto curto.
     private fun apiMessage(t: Throwable?, fallback: String): String {
         val http = t as? HttpException ?: return "$fallback — sem conexão"
         val parsed = runCatching { http.response()?.errorBody()?.string() }.getOrNull()
@@ -1143,24 +925,16 @@ class ShellVm(
         return parsed?.error?.takeIf { it.isNotBlank() } ?: "$fallback (erro ${http.code()})"
     }
 
-    // Canal que ANUNCIAMOS por socket estar na call. Nao e o mesmo que voiceChannel:
-    // aquele e so a sala aberta NO PALCO, e clicar numa sala abre a antessala (ver
-    // quem esta la antes de abrir o microfone) — o que nunca deveria contar como
-    // entrar. Era exatamente essa confusao que fazia "clicar ja aparecer na call".
     private var announcedVoice: String? = null
 
-    // Abrir a antessala. So navegacao: nao entra na call nem avisa ninguem.
     fun openVoice(channel: ChannelDto) {
-        // Voz não e restaurada no boot: limpa o lastChat (saveLocation le chat=null).
         _state.update { it.copy(voiceChannel = channel, chat = null, friendsOpen = false) }
         saveLocation()
     }
 
-    // Entrei DE VERDADE (botao verde da antessala). Avisa a constelação na hora; o
-    // poll do /voice/presence ainda corrige depois.
     fun announceVoiceJoin(channelId: String) {
         if (announcedVoice == channelId) return
-        announcedVoice?.let { socket.voiceLeave(it) } // uma call por vez
+        announcedVoice?.let { socket.voiceLeave(it) }
         announcedVoice = channelId
         socket.voiceJoin(channelId)
     }
@@ -1193,8 +967,6 @@ class ShellVm(
             launch {
                 socket.presenceUpdate.collect { raw ->
                     val ev = decode<PresenceUpdateDto>(raw) ?: return@collect
-                    // So mexe se o user já e membro visivel da constelação atual —
-                    // evita recompor o painel a cada presenca do app inteiro.
                     _state.update {
                         val norm = if (ev.status == "INVISIBLE") "OFFLINE" else ev.status
                         val ehMembro = it.members.any { m -> m.userId == ev.userId }
@@ -1215,9 +987,6 @@ class ShellVm(
                 socket.activityUpdate.collect { raw ->
                     val ev = decode<ActivityUpdateDto>(raw) ?: return@collect
                     _state.update {
-                        // Mesma economia da presenca: quem nao esta na lista aberta
-                        // nao mexe em nada. O app inteiro emite atividade, e sem este
-                        // filtro o painel recomporia por gente que nao esta na tela.
                         if (it.members.none { m -> m.userId == ev.userId }) return@update it
                         val texto = ev.activity?.takeIf { t -> t.isNotBlank() }
                         if (texto == null) it.copy(memberActivity = it.memberActivity - ev.userId)
@@ -1229,19 +998,9 @@ class ShellVm(
                 socket.newDm.collect { raw ->
                     val msg = decode<DmMessageDto>(raw) ?: return@collect
                     dmTypingStopped(msg.conversationId, msg.senderId)
-                    // CONVERSA QUE AINDA NAO EXISTIA NA LISTA.
-                    //
-                    // Agora o servidor entrega o sussurro na sala PESSOAL alem da
-                    // sala da conversa, entao a primeira mensagem de alguem chega
-                    // mesmo sem a conversa existir aqui. Sem este ramo o evento
-                    // chegava e era descartado em silencio (o indexOfFirst nao
-                    // acha, o update nao muda nada) — e a conversa so aparecia no
-                    // proximo boot, que e onde a lista e rebuscada.
                     if (_state.value.dms.none { it.id == msg.conversationId }) {
                         val novas = runCatching { dmApi.conversations().data.orEmpty() }.getOrNull()
                         if (!novas.isNullOrEmpty()) {
-                            // Entra na sala da conversa nova: o proximo evento dela
-                            // (digitando, edicao) ja chega pelo caminho normal.
                             novas.forEach { socket.joinDm(it.id) }
                             _state.update { st ->
                                 val naoLida = if (msg.senderId != myId) st.unread + msg.conversationId else st.unread
@@ -1251,11 +1010,6 @@ class ShellVm(
                         }
                         return@collect
                     }
-                    // DELTA da barra lateral: aplica a previa ("Você: ..."/texto) e sobe a
-                    // conversa pro topo na hora. Antes so marcava não-lida e a previa/ordem
-                    // ficavam velhas ate um reload — o classico "chegou mensagem mas a lista
-                    // continua igual". Vale pras MINHAS tambem (por isso o filtro de senderId
-                    // saiu daqui e virou so a regra do não-lida abaixo).
                     _state.update { st ->
                         val idx = st.dms.indexOfFirst { it.id == msg.conversationId }
                         val dms = if (idx < 0) st.dms else {
@@ -1277,18 +1031,12 @@ class ShellVm(
                     }
                 }
             }
-            // Constelacao mexeu. Sao PINGS ("mudou, busca de novo"), nao deltas: canal
-            // privado faz cada membro ver uma lista diferente, entao so o backend sabe
-            // o que cada um deve enxergar. Uma busca extra num evento raro e barato —
-            // o caro era o canal novo so aparecer pros outros no proximo boot do app.
             launch {
                 socket.serverChannels.collect { reloadServers() }
             }
             launch {
                 socket.serverMembers.collect { raw ->
                     val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
-                    // So recarrega se for a constelacao ABERTA (o painel de membros das
-                    // outras nem esta na tela).
                     if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
                         loadMembers(ev.serverId)
                     }
@@ -1297,16 +1045,10 @@ class ShellVm(
             launch {
                 socket.profileUpdated.collect { raw ->
                     val ev = decode<PresenceUpdateDto>(raw) ?: return@collect
-                    // A copia guardada do perfil envelheceu — sem limpar, o cartao
-                    // continuaria com a foto velha mesmo com o aviso chegando.
                     invalidateProfileCache(ev.userId)
                     if (ev.userId == myId) {
-                        // Fui EU: a barra de sussurros, o rodape e o card usam este
-                        // `me`. Era o "salvei e nao mudou nada na tela inicial".
                         refreshMe()
                     }
-                    // Membro da constelacao aberta: recarrega pra lista pegar o nome
-                    // e a foto novos. Fora dela, o evento e ignorado de proposito.
                     val serverId = (_state.value.selection as? Selection.Server)?.id
                     if (serverId != null && _state.value.members.any { it.userId == ev.userId }) {
                         loadMembers(serverId)
@@ -1316,37 +1058,25 @@ class ShellVm(
             launch {
                 socket.serverJoined.collect { raw ->
                     val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
-                    // Fui adicionado agora: entra na sala dela (o connect nao a incluia)
-                    // e traz a constelacao nova pra rail.
                     socket.joinServer(ev.serverId)
                     reloadServers()
                 }
             }
             launch {
-                // Nome/icone/banner novos: a rail e o cabecalho vem do mesmo GET.
                 socket.serverUpdated.collect { reloadServers() }
             }
             launch {
                 socket.serverAccessLost.collect { raw ->
                     val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
                     val st = _state.value
-                    // O nome vem da MINHA lista, antes de recarregar. Depois do
-                    // reload a constelacao ja sumiu e o aviso ficaria sem nome.
                     val nome = st.servers.firstOrNull { it.id == ev.serverId }?.name
 
-                    // Sair da CALL tambem. A sala de voz ocupa o palco sozinha e
-                    // nao olha a selecao: trocar a selecao deixava a pessoa
-                    // expulsa dentro da call, ouvindo e sendo ouvida, ate ela
-                    // mesma trocar de aba. Era o "a tela continua la".
                     val naCallDaqui = st.voiceChannel?.let { canal ->
                         st.servers.firstOrNull { s -> s.id == ev.serverId }
                             ?.channels?.any { c -> c.id == canal.id } == true
                     } == true
                     if (naCallDaqui) leaveVoice()
 
-                    // Apagaram, me expulsaram ou me baniram. Se eu estiver DENTRO
-                    // dela agora, sair primeiro: deixar a tela aberta numa
-                    // constelacao que nao existe mais so rende erro em cada clique.
                     if ((st.selection as? Selection.Server)?.id == ev.serverId) {
                         _state.update {
                             it.copy(
@@ -1357,9 +1087,6 @@ class ShellVm(
                             )
                         }
                     }
-                    // So avisa quando foi PENALIDADE. Sair por vontade propria
-                    // passa pelo mesmo evento, e um pop-up dizendo "você saiu"
-                    // logo depois de clicar em sair e so um clique a mais.
                     if (ev.motivo == "expulso" || ev.motivo == "banido") {
                         _state.update {
                             it.copy(penalidade = Penalidade(ev.motivo, nome, ev.reason))
@@ -1371,26 +1098,16 @@ class ShellVm(
             launch {
                 socket.serverRoles.collect { raw ->
                     val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
-                    // Cargo mexe na cor do nome e no agrupamento da lista.
                     if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
                         loadMembers(ev.serverId)
                     }
                 }
             }
             launch {
-                // RECONCILIACAO. Evento e dispare-e-esqueça: o que passou enquanto o
-                // socket esteve fora nao volta sozinho. Sem isto, uma queda de 10s
-                // deixava a tela mentindo ate o proximo boot — e queda ACONTECE
-                // (servidor dormindo, wifi oscilando, notebook fechando).
-                // Rebusca o que esta em cena; o ChatVm cuida das mensagens.
                 socket.reconnected.collect {
                     reloadServers()
                     (_state.value.selection as? Selection.Server)?.id?.let { loadMembers(it) }
                     runCatching { dmApi.conversations().data.orEmpty() }.getOrNull()?.let { dms ->
-                        // Entra nas salas DE NOVO a partir da lista fresca. O rejoin
-                        // do socket so refaz as salas que ele ja conhecia; conversa
-                        // criada enquanto o app estava sem conexao nao estava nessa
-                        // lista, e ficava sem sala (sem digitando, sem edicao).
                         dms.forEach { socket.joinDm(it.id) }
                         _state.update { it.copy(dms = dms) }
                     }
@@ -1424,7 +1141,6 @@ class ShellVm(
 
     private fun dmTypingStopped(conversationId: String, userId: String) {
         typingJobs.remove("$conversationId/$userId")?.cancel()
-        // DM e 1:1 — sem esse user digitando, a conversa sai do set.
         _state.update { it.copy(dmTyping = it.dmTyping - conversationId) }
     }
 
@@ -1433,31 +1149,18 @@ class ShellVm(
 
     private fun loadMembers(serverId: String) {
         scope.launch {
-            // Membros e permissões juntos: são pedidos pelos mesmos gatilhos (trocar
-            // de constelação) e não dependem um do outro -> em paralelo.
             val membersD = async { runCatching { serverApi.members(serverId).data.orEmpty() }.getOrDefault(emptyList()) }
             val permsD = async { runCatching { serverApi.myPerms(serverId).data }.getOrNull() }
             val members = membersD.await()
             val perms = permsD.await()
-            // Presenca dos membros num único mget (ONLINE colorido / OFFLINE apagado).
-            // Fail-safe: se cair, mapa vazio -> todos aparecem offline, sem quebrar.
             val ids = members.joinToString(",") { it.userId }
             val presence = if (members.isNotEmpty()) {
                 runCatching { userApi.presence(ids).data.orEmpty() }.getOrDefault(emptyMap())
             } else emptyMap()
-            // Atividade ("o que a pessoa está usando"). Chamada à parte da presença
-            // de propósito: são dois recursos com vidas diferentes, e juntá-los numa
-            // resposta obrigaria os quatro clientes a mudar de contrato pra economizar
-            // um pedido por painel aberto. Falhou = mapa vazio = ninguém em nada.
-            // SÓ O TEXTO aqui. A resposta traz também desde quando, mas a linha do
-            // painel mostra só o nome do programa — guardar o instante no estado da
-            // lista seria carregar em memória, por membro, um dado que só o cartão
-            // de perfil usa (e que ele já busca sozinho, fresco, ao abrir).
             val atividade = if (members.isNotEmpty()) {
                 runCatching { userApi.activity(ids).data.orEmpty().mapValues { it.value.text } }
                     .getOrDefault(emptyMap())
             } else emptyMap()
-            // So aplica se a selecao não mudou enquanto carregava.
             _state.update {
                 if ((it.selection as? Selection.Server)?.id == serverId) {
                     it.copy(members = members, memberPresence = presence, memberActivity = atividade, myPerms = perms)

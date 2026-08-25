@@ -6,12 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
-// Tokens obsidiana do desktop — agora REATIVOS. Os campos de cor que dependem do
-// tema (accent + rampa de fundo) são mutableStateOf, entao os ~300 usos
-// `Obsidian.xxx` dentro de @Composable recompoem sozinhos quando o tema muda. Os
-// call sites não mudam. apply() deriva a paleta do par (accentId, bgId) escolhido
-// em Settings > Aparencia (mesma logica do buildAstraColors do mobile). text/border
-// /status ficam fixos (funcionam em qualquer fundo escuro).
 object Obsidian {
     var void by mutableStateOf(Color(0xFF06060E))
         private set
@@ -30,50 +24,11 @@ object Obsidian {
     var accentDim by mutableStateOf(Color(0x33D4D8E0))
         private set
 
-    // AS BORDAS SEGUEM O TEMA. Eram fixas (#363741 e #494A54) e por isso a mesma
-    // linha azul-acinzentada aparecia por cima de qualquer fundo: no tema Eclipse,
-    // de vinho, o cartao ficava contornado por uma cor fria que nao existia em
-    // lugar nenhum da tela — parecia recortado de outro app.
-    //
-    // Elas nao ganharam cor propria: saem do MESMO `raised` do tema. Assim o tom
-    // acompanha o fundo de graca, e nao entra cor nova no sistema pra resolver
-    // hierarquia (que e o que as normas do produto proibem).
-    //
-    // NAO E `lift`, E `clarear`, E A DIFERENCA E O BUG QUE ISTO CONSERTA. A primeira
-    // versao somava a mesma quantidade nos tres canais. Somar preserva a diferenca
-    // ABSOLUTA entre eles e destroi a RELATIVA: o raised da Aurora (#0C1A10) mais
-    // 0,145 vira #313F35 — verde na conta, cinza no olho, porque 14/255 de vantagem
-    // do verde sobre um nivel alto nao se enxerga. Multiplicar ANTES de somar
-    // preserva a proporcao, e a cor sobrevive ao clareamento.
-    //
-    // O passo foi calibrado pra Obsidiana continuar em ~1,6:1 contra o `raised`,
-    // igual ao que era. Borda de 1dp entre duas superficies e separador, nao
-    // componente — perseguir os 3:1 de UI aqui desenharia um risco duro em volta de
-    // cada cartao, que e exatamente o que o app evita.
     var borderDim by mutableStateOf(Color(0xFF363741))
         private set
     var borderMid by mutableStateOf(Color(0xFF494A54))
         private set
 
-    // Fixos (independentes do tema).
-    //
-    // text1 desceu de #F5F5F7 pra #E4E4EB, e o motivo NAO e contraste — e o
-    // contrario dele. Sobre o void (#06060E), o valor antigo dava ~19:1, quase o
-    // dobro do que a norma pede pra texto pequeno. Contraste ALTO DEMAIS em fundo
-    // escuro produz halacao: a borda clara da letra parece vibrar, e o efeito
-    // aparece justamente em quem passa horas no app a noite — que e o uso real
-    // daqui. O valor novo continua em ~15:1, folgado acima do minimo de 4,5:1.
-    //
-    // Se algum dia isto parecer apagado demais, o caminho e subir ESTE numero, e
-    // nao mexer no fundo: a rampa de elevacao inteira e calibrada a partir do void.
-    // VIRARAM `var` POR CAUSA DO ALTO CONTRASTE, e o parágrafo acima continua
-    // valendo inteiro: ele descreve o PADRÃO, que não mudou. A halação é real e é
-    // por isso que ninguém é empurrado pra cima dela.
-    //
-    // Mas "o padrão é calibrado pra sessão longa à noite" e "existe gente que não
-    // enxerga esse padrão" são duas verdades ao mesmo tempo, e a segunda não tem
-    // escapatória sem isto. Quem liga o alto contraste está dizendo que troca o
-    // conforto pela legibilidade — e essa troca é dela, não minha.
     var text1 by mutableStateOf(TEXT1_PADRAO)
         private set
     var text2 by mutableStateOf(TEXT2_PADRAO)
@@ -85,9 +40,6 @@ object Obsidian {
     val warning = Color(0xFFE8B86D)
     val textInv = Color(0xFF09091A)
 
-    // Deriva accent + a rampa de fundo (void..active) do par escolhido. Rampa
-    // elevada = passo grayscale sobre o raised do tema (mantem o tom em qualquer
-    // fundo). accentDim em 0.2 pra bater com o token anterior do desktop.
     fun apply(accentId: String?, bgId: String?) {
         val a = accentOption(accentId).value
         val bg = bgOption(bgId)
@@ -100,20 +52,9 @@ object Obsidian {
         accent = a
         accentDim = a.copy(alpha = 0.2f)
         ultimoRaised = bg.raisedC
-        // As bordas saem daqui E do contraste, então quem manda nelas é uma função
-        // só. Sem isto, trocar de tema com alto contraste ligado devolveria as
-        // bordas fracas em silêncio — e ninguém liga o alto contraste de novo pra
-        // testar se ele sobreviveu à troca de cor.
         aplicarContraste(altoContraste)
     }
 
-    // ALTO CONTRASTE. Sobe texto e borda; NÃO mexe no fundo, e isso é regra: a
-    // rampa de elevação inteira (void → active) é calibrada a partir do void, e
-    // clarear o fundo pra ganhar contraste destruiria a hierarquia que ela existe
-    // pra criar — o remédio apagaria a estrutura da tela.
-    //
-    // text3 é o que mais sobe. Ele é o terciário, o primeiro a sumir pra quem tem
-    // baixa visão, e no padrão ele vive perto do piso de propósito.
     fun aplicarContraste(alto: Boolean) {
         altoContraste = alto
         text1 = if (alto) Color(0xFFF7F7FA) else TEXT1_PADRAO
@@ -139,14 +80,6 @@ private fun lift(c: Color, amount: Float): Color = Color(
     alpha = c.alpha,
 )
 
-// Clareia MANTENDO a cor. `lift` soma o mesmo valor nos tres canais, o que preserva
-// a diferenca absoluta entre eles e afunda a relativa: sobre um nivel alto, os
-// 14/255 de vantagem do verde da Aurora deixam de ser enxergados e a borda le como
-// cinza. Multiplicar antes de somar mantem a proporcao entre os canais — o ganho
-// e o mesmo, a cor sobrevive.
-//
-// Serve pras BORDAS. A rampa de superficie continua no `lift`, e de proposito: ali
-// o que se quer e justamente subir um degrau sem mexer no tom do fundo.
 private fun clarear(c: Color, ganho: Float, piso: Float): Color = Color(
     red = (c.red * ganho + piso).coerceIn(0f, 1f),
     green = (c.green * ganho + piso).coerceIn(0f, 1f),

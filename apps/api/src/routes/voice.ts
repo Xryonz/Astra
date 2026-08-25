@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, eq, or } from 'drizzle-orm'
@@ -62,9 +61,6 @@ router.post('/token', requireAuth, validate(TokenSchema), asyncHandler(async (re
   const roomName = `${roomKind}:${roomId}`
   const identity = req.userId!
 
-  // Nome + avatar viajam no token pro LiveKit: assim os participantes carregam
-  // identidade humana (nome real + foto) em vez do id cru — funciona em call de
-  // servidor E de DM, no web e no nativo (que le participant.name/metadata).
   const [u] = await db.select({
     username:    users.username,
     displayName: users.displayName,
@@ -118,17 +114,6 @@ router.get('/presence', requireAuth, asyncHandler(async (req: Request, res: Resp
     }
     if (!(await userCanSeeChannel(req.userId!, channelId))) return
 
-    // A LISTA SAI DO REDIS, não mais do LiveKit.
-    //
-    // Com a call em ponto a ponto não há servidor de mídia por onde perguntar:
-    // o áudio vai direto de uma pessoa para outra. Cada cliente marca presença
-    // enquanto está na sala, e a marca expira sozinha (ver vozKeys) — o que
-    // resolve o fantasma melhor do que o LiveKit resolvia, porque não depende de
-    // uma chamada de rede a um terceiro que pode estar fora do ar.
-    //
-    // `scanStream` e não `keys`: `keys` varre o banco inteiro e trava o Redis
-    // enquanto varre. Num banco compartilhado como o nosso isso é problema de
-    // todo mundo, não só nosso.
     try {
       const prefixo = `voz:${channelId}:`
       const encontrados: string[] = []
@@ -139,8 +124,6 @@ router.get('/presence', requireAuth, asyncHandler(async (req: Request, res: Resp
       presenceCache.set(channelId, { at: now, ids: encontrados })
       out[channelId] = encontrados
     } catch {
-      // Redis fora do ar MANTÉM o que se sabia, em vez de esvaziar a sala. Uma
-      // falha de rede não pode fazer todo mundo sumir da call na barra lateral.
       out[channelId] = cached?.ids ?? []
     }
   }))

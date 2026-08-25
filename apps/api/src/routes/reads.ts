@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { Server as SocketServer } from 'socket.io'
 import { and, eq, gt, isNull, isNotNull, ne, or, sql } from 'drizzle-orm'
@@ -72,10 +71,6 @@ export function createReadsRouter(io: SocketServer) {
     })
   )
 
-  // Contagem de nao-lidas por canal (badge com numero). Conta mensagens depois
-  // do lastReadAt (ou todas, se nunca leu), ignorando as minhas e as apagadas.
-  // Guarda privacidade: canal privado so entra se o user ja o acessou (tem read
-  // record) — evita vazar contagem de canal que ele nem ve.
   router.get(
     '/reads/channels/counts',
     requireAuth,

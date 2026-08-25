@@ -66,16 +66,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Aba CARGOS. Lista -> clicar abre o editor NO LUGAR da lista (decisao do dono):
-// os 7 interruptores de permissão cabem sem apertar e cada tela respira.
-//
-// Regra que molda esta tela: o backend passa toda permissão por grantableSubset,
-// que DESCARTA em silencio o que o ator não possui (menos o dono) e ainda assim
-// responde 200. Se a UI deixasse marcar o que você não tem, ela diria "salvo" e a
-// permissão não estaria la. Por isso os interruptores fora do teu alcance ficam
-// desligados e explicados, em vez de mentir.
-
-// Rotulo e explicacao de cada permissão. A ordem e do mais forte pro mais fraco.
 private val PERMISSIONS = listOf(
     Triple("MANAGE_SERVER", "Gerenciar a constelação", "mudar nome, imagens, convite e visibilidade"),
     Triple("MANAGE_ROLES", "Gerenciar cargos", "criar, editar e dar cargos a outras pessoas"),
@@ -86,8 +76,6 @@ private val PERMISSIONS = listOf(
     Triple("MENTION_EVERYONE", "Mencionar todos", "usar @everyone para avisar a constelação inteira"),
 )
 
-// Paleta de cargos: tons que se leem sobre o obsidiana sem virar neon. Quem quer
-// exata digita o hex no mesmo popup.
 private val ROLE_COLORS = listOf(
     "#c9a96e", "#e0b877", "#d99a6c", "#c97c6e", "#c96e8a",
     "#a87cc4", "#7c6fc4", "#6f8fc4", "#6fa8c9", "#6fc4b8",
@@ -98,7 +86,6 @@ private val ROLE_COLORS = listOf(
 internal fun RolesSection(
     roles: List<RoleDto>?,
     members: List<ServerMemberDto>,
-    // Permissoes de QUEM ESTA MEXENDO: define o que da pra marcar.
     myPermissions: Set<String>,
     amOwner: Boolean,
     error: String?,
@@ -106,7 +93,6 @@ internal fun RolesSection(
     onDelete: (roleId: String, (String?) -> Unit) -> Unit,
     onToggleMember: (memberId: String, roleId: String, give: Boolean, (String?) -> Unit) -> Unit,
 ) {
-    // null = lista; "" = criando um cargo novo; id = editando aquele cargo.
     var editing by remember(roles) { mutableStateOf<String?>(null) }
 
     if (roles == null) {
@@ -120,8 +106,6 @@ internal fun RolesSection(
     AnimatedContent(
         targetState = editing,
         transitionSpec = {
-            // Entrar no editor desliza pra esquerda; voltar, pra direita — o gesto
-            // diz de que lado você veio.
             val forward = targetState != null
             val dir = if (forward) 1 else -1
             (slideInHorizontally(tween(200)) { it / 8 * dir } + fadeIn(tween(200)))
@@ -170,7 +154,6 @@ private fun RoleList(
         )
         Spacer(Modifier.height(12.dp))
     }
-    // Mais alto primeiro: a posição e a hierarquia.
     roles.sortedByDescending { it.position }.forEach { role ->
         val count = members.count { m -> m.roles.any { it.id == role.id } }
         RoleRow(role, count) { onPick(role.id) }
@@ -239,8 +222,6 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
     }
 }
 
-// Upload da mini-imagem do cargo (circulo, animavel via AstraImage). Reusa o
-// AvatarPicker: GIF pequeno passa cru (anima); estatico e reduzido pra 128px.
 @Composable
 private fun RoleIconField(iconUrl: String?, onChange: (String?) -> Unit) {
     val scope = rememberCoroutineScope()
@@ -253,7 +234,6 @@ private fun RoleIconField(iconUrl: String?, onChange: (String?) -> Unit) {
             if (!iconUrl.isNullOrBlank()) AstraImage(iconUrl, "ícone do cargo", Modifier.fillMaxSize())
         }
         Spacer(Modifier.width(12.dp))
-        // Só ícone: encostados na mini-imagem do cargo que eles trocam.
         BotaoIcone(Lucide.Upload, "subir imagem", accent = true, ocupado = busy) {
             val file = AvatarPicker.choose("Imagem do cargo") ?: return@BotaoIcone
             busy = true
@@ -353,8 +333,6 @@ private fun RoleEditor(
         )
     }
     PERMISSIONS.forEach { (key, label, desc) ->
-        // Dono concede tudo; o resto so o que possui (espelha o grantableSubset do
-        // backend, que descartaria em silencio).
         val canGrant = amOwner || key in myPermissions
         PermissionRow(
             label = label,
@@ -366,7 +344,6 @@ private fun RoleEditor(
         }
     }
 
-    // ---- Membros com este cargo (so pra cargo que já existe) ----
     if (role != null) {
         SettingsDivider()
         FieldLabel("quem tem este cargo")
@@ -426,8 +403,6 @@ private fun RoleEditor(
     Spacer(Modifier.height(24.dp))
 }
 
-// Membros com o cargo + quem falta. Lista rolavel e capada: uma constelação
-// grande não pode empurrar os botoes de salvar pra fora da tela.
 @Composable
 private fun RoleMembers(
     role: RoleDto,
@@ -535,8 +510,6 @@ private fun PermissionRow(
             Text(desc, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
         }
         Spacer(Modifier.width(12.dp))
-        // Interruptor simples (o ToggleRow do Settings já tem rotulo proprio; aqui
-        // o rotulo e a coluna acima, entao so a chave).
         Box(
             Modifier
                 .size(38.dp, 21.dp)
@@ -627,8 +600,6 @@ private fun RoleColorPicker(selected: String?, onPick: (String) -> Unit) {
                         Spacer(Modifier.height(6.dp))
                     }
                     Spacer(Modifier.height(6.dp))
-                    // Cartao no lugar do traco: escolher da paleta e digitar o hex
-                    // sao dois caminhos pro mesmo fim, e o segundo e o avancado.
                     CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(10.dp)) {
                         FieldLabel("código hex")
                         RoleHexField(selected) { onPick(it) }
@@ -662,8 +633,6 @@ private fun RoleHexField(selected: String?, onPick: (String) -> Unit) {
                 onValueChange = { raw ->
                     val clean = raw.filter { it.isDigit() || it.lowercaseChar() in 'a'..'f' }.lowercase().take(6)
                     text = clean
-                    // So aplica com os 6 digitos: teclar no meio não deve pintar um
-                    // valor pela metade.
                     if (clean.length == 6) onPick("#$clean")
                 },
                 singleLine = true,
@@ -675,7 +644,6 @@ private fun RoleHexField(selected: String?, onPick: (String) -> Unit) {
     }
 }
 
-// "#rrggbb" -> Color. Invalido/nulo = null (a UI cai no cinza).
 private fun roleColor(hex: String?): Color? {
     val h = hex?.trim()?.removePrefix("#") ?: return null
     if (h.length != 6) return null

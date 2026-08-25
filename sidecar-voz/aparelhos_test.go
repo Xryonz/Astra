@@ -5,12 +5,6 @@ import (
 	"testing"
 )
 
-// Enumeracao de aparelhos contra o Windows de verdade.
-//
-// Pede variavel de ambiente porque depende da maquina ter placa de som — no CI nao
-// tem, e um teste que falha por ausencia de hardware ensina a ignorar teste.
-//
-//	ASTRA_TESTE_AUDIO=1 go test -run Aparelhos -v
 func TestListarAparelhos(t *testing.T) {
 	if os.Getenv("ASTRA_TESTE_AUDIO") == "" {
 		t.Skip("ASTRA_TESTE_AUDIO nao definida — pulando (precisa de placa de som real)")
@@ -37,9 +31,7 @@ func TestListarAparelhos(t *testing.T) {
 			if a.ID == "" {
 				t.Error("aparelho sem identificador entrou na lista")
 			}
-			// Nome igual ao id significa que a leitura do PROPVARIANT falhou e caiu
-			// no recurso. Compila e nao quebra nada — so mostra um nome ilegivel no
-			// menu, que e exatamente o tipo de defeito que passa despercebido.
+
 			if a.Nome == a.ID {
 				t.Errorf("nome nao veio do PROPVARIANT (caiu no id): %s", a.ID)
 			}
@@ -48,15 +40,6 @@ func TestListarAparelhos(t *testing.T) {
 	}
 }
 
-// O ID GUARDADO PODE APONTAR PARA UM APARELHO QUE NAO EXISTE MAIS.
-//
-// E o caso comum, nao a exceção: headset USB tirado da porta, placa desabilitada,
-// perfil levado para outro computador. Sem a queda para o padrao, a call abriria
-// muda por causa de um fone desplugado semana passada — e nada na tela diria isso.
-//
-// Este teste existe porque a queda e um caminho que NUNCA roda no uso normal: so
-// aparece no dia em que alguem desplugou algo, que e exatamente o dia em que
-// ninguem quer descobrir que ela nao funciona.
 func TestAparelhoInvalidoCaiNoPadrao(t *testing.T) {
 	if os.Getenv("ASTRA_TESTE_AUDIO") == "" {
 		t.Skip("ASTRA_TESTE_AUDIO nao definida — pulando (precisa de placa de som real)")
@@ -80,9 +63,6 @@ func TestAparelhoInvalidoCaiNoPadrao(t *testing.T) {
 	alto.Fechar()
 }
 
-// Trocar de aparelho tem de FAZER O LACO SAIR — e o unico jeito de ele fechar o
-// aparelho velho e abrir o novo. Contador em vez de bandeira porque duas trocas
-// rapidas seguidas perderiam a segunda.
 func TestTrocaDeAparelhoAvancaAGeracao(t *testing.T) {
 	m := &Motor{}
 
@@ -98,8 +78,7 @@ func TestTrocaDeAparelhoAvancaAGeracao(t *testing.T) {
 	if m.idEntrada() != "mic-a" {
 		t.Fatalf("id de entrada ficou %q", m.idEntrada())
 	}
-	// A troca de um sentido nao pode mexer no outro: fechar o alto-falante porque a
-	// pessoa trocou o microfone seria um corte de som sem motivo.
+
 	if m.geracaoSaida.Load() != 0 || m.idSaida() != "" {
 		t.Fatal("trocar a entrada mexeu na saida")
 	}

@@ -9,15 +9,6 @@ import (
 	"time"
 )
 
-// O CONTRATO DO CANO DE QUADROS, escrito de um lado e lido do outro.
-//
-// Este teste vale mais do que parece: o formato daqui é implementado DUAS vezes, aqui
-// em Go e lá em Kotlin, e nenhum compilador confere que os dois concordam. Um campo
-// trocado de lugar não dá erro em lugar nenhum — dá imagem embaralhada, que manda quem
-// investiga procurar no decodificador.
-//
-// O teste faz o papel do Astra: escuta, recebe o segredo, lê um quadro e confere cada
-// campo do cabeçalho contra o que foi mandado.
 func TestOCanoDeQuadrosEntregaOQuePrometeu(t *testing.T) {
 	ouvinte, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -34,8 +25,6 @@ func TestOCanoDeQuadrosEntregaOQuePrometeu(t *testing.T) {
 	}
 	defer e.Fechar()
 
-	// Um quadro reconhecível: o passo é MAIOR que a largura de propósito, porque é
-	// exatamente o caso em que o outro lado erra se ignorar o campo.
 	const largura, altura, passo = 4, 2, 8
 	dados := make([]byte, passo*altura*3/2)
 	for i := range dados {
@@ -101,15 +90,6 @@ func TestOCanoDeQuadrosEntregaOQuePrometeu(t *testing.T) {
 	}
 }
 
-// MANDAR NUNCA PODE BLOQUEAR, e é a propriedade que mantém a call de pé.
-//
-// `Mandar` é chamada de dentro do laço que lê os pacotes RTP. Se ela esperar — porque
-// ninguém está consumindo, porque o Astra travou, porque a fila encheu —, esse laço
-// para de consumir a rede, e conexão que não é consumida entope. O sintoma não seria
-// "vídeo travado": seria memória subindo até o processo morrer.
-//
-// Aqui NINGUÉM aceita a conexão de propósito. Mesmo assim as cem chamadas têm de
-// voltar na hora, descartando o que não coube.
 func TestMandarNuncaEspera(t *testing.T) {
 	ouvinte, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -142,18 +122,12 @@ func TestMandarNuncaEspera(t *testing.T) {
 	}
 }
 
-// SEM ENDEREÇO NO AMBIENTE, NÃO HÁ CANO — e isso não é erro.
-//
-// É o caso de rodar este binário à mão para diagnosticar, e o de uma versão do Astra
-// mais velha que a do processo. Nos dois, a voz tem de continuar funcionando inteira; o
-// que se perde é só a imagem.
 func TestSemEnderecoNaoHaCano(t *testing.T) {
 	t.Setenv("ASTRA_QUADROS", "")
 	if e := NovaEntrega(); e != nil {
 		t.Fatal("subiu cano sem endereço")
 	}
-	// E o nulo tem de aguentar ser usado: é o que evita um `if` em todo lugar que
-	// entrega quadro.
+
 	var nula *EntregaDeQuadros
 	nula.Mandar("alguem", Quadro{Dados: []byte{1, 2, 3}})
 	nula.Fechar()

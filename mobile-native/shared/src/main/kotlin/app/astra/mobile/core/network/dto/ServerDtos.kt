@@ -18,9 +18,7 @@ data class ServerDto(
     val inviteCode: String? = null,
     val isPublic: Boolean = false,
     val isGroup: Boolean = false,
-    // Órbita onde a bot fala sem ser chamada. null = ela escolhe sozinha.
     val botNoticeChannelId: String? = null,
-    // Comandos da bot DESLIGADOS aqui, separados por virgula. Vazio = tudo ligado.
     val botDisabledCommands: String? = null,
     val channels: List<ChannelDto> = emptyList(),
     val categories: List<CategoryDto> = emptyList(),
@@ -36,13 +34,7 @@ data class ChannelDto(
     val categoryId: String? = null,
     val position: Int = 0,
     val lastMessageAt: String? = null,
-    // null = "nao decidi": herda da categoria e, sem categoria, fica LIGADO.
-    // Nao e o mesmo que false — sem o nulo nao daria pra desligar uma categoria
-    // inteira e reativar uma orbita dentro dela.
     val botEnabled: Boolean? = null,
-    // Guardar a conversa com a bot (comando + resposta) no historico da orbita.
-    // Sem nulo: aqui nao ha heranca de categoria, cada orbita decide a sua. O
-    // default true vale tambem pro backend antigo, que nao manda este campo.
     val botKeepReplies: Boolean = true,
 )
 
@@ -71,12 +63,7 @@ data class UpdateServerRequest(
     val description: String? = null,
     val messageRetentionDays: Int? = null,
     val isPublic: Boolean? = null,
-    // Órbita dos avisos da bot. Campo nulo não vai no corpo (encodeDefaults=false),
-    // então "voltar ao automático" se manda como STRING VAZIA — o backend traduz
-    // vazio em nulo. Sem essa distinção não haveria como desfazer a escolha.
     val botNoticeChannelId: String? = null,
-    // Lista COMPLETA do que fica desligado (nao um delta): mandar a lista inteira
-    // evita ter que inventar "adiciona" e "remove" pra um conjunto de meia duzia.
     val botDisabledCommands: List<String>? = null,
 )
 
@@ -109,22 +96,12 @@ data class ChannelVisibilityRequest(
 @Serializable
 data class UpdateChannelNameRequest(val name: String)
 
-// Liga/desliga a bot NESTA orbita. So true/false: com explicitNulls=false o null
-// sumiria do JSON e o backend leria "nao mudar" — entao "voltar a herdar da
-// categoria" nao tem como ser expresso por aqui, e a decisao vira definitiva
-// pra esta orbita. E o comportamento certo mesmo: quem decidiu na mao, decidiu.
 @Serializable
 data class UpdateChannelBotRequest(val botEnabled: Boolean)
 
-// Guardar (ou nao) a conversa com a bot nesta orbita.
 @Serializable
 data class UpdateChannelKeepRequest(val botKeepReplies: Boolean)
 
-// Reordenar / mover canal (drag na sidebar). O backend (PATCH .../channels/:cid) aceita
-// name/categoryId/position. position = ordem na secao; categoryId != null MOVE pra dentro
-// da categoria. categoryId fica null (default) no reorder simples e, com explicitNulls=false
-// (AppModule), e OMITIDO -> backend mantem a categoria atual. NAO da pra mandar null explicito
-// (mover pra "solta") por causa disso — caso deferido.
 @Serializable
 data class MoveChannelRequest(val position: Int, val categoryId: String? = null)
 
@@ -176,13 +153,6 @@ data class MemberUserDto(
 @Serializable
 data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 
-// `activity` nulo = a pessoa parou de mostrar (desligou, fechou o app, ou o
-// registro venceu no servidor). Nulo e string vazia significam a mesma coisa aqui,
-// e quem consome trata os dois como "apaga a linha".
-// `since` = epoch em ms de quando a pessoa ABRIU aquilo. Vem do servidor e nao do
-// relogio local porque ele so muda quando a ATIVIDADE muda: a renovacao de 45s que
-// segura o registro vivo reenvia o mesmo instante. Calcular aqui zeraria o
-// cronometro tres vezes por minuto.
 @Serializable
 data class ActivityUpdateDto(
     val userId: String,
@@ -190,25 +160,16 @@ data class ActivityUpdateDto(
     val since: Long? = null,
 )
 
-// O que a pessoa esta usando AGORA, com desde quando. Um par e nao duas colunas
-// paralelas: texto sem instante (ou instante sem texto) nao existe, e manter dois
-// mapas em sincronia e o tipo de coisa que sai do lugar num caminho de erro.
 @Serializable
 data class AtividadeDto(val text: String, val since: Long = 0L)
 
-// Aviso de que algo mudou numa constelacao (server_channels / server_members /
-// server_joined). So carrega o id: e um PING pra refazer a busca, nao um delta —
-// canal privado faz cada membro ver uma lista diferente, e so o backend sabe qual.
 @Serializable
 data class ServerScopedEventDto(
     val serverId: String,
-    // So no server_left: 'expulso' | 'banido' | 'saiu'. Com default porque os
-    // outros eventos que usam este DTO (server_gone, roles, etc.) nao mandam.
     val motivo: String = "saiu",
     val reason: String? = null,
 )
 
-// Um comando do bot, como o backend descreve (lib/bot.ts).
 @Serializable
 data class BotCommandDto(
     val name: String,

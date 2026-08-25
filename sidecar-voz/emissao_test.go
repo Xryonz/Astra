@@ -8,12 +8,6 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// coletor é o destino dos eventos no teste: o `Escritor` de verdade, escrevendo num
-// io.Writer que decodifica cada linha de volta para Evento.
-//
-// NUNCA BLOQUEIA, e isso é o que importa: o `Escritor` é chamado de dentro do laço da
-// transmissão, então um canal cheio travaria o laço e `Desligar` esperaria para sempre
-// — um teste que pendura em vez de falhar.
 type coletor struct{ para chan Evento }
 
 func (c coletor) Write(p []byte) (int, error) {
@@ -27,14 +21,6 @@ func (c coletor) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// O PERFIL LIDO DO PRÓPRIO FLUXO.
-//
-// Vale um teste porque o erro aqui é MUDO: um parser errado devolve "não achei", o
-// emissor não reporta perfil nenhum, e ninguém percebe até o outro lado não conseguir
-// decodificar — em outra fatia, noutro dia, com outra suspeita.
-//
-// Os dois códigos de início convivem no mesmo fluxo do Media Foundation (quatro bytes
-// antes da sequência de parâmetros, três antes das fatias), então os dois entram aqui.
 func TestPerfilSaiDoSPS(t *testing.T) {
 	casos := []struct {
 		nome   string
@@ -44,7 +30,7 @@ func TestPerfilSaiDoSPS(t *testing.T) {
 	}{
 		{
 			nome: "codigo de quatro bytes",
-			// 00 00 00 01 | 67 (NAL tipo 7 = SPS) | 42 e0 1f = Baseline restrito 3.1
+
 			fluxo:  []byte{0, 0, 0, 1, 0x67, 0x42, 0xe0, 0x1f, 0xAB, 0xCD},
 			quer:   "42e01f",
 			espera: true,
@@ -52,24 +38,22 @@ func TestPerfilSaiDoSPS(t *testing.T) {
 		{
 			nome:   "codigo de tres bytes",
 			fluxo:  []byte{0, 0, 1, 0x67, 0x64, 0x00, 0x20, 0xFF},
-			quer:   "640020", // High 3.2, que é o que uma placa pode emitir sozinha
+			quer:   "640020",
 			espera: true,
 		},
 		{
-			// O CASO QUE IMPORTA: o SPS não é o primeiro NAL. Um parser que só olha o
-			// começo do buffer passaria nos dois casos acima e falharia na vida real,
-			// onde o delimitador de unidade de acesso costuma vir na frente.
+
 			nome: "SPS depois de outro NAL",
 			fluxo: []byte{
-				0, 0, 0, 1, 0x09, 0x10, // delimitador (tipo 9)
-				0, 0, 0, 1, 0x67, 0x4d, 0x40, 0x1f, // SPS: Main 3.1
+				0, 0, 0, 1, 0x09, 0x10,
+				0, 0, 0, 1, 0x67, 0x4d, 0x40, 0x1f,
 			},
 			quer:   "4d401f",
 			espera: true,
 		},
 		{
 			nome:   "sem SPS nenhum",
-			fluxo:  []byte{0, 0, 0, 1, 0x41, 0x9A, 0x22, 0x11}, // só uma fatia (tipo 1)
+			fluxo:  []byte{0, 0, 0, 1, 0x41, 0x9A, 0x22, 0x11},
 			espera: false,
 		},
 		{
@@ -92,15 +76,6 @@ func TestPerfilSaiDoSPS(t *testing.T) {
 	}
 }
 
-// A TRANSMISSÃO DE VERDADE, do monitor até a faixa.
-//
-// Não confere pixel: confere que o caminho INTEIRO fecha — captura, compressor,
-// juntar os pedaços num quadro, e o pion aceitar a amostra. É o que separa "compila"
-// de "sai byte pela rede", que era exatamente o que faltava neste projeto.
-//
-// Sem conexão nenhuma na faixa de propósito: um `TrackLocalStaticSample` solto engole
-// a amostra em silêncio, e é justamente esse o caso de quem começa a compartilhar
-// antes de o primeiro convidado chegar.
 func TestEmissorTransmiteDeVerdade(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
@@ -110,9 +85,6 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 		t.Fatalf("criar faixa: %v", err)
 	}
 
-	// Os eventos são recolhidos para o relatório — inclusive o perfil, que é o número
-	// que esta fatia precisa conferir antes de existir alguém do outro lado para
-	// reclamar dele.
 	recolhidos := make(chan Evento, 256)
 	e := NovoEmissor(faixa, NewEscritor(coletor{recolhidos}), nil)
 
@@ -136,8 +108,6 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 		}
 	}
 
-	// O RETRATO ANTES DO VEREDITO, mesma regra do banco de provas: qual compressor
-	// pegou e em que perfil é o que separa um defeito do outro.
 	t.Logf("subiu: %s", subiu)
 	t.Logf("perfil no fluxo: %s (a faixa declara 42e01f)", perfil)
 	t.Logf("ritmo: %s", ritmo)
@@ -155,18 +125,6 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 		t.Fatal("nenhum SPS no fluxo: o outro lado não teria como começar a decodificar")
 	}
 
-	// CONFERE O PERFIL E O NÍVEL, E NÃO OS TRÊS BYTES.
-	//
-	// O byte do meio são as bandeiras de restrição, e ele NÃO precisa bater. A faixa
-	// declara `42e01f` (Baseline restrito: bandeiras 0, 1 e 2) e o compressor emite
-	// `42401f` (só a 1). São o mesmo perfil e o mesmo nível — Baseline 3.1 —, e um
-	// fluxo Baseline de compressor de placa não usa as três coisas que a restrição
-	// exclui (ordem de fatia arbitrária, grupos de macroblocos, fatias redundantes).
-	// Qualquer decodificador que aceita `42e01f` decodifica isto.
-	//
-	// O que NÃO pode divergir é o primeiro byte: com High (0x64) no fluxo, um
-	// decodificador que confiou na declaração não abre a imagem. Foi exatamente o que
-	// este teste pegou antes de existir alguém do outro lado para reclamar.
 	if perfil[:2] != "42" {
 		t.Errorf("o compressor emite perfil %s e a faixa declara Baseline (42e01f) — "+
 			"pedir o perfil em `configurarSaida` parou de funcionar", perfil[:2])

@@ -75,7 +75,6 @@ fun DmChatScreen(
     var gifOpen by remember { mutableStateOf(false) }
     var emojiOpen by remember { mutableStateOf(false) }
 
-    // Outro lado aceitou a ligacao -> entra na sala.
     LaunchedEffect(Unit) {
         viewModel.joinCall.collect { onJoinCall(viewModel.conversationId, viewModel.otherName) }
     }
@@ -97,7 +96,6 @@ fun DmChatScreen(
         }
     }
 
-    // Conteudo do Direct Share (texto vira rascunho, imagem vira anexo).
     LaunchedEffect(Unit) {
         val share = DeepLinkBus.pendingShare.value ?: return@LaunchedEffect
         if (share.conversationId != viewModel.conversationId) return@LaunchedEffect
@@ -118,7 +116,6 @@ fun DmChatScreen(
                 marginalia = if (state.ringing) "chamando..." else "sussurro",
                 onBack = onBack,
                 trailing = {
-                    // Sino: silencia/reativa a conversa (icone cortado = mutada).
                     Box(
                         modifier = Modifier
                             .size(36.dp)

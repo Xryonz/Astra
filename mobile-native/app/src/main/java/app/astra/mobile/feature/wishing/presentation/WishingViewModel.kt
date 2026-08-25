@@ -82,8 +82,6 @@ class WishingViewModel @Inject constructor(
                     load()
                 }
                 .onFailure { e ->
-                    // Mostra a mensagem real do backend (ex: rate limit de 3 desejos
-                    // por 10min) em vez de um generico que parece bug.
                     val msg = (e as? HttpException)?.response()?.errorBody()?.string()?.let {
                         runCatching { json.decodeFromString<ApiError>(it).error }.getOrNull()
                     } ?: "Nao foi possivel pendurar o desejo"

@@ -12,10 +12,6 @@ import androidx.core.graphics.drawable.IconCompat
 import app.astra.mobile.MainActivity
 import app.astra.mobile.R
 
-// Notificacao conversacional de DM (MessagingStyle): avatar + historico da
-// conversa + campo "Responder" direto na bandeja, como WhatsApp/Discord.
-// Compartilhado entre o service FCM (mensagem recebida) e o ReplyReceiver
-// (eco da propria resposta, que encerra o spinner do RemoteInput).
 object DmNotifier {
     const val KEY_REPLY = "astra_reply"
     const val EXTRA_CONV_ID = "conversationId"
@@ -26,13 +22,12 @@ object DmNotifier {
         context: Context,
         conversationId: String,
         text: String,
-        sender: String?, // null/blank = mensagem do proprio user (eco do reply)
+        sender: String?,
         senderIcon: IconCompat?,
     ) {
         PushChannels.ensure(context)
         val id = notifId(conversationId)
 
-        // Continua a conversa ja aberta na bandeja em vez de empilhar avisos.
         val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val existing = mgr.activeNotifications.firstOrNull { it.id == id }?.notification
         val me = Person.Builder().setName("Você").build()
@@ -41,7 +36,7 @@ object DmNotifier {
             ?: NotificationCompat.MessagingStyle(me)
 
         val person = if (sender.isNullOrBlank()) {
-            null // null = mensagem do proprio user
+            null
         } else {
             Person.Builder().setName(sender).setIcon(senderIcon).build()
         }
@@ -59,7 +54,6 @@ object DmNotifier {
         val replyPending = PendingIntent.getBroadcast(
             context, id,
             Intent(context, ReplyReceiver::class.java).putExtra(EXTRA_CONV_ID, conversationId),
-            // MUTABLE: o sistema escreve o texto do RemoteInput dentro do intent.
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
         val replyAction = NotificationCompat.Action.Builder(R.drawable.ic_stat_astra, "Responder", replyPending)
@@ -80,7 +74,6 @@ object DmNotifier {
         try {
             NotificationManagerCompat.from(context).notify(id, built)
         } catch (_: SecurityException) {
-            // POST_NOTIFICATIONS negada — nada a fazer.
         }
     }
 }

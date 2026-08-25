@@ -153,7 +153,6 @@ fun ServerEmojisScreen(
         }
     }
 
-    // Adicionar: escolheu imagem -> pede o nome.
     NameEmojiDialog(
         open = pendingBytes != null,
         onConfirm = { name ->
@@ -163,7 +162,6 @@ fun ServerEmojisScreen(
         onDismiss = { pendingBytes = null },
     )
 
-    // Editar: renomear ou apagar.
     editing?.let { e ->
         AstraDialog(
             open = true,

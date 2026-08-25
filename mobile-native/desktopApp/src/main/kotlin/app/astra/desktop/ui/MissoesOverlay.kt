@@ -62,26 +62,13 @@ import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
 
-// A TELA DE MISSOES.
-//
-// Tres blocos com ritmos diferentes, na ordem em que importam: o que vira hoje, o
-// que vira na semana, e o que nunca vira. Quem abre isto quer saber "o que da pra
-// fazer agora" — e por isso as diarias vem primeiro, mesmo pagando menos.
-//
-// Sem abas por enquanto. O passe e a colecao vao morar aqui quando existirem;
-// desenhar abas vazias agora seria prometer duas telas que ainda nao ha.
-
 private const val MIN_MS  = 60_000L
 private const val HORA_MS = 3_600_000L
 private const val DIA_MS  = 86_400_000L
 
-// Cascata de entrada. 40ms e o intervalo em que as linhas ainda leem como uma
-// sequencia; abaixo disso viram um bloco so, acima viram uma fila.
 private const val ATRASO_MS = 40L
 private const val TETO_CASCATA = 11
 
-// "renova em 6h" e melhor que uma hora exata: ninguem planeja o dia pelo minuto em
-// que a missao vira, mas todo mundo entende "ainda da tempo".
 private fun faltando(alvoMs: Long, agoraMs: Long): String {
     val d = alvoMs - agoraMs
     return when {
@@ -102,13 +89,8 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
     val visualXp = rememberVisualDeXp(xpStore)
     LaunchedEffect(Unit) { xpStore.recarregar() }
 
-    // Busca toda vez que abre. O socket mantem o "concluida" em dia sozinho, mas o
-    // progresso PARCIAL (2 de 5) so a busca sabe — e a hora de saber e agora, que e
-    // quando alguem esta olhando.
     LaunchedEffect(Unit) { store.recarregar() }
 
-    // Um tique por minuto so pra contagem regressiva. Mais rapido que isso seria
-    // recompor a tela inteira pra mudar um texto que nem muda.
     var agora by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) { delay(MIN_MS); agora = System.currentTimeMillis() }
@@ -129,16 +111,12 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                 .clip(RoundedCornerShape(14.dp))
                 .background(Obsidian.overlay)
                 .border(1.dp, Obsidian.borderMid, RoundedCornerShape(14.dp))
-                // Engole o clique: sem isto, clicar dentro do cartao fecharia a tela
-                // pelo backdrop de tras.
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 14.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // "Sua jornada", e não mais "missões": a tela deixou de ser só a
-                // lista de tarefas quando ganhou o estado da conta em cima.
                 Text(
                     "sua jornada",
                     style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif),
@@ -146,9 +124,6 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                 Spacer(Modifier.weight(1f))
                 BotaoFechar(onClose)
             }
-            // CARTÃO DENTRO DO CARTÃO: o estado da conta mora num degrau acima do
-            // painel, e é o que separa "quem você é aqui" da lista do que falta
-            // fazer — sem precisar de traço entre os dois.
             EstadoDaConta(me, progresso, visualXp)
 
             val p = painel
@@ -165,16 +140,11 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 14.dp),
             ) {
-                // A ordem CONTINUA de bloco pra bloco: a cascata varre o painel
-                // inteiro de cima a baixo, uma vez. Reiniciar em cada secao faria
-                // tres animacoes competindo, e o olho perderia o fio.
                 val depoisDoBonus = p.diarias.itens.size + 1
                 val depoisDaSemana = depoisDoBonus + p.semanais.itens.size
 
                 Secao("hoje", faltando(p.diarias.renovaEm, agora))
                 p.diarias.itens.forEachIndexed { i, m -> LinhaDeMissao(m, i) }
-                // O bonus fica visualmente preso as tres de cima (sem espaco antes):
-                // ele nao e uma quarta missao, e a consequencia daquelas tres.
                 LinhaDeMissao(p.diarias.bonus, depoisDoBonus - 1, bonus = true)
 
                 Spacer(Modifier.height(22.dp))
@@ -189,16 +159,6 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
     }
 }
 
-// O estado da conta: quem você é, em que nível está e quanto falta pro próximo.
-//
-// O anel em volta da foto é o MESMO do rodapé (anelDeXp + rememberVisualDeXp), e
-// isso importa: a pessoa vê aquele anel o dia inteiro no canto da tela sem saber
-// o que ele mede. Aqui ele aparece grande, ao lado do número — é onde o anel
-// finalmente se explica.
-//
-// A barra embaixo repete a mesma fração de propósito. O anel é bonito e vago; a
-// barra com "340 / 500" é a leitura exata. Quem quer sentir olha o anel, quem
-// quer saber lê a barra.
 @Composable
 private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDeXp) {
     val nome = me?.displayName ?: me?.username ?: "você"
@@ -238,7 +198,6 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
                 maxLines = 1,
             )
             Spacer(Modifier.height(8.dp))
-            // Trilho fino, do mesmo vocabulário da barra do gate de boot.
             val fracao = fracaoDe(p)
             Canvas(Modifier.fillMaxWidth().height(3.dp)) {
                 val r = CornerRadius(size.height / 2f)
@@ -277,9 +236,6 @@ private fun Secao(titulo: String, direita: String) {
     }
 }
 
-// Uma missao. A barra de progresso e uma HAIRLINE debaixo do titulo, nao um bloco:
-// oito barras grossas empilhadas viram um painel de jogo mobile, e a estetica daqui
-// e editorial. A linha fina diz a mesma coisa e some quando nao e olhada.
 @Composable
 private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) {
     val hover = remember { MutableInteractionSource() }
@@ -287,9 +243,6 @@ private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) 
     val reduzir = LocalReduceMotion.current
     val alvoFracao = if (m.alvo <= 0) 0f else (m.progresso.toFloat() / m.alvo).coerceIn(0f, 1f)
 
-    // Cascata: cada linha entra ATRASO_MS depois da de cima, subindo 8dp. O teto
-    // existe porque a lista de conquistas cresce — sem ele, a decima quinta linha
-    // entraria meio segundo depois da primeira e a "cascata" viraria espera.
     val entrada = remember { Animatable(if (reduzir) 1f else 0f) }
     val fracao = remember { Animatable(if (reduzir) alvoFracao else 0f) }
     var jaEntrou by remember { mutableStateOf(reduzir) }
@@ -303,13 +256,11 @@ private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) 
             entrada.animateTo(1f, tween(240, easing = EaseOutStd))
             jaEntrou = true
         }
-        // A barra corre DEPOIS que a linha pousa. Ver o progresso acontecer e o
-        // ponto da coisa, e ele se perde se disputar atencao com a entrada.
         fracao.animateTo(alvoFracao, tween(480, easing = EaseOutSoft))
     }
 
     val corTitulo = when {
-        m.concluida -> Obsidian.text3      // feito sai do caminho, nao vira troféu
+        m.concluida -> Obsidian.text3
         sobHover    -> Obsidian.text1
         else        -> Obsidian.text2
     }
@@ -317,7 +268,6 @@ private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) 
     Row(
         Modifier
             .fillMaxWidth()
-            // Fase de desenho: a cascata nao recompoe a linha, so redesenha.
             .graphicsLayer {
                 alpha = entrada.value
                 translationY = (1f - entrada.value) * 8.dp.toPx()
@@ -337,8 +287,6 @@ private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) 
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(6.dp))
-            // Trilho + preenchimento na fase de DESENHO. Um Box com width animada
-            // relayoutaria a linha 60x por segundo durante a animacao.
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -374,8 +322,6 @@ private fun LinhaDeMissao(m: ItemMissaoDto, ordem: Int, bonus: Boolean = false) 
     }
 }
 
-// Circulo vazio -> circulo cheio com tique. O estado "feito" precisa ser legivel de
-// relance, sem ler o texto: e assim que alguem varre a lista procurando o que falta.
 @Composable
 private fun Marcador(concluida: Boolean) {
     Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
@@ -414,8 +360,6 @@ private fun BotaoFechar(onClose: () -> Unit) {
     }
 }
 
-// Retangulo arredondado alinhado a esquerda, na fase de desenho. Existe pra a barra
-// nao precisar de um Canvas nem de um Box com width variavel.
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRoundRectSimples(
     cor: Color, largura: Float, altura: Float,
 ) {

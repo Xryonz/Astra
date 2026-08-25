@@ -6,27 +6,6 @@ import { haBloqueio } from './blocks'
 import { getBotId } from './bot'
 import { entregarSussurro } from './realtime'
 
-// CHAMADA DE VOZ/VIDEO NO SUSSURRO.
-//
-// A sala do LiveKit (`dm:<conversationId>`) e o token dela ja existiam em
-// routes/voice.ts, e o WEB ja falava um protocolo de toque (invite/accept/reject)
-// direto no socket.ts. Estes MESMOS eventos continuam aqui, com o mesmo formato,
-// justamente pra web e desktop conseguirem se ligar um pro outro — um protocolo
-// novo em paralelo daria dois jeitos de fazer a mesma coisa, e um deles ficaria
-// velho.
-//
-// O que o relay antigo nao tinha, e e o motivo deste arquivo existir:
-//
-//   1. ESTADO. Ninguem sabia que havia chamada em curso, entao nao havia como
-//      desistir depois de um tempo nem como gravar o que aconteceu.
-//   2. CRONOMETRO no servidor. Se ele morasse no app de quem ligou, fechar o app
-//      durante o toque deixaria o outro tocando pra sempre e nenhuma chamada
-//      perdida seria gravada — que e exatamente a chamada que importa.
-//   3. DESTINATARIO derivado da conversa. O relay confiava no `toUserId` que o
-//      cliente mandava: bastava estar em UMA conversa qualquer pra tocar o
-//      telefone de qualquer pessoa do app. Agora o outro lado sai da conversa.
-//   4. BLOQUEIO. Quem foi bloqueado nao toca o telefone de ninguem.
-
 const TOQUE_MS = 45_000
 
 type Chamada = {
@@ -62,19 +41,10 @@ function rotuloDeDuracao(seg: number): string {
   return `${Math.floor(min / 60)}h ${min % 60}min`
 }
 
-// A linha que fica no historico.
-//
-// O `content` vai com texto humano ALEM do JSON: a previa da lista de sussurros,
-// o celular e o web nao conhecem a coluna `call` e mostrariam vazio pra uma
-// chamada perdida. Com o texto, quem nao entende o formato novo ainda le a coisa
-// certa — mesma ideia do `type` da figurinha.
 async function gravarRegistro(io: SocketServer, c: Chamada, fim: FimDaChamada) {
   const duracaoSeg = c.atendidaEm ? Math.max(1, Math.round((Date.now() - c.atendidaEm) / 1000)) : 0
   const texto = fim === 'ended' ? `Chamada de ${rotuloDeDuracao(duracaoSeg)}` : 'Chamada perdida'
 
-  // Guarda como texto (e uma coluna text, igual ao `poll`) mas VIAJA como objeto:
-  // o cliente nao deve ter dois formatos pra mesma coisa dependendo de a linha ter
-  // vindo pelo socket ou do historico.
   const registro = { status: fim, video: c.video, durationSec: duracaoSeg }
 
   const [inserida] = await db.insert(directMessages).values({
@@ -91,8 +61,6 @@ async function gravarRegistro(io: SocketServer, c: Chamada, fim: FimDaChamada) {
     displayName: users.displayName, avatarUrl: users.avatarUrl,
   }).from(users).where(eq(users.id, c.quemLigou)).limit(1)
 
-  // Mesmo evento das mensagens normais: quem esta com a conversa aberta ve a
-  // linha aparecer na hora, sem caminho novo no cliente.
   entregarSussurro(io, c.conversationId, [c.quemLigou, c.quemRecebe], 'new_dm', {
     ...inserida, call: registro, attachments: [], replyTo: null, author: autor,
   })
@@ -107,9 +75,6 @@ async function encerrar(io: SocketServer, conversationId: string, fim: FimDaCham
   clearTimeout(c.relogio)
 
   for (const quem of [c.quemLigou, c.quemRecebe]) {
-    // `dm_call_reject` e o evento que o WEB escuta pra fechar o modal e parar o
-    // toque; `dm_call_ended` e o rico, com o desfecho. Os dois saem pra os dois
-    // lados — a pessoa pode ter o Astra aberto em mais de um lugar.
     io.to(`user:${quem}`).emit('dm_call_reject', { conversationId, byUserId: c.quemRecebe })
     io.to(`user:${quem}`).emit('dm_call_ended', { conversationId, status: fim })
   }
@@ -118,8 +83,6 @@ async function encerrar(io: SocketServer, conversationId: string, fim: FimDaCham
 }
 
 export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userId: string) {
-  // `toUserId` continua sendo aceito no corpo (o web manda), mas e IGNORADO: o
-  // destinatario sai da conversa.
   socket.on('dm_call_invite', async (p: { conversationId?: string; video?: boolean }) => {
     const conversationId = String(p?.conversationId ?? '')
     if (!conversationId) return
@@ -128,23 +91,12 @@ export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userI
     if (!lados) return
     if (await haBloqueio(lados.eu, lados.outro)) return
 
-    // A BOT NAO ATENDE TELEFONE. Ela e uma conta de verdade no banco, entao o
-    // sussurro com ela tinha os mesmos botoes de qualquer sussurro — e ligar
-    // deixava a pessoa ouvindo chamada pra sempre, porque do outro lado nao ha
-    // ninguem pra atender. Chamada e coisa de gente.
-    //
-    // A tela ja esconde os botoes; isto aqui existe porque esconder botao nao e
-    // proibir acao: qualquer cliente antigo (ou um socket na mao) ainda mandaria
-    // o convite. Devolve `dm_call_ended` pra quem ligou em vez de calar: o
-    // cronometro dele fecha na hora, e nada e gravado no historico.
     const botId = await getBotId()
     if (botId && lados.outro === botId) {
       io.to(`user:${lados.eu}`).emit('dm_call_ended', { conversationId, status: 'missed' })
       return
     }
 
-    // Segundo invite na mesma conversa e ruido: duplo clique, ou os dois ligando
-    // ao mesmo tempo. O primeiro vale.
     if (emCurso.has(conversationId)) return
 
     const video = !!p?.video
@@ -162,16 +114,12 @@ export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userI
     }).from(users).where(eq(users.id, lados.eu)).limit(1)
 
     io.to(`user:${lados.outro}`).emit('dm_call_invite', {
-      // Os quatro primeiros campos sao o contrato que o web ja consome.
       conversationId,
       fromUserId:      lados.eu,
       fromUsername:    quem?.username ?? socket.data?.username ?? '',
       fromDisplayName: quem?.displayName ?? socket.data?.displayName ?? '',
-      // Daqui pra baixo e o que o desktop usa a mais.
       fromAvatarUrl:   quem?.avatarUrl ?? null,
       video,
-      // Quanto ainda falta pra desistir: se a tela abrir no meio do toque, ela
-      // desenha o tempo certo em vez de recomecar a contagem.
       msRestantes:     TOQUE_MS,
     })
   })
@@ -179,8 +127,6 @@ export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userI
   socket.on('dm_call_accept', async (p: { conversationId?: string }) => {
     const conversationId = String(p?.conversationId ?? '')
     const c = emCurso.get(conversationId)
-    // So quem ESTA sendo chamado atende. Sem isto, quem ligou poderia "atender" a
-    // propria chamada e zerar o cronometro do toque.
     if (!c || c.quemRecebe !== userId || c.atendidaEm) return
 
     c.atendidaEm = Date.now()
@@ -190,10 +136,6 @@ export function registrarChamadasDeSussurro(io: SocketServer, socket: any, userI
     }
   })
 
-  // Recusar, desistir e desligar caem no mesmo lugar. O desfecho nao vem do
-  // BOTAO, vem do estado: se ninguem tinha atendido ate aqui, foi perdida.
-  // Recusa nao vira registro proprio de proposito — dizer "recusada" no
-  // historico so serviria pra constranger quem recusou. O Discord faz igual.
   const desligar = async (p: { conversationId?: string }) => {
     const conversationId = String(p?.conversationId ?? '')
     const c = emCurso.get(conversationId)

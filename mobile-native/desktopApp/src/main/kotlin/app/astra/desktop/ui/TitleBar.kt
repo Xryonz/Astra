@@ -65,9 +65,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 
-// Barra-titulo obsidiana da janela frameless: arrasta a janela, minimiza,
-// maximiza/restaura e fecha — estilo Discord, pele Astra. Com sessão ativa,
-// ganha lupa (busca) e sino (notificações, com badge).
 @Composable
 fun WindowScope.AstraTitleBar(
     state: WindowState,
@@ -78,7 +75,6 @@ fun WindowScope.AstraTitleBar(
     onOpenNotifications: () -> Unit = {},
     onOpenMissions: () -> Unit = {},
     onOpenDesejos: () -> Unit = {},
-    // null = não há atualização pendente (o ponto nem nasce).
     atualizacao: UpdateService? = null,
 ) {
     WindowDraggableArea {
@@ -96,27 +92,14 @@ fun WindowScope.AstraTitleBar(
             )
             Spacer(Modifier.weight(1f))
             if (showActions) {
-                // Aviso de atualização: um PONTO à esquerda da lupa, e o card se abre
-                // na horizontal a partir dele (pedido do dono). Fica aqui e não no
-                // rodapé porque a barra é onde já moram os avisos do app — o canto
-                // inferior era um segundo lugar pra "olhe isto" sem nada que ligasse
-                // um ao outro.
                 atualizacao?.let { PontoDeAtualizacao(it) }
                 TitleBarButton(Lucide.Search, "Buscar", onClick = onOpenSearch)
                 TitleBarBell(notifUnread, onClick = onOpenNotifications)
-                // Missoes por ultimo dos tres: e o menos frequente. Busca e sino sao
-                // reacao a alguma coisa; missao e quando a pessoa QUER olhar.
                 TitleBarButton(Lucide.Target, "Missões", onClick = onOpenMissions)
-                // Desejos por ultimo: e o menos frequente dos quatro. Busca e sino sao
-                // reacao; missao e progresso proprio; desejo e curiosidade sobre o que
-                // os outros pediram — o unico que ninguem abre com pressa.
                 TitleBarButton(Lucide.Sparkles, "Estrela dos desejos", onClick = onOpenDesejos)
             }
             TitleBarButton(Lucide.Minus, "Minimizar") { state.isMinimized = true }
             val maximizada = state.placement == WindowPlacement.Maximized
-            // O rotulo acompanha o icone: o botao alterna, e anunciar "Maximizar"
-            // com a janela ja maximizada seria o leitor de tela dizendo o contrario
-            // do que o clique faz.
             TitleBarButton(
                 if (maximizada) Lucide.Copy else Lucide.Square,
                 if (maximizada) "Restaurar" else "Maximizar",
@@ -129,8 +112,6 @@ fun WindowScope.AstraTitleBar(
     }
 }
 
-// Sino com badge de não-lidas (bolinha ambar com contagem). Mesma pegada do
-// TitleBarButton, com o badge sobreposto no canto.
 @Composable
 private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
@@ -146,8 +127,6 @@ private fun TitleBarBell(unread: Int, onClick: () -> Unit) {
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        // A contagem entra no NOME, e nao so no badge: a bolinha ambar e a unica
-        // pista de que ha algo novo, e ela e puramente visual.
         LIcon(
             Lucide.Bell,
             tint = if (unread > 0) Obsidian.text1 else Obsidian.text2,
@@ -201,21 +180,6 @@ private fun TitleBarButton(
     }
 }
 
-// PONTO DE ATUALIZACAO + card horizontal.
-//
-// O card antigo morava no canto inferior direito com 240dp de largura e tres
-// linhas. Aqui ele nao cabe em altura, entao vira uma FAIXA: uma linha so, mais
-// larga, na altura da barra. Nada de conteudo se perdeu — o que era empilhado
-// virou sequencia, que e o que uma barra comporta.
-//
-// O ponto vem ANTES do card (pedido do dono): fechado, o aviso ocupa 7dp e nao
-// disputa com nada; aberto, ele se desenrola na horizontal a partir dali. Um card
-// permanentemente aberto na barra seria uma tarja fixa dizendo a mesma coisa o dia
-// inteiro — e aviso que nao se pode encolher vira moldura.
-//
-// Cresce PRA ESQUERDA (expandFrom = End) porque a direita esta ocupada pela lupa,
-// pelo sino e pelos botoes da janela. Crescer pra cima deles cobriria controles em
-// uso; a esquerda e o vazio da barra, que existe justamente pra isso.
 @Composable
 private fun PontoDeAtualizacao(updater: UpdateService) {
     val st by updater.state.collectAsState()
@@ -271,9 +235,6 @@ private fun PontoDeAtualizacao(updater: UpdateService) {
                 }
             }
         }
-        // O ponto PULSA so enquanto ha algo a fazer, e para quando o card esta
-        // aberto: uma vez que voce olhou, o pisca-pisca so continuaria pedindo
-        // atencao pra uma coisa que ja tem a sua.
         val reduzir = LocalReduceMotion.current
         val brilho = if (reduzir || aberto) 1f else {
             val t = rememberInfiniteTransition(label = "updDot")

@@ -90,8 +90,6 @@ class ProfileEditViewModel @Inject constructor(
         if (s.saving || !s.dirty) return
         _state.update { it.copy(saving = true, error = null, saved = false) }
         viewModelScope.launch {
-            // Recado tem endpoint proprio (nao vai no updateProfile). Salva antes;
-            // se falhar, para e nao mexe no resto.
             val recado = s.customStatus.trim()
             if (recado != s.origCustomStatus) {
                 try {
@@ -114,8 +112,6 @@ class ProfileEditViewModel @Inject constructor(
                 bannerScale = s.bannerScale.takeIf { it != s.origBannerScale },
                 displayFont = s.displayFont.takeIf { it != s.origDisplayFont },
             )
-                // customStatus/orig fixados no valor salvo: o updateProfile nao
-                // retorna o recado, entao applyProfile(p) o zeraria.
                 .onSuccess { p -> _state.update { applyProfile(it, p).copy(saved = true, saving = false, customStatus = recado, origCustomStatus = recado) } }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.message) } }
         }

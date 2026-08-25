@@ -10,8 +10,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-// Soundboard. O arquivo em si sobe pelo /api/upload de sempre; estas rotas so
-// registram, listam, apagam e avisam "tocou".
 interface SoundApi {
     @GET("api/sounds/{serverId}")
     suspend fun listar(@Path("serverId") serverId: String): SoundsResponse
@@ -28,7 +26,6 @@ interface SoundApi {
         @Path("soundId") soundId: String,
     )
 
-    // Nao devolve audio: dispara o evento pra sala da orbita e cada cliente toca.
     @POST("api/sounds/{serverId}/{soundId}/play")
     suspend fun tocar(
         @Path("serverId") serverId: String,

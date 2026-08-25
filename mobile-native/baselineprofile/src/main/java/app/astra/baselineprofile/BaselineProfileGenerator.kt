@@ -6,10 +6,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-// Journey de startup: abrir o app frio e deixar a primeira tela assentar
-// (splash -> auth ou home). Tudo que executar aqui vira AOT no APK final.
-// Nao loga em conta nenhuma: o ganho esta na inicializacao do Compose, Hilt,
-// rede e navegacao, que rodam antes de qualquer sessao.
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
 
@@ -22,7 +18,6 @@ class BaselineProfileGenerator {
             pressHome()
             startActivityAndWait()
             device.waitForIdle()
-            // Da tempo da composicao inicial + primeiras chamadas de rede.
             Thread.sleep(4_000)
         }
     }

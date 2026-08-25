@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
@@ -92,9 +91,6 @@ bansRouter.post(
       ))
     })
     void invalidateMembersCache(serverId)
-    // Duas pontas: a constelacao ve o membro sumir da lista, e quem foi banido ve
-    // a constelacao sumir da rail. Sem a segunda, a pessoa continua com o icone
-    // la e cada clique so devolve erro — o pior tipo de "nao atualizou".
     membersChanged(serverId)
     leftServer(userId, serverId, 'banido', reason ?? null)
 

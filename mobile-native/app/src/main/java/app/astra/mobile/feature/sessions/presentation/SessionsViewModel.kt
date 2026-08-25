@@ -87,7 +87,6 @@ class SessionsViewModel @Inject constructor(
     }
 }
 
-/** Best-effort: rotulo do dispositivo + se e movel. */
 private fun parseUserAgent(ua: String?): Pair<String, Boolean> {
     if (ua.isNullOrBlank()) return "Dispositivo desconhecido" to false
     val mobile = Regex("Mobile|Android|iPhone|iPad", RegexOption.IGNORE_CASE).containsMatchIn(ua)

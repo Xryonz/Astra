@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from 'express'
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
@@ -63,8 +62,6 @@ router.delete(
   }),
 )
 
-// ---- Pref por SERVIDOR (default dos canais sem pref propria) ----
-
 router.get(
   '/servers/notification-prefs',
   requireAuth,
@@ -116,8 +113,6 @@ router.delete(
   }),
 )
 
-// Resolucao em camadas: pref explicita do CANAL (mesmo 'all') vence a do
-// SERVIDOR, que vence o default 'all'.
 export async function getNotifModesFor(
   channelId: string,
   userIds: string[],

@@ -28,10 +28,30 @@ const sinalDeVida = 2 * time.Second
 
 type AjustesDaTela struct {
 	Monitor int
+	Janela  uint64
 	Largura int
 	Altura  int
 	Fps     int
 	Kbps    int
+}
+
+func (a AjustesDaTela) abrirFonte() (*Tela, error) {
+	if a.Janela == 0 {
+		tela, err := AbrirTela(a.Monitor)
+		if err != nil {
+			return nil, fmt.Errorf("abrir a tela: %w", err)
+		}
+		return tela, nil
+	}
+	j, ok := descreverJanela(uintptr(a.Janela))
+	if !ok {
+		return nil, fmt.Errorf("a janela escolhida não está mais disponível")
+	}
+	tela, err := AbrirJanela(uintptr(a.Janela), j.Largura, j.Altura)
+	if err != nil {
+		return nil, fmt.Errorf("abrir a janela %q: %w", j.Nome, err)
+	}
+	return tela, nil
 }
 
 type Emissor struct {
@@ -107,9 +127,9 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	}
 	defer fecharMF()
 
-	tela, err := AbrirTela(aj.Monitor)
+	tela, err := aj.abrirFonte()
 	if err != nil {
-		return fmt.Errorf("abrir a tela: %w", err)
+		return err
 	}
 	defer tela.Fechar()
 

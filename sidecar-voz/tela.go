@@ -92,10 +92,38 @@ type Tela struct {
 	duplicacao  objeto
 	desc        descricaoDaDuplicacao
 
+	janela *CapturaDeJanela
+
 	quadroRetido bool
 }
 
+func AbrirJanela(janela uintptr, largura, altura int) (*Tela, error) {
+	t, err := abrirPlacaDeVideo()
+	if err != nil {
+		return nil, err
+	}
+	c, err := AbrirCapturaDeJanela(t.dispositivo, janela, largura, altura)
+	if err != nil {
+		t.Fechar()
+		return nil, err
+	}
+	t.janela = c
+	return t, nil
+}
+
 func AbrirTela(indiceDoMonitor int) (*Tela, error) {
+	t, err := abrirPlacaDeVideo()
+	if err != nil {
+		return nil, err
+	}
+	if err := t.montarDuplicacao(indiceDoMonitor); err != nil {
+		t.Fechar()
+		return nil, err
+	}
+	return t, nil
+}
+
+func abrirPlacaDeVideo() (*Tela, error) {
 	t := &Tela{}
 
 	var nivel uint32
@@ -115,11 +143,6 @@ func AbrirTela(indiceDoMonitor int) (*Tela, error) {
 	}
 
 	if err := naoNulo(t.dispositivo, "criar dispositivo de vídeo"); err != nil {
-		t.Fechar()
-		return nil, err
-	}
-
-	if err := t.montarDuplicacao(indiceDoMonitor); err != nil {
 		t.Fechar()
 		return nil, err
 	}
@@ -174,9 +197,17 @@ func (t *Tela) montarDuplicacao(indiceDoMonitor int) error {
 	return nil
 }
 
-func (t *Tela) Tamanho() (int, int) { return int(t.desc.Largura), int(t.desc.Altura) }
+func (t *Tela) Tamanho() (int, int) {
+	if t.janela != nil {
+		return t.janela.Tamanho()
+	}
+	return int(t.desc.Largura), int(t.desc.Altura)
+}
 
 func (t *Tela) Hz() int {
+	if t.janela != nil {
+		return 0
+	}
 	if t.desc.DenominadorHz == 0 {
 		return 0
 	}
@@ -188,6 +219,9 @@ type ErroDeAcessoPerdido struct{}
 func (ErroDeAcessoPerdido) Error() string { return "acesso à tela perdido" }
 
 func (t *Tela) Remontar(indiceDoMonitor int) error {
+	if t.janela != nil {
+		return fmt.Errorf("a janela deixou de ser capturável")
+	}
 	if t.quadroRetido {
 		t.duplicacao.chamar(dupSoltarQuadro)
 		t.quadroRetido = false
@@ -198,6 +232,9 @@ func (t *Tela) Remontar(indiceDoMonitor int) error {
 }
 
 func (t *Tela) ProximoQuadro(limiteMs uint32) (objeto, error) {
+	if t.janela != nil {
+		return t.janela.ProximoQuadro(limiteMs)
+	}
 	return t.pegarQuadro(limiteMs, true)
 }
 
@@ -244,6 +281,10 @@ func (t *Tela) pegarQuadro(limiteMs uint32, soSeMudou bool) (objeto, error) {
 }
 
 func (t *Tela) SoltarQuadro() {
+	if t.janela != nil {
+		t.janela.SoltarQuadro()
+		return
+	}
 	if !t.quadroRetido {
 		return
 	}
@@ -253,6 +294,8 @@ func (t *Tela) SoltarQuadro() {
 
 func (t *Tela) Fechar() {
 	t.SoltarQuadro()
+	t.janela.Fechar()
+	t.janela = nil
 	t.duplicacao.soltar()
 	t.contexto.soltar()
 	t.dispositivo.soltar()

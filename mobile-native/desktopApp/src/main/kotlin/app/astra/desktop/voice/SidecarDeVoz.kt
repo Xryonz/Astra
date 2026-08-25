@@ -32,6 +32,7 @@ data class ComandoDeVoz(
     val ruido: Boolean? = null,
     val ganho: Boolean? = null,
     val monitor: Int? = null,
+    val janela: ULong? = null,
     val largura: Int? = null,
     val altura: Int? = null,
     val fps: Int? = null,
@@ -52,6 +53,15 @@ data class MonitorDaTela(
 )
 
 @Serializable
+data class JanelaDaTela(
+    val id: ULong,
+    val nome: String,
+    val largura: Int,
+    val altura: Int,
+    val miniatura: String? = null,
+)
+
+@Serializable
 data class EventoDeVoz(
     val ev: String,
     val par: String? = null,
@@ -61,6 +71,7 @@ data class EventoDeVoz(
     val msg: String? = null,
     val aparelhos: List<AparelhoDeAudio>? = null,
     val monitores: List<MonitorDaTela>? = null,
+    val janelas: List<JanelaDaTela>? = null,
 )
 
 class SidecarDeVoz(private val scope: CoroutineScope) {
@@ -122,9 +133,19 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
             ),
         )
 
+    fun transmitirJanela(janela: ULong, largura: Int, altura: Int, fps: Int, kbps: Int) =
+        mandar(
+            ComandoDeVoz(
+                cmd = "transmitir", ligado = true,
+                janela = janela, largura = largura, altura = altura, fps = fps, kbps = kbps,
+            ),
+        )
+
     fun pararDeTransmitir() = mandar(ComandoDeVoz(cmd = "transmitir", ligado = false))
 
     fun pedirMonitores() = mandar(ComandoDeVoz(cmd = "monitores"))
+
+    fun pedirJanelas() = mandar(ComandoDeVoz(cmd = "janelas"))
 
     fun assistir(par: String?) = mandar(ComandoDeVoz(cmd = "assistir", par = par.orEmpty()))
 

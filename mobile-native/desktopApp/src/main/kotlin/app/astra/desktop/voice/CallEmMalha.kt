@@ -57,6 +57,9 @@ class CallEmMalha(
     private val _monitores = MutableStateFlow<List<MonitorDaTela>?>(null)
     val monitores = _monitores.asStateFlow()
 
+    private val _janelas = MutableStateFlow<List<JanelaDaTela>?>(null)
+    val janelas = _janelas.asStateFlow()
+
     private val conectados = ConcurrentHashMap.newKeySet<String>()
 
     private val estadoDoPar = ConcurrentHashMap<String, String>()
@@ -123,9 +126,18 @@ class CallEmMalha(
         sidecar.transmitir(monitor, largura, altura, fps, kbps)
     }
 
+    fun transmitirJanela(janela: ULong, largura: Int, altura: Int, fps: Int, kbps: Int) {
+        sidecar.transmitirJanela(janela, largura, altura, fps, kbps)
+    }
+
     fun pedirMonitores() {
         _monitores.value = null
         sidecar.pedirMonitores()
+    }
+
+    fun pedirJanelas() {
+        _janelas.value = null
+        sidecar.pedirJanelas()
     }
 
     fun assistir(par: String?) {
@@ -323,6 +335,7 @@ class CallEmMalha(
                     if (ev.tipo == "entrada") _microfones.value = lista else _saidas.value = lista
                 }
                 "monitores" -> _monitores.value = ev.monitores.orEmpty()
+                "janelas" -> _janelas.value = ev.janelas.orEmpty()
                 "tela" -> {
                     val quem = ev.par ?: return@collect
                     if (ev.valor == "1") {

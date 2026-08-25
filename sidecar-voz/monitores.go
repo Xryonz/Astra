@@ -174,6 +174,10 @@ func amostrarMonitor(indice int) ([]byte, error) {
 	defer textura.soltar()
 	defer tela.SoltarQuadro()
 
+	return miniaturaDe(tela, textura, largura, altura)
+}
+
+func miniaturaDe(tela *Tela, textura objeto, largura, altura int) ([]byte, error) {
 	leitura := descricaoDeTextura{
 		Largura: uint32(largura), Altura: uint32(altura),
 		Niveis: 1, Camadas: 1, Formato: formatoBGRA, AmostrasConta: 1,

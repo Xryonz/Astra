@@ -312,6 +312,7 @@ fun VoiceView(
                 }
             }
             val monitores by call.monitores.collectAsState()
+            val janelas by call.janelas.collectAsState()
             var escolhendoTela by remember { mutableStateOf(false) }
             Box {
                 CallIconButton(
@@ -333,10 +334,15 @@ fun VoiceView(
                         onDismissRequest = { escolhendoTela = false },
                         properties = PopupProperties(focusable = true),
                     ) {
-                        SeletorDeTela(monitores) { indice ->
+                        SeletorDeTela(monitores, janelas, { call.pedirJanelas() }) { fonte ->
                             escolhendoTela = false
                             val q = prefState.screenQuality
-                            call.transmitir(indice, q.width, q.height, q.fps, q.bitrate / 1000)
+                            when (fonte) {
+                                is FonteEscolhida.Monitor ->
+                                    call.transmitir(fonte.indice, q.width, q.height, q.fps, q.bitrate / 1000)
+                                is FonteEscolhida.Janela ->
+                                    call.transmitirJanela(fonte.id, q.width, q.height, q.fps, q.bitrate / 1000)
+                            }
                             transmissaoAvisada = true
                         }
                     }

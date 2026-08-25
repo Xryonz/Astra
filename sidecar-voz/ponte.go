@@ -17,11 +17,12 @@ type Comando struct {
 	Ruido bool `json:"ruido,omitempty"`
 	Ganho bool `json:"ganho,omitempty"`
 
-	Monitor int `json:"monitor,omitempty"`
-	Largura int `json:"largura,omitempty"`
-	Altura  int `json:"altura,omitempty"`
-	Fps     int `json:"fps,omitempty"`
-	Kbps    int `json:"kbps,omitempty"`
+	Monitor int    `json:"monitor,omitempty"`
+	Janela  uint64 `json:"janela,omitempty"`
+	Largura int    `json:"largura,omitempty"`
+	Altura  int    `json:"altura,omitempty"`
+	Fps     int    `json:"fps,omitempty"`
+	Kbps    int    `json:"kbps,omitempty"`
 
 	Sentido string `json:"sentido,omitempty"`
 	Id      string `json:"id,omitempty"`
@@ -45,6 +46,8 @@ type Evento struct {
 	Aparelhos []Aparelho `json:"aparelhos,omitempty"`
 
 	Monitores []MonitorDaTela `json:"monitores,omitempty"`
+
+	Janelas []JanelaDaTela `json:"janelas,omitempty"`
 }
 
 const (
@@ -62,6 +65,7 @@ const (
 	CmdAparelhos = "aparelhos"
 
 	CmdMonitores = "monitores"
+	CmdJanelas   = "janelas"
 
 	CmdAssistir = "assistir"
 
@@ -79,6 +83,7 @@ const (
 	EvAparelhos = "aparelhos"
 
 	EvMonitores = "monitores"
+	EvJanelas   = "janelas"
 	EvErro      = "erro"
 
 	EvTransmissao = "transmissao"

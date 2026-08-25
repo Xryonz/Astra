@@ -192,6 +192,7 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 
 		a.emissor.Ligar(AjustesDaTela{
 			Monitor: cmd.Monitor,
+			Janela:  cmd.Janela,
 			Largura: cmd.Largura,
 			Altura:  cmd.Altura,
 			Fps:     cmd.Fps,
@@ -231,6 +232,25 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 			}
 			defer fecharCOM()
 			responder(ListarMonitores())
+		}()
+		return nil
+
+	case CmdJanelas:
+		go func() {
+			defer PrenderNaThread()()
+
+			if err := abrirCOM(); err != nil {
+				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar janelas: " + err.Error()})
+				a.saida.Manda(Evento{Ev: EvJanelas})
+				return
+			}
+			defer fecharCOM()
+
+			lista, err := ListarJanelas()
+			if err != nil {
+				a.saida.Manda(Evento{Ev: EvErro, Msg: "listar janelas: " + err.Error()})
+			}
+			a.saida.Manda(Evento{Ev: EvJanelas, Janelas: lista})
 		}()
 		return nil
 

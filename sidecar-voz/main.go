@@ -29,11 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tela, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "astra-tela")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "criar faixa de tela: %v\n", err)
-		os.Exit(1)
-	}
+	plateia := NovaPlateia()
 
 	escritor := NewEscritor(os.Stdout)
 	misturador := NovoMisturador()
@@ -56,8 +52,8 @@ func main() {
 	app := &App{
 		saida:      escritor,
 		faixa:      faixa,
-		tela:       tela,
-		emissor:    NovoEmissor(tela, escritor, entrega),
+		plateia:    plateia,
+		emissor:    NovoEmissor(plateia, escritor, entrega),
 		entrega:    entrega,
 		misturador: misturador,
 		motor:      motor,
@@ -80,7 +76,7 @@ func main() {
 type App struct {
 	saida      *Escritor
 	faixa      *webrtc.TrackLocalStaticSample
-	tela       *webrtc.TrackLocalStaticSample
+	plateia    *PlateiaDaTela
 	emissor    *Emissor
 	entrega    *EntregaDeQuadros
 	misturador *Misturador
@@ -258,6 +254,7 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 
 		quem := cmd.Par
 		a.palco.Store(&quem)
+		a.avisarOPalco()
 		return nil
 
 	case CmdUsarAparelho:
@@ -302,7 +299,7 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	if par, ok := a.pares[id]; ok {
 		return par, nil
 	}
-	par, err := NovoPar(id, a.config, a.faixa, a.tela, a.misturador, a.entrega, a.saida)
+	par, err := NovoPar(id, a.config, a.faixa, a.plateia, a.misturador, a.entrega, a.saida)
 	if err != nil {
 		return nil, err
 	}
@@ -312,8 +309,22 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	par.relatarPerda = func(fracao float64) { a.emissor.PerdaRelatada(id, fracao) }
 
 	par.querVer = func() bool { return a.assistindo(id) }
+	par.AvisarQueAssisto(a.assistindo(id))
 	a.pares[id] = par
 	return par, nil
+}
+
+func (a *App) avisarOPalco() {
+	a.mu.Lock()
+	pares := make([]*Par, 0, len(a.pares))
+	for _, p := range a.pares {
+		pares = append(pares, p)
+	}
+	a.mu.Unlock()
+
+	for _, p := range pares {
+		p.AvisarQueAssisto(a.assistindo(p.id))
+	}
 }
 
 func (a *App) fecharPar(id string) {

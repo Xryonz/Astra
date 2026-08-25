@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
-
-	"github.com/pion/webrtc/v4"
 )
 
 type coletor struct{ para chan Evento }
@@ -80,13 +78,8 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
 
-	faixa, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "teste-emissao")
-	if err != nil {
-		t.Fatalf("criar faixa: %v", err)
-	}
-
 	recolhidos := make(chan Evento, 256)
-	e := NovoEmissor(faixa, NewEscritor(coletor{recolhidos}), nil)
+	e := NovoEmissor(NovaPlateia(), NewEscritor(coletor{recolhidos}), nil)
 
 	e.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	time.Sleep(3 * time.Second)

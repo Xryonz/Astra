@@ -29,14 +29,11 @@ func TestChamadaCompletaEntreDoisPares(t *testing.T) {
 		t.Fatalf("criar faixa: %v", err)
 	}
 
-	telaA, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "teste-tela")
-	if err != nil {
-		t.Fatalf("criar faixa de tela: %v", err)
-	}
+	plateia := NovaPlateia()
 
 	config := webrtc.Configuration{}
 
-	parA, err := NovoPar("B", config, faixaA, telaA, nil, nil, NewEscritor(escreveA))
+	parA, err := NovoPar("B", config, faixaA, plateia, nil, nil, NewEscritor(escreveA))
 	if err != nil {
 		t.Fatalf("criar par A: %v", err)
 	}

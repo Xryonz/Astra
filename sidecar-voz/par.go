@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtcp"
@@ -20,6 +21,7 @@ type Par struct {
 	saida      *Escritor
 	misturador *Misturador
 	entrega    *EntregaDeQuadros
+	plateia    *PlateiaDaTela
 
 	pedirQuadroChave func()
 
@@ -27,17 +29,26 @@ type Par struct {
 
 	querVer func() bool
 
+	canal    *webrtc.DataChannel
+	queroVer atomic.Bool
+
 	mu        sync.Mutex
 	guardados []webrtc.ICECandidateInit
 	temRemota bool
 	fechado   bool
 }
 
+const (
+	idDoCanalDoPalco = uint16(1)
+	marcaAssisto     = byte('1')
+	marcaNaoAssisto  = byte('0')
+)
+
 func NovoPar(
 	id string,
 	config webrtc.Configuration,
 	faixa *webrtc.TrackLocalStaticSample,
-	tela *webrtc.TrackLocalStaticSample,
+	plateia *PlateiaDaTela,
 	mist *Misturador,
 	entrega *EntregaDeQuadros,
 	saida *Escritor,
@@ -47,7 +58,8 @@ func NovoPar(
 		return nil, fmt.Errorf("criar conexão: %w", err)
 	}
 
-	p := &Par{id: id, pc: pc, saida: saida, misturador: mist, entrega: entrega}
+	p := &Par{id: id, pc: pc, saida: saida, misturador: mist, entrega: entrega, plateia: plateia}
+	p.queroVer.Store(true)
 
 	if faixa != nil {
 		if _, err := pc.AddTrack(faixa); err != nil {
@@ -66,15 +78,14 @@ func NovoPar(
 		}
 	}
 
-	if tela != nil {
-		remetente, err := pc.AddTrack(tela)
-		if err != nil {
+	if plateia != nil {
+		if err := p.abrirFaixaDaTela(); err != nil {
 			fmt.Fprintf(os.Stderr, "sem transmissão de tela para %s: %v\n", id, err)
 			saida.Manda(Evento{Ev: EvErro, Par: id, Msg: "sem transmissão de tela: " + err.Error()})
-		} else {
-			go p.ouvirPedidos(remetente)
 		}
 	}
+
+	p.abrirCanalDoPalco()
 
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
@@ -102,6 +113,59 @@ func NovoPar(
 	})
 
 	return p, nil
+}
+
+func (p *Par) abrirFaixaDaTela() error {
+	faixa, err := p.plateia.Entrar(p.id)
+	if err != nil {
+		return err
+	}
+	remetente, err := p.pc.AddTrack(faixa)
+	if err != nil {
+		p.plateia.Sair(p.id)
+		return err
+	}
+	go p.ouvirPedidos(remetente)
+	return nil
+}
+
+func (p *Par) abrirCanalDoPalco() {
+	negociado, id := true, idDoCanalDoPalco
+	canal, err := p.pc.CreateDataChannel("palco", &webrtc.DataChannelInit{
+		Negotiated: &negociado,
+		ID:         &id,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sem canal de palco com %s: %v\n", p.id, err)
+		return
+	}
+	p.canal = canal
+
+	canal.OnOpen(func() { p.mandarPalco() })
+	canal.OnMessage(func(recado webrtc.DataChannelMessage) {
+		if len(recado.Data) == 0 || p.plateia == nil {
+			return
+		}
+		p.plateia.Assiste(p.id, recado.Data[0] == marcaAssisto)
+	})
+}
+
+func (p *Par) AvisarQueAssisto(quer bool) {
+	p.queroVer.Store(quer)
+	p.mandarPalco()
+}
+
+func (p *Par) mandarPalco() {
+	if p.canal == nil || p.canal.ReadyState() != webrtc.DataChannelStateOpen {
+		return
+	}
+	marca := marcaNaoAssisto
+	if p.queroVer.Load() {
+		marca = marcaAssisto
+	}
+	if err := p.canal.Send([]byte{marca}); err != nil {
+		fmt.Fprintf(os.Stderr, "avisar o palco a %s: %v\n", p.id, err)
+	}
 }
 
 func (p *Par) receber(remota *webrtc.TrackRemote) {
@@ -293,6 +357,9 @@ func (p *Par) Fechar() {
 
 	if p.misturador != nil {
 		p.misturador.Esquecer(p.id)
+	}
+	if p.plateia != nil {
+		p.plateia.Sair(p.id)
 	}
 
 	if err := p.pc.Close(); err != nil {

@@ -55,8 +55,8 @@ func (a AjustesDaTela) abrirFonte() (*Tela, error) {
 }
 
 type Emissor struct {
-	faixa *webrtc.TrackLocalStaticSample
-	saida *Escritor
+	plateia *PlateiaDaTela
+	saida   *Escritor
 
 	mu     sync.Mutex
 	parar  context.CancelFunc
@@ -69,8 +69,8 @@ type Emissor struct {
 	entrega *EntregaDeQuadros
 }
 
-func NovoEmissor(faixa *webrtc.TrackLocalStaticSample, saida *Escritor, entrega *EntregaDeQuadros) *Emissor {
-	return &Emissor{faixa: faixa, saida: saida, perdas: NovaPerdaDosPares(), entrega: entrega}
+func NovoEmissor(plateia *PlateiaDaTela, saida *Escritor, entrega *EntregaDeQuadros) *Emissor {
+	return &Emissor{plateia: plateia, saida: saida, perdas: NovaPerdaDosPares(), entrega: entrega}
 }
 
 func (e *Emissor) PerdaRelatada(par string, fracao float64) { e.perdas.Relatar(par, fracao) }
@@ -197,7 +197,7 @@ func (e *Emissor) transmitir(
 		}
 		ultimaSaida = time.Now()
 
-		if err := e.faixa.WriteSample(media.Sample{Data: quadroPronto, Duration: duracao}); err != nil && falhaAoEntregar == nil {
+		if _, err := e.plateia.Escrever(media.Sample{Data: quadroPronto, Duration: duracao}); err != nil && falhaAoEntregar == nil {
 			falhaAoEntregar = err
 		}
 		quadros++
@@ -307,6 +307,9 @@ func (e *Emissor) transmitir(
 
 			if revividos > 0 {
 				msg += fmt.Sprintf(" · %d reenviados com a tela parada", revividos)
+			}
+			if assistindo, total := e.plateia.Contar(); total > assistindo {
+				msg += fmt.Sprintf(" · enviando para %d de %d", assistindo, total)
 			}
 			e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()

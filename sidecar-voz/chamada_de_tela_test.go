@@ -87,14 +87,11 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 	canoA, escreveA := io.Pipe()
 	canoB, escreveB := io.Pipe()
 
-	tela, err := webrtc.NewTrackLocalStaticSample(CapacidadeH264, "video", "teste-tela")
-	if err != nil {
-		t.Fatalf("criar faixa de tela: %v", err)
-	}
+	plateia := NovaPlateia()
 
 	config := webrtc.Configuration{}
 
-	parA, err := NovoPar("B", config, nil, tela, nil, nil, NewEscritor(escreveA))
+	parA, err := NovoPar("B", config, nil, plateia, nil, nil, NewEscritor(escreveA))
 	if err != nil {
 		t.Fatalf("criar quem transmite: %v", err)
 	}
@@ -158,7 +155,7 @@ func TestATransmissaoAtravessaDePontaAPonta(t *testing.T) {
 			}
 		}
 	}()
-	emissor := NovoEmissor(tela, NewEscritor(escreveE), nil)
+	emissor := NovoEmissor(plateia, NewEscritor(escreveE), nil)
 	emissor.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	defer emissor.Desligar()
 

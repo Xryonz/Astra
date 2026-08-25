@@ -83,6 +83,12 @@ AGENTS.md
 # ── Docs pessoais: checkpoints/runbooks locais, não publicar ─
 docs/
 
+# As anotações do código — o "porquê" de cada decisão. Ficam LOCAIS pela mesma
+# regra de sempre: o repositório público leva o produto, não o caderno de quem
+# o construiu. Quem clona tem o código e o histórico de commits.
+anotações.md
+anotacoes.md
+
 # ── Medições: planilhas de perfilamento (RAM, fps, banda). São o
 # rascunho de uma investigação, ficam obsoletas na semana seguinte, e
 # a conclusão delas já vive no comentário do código que originaram.

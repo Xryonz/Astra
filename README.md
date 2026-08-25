@@ -15,28 +15,42 @@ enquetes, busca, notificações, XP e missões.
 O desktop é onde o trabalho acontece hoje. O web ficou congelado depois de servir
 de mapa: o que ele já resolvia virou o alvo de paridade dos clientes nativos.
 
-> **Antes de mexer no código, leia [`anotações.md`](anotações.md).** O código-fonte
-> não tem comentários: o *porquê* de cada decisão mora lá — as medições, as
-> armadilhas, e os caminhos que foram tentados e não deram certo. Esse último grupo
-> é o que não se recupera lendo o código, e é onde se perde uma tarde refazendo uma
-> tentativa que já falhou.
+O desktop tem ainda uma quarta peça, que não é um cliente: **`sidecar-voz`**, um
+processo em Go que cuida da voz e da transmissão de tela. Ele é lançado pelo
+aplicativo e morre com ele.
+
+> **O código não tem comentários, e isso é deliberado.** O *porquê* de cada decisão
+> — as medições, as armadilhas, os caminhos tentados que não deram certo — está no
+> **histórico de commits**, que é onde ele fica pesquisável por `git log -S` e amarrado
+> à mudança que o produziu.
 
 ---
 
 ## Stack
 
-**Backend** (`apps/api`) — 35 grupos de rota
+**Backend** (`apps/api`) — 34 grupos de rota
 - Express 4 · TypeScript · Drizzle ORM 0.45
 - PostgreSQL (Neon) · Redis (Upstash, presença + cache) · Socket.io (realtime)
-- LiveKit (voz/vídeo) · armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
+- LiveKit — voz do **web e do Android**; o desktop não passa por ele (ver `sidecar-voz`)
+- Armazenamento S3 ou R2 (anexos, avatares, banners, figurinhas)
 - IA da bot: Groq (Gemini como alternativa; `IA_PROVIDER` desempata)
 
 **Desktop** (`mobile-native/desktopApp`) — a fase ativa
 - Kotlin 2.3 · Compose Multiplatform 1.11 · janela sem moldura (título próprio)
 - **Koin** (DI) · Retrofit/OkHttp · kotlinx.serialization · Coroutines/Flow
-- **webrtc-java** — voz e transmissão de tela nativas, sem LiveKit no desktop
 - Coil3 · socket.io-client · JNA (bandeja, atalho, prioridade) · RikkaUI · Haze · Lucide
 - Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
+
+**Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go
+- **pion/webrtc** · malha ponto a ponto (sem servidor de mídia no meio)
+- Captura por **DXGI Desktop Duplication**; compressão H.264 pelo **Media Foundation**,
+  na placa quando há uma e em software quando não há
+- Áudio em Opus, com cancelamento de eco, supressão de ruído e ganho do Windows
+- Fala com o app por **entrada e saída padrão** (uma linha de JSON por mensagem) e
+  entrega os quadros por um cano TCP separado na volta local
+- Processo separado de propósito: interoperar com COM/Media Foundation dentro da JVM
+  significaria superfície nativa no processo do aplicativo, e uma falha ali derruba a
+  janela inteira. Aqui, o pior caso é a chamada cair — o Astra continua de pé
 
 **Android** (`mobile-native/app`)
 - Kotlin 2.3 · Jetpack Compose · Material3 (minSdk 24 · compileSdk 36)
@@ -48,7 +62,8 @@ de mapa: o que ele já resolvia virou o alvo de paridade dos clientes nativos.
 - Zustand · React Query 5 · React Router 6
 
 **Monorepo:** npm workspaces · `packages/types` (Zod compartilhado). O projeto
-nativo é um build Gradle à parte em `mobile-native/`.
+nativo é um build Gradle à parte em `mobile-native/`, e `sidecar-voz/` é um módulo
+Go independente — o Gradle do desktop o compila e empacota junto do aplicativo.
 
 > **`:shared` não é KMP.** Apesar do nome, ele tem só o source set `main`, é
 > Kotlin/JVM puro e carrega apenas a camada de rede (`core/network`) e os DTOs.
@@ -57,7 +72,9 @@ nativo é um build Gradle à parte em `mobile-native/`.
 > já custou tempo aqui.
 
 **Hospedagem:** web → Vercel · API → Render (US East) · Postgres → Neon ·
-Redis → Upstash · voz → LiveKit Cloud · arquivos → bucket S3.
+Redis → Upstash · arquivos → bucket S3 · voz do web e do Android → LiveKit Cloud.
+A voz do **desktop** não é hospedada: ela vai direto de máquina a máquina, e o
+servidor só carrega o aperto de mão.
 
 ---
 
@@ -237,6 +254,11 @@ npm run db:migrate   # migrations Drizzle
 # API workspace
 npm test -w apps/api          # vitest
 npm run db:studio -w apps/api # Drizzle Studio
+
+# Imagens (rodar de dentro de apps/api)
+npm run img:diag              # só LÊ: conta o estado de cada imagem do banco
+npm run img:encolher          # SIMULA o backfill da versão de exibição
+npm run img:encolher -- --vai # executa de verdade
 ```
 
 ---
@@ -248,7 +270,10 @@ fallback, e não quebra o boot:
 
 - `LIVEKIT_*` — sem isso, voz/vídeo off no web e no Android
 - `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
-- `S3_*` / `R2_*` — sem isso, o upload cai pro disco local (`storageMode = local`)
+- `S3_*` / `R2_*` — em desenvolvimento, o upload cai pro disco local
+  (`storageMode = local`). **Em produção ele é RECUSADO** com 503: o disco do
+  servidor é efêmero, e gravar ali produziria URLs que morrem no próximo deploy,
+  deixando a imagem quebrada no banco para sempre. O log diz quais variáveis faltam
 - `BREVO_API_KEY` + `MAIL_FROM` — sem isso, e-mail off
 - `GIPHY_API_KEY` — sem isso, o seletor de GIF some
 - `VAPID_*` — sem isso, push off

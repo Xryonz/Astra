@@ -36,6 +36,7 @@ var (
 const (
 	gerTrocarDispositivo = 7
 
+	amostraPegarTempo     = 35
 	amostraDefinirTempo   = 36
 	amostraDefinirDuracao = 38
 	amostraJuntarBuffers  = 41
@@ -578,7 +579,7 @@ func (c *Compressor) LigarEspelho(mandar func(Quadro)) {
 	c.espelho = e
 }
 
-func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber func([]byte)) error {
+func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber func([]byte, time.Duration)) error {
 	q := c.anel[c.proximo]
 	c.proximo = (c.proximo + 1) % len(c.anel)
 	c.Custos.Quadros++
@@ -636,7 +637,7 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	return c.Drenar(receber)
 }
 
-func (c *Compressor) comprimirNaMemoria(quadro objeto, quando time.Duration, marcarTempo func(objeto), receber func([]byte)) error {
+func (c *Compressor) comprimirNaMemoria(quadro objeto, quando time.Duration, marcarTempo func(objeto), receber func([]byte, time.Duration)) error {
 	marco := time.Now()
 	nova, err := c.reduzir.Reduzir(quadro)
 	c.Custos.Reducao += time.Since(marco)
@@ -655,7 +656,7 @@ func (c *Compressor) comprimirNaMemoria(quadro objeto, quando time.Duration, mar
 	return nil
 }
 
-func (c *Compressor) entregarPendente(receber func([]byte)) error {
+func (c *Compressor) entregarPendente(receber func([]byte, time.Duration)) error {
 	p := c.pendente
 	if p == 0 {
 		return nil
@@ -677,7 +678,7 @@ func (c *Compressor) entregarPendente(receber func([]byte)) error {
 	return c.drenarFila(receber)
 }
 
-func (c *Compressor) pedidoDeEntrada(receber func([]byte)) error {
+func (c *Compressor) pedidoDeEntrada(receber func([]byte, time.Duration)) error {
 	for c.pedidos == 0 {
 		antes := time.Now()
 		tipo, err := c.proximoRecado()
@@ -700,7 +701,7 @@ func (c *Compressor) pedidoDeEntrada(receber func([]byte)) error {
 	return nil
 }
 
-func (c *Compressor) Drenar(receber func([]byte)) error {
+func (c *Compressor) Drenar(receber func([]byte, time.Duration)) error {
 
 	if c.NaMemoria {
 		if err := c.entregarPendente(receber); err != nil {
@@ -710,7 +711,7 @@ func (c *Compressor) Drenar(receber func([]byte)) error {
 	return c.drenarFila(receber)
 }
 
-func (c *Compressor) drenarFila(receber func([]byte)) error {
+func (c *Compressor) drenarFila(receber func([]byte, time.Duration)) error {
 	if c.eventos == 0 {
 
 		return c.esvaziar(receber)
@@ -739,7 +740,7 @@ func (c *Compressor) entrar(amostra objeto) error {
 	return hr(r, "entregar o quadro ao compressor")
 }
 
-func (c *Compressor) esvaziar(receber func([]byte)) error {
+func (c *Compressor) esvaziar(receber func([]byte, time.Duration)) error {
 	for {
 		veio, err := c.sair(receber)
 		if err != nil {
@@ -751,7 +752,7 @@ func (c *Compressor) esvaziar(receber func([]byte)) error {
 	}
 }
 
-func (c *Compressor) sair(receber func([]byte)) (bool, error) {
+func (c *Compressor) sair(receber func([]byte, time.Duration)) (bool, error) {
 
 	marco := time.Now()
 	defer func() {
@@ -800,6 +801,12 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 		saida.Eventos.soltar()
 	}
 
+	carimbo := time.Duration(-1)
+	var emCemNanos int64
+	if r := saida.Amostra.chamar(amostraPegarTempo, uintptr(unsafe.Pointer(&emCemNanos))); uint32(r)&0x80000000 == 0 {
+		carimbo = time.Duration(emCemNanos) * 100
+	}
+
 	var buffer objeto
 	if r := saida.Amostra.chamar(amostraJuntarBuffers, uintptr(unsafe.Pointer(&buffer))); uint32(r)&0x80000000 != 0 {
 		return false, hr(r, "juntar os pedaços da saída")
@@ -828,7 +835,7 @@ func (c *Compressor) sair(receber func([]byte)) (bool, error) {
 	buffer.chamar(bufDestrancar)
 
 	if len(c.saida) > 0 && receber != nil {
-		receber(c.saida)
+		receber(c.saida, carimbo)
 	}
 	return true, nil
 }
@@ -1078,7 +1085,7 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 		}
 
 		antes := time.Now()
-		err := c.Comprimir(textura, time.Since(comeco), func(nal []byte) {
+		err := c.Comprimir(textura, time.Since(comeco), func(nal []byte, _ time.Duration) {
 			m.Pedacos++
 			m.Bytes += len(nal)
 		})

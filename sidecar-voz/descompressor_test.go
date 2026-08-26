@@ -69,7 +69,7 @@ func TestVoltaCompletaDaTela(t *testing.T) {
 		}
 
 		var junto []byte
-		err = c.Comprimir(textura, time.Since(comeco), func(nal []byte) {
+		err = c.Comprimir(textura, time.Since(comeco), func(nal []byte, _ time.Duration) {
 			junto = append(junto, nal...)
 		})
 		textura.soltar()

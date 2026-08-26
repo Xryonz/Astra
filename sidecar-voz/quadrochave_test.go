@@ -59,7 +59,7 @@ func TestOCompressorDaQuadroChaveComRegularidade(t *testing.T) {
 			continue
 		}
 		agora := time.Since(comeco)
-		err = c.Comprimir(textura, agora, func(nal []byte) {
+		err = c.Comprimir(textura, agora, func(nal []byte, _ time.Duration) {
 			if temQuadroChave(nal) {
 				chaves = append(chaves, agora)
 			}
@@ -140,7 +140,7 @@ func TestPedirQuadroChaveFuncionaDeVerdade(t *testing.T) {
 				continue
 			}
 			agora := time.Since(comeco)
-			_ = c.Comprimir(textura, agora, func(nal []byte) {
+			_ = c.Comprimir(textura, agora, func(nal []byte, _ time.Duration) {
 				aoSair(temQuadroChave(nal), agora)
 			})
 			textura.soltar()

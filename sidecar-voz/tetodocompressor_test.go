@@ -53,7 +53,7 @@ func TestOTetoDoCompressorSemOLaco(t *testing.T) {
 	fim := comeco.Add(2 * time.Second)
 	var entradas, saidas int
 	for time.Now().Before(fim) {
-		err := c.Comprimir(textura, time.Since(comeco), func([]byte) { saidas++ })
+		err := c.Comprimir(textura, time.Since(comeco), func([]byte, time.Duration) { saidas++ })
 		if err != nil {
 			t.Fatalf("comprimir (depois de %d): %v", entradas, err)
 		}

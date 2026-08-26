@@ -170,7 +170,9 @@ func (e *Emissor) transmitir(
 		Msg:  comoSubiu,
 	})
 
-	duracao := time.Second / time.Duration(c.fps)
+	duracaoNominal := time.Second / time.Duration(c.fps)
+	var ultimoCarimbo time.Duration
+	temCarimbo := false
 
 	ritmo := NovoRitmo(c.fps)
 	comeco := time.Now()
@@ -184,7 +186,19 @@ func (e *Emissor) transmitir(
 	var abridor []byte
 	var ultimaSaida time.Time
 	reenviando := false
-	entregar := func(quadroPronto []byte) {
+	entregar := func(quadroPronto []byte, carimbo time.Duration) {
+		if carimbo < 0 {
+			carimbo = time.Since(comeco)
+		}
+		duracao := duracaoNominal
+		if temCarimbo {
+			duracao = carimbo - ultimoCarimbo
+			if duracao < 0 {
+				duracao = 0
+			}
+		}
+		ultimoCarimbo, temCarimbo = carimbo, true
+
 		if !perfilVisto {
 			if p, ok := perfilDoSPS(quadroPronto); ok {
 				perfilVisto = true
@@ -236,7 +250,7 @@ func (e *Emissor) transmitir(
 				pediram := e.querChave.Swap(false)
 				if pediram || time.Since(ultimaSaida) >= sinalDeVida {
 					reenviando = true
-					entregar(abridor)
+					entregar(abridor, time.Since(comeco))
 					reenviando = false
 					revividos++
 					if falhaAoEntregar != nil {
@@ -256,9 +270,9 @@ func (e *Emissor) transmitir(
 		}
 
 		saiuAlgo := false
-		err = c.Comprimir(textura, time.Since(comeco), func(quadroPronto []byte) {
+		err = c.Comprimir(textura, time.Since(comeco), func(quadroPronto []byte, carimbo time.Duration) {
 			saiuAlgo = true
-			entregar(quadroPronto)
+			entregar(quadroPronto, carimbo)
 		})
 		textura.soltar()
 		tela.SoltarQuadro()

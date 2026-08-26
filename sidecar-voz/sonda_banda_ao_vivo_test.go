@@ -41,7 +41,7 @@ func TestMudarBandaAoVivo(t *testing.T) {
 	t.Logf("compressor %q", c.Nome)
 
 	var bytes int
-	receber := func(pronto []byte) { bytes += len(pronto) }
+	receber := func(pronto []byte, _ time.Duration) { bytes += len(pronto) }
 
 	rodar := func(quanto time.Duration) float64 {
 		ritmo := NovoRitmo(c.fps)

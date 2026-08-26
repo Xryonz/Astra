@@ -66,7 +66,7 @@ func TestTransmitirSemPlaca(t *testing.T) {
 
 	var quadros, bytes, comChave int
 	comeco := time.Now()
-	receber := func(pronto []byte) {
+	receber := func(pronto []byte, _ time.Duration) {
 		quadros++
 		bytes += len(pronto)
 		if temQuadroChave(pronto) {

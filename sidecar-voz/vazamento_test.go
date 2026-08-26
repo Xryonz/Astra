@@ -66,7 +66,7 @@ func medirVazamento(t *testing.T, naMemoria bool) {
 	t.Logf("compressor %q, entrada %s", c.Nome, c.Formato)
 
 	var quadros int
-	receber := func([]byte) { quadros++ }
+	receber := func([]byte, time.Duration) { quadros++ }
 
 	ritmo := NovoRitmo(c.fps)
 	comeco := time.Now()

@@ -210,6 +210,8 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 	}
 	defer dec.Fechar()
 
+	remontador := NovoRemontadorDeVoz(dec)
+
 	var det DetectorDeFala
 
 	defer func() {
@@ -218,13 +220,23 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 		}
 	}()
 
-	pcm := make([]int16, AmostrasPorQuadro*6)
+	tocar := func(pcm []int16) {
+		if det.Alimentar(pcm, time.Now()) {
+			p.avisarFala(det.Falando())
+		}
+		if pcm != nil && p.misturador != nil {
+			p.misturador.Entregar(p.id, pcm)
+		}
+	}
+
+	relatorio := time.Now()
 	for {
 
 		_ = remota.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
 		pacote, _, err := remota.ReadRTP()
 		if err != nil {
 			if esperaEstourada(err) {
+				remontador.Escoar(tocar)
 				if det.Alimentar(nil, time.Now()) {
 					p.avisarFala(det.Falando())
 				}
@@ -233,23 +245,16 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 			return
 		}
 
-		if len(pacote.Payload) <= 2 {
+		remontador.Entregar(pacote.SequenceNumber, pacote.Payload, tocar)
 
-			if det.Alimentar(nil, time.Now()) {
-				p.avisarFala(det.Falando())
+		if time.Since(relatorio) >= time.Second {
+			relatorio = time.Now()
+			if remontador.Houve() {
+				fmt.Fprintf(os.Stderr, "voz de %s: %d tapados com o vizinho · %d no escuro · %d reordenados · %d atrasados · %d ressincronizados\n",
+					p.id, remontador.TapadosComVizinho, remontador.TapadosNoEscuro,
+					remontador.Reordenados, remontador.Atrasados, remontador.Ressincronizados)
 			}
-			continue
-		}
-		n, err := dec.Decodificar(pacote.Payload, pcm, false)
-		if err != nil || n <= 0 {
-
-			continue
-		}
-		if det.Alimentar(pcm[:n], time.Now()) {
-			p.avisarFala(det.Falando())
-		}
-		if p.misturador != nil {
-			p.misturador.Entregar(p.id, pcm[:n])
+			remontador.Zerar()
 		}
 	}
 }

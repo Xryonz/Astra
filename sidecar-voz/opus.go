@@ -14,13 +14,14 @@ const (
 
 	ctlSetBitrate      = 4002
 	ctlSetMaxBandwidth = 4004
+	ctlGetBandwidth    = 4009
 	ctlSetComplexity   = 4010
 	ctlSetInbandFEC    = 4012
 	ctlSetPacketLoss   = 4014
 	ctlSetDTX          = 4016
 	ctlSetSignal       = 4024
 
-	bandaLarga = 1103
+	bandaCheia = 1105
 	sinalDeVoz = 3001
 )
 
@@ -89,13 +90,13 @@ func NovoCodificador(taxa, canais int) (*Codificador, error) {
 		valor  int
 		nome   string
 	}{
-		{ctlSetBitrate, 24000, "bitrate"},
-		{ctlSetMaxBandwidth, bandaLarga, "banda máxima"},
+		{ctlSetBitrate, 64000, "bitrate"},
+		{ctlSetMaxBandwidth, bandaCheia, "banda máxima"},
 		{ctlSetSignal, sinalDeVoz, "tipo de sinal"},
 		{ctlSetDTX, 1, "DTX"},
 		{ctlSetInbandFEC, 1, "FEC embutido"},
 		{ctlSetPacketLoss, 10, "perda esperada"},
-		{ctlSetComplexity, 5, "complexidade"},
+		{ctlSetComplexity, 9, "complexidade"},
 	}
 	for _, a := range ajustes {
 		if err := c.controlar(a.pedido, a.valor); err != nil {
@@ -112,6 +113,15 @@ func (c *Codificador) controlar(pedido, valor int) error {
 		return fmt.Errorf("opus_encoder_ctl(%d) devolveu %d", pedido, int32(r))
 	}
 	return nil
+}
+
+func (c *Codificador) consultar(pedido int) (int, error) {
+	var valor int32
+	r, _, _ := procControlar.Call(c.st, uintptr(pedido), uintptr(unsafe.Pointer(&valor)))
+	if int32(r) != opusOK {
+		return 0, fmt.Errorf("opus_encoder_ctl(%d) devolveu %d", pedido, int32(r))
+	}
+	return int(valor), nil
 }
 
 func (c *Codificador) Codificar(pcm []int16, saida []byte) (int, error) {

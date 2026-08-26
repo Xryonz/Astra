@@ -48,7 +48,7 @@ func TestCodificarEDecodificar(t *testing.T) {
 		t.Fatalf("quadro pequeno demais para som real: %d bytes", n)
 	}
 
-	if n > 200 {
+	if n > 400 {
 		t.Errorf("quadro de %d bytes: os ajustes de bitrate podem não ter pegado", n)
 	}
 	t.Logf("quadro de 20ms -> %d bytes (~%d kbps)", n, n*8*50/1000)
@@ -77,6 +77,63 @@ func TestCodificarEDecodificar(t *testing.T) {
 		t.Fatalf("voltou quase silêncio (rms %.0f) — a ligação com a DLL está errada", rms)
 	}
 	t.Logf("rms de volta: %.0f", rms)
+}
+
+func ondaLarga(fase int) []int16 {
+	pcm := make([]int16, amostrasPorQuadro)
+	for i := range pcm {
+		t := float64(fase*amostrasPorQuadro+i) / 48000
+		v := math.Sin(2*math.Pi*300*t)*0.5 +
+			math.Sin(2*math.Pi*5000*t)*0.3 +
+			math.Sin(2*math.Pi*15000*t)*0.2
+		pcm[i] = int16(v * 12000)
+	}
+	return pcm
+}
+
+func TestAVozSobeEmBandaCheia(t *testing.T) {
+	abrirParaTeste(t)
+
+	cod, err := NovoCodificador(48000, 1)
+	if err != nil {
+		t.Fatalf("criar codificador: %v", err)
+	}
+	defer cod.Fechar()
+
+	taxa, err := cod.consultar(4003)
+	if err != nil {
+		t.Fatalf("consultar bitrate: %v", err)
+	}
+	if taxa != 64000 {
+		t.Errorf("bitrate configurado = %d, esperava 64000", taxa)
+	}
+
+	saida := make([]byte, 4000)
+	bytes := 0
+	for fase := 0; fase < 25; fase++ {
+		n, err := cod.Codificar(ondaLarga(fase), saida)
+		if err != nil {
+			t.Fatalf("codificar quadro %d: %v", fase, err)
+		}
+		if fase >= 5 {
+			bytes += n
+		}
+	}
+
+	banda, err := cod.consultar(ctlGetBandwidth)
+	if err != nil {
+		t.Fatalf("consultar banda: %v", err)
+	}
+
+	nomes := map[int]string{1101: "estreita 4kHz", 1102: "média 6kHz", 1103: "larga 8kHz",
+		1104: "super-larga 12kHz", 1105: "cheia 20kHz"}
+	t.Logf("banda escolhida: %d (%s)", banda, nomes[banda])
+	t.Logf("20 quadros em regime: %d bytes (~%d kbps)", bytes, bytes*8*50/20/1000)
+
+	if banda < 1104 {
+		t.Errorf("o codificador ficou em %d (%s); com 64 kbps e o teto liberado ele deveria passar de 12kHz",
+			banda, nomes[banda])
+	}
 }
 
 func TestPerdaDePacote(t *testing.T) {

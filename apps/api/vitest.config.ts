@@ -5,7 +5,6 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./src/__tests__/setup.ts'],
-    // Roda em série pra evitar conflitos com mocks globais de Redis
     fileParallelism: false,
     testTimeout: 10_000,
     coverage: {

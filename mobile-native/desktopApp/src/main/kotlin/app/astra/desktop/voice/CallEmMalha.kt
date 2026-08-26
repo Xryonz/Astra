@@ -2,6 +2,7 @@ package app.astra.desktop.voice
 
 import app.astra.desktop.net.DesktopSocket
 import app.astra.mobile.core.network.VoiceApi
+import app.astra.mobile.core.network.dto.ServidorDeGeloDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -83,6 +84,7 @@ class CallEmMalha(
         sidecar.ligar()
         socket.voiceJoin(channelId)
 
+        tarefas += scope.launch { buscarGelo() }
         tarefas += scope.launch { ouvirSinais() }
         tarefas += scope.launch { ouvirSidecar() }
         tarefas += scope.launch { ouvirPresenca(channelId) }
@@ -199,6 +201,38 @@ class CallEmMalha(
 
     fun dispose() = sair()
 
+    @Volatile private var gelo: List<ServidorDeGeloDto>? = null
+
+    private suspend fun buscarGelo() {
+        val servidores = runCatching { voiceApi.ice().data?.iceServers }
+            .onFailure { VoiceLog.nota("[call] sem lista de ICE do servidor: ${it.message}") }
+            .getOrNull()
+            ?.takeIf { it.isNotEmpty() } ?: return
+
+        gelo = servidores
+        if (pronto) mandarGelo()
+    }
+
+    private fun mandarGelo() {
+        val servidores = gelo ?: return
+
+        val stun = mutableListOf<String>()
+        val turn = mutableListOf<ServidorTurn>()
+        for (servidor in servidores) {
+            for (url in servidor.urls) {
+                if (url.startsWith("turn:") || url.startsWith("turns:")) {
+                    turn += ServidorTurn(url, servidor.username.orEmpty(), servidor.credential.orEmpty())
+                } else {
+                    stun += url
+                }
+            }
+        }
+
+        if (sidecar.configurar(stun, turn)) {
+            VoiceLog.nota("[call] ICE do servidor: ${stun.size} STUN, ${turn.size} TURN")
+        }
+    }
+
     private suspend fun manterPresenca(channelId: String) {
         while (true) {
             delay(20_000)
@@ -313,6 +347,7 @@ class CallEmMalha(
                 "pronto" -> {
                     pronto = true
                     if (_inicio.value == null) _inicio.value = System.currentTimeMillis()
+                    mandarGelo()
                     aplicarPreferencias()
                     sidecar.pedirAparelhos()
                     salaAtual?.let { sala -> scope.launch { conferir(sala) } }

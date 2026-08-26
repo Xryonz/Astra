@@ -15,3 +15,15 @@ data class VoiceTokenData(
     val roomName: String? = null,
     val identity: String? = null,
 )
+
+@Serializable
+data class ServidorDeGeloDto(
+    val urls: List<String> = emptyList(),
+    val username: String? = null,
+    val credential: String? = null,
+)
+
+@Serializable
+data class VoiceIceData(
+    val iceServers: List<ServidorDeGeloDto> = emptyList(),
+)

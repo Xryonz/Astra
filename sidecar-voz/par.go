@@ -101,6 +101,9 @@ func NovoPar(
 
 	pc.OnConnectionStateChange(func(estado webrtc.PeerConnectionState) {
 		saida.Manda(Evento{Ev: EvEstado, Par: id, V: estado.String()})
+		if estado == webrtc.PeerConnectionStateConnected {
+			go p.anotarPorOndePassou()
+		}
 	})
 
 	pc.OnTrack(func(remota *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
@@ -148,6 +151,37 @@ func (p *Par) abrirCanalDoPalco() {
 		}
 		p.plateia.Assiste(p.id, recado.Data[0] == marcaAssisto)
 	})
+}
+
+func caminhoDoGelo(local, remoto webrtc.ICECandidateType) string {
+	if local == webrtc.ICECandidateTypeRelay || remoto == webrtc.ICECandidateTypeRelay {
+		return "por relay TURN"
+	}
+	if local == webrtc.ICECandidateTypeHost && remoto == webrtc.ICECandidateTypeHost {
+		return "direto, pela rede local"
+	}
+	return "direto, atravessando o NAT"
+}
+
+func (p *Par) anotarPorOndePassou() {
+	sctp := p.pc.SCTP()
+	if sctp == nil {
+		return
+	}
+	dtls := sctp.Transport()
+	if dtls == nil {
+		return
+	}
+	gelo := dtls.ICETransport()
+	if gelo == nil {
+		return
+	}
+	dupla, err := gelo.GetSelectedCandidatePair()
+	if err != nil || dupla == nil || dupla.Local == nil || dupla.Remote == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "conexão com %s: %s (%s/%s)\n",
+		p.id, caminhoDoGelo(dupla.Local.Typ, dupla.Remote.Typ), dupla.Local.Typ, dupla.Remote.Typ)
 }
 
 func (p *Par) AvisarQueAssisto(quer bool) {

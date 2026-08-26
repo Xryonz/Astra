@@ -18,9 +18,17 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 @Serializable
+data class ServidorTurn(
+    val url: String,
+    val user: String,
+    val senha: String,
+)
+
+@Serializable
 data class ComandoDeVoz(
     val cmd: String,
     val stun: List<String>? = null,
+    val turn: List<ServidorTurn>? = null,
     val par: String? = null,
     val iniciar: Boolean? = null,
     val tipo: String? = null,
@@ -106,8 +114,16 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         }
     }
 
-    fun configurar(stun: List<String>) =
-        mandar(ComandoDeVoz(cmd = "config", stun = stun))
+    fun configurar(stun: List<String>, turn: List<ServidorTurn>): Boolean {
+        if (stun.isEmpty() && turn.isEmpty()) return false
+        return mandar(
+            ComandoDeVoz(
+                cmd = "config",
+                stun = stun.ifEmpty { null },
+                turn = turn.ifEmpty { null },
+            ),
+        )
+    }
 
     fun conectar(meuId: String, outroId: String) =
         mandar(ComandoDeVoz(cmd = "conectar", par = outroId, iniciar = meuId < outroId))

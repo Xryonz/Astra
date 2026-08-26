@@ -42,9 +42,14 @@ aplicativo e morre com ele.
 - Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
 
 **Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go
-- **pion/webrtc** · malha ponto a ponto (sem servidor de mídia no meio)
-- Captura por **DXGI Desktop Duplication**; compressão H.264 pelo **Media Foundation**,
-  na placa quando há uma e em software quando não há
+- **pion/webrtc** · malha ponto a ponto (sem servidor de mídia no meio). STUN para
+  atravessar NAT e, quando o servidor oferece, **TURN com credencial temporária** —
+  sem relay, quem está atrás de NAT simétrico não consegue conectar
+- Captura de tela inteira por **DXGI Desktop Duplication** e de **uma janela** por
+  **Windows.Graphics.Capture**; compressão H.264 pelo **Media Foundation**, na placa
+  quando há uma e em software quando não há
+- A tela vai **só para quem está assistindo**: uma faixa por par, e quem sai do palco
+  ou minimiza a janela deixa de custar banda de quem transmite
 - Áudio em Opus, com cancelamento de eco, supressão de ruído e ganho do Windows
 - Fala com o app por **entrada e saída padrão** (uma linha de JSON por mensagem) e
   entrega os quadros por um cano TCP separado na volta local
@@ -269,6 +274,12 @@ A API sobe com qualquer uma destas vazia — a funcionalidade fica desligada em
 fallback, e não quebra o boot:
 
 - `LIVEKIT_*` — sem isso, voz/vídeo off no web e no Android
+- `TURN_URLS` + (`TURN_SECRET` **ou** `TURN_USERNAME`/`TURN_PASSWORD`) — o relay das
+  chamadas do desktop. Sem isso a chamada ainda funciona pela maioria das redes, mas
+  **não conecta atrás de NAT simétrico** (CGNAT, rede de faculdade, rede corporativa).
+  Com `TURN_SECRET` a API emite usuário e senha temporários (coturn `use-auth-secret`,
+  validade em `TURN_TTL`, padrão 12h) e o segredo nunca sai do servidor.
+  `STUN_URLS` substitui a lista de fábrica; vazio, o desktop usa a própria
 - `GROQ_API_KEY` / `GEMINI_API_KEY` — sem nenhuma das duas, a bot fica off
 - `S3_*` / `R2_*` — em desenvolvimento, o upload cai pro disco local
   (`storageMode = local`). **Em produção ele é RECUSADO** com 503: o disco do

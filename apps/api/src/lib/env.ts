@@ -46,6 +46,16 @@ const EnvSchema = z.object({
   LIVEKIT_API_KEY:      z.string().optional(),
   LIVEKIT_API_SECRET:   z.string().optional(),
 
+  STUN_URLS:     z.string().optional(),
+  TURN_URLS:     z.string().optional(),
+  TURN_SECRET:   z.string().optional(),
+  TURN_USERNAME: z.string().optional(),
+  TURN_PASSWORD: z.string().optional(),
+  TURN_TTL:      z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.coerce.number().int().min(60).max(86_400).default(43_200),
+  ),
+
   R2_ACCOUNT_ID:        z.string().optional(),
   R2_ACCESS_KEY_ID:     z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),

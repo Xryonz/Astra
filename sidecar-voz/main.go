@@ -18,6 +18,18 @@ import (
 
 var marcaDeOrdem = []byte{0xEF, 0xBB, 0xBF}
 
+var stunPadrao = []string{
+	"stun:stun.l.google.com:19302",
+	"stun:stun1.l.google.com:19302",
+	"stun:stun.cloudflare.com:3478",
+}
+
+func configuracaoPadrao() webrtc.Configuration {
+	return webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{{URLs: append([]string(nil), stunPadrao...)}},
+	}
+}
+
 func main() {
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -59,9 +71,7 @@ func main() {
 		motor:      motor,
 		pares:      make(map[string]*Par),
 
-		config: webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{{URLs: []string{"stun:stun.l.google.com:19302"}}},
-		},
+		config: configuracaoPadrao(),
 	}
 	defer app.Fechar()
 
@@ -271,23 +281,33 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 }
 
 func (a *App) aplicarConfig(cmd Comando) {
-	servidores := make([]webrtc.ICEServer, 0, len(cmd.Stun)+len(cmd.Turn))
-	if len(cmd.Stun) > 0 {
-		servidores = append(servidores, webrtc.ICEServer{URLs: cmd.Stun})
+	if len(cmd.Stun) == 0 && len(cmd.Turn) == 0 {
+		return
 	}
+
+	stun := cmd.Stun
+	if len(stun) == 0 {
+		stun = stunPadrao
+	}
+
+	servidores := make([]webrtc.ICEServer, 0, 1+len(cmd.Turn))
+	servidores = append(servidores, webrtc.ICEServer{URLs: append([]string(nil), stun...)})
 	for _, t := range cmd.Turn {
+		if t.URL == "" {
+			continue
+		}
 		servidores = append(servidores, webrtc.ICEServer{
 			URLs:       []string{t.URL},
 			Username:   t.User,
 			Credential: t.Senha,
 		})
 	}
-	if len(servidores) == 0 {
-		return
-	}
+
 	a.mu.Lock()
 	a.config = webrtc.Configuration{ICEServers: servidores}
 	a.mu.Unlock()
+
+	fmt.Fprintf(os.Stderr, "ICE configurado: %d STUN, %d TURN\n", len(stun), len(servidores)-1)
 }
 
 func (a *App) abrirPar(id string) (*Par, error) {

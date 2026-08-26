@@ -145,6 +145,8 @@ type Compressor struct {
 
 	NaMemoria bool
 
+	TaxaVariavel bool
+
 	t        objeto
 	eventos  objeto
 	gerente  objeto
@@ -360,6 +362,11 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 			return nil, err
 		}
 	}
+	if api, err := t.consultar(&iidCodecAPI); err == nil {
+		c.comandos = api
+		c.pedirTaxaVariavel()
+	}
+
 	if err := configurarSaida(t, saidaL, saidaA, fps, kbps); err != nil {
 		return nil, err
 	}
@@ -380,9 +387,6 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 		c.reduzir = rd
 	}
 
-	if api, err := t.consultar(&iidCodecAPI); err == nil {
-		c.comandos = api
-	}
 	if err := c.abrirGeradorSeAssincrono(); err != nil {
 		return nil, err
 	}
@@ -946,6 +950,34 @@ type variante struct {
 }
 
 const varInteiroSemSinal = 19
+
+var chaveModoDeTaxa = guid(0x1C0608E9, 0x370C, 0x4710,
+	[8]byte{0x8A, 0x58, 0xCB, 0x61, 0x81, 0xC4, 0x24, 0x23})
+
+var chaveTaxaMaxima = guid(0x9651EAE4, 0x39B9, 0x4EBF,
+	[8]byte{0x85, 0xEF, 0xD7, 0xF4, 0x44, 0xEC, 0x74, 0x65})
+
+const taxaVbrComPico = 1
+
+func (c *Compressor) definirComando(chave windows.GUID, valor uintptr) bool {
+	if c.comandos == 0 {
+		return false
+	}
+	v := variante{tipo: varInteiroSemSinal, valor: valor}
+	k := chave
+	r := c.comandos.chamar(codecDefinirValor,
+		uintptr(unsafe.Pointer(&k)), uintptr(unsafe.Pointer(&v)))
+	return uint32(r)&0x80000000 == 0
+}
+
+func (c *Compressor) pedirTaxaVariavel() {
+	if !c.definirComando(chaveModoDeTaxa, taxaVbrComPico) {
+		return
+	}
+	c.definirComando(chaveBandaMediaDoCodec, uintptr(c.kbps)*1000)
+	c.definirComando(chaveTaxaMaxima, uintptr(c.kbps)*2000)
+	c.TaxaVariavel = true
+}
 
 func (c *Compressor) ForcarQuadroChave() bool {
 	if c.comandos == 0 {

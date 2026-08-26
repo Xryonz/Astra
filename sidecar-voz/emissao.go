@@ -160,6 +160,9 @@ func (e *Emissor) transmitir(
 	}
 
 	comoSubiu := fmt.Sprintf("%dx%d @%d", c.saidaL, c.saidaA, c.fps)
+	if c.TaxaVariavel {
+		comoSubiu += " · taxa variável"
+	}
 	if c.NaMemoria {
 		comoSubiu = "sem aceleração de placa · " + comoSubiu
 	}

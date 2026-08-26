@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 )
@@ -44,6 +45,39 @@ const (
 	marcaNaoAssisto  = byte('0')
 )
 
+var (
+	umaVezAFabrica sync.Once
+	fabrica        *webrtc.API
+	erroDaFabrica  error
+)
+
+func fabricaDePares() (*webrtc.API, error) {
+	umaVezAFabrica.Do(func() {
+		motor := &webrtc.MediaEngine{}
+		if err := motor.RegisterDefaultCodecs(); err != nil {
+			erroDaFabrica = fmt.Errorf("registrar os codecs: %w", err)
+			return
+		}
+
+		registro := &interceptor.Registry{}
+		if err := webrtc.RegisterDefaultInterceptors(motor, registro); err != nil {
+			erroDaFabrica = fmt.Errorf("registrar os interceptores: %w", err)
+			return
+		}
+
+		if err := webrtc.ConfigureTWCCHeaderExtensionSender(motor, registro); err != nil {
+			erroDaFabrica = fmt.Errorf("numerar os pacotes que saem: %w", err)
+			return
+		}
+
+		fabrica = webrtc.NewAPI(
+			webrtc.WithMediaEngine(motor),
+			webrtc.WithInterceptorRegistry(registro),
+		)
+	})
+	return fabrica, erroDaFabrica
+}
+
 func NovoPar(
 	id string,
 	config webrtc.Configuration,
@@ -53,7 +87,11 @@ func NovoPar(
 	entrega *EntregaDeQuadros,
 	saida *Escritor,
 ) (*Par, error) {
-	pc, err := webrtc.NewPeerConnection(config)
+	nascedouro, err := fabricaDePares()
+	if err != nil {
+		return nil, err
+	}
+	pc, err := nascedouro.NewPeerConnection(config)
 	if err != nil {
 		return nil, fmt.Errorf("criar conexão: %w", err)
 	}
@@ -260,6 +298,8 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 }
 
 func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
+	var peloTwcc PerdaPeloTwcc
+
 	for {
 		pacotes, _, err := remetente.ReadRTCP()
 		if err != nil {
@@ -267,6 +307,14 @@ func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 		}
 		for _, pacote := range pacotes {
 			switch recado := pacote.(type) {
+			case *rtcp.TransportLayerCC:
+				if p.relatarPerda == nil {
+					continue
+				}
+				if fracao, fechou := peloTwcc.Somar(recado, time.Now()); fechou {
+					p.relatarPerda(fracao)
+				}
+
 			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
 				if p.pedirQuadroChave != nil {
 					p.pedirQuadroChave()

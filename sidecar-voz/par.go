@@ -224,7 +224,7 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 		if det.Alimentar(pcm, time.Now()) {
 			p.avisarFala(det.Falando())
 		}
-		if pcm != nil && p.misturador != nil {
+		if p.misturador != nil {
 			p.misturador.Entregar(p.id, pcm)
 		}
 	}

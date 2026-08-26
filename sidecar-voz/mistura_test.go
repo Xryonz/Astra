@@ -103,7 +103,7 @@ func TestSomaAltaNaoEstoura(t *testing.T) {
 
 func TestFilaCheiaGuardaORecente(t *testing.T) {
 	m := NovoMisturador()
-	for n := 1; n <= quadrosDeFolga+2; n++ {
+	for n := 1; n <= folgaDeRajada+2; n++ {
 		quadro := make([]int16, AmostrasPorQuadro)
 		for i := range quadro {
 			quadro[i] = int16(n * 100)

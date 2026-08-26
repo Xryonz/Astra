@@ -5,7 +5,15 @@ import (
 	"time"
 )
 
-const quadrosDeFolga = 3
+const (
+	folgaDeRajada = 3
+
+	folgaMaxima = 10
+
+	paradaQueNaoEJitter = 200 * time.Millisecond
+
+	pulosParaAcalmar = 500
+)
 
 type Misturador struct {
 	mu    sync.Mutex
@@ -18,6 +26,12 @@ type vozRecebida struct {
 	fila [][]int16
 
 	ultimaEntrega time.Time
+
+	alvo     int
+	enchendo bool
+	faltouEm time.Time
+	calmos   int
+	minFila  int
 }
 
 const silencioAteEsquecer = 3 * time.Second
@@ -35,10 +49,24 @@ func (m *Misturador) Entregar(id string, pcm []int16) {
 		v = &vozRecebida{}
 		m.vozes[id] = v
 	}
-	v.ultimaEntrega = time.Now()
 
-	if len(v.fila) >= quadrosDeFolga {
+	agora := time.Now()
+	v.ultimaEntrega = agora
 
+	if pcm == nil {
+		v.faltouEm = time.Time{}
+		return
+	}
+
+	if !v.faltouEm.IsZero() {
+		if agora.Sub(v.faltouEm) <= paradaQueNaoEJitter && v.alvo < folgaMaxima {
+			v.alvo++
+			v.calmos = 0
+		}
+		v.faltouEm = time.Time{}
+	}
+
+	for len(v.fila) >= v.alvo+folgaDeRajada {
 		copy(v.fila, v.fila[1:])
 		v.fila = v.fila[:len(v.fila)-1]
 	}
@@ -67,9 +95,37 @@ func (m *Misturador) Puxar(destino []int16) int {
 		if len(v.fila) == 0 {
 			if agora.Sub(v.ultimaEntrega) > silencioAteEsquecer {
 				delete(m.vozes, id)
+				continue
+			}
+			if !v.enchendo {
+				v.enchendo = true
+				v.faltouEm = agora
 			}
 			continue
 		}
+
+		if v.enchendo {
+			if len(v.fila) <= v.alvo {
+				continue
+			}
+			v.enchendo = false
+		}
+
+		if v.calmos == 0 || len(v.fila) < v.minFila {
+			v.minFila = len(v.fila)
+		}
+		v.calmos++
+		if v.calmos >= pulosParaAcalmar {
+			v.calmos = 0
+			if v.minFila > 1 && v.alvo > 0 {
+				v.alvo--
+				if len(v.fila) > v.alvo+1 {
+					copy(v.fila, v.fila[1:])
+					v.fila = v.fila[:len(v.fila)-1]
+				}
+			}
+		}
+
 		quadro := v.fila[0]
 		copy(v.fila, v.fila[1:])
 		v.fila = v.fila[:len(v.fila)-1]

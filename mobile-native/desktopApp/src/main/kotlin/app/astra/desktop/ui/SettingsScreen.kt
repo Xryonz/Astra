@@ -558,8 +558,6 @@ private fun ProfileCardPreview(
         status = me.effectiveStatus,
         criadoEm = me.createdAt,
     )
-    var ampliada by remember { mutableStateOf<CardVariante?>(null) }
-
     var mutuais by remember(me.id) { mutableStateOf<List<MutualServerDto>>(emptyList()) }
     LaunchedEffect(me.id) {
         mutuais = withContext(Dispatchers.IO) {
@@ -573,7 +571,6 @@ private fun ProfileCardPreview(
             rotulo = "cartão completo",
             larguraReal = LARGURA_CARTAO_COMPLETO,
             modifier = Modifier.fillMaxWidth(),
-            aoClicar = { ampliada = CardVariante.COMPLETO },
         ) {
             ProfileCard(
                 dados,
@@ -586,19 +583,6 @@ private fun ProfileCardPreview(
             )
         }
     }
-
-    ampliada?.let { qual ->
-        DialogShell(onClose = { ampliada = null }) {
-            ProfileCard(
-                dados = dados,
-                variante = qual,
-                modifier = Modifier.width(
-                    if (qual == CardVariante.COMPLETO) LARGURA_CARTAO_COMPLETO else LARGURA_CARTAO_NORMAL,
-                ),
-                servidoresEmComum = if (qual == CardVariante.COMPLETO) mutuais else emptyList(),
-            )
-        }
-    }
 }
 
 @Composable
@@ -606,7 +590,6 @@ private fun CartaoDaPrevia(
     rotulo: String,
     larguraReal: Dp,
     modifier: Modifier = Modifier,
-    aoClicar: () -> Unit,
     conteudo: @Composable () -> Unit,
 ) {
     Column(modifier) {
@@ -624,12 +607,7 @@ private fun CartaoDaPrevia(
                         scaleX = escala
                         scaleY = escala
                         transformOrigin = TransformOrigin(0f, 0f)
-                    }
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = aoClicar,
-                    ),
+                    },
             ) {
                 conteudo()
             }

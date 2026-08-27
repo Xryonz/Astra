@@ -77,7 +77,7 @@ object AtividadeDoSistema {
             exe in DO_SISTEMA -> null
             exe in NAVEGADORES -> "Navegando"
             exe == "astra.exe" -> null
-            else -> nomeBonito(arquivo) ?: nomeCru(arquivo.name)
+            else -> CatalogoDeJogos.jogoDe(caminho) ?: nomeBonito(arquivo) ?: nomeCru(arquivo.name)
         }
     }
 

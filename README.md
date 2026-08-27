@@ -368,6 +368,24 @@ quem cumpre a licença é o arquivo ao lado da fonte.
 
 [Lucide](https://lucide.dev) — ISC License.
 
+### Dados
+
+O catálogo que traduz nome de executável em título de jogo
+(`mobile-native/desktopApp/src/main/resources/jogos.tsv`) é destilado da lista de
+aplicações detectáveis que o **Discord** publica em
+`discord.com/api/v9/applications/detectable`.
+
+Ser honesto sobre o que isso é: um endpoint **público mas não documentado**, sem
+licença declarada. O que o Astra guarda dele é a parte factual — qual executável
+pertence a qual jogo — e nada mais: nem ícone, nem identificador, nem descrição. Os
+títulos são marcas dos respectivos donos e aparecem só para dizer o que a pessoa está
+jogando.
+
+O instantâneo tem data no cabeçalho do arquivo e se refaz com
+`node tools/atualizar-catalogo-de-jogos.mjs`. Se a fonte sair do ar, o Astra continua
+funcionando: o catálogo é a primeira tentativa, e a descrição do próprio executável
+segue como resposta.
+
 ### Bibliotecas nativas
 
 | Biblioteca | Para quê | Licença |

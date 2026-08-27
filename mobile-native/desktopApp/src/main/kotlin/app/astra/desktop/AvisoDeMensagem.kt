@@ -118,7 +118,7 @@ private fun JanelaDeAviso(aviso: AvisoNaTela, indice: Int) {
             size = DpSize(LARGURA, ALTURA),
         ),
         undecorated = true,
-        transparent = true,
+        transparent = janelaAceitaTransparencia,
         resizable = false,
         alwaysOnTop = true,
         focusable = false,

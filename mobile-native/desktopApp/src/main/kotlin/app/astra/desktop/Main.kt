@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -134,6 +135,11 @@ internal object FocoDoSistema {
 }
 
 @Composable
+private fun marcoDoArranque(passo: String) {
+    remember(passo) { Arranque.marcar(passo) }
+}
+
+@Composable
 private fun lembrarFocoDoApp(): Boolean {
     var foco by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
@@ -168,6 +174,7 @@ private fun writeDiagnostics() = runCatching {
         appendLine("java         : ${System.getProperty("java.version")}")
         appendLine("SO           : $os ${System.getProperty("os.version")}")
         appendLine()
+        appendLine("Abriu e nao mostrou nada? arranque.txt, aqui do lado, diz ate onde chegou.")
         appendLine("Fechou sozinho? o motivo fica em falhas.txt, nesta mesma pasta.")
         appendLine("(sem falhas.txt = a JVM morreu por fora, em código nativo. O laudo é")
         appendLine(" hs_err_pid<numero>.log, na pasta da instalação — ${pastaDaInstalacao()})")
@@ -222,12 +229,21 @@ fun main(args: Array<String>) {
     val voltandoDeAtualizacao = args.any { it == ARG_POS_ATUALIZACAO }
     val nascerEscondido = args.any { it == ARG_MINIMIZADO }
     CrashLog.install()
+    Arranque.comecar(System.getProperty("astra.version") ?: "dev")
     WindowsAppId.aplicar()
-    if (!SingleInstance.acquireOrSignal()) return
+    if (!SingleInstance.acquireOrSignal()) {
+        Arranque.marcar("ja havia outro Astra aberto — este saiu")
+        return
+    }
+    Arranque.marcar("instancia unica garantida")
     startKoin { modules(appModule) }
+    Arranque.marcar("Koin de pe")
     writeDiagnostics()
+    Arranque.marcar("diagnostico escrito")
     GlobalContext.get().get<DesktopSocket>().registrarDespedida()
+    Arranque.marcar("entrando na composicao")
     application {
+        marcoDoArranque("composicao iniciada")
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
         val transparentWindow = remember {
@@ -250,6 +266,7 @@ fun main(args: Array<String>) {
 
         val updater = remember { GlobalContext.get().get<UpdateService>() }
         val bootPrefs = remember { GlobalContext.get().get<DesktopPrefs>().state.value }
+        marcoDoArranque("preferencias e servicos lidos")
         LaunchedEffect(Unit) {
             Obsidian.aplicarContraste(bootPrefs.altoContraste)
             Obsidian.apply(bootPrefs.accentId, bootPrefs.bgId)
@@ -297,10 +314,12 @@ fun main(args: Array<String>) {
                 resizable = false,
                 alwaysOnTop = true,
             ) {
+                marcoDoArranque("portao de atualizacao na tela")
                 UpdaterGate(updater, bootPrefs.reduceMotionEff, onDone = { gateDone = true })
             }
             return@application
         }
+        marcoDoArranque("portao liberado")
 
         Window(
             onCloseRequest = onCloseApp,
@@ -311,6 +330,11 @@ fun main(args: Array<String>) {
             undecorated = true,
             transparent = transparentWindow,
         ) {
+            marcoDoArranque("janela principal criada")
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                Arranque.marcar("primeiro quadro desenhado")
+            }
             if (voltandoDeAtualizacao) {
                 LaunchedEffect(Unit) {
                     delay(400)

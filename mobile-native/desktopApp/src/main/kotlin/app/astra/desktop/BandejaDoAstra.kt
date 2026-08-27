@@ -122,7 +122,7 @@ fun BandejaComMenu(
             size = DpSize(LARGURA, altura),
         ),
         undecorated = true,
-        transparent = true,
+        transparent = janelaAceitaTransparencia,
         resizable = false,
         alwaysOnTop = true,
         title = "",

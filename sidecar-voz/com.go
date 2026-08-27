@@ -118,7 +118,7 @@ const (
 	mmDeviceActivate  = 3
 	mmDeviceAbrirLoja = 4
 	mmDeviceGetId     = 5
-	_mmDeviceGetSt    = 6
+	mmDeviceGetSt     = 6
 
 	colContar = 3
 	colItem   = 4
@@ -155,6 +155,7 @@ const (
 	sentidoEntrada = 1
 
 	papelComunicacao = 2
+	papelConsole     = 0
 )
 
 const (

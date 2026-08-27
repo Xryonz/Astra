@@ -104,7 +104,7 @@ private fun statusLabel(status: UserStatus) = when (status) {
     UserStatus.INVISIBLE, UserStatus.OFFLINE -> "invisivel"
 }
 
-private object AboveAnchor : PopupPositionProvider {
+internal object AboveAnchor : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,

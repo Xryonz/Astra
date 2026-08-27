@@ -167,33 +167,10 @@ fun LIcon(
 }
 
 @Composable
-fun DesktopAvatar(url: String?, name: String, sizeDp: Int, externalHover: Boolean = false) {
-    val interaction = remember { MutableInteractionSource() }
-    val selfHover by interaction.collectIsHoveredAsState()
-    val hovered = selfHover || externalHover
-    val brilho by animateFloatAsState(
-        targetValue = if (hovered) 1f else 0f,
-        animationSpec = tween(durationMillis = if (hovered) 220 else 180, easing = FastOutSlowInEasing),
-        label = "avatarBrilho",
-    )
+fun DesktopAvatar(url: String?, name: String, sizeDp: Int) {
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
-            .drawBehind {
-                if (brilho <= 0.01f) return@drawBehind
-                val raio = size.minDimension / 2f * 1.4f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        0.55f to Color.Transparent,
-                        0.72f to Obsidian.accent.copy(alpha = 0.30f * brilho),
-                        1f to Color.Transparent,
-                        center = center,
-                        radius = raio,
-                    ),
-                    radius = raio,
-                )
-            }
-            .hoverable(interaction)
             .pointerHoverIcon(PointerIcon.Hand),
         contentAlignment = Alignment.Center,
     ) {

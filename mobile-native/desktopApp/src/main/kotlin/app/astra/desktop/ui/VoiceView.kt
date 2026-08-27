@@ -73,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import app.astra.desktop.prefs.DesktopPrefs
 import kotlin.math.cos
@@ -269,6 +270,7 @@ fun VoiceView(
                 )
                 if (sonsAbertos) {
                     Popup(
+                        popupPositionProvider = AboveAnchor,
                         onDismissRequest = { sonsAbertos = false },
                         properties = PopupProperties(focusable = true),
                     ) {
@@ -331,6 +333,7 @@ fun VoiceView(
                 )
                 if (escolhendoTela && !transmitindo) {
                     Popup(
+                        popupPositionProvider = NoMeioDaJanela,
                         onDismissRequest = { escolhendoTela = false },
                         properties = PopupProperties(focusable = true),
                     ) {
@@ -349,6 +352,7 @@ fun VoiceView(
                 }
                 if (transmissaoAvisada && transmitindo) {
                     Popup(
+                        popupPositionProvider = AboveAnchor,
                         onDismissRequest = { transmissaoAvisada = false },
                         properties = PopupProperties(focusable = true),
                     ) {
@@ -391,6 +395,7 @@ fun VoiceView(
                 if (settingsOpen) {
                     LaunchedEffect(Unit) { call.atualizarAparelhos() }
                     Popup(
+                        popupPositionProvider = AboveAnchor,
                         onDismissRequest = { settingsOpen = false },
                         properties = PopupProperties(focusable = true),
                     ) {
@@ -758,4 +763,16 @@ private fun ParticipantTile(
             )
         }
     }
+}
+
+private object NoMeioDaJanela : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: androidx.compose.ui.unit.IntRect,
+        windowSize: androidx.compose.ui.unit.IntSize,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        popupContentSize: androidx.compose.ui.unit.IntSize,
+    ): androidx.compose.ui.unit.IntOffset = androidx.compose.ui.unit.IntOffset(
+        x = ((windowSize.width - popupContentSize.width) / 2).coerceAtLeast(0),
+        y = ((windowSize.height - popupContentSize.height) / 2).coerceAtLeast(0),
+    )
 }

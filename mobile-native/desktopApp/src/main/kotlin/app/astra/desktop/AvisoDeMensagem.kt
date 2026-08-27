@@ -162,7 +162,7 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
             Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DesktopAvatar(aviso.avatarUrl, aviso.quem, 38, externalHover = sobMouse)
+            DesktopAvatar(aviso.avatarUrl, aviso.quem, 38)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

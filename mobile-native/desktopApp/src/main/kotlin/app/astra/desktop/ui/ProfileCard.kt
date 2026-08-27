@@ -230,7 +230,7 @@ private fun AvatarDoCartao(
                 acoes = acoesDaFoto,
                 modifier = Modifier.size(px.dp),
             ) { aceso ->
-                DesktopAvatar(dados.avatarUrl, dados.nome, px, externalHover = aceso)
+                DesktopAvatar(dados.avatarUrl, dados.nome, px)
             }
         } else {
             DesktopAvatar(dados.avatarUrl, dados.nome, px)

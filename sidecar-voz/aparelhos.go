@@ -110,6 +110,14 @@ func descreverAparelho(dispositivo objeto) (id, nome string) {
 	return id, windows.UTF16PtrToString((*uint16)(unsafe.Pointer(valor.ponteiro)))
 }
 
+func aparelhoEstaVivo(dispositivo objeto) bool {
+	var estado uint32
+	if hr(dispositivo.chamar(mmDeviceGetSt, uintptr(unsafe.Pointer(&estado))), "estado do aparelho") != nil {
+		return false
+	}
+	return estado&apenasAtivos != 0
+}
+
 func abrirDispositivo(enumerador objeto, sentido int, id string) (objeto, error) {
 	if id != "" {
 		alvo, err := windows.UTF16PtrFromString(id)
@@ -120,20 +128,30 @@ func abrirDispositivo(enumerador objeto, sentido int, id string) (objeto, error)
 				uintptr(unsafe.Pointer(&dispositivo)),
 			)
 			if hr(r, "abrir aparelho escolhido") == nil {
-				return dispositivo, nil
+				if aparelhoEstaVivo(dispositivo) {
+					return dispositivo, nil
+				}
+				dispositivo.soltar()
 			}
 		}
 		fmt.Fprintf(os.Stderr, "aparelho escolhido indisponível (%s); usando o padrão\n", id)
 	}
 
-	var dispositivo objeto
-	r := enumerador.chamar(mmGetDefaultAudioEndpoint,
-		uintptr(sentido),
-		uintptr(papelComunicacao),
-		uintptr(unsafe.Pointer(&dispositivo)),
-	)
-	if err := hr(r, "pegar aparelho padrão"); err != nil {
-		return 0, err
+	for _, papel := range []int{papelComunicacao, papelConsole} {
+		var dispositivo objeto
+		r := enumerador.chamar(mmGetDefaultAudioEndpoint,
+			uintptr(sentido),
+			uintptr(papel),
+			uintptr(unsafe.Pointer(&dispositivo)),
+		)
+		if hr(r, "pegar aparelho padrão") != nil {
+			continue
+		}
+		if aparelhoEstaVivo(dispositivo) {
+			return dispositivo, nil
+		}
+		dispositivo.soltar()
+		fmt.Fprintf(os.Stderr, "padrão do papel %d não está ativo; tentando o seguinte\n", papel)
 	}
-	return dispositivo, nil
+	return 0, fmt.Errorf("nenhum aparelho de áudio ativo para este sentido")
 }

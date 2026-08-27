@@ -184,7 +184,7 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                     },
                     modifier = Modifier.size(52.dp),
                 ) { aceso ->
-                    DesktopAvatar(p.avatarUrl, p.displayName, 52, externalHover = aceso)
+                    DesktopAvatar(p.avatarUrl, p.displayName, 52)
                 }
             }
             Spacer(Modifier.width(12.dp))

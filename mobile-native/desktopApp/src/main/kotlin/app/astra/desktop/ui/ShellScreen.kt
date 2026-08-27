@@ -618,21 +618,6 @@ fun ShellScreen(
             nome = prefs.state.value.petNome,
         )
 
-        val joined = voice.joined
-        val callAtiva = voice.call
-        if (joined != null && callAtiva != null && state.voiceChannel?.id != joined.id) {
-            CallDock(
-                channel = joined,
-                call = callAtiva,
-                mudo = voice.mudo,
-                aoAlternarMudo = voice::alternarMudo,
-                meName = state.me?.displayName ?: state.me?.username ?: "você",
-                meAvatar = state.me?.avatarUrl,
-                onExpand = { vm.openVoice(joined) },
-                onLeave = { voice.leave(); vm.leaveVoice() },
-            )
-        }
-
         val cfgServer = state.selectedServer
         AnimatedVisibility(
             visible = serverSettingsOpen && cfgServer != null,
@@ -2878,7 +2863,7 @@ private fun DmList(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box {
-                        DesktopAvatar(u?.avatarUrl, name, 28, externalHover = hovered)
+                        DesktopAvatar(u?.avatarUrl, name, 28)
                         StatusDot(
                             status = userStatus(dmPresence[u?.id]),
                             size = 10.dp,

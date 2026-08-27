@@ -3142,9 +3142,6 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
     Spacer(Modifier.height(6.dp))
     ArranqueComWindows()
-
-    Spacer(Modifier.height(10.dp))
-    PlacaDeVideoSection(p, prefs)
 }
 
 private fun mascarar(email: String): String {
@@ -3192,119 +3189,6 @@ private fun ArranqueComWindows() {
     }
 }
 
-@Composable
-private fun PlacaDeVideoSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    val placas = remember { Placas.todas }
-    if (placas.size < 2) return
-
-    Text("Placa de video", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
-    Text(
-        "qual placa desenha o Astra e comprime o video das chamadas",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-    )
-    Spacer(Modifier.height(8.dp))
-
-    Column(
-        Modifier
-            .widthIn(max = 460.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Obsidian.raised)
-            .padding(6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        PlacaLinha(
-            nome = "Automatico",
-            detalhe = placas.firstOrNull { it.desenhaATela }
-                ?.let { "usa a ${it.nome}, que desenha a sua tela" }
-                ?: "o Astra decide",
-            aviso = null,
-            ativa = Placas.porId(p.placaVideo) == null,
-        ) { prefs.setPlacaVideo("") }
-
-        placas.forEach { placa ->
-            val daTela = placas.firstOrNull { it.desenhaATela }?.nome ?: "outra placa"
-            PlacaLinha(
-                nome = placa.nome,
-                detalhe = if (placa.dedicada) "dedicada" else "integrada",
-                aviso = if (placa.desenhaATela) null else
-                    "quem apresenta na tela é a $daTela. Desenhar aqui obriga a copiar cada " +
-                        "quadro de volta para lá antes de aparecer, e a cópia custa mais do que " +
-                        "a placa mais forte devolve — o Astra fica menos fluido, não mais. " +
-                        "Transmitir a tela também não funciona por aqui: o quadro nasce na " +
-                        "$daTela e só ela consegue lê-lo.",
-                ativa = p.placaVideo == placa.id,
-                bloqueada = !placa.desenhaATela,
-            ) { prefs.setPlacaVideo(placa.id) }
-        }
-    }
-    Spacer(Modifier.height(6.dp))
-    Text(
-        "a parte do video vale na proxima transmissao; a da interface, no proximo arranque do Astra.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-        modifier = Modifier.widthIn(max = 460.dp),
-    )
-}
-
-@Composable
-private fun PlacaLinha(
-    nome: String,
-    detalhe: String,
-    aviso: String?,
-    ativa: Boolean,
-    bloqueada: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val hov = remember { MutableInteractionSource() }
-    val h by hov.collectIsHoveredAsState()
-    val toque = remember { MutableInteractionSource() }
-    val fundo = when {
-        bloqueada -> Obsidian.raised
-        ativa -> Obsidian.active
-        h -> Obsidian.hover
-        else -> Obsidian.overlay
-    }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .then(if (bloqueada) Modifier else Modifier.clickScale(toque))
-            .clip(RoundedCornerShape(8.dp))
-            .background(fundo)
-            .then(
-                if (bloqueada) Modifier
-                else Modifier
-                    .hoverable(hov)
-                    .clickable(interactionSource = toque, indication = null, onClick = onClick),
-            )
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                nome,
-                style = TextStyle(
-                    color = when {
-                        bloqueada -> Obsidian.text3
-                        ativa -> Obsidian.accent
-                        else -> Obsidian.text1
-                    },
-                    fontSize = 12.sp,
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                if (bloqueada) "$detalhe · indisponível" else detalhe,
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-            )
-        }
-        if (aviso != null) {
-            Spacer(Modifier.height(3.dp))
-            Text(aviso, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-        }
-    }
-}
 
 @Composable
 private fun LabeledControl(title: String, sub: String, content: @Composable () -> Unit) {
@@ -3441,14 +3325,15 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     GestosDoBicho(bicho, gesto) { gesto = it }
 
     SettingsDivider()
-    FieldLabel("bicho")
-    SegmentedRow(
-        Bicho.entries.map { it.rotulo to it.name },
-        p.petBicho,
-        prefs::setPetBicho,
-    )
-
-    Spacer(Modifier.height(18.dp))
+    if (Bicho.disponiveis.size > 1) {
+        FieldLabel("bicho")
+        SegmentedRow(
+            Bicho.disponiveis.map { it.rotulo to it.name },
+            p.petBicho,
+            prefs::setPetBicho,
+        )
+        Spacer(Modifier.height(18.dp))
+    }
     FieldLabel("pelagem")
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Pelagem.entries.forEach { pel ->
@@ -3537,8 +3422,8 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "Um bicho em pixel art que caminha por cima da interface. Ele passa a maior " +
             "parte do tempo parado e só anda em trechos curtos: movimento contínuo " +
             "no canto do olho ensina o olho a ignorar o resto da tela. Pula quando " +
-            "chega mensagem, e some junto se você reduzir movimento. A escolha do " +
-            "bicho, a cor e o nome estão em Aparência.",
+            "chega mensagem, e some junto se você reduzir movimento. A cor e o nome " +
+            "estão em Aparência.",
     )
     ToggleRow(
         "Gato na tela",

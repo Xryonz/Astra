@@ -126,7 +126,9 @@ enum class Bicho(
     ;
 
     companion object {
-        fun de(nome: String?): Bicho = entries.firstOrNull { it.name == nome } ?: SIMPLES
+        val disponiveis = listOf(SIMPLES)
+
+        fun de(nome: String?): Bicho = disponiveis.firstOrNull { it.name == nome } ?: SIMPLES
     }
 }
 

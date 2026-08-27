@@ -106,16 +106,6 @@ internal val janelaAceitaTransparencia: Boolean by lazy {
     }.getOrDefault(false)
 }
 
-private fun escolherPlacaDaInterface() = runCatching {
-    val prefs = GlobalContext.get().get<DesktopPrefs>()
-    val placa = Placas.porId(prefs.state.value.placaVideo) ?: return@runCatching
-    if (!placa.desenhaATela) {
-        prefs.setPlacaVideo("")
-        return@runCatching
-    }
-    System.setProperty("skiko.gpu.priority", if (placa.dedicada) "discrete" else "integrated")
-}
-
 internal object FocoDoSistema {
     interface U32 : StdCallLibrary {
         fun GetForegroundWindow(): Pointer?
@@ -235,7 +225,6 @@ fun main(args: Array<String>) {
     WindowsAppId.aplicar()
     if (!SingleInstance.acquireOrSignal()) return
     startKoin { modules(appModule) }
-    escolherPlacaDaInterface()
     writeDiagnostics()
     GlobalContext.get().get<DesktopSocket>().registrarDespedida()
     application {

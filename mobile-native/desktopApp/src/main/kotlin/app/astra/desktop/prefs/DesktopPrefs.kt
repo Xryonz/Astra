@@ -83,7 +83,6 @@ class DesktopPrefs(private val store: SessionStore) {
         val bgId: String = "void",
         val fontSize: FontSizePref = FontSizePref.MD,
         val density: DensityPref = DensityPref.COMFORTABLE,
-        val placaVideo: String = "",
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
         val motorNovo: Boolean = false,
         val avisoDiscreto: Boolean = false,
@@ -170,7 +169,6 @@ class DesktopPrefs(private val store: SessionStore) {
         bgId = store.uiPref("bgId") ?: "void",
         fontSize = FontSizePref.from(store.uiPref("fontSize")),
         density = DensityPref.from(store.uiPref("density")),
-        placaVideo = store.uiPref("placaVideo").orEmpty(),
         screenQuality = ScreenQuality.from(store.uiPref("screenQuality")),
         avisoDiscreto = store.uiPref("avisoDiscreto") == "1",
         somDeAviso = store.uiPref("somDeAviso") != "0",
@@ -255,12 +253,6 @@ class DesktopPrefs(private val store: SessionStore) {
         persist("exitOnClose", v)
         _state.update { it.copy(exitOnClose = v) }
     }
-
-    fun setPlacaVideo(id: String) {
-        store.setUiPref("placaVideo", id)
-        _state.update { it.copy(placaVideo = id) }
-    }
-
     fun setScreenQuality(v: ScreenQuality) {
         store.setUiPref("screenQuality", v.key)
         _state.update { it.copy(screenQuality = v) }

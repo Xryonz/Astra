@@ -38,7 +38,8 @@ aplicativo e morre com ele.
 **Desktop** (`mobile-native/desktopApp`) — a fase ativa
 - Kotlin 2.3 · Compose Multiplatform 1.11 · janela sem moldura (título próprio)
 - **Koin** (DI) · Retrofit/OkHttp · kotlinx.serialization · Coroutines/Flow
-- Coil3 · socket.io-client · JNA (bandeja, atalho, prioridade) · RikkaUI · Haze · Lucide
+- Coil3 · socket.io-client · JNA (atalhos globais, foco de janela, identidade na barra
+  de tarefas, lista de placas) · RikkaUI · Haze · Lucide
 - Aurora em shader SkSL · campo de estrelas em Canvas · auto-update por zip-swap
 
 **Voz e tela do desktop** (`sidecar-voz`) — um processo à parte, em Go
@@ -50,7 +51,10 @@ aplicativo e morre com ele.
   quando há uma e em software quando não há
 - A tela vai **só para quem está assistindo**: uma faixa por par, e quem sai do palco
   ou minimiza a janela deixa de custar banda de quem transmite
-- Áudio em Opus, com cancelamento de eco, supressão de ruído e ganho do Windows
+- Áudio em Opus a 64 kbps em banda cheia, com cancelamento de eco, supressão de ruído e
+  ganho do Windows. Pacote perdido é reconstruído a partir da redundância que o próprio
+  Opus embute em cada pacote, e o colchão contra engasgo se dimensiona pela rede — em
+  rede limpa ele é zero, e só cresce para quem teve engasgo comprovado
 - Fala com o app por **entrada e saída padrão** (uma linha de JSON por mensagem) e
   entrega os quadros por um cano TCP separado na volta local
 - Processo separado de propósito: interoperar com COM/Media Foundation dentro da JVM
@@ -118,7 +122,12 @@ com aviso, distintivos.
 Auto-update por zip-swap com verificação SHA-256, bandeja do sistema, atalho no
 menu iniciar, paleta de comandos (`Ctrl+K`), diagnóstico de rede e permissões,
 configurações com prévia ao vivo por aba, aparência (aurora, estrelas, ou as
-duas), 18 cores de acento, três níveis de gráficos, modo de reduzir movimento.
+duas), 19 cores de acento, três níveis de gráficos, modo de reduzir movimento.
+
+Quando algo dá errado, o app deixa laudo em `%LOCALAPPDATA%\Astra`:
+`arranque.txt` marca por onde o arranque passou e em quanto tempo — onde a lista
+para é onde o app parou; `diagnostico.txt` traz placa, motor de desenho e versão;
+`falhas.txt` guarda o que estourou; `voz.txt` recebe o relato do sidecar.
 
 ---
 

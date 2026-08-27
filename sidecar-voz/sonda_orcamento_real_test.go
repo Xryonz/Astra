@@ -171,7 +171,7 @@ func TestSondaOrcamentoComTelaRealista(t *testing.T) {
 			if err := sintetica.enviar(); err != nil {
 				t.Fatalf("desenhar: %v", err)
 			}
-			if err := c.Comprimir(sintetica.textura, time.Since(comeco), receber); err != nil {
+			if err := c.Comprimir(sintetica.textura, time.Since(comeco), nil, receber); err != nil {
 				t.Fatalf("comprimir: %v", err)
 			}
 			if espera := intervalo - time.Since(volta); espera > 0 {

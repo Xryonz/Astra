@@ -135,7 +135,7 @@ func TestSondaOrcamentoDeBitsPorRitmo(t *testing.T) {
 			if err := ruido.proximo(); err != nil {
 				t.Fatalf("desenhar ruído: %v", err)
 			}
-			if err := c.Comprimir(ruido.textura, time.Since(comeco), receber); err != nil {
+			if err := c.Comprimir(ruido.textura, time.Since(comeco), nil, receber); err != nil {
 				t.Fatalf("comprimir: %v", err)
 			}
 			if comecoDaConta.IsZero() && time.Now().After(aquecer) {

@@ -162,7 +162,7 @@ func TestOCompressorDevolveOCarimboDeTempo(t *testing.T) {
 			continue
 		}
 		quando := time.Since(comeco)
-		err = c.Comprimir(textura, quando, func(_ []byte, carimbo time.Duration) {
+		err = c.Comprimir(textura, quando, nil, func(_ []byte, carimbo time.Duration) {
 			switch {
 			case carimbo < 0:
 				semCarimbo++

@@ -33,7 +33,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-val astraVersion = "1.0.5"
+val astraVersion = "1.0.6"
 
 dependencies {
     implementation(project(":shared"))

@@ -278,10 +278,15 @@ func (e *Emissor) transmitir(
 		}
 
 		saiuAlgo := false
-		err = c.Comprimir(textura, time.Since(comeco), func(quadroPronto []byte, carimbo time.Duration) {
-			saiuAlgo = true
-			entregar(quadroPronto, carimbo)
-		})
+		err = c.Comprimir(
+			textura,
+			time.Since(comeco),
+			tela.SoltarQuadro,
+			func(quadroPronto []byte, carimbo time.Duration) {
+				saiuAlgo = true
+				entregar(quadroPronto, carimbo)
+			},
+		)
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {

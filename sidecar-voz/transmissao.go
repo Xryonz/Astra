@@ -597,7 +597,9 @@ func (c *Compressor) LigarEspelho(mandar func(Quadro)) {
 	c.espelho = e
 }
 
-func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber func([]byte, time.Duration)) error {
+func (c *Compressor) Comprimir(
+	textura objeto, quando time.Duration, aoCopiar func(), receber func([]byte, time.Duration),
+) error {
 	q := c.anel[c.proximo]
 	c.proximo = (c.proximo + 1) % len(c.anel)
 	c.Custos.Quadros++
@@ -605,6 +607,10 @@ func (c *Compressor) Comprimir(textura objeto, quando time.Duration, receber fun
 	marco := time.Now()
 	c.contexto.chamar(d3dCopiarTudo, uintptr(q.textura), uintptr(textura))
 	c.Custos.Copia += time.Since(marco)
+
+	if aoCopiar != nil {
+		aoCopiar()
+	}
 
 	const porSegundo = 10_000_000
 	marcarTempo := func(a objeto) {
@@ -1149,7 +1155,7 @@ func MedirTransmissao(monitor int, duracao time.Duration, saidaL, saidaA, kbps i
 		}
 
 		antes := time.Now()
-		err := c.Comprimir(textura, time.Since(comeco), func(nal []byte, _ time.Duration) {
+		err := c.Comprimir(textura, time.Since(comeco), tela.SoltarQuadro, func(nal []byte, _ time.Duration) {
 			m.Pedacos++
 			m.Bytes += len(nal)
 		})

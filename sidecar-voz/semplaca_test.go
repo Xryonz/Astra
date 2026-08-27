@@ -86,7 +86,7 @@ func TestTransmitirSemPlaca(t *testing.T) {
 			}
 			continue
 		}
-		if err := c.Comprimir(textura, time.Since(comeco), receber); err != nil {
+		if err := c.Comprimir(textura, time.Since(comeco), nil, receber); err != nil {
 			t.Fatalf("comprimir o quadro %d: %v", i, err)
 		}
 		textura.soltar()

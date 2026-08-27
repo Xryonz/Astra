@@ -183,7 +183,7 @@ func (e *Emissor) transmitir(
 	comeco := time.Now()
 	relatorio := time.Now()
 	var quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos int
-	var marco Custos
+	var marco, marcoDoRelato Custos
 	perfilVisto := false
 
 	var falhaAoEntregar error
@@ -318,9 +318,10 @@ func (e *Emissor) transmitir(
 
 		if desde := time.Since(relatorio); desde >= time.Second {
 			perda := e.perdas.PiorDaMaioria()
-			msg := fmt.Sprintf("%d fps · %.1f Mbps · %.0f%% perdido · %d capturados · %d sem saída · %d sem mudança",
+			msg := fmt.Sprintf("%d fps · %.1f de %d Mbps · %.0f%% perdido · %d capturados · %d sem saída · %d sem mudança",
 				int(float64(quadros)/desde.Seconds()),
 				float64(bytesEnviados)*8/desde.Seconds()/1_000_000,
+				controle.Banda()/1000,
 				perda*100,
 				capturados, semSaida, semMudanca)
 
@@ -332,6 +333,16 @@ func (e *Emissor) transmitir(
 			}
 			if atras := e.perdas.QuantosFicamAtras(controle.Banda()); atras > 0 {
 				msg += fmt.Sprintf(" · %d sem rede para acompanhar", atras)
+			}
+
+			gasto := c.Custos.Menos(marcoDoRelato)
+			marcoDoRelato = c.Custos
+			if gasto.Quadros > 0 {
+				m := gasto.Media()
+				msg += fmt.Sprintf(" · por quadro %.1fms (cópia %.1f · redução %.1f · compressão %.1f · leitura %.1f · espera %.1f)",
+					emMs(m.Total()+m.PedidoDeEntrada+m.SaidaPronta),
+					emMs(m.Copia), emMs(m.Reducao), emMs(m.Compressao), emMs(m.Leitura),
+					emMs(m.PedidoDeEntrada+m.SaidaPronta))
 			}
 			e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()
@@ -362,6 +373,8 @@ func (e *Emissor) transmitir(
 		}
 	}
 }
+
+func emMs(d time.Duration) float64 { return float64(d.Microseconds()) / 1000 }
 
 func perfilDoSPS(fluxo []byte) (string, bool) {
 	perfil, achou := "", false

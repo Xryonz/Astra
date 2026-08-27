@@ -106,7 +106,10 @@ type tipoRegistrado struct {
 
 const progressivo = 2
 
-const perfilBaseline = 66
+const (
+	perfilBaseline = 66
+	perfilMain     = 77
+)
 
 const versaoDoMF = 0x00020070
 
@@ -224,6 +227,13 @@ func textoDoAtributo(a objeto, chave *windows.GUID) string {
 }
 
 func configurarSaida(t objeto, largura, altura, fps, kbps int) error {
+	if err := tentarSaidaComPerfil(t, largura, altura, fps, kbps, perfilMain); err == nil {
+		return nil
+	}
+	return tentarSaidaComPerfil(t, largura, altura, fps, kbps, perfilBaseline)
+}
+
+func tentarSaidaComPerfil(t objeto, largura, altura, fps, kbps, perfil int) error {
 	var tipo objeto
 	r, _, _ := procMFCriarTipo.Call(uintptr(unsafe.Pointer(&tipo)))
 	if err := hr(r, "criar o tipo de saída"); err != nil {
@@ -237,7 +247,7 @@ func configurarSaida(t objeto, largura, altura, fps, kbps int) error {
 	definirNumero(tipo, &chaveBandaMedia, uint32(kbps*1000))
 	definirNumero(tipo, &chaveEntrelacamento, progressivo)
 
-	definirNumero(tipo, &chavePerfil, perfilBaseline)
+	definirNumero(tipo, &chavePerfil, uint32(perfil))
 
 	definirNumero(tipo, &chaveDoEspacamento, uint32(fps*2))
 
@@ -245,7 +255,7 @@ func configurarSaida(t objeto, largura, altura, fps, kbps int) error {
 	definirPar(tipo, &chaveTaxaDeQuadros, fps, 1)
 
 	r = t.chamar(transDefinirSaida, 0, uintptr(tipo), 0)
-	return hr(r, fmt.Sprintf("definir a saída em %dx%d @%d", largura, altura, fps))
+	return hr(r, fmt.Sprintf("definir a saída em %dx%d @%d (perfil %d)", largura, altura, fps, perfil))
 }
 
 func (c CompressorDisponivel) FormatosQueAceita() ([]string, error) {

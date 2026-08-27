@@ -211,6 +211,18 @@ func (c Custos) Media() Custos {
 
 func (c Custos) Total() time.Duration { return c.Copia + c.Reducao + c.Compressao + c.Leitura }
 
+func (c Custos) Menos(antes Custos) Custos {
+	return Custos{
+		Copia:           c.Copia - antes.Copia,
+		Reducao:         c.Reducao - antes.Reducao,
+		Compressao:      c.Compressao - antes.Compressao,
+		Leitura:         c.Leitura - antes.Leitura,
+		PedidoDeEntrada: c.PedidoDeEntrada - antes.PedidoDeEntrada,
+		SaidaPronta:     c.SaidaPronta - antes.SaidaPronta,
+		Quadros:         c.Quadros - antes.Quadros,
+	}
+}
+
 type Ritmo struct {
 	intervalo time.Duration
 	proximo   time.Time

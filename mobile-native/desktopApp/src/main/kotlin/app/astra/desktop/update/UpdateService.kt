@@ -200,21 +200,34 @@ class UpdateService(private val http: OkHttpClient) {
         runCatching {
             _state.value = UpdateState.Downloading(av.version, 0f)
             stagingDir.deleteRecursively()
-            zipFile.delete()
-            download(av.downloadUrl, zipFile) { p ->
-                _state.value = UpdateState.Downloading(av.version, p)
-            }
-            conferirHash(av.downloadUrl, zipFile)
-            unzip(zipFile, stagingDir)
-            val exeRoot =
-                if (File(stagingDir, "Astra.exe").exists()) stagingDir
-                else stagingDir.listFiles()?.firstOrNull { File(it, "Astra.exe").exists() }
-                    ?: error("Astra.exe não encontrado no pacote")
             newVersionDir.deleteRecursively()
-            if (!exeRoot.renameTo(newVersionDir)) {
-                exeRoot.copyRecursively(newVersionDir, overwrite = true)
+
+            val porPartes = runCatching {
+                MontagemPorPartes(clienteDeArquivo(), av.downloadUrl).montar(appRoot, newVersionDir) { p ->
+                    _state.value = UpdateState.Downloading(av.version, p)
+                }
+            }.getOrNull()
+
+            if (porPartes == null || !File(newVersionDir, "Astra.exe").isFile) {
+                newVersionDir.deleteRecursively()
+                zipFile.delete()
+                download(av.downloadUrl, zipFile) { p ->
+                    _state.value = UpdateState.Downloading(av.version, p)
+                }
+                conferirHash(av.downloadUrl, zipFile)
+                unzip(zipFile, stagingDir)
+                val exeRoot =
+                    if (File(stagingDir, "Astra.exe").exists()) stagingDir
+                    else stagingDir.listFiles()?.firstOrNull { File(it, "Astra.exe").exists() }
+                        ?: error("Astra.exe não encontrado no pacote")
+                newVersionDir.deleteRecursively()
+                if (!exeRoot.renameTo(newVersionDir)) {
+                    exeRoot.copyRecursively(newVersionDir, overwrite = true)
+                }
+                stagingDir.deleteRecursively()
+            } else {
+                zipFile.delete()
             }
-            stagingDir.deleteRecursively()
             if (!File(newVersionDir, "app").isDirectory || !File(newVersionDir, "runtime").isDirectory) {
                 error("pacote incompleto")
             }
@@ -241,11 +254,13 @@ class UpdateService(private val http: OkHttpClient) {
         }
     }
 
+    private fun clienteDeArquivo(): OkHttpClient = http.newBuilder()
+        .callTimeout(Duration.ZERO)
+        .readTimeout(Duration.ofSeconds(120))
+        .build()
+
     private fun download(url: String, dest: File, onProgress: (Float) -> Unit) {
-        val client = http.newBuilder()
-            .callTimeout(Duration.ZERO)
-            .readTimeout(Duration.ofSeconds(120))
-            .build()
+        val client = clienteDeArquivo()
         var attempt = 0
         while (true) {
             attempt++

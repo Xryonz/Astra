@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express'
+import { eq } from 'drizzle-orm'
 import { verifyAccessToken } from '../lib/jwt'
 import { isTokenBlacklisted } from '../lib/redis'
+import { isMailEnabled } from '../lib/mailer'
+import { db } from '../db'
+import { users } from '../db/schema'
 
 declare global {
   namespace Express {
@@ -44,5 +48,20 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       code:  isExpired ? 'TOKEN_EXPIRED'  : 'TOKEN_INVALID',
     })
   }
+}
+
+export async function requireEmailVerified(req: Request, res: Response, next: NextFunction) {
+  if (!isMailEnabled()) return next()
+
+  const [user] = await db.select({ emailVerifiedAt: users.emailVerifiedAt })
+    .from(users).where(eq(users.id, req.userId!)).limit(1)
+
+  if (!user) return res.status(401).json({ error: 'Sessão inválida', code: 'NO_USER' })
+  if (user.emailVerifiedAt) return next()
+
+  return res.status(403).json({
+    error: 'Confirme seu e-mail para continuar',
+    code:  'EMAIL_NOT_VERIFIED',
+  })
 }
 

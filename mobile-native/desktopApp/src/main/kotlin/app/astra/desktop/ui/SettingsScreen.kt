@@ -1928,6 +1928,8 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     val emTransmissao by ModoTransmissao.ativo.collectAsState()
     val semSenha = me?.hasPassword == false
     var trocandoSenha by remember { mutableStateOf(false) }
+    var conferindoEmail by remember { mutableStateOf(false) }
+    var conferidoAgora by remember { mutableStateOf(false) }
 
     var sessoes by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(me?.id) {
@@ -1952,7 +1954,13 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
             acao = if (semSenha) "Definir" else "Editar",
             aoAgir = { trocandoSenha = true },
         )
-        LinhaDaConta("Verificação", if (me?.emailVerifiedAt != null) "e-mail conferido" else "e-mail não conferido")
+        val conferido = me?.emailVerifiedAt != null || conferidoAgora
+        LinhaDaConta(
+            rotulo = "Verificação",
+            valor = if (conferido) "e-mail conferido" else "e-mail não conferido",
+            acao = if (conferido) null else "Conferir",
+            aoAgir = { conferindoEmail = true },
+        )
         LinhaDaConta("Sessões", sessoes?.let { if (it == 1) "1 aberta" else "$it abertas" } ?: "…")
         LinhaDaConta("Membro desde", mesEAno(me?.createdAt))
     }
@@ -1967,6 +1975,14 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
 
     if (trocandoSenha) {
         DialogoDeSenha(hasPassword = !semSenha, onClose = { trocandoSenha = false })
+    }
+
+    if (conferindoEmail) {
+        VerificarEmailDialog(
+            email = me?.email,
+            onClose = { conferindoEmail = false },
+            aoConferir = { conferidoAgora = true },
+        )
     }
 
     SettingsDivider()
@@ -2533,7 +2549,7 @@ private fun CampoDoDialogo(texto: String) {
 }
 
 @Composable
-private fun BotaoDoDialogo(rotulo: String, primario: Boolean, ligado: Boolean, onClick: () -> Unit) {
+internal fun BotaoDoDialogo(rotulo: String, primario: Boolean, ligado: Boolean, onClick: () -> Unit) {
     val toque = remember { MutableInteractionSource() }
     val sobre by toque.collectIsHoveredAsState()
     val fundo = when {

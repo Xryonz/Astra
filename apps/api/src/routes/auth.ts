@@ -45,6 +45,7 @@ const userSafeColumns = {
   dmPrivacy:       users.dmPrivacy,
   onboardedAt:     users.onboardedAt,
   emailVerifiedAt: users.emailVerifiedAt,
+  createdAt:       users.createdAt,
 }
 
 const EMAIL_CODE_TTL_MS = 15 * 60 * 1000

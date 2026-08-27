@@ -4,7 +4,7 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
 import { servers, serverMembers, channels, serverBans } from '../db/schema'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireEmailVerified } from '../middleware/auth'
 import { asyncHandler } from '../lib/asyncHandler'
 import { saudarNovoMembro } from '../lib/botAvisos'
 import { authLimiter } from '../middleware/rateLimiter'
@@ -39,6 +39,7 @@ router.post(
   '/:code/join',
   authLimiter,
   requireAuth,
+  requireEmailVerified,
   asyncHandler(async (req: Request, res: Response) => {
     const [server] = await db.select().from(servers)
       .where(eq(servers.inviteCode, req.params.code)).limit(1)

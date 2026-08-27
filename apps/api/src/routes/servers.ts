@@ -4,7 +4,7 @@ import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
 import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireEmailVerified } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
 import { saudarNovoMembro } from '../lib/botAvisos'
@@ -142,6 +142,7 @@ serversRouter.get(
 serversRouter.post(
   '/',
   requireAuth,
+  requireEmailVerified,
   validate(CreateServerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { name, iconUrl, isGroup = false } = req.body

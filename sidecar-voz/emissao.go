@@ -317,7 +317,7 @@ func (e *Emissor) transmitir(
 		}
 
 		if desde := time.Since(relatorio); desde >= time.Second {
-			perda := e.perdas.Pior()
+			perda := e.perdas.PiorDaMaioria()
 			msg := fmt.Sprintf("%d fps · %.1f Mbps · %.0f%% perdido · %d capturados · %d sem saída · %d sem mudança",
 				int(float64(quadros)/desde.Seconds()),
 				float64(bytesEnviados)*8/desde.Seconds()/1_000_000,
@@ -330,12 +330,15 @@ func (e *Emissor) transmitir(
 			if assistindo, total := e.plateia.Contar(); total > assistindo {
 				msg += fmt.Sprintf(" · enviando para %d de %d", assistindo, total)
 			}
+			if atras := e.perdas.QuantosFicamAtras(controle.Banda()); atras > 0 {
+				msg += fmt.Sprintf(" · %d sem rede para acompanhar", atras)
+			}
 			e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()
 			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos = 0, 0, 0, 0, 0, 0
 
 			if !medir {
-				if alvo, medido := e.perdas.MenorBanda(); medido {
+				if alvo, medido := e.perdas.BandaDaMaioria(); medido {
 					if nova, mudou := controle.Sugerido(alvo); mudou {
 						e.saida.Manda(Evento{
 							Ev: EvTransmissao, V: "1", Tipo: "ritmo",

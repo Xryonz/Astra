@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"sync"
 	"time"
 
@@ -194,20 +195,46 @@ func (p *PerdaDosPares) RelatarBanda(par string, kbps int) {
 	p.perdas[par] = r
 }
 
-func (p *PerdaDosPares) MenorBanda() (int, bool) {
+func aSacrificar(quantos int) int {
+	if quantos < 1 {
+		return 0
+	}
+	return (quantos - 1) / 2
+}
+
+func (p *PerdaDosPares) BandaDaMaioria() (int, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	menor, agora := 0, time.Now()
+	agora := time.Now()
+	bandas := make([]int, 0, len(p.perdas))
 	for _, r := range p.perdas {
 		if r.kbps <= 0 || agora.Sub(r.bandaEm) > validadeDoRelato {
 			continue
 		}
-		if menor == 0 || r.kbps < menor {
-			menor = r.kbps
+		bandas = append(bandas, r.kbps)
+	}
+	if len(bandas) == 0 {
+		return 0, false
+	}
+	sort.Ints(bandas)
+	return bandas[aSacrificar(len(bandas))], true
+}
+
+func (p *PerdaDosPares) QuantosFicamAtras(alvo int) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	atras, agora := 0, time.Now()
+	for _, r := range p.perdas {
+		if r.kbps <= 0 || agora.Sub(r.bandaEm) > validadeDoRelato {
+			continue
+		}
+		if r.kbps < alvo {
+			atras++
 		}
 	}
-	return menor, menor > 0
+	return atras
 }
 
 func (p *PerdaDosPares) Esquecer(par string) {
@@ -216,18 +243,21 @@ func (p *PerdaDosPares) Esquecer(par string) {
 	delete(p.perdas, par)
 }
 
-func (p *PerdaDosPares) Pior() float64 {
+func (p *PerdaDosPares) PiorDaMaioria() float64 {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	pior, agora := 0.0, time.Now()
+	agora := time.Now()
+	fracoes := make([]float64, 0, len(p.perdas))
 	for _, r := range p.perdas {
 		if agora.Sub(r.quando) > validadeDoRelato {
 			continue
 		}
-		if r.fracao > pior {
-			pior = r.fracao
-		}
+		fracoes = append(fracoes, r.fracao)
 	}
-	return pior
+	if len(fracoes) == 0 {
+		return 0
+	}
+	sort.Float64s(fracoes)
+	return fracoes[len(fracoes)-1-aSacrificar(len(fracoes))]
 }

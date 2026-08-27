@@ -100,19 +100,40 @@ func TestZonaMortaNaoZeraOsContadores(t *testing.T) {
 	}
 }
 
-func TestPiorPerdaEntrePares(t *testing.T) {
+func TestUmParRuimNaoDerrubaOsOutros(t *testing.T) {
 	p := NovaPerdaDosPares()
 	p.Relatar("ana", 0.02)
 	p.Relatar("bob", 0.35)
-	p.Relatar("caio", 0.10)
+	p.Relatar("caio", 0.03)
 
-	if pior := p.Pior(); pior != 0.35 {
-		t.Errorf("pior perda deu %.2f, esperava 0.35", pior)
+	if pior := p.PiorDaMaioria(); pior != 0.03 {
+		t.Errorf("a perda que manda deu %.2f; só bob está mal, o grupo devia seguir em 0.03", pior)
+	}
+}
+
+func TestQuandoTodosPerdemAPerdaManda(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.Relatar("ana", 0.28)
+	p.Relatar("bob", 0.35)
+	p.Relatar("caio", 0.31)
+
+	if pior := p.PiorDaMaioria(); pior != 0.31 {
+		t.Errorf("todos perdendo e a regra devolveu %.2f; aí o gargalo é a subida daqui e tem de doer", pior)
+	}
+}
+
+func TestComDoisParesOPiorAindaManda(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.Relatar("ana", 0.02)
+	p.Relatar("bob", 0.35)
+
+	if pior := p.PiorDaMaioria(); pior != 0.35 {
+		t.Errorf("com dois pares deu %.2f; não há como saber de quem é o gargalo, então vale o pior", pior)
 	}
 
 	p.Esquecer("bob")
-	if pior := p.Pior(); pior != 0.10 {
-		t.Errorf("depois de bob sair, pior perda deu %.2f, esperava 0.10", pior)
+	if pior := p.PiorDaMaioria(); pior != 0.02 {
+		t.Errorf("depois de bob sair, sobrou %.2f", pior)
 	}
 }
 
@@ -124,7 +145,7 @@ func TestRelatoVelhoNaoSeguraABanda(t *testing.T) {
 	p.mu.Unlock()
 	p.Relatar("ana", 0.01)
 
-	if pior := p.Pior(); pior != 0.01 {
+	if pior := p.PiorDaMaioria(); pior != 0.01 {
 		t.Errorf("relato velho ainda conta: pior perda deu %.2f, esperava 0.01", pior)
 	}
 }
@@ -164,15 +185,50 @@ func TestOEstimadorSoMexeQuandoValeAPena(t *testing.T) {
 	}
 }
 
-func TestAMenorBandaEntreOsPares(t *testing.T) {
+func TestABandaQueValeEADaMaioria(t *testing.T) {
 	p := NovaPerdaDosPares()
 	p.RelatarBanda("folgado", 8000)
 	p.RelatarBanda("apertado", 900)
 	p.RelatarBanda("medio", 3000)
 
-	menor, ok := p.MenorBanda()
-	if !ok || menor != 900 {
-		t.Fatalf("menor banda = %d (ok=%v), esperava 900", menor, ok)
+	alvo, ok := p.BandaDaMaioria()
+	if !ok || alvo != 3000 {
+		t.Fatalf("alvo = %d (ok=%v); um par apertado não devia puxar os outros para 900", alvo, ok)
+	}
+}
+
+func TestQuandoTodosApertamOAlvoCai(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.RelatarBanda("um", 800)
+	p.RelatarBanda("dois", 900)
+	p.RelatarBanda("tres", 1000)
+
+	alvo, ok := p.BandaDaMaioria()
+	if !ok || alvo != 900 {
+		t.Fatalf("alvo = %d (ok=%v); todos apertados significa que o gargalo é a subida daqui", alvo, ok)
+	}
+}
+
+func TestComDoisParesOMaisApertadoManda(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.RelatarBanda("folgado", 8000)
+	p.RelatarBanda("apertado", 900)
+
+	alvo, ok := p.BandaDaMaioria()
+	if !ok || alvo != 900 {
+		t.Fatalf("alvo = %d (ok=%v); com dois pares não há como isolar de quem é o gargalo", alvo, ok)
+	}
+}
+
+func TestQuemFicaAtrasApareceNaConta(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.RelatarBanda("folgado", 8000)
+	p.RelatarBanda("apertado", 900)
+	p.RelatarBanda("medio", 3000)
+
+	alvo, _ := p.BandaDaMaioria()
+	if atras := p.QuantosFicamAtras(alvo); atras != 1 {
+		t.Errorf("%d pares atrás do alvo de %d kbps; o apertado devia aparecer, e sozinho", atras, alvo)
 	}
 }
 
@@ -180,8 +236,8 @@ func TestSemRelatoDeBandaNaoHaAlvo(t *testing.T) {
 	p := NovaPerdaDosPares()
 	p.Relatar("alguem", 0.2)
 
-	if menor, ok := p.MenorBanda(); ok {
-		t.Errorf("inventou alvo de %d kbps sem ninguém ter medido", menor)
+	if alvo, ok := p.BandaDaMaioria(); ok {
+		t.Errorf("inventou alvo de %d kbps sem ninguém ter medido", alvo)
 	}
 }
 
@@ -190,11 +246,11 @@ func TestRelatarPerdaNaoApagaABanda(t *testing.T) {
 	p.RelatarBanda("alguem", 1800)
 	p.Relatar("alguem", 0.03)
 
-	menor, ok := p.MenorBanda()
-	if !ok || menor != 1800 {
-		t.Fatalf("a banda sumiu ao relatar perda: %d (ok=%v)", menor, ok)
+	alvo, ok := p.BandaDaMaioria()
+	if !ok || alvo != 1800 {
+		t.Fatalf("a banda sumiu ao relatar perda: %d (ok=%v)", alvo, ok)
 	}
-	if pior := p.Pior(); pior < 0.029 || pior > 0.031 {
+	if pior := p.PiorDaMaioria(); pior < 0.029 || pior > 0.031 {
 		t.Errorf("a perda sumiu ao relatar banda: %.3f", pior)
 	}
 }
@@ -205,7 +261,7 @@ func TestBandaVelhaNaoManda(t *testing.T) {
 	p.perdas["sumido"] = relatoDePerda{kbps: 500, bandaEm: time.Now().Add(-validadeDoRelato - time.Second)}
 	p.mu.Unlock()
 
-	if menor, ok := p.MenorBanda(); ok {
-		t.Errorf("relato vencido ainda mandava: %d kbps", menor)
+	if alvo, ok := p.BandaDaMaioria(); ok {
+		t.Errorf("relato vencido ainda mandava: %d kbps", alvo)
 	}
 }

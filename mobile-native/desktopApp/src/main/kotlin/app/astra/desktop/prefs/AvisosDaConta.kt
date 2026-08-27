@@ -6,7 +6,6 @@ import app.astra.mobile.core.network.dto.AvisosDaContaRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalTime
 
 class AvisosDaConta(private val api: NotificationApi) {
 
@@ -14,9 +13,11 @@ class AvisosDaConta(private val api: NotificationApi) {
     val estado: StateFlow<AvisosDaContaDto> = _estado.asStateFlow()
 
     suspend fun carregar() {
-        runCatching { api.avisosDaConta().data?.prefs }
-            .getOrNull()
-            ?.let { _estado.value = it }
+        val prefs = runCatching { api.avisosDaConta().data?.prefs }.getOrNull() ?: return
+        _estado.value = prefs
+        if (prefs.quietStart != null || prefs.quietEnd != null) {
+            salvar(prefs.copy(quietStart = null, quietEnd = null))
+        }
     }
 
     suspend fun salvar(novo: AvisosDaContaDto): Result<Unit> {
@@ -28,12 +29,5 @@ class AvisosDaConta(private val api: NotificationApi) {
         }.onFailure { _estado.value = anterior }
     }
 
-    fun emDescanso(agora: LocalTime = LocalTime.now()): Boolean {
-        val s = _estado.value.quietStart ?: return false
-        val e = _estado.value.quietEnd ?: return false
-        val h = agora.hour
-        return if (s < e) h in s until e else h >= s || h < e
-    }
-
-    fun devoCalar(status: String?): Boolean = status == "DND" || emDescanso()
+    fun devoCalar(status: String?): Boolean = status == "DND"
 }

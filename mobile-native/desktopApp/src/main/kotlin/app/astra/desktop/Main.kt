@@ -96,6 +96,16 @@ private fun pastaDaInstalacao(): String =
     System.getProperty("jpackage.app-path")?.let { java.io.File(it).parent }
         ?: System.getProperty("user.dir").orEmpty().ifBlank { "?" }
 
+internal val janelaAceitaTransparencia: Boolean by lazy {
+    runCatching {
+        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .defaultScreenDevice
+            .isWindowTranslucencySupported(
+                java.awt.GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT,
+            )
+    }.getOrDefault(false)
+}
+
 private fun escolherPlacaDaInterface() = runCatching {
     val prefs = GlobalContext.get().get<DesktopPrefs>()
     val placa = Placas.porId(prefs.state.value.placaVideo) ?: return@runCatching
@@ -155,6 +165,8 @@ private fun writeDiagnostics() = runCatching {
         appendLine("versao       : ${System.getProperty("astra.version") ?: "dev"}")
         appendLine("render (Skia): ${org.jetbrains.skiko.SkikoProperties.renderApi}")
         appendLine("   ^ SOFTWARE_* aqui = a CPU esta desenhando cada pixel (causa de engasgo)")
+        appendLine("transparencia: ${if (janelaAceitaTransparencia) "aceita" else "NAO aceita — janela opaca"}")
+        appendLine("   ^ NAO aceita e janela transparente = janela invisivel, so o icone na barra")
         appendLine("placa (pedido): ${System.getProperty("skiko.gpu.priority") ?: "auto (o Skiko decide)"}")
         Placas.todas.forEach {
             val papel = if (it.desenhaATela) "desenha a tela" else "so renderiza"
@@ -229,7 +241,10 @@ fun main(args: Array<String>) {
     application {
         var windowVisible by remember { mutableStateOf(!nascerEscondido) }
         val state = rememberWindowState(width = 1280.dp, height = 820.dp)
-        val transparentWindow = remember { GlobalContext.get().get<DesktopPrefs>().state.value.windowTransparent }
+        val transparentWindow = remember {
+            GlobalContext.get().get<DesktopPrefs>().state.value.windowTransparent &&
+                janelaAceitaTransparencia
+        }
         val topPrefState by remember { GlobalContext.get().get<DesktopPrefs>() }.state.collectAsState()
         val exitOnClose = topPrefState.exitOnClose
         val onCloseApp = { if (exitOnClose) exitApplication() else { windowVisible = false } }
@@ -289,7 +304,7 @@ fun main(args: Array<String>) {
                 icon = appIcon,
                 state = gateState,
                 undecorated = true,
-                transparent = true,
+                transparent = janelaAceitaTransparencia,
                 resizable = false,
                 alwaysOnTop = true,
             ) {

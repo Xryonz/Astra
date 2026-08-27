@@ -83,6 +83,10 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
+private const val prazoSemNoticias = 15_000L
+
+private const val prazoDoReinicio = 25_000L
+
 @Composable
 fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Unit) {
     val st by updater.state.collectAsState()
@@ -105,7 +109,10 @@ fun UpdaterGate(updater: UpdateService, reduceMotion: Boolean, onDone: () -> Uni
             else -> {}
         }
     }
-    LaunchedEffect(Unit) { delay(8_000); if (updater.state.value is UpdateState.Checking) onDone() }
+    LaunchedEffect(st) {
+        delay(if (st is UpdateState.Ready) prazoDoReinicio else prazoSemNoticias)
+        onDone()
+    }
 
     val entrance: State<Float>? = if (reduceMotion) null else {
         var started by remember { mutableStateOf(false) }

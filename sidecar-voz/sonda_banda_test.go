@@ -217,10 +217,6 @@ func apiComEstimativa(t *testing.T, inicial int) (*webrtc.API, chan cc.Bandwidth
 		t.Fatalf("registrar interceptores padrão: %v", err)
 	}
 
-	if err := webrtc.ConfigureTWCCHeaderExtensionSender(motor, registro); err != nil {
-		t.Fatalf("registrar a extensão de cabeçalho do TWCC: %v", err)
-	}
-
 	fabrica, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
 		return gcc.NewSendSideBWE(
 			gcc.SendSideBWEInitialBitrate(inicial),
@@ -237,6 +233,10 @@ func apiComEstimativa(t *testing.T, inicial int) (*webrtc.API, chan cc.Bandwidth
 		estimadores <- e
 	})
 	registro.Add(fabrica)
+
+	if err := webrtc.ConfigureTWCCHeaderExtensionSender(motor, registro); err != nil {
+		t.Fatalf("registrar a extensão de cabeçalho do TWCC: %v", err)
+	}
 
 	return webrtc.NewAPI(
 		webrtc.WithMediaEngine(motor),

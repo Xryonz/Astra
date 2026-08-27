@@ -128,3 +128,84 @@ func TestRelatoVelhoNaoSeguraABanda(t *testing.T) {
 		t.Errorf("relato velho ainda conta: pior perda deu %.2f, esperava 0.01", pior)
 	}
 }
+
+func TestOEstimadorNuncaPassaDoPreset(t *testing.T) {
+	c := NovoControleDeBanda(2500)
+
+	if nova, mudou := c.Sugerido(800); !mudou || nova != 800 {
+		t.Fatalf("a rede apertou para 800 e a banda foi para %d (mudou=%v)", nova, mudou)
+	}
+
+	nova, mudou := c.Sugerido(9000)
+	if !mudou {
+		t.Fatal("a rede liberou 9000 e a banda não subiu de 800")
+	}
+	if nova != 2500 {
+		t.Fatalf("subiu para %d; o preset de 2500 é o teto e não se ultrapassa", nova)
+	}
+}
+
+func TestOEstimadorRespeitaOPiso(t *testing.T) {
+	c := NovoControleDeBanda(2500)
+
+	if nova, _ := c.Sugerido(10); nova < bandaMinima {
+		t.Errorf("a rede disse 10 kbps e a banda foi para %d, abaixo do piso %d", nova, bandaMinima)
+	}
+}
+
+func TestOEstimadorSoMexeQuandoValeAPena(t *testing.T) {
+	c := NovoControleDeBanda(2500)
+
+	if _, mudou := c.Sugerido(2400); mudou {
+		t.Error("4% de diferença reiniciou o compressor à toa")
+	}
+	if nova, mudou := c.Sugerido(1200); !mudou || nova != 1200 {
+		t.Errorf("queda pela metade não pegou: %d (mudou=%v)", nova, mudou)
+	}
+}
+
+func TestAMenorBandaEntreOsPares(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.RelatarBanda("folgado", 8000)
+	p.RelatarBanda("apertado", 900)
+	p.RelatarBanda("medio", 3000)
+
+	menor, ok := p.MenorBanda()
+	if !ok || menor != 900 {
+		t.Fatalf("menor banda = %d (ok=%v), esperava 900", menor, ok)
+	}
+}
+
+func TestSemRelatoDeBandaNaoHaAlvo(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.Relatar("alguem", 0.2)
+
+	if menor, ok := p.MenorBanda(); ok {
+		t.Errorf("inventou alvo de %d kbps sem ninguém ter medido", menor)
+	}
+}
+
+func TestRelatarPerdaNaoApagaABanda(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.RelatarBanda("alguem", 1800)
+	p.Relatar("alguem", 0.03)
+
+	menor, ok := p.MenorBanda()
+	if !ok || menor != 1800 {
+		t.Fatalf("a banda sumiu ao relatar perda: %d (ok=%v)", menor, ok)
+	}
+	if pior := p.Pior(); pior < 0.029 || pior > 0.031 {
+		t.Errorf("a perda sumiu ao relatar banda: %.3f", pior)
+	}
+}
+
+func TestBandaVelhaNaoManda(t *testing.T) {
+	p := NovaPerdaDosPares()
+	p.mu.Lock()
+	p.perdas["sumido"] = relatoDePerda{kbps: 500, bandaEm: time.Now().Add(-validadeDoRelato - time.Second)}
+	p.mu.Unlock()
+
+	if menor, ok := p.MenorBanda(); ok {
+		t.Errorf("relato vencido ainda mandava: %d kbps", menor)
+	}
+}

@@ -20,6 +20,8 @@ const (
 	passoDeSubida = 1.30
 
 	mudancaQueValeAPena = 0.15
+
+	validadeDoRelato = 3 * time.Second
 )
 
 type ControleDeBanda struct {
@@ -61,6 +63,8 @@ func (c *ControleDeBanda) Segundo(perda float64) (int, bool) {
 	}
 	return c.atual, false
 }
+
+func (c *ControleDeBanda) Sugerido(kbps int) (int, bool) { return c.mudarPara(kbps) }
 
 func (c *ControleDeBanda) mudarPara(novo int) (int, bool) {
 	if novo > c.teto {
@@ -162,6 +166,9 @@ type PerdaDosPares struct {
 type relatoDePerda struct {
 	fracao float64
 	quando time.Time
+
+	kbps    int
+	bandaEm time.Time
 }
 
 func NovaPerdaDosPares() *PerdaDosPares {
@@ -171,7 +178,36 @@ func NovaPerdaDosPares() *PerdaDosPares {
 func (p *PerdaDosPares) Relatar(par string, fracao float64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.perdas[par] = relatoDePerda{fracao: fracao, quando: time.Now()}
+	r := p.perdas[par]
+	r.fracao, r.quando = fracao, time.Now()
+	p.perdas[par] = r
+}
+
+func (p *PerdaDosPares) RelatarBanda(par string, kbps int) {
+	if kbps <= 0 {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	r := p.perdas[par]
+	r.kbps, r.bandaEm = kbps, time.Now()
+	p.perdas[par] = r
+}
+
+func (p *PerdaDosPares) MenorBanda() (int, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	menor, agora := 0, time.Now()
+	for _, r := range p.perdas {
+		if r.kbps <= 0 || agora.Sub(r.bandaEm) > validadeDoRelato {
+			continue
+		}
+		if menor == 0 || r.kbps < menor {
+			menor = r.kbps
+		}
+	}
+	return menor, menor > 0
 }
 
 func (p *PerdaDosPares) Esquecer(par string) {
@@ -184,12 +220,9 @@ func (p *PerdaDosPares) Pior() float64 {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	const validade = 3 * time.Second
 	pior, agora := 0.0, time.Now()
-	for par, r := range p.perdas {
-		if agora.Sub(r.quando) > validade {
-			delete(p.perdas, par)
-
+	for _, r := range p.perdas {
+		if agora.Sub(r.quando) > validadeDoRelato {
 			continue
 		}
 		if r.fracao > pior {

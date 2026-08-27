@@ -327,6 +327,7 @@ func (a *App) abrirPar(id string) (*Par, error) {
 	par.pedirQuadroChave = a.emissor.PedirQuadroChave
 
 	par.relatarPerda = func(fracao float64) { a.emissor.PerdaRelatada(id, fracao) }
+	par.relatarBanda = func(kbps int) { a.emissor.BandaRelatada(id, kbps) }
 
 	par.querVer = func() bool { return a.assistindo(id) }
 	par.AvisarQueAssisto(a.assistindo(id))

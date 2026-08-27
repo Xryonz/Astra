@@ -75,6 +75,8 @@ func NovoEmissor(plateia *PlateiaDaTela, saida *Escritor, entrega *EntregaDeQuad
 
 func (e *Emissor) PerdaRelatada(par string, fracao float64) { e.perdas.Relatar(par, fracao) }
 
+func (e *Emissor) BandaRelatada(par string, kbps int) { e.perdas.RelatarBanda(par, kbps) }
+
 func (e *Emissor) EsquecerPar(par string) { e.perdas.Esquecer(par) }
 
 func (e *Emissor) PedirQuadroChave() { e.querChave.Store(true) }
@@ -333,7 +335,17 @@ func (e *Emissor) transmitir(
 			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos = 0, 0, 0, 0, 0, 0
 
 			if !medir {
-				if nova, mudou := controle.Segundo(perda); mudou {
+				if alvo, medido := e.perdas.MenorBanda(); medido {
+					if nova, mudou := controle.Sugerido(alvo); mudou {
+						e.saida.Manda(Evento{
+							Ev: EvTransmissao, V: "1", Tipo: "ritmo",
+							Msg: fmt.Sprintf("a rede comporta %d kbps; ajustando para %d", alvo, nova),
+						})
+						proximo := aj
+						proximo.Kbps = nova
+						return &proximo, nil
+					}
+				} else if nova, mudou := controle.Segundo(perda); mudou {
 					e.saida.Manda(Evento{
 						Ev: EvTransmissao, V: "1", Tipo: "ritmo",
 						Msg: fmt.Sprintf("%.0f%% dos pacotes não chegam; ajustando para %d kbps",

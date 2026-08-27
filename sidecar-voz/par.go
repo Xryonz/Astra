@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/pion/interceptor"
+	"github.com/pion/interceptor/pkg/cc"
+	"github.com/pion/interceptor/pkg/gcc"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 )
@@ -24,9 +26,13 @@ type Par struct {
 	entrega    *EntregaDeQuadros
 	plateia    *PlateiaDaTela
 
+	estimador cc.BandwidthEstimator
+
 	pedirQuadroChave func()
 
 	relatarPerda func(float64)
+
+	relatarBanda func(int)
 
 	querVer func() bool
 
@@ -45,10 +51,18 @@ const (
 	marcaNaoAssisto  = byte('0')
 )
 
+const (
+	bandaInicialDoGcc = 1_500_000
+	bandaMaximaDoGcc  = 12_000_000
+)
+
 var (
 	umaVezAFabrica sync.Once
 	fabrica        *webrtc.API
 	erroDaFabrica  error
+
+	nascimento    sync.Mutex
+	estimadorNovo cc.BandwidthEstimator
 )
 
 func fabricaDePares() (*webrtc.API, error) {
@@ -64,6 +78,21 @@ func fabricaDePares() (*webrtc.API, error) {
 			erroDaFabrica = fmt.Errorf("registrar os interceptores: %w", err)
 			return
 		}
+
+		medidor, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
+			return gcc.NewSendSideBWE(
+				gcc.SendSideBWEPacer(gcc.NewNoOpPacer()),
+				gcc.SendSideBWEInitialBitrate(bandaInicialDoGcc),
+				gcc.SendSideBWEMinBitrate(bandaMinima*1000),
+				gcc.SendSideBWEMaxBitrate(bandaMaximaDoGcc),
+			)
+		})
+		if err != nil {
+			erroDaFabrica = fmt.Errorf("medir o congestionamento: %w", err)
+			return
+		}
+		medidor.OnNewPeerConnection(func(_ string, e cc.BandwidthEstimator) { estimadorNovo = e })
+		registro.Add(medidor)
 
 		if err := webrtc.ConfigureTWCCHeaderExtensionSender(motor, registro); err != nil {
 			erroDaFabrica = fmt.Errorf("numerar os pacotes que saem: %w", err)
@@ -91,12 +120,17 @@ func NovoPar(
 	if err != nil {
 		return nil, err
 	}
+
+	nascimento.Lock()
+	estimadorNovo = nil
 	pc, err := nascedouro.NewPeerConnection(config)
+	medidor := estimadorNovo
+	nascimento.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("criar conexão: %w", err)
 	}
 
-	p := &Par{id: id, pc: pc, saida: saida, misturador: mist, entrega: entrega, plateia: plateia}
+	p := &Par{id: id, pc: pc, saida: saida, misturador: mist, entrega: entrega, plateia: plateia, estimador: medidor}
 	p.queroVer.Store(true)
 
 	if faixa != nil {
@@ -338,6 +372,10 @@ func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 				}
 				p.relatarPerda(pior)
 			}
+		}
+
+		if p.estimador != nil && p.relatarBanda != nil {
+			p.relatarBanda(p.estimador.GetTargetBitrate() / 1000)
 		}
 
 		if linha, pronto := medidor.Fechar(agora); pronto {

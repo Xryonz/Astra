@@ -100,11 +100,13 @@ func NovoPar(
 	p.queroVer.Store(true)
 
 	if faixa != nil {
-		if _, err := pc.AddTrack(faixa); err != nil {
+		remetente, err := pc.AddTrack(faixa)
+		if err != nil {
 
 			_ = pc.Close()
 			return nil, fmt.Errorf("publicar microfone: %w", err)
 		}
+		go p.ouvirOCaminho(remetente, "voz", TaxaDeAmostragem)
 	} else {
 
 		if _, err := pc.AddTransceiverFromKind(
@@ -144,7 +146,8 @@ func NovoPar(
 		}
 	})
 
-	pc.OnTrack(func(remota *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+	pc.OnTrack(func(remota *webrtc.TrackRemote, receptor *webrtc.RTPReceiver) {
+		go escoarRtcp(receptor)
 
 		if remota.Kind() == webrtc.RTPCodecTypeVideo {
 			go p.receberTela(remota)
@@ -299,19 +302,21 @@ func (p *Par) receber(remota *webrtc.TrackRemote) {
 
 func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 	var peloTwcc PerdaPeloTwcc
+	medidor := NovoMedidorDoCaminho("tela", 90000)
 
 	for {
 		pacotes, _, err := remetente.ReadRTCP()
 		if err != nil {
 			return
 		}
+		agora := time.Now()
 		for _, pacote := range pacotes {
 			switch recado := pacote.(type) {
 			case *rtcp.TransportLayerCC:
 				if p.relatarPerda == nil {
 					continue
 				}
-				if fracao, fechou := peloTwcc.Somar(recado, time.Now()); fechou {
+				if fracao, fechou := peloTwcc.Somar(recado, agora); fechou {
 					p.relatarPerda(fracao)
 				}
 
@@ -320,6 +325,7 @@ func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 					p.pedirQuadroChave()
 				}
 			case *rtcp.ReceiverReport:
+				medidor.Anotar(recado, agora)
 				if p.relatarPerda == nil {
 					continue
 				}
@@ -332,6 +338,10 @@ func (p *Par) ouvirPedidos(remetente *webrtc.RTPSender) {
 				}
 				p.relatarPerda(pior)
 			}
+		}
+
+		if linha, pronto := medidor.Fechar(agora); pronto {
+			fmt.Fprintf(os.Stderr, "caminho de %s · %s\n", p.id, linha)
 		}
 	}
 }

@@ -145,7 +145,8 @@ type Compressor struct {
 
 	NaMemoria bool
 
-	TaxaVariavel bool
+	TaxaVariavel  bool
+	BaixaLatencia bool
 
 	t        objeto
 	eventos  objeto
@@ -376,6 +377,7 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 	}
 	if api, err := t.consultar(&iidCodecAPI); err == nil {
 		c.comandos = api
+		c.pedirBaixaLatencia()
 		c.pedirTaxaVariavel()
 	}
 
@@ -961,7 +963,14 @@ type variante struct {
 	_     uintptr
 }
 
-const varInteiroSemSinal = 19
+const (
+	varInteiroSemSinal = 19
+	varBooleano        = 11
+	verdadeiro         = 0xFFFF
+)
+
+var chaveBaixaLatencia = guid(0x9C27891A, 0xED7A, 0x40E1,
+	[8]byte{0x88, 0xE8, 0xB2, 0x27, 0x27, 0xA0, 0x24, 0xEE})
 
 var chaveModoDeTaxa = guid(0x1C0608E9, 0x370C, 0x4710,
 	[8]byte{0x8A, 0x58, 0xCB, 0x61, 0x81, 0xC4, 0x24, 0x23})
@@ -980,6 +989,17 @@ func (c *Compressor) definirComando(chave windows.GUID, valor uintptr) bool {
 	r := c.comandos.chamar(codecDefinirValor,
 		uintptr(unsafe.Pointer(&k)), uintptr(unsafe.Pointer(&v)))
 	return uint32(r)&0x80000000 == 0
+}
+
+func (c *Compressor) pedirBaixaLatencia() {
+	if c.comandos == 0 {
+		return
+	}
+	v := variante{tipo: varBooleano, valor: verdadeiro}
+	k := chaveBaixaLatencia
+	r := c.comandos.chamar(codecDefinirValor,
+		uintptr(unsafe.Pointer(&k)), uintptr(unsafe.Pointer(&v)))
+	c.BaixaLatencia = uint32(r)&0x80000000 == 0
 }
 
 func (c *Compressor) pedirTaxaVariavel() {

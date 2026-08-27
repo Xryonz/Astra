@@ -165,6 +165,9 @@ func (e *Emissor) transmitir(
 	if c.TaxaVariavel {
 		comoSubiu += " · taxa variável"
 	}
+	if c.BaixaLatencia {
+		comoSubiu += " · baixa latência"
+	}
 	if c.NaMemoria {
 		comoSubiu = "sem aceleração de placa · " + comoSubiu
 	}

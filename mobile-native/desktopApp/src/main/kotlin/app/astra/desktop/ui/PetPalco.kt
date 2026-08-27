@@ -44,27 +44,27 @@ import kotlin.math.roundToInt
 
 private const val ALTURA_ALVO_NO_PALCO = 92
 
-private val Bicho.escalaDePalco: Int
+private val Pet.escalaDePalco: Int
     get() = (ALTURA_ALVO_NO_PALCO.toFloat() / pes).roundToInt().coerceAtLeast(1)
 
 private val ALTURA_DO_PALCO = 168.dp
 
 @Composable
 internal fun PetPalco(
-    bicho: Bicho,
+    pet: Pet,
     pelagem: Pelagem,
     anim: Anim,
     modifier: Modifier = Modifier,
 ) {
-    val folhas = remember(bicho, pelagem) { FolhasDoGato.folhas(bicho, pelagem) }
-    val passo = bicho.passos[anim]
+    val folhas = remember(pet, pelagem) { FolhasDoPet.folhas(pet, pelagem) }
+    val passo = pet.passos[anim]
     val densidade = LocalDensity.current.density
-    val mult = (bicho.escalaDePalco * densidade).roundToInt().coerceAtLeast(1)
+    val mult = (pet.escalaDePalco * densidade).roundToInt().coerceAtLeast(1)
 
     val reduzir = LocalReduceMotion.current
-    var quadro by remember(anim, bicho) { mutableStateOf(0) }
+    var quadro by remember(anim, pet) { mutableStateOf(0) }
     if (passo != null && !reduzir) {
-        LaunchedEffect(anim, bicho) {
+        LaunchedEffect(anim, pet) {
             val nanosPorQuadro = 1_000_000_000L / passo.fps
             var acumulado = 0L
             var anterior = 0L
@@ -89,7 +89,7 @@ internal fun PetPalco(
             .background(Obsidian.raised)
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .semantics {
-                contentDescription = "${bicho.rotulo}, ${anim.rotulo}, pelagem ${pelagem.rotulo}"
+                contentDescription = "${pet.rotulo}, ${anim.rotulo}, pelagem ${pelagem.rotulo}"
             },
     ) {
         if (folhas == null || passo == null) {
@@ -103,9 +103,9 @@ internal fun PetPalco(
         }
 
         Canvas(Modifier.fillMaxWidth().height(ALTURA_DO_PALCO)) {
-            val larguraPx = (bicho.cw * mult).toFloat()
-            val alturaPx = (bicho.ch * mult).toFloat()
-            val pesPx = (bicho.pes * mult).toFloat()
+            val larguraPx = (pet.cw * mult).toFloat()
+            val alturaPx = (pet.ch * mult).toFloat()
+            val pesPx = (pet.pes * mult).toFloat()
 
             val chao = size.height * 0.72f
             val meia = size.width / 2f
@@ -121,17 +121,17 @@ internal fun PetPalco(
             val topo = (chao - pesPx).roundToInt()
 
             scale(
-                scaleX = if (bicho.olhaParaDireita) 1f else -1f,
+                scaleX = if (pet.olhaParaDireita) 1f else -1f,
                 scaleY = 1f,
                 pivot = Offset(meia, chao),
             ) {
                 drawImage(
                     image = folhas[anim] ?: return@scale,
                     srcOffset = IntOffset(
-                        quadro * bicho.quadroW + bicho.cx,
-                        passo.linha * bicho.quadroW + bicho.cy,
+                        quadro * pet.quadroW + pet.cx,
+                        passo.linha * pet.quadroW + pet.cy,
                     ),
-                    srcSize = IntSize(bicho.cw, bicho.ch),
+                    srcSize = IntSize(pet.cw, pet.ch),
                     dstOffset = IntOffset(esq, topo),
                     dstSize = IntSize(larguraPx.toInt(), alturaPx.toInt()),
                     filterQuality = FilterQuality.None,
@@ -142,8 +142,8 @@ internal fun PetPalco(
 }
 
 @Composable
-internal fun GestosDoBicho(
-    bicho: Bicho,
+internal fun GestosDoPet(
+    pet: Pet,
     escolhido: Anim,
     onEscolher: (Anim) -> Unit,
 ) {
@@ -152,7 +152,7 @@ internal fun GestosDoBicho(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Anim.entries.filter { it in bicho.passos }.forEach { a ->
+        Anim.entries.filter { it in pet.passos }.forEach { a ->
             BotaoDeGesto(a.rotulo, a == escolhido) { onEscolher(a) }
         }
     }

@@ -91,7 +91,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val somDeAviso: Boolean = true,
         val petLigado: Boolean = false,
         val petPelagem: String = "LARANJA",
-        val petBicho: String = "SIMPLES",
+        val petTipo: String = "SIMPLES",
         val petNome: String = "",
         val modoTransmissao: Boolean = false,
         val modoTransmissaoAuto: Boolean = false,
@@ -176,7 +176,7 @@ class DesktopPrefs(private val store: SessionStore) {
         somDeAviso = store.uiPref("somDeAviso") != "0",
         petLigado = store.uiPref("petLigado") == "1",
         petPelagem = store.uiPref("petPelagem") ?: "LARANJA",
-        petBicho = store.uiPref("petBicho") ?: "SIMPLES",
+        petTipo = store.uiPref("petTipo") ?: store.uiPref("petBicho") ?: "SIMPLES",
         petNome = store.uiPref("petNome") ?: "",
         modoTransmissao = store.uiPref("modoTransmissao") == "1",
         modoTransmissaoAuto = store.uiPref("modoTransmissaoAuto") == "1",
@@ -311,9 +311,9 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(petLigado = v) }
     }
 
-    fun setPetBicho(v: String) {
-        store.setUiPref("petBicho", v)
-        _state.update { it.copy(petBicho = v) }
+    fun setPetTipo(v: String) {
+        store.setUiPref("petTipo", v)
+        _state.update { it.copy(petTipo = v) }
     }
 
     fun setPetPelagem(v: String) {

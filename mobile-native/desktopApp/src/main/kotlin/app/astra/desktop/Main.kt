@@ -385,7 +385,7 @@ fun main(args: Array<String>) {
 
             val prefs = remember { koin.get<DesktopPrefs>() }
             val prefState by prefs.state.collectAsState()
-            LaunchedEffect(prefState.accentId, prefState.bgId) {
+            LaunchedEffect(prefState.accentId, prefState.bgId, prefState.altoContraste) {
                 Obsidian.aplicarContraste(prefState.altoContraste)
                 Obsidian.apply(prefState.accentId, prefState.bgId)
             }

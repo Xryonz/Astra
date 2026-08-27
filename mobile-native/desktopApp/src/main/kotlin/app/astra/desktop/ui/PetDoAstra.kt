@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -62,7 +63,7 @@ import org.jetbrains.skia.Image as SkiaImage
 
 enum class PetEvento { MENSAGEM, CALL }
 
-object Pet {
+object AvisosDoPet {
     private val _evento = MutableSharedFlow<PetEvento>(extraBufferCapacity = 4)
     val evento = _evento.asSharedFlow()
 
@@ -82,7 +83,7 @@ class Passo(
     val velocidade: Float,
 )
 
-enum class Bicho(
+enum class Pet(
     val rotulo: String,
     val quadroW: Int,
     val cx: Int, val cy: Int, val cw: Int, val ch: Int, val pes: Int,
@@ -96,10 +97,9 @@ enum class Bicho(
         "Travesso", 32, 3, 1, 24, 31, 30, 2, olhaParaDireita = true,
         intArrayOf(0xFFFFFF, 0xB6C5CD, 0x869EAC, 0x688697), intArrayOf(0, 1, 2, 3),
         mapOf(
-            Anim.PARADO to Passo("gato_travesso_parado.png", 0, 3, 4, 0f),
-            Anim.ANDANDO to Passo("gato_travesso_andando.png", 0, 3, 8, 1.0f),
-            Anim.PULO to Passo("gato_travesso_pulo.png", 0, 1, 1, 0f),
-            Anim.CARINHO to Passo("gato_travesso_carinho.png", 0, 3, 6, 0f),
+            Anim.PARADO to Passo("pet_travesso_parado.png", 0, 3, 4, 0f),
+            Anim.ANDANDO to Passo("pet_travesso_andando.png", 0, 3, 8, 1.0f),
+            Anim.CARINHO to Passo("pet_travesso_carinho.png", 0, 3, 6, 0f),
         ),
     ),
 
@@ -117,10 +117,9 @@ enum class Bicho(
         "Simples", 32, 7, 14, 18, 18, 17, 2, olhaParaDireita = true,
         intArrayOf(0xE0E0E0, 0xB5B5B5), intArrayOf(0, 2),
         mapOf(
-            Anim.PARADO to Passo("gato_simples.png", 0, 4, 5, 0f),
-            Anim.ANDANDO to Passo("gato_simples.png", 4, 8, 10, 1.0f),
-            Anim.PULO to Passo("gato_simples.png", 8, 7, 11, 0f),
-            Anim.CARINHO to Passo("gato_simples.png", 2, 4, 6, 0f),
+            Anim.PARADO to Passo("pet_simples.png", 0, 4, 5, 0f),
+            Anim.ANDANDO to Passo("pet_simples.png", 4, 8, 10, 1.0f),
+            Anim.CARINHO to Passo("pet_simples.png", 2, 4, 6, 0f),
         ),
     ),
     ;
@@ -128,23 +127,23 @@ enum class Bicho(
     companion object {
         val disponiveis = listOf(SIMPLES)
 
-        fun de(nome: String?): Bicho = disponiveis.firstOrNull { it.name == nome } ?: SIMPLES
+        fun de(nome: String?): Pet = disponiveis.firstOrNull { it.name == nome } ?: SIMPLES
     }
 }
 
 enum class Anim(val rotulo: String) {
-    PARADO("parado"), ANDANDO("andando"), PULO("pulo"),
+    PARADO("parado"), ANDANDO("andando"),
     CARINHO("carinho"),
     FESTA("exibição"),
     RECOLHE("cansaço"),
     ATAQUE("ataque"),
 }
 
-val Bicho.escadaDeCarinho: List<Anim>
+val Pet.escadaDeCarinho: List<Anim>
     get() = listOf(Anim.CARINHO, Anim.FESTA, Anim.ATAQUE).filter { it in passos }
 
-val Bicho.gestoDeSusto: Anim?
-    get() = if (Anim.PULO in passos) Anim.PULO else escadaDeCarinho.firstOrNull()
+val Pet.gestoDeSusto: Anim?
+    get() = escadaDeCarinho.firstOrNull()
 
 private const val LIMITE_DE_CARINHO = 3
 
@@ -168,33 +167,33 @@ enum class Pelagem(val rotulo: String, val rampa: IntArray) {
     }
 }
 
-internal object FolhasDoGato {
-    private val cache = mutableMapOf<Pair<Bicho, Pelagem>, Map<Anim, ImageBitmap>?>()
+internal object FolhasDoPet {
+    private val cache = mutableMapOf<Pair<Pet, Pelagem>, Map<Anim, ImageBitmap>?>()
 
     @Synchronized
-    fun folhas(bicho: Bicho, pelagem: Pelagem): Map<Anim, ImageBitmap>? =
-        cache.getOrPut(bicho to pelagem) {
+    fun folhas(pet: Pet, pelagem: Pelagem): Map<Anim, ImageBitmap>? =
+        cache.getOrPut(pet to pelagem) {
             runCatching {
                 val porArquivo = mutableMapOf<String, ImageBitmap>()
-                bicho.passos.mapValues { (_, passo) ->
+                pet.passos.mapValues { (_, passo) ->
                     porArquivo.getOrPut(passo.arquivo) {
                         val bytes = requireNotNull(
-                            FolhasDoGato::class.java.getResourceAsStream("/pet/" + passo.arquivo),
+                            FolhasDoPet::class.java.getResourceAsStream("/pet/" + passo.arquivo),
                         ) { "sprite ausente: " + passo.arquivo }.use { it.readBytes() }
                         val img = ImageIO.read(ByteArrayInputStream(bytes))
                             ?: error("PNG ilegível: " + passo.arquivo)
-                        repintar(img, bicho, pelagem).toComposeImageBitmap()
+                        repintar(img, pet, pelagem).toComposeImageBitmap()
                     }
                 }
             }.getOrNull()
         }
 
-    private fun repintar(src: BufferedImage, bicho: Bicho, pelagem: Pelagem): SkiaImage {
+    private fun repintar(src: BufferedImage, pet: Pet, pelagem: Pelagem): SkiaImage {
         for (y in 0 until src.height) {
             for (x in 0 until src.width) {
                 val p = src.getRGB(x, y)
-                val i = bicho.base.indexOf(p and 0xFFFFFF)
-                if (i >= 0) src.setRGB(x, y, (p and OPACO) or pelagem.rampa[bicho.destino[i]])
+                val i = pet.base.indexOf(p and 0xFFFFFF)
+                if (i >= 0) src.setRGB(x, y, (p and OPACO) or pelagem.rampa[pet.destino[i]])
             }
         }
         val saida = ByteArrayOutputStream()
@@ -207,27 +206,26 @@ private const val FPS = 30
 private val LARGURA_VETOR = 34.dp
 
 @Composable
-fun GatoDoAstra(
+fun PetDoAstra(
     ligado: Boolean,
-    bichoId: String = Bicho.SIMPLES.name,
+    petId: String = Pet.SIMPLES.name,
     pelagem: String = Pelagem.LARANJA.name,
     nome: String = "",
 ) {
-    val reduzir = LocalReduceMotion.current
-    val janelaAtiva = LocalWindowActive.current
-    if (!ligado || reduzir || !janelaAtiva) return
+    if (!ligado) return
+    val congelado = rememberUpdatedState(LocalReduceMotion.current || !LocalWindowActive.current)
 
-    val bicho = Bicho.de(bichoId)
+    val pet = Pet.de(petId)
     val cor = Pelagem.de(pelagem)
-    val folhas = remember(bicho, cor) { FolhasDoGato.folhas(bicho, cor) }
+    val folhas = remember(pet, cor) { FolhasDoPet.folhas(pet, cor) }
     val medidor = rememberTextMeasurer()
 
     val densidadeLocal = LocalDensity.current
     val densidade = densidadeLocal.density
-    val mult = (bicho.escala * densidade).roundToInt().coerceAtLeast(1)
-    val larguraPx = (bicho.cw * mult).toFloat()
-    val alturaPx = (bicho.ch * mult).toFloat()
-    val pesPx = (bicho.pes * mult).toFloat()
+    val mult = (pet.escala * densidade).roundToInt().coerceAtLeast(1)
+    val larguraPx = (pet.cw * mult).toFloat()
+    val alturaPx = (pet.ch * mult).toFloat()
+    val pesPx = (pet.pes * mult).toFloat()
 
     var origem by remember { mutableStateOf(Offset.Zero) }
     val piso = PisoDoPet.caixa.translate(-origem.x, -origem.y)
@@ -237,16 +235,15 @@ fun GatoDoAstra(
     var tempoNaAnim by remember { mutableStateOf(0f) }
     var olhandoPraDireita by remember { mutableStateOf(false) }
     var espera by remember { mutableStateOf(2f) }
-    var pulosRestantes by remember { mutableStateOf(0) }
     var piscada by remember { mutableStateOf(0f) }
     var caricias by remember { mutableStateOf(0) }
     var ultimaCaricia by remember { mutableStateOf(0L) }
     var deMalAte by remember { mutableStateOf(0L) }
 
     LaunchedEffect(Unit) {
-        Pet.evento.collect { ev ->
-            val susto = bicho.gestoDeSusto ?: return@collect
-            pulosRestantes = if (ev == PetEvento.CALL) 2 else 1
+        AvisosDoPet.evento.collect {
+            val susto = pet.gestoDeSusto ?: return@collect
+            if (anim != Anim.PARADO && anim != Anim.ANDANDO) return@collect
             anim = susto
             tempoNaAnim = 0f
         }
@@ -262,6 +259,10 @@ fun GatoDoAstra(
         alvoX = alvoX.coerceIn(limiteEsq, limiteDir)
         while (true) {
             val inicio = System.nanoTime()
+            if (congelado.value) {
+                esperarPeloTeto(FPS, inicio)
+                continue
+            }
             val dt = 1f / FPS
 
             piscada += dt
@@ -279,7 +280,7 @@ fun GatoDoAstra(
 
                 Anim.ANDANDO -> {
                     val dx = alvoX - x
-                    val v = (bicho.passos[anim]?.velocidade ?: 1f) * larguraPx * dt
+                    val v = (pet.passos[anim]?.velocidade ?: 1f) * larguraPx * dt
                     if (abs(dx) <= v) {
                         x = alvoX
                         anim = Anim.PARADO
@@ -292,7 +293,7 @@ fun GatoDoAstra(
                 }
 
                 Anim.CARINHO, Anim.FESTA, Anim.RECOLHE, Anim.ATAQUE -> {
-                    val c = bicho.passos[anim]
+                    val c = pet.passos[anim]
                     if (c == null || tempoNaAnim >= c.quadros.toFloat() / c.fps) {
                         val recolhido = anim == Anim.RECOLHE
                         anim = Anim.PARADO
@@ -302,17 +303,6 @@ fun GatoDoAstra(
                     }
                 }
 
-                Anim.PULO -> {
-                    val p = bicho.passos[Anim.PULO]
-                    if (p == null || tempoNaAnim >= p.quadros.toFloat() / p.fps) {
-                        pulosRestantes -= 1
-                        tempoNaAnim = 0f
-                        if (pulosRestantes <= 0) {
-                            anim = Anim.PARADO
-                            espera = 2.5f + Random.nextFloat() * 3f
-                        }
-                    }
-                }
             }
             esperarPeloTeto(FPS, inicio)
         }
@@ -337,6 +327,12 @@ fun GatoDoAstra(
                 .clickable(interactionSource = sobHover, indication = null) {
                     val agora = System.currentTimeMillis()
                     if (agora < deMalAte) return@clickable
+                    if (anim != Anim.PARADO && anim != Anim.ANDANDO) {
+                        val tocando = pet.passos[anim]
+                        if (tocando != null &&
+                            tempoNaAnim < tocando.quadros.toFloat() / tocando.fps
+                        ) return@clickable
+                    }
 
                     if (agora - ultimaCaricia > 4000) caricias = 0
                     ultimaCaricia = agora
@@ -347,7 +343,7 @@ fun GatoDoAstra(
                         caricias = 0
                         tempoNaAnim = 0f
 
-                        val recolhe = bicho.passos[Anim.RECOLHE]
+                        val recolhe = pet.passos[Anim.RECOLHE]
                         if (recolhe != null) {
                             anim = Anim.RECOLHE
                         } else {
@@ -355,7 +351,7 @@ fun GatoDoAstra(
                             anim = Anim.ANDANDO
                         }
                     } else {
-                        val escada = bicho.escadaDeCarinho
+                        val escada = pet.escadaDeCarinho
                         anim = escada.getOrNull(caricias - 1) ?: escada.lastOrNull() ?: Anim.CARINHO
                         tempoNaAnim = 0f
                         Sfx.carinho()
@@ -368,13 +364,13 @@ fun GatoDoAstra(
             val folha = folhas?.get(anim)
             if (folha == null) {
                 translate(x, y) {
-                    desenharGato(
+                    desenharPet(
                         esc = LARGURA_VETOR.toPx() / 34f,
                         paraDireita = olhandoPraDireita,
                         andando = anim == Anim.ANDANDO,
                         passo = tempoNaAnim * 7f,
                         olhoFechado = (piscada % 4.2f) < 0.13f,
-                        animacaoDeEvento = if (anim == Anim.PULO) 1f else 0f,
+                        animacaoDeEvento = 0f,
                         pelo = Obsidian.text2,
                         detalhe = Obsidian.accent,
                     )
@@ -382,25 +378,23 @@ fun GatoDoAstra(
                 return@Canvas
             }
 
-            val passo = bicho.passos[anim] ?: return@Canvas
-            val i = (tempoNaAnim * passo.fps).toInt().let {
-                if (anim == Anim.PULO) it.coerceIn(0, passo.quadros - 1) else it % passo.quadros
-            }
+            val passo = pet.passos[anim] ?: return@Canvas
+            val i = (tempoNaAnim * passo.fps).toInt() % passo.quadros
             val esq = (x - larguraPx / 2f).roundToInt()
             val topo = (y - pesPx).roundToInt()
 
             scale(
-                scaleX = if (olhandoPraDireita != bicho.olhaParaDireita) -1f else 1f,
+                scaleX = if (olhandoPraDireita != pet.olhaParaDireita) -1f else 1f,
                 scaleY = 1f,
                 pivot = Offset(x, y),
             ) {
                 drawImage(
                     image = folha,
                     srcOffset = IntOffset(
-                        i * bicho.quadroW + bicho.cx,
-                        passo.linha * bicho.quadroW + bicho.cy,
+                        i * pet.quadroW + pet.cx,
+                        passo.linha * pet.quadroW + pet.cy,
                     ),
-                    srcSize = IntSize(bicho.cw, bicho.ch),
+                    srcSize = IntSize(pet.cw, pet.ch),
                     dstOffset = IntOffset(esq, topo),
                     dstSize = IntSize(larguraPx.toInt(), alturaPx.toInt()),
                     filterQuality = FilterQuality.None,
@@ -432,7 +426,7 @@ fun GatoDoAstra(
     }
 }
 
-private fun DrawScope.desenharGato(
+private fun DrawScope.desenharPet(
     esc: Float,
     paraDireita: Boolean,
     andando: Boolean,

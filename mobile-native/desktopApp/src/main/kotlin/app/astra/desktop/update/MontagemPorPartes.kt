@@ -16,6 +16,8 @@ private const val VAO_QUE_VALE_PULAR = 96L * 1024
 
 private const val TETO_NA_MEMORIA = 64L * 1024 * 1024
 
+private const val FATIA_DA_CONFERENCIA = 0.35f
+
 internal data class Montagem(
     val reaproveitados: Int,
     val baixados: Int,
@@ -43,12 +45,21 @@ internal class MontagemPorPartes(http: OkHttpClient, url: String) {
 
         val reaproveitar = ArrayList<Pair<File, File>>()
         val baixar = ArrayList<Pair<EntradaDoZip, String>>()
+
+        val totalAConferir = alvos.sumOf { (_, rel) ->
+            File(deOndeVem, rel).let { if (it.isFile) it.length() else 0L }
+        }
+        var conferidos = 0L
         for ((e, rel) in alvos) {
             val jaTenho = File(deOndeVem, rel)
             if (jaTenho.isFile && jaTenho.length() == e.cru && crcDoArquivo(jaTenho) == e.crc) {
                 reaproveitar.add(jaTenho to File(paraOnde, rel))
             } else {
                 baixar.add(e to rel)
+            }
+            if (jaTenho.isFile) conferidos += jaTenho.length()
+            if (totalAConferir > 0) {
+                aoAndar(FATIA_DA_CONFERENCIA * (conferidos.toFloat() / totalAConferir))
             }
         }
 
@@ -63,7 +74,7 @@ internal class MontagemPorPartes(http: OkHttpClient, url: String) {
         }
 
         var andados = 0L
-        aoAndar(if (totalBaixar == 0L) 1f else 0f)
+        aoAndar(if (totalBaixar == 0L) 1f else FATIA_DA_CONFERENCIA)
         for (bloco in agrupar(baixar, dir)) {
             val bruto = zip.faixa(bloco.de, bloco.ate)
             for ((e, rel) in bloco.entradas) {
@@ -72,7 +83,10 @@ internal class MontagemPorPartes(http: OkHttpClient, url: String) {
                 val dentro = (e.deslocamento - bloco.de).toInt()
                 if (!escrever(bruto, dentro, e, destino)) return null
                 andados += e.comprimido
-                if (totalBaixar > 0) aoAndar((andados.toFloat() / totalBaixar).coerceIn(0f, 1f))
+                if (totalBaixar > 0) {
+                    val quanto = andados.toFloat() / totalBaixar
+                    aoAndar((FATIA_DA_CONFERENCIA + (1f - FATIA_DA_CONFERENCIA) * quanto).coerceIn(0f, 1f))
+                }
             }
         }
         aoAndar(1f)

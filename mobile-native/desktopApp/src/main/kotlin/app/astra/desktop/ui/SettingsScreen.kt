@@ -3294,7 +3294,7 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     TituloExplicavel(
         "Companheiro",
         "A cor troca a rampa que o artista desenhou, degrau por degrau — os olhos, o " +
-            "contorno e os detalhes ficam como estão, e é isso que mantém o bicho " +
+            "contorno e os detalhes ficam como estão, e é isso que mantém o pet " +
             "reconhecível em vez de virar uma mancha de uma cor só. O nome aparece " +
             "sobre ele quando reage a uma mensagem. Clique nele para ver o que ele " +
             "faz; insistir demais o cansa.",
@@ -3316,21 +3316,21 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         Spacer(Modifier.height(16.dp))
     }
 
-    val bicho = Bicho.de(p.petBicho)
+    val pet = Pet.de(p.petTipo)
     var gesto by remember { mutableStateOf(Anim.PARADO) }
-    if (gesto !in bicho.passos) gesto = Anim.PARADO
+    if (gesto !in pet.passos) gesto = Anim.PARADO
 
-    PetPalco(bicho, Pelagem.de(p.petPelagem), gesto)
+    PetPalco(pet, Pelagem.de(p.petPelagem), gesto)
     Spacer(Modifier.height(12.dp))
-    GestosDoBicho(bicho, gesto) { gesto = it }
+    GestosDoPet(pet, gesto) { gesto = it }
 
     SettingsDivider()
-    if (Bicho.disponiveis.size > 1) {
-        FieldLabel("bicho")
+    if (Pet.disponiveis.size > 1) {
+        FieldLabel("pet")
         SegmentedRow(
-            Bicho.disponiveis.map { it.rotulo to it.name },
-            p.petBicho,
-            prefs::setPetBicho,
+            Pet.disponiveis.map { it.rotulo to it.name },
+            p.petTipo,
+            prefs::setPetTipo,
         )
         Spacer(Modifier.height(18.dp))
     }
@@ -3419,14 +3419,14 @@ private fun AccessibilitySection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     SettingsDivider()
     TituloExplicavel(
         "Companheiro",
-        "Um bicho em pixel art que caminha por cima da interface. Ele passa a maior " +
+        "Um pet em pixel art que caminha por cima da interface. Ele passa a maior " +
             "parte do tempo parado e só anda em trechos curtos: movimento contínuo " +
-            "no canto do olho ensina o olho a ignorar o resto da tela. Pula quando " +
+            "no canto do olho ensina o olho a ignorar o resto da tela. Reage quando " +
             "chega mensagem, e some junto se você reduzir movimento. A cor e o nome " +
             "estão em Aparência.",
     )
     ToggleRow(
-        "Gato na tela",
+        "Pet na tela",
         "anda pela interface e reage a mensagem nova",
         p.petLigado, prefs::setPetLigado,
     )

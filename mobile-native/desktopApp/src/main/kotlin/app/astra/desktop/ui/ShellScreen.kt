@@ -299,7 +299,7 @@ fun ShellScreen(
             if (!silencioso && prefs.state.value.somDeAviso && !ModoTransmissao.ativo.value) {
                 Sfx.aviso()
             }
-            if (!silencioso) Pet.mensagemNova()
+            if (!silencioso) AvisosDoPet.mensagemNova()
         }
     }
 
@@ -611,9 +611,9 @@ fun ShellScreen(
         }
         }
 
-        GatoDoAstra(
+        PetDoAstra(
             ligado = prefs.state.value.petLigado,
-            bichoId = prefs.state.value.petBicho,
+            petId = prefs.state.value.petTipo,
             pelagem = prefs.state.value.petPelagem,
             nome = prefs.state.value.petNome,
         )

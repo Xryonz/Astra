@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useMotionValue } from 'motion/react'
-import { PhoneCall, PhoneOff, GripHorizontal } from 'lucide-react'
+import { PhoneCall, PhoneOff, GripHorizontal, Download } from 'lucide-react'
 import { getSocket } from '@/lib/socket'
-import { useVoiceCall, useVoiceConfig } from '@/hooks/useVoiceCall'
+import { useDownloadApp } from '@/components/voice/DownloadAppDialog'
 import { useAuthStore } from '@/store/authStore'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { api, resolveApiUrl } from '@/lib/api'
@@ -61,8 +61,7 @@ function playRing() {
 export function IncomingCallModal() {
   const { t } = useTranslation()
   const me = useAuthStore((s) => s.user)
-  const cfg = useVoiceConfig()
-  const voice = useVoiceCall()
+  const baixarApp = useDownloadApp((s) => s.abrir)
   const [incoming, setIncoming] = useState<IncomingCall | null>(null)
   const [remaining, setRemaining] = useState(RING_DURATION_MS)
   const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -94,8 +93,6 @@ export function IncomingCallModal() {
     try { sock = getSocket() } catch { return }
 
     const onInvite = (p: { conversationId: string; fromUserId: string; fromUsername: string; fromDisplayName: string }) => {
-
-      if (voice.state !== 'idle') return
       const expiresAt = Date.now() + RING_DURATION_MS
       setIncoming({ ...p, expiresAt })
       setRemaining(RING_DURATION_MS)
@@ -116,7 +113,7 @@ export function IncomingCallModal() {
       sock.off('dm_call_invite', onInvite)
       sock.off('dm_call_reject', onCancel)
     }
-  }, [me, voice.state])
+  }, [me])
 
   const clear = () => {
     setIncoming(null)
@@ -129,14 +126,13 @@ export function IncomingCallModal() {
     tickRef.current    = null
   }
 
-  const accept = async () => {
+  const abrirApp = () => {
     if (!incoming) return
-    if (!cfg.data?.enabled) return
     try {
-      getSocket().emit('dm_call_accept', { conversationId: incoming.conversationId, toUserId: incoming.fromUserId })
+      getSocket().emit('dm_call_reject', { conversationId: incoming.conversationId, toUserId: incoming.fromUserId })
     } catch {}
-    await voice.join('dm', incoming.conversationId)
     clear()
+    baixarApp()
   }
 
   const reject = () => {
@@ -252,15 +248,14 @@ export function IncomingCallModal() {
             </motion.button>
             <motion.button
               type="button"
-              onClick={(e) => { e.stopPropagation(); accept() }}
+              onClick={(e) => { e.stopPropagation(); abrirApp() }}
               onPointerDown={(e) => e.stopPropagation()}
-              disabled={!cfg.data?.enabled}
-              whileTap={cfg.data?.enabled ? { scale: 0.93 } : undefined}
-              whileHover={cfg.data?.enabled ? { scale: 1.03 } : undefined}
+              whileTap={{ scale: 0.93 }}
+              whileHover={{ scale: 1.03 }}
               transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-              className="flex-1 h-10 rounded-full flex items-center justify-center gap-1.5 bg-(--accent) text-(--text-inv) hover:shadow-[0_4px_16px_-2px_var(--accent-glow)] transition-shadow cursor-pointer text-xs font-medium uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 h-10 rounded-full flex items-center justify-center gap-1.5 bg-(--accent) text-(--text-inv) hover:shadow-[0_4px_16px_-2px_var(--accent-glow)] transition-shadow cursor-pointer text-xs font-medium uppercase tracking-wider"
             >
-              <PhoneCall className="size-3.5" /> {t('voice.accept')}
+              <Download className="size-3.5" /> {t('download.short')}
             </motion.button>
           </footer>
         </motion.div>

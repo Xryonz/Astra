@@ -630,6 +630,14 @@
     "errNotSupported": "Recurso não suportado neste navegador. Atualize ou tente outro browser.",
     "errHttps": "Voz/vídeo exige HTTPS. Acesse a versão segura do site."
   },
+  "download": {
+    "title": "As chamadas vivem no aplicativo",
+    "desc": "Voz e transmissão de tela ficam no Astra instalado. O navegador continua com mensagens, amigos e constelações.",
+    "windows": "Windows", "windowsSub": "10 ou 11, 64 bits",
+    "android": "Android", "androidSub": "APK direto, fora da Play Store",
+    "note": "Depois de instalado, o Astra se atualiza sozinho.",
+    "short": "Baixar o app"
+  },
   "auth": {
     "displayName": "Nome de exibição",
     "displayNamePh": "Como você quer ser chamado",

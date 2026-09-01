@@ -8,7 +8,8 @@ import { EditorialContextMenu, type EditorialMenuItem } from '@/components/Edito
 import { useLongPress } from '@/hooks/useLongPress'
 import { useConfirm, usePrompt } from '@/hooks/useConfirm'
 import { toast } from '@/components/ui/sonner'
-import { useVoiceCall, useVoiceConfig, useVoiceChannelPresence, parseRoomName } from '@/hooks/useVoiceCall'
+import { useVoiceChannelPresence } from '@/hooks/useVoiceCall'
+import { useDownloadApp } from '@/components/voice/DownloadAppDialog'
 import { useUsersMini } from '@/hooks/useUsersMini'
 import { api, resolveApiUrl } from '@/lib/api'
 import { prefetchChannelMessages } from '@/lib/prefetch'
@@ -173,22 +174,10 @@ export default function Sidebar({ activeChannelId, onSelectChannel }: SidebarPro
   )
   const voicePresence = useVoiceChannelPresence(voiceChannelIds)
 
-  const voice = useVoiceCall()
-  const localActive = useMemo(() => {
-    const parsed = parseRoomName(voice.roomName)
-    if (parsed?.kind !== 'channel') return null
-    return { channelId: parsed.id, identities: voice.participants.map((p) => p.identity) }
-  }, [voice.roomName, voice.participants])
-
-  const presenceByChannel = useMemo(() => {
-    const base: Record<string, string[]> = { ...(voicePresence.data ?? {}) }
-    if (localActive) {
-      const remote = new Set(base[localActive.channelId] ?? [])
-      for (const id of localActive.identities) remote.add(id)
-      base[localActive.channelId] = Array.from(remote)
-    }
-    return base
-  }, [voicePresence.data, localActive])
+  const presenceByChannel = useMemo(
+    () => voicePresence.data ?? {},
+    [voicePresence.data],
+  )
 
   const allVoiceIdentities = useMemo(
     () => Object.values(presenceByChannel).flat(),
@@ -656,19 +645,14 @@ function ChannelButton({
 }) {
   const { t }    = useTranslation()
   const isVoice  = channel.type === 'VOICE'
-  const voice    = useVoiceCall()
-  const cfg      = useVoiceConfig()
-  const inThis   = parseRoomName(voice.roomName)?.id === channel.id
+  const baixarApp = useDownloadApp((s) => s.abrir)
   const confirm  = useConfirm()
   const prompt   = usePrompt()
   const qc       = useQueryClient()
 
   const handleClick = () => {
     if (isVoice) {
-
-      if (!cfg.data?.enabled) return
-      if (inThis) return
-      voice.join('channel', channel.id)
+      baixarApp()
     } else {
       onClick()
     }
@@ -749,12 +733,10 @@ function ChannelButton({
       onClick={handleClick}
       onTouchStart={handlePrefetch}
       onMouseEnter={handlePrefetch}
-      disabled={isVoice && !cfg.data?.enabled}
-      title={isVoice && !cfg.data?.enabled ? t('sidebar.callsNotConfigured') : undefined}
       className={cn(
 
         'group w-full flex items-center gap-2.5 px-3 py-1.5 min-h-11 md:min-h-0 border-l-2 rounded-r-lg cursor-pointer text-left relative transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98] active:duration-100 disabled:opacity-50 disabled:cursor-not-allowed',
-        isActive || inThis
+        isActive
           ? 'border-(--accent) bg-(--accent-dim)'
           : 'border-transparent bg-transparent hover:border-(--border-bright) hover:bg-(--raised)/40'
       )}
@@ -764,8 +746,7 @@ function ChannelButton({
       {isVoice ? (
         <Mic className={cn(
           'size-3 shrink-0 transition-colors',
-          inThis ? 'text-(--accent)'
-            : 'text-(--text-3) group-hover:text-(--text-2)',
+          'text-(--text-3) group-hover:text-(--text-2)',
         )} />
       ) : (
         <span
@@ -781,16 +762,13 @@ function ChannelButton({
       )}
       <span className={cn(
         'truncate transition-colors flex-1',
-        isActive || inThis ? 'text-(--accent) text-[14px]'
+        isActive ? 'text-(--accent) text-[14px]'
           : hasUnread ? 'text-foreground text-[14px] font-medium'
           : 'text-(--text-2) text-[14px] group-hover:text-foreground',
       )}
-      style={{ fontFamily: (isActive || hasUnread || inThis) ? 'var(--font-display)' : 'var(--font-body)' }}>
+      style={{ fontFamily: (isActive || hasUnread) ? 'var(--font-display)' : 'var(--font-body)' }}>
         {channel.name}
       </span>
-      {inThis && (
-        <span className="text-[10px] text-(--accent) shrink-0">{t('sidebar.connected')}</span>
-      )}
       {!isVoice && hasUnread && !isActive && (
         <span className="size-1.5 rounded-full bg-(--accent) shrink-0" aria-label={t('sidebar.unread')} />
       )}

@@ -143,11 +143,7 @@ export default function DMPage() {
                 </p>
               </div>
 
-              <DMCallButton
-                conversationId={activeDM.conversationId}
-                otherUserId={activeDM.otherUser.id}
-                otherDisplayName={activeDM.otherUser.displayName}
-              />
+              <DMCallButton otherDisplayName={activeDM.otherUser.displayName} />
             </div>
 
             <DMChat

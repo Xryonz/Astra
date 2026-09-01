@@ -630,6 +630,14 @@
     "errNotSupported": "Feature not supported in this browser. Update or try another browser.",
     "errHttps": "Voice/video requires HTTPS. Use the secure version of the site."
   },
+  "download": {
+    "title": "Calls live in the app",
+    "desc": "Voice and screen sharing run in the installed Astra. The browser keeps messages, friends and constellations.",
+    "windows": "Windows", "windowsSub": "10 or 11, 64-bit",
+    "android": "Android", "androidSub": "Direct APK, outside the Play Store",
+    "note": "Once installed, Astra updates itself.",
+    "short": "Get the app"
+  },
   "auth": {
     "displayName": "Display name",
     "displayNamePh": "What should we call you",

@@ -28,9 +28,9 @@ import ChannelNotifButton, { ChannelNotifMenuItems } from '@/components/chat/Cha
 import { ServerEmojiProvider } from '@/hooks/useServerEmojis'
 import MentionBanner from '@/components/chat/MentionBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { DownloadAppDialog } from '@/components/voice/DownloadAppDialog'
 import type { MessageWithAuthor } from '@astra/types'
 
-const VoiceCallPanel    = lazy(() => import('@/components/voice/VoiceCallPanel').then((m) => ({ default: m.VoiceCallPanel })))
 const IncomingCallModal = lazy(() => import('@/components/voice/IncomingCallModal').then((m) => ({ default: m.IncomingCallModal })))
 const DMPage              = lazy(() => import('@/pages/DMPage'))
 const ProfilePage         = lazy(() => import('@/pages/ProfilePage'))
@@ -362,9 +362,9 @@ export default function AppPage() {
 
       {}
       <Suspense fallback={null}>
-        <VoiceCallPanel />
         <IncomingCallModal />
       </Suspense>
+      <DownloadAppDialog />
 
       {}
       <MobileProfileBar />

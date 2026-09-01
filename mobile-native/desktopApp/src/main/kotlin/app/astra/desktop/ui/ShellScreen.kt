@@ -548,6 +548,8 @@ fun ShellScreen(
             call = voice.callFor(state.voiceChannel),
             mudo = voice.mudo,
             aoAlternarMudo = voice::alternarMudo,
+            ensurdecido = voice.ensurdecido,
+            aoAlternarEnsurdecer = voice::alternarEnsurdecer,
             voicePresence = state.voiceChannel?.let { state.voicePresence[it.id] }.orEmpty(),
             onJoinVoice = { state.voiceChannel?.let { voice.join(it); vm.announceVoiceJoin(it.id) } },
             onLeaveVoice = {
@@ -3014,6 +3016,8 @@ private fun Stage(
     call: CallNaSala?,
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
+    ensurdecido: Boolean,
+    aoAlternarEnsurdecer: () -> Unit,
     voicePresence: List<String>,
     onJoinVoice: () -> Unit,
     onLeaveVoice: () -> Unit,
@@ -3085,7 +3089,7 @@ private fun Stage(
         }
 
         if (voiceChannel != null) {
-            if (call != null) VoiceView(voiceChannel, members, me, call, mudo, aoAlternarMudo, onLeaveVoice, server?.id)
+            if (call != null) VoiceView(voiceChannel, members, me, call, mudo, aoAlternarMudo, ensurdecido, aoAlternarEnsurdecer, onLeaveVoice, server?.id)
             else VoiceLobby(voiceChannel, members, voicePresence, onJoinVoice)
             return@Column
         }

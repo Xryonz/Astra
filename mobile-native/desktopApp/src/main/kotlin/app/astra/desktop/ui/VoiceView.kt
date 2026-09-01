@@ -59,7 +59,9 @@ import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
 import com.composables.icons.lucide.MicOff
+import com.composables.icons.lucide.Music
 import com.composables.icons.lucide.Volume2
+import com.composables.icons.lucide.VolumeX
 import androidx.compose.runtime.rememberCoroutineScope
 import app.astra.mobile.core.network.SoundApi
 import app.astra.mobile.core.network.dto.ServerSoundDto
@@ -99,6 +101,8 @@ fun VoiceView(
     call: CallNaSala,
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
+    ensurdecido: Boolean,
+    aoAlternarEnsurdecer: () -> Unit,
     onLeave: () -> Unit,
     serverId: String? = null,
 ) {
@@ -260,12 +264,20 @@ fun VoiceView(
             CallIconButton(
                 icon = if (micOn) Lucide.Mic else Lucide.MicOff,
                 tone = if (micOn) CallTone.Normal else CallTone.Danger,
+                rotulo = if (micOn) "Fechar o microfone" else "Abrir o microfone",
                 onClick = aoAlternarMudo,
+            )
+            CallIconButton(
+                icon = if (ensurdecido) Lucide.VolumeX else Lucide.Volume2,
+                tone = if (ensurdecido) CallTone.Danger else CallTone.Normal,
+                rotulo = if (ensurdecido) "Voltar a ouvir" else "Ensurdecer",
+                onClick = aoAlternarEnsurdecer,
             )
             Box {
                 CallIconButton(
-                    icon = Lucide.Volume2,
+                    icon = Lucide.Music,
                     tone = if (sonsAbertos) CallTone.Active else CallTone.Normal,
+                    rotulo = "Sons da constelação",
                     onClick = { sonsAbertos = !sonsAbertos },
                 )
                 if (sonsAbertos) {
@@ -320,6 +332,7 @@ fun VoiceView(
                 CallIconButton(
                     icon = Lucide.ScreenShare,
                     tone = if (transmitindo) CallTone.Active else CallTone.Normal,
+                    rotulo = if (transmitindo) "Parar a transmissão" else "Transmitir a tela",
                     onClick = {
                         if (transmitindo) {
                             call.pararDeTransmitir()
@@ -390,6 +403,7 @@ fun VoiceView(
                 CallIconButton(
                     icon = Lucide.Settings,
                     tone = if (settingsOpen) CallTone.Active else CallTone.Normal,
+                    rotulo = "Configurações da chamada",
                     onClick = { settingsOpen = !settingsOpen },
                 )
                 if (settingsOpen) {
@@ -418,7 +432,12 @@ fun VoiceView(
                     }
                 }
             }
-            CallIconButton(icon = Lucide.PhoneOff, tone = CallTone.Danger, onClick = onLeave)
+            CallIconButton(
+                icon = Lucide.PhoneOff,
+                tone = CallTone.Danger,
+                rotulo = "Sair da chamada",
+                onClick = onLeave,
+            )
         }
     }
 }
@@ -590,6 +609,7 @@ private enum class CallTone { Normal, Active, Danger }
 private fun CallIconButton(
     icon: ImageVector,
     tone: CallTone,
+    rotulo: String,
     onClick: () -> Unit,
     habilitado: Boolean = true,
 ) {
@@ -621,7 +641,7 @@ private fun CallIconButton(
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        LIcon(icon, tint = fg, size = 20.dp)
+        LIcon(icon, tint = fg, size = 20.dp, rotulo = rotulo)
     }
 }
 

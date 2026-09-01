@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { pool } from '../db'
 import { redis } from '../lib/redis'
 import { env } from '../lib/env'
-import { isMailEnabled } from '../lib/mailer'
+import { isMailEnabled, mailFalta } from '../lib/mailer'
 import { storageMode, storageFalta } from '../lib/storage'
 import { IA_LIGADA, IA_PROVEDOR } from '../lib/ia'
 import { logger } from '../lib/logger'
@@ -53,6 +53,7 @@ healthRouter.get(['/health', '/ready'], async (_req, res) => {
     release:   env.RELEASE ?? null,
     voiceCfg:  !!env.LIVEKIT_URL,
     mailCfg:   isMailEnabled(),
+    mailFalta,
     storage:   storageMode,
     storageFalta,
     botCfg:    IA_LIGADA,

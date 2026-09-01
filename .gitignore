@@ -25,7 +25,11 @@ coverage/
 # do repo (drive/pendrive).
 *.keystore
 *.jks
-apps/web/android/keystore.properties
+# Sem barra: pega em QUALQUER pasta. Estava preso em apps/web/android/, e o
+# mobile-native/ passou a precisar do mesmo arquivo quando o APK entrou no
+# fluxo de release — o padrao antigo o deixaria entrar num repo publico com a
+# senha da chave dentro.
+keystore.properties
 # Config do app Firebase: não é segredo crítico, mas o repo é PÚBLICO —
 # expor a API key convida abuso de quota. Clone novo: baixar de novo no
 # console Firebase (ver apps/web/MOBILE.md).

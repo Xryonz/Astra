@@ -11,6 +11,15 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val astraVersion: String = providers.gradleProperty("astraVersion").get()
+
+val astraVersionCode: Int = astraVersion.split('.').let { p ->
+    require(p.size == 3) { "astraVersion precisa ser maior.menor.correcao, veio \"$astraVersion\"" }
+    val n = p.map { it.toIntOrNull() ?: error("astraVersion nao numerico: \"$astraVersion\"") }
+    require(n.all { it in 0..99 }) { "cada parte de astraVersion vai ate 99, veio \"$astraVersion\"" }
+    n[0] * 10_000 + n[1] * 100 + n[2]
+}
+
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
@@ -24,8 +33,8 @@ android {
         applicationId = "app.astra.mobile"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = astraVersionCode
+        versionName = astraVersion
 
         buildConfigField("String", "BASE_URL", "\"https://astra-kwzc.onrender.com/\"")
     }
@@ -82,7 +91,7 @@ android {
         val variantName = name
         outputs.all {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
-                if (variantName == "release") "Astra-release.apk" else "Astra.apk"
+                if (variantName == "release") "Astra-$astraVersion-android.apk" else "Astra.apk"
         }
     }
 }

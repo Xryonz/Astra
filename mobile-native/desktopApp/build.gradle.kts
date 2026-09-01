@@ -33,7 +33,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-val astraVersion = "1.0.6"
+val astraVersion: String = providers.gradleProperty("astraVersion").get()
 
 dependencies {
     implementation(project(":shared"))

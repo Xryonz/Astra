@@ -33,17 +33,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ler a versao do build.gradle.kts
+      - name: Ler a versao do gradle.properties
         id: versao
         shell: pwsh
         run: |
           # Fonte UNICA da versao. Ninguem digita numero de versao neste fluxo.
-          $m = Select-String -Path mobile-native/desktopApp/build.gradle.kts -Pattern 'val astraVersion = "([^"]+)"'
+          # Saiu do desktopApp/build.gradle.kts quando o APK do Android passou a
+          # ser publicado junto: os dois artefatos precisam anunciar a MESMA
+          # versao, e o Android tambem deriva o versionCode daqui.
+          $m = Select-String -Path mobile-native/gradle.properties -Pattern '^astraVersion=(.+)$'
           if (-not $m) { throw "nao achei astraVersion" }
-          $v = $m.Matches[0].Groups[1].Value
+          $v = $m.Matches[0].Groups[1].Value.Trim()
           "versao=$v"           >> $env:GITHUB_OUTPUT
           "tag=desktop-v$v"     >> $env:GITHUB_OUTPUT
           "asset=Astra-$v-win-x64.zip" >> $env:GITHUB_OUTPUT
+          "apk=Astra-$v-android.apk"   >> $env:GITHUB_OUTPUT
           Write-Host "versao $v"
 
       - name: Ja existe release desta versao?
@@ -91,6 +95,54 @@ jobs:
           # caminho e limpo, entao o build padrao serve.
           ./gradlew.bat :desktopApp:zipDistributable --no-daemon
 
+      # O APK vai na MESMA release do zip: o popup do navegador manda escolher
+      # entre Windows e Android, e um botao que cai numa release sem APK e pior
+      # que botao nenhum.
+      #
+      # Sem a chave de assinatura o passo e PULADO, nao falhado. Motivo: sem
+      # keystore.properties o AGP assina o release com a chave de DEBUG, que o
+      # runner gera nova a cada execucao. O Android recusa instalar update sobre
+      # APK de assinatura diferente — cada versao exigiria desinstalar e perder
+      # os dados. Publicar assim seria pior que nao publicar.
+      - name: Assinatura do Android configurada?
+        if: steps.checar.outputs.existe == 'False'
+        id: assinatura
+        shell: pwsh
+        env:
+          CHAVE: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          $tem = -not [string]::IsNullOrWhiteSpace($env:CHAVE)
+          "tem=$tem" >> $env:GITHUB_OUTPUT
+          if ($tem) { Write-Host "chave presente — o APK entra nesta release" }
+          else { Write-Host "ANDROID_KEYSTORE_B64 ausente — release sai so com o Windows" }
+
+      - name: Setup Android SDK
+        if: steps.checar.outputs.existe == 'False' && steps.assinatura.outputs.tem == 'True'
+        uses: android-actions/setup-android@v3
+
+      - name: Compilar o APK
+        if: steps.checar.outputs.existe == 'False' && steps.assinatura.outputs.tem == 'True'
+        shell: pwsh
+        working-directory: mobile-native
+        env:
+          CHAVE:       ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          SENHA_STORE: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ALIAS:       ${{ secrets.ANDROID_KEY_ALIAS }}
+          SENHA_CHAVE: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          $jks = Join-Path $PWD "astra-release.jks"
+          [IO.File]::WriteAllBytes($jks, [Convert]::FromBase64String($env:CHAVE))
+          @(
+            "storeFile=$($jks -replace '\\','/')"
+            "storePassword=$env:SENHA_STORE"
+            "keyAlias=$env:ALIAS"
+            "keyPassword=$env:SENHA_CHAVE"
+          ) | Out-File -FilePath "keystore.properties" -Encoding ascii
+          ./gradlew.bat :app:assembleRelease --no-daemon
+          # A chave nao pode sobrar no disco do runner nem por engano.
+          Remove-Item "keystore.properties" -Force
+          Remove-Item $jks -Force
+
       - name: Publicar release + asset
         if: steps.checar.outputs.existe == 'False'
         shell: pwsh
@@ -114,7 +166,25 @@ jobs:
           "$sha  $asset" | Out-File -FilePath $hashFile -Encoding ascii -NoNewline
           Write-Host "sha256: $sha"
 
-          gh release create $tag $zip $hashFile `
+          $arquivos = @($zip, $hashFile)
+
+          # O APK so entra se o passo de compilar rodou (chave presente). Quando
+          # ele rodou, o arquivo TEM que estar la — sumico e erro, nao silencio.
+          if ("${{ steps.assinatura.outputs.tem }}" -eq "True") {
+            $apk = "mobile-native/app/build/outputs/apk/release/${{ steps.versao.outputs.apk }}"
+            if (-not (Test-Path $apk)) {
+              Get-ChildItem mobile-native/app/build/outputs -Recurse -Filter "*.apk" | ForEach-Object { $_.FullName }
+              throw "apk nao encontrado em $apk"
+            }
+            $shaApk = (Get-FileHash $apk -Algorithm SHA256).Hash.ToLower()
+            $hashApk = "$apk.sha256"
+            "$shaApk  ${{ steps.versao.outputs.apk }}" | Out-File -FilePath $hashApk -Encoding ascii -NoNewline
+            Write-Host "sha256 do apk: $shaApk"
+            $arquivos += $apk
+            $arquivos += $hashApk
+          }
+
+          gh release create $tag @arquivos `
             --repo $env:GITHUB_REPOSITORY `
             --title "Astra ${{ steps.versao.outputs.versao }}" `
             --notes "Atualizacao automatica. O Astra baixa sozinho na proxima abertura."

@@ -2,11 +2,18 @@ import { env } from './env'
 
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email'
 
+export const mailFalta: string[] = (() => {
+  const falta: string[] = []
+  if (!env.BREVO_API_KEY) falta.push('BREVO_API_KEY')
+  if (!env.MAIL_FROM)     falta.push('MAIL_FROM')
+  return falta
+})()
+
 export function initMailer() {
   if (isMailEnabled()) {
     console.log('[Mail] Brevo configurado')
   } else {
-    console.warn('[Mail] BREVO_API_KEY/MAIL_FROM ausentes — verificação de email desabilitada')
+    console.warn(`[Mail] falta no ambiente: ${mailFalta.join(', ')} — verificação de email desabilitada`)
   }
 }
 

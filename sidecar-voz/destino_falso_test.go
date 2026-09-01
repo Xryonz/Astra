@@ -8,10 +8,6 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media"
 )
 
-// Substitui o PlateiaDaTela como destino de teste. A plateia existia porque a
-// malha precisava de uma faixa POR PAR; no SFU a tela sobe uma vez so, entao ela
-// saiu da producao e o que os testes precisavam dela -- um lugar para onde
-// escrever, e opcionalmente uma faixa pion de verdade -- fica aqui.
 type destinoFalso struct {
 	faixa *webrtc.TrackLocalStaticSample
 

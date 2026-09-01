@@ -106,10 +106,7 @@ func (a *App) Servir(ctx context.Context, entrada io.Reader) error {
 func (a *App) Executar(ctx context.Context, cmd Comando) error {
 	switch cmd.Cmd {
 	case CmdEntrarNaSala:
-		if err := a.sala.Entrar(cmd.Url, cmd.Token); err != nil {
-			return fmt.Errorf("entrar na sala: %w", err)
-		}
-		return nil
+		return a.sala.Entrar(cmd.Url, cmd.Token)
 
 	case CmdDeixarSala:
 		a.emissor.Desligar()

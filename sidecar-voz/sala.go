@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
+	protoLogger "github.com/livekit/protocol/logger"
 	"github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
 	"github.com/pion/rtcp"
@@ -28,7 +30,12 @@ type Sala struct {
 	noPalco  string
 }
 
+func calarOSdk() {
+	lksdk.SetLogger(protoLogger.LogRLogger(logr.Discard()))
+}
+
 func NovaSala(saida *Escritor, mist *Misturador, entrega *EntregaDeQuadros) *Sala {
+	calarOSdk()
 	return &Sala{
 		saida:      saida,
 		misturador: mist,
@@ -235,9 +242,6 @@ func (s *Sala) Assistir(quem string) {
 	}
 }
 
-// Quem nao esta no palco nao precisa CHEGAR: o SFU para de mandar, e a banda
-// economizada e do proximo salto, nao so do decodificador. Era o que o canal de
-// dados "palco" tentava fazer na malha, pedindo educadamente ao outro lado.
 func (s *Sala) ajustarAssinatura(quem string, pub *lksdk.RemoteTrackPublication, palco string) {
 	quer := palco == "" || palco == quem
 	if pub.IsSubscribed() == quer {

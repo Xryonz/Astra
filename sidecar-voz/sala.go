@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	protoLogger "github.com/livekit/protocol/logger"
 	"github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
+	"github.com/pion/interceptor"
+	"github.com/pion/interceptor/pkg/cc"
+	"github.com/pion/interceptor/pkg/gcc"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
@@ -28,7 +30,13 @@ type Sala struct {
 	pubTela  *lksdk.LocalTrackPublication
 	telasDos map[string]*lksdk.RemoteTrackPublication
 	noPalco  string
+	banda    cc.BandwidthEstimator
 }
+
+const (
+	bandaInicialDoGcc = 1_500_000
+	bandaMaximaDoGcc  = 12_000_000
+)
 
 func calarOSdk() {
 	lksdk.SetLogger(protoLogger.LogRLogger(logr.Discard()))
@@ -75,7 +83,27 @@ func (s *Sala) Entrar(url, token string) error {
 		},
 	}
 
-	quarto, err := lksdk.ConnectToRoomWithToken(url, token, retorno)
+	medidor, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
+		return gcc.NewSendSideBWE(
+			gcc.SendSideBWEPacer(gcc.NewNoOpPacer()),
+			gcc.SendSideBWEInitialBitrate(bandaInicialDoGcc),
+			gcc.SendSideBWEMinBitrate(bandaMinima*1000),
+			gcc.SendSideBWEMaxBitrate(bandaMaximaDoGcc),
+		)
+	})
+	if err != nil {
+		return fmt.Errorf("medir o congestionamento: %w", err)
+	}
+	medidor.OnNewPeerConnection(func(_ string, e cc.BandwidthEstimator) {
+		s.mu.Lock()
+		s.banda = e
+		s.mu.Unlock()
+	})
+
+	quarto, err := lksdk.ConnectToRoomWithToken(url, token, retorno,
+		lksdk.WithInterceptors([]interceptor.Factory{medidor}),
+		lksdk.WithIncludeDefaultInterceptors(true),
+	)
 	if err != nil {
 		return fmt.Errorf("entrar na sala: %w", err)
 	}
@@ -106,6 +134,7 @@ func (s *Sala) Sair() {
 	s.mu.Lock()
 	quarto := s.sala
 	s.sala, s.mic, s.tela, s.pubTela = nil, nil, nil, nil
+	s.banda = nil
 	s.telasDos = make(map[string]*lksdk.RemoteTrackPublication)
 	s.mu.Unlock()
 
@@ -211,6 +240,14 @@ func (s *Sala) aoChegarRtcp(pacote rtcp.Packet) {
 	if s.emissor == nil {
 		return
 	}
+
+	s.mu.Lock()
+	estimador := s.banda
+	s.mu.Unlock()
+	if estimador != nil {
+		s.emissor.BandaRelatada(salaComoPar, estimador.GetTargetBitrate()/1000)
+	}
+
 	switch recado := pacote.(type) {
 	case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
 		s.emissor.PedirQuadroChave()
@@ -318,7 +355,4 @@ func (s *Sala) esquecer(quem string) {
 	s.saida.Manda(Evento{Ev: EvTelaDeOutro, Par: quem, V: "0"})
 }
 
-func (s *Sala) Fechar() {
-	s.Sair()
-	time.Sleep(0)
-}
+func (s *Sala) Fechar() { s.Sair() }

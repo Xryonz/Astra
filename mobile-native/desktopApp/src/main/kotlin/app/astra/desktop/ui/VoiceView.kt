@@ -208,6 +208,7 @@ fun VoiceView(
                                 isMe = false, muted = false,
                                 transmitindo = p.identity in mostrando,
                                 emCartaz = p.identity == quemMostra,
+                                fonte = membro?.user?.displayFont,
                             ),
                         )
                     }
@@ -759,6 +760,7 @@ private data class Tile(
     val muted: Boolean,
     val transmitindo: Boolean = false,
     val emCartaz: Boolean = false,
+    val fonte: String? = null,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -871,6 +873,7 @@ private fun ParticipantTile(
                 style = TextStyle(
                     color = if (tile.speaking) Obsidian.accent else Obsidian.text2,
                     fontSize = 12.sp,
+                    fontFamily = tile.fonte?.let { profileFontFamily(it) },
                 ),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )

@@ -84,6 +84,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -564,6 +567,9 @@ fun ShellScreen(
             botDoOutroLado = (chat as? ChatTarget.Dm)?.let { alvo ->
                 state.dms.find { it.id == alvo.id }?.otherUser?.username == USUARIO_DA_BOT
             } == true,
+            fonteDoSussurro = (chat as? ChatTarget.Dm)?.let { alvo ->
+                state.dms.find { it.id == alvo.id }?.otherUser?.displayFont
+            },
             createChatVm = createChatVm,
             members = state.members,
             me = state.me,
@@ -3025,6 +3031,7 @@ private fun Stage(
     onLeaveVoice: () -> Unit,
     onLigarSussurro: (ChatTarget.Dm, video: Boolean) -> Unit,
     botDoOutroLado: Boolean,
+    fonteDoSussurro: String?,
     createChatVm: (ChatTarget) -> ChatVm,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
@@ -3068,11 +3075,16 @@ private fun Stage(
                 Box(Modifier.weight(1f)) {
                     Text(
                         text = when {
-                            voiceChannel != null -> voiceChannel.name
-                            chat is ChatTarget.Channel -> chat.title
-                            chat is ChatTarget.Dm -> "sussurro · ${chat.title}"
-                            server != null -> "constelação · ${server.name}"
-                            else -> "sussurros"
+                            voiceChannel != null -> AnnotatedString(voiceChannel.name)
+                            chat is ChatTarget.Channel -> AnnotatedString(chat.title)
+                            chat is ChatTarget.Dm -> buildAnnotatedString {
+                                append("sussurro · ")
+                                withStyle(SpanStyle(fontFamily = fonteDoSussurro?.let { profileFontFamily(it) })) {
+                                    append(chat.title)
+                                }
+                            }
+                            server != null -> AnnotatedString("constelação · ${server.name}")
+                            else -> AnnotatedString("sussurros")
                         },
                         style = TextStyle(
                             color = if (chat != null || voiceChannel != null) Obsidian.text1 else Obsidian.text3,
@@ -3296,7 +3308,10 @@ private fun MemberRow(
                     Column {
                         Text(
                             text = name,
-                            style = TextStyle(color = nameColor, fontSize = 13.sp),
+                            style = TextStyle(
+                                color = nameColor, fontSize = 13.sp,
+                                fontFamily = m.user.displayFont?.let { profileFontFamily(it) },
+                            ),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (atividade != null) {

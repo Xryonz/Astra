@@ -148,6 +148,7 @@ data class MemberUserDto(
     val username: String,
     val displayName: String? = null,
     val avatarUrl: String? = null,
+    val displayFont: String? = null,
 )
 
 @Serializable

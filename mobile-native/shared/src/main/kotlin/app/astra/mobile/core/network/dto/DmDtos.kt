@@ -83,6 +83,7 @@ data class ReplyToDto(
     val authorId: String? = null,
     val authorName: String? = null,
     val authorAvatar: String? = null,
+    val authorFont: String? = null,
 )
 
 @Serializable

@@ -1325,6 +1325,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
             style = TextStyle(
                 color = ref.authorId?.let { LocalCoresDeCargo.current[it] } ?: Obsidian.accent,
                 fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                fontFamily = ref.authorFont?.let { profileFontFamily(it) },
             ),
         )
         Spacer(Modifier.width(6.dp))

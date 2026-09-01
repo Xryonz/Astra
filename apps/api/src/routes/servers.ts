@@ -548,6 +548,7 @@ serversRouter.get(
         displayName: users.displayName,
         avatarUrl:   users.avatarUrl,
         bio:         users.bio,
+        displayFont: users.displayFont,
       },
     })
       .from(serverMembers)

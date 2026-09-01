@@ -62,6 +62,7 @@ export function createDMRouter(io: SocketServer) {
         db.select({
           id: users.id, username: users.username,
           displayName: users.displayName, avatarUrl: users.avatarUrl,
+          displayFont: users.displayFont,
         }).from(users).where(inArray(users.id, otherIds)),
 
         db.select().from(directMessages)
@@ -197,14 +198,16 @@ export function createDMRouter(io: SocketServer) {
       const nextCursor = hasMore ? items[items.length - 1].id : null
 
       const replyIds = items.map((m) => m.replyToId).filter(Boolean) as string[]
-      let replyMap = new Map<string, { id: string; content: string; authorName: string; authorAvatar: string | null }>()
+      let replyMap = new Map<string, { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null }>()
       if (replyIds.length > 0) {
         const replies = await db.select({
           id:      directMessages.id,
           content: directMessages.content,
           author: {
+            id:          users.id,
             displayName: users.displayName,
             avatarUrl:   users.avatarUrl,
+            displayFont: users.displayFont,
           },
         })
           .from(directMessages)
@@ -213,8 +216,10 @@ export function createDMRouter(io: SocketServer) {
         replyMap = new Map(replies.map((r) => [r.id, {
           id:           r.id,
           content:      r.content.slice(0, 160),
+          authorId:     r.author.id,
           authorName:   r.author.displayName,
           authorAvatar: r.author.avatarUrl,
+          authorFont:   r.author.displayFont,
         }]))
       }
 
@@ -319,13 +324,15 @@ export function createDMRouter(io: SocketServer) {
       }
 
       let validReplyToId: string | null = null
-      let replySnapshot: { id: string; content: string; authorName: string; authorAvatar: string | null } | null = null
+      let replySnapshot: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null } | null = null
       if (replyToId) {
         const [r] = await db.select({
           id:        directMessages.id,
           content:   directMessages.content,
+          authorId:  users.id,
           authorName: users.displayName,
           authorAvatar: users.avatarUrl,
+          authorFont: users.displayFont,
         })
           .from(directMessages)
           .innerJoin(users, eq(users.id, directMessages.senderId))
@@ -333,7 +340,11 @@ export function createDMRouter(io: SocketServer) {
           .limit(1)
         if (r) {
           validReplyToId = r.id
-          replySnapshot  = { id: r.id, content: r.content.slice(0, 160), authorName: r.authorName, authorAvatar: r.authorAvatar }
+          replySnapshot  = {
+            id: r.id, content: r.content.slice(0, 160),
+            authorId: r.authorId, authorName: r.authorName,
+            authorAvatar: r.authorAvatar, authorFont: r.authorFont,
+          }
         }
       }
 

@@ -185,6 +185,7 @@ export function createMessagesRouter(io: SocketServer) {
         parentAuthorId:     parentAuthor.id,
         parentAuthorName:   parentAuthor.displayName,
         parentAuthorAvatar: parentAuthor.avatarUrl,
+        parentAuthorFont:   parentAuthor.displayFont,
       })
         .from(messages)
         .innerJoin(users, eq(users.id, messages.authorId))
@@ -210,9 +211,10 @@ export function createMessagesRouter(io: SocketServer) {
           authorId:     r.parentAuthorId ?? null,
           authorName:   r.parentAuthorName ?? 'Usuário',
           authorAvatar: r.parentAuthorAvatar ?? null,
+          authorFont:   r.parentAuthorFont ?? null,
         } : null,
-        parentId: undefined, parentContent: undefined,
-        parentAuthorId: undefined, parentAuthorName: undefined, parentAuthorAvatar: undefined,
+        parentId: undefined, parentContent: undefined, parentAuthorId: undefined,
+        parentAuthorName: undefined, parentAuthorAvatar: undefined, parentAuthorFont: undefined,
       }))
 
       const withReactions = await attachReactions(shaped.reverse())
@@ -235,7 +237,7 @@ export function createMessagesRouter(io: SocketServer) {
       if (!channel) return res.status(403).json({ error: 'Acesso negado' })
 
       let validReplyToId: string | null = null
-      let replyParent: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null } | null = null
+      let replyParent: { id: string; content: string; authorId: string; authorName: string; authorAvatar: string | null; authorFont: string | null } | null = null
       if (replyToId) {
         const [parent] = await db.select({
           id:           messages.id,
@@ -243,6 +245,7 @@ export function createMessagesRouter(io: SocketServer) {
           authorId:     messages.authorId,
           authorName:   users.displayName,
           authorAvatar: users.avatarUrl,
+          authorFont:   users.displayFont,
         })
           .from(messages)
           .innerJoin(users, eq(users.id, messages.authorId))
@@ -256,6 +259,7 @@ export function createMessagesRouter(io: SocketServer) {
             authorId:     parent.authorId,
             authorName:   parent.authorName,
             authorAvatar: parent.authorAvatar,
+            authorFont:   parent.authorFont,
           }
         }
       }

@@ -3,13 +3,12 @@ package main
 type Comando struct {
 	Cmd string `json:"cmd"`
 
-	Stun []string   `json:"stun,omitempty"`
-	Turn []ServTurn `json:"turn,omitempty"`
+	Url   string `json:"url,omitempty"`
+	Token string `json:"token,omitempty"`
 
-	Par     string `json:"par,omitempty"`
-	Iniciar bool   `json:"iniciar,omitempty"`
-	Tipo    string `json:"tipo,omitempty"`
-	Dados   string `json:"dados,omitempty"`
+	Par   string `json:"par,omitempty"`
+	Tipo  string `json:"tipo,omitempty"`
+	Dados string `json:"dados,omitempty"`
 
 	Ligado bool `json:"ligado,omitempty"`
 
@@ -26,12 +25,6 @@ type Comando struct {
 
 	Sentido string `json:"sentido,omitempty"`
 	Id      string `json:"id,omitempty"`
-}
-
-type ServTurn struct {
-	URL   string `json:"url"`
-	User  string `json:"user"`
-	Senha string `json:"senha"`
 }
 
 type Evento struct {
@@ -51,12 +44,11 @@ type Evento struct {
 }
 
 const (
-	CmdConfig      = "config"
-	CmdConectar    = "conectar"
-	CmdSinal       = "sinal"
-	CmdDesconectar = "desconectar"
-	CmdMudo        = "mudo"
-	CmdSurdo       = "surdo"
+	CmdEntrarNaSala = "sala"
+	CmdDeixarSala   = "deixar"
+
+	CmdMudo  = "mudo"
+	CmdSurdo = "surdo"
 
 	CmdTratamento = "tratamento"
 
@@ -75,7 +67,6 @@ const (
 
 const (
 	EvPronto = "pronto"
-	EvSinal  = "sinal"
 	EvEstado = "estado"
 
 	EvFala = "fala"
@@ -89,10 +80,4 @@ const (
 	EvTransmissao = "transmissao"
 
 	EvTelaDeOutro = "tela"
-)
-
-const (
-	SinalOferta    = "oferta"
-	SinalResposta  = "resposta"
-	SinalCandidato = "candidato"
 )

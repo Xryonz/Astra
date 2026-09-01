@@ -79,7 +79,7 @@ func TestEmissorTransmiteDeVerdade(t *testing.T) {
 	precisaDeVideo(t)
 
 	recolhidos := make(chan Evento, 256)
-	e := NovoEmissor(NovaPlateia(), NewEscritor(coletor{recolhidos}), nil)
+	e := NovoEmissor(&destinoFalso{}, NewEscritor(coletor{recolhidos}), nil)
 
 	e.Ligar(AjustesDaTela{Monitor: 0, Largura: 1280, Altura: 720, Fps: 30, Kbps: 2500})
 	time.Sleep(3 * time.Second)

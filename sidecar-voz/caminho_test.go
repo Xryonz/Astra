@@ -111,10 +111,7 @@ func TestOMedidorSoFalaNoPrazoESoComAmostra(t *testing.T) {
 }
 
 func TestOsRelatoriosTrazemIdaEVoltaDeVerdade(t *testing.T) {
-	nascedouro, err := fabricaDePares()
-	if err != nil {
-		t.Fatalf("montar a fábrica: %v", err)
-	}
+	nascedouro := fabricaDeTeste(t)
 
 	remetente, err := nascedouro.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {

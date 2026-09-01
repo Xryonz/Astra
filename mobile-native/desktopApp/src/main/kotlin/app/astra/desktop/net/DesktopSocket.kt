@@ -154,16 +154,6 @@ class DesktopSocket(
 
     fun voiceKeepalive(channelId: String) { socket?.emit("voice_keepalive", channelId) }
 
-    private val _sinalRtc = MutableSharedFlow<String>(extraBufferCapacity = 128)
-    val sinalRtc: SharedFlow<String> = _sinalRtc.asSharedFlow()
-
-    fun mandarSinalRtc(para: String, tipo: String, dados: String) {
-        socket?.emit(
-            "rtc_signal",
-            JSONObject().put("para", para).put("tipo", tipo).put("dados", dados),
-        )
-    }
-
     fun enviarAtividade(texto: String) { socket?.emit("set_activity", texto) }
 
     @Volatile private var querConectar = false
@@ -305,9 +295,6 @@ class DesktopSocket(
         }
         s.on("notification") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _notification.tryEmit(it.toString()) }
-        }
-        s.on("rtc_signal") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _sinalRtc.tryEmit(it.toString()) }
         }
         s.on("voice_presence") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }

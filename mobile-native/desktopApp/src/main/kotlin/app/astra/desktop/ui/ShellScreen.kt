@@ -125,7 +125,7 @@ import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.TemaDaConta
 import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.voice.Sfx
-import app.astra.desktop.voice.CallEmMalha
+import app.astra.desktop.voice.CallNaSala
 import app.astra.desktop.voice.VoiceSession
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
@@ -3010,7 +3010,7 @@ private fun Stage(
     server: ServerDto?,
     chat: ChatTarget?,
     voiceChannel: ChannelDto?,
-    call: CallEmMalha?,
+    call: CallNaSala?,
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     voicePresence: List<String>,

@@ -11,47 +11,27 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"sync/atomic"
-
-	"github.com/pion/webrtc/v4"
 )
 
 var marcaDeOrdem = []byte{0xEF, 0xBB, 0xBF}
-
-var stunPadrao = []string{
-	"stun:stun.l.google.com:19302",
-	"stun:stun1.l.google.com:19302",
-	"stun:stun.cloudflare.com:3478",
-}
-
-func configuracaoPadrao() webrtc.Configuration {
-	return webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{{URLs: append([]string(nil), stunPadrao...)}},
-	}
-}
 
 func main() {
 
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer parar()
 
-	faixa, err := webrtc.NewTrackLocalStaticSample(CapacidadeOpus, "audio", "astra-microfone")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "criar faixa de microfone: %v\n", err)
-		os.Exit(1)
-	}
-
-	plateia := NovaPlateia()
-
 	escritor := NewEscritor(os.Stdout)
 	misturador := NovoMisturador()
+	entrega := NovaEntrega()
+
+	sala := NovaSala(escritor, misturador, entrega)
 
 	dllOpus := os.Getenv("ASTRA_OPUS_DLL")
 	if dllOpus == "" {
 		dllOpus = "opus-0.dll"
 	}
 
-	motor := NovoMotor(faixa, misturador, escritor, dllOpus)
+	motor := NovoMotor(sala.FaixaDeVoz(), misturador, escritor, dllOpus)
 	if err := motor.Ligar(ctx); err != nil {
 
 		fmt.Fprintf(os.Stderr, "ligar o motor de áudio: %v\n", err)
@@ -59,19 +39,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	entrega := NovaEntrega()
+	emissor := NovoEmissor(sala, escritor, entrega)
+	sala.emissor = emissor
 
 	app := &App{
 		saida:      escritor,
-		faixa:      faixa,
-		plateia:    plateia,
-		emissor:    NovoEmissor(plateia, escritor, entrega),
+		sala:       sala,
+		emissor:    emissor,
 		entrega:    entrega,
 		misturador: misturador,
 		motor:      motor,
-		pares:      make(map[string]*Par),
-
-		config: configuracaoPadrao(),
 	}
 	defer app.Fechar()
 
@@ -85,27 +62,11 @@ func main() {
 
 type App struct {
 	saida      *Escritor
-	faixa      *webrtc.TrackLocalStaticSample
-	plateia    *PlateiaDaTela
+	sala       *Sala
 	emissor    *Emissor
 	entrega    *EntregaDeQuadros
 	misturador *Misturador
 	motor      *Motor
-	config     webrtc.Configuration
-
-	palco atomic.Pointer[string]
-
-	mu    sync.Mutex
-	pares map[string]*Par
-}
-
-func (a *App) assistindo(id string) bool {
-	quem := a.palco.Load()
-	if quem == nil {
-		return true
-	}
-
-	return *quem != "" && *quem == id
 }
 
 func (a *App) Servir(ctx context.Context, entrada io.Reader) error {
@@ -144,38 +105,15 @@ func (a *App) Servir(ctx context.Context, entrada io.Reader) error {
 
 func (a *App) Executar(ctx context.Context, cmd Comando) error {
 	switch cmd.Cmd {
-	case CmdConfig:
-		a.aplicarConfig(cmd)
-		return nil
-
-	case CmdConectar:
-		par, err := a.abrirPar(cmd.Par)
-		if err != nil {
-			return fmt.Errorf("abrir par %s: %w", cmd.Par, err)
-		}
-
-		if cmd.Iniciar {
-			if err := par.Oferecer(ctx); err != nil {
-				return fmt.Errorf("oferecer a %s: %w", cmd.Par, err)
-			}
+	case CmdEntrarNaSala:
+		if err := a.sala.Entrar(cmd.Url, cmd.Token); err != nil {
+			return fmt.Errorf("entrar na sala: %w", err)
 		}
 		return nil
 
-	case CmdSinal:
-		a.mu.Lock()
-		par, ok := a.pares[cmd.Par]
-		a.mu.Unlock()
-		if !ok {
-
-			return nil
-		}
-		if err := par.Receber(ctx, cmd.Tipo, cmd.Dados); err != nil {
-			return fmt.Errorf("sinal %s de %s: %w", cmd.Tipo, cmd.Par, err)
-		}
-		return nil
-
-	case CmdDesconectar:
-		a.fecharPar(cmd.Par)
+	case CmdDeixarSala:
+		a.emissor.Desligar()
+		a.sala.Sair()
 		return nil
 
 	case CmdMudo:
@@ -193,7 +131,12 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 	case CmdTransmitir:
 		if !cmd.Ligado {
 			a.emissor.Desligar()
+			a.sala.PararTela()
 			return nil
+		}
+
+		if err := a.sala.PublicarTela(cmd.Largura, cmd.Altura); err != nil {
+			return fmt.Errorf("publicar a tela: %w", err)
 		}
 
 		a.emissor.Ligar(AjustesDaTela{
@@ -261,10 +204,7 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		return nil
 
 	case CmdAssistir:
-
-		quem := cmd.Par
-		a.palco.Store(&quem)
-		a.avisarOPalco()
+		a.sala.Assistir(cmd.Par)
 		return nil
 
 	case CmdUsarAparelho:
@@ -280,86 +220,6 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 	}
 }
 
-func (a *App) aplicarConfig(cmd Comando) {
-	if len(cmd.Stun) == 0 && len(cmd.Turn) == 0 {
-		return
-	}
-
-	stun := cmd.Stun
-	if len(stun) == 0 {
-		stun = stunPadrao
-	}
-
-	servidores := make([]webrtc.ICEServer, 0, 1+len(cmd.Turn))
-	servidores = append(servidores, webrtc.ICEServer{URLs: append([]string(nil), stun...)})
-	for _, t := range cmd.Turn {
-		if t.URL == "" {
-			continue
-		}
-		servidores = append(servidores, webrtc.ICEServer{
-			URLs:       []string{t.URL},
-			Username:   t.User,
-			Credential: t.Senha,
-		})
-	}
-
-	a.mu.Lock()
-	a.config = webrtc.Configuration{ICEServers: servidores}
-	a.mu.Unlock()
-
-	fmt.Fprintf(os.Stderr, "ICE configurado: %d STUN, %d TURN\n", len(stun), len(servidores)-1)
-}
-
-func (a *App) abrirPar(id string) (*Par, error) {
-	if id == "" {
-		return nil, errors.New("par sem id")
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if par, ok := a.pares[id]; ok {
-		return par, nil
-	}
-	par, err := NovoPar(id, a.config, a.faixa, a.plateia, a.misturador, a.entrega, a.saida)
-	if err != nil {
-		return nil, err
-	}
-
-	par.pedirQuadroChave = a.emissor.PedirQuadroChave
-
-	par.relatarPerda = func(fracao float64) { a.emissor.PerdaRelatada(id, fracao) }
-	par.relatarBanda = func(kbps int) { a.emissor.BandaRelatada(id, kbps) }
-
-	par.querVer = func() bool { return a.assistindo(id) }
-	par.AvisarQueAssisto(a.assistindo(id))
-	a.pares[id] = par
-	return par, nil
-}
-
-func (a *App) avisarOPalco() {
-	a.mu.Lock()
-	pares := make([]*Par, 0, len(a.pares))
-	for _, p := range a.pares {
-		pares = append(pares, p)
-	}
-	a.mu.Unlock()
-
-	for _, p := range pares {
-		p.AvisarQueAssisto(a.assistindo(p.id))
-	}
-}
-
-func (a *App) fecharPar(id string) {
-	a.mu.Lock()
-	par, ok := a.pares[id]
-	delete(a.pares, id)
-	a.mu.Unlock()
-	if ok {
-		par.Fechar()
-	}
-
-	a.emissor.EsquecerPar(id)
-}
-
 func (a *App) aplicarMudo(ligado bool) {
 
 	a.motor.DefinirMudo(ligado)
@@ -369,18 +229,7 @@ func (a *App) Fechar() {
 
 	a.emissor.Desligar()
 	a.entrega.Fechar()
-
-	a.mu.Lock()
-	pares := make([]*Par, 0, len(a.pares))
-	for _, p := range a.pares {
-		pares = append(pares, p)
-	}
-	a.pares = make(map[string]*Par)
-	a.mu.Unlock()
-
-	for _, p := range pares {
-		p.Fechar()
-	}
+	a.sala.Sair()
 }
 
 type Escritor struct {

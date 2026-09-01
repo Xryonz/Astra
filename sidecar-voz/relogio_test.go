@@ -44,11 +44,8 @@ func TestORelogioDoVideoAcompanhaOTempoReal(t *testing.T) {
 	precisaDeTela(t)
 	precisaDeVideo(t)
 
-	plateia := NovaPlateia()
-	faixa, err := plateia.Entrar("B")
-	if err != nil {
-		t.Fatalf("abrir a faixa: %v", err)
-	}
+	plateia := novoDestinoFalso(t)
+	faixa := plateia.faixa
 
 	config := webrtc.Configuration{}
 	quemTransmite, err := webrtc.NewPeerConnection(config)

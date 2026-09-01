@@ -18,19 +18,11 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 @Serializable
-data class ServidorTurn(
-    val url: String,
-    val user: String,
-    val senha: String,
-)
-
-@Serializable
 data class ComandoDeVoz(
     val cmd: String,
-    val stun: List<String>? = null,
-    val turn: List<ServidorTurn>? = null,
+    val url: String? = null,
+    val token: String? = null,
     val par: String? = null,
-    val iniciar: Boolean? = null,
     val tipo: String? = null,
     val dados: String? = null,
     val ligado: Boolean? = null,
@@ -114,25 +106,10 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
         }
     }
 
-    fun configurar(stun: List<String>, turn: List<ServidorTurn>): Boolean {
-        if (stun.isEmpty() && turn.isEmpty()) return false
-        return mandar(
-            ComandoDeVoz(
-                cmd = "config",
-                stun = stun.ifEmpty { null },
-                turn = turn.ifEmpty { null },
-            ),
-        )
-    }
+    fun entrarNaSala(url: String, token: String) =
+        mandar(ComandoDeVoz(cmd = "sala", url = url, token = token))
 
-    fun conectar(meuId: String, outroId: String) =
-        mandar(ComandoDeVoz(cmd = "conectar", par = outroId, iniciar = meuId < outroId))
-
-    fun repassarSinal(de: String, tipo: String, dados: String) =
-        mandar(ComandoDeVoz(cmd = "sinal", par = de, tipo = tipo, dados = dados))
-
-    fun desconectar(outroId: String) =
-        mandar(ComandoDeVoz(cmd = "desconectar", par = outroId))
+    fun deixarSala() = mandar(ComandoDeVoz(cmd = "deixar"))
 
     fun mudo(on: Boolean) = mandar(ComandoDeVoz(cmd = "mudo", ligado = on))
 

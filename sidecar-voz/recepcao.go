@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/pion/rtcp"
 	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
@@ -18,7 +17,7 @@ const silencioQueEncerra = 5 * time.Second
 
 const conferirOSilencio = 500 * time.Millisecond
 
-func (p *Par) receberTela(remota *webrtc.TrackRemote) {
+func (p *Ouvinte) receberTela(remota *webrtc.TrackRemote) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -42,11 +41,8 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	}()
 
 	pedirImagem := func() {
-		err := p.pc.WriteRTCP([]rtcp.Packet{
-			&rtcp.PictureLossIndication{MediaSSRC: uint32(remota.SSRC())},
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "não consegui pedir imagem a %s: %v\n", p.id, err)
+		if p.pedirChave != nil {
+			p.pedirChave(remota.SSRC())
 		}
 	}
 
@@ -170,6 +166,3 @@ func (p *Par) receberTela(remota *webrtc.TrackRemote) {
 	}
 }
 
-func (p *Par) queremVer() bool {
-	return p.querVer == nil || p.querVer()
-}

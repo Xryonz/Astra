@@ -22,10 +22,10 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     var joined by mutableStateOf<ChannelDto?>(null)
         private set
 
-    var call by mutableStateOf<CallEmMalha?>(null)
+    var call by mutableStateOf<CallNaSala?>(null)
         private set
 
-    fun callFor(channel: ChannelDto?): CallEmMalha? =
+    fun callFor(channel: ChannelDto?): CallNaSala? =
         if (channel != null && joined?.id == channel.id) call else null
 
     fun join(channel: ChannelDto) = entrar("channel", channel)
@@ -121,24 +121,22 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
     private fun entrar(tipo: String, sala: ChannelDto) {
         if (joined?.id == sala.id && call != null) return
 
-        val meuId = koin.get<SessionStore>().load()?.userId
-        if (meuId == null) {
+        if (koin.get<SessionStore>().load()?.userId == null) {
             VoiceLog.nota("[call] sem sessão carregada; não dá para entrar na sala")
             return
         }
 
         call?.dispose()
-        call = CallEmMalha(
+        call = CallNaSala(
             scope,
             SidecarDeVoz(scope),
             koin.get<DesktopSocket>(),
             koin.get<VoiceApi>(),
-            meuId,
         ).also {
             val p = prefs.state.value
             it.lembrarAparelhos(p.audioInput, p.audioOutput)
             it.lembrarTratamento(p.micEchoCancel, p.micNoiseSuppression, p.micAutoGain)
-            it.entrar(sala.id)
+            it.entrar(tipo, sala.id)
         }
         joined = sala
         emSussurro = tipo == "dm"

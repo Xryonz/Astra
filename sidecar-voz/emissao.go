@@ -54,8 +54,13 @@ func (a AjustesDaTela) abrirFonte() (*Tela, error) {
 	return tela, nil
 }
 
+type DestinoDaTela interface {
+	Escrever(media.Sample) (int, error)
+	Contar() (assistindo, total int)
+}
+
 type Emissor struct {
-	plateia *PlateiaDaTela
+	plateia DestinoDaTela
 	saida   *Escritor
 
 	mu     sync.Mutex
@@ -69,7 +74,7 @@ type Emissor struct {
 	entrega *EntregaDeQuadros
 }
 
-func NovoEmissor(plateia *PlateiaDaTela, saida *Escritor, entrega *EntregaDeQuadros) *Emissor {
+func NovoEmissor(plateia DestinoDaTela, saida *Escritor, entrega *EntregaDeQuadros) *Emissor {
 	return &Emissor{plateia: plateia, saida: saida, perdas: NovaPerdaDosPares(), entrega: entrega}
 }
 

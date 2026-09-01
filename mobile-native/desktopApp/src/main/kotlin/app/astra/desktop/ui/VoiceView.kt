@@ -82,7 +82,7 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.voice.AparelhoDeAudio
-import app.astra.desktop.voice.CallEmMalha
+import app.astra.desktop.voice.CallNaSala
 import app.astra.desktop.voice.QuadroDeTela
 import app.astra.desktop.voice.VoiceStatus
 import kotlinx.coroutines.flow.StateFlow
@@ -96,7 +96,7 @@ fun VoiceView(
     channel: ChannelDto,
     members: List<ServerMemberDto>,
     me: ProfileUserDto?,
-    call: CallEmMalha,
+    call: CallNaSala,
     mudo: Boolean,
     aoAlternarMudo: () -> Unit,
     onLeave: () -> Unit,
@@ -158,7 +158,7 @@ fun VoiceView(
         val relatorio by call.relatorioDaTela.collectAsState()
 
         val mostrando = remember(mostrandoOutros, transmitindo) {
-            if (transmitindo) mostrandoOutros + CallEmMalha.EU else mostrandoOutros
+            if (transmitindo) mostrandoOutros + CallNaSala.EU else mostrandoOutros
         }
 
         var telaEscolhida by remember { mutableStateOf<String?>(null) }
@@ -180,10 +180,10 @@ fun VoiceView(
                 if (connected != null) {
                     add(
                         Tile(
-                            CallEmMalha.EU, "você", connected.mySpeaking, me?.avatarUrl,
+                            CallNaSala.EU, "você", connected.mySpeaking, me?.avatarUrl,
                             isMe = true, muted = !micOn,
                             transmitindo = transmitindo,
-                            emCartaz = quemMostra == CallEmMalha.EU,
+                            emCartaz = quemMostra == CallNaSala.EU,
                         ),
                     )
                     connected.others.forEach { p ->
@@ -214,7 +214,7 @@ fun VoiceView(
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    val nomeDeQuemMostra = if (quemMostra == CallEmMalha.EU) "sua tela"
+                    val nomeDeQuemMostra = if (quemMostra == CallNaSala.EU) "sua tela"
                     else pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
                         ?: channel.name.ifBlank { "alguém" }
                     Box(
@@ -236,7 +236,7 @@ fun VoiceView(
                     val quantasTelas = mostrando.size
                     Text(
                         when {
-                            quemMostra == CallEmMalha.EU ->
+                            quemMostra == CallNaSala.EU ->
                                 "esta é a sua tela, como os outros a veem"
                             quantasTelas > 1 ->
                                 "$nomeDeQuemMostra está compartilhando a tela · " +
@@ -719,7 +719,7 @@ private fun ParticipantTile(
                     .background(Obsidian.void),
                 contentAlignment = Alignment.Center,
             ) {
-                TelaCompartilhada(previa, CallEmMalha.EU, Modifier.fillMaxSize())
+                TelaCompartilhada(previa, CallNaSala.EU, Modifier.fillMaxSize())
             }
         } else {
             Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {

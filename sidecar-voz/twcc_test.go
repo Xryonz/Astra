@@ -98,10 +98,7 @@ func TestAJanelaDoTwccSoFechaNoPrazo(t *testing.T) {
 }
 
 func TestOTwccVoltaDoOutroLado(t *testing.T) {
-	nascedouro, err := fabricaDePares()
-	if err != nil {
-		t.Fatalf("montar a fábrica: %v", err)
-	}
+	nascedouro := fabricaDeTeste(t)
 
 	remetente, err := nascedouro.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {

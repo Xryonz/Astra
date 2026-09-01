@@ -20,8 +20,12 @@ var CapacidadeOpus = webrtc.RTPCodecCapability{
 	Channels:  2,
 }
 
+type FaixaDeVoz interface {
+	WriteSample(media.Sample) error
+}
+
 type Motor struct {
-	faixa      *webrtc.TrackLocalStaticSample
+	faixa      FaixaDeVoz
 	misturador *Misturador
 	saida      *Escritor
 
@@ -46,7 +50,7 @@ type Motor struct {
 	dllOpus string
 }
 
-func NovoMotor(faixa *webrtc.TrackLocalStaticSample, mist *Misturador, saida *Escritor, dllOpus string) *Motor {
+func NovoMotor(faixa FaixaDeVoz, mist *Misturador, saida *Escritor, dllOpus string) *Motor {
 	m := &Motor{
 		faixa:       faixa,
 		misturador:  mist,

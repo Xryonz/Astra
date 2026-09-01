@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pion/rtcp"
-	"github.com/pion/webrtc/v4"
 )
 
 const (
@@ -92,30 +91,16 @@ func (m *MedidorDoCaminho) Fechar(agora time.Time) (string, bool) {
 	return linha, true
 }
 
-func escoarRtcp(receptor *webrtc.RTPReceiver) {
-	for {
-		if _, _, err := receptor.ReadRTCP(); err != nil {
-			return
-		}
-	}
-}
-
-func (p *Par) ouvirOCaminho(remetente *webrtc.RTPSender, oQue string, taxa uint32) {
+func medidorDeCaminho(oQue string, taxa uint32) func(rtcp.Packet) {
 	medidor := NovoMedidorDoCaminho(oQue, taxa)
 
-	for {
-		pacotes, _, err := remetente.ReadRTCP()
-		if err != nil {
-			return
-		}
+	return func(pacote rtcp.Packet) {
 		agora := time.Now()
-		for _, pacote := range pacotes {
-			if relato, ok := pacote.(*rtcp.ReceiverReport); ok {
-				medidor.Anotar(relato, agora)
-			}
+		if relato, ok := pacote.(*rtcp.ReceiverReport); ok {
+			medidor.Anotar(relato, agora)
 		}
 		if linha, pronto := medidor.Fechar(agora); pronto {
-			fmt.Fprintf(os.Stderr, "caminho de %s · %s\n", p.id, linha)
+			fmt.Fprintf(os.Stderr, "caminho da %s · %s\n", oQue, linha)
 		}
 	}
 }

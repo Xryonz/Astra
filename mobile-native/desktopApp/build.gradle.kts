@@ -92,6 +92,7 @@ compose.desktop {
     application {
         mainClass = "app.astra.desktop.MainKt"
         jvmArgs += "-Dastra.version=$astraVersion"
+        jvmArgs += "-Dastra.canal=${providers.gradleProperty("astra.canal").orNull ?: "dev"}"
         val gcProfile = providers.gradleProperty("astra.gc").orNull ?: "g1"
         if (gcProfile == "zgc") {
             jvmArgs += "-XX:+UseZGC"

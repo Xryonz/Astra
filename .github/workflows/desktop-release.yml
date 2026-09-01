@@ -93,7 +93,11 @@ jobs:
           # Sem -Pastra.distDir aqui: aquele desvio existe so porque o repo do dono
           # mora num caminho com acento, e o jpackage nao engole. No runner o
           # caminho e limpo, entao o build padrao serve.
-          ./gradlew.bat :desktopApp:zipDistributable --no-daemon
+          #
+          # -Pastra.canal=estavel esconde os diagnosticos de voz. O default e "dev":
+          # se um dia essa flag cair fora daqui, o build publicado mostra diagnostico
+          # a mais, que e o erro barato. O caro seria o inverso.
+          ./gradlew.bat :desktopApp:zipDistributable --no-daemon -Pastra.canal=estavel
 
       # O APK vai na MESMA release do zip: o popup do navegador manda escolher
       # entre Windows e Android, e um botao que cai numa release sem APK e pior

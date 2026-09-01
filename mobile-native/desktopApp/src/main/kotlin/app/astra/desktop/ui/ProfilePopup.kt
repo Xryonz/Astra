@@ -214,6 +214,7 @@ private fun ProfilePopupCard(
                 dados = p.paraCartao().copy(
                     atividade = atividade?.text,
                     atividadeDesde = atividade?.since ?: 0L,
+                    corDoNome = LocalCoresDeCargo.current[userId],
                 ),
                 variante = CardVariante.NORMAL,
                 modifier = Modifier.width(320.dp).heightIn(min = ALTURA_MIN_CARTAO),

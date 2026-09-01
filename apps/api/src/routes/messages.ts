@@ -182,6 +182,7 @@ export function createMessagesRouter(io: SocketServer) {
         },
         parentId:           parent.id,
         parentContent:      parent.content,
+        parentAuthorId:     parentAuthor.id,
         parentAuthorName:   parentAuthor.displayName,
         parentAuthorAvatar: parentAuthor.avatarUrl,
       })
@@ -206,10 +207,12 @@ export function createMessagesRouter(io: SocketServer) {
         replyTo: r.parentId ? {
           id:           r.parentId,
           content:      (r.parentContent ?? '').slice(0, 160),
+          authorId:     r.parentAuthorId ?? null,
           authorName:   r.parentAuthorName ?? 'Usuário',
           authorAvatar: r.parentAuthorAvatar ?? null,
         } : null,
-        parentId: undefined, parentContent: undefined, parentAuthorName: undefined, parentAuthorAvatar: undefined,
+        parentId: undefined, parentContent: undefined,
+        parentAuthorId: undefined, parentAuthorName: undefined, parentAuthorAvatar: undefined,
       }))
 
       const withReactions = await attachReactions(shaped.reverse())

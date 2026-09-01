@@ -80,6 +80,7 @@ data class MsgAuthorDto(
 data class ReplyToDto(
     val id: String,
     val content: String = "",
+    val authorId: String? = null,
     val authorName: String? = null,
     val authorAvatar: String? = null,
 )

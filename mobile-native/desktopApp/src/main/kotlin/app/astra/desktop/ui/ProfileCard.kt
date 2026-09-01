@@ -91,6 +91,7 @@ data class DadosDoCartao(
     val criadoEm: String? = null,
     val atividade: String? = null,
     val atividadeDesde: Long = 0L,
+    val corDoNome: Color? = null,
 )
 
 fun ProfileUserDto.paraCartao() = DadosDoCartao(
@@ -458,7 +459,7 @@ private fun NomeELinha(
             Text(
                 dados.nome,
                 style = TextStyle(
-                    color = Obsidian.text1,
+                    color = dados.corDoNome ?: Obsidian.text1,
                     fontSize = tamanhoNome.sp,
                     fontWeight = FontWeight.Medium,
                     fontFamily = profileFontFamily(dados.fonte),

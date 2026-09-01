@@ -213,7 +213,7 @@ fun ProfilePage(
                         ) {
                             ProfileCard(
                                 modifier = Modifier.fillMaxHeight(),
-                                dados = d.user.paraCartao(),
+                                dados = d.user.paraCartao().copy(corDoNome = LocalCoresDeCargo.current[userId]),
                                 variante = CardVariante.COMPLETO,
                                 servidoresEmComum = emptyList(),
                                 rodape = if (isMe) null else ({

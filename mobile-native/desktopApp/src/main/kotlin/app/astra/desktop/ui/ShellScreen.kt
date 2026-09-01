@@ -394,10 +394,12 @@ fun ShellScreen(
     }
 
     val emSegundoPlano = !LocalWindowActive.current
+    val cores = remember(state.members) { coresDeCargo(state.members) }
     CompositionLocalProvider(
         LocalReduceMotion provides (prefState.reduceMotionEff || emSegundoPlano),
         LocalRenderPrefs provides RenderPrefs(prefState.auroraQuality.octaves, prefState.uiFps.cap),
         LocalMinhaConta provides MinhaConta(session.userId, state.me?.username),
+        LocalCoresDeCargo provides cores,
     ) {
     Box(
         Modifier
@@ -3259,7 +3261,7 @@ private fun MemberRow(
 ) {
     val clipboard = LocalClipboardManager.current
     val name = m.user.displayName ?: m.user.username
-    val nameColor = if (online) (memberRoleColor(m.topColor) ?: Obsidian.text2) else Obsidian.text3.copy(alpha = 0.65f)
+    val nameColor = if (online) (corDoMembro(m) ?: Obsidian.text2) else Obsidian.text3.copy(alpha = 0.65f)
     val avatarAlpha = if (online) 1f else 0.4f
     CascadeIn(cascadeIndex, cascadeTotal) {
         var confirmMember by remember(m.userId) { mutableStateOf<String?>(null) }
@@ -3326,6 +3328,12 @@ internal fun memberRoleColor(hex: String?): Color? {
     val v = h.toLongOrNull(16) ?: return null
     return Color(0xFF000000 or v)
 }
+
+internal fun corDoMembro(m: ServerMemberDto): Color? =
+    memberRoleColor(m.topColor) ?: memberRoleColor(m.nameColor)
+
+internal fun coresDeCargo(membros: List<ServerMemberDto>): Map<String, Color> =
+    membros.mapNotNull { m -> corDoMembro(m)?.let { m.userId to it } }.toMap()
 
 @Composable
 private fun FriendsNavRow(active: Boolean, onClick: () -> Unit) {

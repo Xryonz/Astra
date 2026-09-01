@@ -786,7 +786,8 @@ private fun MessageRow(
                         Text(
                             text = msg.authorName,
                             style = TextStyle(
-                                color = Obsidian.text1, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = LocalCoresDeCargo.current[msg.authorId] ?: Obsidian.text1,
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                 fontFamily = msg.authorFont?.let { profileFontFamily(it) },
                             ),
                         )
@@ -1321,7 +1322,10 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
         Spacer(Modifier.width(5.dp))
         Text(
             ref.authorName ?: "alguem",
-            style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+            style = TextStyle(
+                color = ref.authorId?.let { LocalCoresDeCargo.current[it] } ?: Obsidian.accent,
+                fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            ),
         )
         Spacer(Modifier.width(6.dp))
         Text(

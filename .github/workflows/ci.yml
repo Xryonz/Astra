@@ -49,3 +49,44 @@ jobs:
       - name: Auditar dependencias
         continue-on-error: true
         run: npm audit --audit-level=high
+
+  # O :app ficou TRES SEMANAS sem compilar e ninguem viu, porque nada aqui o
+  # compilava. Quebrou em 06/08 (AttachmentDto ganhou thumbUrl na posicao 2 e o
+  # :app chamava por posicao) e de novo em 16/08 (PostWishRequest saiu do
+  # :shared). Como o :shared e mexido enquanto se trabalha no DESKTOP, a deriva
+  # so aparece quando alguem tenta empacotar o Android — que era uma vez por
+  # nunca.
+  #
+  # assembleRelease e nao assembleDebug de proposito: o erro de classe duplicada
+  # (:app tinha copias de SearchApi/SessionApi/WishApi no mesmo pacote do
+  # :shared) so estoura no R8, que so roda no release.
+  android:
+    name: Android · compilar
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache do Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile-native/**/*.gradle.kts', 'mobile-native/gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # Sem chave de assinatura o AGP cai na de debug — serve pra compilar, nao
+      # pra publicar. Quem publica e o desktop-release.yml, com os segredos.
+      - name: Compilar o APK
+        working-directory: mobile-native
+        run: ./gradlew :app:assembleRelease --no-daemon

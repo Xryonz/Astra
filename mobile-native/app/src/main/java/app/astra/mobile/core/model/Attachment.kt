@@ -22,5 +22,24 @@ val Attachment.isImage: Boolean
 val Attachment.isAudio: Boolean
     get() = type?.startsWith("audio/") == true
 
-fun AttachmentDto.toModel() = Attachment(url, type, name, size, width, height, blurhash, duration)
-fun Attachment.toDto() = AttachmentDto(url, type, name, size, width, height, blurhash, duration)
+fun AttachmentDto.toModel() = Attachment(
+    url = url,
+    type = type,
+    name = name,
+    size = size,
+    width = width,
+    height = height,
+    blurhash = blurhash,
+    duration = duration,
+)
+
+fun Attachment.toDto() = AttachmentDto(
+    url = url,
+    type = type,
+    name = name,
+    size = size,
+    width = width,
+    height = height,
+    blurhash = blurhash,
+    duration = duration,
+)

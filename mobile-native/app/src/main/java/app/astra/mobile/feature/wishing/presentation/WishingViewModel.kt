@@ -42,7 +42,7 @@ class WishingViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
-            runCatching { api.wishes(PAGE, null).data }
+            runCatching { api.listar(PAGE, null).data }
                 .onSuccess { page ->
                     _state.update { it.copy(loading = false, items = page?.items.orEmpty(), nextCursor = page?.nextCursor) }
                 }
@@ -55,7 +55,7 @@ class WishingViewModel @Inject constructor(
         if (_state.value.loadingMore) return
         _state.update { it.copy(loadingMore = true) }
         viewModelScope.launch {
-            runCatching { api.wishes(PAGE, cursor).data }
+            runCatching { api.listar(PAGE, cursor).data }
                 .onSuccess { page ->
                     _state.update {
                         it.copy(
@@ -76,7 +76,7 @@ class WishingViewModel @Inject constructor(
         if (text.length < WISH_MIN || _state.value.posting) return
         _state.update { it.copy(posting = true, error = null) }
         viewModelScope.launch {
-            runCatching { api.post(PostWishRequest(text)) }
+            runCatching { api.publicar(PostWishRequest(content = text)) }
                 .onSuccess {
                     _state.update { it.copy(posting = false, input = "") }
                     load()

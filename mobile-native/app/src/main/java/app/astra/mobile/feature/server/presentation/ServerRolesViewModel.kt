@@ -68,7 +68,10 @@ class ServerRolesViewModel @Inject constructor(
     fun createRole(name: String, color: String?, hoist: Boolean, permissions: List<String>) {
         viewModelScope.launch {
             try {
-                val r = serverApi.createRole(serverId, RoleRequest(name.trim(), color, permissions, hoist)).data
+                val r = serverApi.createRole(
+                    serverId,
+                    RoleRequest(name = name.trim(), color = color, permissions = permissions, hoist = hoist),
+                ).data
                     ?: return@launch
                 _state.update {
                     it.copy(roles = it.roles + RoleUi(r.id, r.name, r.color, r.hoist, r.permissions))
@@ -88,7 +91,11 @@ class ServerRolesViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                serverApi.updateRole(serverId, id, RoleRequest(name.trim(), color, permissions, hoist))
+                serverApi.updateRole(
+                    serverId,
+                    id,
+                    RoleRequest(name = name.trim(), color = color, permissions = permissions, hoist = hoist),
+                )
             } catch (e: Exception) {
                 _state.update { it.copy(roles = prev, actionError = "Nao foi possivel salvar o cargo") }
             }

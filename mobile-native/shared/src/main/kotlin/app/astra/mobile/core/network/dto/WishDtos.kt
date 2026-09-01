@@ -23,3 +23,8 @@ data class WishPageDto(
     val items: List<WishDto> = emptyList(),
     val nextCursor: String? = null,
 )
+
+@Serializable
+data class PostWishRequest(
+    val content: String,
+)

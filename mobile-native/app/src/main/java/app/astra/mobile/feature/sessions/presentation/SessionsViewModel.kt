@@ -42,7 +42,7 @@ class SessionsViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
-            runCatching { api.sessions().data?.sessions.orEmpty() }
+            runCatching { api.list().data?.sessions.orEmpty() }
                 .onSuccess { list ->
                     val rows = list.mapIndexed { i, s ->
                         val (label, mobile) = parseUserAgent(s.userAgent)

@@ -49,6 +49,9 @@ class CallNaSala(
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
     val mostrandoTela = _mostrandoTela.asStateFlow()
 
+    private val _ritmoDeQuemMostra = MutableStateFlow<Map<String, String>>(emptyMap())
+    val ritmoDeQuemMostra = _ritmoDeQuemMostra.asStateFlow()
+
     private val _monitores = MutableStateFlow<List<MonitorDaTela>?>(null)
     val monitores = _monitores.asStateFlow()
 
@@ -243,10 +246,15 @@ class CallNaSala(
                 "tela" -> {
                     val quem = ev.par ?: return@collect
                     if (ev.valor == "1") {
-                        if (ev.tipo != "ritmo") VoiceLog.nota("[tela] recebendo de $quem por ${ev.tipo}")
+                        if (ev.tipo == "ritmo") {
+                            _ritmoDeQuemMostra.value = _ritmoDeQuemMostra.value + (quem to ev.msg.orEmpty())
+                        } else {
+                            VoiceLog.nota("[tela] recebendo de $quem por ${ev.tipo}")
+                        }
                         _mostrandoTela.value = _mostrandoTela.value + quem
                     } else {
                         _mostrandoTela.value = _mostrandoTela.value - quem
+                        _ritmoDeQuemMostra.value = _ritmoDeQuemMostra.value - quem
                         sidecar.quadros.esquecer(quem)
                     }
                 }

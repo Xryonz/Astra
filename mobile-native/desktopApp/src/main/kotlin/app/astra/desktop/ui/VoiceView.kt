@@ -20,6 +20,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -45,7 +46,10 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -54,6 +58,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import com.composables.icons.lucide.Activity
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
@@ -66,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import app.astra.mobile.core.network.SoundApi
 import app.astra.mobile.core.network.dto.ServerSoundDto
 import app.astra.mobile.core.network.dto.TocarSomRequest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.composables.icons.lucide.PhoneOff
 import com.composables.icons.lucide.ScreenShare
@@ -160,6 +166,7 @@ fun VoiceView(
         val mostrandoOutros by call.mostrandoTela.collectAsState()
         val transmitindo by call.transmitindo.collectAsState()
         val relatorio by call.relatorioDaTela.collectAsState()
+        val ritmos by call.ritmoDeQuemMostra.collectAsState()
 
         val mostrando = remember(mostrandoOutros, transmitindo) {
             if (transmitindo) mostrandoOutros + CallNaSala.EU else mostrandoOutros
@@ -214,19 +221,26 @@ fun VoiceView(
                     ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
                         telaEscolhida = if (telaEscolhida == escolha) null else escolha
                     }
-                    LinhaDoRelatorio(relatorio)
                 }
             } else {
-                Column(Modifier.fillMaxSize()) {
-                    val nomeDeQuemMostra = if (quemMostra == CallNaSala.EU) "sua tela"
-                    else pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
-                        ?: channel.name.ifBlank { "alguém" }
-                    Box(
-                        Modifier.weight(1f).fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Obsidian.void),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                val nomeDeQuemMostra = if (quemMostra == CallNaSala.EU) "sua tela"
+                else pessoaPorId[quemMostra]?.user?.let { it.displayName ?: it.username }
+                    ?: channel.name.ifBlank { "alguém" }
+
+                PalcoDaTela(
+                    legenda = when {
+                        quemMostra == CallNaSala.EU -> "esta é a sua tela, como os outros a veem"
+                        mostrando.size > 1 ->
+                            "$nomeDeQuemMostra está compartilhando a tela · " +
+                                "clique em outra pessoa para ver a dela"
+                        else -> "$nomeDeQuemMostra está compartilhando a tela"
+                    },
+                    rostos = {
+                        ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
+                            telaEscolhida = if (telaEscolhida == escolha) null else escolha
+                        }
+                    },
+                    tela = {
                         if (quemMostra !in comTela) {
                             Text(
                                 "abrindo a tela de $nomeDeQuemMostra…",
@@ -235,26 +249,8 @@ fun VoiceView(
                         } else {
                             TelaCompartilhada(call.telasDosOutros, quemMostra, Modifier.fillMaxSize())
                         }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    val quantasTelas = mostrando.size
-                    Text(
-                        when {
-                            quemMostra == CallNaSala.EU ->
-                                "esta é a sua tela, como os outros a veem"
-                            quantasTelas > 1 ->
-                                "$nomeDeQuemMostra está compartilhando a tela · " +
-                                    "clique em outra pessoa para ver a dela"
-                            else -> "$nomeDeQuemMostra está compartilhando a tela"
-                        },
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                    )
-                    LinhaDoRelatorio(relatorio)
-                    Spacer(Modifier.height(8.dp))
-                    ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
-                        telaEscolhida = if (telaEscolhida == escolha) null else escolha
-                    }
-                }
+                    },
+                )
             }
         }
 
@@ -382,13 +378,6 @@ fun VoiceView(
                                 "Transmitindo",
                                 style = TextStyle(color = Obsidian.text1, fontSize = 12.sp),
                             )
-                            if (relatorio.isNotBlank()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    relatorio,
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
-                                )
-                            }
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 "Quem está na sala recebe a imagem. Para trocar de tela, " +
@@ -396,6 +385,27 @@ fun VoiceView(
                                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
                             )
                         }
+                    }
+                }
+            }
+            Box {
+                var numerosAbertos by remember { mutableStateOf(false) }
+                CallIconButton(
+                    icon = Lucide.Activity,
+                    tone = if (numerosAbertos) CallTone.Active else CallTone.Normal,
+                    rotulo = "Números da transmissão",
+                    onClick = { numerosAbertos = !numerosAbertos },
+                )
+                if (numerosAbertos) {
+                    Popup(
+                        popupPositionProvider = AboveAnchor,
+                        onDismissRequest = { numerosAbertos = false },
+                        properties = PopupProperties(focusable = true),
+                    ) {
+                        NumerosDaTela(
+                            minha = relatorio,
+                            deQuemAssisto = ritmos[quemMostra].takeIf { quemMostra != CallNaSala.EU },
+                        )
                     }
                 }
             }
@@ -646,15 +656,98 @@ private fun CallIconButton(
 }
 
 @Composable
-private fun LinhaDoRelatorio(relatorio: String) {
-    if (relatorio.isBlank()) return
-    Spacer(Modifier.height(4.dp))
-    Text(
-        relatorio,
-        style = TextStyle(color = Obsidian.text3, fontSize = 10.sp, fontFamily = DmMono),
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
+private fun NumerosDaTela(minha: String, deQuemAssisto: String?) {
+    Column(
+        Modifier
+            .popupReveal(originX = 0.5f, originY = 1f)
+            .width(250.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Obsidian.raised)
+            .border(1.dp, Obsidian.borderMid, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        if (minha.isBlank() && deQuemAssisto.isNullOrBlank()) {
+            Text(
+                "Nenhuma tela no ar. Os números aparecem quando alguém começa a transmitir.",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+            return@Column
+        }
+        if (minha.isNotBlank()) {
+            Text("Subindo", style = TextStyle(color = Obsidian.text1, fontSize = 12.sp))
+            Spacer(Modifier.height(3.dp))
+            Text(
+                minha,
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+            )
+        }
+        if (!deQuemAssisto.isNullOrBlank()) {
+            if (minha.isNotBlank()) Spacer(Modifier.height(8.dp))
+            Text("Chegando", style = TextStyle(color = Obsidian.text1, fontSize = 12.sp))
+            Spacer(Modifier.height(3.dp))
+            Text(
+                deQuemAssisto,
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
+            )
+        }
+    }
+}
+
+private const val QUANTO_O_PALCO_ESPERA = 2_600L
+
+private const val COMPASSO_DO_MOUSE = 250L
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun PalcoDaTela(
+    legenda: String,
+    rostos: @Composable () -> Unit,
+    tela: @Composable BoxScope.() -> Unit,
+) {
+    var mexeu by remember { mutableStateOf(0L) }
+    var aberto by remember { mutableStateOf(true) }
+    val semMovimento = LocalReduceMotion.current
+
+    LaunchedEffect(mexeu) {
+        aberto = true
+        delay(QUANTO_O_PALCO_ESPERA)
+        aberto = false
+    }
+
+    val opacidade by animateFloatAsState(
+        if (aberto) 1f else 0f,
+        tween(if (semMovimento) 0 else 200),
     )
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Obsidian.void)
+            .onPointerEvent(PointerEventType.Move) {
+                val agora = System.currentTimeMillis()
+                if (agora - mexeu > COMPASSO_DO_MOUSE) mexeu = agora
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        tela()
+
+        if (opacidade > 0.01f) {
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .graphicsLayer { alpha = opacidade }
+                    .background(Obsidian.void.copy(alpha = 0.72f))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(legenda, style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
+                Spacer(Modifier.height(8.dp))
+                rostos()
+            }
+        }
+    }
 }
 
 private data class Tile(

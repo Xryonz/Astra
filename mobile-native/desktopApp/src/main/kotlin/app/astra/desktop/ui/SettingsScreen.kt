@@ -137,7 +137,8 @@ import com.composables.icons.lucide.Volume2
 import com.composables.icons.lucide.X
 import app.astra.desktop.Placas
 import app.astra.desktop.profile.AvatarPicker
-import app.astra.desktop.voice.AudioDevices
+import app.astra.desktop.voice.AparelhoDeAudio
+import app.astra.desktop.voice.FonteDeAparelhos
 import app.astra.desktop.prefs.AuroraQuality
 import app.astra.desktop.prefs.DensityPref
 import app.astra.desktop.AtalhosGlobais
@@ -229,6 +230,7 @@ internal val FORMA_DO_CARTAO_DE_CONFIG = RoundedCornerShape(16.dp)
 fun SettingsScreen(
     me: ProfileUserDto?,
     prefs: DesktopPrefs,
+    aparelhos: FonteDeAparelhos,
     onClose: () -> Unit,
     onProfileSaved: () -> Unit = {},
     initialTab: SettingsTab = SettingsTab.ACCOUNT,
@@ -390,7 +392,7 @@ fun SettingsScreen(
 
                         SettingsTab.ACCESSIBILITY -> AccessibilitySection(prefState, prefs)
                         SettingsTab.PERFORMANCE -> PerformanceSection(prefState, prefs)
-                        SettingsTab.VOICE -> VoiceSection(prefState, prefs)
+                        SettingsTab.VOICE -> VoiceSection(prefState, prefs, aparelhos)
                         SettingsTab.SHORTCUTS -> AtalhosSection(prefState, prefs)
                         SettingsTab.PERMISSIONS -> PermissionsSection(onTestarNotificacao)
                         SettingsTab.ABOUT -> AboutSection()
@@ -2659,7 +2661,12 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
 }
 
 @Composable
-private fun DeviceDropdown(devices: List<String>, selected: String?, onPick: (String?) -> Unit) {
+private fun DeviceDropdown(
+    devices: List<AparelhoDeAudio>,
+    selected: String?,
+    onPick: (String?) -> Unit,
+) {
+    val nomeAtual = devices.firstOrNull { it.id == selected }?.nome
     var open by remember { mutableStateOf(false) }
     val hov = remember { MutableInteractionSource() }
     val h by hov.collectIsHoveredAsState()
@@ -2681,7 +2688,7 @@ private fun DeviceDropdown(devices: List<String>, selected: String?, onPick: (St
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                selected ?: "padrão do Windows",
+                nomeAtual ?: "padrão do Windows",
                 style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2708,7 +2715,10 @@ private fun DeviceDropdown(devices: List<String>, selected: String?, onPick: (St
                 ) {
                     DeviceRow("padrão do Windows", selected == null) { onPick(null); open = false }
                     devices.forEach { d ->
-                        DeviceRow(d, selected == d) { onPick(d); open = false }
+                        DeviceRow(d.nome, selected == d.id) { onPick(d.id); open = false }
+                    }
+                    if (devices.isEmpty()) {
+                        DeviceRow("procurando os aparelhos…", false) {}
                     }
                 }
             }
@@ -2837,7 +2847,11 @@ private fun PermissionsSection(onTestarAviso: () -> Unit) {
 }
 
 @Composable
-private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
+private fun VoiceSection(
+    p: DesktopPrefs.Prefs,
+    prefs: DesktopPrefs,
+    aparelhos: FonteDeAparelhos,
+) {
     TituloExplicavel(
         "Transmissao de tela",
         "Vale ao iniciar a transmissão. O padrão de estreia sai da força do computador — " +
@@ -2882,13 +2896,12 @@ private fun VoiceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
-    val outs = remember { AudioDevices.outputs() }
-    val ins = remember { AudioDevices.inputs() }
+    LaunchedEffect(Unit) { aparelhos.listar() }
     FieldLabel("saída (quem você ouve)")
-    DeviceDropdown(outs, p.audioOutput, prefs::setAudioOutput)
+    DeviceDropdown(aparelhos.saidas, p.audioOutput, prefs::setAudioOutput)
     Spacer(Modifier.height(12.dp))
     FieldLabel("entrada (seu microfone)")
-    DeviceDropdown(ins, p.audioInput, prefs::setAudioInput)
+    DeviceDropdown(aparelhos.microfones, p.audioInput, prefs::setAudioInput)
 
     SettingsDivider()
     Text("Como falar", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))

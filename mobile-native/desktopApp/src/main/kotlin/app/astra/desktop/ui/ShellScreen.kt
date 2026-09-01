@@ -654,6 +654,7 @@ fun ShellScreen(
             SettingsScreen(
                 me = state.me,
                 prefs = prefs,
+                aparelhos = voice,
                 initialTab = settingsTab,
                 onClose = { settingsOpen = false },
                 onProfileSaved = { vm.refreshMe() },

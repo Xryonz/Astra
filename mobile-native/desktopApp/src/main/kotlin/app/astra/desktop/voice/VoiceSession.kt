@@ -12,13 +12,14 @@ import app.astra.desktop.prefs.ModoDeFala
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
 
 @Stable
-class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
+class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : FonteDeAparelhos {
     var joined by mutableStateOf<ChannelDto?>(null)
         private set
 
@@ -27,6 +28,27 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
 
     fun callFor(channel: ChannelDto?): CallNaSala? =
         if (channel != null && joined?.id == channel.id) call else null
+
+    private val sonda = SondaDeAparelhos(scope)
+
+    override var microfones by mutableStateOf<List<AparelhoDeAudio>>(emptyList())
+        private set
+    override var saidas by mutableStateOf<List<AparelhoDeAudio>>(emptyList())
+        private set
+
+    init {
+        scope.launch { sonda.entradas.collect { if (call == null) microfones = it } }
+        scope.launch { sonda.saidas.collect { if (call == null) saidas = it } }
+    }
+
+    override fun listar() {
+        val viva = call
+        if (viva != null) {
+            viva.atualizarAparelhos()
+            return
+        }
+        sonda.atualizar()
+    }
 
     fun join(channel: ChannelDto) = entrar("channel", channel)
 
@@ -137,6 +159,11 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
             it.lembrarAparelhos(p.audioInput, p.audioOutput)
             it.lembrarTratamento(p.micEchoCancel, p.micNoiseSuppression, p.micAutoGain)
             it.entrar(tipo, sala.id)
+            espelhoDosAparelhos?.cancel()
+            espelhoDosAparelhos = scope.launch {
+                launch { it.microfones.collect { lista -> microfones = lista } }
+                launch { it.saidas.collect { lista -> saidas = lista } }
+            }
         }
         joined = sala
         emSussurro = tipo == "dm"
@@ -148,7 +175,11 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) {
         AtalhosGlobais.observar(emptyMap())
     }
 
+    private var espelhoDosAparelhos: Job? = null
+
     fun leave() {
+        espelhoDosAparelhos?.cancel()
+        espelhoDosAparelhos = null
         call?.dispose()
         call = null
         joined = null

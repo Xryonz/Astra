@@ -34,7 +34,12 @@ import app.astra.mobile.core.network.dto.ActivityUpdateDto
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ServerScopedEventDto
 import app.astra.desktop.ui.invalidateProfileCache
+import app.astra.mobile.core.network.dto.CanalMudouDto
+import app.astra.mobile.core.network.dto.CanalSumiuDto
 import app.astra.mobile.core.network.dto.CargosDoMembroDto
+import app.astra.mobile.core.network.dto.CategoriaMudouDto
+import app.astra.mobile.core.network.dto.CategoriaSumiuDto
+import app.astra.mobile.core.network.dto.ConstelacaoMudouDto
 import app.astra.mobile.core.network.dto.MembroEntrouDto
 import app.astra.mobile.core.network.dto.MembrosRefeitosDto
 import app.astra.mobile.core.network.dto.MembroMudouDeCargoDto
@@ -1038,7 +1043,55 @@ class ShellVm(
                 }
             }
             launch {
-                socket.serverChannels.collect { reloadServers() }
+                socket.canalMudou.collect { raw ->
+                    val ev = decode<CanalMudouDto>(raw) ?: return@collect
+                    _state.update { st ->
+                        st.copy(
+                            servers = st.servers.map { s ->
+                                if (s.id != ev.serverId) s
+                                else s.copy(
+                                    channels = (s.channels.filterNot { it.id == ev.canal.id } + ev.canal)
+                                        .sortedBy { it.position },
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+            launch {
+                socket.canalSumiu.collect { raw ->
+                    val ev = decode<CanalSumiuDto>(raw) ?: return@collect
+                    tirarCanal(ev.serverId, ev.channelId)
+                }
+            }
+            launch {
+                socket.categoriaMudou.collect { raw ->
+                    val ev = decode<CategoriaMudouDto>(raw) ?: return@collect
+                    _state.update { st ->
+                        st.copy(
+                            servers = st.servers.map { s ->
+                                if (s.id != ev.serverId) s
+                                else s.copy(
+                                    categories = (s.categories.filterNot { it.id == ev.categoria.id } + ev.categoria)
+                                        .sortedBy { it.position },
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+            launch {
+                socket.categoriaSumiu.collect { raw ->
+                    val ev = decode<CategoriaSumiuDto>(raw) ?: return@collect
+                    _state.update { st ->
+                        st.copy(
+                            servers = st.servers.map { s ->
+                                if (s.id != ev.serverId) s
+                                else s.copy(categories = s.categories.filterNot { it.id == ev.categoryId })
+                            },
+                        )
+                    }
+                }
             }
             launch {
                 socket.membroEntrou.collect { raw ->
@@ -1103,7 +1156,21 @@ class ShellVm(
                 }
             }
             launch {
-                socket.serverUpdated.collect { reloadServers() }
+                socket.constelacaoMudou.collect { raw ->
+                    val ev = decode<ConstelacaoMudouDto>(raw) ?: return@collect
+                    _state.update { st ->
+                        st.copy(
+                            servers = st.servers.map { s ->
+                                if (s.id != ev.serverId) s
+                                else ev.constelacao.copy(
+                                    channels = s.channels,
+                                    categories = s.categories,
+                                    count = s.count,
+                                )
+                            },
+                        )
+                    }
+                }
             }
             launch {
                 socket.serverAccessLost.collect { raw ->
@@ -1201,6 +1268,24 @@ class ShellVm(
 
     private inline fun <reified T> decode(raw: String): T? =
         runCatching { json.decodeFromString<T>(raw) }.getOrNull()
+
+    private fun tirarCanal(serverId: String, channelId: String) {
+        if (_state.value.voiceChannel?.id == channelId) leaveVoice()
+        val eraOAberto = (_state.value.chat as? ChatTarget.Channel)?.id == channelId
+        _state.update { st ->
+            st.copy(
+                servers = st.servers.map { s ->
+                    if (s.id != serverId) s
+                    else s.copy(channels = s.channels.filterNot { it.id == channelId })
+                },
+            )
+        }
+        if (!eraOAberto) return
+        val proximo = _state.value.servers.find { it.id == serverId }
+            ?.channels?.firstOrNull { it.type != "VOICE" }
+        if (proximo == null) _state.update { it.copy(chat = null) }
+        else openChat(ChatTarget.Channel(proximo.id, proximo.name))
+    }
 
     private fun refreshMyPerms(serverId: String) {
         scope.launch {

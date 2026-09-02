@@ -177,6 +177,21 @@ data class MembroMudouDeCargoDto(val serverId: String, val memberId: String, val
 data class MembrosRefeitosDto(val serverId: String, val membros: List<ServerMemberDto>)
 
 @Serializable
+data class CanalMudouDto(val serverId: String, val canal: ChannelDto)
+
+@Serializable
+data class CanalSumiuDto(val serverId: String, val channelId: String)
+
+@Serializable
+data class CategoriaMudouDto(val serverId: String, val categoria: CategoryDto)
+
+@Serializable
+data class CategoriaSumiuDto(val serverId: String, val categoryId: String)
+
+@Serializable
+data class ConstelacaoMudouDto(val serverId: String, val constelacao: ServerDto)
+
+@Serializable
 data class CargosDoMembroDto(
     val serverId: String,
     val memberId: String,

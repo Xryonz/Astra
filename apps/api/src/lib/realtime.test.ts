@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import {
-  attachRealtime, channelsChanged, joinedServer, presenceChanged,
-  serverUpdated, serverGone, leftServer, profileChanged,
+  attachRealtime, joinedServer, presenceChanged,
+  serverGone, leftServer, profileChanged,
 } from './realtime'
 
 function fakeIo() {
@@ -16,23 +16,11 @@ describe('avisos de constelacao', () => {
   let f: ReturnType<typeof fakeIo>
   beforeEach(() => { f = fakeIo(); attachRealtime(f.io) })
 
-  it('canal mudou -> sala da constelacao', () => {
-    channelsChanged('srv1')
-    expect(f.to).toHaveBeenCalledWith('server:srv1')
-    expect(f.emit).toHaveBeenCalledWith('server_channels', { serverId: 'srv1' })
-  })
-
   it('fui adicionado -> sala PESSOAL, nao a da constelacao', () => {
     joinedServer('u9', 'srv1')
     expect(f.to).toHaveBeenCalledWith('user:u9')
     expect(f.to).not.toHaveBeenCalledWith('server:srv1')
     expect(f.emit).toHaveBeenCalledWith('server_joined', { serverId: 'srv1' })
-  })
-
-  it('constelacao editada -> sala da constelacao', () => {
-    serverUpdated('srv1')
-    expect(f.to).toHaveBeenCalledWith('server:srv1')
-    expect(f.emit).toHaveBeenCalledWith('server_updated', { serverId: 'srv1' })
   })
 
   it('constelacao apagada -> avisa a sala DELA (o aviso tem que sair antes do delete)', () => {
@@ -95,7 +83,7 @@ describe('sem io (boot, testes, worker)', () => {
   it('nao explode quando o io nunca foi ligado', () => {
     attachRealtime(undefined as unknown as SocketServer)
     expect(() => {
-      channelsChanged('srv1')
+      serverGone('srv1')
       presenceChanged('u1', 'ONLINE')
     }).not.toThrow()
   })

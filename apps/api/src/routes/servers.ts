@@ -18,7 +18,8 @@ import { unmuteUser } from '../lib/spamDetector'
 import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
-import { channelsChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
+import { joinedServer, serverGone, leftServer } from '../lib/realtime'
+import { canalMudou, canalSumiu, categoriaMudou, categoriaSumiu, constelacaoMudou } from '../lib/canais'
 import { membroEntrou, membroSaiu, membroMudouDeCargo, listarMembros } from '../lib/membros'
 
 export const serversRouter = Router()
@@ -270,7 +271,7 @@ serversRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.SERVER_UPDATE,
       targetId: serverId, metadata: { fields: Object.keys(patch) },
     })
-    serverUpdated(serverId)
+    void constelacaoMudou(serverId)
     const updated = await serverWithChannelsAndCount(serverId)
     res.json({ data: updated })
   })
@@ -701,7 +702,7 @@ channelsRouter.post(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_CREATE,
       targetId: channel.id, metadata: { name, type, categoryId },
     })
-    channelsChanged(serverId)
+    void canalMudou(serverId, channel.id)
     res.status(201).json({ data: channel })
   })
 )
@@ -771,7 +772,7 @@ channelsRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
       targetId: channelId, metadata: { isPrivate, roleIds: validRoleIds },
     })
-    channelsChanged(serverId)
+    void canalMudou(serverId, channelId)
     res.json({ data: { isPrivate, roleIds: validRoleIds } })
   })
 )
@@ -821,7 +822,7 @@ channelsRouter.patch(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_UPDATE,
       targetId: channelId, metadata: { name, categoryId, position },
     })
-    channelsChanged(serverId)
+    void canalMudou(serverId, channelId)
     res.json({ data: r[0] })
   })
 )
@@ -846,7 +847,7 @@ channelsRouter.delete(
       serverId, actorId: req.userId!, action: AUDIT.CHANNEL_DELETE,
       targetId: channelId, metadata: { name: r[0].name },
     })
-    channelsChanged(serverId)
+    canalSumiu(serverId, channelId)
     res.json({ message: 'Canal excluído' })
   })
 )
@@ -871,7 +872,7 @@ channelsRouter.post(
 
     const [cat] = await db.insert(channelCategories)
       .values({ name, serverId, position: nextPos }).returning()
-    channelsChanged(serverId)
+    categoriaMudou(serverId, cat)
     res.status(201).json({ data: cat })
   })
 )
@@ -904,7 +905,7 @@ channelsRouter.patch(
       .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
       .returning()
     if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
-    channelsChanged(serverId)
+    categoriaMudou(serverId, r[0])
     res.json({ data: r[0] })
   })
 )
@@ -923,7 +924,7 @@ channelsRouter.delete(
       .where(and(eq(channelCategories.id, categoryId), eq(channelCategories.serverId, serverId)))
       .returning({ id: channelCategories.id })
     if (r.length === 0) return res.status(404).json({ error: 'Categoria não encontrada' })
-    channelsChanged(serverId)
+    categoriaSumiu(serverId, categoryId)
     res.json({ message: 'Categoria excluída' })
   })
 )

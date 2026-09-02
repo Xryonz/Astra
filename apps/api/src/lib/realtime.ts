@@ -6,10 +6,6 @@ export function attachRealtime(server: SocketServer) { io = server }
 
 export function servidorDeSocket(): SocketServer | null { return io }
 
-export function channelsChanged(serverId: string) {
-  io?.to(`server:${serverId}`).emit('server_channels', { serverId })
-}
-
 export function joinedServer(userId: string, serverId: string) {
   io?.to(`user:${userId}`).emit('server_joined', { serverId })
 }
@@ -55,10 +51,6 @@ export function missaoConcluida(userId: string, payload: unknown) {
 
 export function presenceChanged(userId: string, status: string) {
   io?.emit('presence_update', { userId, status: status === 'INVISIBLE' ? 'OFFLINE' : status })
-}
-
-export function serverUpdated(serverId: string) {
-  io?.to(`server:${serverId}`).emit('server_updated', { serverId })
 }
 
 export function serverGone(serverId: string) {

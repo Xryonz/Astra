@@ -97,8 +97,17 @@ class DesktopSocket(
     private val _chamadaEncerrada = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val chamadaEncerrada: SharedFlow<String> = _chamadaEncerrada.asSharedFlow()
 
-    private val _serverChannels = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val serverChannels: SharedFlow<String> = _serverChannels.asSharedFlow()
+    private val _canalMudou = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val canalMudou: SharedFlow<String> = _canalMudou.asSharedFlow()
+
+    private val _canalSumiu = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val canalSumiu: SharedFlow<String> = _canalSumiu.asSharedFlow()
+
+    private val _categoriaMudou = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val categoriaMudou: SharedFlow<String> = _categoriaMudou.asSharedFlow()
+
+    private val _categoriaSumiu = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val categoriaSumiu: SharedFlow<String> = _categoriaSumiu.asSharedFlow()
 
     private val _membroEntrou = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val membroEntrou: SharedFlow<String> = _membroEntrou.asSharedFlow()
@@ -121,8 +130,8 @@ class DesktopSocket(
     private val _missaoConcluida = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val missaoConcluida: SharedFlow<String> = _missaoConcluida.asSharedFlow()
 
-    private val _serverUpdated = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val serverUpdated: SharedFlow<String> = _serverUpdated.asSharedFlow()
+    private val _constelacaoMudou = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val constelacaoMudou: SharedFlow<String> = _constelacaoMudou.asSharedFlow()
 
     private val _serverAccessLost = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val serverAccessLost: SharedFlow<String> = _serverAccessLost.asSharedFlow()
@@ -321,8 +330,17 @@ class DesktopSocket(
             val url = (args.firstOrNull() as? JSONObject)?.optString("url").orEmpty()
             if (url.isNotBlank()) SoundboardPlayer.tocar(url)
         }
-        s.on("server_channels") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverChannels.tryEmit(it.toString()) }
+        s.on("server_channel_upserted") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _canalMudou.tryEmit(it.toString()) }
+        }
+        s.on("server_channel_gone") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _canalSumiu.tryEmit(it.toString()) }
+        }
+        s.on("server_category_upserted") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _categoriaMudou.tryEmit(it.toString()) }
+        }
+        s.on("server_category_gone") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _categoriaSumiu.tryEmit(it.toString()) }
         }
         s.on("server_member_added") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _membroEntrou.tryEmit(it.toString()) }
@@ -345,8 +363,8 @@ class DesktopSocket(
         s.on("mission_done") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _missaoConcluida.tryEmit(it.toString()) }
         }
-        s.on("server_updated") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverUpdated.tryEmit(it.toString()) }
+        s.on("server_meta") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _constelacaoMudou.tryEmit(it.toString()) }
         }
         s.on("server_gone") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverAccessLost.tryEmit(it.toString()) }

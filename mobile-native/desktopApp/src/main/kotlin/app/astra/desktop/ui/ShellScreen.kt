@@ -130,6 +130,7 @@ import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.CallNaSala
 import app.astra.desktop.voice.VoiceSession
+import app.astra.desktop.shell.CacheDeConversas
 import app.astra.desktop.shell.ChatTarget
 import app.astra.desktop.shell.ChatVm
 import app.astra.desktop.shell.Selection
@@ -385,12 +386,14 @@ fun ShellScreen(
     }
 
     val chat = state.chat
+    val cacheDeConversas = remember { CacheDeConversas() }
     val createChatVm = remember {
         { target: ChatTarget ->
             ChatVm(
                 scope, target,
                 koin.get<ChannelApi>(), koin.get<DmApi>(), koin.get<UploadApi>(),
                 socket, koin.get<Json>(), session.userId,
+                cache = cacheDeConversas,
                 myProfile = { vm.state.value.me },
             )
         }

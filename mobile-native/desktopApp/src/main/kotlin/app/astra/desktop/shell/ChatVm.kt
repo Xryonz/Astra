@@ -125,9 +125,14 @@ class ChatVm(
     private val socket: DesktopSocket,
     private val json: Json,
     val myId: String?,
+    private val cache: CacheDeConversas,
     private val myProfile: () -> ProfileUserDto? = { null },
 ) {
-    private val _state = MutableStateFlow(ChatUiState())
+    private val _state = MutableStateFlow(
+        cache.ler(target)
+            ?.let { ChatUiState(loading = false, messages = it) }
+            ?: ChatUiState(),
+    )
     val state = _state.asStateFlow()
 
     private var liveJob: Job? = null
@@ -144,6 +149,7 @@ class ChatVm(
     }
 
     fun dispose() {
+        cache.guardar(target, _state.value.messages)
         liveJob?.cancel()
         cargaJob?.cancel()
         stopTypingEmit()
@@ -156,7 +162,7 @@ class ChatVm(
         if (!forcar && cargaJob?.isActive == true) return
         cargaJob?.cancel()
         cargaJob = scope.launch {
-            _state.update { it.copy(loading = true, error = null, acordando = false) }
+            _state.update { it.copy(loading = it.messages.isEmpty(), error = null, acordando = false) }
             insistir(
                 oQue = "esta conversa",
                 aoTentarDeNovo = { _state.update { it.copy(acordando = true) } },
@@ -169,10 +175,12 @@ class ChatVm(
                 }
             }
                 .onSuccess { list ->
+                    val frescas = list.sortedBy { m -> m.createdAt ?: "" }
+                    cache.guardar(target, frescas)
                     _state.update {
                         it.copy(
                             loading = false, error = null, acordando = false,
-                            messages = list.sortedBy { m -> m.createdAt ?: "" },
+                            messages = frescas,
                         )
                     }
                 }

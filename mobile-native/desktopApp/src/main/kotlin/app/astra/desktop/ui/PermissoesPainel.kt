@@ -52,6 +52,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.astra.desktop.ui.theme.Tipo
 
 private const val ESPERA_MS = 2_000L
 private const val TENTATIVAS = 25
@@ -108,7 +109,7 @@ fun PainelDePermissoes(
 
     Column(modifier) {
         if (conferindo && itens.isEmpty()) {
-            Text("conferindo…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            Text("conferindo…", style = Tipo.descricao)
         }
         itens.forEachIndexed { i, c ->
             LinhaPermissao(

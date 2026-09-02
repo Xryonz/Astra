@@ -60,6 +60,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import app.astra.desktop.ui.theme.Tipo
 
 @Serializable
 private data class NotifPayload(
@@ -188,13 +189,13 @@ fun NotifPanel(
 
             when {
                 loading -> Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
-                    Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                    Text("carregando…", style = Tipo.descricao)
                 }
                 items.isEmpty() -> Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         LIcon(Lucide.Bell, tint = Obsidian.text3, size = 26.dp)
                         Spacer(Modifier.height(8.dp))
-                        Text("tudo em dia", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                        Text("tudo em dia", style = Tipo.descricao)
                     }
                 }
                 else -> {
@@ -272,11 +273,11 @@ private fun NotifRow(item: NotificationItemDto, p: NotifPayload, onClick: () -> 
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(relTime(item.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                Text(relTime(item.createdAt), style = Tipo.nota)
             }
             if (sub.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))
-                Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(sub, style = Tipo.apoio, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             if (item.type != "dm" && !p.preview.isNullOrBlank()) {
                 Spacer(Modifier.height(2.dp))

@@ -39,6 +39,7 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import app.astra.desktop.ui.theme.Tipo
 
 private val HORA = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
@@ -86,7 +87,7 @@ internal fun DiagnosticsSection() {
         if (passos.isEmpty()) {
             Text(
                 "nenhuma call ainda nesta sessão. entre numa e volte aqui.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         } else {
             Column(
@@ -120,7 +121,7 @@ internal fun DiagnosticsSection() {
             Spacer(Modifier.height(6.dp))
             Text(
                 "o mesmo vai para o arquivo voz.txt (na pasta do Astra) — é possível mandar inteiro para quem estiver ajudando.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         }
 
@@ -141,7 +142,7 @@ internal fun DiagnosticsSection() {
         if (events.isEmpty()) {
             Text(
                 "nada ainda — se algo devia ter chegado e não chegou, o problema está do lado do servidor.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         } else {
             Column(
@@ -185,7 +186,7 @@ internal fun DiagnosticsSection() {
         Spacer(Modifier.height(8.dp))
         Text(
             "cole isto quando pedir ajuda — não vai conteúdo de mensagem nenhuma, só nomes de aviso e horários.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
     }
 }
@@ -201,7 +202,7 @@ internal fun VoicePassos() {
     if (passos.isEmpty()) {
         Text(
             "nenhuma call nesta sessão ainda. entre numa e volte aqui — cada etapa aparece nesta lista.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
         return
     }
@@ -272,7 +273,7 @@ private fun DiagRow(label: String, value: String, ok: Boolean) {
                 .background(if (ok) Obsidian.success else Obsidian.danger),
         )
         Spacer(Modifier.width(9.dp))
-        Text(label, style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Text(label, style = Tipo.rotulo)
         Spacer(Modifier.width(10.dp))
         Box(Modifier.height(1.dp).weight(1f).background(Color.Transparent))
         Text(

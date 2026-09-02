@@ -98,6 +98,7 @@ import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun VoiceView(
@@ -256,7 +257,7 @@ fun VoiceView(
                         if (quemMostra !in comTela) {
                             Text(
                                 "abrindo a tela de $nomeDeQuemMostra…",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                style = Tipo.descricao,
                             )
                         } else {
                             TelaCompartilhada(call.telasDosOutros, quemMostra, Modifier.fillMaxSize())
@@ -305,7 +306,7 @@ fun VoiceView(
                             if (sons.isEmpty()) {
                                 Text(
                                     "nenhum som aqui ainda",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    style = Tipo.descricao,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 )
                             }
@@ -394,7 +395,7 @@ fun VoiceView(
                             Text(
                                 "Quem está na sala recebe a imagem. Para trocar de tela, " +
                                     "pare a transmissão e escolha outra.",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                style = Tipo.apoio,
                             )
                         }
                     }
@@ -516,7 +517,7 @@ private fun SeletorDeAparelho(
         ) {
             Text(
                 nomeAtual,
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                style = Tipo.rotulo,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
@@ -546,7 +547,7 @@ private fun SeletorDeAparelho(
                     if (opcoes.isEmpty()) {
                         Text(
                             "procurando aparelhos…",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            style = Tipo.apoio,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     }
@@ -681,7 +682,7 @@ private fun NumerosDaTela(minha: String, deQuemAssisto: String?) {
         if (minha.isBlank() && deQuemAssisto.isNullOrBlank()) {
             Text(
                 "Nenhuma tela no ar. Os números aparecem quando alguém começa a transmitir.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
             return@Column
         }

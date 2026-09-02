@@ -200,6 +200,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun ShellScreen(
@@ -805,14 +806,14 @@ fun ConfirmPopup(
         ) {
             Text(
                 message,
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                style = Tipo.corpo,
                 modifier = Modifier.widthIn(max = 240.dp),
             )
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     cancelLabel,
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    style = Tipo.descricao,
                     modifier = Modifier
                         .clip(RoundedCornerShape(7.dp))
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
@@ -821,7 +822,7 @@ fun ConfirmPopup(
                 )
                 Text(
                     confirmLabel,
-                    style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                    style = Tipo.erro,
                     modifier = Modifier
                         .clip(RoundedCornerShape(7.dp))
                         .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
@@ -1045,7 +1046,7 @@ private fun CommandPalette(
             if (results.isEmpty()) {
                 Text(
                     "nada encontrado",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    style = Tipo.descricao,
                     modifier = Modifier.padding(vertical = 14.dp),
                 )
             } else {
@@ -1085,12 +1086,12 @@ private fun PaletteRow(r: QuickResult, active: Boolean, onClick: () -> Unit) {
         Spacer(Modifier.width(9.dp))
         Text(
             r.title,
-            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            style = Tipo.corpo,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(8.dp))
-        Text(r.subtitle, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), maxLines = 1)
+        Text(r.subtitle, style = Tipo.apoio, maxLines = 1)
     }
 }
 
@@ -1208,13 +1209,13 @@ private fun Rail(
                         ) {
                             Text(
                                 "sair de ${srv.name}?",
-                                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                                style = Tipo.corpo,
                             )
                             Spacer(Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
                                     "ficar",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    style = Tipo.descricao,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(7.dp))
                                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
@@ -1223,7 +1224,7 @@ private fun Rail(
                                 )
                                 Text(
                                     "sair",
-                                    style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                                    style = Tipo.erro,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(7.dp))
                                         .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
@@ -1251,14 +1252,14 @@ private fun Rail(
                         ) {
                             Text(
                                 "excluir ${srv.name}? apaga a constelação para todos — não há como desfazer.",
-                                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                                style = Tipo.corpo,
                                 modifier = Modifier.widthIn(max = 240.dp),
                             )
                             Spacer(Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
                                     "cancelar",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                    style = Tipo.descricao,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(7.dp))
                                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(7.dp))
@@ -1267,7 +1268,7 @@ private fun Rail(
                                 )
                                 Text(
                                     "excluir",
-                                    style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                                    style = Tipo.erro,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(7.dp))
                                         .border(1.dp, Obsidian.danger, RoundedCornerShape(7.dp))
@@ -1937,7 +1938,7 @@ private fun ConfirmDialog(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     Text(
                         "cancelar",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                        style = Tipo.descricao,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { onDismiss() }
@@ -1946,7 +1947,7 @@ private fun ConfirmDialog(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         confirmLabel,
-                        style = TextStyle(color = Obsidian.danger, fontSize = 12.sp),
+                        style = Tipo.erro,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .border(1.dp, Obsidian.danger, RoundedCornerShape(8.dp))
@@ -2502,7 +2503,7 @@ private fun EditorialInputDialog(
                     value = text,
                     onValueChange = { text = it.take(50) },
                     singleLine = true,
-                    textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    textStyle = Tipo.corpo,
                     cursorBrush = SolidColor(Obsidian.accent),
                     decorationBox = { inner ->
                         Row(
@@ -2789,7 +2790,7 @@ private fun DmList(
                     Spacer(Modifier.width(7.dp))
                     Box(Modifier.weight(1f)) {
                         if (query.isEmpty()) {
-                            Text("encontrar conversa", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                            Text("encontrar conversa", style = Tipo.descricao)
                         }
                         inner()
                     }
@@ -2799,7 +2800,7 @@ private fun DmList(
         )
         if (filtered.isEmpty()) {
             Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                Text("nada encontrado", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                Text("nada encontrado", style = Tipo.descricao)
             }
             return@Column
         }
@@ -2915,7 +2916,7 @@ private fun DmList(
                             if (preview != null) {
                                 Text(
                                     text = preview,
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                    style = Tipo.apoio,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                             }
@@ -2964,7 +2965,7 @@ private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose
         Spacer(Modifier.height(3.dp))
         Text(
             "para qual constelação?",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
         Spacer(Modifier.height(12.dp))
         servers.forEach { srv ->
@@ -2990,7 +2991,7 @@ private fun PickServerDialog(username: String, servers: List<ServerDto>, onClose
                 Spacer(Modifier.width(10.dp))
                 Text(
                     if (loading) "…" else srv.name,
-                    style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    style = Tipo.corpo,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -3331,7 +3332,7 @@ private fun MemberRow(
                                 Spacer(Modifier.width(5.dp))
                                 Text(
                                     text = atividade,
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                    style = Tipo.apoio,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                             }

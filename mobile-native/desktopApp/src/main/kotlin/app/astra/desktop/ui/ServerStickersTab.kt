@@ -49,6 +49,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
@@ -71,7 +72,7 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
     Spacer(Modifier.height(8.dp))
 
     if (figurinhas.isEmpty()) {
-        Text("nenhuma figurinha ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text("nenhuma figurinha ainda.", style = Tipo.descricao)
     }
 
     figurinhas.forEach { fig ->
@@ -132,7 +133,7 @@ internal fun StickersSection(serverId: String, podeGerenciar: Boolean) {
             Spacer(Modifier.width(10.dp))
             Text(
                 "PNG, GIF ou WebP — vai inteira, sem recompressão.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         }
     }
@@ -180,7 +181,7 @@ private fun LinhaDeFigurinha(
         Spacer(Modifier.width(10.dp))
         Text(
             fig.name,
-            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            style = Tipo.corpo,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )

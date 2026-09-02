@@ -65,6 +65,7 @@ import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Volume2
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private enum class SearchTab(val label: String) {
     ALL("Tudo"), MESSAGES("Mensagens"), CHANNELS("Canais"), PEOPLE("Pessoas")
@@ -236,7 +237,7 @@ fun SearchOverlay(
 
 @Composable
 private fun Hint(t: String) {
-    Text(t, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.padding(vertical = 16.dp))
+    Text(t, style = Tipo.descricao, modifier = Modifier.padding(vertical = 16.dp))
 }
 
 private data class Recente(val orbita: Boolean, val serverId: String, val id: String, val nome: String)
@@ -249,7 +250,7 @@ private fun RecenteResult(r: Recente, onClick: () -> Unit) = ResultRow(onClick) 
     Spacer(Modifier.width(10.dp))
     Text(
         r.nome,
-        style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+        style = Tipo.corpo,
         maxLines = 1, overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f),
     )
@@ -321,9 +322,9 @@ private fun ChannelResult(c: SearchChannelDto, onClick: () -> Unit) = ResultRow(
     }
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
-        Text(c.name, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(c.name, style = Tipo.corpo, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (c.serverName.isNotBlank()) {
-            Text(c.serverName, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(c.serverName, style = Tipo.apoio, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -333,7 +334,7 @@ private fun PersonResult(u: SearchUserDto, onClick: () -> Unit) = ResultRow(onCl
     DesktopAvatar(u.avatarUrl, u.displayName ?: u.username, 28)
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
-        Text(u.displayName ?: u.username, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(u.displayName ?: u.username, style = Tipo.corpo, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text("@${u.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     Text("sussurrar", style = TextStyle(color = Obsidian.accent, fontSize = 11.sp))
@@ -354,13 +355,13 @@ private fun MessageResult(m: SearchMessageDto, onClick: () -> Unit) = ResultRow(
             LIcon(Lucide.Hash, tint = Obsidian.text3, size = 10.dp)
             Text(
                 m.channelName.ifBlank { "canal" },
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
         Text(
             m.content,
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            style = Tipo.rotulo,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }

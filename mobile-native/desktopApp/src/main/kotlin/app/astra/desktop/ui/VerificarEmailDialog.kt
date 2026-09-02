@@ -38,6 +38,7 @@ import app.astra.mobile.core.network.AuthApi
 import app.astra.mobile.core.network.dto.VerifyEmailRequest
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private const val TAMANHO_DO_CODIGO = 6
 
@@ -91,7 +92,7 @@ internal fun VerificarEmailDialog(email: String?, onClose: () -> Unit, aoConferi
         Text(
             if (email.isNullOrBlank()) "Enviamos um código de seis dígitos para o seu e-mail."
             else "Enviamos um código de seis dígitos para $email.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
         )
         Spacer(Modifier.height(16.dp))
 
@@ -152,7 +153,7 @@ internal fun VerificarEmailDialog(email: String?, onClose: () -> Unit, aoConferi
         Text(
             "O código vale por quinze minutos. Sem confirmar, você continua entrando e lendo, " +
                 "mas não cria constelação nem aceita convite.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+            style = Tipo.nota,
         )
     }
 }

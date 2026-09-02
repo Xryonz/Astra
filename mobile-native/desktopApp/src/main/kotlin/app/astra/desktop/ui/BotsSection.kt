@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun BotsSection() {
@@ -80,8 +81,8 @@ fun BotsSection() {
     Spacer(Modifier.height(16.dp))
 
     when {
-        carregando -> Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-        erro != null -> Text(erro!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+        carregando -> Text("carregando…", style = Tipo.descricao)
+        erro != null -> Text(erro!!, style = Tipo.erro)
         else -> personas.forEach { p ->
             CartaoDaBot(p, aoMudar = { aplicar(p.chave, it) })
             Spacer(Modifier.height(18.dp))
@@ -194,7 +195,7 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                     if (ocupado) "lendo a imagem…"
                     else if (p.chave == "sparxie") "de plantão sexta e sábado"
                     else "de plantão de domingo a quinta",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                 )
             }
         }
@@ -211,7 +212,7 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Text(
                         "voltar ao original",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                        style = Tipo.descricao,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable {
@@ -229,7 +230,7 @@ private fun CartaoDaBot(p: BotPersonaDto, aoMudar: (BotPersonaPatch) -> Unit) {
 private fun TrilhaDaBot(rotulo: String, valor: Int, min: Int, max: Int, aoMudar: (Int) -> Unit) {
     val f = ((valor - min).toFloat() / (max - min)).coerceIn(0f, 1f)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(rotulo, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(48.dp))
+        Text(rotulo, style = Tipo.apoio, modifier = Modifier.width(48.dp))
         Box(
             Modifier
                 .weight(1f)

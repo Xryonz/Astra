@@ -61,6 +61,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private const val MIN_MS  = 60_000L
 private const val HORA_MS = 3_600_000L
@@ -129,7 +130,7 @@ fun MissoesOverlay(me: ProfileUserDto?, onClose: () -> Unit) {
             val p = painel
             if (p == null) {
                 Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
-                    Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                    Text("carregando…", style = Tipo.descricao)
                 }
                 return@Column
             }
@@ -194,7 +195,7 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
             Spacer(Modifier.height(3.dp))
             Text(
                 "nível ${p.nivel} · ${p.xp} de brilho acumulado",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
                 maxLines = 1,
             )
             Spacer(Modifier.height(8.dp))
@@ -214,7 +215,7 @@ private fun EstadoDaConta(me: ProfileUserDto?, p: ProgressoDto, visual: VisualDe
             Spacer(Modifier.height(5.dp))
             Text(
                 "${p.noNivel} / ${p.paraOProximo} para o nível ${p.nivel + 1}",
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
                 maxLines = 1,
             )
         }

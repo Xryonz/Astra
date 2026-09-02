@@ -72,6 +72,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
+import app.astra.desktop.ui.theme.Tipo
 
 private enum class FriendsTab(val label: String) { FRIENDS("Amigos"), PENDING("Pendentes"), ADD("Adicionar") }
 
@@ -266,7 +267,7 @@ private fun FriendsList(
                 if (online > 0) {
                     Text(
                         "$online acesa${if (online > 1) "s" else ""}",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                        style = Tipo.apoio,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
@@ -320,14 +321,14 @@ private fun FriendRow(f: FriendDto, onMessage: () -> Unit, onRemove: () -> Unit)
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.width(7.dp))
-                Text("@${f.user.username}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), maxLines = 1)
+                Text("@${f.user.username}", style = Tipo.apoio, maxLines = 1)
             }
             Text(
                 buildString {
                     append(presenceLabel(f.presence))
                     f.user.customStatus?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
                 },
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -378,7 +379,7 @@ private fun PendingLists(
                         val src = remember { MutableInteractionSource() }
                         Text(
                             "cancelar",
-                            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                            style = Tipo.descricao,
                             modifier = Modifier
                                 .clickScale(src)
                                 .clip(RoundedCornerShape(7.dp))
@@ -403,7 +404,7 @@ private fun PendingRow(p: FriendRequestDto, trailing: @Composable () -> Unit) {
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
             Text(name, style = TextStyle(color = Obsidian.text1, fontSize = 14.sp, fontFamily = DmSerif), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("@${p.user?.username ?: "?"}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), maxLines = 1)
+            Text("@${p.user?.username ?: "?"}", style = Tipo.apoio, maxLines = 1)
         }
         trailing()
     }
@@ -418,7 +419,7 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
     Column(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
         Text(
             "adicione um amigo pelo nome de usuário.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
         )
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -437,7 +438,7 @@ private fun AddFriend(onSend: (SendFriendRequest, (Boolean, Int?) -> Unit) -> Un
                     value = value,
                     onValueChange = { msg = null; value = it.take(64) },
                     singleLine = true,
-                    textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    textStyle = Tipo.corpo,
                     cursorBrush = SolidColor(Obsidian.accent),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -486,7 +487,7 @@ private fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector,
         Spacer(Modifier.width(7.dp))
         Text(label, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp, fontFamily = DmSerif))
         Spacer(Modifier.width(6.dp))
-        Text("· $count", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text("· $count", style = Tipo.apoio)
     }
 }
 
@@ -508,7 +509,7 @@ private fun RowIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector,
 
 @Composable
 private fun Muted(text: String) {
-    Text(text, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp))
+    Text(text, style = Tipo.descricao, modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp))
 }
 
 @Composable

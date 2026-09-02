@@ -42,6 +42,7 @@ import com.composables.icons.lucide.X
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.core.context.GlobalContext
 import java.time.Instant
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun DesejosPanel(onClose: () -> Unit) {
@@ -145,11 +146,11 @@ private fun LinhaDeDesejo(d: WishDto) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             DesktopAvatar(d.author?.avatarUrl, quem, 22)
             Spacer(Modifier.width(8.dp))
-            Text(quem, style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+            Text(quem, style = Tipo.rotulo)
             Spacer(Modifier.weight(1f))
             LIcon(Lucide.Sparkles, tint = Obsidian.accent.copy(alpha = 0.55f), size = 12.dp)
             Spacer(Modifier.width(6.dp))
-            Text(quando(d.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Text(quando(d.createdAt), style = Tipo.apoio)
         }
         Spacer(Modifier.height(6.dp))
         Text(d.content, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, lineHeight = 19.sp))
@@ -159,7 +160,7 @@ private fun LinhaDeDesejo(d: WishDto) {
 @Composable
 private fun Vazio(texto: String) {
     Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
-        Text(texto, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text(texto, style = Tipo.descricao)
     }
 }
 

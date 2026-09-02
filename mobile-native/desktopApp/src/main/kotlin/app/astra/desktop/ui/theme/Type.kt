@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalTextApi::class)
 private fun dmSans(weight: FontWeight) = Font(
@@ -54,6 +55,15 @@ val DmMono = FontFamily(
 val GreatVibes = FontFamily(Font(resource = "font/great_vibes.ttf"))
 
 val Cinzel = FontFamily(Font(resource = "font/cinzel.ttf"))
+
+object Tipo {
+    val corpo get() = TextStyle(color = Obsidian.text1, fontSize = 13.sp)
+    val rotulo get() = TextStyle(color = Obsidian.text2, fontSize = 12.sp)
+    val apoio get() = TextStyle(color = Obsidian.text3, fontSize = 11.sp)
+    val descricao get() = TextStyle(color = Obsidian.text3, fontSize = 12.sp)
+    val nota get() = TextStyle(color = Obsidian.text3, fontSize = 10.sp)
+    val erro get() = TextStyle(color = Obsidian.danger, fontSize = 12.sp)
+}
 
 private val BaseStyle = TextStyle(fontFamily = DmSans)
 

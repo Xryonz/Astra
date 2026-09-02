@@ -165,6 +165,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import app.astra.desktop.ui.theme.Tipo
 
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
@@ -373,12 +374,12 @@ fun ChatView(
                         2 -> "${names[0]} e ${names[1]} estão digitando…"
                         else -> "varias pessoas estão digitando…"
                     }
-                    Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    Text(label, style = Tipo.apoio)
                 }
             }
             if (state.error != null && state.messages.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(state.error!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                    Text(state.error!!, style = Tipo.erro)
                     if (!state.errorPermanente) {
                         Spacer(Modifier.width(10.dp))
                         val src = remember { MutableInteractionSource() }
@@ -421,7 +422,7 @@ fun ChatView(
                                 modifier = Modifier.widthIn(max = 180.dp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(sizeLabel(pf.file.length()), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                            Text(sizeLabel(pf.file.length()), style = Tipo.nota)
                             Spacer(Modifier.width(6.dp))
                             HoverGlyph(Lucide.X) { vm.removePending(i) }
                         }
@@ -450,7 +451,7 @@ fun ChatView(
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("respondendo a ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                        Text("respondendo a ", style = Tipo.apoio)
                         Text(
                             r?.authorName.orEmpty(),
                             style = TextStyle(color = Obsidian.accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
@@ -766,7 +767,7 @@ private fun MessageRow(
             if (grouped) {
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterEnd) {
                     if (hovered) {
-                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                        Text(hhmm(msg.createdAt), style = Tipo.nota)
                     }
                 }
                 Spacer(Modifier.width(10.dp))
@@ -792,7 +793,7 @@ private fun MessageRow(
                             ),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(hhmm(msg.createdAt), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                        Text(hhmm(msg.createdAt), style = Tipo.nota)
                     }
                     Spacer(Modifier.height(2.dp))
                     ContentBlock(msg, editing, myId, onReact, onSaveEdit, onCancelEdit, onVote, onClosePoll, onRetry)
@@ -883,7 +884,7 @@ private fun ContentBlock(
                 }
             }
             if (msg.edited) {
-                Text("(editado)", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                Text("(editado)", style = Tipo.nota)
             }
         }
     }
@@ -913,7 +914,7 @@ private fun ContentBlock(
             LIcon(Lucide.CircleAlert, tint = Obsidian.danger, size = 12.dp)
             Spacer(Modifier.width(5.dp))
             Text("não enviada", style = TextStyle(color = Obsidian.danger, fontSize = 11.sp))
-            Text(" · ", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Text(" · ", style = Tipo.apoio)
             Text(
                 "tentar de novo",
                 style = TextStyle(color = Obsidian.accent, fontSize = 11.sp),
@@ -1020,7 +1021,7 @@ private fun AttachmentBlock(att: AttachmentDto) {
                     modifier = Modifier.widthIn(max = 220.dp),
                 )
                 att.size?.let {
-                    Text(sizeLabel(it), style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                    Text(sizeLabel(it), style = Tipo.nota)
                 }
             }
         }
@@ -1279,7 +1280,7 @@ private fun EditField(original: String, onSave: (String) -> Unit, onCancel: () -
             },
     )
     Spacer(Modifier.height(2.dp))
-    Text("enter salva · esc cancela", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+    Text("enter salva · esc cancela", style = Tipo.nota)
 }
 
 @Composable
@@ -1331,7 +1332,7 @@ private fun ReplyRef(ref: ReplyToDto, onJumpTo: (String) -> Unit) {
         Spacer(Modifier.width(6.dp))
         Text(
             ref.content,
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -1554,7 +1555,7 @@ private fun EmptyChat() {
             Spacer(Modifier.height(14.dp))
             Text(
                 "nada por aqui ainda — comece a conversa",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
             )
         }
     }
@@ -1573,7 +1574,7 @@ private fun AcordandoOServidor() {
             Spacer(Modifier.height(4.dp))
             Text(
                 "isto pode levar até um minuto depois de um tempo parado",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         }
     }

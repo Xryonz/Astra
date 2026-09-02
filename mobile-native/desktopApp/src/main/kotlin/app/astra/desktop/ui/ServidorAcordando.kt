@@ -34,6 +34,7 @@ import app.astra.desktop.ui.theme.EaseOutSoft
 import app.astra.desktop.ui.theme.EaseOutStd
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
@@ -68,7 +69,7 @@ fun ServidorAcordandoStrip(modifier: Modifier = Modifier) {
                 Text(
                     "a hospedagem gratuita desliga a instância após quinze minutos parada; " +
                         "religar costuma levar até um minuto",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                 )
             }
             Spacer(Modifier.width(10.dp))

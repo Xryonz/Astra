@@ -89,6 +89,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import app.astra.desktop.ui.theme.Tipo
 
 val LARGURA_PAGINA_PERFIL = 840.dp
 val LARGURA_COLUNA_DO_CARTAO = 380.dp
@@ -391,7 +392,7 @@ private fun ColunaDeVinculos(
                 Text(
                     if (isMe) "você ainda não entrou em nenhuma"
                     else "vocês ainda não dividem nenhuma",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    style = Tipo.descricao,
                 )
             } else {
                 constelacoes.forEachIndexed { i, s ->

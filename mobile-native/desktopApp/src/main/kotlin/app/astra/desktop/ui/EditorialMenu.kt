@@ -54,6 +54,7 @@ import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Lucide
 import app.astra.desktop.ui.theme.Text
 import kotlin.math.roundToInt
+import app.astra.desktop.ui.theme.Tipo
 
 sealed interface MenuEntry {
     data class Item(
@@ -288,7 +289,7 @@ private fun VolumeSubRow(sub: MenuEntry.VolumeSub) {
             )
             Text(
                 "${sub.porcento}%",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
             Spacer(Modifier.width(6.dp))
             LIcon(Lucide.ChevronRight, tint = Obsidian.text3, size = 13.dp)

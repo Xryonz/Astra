@@ -21,6 +21,7 @@ import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.dto.BotComandoDto
 import app.astra.mobile.core.network.dto.UpdateServerRequest
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun ServerBotTab(
@@ -54,7 +55,7 @@ fun ServerBotTab(
     Spacer(Modifier.height(16.dp))
 
     if (erro != null) {
-        Text(erro!!, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+        Text(erro!!, style = Tipo.erro)
         return
     }
 
@@ -62,7 +63,7 @@ fun ServerBotTab(
         catalogo.groupBy { it.categoria }.forEach { (categoria, itens) ->
             Text(
                 categoria.uppercase(),
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
                 modifier = Modifier.widthIn(max = 620.dp),
             )
             Spacer(Modifier.height(6.dp))

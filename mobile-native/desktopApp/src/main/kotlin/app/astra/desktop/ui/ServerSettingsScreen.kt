@@ -95,6 +95,7 @@ import com.composables.icons.lucide.X
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.astra.desktop.ui.theme.Tipo
 
 internal enum class ServerTab(val label: String, val sub: String, val icon: ImageVector, val ready: Boolean) {
     OVERVIEW("Visao geral", "nome, imagens e convite", Lucide.Info, true),
@@ -191,7 +192,7 @@ fun ServerSettingsScreen(
                 )
                 Text(
                     "constelação",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                     modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -283,7 +284,7 @@ fun ServerSettingsScreen(
                                 } else {
                                     Text(
                                         "só quem administra a constelação mexe nos comandos da bot.",
-                                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                                        style = Tipo.descricao,
                                     )
                                 }
                             }
@@ -380,7 +381,7 @@ private fun OverviewSection(
     Spacer(Modifier.height(6.dp))
     Text(
         "a imagem é guardada em 1024px e vira parte da constelação (máximo 10MB).",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     val iconNow = iconUrl
@@ -424,7 +425,7 @@ private fun OverviewSection(
     )
     if (bannerAnimated) {
         Spacer(Modifier.height(6.dp))
-        Text("arraste na imagem para enquadrar.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text("arraste na imagem para enquadrar.", style = Tipo.apoio)
         Spacer(Modifier.height(10.dp))
         ServerZoomTrack(bannerScale) { bannerScale = it }
     }
@@ -519,7 +520,7 @@ private fun OverviewSection(
     Spacer(Modifier.height(6.dp))
     Text(
         "regenerar invalida o convite atual — quem tiver o link antigo não entra mais.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
@@ -564,7 +565,7 @@ private fun OverviewSection(
         } else {
             "se essa órbita for apagada ou a bot for silenciada nela, o aviso volta a sair na automática."
         },
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
@@ -573,7 +574,7 @@ private fun OverviewSection(
     Text(
         if (isOwner) "excluir apaga a constelação para todo mundo. Não da para desfazer."
         else "sair remove teu acesso; para voltar precisa de convite.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
@@ -664,7 +665,7 @@ private fun OverviewSection(
           }
           if (!dirty && msg == null) {
               Spacer(Modifier.height(6.dp))
-              Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+              Text("nada mudou ainda.", style = Tipo.apoio)
           }
       }
     }
@@ -737,7 +738,7 @@ private fun ServerNavRow(tab: ServerTab, active: Boolean, onClick: () -> Unit) {
                     fontSize = 13.sp,
                 ),
             )
-            Text(tab.sub, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+            Text(tab.sub, style = Tipo.nota)
         }
     }
 }
@@ -777,7 +778,7 @@ private fun ServerZoomTrack(scale: Int, onChange: (Int) -> Unit) {
         Modifier.widthIn(max = 460.dp).fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("zoom", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(42.dp))
+        Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
         Box(
             Modifier
                 .weight(1f)
@@ -848,7 +849,7 @@ private fun ServerConfigPreview(
             Spacer(Modifier.height(2.dp))
             Text(
                 "$channelCount ${if (channelCount == 1) "canal" else "canais"}",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
             if (description.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
@@ -887,7 +888,7 @@ private fun PlainField(
             onValueChange = onChange,
             singleLine = !multiline,
             maxLines = if (multiline) 4 else 1,
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             modifier = Modifier.fillMaxWidth(),
         )

@@ -37,7 +37,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -56,6 +55,7 @@ import com.composables.icons.lucide.X
 import app.astra.shared.AstraShared
 import java.awt.Desktop
 import java.net.URI
+import app.astra.desktop.ui.theme.Tipo
 
 val LocalOpenImage = staticCompositionLocalOf<(String) -> Unit> { {} }
 
@@ -157,7 +157,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
 private fun LightboxAction(label: String, onClick: () -> Unit) {
     Text(
         label,
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        style = Tipo.rotulo,
         modifier = Modifier
             .clip(RoundedCornerShape(7.dp))
             .background(Obsidian.raised.copy(alpha = 0.85f))

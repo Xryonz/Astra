@@ -39,6 +39,7 @@ import app.astra.mobile.core.network.dto.ChannelDto
 import app.astra.mobile.core.network.dto.ServerMemberDto
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Phone
+import app.astra.desktop.ui.theme.Tipo
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -68,7 +69,7 @@ fun VoiceLobby(
                 1 -> "1 pessoa na sala"
                 else -> "${present.size} pessoas na sala"
             },
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
 
         if (present.isNotEmpty()) {
@@ -107,7 +108,7 @@ fun VoiceLobby(
         Spacer(Modifier.height(12.dp))
         Text(
             "entrar na call",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
     }
 }

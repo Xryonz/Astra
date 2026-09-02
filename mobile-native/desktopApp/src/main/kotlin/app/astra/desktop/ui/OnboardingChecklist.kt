@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.DmSerif
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun AvisoDeMaquinaEconomica(motivo: String, aoDispensar: () -> Unit) {
@@ -53,7 +54,7 @@ fun AvisoDeMaquinaEconomica(motivo: String, aoDispensar: () -> Unit) {
             val src = remember { MutableInteractionSource() }
             Text(
                 "entendi",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
                 modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = aoDispensar),
             )
         }
@@ -91,7 +92,7 @@ fun FirstStepsCard(
             val src = remember { MutableInteractionSource() }
             Text(
                 "pular",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
                 modifier = Modifier.clickable(interactionSource = src, indication = null, onClick = onDismiss),
             )
         }

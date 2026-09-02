@@ -54,6 +54,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Search
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private const val COLUNAS = 8
 private val LARGURA = 336.dp
@@ -118,7 +119,7 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
                 if (termo.isEmpty()) {
                     Text(
                         "buscar emoji…",
-                        style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                        style = Tipo.descricao,
                     )
                 }
                 BasicTextField(
@@ -149,7 +150,7 @@ fun EmojiPicker(onPick: (String) -> Unit, personalizados: List<EmojiDto> = empty
                         Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 "nada com \"$termo\"",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                style = Tipo.apoio,
                             )
                         }
                     }

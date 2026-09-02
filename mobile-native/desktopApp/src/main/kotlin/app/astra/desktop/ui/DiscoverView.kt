@@ -75,6 +75,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet(), modifier: Modifier = Modifier) {
@@ -122,7 +123,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
         Spacer(Modifier.height(3.dp))
         Text(
             "entre em comunidades públicas do Astra",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
         )
         Spacer(Modifier.height(14.dp))
 
@@ -145,7 +146,7 @@ fun DiscoverView(onJoined: (String) -> Unit, joinedIds: Set<String> = emptySet()
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    textStyle = Tipo.corpo,
                     cursorBrush = SolidColor(Obsidian.accent),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -247,7 +248,7 @@ private fun DiscoverCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         LIcon(Lucide.ArrowRight, tint = Obsidian.text2, size = 13.dp)
-                        Text("abrir", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+                        Text("abrir", style = Tipo.rotulo)
                     }
                 } else {
                     Row(

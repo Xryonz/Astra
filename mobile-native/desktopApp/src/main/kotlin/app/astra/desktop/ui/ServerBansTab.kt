@@ -31,6 +31,7 @@ import app.astra.desktop.ui.theme.DmMono
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.BanDto
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 internal fun BansSection(
@@ -51,13 +52,13 @@ internal fun BansSection(
 
     Text(
         "quem está banido não consegue voltar, nem com convite.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(14.dp))
 
     if (bans.isEmpty()) {
-        Text("ninguem banido.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text("ninguem banido.", style = Tipo.descricao)
         return
     }
 
@@ -100,7 +101,7 @@ private fun BanRow(ban: BanDto, busy: Boolean, onUnban: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 ban.user.displayName ?: ban.user.username,
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                style = Tipo.corpo,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
@@ -112,7 +113,7 @@ private fun BanRow(ban: BanDto, busy: Boolean, onUnban: () -> Unit) {
                 Spacer(Modifier.height(3.dp))
                 Text(
                     reason,
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }

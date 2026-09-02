@@ -46,6 +46,7 @@ import app.astra.mobile.core.network.GifApi
 import app.astra.mobile.core.network.dto.GifResultDto
 import kotlinx.coroutines.delay
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
@@ -89,7 +90,7 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
                         .padding(horizontal = 9.dp, vertical = 7.dp),
                 ) {
                     if (query.isEmpty()) {
-                        Text("buscar gif…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                        Text("buscar gif…", style = Tipo.descricao)
                     }
                     inner()
                 }
@@ -102,7 +103,7 @@ internal fun GifPanel(onPick: (GifResultDto) -> Unit) {
                 TypingDots(Obsidian.text3, dotSize = 5.dp)
             }
             results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("nada encontrado", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                Text("nada encontrado", style = Tipo.descricao)
             }
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(2),

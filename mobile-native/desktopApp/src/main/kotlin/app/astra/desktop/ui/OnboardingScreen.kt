@@ -52,6 +52,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private enum class OnbStep { WELCOME, SKY, PHOTO, PERMS }
 
@@ -145,7 +146,7 @@ fun OnboardingScreen(displayName: String, onTestarAviso: () -> Unit, onDone: () 
                 val skip = remember { MutableInteractionSource() }
                 Text(
                     "pular por agora",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    style = Tipo.descricao,
                     modifier = Modifier.clickable(interactionSource = skip, indication = null) {
                         step = OnbStep.PERMS
                     },

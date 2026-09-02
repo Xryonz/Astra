@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import kotlin.math.roundToInt
+import app.astra.desktop.ui.theme.Tipo
 
 private const val ALTURA_ALVO_NO_PALCO = 92
 
@@ -96,7 +97,7 @@ internal fun PetPalco(
             Box(Modifier.fillMaxWidth().height(ALTURA_DO_PALCO), contentAlignment = Alignment.Center) {
                 Text(
                     "A arte deste companheiro não carregou.",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    style = Tipo.descricao,
                 )
             }
             return@Box

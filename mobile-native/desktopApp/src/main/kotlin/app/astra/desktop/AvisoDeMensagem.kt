@@ -46,6 +46,7 @@ import com.composables.icons.lucide.X
 import kotlinx.coroutines.delay
 import java.awt.GraphicsEnvironment
 import java.awt.Toolkit
+import app.astra.desktop.ui.theme.Tipo
 
 data class AvisoNaTela(
     val id: Long,
@@ -177,7 +178,7 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
                         Spacer(Modifier.width(7.dp))
                         Text(
                             aviso.onde,
-                            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                            style = Tipo.nota,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -185,7 +186,7 @@ private fun CartaoDeAviso(aviso: AvisoNaTela) {
                 }
                 Text(
                     aviso.trecho,
-                    style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                    style = Tipo.rotulo,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

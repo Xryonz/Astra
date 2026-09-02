@@ -65,6 +65,7 @@ import com.composables.icons.lucide.Upload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.astra.desktop.ui.theme.Tipo
 
 private val PERMISSIONS = listOf(
     Triple("MANAGE_SERVER", "Gerenciar a constelação", "mudar nome, imagens, convite e visibilidade"),
@@ -142,7 +143,7 @@ private fun RoleList(
 ) {
     Text(
         "cargos dao permissões e cor ao nome. Quem tem varios fica com a cor do mais alto.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(14.dp))
@@ -150,7 +151,7 @@ private fun RoleList(
     if (roles.isEmpty()) {
         Text(
             "nenhum cargo ainda.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
         )
         Spacer(Modifier.height(12.dp))
     }
@@ -204,7 +205,7 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 role.name,
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                style = Tipo.corpo,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
@@ -213,7 +214,7 @@ private fun RoleRow(role: RoleDto, memberCount: Int, onClick: () -> Unit) {
                     if (role.hoist) append(" · separado na lista")
                     if (role.permissions.isNotEmpty()) append(" · ${role.permissions.size} permissões")
                 },
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -302,7 +303,7 @@ private fun RoleEditor(
             value = name,
             onValueChange = { name = it.take(60) },
             singleLine = true,
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -328,7 +329,7 @@ private fun RoleEditor(
     if (!amOwner) {
         Text(
             "você so pode conceder permissões que você mesmo tem.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             modifier = Modifier.widthIn(max = 460.dp).padding(bottom = 8.dp),
         )
     }
@@ -416,7 +417,7 @@ private fun RoleMembers(
     }
 
     if (withRole.isEmpty()) {
-        Text("ninguem ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text("ninguem ainda.", style = Tipo.descricao)
     }
     Column(
         Modifier.widthIn(max = 460.dp).fillMaxWidth().heightIn(max = 220.dp).verticalScroll(rememberScrollState()),
@@ -468,7 +469,7 @@ private fun MemberRoleRow(m: ServerMemberDto, hasRole: Boolean, busy: Boolean, o
         Spacer(Modifier.width(9.dp))
         Text(
             m.user.displayName ?: m.user.username,
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            style = Tipo.rotulo,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
@@ -507,7 +508,7 @@ private fun PermissionRow(
                     fontSize = 13.sp,
                 ),
             )
-            Text(desc, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+            Text(desc, style = Tipo.nota)
         }
         Spacer(Modifier.width(12.dp))
         Box(

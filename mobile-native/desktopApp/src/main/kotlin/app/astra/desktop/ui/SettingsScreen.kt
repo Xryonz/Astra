@@ -197,6 +197,7 @@ import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import app.astra.desktop.ui.theme.Tipo
 
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
     ACCOUNT("Conta", "email e senha", Lucide.User),
@@ -371,7 +372,7 @@ fun SettingsScreen(
                                 Spacer(Modifier.height(10.dp))
                                 Text(
                                     "os avisos aparecem na bandeja so com a janela fechada ou minimizada.",
-                                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                    style = Tipo.apoio,
                                     modifier = Modifier.widthIn(max = 460.dp),
                                 )
                                 Spacer(Modifier.height(8.dp))
@@ -539,7 +540,7 @@ private fun ProfileCardPreview(
 ) {
     if (me == null) {
         Box(Modifier.fillMaxWidth().height(110.dp), contentAlignment = Alignment.Center) {
-            Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            Text("carregando…", style = Tipo.descricao)
         }
         return
     }
@@ -640,7 +641,7 @@ private fun PrivacySection(
         Text(
             "vale para conversa NOVA. quem já está falando com você continua falando — " +
                 "apertar isto não cala ninguém que você já estava respondendo.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             modifier = Modifier.widthIn(max = 460.dp),
         )
         Spacer(Modifier.height(10.dp))
@@ -668,7 +669,7 @@ private fun PrivacySection(
         Spacer(Modifier.height(14.dp))
         Text(
             "sai apenas o nome do programa, o mesmo que o Windows mostra no Gerenciador de Tarefas.",
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            style = Tipo.rotulo,
             modifier = Modifier.widthIn(max = 460.dp),
         )
         Spacer(Modifier.height(8.dp))
@@ -688,7 +689,7 @@ private fun PrivacySection(
         Spacer(Modifier.height(8.dp))
         Text(
             "desligado, o Astra nem chega a olhar qual programa está na frente.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             modifier = Modifier.widthIn(max = 460.dp),
         )
     }
@@ -795,16 +796,16 @@ private fun AtividadePreview(ligado: Boolean) {
             Box(Modifier.size(30.dp).clip(CircleShape).background(Obsidian.base))
             Spacer(Modifier.width(10.dp))
             Column {
-                Text("você", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+                Text("você", style = Tipo.corpo)
                 if (agora != null) {
-                    Text(agora, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    Text(agora, style = Tipo.apoio)
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
         Text(
             if (ligado) "é isto que aparece pra quem te vê." else "ninguém vê nada além do seu nome.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
     }
 }
@@ -862,10 +863,10 @@ private fun NotifPreviewCard(reduceMotion: Boolean, discreto: Boolean) {
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("Astra", style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                Text("Astra", style = Tipo.nota)
                 if (discreto) {
                     Text("sussurro novo", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
-                    Text("sem nome e sem texto — é tudo que aparece.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                    Text("sem nome e sem texto — é tudo que aparece.", style = Tipo.apoio)
                 } else {
                     Text("ana", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp, fontFamily = DmSerif))
                     Text("e ai, bora marcar a call?", style = TextStyle(color = Obsidian.text2, fontSize = 11.sp))
@@ -949,7 +950,7 @@ private fun CostMeter(p: DesktopPrefs.Prefs) {
         Spacer(Modifier.height(12.dp))
         CostBar("CPU", cpu)
         Spacer(Modifier.height(14.dp))
-        Text(costVerdict(gpu, cpu), style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text(costVerdict(gpu, cpu), style = Tipo.apoio)
     }
 }
 
@@ -1030,12 +1031,12 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
                     .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("sua tela", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+                Text("sua tela", style = Tipo.descricao)
             }
             Spacer(Modifier.height(9.dp))
             Text(
                 "${q.height}p · ${q.fps}fps · ${q.bitrate / 1_000_000} Mbps",
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                style = Tipo.rotulo,
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -1056,7 +1057,7 @@ private fun VoicePreview(p: DesktopPrefs.Prefs) {
             Spacer(Modifier.height(8.dp))
             Text(
                 if (p.micNoiseSuppression) "supressao de ruido: ligada" else "supressao de ruido: desligada",
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
             )
         }
     }
@@ -1105,7 +1106,7 @@ private fun MicMeter(active: Boolean, threshold: Float = 0f) {
         }
     }
     if (!available) {
-        Text("microfone indisponivel", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text("microfone indisponivel", style = Tipo.apoio)
         return
     }
     val lvl by animateFloatAsState(level, tween(90), label = "micLvl")
@@ -1153,10 +1154,10 @@ private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Sensibilidade de entrada", style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+            Text("Sensibilidade de entrada", style = Tipo.corpo)
             Text(
                 if (value <= 0f) "sempre transmite" else "${(value * 100).toInt()}%",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         }
         Spacer(Modifier.height(6.dp))
@@ -1184,7 +1185,7 @@ private fun MicSensitivityRow(value: Float, onChange: (Float) -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             "abaixo desse nível o mic não transmite. 0 = sempre aberto. teste o mic acima para calibrar.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
     }
 }
@@ -1225,7 +1226,7 @@ private fun ProfileSection(
     if (busyAvatar || busyBanner) {
         Text(
             "lendo a imagem…",
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            style = Tipo.rotulo,
             modifier = Modifier.widthIn(max = 460.dp),
         )
     }
@@ -1349,7 +1350,7 @@ private fun ProfileSection(
     Spacer(Modifier.height(6.dp))
     Text(
         "a cor atravessa o cartao inteiro. com imagem de banner, ela aparece do banner para baixo.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 420.dp),
     )
 
@@ -1376,7 +1377,7 @@ private fun ProfileSection(
                 value = draft.customStatus,
                 onValueChange = { onChange(draft.copy(customStatus = it.take(100))) },
                 singleLine = true,
-                textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                textStyle = Tipo.corpo,
                 cursorBrush = SolidColor(Obsidian.accent),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -1446,7 +1447,7 @@ private fun ProfileSaveButton(
         }
         if (!dirty && msg == null) {
             Spacer(Modifier.height(6.dp))
-            Text("nada mudou ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Text("nada mudou ainda.", style = Tipo.apoio)
         }
     }
 }
@@ -1472,7 +1473,7 @@ private fun LinhaDeVolume(rotulo: String, valor: Int, onChange: (Int) -> Unit) {
     ) {
         Text(
             rotulo,
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            style = Tipo.rotulo,
             modifier = Modifier.width(150.dp),
         )
         Box(
@@ -1522,7 +1523,7 @@ private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
         Modifier.widthIn(max = 420.dp).fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("zoom", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(42.dp))
+        Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
         Box(
             Modifier
                 .weight(1f)
@@ -1578,7 +1579,7 @@ private fun ResizeBannerDialog(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "é isto que os outros veem. arraste na imagem para enquadrar.",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                 )
                 Spacer(Modifier.height(16.dp))
                 Column(
@@ -2012,7 +2013,7 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
         Spacer(Modifier.height(10.dp))
         Text(
             "Conta Google sem senha. Defina uma para entrar também por e-mail.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
     }
 
@@ -2066,7 +2067,7 @@ private fun LinhaDaConta(
         )
         Text(
             valor,
-            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            style = Tipo.corpo,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = 240.dp),
@@ -2197,7 +2198,7 @@ private fun SessionsSection() {
 
     Text(
         "cada linha e um login ativo na sua conta. não reconhece algum? derruba.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(14.dp))
@@ -2209,8 +2210,8 @@ private fun SessionsSection() {
 
     val list = sessions
     when {
-        list == null -> Text("carregando…", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
-        list.isEmpty() -> Text("nenhuma sessão ativa.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        list == null -> Text("carregando…", style = Tipo.descricao)
+        list.isEmpty() -> Text("nenhuma sessão ativa.", style = Tipo.descricao)
         else -> Column(Modifier.widthIn(max = 460.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             list.forEach { s ->
                 Row(
@@ -2224,13 +2225,13 @@ private fun SessionsSection() {
                     Column(Modifier.weight(1f)) {
                         Text(
                             prettyAgent(s.userAgent),
-                            style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                            style = Tipo.corpo,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             listOfNotNull(s.ip, prettyDate(s.lastUsedAt)?.let { "visto $it" })
                                 .joinToString("  ·  "),
-                            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                            style = Tipo.apoio,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -2314,7 +2315,7 @@ private fun AboutSection() {
     if (!updater.installed) {
         Text(
             "atualizacoes automaticas so no app instalado (isto e um build de dev).",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
             modifier = Modifier.widthIn(max = 460.dp),
         )
         return
@@ -2324,7 +2325,7 @@ private fun AboutSection() {
     Spacer(Modifier.height(4.dp))
     Text(
         "o Astra verifica ao abrir e a cada 20 minutos. você também pode procurar agora.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(14.dp))
@@ -2547,7 +2548,7 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
                 Text(
                     if (hasPassword) "Informe a senha atual e escolha a nova."
                     else "Escolha uma senha para entrar também por e-mail.",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                    style = Tipo.descricao,
                 )
                 Spacer(Modifier.height(18.dp))
 
@@ -2561,7 +2562,7 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Ao menos 8 caracteres.",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                 )
                 Spacer(Modifier.height(14.dp))
                 CampoDoDialogo("Confirmar nova senha")
@@ -2576,7 +2577,7 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
                 }
                 erro?.let {
                     Spacer(Modifier.height(10.dp))
-                    Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+                    Text(it, style = Tipo.erro)
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -2602,7 +2603,7 @@ private fun DialogoDeSenha(hasPassword: Boolean, onClose: () -> Unit) {
 private fun CampoDoDialogo(texto: String) {
     Text(
         texto,
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        style = Tipo.rotulo,
         modifier = Modifier.padding(bottom = 6.dp),
     )
 }
@@ -2654,7 +2655,7 @@ private fun PasswordField(placeholder: String, value: String, onChange: (String)
             onValueChange = onChange,
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -2664,8 +2665,8 @@ private fun PasswordField(placeholder: String, value: String, onChange: (String)
 @Composable
 private fun ReadRow(label: String, value: String) {
     Row(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp), modifier = Modifier.width(80.dp))
-        Text(value, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
+        Text(label, style = Tipo.descricao, modifier = Modifier.width(80.dp))
+        Text(value, style = Tipo.corpo)
     }
 }
 
@@ -2712,7 +2713,7 @@ private fun NavRow(icon: ImageVector, label: String, sub: String, active: Boolea
                     fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                 ),
             )
-            Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+            Text(sub, style = Tipo.nota)
         }
     }
 }
@@ -2746,7 +2747,7 @@ private fun DeviceDropdown(
         ) {
             Text(
                 nomeAtual ?: "padrão do Windows",
-                style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                style = Tipo.corpo,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -2860,7 +2861,7 @@ private fun InfoNote(title: String, body: String) {
             Spacer(Modifier.width(8.dp))
             Text(
                 title,
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                style = Tipo.rotulo,
                 modifier = Modifier.weight(1f),
             )
             Text(
@@ -2939,7 +2940,7 @@ private fun VoiceSection(
         Spacer(Modifier.height(4.dp))
         Text(
             "entrar numa call passa por várias etapas, e todas falham do mesmo jeito: silêncio. a lista abaixo mostra até onde chegou — a etapa que faltar é a culpada.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             modifier = Modifier.widthIn(max = 460.dp),
         )
         Spacer(Modifier.height(10.dp))
@@ -2951,7 +2952,7 @@ private fun VoiceSection(
     Spacer(Modifier.height(4.dp))
     Text(
         "\"padrao do Windows\" segue o que você escolheu no sistema — inclusive se trocar depois.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
     Spacer(Modifier.height(10.dp))
@@ -2969,7 +2970,7 @@ private fun VoiceSection(
     Spacer(Modifier.height(6.dp))
     Text(
         "os dois só abaixam. para uma pessoa específica, use o botão direito no cartão dela na chamada.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
@@ -2984,7 +2985,7 @@ private fun VoiceSection(
         Text(
             "sem o cancelamento de eco, os dois ajustes acima não têm efeito: no " +
                 "Windows os três vivem no mesmo componente, e sem ele o microfone entra cru.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             modifier = Modifier.widthIn(max = 460.dp),
         )
     }
@@ -2994,7 +2995,7 @@ private fun VoiceSection(
     Text(
         "os ajustes do microfone valem na hora, mesmo com a call aberta — o som corta " +
             "por um instante enquanto o microfone reabre.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
 }
@@ -3042,7 +3043,7 @@ private fun AtalhoFixo(tecla: String, oQueFaz: String, ultima: Boolean = false) 
                 .padding(horizontal = 9.dp, vertical = 5.dp),
         )
         Spacer(Modifier.width(12.dp))
-        Text(oQueFaz, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text(oQueFaz, style = Tipo.descricao)
     }
     if (!ultima) Spacer(Modifier.height(7.dp))
 }
@@ -3065,7 +3066,7 @@ private fun CapturaDeTecla(rotulo: String, vk: Int, onEscolher: (Int) -> Unit) {
             Text(rotulo, style = TextStyle(color = Obsidian.text2, fontSize = 13.sp))
             Text(
                 if (ouvindo) "aperte a tecla — esc deixa sem nenhuma" else "clique para trocar",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         }
         Spacer(Modifier.width(12.dp))
@@ -3203,7 +3204,7 @@ private fun PerformanceSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     )
     Text(
         "a transparencia da janela so aplica ao reiniciar o app.",
-        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        style = Tipo.apoio,
         modifier = Modifier.widthIn(max = 460.dp),
     )
 
@@ -3266,8 +3267,8 @@ private fun ArranqueComWindows() {
 @Composable
 private fun LabeledControl(title: String, sub: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(title, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
-        Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        Text(title, style = Tipo.corpo)
+        Text(sub, style = Tipo.apoio)
         Spacer(Modifier.height(8.dp))
         content()
     }
@@ -3317,8 +3318,8 @@ internal fun ToggleRow(title: String, sub: String, on: Boolean, onChange: (Boole
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = TextStyle(color = Obsidian.text1, fontSize = 13.sp))
-            Text(sub, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+            Text(title, style = Tipo.corpo)
+            Text(sub, style = Tipo.apoio)
         }
         Toggle(on, onChange)
     }
@@ -3383,7 +3384,7 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         ) {
             Text(
                 "O companheiro está desligado. Ligue em Acessibilidade › movimento.",
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                style = Tipo.rotulo,
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -3416,7 +3417,7 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
     Spacer(Modifier.height(8.dp))
     Text(
         Pelagem.de(p.petPelagem).rotulo,
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        style = Tipo.rotulo,
     )
 
     Spacer(Modifier.height(18.dp))
@@ -3435,7 +3436,7 @@ private fun PetsSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
             value = p.petNome,
             onValueChange = prefs::setPetNome,
             singleLine = true,
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -3659,7 +3660,7 @@ private fun PresetCard(preset: ThemePreset, active: Boolean, onClick: () -> Unit
             )
             Text(
                 preset.hint,
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }

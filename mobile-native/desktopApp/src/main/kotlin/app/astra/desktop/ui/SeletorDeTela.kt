@@ -46,6 +46,7 @@ import app.astra.desktop.voice.JanelaDaTela
 import app.astra.desktop.voice.MonitorDaTela
 import org.jetbrains.skia.Image as SkiaImage
 import java.util.Base64
+import app.astra.desktop.ui.theme.Tipo
 
 private val LarguraDoCartao = 224.dp
 
@@ -116,7 +117,7 @@ fun SeletorDeTela(
             Spacer(Modifier.height(10.dp))
             Text(
                 "só a janela escolhida é enviada — o que estiver por cima dela não aparece",
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
             )
         }
     }
@@ -131,8 +132,8 @@ private fun <T> ListaDeFontes(
     cartao: @Composable (T) -> Unit,
 ) {
     when {
-        itens == null -> Text(procurando, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
-        itens.isEmpty() -> Text(vazio, style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+        itens == null -> Text(procurando, style = Tipo.apoio)
+        itens.isEmpty() -> Text(vazio, style = Tipo.apoio)
         else -> FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -215,7 +216,7 @@ private fun CartaoDaFonte(
             } else {
                 Text(
                     "sem prévia",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                    style = Tipo.nota,
                     modifier = Modifier.padding(horizontal = 8.dp),
                 )
             }

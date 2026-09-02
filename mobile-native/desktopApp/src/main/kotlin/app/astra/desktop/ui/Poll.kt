@@ -45,6 +45,7 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.PollDto
 import java.time.Duration
 import java.time.Instant
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun PollBlock(
@@ -74,7 +75,7 @@ fun PollBlock(
         Spacer(Modifier.height(3.dp))
         Text(
             if (poll.allowMultiple) "escolha quantas quiser" else "escolha uma",
-            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+            style = Tipo.nota,
         )
 
         Spacer(Modifier.height(10.dp))
@@ -104,7 +105,7 @@ fun PollBlock(
                     }
                     if (meuVoto && !travada) append("  ·  clique de novo para tirar o voto")
                 },
-                style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                style = Tipo.nota,
             )
             if (podeEncerrar && !travada) {
                 Spacer(Modifier.width(10.dp))
@@ -236,17 +237,17 @@ fun CriarEnqueteDialog(
         Spacer(Modifier.height(3.dp))
         Text(
             "em $canalNome",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
 
         Spacer(Modifier.height(16.dp))
-        Text("pergunta", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Text("pergunta", style = Tipo.rotulo)
         Spacer(Modifier.height(7.dp))
         DialogField(pergunta, "o que você quer perguntar?", { pergunta = it.take(MAX_PERGUNTA) })
 
         Spacer(Modifier.height(14.dp))
-        Text("opções", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Text("opções", style = Tipo.rotulo)
         Spacer(Modifier.height(7.dp))
         opcoes.forEachIndexed { i, valor ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -279,7 +280,7 @@ fun CriarEnqueteDialog(
             Spacer(Modifier.width(8.dp))
             Text(
                 "deixar escolher mais de uma",
-                style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                style = Tipo.rotulo,
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -288,7 +289,7 @@ fun CriarEnqueteDialog(
         }
 
         Spacer(Modifier.height(14.dp))
-        Text("prazo", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Text("prazo", style = Tipo.rotulo)
         Spacer(Modifier.height(7.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PRAZOS.forEachIndexed { i, (rotulo, _) ->

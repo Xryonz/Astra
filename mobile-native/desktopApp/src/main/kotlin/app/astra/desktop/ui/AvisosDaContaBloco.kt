@@ -28,6 +28,7 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.dto.AvisosDaContaDto
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 internal fun BlocoDeAjustes(
@@ -105,7 +106,7 @@ internal fun AvisosDaContaBloco() {
 
         erro?.let {
             Spacer(Modifier.height(10.dp))
-            Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+            Text(it, style = Tipo.erro)
         }
     }
 }

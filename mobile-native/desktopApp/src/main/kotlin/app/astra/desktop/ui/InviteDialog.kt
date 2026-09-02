@@ -57,6 +57,7 @@ import app.astra.desktop.ui.theme.Obsidian
 import app.astra.desktop.ui.theme.Text
 import app.astra.shared.AstraShared
 import kotlinx.coroutines.launch
+import app.astra.desktop.ui.theme.Tipo
 
 fun inviteLink(code: String): String = AstraShared.BASE_URL.trimEnd('/') + "/i/" + code
 
@@ -158,7 +159,7 @@ internal fun DialogField(
             value = value,
             onValueChange = onChange,
             singleLine = true,
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { onSubmit() }),
@@ -223,12 +224,12 @@ fun InvitePeopleDialog(
         Spacer(Modifier.height(3.dp))
         Text(
             "para $serverName",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
 
         Spacer(Modifier.height(16.dp))
-        Text("adicionar pelo nome de usuário", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Text("adicionar pelo nome de usuário", style = Tipo.rotulo)
         Spacer(Modifier.height(7.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
@@ -240,7 +241,7 @@ fun InvitePeopleDialog(
         Spacer(Modifier.height(6.dp))
         Text(
             "ela entra na hora, sem precisar aceitar nada.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
 
         msg?.let { (text, ok) ->
@@ -254,7 +255,7 @@ fun InvitePeopleDialog(
         if (inviteCode != null) {
             Spacer(Modifier.height(16.dp))
             CartaoInterno(fundo = Obsidian.hover, padding = PaddingValues(12.dp)) {
-                Text("ou mande este link", style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+                Text("ou mande este link", style = Tipo.rotulo)
                 Spacer(Modifier.height(7.dp))
                 val link = remember(inviteCode) { inviteLink(inviteCode) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -316,13 +317,13 @@ fun JoinByInviteDialog(
         Spacer(Modifier.height(3.dp))
         Text(
             "cole o link que te mandaram — ou so o código.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
         Spacer(Modifier.height(14.dp))
         DialogField(raw, inviteLink("codigo-do-convite"), { raw = it; err = null }, submit)
         err?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it, style = TextStyle(color = Obsidian.danger, fontSize = 12.sp))
+            Text(it, style = Tipo.erro)
         }
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

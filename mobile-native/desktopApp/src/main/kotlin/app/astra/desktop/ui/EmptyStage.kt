@@ -38,6 +38,7 @@ import app.astra.desktop.ui.theme.Text
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import app.astra.desktop.ui.theme.Tipo
 
 @Composable
 fun EmptyStage(isServer: Boolean) {
@@ -52,7 +53,7 @@ fun EmptyStage(isServer: Boolean) {
             Spacer(Modifier.height(5.dp))
             Text(
                 if (isServer) "para abrir a conversa" else "ou comece uma nova",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
             )
             Spacer(Modifier.height(20.dp))
             KbdHint(if (isServer) "para pular entre órbitas" else "para pular entre sussurros")
@@ -134,6 +135,6 @@ private fun KbdHint(label: String) {
                 .padding(horizontal = 8.dp, vertical = 3.dp),
         )
         Spacer(Modifier.width(8.dp))
-        Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text(label, style = Tipo.descricao)
     }
 }

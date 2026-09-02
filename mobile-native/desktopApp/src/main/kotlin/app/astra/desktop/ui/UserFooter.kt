@@ -86,6 +86,7 @@ import app.astra.mobile.core.network.dto.UpdateProfileRequest
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private val UserPalette = listOf(
     Color(0xFFC9A96E), Color(0xFF7C6FC4), Color(0xFF6FA8C9), Color(0xFFC97C6E), Color(0xFF6EC98A),
@@ -222,7 +223,7 @@ fun UserFooter(
             ) {
                 Text(
                     text = name,
-                    style = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+                    style = Tipo.corpo,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 AnimatedContent(
@@ -436,7 +437,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                         if (!me.pronouns.isNullOrBlank()) {
                             Text(
                                 "  ·  ${me.pronouns}",
-                                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                                style = Tipo.apoio,
                             )
                         }
                     }
@@ -444,7 +445,7 @@ private fun ProfileCard(me: ProfileUserDto, onEdited: () -> Unit, onClose: () ->
                         Spacer(Modifier.height(8.dp))
                         Text(
                             listOfNotNull(me.statusEmoji, me.customStatus).joinToString(" "),
-                            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                            style = Tipo.rotulo,
                         )
                     }
                     if (!me.bio.isNullOrBlank()) {
@@ -517,14 +518,14 @@ private fun CardButton(label: String, accent: Boolean, enabled: Boolean = true, 
 @Composable
 private fun EditField(label: String, value: String, single: Boolean, onChange: (String) -> Unit) {
     Column {
-        Text(label, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+        Text(label, style = Tipo.nota)
         Spacer(Modifier.height(3.dp))
         BasicTextField(
             value = value,
             onValueChange = onChange,
             singleLine = single,
             maxLines = if (single) 1 else 4,
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             modifier = Modifier
                 .fillMaxWidth()

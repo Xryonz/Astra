@@ -63,6 +63,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import app.astra.desktop.ui.theme.Tipo
 
 enum class CardVariante {
     NORMAL,
@@ -268,7 +269,7 @@ private fun CorpoCompacto(
             Spacer(Modifier.width(6.dp))
             Text(
                 vinculos.joinToString(" · "),
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -276,7 +277,7 @@ private fun CorpoCompacto(
 
     if (!dados.recado.isNullOrBlank() || !dados.statusEmoji.isNullOrBlank()) {
         Spacer(Modifier.height(9.dp))
-        Text(recadoInteiro(dados), style = TextStyle(color = Obsidian.text2, fontSize = 12.sp))
+        Text(recadoInteiro(dados), style = Tipo.rotulo)
     }
     dados.atividade?.takeIf { it.isNotBlank() }?.let { programa ->
         Spacer(Modifier.height(8.dp))
@@ -304,11 +305,11 @@ private fun CorpoCompacto(
             Column {
                 Text(
                     programa,
-                    style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+                    style = Tipo.rotulo,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 if (decorrido != null) {
-                    Text(decorrido, style = TextStyle(color = Obsidian.text3, fontSize = 10.sp))
+                    Text(decorrido, style = Tipo.nota)
                 }
             }
         }
@@ -357,7 +358,7 @@ private fun CorpoCompacto(
         Spacer(Modifier.height(9.dp))
         Text(
             "nas estrelas desde $desde",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             maxLines = 1,
         )
     }
@@ -482,7 +483,7 @@ private fun NomeELinha(
                 style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, fontFamily = DmMono),
             )
             if (!dados.pronomes.isNullOrBlank()) {
-                Text("  ·  ${dados.pronomes}", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp))
+                Text("  ·  ${dados.pronomes}", style = Tipo.apoio)
             }
         }
     }
@@ -543,7 +544,7 @@ private fun MutualChip(s: MutualServerDto, index: Int) {
         Spacer(Modifier.width(7.dp))
         Text(
             s.name,
-            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            style = Tipo.rotulo,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.width(96.dp),
         )

@@ -43,6 +43,7 @@ import app.astra.mobile.core.network.dto.VerifyEmailRequest
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import retrofit2.HttpException
+import app.astra.desktop.ui.theme.Tipo
 
 private const val DIGITOS_DO_CODIGO = 6
 
@@ -115,7 +116,7 @@ internal fun TrocarEmailDialog(emailAtual: String?, onClose: () -> Unit, aoTroca
             Text(
                 "O código vai para o endereço novo. A conta só muda quando ele voltar certo — " +
                     "até lá, ${emailAtual ?: "o e-mail atual"} continua valendo.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
             )
             Spacer(Modifier.height(16.dp))
             RotuloDoCampo("E-mail novo")
@@ -126,12 +127,12 @@ internal fun TrocarEmailDialog(emailAtual: String?, onClose: () -> Unit, aoTroca
             Spacer(Modifier.height(6.dp))
             Text(
                 "A senha impede que alguém com o seu computador destrancado tome a conta.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         } else {
             Text(
                 "Enviamos um código de seis dígitos para $pendente.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+                style = Tipo.descricao,
             )
             Spacer(Modifier.height(16.dp))
             BasicTextField(
@@ -233,7 +234,7 @@ internal fun TrocarUsuarioDialog(atual: String?, onClose: () -> Unit, aoTrocar: 
         Text(
             "É por ele que as pessoas te encontram na busca e te mencionam. " +
                 "Hoje você é @${atual ?: "—"}.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
         )
         Spacer(Modifier.height(16.dp))
         RotuloDoCampo("Nome novo")
@@ -241,7 +242,7 @@ internal fun TrocarUsuarioDialog(atual: String?, onClose: () -> Unit, aoTrocar: 
         Spacer(Modifier.height(6.dp))
         Text(
             "De 3 a 32 caracteres, apenas minúsculas, números e underscore.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
         )
 
         if (nome.isNotBlank() && !formatoOk) {
@@ -278,7 +279,7 @@ internal fun TrocarUsuarioDialog(atual: String?, onClose: () -> Unit, aoTrocar: 
 private fun RotuloDoCampo(texto: String) {
     Text(
         texto,
-        style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+        style = Tipo.rotulo,
         modifier = Modifier.padding(bottom = 6.dp),
     )
 }
@@ -309,7 +310,7 @@ private fun CampoDeLinha(
             singleLine = true,
             enabled = ligado,
             visualTransformation = if (segredo) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            textStyle = TextStyle(color = Obsidian.text1, fontSize = 13.sp),
+            textStyle = Tipo.corpo,
             cursorBrush = SolidColor(Obsidian.accent),
             modifier = Modifier
                 .fillMaxWidth()

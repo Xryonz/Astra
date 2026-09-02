@@ -60,6 +60,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private const val TETO_EMOJIS = 50
 
@@ -86,7 +87,7 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
     Spacer(Modifier.height(8.dp))
 
     if (emojis.isEmpty()) {
-        Text("nenhum emoji ainda.", style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+        Text("nenhum emoji ainda.", style = Tipo.descricao)
     }
 
     emojis.forEach { emoji ->
@@ -148,7 +149,7 @@ internal fun EmojisSection(serverId: String, podeGerenciar: Boolean) {
             Spacer(Modifier.width(10.dp))
             Text(
                 "PNG, GIF ou WebP até 512KB — vira 128px. O nome sai do arquivo e pode ser corrigido.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                style = Tipo.apoio,
             )
         }
     }

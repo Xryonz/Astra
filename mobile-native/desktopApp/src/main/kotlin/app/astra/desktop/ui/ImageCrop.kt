@@ -85,6 +85,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import org.jetbrains.skia.Image as SkiaImage
 import org.jetbrains.skia.Rect as SkRect
+import app.astra.desktop.ui.theme.Tipo
 
 sealed interface CropSource {
     data class Local(val file: File) : CropSource
@@ -312,7 +313,7 @@ fun CropDialog(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "arraste para enquadrar · a roda do mouse aproxima.",
-                    style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                    style = Tipo.apoio,
                 )
                 Spacer(Modifier.height(14.dp))
                 Box(
@@ -414,7 +415,7 @@ fun CropDialog(
 private fun CropZoomTrack(pct: Int, onChange: (Int) -> Unit) {
     val f = ((pct - 100) / 200f).coerceIn(0f, 1f)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("zoom", style = TextStyle(color = Obsidian.text3, fontSize = 11.sp), modifier = Modifier.width(42.dp))
+        Text("zoom", style = Tipo.apoio, modifier = Modifier.width(42.dp))
         Box(
             Modifier
                 .weight(1f)

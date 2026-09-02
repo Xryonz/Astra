@@ -81,6 +81,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import java.awt.Toolkit
 import java.awt.event.KeyEvent as AwtKeyEvent
+import app.astra.desktop.ui.theme.Tipo
 
 private enum class AuthMode { LOGIN, SIGNUP }
 
@@ -346,7 +347,7 @@ private fun AuthModeToggle(mode: AuthMode, onToggle: () -> Unit) {
         val prompt = if (m == AuthMode.LOGIN) "ainda não tem conta?" else "já tem conta?"
         val action = if (m == AuthMode.LOGIN) "criar conta" else "entrar"
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(prompt, style = TextStyle(color = Obsidian.text3, fontSize = 12.sp))
+            Text(prompt, style = Tipo.descricao)
             Spacer(Modifier.width(6.dp))
             Text(
                 action,
@@ -363,7 +364,7 @@ private fun OrDivider() {
         Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
         Text(
             "ou",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            style = Tipo.apoio,
             modifier = Modifier.padding(horizontal = 12.dp),
         )
         Box(Modifier.weight(1f).height(1.dp).background(Obsidian.borderDim))
@@ -422,7 +423,7 @@ private fun EditorialField(
     Column {
         Text(
             text = label,
-            style = TextStyle(color = Obsidian.text3, fontSize = 12.sp),
+            style = Tipo.descricao,
         )
         Spacer(Modifier.height(6.dp))
         val shape = RoundedCornerShape(10.dp)

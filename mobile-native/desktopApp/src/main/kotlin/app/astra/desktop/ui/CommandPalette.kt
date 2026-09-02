@@ -37,6 +37,7 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.BotApi
 import app.astra.mobile.core.network.dto.BotCommandDto
 import org.koin.core.context.GlobalContext
+import app.astra.desktop.ui.theme.Tipo
 
 private var cache: List<BotCommandDto>? = null
 
@@ -105,7 +106,7 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
                     Spacer(Modifier.width(10.dp))
                     Text(
                         cmd.description,
-                        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+                        style = Tipo.apoio,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
@@ -113,7 +114,7 @@ fun CommandPalette(commands: List<BotCommandDto>, onPick: (BotCommandDto) -> Uni
                         Spacer(Modifier.width(8.dp))
                         Text(
                             cmd.category,
-                            style = TextStyle(color = Obsidian.text3, fontSize = 10.sp),
+                            style = Tipo.nota,
                             maxLines = 1,
                         )
                     }

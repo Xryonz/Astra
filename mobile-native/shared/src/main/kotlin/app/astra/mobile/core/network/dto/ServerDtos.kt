@@ -155,6 +155,12 @@ data class MemberUserDto(
 data class PresenceUpdateDto(val userId: String, val status: String = "OFFLINE")
 
 @Serializable
+data class ProfileUpdatedDto(
+    val userId: String,
+    val publico: MemberUserDto? = null,
+)
+
+@Serializable
 data class ActivityUpdateDto(
     val userId: String,
     val activity: String? = null,

@@ -97,6 +97,7 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
   const persona = await personaComAjustes()
   try {
     const [atual] = await db.select({
+      username: users.username, displayFont: users.displayFont,
       displayName: users.displayName, avatarUrl: users.avatarUrl,
       bannerUrl: users.bannerUrl, bannerColor: users.bannerColor,
       bannerScale: users.bannerScale, bannerPositionY: users.bannerPositionY,
@@ -117,7 +118,12 @@ export async function sincronizaPersona(botId: string): Promise<Persona> {
           bannerScale: persona.bannerZoom, bannerPositionY: persona.bannerY,
         })
         .where(eq(users.id, botId))
-      profileChanged(botId)
+      profileChanged(botId, {
+        username: atual!.username,
+        displayName: persona.nome,
+        avatarUrl: persona.avatar,
+        displayFont: atual!.displayFont,
+      })
       logger.info('Bot', `persona do dia: ${persona.nome}`)
     }
   } catch (e) {

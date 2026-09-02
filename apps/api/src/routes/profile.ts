@@ -130,7 +130,12 @@ router.patch(
         dmPrivacy: users.dmPrivacy,
       })
 
-    profileChanged(req.userId!)
+    profileChanged(req.userId!, {
+      username: user.username,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      displayFont: user.displayFont,
+    })
     res.json({ data: { user } })
   })
 )

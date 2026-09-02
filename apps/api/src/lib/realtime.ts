@@ -18,8 +18,15 @@ export function joinedServer(userId: string, serverId: string) {
   io?.to(`user:${userId}`).emit('server_joined', { serverId })
 }
 
-export function profileChanged(userId: string) {
-  io?.emit('profile_updated', { userId })
+export type PerfilPublico = {
+  username: string
+  displayName: string | null
+  avatarUrl: string | null
+  displayFont: string | null
+}
+
+export function profileChanged(userId: string, publico?: PerfilPublico) {
+  io?.emit('profile_updated', publico ? { userId, publico } : { userId })
 }
 
 export function amizadeMudou(a: string, b: string, motivo: 'pedido' | 'aceito' | 'removido') {

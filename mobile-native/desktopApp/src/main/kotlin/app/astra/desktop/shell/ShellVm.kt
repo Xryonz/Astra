@@ -34,6 +34,7 @@ import app.astra.mobile.core.network.dto.ActivityUpdateDto
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ServerScopedEventDto
 import app.astra.desktop.ui.invalidateProfileCache
+import app.astra.mobile.core.network.dto.ProfileUpdatedDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.RoleDto
 import app.astra.mobile.core.network.dto.RoleRequest
@@ -1044,14 +1045,19 @@ class ShellVm(
             }
             launch {
                 socket.profileUpdated.collect { raw ->
-                    val ev = decode<PresenceUpdateDto>(raw) ?: return@collect
+                    val ev = decode<ProfileUpdatedDto>(raw) ?: return@collect
                     invalidateProfileCache(ev.userId)
                     if (ev.userId == myId) {
                         refreshMe()
                     }
-                    val serverId = (_state.value.selection as? Selection.Server)?.id
-                    if (serverId != null && _state.value.members.any { it.userId == ev.userId }) {
-                        loadMembers(serverId)
+                    val perfil = ev.publico ?: return@collect
+                    _state.update { st ->
+                        if (st.members.none { it.userId == ev.userId }) st
+                        else st.copy(
+                            members = st.members.map {
+                                if (it.userId == ev.userId) it.copy(user = perfil) else it
+                            },
+                        )
                     }
                 }
             }

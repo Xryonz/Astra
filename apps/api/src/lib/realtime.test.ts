@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import {
   attachRealtime, channelsChanged, membersChanged, joinedServer, presenceChanged,
-  serverUpdated, serverGone, rolesChanged, leftServer,
+  serverUpdated, serverGone, rolesChanged, leftServer, profileChanged,
 } from './realtime'
 
 function fakeIo() {
@@ -83,6 +83,23 @@ describe('presenca', () => {
     expect(f.global).toHaveBeenCalledWith('presence_update', { userId: 'u1', status: 'OFFLINE' })
     const enviado = f.global.mock.calls.map((c) => JSON.stringify(c)).join()
     expect(enviado).not.toContain('INVISIBLE')
+  })
+})
+
+describe('perfil mudou', () => {
+  let f: ReturnType<typeof fakeIo>
+  beforeEach(() => { f = fakeIo(); attachRealtime(f.io) })
+
+  const publico = { username: 'ana', displayName: 'Ana', avatarUrl: null, displayFont: null }
+
+  it('vai com o perfil dentro, pra ninguem precisar buscar', () => {
+    profileChanged('u1', publico)
+    expect(f.global).toHaveBeenCalledWith('profile_updated', { userId: 'u1', publico })
+  })
+
+  it('sem perfil, o aviso nao inventa a chave — e ausente significa "a lista nao mudou"', () => {
+    profileChanged('u1')
+    expect(f.global).toHaveBeenCalledWith('profile_updated', { userId: 'u1' })
   })
 })
 

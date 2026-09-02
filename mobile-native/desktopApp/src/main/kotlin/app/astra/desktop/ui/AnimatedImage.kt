@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import app.astra.shared.AstraShared
 import androidx.compose.ui.draw.drawBehind
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -232,8 +234,15 @@ private object AnimatedImageStore {
             return runCatching { Base64.getDecoder().decode(url.substring(i + 7)) }.getOrNull()
         }
         val abs = if (url.startsWith("/")) AstraShared.BASE_URL.trimEnd('/') + url else url
-        return get(http, abs) ?: get(plain, abs)
+        return doDiscoDoCoil(abs) ?: doDiscoDoCoil(url) ?: get(http, abs) ?: get(plain, abs)
     }
+
+    private fun doDiscoDoCoil(chave: String): ByteArray? = runCatching {
+        val disco = SingletonImageLoader.get(PlatformContext.INSTANCE).diskCache ?: return null
+        disco.openSnapshot(chave)?.use { guardado ->
+            disco.fileSystem.read(guardado.data) { readByteArray() }
+        }
+    }.getOrNull()
 
     private fun get(client: OkHttpClient, url: String): ByteArray? = runCatching {
         client.newCall(Request.Builder().url(url).build()).execute().use { resp ->

@@ -114,7 +114,7 @@ fun Lightbox(url: String, onClose: () -> Unit) {
             AstraImage(
                 url = abs,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Inside,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(48.dp)

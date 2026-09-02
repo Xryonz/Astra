@@ -1139,11 +1139,39 @@ class ShellVm(
                     }
                     val perfil = ev.publico ?: return@collect
                     _state.update { st ->
-                        if (st.members.none { it.userId == ev.userId }) st
-                        else st.copy(
-                            members = st.members.map {
-                                if (it.userId == ev.userId) it.copy(user = perfil) else it
-                            },
+                        val naLista = st.members.any { it.userId == ev.userId }
+                        val noSussurro = st.dms.any { it.otherUser?.id == ev.userId }
+                        if (!naLista && !noSussurro) return@update st
+
+                        val dms =
+                            if (!noSussurro) st.dms
+                            else st.dms.map { conversa ->
+                                val outro = conversa.otherUser
+                                if (outro?.id != ev.userId) conversa
+                                else conversa.copy(
+                                    otherUser = outro.copy(
+                                        username = perfil.username,
+                                        displayName = perfil.displayName,
+                                        avatarUrl = perfil.avatarUrl,
+                                        displayFont = perfil.displayFont,
+                                    ),
+                                )
+                            }
+                        val aberto = st.chat
+                        val chat =
+                            if (noSussurro && aberto is ChatTarget.Dm &&
+                                dms.any { it.id == aberto.id && it.otherUser?.id == ev.userId }
+                            ) aberto.copy(title = perfil.displayName ?: perfil.username)
+                            else aberto
+
+                        st.copy(
+                            members =
+                                if (!naLista) st.members
+                                else st.members.map {
+                                    if (it.userId == ev.userId) it.copy(user = perfil) else it
+                                },
+                            dms = dms,
+                            chat = chat,
                         )
                     }
                 }

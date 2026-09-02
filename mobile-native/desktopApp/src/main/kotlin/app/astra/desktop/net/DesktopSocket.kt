@@ -39,108 +39,58 @@ class DesktopSocket(
     private val dms = ConcurrentHashMap.newKeySet<String>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val _newChannelMessage = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val newChannelMessage: SharedFlow<String> = _newChannelMessage.asSharedFlow()
+    private val ouvidos = LinkedHashMap<String, MutableSharedFlow<String>>()
 
-    private val _newDm = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val newDm: SharedFlow<String> = _newDm.asSharedFlow()
+    private fun evento(vararg nomes: String, folga: Int = 32): SharedFlow<String> {
+        val fluxo = MutableSharedFlow<String>(extraBufferCapacity = folga)
+        for (nome in nomes) ouvidos[nome] = fluxo
+        return fluxo
+    }
 
-    private val _messageEdited = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val messageEdited: SharedFlow<String> = _messageEdited.asSharedFlow()
+    val newChannelMessage = evento("new_message", folga = 64)
+    val newDm = evento("new_dm", folga = 64)
+    val messageEdited = evento("message_edited", folga = 64)
+    val messageDeleted = evento("message_deleted", folga = 64)
+    val reactionUpdate = evento("reaction_update", folga = 64)
+    val pollUpdated = evento("poll_updated", folga = 64)
+    val dmDeleted = evento("dm_deleted", folga = 64)
 
-    private val _messageDeleted = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val messageDeleted: SharedFlow<String> = _messageDeleted.asSharedFlow()
+    val channelTyping = evento("user_typing", folga = 64)
+    val channelTypingStopped = evento("user_stopped_typing", folga = 64)
+    val dmTyping = evento("dm_user_typing", folga = 64)
+    val dmTypingStopped = evento("dm_user_stopped_typing", folga = 64)
+    val channelActivity = evento("channel_activity", folga = 64)
 
-    private val _reactionUpdate = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val reactionUpdate: SharedFlow<String> = _reactionUpdate.asSharedFlow()
+    val presenceUpdate = evento("presence_update", folga = 128)
+    val activityUpdate = evento("activity_update", folga = 128)
+    val notification = evento("notification")
+    val voicePresence = evento("voice_presence", folga = 64)
 
-    private val _pollUpdated = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val pollUpdated: SharedFlow<String> = _pollUpdated.asSharedFlow()
+    val chamadaChegando = evento("dm_call_invite", folga = 8)
+    val chamadaAtendida = evento("dm_call_accept", folga = 8)
+    val chamadaEncerrada = evento("dm_call_ended", folga = 8)
 
-    private val _dmDeleted = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val dmDeleted: SharedFlow<String> = _dmDeleted.asSharedFlow()
+    val canalMudou = evento("server_channel_upserted")
+    val canalSumiu = evento("server_channel_gone")
+    val categoriaMudou = evento("server_category_upserted", folga = 16)
+    val categoriaSumiu = evento("server_category_gone", folga = 16)
+    val constelacaoMudou = evento("server_meta", folga = 16)
 
-    private val _channelTyping = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val channelTyping: SharedFlow<String> = _channelTyping.asSharedFlow()
+    val membroEntrou = evento("server_member_added")
+    val membroSaiu = evento("server_member_removed")
+    val membroMudouDeCargo = evento("server_member_role")
+    val membrosRefeitos = evento("server_members_reset", folga = 16)
+    val cargosDoMembro = evento("server_member_roles")
 
-    private val _channelTypingStopped = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val channelTypingStopped: SharedFlow<String> = _channelTypingStopped.asSharedFlow()
+    val serverJoined = evento("server_joined", folga = 16)
+    val serverAccessLost = evento("server_gone", "server_left", folga = 16)
+    val profileUpdated = evento("profile_updated", folga = 64)
 
-    private val _dmTyping = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val dmTyping: SharedFlow<String> = _dmTyping.asSharedFlow()
-
-    private val _dmTypingStopped = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val dmTypingStopped: SharedFlow<String> = _dmTypingStopped.asSharedFlow()
-
-    private val _channelActivity = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val channelActivity: SharedFlow<String> = _channelActivity.asSharedFlow()
-
-    private val _presenceUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
-    val presenceUpdate: SharedFlow<String> = _presenceUpdate.asSharedFlow()
-
-    private val _activityUpdate = MutableSharedFlow<String>(extraBufferCapacity = 128)
-    val activityUpdate: SharedFlow<String> = _activityUpdate.asSharedFlow()
+    val xpGain = evento("xp_gain", folga = 16)
+    val missaoConcluida = evento("mission_done", folga = 16)
 
     private val _friendsChanged = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val friendsChanged: SharedFlow<String> = _friendsChanged.asSharedFlow()
-
-    private val _notification = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val notification: SharedFlow<String> = _notification.asSharedFlow()
-
-    private val _voicePresence = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val voicePresence: SharedFlow<String> = _voicePresence.asSharedFlow()
-
-    private val _chamadaChegando = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val chamadaChegando: SharedFlow<String> = _chamadaChegando.asSharedFlow()
-    private val _chamadaAtendida = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val chamadaAtendida: SharedFlow<String> = _chamadaAtendida.asSharedFlow()
-    private val _chamadaEncerrada = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val chamadaEncerrada: SharedFlow<String> = _chamadaEncerrada.asSharedFlow()
-
-    private val _canalMudou = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val canalMudou: SharedFlow<String> = _canalMudou.asSharedFlow()
-
-    private val _canalSumiu = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val canalSumiu: SharedFlow<String> = _canalSumiu.asSharedFlow()
-
-    private val _categoriaMudou = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val categoriaMudou: SharedFlow<String> = _categoriaMudou.asSharedFlow()
-
-    private val _categoriaSumiu = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val categoriaSumiu: SharedFlow<String> = _categoriaSumiu.asSharedFlow()
-
-    private val _membroEntrou = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val membroEntrou: SharedFlow<String> = _membroEntrou.asSharedFlow()
-
-    private val _membroSaiu = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val membroSaiu: SharedFlow<String> = _membroSaiu.asSharedFlow()
-
-    private val _membroMudouDeCargo = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val membroMudouDeCargo: SharedFlow<String> = _membroMudouDeCargo.asSharedFlow()
-
-    private val _serverJoined = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val serverJoined: SharedFlow<String> = _serverJoined.asSharedFlow()
-
-    private val _profileUpdated = MutableSharedFlow<String>(extraBufferCapacity = 64)
-    val profileUpdated: SharedFlow<String> = _profileUpdated.asSharedFlow()
-
-    private val _xpGain = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val xpGain: SharedFlow<String> = _xpGain.asSharedFlow()
-
-    private val _missaoConcluida = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val missaoConcluida: SharedFlow<String> = _missaoConcluida.asSharedFlow()
-
-    private val _constelacaoMudou = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val constelacaoMudou: SharedFlow<String> = _constelacaoMudou.asSharedFlow()
-
-    private val _serverAccessLost = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val serverAccessLost: SharedFlow<String> = _serverAccessLost.asSharedFlow()
-
-    private val _membrosRefeitos = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val membrosRefeitos: SharedFlow<String> = _membrosRefeitos.asSharedFlow()
-
-    private val _cargosDoMembro = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val cargosDoMembro: SharedFlow<String> = _cargosDoMembro.asSharedFlow()
 
     private val _reconnected = MutableSharedFlow<Long>(extraBufferCapacity = 8)
     val reconnected: SharedFlow<Long> = _reconnected.asSharedFlow()
@@ -266,117 +216,17 @@ class DesktopSocket(
             if (jaConectou) _reconnected.tryEmit(System.currentTimeMillis())
             jaConectou = true
         }
-        s.on("new_message") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _newChannelMessage.tryEmit(it.toString()) }
-        }
-        s.on("new_dm") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _newDm.tryEmit(it.toString()) }
-        }
-        s.on("message_edited") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _messageEdited.tryEmit(it.toString()) }
-        }
-        s.on("message_deleted") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _messageDeleted.tryEmit(it.toString()) }
-        }
-        s.on("reaction_update") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _reactionUpdate.tryEmit(it.toString()) }
-        }
-        s.on("poll_updated") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _pollUpdated.tryEmit(it.toString()) }
-        }
-        s.on("dm_deleted") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _dmDeleted.tryEmit(it.toString()) }
-        }
-        s.on("user_typing") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _channelTyping.tryEmit(it.toString()) }
-        }
-        s.on("user_stopped_typing") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _channelTypingStopped.tryEmit(it.toString()) }
-        }
-        s.on("dm_user_typing") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _dmTyping.tryEmit(it.toString()) }
-        }
-        s.on("dm_user_stopped_typing") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _dmTypingStopped.tryEmit(it.toString()) }
-        }
-        s.on("channel_activity") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _channelActivity.tryEmit(it.toString()) }
-        }
-        s.on("presence_update") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _presenceUpdate.tryEmit(it.toString()) }
-        }
-        s.on("activity_update") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _activityUpdate.tryEmit(it.toString()) }
-        }
         s.on("friends_changed") { args ->
             _friendsChanged.tryEmit((args.firstOrNull() as? JSONObject)?.toString().orEmpty())
-        }
-        s.on("notification") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _notification.tryEmit(it.toString()) }
-        }
-        s.on("voice_presence") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _voicePresence.tryEmit(it.toString()) }
-        }
-        s.on("dm_call_invite") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _chamadaChegando.tryEmit(it.toString()) }
-        }
-        s.on("dm_call_accept") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _chamadaAtendida.tryEmit(it.toString()) }
-        }
-        s.on("dm_call_ended") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _chamadaEncerrada.tryEmit(it.toString()) }
         }
         s.on("soundboard_play") { args ->
             val url = (args.firstOrNull() as? JSONObject)?.optString("url").orEmpty()
             if (url.isNotBlank()) SoundboardPlayer.tocar(url)
         }
-        s.on("server_channel_upserted") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _canalMudou.tryEmit(it.toString()) }
-        }
-        s.on("server_channel_gone") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _canalSumiu.tryEmit(it.toString()) }
-        }
-        s.on("server_category_upserted") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _categoriaMudou.tryEmit(it.toString()) }
-        }
-        s.on("server_category_gone") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _categoriaSumiu.tryEmit(it.toString()) }
-        }
-        s.on("server_member_added") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _membroEntrou.tryEmit(it.toString()) }
-        }
-        s.on("server_member_removed") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _membroSaiu.tryEmit(it.toString()) }
-        }
-        s.on("server_member_role") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _membroMudouDeCargo.tryEmit(it.toString()) }
-        }
-        s.on("server_joined") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverJoined.tryEmit(it.toString()) }
-        }
-        s.on("profile_updated") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _profileUpdated.tryEmit(it.toString()) }
-        }
-        s.on("xp_gain") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _xpGain.tryEmit(it.toString()) }
-        }
-        s.on("mission_done") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _missaoConcluida.tryEmit(it.toString()) }
-        }
-        s.on("server_meta") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _constelacaoMudou.tryEmit(it.toString()) }
-        }
-        s.on("server_gone") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverAccessLost.tryEmit(it.toString()) }
-        }
-        s.on("server_left") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverAccessLost.tryEmit(it.toString()) }
-        }
-        s.on("server_members_reset") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _membrosRefeitos.tryEmit(it.toString()) }
-        }
-        s.on("server_member_roles") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _cargosDoMembro.tryEmit(it.toString()) }
+        for ((nome, fluxo) in ouvidos) {
+            s.on(nome) { args ->
+                (args.firstOrNull() as? JSONObject)?.let { fluxo.tryEmit(it.toString()) }
+            }
         }
         s.connect()
     }

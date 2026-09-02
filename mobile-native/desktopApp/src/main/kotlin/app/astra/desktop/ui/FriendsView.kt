@@ -55,7 +55,9 @@ import app.astra.desktop.ui.theme.Text
 import app.astra.mobile.core.network.FriendApi
 import app.astra.mobile.core.network.dto.FriendDto
 import app.astra.mobile.core.network.dto.FriendRequestDto
+import app.astra.mobile.core.network.dto.FriendUserDto
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
+import app.astra.mobile.core.network.dto.ProfileUpdatedDto
 import app.astra.mobile.core.network.dto.SendFriendRequest
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Inbox
@@ -118,6 +120,33 @@ fun FriendsView(onStartDm: (String, String) -> Unit, modifier: Modifier = Modifi
 
     LaunchedEffect(Unit) {
         GlobalContext.get().get<DesktopSocket>().friendsChanged.collect { reload() }
+    }
+
+    LaunchedEffect(Unit) {
+        val koin = GlobalContext.get()
+        val socket = koin.get<DesktopSocket>()
+        val json = koin.get<Json>()
+        socket.profileUpdated.collect { raw ->
+            val ev = runCatching { json.decodeFromString<ProfileUpdatedDto>(raw) }.getOrNull() ?: return@collect
+            val perfil = ev.publico ?: return@collect
+            fun repintar(u: FriendUserDto) =
+                if (u.id != ev.userId) u
+                else u.copy(username = perfil.username, displayName = perfil.displayName, avatarUrl = perfil.avatarUrl)
+
+            if (friends.any { it.user.id == ev.userId }) {
+                friends = friends
+                    .map { it.copy(user = repintar(it.user)) }
+                    .sortedWith(
+                        compareBy({ presenceRank(it.presence) }, { (it.user.displayName ?: it.user.username).lowercase() }),
+                    )
+            }
+            if (incoming.any { it.user?.id == ev.userId }) {
+                incoming = incoming.map { p -> p.copy(user = p.user?.let(::repintar)) }
+            }
+            if (outgoing.any { it.user?.id == ev.userId }) {
+                outgoing = outgoing.map { p -> p.copy(user = p.user?.let(::repintar)) }
+            }
+        }
     }
 
     fun act(block: suspend () -> Unit) {

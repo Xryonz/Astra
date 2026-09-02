@@ -127,6 +127,7 @@ import app.astra.desktop.prefs.AvisosDaConta
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.TemaDaConta
 import app.astra.desktop.ModoTransmissao
+import app.astra.desktop.VozNaBandeja
 import app.astra.desktop.voice.Sfx
 import app.astra.desktop.voice.CallNaSala
 import app.astra.desktop.voice.VoiceSession
@@ -231,7 +232,10 @@ fun ShellScreen(
     }
     val state by vm.state.collectAsState()
     val voice = remember { VoiceSession(scope, koin) }
-    DisposableEffect(Unit) { onDispose { voice.encerrar() } }
+    DisposableEffect(voice) {
+        VozNaBandeja.assumir(voice)
+        onDispose { VozNaBandeja.largar(voice); voice.encerrar() }
+    }
     remember(voice) { vm.voiceSession = voice }
     var settingsOpen by remember { mutableStateOf(false) }
     var settingsTab by remember { mutableStateOf(SettingsTab.ACCOUNT) }

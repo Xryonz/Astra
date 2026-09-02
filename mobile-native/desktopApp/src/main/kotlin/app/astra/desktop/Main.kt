@@ -291,6 +291,18 @@ fun main(args: Array<String>) {
             itens = {
                 buildList {
                     if (!exitOnClose) add(ItemDaBandeja("Abrir o Astra") { windowVisible = true })
+                    VozNaBandeja.sessao?.let { voz ->
+                        add(
+                            ItemDaBandeja(
+                                if (voz.mudo) "Reativar microfone" else "Silenciar microfone",
+                            ) { voz.alternarMudo() },
+                        )
+                        add(
+                            ItemDaBandeja(
+                                if (voz.ensurdecido) "Voltar a ouvir" else "Ensurdecer",
+                            ) { voz.alternarEnsurdecer() },
+                        )
+                    }
                     add(ItemDaBandeja("Sair", perigo = true) { exitApplication() })
                 }
             },

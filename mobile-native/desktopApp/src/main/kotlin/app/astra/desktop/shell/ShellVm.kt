@@ -1199,7 +1199,9 @@ class ShellVm(
                             it.copy(penalidade = Penalidade(ev.motivo, nome, ev.reason))
                         }
                     }
-                    reloadServers()
+                    _state.update {
+                        it.copy(servers = it.servers.filterNot { s -> s.id == ev.serverId })
+                    }
                 }
             }
             launch {

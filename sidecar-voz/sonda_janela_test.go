@@ -74,8 +74,9 @@ func TestCapturarUmaJanelaDeVerdade(t *testing.T) {
 			var desc descricaoDeTextura
 			textura.chamar(texturaDescricao, uintptr(unsafe.Pointer(&desc)))
 			formato = desc.Formato
-			if int(desc.Largura) != l || int(desc.Altura) != a {
-				t.Errorf("a textura veio %dx%d, a piscina foi criada %dx%d", desc.Largura, desc.Altura, l, a)
+			agoraL, agoraA := tela.Tamanho()
+			if int(desc.Largura) != agoraL || int(desc.Altura) != agoraA {
+				t.Errorf("a textura veio %dx%d, a piscina está em %dx%d", desc.Largura, desc.Altura, agoraL, agoraA)
 			}
 		}
 		textura.soltar()

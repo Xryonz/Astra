@@ -417,6 +417,50 @@ func amarrar(cand CompressorDisponivel, tela *Tela, largura, altura, saidaL, sai
 	return c, nil
 }
 
+func (c *Compressor) Reenquadrar(dispositivo objeto, largura, altura int) error {
+	if largura <= 0 || altura <= 0 || (largura == c.largura && altura == c.altura) {
+		return nil
+	}
+
+	formato := formatoARGB32
+	if c.NaMemoria {
+		formato = formatoNV12
+	}
+	novo, err := AbrirRedimensionador(c.gerente, largura, altura, c.saidaL, c.saidaA, formato)
+	if err != nil {
+		return fmt.Errorf("refazer o encaixe para %dx%d: %w", largura, altura, err)
+	}
+
+	anterior, velhaL, velhaA := c.anel, c.largura, c.altura
+	c.anel = nil
+	c.proximo = 0
+	c.largura, c.altura = largura, altura
+	if err := c.montarAnel(dispositivo); err != nil {
+		novo.Fechar()
+		for i := range c.anel {
+			c.anel[i].soltar()
+		}
+		c.anel, c.largura, c.altura = anterior, velhaL, velhaA
+		return err
+	}
+	for i := range anterior {
+		anterior[i].soltar()
+	}
+
+	if c.reduzir != nil {
+		c.reduzir.Fechar()
+	}
+	c.reduzir = novo
+
+	if c.espelho != nil {
+		entregar := c.espelho.entregar
+		c.espelho.Fechar()
+		c.espelho = nil
+		c.LigarEspelho(entregar)
+	}
+	return nil
+}
+
 func (c *Compressor) criarGerenciador(dispositivo objeto) error {
 	var ficha uint32
 	r, _, _ := procMFCriarGerenciador.Call(

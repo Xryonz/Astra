@@ -41,11 +41,13 @@ const (
 	quadrosNaPiscina    = 2
 
 	idxCriarParaJanela = 3
+	idxRecriarPiscina  = 6
 	idxCriarPiscina    = 6
 	idxPegarProximo    = 7
 	idxCriarSessao     = 10
 	idxComecarCaptura  = 6
 	idxPegarSuperficie = 6
+	idxPegarConteudo   = 8
 	idxPegarInterface  = 3
 	idxFechar          = 6
 	idxDefinirBorda    = 7
@@ -209,6 +211,10 @@ func (c *CapturaDeJanela) ProximoQuadro(limiteMs uint32) (objeto, error) {
 		}
 		if quadro != 0 {
 			c.quadroRetido = quadro
+			if l, a, ok := tamanhoDoConteudo(quadro); ok && (l != c.largura || a != c.altura) {
+				c.SoltarQuadro()
+				return 0, c.reenquadrar(l, a)
+			}
 			return c.texturaDe(quadro)
 		}
 		if !time.Now().Before(fim) {
@@ -216,6 +222,33 @@ func (c *CapturaDeJanela) ProximoQuadro(limiteMs uint32) (objeto, error) {
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
+}
+
+func tamanhoDoConteudo(quadro objeto) (int, int, bool) {
+	var t tamanhoInt32
+	if quadro.chamar(idxPegarConteudo, uintptr(unsafe.Pointer(&t)))&0x80000000 != 0 {
+		return 0, 0, false
+	}
+	l, a := int(t.Largura)&^1, int(t.Altura)&^1
+	if l <= 0 || a <= 0 {
+		return 0, 0, false
+	}
+	return l, a, true
+}
+
+func (c *CapturaDeJanela) reenquadrar(largura, altura int) error {
+	tamanho := uintptr(uint32(largura)) | uintptr(uint32(altura))<<32
+	r := c.piscina.chamar(idxRecriarPiscina,
+		uintptr(c.d3dWinRT),
+		uintptr(formatoBGRA8DoWinRT),
+		quadrosNaPiscina,
+		tamanho,
+	)
+	if err := hr(r, fmt.Sprintf("refazer a piscina em %dx%d", largura, altura)); err != nil {
+		return err
+	}
+	c.largura, c.altura = largura, altura
+	return nil
 }
 
 func (c *CapturaDeJanela) texturaDe(quadro objeto) (objeto, error) {

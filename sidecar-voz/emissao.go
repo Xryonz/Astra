@@ -190,7 +190,7 @@ func (e *Emissor) transmitir(
 	ritmo := NovoRitmo(c.fps)
 	comeco := time.Now()
 	relatorio := time.Now()
-	var quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos int
+	var quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos, reenquadrados int
 	var marco, marcoDoRelato Custos
 	perfilVisto := false
 
@@ -248,6 +248,12 @@ func (e *Emissor) transmitir(
 				continue
 			}
 			return nil, fmt.Errorf("capturar: %w", err)
+		}
+		if l, a := tela.Tamanho(); l != c.largura || a != c.altura {
+			if err := c.Reenquadrar(tela.dispositivo, l, a); err != nil {
+				return nil, fmt.Errorf("acompanhar a janela em %dx%d: %w", l, a, err)
+			}
+			reenquadrados++
 		}
 		if textura == 0 {
 
@@ -341,6 +347,9 @@ func (e *Emissor) transmitir(
 			if revividos > 0 {
 				msg += fmt.Sprintf(" · %d reenviados com a tela parada", revividos)
 			}
+			if reenquadrados > 0 {
+				msg += fmt.Sprintf(" · %d vezes acompanhando a janela (%dx%d)", reenquadrados, c.largura, c.altura)
+			}
 			if assistindo, total := e.plateia.Contar(); total > assistindo {
 				msg += fmt.Sprintf(" · enviando para %d de %d", assistindo, total)
 			}
@@ -359,7 +368,7 @@ func (e *Emissor) transmitir(
 			}
 			e.saida.Manda(Evento{Ev: EvTransmissao, V: "1", Tipo: "ritmo", Msg: msg})
 			relatorio = time.Now()
-			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos = 0, 0, 0, 0, 0, 0
+			quadros, bytesEnviados, capturados, semSaida, semMudanca, revividos, reenquadrados = 0, 0, 0, 0, 0, 0, 0
 
 			if !medir {
 				if alvo, medido := e.perdas.BandaDaMaioria(); medido {

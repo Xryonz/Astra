@@ -26,6 +26,7 @@ const (
 	indiceEstiloEstendido = ^uintptr(0) - 19
 	estiloDeFerramenta    = 0x00000080
 	atributoEncoberta     = 14
+	atributoMolduraReal   = 9
 	larguraMinimaDaJanela = 160
 	alturaMinimaDaJanela  = 120
 )
@@ -66,7 +67,21 @@ func enumerarJanelas() []JanelaDaTela {
 	return lista
 }
 
+func molduraVisivel(h uintptr) (int, int, bool) {
+	var r retanguloDaJanela
+	res, _, _ := procAtributoDoDwm.Call(h, atributoMolduraReal,
+		uintptr(unsafe.Pointer(&r)), unsafe.Sizeof(r))
+	if res != 0 || r.Dir <= r.Esq || r.Base <= r.Topo {
+		if ok, _, _ := procRetanguloDaJanela.Call(h, uintptr(unsafe.Pointer(&r))); ok == 0 {
+			return 0, 0, false
+		}
+	}
+	return int(r.Dir - r.Esq), int(r.Base - r.Topo), true
+}
+
 func descreverJanela(h uintptr) (JanelaDaTela, bool) {
+	avisarQueEntendemosDePixel()
+
 	var vazia JanelaDaTela
 
 	if vis, _, _ := procJanelaVisivel.Call(h); vis == 0 {
@@ -99,11 +114,10 @@ func descreverJanela(h uintptr) (JanelaDaTela, bool) {
 		return vazia, false
 	}
 
-	var r retanguloDaJanela
-	if ok, _, _ := procRetanguloDaJanela.Call(h, uintptr(unsafe.Pointer(&r))); ok == 0 {
+	largura, altura, ok := molduraVisivel(h)
+	if !ok {
 		return vazia, false
 	}
-	largura, altura := int(r.Dir-r.Esq), int(r.Base-r.Topo)
 	if largura < larguraMinimaDaJanela || altura < alturaMinimaDaJanela {
 		return vazia, false
 	}

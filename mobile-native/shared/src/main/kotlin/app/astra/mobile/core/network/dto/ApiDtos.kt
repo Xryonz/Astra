@@ -36,6 +36,24 @@ data class VerifyEmailRequest(
 )
 
 @Serializable
+data class TrocarEmailRequest(
+    val newEmail: String,
+    val currentPassword: String,
+)
+
+@Serializable
+data class EmailPendenteDto(val pendingEmail: String = "")
+
+@Serializable
+data class EmailTrocadoDto(val email: String = "")
+
+@Serializable
+data class TrocarUsuarioRequest(val username: String)
+
+@Serializable
+data class UsuarioTrocadoDto(val username: String = "")
+
+@Serializable
 data class AuthData(
     val user: UserDto,
     val accessToken: String,

@@ -16,7 +16,10 @@ import { constelacoesQueImpedem, virarLapide } from '../lib/apagarConta'
 import { validate } from '../middleware/validate'
 import { authLimiter } from '../middleware/rateLimiter'
 import { asyncHandler } from '../lib/asyncHandler'
-import { RegisterSchema, LoginSchema, ChangePasswordSchema, SetPasswordSchema, VerifyEmailSchema } from '@astra/types'
+import {
+  RegisterSchema, LoginSchema, ChangePasswordSchema, SetPasswordSchema, VerifyEmailSchema,
+  ChangeEmailSchema, ChangeUsernameSchema,
+} from '@astra/types'
 import { isMailEnabled, sendVerificationCode } from '../lib/mailer'
 import { createId } from '../db/cuid'
 import { generateCoordinate } from '../lib/coordinate'
@@ -243,6 +246,143 @@ router.post(
     const passwordHash = await bcrypt.hash(newPassword, 12)
     await db.update(users).set({ passwordHash }).where(eq(users.id, req.userId!))
     res.json({ message: 'Senha alterada' })
+  })
+)
+
+router.post(
+  '/email/change',
+  requireAuth,
+  authLimiter,
+  validate(ChangeEmailSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!isMailEnabled()) {
+      return res.status(503).json({ error: 'O envio de e-mail está indisponível. Tente mais tarde.' })
+    }
+    const novo = String(req.body.newEmail).trim().toLowerCase()
+    const { currentPassword } = req.body
+
+    const [user] = await db.select({ email: users.email, passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
+    if (!user.passwordHash) {
+      return res.status(400).json({ error: 'Sua conta usa login Google e não tem senha.' })
+    }
+    if (!await bcrypt.compare(currentPassword, user.passwordHash)) {
+      return res.status(401).json({ error: 'Senha atual incorreta' })
+    }
+    if (novo === user.email.toLowerCase()) {
+      return res.status(400).json({ error: 'Este já é o e-mail da sua conta' })
+    }
+
+    const [ocupado] = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, novo))
+      .limit(1)
+    if (ocupado) return res.status(409).json({ error: 'Este e-mail já está em uso' })
+
+    const code = newEmailCode()
+    await db.update(users)
+      .set({
+        pendingEmail:          novo,
+        pendingEmailCode:      code,
+        pendingEmailExpiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS),
+      })
+      .where(eq(users.id, req.userId!))
+
+    try {
+      await sendVerificationCode(novo, code)
+    } catch (e: any) {
+      await db.update(users)
+        .set({ pendingEmail: null, pendingEmailCode: null, pendingEmailExpiresAt: null })
+        .where(eq(users.id, req.userId!))
+      console.error('[Mail] troca de e-mail falhou:', e?.message ?? e)
+      return res.status(502).json({ error: 'Não foi possível enviar o código. Confira o endereço.' })
+    }
+
+    res.json({ data: { pendingEmail: novo } })
+  })
+)
+
+router.post(
+  '/email/change/confirm',
+  requireAuth,
+  authLimiter,
+  validate(VerifyEmailSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = req.body
+    const [user] = await db.select({
+      pendingEmail:          users.pendingEmail,
+      pendingEmailCode:      users.pendingEmailCode,
+      pendingEmailExpiresAt: users.pendingEmailExpiresAt,
+    })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
+
+    if (!user?.pendingEmail || !user.pendingEmailCode) {
+      return res.status(400).json({ error: 'Nenhuma troca de e-mail em andamento' })
+    }
+    if (!user.pendingEmailExpiresAt || user.pendingEmailExpiresAt.getTime() < Date.now()) {
+      return res.status(400).json({ error: 'O código expirou. Peça outro.' })
+    }
+    if (code !== user.pendingEmailCode) {
+      return res.status(400).json({ error: 'Código incorreto' })
+    }
+
+    const [ocupado] = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, user.pendingEmail))
+      .limit(1)
+    if (ocupado) {
+      await db.update(users)
+        .set({ pendingEmail: null, pendingEmailCode: null, pendingEmailExpiresAt: null })
+        .where(eq(users.id, req.userId!))
+      return res.status(409).json({ error: 'Este e-mail já está em uso' })
+    }
+
+    await db.update(users)
+      .set({
+        email:                 user.pendingEmail,
+        emailVerifiedAt:       new Date(),
+        emailCode:             null,
+        emailCodeExpiresAt:    null,
+        pendingEmail:          null,
+        pendingEmailCode:      null,
+        pendingEmailExpiresAt: null,
+      })
+      .where(eq(users.id, req.userId!))
+
+    res.json({ data: { email: user.pendingEmail } })
+  })
+)
+
+router.post(
+  '/username',
+  requireAuth,
+  authLimiter,
+  validate(ChangeUsernameSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const novo = String(req.body.username).trim().toLowerCase()
+
+    const [user] = await db.select({ username: users.username })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1)
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' })
+    if (novo === user.username) {
+      return res.status(400).json({ error: 'Este já é o seu nome de usuário' })
+    }
+
+    const [ocupado] = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, novo))
+      .limit(1)
+    if (ocupado) return res.status(409).json({ error: 'Este nome de usuário já está em uso' })
+
+    await db.update(users).set({ username: novo }).where(eq(users.id, req.userId!))
+    res.json({ data: { username: novo } })
   })
 )
 

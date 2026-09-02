@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   AttachmentSchema, SendMessageSchema, EditMessageSchema,
   RegisterSchema, LoginSchema, MessageCursorSchema,
+  ChangeEmailSchema, ChangeUsernameSchema,
 } from '@astra/types'
 
 describe('AttachmentSchema — URL safety', () => {
@@ -214,5 +215,57 @@ describe('MessageCursorSchema', () => {
     const r = MessageCursorSchema.safeParse({ limit: '20' })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.limit).toBe(20)
+  })
+})
+
+describe('ChangeEmailSchema — a senha atual e obrigatoria', () => {
+  it('aceita e-mail valido com senha', () => {
+    const r = ChangeEmailSchema.safeParse({ newEmail: 'novo@exemplo.com', currentPassword: 'Senha123' })
+    expect(r.success).toBe(true)
+  })
+
+  it('recusa sem a senha atual', () => {
+    const r = ChangeEmailSchema.safeParse({ newEmail: 'novo@exemplo.com' })
+    expect(r.success).toBe(false)
+  })
+
+  it('recusa senha em branco', () => {
+    const r = ChangeEmailSchema.safeParse({ newEmail: 'novo@exemplo.com', currentPassword: '' })
+    expect(r.success).toBe(false)
+  })
+
+  it('recusa e-mail sem formato', () => {
+    const r = ChangeEmailSchema.safeParse({ newEmail: 'nao-e-email', currentPassword: 'Senha123' })
+    expect(r.success).toBe(false)
+  })
+})
+
+describe('ChangeUsernameSchema — mesmas regras do cadastro', () => {
+  it('aceita minusculas, numeros e underscore', () => {
+    expect(ChangeUsernameSchema.safeParse({ username: 'astra_2026' }).success).toBe(true)
+  })
+
+  it('recusa maiuscula', () => {
+    expect(ChangeUsernameSchema.safeParse({ username: 'Astra' }).success).toBe(false)
+  })
+
+  it('recusa espaco e pontuacao', () => {
+    expect(ChangeUsernameSchema.safeParse({ username: 'astra dev' }).success).toBe(false)
+    expect(ChangeUsernameSchema.safeParse({ username: 'astra.dev' }).success).toBe(false)
+  })
+
+  it('recusa curto demais e longo demais', () => {
+    expect(ChangeUsernameSchema.safeParse({ username: 'ab' }).success).toBe(false)
+    expect(ChangeUsernameSchema.safeParse({ username: 'a'.repeat(33) }).success).toBe(false)
+  })
+
+  it('aceita exatamente o formato que o RegisterSchema aceita', () => {
+    const nome = 'limite_de_32_caracteres_exatoss'
+    expect(nome.length).toBeLessThanOrEqual(32)
+    expect(ChangeUsernameSchema.safeParse({ username: nome }).success).toBe(
+      RegisterSchema.safeParse({
+        email: 'a@b.com', username: nome, displayName: 'A', password: 'Senha123',
+      }).success,
+    )
   })
 })

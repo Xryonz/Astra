@@ -53,6 +53,13 @@ CREATE INDEX IF NOT EXISTS "ServerAuditLog_serverId_createdAt_idx" ON "ServerAud
 ALTER TABLE "ServerMember" ADD COLUMN IF NOT EXISTS "nameColor" text;
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "authorColor" text;
 
+-- ===== Troca de e-mail com confirmação no endereço novo =====
+-- O endereço só entra em "email" depois do código voltar certo, então erro de
+-- digitação não deixa a conta presa num endereço que não existe.
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmail" text;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmailCode" text;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pendingEmailExpiresAt" timestamp (3);
+
 -- ===== Poll + MessageEdit =====
 ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "poll" text;
 

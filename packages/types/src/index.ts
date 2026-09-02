@@ -86,6 +86,21 @@ export const VerifyEmailSchema = z.object({
 })
 export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>
 
+export const ChangeEmailSchema = z.object({
+  newEmail: z.string().email('E-mail inválido'),
+  currentPassword: z.string().min(1, 'Senha atual obrigatória'),
+})
+export type ChangeEmailInput = z.infer<typeof ChangeEmailSchema>
+
+export const ChangeUsernameSchema = z.object({
+  username: z
+    .string()
+    .min(3, 'Mínimo 3 caracteres')
+    .max(32, 'Máximo 32 caracteres')
+    .regex(/^[a-z0-9_]+$/, 'Apenas letras minúsculas, números e underscore'),
+})
+export type ChangeUsernameInput = z.infer<typeof ChangeUsernameSchema>
+
 export const CreateServerSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório').max(100, 'Máximo 100 caracteres'),
   iconUrl: z.string().url().optional(),

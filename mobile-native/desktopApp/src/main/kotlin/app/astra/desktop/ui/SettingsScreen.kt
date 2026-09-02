@@ -1907,6 +1907,10 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
     var trocandoSenha by remember { mutableStateOf(false) }
     var conferindoEmail by remember { mutableStateOf(false) }
     var conferidoAgora by remember { mutableStateOf(false) }
+    var trocandoEmail by remember { mutableStateOf(false) }
+    var trocandoUsuario by remember { mutableStateOf(false) }
+    var usuarioAgora by remember { mutableStateOf<String?>(null) }
+    var emailAgora by remember { mutableStateOf<String?>(null) }
 
     var sessoes by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(me?.id) {
@@ -1923,8 +1927,20 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
             .border(1.dp, Obsidian.borderDim, RoundedCornerShape(8.dp))
             .padding(vertical = 4.dp),
     ) {
-        LinhaDaConta("Nome de usuário", me?.let { "@${it.username}" } ?: "—")
-        LinhaDaConta("E-mail", me?.email?.let { if (emTransmissao) mascarar(it) else it } ?: "—")
+        val usuario = usuarioAgora ?: me?.username
+        val email = emailAgora ?: me?.email
+        LinhaDaConta(
+            rotulo = "Nome de usuário",
+            valor = usuario?.let { "@$it" } ?: "—",
+            acao = if (usuario == null) null else "Editar",
+            aoAgir = { trocandoUsuario = true },
+        )
+        LinhaDaConta(
+            rotulo = "E-mail",
+            valor = email?.let { if (emTransmissao) mascarar(it) else it } ?: "—",
+            acao = if (email == null || semSenha) null else "Editar",
+            aoAgir = { trocandoEmail = true },
+        )
         LinhaDaConta(
             rotulo = "Senha",
             valor = if (semSenha) "não definida" else "••••••••",
@@ -1956,9 +1972,25 @@ private fun AccountSection(me: ProfileUserDto?, aoSairDaConta: () -> Unit) {
 
     if (conferindoEmail) {
         VerificarEmailDialog(
-            email = me?.email,
+            email = emailAgora ?: me?.email,
             onClose = { conferindoEmail = false },
             aoConferir = { conferidoAgora = true },
+        )
+    }
+
+    if (trocandoEmail) {
+        TrocarEmailDialog(
+            emailAtual = emailAgora ?: me?.email,
+            onClose = { trocandoEmail = false },
+            aoTrocar = { emailAgora = it; conferidoAgora = true },
+        )
+    }
+
+    if (trocandoUsuario) {
+        TrocarUsuarioDialog(
+            atual = usuarioAgora ?: me?.username,
+            onClose = { trocandoUsuario = false },
+            aoTrocar = { usuarioAgora = it },
         )
     }
 

@@ -137,3 +137,99 @@ func TestSemVozesDaSilencio(t *testing.T) {
 		t.Fatal("o destino não foi zerado quando não havia ninguém falando")
 	}
 }
+
+func picoDe(amostras []int16) int16 {
+	var pico int16
+	for _, a := range amostras {
+		if a > pico {
+			pico = a
+		}
+	}
+	return pico
+}
+
+func entregarTom(m *Misturador, id string, valor int16) {
+	quadro := make([]int16, AmostrasPorQuadro)
+	for i := range quadro {
+		quadro[i] = valor
+	}
+	m.Entregar(id, quadro)
+}
+
+func TestVolumePorPessoaSoAbaixaQuemFoiEscolhido(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirGanho("baixinho", 25)
+
+	entregarTom(m, "baixinho", 1000)
+	entregarTom(m, "normal", 1000)
+
+	destino := make([]int16, AmostrasPorQuadro)
+	if vozes := m.Puxar(destino); vozes != 2 {
+		t.Fatalf("misturou %d vozes, esperava 2", vozes)
+	}
+
+	pico := picoDe(destino)
+	if pico < 1200 || pico > 1300 {
+		t.Errorf("pico %d: esperava perto de 1250 (1000 inteiro + 250 abafado)", pico)
+	}
+}
+
+func TestVolumeZeroTiraAPessoaDaMisturaSemTravarAFila(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirGanho("calado", 0)
+
+	entregarTom(m, "calado", 8000)
+	destino := make([]int16, AmostrasPorQuadro)
+
+	if vozes := m.Puxar(destino); vozes != 1 {
+		t.Fatalf("puxou %d vozes, esperava 1 — o quadro precisa sair da fila mesmo mudo", vozes)
+	}
+	if pico := picoDe(destino); pico != 0 {
+		t.Errorf("pico %d com volume zero, esperava silencio", pico)
+	}
+}
+
+func TestVoltarPara100TiraOAbafamento(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirGanho("alguem", 10)
+	m.DefinirGanho("alguem", 100)
+
+	entregarTom(m, "alguem", 1000)
+	destino := make([]int16, AmostrasPorQuadro)
+	m.Puxar(destino)
+
+	if pico := picoDe(destino); pico != 1000 {
+		t.Errorf("pico %d depois de voltar a 100%%, esperava 1000", pico)
+	}
+}
+
+func TestGanhoSobreviveAoSilencioQueApagaAVoz(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirGanho("some", 50)
+
+	entregarTom(m, "some", 1000)
+	destino := make([]int16, AmostrasPorQuadro)
+	m.Puxar(destino)
+
+	m.Esquecer("some")
+
+	entregarTom(m, "some", 1000)
+	m.Puxar(destino)
+	if pico := picoDe(destino); pico < 480 || pico > 520 {
+		t.Errorf("pico %d depois de a voz ser esquecida e voltar: o volume escolhido nao podia ter voltado a 100%%", pico)
+	}
+}
+
+func TestSairDaSalaEsqueceOsVolumes(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirGanho("alguem", 20)
+	m.EsquecerGanhos()
+
+	entregarTom(m, "alguem", 1000)
+	destino := make([]int16, AmostrasPorQuadro)
+	m.Puxar(destino)
+
+	if pico := picoDe(destino); pico != 1000 {
+		t.Errorf("pico %d depois de esquecer os volumes, esperava 1000", pico)
+	}
+}

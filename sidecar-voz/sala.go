@@ -138,6 +138,8 @@ func (s *Sala) Sair() {
 	s.telasDos = make(map[string]*lksdk.RemoteTrackPublication)
 	s.mu.Unlock()
 
+	s.misturador.EsquecerGanhos()
+
 	if quarto != nil {
 		quarto.Disconnect()
 	}

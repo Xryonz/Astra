@@ -204,6 +204,10 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		a.sala.Assistir(cmd.Par)
 		return nil
 
+	case CmdVolume:
+		a.misturador.DefinirGanho(cmd.Par, cmd.Volume)
+		return nil
+
 	case CmdUsarAparelho:
 		sentido := sentidoSaida
 		if cmd.Sentido == "entrada" {

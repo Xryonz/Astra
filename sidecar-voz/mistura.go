@@ -16,8 +16,9 @@ const (
 )
 
 type Misturador struct {
-	mu    sync.Mutex
-	vozes map[string]*vozRecebida
+	mu     sync.Mutex
+	vozes  map[string]*vozRecebida
+	ganhos map[string]int32
 
 	soma []int32
 }
@@ -34,10 +35,37 @@ type vozRecebida struct {
 	minFila  int
 }
 
+const ganhoInteiro = 256
+
 const silencioAteEsquecer = 3 * time.Second
 
 func NovoMisturador() *Misturador {
-	return &Misturador{vozes: make(map[string]*vozRecebida)}
+	return &Misturador{
+		vozes:  make(map[string]*vozRecebida),
+		ganhos: make(map[string]int32),
+	}
+}
+
+func (m *Misturador) DefinirGanho(id string, porcento int) {
+	if porcento < 0 {
+		porcento = 0
+	}
+	if porcento > 100 {
+		porcento = 100
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if porcento == 100 {
+		delete(m.ganhos, id)
+		return
+	}
+	m.ganhos[id] = int32(porcento) * ganhoInteiro / 100
+}
+
+func (m *Misturador) EsquecerGanhos() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	clear(m.ganhos)
 }
 
 func (m *Misturador) Entregar(id string, pcm []int16) {
@@ -130,8 +158,17 @@ func (m *Misturador) Puxar(destino []int16) int {
 		copy(v.fila, v.fila[1:])
 		v.fila = v.fila[:len(v.fila)-1]
 		vozes++
+
+		ganho, abafada := m.ganhos[id]
+		if abafada && ganho == 0 {
+			continue
+		}
 		for i := 0; i < len(destino) && i < len(quadro); i++ {
-			soma[i] += int32(quadro[i])
+			amostra := int32(quadro[i])
+			if abafada {
+				amostra = amostra * ganho / ganhoInteiro
+			}
+			soma[i] += amostra
 		}
 	}
 

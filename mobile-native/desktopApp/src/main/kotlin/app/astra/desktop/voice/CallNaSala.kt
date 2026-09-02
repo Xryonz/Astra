@@ -44,6 +44,7 @@ class CallNaSala(
 
     companion object {
         const val EU = ""
+        const val VOLUME_CHEIO = 100
     }
 
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
@@ -133,6 +134,19 @@ class CallNaSala(
         if (alvo == noPalco) return
         noPalco = alvo
         sidecar.assistir(par)
+    }
+
+    private val _volumes = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val volumes = _volumes.asStateFlow()
+
+    fun volumeDe(par: String): Int = _volumes.value[par] ?: VOLUME_CHEIO
+
+    fun definirVolume(par: String, porcento: Int) {
+        val alvo = porcento.coerceIn(0, VOLUME_CHEIO)
+        if (volumeDe(par) == alvo) return
+        _volumes.value =
+            if (alvo == VOLUME_CHEIO) _volumes.value - par else _volumes.value + (par to alvo)
+        sidecar.volume(par, alvo)
     }
 
     @Volatile private var noPalco: String? = null

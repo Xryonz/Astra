@@ -23,6 +23,8 @@ type Comando struct {
 	Fps     int    `json:"fps,omitempty"`
 	Kbps    int    `json:"kbps,omitempty"`
 
+	Volume  int    `json:"volume,omitempty"`
+
 	Sentido string `json:"sentido,omitempty"`
 	Id      string `json:"id,omitempty"`
 }
@@ -60,6 +62,8 @@ const (
 	CmdJanelas   = "janelas"
 
 	CmdAssistir = "assistir"
+
+	CmdVolume = "volume"
 
 	CmdUsarAparelho = "usar"
 	CmdSair         = "sair"

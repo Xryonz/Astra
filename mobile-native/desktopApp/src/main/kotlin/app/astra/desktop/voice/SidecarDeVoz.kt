@@ -37,6 +37,7 @@ data class ComandoDeVoz(
     val altura: Int? = null,
     val fps: Int? = null,
     val kbps: Int? = null,
+    val volume: Int? = null,
 )
 
 @Serializable
@@ -141,6 +142,9 @@ class SidecarDeVoz(private val scope: CoroutineScope) {
     fun pedirJanelas() = mandar(ComandoDeVoz(cmd = "janelas"))
 
     fun assistir(par: String?) = mandar(ComandoDeVoz(cmd = "assistir", par = par.orEmpty()))
+
+    fun volume(par: String, porcento: Int) =
+        mandar(ComandoDeVoz(cmd = "volume", par = par, volume = porcento.coerceIn(0, 100)))
 
     fun pedirAparelhos() = mandar(ComandoDeVoz(cmd = "aparelhos"))
 

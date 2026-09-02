@@ -14,9 +14,11 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -67,6 +69,12 @@ sealed interface MenuEntry {
         val label: String,
         val emojis: List<String>,
         val onPick: (String) -> Unit,
+    ) : MenuEntry
+
+    data class VolumeSub(
+        val label: String,
+        val porcento: Int,
+        val onChange: (Int) -> Unit,
     ) : MenuEntry
 }
 
@@ -146,6 +154,7 @@ internal fun MenuCard(entries: List<MenuEntry>, dismiss: () -> Unit) {
                         )
                     is MenuEntry.Item -> MenuRow(entry, dismiss)
                     is MenuEntry.EmojiSub -> EmojiSubRow(entry, dismiss)
+                    is MenuEntry.VolumeSub -> VolumeSubRow(entry)
                 }
             }
         }
@@ -245,6 +254,88 @@ private fun EmojiSubRow(sub: MenuEntry.EmojiSub, dismiss: () -> Unit) {
                                 .padding(5.dp),
                         ) {
                             Text(e, style = TextStyle(fontSize = 15.sp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VolumeSubRow(sub: MenuEntry.VolumeSub) {
+    val rowInteraction = remember { MutableInteractionSource() }
+    val rowHovered by rowInteraction.collectIsHoveredAsState()
+    val popupInteraction = remember { MutableInteractionSource() }
+    val popupHovered by popupInteraction.collectIsHoveredAsState()
+    val open = rowHovered || popupHovered
+
+    val bg by animateColorAsState(if (rowHovered) Obsidian.hover else Color.Transparent, tween(100))
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(6.dp))
+                .background(bg)
+                .hoverable(rowInteraction)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                sub.label,
+                style = TextStyle(color = if (rowHovered) Obsidian.text1 else Obsidian.text2, fontSize = 13.sp),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "${sub.porcento}%",
+                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+            )
+            Spacer(Modifier.width(6.dp))
+            LIcon(Lucide.ChevronRight, tint = Obsidian.text3, size = 13.dp)
+        }
+        if (open) {
+            Popup(popupPositionProvider = SubmenuBeside) {
+                Row(
+                    Modifier
+                        .popupReveal(originX = 0f, originY = 0.5f)
+                        .width(190.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Obsidian.overlay)
+                        .border(1.dp, Obsidian.borderDim, RoundedCornerShape(999.dp))
+                        .hoverable(popupInteraction)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val fracao = (sub.porcento / 100f).coerceIn(0f, 1f)
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(20.dp)
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures { change, _ ->
+                                    change.consume()
+                                    val f = (change.position.x / size.width).coerceIn(0f, 1f)
+                                    sub.onChange((f * 100).roundToInt())
+                                }
+                            },
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
+                                .background(Obsidian.void.copy(alpha = 0.6f)),
+                        )
+                        Box(
+                            Modifier.fillMaxWidth(fracao).height(4.dp).clip(RoundedCornerShape(2.dp))
+                                .background(Obsidian.accent),
+                        )
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            if (fracao > 0f) Spacer(Modifier.weight(fracao))
+                            Box(
+                                Modifier.size(12.dp).clip(CircleShape)
+                                    .background(Obsidian.accent)
+                                    .border(2.dp, Obsidian.overlay, CircleShape),
+                            )
+                            if (fracao < 1f) Spacer(Modifier.weight(1f - fracao))
                         }
                     }
                 }

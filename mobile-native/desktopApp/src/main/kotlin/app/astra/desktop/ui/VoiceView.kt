@@ -167,6 +167,7 @@ fun VoiceView(
         val transmitindo by call.transmitindo.collectAsState()
         val relatorio by call.relatorioDaTela.collectAsState()
         val ritmos by call.ritmoDeQuemMostra.collectAsState()
+        val volumes by call.volumes.collectAsState()
 
         val mostrando = remember(mostrandoOutros, transmitindo) {
             if (transmitindo) mostrandoOutros + CallNaSala.EU else mostrandoOutros
@@ -219,7 +220,12 @@ fun VoiceView(
         Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
             if (quemMostra == null) {
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                    ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
+                    ParticipantGrid(
+                        tiles,
+                        call.telasDosOutros,
+                        volumeDe = { volumes[it] ?: CallNaSala.VOLUME_CHEIO },
+                        aoMudarVolume = call::definirVolume,
+                    ) { escolha ->
                         telaEscolhida = if (telaEscolhida == escolha) null else escolha
                     }
                 }
@@ -237,7 +243,12 @@ fun VoiceView(
                         else -> "$nomeDeQuemMostra está compartilhando a tela"
                     },
                     rostos = {
-                        ParticipantGrid(tiles, call.telasDosOutros) { escolha ->
+                        ParticipantGrid(
+                            tiles,
+                            call.telasDosOutros,
+                            volumeDe = { volumes[it] ?: CallNaSala.VOLUME_CHEIO },
+                            aoMudarVolume = call::definirVolume,
+                        ) { escolha ->
                             telaEscolhida = if (telaEscolhida == escolha) null else escolha
                         }
                     },
@@ -768,6 +779,8 @@ private data class Tile(
 private fun ParticipantGrid(
     tiles: List<Tile>,
     previa: StateFlow<Map<String, QuadroDeTela>>? = null,
+    volumeDe: (String) -> Int = { 100 },
+    aoMudarVolume: (String, Int) -> Unit = { _, _ -> },
     aoEscolherTela: (String) -> Unit = {},
 ) {
     FlowRow(
@@ -777,7 +790,23 @@ private fun ParticipantGrid(
     ) {
         tiles.forEach { t ->
             key(t.key) {
-                PopIn { ParticipantTile(t, previa, Modifier.width(164.dp)) { aoEscolherTela(t.key) } }
+                PopIn {
+                    if (t.isMe) {
+                        ParticipantTile(t, previa, Modifier.width(164.dp)) { aoEscolherTela(t.key) }
+                    } else {
+                        EditorialContextMenu(entries = {
+                            listOf(
+                                MenuEntry.VolumeSub(
+                                    label = "volume",
+                                    porcento = volumeDe(t.key),
+                                    onChange = { aoMudarVolume(t.key, it) },
+                                ),
+                            )
+                        }) {
+                            ParticipantTile(t, previa, Modifier.width(164.dp)) { aoEscolherTela(t.key) }
+                        }
+                    }
+                }
             }
         }
     }

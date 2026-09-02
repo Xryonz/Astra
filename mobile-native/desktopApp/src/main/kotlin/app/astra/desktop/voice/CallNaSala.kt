@@ -45,6 +45,8 @@ class CallNaSala(
     companion object {
         const val EU = ""
         const val VOLUME_CHEIO = 100
+        private const val ALVO_DO_MICROFONE = "meu-microfone"
+        private const val ALVO_DA_ESCUTA = "minha-escuta"
     }
 
     private val _mostrandoTela = MutableStateFlow<Set<String>>(emptySet())
@@ -141,6 +143,16 @@ class CallNaSala(
 
     fun volumeDe(par: String): Int = _volumes.value[par] ?: VOLUME_CHEIO
 
+    private var volumeDoMicrofone = VOLUME_CHEIO
+    private var volumeDaEscuta = VOLUME_CHEIO
+
+    fun definirVolumes(microfone: Int, escuta: Int) {
+        volumeDoMicrofone = microfone
+        volumeDaEscuta = escuta
+        sidecar.volume(ALVO_DO_MICROFONE, microfone)
+        sidecar.volume(ALVO_DA_ESCUTA, escuta)
+    }
+
     fun definirVolume(par: String, porcento: Int) {
         val alvo = porcento.coerceIn(0, VOLUME_CHEIO)
         if (volumeDe(par) == alvo) return
@@ -199,6 +211,7 @@ class CallNaSala(
         microfoneEscolhido?.let { sidecar.usarAparelho("entrada", it) }
         saidaEscolhida?.let { sidecar.usarAparelho("saida", it) }
         sidecar.tratamento(eco, ruido, ganho)
+        definirVolumes(volumeDoMicrofone, volumeDaEscuta)
     }
 
     private suspend fun pedirCredencialEEntrar() {

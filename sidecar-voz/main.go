@@ -205,7 +205,14 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 		return nil
 
 	case CmdVolume:
-		a.misturador.DefinirGanho(cmd.Par, cmd.Volume)
+		switch cmd.Par {
+		case AlvoDoMicrofone:
+			a.motor.DefinirVolumeDoMicrofone(cmd.Volume)
+		case AlvoDaEscuta:
+			a.misturador.DefinirEscuta(cmd.Volume)
+		default:
+			a.misturador.DefinirGanho(cmd.Par, cmd.Volume)
+		}
 		return nil
 
 	case CmdUsarAparelho:

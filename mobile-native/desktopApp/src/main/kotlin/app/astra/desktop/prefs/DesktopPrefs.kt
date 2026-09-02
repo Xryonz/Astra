@@ -42,14 +42,6 @@ enum class ScreenQuality(
     }
 }
 
-enum class ModoDeFala(val key: String, val label: String) {
-    VOZ("voz", "Transmitir quando eu falar"),
-    APERTAR("apertar", "Apertar para falar");
-    companion object {
-        fun from(raw: String?) = entries.find { it.key == raw } ?: VOZ
-    }
-}
-
 enum class FontSizePref(val key: String, val label: String, val scale: Float) {
     SM("sm", "Pequena", 0.9f), MD("md", "Padrao", 1.0f), LG("lg", "Grande", 1.12f), XL("xl", "Maior", 1.25f);
     companion object {
@@ -101,8 +93,8 @@ class DesktopPrefs(private val store: SessionStore) {
         val micSensitivity: Float = 0f,
         val audioInput: String? = null,
         val audioOutput: String? = null,
-        val modoDeFala: ModoDeFala = ModoDeFala.VOZ,
-        val teclaFalar: Int = 0,
+        val volumeDoMicrofone: Int = 100,
+        val volumeDaEscuta: Int = 100,
         val teclaMudo: Int = 0,
         val teclaEnsurdecer: Int = 0,
         val emojiRecentes: List<String> = emptyList(),
@@ -187,8 +179,8 @@ class DesktopPrefs(private val store: SessionStore) {
         micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
         audioOutput = store.uiPref("audioOutput")?.ifBlank { null },
-        modoDeFala = ModoDeFala.from(store.uiPref("modoDeFala")),
-        teclaFalar = store.uiPref("teclaFalar")?.toIntOrNull() ?: 0,
+        volumeDoMicrofone = store.uiPref("volumeDoMicrofone")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
+        volumeDaEscuta = store.uiPref("volumeDaEscuta")?.toIntOrNull()?.coerceIn(0, 100) ?: 100,
         teclaMudo = store.uiPref("teclaMudo")?.toIntOrNull() ?: 0,
         teclaEnsurdecer = store.uiPref("teclaEnsurdecer")?.toIntOrNull() ?: 0,
         emojiRecentes = store.uiPref("emojiRecentes")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList(),
@@ -358,14 +350,16 @@ class DesktopPrefs(private val store: SessionStore) {
         _state.update { it.copy(audioInput = v) }
     }
 
-    fun setModoDeFala(v: ModoDeFala) {
-        store.setUiPref("modoDeFala", v.key)
-        _state.update { it.copy(modoDeFala = v) }
+    fun setVolumeDoMicrofone(v: Int) {
+        val n = v.coerceIn(0, 100)
+        store.setUiPref("volumeDoMicrofone", n.toString())
+        _state.update { it.copy(volumeDoMicrofone = n) }
     }
 
-    fun setTeclaFalar(vk: Int) {
-        store.setUiPref("teclaFalar", vk.toString())
-        _state.update { it.copy(teclaFalar = vk) }
+    fun setVolumeDaEscuta(v: Int) {
+        val n = v.coerceIn(0, 100)
+        store.setUiPref("volumeDaEscuta", n.toString())
+        _state.update { it.copy(volumeDaEscuta = n) }
     }
 
     fun setTeclaMudo(vk: Int) {

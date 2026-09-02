@@ -8,7 +8,6 @@ import app.astra.desktop.AtalhosGlobais
 import app.astra.desktop.auth.SessionStore
 import app.astra.desktop.net.DesktopSocket
 import app.astra.desktop.prefs.DesktopPrefs
-import app.astra.desktop.prefs.ModoDeFala
 import app.astra.mobile.core.network.VoiceApi
 import app.astra.mobile.core.network.dto.ChannelDto
 import kotlinx.coroutines.CoroutineScope
@@ -65,17 +64,14 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
 
     private var mudoAntesDeEnsurdecer = false
 
-    private var falaSegurada by mutableStateOf(false)
-
     private val prefs = koin.get<DesktopPrefs>()
 
     init {
         scope.launch {
             prefs.state
-                .map { listOf(it.modoDeFala.ordinal, it.teclaFalar, it.teclaMudo, it.teclaEnsurdecer) }
+                .map { it.teclaMudo to it.teclaEnsurdecer }
                 .distinctUntilChanged()
                 .collect {
-                    if (prefs.state.value.modoDeFala != ModoDeFala.APERTAR) falaSegurada = false
                     registrarAtalhos()
                     aplicar()
                 }
@@ -86,6 +82,12 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
                 .distinctUntilChanged()
                 .collect { (eco, ruido, ganho) -> call?.definirTratamento(eco, ruido, ganho) }
         }
+        scope.launch {
+            prefs.state
+                .map { it.volumeDoMicrofone to it.volumeDaEscuta }
+                .distinctUntilChanged()
+                .collect { (mic, escuta) -> call?.definirVolumes(mic, escuta) }
+        }
     }
 
     private fun registrarAtalhos() {
@@ -93,21 +95,12 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
         val mapa = buildMap<Int, (Boolean) -> Unit> {
             if (p.teclaMudo != 0) put(p.teclaMudo) { desceu -> if (desceu) naUi { alternarMudo() } }
             if (p.teclaEnsurdecer != 0) put(p.teclaEnsurdecer) { desceu -> if (desceu) naUi { alternarEnsurdecer() } }
-            if (p.modoDeFala == ModoDeFala.APERTAR && p.teclaFalar != 0) {
-                put(p.teclaFalar) { desceu -> naUi { segurarFala(desceu) } }
-            }
         }
         AtalhosGlobais.observar(mapa)
     }
 
     private fun naUi(acao: () -> Unit) {
         scope.launch { acao() }
-    }
-
-    private fun segurarFala(apertado: Boolean) {
-        if (falaSegurada == apertado) return
-        falaSegurada = apertado
-        aplicar()
     }
 
     fun alternarMudo() {
@@ -132,10 +125,8 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
     }
 
     private fun aplicar() {
-        val apertarParaFalar = prefs.state.value.modoDeFala == ModoDeFala.APERTAR
-        val podeFalar = !mudo && (!apertarParaFalar || falaSegurada)
         call?.let {
-            it.setMic(podeFalar)
+            it.setMic(!mudo)
             it.setEnsurdecido(ensurdecido)
         }
     }
@@ -158,6 +149,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
             val p = prefs.state.value
             it.lembrarAparelhos(p.audioInput, p.audioOutput)
             it.lembrarTratamento(p.micEchoCancel, p.micNoiseSuppression, p.micAutoGain)
+            it.definirVolumes(p.volumeDoMicrofone, p.volumeDaEscuta)
             it.entrar(tipo, sala.id)
             espelhoDosAparelhos?.cancel()
             espelhoDosAparelhos = scope.launch {

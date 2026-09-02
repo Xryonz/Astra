@@ -148,7 +148,6 @@ import app.astra.desktop.InicioComWindows
 import app.astra.desktop.ModoTransmissao
 import app.astra.desktop.prefs.DesktopPrefs
 import app.astra.desktop.prefs.FontSizePref
-import app.astra.desktop.prefs.ModoDeFala
 import app.astra.desktop.prefs.ScreenQuality
 import app.astra.desktop.prefs.UiFps
 import app.astra.desktop.ui.theme.DmMono
@@ -196,6 +195,7 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.TargetDataLine
 import kotlin.concurrent.thread
 import kotlin.math.PI
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 enum class SettingsTab(val label: String, val sub: String, val icon: ImageVector) {
@@ -1463,6 +1463,56 @@ private fun saveErrorMessage(t: Throwable?): String {
 
 private const val ZOOM_MIN = 50
 private const val ZOOM_MAX = 300
+
+@Composable
+private fun LinhaDeVolume(rotulo: String, valor: Int, onChange: (Int) -> Unit) {
+    Row(
+        Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            rotulo,
+            style = TextStyle(color = Obsidian.text2, fontSize = 12.sp),
+            modifier = Modifier.width(150.dp),
+        )
+        Box(
+            Modifier
+                .weight(1f)
+                .height(22.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, _ ->
+                        change.consume()
+                        onChange(((change.position.x / size.width).coerceIn(0f, 1f) * 100).roundToInt())
+                    }
+                },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            val fracao = (valor / 100f).coerceIn(0f, 1f)
+            Box(
+                Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp))
+                    .background(Obsidian.void.copy(alpha = 0.6f)),
+            )
+            Box(
+                Modifier.fillMaxWidth(fracao).height(5.dp).clip(RoundedCornerShape(3.dp))
+                    .background(Obsidian.accent),
+            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (fracao > 0f) Spacer(Modifier.weight(fracao))
+                Box(
+                    Modifier.size(14.dp).clip(CircleShape)
+                        .background(Obsidian.accent).border(2.dp, Obsidian.raised, CircleShape),
+                )
+                if (fracao < 1f) Spacer(Modifier.weight(1f - fracao))
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "$valor%",
+            style = TextStyle(color = Obsidian.text2, fontSize = 11.sp),
+            modifier = Modifier.width(34.dp),
+        )
+    }
+}
 
 @Composable
 private fun ZoomTrack(scale: Int, onChange: (Int) -> Unit) {
@@ -2912,21 +2962,16 @@ private fun VoiceSection(
     FieldLabel("entrada (seu microfone)")
     DeviceDropdown(aparelhos.microfones, p.audioInput, prefs::setAudioInput)
 
-    SettingsDivider()
-    Text("Como falar", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
+    Spacer(Modifier.height(16.dp))
+    LinhaDeVolume("volume do microfone", p.volumeDoMicrofone, prefs::setVolumeDoMicrofone)
     Spacer(Modifier.height(10.dp))
-    RadioList(
-        ModoDeFala.entries.map { it.label to it },
-        p.modoDeFala, prefs::setModoDeFala,
+    LinhaDeVolume("volume da escuta", p.volumeDaEscuta, prefs::setVolumeDaEscuta)
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "os dois só abaixam. para uma pessoa específica, use o botão direito no cartão dela na chamada.",
+        style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
+        modifier = Modifier.widthIn(max = 460.dp),
     )
-    if (p.modoDeFala == ModoDeFala.APERTAR && p.teclaFalar == 0) {
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "sem tecla escolhida, ninguém te ouve — defina em Atalhos.",
-            style = TextStyle(color = Obsidian.danger, fontSize = 11.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
-        )
-    }
 
     SettingsDivider()
     Text("Microfone", style = TextStyle(color = Obsidian.text1, fontSize = 17.sp, fontFamily = DmSerif))
@@ -2956,16 +3001,6 @@ private fun VoiceSection(
 
 @Composable
 private fun AtalhosSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
-    CapturaDeTecla("falar", p.teclaFalar, prefs::setTeclaFalar)
-    if (p.modoDeFala != ModoDeFala.APERTAR) {
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "vale no modo “apertar para falar”, em Voz.",
-            style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-            modifier = Modifier.widthIn(max = 460.dp),
-        )
-    }
-    Spacer(Modifier.height(12.dp))
     CapturaDeTecla("mudo", p.teclaMudo, prefs::setTeclaMudo)
     Spacer(Modifier.height(12.dp))
     CapturaDeTecla("ensurdecer", p.teclaEnsurdecer, prefs::setTeclaEnsurdecer)
@@ -2984,7 +3019,7 @@ private fun AtalhosSection(p: DesktopPrefs.Prefs, prefs: DesktopPrefs) {
         "Para uma tecla funcionar com o jogo em primeiro plano, o Windows exige um " +
             "gancho de teclado do sistema — não existe outro caminho, e é o mesmo que " +
             "Discord e TeamSpeak usam.\n\n" +
-            "O que o Astra faz com ele: compara a tecla apertada com as três escolhidas " +
+            "O que o Astra faz com ele: compara a tecla apertada com as escolhidas " +
             "aqui em cima. Só isso. Nada é guardado, contado ou enviado para lugar " +
             "nenhum, e a tecla segue o caminho dela normalmente.\n\n" +
             "Sem nenhuma tecla escolhida, o gancho nem chega a ser instalado.",

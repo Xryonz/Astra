@@ -19,6 +19,7 @@ type Misturador struct {
 	mu     sync.Mutex
 	vozes  map[string]*vozRecebida
 	ganhos map[string]int32
+	escuta int32
 
 	soma []int32
 }
@@ -43,6 +44,7 @@ func NovoMisturador() *Misturador {
 	return &Misturador{
 		vozes:  make(map[string]*vozRecebida),
 		ganhos: make(map[string]int32),
+		escuta: ganhoInteiro,
 	}
 }
 
@@ -66,6 +68,12 @@ func (m *Misturador) EsquecerGanhos() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	clear(m.ganhos)
+}
+
+func (m *Misturador) DefinirEscuta(porcento int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.escuta = int32(min(max(porcento, 0), 100)) * ganhoInteiro / 100
 }
 
 func (m *Misturador) Entregar(id string, pcm []int16) {
@@ -179,8 +187,14 @@ func (m *Misturador) Puxar(destino []int16) int {
 		return 0
 	}
 
-	for i := range destino {
-		destino[i] = cortar(soma[i])
+	if m.escuta == ganhoInteiro {
+		for i := range destino {
+			destino[i] = cortar(soma[i])
+		}
+	} else {
+		for i := range destino {
+			destino[i] = cortar(soma[i] * m.escuta / ganhoInteiro)
+		}
 	}
 	return vozes
 }

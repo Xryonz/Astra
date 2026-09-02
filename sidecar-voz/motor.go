@@ -44,6 +44,8 @@ type Motor struct {
 
 	ecoReprovado atomic.Bool
 
+	volumeDoMic atomic.Int32
+
 	saidaPronta chan struct{}
 	avisarSaida sync.Once
 
@@ -62,7 +64,12 @@ func NovoMotor(faixa FaixaDeVoz, mist *Misturador, saida *Escritor, dllOpus stri
 
 	m.suprimirRuido.Store(true)
 	m.ganhoAuto.Store(true)
+	m.volumeDoMic.Store(ganhoInteiro)
 	return m
+}
+
+func (m *Motor) DefinirVolumeDoMicrofone(porcento int) {
+	m.volumeDoMic.Store(int32(min(max(porcento, 0), 100)) * ganhoInteiro / 100)
 }
 
 func (m *Motor) DefinirTratamento(aj AjustesDaVoz) {
@@ -243,6 +250,12 @@ func (m *Motor) bombearMicrofone(ctx context.Context, mic FonteDeAudio, cod *Cod
 
 		for len(acumulado) >= porQuadro {
 			quadro := acumulado[:porQuadro]
+
+			if v := m.volumeDoMic.Load(); v != ganhoInteiro {
+				for i := range quadro {
+					quadro[i] = int16(int32(quadro[i]) * v / ganhoInteiro)
+				}
+			}
 
 			mudo := m.mudo.Load()
 

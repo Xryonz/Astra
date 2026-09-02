@@ -65,6 +65,9 @@ const (
 
 	CmdVolume = "volume"
 
+	AlvoDoMicrofone = "meu-microfone"
+	AlvoDaEscuta    = "minha-escuta"
+
 	CmdUsarAparelho = "usar"
 	CmdSair         = "sair"
 )

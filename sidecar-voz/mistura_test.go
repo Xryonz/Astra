@@ -233,3 +233,47 @@ func TestSairDaSalaEsqueceOsVolumes(t *testing.T) {
 		t.Errorf("pico %d depois de esquecer os volumes, esperava 1000", pico)
 	}
 }
+
+func TestEscutaAbafaTodoMundoDeUmaVez(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirEscuta(50)
+
+	entregarTom(m, "um", 1000)
+	entregarTom(m, "outro", 1000)
+
+	destino := make([]int16, AmostrasPorQuadro)
+	m.Puxar(destino)
+
+	if pico := picoDe(destino); pico < 980 || pico > 1020 {
+		t.Errorf("pico %d com a escuta em 50%%, esperava perto de 1000 (as duas vozes pela metade)", pico)
+	}
+}
+
+func TestEscutaZeroDaSilencioSemPerderAContagem(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirEscuta(0)
+
+	entregarTom(m, "alguem", 8000)
+	destino := make([]int16, AmostrasPorQuadro)
+
+	if vozes := m.Puxar(destino); vozes != 1 {
+		t.Fatalf("puxou %d vozes, esperava 1", vozes)
+	}
+	if pico := picoDe(destino); pico != 0 {
+		t.Errorf("pico %d com a escuta em zero, esperava silencio", pico)
+	}
+}
+
+func TestEscutaSobreviveAoFimDaChamada(t *testing.T) {
+	m := NovoMisturador()
+	m.DefinirEscuta(50)
+	m.EsquecerGanhos()
+
+	entregarTom(m, "alguem", 1000)
+	destino := make([]int16, AmostrasPorQuadro)
+	m.Puxar(destino)
+
+	if pico := picoDe(destino); pico < 480 || pico > 520 {
+		t.Errorf("pico %d: a escuta e preferencia do app, nao podia morrer junto com os volumes da sala", pico)
+	}
+}

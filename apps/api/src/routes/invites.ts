@@ -10,7 +10,7 @@ import { saudarNovoMembro } from '../lib/botAvisos'
 import { authLimiter } from '../middleware/rateLimiter'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { invalidateMembersCache } from '../lib/membersCache'
-import { membersChanged } from '../lib/realtime'
+import { membroEntrou } from '../lib/membrosAoVivo'
 
 const router = Router()
 
@@ -63,7 +63,7 @@ router.post(
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id, role: 'MEMBER' })
     void invalidateMembersCache(server.id)
-    membersChanged(server.id)
+    void membroEntrou(server.id, req.userId!)
     void saudarNovoMembro(server.id, req.userId!)
 
     const [chRows, [countRow]] = await Promise.all([

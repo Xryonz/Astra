@@ -34,6 +34,9 @@ import app.astra.mobile.core.network.dto.ActivityUpdateDto
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ServerScopedEventDto
 import app.astra.desktop.ui.invalidateProfileCache
+import app.astra.mobile.core.network.dto.MembroEntrouDto
+import app.astra.mobile.core.network.dto.MembroMudouDeCargoDto
+import app.astra.mobile.core.network.dto.MembroSaiuDto
 import app.astra.mobile.core.network.dto.ProfileUpdatedDto
 import app.astra.mobile.core.network.dto.ProfileUserDto
 import app.astra.mobile.core.network.dto.RoleDto
@@ -1036,11 +1039,40 @@ class ShellVm(
                 socket.serverChannels.collect { reloadServers() }
             }
             launch {
-                socket.serverMembers.collect { raw ->
-                    val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
-                    if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
-                        loadMembers(ev.serverId)
+                socket.membroEntrou.collect { raw ->
+                    val ev = decode<MembroEntrouDto>(raw) ?: return@collect
+                    if ((_state.value.selection as? Selection.Server)?.id != ev.serverId) return@collect
+                    _state.update { st ->
+                        if (st.members.any { it.userId == ev.membro.userId }) st
+                        else st.copy(
+                            members = st.members + ev.membro,
+                            memberPresence = st.memberPresence + (ev.membro.userId to ev.presenca),
+                        )
                     }
+                }
+            }
+            launch {
+                socket.membroSaiu.collect { raw ->
+                    val ev = decode<MembroSaiuDto>(raw) ?: return@collect
+                    if ((_state.value.selection as? Selection.Server)?.id != ev.serverId) return@collect
+                    _state.update { st ->
+                        st.copy(members = st.members.filterNot { it.userId == ev.userId })
+                    }
+                }
+            }
+            launch {
+                socket.membroMudouDeCargo.collect { raw ->
+                    val ev = decode<MembroMudouDeCargoDto>(raw) ?: return@collect
+                    if ((_state.value.selection as? Selection.Server)?.id != ev.serverId) return@collect
+                    val mexeuComigo = _state.value.members.any { it.id == ev.memberId && it.userId == myId }
+                    _state.update { st ->
+                        st.copy(
+                            members = st.members.map {
+                                if (it.id == ev.memberId) it.copy(role = ev.role) else it
+                            },
+                        )
+                    }
+                    if (mexeuComigo) refreshMyPerms(ev.serverId)
                 }
             }
             launch {
@@ -1152,6 +1184,15 @@ class ShellVm(
 
     private inline fun <reified T> decode(raw: String): T? =
         runCatching { json.decodeFromString<T>(raw) }.getOrNull()
+
+    private fun refreshMyPerms(serverId: String) {
+        scope.launch {
+            val perms = runCatching { serverApi.myPerms(serverId).data }.getOrNull() ?: return@launch
+            _state.update {
+                if ((it.selection as? Selection.Server)?.id == serverId) it.copy(myPerms = perms) else it
+            }
+        }
+    }
 
     private fun loadMembers(serverId: String) {
         scope.launch {

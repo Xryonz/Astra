@@ -161,6 +161,19 @@ data class ProfileUpdatedDto(
 )
 
 @Serializable
+data class MembroEntrouDto(
+    val serverId: String,
+    val membro: ServerMemberDto,
+    val presenca: String = "OFFLINE",
+)
+
+@Serializable
+data class MembroSaiuDto(val serverId: String, val userId: String)
+
+@Serializable
+data class MembroMudouDeCargoDto(val serverId: String, val memberId: String, val role: String)
+
+@Serializable
 data class ActivityUpdateDto(
     val userId: String,
     val activity: String? = null,

@@ -100,8 +100,14 @@ class DesktopSocket(
     private val _serverChannels = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val serverChannels: SharedFlow<String> = _serverChannels.asSharedFlow()
 
-    private val _serverMembers = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val serverMembers: SharedFlow<String> = _serverMembers.asSharedFlow()
+    private val _membroEntrou = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val membroEntrou: SharedFlow<String> = _membroEntrou.asSharedFlow()
+
+    private val _membroSaiu = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val membroSaiu: SharedFlow<String> = _membroSaiu.asSharedFlow()
+
+    private val _membroMudouDeCargo = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val membroMudouDeCargo: SharedFlow<String> = _membroMudouDeCargo.asSharedFlow()
 
     private val _serverJoined = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val serverJoined: SharedFlow<String> = _serverJoined.asSharedFlow()
@@ -315,8 +321,14 @@ class DesktopSocket(
         s.on("server_channels") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverChannels.tryEmit(it.toString()) }
         }
-        s.on("server_members") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverMembers.tryEmit(it.toString()) }
+        s.on("server_member_added") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _membroEntrou.tryEmit(it.toString()) }
+        }
+        s.on("server_member_removed") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _membroSaiu.tryEmit(it.toString()) }
+        }
+        s.on("server_member_role") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _membroMudouDeCargo.tryEmit(it.toString()) }
         }
         s.on("server_joined") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverJoined.tryEmit(it.toString()) }

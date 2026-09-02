@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import {
-  attachRealtime, channelsChanged, membersChanged, joinedServer, presenceChanged,
+  attachRealtime, channelsChanged, joinedServer, presenceChanged,
   serverUpdated, serverGone, rolesChanged, leftServer, profileChanged,
 } from './realtime'
 
@@ -20,12 +20,6 @@ describe('avisos de constelacao', () => {
     channelsChanged('srv1')
     expect(f.to).toHaveBeenCalledWith('server:srv1')
     expect(f.emit).toHaveBeenCalledWith('server_channels', { serverId: 'srv1' })
-  })
-
-  it('membros mudaram -> sala da constelacao', () => {
-    membersChanged('srv1')
-    expect(f.to).toHaveBeenCalledWith('server:srv1')
-    expect(f.emit).toHaveBeenCalledWith('server_members', { serverId: 'srv1' })
   })
 
   it('fui adicionado -> sala PESSOAL, nao a da constelacao', () => {

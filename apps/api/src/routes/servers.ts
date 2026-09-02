@@ -18,7 +18,8 @@ import { unmuteUser } from '../lib/spamDetector'
 import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib/storage'
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
-import { channelsChanged, membersChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
+import { channelsChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
+import { membroEntrou, membroSaiu, membroMudouDeCargo } from '../lib/membrosAoVivo'
 
 export const serversRouter = Router()
 
@@ -343,7 +344,7 @@ serversRouter.post(
     await db.insert(serverMembers).values({ userId: friendUserId, serverId })
     void invalidateMembersCache(serverId)
     joinedServer(friendUserId, serverId)
-    membersChanged(serverId)
+    void membroEntrou(serverId, friendUserId)
     void saudarNovoMembro(serverId, friendUserId)
     await db.insert(notifications).values({
       userId: friendUserId,
@@ -387,7 +388,7 @@ serversRouter.patch(
     if (target.role === 'OWNER') return res.status(400).json({ error: 'Não é possível alterar o cargo do dono' })
 
     await db.update(serverMembers).set({ role }).where(eq(serverMembers.id, memberId))
-    membersChanged(serverId)
+    membroMudouDeCargo(serverId, memberId, role)
     res.json({ data: { id: memberId, role } })
   })
 )
@@ -441,7 +442,7 @@ serversRouter.delete(
 
     await db.delete(serverMembers).where(eq(serverMembers.id, memberId))
     void invalidateMembersCache(serverId)
-    membersChanged(serverId)
+    membroSaiu(serverId, target.userId)
     leftServer(target.userId, serverId, 'expulso')
     void audit({
       serverId, actorId: req.userId!, action: AUDIT.MEMBER_KICK,
@@ -494,7 +495,7 @@ serversRouter.delete(
 
     await db.delete(serverMembers).where(eq(serverMembers.id, membership.id))
     void invalidateMembersCache(serverId)
-    membersChanged(serverId)
+    membroSaiu(serverId, req.userId!)
     res.json({ message: 'Você saiu do servidor' })
   })
 )
@@ -519,7 +520,7 @@ serversRouter.post(
 
     await db.insert(serverMembers).values({ userId: req.userId!, serverId: server.id })
     void invalidateMembersCache(server.id)
-    membersChanged(server.id)
+    void membroEntrou(server.id, req.userId!)
     void saudarNovoMembro(server.id, req.userId!)
     res.json({ data: server })
   })
@@ -624,7 +625,7 @@ serversRouter.post(
     await db.insert(serverMembers).values({ userId: target.id, serverId, role: 'MEMBER' })
     void invalidateMembersCache(serverId)
     joinedServer(target.id, serverId)
-    membersChanged(serverId)
+    void membroEntrou(serverId, target.id)
     void saudarNovoMembro(serverId, target.id)
     res.json({ message: `${target.displayName} adicionado com sucesso` })
   })

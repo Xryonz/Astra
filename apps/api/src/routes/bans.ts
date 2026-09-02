@@ -9,7 +9,8 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { invalidateMembersCache } from '../lib/membersCache'
-import { membersChanged, leftServer } from '../lib/realtime'
+import { leftServer } from '../lib/realtime'
+import { membroSaiu } from '../lib/membrosAoVivo'
 
 export const bansRouter = Router()
 
@@ -91,7 +92,7 @@ bansRouter.post(
       ))
     })
     void invalidateMembersCache(serverId)
-    membersChanged(serverId)
+    membroSaiu(serverId, userId)
     leftServer(userId, serverId, 'banido', reason ?? null)
 
     void audit({

@@ -10,10 +10,6 @@ export function channelsChanged(serverId: string) {
   io?.to(`server:${serverId}`).emit('server_channels', { serverId })
 }
 
-export function membersChanged(serverId: string) {
-  io?.to(`server:${serverId}`).emit('server_members', { serverId })
-}
-
 export function joinedServer(userId: string, serverId: string) {
   io?.to(`user:${userId}`).emit('server_joined', { serverId })
 }

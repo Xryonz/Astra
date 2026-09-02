@@ -381,8 +381,6 @@ fun SettingsScreen(
                                     style = TextStyle(color = Obsidian.text3, fontSize = 11.sp, lineHeight = 16.sp),
                                     modifier = Modifier.widthIn(max = 460.dp),
                                 )
-                                Spacer(Modifier.height(16.dp))
-                                TestarNotificacao(onTestarNotificacao)
                             }
                             Spacer(Modifier.height(14.dp))
                             AvisosDaContaBloco()
@@ -614,30 +612,6 @@ private fun CartaoDaPrevia(
             ) {
                 conteudo()
             }
-        }
-    }
-}
-
-@Composable
-private fun TestarNotificacao(onTestar: () -> Unit) {
-    var avisou by remember { mutableStateOf(false) }
-    Column {
-        DialogButton(
-            if (avisou) "mandei — olhe o canto da tela" else "testar notificação",
-            accent = !avisou,
-            icone = Lucide.Bell,
-        ) {
-            avisou = true
-            onTestar()
-        }
-        if (avisou) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "não apareceu? o Windows pode estar com o foco de assistência ligado, " +
-                    "ou as notificações do Astra desativadas em Sistema > Notificações.",
-                style = TextStyle(color = Obsidian.text3, fontSize = 11.sp),
-                modifier = Modifier.widthIn(max = 460.dp),
-            )
         }
     }
 }

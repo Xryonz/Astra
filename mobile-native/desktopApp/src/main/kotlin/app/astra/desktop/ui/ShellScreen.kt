@@ -1102,7 +1102,7 @@ private fun Rail(
     onSelect: (Selection) -> Unit,
     onLeaveServer: (String) -> Unit,
     onDeleteServer: (String) -> Unit,
-    onCreateServer: (name: String, isGroup: Boolean) -> Unit,
+    onCreateServer: (name: String) -> Unit,
     onToggleServerMute: (String) -> Unit,
     onMarkServerRead: (String) -> Unit,
     onAddMember: (serverId: String, username: String, onResult: (String?) -> Unit) -> Unit,
@@ -1345,12 +1345,12 @@ private fun Rail(
 
 @Composable
 private fun CreateServerButton(
-    onCreateServer: (name: String, isGroup: Boolean) -> Unit,
+    onCreateServer: (name: String) -> Unit,
     onJoinInvite: (raw: String, onResult: (String?) -> Unit) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var joinOpen by remember { mutableStateOf(false) }
-    var kind by remember { mutableStateOf<Boolean?>(null) }
+    var criando by remember { mutableStateOf(false) }
     Box {
         RailItem(
             active = false,
@@ -1374,8 +1374,7 @@ private fun CreateServerButton(
                         .border(1.dp, Obsidian.borderDim, RoundedCornerShape(10.dp))
                         .padding(4.dp),
                 ) {
-                    CreateMenuRow(glyph = "✦", label = "criar constelação") { menuOpen = false; kind = false }
-                    CreateMenuRow(icon = Lucide.Users, label = "criar grupo") { menuOpen = false; kind = true }
+                    CreateMenuRow(glyph = "✦", label = "criar constelação") { menuOpen = false; criando = true }
                     CreateMenuRow(icon = Lucide.Link, label = "entrar com convite") { menuOpen = false; joinOpen = true }
                 }
             }
@@ -1384,15 +1383,15 @@ private fun CreateServerButton(
     if (joinOpen) {
         JoinByInviteDialog(onJoin = onJoinInvite, onClose = { joinOpen = false })
     }
-    kind?.let { g ->
+    if (criando) {
         EditorialInputDialog(
-            title = if (g) "novo grupo" else "nova constelação",
-            placeholder = if (g) "nome do grupo" else "nome da constelação",
+            title = "nova constelação",
+            placeholder = "nome da constelação",
             initial = "",
             confirmLabel = "criar",
             channelType = false,
-            onDismiss = { kind = null },
-            onConfirm = { name, _ -> onCreateServer(name, g) },
+            onDismiss = { criando = false },
+            onConfirm = { name, _ -> onCreateServer(name) },
         )
     }
 }

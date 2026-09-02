@@ -550,9 +550,9 @@ class ShellVm(
         }
     }
 
-    fun createServer(name: String, isGroup: Boolean) {
+    fun createServer(name: String) {
         scope.launch {
-            val created = runCatching { serverApi.create(CreateServerRequest(name, isGroup)).data }.getOrNull() ?: return@launch
+            val created = runCatching { serverApi.create(CreateServerRequest(name)).data }.getOrNull() ?: return@launch
             socket.joinServer(created.id)
             val servers = runCatching { serverApi.servers().data.orEmpty() }.getOrDefault(_state.value.servers)
             _state.update {

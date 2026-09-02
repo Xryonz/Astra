@@ -10,7 +10,7 @@ import { PERMS, getMemberPerms } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { invalidateMembersCache } from '../lib/membersCache'
 import { leftServer } from '../lib/realtime'
-import { membroSaiu } from '../lib/membrosAoVivo'
+import { membroSaiu } from '../lib/membros'
 
 export const bansRouter = Router()
 

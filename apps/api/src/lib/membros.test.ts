@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import { attachRealtime } from './realtime'
-import { membroSaiu, membroMudouDeCargo } from './membrosAoVivo'
+import { membroSaiu, membroMudouDeCargo, corQueVence, type CargoDoMembro } from './membros'
 
 function fakeIo() {
   const emit = vi.fn()
@@ -31,5 +31,20 @@ describe('deltas de membro', () => {
       membroSaiu('srv1', 'u9')
       membroMudouDeCargo('srv1', 'm7', 'MEMBER')
     }).not.toThrow()
+  })
+})
+
+describe('cor que vence', () => {
+  const cargo = (id: string, position: number, color: string | null): CargoDoMembro =>
+    ({ id, name: id, color, iconUrl: null, position, hoist: false })
+
+  it('e a do cargo mais alto que TEM cor, nao a do mais alto', () => {
+    const cargos = [cargo('chefe', 9, null), cargo('veterano', 5, '#c9a96e'), cargo('todos', 0, '#888888')]
+    expect(corQueVence(cargos)).toBe('#c9a96e')
+  })
+
+  it('sem nenhum cargo colorido, nao ha cor — o nome fica com a do tema', () => {
+    expect(corQueVence([cargo('chefe', 9, null)])).toBeNull()
+    expect(corQueVence([])).toBeNull()
   })
 })

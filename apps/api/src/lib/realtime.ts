@@ -65,10 +65,6 @@ export function serverGone(serverId: string) {
   io?.to(`server:${serverId}`).emit('server_gone', { serverId })
 }
 
-export function rolesChanged(serverId: string) {
-  io?.to(`server:${serverId}`).emit('server_roles', { serverId })
-}
-
 export function leftServer(
   userId: string,
   serverId: string,

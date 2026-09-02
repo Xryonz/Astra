@@ -174,6 +174,17 @@ data class MembroSaiuDto(val serverId: String, val userId: String)
 data class MembroMudouDeCargoDto(val serverId: String, val memberId: String, val role: String)
 
 @Serializable
+data class MembrosRefeitosDto(val serverId: String, val membros: List<ServerMemberDto>)
+
+@Serializable
+data class CargosDoMembroDto(
+    val serverId: String,
+    val memberId: String,
+    val roles: List<MemberRoleDto> = emptyList(),
+    val topColor: String? = null,
+)
+
+@Serializable
 data class ActivityUpdateDto(
     val userId: String,
     val activity: String? = null,

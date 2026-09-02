@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { NAO_E_BOT } from '../lib/contagemDeMembros'
 import { db } from '../db'
-import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, memberRoles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
+import { servers, serverMembers, channels, channelCategories, channelRolePerms, users, roles, serverBans, auditLogs, messages, friendships, notifications } from '../db/schema'
 import { requireAuth, requireEmailVerified } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -19,7 +19,7 @@ import { persistDataUri, persistImagemDeExibicao, isOwnStorageUrl } from '../lib
 import { garantirBotNaConstelacao } from '../lib/botMembership'
 import { catalogoDeComandos } from '../lib/bot'
 import { channelsChanged, joinedServer, serverUpdated, serverGone, leftServer } from '../lib/realtime'
-import { membroEntrou, membroSaiu, membroMudouDeCargo } from '../lib/membrosAoVivo'
+import { membroEntrou, membroSaiu, membroMudouDeCargo, listarMembros } from '../lib/membros'
 
 export const serversRouter = Router()
 
@@ -536,60 +536,7 @@ serversRouter.get(
       .limit(1)
     if (!me) return res.status(403).json({ error: 'Acesso negado' })
 
-    const members = await db.select({
-      id:        serverMembers.id,
-      userId:    serverMembers.userId,
-      serverId:  serverMembers.serverId,
-      role:      serverMembers.role,
-      nameColor: serverMembers.nameColor,
-      joinedAt:  serverMembers.joinedAt,
-      user: {
-        id:          users.id,
-        username:    users.username,
-        displayName: users.displayName,
-        avatarUrl:   users.avatarUrl,
-        bio:         users.bio,
-        displayFont: users.displayFont,
-      },
-    })
-      .from(serverMembers)
-      .innerJoin(users, eq(users.id, serverMembers.userId))
-      .where(eq(serverMembers.serverId, serverId))
-      .orderBy(asc(serverMembers.joinedAt))
-
-    const memberIds = members.map((m) => m.id)
-    let rolesByMember = new Map<string, Array<{ id: string; name: string; color: string|null; iconUrl: string|null; position: number; hoist: boolean }>>()
-    if (memberIds.length > 0) {
-      const assignments = await db.select({
-        memberId: memberRoles.memberId,
-        roleId:   roles.id,
-        name:     roles.name,
-        color:    roles.color,
-        iconUrl:  roles.iconUrl,
-        position: roles.position,
-        hoist:    roles.hoist,
-      })
-        .from(memberRoles)
-        .innerJoin(roles, eq(roles.id, memberRoles.roleId))
-        .where(eq(roles.serverId, serverId))
-
-      for (const a of assignments) {
-        if (!rolesByMember.has(a.memberId)) rolesByMember.set(a.memberId, [])
-        rolesByMember.get(a.memberId)!.push({
-          id: a.roleId, name: a.name, color: a.color, iconUrl: a.iconUrl, position: a.position, hoist: a.hoist,
-        })
-      }
-
-      for (const arr of rolesByMember.values()) arr.sort((a, b) => b.position - a.position)
-    }
-
-    const enriched = members.map((m) => {
-      const rs = rolesByMember.get(m.id) ?? []
-      const topColored = rs.find((r) => r.color)
-      return { ...m, roles: rs, topColor: topColored?.color ?? null }
-    })
-
-    res.json({ data: enriched })
+    res.json({ data: await listarMembros(serverId) })
   })
 )
 

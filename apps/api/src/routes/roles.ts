@@ -6,7 +6,7 @@ import { roles, memberRoles, serverMembers, servers } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { asyncHandler } from '../lib/asyncHandler'
-import { rolesChanged } from '../lib/realtime'
+import { cargosDoServidorMudaram, cargosDoMembroMudaram } from '../lib/membros'
 import { PERMS, getMemberPerms, parsePermissionsJson, type MemberPerms, type Permission } from '../lib/permissions'
 import { AUDIT, audit } from '../lib/audit'
 import { persistImagemDeExibicao } from '../lib/storage'
@@ -94,7 +94,6 @@ rolesRouter.post(
       targetId: created.id, metadata: { name: created.name, color: created.color },
     })
 
-    rolesChanged(serverId)
     res.status(201).json({ data: { ...created, permissions: safeParseArr(created.permissions) } })
   })
 )
@@ -128,7 +127,7 @@ rolesRouter.patch(
       targetId: updated.id, metadata: { name: updated.name, patch },
     })
 
-    rolesChanged(serverId)
+    void cargosDoServidorMudaram(serverId)
     res.json({ data: { ...updated, permissions: safeParseArr(updated.permissions) } })
   })
 )
@@ -149,7 +148,7 @@ rolesRouter.patch(
           .where(and(eq(roles.id, p.id), eq(roles.serverId, serverId)))
       }
     })
-    rolesChanged(serverId)
+    void cargosDoServidorMudaram(serverId)
     res.json({ data: { ok: true } })
   })
 )
@@ -169,7 +168,7 @@ rolesRouter.delete(
 
     void audit({ serverId, actorId: req.userId!, action: AUDIT.ROLE_DELETE, targetId: roleId })
 
-    rolesChanged(serverId)
+    void cargosDoServidorMudaram(serverId)
     res.json({ message: 'Cargo excluído' })
   })
 )
@@ -203,7 +202,7 @@ rolesRouter.post(
       targetId: memberId, metadata: { roleId },
     })
 
-    rolesChanged(serverId)
+    void cargosDoMembroMudaram(serverId, memberId)
     res.status(201).json({ data: { ok: true } })
   })
 )
@@ -226,7 +225,7 @@ rolesRouter.delete(
       targetId: memberId, metadata: { roleId },
     })
 
-    rolesChanged(serverId)
+    void cargosDoMembroMudaram(serverId, memberId)
     res.json({ data: { ok: true } })
   })
 )

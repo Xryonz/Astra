@@ -8,7 +8,7 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { saudarNovoMembro } from '../lib/botAvisos'
 import { authLimiter } from '../middleware/rateLimiter'
 import { invalidateMembersCache } from '../lib/membersCache'
-import { membroEntrou } from '../lib/membrosAoVivo'
+import { membroEntrou } from '../lib/membros'
 
 const router = Router()
 

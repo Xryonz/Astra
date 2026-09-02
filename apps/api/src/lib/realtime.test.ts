@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Server as SocketServer } from 'socket.io'
 import {
   attachRealtime, channelsChanged, joinedServer, presenceChanged,
-  serverUpdated, serverGone, rolesChanged, leftServer, profileChanged,
+  serverUpdated, serverGone, leftServer, profileChanged,
 } from './realtime'
 
 function fakeIo() {
@@ -33,12 +33,6 @@ describe('avisos de constelacao', () => {
     serverUpdated('srv1')
     expect(f.to).toHaveBeenCalledWith('server:srv1')
     expect(f.emit).toHaveBeenCalledWith('server_updated', { serverId: 'srv1' })
-  })
-
-  it('cargos mexeram -> sala da constelacao', () => {
-    rolesChanged('srv1')
-    expect(f.to).toHaveBeenCalledWith('server:srv1')
-    expect(f.emit).toHaveBeenCalledWith('server_roles', { serverId: 'srv1' })
   })
 
   it('constelacao apagada -> avisa a sala DELA (o aviso tem que sair antes do delete)', () => {

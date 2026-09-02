@@ -34,7 +34,9 @@ import app.astra.mobile.core.network.dto.ActivityUpdateDto
 import app.astra.mobile.core.network.dto.PresenceUpdateDto
 import app.astra.mobile.core.network.dto.ServerScopedEventDto
 import app.astra.desktop.ui.invalidateProfileCache
+import app.astra.mobile.core.network.dto.CargosDoMembroDto
 import app.astra.mobile.core.network.dto.MembroEntrouDto
+import app.astra.mobile.core.network.dto.MembrosRefeitosDto
 import app.astra.mobile.core.network.dto.MembroMudouDeCargoDto
 import app.astra.mobile.core.network.dto.MembroSaiuDto
 import app.astra.mobile.core.network.dto.ProfileUpdatedDto
@@ -1134,11 +1136,26 @@ class ShellVm(
                 }
             }
             launch {
-                socket.serverRoles.collect { raw ->
-                    val ev = decode<ServerScopedEventDto>(raw) ?: return@collect
-                    if ((_state.value.selection as? Selection.Server)?.id == ev.serverId) {
-                        loadMembers(ev.serverId)
+                socket.membrosRefeitos.collect { raw ->
+                    val ev = decode<MembrosRefeitosDto>(raw) ?: return@collect
+                    if ((_state.value.selection as? Selection.Server)?.id != ev.serverId) return@collect
+                    _state.update { it.copy(members = ev.membros) }
+                    refreshMyPerms(ev.serverId)
+                }
+            }
+            launch {
+                socket.cargosDoMembro.collect { raw ->
+                    val ev = decode<CargosDoMembroDto>(raw) ?: return@collect
+                    if ((_state.value.selection as? Selection.Server)?.id != ev.serverId) return@collect
+                    val mexeuComigo = _state.value.members.any { it.id == ev.memberId && it.userId == myId }
+                    _state.update { st ->
+                        st.copy(
+                            members = st.members.map {
+                                if (it.id == ev.memberId) it.copy(roles = ev.roles, topColor = ev.topColor) else it
+                            },
+                        )
                     }
+                    if (mexeuComigo) refreshMyPerms(ev.serverId)
                 }
             }
             launch {

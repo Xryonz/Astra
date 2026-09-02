@@ -127,8 +127,11 @@ class DesktopSocket(
     private val _serverAccessLost = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val serverAccessLost: SharedFlow<String> = _serverAccessLost.asSharedFlow()
 
-    private val _serverRoles = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val serverRoles: SharedFlow<String> = _serverRoles.asSharedFlow()
+    private val _membrosRefeitos = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val membrosRefeitos: SharedFlow<String> = _membrosRefeitos.asSharedFlow()
+
+    private val _cargosDoMembro = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val cargosDoMembro: SharedFlow<String> = _cargosDoMembro.asSharedFlow()
 
     private val _reconnected = MutableSharedFlow<Long>(extraBufferCapacity = 8)
     val reconnected: SharedFlow<Long> = _reconnected.asSharedFlow()
@@ -351,8 +354,11 @@ class DesktopSocket(
         s.on("server_left") { args ->
             (args.firstOrNull() as? JSONObject)?.let { _serverAccessLost.tryEmit(it.toString()) }
         }
-        s.on("server_roles") { args ->
-            (args.firstOrNull() as? JSONObject)?.let { _serverRoles.tryEmit(it.toString()) }
+        s.on("server_members_reset") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _membrosRefeitos.tryEmit(it.toString()) }
+        }
+        s.on("server_member_roles") { args ->
+            (args.firstOrNull() as? JSONObject)?.let { _cargosDoMembro.tryEmit(it.toString()) }
         }
         s.connect()
     }

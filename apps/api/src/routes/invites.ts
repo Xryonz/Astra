@@ -10,7 +10,7 @@ import { saudarNovoMembro } from '../lib/botAvisos'
 import { authLimiter } from '../middleware/rateLimiter'
 import { PERMS, getMemberPerms } from '../lib/permissions'
 import { invalidateMembersCache } from '../lib/membersCache'
-import { membroEntrou } from '../lib/membrosAoVivo'
+import { membroEntrou } from '../lib/membros'
 
 const router = Router()
 

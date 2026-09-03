@@ -56,6 +56,8 @@ func (a AjustesDaTela) abrirFonte() (*Tela, error) {
 
 type DestinoDaTela interface {
 	Escrever(media.Sample) (int, error)
+	EscreverFina(media.Sample) error
+	TemCamadaFina() bool
 	Contar() (assistindo, total int)
 }
 
@@ -153,6 +155,44 @@ func (e *Emissor) laco(ctx context.Context, aj AjustesDaTela) error {
 	}
 }
 
+const (
+	fpsDaCamadaFina  = 30
+	kbpsDaCamadaFina = 700
+)
+
+func (e *Emissor) abrirCamadaFina(tela *Tela, aj AjustesDaTela, grossa *Compressor) *Compressor {
+	if !e.plateia.TemCamadaFina() {
+		return nil
+	}
+	if grossa.NaMemoria {
+		e.saida.Manda(Evento{
+			Ev: EvTransmissao, V: "1", Tipo: "camadas",
+			Msg: "sem aceleração de placa; mantendo uma camada só para não pesar a máquina",
+		})
+		return nil
+	}
+
+	l, a := tamanhoDaCamadaFina(aj.Largura, aj.Altura)
+	fps := aj.Fps
+	if fps > fpsDaCamadaFina {
+		fps = fpsDaCamadaFina
+	}
+
+	fina, err := AbrirCompressor(tela, l, a, fps, kbpsDaCamadaFina)
+	if err != nil {
+		e.saida.Manda(Evento{
+			Ev: EvTransmissao, V: "1", Tipo: "camadas",
+			Msg: fmt.Sprintf("a segunda camada não abriu (%v); seguindo com uma só", err),
+		})
+		return nil
+	}
+	e.saida.Manda(Evento{
+		Ev: EvTransmissao, V: "1", Tipo: "camadas",
+		Msg: fmt.Sprintf("duas camadas: %dx%d @%d e %dx%d @%d", aj.Largura, aj.Altura, aj.Fps, l, a, fps),
+	})
+	return fina
+}
+
 func (e *Emissor) transmitir(
 	ctx context.Context, tela *Tela, aj AjustesDaTela, medir bool, controle *ControleDeBanda,
 ) (*AjustesDaTela, error) {
@@ -161,6 +201,11 @@ func (e *Emissor) transmitir(
 		return nil, err
 	}
 	defer c.Fechar()
+
+	fina := e.abrirCamadaFina(tela, aj, c)
+	if fina != nil {
+		defer fina.Fechar()
+	}
 
 	if e.entrega != nil {
 		c.LigarEspelho(func(q Quadro) { e.entrega.Mandar("", q) })
@@ -234,6 +279,25 @@ func (e *Emissor) transmitir(
 		bytesEnviados += len(quadroPronto)
 	}
 
+	avisouDaFina := false
+	avisarDaCamadaFina := func(err error) {
+		if avisouDaFina {
+			return
+		}
+		avisouDaFina = true
+		e.saida.Manda(Evento{
+			Ev: EvTransmissao, V: "1", Tipo: "camadas",
+			Msg: fmt.Sprintf("a camada fina parou (%v); quem tem rede curta volta a receber a cheia", err),
+		})
+	}
+	entregarNaFina := func(quadroPronto []byte, carimbo time.Duration) {
+		if err := e.plateia.EscreverFina(media.Sample{
+			Data: quadroPronto, Duration: duracaoNominal * 2,
+		}); err != nil {
+			avisarDaCamadaFina(err)
+		}
+	}
+
 	for {
 		if ctx.Err() != nil {
 			return nil, nil
@@ -289,18 +353,35 @@ func (e *Emissor) transmitir(
 
 				fmt.Fprintf(os.Stderr, "%s não atende pedido de quadro-chave\n", c.Nome)
 			}
+			if fina != nil {
+				fina.ForcarQuadroChave()
+			}
+		}
+
+		vaiAFina := fina != nil && capturados%2 == 0
+
+		aoCopiar := tela.SoltarQuadro
+		if vaiAFina {
+
+			aoCopiar = nil
 		}
 
 		saiuAlgo := false
+		agora := time.Since(comeco)
 		err = c.Comprimir(
 			textura,
-			time.Since(comeco),
-			tela.SoltarQuadro,
+			agora,
+			aoCopiar,
 			func(quadroPronto []byte, carimbo time.Duration) {
 				saiuAlgo = true
 				entregar(quadroPronto, carimbo)
 			},
 		)
+		if err == nil && vaiAFina {
+			if errFina := fina.Comprimir(textura, agora, nil, entregarNaFina); errFina != nil {
+				avisarDaCamadaFina(errFina)
+			}
+		}
 		textura.soltar()
 		tela.SoltarQuadro()
 		if err != nil {

@@ -2933,6 +2933,14 @@ private fun VoiceSection(
         p.motorNovo,
         prefs::setMotorNovo,
     )
+    ToggleRow(
+        "Transmitir em duas qualidades",
+        "em teste. manda a tela cheia e uma versão menor ao mesmo tempo, para que quem está com " +
+            "a rede curta receba a menor em vez de derrubar a qualidade de todo mundo. exige placa " +
+            "com aceleração; sem ela, segue em uma qualidade só",
+        p.duasCamadas,
+        prefs::setDuasCamadas,
+    )
 
     if (Canal.ehDeDesenvolvimento) {
         SettingsDivider()

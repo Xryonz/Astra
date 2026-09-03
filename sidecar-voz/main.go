@@ -132,7 +132,7 @@ func (a *App) Executar(ctx context.Context, cmd Comando) error {
 			return nil
 		}
 
-		if err := a.sala.PublicarTela(cmd.Largura, cmd.Altura); err != nil {
+		if err := a.sala.PublicarTela(cmd.Largura, cmd.Altura, cmd.DuasCamadas); err != nil {
 			return fmt.Errorf("publicar a tela: %w", err)
 		}
 

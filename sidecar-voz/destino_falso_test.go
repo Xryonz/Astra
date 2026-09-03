@@ -9,10 +9,12 @@ import (
 )
 
 type destinoFalso struct {
-	faixa *webrtc.TrackLocalStaticSample
+	faixa   *webrtc.TrackLocalStaticSample
+	comFina bool
 
 	mu       sync.Mutex
 	amostras []media.Sample
+	finas    []media.Sample
 }
 
 func novoDestinoFalso(t *testing.T) *destinoFalso {
@@ -40,8 +42,23 @@ func (d *destinoFalso) Escrever(amostra media.Sample) (int, error) {
 
 func (d *destinoFalso) Contar() (assistindo, total int) { return 1, 1 }
 
+func (d *destinoFalso) TemCamadaFina() bool { return d.comFina }
+
+func (d *destinoFalso) EscreverFina(amostra media.Sample) error {
+	d.mu.Lock()
+	d.finas = append(d.finas, amostra)
+	d.mu.Unlock()
+	return nil
+}
+
 func (d *destinoFalso) Quantas() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return len(d.amostras)
+}
+
+func (d *destinoFalso) QuantasFinas() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.finas)
 }

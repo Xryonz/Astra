@@ -88,6 +88,12 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
                 .distinctUntilChanged()
                 .collect { (mic, escuta) -> call?.definirVolumes(mic, escuta) }
         }
+        scope.launch {
+            prefs.state
+                .map { it.duasCamadas }
+                .distinctUntilChanged()
+                .collect { call?.lembrarDuasCamadas(it) }
+        }
     }
 
     private fun registrarAtalhos() {
@@ -149,6 +155,7 @@ class VoiceSession(private val scope: CoroutineScope, private val koin: Koin) : 
             val p = prefs.state.value
             it.lembrarAparelhos(p.audioInput, p.audioOutput)
             it.lembrarTratamento(p.micEchoCancel, p.micNoiseSuppression, p.micAutoGain)
+            it.lembrarDuasCamadas(p.duasCamadas)
             it.definirVolumes(p.volumeDoMicrofone, p.volumeDaEscuta)
             it.entrar(tipo, sala.id)
             espelhoDosAparelhos?.cancel()

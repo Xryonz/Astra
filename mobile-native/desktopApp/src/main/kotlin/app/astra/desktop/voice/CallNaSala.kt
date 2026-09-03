@@ -119,12 +119,16 @@ class CallNaSala(
 
     fun setEnsurdecido(on: Boolean) = sidecar.surdo(on)
 
+    private var duasCamadas = false
+
+    fun lembrarDuasCamadas(ligado: Boolean) { duasCamadas = ligado }
+
     fun transmitir(monitor: Int, largura: Int, altura: Int, fps: Int, kbps: Int) {
-        sidecar.transmitir(monitor, largura, altura, fps, kbps)
+        sidecar.transmitir(monitor, largura, altura, fps, kbps, duasCamadas)
     }
 
     fun transmitirJanela(janela: ULong, largura: Int, altura: Int, fps: Int, kbps: Int) {
-        sidecar.transmitirJanela(janela, largura, altura, fps, kbps)
+        sidecar.transmitirJanela(janela, largura, altura, fps, kbps, duasCamadas)
     }
 
     fun pedirMonitores() {

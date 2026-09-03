@@ -23,6 +23,8 @@ type Comando struct {
 	Fps     int    `json:"fps,omitempty"`
 	Kbps    int    `json:"kbps,omitempty"`
 
+	DuasCamadas bool `json:"duasCamadas,omitempty"`
+
 	Volume  int    `json:"volume,omitempty"`
 
 	Sentido string `json:"sentido,omitempty"`

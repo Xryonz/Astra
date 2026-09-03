@@ -27,6 +27,7 @@ type Sala struct {
 	sala     *lksdk.Room
 	mic      *lksdk.LocalTrack
 	tela     *lksdk.LocalTrack
+	telaFina *lksdk.LocalTrack
 	pubTela  *lksdk.LocalTrackPublication
 	telasDos map[string]*lksdk.RemoteTrackPublication
 	noPalco  string
@@ -139,7 +140,7 @@ func (s *Sala) relatarCaminho(oQue string) func(LeituraDoCaminho) {
 func (s *Sala) Sair() {
 	s.mu.Lock()
 	quarto := s.sala
-	s.sala, s.mic, s.tela, s.pubTela = nil, nil, nil, nil
+	s.sala, s.mic, s.tela, s.telaFina, s.pubTela = nil, nil, nil, nil, nil
 	s.banda = nil
 	s.telasDos = make(map[string]*lksdk.RemoteTrackPublication)
 	s.mu.Unlock()
@@ -180,6 +181,22 @@ func (s *Sala) Escrever(amostra media.Sample) (int, error) {
 	return 1, nil
 }
 
+func (s *Sala) EscreverFina(amostra media.Sample) error {
+	s.mu.Lock()
+	faixa := s.telaFina
+	s.mu.Unlock()
+	if faixa == nil {
+		return nil
+	}
+	return faixa.WriteSample(amostra, nil)
+}
+
+func (s *Sala) TemCamadaFina() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.telaFina != nil
+}
+
 func (s *Sala) Contar() (assistindo, total int) {
 	s.mu.Lock()
 	quarto := s.sala
@@ -193,7 +210,7 @@ func (s *Sala) Contar() (assistindo, total int) {
 	return n, n
 }
 
-func (s *Sala) PublicarTela(largura, altura int) error {
+func (s *Sala) PublicarTela(largura, altura int, comCamadaFina bool) error {
 	s.mu.Lock()
 	quarto := s.sala
 	jaTem := s.tela != nil
@@ -206,34 +223,78 @@ func (s *Sala) PublicarTela(largura, altura int) error {
 	}
 
 	ritmo := medidorDeCaminho("tela", 90000, s.relatarCaminho("tela"))
-	faixa, err := lksdk.NewLocalTrack(CapacidadeH264, lksdk.WithRTCPHandler(func(p rtcp.Packet) {
+	escutarRtcp := lksdk.WithRTCPHandler(func(p rtcp.Packet) {
 		ritmo(p)
 		s.aoChegarRtcp(p)
-	}))
-	if err != nil {
-		return fmt.Errorf("criar faixa de tela: %w", err)
-	}
+	})
 
-	pub, err := quarto.LocalParticipant.PublishTrack(faixa, &lksdk.TrackPublicationOptions{
+	opcoes := &lksdk.TrackPublicationOptions{
 		Name:        "astra-tela",
 		Source:      livekit.TrackSource_SCREEN_SHARE,
 		VideoWidth:  largura,
 		VideoHeight: altura,
-	})
+	}
+
+	if !comCamadaFina {
+		faixa, err := lksdk.NewLocalTrack(CapacidadeH264, escutarRtcp)
+		if err != nil {
+			return fmt.Errorf("criar faixa de tela: %w", err)
+		}
+		pub, err := quarto.LocalParticipant.PublishTrack(faixa, opcoes)
+		if err != nil {
+			return fmt.Errorf("publicar tela: %w", err)
+		}
+		s.mu.Lock()
+		s.tela, s.telaFina, s.pubTela = faixa, nil, pub
+		s.mu.Unlock()
+		return nil
+	}
+
+	finaL, finaA := tamanhoDaCamadaFina(largura, altura)
+	const mesmaTela = "astra-tela"
+
+	grossa, err := lksdk.NewLocalTrack(CapacidadeH264, escutarRtcp,
+		lksdk.WithSimulcast(mesmaTela, &livekit.VideoLayer{
+			Quality: livekit.VideoQuality_HIGH,
+			Width:   uint32(largura), Height: uint32(altura),
+		}))
 	if err != nil {
-		return fmt.Errorf("publicar tela: %w", err)
+		return fmt.Errorf("criar a camada cheia: %w", err)
+	}
+
+	fina, err := lksdk.NewLocalTrack(CapacidadeH264,
+		lksdk.WithSimulcast(mesmaTela, &livekit.VideoLayer{
+			Quality: livekit.VideoQuality_LOW,
+			Width:   uint32(finaL), Height: uint32(finaA),
+		}))
+	if err != nil {
+		return fmt.Errorf("criar a camada fina: %w", err)
+	}
+
+	pub, err := quarto.LocalParticipant.PublishSimulcastTrack(
+		[]*lksdk.LocalTrack{grossa, fina}, opcoes)
+	if err != nil {
+		return fmt.Errorf("publicar a tela em duas camadas: %w", err)
 	}
 
 	s.mu.Lock()
-	s.tela, s.pubTela = faixa, pub
+	s.tela, s.telaFina, s.pubTela = grossa, fina, pub
 	s.mu.Unlock()
 	return nil
+}
+
+func tamanhoDaCamadaFina(largura, altura int) (int, int) {
+	l, a := largura/2&^1, altura/2&^1
+	if l < 2 || a < 2 {
+		return largura, altura
+	}
+	return l, a
 }
 
 func (s *Sala) PararTela() {
 	s.mu.Lock()
 	quarto, pub := s.sala, s.pubTela
-	s.tela, s.pubTela = nil, nil
+	s.tela, s.telaFina, s.pubTela = nil, nil, nil
 	s.mu.Unlock()
 
 	if quarto == nil || pub == nil {

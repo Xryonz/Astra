@@ -79,6 +79,7 @@ class DesktopPrefs(private val store: SessionStore) {
         val density: DensityPref = DensityPref.COMFORTABLE,
         val screenQuality: ScreenQuality = ScreenQuality.SMOOTH_720_60,
         val motorNovo: Boolean = false,
+        val duasCamadas: Boolean = false,
         val avisoDiscreto: Boolean = false,
         val somDeAviso: Boolean = true,
         val petLigado: Boolean = false,
@@ -175,6 +176,7 @@ class DesktopPrefs(private val store: SessionStore) {
         micNoiseSuppression = store.uiPref("micNoiseSuppression") != "0",
         micEchoCancel = store.uiPref("micEchoCancel") != "0",
         motorNovo = store.uiPref("motorNovo") == "1",
+        duasCamadas = store.uiPref("duasCamadas") == "1",
         micAutoGain = store.uiPref("micAutoGain") != "0",
         micSensitivity = store.uiPref("micSensitivity")?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f,
         audioInput = store.uiPref("audioInput")?.ifBlank { null },
@@ -332,6 +334,11 @@ class DesktopPrefs(private val store: SessionStore) {
     fun setMotorNovo(v: Boolean) {
         persist("motorNovo", v)
         _state.update { it.copy(motorNovo = v) }
+    }
+
+    fun setDuasCamadas(v: Boolean) {
+        persist("duasCamadas", v)
+        _state.update { it.copy(duasCamadas = v) }
     }
 
     fun setMicAutoGain(v: Boolean) {
